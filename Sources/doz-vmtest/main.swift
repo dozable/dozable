@@ -996,6 +996,9 @@ Task {
         case "cwd-wake":
             // BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore — CwdWakeSuite.swift (`make test-vm-cwd`).
             try await cwdWakeSuite()
+        case "agent-write":
+            // The image's user (the agent) writes a shared workspace through the view — AgentWriteSuite.swift (`make test-vm-agentwrite`).
+            try await agentWriteSuite()
         case "cwd-wake-save":
             exit(try await cwdWakeSave())
         case "ignore-crash-save":

@@ -9,8 +9,8 @@ rebuild; `make dozview-verify` rebuilds from scratch and checks the committed by
 
 | | |
 |---|---|
-| sha256 (auto) | `54bc83724805fcb7f4d018b268033b5c9e4d16b6242bc3aeb58b9c98bc0f380a` |
-| size (auto) | 185984 bytes |
+| sha256 (auto) | `5c595df95fb186d2767609d078bc0034744aad94136b1c4c0bf46ce6e5cc8aae` |
+| size (auto) | 187336 bytes |
 | format | ELF 64-bit LSB executable, ARM aarch64, statically linked (musl), stripped |
 | source | [`dozview.c`](dozview.c) and [`match/`](match/) (this directory) — libc, pthreads and Linux UAPI headers only |
 | Zig | 0.16.0 — the same pinned toolchain as deckhold (see `../deckhold/build.sh`) |
@@ -24,7 +24,8 @@ would oblige us to ship relinkable objects), serves the share bound privately at
 request threads; locks or hides what `.dozignore` selects (Docker's `.dockerignore` semantics,
 BuildKit's walker — `match/dozmatch.c`, the same file `make test` runs against the real-Docker vectors),
 makes `.dozreadonly`'s paths read-only, reloads the rules within ~250 ms of a change (or on SIGHUP) and
-invalidates the kernel's cached entries; re-opens its link to the share on SIGUSR1 (the wake's re-mount
+invalidates the kernel's cached entries; reports the files it sees as root's (virtio-fs answers a root
+caller with 0:0) as owned by the conf's `owner=` — the sandbox's own user, so the agent can write (1.2.0); re-opens its link to the share on SIGUSR1 (the wake's re-mount
 sends it) and never trusts a dead one. A supervisor process keeps the FUSE connection and restarts a
 worker that dies. **Not a security boundary**: root in the guest can stop it.
 

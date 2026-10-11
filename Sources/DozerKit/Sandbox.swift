@@ -894,6 +894,13 @@ public actor Sandbox {
                 return r.output
             }
             recordViewStatus(out, wanted: views, guestPaths: Dictionary(tags.map { ($0.tag, $0.guestPath) }, uniquingKeysWith: { a, _ in a }))
+            // A view started by an older doz keeps running across the wake (never restarted under a program):
+            // before dozview 1.2.0 the agent cannot write through it — say how to get the fixed one.
+            let older = WorkspaceView.olderDaemons(out)
+            if viewOwner != nil, !older.isEmpty {
+                let paths = tags.filter { older.contains($0.tag) }.map(\.guestPath).sorted().joined(separator: ", ")
+                note("workspace: \(paths) is served by a view an older doz started — \(viewOwner!) may not be able to write it until the sandbox is shut down and started again")
+            }
         case .deleteSnapshot:
             if FileManager.default.fileExists(atPath: layout.snapshot.path) {
                 try? FileManager.default.removeItem(at: layout.snapshot)
@@ -1613,6 +1620,15 @@ public actor Sandbox {
     public nonisolated var viewFallbacks: Set<String> { fallbackBox.withLock { $0 } }
     private nonisolated let fallbackBox = LockedBox<Set<String>>([])
 
+    /// Whom the views report the workspace as owned by: the image's session user (the agent), resolved to
+    /// its uid/gid in the guest; nil for a root image or a sandbox without an image (root writes anyway).
+    /// virtio-fs reports the Mac user's files as owned by whichever guest uid asks — the view's daemon asks
+    /// as root, so without this the agent could not write a shared workspace (dozview < 1.2.0).
+    nonisolated var viewOwner: String? {
+        guard let u = spec.imageSpec?.user, u != "root" else { return nil }
+        return u
+    }
+
     /// The views the host wants now: every share whose Mac folder holds a rule file (two `stat`s each), and
     /// — `includePassthrough` and `passthroughViews` — every other share as a passthrough view.
     nonisolated func wantedViews(shareTags: [String: String], includePassthrough: Bool = true) -> [String: WorkspaceViewConfig] {
@@ -1623,7 +1639,7 @@ public actor Sandbox {
             let rules = WorkspaceRules.present(in: folder)
             guard rules || (includePassthrough && passthroughViews) else { continue }
             out[tag] = WorkspaceViewConfig(tag: tag, guestPath: share.guestPath, mode: workspaceRuleMode,
-                                           fold: WorkspaceRules.caseInsensitive(folder), passthrough: !rules)
+                                           fold: WorkspaceRules.caseInsensitive(folder), passthrough: !rules, owner: viewOwner)
         }
         return out
     }
@@ -1699,7 +1715,7 @@ public actor Sandbox {
             switch st.state {
             case .running, .started, .restarted:
                 let gp = wanted[st.tag]?.guestPath ?? active[st.tag]?.guestPath ?? guestPaths[st.tag] ?? "?"
-                active[st.tag] = wanted[st.tag] ?? active[st.tag] ?? WorkspaceViewConfig(tag: st.tag, guestPath: gp, mode: workspaceRuleMode, fold: true)
+                active[st.tag] = wanted[st.tag] ?? active[st.tag] ?? WorkspaceViewConfig(tag: st.tag, guestPath: gp, mode: workspaceRuleMode, fold: true, owner: viewOwner)
                 fallbackBox.withLock { _ = $0.remove(gp) }
                 if st.state == .restarted { note("workspace rules: the view of \(gp) was not running — started it again") }
             case .failed:

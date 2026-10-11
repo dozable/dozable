@@ -92,6 +92,7 @@ Add `-v` to any command to see every step it takes.
 | symptom | what to do |
 |---|---|
 | Codex: `turn/start failed: invalid cwd: No such file or directory` after a wake; a shell's `ls .` says `No such file or directory` | The program's folder was cut off by a wake from hibernation — a sandbox still on the plain share (`workspace.view` off, or started before 0.30.0). Restart the session: `doz sessions restart NAME SESSION` (the conversation continues), or **⋯ › Restart session** on its tab. From its next start the sandbox uses [the workspace view](21-the-workspace-view.md) and this does not happen again. |
+| The agent gets "Permission denied" writing `/workspace`, or git says "detected dubious ownership" | The sandbox runs a workspace view from before Dozer 0.33.1, under which the sandbox's user could not write the shared folder. `doz shutdown NAME` and `doz start NAME` give it the current view (a wake keeps the old one). Another user than the sandbox's own cannot write through the view — see [Who can write](21-the-workspace-view.md#who-can-write). |
 | `doz doctor` warns "workspace view" | The live view of `/workspace` could not start, so the folder is shared directly. `doz console NAME --steps` shows why; `doz shutdown NAME` and `doz start NAME` try again. |
 | A program is stuck | `doz sessions restart NAME SESSION`, or `doz sessions end NAME SESSION`. |
 

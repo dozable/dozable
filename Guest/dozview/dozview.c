@@ -17,12 +17,19 @@
  * (allow_other,default_permissions), forks the SUPERVISOR (own session, stdio /dev/null), prints its pid
  * and exits 0 — so a privileged exec that runs it ends at once and the view outlives it.
  *
- * CONF (written by the host, re-read on SIGHUP/SIGUSR1):  mode=lock|hide   fold=0|1
+ * CONF (written by the host, re-read on SIGHUP/SIGUSR1):  mode=lock|hide   fold=0|1   [owner=UID:GID]
  *   mode  what .dozignore does. lock: the name is listed with mode 000 and every open/read/list/
  *         write/rename/unlink/setattr is EACCES for every uid, root too (the view refuses, not the
  *         kernel's permission check). hide: lookup is ENOENT and the name is not listed.
  *   fold  the share's Mac volume is case-insensitive: ALSO evaluate the folded rules against the folded
  *         path (dozmatch.h) — `cat SECRET.ENV` must not read a locked secret.env. Only ever hides more.
+ *   owner the guest user the workspace belongs to (the image's session user — the agent; absent for a root
+ *         image). Apple's virtio-fs server reports the Mac user's files as owned by WHICHEVER guest uid
+ *         asks, and this daemon asks as root — so it sees 0:0 for everything, and with default_permissions
+ *         the kernel refused every write by the agent (1.1.1 and earlier). An entry the daemon sees as its
+ *         own (uid/gid 0) is reported as owner's; the kernel's permission check then lets the agent write
+ *         what the Mac user may, and other non-root guest users only read. The rules are untouched: lock
+ *         and read-only are refused by this daemon itself (may_mutate, the class checks), for every uid.
  * RULES, read from RAW's root: .dozignore (Docker's .dockerignore syntax and BuildKit's walker semantics
  *   — dozmatch.c) and .dozreadonly (same syntax: visible, readable, write bits not shown, every
  *   mutation EROFS for root; the kernel gives a non-root user EACCES for a write first, because the
@@ -101,7 +108,7 @@
 #define RENAME_EXCHANGE (1 << 1)
 #endif
 
-#define DOZVIEW_VERSION "1.1.1"
+#define DOZVIEW_VERSION "1.2.0"
 #define VIRTIOFS_MAGIC 0x65735546UL /* FUSE_SUPER_MAGIC — virtio-fs is a FUSE file system */
 #define PATHMAX 4096
 #define BUFSZ ((size_t)(1 << 20) + 8192)
@@ -154,11 +161,14 @@ static const char *implicit_ro[] = {"doz_project.yaml", "doz_project.yml", ".git
 typedef struct {
     dm_set ign[2], ro[2];     /* [0] exact, [1] folded (only when fold) */
     int fold, hide;
+    long owner_uid, owner_gid; /* -1: none (report what virtio-fs says) */
     int n_ign, n_ro, n_bad;   /* the user's patterns (ro: without the implicit ones), lines dropped */
     int ign_present, ro_present;
     uint64_t gen;
 } rules_t;
 static rules_t *R;            /* current rules; swapped under mu */
+/* The conf's owner, read lock-free by fill_attr (-1: none); set on every reload. */
+static long owner_uid = -1, owner_gid = -1;
 static uint64_t rules_gen_counter = 1;
 static uint64_t struct_gen = 1; /* bumped when a DIRECTORY is renamed (its subtree's paths change) */
 
@@ -196,8 +206,8 @@ static int read_rules(const char *name, char ***pats, int **lines, int *n, filei
     return 0;
 }
 
-static void conf_read(int *hide, int *fold) {
-    *hide = 0; *fold = 0;
+static void conf_read(int *hide, int *fold, long *ouid, long *ogid) {
+    *hide = 0; *fold = 0; *ouid = -1; *ogid = -1;
     memset(&fid_conf, 0, sizeof fid_conf);
     FILE *f = conf_path ? fopen(conf_path, "re") : NULL;
     if (!f) return;
@@ -207,6 +217,13 @@ static void conf_read(int *hide, int *fold) {
     while (fgets(line, sizeof line, f)) {
         if (!strncmp(line, "mode=hide", 9)) *hide = 1;
         else if (!strncmp(line, "fold=1", 6)) *fold = 1;
+        else if (!strncmp(line, "owner=", 6)) {
+            char *e1, *e2; long u = strtol(line + 6, &e1, 10);
+            if (e1 != line + 6 && *e1 == ':') {
+                long g = strtol(e1 + 1, &e2, 10);
+                if (e2 != e1 + 1 && (*e2 == '\n' || *e2 == 0) && u > 0 && g > 0 && u < 0x7fffffffL && g < 0x7fffffffL) { *ouid = u; *ogid = g; }
+            }
+        }
     }
     fclose(f);
 }
@@ -245,7 +262,7 @@ static rules_t *rules_build(void) {
     if (!base_healthy()) { dm_free_lines(ip, il, ni); dm_free_lines(rp, rl, nr); return NULL; }
     rules_t *r = calloc(1, sizeof *r);
     if (!r) { dm_free_lines(ip, il, ni); dm_free_lines(rp, rl, nr); return NULL; }
-    conf_read(&r->hide, &r->fold);
+    conf_read(&r->hide, &r->fold, &r->owner_uid, &r->owner_gid);
     /* No rule file = a PASSTHROUGH view (the host serves every share through one, so a process whose cwd
      * is in the share survives a hibernation): nothing is excluded or read-only, not even the implicit
      * read-only names — `git init` must still make .git/hooks. The implicit names and the rule files'
@@ -562,6 +579,10 @@ static void fill_attr(struct fuse_attr *a, const struct stat *st, int cls) {
     a->mtime = (uint64_t)st->st_mtim.tv_sec; a->mtimensec = (uint32_t)st->st_mtim.tv_nsec;
     a->ctime = (uint64_t)st->st_ctim.tv_sec; a->ctimensec = (uint32_t)st->st_ctim.tv_nsec;
     a->mode = st->st_mode; a->nlink = (uint32_t)st->st_nlink; a->uid = st->st_uid; a->gid = st->st_gid;
+    /* virtio-fs answered this daemon (root) with 0:0 for the Mac user's files: report the workspace's owner. */
+    long ou = __atomic_load_n(&owner_uid, __ATOMIC_RELAXED), og = __atomic_load_n(&owner_gid, __ATOMIC_RELAXED);
+    if (ou > 0 && st->st_uid == 0) a->uid = (uint32_t)ou;
+    if (og > 0 && st->st_gid == 0) a->gid = (uint32_t)og;
     a->rdev = (uint32_t)st->st_rdev; a->blksize = (uint32_t)st->st_blksize;
     if (cls == C_EXCL) a->mode &= S_IFMT;   /* ---------- / d--------- */
     if (cls == C_RO) a->mode &= ~0222u;     /* no write bits shown */
@@ -1303,16 +1324,19 @@ static void reload(const char *why) {
     rules_t *old = R;
     nr->gen = ++rules_gen_counter;
     R = nr;
+    __atomic_store_n(&owner_uid, nr->owner_uid, __ATOMIC_RELAXED);
+    __atomic_store_n(&owner_gid, nr->owner_gid, __ATOMIC_RELAXED);
     pthread_mutex_unlock(&mu);
     /* The same files and conf as before (a wake's SIGUSR1, a poll that found nothing new): nothing to tell the
      * kernel. */
     int same = old && same_file(&was_ign, &fid_ign) && same_file(&was_ro, &fid_ro) && same_file(&was_conf, &fid_conf)
-               && old->hide == nr->hide && old->fold == nr->fold;
+               && old->hide == nr->hide && old->fold == nr->fold
+               && old->owner_uid == nr->owner_uid && old->owner_gid == nr->owner_gid;
     rules_free(old);
     if (old && !same) invalidate_all();
-    logm("rules (%s): .dozignore %s (%d), .dozreadonly %s (%d), %d dropped, mode %s, fold %s — %.1f ms", why,
+    logm("rules (%s): .dozignore %s (%d), .dozreadonly %s (%d), %d dropped, mode %s, fold %s, owner %ld:%ld — %.1f ms", why,
          nr->ign_present ? "present" : "absent", nr->n_ign, nr->ro_present ? "present" : "absent", nr->n_ro, nr->n_bad,
-         nr->hide ? "hide" : "lock", nr->fold ? "on" : "off", now_ms() - t0);
+         nr->hide ? "hide" : "lock", nr->fold ? "on" : "off", nr->owner_uid, nr->owner_gid, now_ms() - t0);
     write_state();
 }
 
@@ -1337,6 +1361,7 @@ static void write_state(void) {
             DOZVIEW_VERSION, (int)getpid(), restarts, R && R->hide ? "hide" : "lock", R ? R->fold : 0, R ? R->ign_present : 0, R ? R->n_ign : 0,
             R ? R->ro_present : 0, R ? R->n_ro : 0, R ? R->n_bad : 0, (unsigned long long)(R ? R->gen : 0), hcount);
     pthread_mutex_unlock(&mu);
+    fprintf(f, "owner=%ld:%ld\n", __atomic_load_n(&owner_uid, __ATOMIC_RELAXED), __atomic_load_n(&owner_gid, __ATOMIC_RELAXED));
     fprintf(f, "requests=%lu\nreopens=%lu\nrepairs=%lu\nhealthy=%d\n", n_req, n_reopen, n_repair, base_healthy());
     fclose(f);
     rename(tmp, state_path);

@@ -9,7 +9,14 @@ import Foundation
 //                      the forwarded SSH agent's socket lives there)
 //   G                  the view (fuse.dozview, allow_other, default_permissions) over an EMPTY folder of
 //                      the root disk — never over the share: if the daemon stops, G shows nothing
-//   /run/doz/view/T.*  conf (mode, fold — written by the host), pid (the supervisor), state, log
+//   /run/doz/view/T.*  conf (mode, fold, owner — written by the host), pid (the supervisor), state, log
+//
+// The owner (dozview ≥ 1.2.0): Apple's virtio-fs server reports the Mac user's files as owned by whichever
+// guest uid asks. The daemon asks as root, so it saw 0:0 for everything and — the view being mounted with
+// default_permissions — the kernel refused every write by the agent (uid 1001). The conf's `owner=UID:GID`
+// is the image's session user, resolved IN THE GUEST (`id -u`/`id -g`, so a Dockerfile base's user is
+// right too) and omitted for root; the daemon reports it for what it sees as its own. Other non-root guest
+// users read the workspace but do not write it through the view (the plain share let everyone write).
 //
 // The lifecycle (the 599g spike, workspace changes/599g-*/599g.03-SPIKE.md): the FUSE connection and its
 // daemon survive pause, sleep, hibernate and a restore into a new process (both are guest memory) — the
@@ -34,8 +41,13 @@ public struct WorkspaceViewConfig: Sendable, Equatable, Codable {
     /// left empty. nil (an older record) = false.
     public var passthrough: Bool?
     public var isPassthrough: Bool { passthrough == true }
-    public init(tag: String, guestPath: String, mode: WorkspaceRuleMode, fold: Bool, passthrough: Bool = false) {
+    /// The guest user (a NAME — the image's session user, e.g. `agent`) the workspace is reported as owned
+    /// by; its uid/gid are resolved in the guest when the conf is written. nil or `root`: no owner line
+    /// (what virtio-fs says stands — root writes anyway). nil in an older record.
+    public var owner: String?
+    public init(tag: String, guestPath: String, mode: WorkspaceRuleMode, fold: Bool, passthrough: Bool = false, owner: String? = nil) {
         self.tag = tag; self.guestPath = guestPath; self.mode = mode; self.fold = fold; self.passthrough = passthrough ? true : nil
+        self.owner = owner
     }
 }
 
@@ -69,10 +81,27 @@ public enum WorkspaceView {
     /// (seen in the suite). Alive = its /proc entry is dozview's and is not a zombie.
     static let aliveFunction = "dzv_alive() { p=$(cat \"$1\" 2>/dev/null) && [ -n \"$p\" ] && grep -q dozview \"/proc/$p/cmdline\" 2>/dev/null && ! grep -q '^State:[[:space:]]*Z' \"/proc/$p/status\" 2>/dev/null; }"
 
+    /// The conf's fixed lines (mode, fold); the owner line is resolved in the guest — `ownerLine`.
     static func confText(_ c: WorkspaceViewConfig) -> String { "mode=\(c.mode.rawValue)\nfold=\(c.fold ? 1 : 0)\n" }
 
+    /// The user whose uid/gid go into the conf's `owner=` line: a safe, non-root name, else none.
+    static func ownerUser(_ c: WorkspaceViewConfig) -> String? {
+        guard let u = c.owner, u != "root", !u.isEmpty, u.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }),
+              !u.hasPrefix("-") else { return nil }
+        return u
+    }
+
+    /// Shell printing `owner=UID:GID` for the conf — the user's ids IN THE GUEST, and only when both are
+    /// non-zero numbers (a missing user, or one that is root, prints nothing). Always exits 0.
+    static func ownerLine(_ c: WorkspaceViewConfig) -> String? {
+        guard let u = ownerUser(c) else { return nil }
+        return "dzv_o=\"$(id -u '\(u)' 2>/dev/null):$(id -g '\(u)' 2>/dev/null)\" || true; case \"$dzv_o\" in [1-9]*:[1-9]*) printf 'owner=%s\\n' \"$dzv_o\";; esac"
+    }
+
     static func writeConf(_ c: WorkspaceViewConfig) -> String {
-        "printf '\(confText(c).replacingOccurrences(of: "\n", with: "\\n"))' > '\(confPath(c.tag)).tmp' && mv -f '\(confPath(c.tag)).tmp' '\(confPath(c.tag))'"
+        let fixed = "printf '\(confText(c).replacingOccurrences(of: "\n", with: "\\n"))'"
+        let body = ownerLine(c).map { "{ \(fixed); \($0); }" } ?? fixed
+        return "\(body) > '\(confPath(c.tag)).tmp' && mv -f '\(confPath(c.tag)).tmp' '\(confPath(c.tag))'"
     }
 
     static func startCommand(_ c: WorkspaceViewConfig) -> String {
@@ -110,8 +139,10 @@ public enum WorkspaceView {
         let r = rawPath(tag), pf = pidPath(tag)
         var s = "umount -l '\(r)' 2>/dev/null || true; mount --bind '/run/dozer-vfs/\(tag)' '\(r)'; ls -a '\(r)' >/dev/null"
         if let w = wanted { s += "; \(writeConf(w)) || true" }
-        let c = WorkspaceViewConfig(tag: tag, guestPath: g, mode: wanted?.mode ?? .lock, fold: wanted?.fold ?? true, passthrough: wanted?.isPassthrough ?? false)
+        let c = WorkspaceViewConfig(tag: tag, guestPath: g, mode: wanted?.mode ?? .lock, fold: wanted?.fold ?? true, passthrough: wanted?.isPassthrough ?? false,
+                                    owner: wanted?.owner)
         s += "; \(aliveFunction); if dzv_alive '\(pf)'; then kill -USR1 \"$(cat '\(pf)')\"; echo \"doz-view \(tag) running $(cat '\(pf)')\""
+            + "; echo \"doz-view-version \(tag) $(sed -n 's/^version=//p' '\(statePath(tag))' 2>/dev/null | head -n 1)\""
             + "; else umount -l '\(g)' 2>/dev/null || true; mkdir -p '\(g)'"
             + "; if pid=$(\(startCommand(c)) 2>&1); then echo \"doz-view \(tag) restarted $pid\"; else \(fallback(tag, g, c.isPassthrough))echo \"doz-view \(tag) failed: $pid\"; fi; fi"
         return s
@@ -139,6 +170,23 @@ public enum WorkspaceView {
             let f = line.split(separator: " ", maxSplits: 3).map(String.init)
             guard f.count >= 3, f[0] == "doz-view", let st = WorkspaceViewStatus.State(rawValue: f[2].trimmingCharacters(in: CharacterSet(charactersIn: ":"))) else { return nil }
             return WorkspaceViewStatus(tag: f[1], state: st, pid: f.count > 3 ? Int(f[3].trimmingCharacters(in: .whitespaces)) : nil)
+        }
+    }
+
+    /// The first daemon version that reports the workspace's owner (before it, the agent could not write
+    /// through the view). A view started by an older build keeps running across wakes — never restarted
+    /// under a program — until the sandbox's next fresh boot.
+    public static let ownerVersion = [1, 2, 0]
+
+    /// The `doz-view-version TAG X.Y.Z` lines of a wake's script: the tags whose RUNNING daemon is older
+    /// than `ownerVersion` (an unknown version is not reported).
+    public static func olderDaemons(_ output: String) -> [String] {
+        output.split(separator: "\n").compactMap { line in
+            let f = line.split(separator: " ").map(String.init)
+            guard f.count == 3, f[0] == "doz-view-version" else { return nil }
+            let v = f[2].split(separator: ".").compactMap { Int($0) }
+            guard v.count == 3 else { return nil }
+            return v.lexicographicallyPrecedes(ownerVersion) ? f[1] : nil
         }
     }
 

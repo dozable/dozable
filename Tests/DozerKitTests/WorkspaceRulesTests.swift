@@ -193,6 +193,70 @@ final class WorkspaceRulesTests: XCTestCase {
 
     // MARK: the guest scripts
 
+    // MARK: the workspace's owner (the agent writes through the view)
+
+    /// virtio-fs reports the Mac user's files as owned by whichever guest uid asks; the view's daemon asks as
+    /// root. The conf names the image's session user — resolved in the guest — so the agent can write.
+    func testTheConfCarriesTheOwnerResolvedInTheGuest() {
+        let c = WorkspaceViewConfig(tag: "t1", guestPath: "/workspace", mode: .lock, fold: false, passthrough: true, owner: "agent")
+        let w = WorkspaceView.writeConf(c)
+        XCTAssertTrue(w.contains("id -u 'agent'") && w.contains("id -g 'agent'"), "the ids are the GUEST's: \(w)")
+        XCTAssertTrue(w.contains("printf 'owner=%s\\n'"), w)
+        XCTAssertTrue(w.contains("[1-9]*:[1-9]*)"), "only non-zero numeric ids are written")
+        let order = ["mode=lock\\nfold=0\\n", "owner=", "> '/run/doz/view/t1.conf.tmp'", "mv -f"]
+        var last = w.startIndex
+        for o in order {
+            guard let r = w.range(of: o, range: last..<w.endIndex) else { return XCTFail("missing or out of order: \(o)") }
+            last = r.upperBound
+        }
+        XCTAssertTrue(WorkspaceView.startScript(c).contains("id -u 'agent'"), "a view's start writes it")
+        XCTAssertTrue(WorkspaceView.reloadScript(c).contains("id -u 'agent'"), "a reload (session start) writes it")
+        let wake = GuestCommand.remountShares([(tag: "t1", guestPath: "/workspace")], views: ["t1": c])
+        XCTAssertTrue(wake.contains("id -u 'agent'"), "a wake re-writes it before signalling the daemon")
+        XCTAssertLessThan(wake.range(of: "id -u 'agent'")!.lowerBound, wake.range(of: "kill -USR1")!.lowerBound)
+    }
+
+    func testNoOwnerLineForRootOrNoUserOrAnUnsafeName() {
+        for o in [nil, "root", "", "a'b", "-x", "a b", "$(x)"] as [String?] {
+            let c = WorkspaceViewConfig(tag: "t1", guestPath: "/workspace", mode: .hide, fold: true, owner: o)
+            let w = WorkspaceView.writeConf(c)
+            XCTAssertFalse(w.contains("owner="), "\(o ?? "nil"): \(w)")
+            XCTAssertEqual(w, "printf 'mode=hide\\nfold=1\\n' > '/run/doz/view/t1.conf.tmp' && mv -f '/run/doz/view/t1.conf.tmp' '/run/doz/view/t1.conf'",
+                           "without an owner the conf is exactly the old one")
+        }
+        let old = try? JSONDecoder().decode(WorkspaceViewConfig.self, from: Data(#"{"tag":"t","guestPath":"/w","mode":"lock","fold":true}"#.utf8))
+        XCTAssertNil(old?.owner, "a record without the field has no owner")
+    }
+
+    /// The conf script RUN by a real shell (the Mac's sh stands in for the guest's): this user's ids are
+    /// written; root's (0) and a missing user's are not — the conf is still written.
+    func testTheConfScriptRunsAndWritesOnlyANonRootOwner() throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("dzv-conf-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        func run(_ owner: String?) throws -> String {
+            let c = WorkspaceViewConfig(tag: "t1", guestPath: "/workspace", mode: .lock, fold: true, owner: owner)
+            let script = "set -e; " + WorkspaceView.writeConf(c).replacingOccurrences(of: WorkspaceView.viewDirectory, with: dir.path)
+            let p = Process(); p.executableURL = URL(fileURLWithPath: "/bin/sh"); p.arguments = ["-c", script]
+            try p.run(); p.waitUntilExit()
+            XCTAssertEqual(p.terminationStatus, 0, "the script never fails: \(owner ?? "nil")")
+            return try String(contentsOf: dir.appendingPathComponent("t1.conf"), encoding: .utf8)
+        }
+        let me = NSUserName()
+        XCTAssertEqual(try run(me), "mode=lock\nfold=1\nowner=\(getuid()):\(getgid())\n")
+        XCTAssertEqual(try run("root"), "mode=lock\nfold=1\n")
+        XCTAssertEqual(try run("no-such-user-dzv"), "mode=lock\nfold=1\n")
+    }
+
+    func testAWakeReportsAViewAnOlderBuildStarted() {
+        let s = WorkspaceView.remountWithView(tag: "t1", guestPath: "/workspace", wanted: nil)
+        XCTAssertTrue(s.contains("doz-view-version t1 $(sed -n 's/^version=//p' '/run/doz/view/t1.state'"), s)
+        XCTAssertEqual(WorkspaceView.olderDaemons("doz-view t1 running 42\ndoz-view-version t1 1.1.1\ndoz-view-version t2 1.2.0\ndoz-view-version t3 \ndoz-view-version t4 0.9.9"),
+                       ["t1", "t4"], "older than 1.2.0 only; an unknown version is not reported")
+        XCTAssertEqual(WorkspaceView.parse("doz-view t1 running 42\ndoz-view-version t1 1.1.1").count, 1, "the version line is not a status line")
+    }
+
+
     func testTheWakeRebindsTheRawPathAndSignalsInTheSameScript() {
         let v = WorkspaceViewConfig(tag: "abc123", guestPath: "/workspace", mode: .hide, fold: true)
         let s = GuestCommand.remountShares([(tag: "abc123", guestPath: "/workspace")], views: ["abc123": v])

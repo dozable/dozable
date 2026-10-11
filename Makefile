@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -171,11 +171,16 @@ test-vm-upgrade: cli vmtest-host prev-cli ## 591 upgrade: the previous DozerKit 
 kernel: vmtest-host ## Fetch + verify the pinned Linux kernel into the cache (KERNEL_CACHE=dir; no VM)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) kernel --store "$(VMTEST_STORE)"
 
-test-vm-ignore: vmtest-host ## 599g workspace rules: .dozignore lock/hide + .dozreadonly through the guest view across boot, pause, sleep, hibernate and a three-process restore; live reload, case folding, a killed daemon, no rule file = no daemon, a rule file appearing, the cost
+test-vm-ignore: vmtest-host ## 599g workspace rules: .dozignore lock/hide + .dozreadonly through the guest view across boot, pause, sleep, hibernate and a three-process restore; live reload, case folding, a killed daemon, no rule file = no daemon, a rule file appearing, the cost; then test-vm-agentwrite
 	perl -e 'alarm shift; exec @ARGV' 1800 $(VMTEST_BIN) ignore --store "$(VMTEST_STORE)"
+	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
+
+test-vm-agentwrite: vmtest-host ## The agent (a non-root image user) writes shared workspaces through the view — Dozer-made, 755/644, 700/600, a rules view; git; rules still refused; after sleep and hibernate (bakes a small Alpine image once per store; network)
+	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
 
 test-vm-cwd: vmtest-host ## BUG cwd-after-wake: a program whose cwd is in /workspace keeps it across sleep, hibernate and a restore into a new process (the raw share as the control); the passthrough view's cost
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cwd-wake --store "$(VMTEST_STORE)"
+	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
 
 test-vm: vmtest-host ## VM integration suite (entitled host, watchdog, scratch store; VMTEST_ARGS=lifecycle|crash)
 	perl -e 'alarm shift; exec @ARGV' $(VMTEST_TIMEOUT) $(VMTEST_BIN) $(VMTEST_ARGS) --store "$(VMTEST_STORE)"

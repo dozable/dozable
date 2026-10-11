@@ -1416,6 +1416,26 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   folder (never stacked on the share — a dead view shows nothing, not the share). The daemon is COPIED in
   (`/usr/local/lib/doz/bin/dozview`), never run from the share. `/run` is on the ROOT disk: a fresh boot
   deletes `/run/doz/view` and only `rmdir`s raw mount points — never a recursive delete there.
+- **The view reports the workspace as the image user's** (0.33.1, dozview 1.2.0 — the bug: since 0.30.0 the agent could
+  not write ANY shared workspace, git refused it as "dubious ownership"; root could, so every suite that wrote as root
+  passed). Apple's virtio-fs server reports the Mac user's files as owned by WHICHEVER guest uid asks (measured: root
+  sees 0:0, the agent 1001:1001, uid 4242 can create) and enforces nothing in the guest — the plain share is mounted
+  without `default_permissions`, so it never mattered. dozview asks as ROOT, so it saw 0:0 for everything; the view IS
+  mounted with `default_permissions` (keep it: `.dozreadonly`'s hidden write bits and lock's mode 000 rely on the
+  kernel's check too), so the kernel refused uid 1001 on 755/644. The fix: the conf's `owner=UID:GID` — the image's
+  session user (`Sandbox.viewOwner` = `imageSpec.user`, nil for root/no image), resolved IN THE GUEST by the conf
+  script (`WorkspaceView.ownerLine`: `id -u`/`id -g`, written only when both are non-zero numbers — Dockerfile bases
+  covered) at every view start, wake re-mount and reload; dozview's `fill_attr` reports it for an entry it sees as
+  uid/gid 0. The rules are untouched by it: lock and read-only are refused by the daemon itself (`may_mutate`, the
+  class checks) for every uid. Consequence (documented): another non-root guest user (node, `exec --user X`) reads
+  but does not write through the view. A running daemon is never replaced under a program: a view an older build
+  started keeps its binary across sleep/hibernate wakes until the next fresh boot; the wake's re-mount reports its
+  version (`doz-view-version`, `WorkspaceView.olderDaemons`) and the sandbox notes that the agent may not write until
+  a shutdown + start. `make test-vm-agentwrite` (also run by `test-vm-ignore` and `test-vm-cwd`): an Alpine image
+  with an `agent` user, four shares (Dozer-made, 755/644, 700/600, rules), as the agent: create/append/mkdir/subfolder/
+  git, the rules still refused (agent and root), `nobody` cannot write, after sleep and hibernate — it FAILS on
+  dozview 1.1.1 (checked with `DOZ_DOZVIEW`). **Any change to dozview, `WorkspaceView` or the share path runs it**
+  (with `test-vm-ignore` + `test-vm-cwd`, green twice) — a check that writes only as root proves nothing for the agent.
 - **The wake** (spike): the FUSE connection and the daemon survive pause, sleep, hibernate and a restore into
   a new process (guest memory) — the view is NEVER re-mounted. The daemon's link to the share dies in a
   hibernation and `fstat` on it still succeeds: `remountShares` re-binds the RAW path (never the guest path)
@@ -1695,7 +1715,8 @@ make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the bro
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
 make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
-make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store)
+make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite
+make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozer-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)
 make dozview / dozview-verify # 599g: rebuild the guest view daemon (pinned Zig) / check the committed bytes
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
