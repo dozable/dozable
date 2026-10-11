@@ -992,6 +992,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `flush(1 s)` only when something was handed over. Never for `telemetry`, help/`--version`, internal re-launches
   (`--launched`, `--launch-detached`, `--restarted`) or `host upgrade-check`. The one-line notice: once, official and
   on, stderr on a terminal, never `--json`/`-q`.
+- **The setup's Usage statistics step** (`UsageStatsStep` — ONE model for both): `doz onboard` (after the preparation,
+  just before Stay in touch; `UsageStatsPrompt` decides, pure) and the wizard's `WIZ.usage` (from `sessionInfo.usageStats`,
+  the projection `WebUsageStats`; saved through `POST /api/v1/settings`). Official builds only; default on; an answer is
+  written ONLY when it changes `telemetry.send_anonymous_usage_stats` (the Access rule — `--yes`, no terminal, or Yes on a
+  default install write nothing; `--usage-stats on|off` answers it); DO_NOT_TRACK / the variable / doz ui's flag deciding
+  is said, never asked. Shown, it marks the one-line notice shown (`UsageStatsPrompt.markNoticeShown`) so it never repeats.
 - **The sign-up** (`SignupRequest`: email + `release-news`/`early-access`/`tips` + source; the Worker reads an older build's `support` as `tips`): `doz signup`, `doz onboard`'s
   Stay in touch (its LAST step, terminal only, default No; `--yes` skips), the wizard's Stay in touch step → `POST /api/v1/signup` (strict
   `{email, interests}`, CSRF; the source is the server's; a failure is ONE fixed message; 404 `signup-unavailable` in an
@@ -1002,7 +1008,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `doz telemetry show --json` says `"official": true` (scratch folders; looking never sends), restores
   `Package.resolved` if a URL pinned the package, and writes `RELEASE` = `public+cloud` (`publish.sh` accepts `public*`).
 - **Tests**: `UsageTests` (the encoder vs the list byte for byte, refusals, buckets, the daily from metrics rows, the
-  switches, once a day/version, the notice, a FAKE installed sender), `WebSignupTests`. A fake closed package for an
+  switches, once a day/version, the notice, the setup step, a FAKE installed sender), `WebSignupTests`, `WebUsageStatsTests`. A fake closed package for an
   end-to-end look lives in the workspace's probes (`DOZ_CLOUD_PACKAGE=<it> swift build --product doz`); never point a
   test at the live endpoint.
 
