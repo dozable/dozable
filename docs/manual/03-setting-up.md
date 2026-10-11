@@ -160,8 +160,8 @@ across the top; **✕** or **Escape** closes it, asking first once you have chos
    the environment decides, the switch is shown read-only with the reason.
 9. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
 10. **Done** — what was written where, and your **projects folder**
-   (`~/dozer-sandbox-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
-   `doz new` gets its own folder there. **Settings** › **Choose…** moves it.
+    (`~/dozer-sandbox-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
+    `doz new` gets its own folder there. **Settings** › **Choose…** moves it.
 
 ![The wizard's checks](images/wizard-checks.png)
 
