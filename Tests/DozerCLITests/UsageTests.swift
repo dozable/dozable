@@ -565,4 +565,102 @@ final class UsageTests: XCTestCase {
         try r.recordFeature("/Users/me")
         XCTAssertEqual(files.load().current?.features, ["app"])
     }
+
+    // MARK: the onboarding's Usage statistics step
+
+    func testTheStepIsShownOnlyByAnOfficialBuildAndSaysWhatDecides() {
+        let none = DozerSettings(text: nil)
+        XCTAssertNil(UsageStatsStep.make(official: false, settings: none, env: [:]), "an open build sends nothing and says nothing")
+        XCTAssertEqual(UsageStatsStep.make(official: true, settings: none, env: [:]), UsageStatsStep(on: true, stored: true, fixed: nil))
+        let off = DozerSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
+        XCTAssertEqual(UsageStatsStep.make(official: true, settings: off, env: [:]), UsageStatsStep(on: false, stored: false, fixed: nil),
+                       "the file's own choice is the person's: asked again, Enter keeps it")
+        let dnt = UsageStatsStep.make(official: true, settings: none, env: ["DO_NOT_TRACK": "1"])
+        XCTAssertEqual(dnt?.on, false)
+        XCTAssertTrue(dnt?.fixed?.contains("DO_NOT_TRACK") ?? false)
+        let envOff = DozerSettings(text: nil, environment: ["DOZ_SEND_ANONYMOUS_USAGE_STATS": "false"])
+        let viaEnv = UsageStatsStep.make(official: true, settings: envOff, env: [:])
+        XCTAssertEqual(viaEnv?.on, false)
+        XCTAssertEqual(viaEnv?.stored, true)
+        XCTAssertTrue(viaEnv?.fixed?.contains("$DOZ_SEND_ANONYMOUS_USAGE_STATS") ?? false)
+        let viaFlag = UsageStatsStep.make(official: true, settings: none, env: [:], flag: .bool(false))
+        XCTAssertEqual(viaFlag?.on, false)
+        XCTAssertNotNil(viaFlag?.fixed)
+        // The text names no internal number and says where to see what is sent.
+        XCTAssertTrue(UsageStatsStep.summary.contains("never names, paths, contents or anything inside a sandbox"))
+        XCTAssertEqual(UsageStatsStep.showCommand, "doz telemetry show")
+        XCTAssertEqual(UsageStatsStep.question, "Send anonymous usage statistics?")
+    }
+
+    func testTheCLIDecision() {
+        let step = UsageStatsStep(on: true, stored: true, fixed: nil)
+        var asked: [Bool] = []
+        func ask(_ answer: Bool) -> (Bool) -> Bool { { asked.append($0); return answer } }
+        // Not an official build: nothing shown, nothing asked, nothing written.
+        XCTAssertEqual(UsageStatsPrompt.decide(nil, flag: nil, interactive: true, ask: ask(false)), .init())
+        XCTAssertEqual(UsageStatsPrompt.decide(nil, flag: false, interactive: true, ask: ask(false)), .init())
+        XCTAssertTrue(asked.isEmpty)
+        // A terminal: asked, default Yes (Enter); Yes writes nothing, No writes false.
+        XCTAssertEqual(UsageStatsPrompt.decide(step, flag: nil, interactive: true, ask: ask(true)),
+                       .init(shown: true, asked: true, on: true, write: nil))
+        XCTAssertEqual(asked, [true], "the answer Enter keeps is Yes")
+        XCTAssertEqual(UsageStatsPrompt.decide(step, flag: nil, interactive: true, ask: ask(false)),
+                       .init(shown: true, asked: true, on: false, write: false))
+        // --yes / no terminal without the flag: not asked, nothing written.
+        asked = []
+        XCTAssertEqual(UsageStatsPrompt.decide(step, flag: nil, interactive: false, ask: ask(false)),
+                       .init(shown: true, asked: false, on: true, write: nil))
+        XCTAssertTrue(asked.isEmpty)
+        // --usage-stats: written only when it changes the setting; never asked.
+        XCTAssertEqual(UsageStatsPrompt.decide(step, flag: false, interactive: true, ask: ask(true)),
+                       .init(shown: true, asked: false, on: false, write: false))
+        XCTAssertEqual(UsageStatsPrompt.decide(step, flag: true, interactive: true, ask: ask(true)),
+                       .init(shown: true, asked: false, on: true, write: nil))
+        XCTAssertTrue(asked.isEmpty)
+        // The file said false: Enter keeps No (nothing written), Yes writes true.
+        let off = UsageStatsStep(on: false, stored: false, fixed: nil)
+        XCTAssertEqual(UsageStatsPrompt.decide(off, flag: nil, interactive: true, ask: ask(false)).write, nil)
+        XCTAssertEqual(asked.last, false)
+        XCTAssertEqual(UsageStatsPrompt.decide(off, flag: nil, interactive: true, ask: ask(true)).write, true)
+        // DO_NOT_TRACK / the variable decide: said, never asked, nothing written (unless the flag asks for it).
+        asked = []
+        let dnt = UsageStatsStep(on: false, stored: true, fixed: "DO_NOT_TRACK is set here")
+        XCTAssertEqual(UsageStatsPrompt.decide(dnt, flag: nil, interactive: true, ask: ask(true)),
+                       .init(shown: true, asked: false, on: false, write: nil, fixed: "DO_NOT_TRACK is set here"))
+        XCTAssertTrue(asked.isEmpty)
+        XCTAssertEqual(UsageStatsPrompt.decide(dnt, flag: false, interactive: true, ask: ask(true)).write, false)
+        XCTAssertEqual(UsageStatsPrompt.decide(dnt, flag: false, interactive: true, ask: ask(true)).on, false, "DO_NOT_TRACK still decides")
+    }
+
+    func testTheCLIOutcomeLines() {
+        let yes = UsageStatsPrompt.Decision(shown: true, asked: true, on: true, write: nil)
+        XCTAssertTrue(UsageStatsPrompt.outcome(yes, flag: nil, saved: false, error: nil).hasPrefix("  on — nothing changed"))
+        let no = UsageStatsPrompt.Decision(shown: true, asked: true, on: false, write: false)
+        XCTAssertEqual(UsageStatsPrompt.outcome(no, flag: nil, saved: true, error: nil),
+                       "  off — set telemetry.send_anonymous_usage_stats = false: nothing is recorded or sent (doz config set telemetry.send_anonymous_usage_stats true turns them back on)")
+        XCTAssertTrue(UsageStatsPrompt.outcome(no, flag: false, saved: true, error: nil).hasPrefix("  off (--usage-stats off) — set"))
+        let quiet = UsageStatsPrompt.Decision(shown: true, asked: false, on: true, write: nil)
+        XCTAssertTrue(UsageStatsPrompt.outcome(quiet, flag: nil, saved: false, error: nil).contains("doz onboard --usage-stats off"))
+        let dnt = UsageStatsPrompt.Decision(shown: true, asked: false, on: false, write: nil, fixed: "DO_NOT_TRACK is set here")
+        XCTAssertEqual(UsageStatsPrompt.outcome(dnt, flag: nil, saved: false, error: nil), "  off — DO_NOT_TRACK is set here (not asked)")
+    }
+
+    func testAnAnswerIsWrittenOnlyWhenItChangesTheSetting() throws {
+        let env = ["XDG_CONFIG_HOME": dir.path]
+        let step = try XCTUnwrap(UsageStatsStep.make(official: true, settings: .load(environment: env), env: env))
+        XCTAssertEqual(try step.save(true, environment: env), [], "Yes on a default install writes nothing")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("dozer-sandbox/doz.toml").path))
+        XCTAssertEqual(try step.save(false, environment: env), ["telemetry.send_anonymous_usage_stats = false"])
+        XCTAssertEqual(DozerSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
+        let again = try XCTUnwrap(UsageStatsStep.make(official: true, settings: .load(environment: env), env: env))
+        XCTAssertEqual(again.on, false)
+        XCTAssertEqual(try again.save(false, environment: env), [], "the settings already say so")
+        XCTAssertEqual(try again.save(true, environment: env), ["telemetry.send_anonymous_usage_stats = true"])
+    }
+
+    func testOnceTheStepWasShownTheNoticeIsNotPrintedAsWell() {
+        UsageStatsPrompt.markNoticeShown(files)
+        XCTAssertFalse(recorder("2026-10-11").takeNotice(), "the step took the first-run notice's place")
+        UsageStatsPrompt.markNoticeShown(nil)   // no settings directory: nothing to mark, no crash
+    }
 }

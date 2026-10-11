@@ -320,3 +320,73 @@ struct SignupCommand: AsyncParsableCommand {
             : "Check \(email): a confirmation email is on its way. Nothing else is sent until you confirm; every email has a one-click unsubscribe."
     }
 }
+
+// MARK: - doz onboard's Usage statistics step
+
+/// `doz onboard`'s Usage statistics step, just before Stay in touch (owner, 2026-10-11: a person learns about the
+/// statistics, and can say no, while setting up). Official builds only — an open build sends nothing and says nothing.
+/// The answer is written only when it changes the setting (the Access rule: `--yes` alone, or Yes on a default
+/// install, writes nothing); DO_NOT_TRACK or the variable deciding is said, never asked.
+struct UsageStatsPrompt {
+    /// What the step does, decided without a terminal or a file (pure — `UsageTests`).
+    struct Decision: Equatable {
+        /// The step is shown (an official build).
+        var shown = false
+        /// The question was put to the person.
+        var asked = false
+        /// What applies after the step (nil: not shown).
+        var on: Bool?
+        /// The value to write to `telemetry.send_anonymous_usage_stats` (nil: nothing is written).
+        var write: Bool?
+        /// Something other than the setting decides (DO_NOT_TRACK, the variable): said, not asked.
+        var fixed: String?
+    }
+
+    /// `step`: nil in an open build. `flag`: `--usage-stats on|off` (written when it changes the setting, even where
+    /// DO_NOT_TRACK decides — the setting is the person's). `ask`: the question, given the answer Enter keeps.
+    static func decide(_ step: UsageStatsStep?, flag: Bool?, interactive: Bool, ask: (Bool) -> Bool) -> Decision {
+        guard let step else { return Decision() }
+        var d = Decision(shown: true, on: step.on, fixed: step.fixed)
+        if let flag {
+            d.write = step.change(for: flag)
+            if step.fixed == nil { d.on = flag }
+            return d
+        }
+        guard step.fixed == nil, interactive else { return d }
+        d.asked = true
+        let answer = ask(step.stored)
+        d.on = answer
+        d.write = step.change(for: answer)
+        return d
+    }
+
+    static let setting = SettingKey.sendUsageStats
+
+    /// The step was shown: the one-line first-run notice (`UsageHook.after`) would only repeat it — marked shown in
+    /// usage.json exactly as the notice marks itself.
+    static func markNoticeShown(_ files: UsageFiles?) {
+        guard let files else { return }
+        _ = UsageRecorder(files: files).takeNotice()
+    }
+
+    /// The lines after the question (or in its place) — what applies now and what was written.
+    static func outcome(_ d: Decision, flag: Bool?, saved: Bool, error: String?) -> String {
+        let on = d.on ?? true
+        let state = on ? "on" : "off"
+        let via = flag.map { " (--usage-stats \($0 ? "on" : "off"))" } ?? ""
+        if let error { return "  could not save the choice: \(error) — doz config set \(setting) \(on) sets it" }
+        if let fixed = d.fixed {
+            return "  \(state) — \(fixed)" + (saved ? "; the setting now says \(d.write == true ? "true" : "false")" : "") + (d.asked ? "" : " (not asked)")
+        }
+        if saved {
+            return on ? "  on\(via) — set \(setting) = true"
+                      : "  off\(via) — set \(setting) = false: nothing is recorded or sent (doz config set \(setting) true turns them back on)"
+        }
+        if !d.asked && flag == nil {
+            return on ? "  on — unchanged (doz onboard --usage-stats off, or doz config set \(setting) false, turns them off)"
+                      : "  off — unchanged (the settings say so)"
+        }
+        return on ? "  on\(via) — nothing changed (doz config set \(setting) false turns them off any time)"
+                  : "  off\(via) — the settings already say so"
+    }
+}

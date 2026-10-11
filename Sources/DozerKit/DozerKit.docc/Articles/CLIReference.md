@@ -35,6 +35,7 @@ doz onboard [--images claude-code,pi,lab | --all-images | --no-images] [--accoun
             [--account-name NAME] [--plan PLAN] [--secret-stdin] [--force]
             [--github off|read|push] [--github-source gh|key] [--github-key-stdin] [--ssh-agent on|off]
             [--ignore-mode lock|hide]   # the Workspace rules step: the default workspace.ignore_mode
+            [--usage-stats on|off]      # the Usage statistics step (official builds): off writes the setting
 doz onboard --status        # the onboarding record and the images; follows a preparation that runs
 doz onboard --cancel        # cancel the images being prepared
 doz init [DIR] [--name N] [--image I] [--cpus N] [--memory M] [--network …] [--permissions W] [--account A]
@@ -67,7 +68,11 @@ doz uninstall [--keep-store] [--keep-config] [--yes]
   follows it again, `--cancel` stops it), and a `start` of that image meanwhile **joins it** —
   one download, one bake. On a terminal it asks, the recommended answer pre-selected (Enter keeps
   it); `--yes`, `--json` or no terminal ask nothing. Re-running is safe: it prepares only what is
-  missing. The store records it in `<store>/onboarded.json`.
+  missing. The store records it in `<store>/onboarded.json`. Last, in an official build: **Usage
+  statistics** (what is sent, `doz telemetry show`, the privacy policy, then *Send anonymous usage
+  statistics? [Y/n]* — Enter keeps them on and writes nothing; no sets
+  `telemetry.send_anonymous_usage_stats = false`; `DO_NOT_TRACK` or the variable deciding is said, not
+  asked; `--usage-stats on|off` answers it) and the optional **Stay in touch**.
 - **`init`** makes a folder a project: it writes **`doz_project.yaml`** (onboarding this Mac
   first if it never was). **`up` with no name**, in that folder, creates, starts or wakes exactly
   that sandbox, with the folder at `/workspace`, starts its `sessions` and attaches to the first.
@@ -613,7 +618,7 @@ host as `doz key set` holds it). **Open in Terminal** runs
 command, so it can't do anything the CLI can't.
 
 A store that was never onboarded opens on the **setup wizard** — Welcome, Checks, Access, Workspace
-rules, Images, Preparing, First sandbox, Done — the same steps as `doz onboard` (always reachable again from
+rules, Images, Preparing, First sandbox, Usage statistics and Stay in touch (official builds), Done — the same steps as `doz onboard` (always reachable again from
 **Onboarding** in the navigation — marked with a dot until the store is onboarded — or **Doctor ›
 Run onboarding again**). Preparing runs in the host: **Continue in the background** leaves
 it running, and **Operations** lists the host's image preparations whoever started them (the CLI
@@ -686,7 +691,8 @@ doz signup [--email ADDRESS] [--interest release-news|early-access|tips …] [-y
                                 # optional: news from Dozer by email (asked on a terminal); confirmed first
 ```
 
-Official builds (Homebrew, the release download) send anonymous usage statistics: at most once a
+Official builds (Homebrew, the release download) send anonymous usage statistics — said, with a
+choice, in the setup (`doz onboard`, the dashboard's wizard): at most once a
 day, counts and ranges about how Dozer itself is used, with a random install id — never a name,
 path, host, command argument, file or anything from inside a sandbox. Any one of these turns them
 off: `doz config set telemetry.send_anonymous_usage_stats false` (or `$DOZ_SEND_ANONYMOUS_USAGE_STATS`),

@@ -37,12 +37,19 @@ export async function bootstrap() {
     return false;
   }
 }
+/// The Usage statistics step's facts, checked field by field (anything unexpected: no step).
+function usageStatsOf(u) {
+  if (!u || typeof u !== 'object' || typeof u.on !== 'boolean' || typeof u.key !== 'string' || typeof u.summary !== 'string'
+    || typeof u.showCommand !== 'string' || typeof u.privacyPage !== 'string' || !/^https:\/\//.test(u.privacyPage)) return null;
+  return { on: u.on, fixed: typeof u.fixed === 'string' ? u.fixed : null, key: u.key, summary: u.summary, showCommand: u.showCommand, privacyPage: u.privacyPage };
+}
 export function adopt(info) {
   state.csrf = info.csrf;
   state.expiresAt = new Date(info.expiresAt);
   // 606: doz serve — another computer's browser: the Mac's name in the title and the brand line.
   state.serve = info.serve || null;
   state.signup = info.signup === true;
+  state.usageStats = usageStatsOf(info.usageStats);
   state.signupPage = typeof info.signupPage === 'string' && /^https:\/\//.test(info.signupPage) ? info.signupPage : '';
   state.chatgptSignIn = info.chatgptSignIn !== false;   // a public build has no ChatGPT sign-in of its own
   const mac = state.serve ? (state.serve.mac || 'the Mac') : null;

@@ -62,7 +62,11 @@ At each question the recommended answer is already selected: press **Enter** to 
 4. **Preparing.** Dozer downloads the base system and installs the agent and its tools inside a VM.
    It takes a few minutes. **You don't have to wait:** press **Ctrl-C** and it carries on in the
    background; `doz onboard --status` shows it again.
-5. **Stay in touch (optional).** Release news, early access and tips and tricks by email — skip it
+5. **Usage statistics.** What an official build sends — counts and ranges about how Dozer is used,
+   never names, paths, contents or anything inside a sandbox — and where to see it exactly
+   (`doz telemetry show`). **Enter** keeps them on; answer **n** to turn them off. A build from the
+   open-source repository sends nothing and skips this step.
+6. **Stay in touch (optional).** Release news, early access and tips and tricks by email — skip it
    with **Enter**. See [Usage statistics and sign-up](#usage-statistics-and-sign-up).
 
 **In your browser:**
@@ -72,7 +76,7 @@ doz ui
 ```
 
 The dashboard opens on the **setup wizard**: the same steps, and at the end an optional **First
-sandbox** and an optional **Stay in touch**.
+sandbox**, the **Usage statistics** switch (on unless you turn it off) and an optional **Stay in touch**.
 
 ![The setup wizard's first step](images/wizard-welcome.png)
 
@@ -107,7 +111,9 @@ a sandbox, image or project name, a file or folder name or path, anything inside
 you type or a program prints, a command's arguments, a host or website, an account, email or key.
 Our server adds your country from the connection and does not keep your IP address.
 
-The first time an official build runs it says so in one line. See exactly what would be sent, and
+Setup tells you about them and lets you turn them off there and then: the **Usage statistics** step of
+`doz onboard` (or `doz onboard --usage-stats off` in a script) and of the dashboard's setup wizard. If you
+never ran the setup, the first command says so in one line instead. See exactly what would be sent, and
 turn it off with any one of these:
 
 ```sh

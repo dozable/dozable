@@ -27,6 +27,8 @@ struct OnboardReport: Encodable {
     /// 599g: the Workspace rules step — the default `workspace.ignore_mode` chosen (nil: not chosen, unchanged).
     var ignoreMode: String?
     var result: PrepareResult?
+    /// The Usage statistics step: on or off after it (nil: not shown — a build from the open-source repository).
+    var usageStats: String? = nil
 }
 
 /// The onboarding itself, shared by `doz onboard` and `doz init` (which onboards first when this
@@ -50,6 +52,34 @@ struct OnboardingFlow {
     var githubKeyStdin = false
     /// 599g: the Workspace rules step's flag (nil: asked on a terminal, else the settings are left as they are).
     var ignoreModeFlag: String? = nil
+    /// `--usage-stats on|off`: the Usage statistics step's answer without asking.
+    var usageStatsFlag: Bool? = nil
+
+    /// Usage statistics (official builds only), just before Stay in touch: what is sent, where to see it, and the
+    /// question — default Yes; the answer is written only when it changes the setting. Once shown, the one-line
+    /// first-run notice is not printed as well. Returns on/off (nil: not shown).
+    private func usageStatistics() -> String? {
+        let env = ProcessInfo.processInfo.environment
+        let step = UsageStatsStep.make(official: Usage.isOfficial, settings: DozerSettings.load(environment: env), env: env)
+        guard step != nil else { return nil }
+        if talk {
+            say("\n\(UsageStatsStep.title)")
+            say("  " + UsageStatsStep.summary)
+            say("  To see exactly what is sent: \(UsageStatsStep.showCommand) · the privacy policy: \(Usage.privacyPage)")
+            // Shown here: the first-run notice would only repeat it.
+            UsageStatsPrompt.markNoticeShown(UsageFiles.current(env))
+        }
+        let d = UsageStatsPrompt.decide(step, flag: usageStatsFlag, interactive: asker.interactive && talk) {
+            asker.yesNo("  " + UsageStatsStep.question, default: $0)
+        }
+        var saved = false, problem: String?
+        if let v = d.write, let step {
+            do { saved = !(try step.save(v, environment: env)).isEmpty } catch let e as SettingsError { problem = e.message } catch { problem = "\(error)" }
+        }
+        say(UsageStatsPrompt.outcome(d, flag: usageStatsFlag, saved: saved, error: problem))
+        return (d.on ?? true) ? "on" : "off"
+    }
+
     /// The optional sign-up — release news, early access, tips and tricks. Never blocks the onboarding: skipped by default,
     /// and a failure is one line.
     private func stayInTouch() async {
@@ -221,11 +251,14 @@ struct OnboardingFlow {
         // Stay in touch (optional), LAST — after the preparation, so it never stands between a person and a ready Mac
         // (owner, 2026-10-10: "at the end with the option to skip"): asked only on a terminal, default No (--yes and
         // --json skip it). A build from the open-source repository has no sign-up of its own: it names the website.
+        // Just before it: Usage statistics (official builds only; owner, 2026-10-11).
+        let usage = usageStatistics()
         await stayInTouch()
         return OnboardReport(store: store.root.path, checks: checks, account: choice.rawValue, accountAdded: added, openaiAccountAdded: openaiAdded,
                              accountCommands: added == nil ? Onboarding.accountCommands(choice) : [],
                              settings: settings.rawValue, settingsPath: settingsPath, promptTemplate: template.rawValue,
-                             promptTemplatePath: templatePath, images: chosen, access: accessReport.items, ignoreMode: ignoreMode, result: result)
+                             promptTemplatePath: templatePath, images: chosen, access: accessReport.items, ignoreMode: ignoreMode, result: result,
+                             usageStats: usage)
     }
 
     /// 599i: Codex's OpenAI account — a ChatGPT sign-in (the browser opens; Dozer's own sign-in, the Mac's
@@ -408,6 +441,7 @@ struct Onboard: AsyncParsableCommand {
     @Option(name: .long, help: "The Access step's SSH choice without asking: on or off (forward this Mac's ssh-agent, github.com only).") var sshAgent: String?
     @Option(name: .long, help: "The Workspace rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting workspace.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
     @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozer's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
+    @Option(name: .long, help: "The Usage statistics step without asking (official builds): on or off — off sets telemetry.send_anonymous_usage_stats = false. Without it, --yes and no terminal leave the setting as it is.") var usageStats: String?
     @Flag(name: [.short, .long], help: "Accept every default; ask nothing. A credential that cannot be confirmed is skipped with a note (exit 0).") var yes = false
 
     func validate() throws {
@@ -415,6 +449,7 @@ struct Onboard: AsyncParsableCommand {
         if let v = githubSource, !["gh", "key"].contains(v) { throw ValidationError("--github-source: gh or key") }
         if let v = sshAgent, !["on", "off"].contains(v) { throw ValidationError("--ssh-agent: on or off") }
         if let v = ignoreMode, !["lock", "hide"].contains(v) { throw ValidationError("--ignore-mode: lock or hide") }
+        if let v = usageStats, !["on", "off"].contains(v) { throw ValidationError("--usage-stats: on or off") }
         if let v = openaiAccount, !["mac", "chatgpt", "openai-key", "later"].contains(v) { throw ValidationError("--openai-account: mac, chatgpt, openai-key or later") }
         if openaiAccount == "chatgpt", !BuildFlavor.current.chatgptSignIn { throw ValidationError("--openai-account chatgpt: " + BuildFlavor.chatgptSignInMissing) }
         if githubKeyStdin && secretStdin { throw ValidationError("--github-key-stdin and --secret-stdin both read stdin — add one later (doz access set --github-key / doz account add)") }
@@ -455,6 +490,7 @@ struct Onboard: AsyncParsableCommand {
         flow.githubKeyStdin = githubKeyStdin
         flow.ignoreModeFlag = ignoreMode
         flow.openaiFlag = openaiAccount
+        flow.usageStatsFlag = usageStats.map { $0 == "on" }
         flow.force = force
         let report = try await flow.run()
         if g.json { Out.json(report) }

@@ -86,6 +86,17 @@ doz onboard --cancel      # stop the images being prepared
 
 When every chosen image is ready, the store is marked as set up — even if you'd detached.
 
+Then, in an official build, two last questions:
+
+- **Usage statistics** — what is sent (counts and ranges about how Dozer is used, never names, paths,
+  contents or anything inside a sandbox), `doz telemetry show` to see it exactly, and the privacy
+  policy; then *Send anonymous usage statistics? [Y/n]*. **Enter** keeps them on and changes nothing;
+  **n** sets `telemetry.send_anonymous_usage_stats = false`. When `DO_NOT_TRACK` or
+  `$DOZ_SEND_ANONYMOUS_USAGE_STATS` already decides, it says so and does not ask. A build from the
+  open-source repository sends nothing and skips the step.
+- **Stay in touch** (optional) — release news, early access and tips and tricks by email; **Enter**
+  skips it.
+
 ### Without questions (scripts)
 
 ```sh
@@ -101,8 +112,8 @@ doz onboard --no-images --account later --github push --github-key-stdin --yes <
 `--yes`, `--json`, or no terminal: nothing is asked and the defaults are taken. A key or token is
 read from standard input only with `--secret-stdin` (`--github-key-stdin` for a GitHub token); it is
 never a command-line argument. Each credential chosen is still confirmed; one that can't be is
-**skipped with a note** and the exit code stays 0. Without `--github` / `--ssh-agent` / `--ignore-mode`,
-`--yes` leaves those settings exactly as they are.
+**skipped with a note** and the exit code stays 0. Without `--github` / `--ssh-agent` / `--ignore-mode` /
+`--usage-stats`, `--yes` leaves those settings exactly as they are.
 
 | option | what it does |
 |---|---|
@@ -114,6 +125,7 @@ never a command-line argument. Each credential chosen is still confirmed; one th
 | `--github-source gh\|key` · `--github-key-stdin` | Where the GitHub token comes from: this Mac's `gh` login, or a token read from standard input (kept in the login keychain as `doz-github`). |
 | `--ssh-agent on\|off` | Answer "SSH agent forwarding" (the setting `sandbox.ssh_agent`). |
 | `--ignore-mode lock\|hide` | Answer the Workspace rules step (the setting `workspace.ignore_mode`). |
+| `--usage-stats on\|off` | Answer the Usage statistics step (official builds; the setting `telemetry.send_anonymous_usage_stats`, written only when it changes). |
 | `--status` · `--cancel` | Follow · stop the preparation. |
 
 ## In the dashboard
@@ -143,7 +155,11 @@ across the top; **✕** or **Escape** closes it, asking first once you have chos
 7. **First sandbox** (optional) — pick the agent; it suggests a name (`claude-sandbox`) and a project
    folder (`~/dozer-sandbox-workspaces/claude-sandbox`, made if it doesn't exist).
    **Choose…** opens the Mac's own folder picker. Or pick **Isolated** to share no folder.
-8. **Done** — what was written where, and your **projects folder**
+8. **Usage statistics** (official builds) — the same text as in the terminal and one switch, **Send
+   anonymous usage statistics**, on. **Next** saves it only if you changed it. When `DO_NOT_TRACK` or
+   the environment decides, the switch is shown read-only with the reason.
+9. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
+10. **Done** — what was written where, and your **projects folder**
    (`~/dozer-sandbox-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
    `doz new` gets its own folder there. **Settings** › **Choose…** moves it.
 

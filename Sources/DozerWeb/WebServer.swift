@@ -665,11 +665,18 @@ public final class DozerWebServer: @unchecked Sendable {
                                text: "doz \(e.version) is available")
     }
 
+    /// The setup wizard's Usage statistics step as this doz ui sees it (nil: not an official build).
+    var usageStatsStep: UsageStatsStep? {
+        UsageStatsStep.make(official: Usage.isOfficial, settings: settings.current, env: settings.environment,
+                            flag: settings.flags[SettingKey.sendUsageStats])
+    }
+
     func sessionInfo(_ s: WebSession, _ ctx: WebRequestContext, _ device: WebDeviceView?) -> WebSessionInfo {
         var info = WebSessionInfo(csrf: s.csrfToken, expiresAt: s.expiresAt, serverRun: serverRun, store: data.storePath, version: version)
         info.chatgptSignIn = BuildFlavor.current.chatgptSignIn          // 611
         info.update = updateNotice
         info.signup = Usage.isOfficial
+        info.usageStats = usageStatsStep.map(WebUsageStats.init)
         if let st = serveState, let device {
             info.serve = WebServeSessionInfo(exposure: "remote", secure: ctx.secure, secretsAllowed: ctx.secure && settings.secretEntryAllowed,
                                              mac: st.names.localHostName, device: device)

@@ -193,6 +193,63 @@ public enum UsageSwitches {
     }
 }
 
+// MARK: - the onboarding's Usage statistics step
+
+/// The Usage statistics step of `doz onboard` and the setup wizard (owner, 2026-10-11: a person finds out — and can
+/// say no — while setting up, not only from a one-line notice). Shown ONLY by an official build: a build from the
+/// open-source repository sends nothing, so it says nothing. The answer is written only when it CHANGES the setting
+/// (`telemetry.send_anonymous_usage_stats`, through the schema's writer): Yes on a default install writes nothing.
+/// When something other than the setting decides here — DO_NOT_TRACK, `$DOZ_SEND_ANONYMOUS_USAGE_STATS`, a flag on
+/// `doz ui`'s command line — the step says so and asks nothing.
+public struct UsageStatsStep: Equatable, Sendable {
+    /// What applies now (DO_NOT_TRACK → off; the variable's value; else the file's, else the default).
+    public var on: Bool
+    /// The setting as the FILE says it (else its default) — what an answer is compared with.
+    public var stored: Bool
+    /// Why the person is not asked (nil: they decide here).
+    public var fixed: String?
+
+    public static let title = "Usage statistics"
+    /// The step's text — the same words in the terminal and in the wizard.
+    public static let summary = "Dozer sends anonymous usage statistics, at most once a day: counts and ranges about how Dozer is used — never names, paths, contents or anything inside a sandbox."
+    public static let showCommand = "doz telemetry show"
+    public static let question = "Send anonymous usage statistics?"
+
+    /// The step for this process (nil: not an official build — the step is not shown). `flag`: a value a command line
+    /// gives the setting for the whole process (`doz ui`'s), which the settings route would refuse to change.
+    public static func make(official: Bool, settings: DozerSettings, env: [String: String], flag: TOMLValue? = nil) -> UsageStatsStep? {
+        guard official else { return nil }
+        let key = SettingKey.sendUsageStats
+        let fileValue = settings.fileValues[key] ?? DozerSettings.definition(key)?.defaultValue
+        let stored: Bool = if case .bool(let b)? = fileValue { b } else { true }
+        let r = settings.resolve(key, flag: flag)
+        let resolved: Bool = if case .bool(let b) = r.value { b } else { stored }
+        if UsageSwitches.doNotTrack(env) {
+            return UsageStatsStep(on: false, stored: stored, fixed: "DO_NOT_TRACK is set here, and it wins over the setting: nothing is recorded or sent")
+        }
+        switch r.source {
+        case .env:
+            return UsageStatsStep(on: resolved, stored: stored,
+                                  fixed: "$\(DozerSettings.definition(key)?.environment ?? "DOZ_SEND_ANONYMOUS_USAGE_STATS") decides it here")
+        case .flag:
+            return UsageStatsStep(on: resolved, stored: stored, fixed: "the command line of this doz ui decides it")
+        case .file, .default:
+            return UsageStatsStep(on: resolved, stored: stored, fixed: nil)
+        }
+    }
+
+    /// The value to write for an answer — nil when it changes nothing (written only when chosen AND different).
+    public func change(for answer: Bool) -> Bool? { answer == stored ? nil : answer }
+
+    /// Write an answer through the settings schema's writer. Returns what was set (empty: nothing changed).
+    @discardableResult
+    public func save(_ answer: Bool, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> [String] {
+        guard let v = change(for: answer) else { return [] }
+        try DozerSettings.load(environment: environment).writing(SettingKey.sendUsageStats, .bool(v))
+        return ["\(SettingKey.sendUsageStats) = \(v)"]
+    }
+}
+
 // MARK: - the closed list
 
 /// Every key a message may carry, and every word a value may be. A message that does not fit is never handed over.

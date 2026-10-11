@@ -1112,6 +1112,32 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     /// `signupPage` (the website's form) instead.
     public var signup: Bool = false
     public var signupPage: String = Usage.signupPage
+    /// The setup wizard's Usage statistics step — an official build only (nil: the step is not shown; an open build
+    /// sends nothing).
+    public var usageStats: WebUsageStats? = nil
+}
+
+/// The setup wizard's Usage statistics step, projected field by field from `UsageStatsStep`.
+public struct WebUsageStats: Codable, Equatable, Sendable {
+    /// What applies now — the switch starts here.
+    public var on: Bool
+    /// Why the page shows it read-only (DO_NOT_TRACK, the variable, doz ui's command line); nil: the person decides.
+    public var fixed: String?
+    /// The settings key the step saves through `POST /api/v1/settings`.
+    public var key: String
+    /// The step's text — the same sentence `doz onboard` prints.
+    public var summary: String
+    public var showCommand: String
+    public var privacyPage: String
+
+    public init(_ step: UsageStatsStep) {
+        on = step.on
+        fixed = step.fixed
+        key = SettingKey.sendUsageStats
+        summary = UsageStatsStep.summary
+        showCommand = UsageStatsStep.showCommand
+        privacyPage = Usage.privacyPage
+    }
 }
 
 /// 611: the dashboard's update banner — from the last check doz ui (or a command) made; never a network call per page.

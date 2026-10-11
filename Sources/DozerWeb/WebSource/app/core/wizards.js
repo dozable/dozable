@@ -3,6 +3,7 @@
 
 // ── onboarding (594) ────────────────────────────────────────────────────────
 // The wizard (D11): Welcome → Checks → Access → Workspace rules (599g) → Images → Preparing → First sandbox →
+// Usage statistics (an official build only: the switch, saved through POST /api/v1/settings when changed) →
 // Stay in touch (an official build only: the optional sign-up, POST /api/v1/signup) → Done.
 // The same model as every page: facts from GET /api/v1/onboarding; changes through the typed actions
 // (account-default, onboard, prepare-cancel, create) and ONE typed route for the settings file and
@@ -10,8 +11,8 @@
 // overwritten). A key or a setup token: the masked field (accountForm) while ui.allow_secret_entry,
 // else the CLI command. The preparation runs in the HOST: "Continue in the background" leaves it
 // running (Operations shows it), and closing this tab changes nothing.
-export const WIZ_STEPS = ['Welcome', 'Checks', 'Access', 'Workspace rules', 'Images', 'Preparing', 'First sandbox', 'Stay in touch', 'Done'];
-// The steps by name (599g put Workspace rules between Access and Images). Stay in touch is shown only by a build
-// that has the sign-up; elsewhere it is skipped and Done names the website's form.
-export const WIZ = { welcome: 0, checks: 1, access: 2, rules: 3, images: 4, preparing: 5, first: 6, signup: 7, done: 8 };
+export const WIZ_STEPS = ['Welcome', 'Checks', 'Access', 'Workspace rules', 'Images', 'Preparing', 'First sandbox', 'Usage statistics', 'Stay in touch', 'Done'];
+// The steps by name (599g put Workspace rules between Access and Images). Usage statistics and Stay in touch are
+// shown only by an official build; elsewhere they are skipped and Done names the website's form.
+export const WIZ = { welcome: 0, checks: 1, access: 2, rules: 3, images: 4, preparing: 5, first: 6, usage: 7, signup: 8, done: 9 };
 export const WIZ_ORDER = ['claude-code', 'pi', 'codex', 'lab'];

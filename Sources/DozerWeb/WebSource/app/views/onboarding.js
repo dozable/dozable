@@ -1,11 +1,11 @@
 // views/onboarding — Onboarding (594): Welcome → Checks → Access → Workspace rules → Images → Preparing → First sandbox →
-// Stay in touch (the optional sign-up — an official build only) → Done.
+// Usage statistics (an official build only) → Stay in touch (the optional sign-up — an official build only) → Done.
 import { $, h } from '../dom/h.js';
 import { AGENT_NAMES } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { bytes, full } from '../core/format.js';
 import { act, actOrThrow, loadPreparations, prepRunning } from '../core/operations.js';
-import { loadSettings, secretEntryAllowed, setting } from '../core/settings.js';
+import { loadSettings, saveSetting, secretEntryAllowed, setting } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { WIZ, WIZ_ORDER, WIZ_STEPS } from '../core/wizards.js';
 import { ACCESS_TITLES, renderAccessStep } from '../components/access-step.js';
@@ -59,6 +59,7 @@ function wizFail(text) {
   renderWizard(true);
 }
 export function wizGo(step) {
+  if (step === WIZ.usage && !state.usageStats) step = WIZ.signup; // an open build sends nothing: no Usage statistics step
   if (step === WIZ.signup && !state.signup) step = WIZ.done;     // a build without the sign-up skips the step
   const w = state.wiz;
   w.step = step;
@@ -85,11 +86,12 @@ function wizardNode() {
   // 596: the base catalogue for the First sandbox step, read early (a late answer never re-renders a typed form).
   if (!w.basesAsked) { w.basesAsked = true; api('bases').then((b) => { w.bases = b; }).catch(() => { w.bases = null; }); }
   // 603: the same vertical stepper as New sandbox (a done step can be gone back to before Preparing).
-  // Stay in touch is a step only in a build with the sign-up; the strip numbers what is shown.
-  const shown = WIZ_STEPS.map((title, i) => ({ id: String(i), title, i })).filter((s) => s.i !== WIZ.signup || state.signup);
+  // Usage statistics and Stay in touch are steps only in an official build; the strip numbers what is shown.
+  const shown = WIZ_STEPS.map((title, i) => ({ id: String(i), title, i }))
+    .filter((s) => (s.i !== WIZ.signup || state.signup) && (s.i !== WIZ.usage || state.usageStats));
   const { list: stepper, compact } = stepperNode(shown, shown.findIndex((s) => s.i === w.step),
     { go: (k) => { const i = shown[k].i; return i < w.step && w.step < WIZ.preparing && i > 0 ? () => wizGo(i) : null; } });
-  const body = [wizStep0, wizStep1, wizStep2, wizStepRules, wizStep3, wizStep4, wizStep5, wizStepSignup, wizStep6][w.step](d, w);
+  const body = [wizStep0, wizStep1, wizStep2, wizStepRules, wizStep3, wizStep4, wizStep5, wizStepUsage, wizStepSignup, wizStep6][w.step](d, w);
   // The step's buttons (its last part) become the card's footer, which never leaves the screen.
   const last = body[body.length - 1];
   const foot = last && last.classList && last.classList.contains('wiz-buttons') ? body.pop() : null;
@@ -351,7 +353,7 @@ function wizStep5(d, w) {
       const df = picker.dockerfile();
       await actOrThrow({ action: 'create', sandbox: n, image: image.value, ...ws, ...(account ? { account } : {}), ...(df ? { dockerfile: df } : {}) });
       w.created = n;
-      wizGo(WIZ.signup);
+      wizGo(WIZ.usage);
     } catch (e) { error.textContent = e.message || String(e); b.disabled = false; }
   }, { primary: true });
   if (w.accounts) {
@@ -368,7 +370,41 @@ function wizStep5(d, w) {
     chooser.el,
     error,
     h('p', { class: 'muted' }, 'In a terminal the same is: doz init in the project folder, then doz up.'),
-    wizButtons(btn('Skip', () => wizGo(WIZ.signup)), create),
+    wizButtons(btn('Skip', () => wizGo(WIZ.usage)), create),
+  ];
+}
+/// Usage statistics (an official build only — owner, 2026-10-11: a person finds out, and can say no, while setting up):
+/// what is sent, where to see it exactly, and ONE switch, on by default. Next saves it only when it changed — through
+/// the settings route (POST /api/v1/settings {key, value}), as the Settings page does; unchanged, nothing is written.
+/// When DO_NOT_TRACK, the variable or doz ui's command line decides, the switch is shown read-only with the reason.
+function wizStepUsage(d, w) {
+  const u = state.usageStats;
+  if (w.usageOn === undefined) w.usageOn = u.on;
+  const input = h('input', { type: 'checkbox', role: 'switch', name: 'wiz-usage' });
+  input.checked = w.usageOn;
+  input.disabled = !!u.fixed;
+  const choice = h('label', { class: 'wiz-choice' + (w.usageOn ? ' chosen' : ''), 'data-usage-stats': '' }, input,
+    h('span', null, h('strong', null, 'Send anonymous usage statistics'),
+      h('div', { class: 'muted' }, 'Change it any time: Settings › ' + u.key + '.')));
+  input.addEventListener('change', () => { w.usageOn = input.checked; choice.classList.toggle('chosen', input.checked); });
+  const link = h('a', { href: u.privacyPage, target: '_blank', rel: 'noopener noreferrer' }, 'the privacy policy');
+  const next = btn('Next', async (ev) => {
+    const b = ev.currentTarget;
+    if (u.fixed || w.usageOn === u.on) { wizGo(WIZ.signup); return; }
+    b.disabled = true;
+    try {
+      await saveSetting(u.key, w.usageOn);
+      u.on = w.usageOn;
+      wizGo(WIZ.signup);
+    } catch (e) { wizFail(e.message || String(e)); }
+  }, { primary: true });
+  return [
+    h('h2', null, 'Usage statistics'),
+    h('p', { class: 'sub' }, u.summary),
+    h('p', null, 'To see exactly what is sent: ', h('code', null, u.showCommand), ' in a terminal. More in ', link, '.'),
+    choice,
+    u.fixed ? callout('info', { cls: 'notice', attrs: { 'data-usage-fixed': '' }, body: (u.on ? 'On' : 'Off') + ' — ' + u.fixed + '.' }) : null,
+    wizButtons(next),
   ];
 }
 /// Stay in touch (optional): an email and what it is for, posted to the one typed route (CSRF, strict body) — the
