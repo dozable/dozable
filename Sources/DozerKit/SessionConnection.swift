@@ -242,6 +242,21 @@ final class OutputCollector: Writer, @unchecked Sendable {
     var data: Data { lock.lock(); defer { lock.unlock() }; return buffer }
 }
 
+/// 617: the first `limit` bytes written (the rest dropped).
+final class CappedCollector: Writer, @unchecked Sendable {
+    private let lock = NSLock()
+    private var buffer = Data()
+    let limit: Int
+    init(limit: Int) { self.limit = limit }
+    func write(_ data: Data) throws {
+        lock.lock(); defer { lock.unlock() }
+        let room = limit - buffer.count
+        if room > 0 { buffer.append(data.prefix(room)) }
+    }
+    func close() throws {}
+    var data: Data { lock.lock(); defer { lock.unlock() }; return buffer }
+}
+
 /// 599: a byte stream to a guest program's stdin/stdout (`Sandbox.openGuestStream`) — the browser
 /// bridge's `deckhold connect -p PORT`, relaying one TCP connection from the Mac into the guest's loopback.
 public final class GuestStream: @unchecked Sendable {
@@ -254,6 +269,9 @@ public final class GuestStream: @unchecked Sendable {
     private var inputOpen = true
     /// The program's exit code, once it exited (nil before, or when the transport died).
     public private(set) var exitCode: Int32?
+    /// 617: its stderr (the first 64 KiB) — why a copy's tar failed.
+    let errors = CappedCollector(limit: 65_536)
+    public var errorOutput: String { String(decoding: errors.data, as: UTF8.self) }
 
     init() {
         (output, outputContinuation) = AsyncStream<Data>.makeStream(bufferingPolicy: .unbounded)

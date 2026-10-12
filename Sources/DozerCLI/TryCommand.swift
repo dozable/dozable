@@ -22,7 +22,8 @@ struct TryCommand: AsyncParsableCommand {
         installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
         running; --rm and --keep answer before. Deleting it removes its folder too when the folder is empty, and asks \
-        when the agent left files there. --isolated shares no folder at all; --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
+        when the agent left files there. --isolated shares no folder at all (doz get and doz put \
+        copy files out and in); --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
         the try, keeps it, and prints how to attach. Every choice option of doz new works here.
         """)
 
@@ -66,7 +67,10 @@ struct TryCommand: AsyncParsableCommand {
         if !g.json {
             // Said plainly (owner), first: where its files go and what reaches the Mac.
             let said = planned.reach.filter { $0.kind == "folder" || $0.kind == "bridge" }.map { $0.text.prefix(1).lowercased() + $0.text.dropFirst() }
-            Out.stdout(([planned.name, planned.imageState.title ?? planned.image] + said).joined(separator: " · ") + "\n")
+            var parts = [planned.name, planned.imageState.title ?? planned.image] + said
+            // Isolated: nothing of the Mac is shared — the way files come out (owner).
+            if planned.workspace == nil { parts.append("pull files with: doz get \(planned.name) /workspace/FILE") }
+            Out.stdout(parts.joined(separator: " · ") + "\n")
         }
         // The image prepares NOW, in the host, while the key is dealt with (joined by the start below).
         if planned.imageState.state == "unprepared" {

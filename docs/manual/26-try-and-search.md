@@ -21,7 +21,8 @@ A try is a throwaway sandbox with safe defaults:
 - **A new empty folder of its own** — Dozer makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
   `~/dozer-sandbox-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
   your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
-  `try-<agent>-2`). `--isolated` shares no folder at all; `--workspace DIR` uses a folder you choose.
+  `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-grok /workspace/FILE` copies a file out —
+  see [Terminals and sessions](07-terminals-and-sessions.md)); `--workspace DIR` uses a folder you choose.
 - **Your Mac's clipboard and its apps**, as in any sandbox: what the agent copies reaches your Mac's clipboard (also
   from agents that copy with `xclip`, `xsel` or `wl-copy`), and it can open a file it made, or a link, on your Mac.
   The try's first line says so:

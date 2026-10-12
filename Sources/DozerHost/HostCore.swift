@@ -687,6 +687,8 @@ public actor HostCore {
             return try await point(r, emit: emit)
         case .imageList:
             return try JSONValue(encoding: images())
+        case .copy:
+            throw HostError(.invalid, "copy streams on its own connection (doz get / doz put)")
         case .plan:
             guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
             return try JSONValue(encoding: plan(p))

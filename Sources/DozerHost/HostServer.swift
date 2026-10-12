@@ -271,6 +271,8 @@ public final class HostServer: @unchecked Sendable {
                 return core.subscribe().filter { (name == nil || $0.sandbox == name) && (statuses || $0.kind != .sessionStatus) }
                     .map { HostMessage(event: $0) }
             }
+        case .copy:
+            copy(conn, reader: reader, request: req)
         case .netLog where req.follow == true:
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
@@ -293,6 +295,69 @@ public final class HostServer: @unchecked Sendable {
                 finished(conn)
             }
         }
+    }
+
+    /// 617: doz get / put — the check and its answer (`CopyReady`, after any wake/start events), then `CopyFrame`s on this
+    /// connection: get relays the guest tar's stdout as `D` frames; put feeds the client's `D` frames to the guest tar's
+    /// stdin until `F`. Both end with `E` (`CopyDone`). This runs on the connection's own thread, which may block.
+    private func copy(_ conn: HostConnection, reader: LineReader, request req: HostRequest) {
+        let opened = DispatchSemaphore(value: 0)
+        let box = CopyBox()
+        Task.detached { [core] in
+            do { box.result = .success(try await core.copyOpen(req) { e in conn.send(HostMessage(event: e)) }) } catch { box.result = .failure(error) }
+            opened.signal()
+        }
+        opened.wait()
+        guard case .success(let (ready, stream))? = box.result else {
+            if case .failure(let e)? = box.result { conn.send(.failure(HostError.from(e))) }
+            finished(conn)
+            return
+        }
+        guard let answer = try? JSONValue(encoding: ready), conn.send(.success(answer)) else { stream.finishInput(); finished(conn); return }
+        let t0 = ContinuousClock.now
+        let direction = req.fileCopy?.direction ?? .get
+        let done = DispatchSemaphore(value: 0)
+        let counted = ByteCount()
+        switch direction {
+        case .get:
+            Task.detached {
+                for await d in stream.output {
+                    counted.add(d.count)
+                    var at = 0
+                    while at < d.count {
+                        let end = min(at + CopyFrame.maximumPayload, d.count)
+                        if !conn.write(CopyFrame.encode(CopyFrame.data, d.subdata(in: at..<end))) { break }
+                        at = end
+                    }
+                }
+                done.signal()
+            }
+            done.wait()
+        case .put:
+            Task.detached { for await _ in stream.output {}; done.signal() }    // put's tar prints nothing; this ends with it
+            let parser = CopyFrame.Parser()
+            var buf = [UInt8](repeating: 0, count: 65536)
+            var finishedInput = false
+            if !reader.buffer.isEmpty { _ = reader.takeRemainder() }            // nothing is sent before the answer
+            reading: while !finishedInput {
+                let n = read(conn.fd, &buf, buf.count)
+                if n < 0 && errno == EINTR { continue }
+                if n <= 0 { break }
+                guard let frames = try? parser.feed(Data(buf[0..<n])) else { break }
+                for f in frames {
+                    if f.type == CopyFrame.data { counted.add(f.payload.count); stream.send(f.payload) }
+                    else if f.type == CopyFrame.finish { finishedInput = true; break reading }
+                }
+            }
+            stream.finishInput()
+            if !finishedInput { HostLog.line("\(req.name ?? "?"): a copy into it was cut off by the client") }
+            done.wait()
+        }
+        // The exit code is set before the output ends (GuestStream.ended).
+        let end = HostCore.copyDone(stream, bytes: counted.value, since: t0, direction: direction)
+        if let d = try? HostWire.encoder.encode(end) { _ = conn.write(CopyFrame.encode(CopyFrame.end, d)) }
+        HostLog.line("\(req.name ?? "?"): \(direction.rawValue) \(ready.path) — \(end.ok ? "copied" : "FAILED: \(end.error ?? "")") (\(counted.value) bytes)")
+        finished(conn)
     }
 
     /// Stream messages until the client hangs up.
@@ -558,6 +623,18 @@ extension HostCore {
     }
 }
 
+/// 617: a copy's opening, handed from its task to the connection's thread.
+final class CopyBox: @unchecked Sendable {
+    var result: Result<(CopyReady, GuestStream), Error>?
+}
+
+/// 617: bytes counted across threads.
+final class ByteCount: @unchecked Sendable {
+    private let lock = NSLock()
+    private var n: Int64 = 0
+    func add(_ k: Int) { lock.lock(); n += Int64(k); lock.unlock() }
+    var value: Int64 { lock.lock(); defer { lock.unlock() }; return n }
+}
 
 /// 606: the ports Dozer's dashboards listen on — `doz ui`'s (`<store>/ui.port`), `doz serve`'s (`<store>/serve/port`
 /// while it runs) and the setting `serve.port` (another store's doz serve) — re-read at most every 5 s.

@@ -133,6 +133,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
     /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
     case plan
+    /// 617 (owner: "fold doz cp into 617", then "doz put and doz get"): copy files and folders out of or into a running
+    /// sandbox (`fileCopy`: a `CopyRequest`). Answered with `CopyReady`; then the connection carries `CopyFrame`s — a tar
+    /// stream over the guest stream (no new guest→host channel) — and ends with `CopyDone`.
+    case copy
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -286,6 +290,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var removeExtra: Bool?
     /// 617: `plan` — what was chosen.
     public var planRequest: PlanRequest?
+    /// 617: `copy`'s what and where.
+    public var fileCopy: CopyRequest?
     public var plan: String?
     public var configDir: String?
     public var keychainService: String?

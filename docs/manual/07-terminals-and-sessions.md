@@ -44,6 +44,30 @@ doz exec my-app -- ls /workspace  # a one-off command: no terminal, output and e
   image (not on its PATH)" — and `doz` exits `125`. There is no `sudo` in the lab; it isn't needed
   there: `exec` already runs as root unless `--user` names another user.
 
+### Copying files in and out: `doz get`, `doz put`, `doz cp`
+
+```sh
+doz get my-app report.md                  # out of the sandbox, into the current folder (a path relative to /workspace)
+doz get my-app /workspace/site ./backup/  # a folder, whole, into ./backup/site
+doz get my-app out.csv results.csv        # a new name
+doz put my-app ./data                     # into the sandbox: /workspace/data
+doz put my-app notes.md /tmp/n.md         # somewhere else, under a new name
+doz cp my-app:/workspace/report.md .      # the Docker spelling: NAME:PATH on one side (NAME: alone is /workspace)
+```
+
+- They work in every sandbox, **an isolated one included** — the way files come out of a try made with
+  `--isolated`. A sleeping sandbox is woken and one that is off is started, as for `exec` (`--no-wake`,
+  `--no-start` refuse instead).
+- Into an existing folder the item keeps its name; otherwise the last part of the destination is its new
+  name. **What is already there is not replaced** unless `--force` (a file replaces a file; a folder is
+  merged into a folder, files of the same name replaced — never a folder over a file).
+- File modes are kept (an executable stays executable). On your Mac the files are yours; in the sandbox
+  they belong to the image's user — or to root where that user cannot write (it says so).
+- **Only what you named is written.** On the Mac the copy is unpacked in a temporary folder beside the
+  destination, checked, then moved into place; nothing is ever written into Dozer's own store. A folder
+  holding a link that points outside it is not copied, either way (the copy says which link).
+- A large copy shows its progress; `--json` gives the result as data.
+
 ### Restarting or ending a session
 
 `doz sessions restart NAME SESSION` ends the session's program and starts **the same program again**, in

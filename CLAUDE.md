@@ -1661,6 +1661,26 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
+- **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
+  (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
+  `SandboxConfig.trialFolder` ONLY when Dozer made it; `rm` removes it with the sandbox when empty (host), the CLI asks
+  about one with files (`cleanUpTryFolder`). The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
+  Copying works in every agent: sessions get `GROK_OSC52_SINK=1` while the clipboard bridge is on
+  (`HostCore.withClipboardSink` — Grok Build otherwise picks no OSC 52 route in a VM), and `xclip`/`xsel`/`wl-copy`
+  are the guest's `doz-copy` shim (`GuestCommand.copyShim`, beside the open shim, stamp — bump it on any change):
+  OSC 52 out, reads refused, PRIMARY not sent. `CopyShimTests` runs the real shim.
+- **`doz get` / `doz put` / `doz cp`** (`FileCopy.swift`, `HostCore+Copy.swift`, `HostServer.copy`, `FileCommands.swift`):
+  the host op `copy` (never a `WebAction`) checks in the guest FIRST (`CopyPaths.getCheckScript`/`putCheckScript` —
+  a missing path, a link escaping the folder, an existing destination without `--force`, who may write), answers
+  `CopyReady`, then the connection carries `CopyFrame`s (type + length + payload, ≤ 1 MiB) and a tar stream over
+  `Sandbox.openGuestStream` (now with `user:` and its stderr) — no new guest→host channel; it ends with `CopyDone`.
+  The Mac side is `/usr/bin/tar` (`COPYFILE_DISABLE`, gnutar format, no xattrs/ACLs/flags; `-s …/S` renames —
+  uppercase flags SUPPRESS in bsdtar's `-s`, `~` is the match): unpacked into a `mkdtemp` folder BESIDE the
+  destination, checked again for escaping links (`LocalCopy.escapingLinks`), then `LocalCopy.place` (a rename;
+  `--force`: a file replaces a file, a folder merges) — never into the store (`LocalCopy.inStore`, links resolved).
+  In the guest, put runs as the image's user, as root only where it cannot write (`-o`: never the archive's owner).
+  Woken/started as `exec`. `FileCopyTests` (the scripts run under /bin/sh), `probes/617-*/stageC/copy-run.sh` (the VM
+  proof: an isolated try and busybox).
 - **`doz search` and the index** (`DirectorySearch.swift`, `DirectoryIndex.swift`, `Recipes/known.json`): exit codes
   0 / 8 limited / 6 coming / 2 unknown; a known entry whose id a recipe gains is a test failure (the recipe wins).
 - **Read model for later stages** (data + tests only so far): `auth.methods`, `gateways[]` (support level per model

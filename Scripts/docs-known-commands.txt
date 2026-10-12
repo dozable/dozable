@@ -29,6 +29,9 @@ sessions/restart
 attach
 run
 exec
+get
+put
+cp
 image
 point
 net
