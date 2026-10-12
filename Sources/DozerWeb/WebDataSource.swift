@@ -78,10 +78,13 @@ public protocol DozerWebData: Sendable {
     func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport
     /// 599h: a sandbox's tools layer — the plan and the last apply (the host's `tools`; a host must run).
     func tools(_ name: String) async throws -> ToolsLayerReport
+    /// 617: the host's read-only `plan` for a try or a new sandbox (in-process when no host runs).
+    func plan(_ r: PlanRequest) async throws -> WebPlan
 }
 
 extension DozerWebData {
     public func tools(_ name: String) async throws -> ToolsLayerReport { throw HostError(.notImplemented, "tools") }
+    public func plan(_ r: PlanRequest) async throws -> WebPlan { throw HostError(.notImplemented, "plan") }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func bases() async throws -> WebBases { throw HostError(.notImplemented, "bases") }
@@ -204,7 +207,8 @@ public final class HostWebData: DozerWebData, @unchecked Sendable {
 
     public func addAccount(_ a: WebAccountAdd) async throws -> WebAccounts {
         let store = self.store
-        let r = HostRequest.accountAdd(name: a.name, kind: a.kind, plan: a.plan, secret: a.secret)
+        let r = a.provider.map { HostRequest.keyAccountAdd(name: a.name, provider: $0, secret: a.secret) }
+            ?? HostRequest.accountAdd(name: a.name, kind: a.kind, plan: a.plan, secret: a.secret)
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true) }
         guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
         return try await accounts()

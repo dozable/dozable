@@ -283,7 +283,7 @@ public enum WebAction: Equatable, Sendable {
     /// Fields each action may carry (besides `action`).
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
-            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites"],
+            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites", "trial"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
             "point-revert": ["sandbox", "point", "confirm"],
@@ -340,6 +340,8 @@ public enum WebAction: Equatable, Sendable {
             o.isolated = try f.flag("isolated")
             // 594 W28: the New Sandbox form's "Rebuild first" (an out-of-date image is otherwise used as it is).
             o.rebuild = try f.flag("rebuild")
+            // 617: a try (the Quick try page) — marked, so its exit offers sleep/delete and doz ls says so.
+            o.trial = try f.flag("trial")
             // 597 (P4): the form's switches — exactly these permissions; its sites on top.
             if d["permissions"] != nil, !(d["permissions"] is NSNull) {
                 let p = try f.permissionWords("permissions")

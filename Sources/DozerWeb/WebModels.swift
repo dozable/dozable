@@ -1023,6 +1023,16 @@ public struct WebPlan: Codable, Equatable, Sendable {
     public var reach: [Line]
     public var account: Account?
     public var problems: [Problem]
+    /// 617 (stage D): what the ordinary `create` action takes to make exactly this (the page sends these fields).
+    public struct Create: Codable, Equatable, Sendable {
+        public var image: String
+        public var network: String?
+        public var workspace: String?
+        public var isolated: Bool?
+        public var account: String?
+        public var trial: Bool?
+    }
+    public var create: Create?
 
     public init(_ p: CreatePlan) {
         name = p.name
@@ -1036,7 +1046,39 @@ public struct WebPlan: Codable, Equatable, Sendable {
         reach = p.reach.map { Line(kind: $0.kind, text: $0.text) }
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
+        create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
+                        account: p.create.account, trial: p.create.trial)
     }
+}
+
+/// 617 (stage D): the Quick try page's list — every agent this build has a recipe for, its plan for a try (key, image,
+/// folder and bridges), its "What you need" card when a key is missing, and the agents that are coming (dimmed, why).
+public struct WebTryCatalog: Codable, Equatable, Sendable {
+    public struct Option: Codable, Equatable, Sendable { public var kind: String; public var label: String; public var consequence: String }
+    public struct Card: Codable, Equatable, Sendable {
+        public var title: String
+        public var options: [Option]
+        public var notOffered: [String]
+        public var getKey: String?
+        /// The CLI command that adds a key of this provider (1Password, AWS and commands are CLI-only).
+        public var addCommand: String?
+    }
+    public struct Agent: Codable, Equatable, Sendable {
+        public var id: String
+        public var title: String
+        public var publisher: String
+        public var provider: String?
+        public var providerTitle: String?
+        /// The base it runs on by default (title, e.g. "Debian").
+        public var base: String?
+        public var plan: WebPlan
+        public var card: Card?
+    }
+    public struct Coming: Codable, Equatable, Sendable { public var id: String; public var title: String; public var publisher: String; public var reason: String }
+    public var agents: [Agent]
+    public var coming: [Coming]
+    /// `ui.allow_secret_entry` (and a secure enough connection): a key may be pasted here.
+    public var secretEntry: Bool
 }
 
 public struct WebAccounts: Codable, Equatable, Sendable {

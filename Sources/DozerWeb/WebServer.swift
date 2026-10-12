@@ -950,7 +950,11 @@ public final class DozerWebServer: @unchecked Sendable {
             let q = try WebProjectRequest.decode(body, allowed: writing ? ["folder", "form", "explicit", "replace"] : ["folder", "form", "explicit"])
             let taken = Set(((try? await data.overview())?.sandboxes ?? []).map(\.name))
             if writing { return json(try WebProject.write(q, settings: settings.current, store: data.storePath, taken: taken)) }
-            return json(try WebProject.preview(q, settings: settings.current, store: data.storePath, taken: taken).0)
+            var (out, back) = try WebProject.preview(q, settings: settings.current, store: data.storePath, taken: taken)
+            // 617: the review shows the plan (best effort — the file is the review's subject; a plan that cannot be made
+            // leaves it out rather than failing the preview).
+            out.plan = try? await data.plan(WebProject.planRequest(back, folder: out.folder, path: out.path, settings: settings.current))
+            return json(out)
         case .projectsDirChoose:
             // 599c: the Mac's picker; what the person chose there is written here — never a path from the page.
             try Self.requireJSONBody(md)
@@ -964,6 +968,14 @@ public final class DozerWebServer: @unchecked Sendable {
             return json(WebProjectsDirChoice(path: (try? Workspace.normalize(path)) ?? path, cancelled: false, report: report))
         case .bases:
             return json(try await data.bases())
+        case .tryCatalog:
+            // 617: read-only — each agent's try plan from the host's read-only op (in-process with no host).
+            let d = data
+            return json(await WebTryCatalog.build(plan: { try await d.plan($0) }, secretEntry: settings.secretEntryAllowed))
+        case .plan:
+            // 617: changes nothing; POST (CSRF, above) like the quick-add question.
+            try Self.requireJSONBody(md)
+            return json(try await data.plan(try WebPlanQuery.decode(body).request))
         case .dockerfileChoose:
             // The MAC's file picker (CSRF above); opened at the field's folder, else the projects folder.
             try Self.requireJSONBody(md)

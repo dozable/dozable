@@ -96,6 +96,8 @@ public enum WebRoute: Equatable, Sendable {
     // 596 — base images (WebBases.swift): the catalogue + Apple's container tool (read); the Mac's
     // file picker for a Dockerfile (one at a time; the answer is a path and its folder).
     case bases                     // GET  /api/v1/bases
+    case tryCatalog                // GET  /api/v1/try (617: the Quick try page's list)
+    case plan                      // POST /api/v1/plan  ({purpose, name?, agent?, base?, isolated?} — 617)
     case dockerfileChoose          // POST /api/v1/dockerfile/choose  ({start?})
     // 599e — Access: each credential's choice and last confirmation (read, never starts a host); a live
     // check (changes no setting; POST + CSRF: it carries choices to confirm before they are written);
@@ -158,6 +160,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["workspace", "check"]: return .workspaceCheck
         case (.post, 2) where rest == ["workspace", "choose"]: return .workspaceChoose
         case (.post, 1) where rest[0] == "quick-add": return .quickAdd
+        case (.post, 1) where rest[0] == "plan": return .plan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite
@@ -200,6 +203,7 @@ public enum WebRoute: Equatable, Sendable {
             case "preparations": return .preparations
             case "resources": return .resources
             case "bases": return .bases
+            case "try": return .tryCatalog
             case "access": return .access
             case "serve": return .serveStatus
             default: return nil
