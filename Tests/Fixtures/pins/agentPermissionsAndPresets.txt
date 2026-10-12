@@ -1,0 +1,66 @@
+perm model locked=true hosts=api.anthropic.com statsig.anthropic.com
+perm model:openai locked=false hosts=chatgpt.com api.openai.com ab.chatgpt.com
+perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
+perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
+perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
+perm install:node locked=false hosts=registry.npmjs.org
+perm install:python locked=false hosts=pypi.org files.pythonhosted.org
+perm install:go locked=false hosts=proxy.golang.org sum.golang.org storage.googleapis.com
+perm install:rust locked=false hosts=crates.io index.crates.io static.crates.io static.rust-lang.org
+perm install:java locked=false hosts=repo.maven.apache.org repo1.maven.org services.gradle.org downloads.gradle.org plugins.gradle.org
+perm install:ruby locked=false hosts=rubygems.org index.rubygems.org
+perm install:dotnet locked=false hosts=api.nuget.org globalcdn.nuget.org
+perm github locked=false hosts=github.com raw.githubusercontent.com codeload.github.com objects.githubusercontent.com
+perm github:as-you locked=false hosts=github.com api.github.com uploads.github.com codeload.github.com
+perm github:push locked=false hosts=
+perm error-reports locked=false hosts=http-intake.logs.us5.datadoghq.com browser-intake-us5-datadoghq.com
+perm web locked=false hosts=*
+agentPermissions claude-code []
+agentPermissions pi []
+agentPermissions none []
+agentPermissions codex ["model:openai"]
+agentPermissions nil []
+preset locked base=nil model name=locked
+preset agent base=nil model,update,install:system,github,error-reports name=agent
+preset standard base=nil model,update,install:system,github,error-reports name=agent
+preset open base=nil model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=node model name=locked
+preset agent base=node model,update,install:system,install:node,github,error-reports name=agent
+preset standard base=node model,update,install:system,install:node,github,error-reports name=agent
+preset open base=node model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=python model name=locked
+preset agent base=python model,update,install:system,install:python,github,error-reports name=agent
+preset standard base=python model,update,install:system,install:python,github,error-reports name=agent
+preset open base=python model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=go model name=locked
+preset agent base=go model,update,install:system,install:go,github,error-reports name=agent
+preset standard base=go model,update,install:system,install:go,github,error-reports name=agent
+preset open base=go model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=rust model name=locked
+preset agent base=rust model,update,install:system,install:rust,github,error-reports name=agent
+preset standard base=rust model,update,install:system,install:rust,github,error-reports name=agent
+preset open base=rust model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=java model name=locked
+preset agent base=java model,update,install:system,install:java,github,error-reports name=agent
+preset standard base=java model,update,install:system,install:java,github,error-reports name=agent
+preset open base=java model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=ruby model name=locked
+preset agent base=ruby model,update,install:system,install:ruby,github,error-reports name=agent
+preset standard base=ruby model,update,install:system,install:ruby,github,error-reports name=agent
+preset open base=ruby model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=dotnet model name=locked
+preset agent base=dotnet model,update,install:system,install:dotnet,github,error-reports name=agent
+preset standard base=dotnet model,update,install:system,install:dotnet,github,error-reports name=agent
+preset open base=dotnet model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=debian model name=locked
+preset agent base=debian model,update,install:system,github,error-reports name=agent
+preset standard base=debian model,update,install:system,github,error-reports name=agent
+preset open base=debian model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=ubuntu model name=locked
+preset agent base=ubuntu model,update,install:system,github,error-reports name=agent
+preset standard base=ubuntu model,update,install:system,github,error-reports name=agent
+preset open base=ubuntu model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open
+preset locked base=alpine model name=locked
+preset agent base=alpine model,update,install:system,github,error-reports name=agent
+preset standard base=alpine model,update,install:system,github,error-reports name=agent
+preset open base=alpine model,sign-in,update,install:system,install:node,install:python,install:go,install:rust,install:java,install:ruby,install:dotnet,github,error-reports,web name=open

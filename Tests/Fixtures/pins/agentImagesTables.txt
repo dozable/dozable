@@ -1,0 +1,44 @@
+lab credentials=nil agentName=nil package=nil pinned=nil
+claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=@anthropic-ai/claude-code pinned=2.1.227 sha512-D0YP8GFwPaP/9eObEuP5LRO5+9QSD9CLa6K26whNzXxpxz3pFqPS3nn7l1/MLmSWy32wBP2IKQzkRB3mumUKUQ==
+pi credentials=anthropic:api-key agentName=pi package=@earendil-works/pi-coding-agent pinned=0.84.1 sha512-ncAqFrG+iybuPGOhMiZoEHkEzTpJgz3guYD32pD+M7ucc0WeHmauP6wa7qwP8V/KWvsZDVNa5XGsdZ7fkC7w7A==
+codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=@openai/codex pinned=0.160.1 sha512-JLyjBlmjPvwTaicHemw+y5xQSz3Uja2r7F/xkvS8gFufTA2g132Ak+0fo35xnJ/k2uc9fTtjm0LrsEGI78L6Ng==
+node credentials=nil agentName=nil package=nil pinned=nil
+python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+python credentials=nil agentName=nil package=nil pinned=nil
+python-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+go credentials=nil agentName=nil package=nil pinned=nil
+go-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+rust credentials=nil agentName=nil package=nil pinned=nil
+rust-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+java credentials=nil agentName=nil package=nil pinned=nil
+java-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+ruby credentials=nil agentName=nil package=nil pinned=nil
+ruby-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+dotnet credentials=nil agentName=nil package=nil pinned=nil
+dotnet-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+debian credentials=nil agentName=nil package=nil pinned=nil
+debian-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+ubuntu credentials=nil agentName=nil package=nil pinned=nil
+ubuntu-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
+df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
+df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
+df-0123456789ab-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
