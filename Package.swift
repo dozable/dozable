@@ -82,6 +82,8 @@ let package = Package(
                 .product(name: "SwiftASN1", package: "swift-asn1"),
             ],
             path: "Sources/DozerKit",
+            // 617: the YAML recipe sources — compiled to Recipes/compiled/ (DozerKit embeds the JSON, never parses YAML).
+            exclude: ["Recipes/agents"],
             resources: [
                 // The guest PTY holder: a static aarch64-linux-musl ELF, committed as the pin
                 // (Resources/PROVENANCE.md records sha256, toolchain and command; the C source
@@ -93,13 +95,15 @@ let package = Package(
                 .copy("Resources/dozview"),
                 // 617: the agent recipes and the key providers, compiled in (`PackageResources.<basename>_json`,
                 // no Bundle.module). ONE line per file, and every basename unique across Recipes/ — the
-                // identifier is the basename (`AgentRecipeTests` checks the list against the folder).
-                .embedInCode("Recipes/agents/claude-code.json"),
-                .embedInCode("Recipes/agents/pi.json"),
-                .embedInCode("Recipes/agents/codex.json"),
-                .embedInCode("Recipes/agents/antigravity.json"),
-                .embedInCode("Recipes/agents/gemini.json"),
-                .embedInCode("Recipes/agents/grok.json"),
+                // identifier is the basename (`AgentRecipeTests` checks the list against the folder). A recipe's
+                // source is Recipes/agents/VENDOR/PRODUCT.yaml (excluded below); Recipes/compiled/PRODUCT.json is
+                // that YAML as JSON (make recipes; RecipeSourceTests checks they agree).
+                .embedInCode("Recipes/compiled/claude-code.json"),
+                .embedInCode("Recipes/compiled/pi.json"),
+                .embedInCode("Recipes/compiled/codex.json"),
+                .embedInCode("Recipes/compiled/antigravity.json"),
+                .embedInCode("Recipes/compiled/gemini.json"),
+                .embedInCode("Recipes/compiled/grok.json"),
                 .embedInCode("Recipes/providers.json"),
                 .embedInCode("Recipes/gateways.json"),
                 .embedInCode("Recipes/tags.json"),

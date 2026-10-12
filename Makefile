@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -84,7 +84,7 @@ build: ## Build every product (and the VM test host)
 # `make test-vm-claude DOZ_TEST_REAL_MAC=1` (e.g. to add this Mac's own Claude login, read-only).
 TEST_SCRATCH ?= $(or $(TMPDIR),/tmp/)doz-test
 TEST_XDG     ?= $(TEST_SCRATCH)-xdg
-TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates kernel pullbench prev-cli
+TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates kernel pullbench prev-cli recipes
 ifneq ($(DOZ_TEST_REAL_MAC),1)
 $(TEST_TARGETS): export DOZ_TEST_GUARD := 1
 $(TEST_TARGETS): export DOZ_TEST_NO_MAC_LOGIN := 1
@@ -103,6 +103,12 @@ test-safety:
 
 test: test-safety web-assets-check ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check
 	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS)
+
+# 617: the agent recipes. Sources/DozerKit/Recipes/agents/VENDOR/PRODUCT.yaml is what people edit (schema 2 —
+# docs/recipes/RECIPE-FORMAT.md); Recipes/compiled/PRODUCT.json is each one as JSON (DozerKit embeds it and never
+# parses YAML) and is COMMITTED. `make test` fails when they differ (RecipeSourceTests).
+recipes: test-safety ## Compile the YAML recipes to Recipes/compiled/ (commit the result)
+	DOZ_WRITE_RECIPES=1 swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --filter 'RecipeSourceTests|RecipeSchemaTests'
 
 # 590: `doz ui`'s front end. WebSource/ is what people edit; Resources/Web is generated from it
 # (content-hashed, digest manifest) and COMMITTED. The check fails when they differ — run by `make

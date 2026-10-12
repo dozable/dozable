@@ -14,7 +14,15 @@
 import datetime, glob, json, os, re, sys, urllib.request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RECIPES = os.path.join(REPO, "Sources/DozerKit/Recipes/agents")
+# The compiled recipes (Recipes/compiled/*.json — each Recipes/agents/VENDOR/PRODUCT.yaml as JSON, schema 2).
+RECIPES = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+
+def flat(doc):
+    """The few fields this report reads, from a schema-2 recipe (its capabilities by type)."""
+    caps = {c["type"]: c.get("config", {}) for c in doc["capabilities"]}
+    return {"id": doc["id"].split("/")[-1], "title": doc["displayName"], "homepage": doc["sourceUrl"],
+            "install": caps["com.dozersandbox/install@1"],
+            "lifecycle": caps.get("com.dozersandbox/currency@1", {}).get("lifecycle")}
 OUT = os.path.join(REPO, "profiles/currency.json")
 TODAY = datetime.date.today()
 UA = {"User-Agent": "dozer-sandbox-agent-currency (read-only)"}
@@ -76,7 +84,7 @@ def main():
         old = {}
     rows, todo = [], []
     for f in sorted(glob.glob(os.path.join(RECIPES, "*.json"))):
-        r = json.load(open(f))
+        r = flat(json.load(open(f)))
         aid = r["id"]
         try:
             if r["install"]["kind"] == "manifest-binary":

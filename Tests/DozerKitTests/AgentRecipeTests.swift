@@ -14,9 +14,11 @@ final class AgentRecipeTests: XCTestCase {
         fatalError("no Package.swift")
     }
 
+    /// A recipe's MODEL as JSON (617: the files are schema-2 YAML now — Recipes/agents/VENDOR/PRODUCT.yaml — and these
+    /// tests mutate the model it maps to, which `AgentRecipes.decode` reads).
     static func json(_ id: String) throws -> [String: Any] {
-        let u = packageRoot.appendingPathComponent("Sources/DozerKit/Recipes/agents/\(id).json")
-        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: u)) as? [String: Any])
+        let r = try XCTUnwrap(AgentRecipes.recipe(id))
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(r)) as? [String: Any])
     }
 
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
@@ -40,7 +42,7 @@ final class AgentRecipeTests: XCTestCase {
         for f in files { XCTAssertTrue(manifest.contains(".embedInCode(\"Recipes/\(f)\")"), "\(f) is not embedded") }
         let basenames = files.map { ($0 as NSString).lastPathComponent }
         XCTAssertEqual(Set(basenames).count, basenames.count, "basenames must be unique across Recipes/")
-        XCTAssertEqual(files.filter { $0.hasPrefix("agents/") }.map { ($0 as NSString).lastPathComponent }.sorted(), AgentRecipes.compiledFiles.sorted())
+        XCTAssertEqual(files.filter { $0.hasPrefix("compiled/") }.map { ($0 as NSString).lastPathComponent }.sorted(), AgentRecipes.compiledFiles.sorted())
     }
 
     func test_newAgentsAreTheSpikesValues() throws {

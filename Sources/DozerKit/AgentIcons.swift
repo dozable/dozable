@@ -57,7 +57,26 @@ public struct ResolvedIcon: Codable, Sendable, Equatable {
 }
 
 public enum AgentIcons {
-    struct File: Codable { var schema: Int; var icons: [IconEntry] }
+    struct File: Codable {
+        /// The editor's schema link (schema/dozer-icons-1.schema.json).
+        var schemaLink: String?
+        var schema: Int
+        var icons: [IconEntry]
+        enum CodingKeys: String, CodingKey { case schemaLink = "$schema", schema, icons }
+    }
+
+    /// The manifest from its JSON: refused when it carries a key this build does not know (as the schema says).
+    static func decodeManifest(_ data: Data) throws -> [IconEntry] {
+        let f = try JSONDecoder().decode(File.self, from: data)
+        guard f.schema == 1 else { throw SandboxError.invalidSpec("icons.json: schema \(f.schema) — this build reads 1") }
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        let back = try JSONSerialization.jsonObject(with: try enc.encode(f))
+        if let unknown = AgentRecipes.unknownKey(try JSONSerialization.jsonObject(with: data), back, path: "") {
+            throw SandboxError.invalidSpec("icons.json: unknown key \(unknown)")
+        }
+        return f.icons
+    }
 
     /// The compiled-in files, by name (Package.swift embeds each; `AgentIconsTests` ties this list to the folder).
     public static let files: [String: [UInt8]] = [
@@ -70,7 +89,7 @@ public enum AgentIcons {
 
     public static let all: [IconEntry] = {
         do {
-            let icons = try JSONDecoder().decode(File.self, from: Data(PackageResources.icons_json)).icons
+            let icons = try decodeManifest(Data(PackageResources.icons_json))
             try validate(icons, files: files)
             return icons
         } catch {

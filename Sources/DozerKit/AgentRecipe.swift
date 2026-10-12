@@ -1,8 +1,9 @@
 import Foundation
 
 // 617 (616.03 §4) — every agent is a RECIPE: data that says how to install it, how to turn its own approval prompts
-// off, which keys and hosts it uses, where its state lives and what it reaches. The recipes are JSON files compiled
-// into DozerKit (`Recipes/agents/*.json`, SwiftPM `.embedInCode` — no `Bundle.module`), decoded once and validated;
+// off, which keys and hosts it uses, where its state lives and what it reaches. The recipes are YAML files
+// (`Recipes/agents/VENDOR/PRODUCT.yaml`, schema 2 — RecipeDocument.swift) compiled to JSON and into DozerKit
+// (`Recipes/compiled/*.json`, SwiftPM `.embedInCode` — no `Bundle.module`), decoded once and validated;
 // an invalid built-in recipe is a test failure, never a runtime fallback.
 //
 // The three agents that existed before (Claude Code, pi, Codex) are `builtin`: their recipe DESCRIBES them (title,
@@ -789,8 +790,9 @@ public enum AgentRecipes {
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
                                           ("grok.json", PackageResources.grok_json)]
         do {
+            // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
-                do { return try decode(Data(bytes)) } catch { throw SandboxError.invalidSpec("\(name): \(error)") }
+                do { return try RecipeDocument.decode(Data(bytes)).recipe() } catch { throw SandboxError.invalidSpec("\(name): \(error)") }
             }
         } catch {
             fatalError("617: a built-in agent recipe does not decode: \(error)")
