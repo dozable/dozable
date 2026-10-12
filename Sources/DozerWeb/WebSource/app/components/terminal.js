@@ -100,7 +100,7 @@ export async function bootTerm(t, fontSize) {
     t.els.host.append(t.frame);
     await opened;
   } catch (e) {
-    t.errorText = 'the terminal engine did not load (' + (e.message || e) + ')';
+    t.errorText = 'the terminal engine did not load (' + (e.message || e) + ')'; wakeStateWaiters(t);
     paintCover(t);
     return false;
   }
@@ -148,7 +148,7 @@ async function connectTerminal(t, opts = {}) {
       if (e.status === 401) { t.reattach = true; paintCover(t); return 'failed'; }     // signedOut() follows
       t.disconnected = 'it could not reattach (' + (e.message || e) + ')';
     } else {
-      t.errorText = e.message || String(e);
+      t.errorText = e.message || String(e); wakeStateWaiters(t);
     }
     paintCover(t);
     paintTabs();
@@ -223,6 +223,8 @@ function onTerminalMessage(t, ev) {
   try { m = JSON.parse(ev.data); } catch (_) { return; }
   if (m.t === 'state') {
     t.state = m;
+    // 617: a start waiting for this pane to follow the host (startWithBootView) hears it at once — no polling.
+    wakeStateWaiters(t);
     if (t.bootIntent && m.cover && !['shutDown', 'failed', 'reattaching'].includes(m.cover.kind)) t.bootIntent = false;
     if (m.session) t.session = m.session;
     // "woke in 0.4 s": one line over the screen, for a few seconds.
@@ -239,7 +241,7 @@ function onTerminalMessage(t, ev) {
     t.ended = true;
     t.endText = m.text || (m.ending === 'exited' ? 'exit ' + m.code : m.ending);
   } else if (m.t === 'error') {
-    t.errorText = m.message || m.code;
+    t.errorText = m.message || m.code; wakeStateWaiters(t);
   }
   paintCover(t);
   paintTabs();
@@ -281,7 +283,7 @@ export function sendInput(t, s) {
 export function closeTerminal(id) {
   const t = terminals.get(id);
   if (!t) return;
-  t.closed = true;
+  t.closed = true; wakeStateWaiters(t);
   clearInterval(t.pinger);
   if (t.ws) { try { t.ws.close(1000, 'closed'); } catch (_) { /* */ } }
   t.els.wrap.remove();                                 // its frame — and its engine instance — go with it
@@ -551,4 +553,12 @@ export function goLive(t) {
   toFrame(t, { t: 'live', mode: t.mode });
   t.initMode = t.mode;
   connectTerminal(t);
+}
+
+/// 617: a start waiting for this pane (startWithBootView) is woken by its state, its error or its close — no polling.
+function wakeStateWaiters(t) {
+  if (!t.stateWaiters) return;
+  const ws = t.stateWaiters;
+  t.stateWaiters = null;
+  for (const w of ws) w();
 }

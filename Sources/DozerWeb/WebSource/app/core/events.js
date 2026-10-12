@@ -3,7 +3,7 @@ import { upcall } from './hooks.js';
 import { api } from './api.js';
 import { adoptOperations, loadPreparations, trackOp } from './operations.js';
 import { buildUiOverlay, checkBuild, movedAway, uiBack, uiLost } from './reconnect.js';
-import { refresh } from './router.js';
+import { refresh, route } from './router.js';
 import { setLive, signedOut } from './session.js';
 import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -59,7 +59,9 @@ export function connect() {
     if (!d || typeof d.hash !== 'string' || !/^#\/try(\/[a-z0-9][a-z0-9-]{0,39})?$/.test(d.hash)) return;
     if (state.modal && state.modal !== 'try') return;            // never over a wizard the person is in
     state.tr = null;
-    location.hash = d.hash;
+    // Already there (the Quick try open on that agent): no hashchange follows, so route now — the page's state was just
+    // reset, and a view left on screen would hold a Create that no longer does anything.
+    if (location.hash === d.hash) route(); else location.hash = d.hash;
     window.focus();
     // The CLI brings the browser forward; this tab cannot raise itself, so its title says where to look for a while.
     const was = document.title;

@@ -41,9 +41,16 @@ export async function startWithBootView(name) {
   const before = new Set(terminals.keys());
   openTerminal(name, null, 'interactive', undefined, { bootIntent: true });
   const t = [...terminals.values()].find((x) => !before.has(x.id));
-  const end = Date.now() + 15000;
-  while (t && Date.now() < end && !t.closed && !t.errorText && !(t.state && ['shutDown', 'failed', 'boot'].includes(t.state.cover.kind))) {
-    await new Promise((r) => setTimeout(r, 100));
+  // 617: woken by the pane's own state (terminal.js), not a 100 ms poll — a hidden tab slows short timers to one a
+  // minute; the 15 s timer is only the give-up (and a closed or failed pane gives up at once).
+  const ready = () => !t || t.closed || t.errorText || (t.state && ['shutDown', 'failed', 'boot'].includes(t.state.cover.kind));
+  // A hidden tab: nobody watches the boot, and its timers are slowed — start at once (the pane catches up).
+  const end = Date.now() + (document.hidden ? 0 : 15000);
+  while (!ready() && Date.now() < end) {
+    await new Promise((r) => {
+      (t.stateWaiters = t.stateWaiters || []).push(r);
+      setTimeout(r, Math.max(0, end - Date.now()));
+    });
   }
   await act({ action: 'start', sandbox: name });
 }
