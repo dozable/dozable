@@ -23,7 +23,7 @@ perm update:gemini locked=false hosts=registry.npmjs.org[/@google/gemini-cli,/@g
 perm vendor:claude-code locked=false hosts=downloads.claude.ai[/model-catalog/] downloads.claude.ai[/claude-code-releases/plugins/] raw.githubusercontent.com[/anthropics/claude-code/refs/heads/main/CHANGELOG.md$]
 perm vendor:pi locked=false hosts=pi.dev
 perm vendor:codex locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml$] github.com[/openai/plugins.git/info/refs$,/openai/plugins.git/git-upload-pack$] files.openai.com
-perm vendor:antigravity locked=false hosts=antigravity-unleash.goog
+perm vendor:antigravity locked=false hosts=antigravity-unleash.goog play.googleapis.com
 agentPermissions claude-code ["vendor:claude-code"]
 agentPermissions pi ["vendor:pi"]
 agentPermissions none []
