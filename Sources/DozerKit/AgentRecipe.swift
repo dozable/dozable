@@ -87,6 +87,8 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var terms: String?
     /// 617: where it stands with its maker (nil: current).
     public var lifecycle: AgentLifecycle?
+    /// 617: its product mark in the icon registry (`Recipes/icons/icons.json`) — resolved product → vendor → a lettermark.
+    public var icon: String?
     /// The date the recipe was last checked against the real agent.
     public var checked: String?
     /// The settings keys it uses (nil: derived — `images.<id>_version`, `<id>.permissions`).
@@ -103,7 +105,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var tags: [RecipeTag]
 
     enum CodingKeys: String, CodingKey {
-        case lifecycle, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
+        case lifecycle, icon, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
              network, status, prompt, resume, verify, terms, checked, settings, auth, gateways, tags
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
@@ -884,6 +886,9 @@ public enum AgentRecipes {
             }
             if r.network.model.shared != true, !models.insert(r.network.model.id).inserted {
                 throw SandboxError.invalidSpec("\(r.id): its model permission \(r.network.model.id) is another recipe's")
+            }
+            if let i = r.icon, AgentIcons.entry(i)?.kind != "product" {
+                throw SandboxError.invalidSpec("\(r.id): icon \(i) is not a product in Recipes/icons/icons.json")
             }
         }
     }

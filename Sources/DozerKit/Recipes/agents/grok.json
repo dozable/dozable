@@ -3,6 +3,7 @@
   "id": "grok",
   "title": "Grok Build",
   "publisher": "xAI",
+  "icon": "grok-build",
   "licence": "Apache-2.0",
   "homepage": "https://github.com/xai-org/grok-build",
   "default_base": "debian",

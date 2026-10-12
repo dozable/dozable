@@ -3,6 +3,7 @@
   "id": "gemini",
   "title": "Gemini CLI",
   "publisher": "Google",
+  "icon": "gemini-cli",
   "licence": "Apache-2.0",
   "homepage": "https://github.com/google-gemini/gemini-cli",
   "default_base": "node",

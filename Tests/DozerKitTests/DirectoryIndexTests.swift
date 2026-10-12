@@ -76,4 +76,19 @@ final class DirectoryIndexTests: XCTestCase {
         k.status = "maybe"
         XCTAssertThrowsError(try KnownThings.validate([k]))
     }
+
+    /// 617: every agent carries its mark (a website draws it from `d`, or fetches `mono` beside the index); providers
+    /// with a vendor carry the vendor's; a base none.
+    func testEveryAgentCarriesItsMark() throws {
+        let i = DirectoryIndex.build(version: "0.0.0")
+        for e in i.entries where e.kind == "agent" {
+            let m = try XCTUnwrap(e.icon, e.id)
+            XCTAssertFalse(m.d.isEmpty, e.id)
+            if let f = m.mono { XCTAssertNotNil(AgentIcons.files[String(f.dropFirst("icons/".count))], f) }
+        }
+        XCTAssertEqual(i.entries.first { $0.kind == "agent" && $0.id == "grok" }?.icon?.id, "grok-build")
+        XCTAssertEqual(i.entries.first { $0.kind == "provider" && $0.id == "xai" }?.icon?.id, "xai")
+        XCTAssertNil(i.entries.first { $0.kind == "base" }?.icon)
+        XCTAssertEqual(try DirectoryIndex.decode(try i.encoded()), i, "the strict decoder reads it back")
+    }
 }

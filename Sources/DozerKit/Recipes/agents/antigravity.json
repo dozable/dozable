@@ -4,6 +4,7 @@
   "aliases": ["agy"],
   "title": "Antigravity CLI",
   "publisher": "Google",
+  "icon": "antigravity",
   "licence": "Proprietary (Google Antigravity terms)",
   "homepage": "https://antigravity.google",
   "default_base": "debian",

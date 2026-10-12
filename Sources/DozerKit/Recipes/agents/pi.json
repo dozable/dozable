@@ -3,6 +3,7 @@
   "id": "pi",
   "title": "pi",
   "publisher": "Mario Zechner",
+  "icon": "pi",
   "licence": "MIT",
   "homepage": "https://github.com/earendil-works/pi",
   "builtin": true,

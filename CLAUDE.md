@@ -1648,6 +1648,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   block it), each with its reason: denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
   set from the policy by `EgressProxy.policy`; `PermissionReport` skips it). `localhost` (RFC 6761) is answered by the
   proxy's DNS as the loopback, never judged or logged.
+- **The icon registry** (`Recipes/icons/`: `icons.json` + one mono SVG per entry, `AgentIcons.swift`; docs/DOZERKIT.md
+  says how to add one): vendor and product marks, a recipe's `icon` names its product; resolution product → vendor →
+  a generated lettermark (never blank). A mono file is ONE currentColor path (`MonoSVG.check`, byte-exact); `allowed`
+  official | lettermark, with the source, the brand terms checked and the date. Every mark is a Dozer lettermark today
+  (`Lettermark`, stroke letters — the file must be exactly what it draws: `AgentIconsTests` draws an empty one). Colour:
+  `variants.color`/`color-dark` accepted, never drawn yet. The directory index carries each entry's `icon`.
 - **Gemini CLI's `SANDBOX` is NOT set** (checked against 0.63.0's bundle, `probes/617-*/stageE/gemini-sandbox-env.py`).
   It is more than a label. Any value:
   - skips the relaunch that raises Node's heap to half the VM's memory (512 MiB instead of 1 GiB on 2 GiB);
@@ -1718,7 +1724,16 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
-- **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — a modal like `#/new`; `views/try.js`, `WebTry.swift`): `GET
+- **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal made FULL-PAGE (`.wiz-modal.full`: it
+  covers the nav; Esc/Close return to where it was opened; the app inert); `views/try.js`, `WebTry.swift`). The owner's
+  redesign (mock 616 quick-try-v2): two panes — search (`core/agent-search.js`: `DirectorySearch`'s matching ported, +
+  fuzzy within one word, + its did-you-mean) with pills (Ready · Open source · Current · Headless · Through a gateway,
+  AND) and the count over the results (cards | list, `localStorage doz.tryView` in try/catch; superseded, then coming,
+  last), the chosen agent on the right; `/` ↑ ↓ Enter; stacked below 760 px with a back control. Search and pills
+  redraw IN PLACE (`paint`) so the search box keeps focus; a full `renderModal` only re-reads. The catalog carries each
+  agent's mark (`AgentIcons.resolve` → `ResolvedIcon`, drawn by `dom/icons.js mark()` from its path — never fetched,
+  no markup parsed) and the pills' facts (`ready`, `openSource`, `headless`, `gateway`, `current`, `version`, `age`).
+  `probes/617-*/stageE/browser-quick-try.mjs` (screenshots 10–16). `GET
   /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
   `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). It makes the try with the
   ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a

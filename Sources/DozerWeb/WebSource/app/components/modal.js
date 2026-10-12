@@ -35,6 +35,8 @@ export function openWizardModal(v, fromPage) {
     $('wiz-modal').hidden = false;
     document.body.classList.add('modal-open');
   }
+  // 617 (owner): Quick try is a FULL-PAGE modal — it covers the whole app, the left nav included.
+  $('wiz-modal').classList.toggle('full', v === 'try');
   paintNav();
   if (was !== v || v === 'try' || !$('wm-box').firstChild) renderModal(true);
 }
@@ -43,6 +45,7 @@ export function closeWizardModal() {
   if (state.modal === 'onboarding') wizardStopPolling();
   state.modal = null;
   $('wiz-modal').hidden = true;
+  $('wiz-modal').classList.remove('full');
   $('wm-box').replaceChildren();
   document.body.classList.remove('modal-open');
   modalInert(false);
@@ -75,7 +78,7 @@ export function wizMount(node, focus) {
   const cur = strip && strip.querySelector('li.current');
   if (cur) strip.scrollLeft = Math.max(0, cur.offsetLeft - (strip.clientWidth - cur.offsetWidth) / 2);
   if (!focus) return;
-  const f = box.querySelector('.w-body input:not([type=hidden]):not([disabled]):not([type=radio]), .w-body select, .w-body textarea, .w-body button.base-card');
+  const f = box.querySelector('[data-try-search], .w-body input:not([type=hidden]):not([disabled]):not([type=radio]), .w-body select, .w-body textarea, .w-body button.base-card');
   (f || box).focus();
 }
 /// The modal's header: the title (its label), what the wizard offers there, ✕; the step strip under it.
@@ -95,7 +98,7 @@ function wizDirty() {
   if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step > WIZ.checks && w.step < WIZ.preparing; }
   return false;
 }
-function wizardCloseRequest() {
+export function wizardCloseRequest() {
   if (!state.modal) return;
   const leave = () => {
     if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;

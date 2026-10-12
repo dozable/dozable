@@ -1084,8 +1084,28 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         /// 617: its standing with its maker when not current (the note), and what replaces it.
         public var standing: String? = nil
         public var supersededBy: String? = nil
+        /// 617 (the Quick try redesign): its mark from the icon registry (product → vendor → a lettermark; drawn from
+        /// `d`, never fetched), what the search matches (`aliases`, the supported `tags`), and the pills' facts.
+        public var icon: ResolvedIcon? = nil
+        public var aliases: [String] = []
+        public var tags: [String] = []
+        public var openSource = false
+        public var headless = false
+        /// Works through a model gateway (documented or verified for at least one).
+        public var gateway = false
+        /// Current with its maker (not superseded or retired).
+        public var current = true
+        /// Its key is there and nothing else blocks it: Start works now.
+        public var ready = false
+        /// The version Dozer installs, and how long ago its latest release came out ("4 days"), when measured.
+        public var version: String? = nil
+        public var age: String? = nil
     }
-    public struct Coming: Codable, Equatable, Sendable { public var id: String; public var title: String; public var publisher: String; public var reason: String }
+    public struct Coming: Codable, Equatable, Sendable {
+        public var id: String; public var title: String; public var publisher: String; public var reason: String
+        public var aliases: [String] = []
+        public var icon: ResolvedIcon? = nil
+    }
     public var agents: [Agent]
     public var coming: [Coming]
     /// `ui.allow_secret_entry` (and a secure enough connection): a key may be pasted here.

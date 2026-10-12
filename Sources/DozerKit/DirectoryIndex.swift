@@ -104,10 +104,13 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         public var lifecycle: AgentLifecycle? = nil
         /// 617: its latest release as this Mac last saw it (measured — never in the built-in index; `build(currency:)`).
         public var latest: Latest? = nil
+        /// 617: its mark in the icon registry (an agent: product → vendor → a generated lettermark; a provider: its
+        /// vendor's, when there is one). Additive: absent for a base.
+        public var icon: IconRef? = nil
 
         enum CodingKeys: String, CodingKey {
             case kind, id, title, publisher, aliases, status, reason, checked, since, limits, keys, reach, install, terms, homepage, auth, gateways, tags, agents
-            case lifecycle, latest
+            case lifecycle, latest, icon
             case defaultBase = "default_base", tryCommand = "try"
         }
     }
@@ -122,6 +125,23 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         public var deprecated: String?
         public init(version: String, released: String?, freshness: String?, deprecated: String?) {
             self.version = version; self.released = released; self.freshness = freshness; self.deprecated = deprecated
+        }
+    }
+
+    /// 617: a mark — what a reader needs to draw it. `mono` is the registry file, RELATIVE to the index (a website
+    /// publishes `Recipes/icons/` beside `index.json`; nil for a generated lettermark, which a reader draws from `d`).
+    public struct IconRef: Codable, Sendable, Equatable {
+        public var id: String
+        /// `product` | `vendor` | `generated`.
+        public var kind: String
+        /// `official` | `lettermark`.
+        public var allowed: String
+        public var mono: String?
+        public var viewBox: String
+        public var d: String
+        public var stroke: Double?
+        public init(_ m: ResolvedIcon) {
+            id = m.id; kind = m.kind; allowed = m.allowed; mono = m.mono; viewBox = m.viewBox; d = m.d; stroke = m.stroke
         }
     }
 
@@ -189,7 +209,8 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         entries += known.map { k in
             Entry(kind: "agent", id: k.id, title: k.title, publisher: k.publisher, aliases: (k.aliases ?? []).sorted(), status: k.status, reason: k.reason,
                   checked: k.checked, since: nil, limits: [], keys: [], reach: nil, install: nil, defaultBase: nil, terms: nil, tryCommand: nil,
-                  homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil, lifecycle: k.lifecycle)
+                  homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil, lifecycle: k.lifecycle,
+                  icon: IconRef(AgentIcons.resolve(icon: nil, publisher: k.publisher, title: k.title)))
         }
         for p in KeyProviders.all {
             let users = recipes.filter { $0.credentials.contains { $0.provider == p.id } }.map(\.id).sorted()
@@ -197,7 +218,8 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
             entries.append(Entry(kind: "provider", id: p.id, title: p.title, publisher: nil, aliases: [], status: "supported", reason: nil, checked: nil,
                                  since: nil, limits: [], keys: [KeyRef(provider: p.id, accounts: ["key"])],
                                  reach: Reach(model: p.hosts.map { HostPaths(host: $0, paths: nil) }, update: [], excluded: []),
-                                 install: nil, defaultBase: nil, terms: nil, tryCommand: nil, homepage: page, auth: [], gateways: [], tags: [], agents: users))
+                                 install: nil, defaultBase: nil, terms: nil, tryCommand: nil, homepage: page, auth: [], gateways: [], tags: [], agents: users,
+                                 icon: AgentIcons.vendor(p.id).map(IconRef.init)))
         }
         for b in BaseCatalogue.all {
             let on = recipes.filter { !b.musl || $0.platforms.musl }.map(\.id).sorted()
@@ -231,7 +253,8 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                      auth: r.auth.methods.map { AuthFact(kind: $0.kind, provider: $0.provider, keysPage: $0.keysPage, freeTier: $0.freeTier,
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gateways.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason) },
-                     tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle)
+                     tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
+                     icon: IconRef(AgentIcons.resolve(r)))
     }
 
     // MARK: bytes

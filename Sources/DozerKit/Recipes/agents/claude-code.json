@@ -3,6 +3,7 @@
   "id": "claude-code",
   "title": "Claude Code",
   "publisher": "Anthropic",
+  "icon": "claude-code",
   "licence": "proprietary",
   "homepage": "https://code.claude.com",
   "aliases": ["claude"],

@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "icons": [
+    {
+      "id": "anthropic", "kind": "vendor", "name": "Anthropic",
+      "variants": { "mono": "anthropic.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://www.anthropic.com/legal/trademark-guidelines",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Anthropic's marks may be used only as it permits, in materials it approves beforehand, and never altered (colour included) — so not its mark, a neutral lettermark.",
+      "lettermark": { "text": "A", "frame": "square" }
+    },
+    {
+      "id": "openai", "kind": "vendor", "name": "OpenAI",
+      "variants": { "mono": "openai.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://openai.com/brand/",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "OpenAI's brand guidelines license its marks only on their terms and send logo use to its partner communications team for permission — so a neutral lettermark. (The page refused a direct fetch; read from its indexed text.)",
+      "lettermark": { "text": "OA", "frame": "circle" }
+    },
+    {
+      "id": "google", "kind": "vendor", "name": "Google",
+      "variants": { "mono": "google.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://partnermarketinghub.withgoogle.com/brands/google/trademarks-and-terms/trademark-guidelines-for-proper-usage/",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Google's brand features need its approval and Google-approved artwork, never altered — so a neutral lettermark.",
+      "lettermark": { "text": "G", "frame": "hex" }
+    },
+    {
+      "id": "xai", "kind": "vendor", "name": "xAI",
+      "variants": { "mono": "xai.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://x.ai/legal/brand-guidelines",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "xAI's guidelines allow its marks only to refer to it accurately and publish no licence for its logos in another maker's app — so, conservatively, a neutral lettermark. (The page refused a direct fetch; read from its indexed text.)",
+      "lettermark": { "text": "X", "frame": "diamond" }
+    },
+    {
+      "id": "claude-code", "kind": "product", "name": "Claude Code", "vendor": "anthropic",
+      "variants": { "mono": "claude-code.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://www.anthropic.com/legal/trademark-guidelines",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Anthropic's terms, as for its own mark.",
+      "lettermark": { "text": "CC", "frame": "square" }
+    },
+    {
+      "id": "codex", "kind": "product", "name": "Codex", "vendor": "openai",
+      "variants": { "mono": "codex.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://openai.com/brand/",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "OpenAI's terms, as for its own mark.",
+      "lettermark": { "text": "Cx", "frame": "circle" }
+    },
+    {
+      "id": "antigravity", "kind": "product", "name": "Antigravity CLI", "vendor": "google",
+      "variants": { "mono": "antigravity.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://partnermarketinghub.withgoogle.com/brands/google/trademarks-and-terms/trademark-guidelines-for-proper-usage/",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Google's terms, as for its own mark.",
+      "lettermark": { "text": "A", "frame": "hex" }
+    },
+    {
+      "id": "gemini-cli", "kind": "product", "name": "Gemini CLI", "vendor": "google",
+      "variants": { "mono": "gemini-cli.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://partnermarketinghub.withgoogle.com/brands/google/trademarks-and-terms/trademark-guidelines-for-proper-usage/",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Google's terms, as for its own mark (the CLI's code is Apache-2.0; that licence grants no trademark rights).",
+      "lettermark": { "text": "Gm", "frame": "hex" }
+    },
+    {
+      "id": "grok-build", "kind": "product", "name": "Grok Build", "vendor": "xai",
+      "variants": { "mono": "grok-build.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://x.ai/legal/brand-guidelines",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "xAI's terms, as for its own mark.",
+      "lettermark": { "text": "G", "frame": "diamond" }
+    },
+    {
+      "id": "pi", "kind": "product", "name": "pi",
+      "variants": { "mono": "pi.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/earendil-works/pi",
+      "allowed": "lettermark", "checked": "2026-10-13",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and the project publishes no logo terms — so a neutral lettermark.",
+      "lettermark": { "text": "π", "frame": "octagon" }
+    }
+  ]
+}

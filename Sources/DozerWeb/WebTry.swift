@@ -86,13 +86,35 @@ extension WebTryCatalog {
                           base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card)
             a.latest = currency[r.id]?.line
             if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
+            a.icon = AgentIcons.resolve(r)
+            a.aliases = (r.aliases ?? []).sorted()
+            a.tags = r.capabilityTags.filter { ["documented", "verified"].contains($0.level) }.map(\.tag)
+            a.openSource = r.hasTag("open-source")
+            a.headless = r.hasTag("headless")
+            a.gateway = r.gateways.contains { ["documented", "verified"].contains($0.level) }
+            a.current = r.lifecycle?.isCurrent ?? true
+            a.ready = card == nil && !p.problems.contains { $0.code != "key" }
+            a.version = r.install.pinned.version.split(separator: "+").first.map(String.init)
+            a.age = currency[r.id]?.ageDays.map(Self.age)
             agents.append(a)
         }
         // 617: a superseded or retired agent comes after the current ones (still selectable).
         agents = agents.filter { $0.standing == nil } + agents.filter { $0.standing != nil }
         let coming = KnownThings.all.filter { $0.status != "supported" }
-            .map { Coming(id: $0.id, title: $0.title, publisher: $0.publisher ?? "", reason: $0.reason) }
+            .map { Coming(id: $0.id, title: $0.title, publisher: $0.publisher ?? "", reason: $0.reason, aliases: ($0.aliases ?? []).sorted(),
+                          icon: AgentIcons.resolve(icon: nil, publisher: $0.publisher, title: $0.title)) }
         return WebTryCatalog(agents: agents, coming: coming, secretEntry: secretEntry)
+    }
+
+    /// "today", "1 day", "12 days", "5 weeks", "3 months" — how long ago a release came out.
+    static func age(_ days: Int) -> String {
+        switch days {
+        case ..<1: return "today"
+        case 1: return "1 day"
+        case ..<28: return "\(days) days"
+        case ..<70: return "\(days / 7) weeks"
+        default: return "\(days / 30) months"
+        }
     }
 }
 

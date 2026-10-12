@@ -259,8 +259,12 @@ index (`--force` replaces a file). One object `{format, generated, dozer: {versi
 since, limits [{with, reason}], keys [{provider, accounts}], reach {model, update, excluded}, install {kind, version,
 source}, default_base, terms, try, homepage, auth, gateways [{gateway, level, reason}], tags [{tag, level}], agents,
 lifecycle {status (current | superseded | retired | discontinued), by, note, source, checked}, latest {version,
-released, freshness, deprecated}}` — `lifecycle` is recorded in the data, `latest` is measured on the Mac that writes
-the index (the host's hourly registry check; absent before one).
+released, freshness, deprecated}, icon {id, kind (product | vendor | generated), allowed (official | lettermark), mono,
+viewBox, d, stroke}}` — `lifecycle` is recorded in the data, `latest` is measured on the Mac that writes the index (the
+host's hourly registry check; absent before one), `icon` is the entry's mark from the icon registry (below): `d` to draw
+it at once, `mono` the registry file relative to the index (`icons/codex.svg`) for a website that publishes
+`Recipes/icons/` beside `index.json` (617.B4's landing pages); a base has none. `icon` went into v1 as an optional field
+before anything reads or fetches the index (phase 1 writes it, unsigned) — the one exception to "a new field is v2".
 
 **Recipe additions (617):** an install kind `manifest-binary` (a vendor's own release manifest `{version, url, sha512}`,
 read on the Mac; the release recorded as `<version>+<build>`, the sha512 as its integrity); `network.vendor` (the hosts
@@ -276,6 +280,34 @@ start and a short task called, each with a determination the unit tests check th
 - **Signing (later):** `index.json` + `index.json.sig`, Ed25519 over `"dozer-directory/v1\n"` followed by the exact
   bytes, with the update feed's key (`Distribution.updatePublicKey`) — the prefix keeps a feed signature from ever
   passing as an index's. Phase 1 writes it unsigned and fetches nothing.
+
+## The icon registry (`Recipes/icons/`)
+
+ONE registry of vendor and product marks, beside the recipes (owner: "b&w only initially — support for colour later"):
+`Recipes/icons/icons.json` and one SVG per variant, compiled in (`AgentIcons`, `Sources/DozerKit/AgentIcons.swift`).
+
+- **Entries:** `{id, kind (vendor | product), name, vendor (a product's maker; none for pi), variants {mono, color?,
+  color-dark?}, source, terms, allowed (official | lettermark), checked, notes, lettermark {text, frame}}`.
+- **Resolution:** a recipe names its product (`"icon": "codex"`); `AgentIcons.resolve` gives the product's mark, else its
+  vendor's (or the vendor whose name is the recipe's publisher), else a lettermark of the title drawn on the spot — never
+  blank. The dashboard's Quick try and the directory index use it; the dashboard draws each mark from its path data
+  (embedded in the catalog — no fetch, no markup parsed).
+- **Mono files** are ONE `<path>` in `currentColor` under a viewBox — stroked (`fill="none" stroke="currentColor"
+  stroke-width stroke-linecap=round stroke-linejoin=round`) or filled (`fill="currentColor"`) — and nothing else: no
+  colour, no script, no reference, no text, no second element (`MonoSVG.check`, byte-exact).
+- **`allowed`:** `official` is the maker's own mark, used only as its brand terms allow and never altered beyond making it
+  monochrome (its `source` and `terms` URLs required); `lettermark` is Dozer's neutral mark — letters drawn as strokes
+  by `Lettermark` (a small built-in stroke alphabet, five frames), and the file must be exactly what it draws. Every
+  entry records the brand terms checked and the date. As of 2026-10-13 every mark is a lettermark: Anthropic, Google
+  and OpenAI require approval for their marks and forbid altering them (colour included); xAI publishes no licence for
+  its logos in another maker's app; pi's MIT licence covers its code, not a mark.
+- **Adding one:** add the entry to `icons.json` (a lettermark: its `lettermark` spec and an EMPTY file `NAME.svg`), add
+  the `.embedInCode("Recipes/icons/NAME.svg")` line to Package.swift and the file to `AgentIcons.files`, then run
+  `AgentIconsTests`: it draws an empty lettermark file and fails once (review it, commit, re-run). An official mark:
+  make the maker's SVG one `currentColor` path (nothing else changed), set `allowed: official`, `source` and `terms`.
+  `AgentIconsTests` checks the folder, the manifest and the package agree, every file's shape, and every recipe resolving.
+- **Colour later:** `variants.color` and `variants.color-dark` are accepted by the schema and validated as files now;
+  nothing draws them yet. A reader that adds colour picks `color`/`color-dark` when present and falls back to `mono`.
 
 ## Dependencies
 

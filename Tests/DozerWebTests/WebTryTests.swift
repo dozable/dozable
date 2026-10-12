@@ -112,6 +112,39 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(g.latest, "latest: not checked yet")
     }
 
+    /// The redesign (617 item 5): each agent carries its registry mark (drawn from its path — never fetched), what the
+    /// search matches, and the pills' facts; a coming one its mark too.
+    func testTheCatalogCarriesMarksAndThePillsFacts() async throws {
+        let catalog = await WebTryCatalog.build(plan: { r in
+            var p = CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)
+            p.problems = r.create.image == "grok" ? [PlanProblem(code: "key", text: "needs a key", fix: "doz account add NAME --provider xai")] : []
+            return WebPlan(p)
+        }, secretEntry: true)
+        let by = Dictionary(uniqueKeysWithValues: catalog.agents.map { ($0.id, $0) })
+        for a in catalog.agents {
+            let m = try XCTUnwrap(a.icon, a.id)
+            XCTAssertEqual(m.kind, "product", a.id)
+            XCTAssertFalse(m.d.isEmpty)
+            XCTAssertNotNil(a.version, a.id)
+        }
+        XCTAssertEqual(by["grok"]?.icon?.id, "grok-build")
+        XCTAssertEqual(by["antigravity"]?.aliases, ["agy"], "the search finds it by its alias")
+        XCTAssertEqual(by["codex"]?.openSource, true)
+        XCTAssertEqual(by["claude-code"]?.openSource, false)
+        XCTAssertEqual(by["antigravity"]?.headless, true)
+        XCTAssertEqual(by["gemini"]?.current, false, "superseded")
+        XCTAssertEqual(by["antigravity"]?.current, true)
+        XCTAssertEqual(by["grok"]?.ready, false, "no key: not ready")
+        XCTAssertEqual(by["codex"]?.ready, true)
+        XCTAssertEqual(by["antigravity"]?.version, "1.3.3", "the pinned version, without its build")
+        XCTAssertTrue(catalog.coming.allSatisfy { $0.icon != nil }, "a coming agent has a mark (its vendor's, or a lettermark)")
+        XCTAssertEqual(WebTryCatalog.age(0), "today")
+        XCTAssertEqual(WebTryCatalog.age(1), "1 day")
+        XCTAssertEqual(WebTryCatalog.age(12), "12 days")
+        XCTAssertEqual(WebTryCatalog.age(35), "5 weeks")
+        XCTAssertEqual(WebTryCatalog.age(100), "3 months")
+    }
+
     /// A start's progress for the terminal area: steps in plain words, the one under way, a short tail — raw build output
     /// never becomes the operation's one-line text (the header strip).
     func testAStartsProgressIsStepsInPlainWordsAndATail() {

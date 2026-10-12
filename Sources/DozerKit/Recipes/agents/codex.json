@@ -3,6 +3,7 @@
   "id": "codex",
   "title": "Codex",
   "publisher": "OpenAI",
+  "icon": "codex",
   "licence": "Apache-2.0",
   "homepage": "https://github.com/openai/codex",
   "builtin": true,

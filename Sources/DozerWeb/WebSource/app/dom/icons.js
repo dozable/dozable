@@ -34,6 +34,24 @@ export function icon(name) {
   svg.append(use);
   return svg;
 }
+/// 617: an agent's or vendor's MARK from the icon registry (`ResolvedIcon`: a viewBox and one path, drawn in
+/// currentColor — stroked, or filled). Built from the path data with createElementNS (never parsed markup); decorative
+/// (the name is always in the text beside it).
+export function mark(m, cls) {
+  const span = h('span', { class: 'mark' + (cls ? ' ' + cls : ''), 'aria-hidden': 'true', 'data-mark': m ? m.id : '' });
+  if (!m || !m.d) return span;
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', m.viewBox || '0 0 48 48');
+  svg.setAttribute('focusable', 'false');
+  const p = document.createElementNS(SVG_NS, 'path');
+  p.setAttribute('d', m.d);
+  if (m.stroke) {
+    for (const [k, v] of [['fill', 'none'], ['stroke', 'currentColor'], ['stroke-width', String(m.stroke)], ['stroke-linecap', 'round'], ['stroke-linejoin', 'round']]) p.setAttribute(k, v);
+  } else p.setAttribute('fill', 'currentColor');
+  svg.append(p);
+  span.append(svg);
+  return span;
+}
 /// A label's icon: the exact label, else its first word; the fallback is a visible "missing" (the probe fails on it).
 const ICON_EXACT = {
   'open in terminal': 'square-terminal', 'set the default to none': 'ban', 'make default': 'star', 'save as template…': 'layout-template',

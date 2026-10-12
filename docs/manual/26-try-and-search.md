@@ -67,19 +67,29 @@ keeps it, and prints how to attach. With no key it stops and says how to add one
 ## In the dashboard: Quick try
 
 **Quick try** (beside New sandbox on the Sandboxes page, or `#/try` and `#/try/grok` in the address bar) is the same
-try in the browser, with the same defaults and the same plan:
+try in the browser, with the same defaults and the same plan. It covers the whole window; **Close** (or Esc) returns
+to where you opened it.
 
-- **The agents**, each with its base and its key (or "needs an xAI key"). The ones that are coming are shown dimmed,
-  each saying why.
-- **What you need**, when there is no key for that agent's provider: paste a key in a masked field (kept in your
-  Mac's keychain; turned off with `ui.allow_secret_entry = false`), or the command to run for a key you keep in
-  1Password, AWS or a program — those are set up in a terminal only. A sign-in that cannot work in a sandbox is said,
-  not offered.
-- **Its image** starts preparing as soon as you pick the agent, while you deal with the key.
-- **The defaults**, said: its name, base, network, its new empty folder (not one of yours) and what reaches your Mac
-  (clipboard, files, links) — and the same as a command, to copy (`doz try grok`), and what it can reach.
-- **Create and open** makes it, starts it with the boot view and opens its session in a terminal on its page. A try's
-  page says **Sleep (hibernate)** · **Delete…** · **Keep** — Delete removes its folder too when it is empty.
+- **Search and filters** on the left: type a name, a maker, an alias or `tag:headless` — the same matching as
+  `doz search`, and forgiving (`agy` finds Antigravity CLI). The pills narrow it — **Ready** (its key is here),
+  **Open source**, **Current**, **Headless**, **Through a gateway** — all of them at once when several are on. The
+  count says how many match; when none do, it says so, suggests a near name, and clears in one click. Superseded
+  agents, then the ones that are coming, come last.
+- **Cards or a list**: the toggle beside the count; the dashboard remembers your choice in this browser.
+- **Each agent's mark** is a plain black-and-white sign — a neutral lettermark, not the maker's logo (their brand terms
+  do not allow it here).
+- **The chosen agent** on the right: its version and how long ago it was released, whether it is current (a
+  superseded one says what replaced it, with a link to try that instead), **What you need** — its key, or, when there
+  is none: paste one in a masked field (kept in your Mac's keychain; turned off with `ui.allow_secret_entry = false`),
+  or the command to run for a key you keep in 1Password, AWS or a program. Then **the plan** (its name, base, network,
+  its new empty folder — not one of yours — and what reaches your Mac), the same as a command to copy (`doz try grok`),
+  and what it can reach.
+- **Nothing is prepared while you browse.** **Start** makes it, starts it and opens its session: a first start
+  prepares its image, and its terminal area shows the progress (the steps, the one under way and the last lines of the
+  build) until the session is there. A try's page says **Sleep (hibernate)** · **Delete…** · **Keep** — Delete removes
+  its folder too when it is empty.
+- **Keyboard:** `/` searches, ↑ and ↓ move through the results, Enter starts. On a phone the list comes first and an
+  agent opens its details, with a back control.
 
 `doz try --ui grok` opens it from a terminal: it starts `doz ui` in the background when none runs; with a dashboard
 page already open, that page goes to the Quick try (no new tab, as `ui.open_browser` says); otherwise a new one opens

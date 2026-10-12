@@ -104,6 +104,18 @@ let package = Package(
                 .embedInCode("Recipes/gateways.json"),
                 .embedInCode("Recipes/tags.json"),
                 .embedInCode("Recipes/known.json"),
+                // 617: the icon registry (Recipes/icons/: icons.json + one mono SVG per entry; AgentIconsTests ties it to the folder).
+                .embedInCode("Recipes/icons/icons.json"),
+                .embedInCode("Recipes/icons/anthropic.svg"),
+                .embedInCode("Recipes/icons/openai.svg"),
+                .embedInCode("Recipes/icons/google.svg"),
+                .embedInCode("Recipes/icons/xai.svg"),
+                .embedInCode("Recipes/icons/claude-code.svg"),
+                .embedInCode("Recipes/icons/codex.svg"),
+                .embedInCode("Recipes/icons/antigravity.svg"),
+                .embedInCode("Recipes/icons/gemini-cli.svg"),
+                .embedInCode("Recipes/icons/grok-build.svg"),
+                .embedInCode("Recipes/icons/pi.svg"),
             ]
         ),
         // 599g — the `.dozignore` matcher in C (Docker's patternmatcher + an RE2-subset engine + Unicode
