@@ -257,7 +257,18 @@ separate `local` object: your key and image state, never in the index); `doz sea
 index (`--force` replaces a file). One object `{format, generated, dozer: {version}, entries}`; an entry is `{kind
 (agent | provider | base), id, title, publisher, aliases, status (supported | coming | not-possible), reason, checked,
 since, limits [{with, reason}], keys [{provider, accounts}], reach {model, update, excluded}, install {kind, version,
-source}, default_base, terms, try, homepage, auth, gateways [{gateway, level, reason}], tags [{tag, level}], agents}`.
+source}, default_base, terms, try, homepage, auth, gateways [{gateway, level, reason}], tags [{tag, level}], agents,
+lifecycle {status (current | superseded | retired | discontinued), by, note, source, checked}, latest {version,
+released, freshness, deprecated}}` — `lifecycle` is recorded in the data, `latest` is measured on the Mac that writes
+the index (the host's hourly registry check; absent before one).
+
+**Recipe additions (617):** an install kind `manifest-binary` (a vendor's own release manifest `{version, url, sha512}`,
+read on the Mac; the release recorded as `<version>+<build>`, the sha512 as its integrity); `network.vendor` (the hosts
+an agent calls on its own maker's sites at a normal start, each with a reason — a hidden `vendor:<id>` permission),
+`network.quiet` (what it calls that no setting of its own stops: refused, logged, never counted), `network.off_without`
+(its own switches set when a permission is off), `launch.session_env` (set at session open, never baked), and
+`lifecycle`. Each recipe's network is profiled (`profiles/AGENT.json`, `make profile-agents`): every endpoint its first
+start and a short task called, each with a determination the unit tests check the recipe against.
 
 - **Closed:** `DirectoryIndex.decode` refuses an unknown field and another format; a new field is `v2` beside `v1`.
 - **Deterministic:** entries sorted by kind then id, sorted keys; `generated` is the newest `checked` date of the data.
