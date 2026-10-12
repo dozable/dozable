@@ -103,6 +103,9 @@ sign-up code is not open source (what may be sent, and every switch, is: `Source
   from a sandbox, and what they do not.
 - [DozerKit](docs/DOZERKIT.md) — the Swift engine underneath, for developers: the lifecycle, lineage,
   memory, the proxied network, the host process, and how to depend on it.
+- [The dashboard style guide](docs/style-guide/index.html) — a living specimen of the dashboard's look, drawn by its
+  real stylesheet, icons and marks (serve the repository root, e.g. `python3 -m http.server`, and open
+  `/docs/style-guide/`).
 
 ## Building from source
 

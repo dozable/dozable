@@ -529,8 +529,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   statements and wrote each, byte for byte, into the module `map.mjs` names; `verify-move.mjs` proves every
   statement and comment line is kept exactly once. New code goes into the module of its area; a new module is a
   file in its layer's directory, imported by what uses it (and by `app.js` if nothing else does).
-- **The look is the 603 style guide** (the design notes; its decisions in
-  603.02-PLAN.md). Keep to it when adding UI:
+- **The look is the dashboard style guide, `docs/style-guide/index.html`** — a LIVING specimen: it loads the real
+  `WebSource/app.css`, the vendored Lucide set (VENDOR.json) and the icon registry's marks, light and dark side by side
+  (view: `python3 -m http.server 8000` from the repo root, then http://localhost:8000/docs/style-guide/). **A change to
+  the dashboard's UI updates the style guide IN THE SAME COMMIT** — a new component gets a specimen, a changed one its
+  markup. Its own CSS (`style-guide.css`) lays out the specimens only and uses `sg-` names (`.sw` and `.row` are the
+  app's). Keep to it when adding UI:
   - **Tokens** only (`app.css` `:root`): every colour once, with `light-dark()` — `color-scheme` IS the theme
     (`ui.theme` sets `data-theme`); never a literal colour outside `:root` (the terminal chrome is `--term-*`;
     `frame.css` has its own `--term-bg`). Type `--fs-*` (13 px is THE UI size), space `--sp-*`, radii `--r-*`,

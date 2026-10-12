@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Style Guide</title>
+<!-- The dashboard's style guide: a LIVING specimen of the doz ui dashboard's look. It loads the dashboard's REAL stylesheet
+     (Sources/DozerWeb/WebSource/app.css — not a copy), its vendored Lucide icons (listed by
+     Sources/DozerWeb/WebSource/vendor/lucide-static/VENDOR.json) and the icon registry (Sources/DozerKit/Recipes/icons/),
+     so it shows what ships. The markup is what the components in Sources/DozerWeb/WebSource/app/ produce.
+
+     To view it, serve the repository root over HTTP (a file:// page cannot read the icon files):
+
+         python3 -m http.server 8000        (from the repository root)
+         open http://localhost:8000/docs/style-guide/
+
+     Rule: a change to the dashboard's UI updates this page in the same commit (CLAUDE.md). -->
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../../Sources/DozerWeb/WebSource/app.css">
+<link rel="stylesheet" href="style-guide.css">
+</head>
+<body>
+<div class="sg">
+<header>
+  <p class="sg-label">Dozer Sandbox · the dashboard (doz ui)</p>
+  <h1>Style guide — a living specimen</h1>
+  <p>Every sample on this page is drawn by the dashboard’s <b>real</b> stylesheet, <code>Sources/DozerWeb/WebSource/app.css</code>,
+    loaded in place, with the icons the dashboard vendors and the marks of its icon registry. The markup is what the components in
+    <code>Sources/DozerWeb/WebSource/app/</code> produce. Light and dark sit side by side — <code>color-scheme</code> is the theme, exactly as in the app.</p>
+  <p class="src">A change to the dashboard’s look updates this page in the same commit. A sample here that no longer matches the app is a bug in this page.</p>
+</header>
+
+<section>
+  <h2>Rules every piece of the dashboard keeps</h2>
+  <ol class="rules">
+    <li><b>Tokens only.</b> Every colour, size, radius, shadow and layer is a <code>var(--…)</code> from app.css <code>:root</code>, with <code>light-dark()</code>; no literal colour anywhere else.</li>
+    <li><b>13 px is the UI size</b> (<code>--fs-md</code>); 14 for prose in wizards and section titles; 16 for a step’s title; 20 for a page or modal title.</li>
+    <li><b>One button family</b> — default, <code>.primary</code>, <code>.quiet</code>, <code>.danger</code>, <code>.sm</code>/<code>.lg</code>, <code>.icon-only</code> (with aria-label). <b>One primary per view</b>: the verb that moves forward (Next, Create, Start).</li>
+    <li><b>One notice surface</b>: the callout (info · ok · warn · bad). A failure is said where the action started and stays; a toast is only for success.</li>
+    <li><b>Never colour alone</b>: a pill is glyph + word; a dimmed option says <i>why</i> in readable text (<code>--ink-2</code>, never <code>--ink-3</code>).</li>
+    <li><b>Wizards are the modal</b> (<code>.wiz-modal › .wm-box</code>): <code>wizHead</code> (title, ✕, the step strip), a scrolling <code>.w-body</code>, a footer that never leaves the screen. Quick try is the same modal made full-page (<code>.wiz-modal.full</code>) with a labelled Close.</li>
+    <li><b>Choices are cards</b> (<code>.wiz-choice</code>, <code>.base-card</code>, Quick try’s <code>.qt-item</code>): chosen = a ring; a segmented control for 2–4 short modes.</li>
+    <li><b>Icons are the vendored Lucide set only</b> (listed at the end). A new icon is a vendoring change (VENDOR.json). <b>Marks</b> (agents, vendors) come from the icon registry, monochrome, in <code>currentColor</code>.</li>
+    <li><b>Commands and files are shown exactly</b>, monospace, copyable, never holding a secret; a long file folds away behind a disclosure.</li>
+    <li><b>Light and dark</b> both work, and the theme is the app’s switch (<code>data-theme</code> on <code>&lt;html&gt;</code>; auto follows macOS). Text is set with <code>textContent</code>, never markup.</li>
+  </ol>
+</section>
+
+<section>
+  <h2>Tokens — colour</h2>
+  <p>Each swatch is drawn with the token itself; the values under the panels are read live from app.css.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-sw">
+      <div><i style="background:var(--bg)"></i><span>--bg</span></div>
+      <div><i style="background:var(--surface)"></i><span>--surface</span></div>
+      <div><i style="background:var(--surface-2)"></i><span>--surface-2</span></div>
+      <div><i style="background:var(--surface-3)"></i><span>--surface-3</span></div>
+      <div><i style="background:var(--ink)"></i><span>--ink</span></div>
+      <div><i style="background:var(--ink-2)"></i><span>--ink-2</span></div>
+      <div><i style="background:var(--ink-3)"></i><span>--ink-3 (decoration)</span></div>
+      <div><i style="background:var(--line)"></i><span>--line</span></div>
+      <div><i style="background:var(--line-strong)"></i><span>--line-strong</span></div>
+      <div><i style="background:var(--control)"></i><span>--control</span></div>
+      <div><i style="background:var(--accent)"></i><span>--accent</span></div>
+      <div><i style="background:var(--accent-tint)"></i><span>--accent-tint</span></div>
+      <div><i style="background:var(--focus)"></i><span>--focus</span></div>
+      <div><i style="background:var(--ok)"></i><span>--ok (running)</span></div>
+      <div><i style="background:var(--warn)"></i><span>--warn (paused)</span></div>
+      <div><i style="background:var(--bad)"></i><span>--bad (failed)</span></div>
+      <div><i style="background:var(--ph-asleep)"></i><span>--ph-asleep</span></div>
+      <div><i style="background:var(--ph-hibernated)"></i><span>--ph-hibernated</span></div>
+      <div><i style="background:var(--data-shared)"></i><span>--data-shared</span></div>
+    </div>
+  </div></div>
+  <p class="src" style="margin-top:8px">Source, e.g. <code>--accent</code> = <code data-token="--accent"></code> · <code>--bg</code> = <code data-token="--bg"></code> · <code>--ok</code> = <code data-token="--ok"></code></p>
+</section>
+
+<section>
+  <h2>Type, space, shape, elevation</h2>
+  <div class="pair"><div class="scheme">
+    <div class="type-row"><code>--fs-2xl 20</code><span style="font-size:var(--fs-2xl);font-weight:var(--fw-strong)">New sandbox</span></div>
+    <div class="type-row"><code>--fs-xl 16</code><span style="font-size:var(--fs-xl);font-weight:var(--fw-strong)">Agent — a step title</span></div>
+    <div class="type-row"><code>--fs-lg 14</code><span style="font-size:var(--fs-lg)">Wizard prose and section titles.</span></div>
+    <div class="type-row"><code>--fs-md 13</code><span>THE UI size: body, tables, controls.</span></div>
+    <div class="type-row"><code>--fs-sm 12</code><span style="font-size:var(--fs-sm);color:var(--ink-2)">Meta, help text, pills, small buttons.</span></div>
+    <div class="type-row"><code>--fs-xs 11</code><span style="font-size:var(--fs-xs);color:var(--ink-2)">Tags, counts, micro-labels.</span></div>
+    <div class="type-row"><code>--mono 12</code><code>doz new todo-app --agent grok</code></div>
+    <div class="space"><code>--sp-1…8</code>&nbsp; <i style="width:4px"></i><i style="width:6px"></i><i style="width:8px"></i><i style="width:12px"></i><i style="width:16px"></i><i style="width:20px"></i><i style="width:24px"></i><i style="width:32px"></i></div>
+    <div class="sg-row radii"><div style="border-radius:var(--r-xs)">r-xs 3</div><div style="border-radius:var(--r-sm)">r-sm 5</div><div style="border-radius:var(--r-md)">r-md 7</div><div style="border-radius:var(--r-lg)">r-lg 10</div><div style="border-radius:var(--r-xl)">r-xl 14</div></div>
+    <div class="sg-row elev"><div style="box-shadow:var(--shadow-1)">shadow-1</div><div style="box-shadow:var(--shadow-2)">shadow-2 menus</div><div style="box-shadow:var(--shadow-3)">shadow-3 modal</div></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Buttons and segmented controls</h2>
+  <p><code>btn(label, fn, {primary, quiet, danger, small, lg, iconOnly, icon})</code> — the icon comes from the label (<code>iconFor</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row">
+      <button class="btn lg primary" type="button"><span class="btn-label">Next</span><i data-i="arrow-right"></i></button>
+      <button class="btn" type="button"><i data-i="arrow-left"></i>Back</button>
+      <button class="btn quiet" type="button"><i data-i="skip-forward"></i>Skip to review</button>
+      <button class="btn danger" type="button"><i data-i="trash-2"></i>Remove…</button>
+      <button class="btn" type="button" disabled><i data-i="plus"></i>Create</button>
+    </div>
+    <div class="sg-row">
+      <button class="btn sm" type="button"><i data-i="folder"></i>Choose…</button>
+      <button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button>
+      <button class="btn sm primary" type="button"><i data-i="play"></i>Start</button>
+      <button class="btn quiet icon-only" type="button" aria-label="Close" title="Close"><i data-i="x"></i></button>
+      <button class="btn icon-only" type="button" aria-label="More" title="More"><i data-i="ellipsis"></i></button>
+      <button class="btn lg primary" type="button"><i data-i="rocket"></i>Start</button>
+    </div>
+    <div class="sg-row">
+      <div class="segmented" role="group" aria-label="Agent"><button type="button" class="seg active" aria-pressed="true"><i data-i="rocket"></i>Claude Code</button><button type="button" class="seg"><i data-i="rocket"></i>pi</button><button type="button" class="seg"><i data-i="rocket"></i>Codex</button><button type="button" class="seg"><i data-i="terminal"></i>none</button></div>
+      <div class="segmented" role="group" aria-label="Base"><button type="button" class="seg active"><i data-i="star"></i>Recommended</button><button type="button" class="seg"><i data-i="box"></i>Dockerfile</button><button type="button" class="seg" disabled><i data-i="layout-template"></i>Template</button></div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Pills, tags, agent chips</h2>
+  <p>A pill is a <i>state</i> (tinted, glyph + word); a tag is an <i>attribute</i> (square-ish, quiet); a chip is what the agent is doing.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row">
+      <span class="pill ph-running"><span class="dot ph-running"></span>running</span>
+      <span class="pill ph-booting"><span class="mini-spin"></span>starting …</span>
+      <span class="pill ph-paused"><i data-i="pause"></i>paused</span>
+      <span class="pill ph-asleep"><i data-i="moon+cpu"></i>asleep</span>
+      <span class="pill ph-hibernated"><i data-i="moon+cylinder"></i>hibernated</span>
+      <span class="pill ph-off"><i data-i="power"></i>off</span>
+      <span class="pill ph-failed"><i data-i="x"></i>failed</span>
+    </div>
+    <div class="sg-row">
+      <span class="tag">plain</span><span class="tag info">info</span><span class="tag ok">current</span><span class="tag warn">superseded</span><span class="tag bad">refused</span><span class="tag outline">headless</span>
+    </div>
+    <div class="sg-row">
+      <span class="ag-chip ag-working"><span class="ag-mark"></span>working</span>
+      <span class="ag-chip ag-blocked"><span class="ag-mark"></span>needs you</span>
+      <span class="ag-chip ag-done"><span class="ag-mark"></span>done</span>
+      <span class="ag-chip ag-error"><span class="ag-mark"></span>error</span>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Callouts — the one notice surface</h2>
+  <div class="pair"><div class="scheme">
+    <div class="callout info" role="status"><i data-i="info"></i><div class="c-body">Writing the file, then making the sandbox as <code>doz up</code> would there.</div></div>
+    <div class="callout ok" role="status"><i data-i="circle-check"></i><div class="c-body"><div class="c-title">Key read from 1Password</div>work-xai · op://Dev/xai/credential · 2 min ago</div></div>
+    <div class="callout warn" role="status"><i data-i="triangle-alert"></i><div class="c-body"><div class="c-title">Superseded by Antigravity CLI</div>Google retired Gemini CLI for personal accounts. <button type="button" class="linkish">Try Antigravity CLI instead</button></div></div>
+    <div class="callout bad" role="alert"><i data-i="circle-x"></i><div class="c-body"><div class="c-title">op is not signed in</div>Run <code>op signin</code> on this Mac, then Refresh.</div><div class="c-acts"><button class="btn sm" type="button"><i data-i="refresh-cw"></i>Refresh</button><button class="btn sm quiet icon-only" type="button" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+    <div class="callout info compact" role="status"><i data-i="info"></i><div class="c-body">A compact callout, for a line under a field.</div></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Forms and choices</h2>
+  <div class="pair"><div class="scheme">
+    <label class="field"><span>Sandbox name</span><input type="text" value="todo-app"><small>Its name in doz ls and the dashboard.</small></label>
+    <label class="field"><span>Network</span><select><option>agent — proxied: what the agent may do is its permissions</option></select></label>
+    <div class="sg-row"><label class="field check"><input type="checkbox" checked><span>A checkbox</span></label><label class="field check"><input type="checkbox" role="switch" checked><span>A switch (on)</span></label><label class="field check"><input type="checkbox" role="switch"><span>off</span></label></div>
+    <div class="wiz-choices">
+      <label class="wiz-choice chosen"><input type="radio" name="g1" checked><span>A new folder in your projects folder</span></label>
+      <label class="wiz-choice"><input type="radio" name="g1"><span>A folder you have (your project)</span></label>
+    </div>
+    <div class="base-grid">
+      <button type="button" class="base-card active"><span class="base-title">Debian</span><span class="base-use">General purpose — Debian 12</span><code class="base-ref">debian:bookworm</code><span class="base-meta">↓ 46 MiB · first prepare ~1 min</span></button>
+      <button type="button" class="base-card"><span class="base-title">Python</span><span class="base-use">Python 3.13 with pip</span><code class="base-ref">python:3.13-bookworm</code><span class="base-meta">↓ 356 MiB · ~3 min</span><span class="base-prepared">prepared</span></button>
+    </div>
+    <dl class="facts"><dt>Folder</dt><dd><code>~/code/todo-app</code></dd><dt>Network</dt><dd>agent · standard</dd></dl>
+    <details class="disclosure" open><summary><i data-i="chevron-down"></i>The file, exactly as written (12 lines)</summary><pre class="nw-yaml">version: 1
+name: todo-app</pre></details>
+  </div></div>
+</section>
+
+<section>
+  <h2>Menus</h2>
+  <div class="pair"><div class="scheme">
+    <div class="menu" role="menu">
+      <button class="menu-item" type="button" data-desc="A copy of this sandbox, its disk shared until it writes"><i data-i="copy"></i><span class="mi-label">Duplicate</span></button>
+      <button class="menu-item" type="button"><i data-i="layout-template"></i><span class="mi-label">Save as template…</span></button>
+      <div class="menu-sep"></div>
+      <button class="menu-item danger" type="button"><i data-i="trash-2"></i><span class="mi-label">Remove…</span></button>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>The wizard modal and its step strip</h2>
+  <p><code>wizHead(title, sub, actions, steps)</code> + a <code>form.wiz-card</code> (<code>.w-body</code> scrolls, <code>.w-foot</code> stays). Steps: done (a check), current (the accent circle), later (its number); below 720 px the circles only, with “Step N of M”.</p>
+  <div class="pair"><div class="scheme">
+    <div class="wiz-modal"><div class="wm-scrim"></div><div class="wm-box" role="dialog" aria-label="New sandbox">
+      <div class="wizard nw">
+        <header class="wm-head">
+          <div class="wm-title-row"><h1>New sandbox</h1><span class="wm-gap"></span><button class="btn quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+          <nav class="wm-steps" aria-label="Steps"><ol class="stepper wiz-steps">
+            <li class="done"><span class="n"><i data-i="check"></i></span><span class="s-label">Agent</span></li>
+            <li class="done"><span class="n"><i data-i="check"></i></span><span class="s-label">Model &amp; key</span></li>
+            <li class="current"><span class="n">3</span><span class="s-label">Base</span></li>
+            <li><span class="n">4</span><span class="s-label">Network</span></li>
+            <li><span class="n">5</span><span class="s-label">Review</span></li>
+          </ol></nav>
+        </header>
+        <form class="wiz-card"><div class="w-body"><h2>Base</h2><p class="muted">The step’s content scrolls here; the header and footer stay put.</p></div>
+          <div class="w-foot wiz-buttons"><button class="btn" type="button"><i data-i="arrow-left"></i>Back</button><span class="wiz-gap"></span><button class="btn quiet" type="button"><i data-i="skip-forward"></i>Skip to review</button><button class="btn lg primary" type="button"><span class="btn-label">Next</span><i data-i="arrow-right"></i></button></div>
+        </form>
+      </div>
+    </div></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Quick try — search, pills, cards or a list, marks</h2>
+  <p>A full-page modal (<code>.wiz-modal.full</code>; its header has the title, a line and a labelled <b>Close</b> with its Esc hint).
+    Inside, <code>.qt</code>: the search box (<code>.qt-box</code>, <code>/</code> focuses it), the filter pills (<code>.qt-pill</code>, <code>aria-pressed</code>; they combine),
+    the count and the cards/list toggle (<code>.qt-seg</code>), the results (<code>.qt-item</code> — a mark, the title and maker, version and age, a ready check;
+    superseded and coming ones quieter), and the chosen agent on the right. Below 760 px the panes stack, with a back control.</p>
+  <div class="pair wide"><div class="scheme">
+    <header class="qt-mhead"><div><h1>Quick try</h1><p class="sub">Pick an agent and try it in a fresh sandbox: its own folder, the network locked to its model, your key never inside. Nothing is prepared until you press Start.</p></div>
+      <button class="btn qt-close" type="button" title="Close (Esc)"><i data-i="x"></i>Close<span class="qt-kbd" aria-hidden="true">Esc</span></button></header>
+    <div class="qt">
+      <section class="qt-left" aria-label="Agents">
+        <div class="qt-search">
+          <label class="qt-box"><i data-i="search"></i><input type="search" value="" placeholder="Search agents — name, maker, tag:headless" aria-label="Search agents"><span class="qt-kbd" aria-hidden="true">/</span></label>
+          <div class="qt-pills" role="group" aria-label="Filters">
+            <button type="button" class="qt-pill" aria-pressed="false"><i data-i="key-round"></i>Ready</button>
+            <button type="button" class="qt-pill" aria-pressed="true">Open source</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Current</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Headless</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Through a gateway</button>
+          </div>
+          <div class="qt-bar"><span>4 of 6 agents</span><span class="qt-gap"></span>
+            <span class="qt-seg" role="group" aria-label="View"><button type="button" aria-label="Cards" aria-pressed="true"><i data-i="layout-grid"></i></button><button type="button" aria-label="List" aria-pressed="false"><i data-i="list"></i></button></span></div>
+        </div>
+        <div class="qt-results cards" role="listbox" aria-label="Agents">
+          <button type="button" role="option" class="qt-item" aria-selected="true"><span data-mark="codex"></span><span class="tp"><span class="t">Codex</span><span class="p">OpenAI</span></span><span class="v">0.160.1 · 3 days ago</span><span class="ready"><i data-i="circle-check"></i></span></button>
+          <button type="button" role="option" class="qt-item" aria-selected="false"><span data-mark="pi"></span><span class="tp"><span class="t">pi</span><span class="p">Mario Zechner</span></span><span class="v">0.84.1 · 4 days ago</span><span class="ready"><i data-i="circle-check"></i></span></button>
+          <button type="button" role="option" class="qt-item" aria-selected="false"><span data-mark="grok-build"></span><span class="tp"><span class="t">Grok Build</span><span class="p">xAI</span></span><span class="v">1.0.50 · today</span><span class="ready-gap"></span></button>
+          <button type="button" role="option" class="qt-item superseded" aria-selected="false"><span data-mark="gemini-cli"></span><span class="tp"><span class="t">Gemini CLI</span><span class="p">Google</span></span><span class="v">0.63.0 · 6 days ago · superseded</span><span class="ready"><i data-i="circle-check"></i></span></button>
+        </div>
+      </section>
+      <section class="qt-right" aria-label="The chosen agent">
+        <div class="qt-head"><span data-mark="codex" class="mark lg"></span><div><h2>Codex</h2><div class="p">OpenAI · open source</div></div></div>
+        <div class="qt-facts"><span class="tag ok">current</span><span class="tag outline">0.160.1 · released 3 days ago</span><span class="tag outline">headless</span><span class="tag outline">through a gateway</span></div>
+        <div class="qt-sect"><h3>What you need</h3><ul class="qt-need">
+          <li><span class="ok"><i data-i="circle-check"></i></span><span>Key: <strong>openai — keychain</strong> — the sandbox only ever sees a placeholder.</span></li>
+          <li><span class="ok"><i data-i="circle-check"></i></span><span>Nothing else — its image is prepared when you press Start; the progress shows in its terminal area.</span></li></ul></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-codex</dd><dt>Base</dt><dd>Node.js</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div>
+        <div class="qt-foot"><span class="qt-gap"></span><span class="qt-note">Enter</span><button class="btn lg primary" type="button"><i data-i="rocket"></i>Start</button></div>
+      </section>
+    </div>
+  </div></div>
+  <p class="src" style="margin-top:8px">The list view (<code>.qt-results.list</code>), and the empty state (<code>.qt-empty</code>, with Clear search and filters):</p>
+  <div class="pair"><div class="scheme">
+    <div class="qt-results list" role="listbox" aria-label="Agents" style="padding:0">
+      <button type="button" role="option" class="qt-item" aria-selected="false"><span data-mark="claude-code"></span><span class="tp"><span class="t">Claude Code</span><span class="p">Anthropic</span></span><span class="v">2.1.227 · 3 days ago</span><span class="ready"><i data-i="circle-check"></i></span></button>
+      <button type="button" role="option" class="qt-item" aria-selected="true"><span data-mark="antigravity"></span><span class="tp"><span class="t">Antigravity CLI</span><span class="p">Google</span></span><span class="v">1.3.3 · 2 days ago</span><span class="ready"><i data-i="circle-check"></i></span></button>
+      <button type="button" role="option" class="qt-item coming" aria-selected="false"><span data-mark="openai"></span><span class="tp"><span class="t">An agent to come</span><span class="p">its maker</span></span><span class="v">coming</span><span class="ready-gap"></span></button>
+    </div>
+    <div class="qt-empty"><i data-i="search"></i><p>No agent matches “qwertyagent”.</p><button class="btn sm" type="button"><i data-i="x"></i>Clear search and filters</button><p class="muted">Missing an agent? <code>doz search NAME</code> says whether it is coming.</p></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>A start’s progress, in the terminal area</h2>
+  <p>While a sandbox starts (an image prepared, the VM booting, the session opening) its terminal area shows the progress instead of a blank pane:
+    the finished steps in plain words, the one under way with its time, and the last lines of the build (<code>.start-progress</code>, <code>components/start-progress.js</code>).
+    It goes when the session is there; a failure stays, with Start and Dismiss.</p>
+  <div class="pair"><div class="scheme">
+    <section class="terms sg-terms">
+      <div class="start-progress" role="status"><div class="sp-box">
+        <h3>Starting try-gemini…</h3>
+        <p class="muted">Its terminal opens here as soon as the sandbox runs and its session is open.</p>
+        <ol class="sp-steps">
+          <li class="sp-step"><i data-i="check"></i><span>The Node.js base image was already downloaded</span></li>
+          <li class="sp-step"><i data-i="check"></i><span>Started a VM to prepare the image</span><span class="muted">0.5 s</span></li>
+          <li class="sp-step current"><span class="mini-spin" aria-hidden="true"></span><span>Installing the developer baseline…</span><span class="muted"> · 12 s</span></li>
+        </ol>
+        <pre class="sp-tail">Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+Unpacking ripgrep (13.0.0-4+b2) ...
+Setting up jq (1.6-2.1) ...</pre>
+      </div></div>
+    </section>
+  </div></div>
+</section>
+
+<section>
+  <h2>Marks — the icon registry</h2>
+  <p>Vendor and product marks from <code>Sources/DozerKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.
+    Each says whether it is the maker’s own mark (<i>official</i>, as its brand terms allow) or Dozer’s neutral <i>lettermark</i>. Colour variants come later.</p>
+  <div class="pair"><div class="scheme"><div class="marks"></div></div></div>
+</section>
+
+<section>
+  <h2>Icons — the vendored set</h2>
+  <p><span data-icon-count>…</span>. Only these ship; another is a vendoring change.</p>
+  <div class="icons" id="icons"></div>
+</section>
+</div>
+<script src="style-guide.js"></script>
+</body>
+</html>
