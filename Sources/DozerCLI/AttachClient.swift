@@ -224,6 +224,24 @@ private func showNotice(_ n: BridgeNotice) {
     }
 }
 
+/// 617 (owner: attaching briefly flashed an earlier program's screen): the session's SNAPSHOT leaves the alternate
+/// screen, resets and clears the PRIMARY screen and scrollback, then — for a program in the alternate screen — enters
+/// it again with CSI ?1049h and paints only the rows that hold text. A terminal whose alternate buffer still holds an
+/// earlier program's frame (one that does not clear it on ?1049h, or a reattach where the ?1049l uncovers the other
+/// buffer for a moment) showed that frame until the paint. So before a connection's first byte BOTH buffers are
+/// cleared: enter the alternate screen and clear it, leave it, clear the primary screen and its scrollback (which the
+/// snapshot clears next anyway — nothing a person had is lost that the snapshot would keep). A terminal on stdout only.
+public enum AttachScreen {
+    public static let clearBoth = "\u{1B}[?1049h\u{1B}[H\u{1B}[2J\u{1B}[?1049l\u{1B}[H\u{1B}[2J\u{1B}[3J"
+}
+
+private func clearBothScreens() {
+    guard isatty(STDOUT_FILENO) != 0 else { return }
+    outputLock.lock(); defer { outputLock.unlock() }
+    guard !outerRestored else { return }
+    UnixSocket.writeAll(STDOUT_FILENO, Data(AttachScreen.clearBoth.utf8))
+}
+
 /// Put the outer terminal back (once): its modes, when stdout is a terminal, then the saved termios.
 private func restoreTerminal() {
     outputLock.lock()
@@ -532,9 +550,11 @@ enum AttachClient {
             var chunk = [UInt8](client.reader.takeRemainder())
             var buf = [UInt8](repeating: 0, count: 65536)
             var ending: ClientWire.Ending?
+            var cleared = false                          // 617: both screens cleared before this connection's snapshot
             while true {
                 // 599: a bridge's notice (removed from the bytes; drawn once they are written).
                 let step = stream.feed(chunk)
+                if !cleared, !step.screen.isEmpty { clearBothScreens(); cleared = true }
                 if let e = step.ending {
                     writeOut(step.screen[...])
                     // The session is over: the terminal is put back before the host's last word.
