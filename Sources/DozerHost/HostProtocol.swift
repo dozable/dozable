@@ -292,6 +292,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var planRequest: PlanRequest?
     /// 617: `copy`'s what and where.
     public var fileCopy: CopyRequest?
+    /// 617: `attach` with no session named — open the image's own session when it is not running (`doz attach`).
+    public var openDefault: Bool?
     public var plan: String?
     public var configDir: String?
     public var keychainService: String?

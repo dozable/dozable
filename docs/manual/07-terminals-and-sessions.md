@@ -23,7 +23,7 @@ sandbox sleeps or hibernates.
 ## In the terminal
 
 ```sh
-doz attach my-app                 # the sandbox's own session
+doz attach my-app                 # the sandbox's own session (opened first when it is not running)
 doz attach my-app server          # a session by name
 doz run my-app -- htop            # a NEW session running a program, attached
 doz run my-app -d --session worker -- bash -lc 'make watch'    # start one in the background

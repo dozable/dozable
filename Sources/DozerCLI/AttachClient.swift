@@ -503,6 +503,7 @@ enum AttachClient {
             }
             var req = HostRequest(.attach, name: sandbox)
             req.session = resolvedSession
+            if resolvedSession == nil { req.openDefault = true }     // 617: no session named — its own, opened if needed
             let size = terminalSize()
             req.cols = size.cols
             req.rows = size.rows
@@ -528,6 +529,9 @@ enum AttachClient {
             }
             first = false
             resolvedSession = reply.result?["session"]?.stringValue ?? resolvedSession
+            if reply.result?["opened"] == .bool(true), !quiet, let s = resolvedSession {
+                say("\(sandbox)'s session \(s) was not running — opened it")
+            }
             if let s = resolvedSession { setAttached(s, reply.result?["defaultSession"]?.stringValue) }
             // 599 (594.B4): the title follows the session (a switch, a hold, a wake).
             let held = reply.result?["state"]?.stringValue == "held"
@@ -535,8 +539,12 @@ enum AttachClient {
                      phase: held ? reply.result?["phase"]?.stringValue ?? "asleep" : "running")
             if held {
                 if !announcedHeld && !quiet {
-                    let phase = reply.result?["phase"]?.stringValue.map { Out.phaseLabel($0) } ?? "not running"
-                    say("\(sandbox) is \(phase) — waiting for it to run (\(detachKey.map(describeKey) ?? "close the terminal") to detach)")
+                    let raw = reply.result?["phase"]?.stringValue
+                    let phase = raw.map { Out.phaseLabel($0) } ?? "not running"
+                    // 617: running but busy (a start finishing, a snapshot being taken): said as such, not "waiting to run".
+                    let what = raw == "running" ? "\(sandbox) is busy (an operation is finishing) — waiting for it"
+                                                : "\(sandbox) is \(phase) — waiting for it to run"
+                    say("\(what) (\(detachKey.map(describeKey) ?? "close the terminal") to detach)")
                 }
                 announcedHeld = true
             } else {

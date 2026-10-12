@@ -469,6 +469,7 @@ public final class HostServer: @unchecked Sendable {
             // 599 (594.B4): the terminal title's {image}.
             let imageName: JSONValue = (await core.imageName(of: name)).map { .string($0) } ?? .null
             var announced = false
+            var opened = false
             while !state.gone {
                 guard let phase = await core.phase(of: name) else {
                     if announced { conn.write(ClientWire.endedNotice(.stopped, text: "\(name) was removed")) }
@@ -480,7 +481,25 @@ public final class HostServer: @unchecked Sendable {
                 if phase == .running && !busy {
                     if !announced {
                         // The first attach checks the session is there (a later one gets `ended` from deckhold).
-                        let list = (try? await sandbox.sessions()) ?? []
+                        var list = (try? await sandbox.sessions()) ?? []
+                        // 617 (owner: `doz create … --start` then `doz attach NAME` hung): with NO session named, the
+                        // image's own session is opened when it is not running (as `doz up` and `doz new` do), then
+                        // attached — never a "no session" for the session the person did not name. Only for a client
+                        // that asks (`openDefault`: `doz attach`) — the dashboard's panes never open one by arriving.
+                        if req.session == nil, req.openDefault == true, !opened, !list.contains(where: { $0.name == session && !$0.isEnded }) {
+                            var o = HostRequest(.openSession, name: name)
+                            o.wake = false
+                            o.cols = req.cols
+                            o.rows = req.rows
+                            let m = await core.handle(o)
+                            guard m.ok == true else {
+                                conn.send(.failure(m.error ?? HostError(.failed, "could not open \(name)'s session \(session)")))
+                                conn.shutdownIO()
+                                return
+                            }
+                            opened = true
+                            list = (try? await sandbox.sessions()) ?? []
+                        }
                         if let s = list.first(where: { $0.name == session }), s.isEnded {
                             conn.send(.failure(HostError(.notFound, "session \(session) in \(name) has ended (exit \(s.exitCode.map(String.init) ?? "?"))")))
                             conn.shutdownIO()
@@ -500,7 +519,7 @@ public final class HostServer: @unchecked Sendable {
                         if state.size.cols > 0, state.size.rows > 0 { core.sizeOwners.claim(name + "|" + session, ObjectIdentifier(state)) }
                         if !announced {
                             conn.send(.success(.object(["state": .string("attached"), "session": .string(session), "sandbox": .string(name),
-                                                        "defaultSession": defaultSession, "image": imageName])))
+                                                        "defaultSession": defaultSession, "image": imageName, "opened": .bool(opened)])))
                             announced = true
                         }
                         await core.sessionAttached(name, session: session, ms: ms(since: t0))
