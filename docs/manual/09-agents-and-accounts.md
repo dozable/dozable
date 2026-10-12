@@ -123,6 +123,63 @@ doz key rm my-app --anthropic
 A key typed or piped in lasts while the host runs; after the host stops, set it again (or use
 `--keychain`, which is read again by each new host).
 
+## Keys from 1Password, AWS or a command
+
+An API-key account (`--api-key`, `--openai-key`, `--provider xai|google`, `--custom`) can keep its key
+where you already keep it. Dozer stores only **where** it is — never the key, not even in the keychain —
+and the host reads it on your Mac when a sandbox needs it:
+
+```sh
+doz account add grok --provider xai --from op://Dev/xAI/credential               # 1Password (op)
+doz account add grok --provider xai --from op://Dev/xAI/credential --env OP_ACCOUNT=my.1password.com
+doz account add work --api-key --from aws:arn:aws:secretsmanager:eu-west-1:123456789012:secret:dev/anthropic#api_key
+doz account add work --api-key --from aws:arn:… --env AWS_PROFILE=dev --env AWS_REGION=eu-west-1
+doz account add ci --openai-key --from-command '~/bin/print-key openai'                 # any program; its output is the key
+doz account add work --api-key --from op://Dev/Anthropic/credential --force       # switch an existing account
+doz account show grok                                                             # where it comes from, the last read — never the key
+doz account refresh grok                                                          # read it again now
+```
+
+- **When it is read:** once when you add it (with the provider's own key check — `--no-verify` skips
+  both), then on use: kept in the host's memory for `--ttl` (55 minutes by default; `2h`, `90m`), read
+  again right away after `doz account refresh` or a change to the account, and once more when the
+  provider answers 401 (a rotated key). A sandbox's session start reads it in the background, so the
+  agent's first request does not wait for 1Password.
+- **`--from-command`** runs a program with arguments — never a shell: no `;`, `|`, `&`, `$(…)`, backticks
+  or redirections (put a pipeline in a script and give its path). The program is found once, at add
+  time, as an absolute path; `doz` shows the exact command and asks before saving it (`--yes` off a
+  terminal). Its output is the key: one line, at most 8 KiB.
+- **Where it runs:** on your Mac, as the host, with the standard `PATH`, your home, the tools' own
+  sign-in variables (`OP_SERVICE_ACCOUNT_TOKEN`, `AWS_*`) and the `--env` variables the account names —
+  only `OP_ACCOUNT`, `AWS_PROFILE`, `AWS_REGION`, `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE`
+  (never a secret). Nothing is typed into it. 1Password gets 20 seconds (a Touch ID prompt), the others 10.
+- **When it fails** the agent's request gets a 401 saying why and what to do — "op is not signed in — run
+  op signin, then doz account refresh grok", "aws is not installed — brew install awscli",
+  AccessDeniedException — and never another key. `doz account show`, the sandbox's page and
+  `doz doctor` (a tool that is not installed) say the same.
+- **In the dashboard** an account like this shows where its key comes from and its last read, with
+  **Refresh**. Adding or changing where a key comes from is done with `doz` only.
+
+## Custom keys for other services
+
+A key for an API Dozer has no account kind for — your own service, a search API — goes to exactly the
+hosts you name, in the header you name, and only replaces its placeholder (the sandbox never has the
+key):
+
+```sh
+doz account add search --custom --host api.search.example --env-var SEARCH_API_KEY --bearer      # Authorization: Bearer KEY
+doz account add maps --custom --host maps.example.com --env-var MAPS_KEY --header x-api-key      # x-api-key: KEY
+doz account add search --custom --host api.search.example --env-var SEARCH_API_KEY --bearer --from op://Dev/search/key
+doz create my-app --image claude-code --allow site:api.search.example --key search             # attach it (repeatable)
+doz account use my-app search --extra                                                           # attach to an existing sandbox
+doz account use my-app search --remove-extra
+```
+
+Each host must be one the sandbox may reach on purpose (`--allow site:HOST`, or `doz net allow`) —
+Dozer refuses to attach it otherwise, and withholds it (saying how to allow it) if the policy later
+denies the host. A custom key never goes to a host Dozer already holds keys for (Anthropic, OpenAI,
+GitHub, xAI, Google). Sessions opened after attaching get its variable.
+
 ## Agent versions
 
 An agent image installs its agent at one exact version, chosen by `images.claude_code_version` and
@@ -207,4 +264,6 @@ touched.
 | pi can't be created: no account it can use | `doz account add NAME --api-key`, then `--account NAME`. |
 | "the agent prompt does not render" | `doz inspect NAME --prompt` names the unknown `{{variable}}` and the file. |
 | The agent doesn't know where it runs | `doz inspect NAME --prompt`. An image prepared by a much older Dozer may need `doz reset NAME` after a rebuild. |
+| "the key of account X comes from 1Password …, but op is not signed in" | `op signin` on the Mac (or give the host `OP_SERVICE_ACCOUNT_TOKEN`), then `doz account refresh X`. |
+| A custom key is not used | `doz account show NAME` (its hosts); the sandbox must allow each one: `doz net allow SANDBOX site:HOST`. |
 | `/login` inside the sandbox never finishes | The key policy is `strict` (it blocks the sign-in pages). That's usually what you want; to allow it: `doz key policy NAME allow`. |

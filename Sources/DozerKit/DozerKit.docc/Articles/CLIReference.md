@@ -291,6 +291,11 @@ doz account default work                         # every sandbox on the default 
 doz account verify work                          # one tiny request to api.anthropic.com
 doz account rm work [--force]                    # also deletes the keychain item doz made
 doz account keepalive on                          # off by default: runs `claude -p` near expiry
+doz account add grok --provider xai --from op://Dev/xAI/credential   # read on use from 1Password / aws:ARN / --from-command 'ARGV'
+doz account show grok                            # where its key comes from and the last read — never the key
+doz account refresh grok                         # read it from its source again now
+doz account add search --custom --host api.search.example --env-var SEARCH_API_KEY --bearer   # a key for any host
+doz account use NAME search --extra              # attach a custom key beside the account (--remove-extra)
 doz create NAME --image claude-code --account work
 ```
 

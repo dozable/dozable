@@ -1633,6 +1633,25 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   sandbox with a recipe agent's own model has NO Anthropic `model` (`normalized` drops it; its Locked is its own model
   only); the built-in three's presets are unchanged. A recipe's `excluded` hosts are denied BEFORE the user's rules and
   every permission (Open included), never suggested, never grantable as a site — and are in no permission (validated).
+- **Keys read on use** (`SecretSources.swift`, `HostCore+Secrets.swift`): an API-key account (`api-key`, `openai-key`,
+  `key`) may carry `AccountRecord.source` — `1password` (op://…), `aws` (an ARN, `#jsonKey`), `command` (absolute
+  program + argv) — plus allow-listed `sourceEnv` and `ttlSeconds`. accounts.json holds the REFERENCE only; the value
+  never reaches the keychain, a file, a log, a row or an event (`SecretSourcesTests` scans the store). A record without
+  `source` is its keychain item, as before. `applyKeySecret` is the ONE place an account's key enters a vault: keychain →
+  `setCredential`; a source → `vault.setProvider` (TTL, version = fingerprint(reference+env) + the account's generation
+  in `HostCore.secretSourceState`; `refresh`, an edit and an upstream 401 — at most once per 10 s — bump it), prefetched
+  when applied and at every session open. The runner (`SecretSources.run`): posix_spawn, argv only (never `sh`), own
+  process group killed on timeout (op 20 s, others 10 s), stdin /dev/null, stdout ≤ 8 KiB, stderr ONLY to classify,
+  the environment = who/where + `OP_*`/`AWS_*` of the host + the standard PATH + the account's allow-listed variables
+  (never a `DOZ_` one). A failure is the vault's notice (the proxy's provider-shaped 401: cause + fix), never another
+  key. A command inside the store is refused. **Tests never run the real op/aws**: `DOZ_TEST_OP` / `DOZ_TEST_AWS` are
+  the seams; a guarded run without them gets TestSafety's refusal (`DOZ_TEST_REAL_MAC=1` lifts it).
+- **Custom keys** (`CustomKey`, provider `custom`, binding `custom:NAME`, swap-only, `doz-custom:NAME` or a source):
+  attached by `SandboxConfig.extraKeys` (`--key`, `account use … --extra/--remove-extra`), applied after the main
+  account (`applyExtraKeys`; `vault.onStale` handlers chain within one apply — `detachWatcher` resets them), refused
+  at attach unless the policy allows every host, withheld with a notice when a policy change denies one (`netPolicy`
+  re-applies them). Never a host another binding owns. The dashboard shows source/state and Refresh (`account-refresh`,
+  one HostOp) — never adds or changes a source (D7).
 - **Read model for later stages** (data + tests only so far): `auth.methods`, `gateways[]` (support level per model
   gateway, `how` as templates over `{gateway.endpoint.<id>}`, `{placeholder}`, `{model}`), `capabilityTags` (derived
   from the data; only `headless` is declared). `UsageSchema.agents` must contain every agent id (`RecipeHostTests`).

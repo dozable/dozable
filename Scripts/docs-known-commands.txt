@@ -67,6 +67,8 @@ key/policy
 account/ls
 account/add
 account/verify
+account/show
+account/refresh
 account/rm
 account/default
 account/use
