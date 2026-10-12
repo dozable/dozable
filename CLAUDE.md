@@ -1643,8 +1643,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   that is off would refuse (Claude Code's `DISABLE_ERROR_REPORTING`/`DISABLE_TELEMETRY` without "Send error reports"),
   said in the plan and the facts (`HostCore.withRecipeEnvironment`). `FirstRunTests`; the VM proof is
   `probes/617-*/stageD/firstrun-netlog.sh` (0 refusals for all five, and example.com from the guest still counted).
-  What an agent calls that no setting of its own turns off (Antigravity CLI's usage log to play.googleapis.com) is
-  `network.quiet` (each with its reason): denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
+  What an agent calls that no setting of its own turns off, when it is to be kept out, is
+  `network.quiet` (no recipe uses it now: Antigravity CLI's usage log to play.googleapis.com is `vendor`, owner: do not
+  block it), each with its reason: denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
   set from the policy by `EgressProxy.policy`; `PermissionReport` skips it). `localhost` (RFC 6761) is answered by the
   proxy's DNS as the loopback, never judged or logged.
 - **Network profiles** (`make profile-agents [AGENTS=…] [DIFF=1]`, `Scripts/profile-agents.sh` + `Scripts/agent-profile.py`

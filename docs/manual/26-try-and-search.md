@@ -124,9 +124,8 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
 Google's terminal agent, installed from Google's own release (checked against its published SHA-512), on Debian-based
 bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --provider google`); Dozer never offers the
 Google sign-in. Its approval prompts are off (`antigravity.permissions = ask` keeps them), its updater is off, and its
-telemetry setting is off. It reads Google's feature switches at start-up (allowed); its usage log to
-`play.googleapis.com` is kept out quietly — it does not stop with its own setting, so Dozer refuses it without counting
-it as a refusal.
+telemetry setting is off. It reads Google's feature switches at start-up, and sends its usage log to
+`play.googleapis.com` every few seconds (its own setting does not stop it); both are allowed.
 
 **Tags** describe capabilities (`multi-vendor-models`, `api-key`, `vendor-sign-in`, `free-tier`, `resume`, `musl`,
 `open-source`, `headless`, `gateway:openrouter`, …). Each tag has a level per agent: `documented`, `verified`,

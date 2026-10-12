@@ -58,8 +58,8 @@
         "none"
       ],
       "refusedWhenProfiled": true,
-      "determination": "refuse",
-      "reason": "its usage log to Google; enableTelemetry does not stop it — refused quietly (not counted)",
+      "determination": "allow",
+      "reason": "its usage log to Google (enableTelemetry does not stop it) — allowed: the owner, do not block it",
       "seen": true
     }
   ]

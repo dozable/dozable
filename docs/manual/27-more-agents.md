@@ -28,9 +28,8 @@ Google's terminal agent and **the one to use with a Google key** (`doz try antig
 - **Set up for you:** approval prompts off (`antigravity.permissions = ask` keeps them), its updater off, its
   telemetry setting off.
 - **May reach:** the Gemini API (its model); Google's feature switches for it (`antigravity-unleash.goog`) when it
-  starts.
-- **Kept out quietly:** its usage log to `play.googleapis.com`, every few seconds. Its own telemetry setting does not
-  stop it, so Dozer refuses it — logged in `doz net log`, never counted as a refusal (a fresh try shows none).
+  starts; its usage log to `play.googleapis.com`, every few seconds. Its own telemetry setting does not stop that log,
+  and Dozer allows it rather than blocking it.
 
 ## Grok Build (xAI)
 

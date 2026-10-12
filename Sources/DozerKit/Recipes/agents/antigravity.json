@@ -81,10 +81,8 @@
     ],
     "excluded": ["accounts.google.com", "oauth2.googleapis.com", "cloudcode-pa.googleapis.com"],
     "vendor": [
-      { "host": "antigravity-unleash.goog", "reason": "Antigravity CLI reads Google's feature switches for it (antigravity-unleash.goog) when it starts" }
-    ],
-    "quiet": [
-      { "host": "play.googleapis.com", "reason": "Antigravity CLI's usage log to Google, every few seconds — its enableTelemetry setting does not stop it, so Dozer keeps it out without counting it as a refusal" }
+      { "host": "antigravity-unleash.goog", "reason": "Antigravity CLI reads Google's feature switches for it (antigravity-unleash.goog) when it starts" },
+      { "host": "play.googleapis.com", "reason": "Antigravity CLI sends its usage log to Google, every few seconds (its enableTelemetry setting does not stop it; the owner: do not block it)" }
     ]
   },
   "status": "none",
