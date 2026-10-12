@@ -134,6 +134,14 @@ public enum Workspace {
         }
     }
 
+    /// 617: a folder that is not there, or holds nothing (a Finder `.DS_Store` counts as nothing).
+    public static func isEmptyOrMissing(_ path: String) -> Bool {
+        var isDir: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: path, isDirectory: &isDir) else { return true }
+        guard isDir.boolValue, let items = try? FileManager.default.contentsOfDirectory(atPath: path) else { return false }
+        return items.allSatisfy { $0 == ".DS_Store" }
+    }
+
     /// The base name, or the first of -2, -3, … not taken (by a sandbox, or by a folder under `projects`
     /// that is not empty — a new sandbox's default folder is its own).
     public static func suggestedName(image: String, taken: Set<String>, projects: String? = nil) -> String {

@@ -127,6 +127,8 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     public var extraKeys: [String]?
     /// 617 (D14): made by `doz try` (nil for every other sandbox).
     public var trial: Bool?
+    /// 617: the folder Dozer MADE for this try (a delete offers to remove it: at once when empty, asked otherwise).
+    public var trialFolder: String?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

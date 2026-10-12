@@ -83,6 +83,10 @@ public enum StepWording {
         if head.hasPrefix("root disk cloned from") { return w("Giving the sandbox its own disk", "Gave the sandbox its own disk (an instant copy)") }
         if head.hasPrefix("created the empty state disk") { return w("Making the sandbox's own state disk", "Made the sandbox's own state disk") }
         if head == "installed deckhold (the guest PTY holder)" { return w("Setting up its terminals", "Set up its terminals") }
+        if head.hasPrefix("prepared the guest") { return w("Preparing its system", "Prepared its system") }
+        // The tools layer's first set-up: "tools: installing X with apk, through the proxy", "tools: gh 2.102.0 — for …".
+        if let g = m(#"tools: installing (.+?) with (\w+).*"#) { return w("Installing \(g[0]) (\(g[1]))", "Installed \(g[0]) (\(g[1]))") }
+        if let g = m(#"tools: (.+)"#) { return w("Setting up \(g[0])", "Tools: \(g[0])") }
         if head.hasPrefix("network: no interface") { return w("Connecting it through this Mac's network rules", "Connected it through this Mac's network rules") }
         if head.hasPrefix("e2fsck ") { return w("Checking its disk", "Checked its disk") }
         if head == "restored VM state from disk" { return w("Bringing its memory back from disk", "Brought its memory back from disk", true) }

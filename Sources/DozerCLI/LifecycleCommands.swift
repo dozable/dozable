@@ -493,9 +493,48 @@ struct Remove: AsyncParsableCommand {
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
     func run() async throws {
         try await requireSandbox(name, g)
+        let folder = await tryFolder(name, g)
         try confirm("Remove \(name) and everything it has on disk (disks, restore points, state)?", yes: yes, g)
         _ = try lifecycle(.rm, name, g)
+        cleanUpTryFolder(folder, g)
     }
+}
+
+/// 617: the folder Dozer made for a try (nil: not a try, or a folder the person chose).
+struct TryFolder { var path: String; var wasEmpty: Bool }
+func tryFolder(_ name: String, _ g: GlobalOptions) async -> TryFolder? {
+    var r = HostRequest(.ls)
+    r.withSessions = false
+    let rows = (try? decode(try await query(r, g), [SandboxInfo].self, g)) ?? []
+    guard let p = rows.first(where: { $0.name == name && $0.trial == true })?.trialFolder,
+          FileManager.default.fileExists(atPath: p) else { return nil }
+    return TryFolder(path: p, wasEmpty: Workspace.isEmptyOrMissing(p))
+}
+
+/// 617 (owner): a removed try's own folder — gone when empty (the host removes it with the sandbox; this says so);
+/// asked about when it holds files (default: keep, saying where); kept off a terminal, said.
+func cleanUpTryFolder(_ folder: TryFolder?, _ g: GlobalOptions) {
+    guard let folder else { return }
+    let p = folder.path
+    let home = FileManager.default.homeDirectoryForCurrentUser.path
+    let shown = p.hasPrefix(home + "/") ? "~" + p.dropFirst(home.count) : Substring(p)
+    if !FileManager.default.fileExists(atPath: p) || Workspace.isEmptyOrMissing(p) {
+        try? FileManager.default.removeItem(atPath: p)
+        if folder.wasEmpty, !g.json, !g.quiet { Out.stdout("removed its empty folder \(shown)\n") }
+        return
+    }
+    let count = ((try? FileManager.default.subpathsOfDirectory(atPath: p)) ?? []).filter { !$0.hasSuffix(".DS_Store") }.count
+    let asker = Asker(yes: false, json: g.json)
+    if asker.interactive, asker.yesNo("Its folder \(shown) holds \(count) item\(count == 1 ? "" : "s") the agent made. Delete it too?", default: false) {
+        do {
+            try FileManager.default.removeItem(atPath: p)
+            Out.stdout("removed its folder \(shown)\n")
+        } catch {
+            Out.stderr("[doz] could not remove \(shown): \(error.localizedDescription)\n")
+        }
+        return
+    }
+    if !g.json && !g.quiet { Out.stdout("kept its folder \(shown) (\(count) item\(count == 1 ? "" : "s"))\n") }
 }
 
 struct Up: AsyncParsableCommand {

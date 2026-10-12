@@ -1,31 +1,35 @@
 == try grok, no key: try --agent grok
 command: doz try grok
-name: try-grok · image: grok (Debian · Grok Build, unprepared) · workspace: isolated · trial: true
+name: try-grok · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok · trial: true
 account: none · - · xai · -
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach packages: No package installs (Locked)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
 reach denied: Every other host: refused and logged
-reach folder: No folder of this Mac (isolated)
+reach folder: A new empty folder /tmp/617-pin-projects/try-grok (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
 yaml: version: 1 | name: try-grok | image: grok                  # when made | network: locked
-yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
 problem key: Grok Build needs an xAI API key — the store has no default xAI account. Add one: doz account add NAME --provider xai (then create with --account NAME) [fix: doz account add NAME --provider xai]
 == try grok, a key, try-grok taken: try --agent grok
 command: doz try grok
-name: try-grok-2 · image: grok (Debian · Grok Build, unprepared) · workspace: isolated · trial: true
+name: try-grok-2 · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok-2 · trial: true
 account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach packages: No package installs (Locked)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
 reach denied: Every other host: refused and logged
-reach folder: No folder of this Mac (isolated)
+reach folder: A new empty folder /tmp/617-pin-projects/try-grok-2 (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 reach key: Key: work-xai from 1Password: op://Dev/xAI/credential — the sandbox gets a placeholder, the key stays on this Mac
 yaml: version: 1 | name: try-grok-2 | image: grok                  # when made | network: locked
-yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
 == try gemini on python, standard: try --agent gemini --base python --permissions standard
 command: doz try gemini --base python --permissions standard
-name: try-gemini · image: python-gemini (Python · Gemini CLI, unprepared) · workspace: isolated · trial: true
+name: try-gemini · image: python-gemini (Python · Gemini CLI, unprepared) · workspace: /tmp/617-pin-projects/try-gemini · trial: true
 account: none · - · google · -
 reach model: Talk to Google AI (generativelanguage.googleapis.com)
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
@@ -35,10 +39,12 @@ reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: play.googleapis.com, accounts.google.com, oauth2.googleapis.com, cloudcode-pa.googleapis.com
 reach denied: Every other host: refused and logged
-reach folder: No folder of this Mac (isolated)
+reach folder: A new empty folder /tmp/617-pin-projects/try-gemini (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
 yaml: version: 1 | name: try-gemini | image: python-gemini                  # when made | network: locked | permissions: standard
-yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
 problem key: Gemini CLI needs a Google AI (Gemini API) key — the store has no default Google AI (Gemini API) account. Add one: doz account add NAME --provider google (then create with --account NAME) [fix: doz account add NAME --provider google]
 == new, every default: new 
 command: doz new
@@ -48,7 +54,10 @@ reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org
 reach packages: Node (npm) (registry.npmjs.org)
 reach packages: Python (PyPI) (pypi.org, files.pythonhosted.org)
 reach denied: Every other host: refused and logged
-reach folder: Your folder /tmp/617-pin-projects/lab-sandbox at /workspace
+reach folder: A new empty folder /tmp/617-pin-projects/lab-sandbox (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 yaml: version: 1 | name: lab-sandbox | image: lab                  # when made
 == new grok, named, a custom key not allowed: new --agent grok --key ex
 command: doz new g1 --agent grok --key ex
@@ -61,7 +70,10 @@ reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
 reach denied: Every other host: refused and logged
-reach folder: Your folder /tmp/617-pin-projects/g1 at /workspace
+reach folder: A new empty folder /tmp/617-pin-projects/g1 (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 reach key: Key: work-xai from 1Password: op://Dev/xAI/credential — the sandbox gets a placeholder, the key stays on this Mac
 reach key: Custom key ex: only to api.example.test, as a placeholder
 yaml: version: 1 | name: g1 | image: grok                  # when made | keys: [ex]   # custom keys — when made
@@ -78,7 +90,10 @@ reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-int
 reach web: A site you allowed: api.example.test
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
 reach denied: Every other host: refused and logged
-reach folder: Your folder /tmp/617-pin-projects/g1 at /workspace
+reach folder: A new empty folder /tmp/617-pin-projects/g1 (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 reach key: Key: work-xai from 1Password: op://Dev/xAI/credential — the sandbox gets a placeholder, the key stays on this Mac
 reach key: Custom key ex: only to api.example.test, as a placeholder
 yaml: version: 1 | name: g1 | image: grok                  # when made | keys: [ex]   # custom keys — when made
@@ -93,6 +108,9 @@ reach github: Use GitHub as you (github.com, api.github.com, uploads.github.com 
 reach packages: No package installs (Locked)
 reach denied: Every other host: refused and logged
 reach folder: No folder of this Mac (isolated)
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: off (no folder)
+reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
 yaml: version: 1 | name: c1 | image: python-codex                  # when made | cpus: 4                     # when made | memory: 4G                 # when made | network: locked | github: read | tmux: true
 yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
@@ -102,15 +120,20 @@ command: doz create l1 --image lab --network nat
 name: l1 · image: lab (Alpine · none, unprepared) · workspace: isolated · trial: -
 reach web: A real network interface: every host, unfiltered and unlogged (nat)
 reach folder: No folder of this Mac (isolated)
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: off (no folder)
+reach bridge: Open links in your Mac's browser: on
 yaml: version: 1 | name: l1 | image: lab                  # when made | network: nat
 yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
 == a try of no agent: try --agent none --base debian
 command: doz try none
-name: try-none · image: debian (Debian · none, unprepared) · workspace: isolated · trial: true
+name: try-none · image: debian (Debian · none, unprepared) · workspace: /tmp/617-pin-projects/try-none · trial: true
 reach model: Talk to its AI model (api.anthropic.com, statsig.anthropic.com)
 reach packages: No package installs (Locked)
 reach denied: Every other host: refused and logged
-reach folder: No folder of this Mac (isolated)
+reach folder: A new empty folder /tmp/617-pin-projects/try-none (not one of yours), at /workspace
+reach bridge: Copy to your Mac's clipboard: on
+reach bridge: Open files on your Mac: on
+reach bridge: Open links in your Mac's browser: on
 yaml: version: 1 | name: try-none | image: debian                  # when made | network: locked
-yaml note: in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)
 problem invalid: a try is of an agent — doz search lists them [fix: doz try AGENT]

@@ -6,8 +6,9 @@ import DozerHost
 
 // 617 (D14, 616.07, the owner's "try = a hybrid") — `doz try THING`: from nothing to talking to an agent in one
 // command. It is `doz new` with Quick-try defaults through the SAME choice options and planner (no second code path):
-// isolated, Locked + the agent's own model, the agent's default base, the provider's default key, named try-<agent>
-// and marked as a try. With no key: the "What you need" card (from the recipe's auth) — while the image prepares at
+// a NEW EMPTY folder of its own under defaults.projects_dir (owner, after the demo: files the agent makes are on the Mac,
+// opening files and copying work — never one of the person's folders; --isolated keeps none), Locked + the agent's own
+// model, the agent's default base, the provider's default key, named try-<agent> and marked as a try. With no key: the "What you need" card (from the recipe's auth) — while the image prepares at
 // once in the background. Attached; on the way out: "Keep this try? [S]leep / [d]elete / [k]eep running".
 
 struct TryCommand: AsyncParsableCommand {
@@ -15,10 +16,13 @@ struct TryCommand: AsyncParsableCommand {
         abstract: "Try an agent now: a throwaway sandbox with safe defaults — made, started and attached in one command.",
         discussion: """
         doz try grok · doz try gemini --base python · doz try (a numbered list of the agents, with your keys). \
-        A try shares no folder of this Mac, reaches only its own model (Locked; --permissions standard opens package \
+        A try works in a NEW EMPTY folder Dozer makes under your projects folder (try-AGENT — never one of yours), shared \
+        at /workspace, so what the agent makes is on your Mac; copying to your Mac's clipboard and opening files and links \
+        on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
         installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
-        running; --rm and --keep answer before. Off a terminal it does not attach and asks nothing: it makes and starts \
+        running; --rm and --keep answer before. Deleting it removes its folder too when the folder is empty, and asks \
+        when the agent left files there. --isolated shares no folder at all; --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
         the try, keeps it, and prints how to attach. Every choice option of doz new works here.
         """)
 
@@ -59,6 +63,11 @@ struct TryCommand: AsyncParsableCommand {
             throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)
         }
         var o = planned.create
+        if !g.json {
+            // Said plainly (owner), first: where its files go and what reaches the Mac.
+            let said = planned.reach.filter { $0.kind == "folder" || $0.kind == "bridge" }.map { $0.text.prefix(1).lowercased() + $0.text.dropFirst() }
+            Out.stdout(([planned.name, planned.imageState.title ?? planned.image] + said).joined(separator: " · ") + "\n")
+        }
         // The image prepares NOW, in the host, while the key is dealt with (joined by the start below).
         if planned.imageState.state == "unprepared" {
             var prep = HostRequest(.prepare)
@@ -79,7 +88,6 @@ struct TryCommand: AsyncParsableCommand {
             }
         }
         // Make it, start it, open its session.
-        if !g.json { Out.stdout("\(planned.name) · \(planned.imageState.title ?? planned.image) · isolated · a try\n") }
         var r = HostRequest(.create, name: planned.name)
         r.create = o
         _ = try decode(try call(r, g), SandboxInfo.self, g)
@@ -105,11 +113,11 @@ struct TryCommand: AsyncParsableCommand {
             Out.stderr("[doz] \(planned.name) started — attaching to \(opened.session)\(key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "")\n")
         }
         let end = AttachClient.attach(store: g.dozerStore, sandbox: planned.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
-        try finish(planned.name, end: end)
+        try await finish(planned.name, end: end)
     }
 
     /// "Keep this try?" — or what --rm / --keep said.
-    func finish(_ name: String, end: AttachEnd) throws {
+    func finish(_ name: String, end: AttachEnd) async throws {
         let asker = Asker(yes: false, json: g.json)
         var choice = TryExitChoice.decided(rm: rm, keep: keep, interactive: asker.interactive)
         while choice == nil {
@@ -119,7 +127,10 @@ struct TryCommand: AsyncParsableCommand {
         // "Sleep" as a person means it (D14: "it then holds no memory"): Dozer's hibernate — a snapshot on disk, the
         // RAM returned; `doz wake` or `doz attach` brings it back where it was.
         case .sleep: _ = try lifecycle(.hibernate, name, g)
-        case .delete: _ = try lifecycle(.rm, name, g)
+        case .delete:
+            let folder = await tryFolder(name, g)
+            _ = try lifecycle(.rm, name, g)
+            cleanUpTryFolder(folder, g)
         case .keep: Out.stdout("\(name) keeps running — doz attach \(name) · doz rm \(name) when you are done\n")
         }
         if case .ended(let c) = end, c != 0 { throw ExitCode(c) }

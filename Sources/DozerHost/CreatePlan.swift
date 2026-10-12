@@ -118,12 +118,18 @@ public enum CreatePlanner {
         r.create.image.isEmpty ? (settings.string(SettingKey.defaultImage) ?? "lab") : r.create.image
     }
 
-    /// The name a try gets: `try-<agent>`, then `-2`, `-3` …
-    public static func tryName(agent: AgentKind, taken: Set<String>) -> String {
+    /// The name a try gets: `try-<agent>`, then `-2`, `-3` … — a name no sandbox has and, with `projects`, whose folder
+    /// there is missing or empty (a try's folder is always a NEW empty one, never one of yours).
+    public static func tryName(agent: AgentKind, taken: Set<String>, projects: String? = nil) -> String {
         let base = "try-" + (agent.recipe?.shortName ?? agent.rawValue)
-        if !taken.contains(base) { return base }
+        func free(_ n: String) -> Bool {
+            if taken.contains(n) { return false }
+            guard let projects else { return true }
+            return Workspace.isEmptyOrMissing((projects as NSString).appendingPathComponent(n))
+        }
+        if free(base) { return base }
         var i = 2
-        while taken.contains("\(base)-\(i)") { i += 1 }
+        while !free("\(base)-\(i)") { i += 1 }
         return "\(base)-\(i)"
     }
 
@@ -136,9 +142,9 @@ public enum CreatePlanner {
         let isTry = r.purpose == "try"
         let projects = f.projectsDir ?? (Workspace.defaultPath(name: "x", settings: f.settings) as NSString).deletingLastPathComponent
 
-        // D14: a try's defaults — isolated, Locked + its own model, marked as a try.
+        // D14 (owner ruling after the demo): a try's defaults — a NEW empty folder of its own (files it makes are on the
+        // Mac, the open-files bridge works), Locked + its own model, marked as a try. `--isolated` keeps no folder.
         if isTry {
-            if o.workspace == nil { o.isolated = true }
             if o.network == nil { o.network = "locked" }
             o.trial = true
             if choice?.agent == nil || choice?.agent == AgentKind.none {
@@ -156,14 +162,20 @@ public enum CreatePlanner {
                 problems.append(PlanProblem(code: "name", text: "sandbox \(n) already exists", fix: "doz up \(n) attaches to it"))
             }
         } else if isTry, let a = choice?.agent {
-            name = tryName(agent: a, taken: f.taken)
+            name = tryName(agent: a, taken: f.taken, projects: r.create.workspace == nil && r.create.isolated != true ? projects : nil)
         } else {
             name = Workspace.suggestedName(image: image, taken: f.taken, projects: r.purpose == "new" ? projects : nil)
         }
 
         // The workspace: `doz new` makes `<projects_dir>/<name>` unless isolated or given.
-        if r.purpose == "new", o.workspace == nil, o.isolated != true {
+        if r.purpose == "new" || isTry, o.workspace == nil, o.isolated != true {
             o.workspace = (projects as NSString).appendingPathComponent(name)
+            if isTry {
+                let w = o.workspace!
+                if !Workspace.isEmptyOrMissing(w) {
+                    problems.append(PlanProblem(code: "name", text: "\(w) is there and not empty — a try's folder is always a new empty one", fix: "--isolated, or --workspace DIR"))
+                }
+            }
         }
         let isolated = o.workspace == nil
 
@@ -234,7 +246,10 @@ public enum CreatePlanner {
         let state = row?.baked != true ? "unprepared" : (row?.olderRecipe == nil && row?.current != false ? "prepared" : "older")
         let imageState = PlanImage(name: image, title: choice?.title, state: state)
 
-        let reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts)
+        let newFolder = (r.purpose == "new" || isTry) && r.create.workspace == nil && o.workspace.map(Workspace.isEmptyOrMissing) == true
+        let reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts,
+                               newFolder: newFolder, settings: f.settings,
+                               bridgeSettings: o.settings)
         let argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
         return CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
@@ -270,7 +285,7 @@ public enum CreatePlanner {
         if let d = o.dockerfile { a += ["--dockerfile", d] }
         // The folder: as given (`doz new`'s own `<projects_dir>/<name>` and a try's isolation are defaults).
         if let w = given.workspace { a += ["--workspace", w] }
-        if given.isolated == true, !isTry { a.append("--isolated") }
+        if given.isolated == true { a.append("--isolated") }
         if let c = o.cpus { a += ["--cpus", String(c)] }
         if let m = o.memoryMiB { a += ["--memory", m % 1024 == 0 ? "\(m / 1024)G" : "\(m)M"] }
         if let n = o.network, !(isTry && n == "locked") { a += ["--network", n] }
@@ -341,7 +356,8 @@ public enum CreatePlanner {
     // MARK: what it can reach
 
     static func reach(_ mode: NetworkMode?, policy: NetworkPolicy?, workspace: String?, account: PlanAccount?, keys: [String],
-                      accounts: AccountsFile) -> [ReachLine] {
+                      accounts: AccountsFile, newFolder: Bool = false, settings: DozerSettings? = nil,
+                      bridgeSettings: [String: TOMLValue]? = nil) -> [ReachLine] {
         var out: [ReachLine] = []
         switch mode {
         case .nat?: out.append(ReachLine("web", "A real network interface: every host, unfiltered and unlogged (nat)"))
@@ -365,7 +381,20 @@ public enum CreatePlanner {
             if !excluded.isEmpty { out.append(ReachLine("excluded", "Kept out whatever you choose: " + excluded.joined(separator: ", "))) }
             if !names.contains("web") { out.append(ReachLine("denied", "Every other host: refused and logged")) }
         }
-        out.append(ReachLine("folder", workspace.map { "Your folder \($0) at /workspace" } ?? "No folder of this Mac (isolated)"))
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
+        func tilde(_ p: String) -> String { p.hasPrefix(home + "/") ? "~" + p.dropFirst(home.count) : p }
+        if let w = workspace {
+            out.append(ReachLine("folder", newFolder ? "A new empty folder \(tilde(w)) (not one of yours), at /workspace" : "Your folder \(tilde(w)) at /workspace"))
+        } else {
+            out.append(ReachLine("folder", "No folder of this Mac (isolated)"))
+        }
+        // 617 (owner): what reaches the Mac besides the network — said, on or off.
+        if let settings {
+            func value(_ key: String) -> String { (bridgeSettings?[key] ?? settings.resolve(key).value).plain }
+            out.append(ReachLine("bridge", "Copy to your Mac's clipboard: " + (value(SettingKey.clipboard) == "off" ? "off" : "on")))
+            out.append(ReachLine("bridge", "Open files on your Mac: " + (workspace == nil ? "off (no folder)" : value(SettingKey.openFiles))))
+            out.append(ReachLine("bridge", "Open links in your Mac's browser: " + value(SettingKey.browserBridge)))
+        }
         if let a = account {
             if let n = a.name {
                 out.append(ReachLine("key", "Key: \(n)" + (a.sourceLabel.map { " from \($0)" } ?? "") + " — the sandbox gets a placeholder, the key stays on this Mac"))

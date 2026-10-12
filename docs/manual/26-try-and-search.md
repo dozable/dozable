@@ -18,7 +18,18 @@ doz try grok -d                    # make and start it, but don't attach (it is 
 
 A try is a throwaway sandbox with safe defaults:
 
-- **No folder of your Mac** — its `/workspace` is its own (isolated).
+- **A new empty folder of its own** — Dozer makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
+  `~/dozer-sandbox-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
+  your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
+  `try-<agent>-2`). `--isolated` shares no folder at all; `--workspace DIR` uses a folder you choose.
+- **Your Mac's clipboard and its apps**, as in any sandbox: what the agent copies reaches your Mac's clipboard (also
+  from agents that copy with `xclip`, `xsel` or `wl-copy`), and it can open a file it made, or a link, on your Mac.
+  The try's first line says so:
+
+  ```
+  try-grok · Debian · Grok Build · a new empty folder ~/dozer-sandbox-workspaces/try-grok (not one of yours), at
+  /workspace · copy to your Mac's clipboard: on · open files on your Mac: on · open links in your Mac's browser: on
+  ```
 - **Locked, plus the agent's own model** — it can talk to its AI model and nothing else. `--permissions standard`
   opens package installs; every other choice option works too.
 - **The agent's own base** (Grok Build: Debian; Gemini CLI: Node), and its approval prompts off.
@@ -45,7 +56,9 @@ Keep this try? [S]leep / [d]elete / [k]eep running [S]:
 
 **Sleep** (Enter) hibernates it: everything is kept on disk and it holds no memory; `doz wake try-grok` (or
 `doz attach try-grok`) brings it back where it was.
-**Delete** removes it and everything in it. **Keep running** leaves it as it is.
+**Delete** removes it and everything in it. Its folder goes too when it is empty; when the agent left files there,
+it asks (the default keeps the folder and says where it is), and off a terminal it keeps it and says so. `--rm` and
+`doz rm` of a try do the same; the dashboard's Delete removes an empty one. **Keep running** leaves it as it is.
 
 **Off a terminal** (a script, `--json`, `-d`) `doz try` asks nothing and does not attach: it makes and starts the try,
 keeps it, and prints how to attach. With no key it stops and says how to add one.
@@ -113,7 +126,8 @@ The plan has three parts:
 - **the command** that makes it, showing only what differs from your defaults;
 - **the same choices as `doz_project.yaml`**, so a sandbox you like can become a project;
 - **what it can reach**, in plain words, from the same rules the proxy will apply ("Talk to xAI (api.x.ai, 4 API
-  paths)", "No package installs (Locked)", "Kept out whatever you choose: …", "No folder of this Mac").
+  paths)", "No package installs (Locked)", "Kept out whatever you choose: …", "A new empty folder … (not one of
+  yours)", "Copy to your Mac's clipboard: on", "Open files on your Mac: on").
 
 It also says whether the image is ready, which account and key it uses (where the key comes from, never the key),
 and anything in the way, with the fix. `--json` gives the same plan as data. Looking never starts the host.

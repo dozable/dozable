@@ -23,6 +23,8 @@ final class StepWordingTests: XCTestCase {
         "paused the VM (guest CPU 0, memory kept)", "resumed the VM", "resumed", "re-synced the guest clock",
         "re-mounted 1 share(s) (virtio-fs does not survive a VM stop)", "resumed the VM to stop it gracefully", "stopped the container",
         "saving the host's state", "docker.io/library/alpine:3.20 ready (pulled)",
+        "prepared the guest (persist dirs bound from the state disk)", "tools: installing git, curl with apk, through the proxy",
+        "tools: gh 2.102.0 — for GitHub as you (gh 2.102.0, from Dozer's cache on the Mac)",
     ]
 
     func testEveryStepHasARunningAndADoneLabelInPlainWords() {

@@ -166,7 +166,8 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(p.command, "doz try grok")
         XCTAssertEqual(p.create.network, "locked")
         XCTAssertEqual(p.create.trial, true)
-        XCTAssertEqual(p.create.isolated, true)
+        XCTAssertNil(p.create.isolated, "a try has a new empty folder of its own (owner, after the demo)")
+        XCTAssertEqual(p.workspace.map { ($0 as NSString).lastPathComponent }, "try-grok")
         r.planRequest?.purpose = "nonsense"
         let bad = await c.handle(r)
         XCTAssertNotNil(bad.error)
@@ -185,11 +186,43 @@ final class KitchenTests: XCTestCase {
     // MARK: doz try (D14)
 
     func testATriesDefaultsAndItsName() throws {
-        let p = try plan("try", ["--agent", "grok"])
+        let projects = root.appendingPathComponent("projects")
+        try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
+        var f = facts()
+        f.projectsDir = projects.path
+        let p = try plan("try", ["--agent", "grok"], facts: f)
         XCTAssertEqual(p.create.image, "grok")
         XCTAssertEqual(p.create.network, "locked")
-        XCTAssertNil(p.workspace)
+        // Owner, after the demo: a NEW EMPTY folder of its own under projects_dir, shared at /workspace (files the agent
+        // makes are on the Mac; the open-files bridge works) — never one of yours.
+        XCTAssertEqual(p.workspace, projects.appendingPathComponent("try-grok").path)
+        XCTAssertNil(p.create.isolated)
         XCTAssertEqual(p.trial, true)
+        XCTAssertTrue(p.reach.contains { $0.kind == "folder" && $0.text.hasPrefix("A new empty folder ") && $0.text.contains("(not one of yours)") },
+                      p.reach.map(\.text).joined(separator: " | "))
+        XCTAssertTrue(p.reach.contains { $0.text == "Copy to your Mac's clipboard: on" })
+        XCTAssertTrue(p.reach.contains { $0.text == "Open files on your Mac: on" })
+        XCTAssertEqual(p.command, "doz try grok", "the default is the command's own")
+        // A folder there that holds something is never taken: the next name (its own folder) is.
+        try FileManager.default.createDirectory(at: projects.appendingPathComponent("try-grok"), withIntermediateDirectories: true)
+        try "mine".write(to: projects.appendingPathComponent("try-grok/notes.txt"), atomically: true, encoding: .utf8)
+        let p2 = try plan("try", ["--agent", "grok"], facts: f)
+        XCTAssertEqual(p2.name, "try-grok-2")
+        XCTAssertEqual(p2.workspace, projects.appendingPathComponent("try-grok-2").path)
+        // …and an empty one (a Finder .DS_Store counts as empty) is used.
+        try FileManager.default.createDirectory(at: projects.appendingPathComponent("try-gemini"), withIntermediateDirectories: true)
+        try Data().write(to: projects.appendingPathComponent("try-gemini/.DS_Store"))
+        XCTAssertEqual(try plan("try", ["--agent", "gemini"], facts: f).name, "try-gemini")
+        // A given name whose folder holds something: refused, with the ways out.
+        let p3 = try plan("try", ["--agent", "grok"], name: "try-grok", facts: f)
+        XCTAssertTrue(p3.problems.contains { $0.text.contains("not empty") && $0.fix == "--isolated, or --workspace DIR" }, "\(p3.problems)")
+        // --isolated keeps no folder (and says so); --workspace DIR is the person's own choice.
+        let iso = try plan("try", ["--agent", "grok", "--isolated"], facts: f)
+        XCTAssertNil(iso.workspace)
+        XCTAssertEqual(iso.command, "doz try grok --isolated")
+        XCTAssertTrue(iso.reach.contains { $0.text == "Open files on your Mac: off (no folder)" })
+        let mine = try plan("try", ["--agent", "grok", "--workspace", "/tmp/617-w"], facts: f)
+        XCTAssertTrue(mine.reach.contains { $0.text.hasPrefix("Your folder /tmp/617-w") })
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: []), "try-grok")
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: ["try-grok", "try-grok-2"]), "try-grok-3")
         XCTAssertEqual(CreatePlanner.tryName(agent: .claudeCode, taken: []), "try-claude")

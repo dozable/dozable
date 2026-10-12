@@ -578,6 +578,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var agentWorking: Bool? = nil
     /// 617 (D14): made by `doz try`.
     public var trial: Bool? = nil
+    /// 617: the folder Dozer made for this try (nil: none, or one the person chose).
+    public var trialFolder: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
 
@@ -601,7 +603,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case workspaceView                                // 608
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
-        case trial, extraKeys                             // 617
+        case trial, extraKeys, trialFolder                // 617
     }
 
     public init(from decoder: Decoder) throws {
@@ -642,6 +644,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         agentWorking = try c.decodeIfPresent(Bool.self, forKey: .agentWorking)
         trial = try c.decodeIfPresent(Bool.self, forKey: .trial)
         extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
+        trialFolder = try c.decodeIfPresent(String.self, forKey: .trialFolder)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -682,6 +685,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(imagePreparation, forKey: .imagePreparation)
         try c.encodeIfPresent(trial, forKey: .trial)
         try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
+        try c.encodeIfPresent(trialFolder, forKey: .trialFolder)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
         try c.encodeIfPresent(agentWorking, forKey: .agentWorking)

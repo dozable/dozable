@@ -437,6 +437,7 @@ public actor HostCore {
         i.agent = m.sandbox.spec.imageSpec?.name
         i.credentialProblem = credentialProblem(m)
         i.trial = m.config.trial
+        i.trialFolder = m.config.trialFolder
         i.extraKeys = m.config.extraKeys
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
         i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
@@ -915,7 +916,11 @@ public actor HostCore {
             var seen = Set<String>()
             cfg.extraKeys = keys.filter { seen.insert($0).inserted }
         }
-        if o.trial == true { cfg.trial = true }        // 617 (D14)
+        if o.trial == true {                           // 617 (D14)
+            cfg.trial = true
+            // The try's own folder — made now by Dozer, so its delete may offer to remove it (never one of yours).
+            if let p = prepared, p.created { cfg.trialFolder = p.path }
+        }
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
         var createDetail = ["network": cfg.networkName]
@@ -1102,7 +1107,15 @@ public actor HostCore {
         case .reset:
             action = ("reset to image", { try await sb.resetToImage() })
         case .rm:
-            action = ("delete sandbox", { try await sb.delete() })
+            // 617: a try's own folder (Dozer made it) goes with it while it is EMPTY — the dashboard's Delete and `doz rm`
+            // alike; one that holds the agent's files is the person's to keep or delete (the CLI asks; the page says where).
+            let folder = m.config.trial == true ? m.config.trialFolder : nil
+            action = ("delete sandbox", {
+                try await sb.delete()
+                if let f = folder, FileManager.default.fileExists(atPath: f), Workspace.isEmptyOrMissing(f) {
+                    try? FileManager.default.removeItem(atPath: f)
+                }
+            })
         default:
             throw HostError(.invalid, "not a lifecycle operation: \(op.rawValue)")
         }
@@ -1428,6 +1441,20 @@ public actor HostCore {
         return e
     }
 
+    /// 617 (owner: "I couldn't use its clipboard" in a Grok try): a session's terminal IS an OSC 52 sink while the
+    /// clipboard bridge is on (the attach relay takes the copy to the Mac). Grok Build decides its copy route from its
+    /// surroundings: a Dozer VM has no DISPLAY, no SSH and no container marker, so it took its desktop routes (X11, then
+    /// xclip/xsel/wl-copy), which have nothing to reach, and never sent OSC 52 — no copy and no read reached the host.
+    /// `grok wrap` tells the Grok it runs that its OSC 52 is intercepted with `GROK_OSC52_SINK=1` (its pty_wrap; read in
+    /// its clipboard code), which is exactly what the relay does. Never over the caller's own value.
+    public static let clipboardSinkVariables = ["GROK_OSC52_SINK"]
+    static func withClipboardSink(_ env: [String: String], on: Bool) -> [String: String] {
+        guard on else { return env }
+        var e = env
+        for v in clipboardSinkVariables where e[v] == nil { e[v] = "1" }
+        return e
+    }
+
     /// 590: one `open-session` at a time per sandbox. This actor is re-entrant across its awaits, so
     /// two opens of one session (two clicks while the sandbox booted — the owner's first `doz
     /// ui` session; or two quick `doz run`) both saw "not running", both started `deckhold
@@ -1551,8 +1578,10 @@ public actor HostCore {
         let t0 = ContinuousClock.now
         let started = Date()
         do {
+            let sink = Self.sandboxValue(m.config, SettingKey.clipboard).plain != "off"
             try await m.sandbox.openSession(session, argv: argv,
-                                            environment: Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                            environment: Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                                                                on: sink),
                                             workingDirectory: r.workdir ?? workdir,
                                             user: r.user, size: size)
         } catch {
@@ -1876,6 +1905,7 @@ public actor HostCore {
         cfg.diedWithHostAt = nil
         cfg.placeholderHashes = nil
         cfg.trial = nil                 // 617: a duplicate is kept on purpose — never a try; its custom keys (extraKeys) come along
+        cfg.trialFolder = nil
         if spec.network.policy == nil { cfg.extraKeys = nil }
         if spec.network.policy != nil {
             switch o.account {
