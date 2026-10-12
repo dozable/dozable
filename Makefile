@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -310,6 +310,9 @@ test-cli-github: cli vmtest-host ## 599d: GitHub as the user through SEAMS only 
 AGENTS ?= claude-code pi codex gemini grok
 profile-agents: cli ## 617: the network profile of each agent (AGENTS="grok gemini"): a fresh try with the Open network in a scratch store (PROFILE_WORK, default /tmp/doz-profile), every HTTPS request decrypted and logged, its first start + a short scripted task (fake keys; xAI/Google through a fake provider) → profiles/AGENT.json, keeping every determination already made. DIFF=1: report new / missing endpoints only (exit 1 on a new one) — never writes, never allows
 	Scripts/profile-agents.sh $(if $(DIFF),--diff,) $(AGENTS)
+
+test-cli-agents: cli vmtest-host ## 617: the recipe agents (Grok Build, Gemini CLI, Antigravity CLI) in real VMs through SEAMS only — a fake provider over TLS (Scripts/fake-provider.py), fake keys in memory, a fake op: the pin, the launcher, the swap, no key in the guest, the leak guard, a fresh try with no counted refusal, op as a key source (AGENTS_PARTS=grok,gemini,antigravity; AGENTS_KEEP=1 keeps the store; network: the registries + Google's release)
+	perl -e 'alarm shift; exec @ARGV' 5400 $(VMTEST_BIN) cli-agents --doz $(CLI_BIN)
 
 agent-currency: ## 617: every agent's latest release, its date and age, freshness, deprecation, its GitHub repository archived or not, and its recorded lifecycle → profiles/currency.json; TODO lines for a new release (re-profile its network) or a deprecation/archive (review its lifecycle). Read-only requests to npm, the vendor manifest and GitHub
 	Scripts/agent-currency.py
