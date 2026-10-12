@@ -422,6 +422,23 @@ td.bar-cell { min-width: 110px; vertical-align: middle; }
 @media (max-width: 760px) { .lin-row { grid-template-columns: minmax(0, 1fr) 80px 80px; } .lin-shared-n, .lin-bar { display: none; } }
 .term-grid { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 .term-grid.split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* 617: while a sandbox starts, its terminal area shows the progress (components/start-progress.js) — never a blank pane. */
+.terms { position: relative; }
+.start-progress { position: absolute; inset: 0; z-index: var(--z-sticky); background: var(--bg); display: flex; justify-content: center;
+  align-items: flex-start; padding: var(--sp-6) var(--sp-4); overflow: auto; }
+.sp-box { width: min(720px, 100%); background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg);
+  padding: var(--sp-5); box-shadow: var(--shadow-1); }
+.sp-box h3 { margin: 0 0 var(--sp-1); }
+.sp-steps { list-style: none; margin: var(--sp-3) 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.sp-step { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--sp-2); }
+.sp-step .muted { white-space: nowrap; }
+.sp-step .icon { color: var(--ok); }
+.sp-step.failed .icon, .sp-step.failed { color: var(--bad); }
+.sp-step.current { font-weight: 600; }
+.sp-tail { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); background: var(--surface-2); border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3); margin: 0; white-space: pre-wrap; word-break: break-all; max-height: 5.5em; overflow: hidden; }
+.sp-failed { margin-top: var(--sp-3); }
+.sp-acts { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
 .tabs { display: flex; gap: 2px; padding: 4px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }

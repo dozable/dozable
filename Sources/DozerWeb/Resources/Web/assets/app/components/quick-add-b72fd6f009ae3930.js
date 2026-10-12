@@ -4,10 +4,10 @@ import { act, actOrThrow, waitOp } from '../core/operations-73b26effbe04935d.js'
 import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings-70247ce370cb44d9.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from './button-72d87e1085f00b4e.js';
-import { createDialog } from './create-dialog-51fd2cf6213abf9b.js';
-import { startWithBootView } from './lifecycle-e9598984f668c73b.js';
-import { pageFailure, toast } from './notices-4ca3602cac70be6f.js';
-import { openTerminal } from './terminal-10907ff8267010f9.js';
+import { createDialog } from './create-dialog-e6b0ed846af9046b.js';
+import { startWithBootView } from './lifecycle-39b13dda1ebab7c4.js';
+import { pageFailure, toast } from './notices-22eb175bdbf9c19c.js';
+import { openTerminal } from './terminal-22984e3fab597f05.js';
 
 // ── 599c: Quick add (owner: "a "Quick Add" sandbox that picks defaults for workspace name etc and opens
 // it immediately") — one click, no form: the default image (defaults.image), a free name (claude-sandbox,

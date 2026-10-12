@@ -1706,7 +1706,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — a modal like `#/new`; `views/try.js`, `WebTry.swift`): `GET
   /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
   `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). It makes the try with the
-  ORDINARY `create` action (`trial`, the plan's `create` fields), prepares the image early (`image-bake`), pastes a
+  ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
   provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
   the try bar (Sleep (hibernate) · Delete… · Keep). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
@@ -1718,6 +1718,15 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `&to=try/AGENT` in its fragment (the bootstrap strips the capability first). The New Sandbox review shows the plan
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
+- **A start shows its progress in the terminal area** (owner: no blank terminal while a build runs): `WebOperation.progress`
+  (`WebOpProgress`, folded from the operation's host events in `WebOperations.progress`: finished steps in StepWording,
+  the step under way + since, a transfer, the last 3 output lines — inert) drives `components/start-progress.js` — a panel
+  over `#terminals` while the sandbox's `start` runs (a failure stays, with Start/Dismiss), gone when it is done (the
+  terminal has the session). A build's raw output never becomes the operation's one-line `text` (the header strip).
+  Waiting for an operation is EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`; `startWithBootView` is woken by
+  the pane's state and starts at once in a hidden tab): a hidden tab's short timers run once a minute (Chrome's intensive
+  throttling — the owner's 68 s pause). `probes/617-*/stageE/browser-try-twice.mjs` (throttling emulated),
+  `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
   (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
   `SandboxConfig.trialFolder` ONLY when Dozer made it; `rm` removes it with the sandbox when empty (host), the CLI asks

@@ -4,7 +4,7 @@ import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-72d87e1085f00b4e.js';
-import { statusPill } from '../components/pills-30141ce57caf469f.js';
+import { statusPill } from '../components/pills-0d24e3736b2a2189.js';
 
 export async function viewDoctor() {
   const checks = await api('doctor');

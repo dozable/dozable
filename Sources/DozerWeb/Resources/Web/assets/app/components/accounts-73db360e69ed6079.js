@@ -9,7 +9,7 @@ import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from './button-72d87e1085f00b4e.js';
 import { callout } from './callout-48fdacc012091bbe.js';
 import { dialog } from './dialog-fd6b35c90abaf5e6.js';
-import { toast } from './notices-4ca3602cac70be6f.js';
+import { toast } from './notices-22eb175bdbf9c19c.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refreshSandbox = upcall('refreshSandbox');
 

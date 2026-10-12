@@ -4,6 +4,7 @@ import { icon } from '../dom/icons.js';
 import { opEnded } from '../core/operations.js';
 import { state } from '../core/state.js';
 import { callout } from './callout.js';
+import { paintStartProgress } from './start-progress.js';
 
 /// 603 (E7): a toast acknowledges a success (or says something worth knowing) and goes after 4 s. A FAILURE is
 /// never only a toast: it is said where the action was started and stays until dismissed or fixed — in its
@@ -68,6 +69,8 @@ export function bridgeNotice(kind, text) {
 state.acked = new Set();
 state.pageAt = Date.now();      // a failure from before this page loaded shows only as long as a success would
 export function paintRowOps() {
+  // 617: the sandbox page's terminal area shows a start's progress (and hands over to the terminal when it is done).
+  paintStartProgress();
   for (const el of document.querySelectorAll('[data-op-for]')) {
     const name = el.dataset.opFor;
     const ops = [...state.ops.values()].filter((o) => o.sandbox === name);

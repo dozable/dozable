@@ -112,6 +112,22 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(g.latest, "latest: not checked yet")
     }
 
+    /// A start's progress for the terminal area: steps in plain words, the one under way, a short tail — raw build output
+    /// never becomes the operation's one-line text (the header strip).
+    func testAStartsProgressIsStepsInPlainWordsAndATail() {
+        var p = WebOpProgress()
+        p.apply(HostEvent(kind: .started, sandbox: "s", text: "booted the bake VM"))
+        XCTAssertEqual(p.current, "Starting a VM to prepare the image")
+        XCTAssertNotNil(p.since)
+        for i in 1...5 { p.apply(HostEvent(kind: .output, sandbox: "s", text: "Get:\(i) http://deb.debian.org/debian bookworm\u{1b}[0m")) }
+        XCTAssertEqual(p.tail.count, 3, "a short tail")
+        XCTAssertEqual(p.tail.last, "Get:5 http://deb.debian.org/debian bookworm", "inert text")
+        p.apply(HostEvent(kind: .step, sandbox: "s", text: "booted the bake VM", milliseconds: 500))
+        XCTAssertEqual(p.steps.last?.text, "Started a VM to prepare the image")
+        XCTAssertEqual(p.steps.last?.seconds, 0.5)
+        XCTAssertNil(p.current)
+    }
+
     /// `doz try --ui` with no page open opens the plain origin only when a browser is still signed in for that port.
     func testKeptSessionsDecideWhetherAPlainPageSignsIn() throws {
         let f = FileManager.default.temporaryDirectory.appendingPathComponent("uisessions-\(UUID().uuidString.prefix(6))")

@@ -1,8 +1,8 @@
 // views/try — Quick try (617, 616.03 mock c; the owner: "Quick try is in phase 1"): an agent and its key — everything
 // else a safe default. The same decisions as `doz try`: the host's planner (`POST plan`, purpose try) names it
 // try-AGENT, gives it a NEW EMPTY folder of its own (never one of yours), Locked + its own model, the agent's own base
-// and the provider's default key; the "What you need" card comes from the recipe (`GET try`). The image is prepared at
-// once (early), then Create makes it with the ordinary `create` action (trial), starts it with the boot view and opens
+// and the provider's default key; the "What you need" card comes from the recipe (`GET try`). Browsing prepares NOTHING
+// (owner: no build per recipe looked at); Create makes it with the ordinary `create` action (trial), starts it (the image prepared then, its progress in the terminal area) and opens
 // its session. A try's page then offers Sleep · Delete · Keep (`tryBar`, components/try-bar.js).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
@@ -26,7 +26,7 @@ export async function viewTry() {
   if (!state.tr || state.tr.asked !== want) {
     const catalog = await api('try');
     const first = catalog.agents.find((a) => a.id === want) || catalog.agents.find((a) => !a.card) || catalog.agents[0] || null;
-    state.tr = { asked: want, catalog, agent: first ? first.id : null, pasting: '', error: '', creating: false, prepared: {} };
+    state.tr = { asked: want, catalog, agent: first ? first.id : null, pasting: '', error: '', creating: false, };
   }
   return tryNode();
 }
@@ -50,17 +50,9 @@ function prepNodes(a) {
   const p = (state.preps || []).find((x) => x.image === a.plan.image.name);
   if (p && (prepRunning(p) || p.error)) return [prepCard(p)];
   if (a.plan.image.state === 'unprepared' && !(p && p.state === 'done')) {
-    return [h('p', { class: 'muted' }, 'Its image is prepared the first time (minutes; it needs the network) — it starts as soon as you pick it.')];
+    return [h('p', { class: 'muted' }, 'Its image is prepared the first time it starts (minutes; it needs the network) — the progress shows in its terminal area.')];
   }
   return [h('p', { class: 'muted', 'data-try-ready': '' }, (a.plan.image.title || a.plan.image.name) + ' — ready')];
-}
-
-/// Early preparation: the image of the chosen agent starts preparing at once, while the key is dealt with.
-async function prepareEarly(a) {
-  const tr = state.tr;
-  if (a.plan.image.state !== 'unprepared' || tr.prepared[a.plan.image.name]) return;
-  tr.prepared[a.plan.image.name] = true;
-  try { await act({ action: 'image-bake', image: a.plan.image.name }); } catch (_) { /* the create prepares it then */ }
 }
 
 function agentCards() {
@@ -148,7 +140,6 @@ function tryNode() {
   if (!a) {
     return h('div', { class: 'wizard try' }, head, h('div', { class: 'wiz-card' }, h('div', { class: 'w-body' }, callout('info', { body: 'No agent this Dozer can try.' }))));
   }
-  setTimeout(() => prepareEarly(a), 0);
   const blocked = a.plan.problems.filter((p) => p.code !== 'key');
   const create = btn(a.card ? 'Add a key first' : 'Create and open', () => tryCreate(create), { primary: true, lg: true, icon: 'rocket' });
   create.dataset.tryCreate = '';

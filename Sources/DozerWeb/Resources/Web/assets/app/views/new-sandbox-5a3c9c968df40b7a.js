@@ -9,19 +9,19 @@ import { setting } from '../core/settings-70247ce370cb44d9.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isRemote } from '../core/session-1dc0b37f3aeff5e4.js';
 import { renderAccessStep } from '../components/access-step-57cb78b3c9629932.js';
-import { accountChooser } from '../components/accounts-1f34f6171a01401c.js';
+import { accountChooser } from '../components/accounts-73db360e69ed6079.js';
 import { btn } from '../components/button-72d87e1085f00b4e.js';
 import { callout } from '../components/callout-48fdacc012091bbe.js';
-import { createDialog } from '../components/create-dialog-51fd2cf6213abf9b.js';
+import { createDialog } from '../components/create-dialog-e6b0ed846af9046b.js';
 import { dialog } from '../components/dialog-fd6b35c90abaf5e6.js';
 import { imagePicker } from '../components/image-picker-4622f869bcd6eda4.js';
-import { renderModal, wizHead, wizMount } from '../components/modal-79cf8ed1dee8fd74.js';
-import { pageFailure, toast } from '../components/notices-4ca3602cac70be6f.js';
+import { renderModal, wizHead, wizMount } from '../components/modal-5ddc7174b98345f8.js';
+import { pageFailure, toast } from '../components/notices-22eb175bdbf9c19c.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-bfba2bf98ae85840.js';
 import { rulesStep } from '../components/rules-step-124b3dfb793c8146.js';
 import { stepperNode } from '../components/stepper-eb70a810bda2f73e.js';
-import { openDefaultTerminal } from '../components/terminal-10907ff8267010f9.js';
-import { planBlock } from '../components/plan-view-4b3bdf25b41179f5.js';
+import { openDefaultTerminal } from '../components/terminal-22984e3fab597f05.js';
+import { planBlock } from '../components/plan-view-f35a3dbeb71eafdc.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").

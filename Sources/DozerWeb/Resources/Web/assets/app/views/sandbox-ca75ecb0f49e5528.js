@@ -10,23 +10,23 @@ import { saveSetting, setting } from '../core/settings-70247ce370cb44d9.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { pageTerminals, sview, terminals } from '../core/terminals-fa5cf7fc28fdb48f.js';
 import { isRemote } from '../core/session-1dc0b37f3aeff5e4.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-1f34f6171a01401c.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-73db360e69ed6079.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-72d87e1085f00b4e.js';
 import { callout } from '../components/callout-48fdacc012091bbe.js';
 import { confirmAction, dialog } from '../components/dialog-fd6b35c90abaf5e6.js';
-import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-e9598984f668c73b.js';
+import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-39b13dda1ebab7c4.js';
 import { moreMenu } from '../components/menus-08caea0a1297bf90.js';
-import { sessionMenuItems } from '../components/session-actions-0ced535b6636907c.js';
-import { failureFor, pageFailure, paintRowOps } from '../components/notices-4ca3602cac70be6f.js';
-import { sandboxPill } from '../components/pills-30141ce57caf469f.js';
-import { agentChip } from '../components/agent-status-e9de17a3ae291f3f.js';
-import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-10907ff8267010f9.js';
+import { sessionMenuItems } from '../components/session-actions-682701776b8e13f8.js';
+import { failureFor, pageFailure, paintRowOps } from '../components/notices-22eb175bdbf9c19c.js';
+import { sandboxPill } from '../components/pills-0d24e3736b2a2189.js';
+import { agentChip } from '../components/agent-status-3d48b56bc4c97dc5.js';
+import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-22984e3fab597f05.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-0c55e45bda183c7e.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-85dc9d31c82071dc.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-7054957b6373ad15.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-a02a8dbb5cfeaff4.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-a0b14784bfc5e289.js';
 import { networkPanel } from './sandbox-network-9070baf60af1318c.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sandbox-terminals-8d426602bbe35760.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sandbox-terminals-292a08bddaa7a606.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.

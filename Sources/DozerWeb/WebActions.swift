@@ -701,4 +701,56 @@ public struct WebOperation: Codable, Equatable, Sendable {
     public var lines: [String]? = nil
     /// 605: started by an earlier `doz ui` that restarted while it ran (loaded from `ui.operations.json`).
     public var interrupted: Bool? = nil
+    /// 617 (owner: "while the build completes, we should show the progress in that area"): the steps in plain words
+    /// (StepWording), the one under way with when it began, and a short live tail of its output — what the sandbox
+    /// page's progress panel draws in the terminal area until the session is there.
+    public var progress: WebOpProgress? = nil
+}
+
+public struct WebOpProgress: Codable, Equatable, Sendable {
+    public struct Step: Codable, Equatable, Sendable {
+        public var text: String
+        public var seconds: Double?
+        public var failed: Bool?
+    }
+    /// Finished steps, in order (at most the last 40).
+    public var steps: [Step] = []
+    /// The step under way, in present-tense words, and when it began.
+    public var current: String?
+    public var since: Date?
+    /// A download's progress, said plainly ("312 MiB of 640 MiB").
+    public var transfer: String?
+    /// The last lines of a build's output (inert text, at most 3).
+    public var tail: [String] = []
+
+    public init() {}
+
+    /// One host event folded in.
+    public mutating func apply(_ e: HostEvent) {
+        let label = e.text ?? ""
+        switch e.kind {
+        case .started:
+            current = StepWording.of(label).running
+            since = e.time
+            transfer = nil
+            tail = []
+        case .step:
+            steps.append(Step(text: StepWording.of(label).done, seconds: e.milliseconds.map { $0 / 1000 }))
+            current = nil; since = nil; transfer = nil
+        case .failed:
+            steps.append(Step(text: StepWording.of(e.startedAs ?? label).running.replacingOccurrences(of: "…", with: "") + (e.error.map { " — \($0)" } ?? ""),
+                              seconds: e.milliseconds.map { $0 / 1000 }, failed: true))
+            current = nil; since = nil; transfer = nil
+        case .output:
+            let line = InertText.line(Substring(label))
+            if !line.isEmpty { tail = Array((tail + [line]).suffix(3)) }
+        case .progress:
+            if let c = e.completedBytes, let t = e.totalBytes, t > 0 {
+                transfer = "\(ProgressFormat.bytes(c)) of \(ProgressFormat.bytes(t))"
+            }
+        default:
+            break
+        }
+        if steps.count > 40 { steps.removeFirst(steps.count - 40) }
+    }
 }
