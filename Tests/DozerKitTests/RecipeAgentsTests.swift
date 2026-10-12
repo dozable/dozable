@@ -212,6 +212,9 @@ final class RecipeAgentsTests: XCTestCase {
         let policy = NetworkPolicy.permissions(locked)
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "POST", path: "/v1/chat/completions").action, .allow)
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/v1/api-key").action, .allow)
+        // The VM proof: against the real base Grok Build 1.0.50 sends its turns to the Responses API.
+        XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "POST", path: "/v1/responses").action, .allow)
+        XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/").action, .deny, "its reachability probe carries no key — refused")
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "POST", path: "/v1/upload").action, .deny)
         XCTAssertEqual(policy.evaluateConnection(host: "api.x.ai", port: 443).kind, .inspect)
         XCTAssertEqual(policy.evaluateConnection(host: "api.anthropic.com", port: 443).kind, .deny, "D5: no way out to Anthropic")

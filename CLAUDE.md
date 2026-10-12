@@ -1603,6 +1603,40 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   Mac, the guest's renewal answered, no token anywhere in the guest, no silent fallback, the API key. `CODEX_KEEP=1`
   keeps its store (`/tmp/dzo-codex-keep`) and the prepared images.
 
+### Agent recipes and key providers
+
+- **Every agent is a recipe** (`Sources/DozerKit/AgentRecipe.swift`; data in `Sources/DozerKit/Recipes/agents/*.json`,
+  `providers.json`, `gateways.json`, `tags.json`, each ONE `.embedInCode` line in Package.swift with a unique basename —
+  `AgentRecipeTests` ties the folder to the manifest). Decoded once, validated, unknown keys refused; an invalid
+  built-in recipe is a test failure. `AgentKind` is a recipe-backed struct (the same raw strings); `allCases` is the
+  four that were the enum, then the recipe agents in file order. `AgentRecipes.registerForTests` is the only way to
+  add one at run time — no environment variable loads a recipe.
+- **The built-in three (Claude Code, pi, Codex) keep every byte**: their recipes are `builtin` and only DESCRIBE them
+  (credentials, sessions, resume, settings keys, prompt); their install steps and launchers stay `AgentImages`' Swift.
+  `RecipePinTests` (Codex included) must stay green; `RecipeAgentsTests.test_builtinRecipesDescribeTheirImages` proves
+  each recipe matches its image. `AgentPackage.integrity` is nil for them (absent from the canonical JSON).
+- **A recipe agent** (Gemini CLI, Grok Build) is composed from its recipe alone: its install (npm with Node on a base
+  without it; an npm platform package at the main package's version, sha512-checked, brotli payload decompressed in
+  the bake), the generic launcher (`AgentImages.recipeLauncherScript`: approval prompts off unless
+  `DOZ_<SHORT>_PERMISSIONS=ask` or root, passthrough arguments run as they are, first-run settings written ONLY when
+  absent), its persist dirs and session environment. A recipe names no credential (validated). Its version resolves
+  from the MAIN npm package (Grok's platform package's own `latest` tag is stale).
+- **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google`,
+  `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
+  (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never
+  `GEMINI_API_KEY_AUTH_MECHANISM`). A key agent's sandbox NEVER gets an Anthropic binding (`applyKeyAccount`). The key
+  check is the provider's (`KeyProvider.check`; xAI and Google answer a bad key with 400). The proxy refuses in each
+  provider's error shape. Test seam: `DOZ_TEST_PROVIDER_UPSTREAM` + `DOZ_TEST_PROVIDER_CA` (the proxy's leg and the
+  key check go to a fake, trusting only its CA; `probes/617-*/stageA/` is the VM proof).
+- **Permissions**: a recipe agent's own `model:<provider>` (Grok's path-conditioned to the API paths it uses — the VM
+  proof found `/v1/responses` against the real base) and a hidden `update:<id>` (only beside "Update itself"). D5: a
+  sandbox with a recipe agent's own model has NO Anthropic `model` (`normalized` drops it; its Locked is its own model
+  only); the built-in three's presets are unchanged. A recipe's `excluded` hosts are denied BEFORE the user's rules and
+  every permission (Open included), never suggested, never grantable as a site — and are in no permission (validated).
+- **Read model for later stages** (data + tests only so far): `auth.methods`, `gateways[]` (support level per model
+  gateway, `how` as templates over `{gateway.endpoint.<id>}`, `{placeholder}`, `{model}`), `capabilityTags` (derived
+  from the data; only `headless` is declared). `UsageSchema.agents` must contain every agent id (`RecipeHostTests`).
+
 ### Browser terminals
 
 - **A terminal is two steps.** `POST …/terminal-ticket` (CSRF, strict body) mints a 256-bit ticket that

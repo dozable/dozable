@@ -1,7 +1,7 @@
 perm model locked=true hosts=api.anthropic.com statsig.anthropic.com
 perm model:openai locked=false hosts=chatgpt.com api.openai.com ab.chatgpt.com
 perm model:google locked=false hosts=generativelanguage.googleapis.com
-perm model:xai locked=false hosts=api.x.ai[/v1/models,/v1/api-key,/v1/chat/completions]
+perm model:xai locked=false hosts=api.x.ai[/v1/models,/v1/api-key,/v1/chat/completions,/v1/responses]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org

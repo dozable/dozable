@@ -215,9 +215,9 @@ public enum AgentPermissions {
         let set = Set(names)
         var out: [EgressRule] = []
         for p in all where set.contains(p.id) {
+            let agent = AgentRecipes.all.first { $0.network.model.id == p.id }?.title ?? "this agent"
             for h in p.denies ?? [] {
-                out.append(EgressRule(.deny, host: h, note: "kept out of a \(p.title.replacingOccurrences(of: "Talk to ", with: "")) agent's sandbox",
-                                      id: stableID(p.id + "|deny", h)))
+                out.append(EgressRule(.deny, host: h, note: "kept out of \(agent)'s sandbox", id: stableID(p.id + "|deny", h)))
             }
         }
         return out

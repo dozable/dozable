@@ -462,14 +462,14 @@ public struct KeyProvider: Codable, Sendable, Equatable {
 
     /// 617: one check request from the Mac over the proxy's own leg (`HTTPSOnce`; with `override`, ONLY the test seam's
     /// CA): 200 → good, a `rejected` status → bad (xAI and Google answer a bad key with 400), anything else → unknown.
-    public func checkKey(_ key: String, override: EgressProxy.UpstreamOverride? = nil) -> Result<Bool, CheckFailure> {
+    public func checkKey(_ key: String, override: EgressProxy.UpstreamOverride? = nil) -> Result<(good: Bool, status: Int), CheckFailure> {
         guard let c = check, let u = URL(string: c.url), let host = u.host else { return .failure(CheckFailure("\(title) keys have no check")) }
         let path = u.path.isEmpty ? "/" : u.path + (u.query.map { "?" + $0 } ?? "")
         switch HTTPSOnce.request(host: host, method: c.method, path: path, headers: [header(for: key)], override: override, timeout: 20) {
         case .failure(let f): return .failure(f)
         case .success(let r):
-            if r.status == 200 { return .success(true) }
-            if c.rejected.contains(r.status) { return .success(false) }
+            if r.status == 200 { return .success((true, 200)) }
+            if c.rejected.contains(r.status) { return .success((false, r.status)) }
             return .failure(CheckFailure("HTTP \(r.status)"))
         }
     }

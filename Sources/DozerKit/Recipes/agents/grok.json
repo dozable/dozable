@@ -54,7 +54,7 @@
       },
       "proxy_route": {
         "from_host": "api.x.ai",
-        "paths": { "/v1/chat/completions": "/api/v1/chat/completions", "/v1/models": "/api/v1/models" },
+        "paths": { "/v1/chat/completions": "/api/v1/chat/completions", "/v1/responses": "/api/v1/responses", "/v1/models": "/api/v1/models" },
         "unmapped": ["/v1/api-key"]
       },
       "limits": ["not supported by xAI or OpenRouter for this pair: an opt-in only"],
@@ -100,7 +100,7 @@
       "title": "Talk to xAI",
       "summary": "Grok Build's model (the xAI API) — needed for Grok Build to work.",
       "phrase": "talk to your AI model (xAI)",
-      "hosts": [{ "host": "api.x.ai", "paths": ["/v1/models", "/v1/api-key", "/v1/chat/completions"] }]
+      "hosts": [{ "host": "api.x.ai", "paths": ["/v1/models", "/v1/api-key", "/v1/chat/completions", "/v1/responses"] }]
     },
     "update": [],
     "excluded": ["cli-chat-proxy.grok.com", "auth.x.ai", "accounts.x.ai", "console.x.ai", "x.ai"]

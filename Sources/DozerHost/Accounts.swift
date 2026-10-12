@@ -307,8 +307,8 @@ public enum ProviderSeam {
         let override = upstream()
         return await Task.detached {
             switch p.checkKey(secret, override: override) {
-            case .success(true): return AccountVerification.verified
-            case .success(false): return .rejected("\(p.title) refused the key")
+            case .success(let r) where r.good: return AccountVerification.verified
+            case .success(let r): return .rejected("HTTP \(r.status) from \(p.check.flatMap { URL(string: $0.url)?.host } ?? p.title)")
             case .failure(let f): return .unavailable(f.reason)
             }
         }.value
