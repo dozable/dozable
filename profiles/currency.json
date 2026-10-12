@@ -1,0 +1,116 @@
+{
+  "schema": 1,
+  "checked": "2026-10-12",
+  "agents": [
+    {
+      "agent": "antigravity",
+      "title": "Antigravity CLI",
+      "latest": "1.3.3",
+      "released": "2026-10-10",
+      "ageDays": 2,
+      "freshness": "active",
+      "deprecated": null,
+      "github": null,
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "1.3.3",
+      "error": null
+    },
+    {
+      "agent": "claude-code",
+      "title": "Claude Code",
+      "latest": "2.1.296",
+      "released": "2026-10-09",
+      "ageDays": 3,
+      "freshness": "active",
+      "deprecated": null,
+      "github": null,
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "2.1.296 (Claude Code)",
+      "error": null
+    },
+    {
+      "agent": "codex",
+      "title": "Codex",
+      "latest": "0.162.1",
+      "released": "2026-10-09",
+      "ageDays": 3,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "openai/codex",
+        "archived": false,
+        "pushed": "2026-10-12"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "codex-cli 0.162.1",
+      "error": null
+    },
+    {
+      "agent": "gemini",
+      "title": "Gemini CLI",
+      "latest": "0.63.0",
+      "released": "2026-10-06",
+      "ageDays": 6,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "google-gemini/gemini-cli",
+        "archived": false,
+        "pushed": "2026-10-12"
+      },
+      "lifecycle": {
+        "status": "superseded",
+        "by": "antigravity",
+        "note": "Superseded by Antigravity CLI — Google retired Gemini CLI for personal accounts; it still works with a paid Gemini API key",
+        "source": "https://github.com/google-gemini/gemini-cli/discussions/27274",
+        "checked": "2026-10-12"
+      },
+      "profiledVersion": "0.63.0",
+      "error": null
+    },
+    {
+      "agent": "grok",
+      "title": "Grok Build",
+      "latest": "1.0.50",
+      "released": "2026-10-06",
+      "ageDays": 6,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "xai-org/grok-build",
+        "archived": false,
+        "pushed": "2026-09-29"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "grok 1.0.50 (c58f321264ba)",
+      "error": null
+    },
+    {
+      "agent": "pi",
+      "title": "pi",
+      "latest": "1.1.0",
+      "released": "2026-10-07",
+      "ageDays": 5,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "earendil-works/pi",
+        "archived": false,
+        "pushed": "2026-10-12"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "1.1.0",
+      "error": null
+    }
+  ]
+}

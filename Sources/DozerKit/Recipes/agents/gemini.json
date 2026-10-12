@@ -93,6 +93,13 @@
   },
   "resume": ["--resume", "latest"],
   "verify": [{ "argv": ["gemini", "--version"], "expect": "{version}" }],
+  "lifecycle": {
+    "status": "superseded",
+    "by": "antigravity",
+    "note": "Superseded by Antigravity CLI — Google retired Gemini CLI for personal accounts; it still works with a paid Gemini API key",
+    "source": "https://github.com/google-gemini/gemini-cli/discussions/27274",
+    "checked": "2026-10-12"
+  },
   "terms": "API key only — Google's terms forbid third-party tools from using the Google sign-in behind Gemini CLI.",
   "checked": "2026-10-12"
 }

@@ -65,6 +65,8 @@ struct TryCommand: AsyncParsableCommand {
         } else {
             recipe = try await pickFromList()
         }
+        // 617: a superseded agent still runs — said first, with what replaces it.
+        if let l = recipe.lifecycle, !l.isCurrent, !g.json, !g.quiet { Out.stderr("[doz] note: \(standingLine(l))\n") }
         var c = choices
         c.agent = recipe.id
         let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices()), g)
@@ -169,7 +171,8 @@ struct TryCommand: AsyncParsableCommand {
 
     /// `doz try` alone: the numbered list (a terminal), else the list and exit 64.
     func pickFromList() async throws -> AgentRecipe {
-        let index = DirectoryIndex.build(version: DozerCommand.version)
+        let index = DirectoryIndex.build(version: DozerCommand.version,
+                                         latest: AgentCurrency.all(store: g.dozerStore).compactMapValues(\.indexLatest))
         let (accounts, images) = await searchLocals(g)
         let agents = index.entries.filter { $0.kind == "agent" && $0.status == "supported" }
         let coming = index.entries.filter { $0.kind == "agent" && $0.status != "supported" }
@@ -183,6 +186,9 @@ struct TryCommand: AsyncParsableCommand {
             let key = l?.haveKey.map { "key: \($0)" + (l?.source.map { " (\($0))" } ?? "") } ?? "no key yet — you'll be asked"
             let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"
             s += String(format: "  %2d. %@ — %@ · %@ · %@\n", i + 1, e.title, e.publisher ?? "", key, image)
+            // 617: its latest release (and how old), and its standing with its maker.
+            s += "      " + latestLine(e.latest) + "\n"
+            if let l = e.lifecycle, !l.isCurrent { s += "      " + standingLine(l) + "\n" }
         }
         if !coming.isEmpty { s += "  coming: " + coming.map(\.title).joined(separator: ", ") + "\n" }
         Out.stdout(s)

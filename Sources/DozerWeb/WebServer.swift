@@ -973,7 +973,8 @@ public final class DozerWebServer: @unchecked Sendable {
         case .tryCatalog:
             // 617: read-only — each agent's try plan from the host's read-only op (in-process with no host).
             let d = data
-            return json(await WebTryCatalog.build(plan: { try await d.plan($0) }, secretEntry: settings.secretEntryAllowed))
+            return json(await WebTryCatalog.build(plan: { try await d.plan($0) }, secretEntry: settings.secretEntryAllowed,
+                                                  currency: AgentCurrency.all(store: DozerStore(root: URL(fileURLWithPath: d.storePath)))))
         case .plan:
             // 617: changes nothing; POST (CSRF, above) like the quick-add question.
             try Self.requireJSONBody(md)

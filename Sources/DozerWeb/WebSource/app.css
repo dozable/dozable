@@ -1389,6 +1389,9 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .try-agent-title { font-weight: 600; font-size: var(--fs-md); }
 .try-agent-key { font-size: var(--fs-xs); color: var(--ok); }
 .try-agent-key.needs { color: var(--warn); }
+.try-agent-latest { font-size: var(--fs-xs); }
+.try-agent-standing { font-size: var(--fs-xs); color: var(--warn); }
+.try-agent.superseded .try-agent-title { color: var(--ink-2); }
 .try-need { display: flex; flex-direction: column; gap: var(--sp-3); padding: var(--sp-4); border: var(--bw) solid var(--line); border-radius: var(--r-lg);
   background: var(--surface); }
 .try-need h3 { margin: 0; font-size: var(--fs-lg); }

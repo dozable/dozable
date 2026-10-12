@@ -100,6 +100,18 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    func testTheQuickTryShowsTheLatestAndTheStanding() async throws {
+        let cur = ["gemini": AgentCurrency.make(agent: "gemini", record: nil, lifecycle: AgentRecipes.recipe("gemini")!.lifecycle!, now: Date())]
+        let catalog = await WebTryCatalog.build(plan: { _ in WebPlan(CreatePlan.sample(name: "try-x", image: "grok")) }, secretEntry: true, currency: cur)
+        let ids = catalog.agents.map(\.id)
+        XCTAssertLessThan(ids.firstIndex(of: "antigravity")!, ids.firstIndex(of: "gemini")!, "Google's lead agent first among the Google ones")
+        XCTAssertEqual(ids.last, "gemini", "superseded: below the others, still listed")
+        let g = try XCTUnwrap(catalog.agents.last)
+        XCTAssertEqual(g.supersededBy, "antigravity")
+        XCTAssertTrue(g.standing?.hasPrefix("Superseded by Antigravity CLI") == true)
+        XCTAssertEqual(g.latest, "latest: not checked yet")
+    }
+
     /// `doz try --ui` with no page open opens the plain origin only when a browser is still signed in for that port.
     func testKeptSessionsDecideWhetherAPlainPageSignsIn() throws {
         let f = FileManager.default.temporaryDirectory.appendingPathComponent("uisessions-\(UUID().uuidString.prefix(6))")

@@ -101,6 +101,33 @@ doz search grok --json                   # the directory entry, and your key and
 
 It matches agents (by id, alias, title or publisher), key providers (`xai`, `google`, …) and bases (`alpine`, …).
 
+**Is it current?** Under each agent, a second line says its latest release as your Mac last saw it — `latest 1.3.3 ·
+released 10 Oct 2026 (2 days ago) · active` — and, when its maker has moved on, its standing:
+
+```
+Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try it: doz try gemini
+    latest 0.63.0 · released 6 Oct 2026 (6 days ago) · active
+    Superseded by Antigravity CLI — Google retired Gemini CLI for personal accounts; it still works with a paid Gemini API key · instead: doz try antigravity
+```
+
+- **active**: a release in the last 3 months; **quiet**: none for 3 months; **stale**: none for 6 months;
+  **deprecated**: its maker marked that release deprecated (that wins).
+- The Dozer host looks up each agent's latest release about once an hour while it runs (the same check that keeps
+  images up to date). Looking — `doz search`, `doz try`, the Quick try — never asks the internet; before the first
+  check it says *not checked yet*.
+- **Superseded** agents still work and stay selectable; they are listed after the current ones, and `doz search` of
+  one lists what replaces it too. `doz try` of one says so first. Today: **Antigravity CLI** (`doz try antigravity`,
+  alias `agy`) is Google's lead agent; **Gemini CLI** is superseded by it.
+
+### Antigravity CLI
+
+Google's terminal agent, installed from Google's own release (checked against its published SHA-512), on Debian-based
+bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --provider google`); Dozer never offers the
+Google sign-in. Its approval prompts are off (`antigravity.permissions = ask` keeps them), its updater is off, and its
+telemetry setting is off. It reads Google's feature switches at start-up (allowed); its usage log to
+`play.googleapis.com` is kept out quietly — it does not stop with its own setting, so Dozer refuses it without counting
+it as a refusal.
+
 **Tags** describe capabilities (`multi-vendor-models`, `api-key`, `vendor-sign-in`, `free-tier`, `resume`, `musl`,
 `open-source`, `headless`, `gateway:openrouter`, …). Each tag has a level per agent: `documented`, `verified`,
 `experimental`, `no` or `unknown`. By default only `documented` and `verified` count; `--level` changes that.

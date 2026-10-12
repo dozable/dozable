@@ -68,10 +68,14 @@ function agentCards() {
   const cards = tr.catalog.agents.map((a) => {
     const who = a.providerTitle || 'provider';
     const key = a.card ? 'needs ' + (/^(?:[AEIOU]|xAI)/.test(who) ? 'an ' : 'a ') + who + ' key' : a.plan.account && a.plan.account.name ? 'key: ' + a.plan.account.name : 'ready';
-    const b = h('button', { type: 'button', class: 'try-agent' + (a.id === tr.agent ? ' selected' : ''), 'data-try-agent': a.id, 'aria-pressed': String(a.id === tr.agent) },
+    // Its latest release (measured by the host) and, when it is not current, its standing with its maker.
+    const b = h('button', { type: 'button', class: 'try-agent' + (a.id === tr.agent ? ' selected' : '') + (a.standing ? ' superseded' : ''),
+      'data-try-agent': a.id, 'aria-pressed': String(a.id === tr.agent) },
       h('span', { class: 'try-agent-title' }, a.title),
       h('span', { class: 'try-agent-sub muted' }, a.publisher + (a.base ? ' · ' + a.base : '')),
-      h('span', { class: 'try-agent-key' + (a.card ? ' needs' : '') }, key));
+      h('span', { class: 'try-agent-key' + (a.card ? ' needs' : '') }, key),
+      a.latest ? h('span', { class: 'try-agent-latest muted', 'data-try-latest': a.id }, a.latest) : null,
+      a.standing ? h('span', { class: 'try-agent-standing', 'data-try-standing': a.id }, a.standing) : null);
     b.addEventListener('click', () => { tr.agent = a.id; tr.error = ''; tr.pasting = ''; history.replaceState(null, '', '#/try/' + a.id); state.tryAgent = a.id; tr.asked = a.id; rerender(); });
     return b;
   });

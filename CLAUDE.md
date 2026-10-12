@@ -1656,6 +1656,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   decides them, and checks every determination against the recipe under a fresh try's policy (refuse ⇒ quiet;
   off-by-setting ⇒ a setting the recipe sets). `DIFF=1` reports new/missing endpoints and writes nothing; nothing is
   ever allowed by the profiler. Re-profile when an agent's version moves.
+- **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
+  every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
+  cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:
+  npm's full document, or a manifest archive's Last-Modified) → agent-versions.json (`latestReleased`,
+  `latestDeprecated`, `infoVersion`). `AgentCurrency` reads it (never the network): active ≤ 90 days, quiet > 90, stale >
+  180, deprecated wins, "not checked yet" before a check. RECORDED: `lifecycle` on a recipe or known entry
+  (`AgentLifecycle`: current | superseded `by` | retired | discontinued, note, source, checked — `by` must name a recipe or
+  known id). Shown in `doz search` (a second line; a superseded hit brings its replacement), `doz try`'s list (and a note
+  before a superseded try), the Quick try cards (`WebTryCatalog.Agent.latest/standing`, superseded last), the index
+  (`Entry.lifecycle`, `Entry.latest`), the manual (26). `make agent-currency` (`Scripts/agent-currency.py`) is the
+  people's report → `profiles/currency.json`, with TODO lines (a new release → re-profile; deprecated/archived → review).
 - **Antigravity CLI** (`antigravity`, alias `agy`; Google's lead agent — Gemini CLI is superseded by it): closed source,
   installed by the `manifest-binary` kind — Google's release manifest (`{version, url, sha512}`) read on the Mac
   (`NpmRegistry.manifest`, `parseManifest`: the url must be the recipe's `url` with `{build}`), the release recorded as

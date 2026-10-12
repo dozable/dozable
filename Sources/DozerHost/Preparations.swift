@@ -521,6 +521,14 @@ extension HostCore {
         return f
     }
 
+    /// 617: every agent's latest version (and when it came out) — the registry at most hourly per agent, never a rebuild.
+    func refreshAgentVersions() async {
+        let settings = DozerSettings.load()
+        for r in AgentRecipes.all {
+            _ = await AgentVersions.refresh(r.id, store: store, settings: settings, registry: agentRegistry)
+        }
+    }
+
     func runningPreparation(_ image: String) -> Preparation? {
         preparations[image].flatMap { $0.isRunning ? $0 : nil }
     }

@@ -37,6 +37,7 @@ public struct SearchHit: Equatable, Sendable {
     /// Why it is limited here (`--base alpine`).
     public var limit: String?
     public var entry: DirectoryIndex.Entry
+    public init(outcome: String, limit: String?, entry: DirectoryIndex.Entry) { self.outcome = outcome; self.limit = limit; self.entry = entry }
 }
 
 public struct SearchResult: Equatable, Sendable {

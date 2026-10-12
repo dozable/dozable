@@ -22,6 +22,8 @@ public struct KnownThing: Codable, Sendable, Equatable {
     public var status: String
     public var reason: String
     public var checked: String?
+    /// 617: where it stands with its maker (superseded by …).
+    public var lifecycle: AgentLifecycle?
 }
 
 public enum KnownThings {
@@ -49,6 +51,8 @@ public enum KnownThings {
             }
             if let c = k.checked, !AgentRecipe.isISODate(c) { throw SandboxError.invalidSpec("known \(k.id): checked is an ISO date") }
         }
+        // 617: every lifecycle well formed, and every "superseded by" names a recipe or a known entry.
+        try AgentLifecycle.validate(recipes: recipes, known: known)
     }
 }
 
@@ -96,10 +100,28 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         public var tags: [TagFact]
         /// A provider: the agents that use its keys; a base: the agents that run on it.
         public var agents: [String]?
+        /// 617: an agent's standing with its maker (recorded: current, superseded by …).
+        public var lifecycle: AgentLifecycle? = nil
+        /// 617: its latest release as this Mac last saw it (measured — never in the built-in index; `build(currency:)`).
+        public var latest: Latest? = nil
 
         enum CodingKeys: String, CodingKey {
             case kind, id, title, publisher, aliases, status, reason, checked, since, limits, keys, reach, install, terms, homepage, auth, gateways, tags, agents
+            case lifecycle, latest
             case defaultBase = "default_base", tryCommand = "try"
+        }
+    }
+
+    /// 617: a release as measured — its version, the day it came out, and how fresh that is.
+    public struct Latest: Codable, Sendable, Equatable {
+        public var version: String
+        /// YYYY-MM-DD.
+        public var released: String?
+        /// `active` (a release within 90 days) | `quiet` (none for 90) | `stale` (none for 180) | `deprecated`.
+        public var freshness: String?
+        public var deprecated: String?
+        public init(version: String, released: String?, freshness: String?, deprecated: String?) {
+            self.version = version; self.released = released; self.freshness = freshness; self.deprecated = deprecated
         }
     }
 
@@ -161,12 +183,13 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
     // MARK: building
 
     /// The whole index from the compiled-in data (and, in tests, registered recipes).
-    public static func build(version: String, recipes: [AgentRecipe] = AgentRecipes.all, known: [KnownThing] = KnownThings.all) -> DirectoryIndex {
-        var entries = recipes.map { entry(for: $0) }
+    public static func build(version: String, recipes: [AgentRecipe] = AgentRecipes.all, known: [KnownThing] = KnownThings.all,
+                             latest: [String: Latest] = [:]) -> DirectoryIndex {
+        var entries = recipes.map { r -> Entry in var e = entry(for: r); e.latest = latest[r.id]; return e }
         entries += known.map { k in
             Entry(kind: "agent", id: k.id, title: k.title, publisher: k.publisher, aliases: (k.aliases ?? []).sorted(), status: k.status, reason: k.reason,
                   checked: k.checked, since: nil, limits: [], keys: [], reach: nil, install: nil, defaultBase: nil, terms: nil, tryCommand: nil,
-                  homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil)
+                  homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil, lifecycle: k.lifecycle)
         }
         for p in KeyProviders.all {
             let users = recipes.filter { $0.credentials.contains { $0.provider == p.id } }.map(\.id).sorted()
@@ -184,7 +207,9 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                                  defaultBase: nil, terms: nil, tryCommand: nil, homepage: nil, auth: [], gateways: [], tags: [], agents: on))
         }
         let order = ["agent": 0, "provider": 1, "base": 2]
-        entries.sort { (order[$0.kind] ?? 9, $0.id) < (order[$1.kind] ?? 9, $1.id) }
+        // 617: a superseded or retired agent comes after the current ones.
+        func standing(_ e: Entry) -> Int { (e.lifecycle?.isCurrent ?? true) ? 0 : 1 }
+        entries.sort { (order[$0.kind] ?? 9, standing($0), $0.id) < (order[$1.kind] ?? 9, standing($1), $1.id) }
         let dates = recipes.compactMap(\.checked) + known.compactMap(\.checked)
         return DirectoryIndex(format: format, generated: (dates.max() ?? "2026-01-01") + "T00:00:00Z", dozer: Dozer(version: version), entries: entries)
     }
@@ -206,7 +231,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                      auth: r.auth.methods.map { AuthFact(kind: $0.kind, provider: $0.provider, keysPage: $0.keysPage, freeTier: $0.freeTier,
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gateways.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason) },
-                     tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil)
+                     tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle)
     }
 
     // MARK: bytes

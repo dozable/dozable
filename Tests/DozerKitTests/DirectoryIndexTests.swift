@@ -12,9 +12,10 @@ final class DirectoryIndexTests: XCTestCase {
         XCTAssertEqual(try DirectoryIndex.build(version: "0.34.0").encoded(), bytes, "the same build writes the same bytes")
         XCTAssertEqual(a.format, "dozer-directory/v1")
         XCTAssertEqual(DirectoryIndex.signaturePrefix, "dozer-directory/v1\n")
-        // Sorted by kind then id.
+        // Sorted by kind, then current before superseded/retired (617), then id.
         let order = ["agent": 0, "provider": 1, "base": 2]
-        XCTAssertEqual(a.entries.map { "\(order[$0.kind]!)\($0.id)" }, a.entries.map { "\(order[$0.kind]!)\($0.id)" }.sorted())
+        let key = { (e: DirectoryIndex.Entry) in "\(order[e.kind]!)\((e.lifecycle?.isCurrent ?? true) ? 0 : 1)\(e.id)" }
+        XCTAssertEqual(a.entries.map(key), a.entries.map(key).sorted())
     }
 
     func testEveryRecipeKnownProviderAndBaseIsThere() {

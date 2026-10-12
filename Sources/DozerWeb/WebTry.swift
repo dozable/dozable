@@ -68,7 +68,8 @@ public struct WebPlanQuery: Equatable, Sendable {
 
 extension WebTryCatalog {
     /// The list from each agent's plan (`plan` answers it — the host's op, the same as the CLI's).
-    public static func build(plan: (PlanRequest) async throws -> WebPlan, secretEntry: Bool) async -> WebTryCatalog {
+    public static func build(plan: (PlanRequest) async throws -> WebPlan, secretEntry: Bool,
+                             currency: [String: AgentCurrency] = [:]) async -> WebTryCatalog {
         var agents: [Agent] = []
         for kind in AgentKind.allCases where kind != .none {
             guard let r = kind.recipe else { continue }
@@ -80,10 +81,15 @@ extension WebTryCatalog {
                 card = Card(title: c.title, options: c.options.map { Option(kind: $0.kind, label: $0.label, consequence: $0.consequence) },
                             notOffered: c.notOffered, getKey: c.getKey, addCommand: keyProblem?.fix)
             }
-            agents.append(Agent(id: r.id, title: r.title, publisher: r.publisher, provider: r.provider,
-                                providerTitle: r.provider.flatMap { KeyProviders.provider($0)?.title },
-                                base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card))
+            var a = Agent(id: r.id, title: r.title, publisher: r.publisher, provider: r.provider,
+                          providerTitle: r.provider.flatMap { KeyProviders.provider($0)?.title },
+                          base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card)
+            a.latest = currency[r.id]?.line
+            if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
+            agents.append(a)
         }
+        // 617: a superseded or retired agent comes after the current ones (still selectable).
+        agents = agents.filter { $0.standing == nil } + agents.filter { $0.standing != nil }
         let coming = KnownThings.all.filter { $0.status != "supported" }
             .map { Coming(id: $0.id, title: $0.title, publisher: $0.publisher ?? "", reason: $0.reason) }
         return WebTryCatalog(agents: agents, coming: coming, secretEntry: secretEntry)

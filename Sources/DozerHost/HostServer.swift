@@ -114,6 +114,14 @@ public final class HostServer: @unchecked Sendable {
                 }
             }
         }
+        // 617 (owner: "record the latest version and how old it is"): every agent's latest release, hourly while a host
+        // runs (the same hourly cache as a preparation's check) — so a look (doz search, doz try, the Quick try) can say it.
+        Task.detached {
+            while true {
+                await server.core.refreshAgentVersions()
+                try? await Task.sleep(for: .seconds(3600))
+            }
+        }
         HostLog.line("listening on \(store.socket.path)")
         while true { try? await Task.sleep(for: .seconds(3600)) }
     }

@@ -85,6 +85,8 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var verify: [Check]
     /// Shown where an account is chosen.
     public var terms: String?
+    /// 617: where it stands with its maker (nil: current).
+    public var lifecycle: AgentLifecycle?
     /// The date the recipe was last checked against the real agent.
     public var checked: String?
     /// The settings keys it uses (nil: derived — `images.<id>_version`, `<id>.permissions`).
@@ -101,7 +103,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var tags: [RecipeTag]
 
     enum CodingKeys: String, CodingKey {
-        case schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
+        case lifecycle, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
              network, status, prompt, resume, verify, terms, checked, settings, auth, gateways, tags
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
@@ -446,6 +448,48 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public func verifyChecks(version: String) -> [VerifyCheck] {
         // `{version}` is the version a program prints: without a release's build part (`1.3.3+5524…` → `1.3.3`).
         verify.map { VerifyCheck($0.argv, expect: $0.expect?.replacingOccurrences(of: "{version}", with: String(version.split(separator: "+").first ?? Substring(version)))) }
+    }
+}
+
+/// 617 (owner: "make Antigravity the leading Google agent; keep Gemini but mark it as superseded"; "record … is it
+/// current"): where an agent stands with its maker — RECORDED in the data (a recipe's or a known entry's `lifecycle`),
+/// beside what is MEASURED (the latest release and its age — the host's registry cache).
+public struct AgentLifecycle: Codable, Sendable, Equatable {
+    /// `current` | `superseded` (by another agent) | `retired` (its maker stopped it for some users) | `discontinued`.
+    public var status: String
+    /// superseded: the recipe or known id that replaces it.
+    public var by: String?
+    /// Plain words a person reads (required unless current).
+    public var note: String?
+    public var source: String?
+    public var checked: String?
+
+    public init(status: String, by: String? = nil, note: String? = nil, source: String? = nil, checked: String? = nil) {
+        self.status = status; self.by = by; self.note = note; self.source = source; self.checked = checked
+    }
+    public static let statuses = ["current", "superseded", "retired", "discontinued"]
+    public static let current = AgentLifecycle(status: "current")
+    public var isCurrent: Bool { status == "current" }
+
+    /// Well formed alone; `by` is checked against every recipe and known id by `AgentLifecycle.validate(recipes:known:)`.
+    public func validate(_ what: String) throws {
+        func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("\(what): lifecycle \(s)") }
+        guard Self.statuses.contains(status) else { throw bad("status \(Self.statuses.joined(separator: ", "))") }
+        if status != "current" { guard let n = note, !n.isEmpty else { throw bad("\(status) says why (note)") } }
+        if status == "superseded" { guard let b = by, !b.isEmpty else { throw bad("superseded names what replaces it (by)") } }
+        if let s = source, !s.hasPrefix("https://") { throw bad("source is an https URL") }
+        if let d = checked, !AgentRecipe.isISODate(d) { throw bad("checked is an ISO date") }
+    }
+
+    /// Every `by` names a recipe or a known entry (and never itself).
+    public static func validate(recipes: [AgentRecipe], known: [KnownThing]) throws {
+        let ids = Set(recipes.map(\.id) + known.map(\.id))
+        let all: [(String, AgentLifecycle?)] = recipes.map { ($0.id, $0.lifecycle) } + known.map { ($0.id, $0.lifecycle) }
+        for (id, l) in all {
+            guard let l else { continue }
+            try l.validate(id)
+            if let b = l.by, !ids.contains(b) || b == id { throw SandboxError.invalidSpec("\(id): lifecycle by \(b) names no other recipe or known entry") }
+        }
     }
 }
 

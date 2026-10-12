@@ -1079,6 +1079,11 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         public var base: String?
         public var plan: WebPlan
         public var card: Card?
+        /// 617: its latest release as this Mac last saw it (`latest 1.3.3 · released 10 Oct 2026 (2 days ago) · active`).
+        public var latest: String? = nil
+        /// 617: its standing with its maker when not current (the note), and what replaces it.
+        public var standing: String? = nil
+        public var supersededBy: String? = nil
     }
     public struct Coming: Codable, Equatable, Sendable { public var id: String; public var title: String; public var publisher: String; public var reason: String }
     public var agents: [Agent]

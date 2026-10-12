@@ -73,7 +73,11 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
         if let i = local?.image { s += " · image: " + (i == "prepared" ? "ready" : i == "older" ? "ready (older)" : "prepares on first use") }
         let limits = e.limits.filter { $0.with["base"] != nil }
         if !limits.isEmpty { s += " · not on " + limits.compactMap { $0.with["base"] }.joined(separator: ", ") }
-        return s + (e.tryCommand.map { " · try it: \($0)" } ?? "")
+        s += e.tryCommand.map { " · try it: \($0)" } ?? ""
+        // 617: its latest release as this Mac last saw it, and its standing with its maker.
+        s += "\n    " + latestLine(e.latest)
+        if let l = e.lifecycle, !l.isCurrent { s += "\n    " + standingLine(l) }
+        return s
     case "limited":
         return "\(e.title) on \(base ?? "this base") — not supported here: \(h.limit ?? "")"
     default:
@@ -81,10 +85,35 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
     }
 }
 
+/// 617: the measured line (`latest 1.3.3 · released 10 Oct 2026 (2 days ago) · active`).
+func latestLine(_ l: DirectoryIndex.Latest?) -> String {
+    guard let l else { return "latest: not checked yet (the host checks hourly while it runs)" }
+    var s = "latest \(l.version)"
+    if let r = l.released, let d = ISO8601DateFormatter().date(from: r + "T00:00:00Z") {
+        s += " · released \(AgentCurrency.day(d)) (\(AgentCurrency.age(max(0, Int(Date().timeIntervalSince(d) / 86_400)))))"
+    }
+    switch l.freshness {
+    case "active"?: s += " · active"
+    case "quiet"?: s += " · quiet (no release in 3 months)"
+    case "stale"?: s += " · stale (no release in 6 months)"
+    case "deprecated"?: s += " · deprecated by its maker" + (l.deprecated.map { ": \($0)" } ?? "")
+    default: break
+    }
+    return s
+}
+
+/// 617: the recorded standing (`superseded by Antigravity CLI — …`).
+func standingLine(_ l: AgentLifecycle) -> String {
+    let instead = l.by.flatMap { AgentRecipes.recipe($0) }.map { " · instead: doz try \($0.id)" } ?? ""
+    return (l.note ?? l.status) + instead
+}
+
 /// `--details`: the plain-language consent view of one agent.
 func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     var s = "\(e.title)" + (e.publisher.map { " · \($0)" } ?? "") + (e.homepage.map { " · \($0)" } ?? "") + "\n"
-    if e.status != "supported" { return s + "  \(e.status): \(e.reason ?? "")\n" }
+    if e.status != "supported" { return s + "  \(e.status): \(e.reason ?? "")\n" + (e.lifecycle.map { "  standing: \(standingLine($0))\n" } ?? "") }
+    s += "  \(latestLine(e.latest))\n"
+    if let l = e.lifecycle, !l.isCurrent { s += "  standing: \(standingLine(l))\n" }
     if let i = e.install { s += "  installs: \(i.kind) \(i.source ?? "") \(i.version) (checksum-verified; its default base: \(e.defaultBase ?? "?"))\n" }
     if let r = e.reach {
         for h in r.model { s += "  may reach: \(h.host)" + (h.paths.map { " (only \($0.joined(separator: ", ")))" } ?? "") + " — its model\n" }
@@ -138,7 +167,9 @@ struct SearchCommand: AsyncParsableCommand {
     }
 
     func run() async throws {
-        let built = DirectoryIndex.build(version: DozerCommand.version)
+        // 617: the measured latest of each agent (the host's hourly check; a look never asks the registry).
+        let built = DirectoryIndex.build(version: DozerCommand.version,
+                                         latest: AgentCurrency.all(store: g.dozerStore).compactMapValues(\.indexLatest))
         if let path = index {
             let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
             if FileManager.default.fileExists(atPath: url.path), !force { throw fail(HostError(.exists, "\(url.path) exists — --force replaces it"), g) }
@@ -147,7 +178,13 @@ struct SearchCommand: AsyncParsableCommand {
             return
         }
         let q = SearchQuery.parse(terms, tags: tag, level: level, base: base)
-        let result = DirectorySearch.search(q, in: built)
+        var result = DirectorySearch.search(q, in: built)
+        // 617: a superseded agent brings what replaces it (doz search gemini lists Antigravity CLI too).
+        for h in result.hits {
+            guard let by = h.entry.lifecycle?.by, !result.hits.contains(where: { $0.entry.id == by }),
+                  let e = built.entries.first(where: { $0.kind == "agent" && $0.id == by }) else { continue }
+            result.hits.append(SearchHit(outcome: e.status == "supported" ? "supported" : e.status, limit: nil, entry: e))
+        }
         let (accounts, images) = await searchLocals(g)
         let everything = q.terms.isEmpty && q.tags.isEmpty
         if g.json {
