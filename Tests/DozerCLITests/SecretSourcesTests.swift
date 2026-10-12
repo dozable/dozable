@@ -419,6 +419,15 @@ final class SecretSourcesTests: XCTestCase {
         XCTAssertEqual(try Create.parse(["x", "--key", "a", "--key", "b"]).create.options(defaultImage: "lab").keys, ["a", "b"])
     }
 
+    /// The VM proof's seam: more hosts to the fake — only with the seam itself set.
+    func testTheSeamsExtraHostsNeedTheSeam() throws {
+        let ca = root.appendingPathComponent("ca.pem")
+        try Data("-----BEGIN CERTIFICATE-----\n-----END CERTIFICATE-----\n".utf8).write(to: ca)
+        XCTAssertEqual(ProviderSeam.extraHosts(environment: ["DOZ_TEST_PROVIDER_HOSTS": "www.example.com"]), [], "no seam, no hosts")
+        XCTAssertEqual(ProviderSeam.extraHosts(environment: ["DOZ_TEST_PROVIDER_UPSTREAM": "127.0.0.1:1", "DOZ_TEST_PROVIDER_CA": ca.path,
+                                                             "DOZ_TEST_PROVIDER_HOSTS": "WWW.example.com, a.example.test"]), ["www.example.com", "a.example.test"])
+    }
+
     // MARK: records and projections
 
     func testOlderRecordsDecodeAsKeychain() throws {

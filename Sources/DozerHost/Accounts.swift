@@ -370,6 +370,12 @@ public enum ProviderSeam {
         return EgressProxy.UpstreamOverride(host: String(parts[0]), port: port, anchorsPEM: pem)
     }
 
+    /// 617: more hosts the seam sends to the fake (`DOZ_TEST_PROVIDER_HOSTS=a.example,b.example`) — only with the seam set.
+    public static func extraHosts(environment env: [String: String] = ProcessInfo.processInfo.environment) -> Set<String> {
+        guard upstream(environment: env) != nil, let s = env["DOZ_TEST_PROVIDER_HOSTS"] else { return [] }
+        return Set(s.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty })
+    }
+
     /// 617: a key provider's check, over the proxy's leg (the seam's fake in tests).
     static func check(provider: String?, secret: String) async -> AccountVerification {
         if provider == "custom" { return .unavailable("a custom key has no check") }

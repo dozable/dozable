@@ -298,6 +298,7 @@ extension HostCore {
         let sb = m.sandbox
         // 617 TEST SEAM: the key providers' hosts go to a fake provider (DOZ_TEST_PROVIDER_UPSTREAM + _CA), whatever the agent.
         sb.egress?.providerUpstreamForTests = ProviderSeam.upstream()
+        sb.egress?.providerSeamHostsForTests = ProviderSeam.extraHosts()
         // 599i: Codex uses OpenAI accounts only — its own path; the Anthropic bindings stay empty.
         if AgentCredentials.provider(sb.spec.imageSpec?.name) == "openai" {
             applyOpenAIAccount(m, resolvedAccount(m, file))

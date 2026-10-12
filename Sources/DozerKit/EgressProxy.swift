@@ -156,12 +156,18 @@ public final class EgressProxy: @unchecked Sendable {
         set { lock.lock(); _providerUpstream = newValue; lock.unlock() }
     }
     private var _providerUpstream: UpstreamOverride?
+    /// 617 TEST SEAM: more hosts that go to that fake (`DOZ_TEST_PROVIDER_HOSTS` — a custom key's host in a VM proof).
+    public var providerSeamHostsForTests: Set<String> {
+        get { lock.lock(); defer { lock.unlock() }; return _providerSeamHosts }
+        set { lock.lock(); _providerSeamHosts = newValue; lock.unlock() }
+    }
+    private var _providerSeamHosts: Set<String> = []
 
     /// 599d test seam: where a GitHub host's upstream leg goes instead (nil: the real host). 599i: and the OpenAI hosts'.
     /// 617: and the key providers'.
     func upstreamOverride(for host: String) -> UpstreamOverride? {
         if let o = openaiUpstreamForTests, OpenAIAccess.isOpenAIHost(host) { return o }
-        if let o = providerUpstreamForTests, KeyProviders.seamHosts.contains(host.lowercased()) { return o }
+        if let o = providerUpstreamForTests, KeyProviders.seamHosts.contains(host.lowercased()) || providerSeamHostsForTests.contains(host.lowercased()) { return o }
         guard let o = githubUpstreamForTests, GitHubAccess.credentialHosts.contains(host.lowercased()) else { return nil }
         return o
     }
