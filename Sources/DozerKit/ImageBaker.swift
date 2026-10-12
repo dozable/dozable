@@ -154,8 +154,12 @@ public struct ImageBaker: Sendable {
         try fm.createDirectory(at: staging, withIntermediateDirectories: true)
         let root = staging.appendingPathComponent("root.ext4")
         let t0 = ContinuousClock.now
+        // 617: the unpack's own progress (bytes and files of the layers' known uncompressed size — the unpacker
+        // scans the headers first, +~0.3 s in a release build for Node's base) as a transfer, like a pull's.
+        let meter = PullMeter(label: "unpacking \(Self.shortReference(imageSpec.base))", events: events)
         _ = try await EXT4Unpacker(capacityInBytes: imageSpec.rootfsMiB * 1_048_576, journal: imageSpec.journalConfig)
-            .unpack(image, for: .current, at: root)
+            .unpack(image, for: .current, at: root, progress: { batch in meter.add(batch) })
+        meter.finish()
         let ms = milliseconds(since: t0)
         let (apparent, allocated) = Self.sizes(root)
         chmod(root.path, 0o444)
@@ -166,8 +170,7 @@ public struct ImageBaker: Sendable {
         let final = baseLocation(key)
         try? fm.removeItem(at: final)
         guard rename(staging.path, final.path) == 0 else { throw CocoaError(.fileWriteUnknown) }
-        events(.step("flattened the base \(imageSpec.base.split(separator: "@").first ?? "") once (\(imageSpec.rootfsMiB) MiB\(imageSpec.journalMiB.map { ", \($0) MiB journal" } ?? ", no journal"); \(Self.mib(allocated)) MiB) — base \(key.prefix(12))",
-                     milliseconds: ms))
+        // 617: no step of its own here — the bake's ONE base step reports it (it was said twice).
         return BaseDisk(root: final.appendingPathComponent("root.ext4"), manifest: m)
     }
 
@@ -291,9 +294,20 @@ public struct ImageBaker: Sendable {
         let proxy = try inputs.egress.map { try EgressProxy(policy: $0, ca: nil, log: inputs.egressLog ?? ConnectionLog()) }
         // 587: the base is flattened once per base key; this bake starts from an APFS clone of it.
         let hadBaseDisk = cachedBase(imageSpec.baseKey) != nil
-        let base = try await timed(hadBaseDisk ? "base disk ready (cached, \(imageSpec.baseKey.prefix(12)))" : "base disk flattened (\(imageSpec.baseKey.prefix(12)))") {
-            try await ensureBase(imageSpec, image: image, events: events)
+        let baseLabel = hadBaseDisk ? "base disk ready (cached, \(imageSpec.baseKey.prefix(12)))" : "base disk flattened (\(Self.shortReference(imageSpec.base)), \(imageSpec.baseKey.prefix(12)))"
+        let tb = ContinuousClock.now
+        events(.stepStarted(baseLabel))
+        let base: BaseDisk
+        do { base = try await ensureBase(imageSpec, image: image, events: events) } catch {
+            events(.stepFailed(baseLabel, milliseconds: milliseconds(since: tb), error: error.localizedDescription))
+            throw error
         }
+        let bms = milliseconds(since: tb)
+        timings.append(.init(step: baseLabel, milliseconds: bms))
+        // 617: ONE line for the base, with what it made (ends the step started above: "label → …").
+        events(.step(hadBaseDisk ? baseLabel
+                     : "\(baseLabel) → \(Self.mib(base.manifest.allocatedBytes)) MiB written, a \(imageSpec.rootfsMiB) MiB disk",
+                     milliseconds: bms))
         try await timed("cloned the base disk (APFS clone)") {
             guard clonefile(base.root.path, root.path, 0) == 0 else { throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO) }
             chmod(root.path, 0o644)

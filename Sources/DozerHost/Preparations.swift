@@ -336,7 +336,7 @@ final class Preparation: @unchecked Sendable {
             let finals = board.apply(e)
             for f in finals {
                 finished.append(formatter.format(f))
-                if case .transferDone(let label, let bytes, let secs) = f {
+                if case .transferDone(let label, let bytes, let secs) = f, !label.hasPrefix("unpacking ") {
                     steps.append(PreparationStep(label: ProgressTerminal.pulled(label, bytes, secs), kind: "transfer", seconds: secs))
                 }
             }

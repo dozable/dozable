@@ -398,7 +398,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(OnboardingRecord.read(DozerStore(root: root))?.images, ["claude-code"], "the host records the onboarding when it is ready")
         let after = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
         XCTAssertEqual(after.preparations.first?.state, "done")
-        XCTAssertTrue(after.preparations.first?.lines.contains { $0.contains("pulled the base image node") } == true)
+        XCTAssertTrue(after.preparations.first?.lines.contains { $0.contains("Downloaded the Node.js base image") } == true)
     }
 
     func testAFailedPreparationRecordsNoOnboardingAndCancelCancels() async throws {

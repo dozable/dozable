@@ -88,7 +88,7 @@ public struct GlobalOptions: ParsableArguments {
     @Flag(name: .long, help: "Machine-readable output (JSON on stdout).")
     public var json = false
 
-    @Flag(name: [.short, .long], help: "Print every progress step (by default only an operation slower than a second shows them).")
+    @Flag(name: [.short, .long], help: "Print every progress step (by default an operation slower than a second shows only its main steps — downloading, unpacking, installing the agent, starting — and anything that fails).")
     public var verbose = false
 
     @Flag(name: [.short, .long], help: "Print no progress.")
@@ -249,6 +249,8 @@ final class Progress: @unchecked Sendable {
         self.write = write
         measureWidth = width == nil
         view = ProgressTerminal(mode: mode, color: true, plainPrefix: "  · ")
+        // 617: the few steps a person cares about by default; every step with -v (plain mode shows them all).
+        view.verbose = verbose
         if let width { view.width = width }
         guard !quiet, !verbose else { return }
         let t = DispatchSource.makeTimerSource(queue: .global())
