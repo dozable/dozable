@@ -237,9 +237,15 @@ final class RecipeAgentsTests: XCTestCase {
         // A user's own site rule does not let one in (the exclusions come first).
         open.rules.insert(EgressRule(host: "auth.x.ai", note: "site you allowed"), at: 0)
         XCTAssertEqual(open.evaluateConnection(host: "auth.x.ai", port: 443).kind, .deny)
-        // Excluded hosts are in no permission at all.
-        let excluded = Set(AgentRecipes.all.flatMap(\.network.excluded))
-        for p in AgentPermissions.all { XCTAssertTrue(Set(p.hosts.map(\.host)).isDisjoint(with: excluded), p.id) }
+        // An agent's excluded hosts are in no permission its sandbox can hold. (617: another agent's hidden vendor
+        // permission may name one — Antigravity CLI's usage log to play.googleapis.com, allowed at the owner's word, is
+        // kept out of Gemini CLI's sandboxes; `vendor:antigravity` is only ever added to Antigravity CLI's.)
+        for r in AgentRecipes.all {
+            let excluded = Set(r.network.excluded)
+            for p in AgentPermissions.all where !(p.id.hasPrefix("vendor:") && p.id != "vendor:" + r.id) {
+                XCTAssertTrue(Set(p.hosts.map(\.host)).isDisjoint(with: excluded), "\(r.id): \(p.id)")
+            }
+        }
         // A Claude Code sandbox's rules are exactly as before (no exclusions).
         XCTAssertTrue(AgentPermissions.exclusions(for: AgentPermissions.preset("open", base: "node")!).isEmpty)
     }
