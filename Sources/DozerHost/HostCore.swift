@@ -1451,6 +1451,15 @@ public actor HostCore {
     /// its clipboard code), which is exactly what the relay does. Never over the caller's own value.
     public static let clipboardSinkVariables = ["GROK_OSC52_SINK"]
 
+    /// 617 (owner: Gemini CLI warned "True color (24-bit) support not detected"): every session's terminal is 24-bit —
+    /// Dozer needs macOS 26, whose Terminal.app, Ghostty, iTerm2 and the dashboard's ghostty-web all draw it, and
+    /// deckhold's emulator keeps it. Set at session open (never baked: no bake key changes); never over the caller's.
+    static func withTrueColour(_ env: [String: String]) -> [String: String] {
+        var e = env
+        if e["COLORTERM"] == nil { e["COLORTERM"] = "truecolor" }
+        return e
+    }
+
     /// 617 (owner: a fresh try shows no refusal): the agent's recipe's `launch.session_env` (its own switch for its
     /// self-update check — pi's `PI_SKIP_VERSION_CHECK`), and each `network.off_without` whose permission the sandbox's
     /// policy does not have (Claude Code's error reports and usage data without "Send error reports"). A policy of
@@ -1601,8 +1610,8 @@ public actor HostCore {
         do {
             let sink = Self.sandboxValue(m.config, SettingKey.clipboard).plain != "off"
             try await m.sandbox.openSession(session, argv: argv,
-                                            environment: recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
-                                                                                on: sink), m),
+                                            environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                                                                on: sink), m)),
                                             workingDirectory: r.workdir ?? workdir,
                                             user: r.user, size: size)
         } catch {

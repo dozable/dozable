@@ -76,6 +76,16 @@ final class FirstRunTests: XCTestCase {
         XCTAssertEqual(HostCore.withRecipeEnvironment([:], imageSpec: "lab", permissions: locked), [:])
     }
 
+    func testEverySessionIsTrueColourAndNoImageChanges() throws {
+        XCTAssertEqual(HostCore.withTrueColour([:])["COLORTERM"], "truecolor")
+        XCTAssertEqual(HostCore.withTrueColour(["COLORTERM": "24bit"])["COLORTERM"], "24bit", "never over the caller's")
+        // Set at session open, never baked: no image spec names it (bake keys unchanged — RecipePinTests).
+        for r in AgentRecipes.all {
+            XCTAssertNil(r.launch.env["COLORTERM"], r.id)
+            XCTAssertNil(r.state.env["COLORTERM"], r.id)
+        }
+    }
+
     func testThePlanSaysEachSiteAndWhatIsTurnedOff() {
         let pol = NetworkPolicy.permissions(["model", "vendor:claude-code"], preset: "locked")
         let reach = CreatePlanner.reach(.proxied(pol), policy: pol, workspace: nil, account: nil, keys: [], accounts: AccountsFile(),
