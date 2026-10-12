@@ -167,6 +167,27 @@ final class FileCopyTests: XCTestCase {
         XCTAssertEqual(FileTransfer.bre("a.b[1]*"), "a\\.b\\[1\\]\\*")
         XCTAssertEqual(FileTransfer.breReplacement("x~y/z&"), "x\\~y\\/z&", "~ is the match in bsdtar -s; & is not special")
     }
+
+    func testNeitherSideNamesASandboxSuggestsWhereItIs() {
+        let ws = "/Users/me/dozer-sandbox-workspaces/try-grok"
+        let rows = [CopyHint.Row(name: "box", phase: "off", workspace: "/x/box"),
+                    CopyHint.Row(name: "try-grok", phase: "running", workspace: ws)]
+        let shown: (String) -> String = { $0.replacingOccurrences(of: "/Users/me", with: "~") }
+        // The owner's case: the file is in a sandbox's folder — it is already on the Mac.
+        let found = CopyHint.neitherSide(source: "lemonade.html", destination: "~/Developer/fun/lemonade.html", sandboxes: rows,
+                                         existsOnMac: { $0 == ws + "/lemonade.html" }, cwd: "/tmp", shown: shown)
+        XCTAssertEqual(found, "lemonade.html is in try-grok's folder — it's already on your Mac at ~/dozer-sandbox-workspaces/try-grok/lemonade.html. Or: doz get try-grok lemonade.html ~/Developer/fun/")
+        // Not in any folder, one running: name it (from it — the source is not on this Mac).
+        XCTAssertEqual(CopyHint.neitherSide(source: "x.txt", destination: ".", sandboxes: rows, existsOnMac: { _ in false }, cwd: "/tmp", shown: shown),
+                       "From try-grok: doz cp try-grok:x.txt .")
+        // The source is on this Mac: into it.
+        XCTAssertEqual(CopyHint.neitherSide(source: "x.txt", destination: "out", sandboxes: rows, existsOnMac: { $0 == "/tmp/x.txt" }, cwd: "/tmp", shown: shown),
+                       "Into try-grok: doz cp x.txt try-grok:out")
+        // Two running (or none): nothing to suggest; an absolute or escaping source is never looked up in a folder.
+        let two = rows.map { CopyHint.Row(name: $0.name, phase: "running", workspace: $0.workspace) }
+        XCTAssertNil(CopyHint.neitherSide(source: "x.txt", destination: ".", sandboxes: two, existsOnMac: { _ in false }, cwd: "/tmp", shown: shown))
+        XCTAssertNil(CopyHint.neitherSide(source: "../x", destination: ".", sandboxes: [rows[0]], existsOnMac: { _ in true }, cwd: "/tmp", shown: shown))
+    }
 }
 
 extension CopyPaths.GetCheck {

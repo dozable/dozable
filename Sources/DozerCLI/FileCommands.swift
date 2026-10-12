@@ -59,8 +59,9 @@ struct CpCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "cp",
         abstract: "Copy files and folders between this Mac and a sandbox (as docker cp; doz get and doz put are the same).",
         discussion: """
-        doz cp try-grok:/workspace/report.md . · doz cp ./data my-app:/workspace/input. One side is NAME:PATH (a path \
-        in sandbox NAME; NAME: alone is /workspace), the other a path on this Mac (./a:b for a name with a colon).
+        doz cp try-grok:/workspace/report.md . · doz cp try-grok:report.md . · doz cp ./data my-app:/workspace/input. \
+        One side is NAME:PATH (a path in sandbox NAME; a relative PATH is under /workspace, and NAME: alone is \
+        /workspace), the other a path on this Mac (./a:b for a name with a colon).
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "From: NAME:PATH or a path on this Mac.") var source: String
@@ -73,8 +74,61 @@ struct CpCommand: AsyncParsableCommand {
         case (let n?, nil): try await FileTransfer.get(n, s.path.isEmpty ? CopyPaths.workspace : s.path, d.path, flags, g)
         case (nil, let n?): try await FileTransfer.put(n, s.path, d.path.isEmpty ? nil : d.path, flags, g)
         case (_?, _?): throw fail(HostError(.invalid, "both sides are in a sandbox — one side is a path on this Mac"), g, code: DozerExit.usage)
-        case (nil, nil): throw fail(HostError(.invalid, "neither side is in a sandbox — write one as NAME:PATH"), g, code: DozerExit.usage)
+        case (nil, nil):
+            let rows = await CopyHint.sandboxes(g)
+            let hint = CopyHint.neitherSide(source: source, destination: destination, sandboxes: rows,
+                                            existsOnMac: { FileManager.default.fileExists(atPath: $0) },
+                                            cwd: FileManager.default.currentDirectoryPath, shown: FileTransfer.shown)
+            throw fail(HostError(.invalid, "neither side is in a sandbox — write one as NAME:PATH" + (hint.map { "\n" + $0 } ?? "")), g, code: DozerExit.usage)
         }
+    }
+}
+
+/// 617 (owner, after `doz cp FILE ~/somewhere` with no NAME:): when neither side names a sandbox, look — read-only,
+/// never starting a host — for the source in each sandbox's folder on the Mac, else name the one running sandbox.
+enum CopyHint {
+    struct Row: Equatable { var name: String; var phase: String; var workspace: String? }
+
+    static func sandboxes(_ g: GlobalOptions) async -> [Row] {
+        var r = HostRequest(.ls)
+        r.withSessions = false
+        let store = g.dozerStore
+        let value: JSONValue?
+        if store.hostIsRunning() {
+            value = try? call(r, g, autostart: false)
+        } else {
+            let core = HostCore(store: store, readOnly: true, version: DozerCommand.version)
+            await core.load()
+            let m = await core.handle(r)
+            value = m.ok == true ? m.result : nil
+        }
+        guard let value, let rows = try? value.decode([SandboxInfo].self) else { return [] }
+        return rows.map { Row(name: $0.name, phase: $0.phase, workspace: $0.workspace) }
+    }
+
+    /// The line after the refusal (nil: nothing to suggest). Pure but for the two closures.
+    static func neitherSide(source: String, destination: String, sandboxes: [Row], existsOnMac: (String) -> Bool,
+                            cwd: String, shown: (String) -> String) -> String? {
+        let rel = source.hasPrefix("./") ? String(source.dropFirst(2)) : source
+        if !rel.isEmpty, !rel.hasPrefix("/"), !rel.hasPrefix("~"), !rel.split(separator: "/").contains("..") {
+            for row in sandboxes {
+                guard let ws = row.workspace else { continue }
+                let onMac = (ws as NSString).appendingPathComponent(rel)
+                guard existsOnMac(onMac) else { continue }
+                let item = (rel as NSString).lastPathComponent
+                // Into the destination's folder when it names the same item (the owner's `… ~/Developer/fun/FILE`).
+                var to = destination
+                if (destination as NSString).lastPathComponent == item, destination.contains("/") {
+                    to = (destination as NSString).deletingLastPathComponent + "/"
+                }
+                return "\(rel) is in \(row.name)'s folder — it's already on your Mac at \(shown(onMac)). Or: doz get \(row.name) \(rel) \(to)"
+            }
+        }
+        let running = sandboxes.filter { $0.phase == "running" }
+        guard running.count == 1, let n = running.first?.name else { return nil }
+        let local = source.hasPrefix("/") || source.hasPrefix("~") ? source : (cwd as NSString).appendingPathComponent(source)
+        let expanded = local.hasPrefix("~/") ? (local as NSString).expandingTildeInPath : local
+        return existsOnMac(expanded) ? "Into \(n): doz cp \(source) \(n):\(destination)" : "From \(n): doz cp \(n):\(source) \(destination)"
     }
 }
 
