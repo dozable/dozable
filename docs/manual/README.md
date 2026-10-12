@@ -28,6 +28,7 @@ both.
 | [The dashboard on your other devices](25-doz-serve.md) | use the dashboard from another computer, a tablet or a phone on your network (`doz serve`) — and behind your own HTTPS reverse proxy |
 | [Images and bases](08-images-and-bases.md) | pick a language base, use your own Dockerfile, rebuild an out-of-date image |
 | [Agents and accounts](09-agents-and-accounts.md) | use Claude Code or pi, add accounts, change what the agent is told |
+| [Trying agents, and what Dozer supports](26-try-and-search.md) | try an agent in one command (`doz try`), check what Dozer runs (`doz search`), see a plan before anything is made (`--dry-run`) |
 | [Codex](24-codex.md) | run OpenAI's Codex on your ChatGPT plan (Dozer's own sign-in) or an OpenAI key — the token never enters the sandbox |
 | [Signing in from a sandbox](11-signing-in-from-a-sandbox.md) | let a tool in a sandbox sign in through your Mac's browser |
 | [GitHub as you](18-github.md) | let git and gh in a sandbox use your GitHub login — read-only or with push — without the token entering it |

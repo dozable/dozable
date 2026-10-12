@@ -248,6 +248,23 @@ thin client of that socket.
   a notice carrying `ESC ] 777;doz;ended;<code> BEL`. `events` and `net-log --follow` stream event
   lines. Fields are only ever added; a host answers a newer `v` with `error.code = "version"`.
 
+## The directory index (`dozer-directory/v1`)
+
+`DirectoryIndex` (`Sources/DozerKit/DirectoryIndex.swift`) is every agent, key provider and base this build knows,
+with its status — generated from the compiled-in recipes, `Recipes/known.json` (things known but not supported yet,
+each with a reason), `providers.json` and the base catalogue. `doz search --json` emits its entries (each beside a
+separate `local` object: your key and image state, never in the index); `doz search --index FILE` writes the whole
+index (`--force` replaces a file). One object `{format, generated, dozer: {version}, entries}`; an entry is `{kind
+(agent | provider | base), id, title, publisher, aliases, status (supported | coming | not-possible), reason, checked,
+since, limits [{with, reason}], keys [{provider, accounts}], reach {model, update, excluded}, install {kind, version,
+source}, default_base, terms, try, homepage, auth, gateways [{gateway, level, reason}], tags [{tag, level}], agents}`.
+
+- **Closed:** `DirectoryIndex.decode` refuses an unknown field and another format; a new field is `v2` beside `v1`.
+- **Deterministic:** entries sorted by kind then id, sorted keys; `generated` is the newest `checked` date of the data.
+- **No user state, no secret** (`DirectoryIndexTests`).
+- **Signing (later):** `index.json` + `index.json.sig`, Ed25519 over `"dozer-directory/v1\n"` followed by the exact
+  bytes, with the update feed's key (`Distribution.updatePublicKey`) — the prefix keeps a feed signature from ever
+  passing as an index's. Phase 1 writes it unsigned and fetches nothing.
 
 ## Dependencies
 

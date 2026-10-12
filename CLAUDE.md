@@ -1652,6 +1652,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   at attach unless the policy allows every host, withheld with a notice when a policy change denies one (`netPolicy`
   re-applies them). Never a host another binding owns. The dashboard shows source/state and Refresh (`account-refresh`,
   one HostOp) — never adds or changes a source (D7).
+- **One set of choices, one plan** (D13): `ChoiceOptions` (LifecycleCommands; `CreateArguments` is its old name) is
+  what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The host's read-only op `plan`
+  (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
+  for new/try (name, workspace, Locked for a try) and what `--dry-run` prints (command, project file, reach from
+  `DozerImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.
+- **`doz try`** (`TryCommand.swift`, `Try.swift`): a try is `SandboxConfig.trial`; its card comes from recipe `auth`
+  only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
+  (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
+  it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
+- **`doz search` and the index** (`DirectorySearch.swift`, `DirectoryIndex.swift`, `Recipes/known.json`): exit codes
+  0 / 8 limited / 6 coming / 2 unknown; a known entry whose id a recipe gains is a test failure (the recipe wins).
 - **Read model for later stages** (data + tests only so far): `auth.methods`, `gateways[]` (support level per model
   gateway, `how` as templates over `{gateway.endpoint.<id>}`, `{placeholder}`, `{model}`), `capabilityTags` (derived
   from the data; only `headless` is declared). `UsageSchema.agents` must contain every agent id (`RecipeHostTests`).
