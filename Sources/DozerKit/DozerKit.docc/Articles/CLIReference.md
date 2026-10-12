@@ -108,6 +108,7 @@ See <doc:Concepts> for what each word means.
 | `sleep NAME` · `wake NAME` | pause + snapshot to disk; survives the host crashing | ~0.3 s | kept | continue |
 | `hibernate NAME` · `wake NAME` | snapshot, then the VM stops | ~0.35 s / ~0.3 s | **returned** | continue: same PIDs, same screens |
 | `shutdown NAME` | a cold stop; the disk is kept | | returned | end |
+| `down NAME [--sleep \| --shutdown [-y]]` | the opposite of `up`: hibernate (the default), sleep, or shut down (asked as `shutdown` is) — the same requests and output as those verbs | as those | as those | as those |
 | `reset NAME` | shut down and go back to a fresh copy of the image (restore points and the agent's state disk stay) | | | end |
 | `rm NAME` | remove the sandbox and everything it has on disk | | | end |
 

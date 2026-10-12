@@ -61,10 +61,16 @@ asleep or hibernated sandbox and resumes a paused one, so it's the one command t
 | `doz sleep NAME` · `doz wake NAME` | paused **and** saved to disk — survives a crash of the host | ~0.3 s | kept | carry on |
 | `doz hibernate NAME` · `doz wake NAME` | saved to disk, then the VM stops | ~0.35 s / ~0.3 s | **given back** | carry on: same processes, same screens |
 | `doz shutdown NAME` | a cold stop; the disks are kept | | given back | end |
+| `doz down NAME` | the opposite of `up`: hibernate (`--sleep`: sleep; `--shutdown`: shut down) | as those | as those | as those |
 | `doz reset NAME` | shut down and go back to a fresh copy of the image (the state disk and restore points stay) | | | end |
 | `doz rm NAME` | remove the sandbox and everything it has on disk | | | end |
 
 `start` has an alias, `cold-boot`; `pause` has `suspend`.
+
+`doz down NAME` puts a sandbox away when you are done for now: it hibernates it — nothing kept in memory, its
+sessions come back where they were with `doz up` (in its project folder), `doz attach` or `doz wake`.
+`--sleep` keeps its memory for an even quicker wake; `--shutdown` is a cold stop, asked first as `shutdown` is
+(`-y` skips the question). It works on a try too.
 
 `shutdown`, `reset` and `rm` ask first. `--yes` skips the question; without a terminal and without
 `--yes` they refuse, so a script can't destroy something by accident. The question names what you

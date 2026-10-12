@@ -455,6 +455,37 @@ struct Hibernate: AsyncParsableCommand {
     func run() async throws { _ = try lifecycle(.hibernate, name, g) }
 }
 
+/// 617 (owner: "yes queue doz down"): the opposite of `up` — put a sandbox away. Hibernate by default (RAM returned,
+/// sessions come back on `up`, `attach` or `wake`); `--shutdown` a cold stop (asked, as `shutdown` does); `--sleep`
+/// keeps the RAM. Only a choice among the existing verbs — the same host requests, the same output.
+struct Down: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(abstract: "Put a sandbox away: hibernate it (the default — RAM returned, sessions come back on up), or --sleep, or --shutdown.",
+        discussion: """
+        doz down my-app hibernates it: everything is kept on disk, it holds no memory, and doz up (or attach, or wake) \
+        brings it back with its sessions where they were. --sleep keeps its RAM for an even quicker wake. --shutdown is \
+        a cold stop that keeps the disk; running programs end (asked unless -y). Works on a try.
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Flag(name: .long, help: "A cold stop that keeps the disk; running programs end (asked unless -y).") var shutdown = false
+    @Flag(name: .long, help: "Sleep instead: the RAM is kept (a quicker wake; it costs the memory).") var sleep = false
+    @Flag(name: [.short, .long], help: "Do not ask (with --shutdown).") var yes = false
+
+    func validate() throws {
+        if shutdown && sleep { throw ValidationError("--shutdown or --sleep, not both") }
+    }
+
+    var op: HostOp { shutdown ? .shutdown : sleep ? .sleep : .hibernate }
+
+    func run() async throws {
+        if shutdown {
+            try await requireSandbox(name, g)
+            try confirm("Shut down \(name)? Its running programs end (the disk is kept).", yes: yes, g)
+        }
+        _ = try lifecycle(op, name, g)
+    }
+}
+
 struct Wake: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Wake from sleep or hibernation (~0.3 s), sessions and pids where they were.")
     @OptionGroup var g: GlobalOptions
