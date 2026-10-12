@@ -14,24 +14,35 @@ import { toast } from '../components/notices.js';
 
 export async function viewAccounts() {
   const a = await api('accounts');
+  // A key read on use (1Password, AWS, a command): where it comes from and the last read; Refresh reads it again.
+  // Adding or changing such a source is the CLI's (doz account add NAME --from …) — never this page's.
+  const sourced = (x) => !!x.sourceLabel;
+  const custom = (x) => x.provider === 'custom';
+  const kindText = (x) => custom(x) ? 'custom key' : x.kind === 'key' && x.provider ? 'key, ' + x.provider : x.kind;
   const rows = a.accounts.map((x) => h('tr', null,
     h('td', null, x.name, x.isDefault ? h('span', { class: 'tag' }, 'default') : null),
-    h('td', null, x.kind, x.plan ? h('div', { class: 'muted' }, x.plan) : null),
+    h('td', null, kindText(x), x.plan ? h('div', { class: 'muted' }, x.plan) : null,
+      x.hosts && x.hosts.length ? h('div', { class: 'muted' }, 'only to ' + x.hosts.join(', ')) : null),
     h('td', null, x.identity || '—'),
-    h('td', null, h('span', { class: x.state === 'ok' ? 'st-ok' : 'st-warn' }, x.state), x.verification ? h('div', { class: 'muted' }, x.verification) : null),
+    h('td', null, h('span', { class: x.state === 'ok' ? 'st-ok' : 'st-warn' }, x.state), x.verification ? h('div', { class: 'muted' }, x.verification) : null,
+      x.sourceProblem ? h('div', { class: 'muted' }, x.sourceProblem) : null),
     h('td', null, x.expiresAt ? full(x.expiresAt) : '—', x.expiresAt ? h('div', { class: 'muted' }, when(x.expiresAt)) : null),
-    h('td', { class: 'mono' }, x.fingerprint || '—', x.keychainService ? h('div', { class: 'muted' }, 'keychain: ' + x.keychainService) : null),
+    h('td', { class: 'mono' }, x.fingerprint || '—',
+      sourced(x) ? h('div', { class: 'muted' }, 'from ' + x.sourceLabel + (x.sourceState === 'unchecked' ? ' (not read yet)' : ''))
+        : x.keychainService ? h('div', { class: 'muted' }, 'keychain: ' + x.keychainService) : null),
     h('td', null, x.usedBy.length ? x.usedBy.join(', ') : '—'),
     h('td', { class: 'row-acts-cell' }, (() => {
       const items = [
-        x.isDefault ? null : { label: 'Make default', icon: 'star', desc: 'Sandboxes that follow the store default use it', onSelect: () => act({ action: 'account-default', account: x.name }) },
+        x.isDefault || custom(x) ? null : { label: 'Make default', icon: 'star', desc: 'Sandboxes that follow the store default use it', onSelect: () => act({ action: 'account-default', account: x.name }) },
+        sourced(x) ? { label: 'Refresh', icon: 'refresh-cw', desc: 'Read the key from where you keep it again now', onSelect: () => act({ action: 'account-refresh', account: x.name }) } : null,
         x.kind === 'mac' || x.isDefault ? null : { label: 'Verify', icon: 'badge-check', desc: 'One tiny request to the API with it', onSelect: () => act({ action: 'account-verify', account: x.name }) },
         x.name === 'mac' ? null : { sep: true },
-        x.name === 'mac' ? null : { label: 'Remove…', icon: 'trash-2', danger: true, desc: 'Its keychain item is deleted', onSelect: () => confirmAction('Remove account ' + x.name,
-          'Its keychain item is deleted' + (x.usedBy.length ? '; sandboxes pinned to it must move first (' + x.usedBy.join(', ') + ')' : '') + '.', x.name, { action: 'account-rm', account: x.name }) },
+        x.name === 'mac' ? null : { label: 'Remove…', icon: 'trash-2', danger: true, desc: sourced(x) ? 'Only Dozer’s record — where you keep the key is not touched' : 'Its keychain item is deleted', onSelect: () => confirmAction('Remove account ' + x.name,
+          (sourced(x) ? 'Only Dozer’s record goes' : 'Its keychain item is deleted') + (x.usedBy.length ? '; sandboxes pinned to it must move first (' + x.usedBy.join(', ') + ')' : '') + '.', x.name, { action: 'account-rm', account: x.name }) },
       ].filter(Boolean);
-      // The next verb: Verify for a key or a token, else Make default; the rest in ⋯.
-      const next = x.kind !== 'mac' ? btn('Verify', () => act({ action: 'account-verify', account: x.name }), { small: true, quiet: true, title: 'One tiny request to the API with it' })
+      // The next verb: Refresh for a key read on use, Verify for a key or a token, else Make default; the rest in ⋯.
+      const next = sourced(x) ? btn('Refresh', () => act({ action: 'account-refresh', account: x.name }), { small: true, quiet: true, title: 'Read the key from where you keep it again now' })
+        : x.kind !== 'mac' ? btn('Verify', () => act({ action: 'account-verify', account: x.name }), { small: true, quiet: true, title: 'One tiny request to the API with it' })
         : x.isDefault ? null : btn('Make default', () => act({ action: 'account-default', account: x.name }), { small: true, quiet: true });
       const rest = items.filter((it) => it.sep || !next || it.label !== next.textContent.trim());
       while (rest.length && rest[0].sep) rest.shift();
@@ -57,5 +68,7 @@ export async function viewAccounts() {
         } })
       : h('div', null, accountCommandsNode('setup-token'), accountCommandsNode('api-key')),
     h('p', { class: 'muted' }, 'Stored exactly as doz account add stores it: the login keychain (doz-claude:NAME, doz-anthropic:NAME), after one tiny check request. ',
-      'This page keeps no copy. ui.allow_secret_entry (Settings) turns the field off.'));
+      'This page keeps no copy. ui.allow_secret_entry (Settings) turns the field off.'),
+    h('p', { class: 'muted' }, 'A key kept in 1Password, AWS Secrets Manager or read by a command, and a custom key for another service, are added with the doz command: ',
+      h('code', null, 'doz account add NAME --provider xai --from op://VAULT/ITEM/FIELD'), ' · ', h('code', null, 'doz account add NAME --custom --host HOST --env-var VAR --bearer'), '.'));
 }

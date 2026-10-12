@@ -73,22 +73,38 @@ public struct AccountRecord: Codable, Equatable, Sendable {
     /// 599i: a ChatGPT sign-in's email and account id (from its id_token's claims) — not secrets.
     public var email: String?
     public var accountID: String?
-    /// 617: a `key` account's key provider (`xai`, `google`) — nil for every other kind (and in every older file).
+    /// 617: a `key` account's key provider (`xai`, `google`, `custom`) — nil for every other kind (and in every older file).
     public var provider: String?
+    /// 617 (§7): where the key is read from — nil = the keychain item `keychainService` (every older record).
+    public var source: SecretSource?
+    /// 617: the allow-listed, non-secret tool variables its source runs with (`OP_ACCOUNT`, `AWS_PROFILE`, …).
+    public var sourceEnv: [String: String]?
+    /// 617: how long a value read from its source is kept in the host's memory (default 3300 s).
+    public var ttlSeconds: Int?
+    /// 617 (D6): a custom key — the hosts it may go to and how (never a secret).
+    public var custom: CustomKey?
+
+    /// The source in effect (a record without one: its keychain item).
+    public var effectiveSource: SecretSource? { source ?? keychainService.map { .keychain(service: $0) } }
+
+    /// Read on use from a tool (1Password, AWS, a command) rather than the keychain.
+    public var readsOnUse: Bool { source.map { !$0.isKeychain } ?? false }
 
     /// 617: whose credential it is — the provider of a `key` account, the kind's otherwise.
     public var providerID: String { kind == .key ? (provider ?? "") : kind.provider }
 
     /// 617: as a person reads it ("an xAI API key").
     public var label: String {
-        guard kind == .key, let p = provider.flatMap(KeyProviders.provider) else { return kind.label }
+        if let c = custom { return c.label }
+        guard kind == .key, let p = provider.flatMap({ KeyProviders.provider($0) }) else { return kind.label }
         return "a \(p.title) key"
     }
 
     /// 617: the vault binding its secret goes in.
     public var binding: CredentialBinding {
         guard kind == .key else { return kind.binding }
-        return provider.flatMap(KeyProviders.provider)?.binding ?? kind.binding
+        if let c = custom { return c.binding(account: name) }
+        return provider.flatMap { KeyProviders.provider($0) }?.binding ?? kind.binding
     }
 
     public init(name: String, kind: AccountKind, keychainService: String? = nil, adopted: Bool? = nil, configDir: String? = nil,
@@ -113,6 +129,51 @@ public struct AccountRecord: Codable, Equatable, Sendable {
     public static let mac = AccountRecord(name: "mac", kind: .mac, addedAt: Date(timeIntervalSince1970: 0))
     /// 599i rc.3: `mac` for a Codex sandbox — this Mac's Codex login (never in accounts.json).
     public static let codexMac = AccountRecord(name: "mac", kind: .codexMac, addedAt: Date(timeIntervalSince1970: 0))
+}
+
+/// 617 (D6): a custom key's binding — like Docker's `set-custom`: the exact hosts it may go to, the header and its
+/// format, the variable its placeholder is in. Swap-only (never added to a request without its placeholder), and only
+/// ever on hosts the sandbox's policy allows on purpose (`--allow site:HOST`).
+public struct CustomKey: Codable, Equatable, Sendable {
+    public var hosts: [String]
+    /// `authorization` (with `Bearer %s`), or any header name (with `%s`).
+    public var header: String
+    public var format: String
+    public var env: String
+
+    public init(hosts: [String], header: String, format: String, env: String) {
+        self.hosts = hosts.map { $0.lowercased() }
+        self.header = header.lowercased()
+        self.format = format
+        self.env = env
+    }
+
+    public func binding(account: String) -> CredentialBinding {
+        let h: CredentialHeader = format == "Bearer %s" ? .bearer : .apiKey(name: header)
+        return CredentialBinding(id: "custom:" + account, hosts: hosts, header: h, environmentVariable: env, swapOnly: true)
+    }
+
+    public func validate() throws {
+        guard !hosts.isEmpty, hosts.count <= 8 else { throw HostError(.invalid, "a custom key needs --host (1–8 exact hosts)") }
+        for h in hosts where h.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) == nil {
+            throw HostError(.invalid, "--host \(h): an exact host name like api.example.com")
+        }
+        for h in hosts where KeyProviders.owning(host: h) != nil || GitHubAccess.credentialHosts.contains(h) || OpenAIAccess.isOpenAIHost(h) {
+            throw HostError(.invalid, "--host \(h) is a host Dozer already holds keys for — use that account kind instead")
+        }
+        guard env.range(of: "^[A-Z][A-Z0-9_]{1,63}$", options: .regularExpression) != nil, !env.hasPrefix("DOZ_") else {
+            throw HostError(.invalid, "--env-var: an upper-case variable name like EXAMPLE_API_KEY")
+        }
+        guard ["%s", "Bearer %s"].contains(format) else { throw HostError(.invalid, "--format: %s (the key as it is) or use --bearer") }
+        if format == "Bearer %s", header != "authorization" { throw HostError(.invalid, "--bearer goes in the Authorization header") }
+        guard header.range(of: "^[a-z][a-z0-9-]{0,63}$", options: .regularExpression) != nil,
+              !["host", "cookie", "content-length", "transfer-encoding", "connection"].contains(header) else {
+            throw HostError(.invalid, "--header: a header name like x-api-key")
+        }
+    }
+
+    /// "a custom key for api.example.com".
+    public var label: String { "a custom key for \(hosts.joined(separator: ", "))" }
 }
 
 public struct AccountsFile: Codable, Equatable, Sendable {
@@ -169,7 +230,7 @@ public struct AccountStore: Sendable {
 
     /// 617: a keychain item Dozer made for an account (and so may delete): one of the prefixes above.
     public static func isDozItem(_ service: String) -> Bool {
-        [setupTokenPrefix, apiKeyPrefix, openaiKeyPrefix, chatgptPrefix].contains(where: service.hasPrefix)
+        [setupTokenPrefix, apiKeyPrefix, openaiKeyPrefix, chatgptPrefix, keyPrefix("custom")].contains(where: service.hasPrefix)
             || KeyProviders.all.filter { $0.builtinBinding == nil }.contains { service.hasPrefix(keyPrefix($0.id)) }
     }
     /// A setup token lives one year (`claude setup-token`: 31 536 000 s).
@@ -264,8 +325,16 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var state: String
     public var keychainService: String?
     public var fingerprint: String?
-    /// 617: whose key it is (`anthropic`, `openai`, `xai`, `google`).
+    /// 617: whose key it is (`anthropic`, `openai`, `xai`, `google`, `custom`).
     public var provider: String?
+    /// 617 (§7): where its key is read from, as a person reads it ("1Password: op://Dev/xai/credential") — never a value.
+    public var sourceLabel: String?
+    /// 617: the last read from that source: `ok`, `failed`, or `unchecked` (not read since this host started).
+    public var sourceState: String?
+    /// 617: why the last read failed (the proxy's 401 says the same) — the cause and the fix, never a value.
+    public var sourceProblem: String?
+    /// 617 (D6): a custom key's hosts.
+    public var hosts: [String]?
 }
 
 // MARK: verification
@@ -303,7 +372,8 @@ public enum ProviderSeam {
 
     /// 617: a key provider's check, over the proxy's leg (the seam's fake in tests).
     static func check(provider: String?, secret: String) async -> AccountVerification {
-        guard let p = provider.flatMap(KeyProviders.provider) else { return .unavailable("no provider") }
+        if provider == "custom" { return .unavailable("a custom key has no check") }
+        guard let p = provider.flatMap({ KeyProviders.provider($0) }) else { return .unavailable("no provider") }
         let override = upstream()
         return await Task.detached {
             switch p.checkKey(secret, override: override) {

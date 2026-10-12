@@ -122,6 +122,9 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// clipboard and browser bridges, tmux) — a key absent follows the setting. (`sandbox.agent_sudo`
     /// keeps its own field above.)
     public var settings: [String: TOMLValue]?
+    /// 617 (D6): custom key accounts attached beside the account (`--key NAME`), each swapped only on its own hosts,
+    /// only while the policy allows them. Absent for every sandbox before 617.
+    public var extraKeys: [String]?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

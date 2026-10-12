@@ -248,9 +248,16 @@ struct Doctor: AsyncParsableCommand {
             case .openaiKey: s += " (openai-key)"
             case .chatgpt: s += " (chatgpt" + (a.plan.map { ", \($0)" } ?? "") + ")"
             case .codexMac: s += " (codex-mac)"
-            case .key: s += " (key, \(a.provider ?? "?"))"          // 617
+            case .key: s += a.custom != nil ? " (custom key)" : " (key, \(a.provider ?? "?"))"          // 617
             }
+            if a.readsOnUse, let src = a.source { s += " ← \(src.label)" }
             return s
+        }
+        // 617 (§7): a key read on use whose tool is missing.
+        for a in accounts.accounts where a.readsOnUse {
+            if let src = a.source, let why = SecretSources.missingTool(src) {
+                out.append(DoctorCheck(check: "key source", status: .warn, detail: "account \(a.name): \(why)"))
+            }
         }
         let expiring = accounts.accounts.filter { a in a.kind != .mac && (a.expiresAt.map { $0.timeIntervalSince(now) < 30 * 86_400 } ?? false) }
         out.append(DoctorCheck(check: "accounts", status: expiring.isEmpty ? .ok : .warn,

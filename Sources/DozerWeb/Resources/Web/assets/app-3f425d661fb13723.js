@@ -57,7 +57,7 @@ import './app/components/rules-step-124b3dfb793c8146.js';
 import './app/components/stepper-eb70a810bda2f73e.js';
 import { closeTerminal, focusTerm, openTerminal, paintCover, reattachTerminals, sendInput } from './app/components/terminal-547d4aaa0d8a60f6.js';
 import './app/components/workspace-chooser-fc12b399ad37dee0.js';
-import { viewAccounts } from './app/views/accounts-7b4ac97f01a48414.js';
+import { viewAccounts } from './app/views/accounts-dd3991613c51aa2f.js';
 import { renderActivity, viewActivity } from './app/views/activity-ad20c42c93678edd.js';
 import { viewDevices } from './app/views/devices-251a976cc21adb2d.js';
 import { viewDoctor } from './app/views/doctor-ba4faefb0af02619.js';

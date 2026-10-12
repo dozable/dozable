@@ -21,8 +21,8 @@ struct AccountCommand: AsyncParsableCommand {
         on this Mac) — or \(BuildFlavor.current.chatgptSignIn ? "doz account add NAME --chatgpt (Dozer's own sign-in, in your browser) or --openai-key" : "an OpenAI API key: doz account add NAME --openai-key"). A sandbox follows the store's default account (mac out of the box; for Codex the default OpenAI account) \
         unless it pins one: doz account use NAME ACCOUNT.
         """,
-        subcommands: [AccountList.self, AccountAdd.self, AccountVerify.self, AccountRemove.self, AccountDefault.self,
-                      AccountUse.self, AccountKeepalive.self])
+        subcommands: [AccountList.self, AccountShow.self, AccountAdd.self, AccountVerify.self, AccountRefresh.self, AccountRemove.self,
+                      AccountDefault.self, AccountUse.self, AccountKeepalive.self])
 }
 
 func renderAccounts(_ rows: [AccountRow]) -> String {
@@ -88,8 +88,26 @@ struct AccountAdd: AsyncParsableCommand {
     var useAPIKey: Bool { apiKey || provider?.lowercased() == "anthropic" }
     var useOpenAIKey: Bool { openaiKey || provider?.lowercased() == "openai" }
     @Option(name: .long, help: "With --setup-token: the plan (max, pro, team, enterprise) — Claude Code in the sandbox shows it and picks its default model by it.") var plan: String?
-    @Flag(name: .long, help: "Store it without the check request.") var noVerify = false
+    @Flag(name: .long, help: "Store it without the check request (and, with --from/--from-command, without reading the key now).") var noVerify = false
     @Flag(name: .long, help: "Replace an account of that name.") var force = false
+    @Option(name: .long, help: "Read the key where you keep it, each time a sandbox needs it (kept in memory for --ttl, never stored): op://VAULT/ITEM/FIELD (1Password) or aws:arn:aws:secretsmanager:…[#jsonKey] (AWS Secrets Manager).")
+    var from: String?
+    @Option(name: .long, help: "Read the key by running this program (its output is the key): argv, never a shell — e.g. 'gh auth token'. Shown and confirmed before it is saved.")
+    var fromCommand: String?
+    @Option(name: .long, help: "A variable the source's tool runs with (repeatable): OP_ACCOUNT, AWS_PROFILE, AWS_REGION, AWS_CONFIG_FILE, AWS_SHARED_CREDENTIALS_FILE.")
+    var env: [String] = []
+    @Option(name: .long, help: "How long a key read from --from/--from-command is kept in memory before it is read again: 55m (default), 2h, 300s.")
+    var ttl: String?
+    @Flag(name: .long, help: "A custom key for any host (with --host, --env-var and --bearer or --header).") var custom = false
+    @Option(name: .long, help: "With --custom: a host the key may go to (repeatable). The sandbox must also be allowed to reach it (--allow site:HOST).")
+    var host: [String] = []
+    @Option(name: .long, help: "With --custom: the variable the sandbox gets its placeholder in, e.g. EXAMPLE_API_KEY.") var envVar: String?
+    @Flag(name: .long, help: "With --custom: send it as Authorization: Bearer KEY.") var bearer = false
+    @Option(name: .long, help: "With --custom: the header it goes in, e.g. x-api-key.") var header: String?
+    @Option(name: .long, help: "With --custom --header: the header's value, %s being the key (default %s).") var format: String?
+    @Flag(name: .long, help: "Do not ask (--from-command's confirmation).") var yes = false
+
+    var sourced: Bool { from != nil || fromCommand != nil }
 
     func validate() throws {
         // 611: a public build has no ChatGPT sign-in of its own.
@@ -97,8 +115,22 @@ struct AccountAdd: AsyncParsableCommand {
         if let p = provider, KeyProviders.provider(p.lowercased()) == nil {
             throw ValidationError("--provider: \(KeyProviders.all.map(\.id).joined(separator: ", ")) — not \(p)")
         }
-        guard [setupToken, apiKey, claudeLogin, openaiKey, chatgpt, provider != nil].filter({ $0 }).count == 1 else {
-            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key, --chatgpt or --provider xai|google")
+        guard [setupToken, apiKey, claudeLogin, openaiKey, chatgpt, provider != nil, custom].filter({ $0 }).count == 1 else {
+            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key, --chatgpt, --provider xai|google or --custom")
+        }
+        // 617 (§7): where the key is read from.
+        if from != nil && fromCommand != nil { throw ValidationError("--from or --from-command, not both") }
+        if sourced && !(useAPIKey || useOpenAIKey || keyProvider != nil || custom) { throw ValidationError("--from and --from-command are for API keys (--api-key, --openai-key, --provider, --custom)") }
+        if sourced && keychain != nil { throw ValidationError("--keychain or --from/--from-command, not both") }
+        if (!env.isEmpty || ttl != nil) && !sourced { throw ValidationError("--env and --ttl go with --from or --from-command") }
+        if let t = ttl, SecretSources.parseTTL(t) == nil { throw ValidationError("--ttl: 1m to 24h, like 55m or 2h") }
+        // 617 (D6): a custom key.
+        if custom {
+            if host.isEmpty || envVar == nil { throw ValidationError("--custom needs --host HOST and --env-var NAME") }
+            if bearer == (header != nil) { throw ValidationError("--custom: --bearer, or --header NAME") }
+            if format != nil && header == nil { throw ValidationError("--format goes with --header") }
+        } else if !host.isEmpty || envVar != nil || bearer || header != nil || format != nil {
+            throw ValidationError("--host, --env-var, --bearer, --header and --format go with --custom")
         }
         if claudeLogin && configDir == nil { throw ValidationError("--claude-login needs --config-dir (the default Mac login is the built-in account mac)") }
         if keychain != nil && !useAPIKey && !useOpenAIKey && keyProvider == nil { throw ValidationError("--keychain is for --api-key, --openai-key or --provider") }
@@ -107,10 +139,43 @@ struct AccountAdd: AsyncParsableCommand {
     }
 
     func run() async throws {
-        let kind: AccountKind = setupToken ? .setupToken : useAPIKey ? .apiKey : useOpenAIKey ? .openaiKey : chatgpt ? .chatgpt : keyProvider != nil ? .key : .mac
+        let kind: AccountKind = setupToken ? .setupToken : useAPIKey ? .apiKey : useOpenAIKey ? .openaiKey : chatgpt ? .chatgpt
+            : (keyProvider != nil || custom) ? .key : .mac
         var r = HostRequest.accountAdd(name: name, kind: kind, plan: plan, secret: nil,
                              verify: !noVerify, force: force, configDir: configDir, keychain: keychain)
-        if let p = keyProvider {
+        if custom {
+            r.custom = CustomKey(hosts: host, header: bearer ? "authorization" : header ?? "", format: bearer ? "Bearer %s" : format ?? "%s", env: envVar ?? "")
+            do { try r.custom?.validate() } catch let e as HostError { throw fail(e, g) }
+        }
+        if sourced {
+            // 617 (§7): the reference only — the host reads the key now (once, to check it) and then on use.
+            let source: SecretSource
+            do {
+                if let f = from { source = try SecretSource.parse(from: f) }
+                else { source = try SecretSource.parseCommand(fromCommand ?? "", resolve: SecretSources.locate) }
+            } catch let e as HostError { throw fail(e, g) }
+            if case .command(let p, let a) = source {
+                // D10: the exact argv, shown and confirmed (a terminal's y/N, or --yes).
+                let shown = ([p] + a).map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
+                try confirm("The key of \(name) will be read on this Mac by running: \(shown)\n(no shell; its output is the key; it runs each time the key is read). Save it?", yes: yes, g)
+            }
+            var envs: [String: String] = [:]
+            for kv in env {
+                guard let eq = kv.firstIndex(of: "=") else { throw fail(HostError(.invalid, "--env: KEY=VALUE"), g) }
+                envs[String(kv[..<eq])] = String(kv[kv.index(after: eq)...])
+            }
+            do { try SecretSources.checkEnvironment(envs) } catch let e as HostError { throw fail(e, g) }
+            r.secretSource = source
+            r.sourceEnv = envs.isEmpty ? nil : envs
+            r.ttlSeconds = ttl.flatMap(SecretSources.parseTTL)
+            r.provider = keyProvider?.id
+        } else if custom {
+            if keychain == nil {
+                let s = try readSecret("the key for \(host.joined(separator: ", ")) (not echoed): ", g)
+                guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw fail(HostError(.invalid, "nothing read (pipe it in, or paste it at the prompt)"), g) }
+                r.secret = s
+            }
+        } else if let p = keyProvider {
             r.provider = p.id
             if keychain == nil {
                 let s = try readSecret("\(p.title) API key (not echoed): ", g)
@@ -153,6 +218,51 @@ struct AccountVerify: AsyncParsableCommand {
         if g.json { Out.json(rows); return }
         Out.stdout("\(name): \(rows.first { $0.name == name }?.verification ?? "?")\n")
     }
+}
+
+/// `doz account refresh NAME` — read a key kept in 1Password, AWS or a command again now.
+struct AccountRefresh: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "refresh",
+        abstract: "Read an account's key from where you keep it again now (--from / --from-command accounts): the value kept in memory is dropped.")
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    func run() async throws {
+        var r = HostRequest(.accountRefresh)
+        r.account = name
+        let rows = try decode(try call(r, g), [AccountRow].self, g)
+        if g.json { Out.json(rows); return }
+        let a = rows.first { $0.name == name }
+        if a?.sourceState == "ok" { Out.stdout("\(name): read again from \(a?.sourceLabel ?? "its source")\n") }
+        else { throw fail(HostError(.failed, "\(name): \(a?.sourceProblem ?? "its source answered nothing")"), g) }
+    }
+}
+
+/// `doz account show NAME` — one account, where its key comes from and the last read (never a value).
+struct AccountShow: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "show", abstract: "One account: its kind, where its key comes from and the last read — never a secret.")
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    func run() async throws {
+        let rows = try decode(try await query(HostRequest(.accountList), g), [AccountRow].self, g)
+        guard let a = rows.first(where: { $0.name == name }) else { throw fail(HostError(.notFound, "no account \(name)"), g) }
+        if g.json { Out.json(a); return }
+        Out.stdout(renderAccount(a))
+    }
+}
+
+func renderAccount(_ a: AccountRow) -> String {
+    var lines: [(String, String)] = [("name", a.name), ("kind", a.kind == AccountKind.key.rawValue ? "key, \(a.provider ?? "?")" : a.kind)]
+    if let h = a.hosts { lines.append(("hosts", h.joined(separator: ", "))) }
+    lines.append(("key from", a.sourceLabel ?? (a.kind == AccountKind.mac.rawValue ? "the Mac's Claude Code login" : a.keychainService.map { "the keychain (\($0))" } ?? "—")))
+    lines.append(("state", a.sourceState.map { $0 == "unchecked" ? "not read since the host started" : $0 } ?? a.state))
+    if let p = a.sourceProblem { lines.append(("problem", p)) }
+    if let f = a.fingerprint { lines.append(("fingerprint", f)) }
+    lines.append(("verified", a.verification ?? "—"))
+    if let p = a.plan { lines.append(("plan", p)) }
+    if let i = a.identity { lines.append(("identity", i)) }
+    lines.append(("default", a.isDefault ? "yes" : "no"))
+    lines.append(("used by", a.usedBy.isEmpty ? "—" : a.usedBy.joined(separator: ", ")))
+    return lines.map { "\($0.0):".padding(toLength: 13, withPad: " ", startingAt: 0) + $0.1 }.joined(separator: "\n") + "\n"
 }
 
 struct AccountRemove: AsyncParsableCommand {
@@ -201,11 +311,18 @@ struct AccountUse: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument var sandbox: String
     @Argument var account: String
+    @Flag(name: .long, help: "Attach a custom key (doz account add NAME --custom …) beside the sandbox's account.") var extra = false
+    @Flag(name: .long, help: "Take a custom key off the sandbox.") var removeExtra = false
+    func validate() throws { if extra && removeExtra { throw ValidationError("--extra or --remove-extra, not both") } }
     func run() async throws {
         var r = HostRequest(.accountUse, name: sandbox)
         r.account = account
+        if extra { r.extra = true }
+        if removeExtra { r.removeExtra = true }
         let rows = try decode(try call(r, g), [CredentialRow].self, g)
         if g.json { Out.json(rows); return }
+        if extra { Out.stdout("\(sandbox) uses the custom key \(account) — sessions opened from now on get its variable\n"); return }
+        if removeExtra { Out.stdout("\(sandbox) no longer uses the custom key \(account)\n"); return }
         Out.stdout(account == "none" ? "\(sandbox) uses no account\n" : "\(sandbox) uses \(account)\n")
     }
 }

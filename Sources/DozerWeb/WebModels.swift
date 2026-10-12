@@ -974,8 +974,22 @@ public struct WebAccount: Codable, Equatable, Sendable {
     /// The keychain item's NAME (service) — never its contents.
     public var keychainService: String?
     public var fingerprint: String?
+    /// 617: a key's provider (xai, google, custom …).
+    public var provider: String?
+    /// 617 (§7): where a key read on use comes from ("1Password: op://…") and the last read — never a value. The page
+    /// shows them and offers Refresh; it never adds or changes a source (D7).
+    public var sourceLabel: String?
+    public var sourceState: String?
+    public var sourceProblem: String?
+    /// 617 (D6): a custom key's hosts (read-only in the page).
+    public var hosts: [String]?
 
     public init(_ a: AccountRow) {
+        provider = a.provider
+        sourceLabel = a.sourceLabel
+        sourceState = a.sourceState
+        sourceProblem = a.sourceProblem
+        hosts = a.hosts
         name = a.name
         kind = a.kind
         plan = a.plan

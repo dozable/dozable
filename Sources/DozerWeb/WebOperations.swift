@@ -247,6 +247,9 @@ final class WebOperations: @unchecked Sendable {
             return "keep-alive \(on ? "on" : "off")"
         case .accountVerify(let acc):
             return (try? v.decode([AccountRow].self))?.first { $0.name == acc }.map { "\(acc): \($0.verification ?? $0.state)" } ?? "\(acc) checked"
+        case .accountRefresh(let acc):
+            let ok = (try? v.decode([AccountRow].self))?.first { $0.name == acc }?.sourceState == "ok"
+            return ok ? "\(acc): its key was read again" : "\(acc): its key could not be read — the Accounts page says why"
         case .accountRemove(let acc):
             return "removed account \(acc)"
         case .onboard(let images):

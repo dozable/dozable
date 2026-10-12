@@ -80,6 +80,9 @@ struct CreateArguments: ParsableArguments {
     @Flag(name: .long, help: "When the image is out of date: use it as it is (the default off a terminal; said as a warning).")
     var useCurrent = false
 
+    @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must be allowed (--allow site:HOST).")
+    var key: [String] = []
+
     // EXPERIMENTAL (604): an audio sandbox.
     @Flag(name: .long, help: ArgumentHelp("EXPERIMENTAL: give the sandbox the Mac's microphone and speakers (a sound device and its own kernel; doz-sound inside to record and play). macOS asks about the microphone for the app that started doz.",
                                           visibility: BuildFlavor.current.isPublic ? .hidden : .default))
@@ -143,6 +146,7 @@ struct CreateArguments: ParsableArguments {
         // 599d: --github read|push|off is the same as allowing (or not) its two permissions.
         words += try Self.githubWords(github, flag: "--github")
         if !words.isEmpty { o.allow = words }
+        if !key.isEmpty { o.keys = key }          // 617 (D6)
         if let df = absoluteDockerfile {
             guard FileManager.default.fileExists(atPath: df) else { throw ValidationError("--dockerfile: no file at \(df)") }
             o.dockerfile = df
@@ -308,6 +312,8 @@ struct New: AsyncParsableCommand {
     @Option(name: .long, help: "The name (default: the image's — claude-sandbox, claude-sandbox-2, …).") var name: String?
     @Flag(name: .long, help: "Share no folder: /workspace is private to the sandbox.") var isolated = false
     @Flag(name: [.short, .customLong("detach")], help: "Create and start it, but do not attach.") var detach = false
+    @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must already be allowed by defaults.permissions (else: doz create … --allow site:HOST --key NAME).")
+    var key: [String] = []
 
     func run() async throws {
         let rows = try decode(try await query(HostRequest(.ls), g), [SandboxInfo].self, g)
@@ -320,6 +326,7 @@ struct New: AsyncParsableCommand {
         if !g.json { Out.stdout(plan.line() + "\n") }
         var o = CreateOptions(image: plan.image, workspace: plan.workspace)
         o.isolated = isolated ? true : nil
+        if !key.isEmpty { o.keys = key }          // 617 (D6): custom keys
         do {
             try preflightAgentAccount(&o, g)      // pi needs an API-key account: offered on a terminal, else the next step
         } catch {

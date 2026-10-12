@@ -41,6 +41,8 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 588: named Anthropic credentials (the Mac login, setup tokens, API keys).
     case accountList = "account-ls", accountAdd = "account-add", accountRemove = "account-rm"
     case accountDefault = "account-default", accountUse = "account-use", accountVerify = "account-verify"
+    /// 617: read an account's key from its source again now (the cached value is dropped).
+    case accountRefresh = "account-refresh"
     case accountKeepalive = "account-keepalive"
     case events
     case hostStop = "host-stop"
@@ -180,6 +182,8 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var prepare: Bool?
     /// EXPERIMENTAL (604): an audio sandbox — the Mac's microphone and speakers (`SandboxSpec.audio`).
     public var audio: Bool?
+    /// 617 (D6): custom key accounts to attach (`--key NAME`, repeatable); each host must be allowed.
+    public var keys: [String]?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
@@ -267,6 +271,14 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var accountKind: String?
     /// 617: a `key` account's provider (`xai`, `google`); `account-default` by provider.
     public var provider: String?
+    /// 617 (§7): account-add — where the key is read from (a reference, never a value), its tool variables, its TTL.
+    public var secretSource: SecretSource?
+    public var sourceEnv: [String: String]?
+    public var ttlSeconds: Int?
+    /// 617 (D6): account-add — a custom key's binding; account-use — attach (`extra`) or detach (`removeExtra`) it.
+    public var custom: CustomKey?
+    public var extra: Bool?
+    public var removeExtra: Bool?
     public var plan: String?
     public var configDir: String?
     public var keychainService: String?

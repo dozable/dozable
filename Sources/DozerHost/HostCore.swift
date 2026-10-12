@@ -45,6 +45,8 @@ public actor HostCore {
     var watchers: [String: LoginWatcher] = [:]
     /// 599i: one session per ChatGPT account (its sandboxes share it).
     var chatgptSessions: [String: ChatGPTSession] = [:]
+    /// 617 (§7): each account's reads from its source — generation and last outcome (never a value).
+    nonisolated let secretSourceState = SecretSourceState()
     /// 611: what this build leaves out (a public build: no ChatGPT sign-in of its own). Tests set it.
     var buildFlavor: BuildFlavor = .current
     public func setBuildFlavor(_ f: BuildFlavor) { buildFlavor = f; chatgptSessions = [:] }
@@ -741,9 +743,13 @@ public actor HostCore {
         case .accountUse:
             let m = try get(r.name)
             guard let a = r.account, !a.isEmpty else { throw HostError(.invalid, "which account? (a name, default or none)") }
+            // 617 (D6): a custom key attached beside the account, or taken off.
+            if r.extra == true || r.removeExtra == true { return try JSONValue(encoding: try useExtraKey(m, a, attach: r.extra == true)) }
             return try JSONValue(encoding: try await useAccount(m, a))
         case .accountVerify:
             return try JSONValue(encoding: try await verifyAccount(r))
+        case .accountRefresh:
+            return try JSONValue(encoding: try await refreshAccount(r))
         case .accountKeepalive:
             return try JSONValue(encoding: try setKeepalive(r))
         case .console:
@@ -887,6 +893,23 @@ public actor HostCore {
             ?? cfg.imageChoice.flatMap { $0.isDockerfile ? Dockerfiles.record($0.base, store)?.dockerfile : nil }
         // 599: its own values of the per-sandbox settings (the clipboard and browser bridges, tmux).
         if let s = o.settings, !s.isEmpty { cfg.settings = try Self.checkedSandboxSettings(s) }
+        // 617 (D6): custom keys beside the account — each a custom key account, each of its hosts allowed on purpose.
+        if let keys = o.keys, !keys.isEmpty {
+            guard let policy = spec.network.policy else { throw HostError(.invalid, "--key needs a proxied network: a custom key lives in the host's proxy") }
+            let file = accountStore.load()
+            for k in keys {
+                guard let c = file.accounts.first(where: { $0.name == k })?.custom else {
+                    throw HostError(.notFound, "no custom key \(k) (doz account add \(k) --custom --host H --env-var V)")
+                }
+                let refused = c.hosts.filter { policy.evaluateConnection(host: $0, port: 443).kind == .deny }
+                if !refused.isEmpty {
+                    throw HostError(.invalid, "the custom key \(k) goes to \(refused.joined(separator: ", ")), which \(name) may not reach — add "
+                                    + refused.map { "--allow site:\($0)" }.joined(separator: " "))
+                }
+            }
+            var seen = Set<String>()
+            cfg.extraKeys = keys.filter { seen.insert($0).inserted }
+        }
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
         var createDetail = ["network": cfg.networkName]
@@ -1502,6 +1525,13 @@ public actor HostCore {
         argv += extraArguments
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
+        // 617 (§7): a key read on use (1Password, AWS, a command) is read now, beside the session's start, so the agent's
+        // first call does not wait for it (a fresh cached read makes this nothing).
+        if let vault = m.sandbox.egress?.vault {
+            // Keys only (GitHub's and ChatGPT's providers keep their own timing).
+            let ids = vault.allBindings.map(\.id).filter { $0 != CredentialBinding.github.id && $0 != CredentialBinding.chatgpt.id }
+            Task.detached { for id in ids { vault.prefetch(id) } }
+        }
         let size = TermSize(cols: r.cols ?? 120, rows: r.rows ?? 36)
         let workdir: String? = m.config.spec.imageSpec == nil && m.config.workspace != nil ? DozerImages.workspaceGuestPath : nil
         // A command the caller named (doz run NAME -- CMD, the dashboard's "run a command"): a program the
@@ -2057,6 +2087,8 @@ public actor HostCore {
         try m.config.write(store.configFile(m.name))
         // 599d: "Use GitHub as you" / "Push to GitHub" take effect at once (turning it off revokes every placeholder).
         if AgentPermissions.gitHubMode(p.permissions) != egress.github?.mode { applyGitHub(m) }
+        // 617 (D6): a custom key goes only to hosts the policy allows — judged again now.
+        if m.config.extraKeys?.isEmpty == false { applyExtraKeys(m, accountStore.load()) }
         metrics?.record(run: metricsRun, action: "network policy", sandbox: m.name, image: m.config.image, startedAt: Date(), durationMs: 0,
                         detail: ["preset": p.preset ?? "custom", "rules": String(p.rules.count)])
         note(m.name, "network policy: \(p.preset ?? "custom") (\(p.rules.count) rules)")

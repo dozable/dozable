@@ -36,6 +36,8 @@ public enum WebAction: Equatable, Sendable {
     case accountDefault(String)
     case accountKeepalive(Bool)
     case accountVerify(String)
+    /// 617: read a key kept in 1Password, AWS or a command again (never adds or changes a source — D7).
+    case accountRefresh(String)
     case accountRemove(String)
     /// 594: onboard — prepare these built-in images in the host (in the background: the action ends
     /// at once; the preparation shows in the wizard and in Operations) and record the onboarding.
@@ -86,7 +88,7 @@ public enum WebAction: Equatable, Sendable {
              .keyRemove(let n, _), .accountUse(let n, _), .templateCreate(let n, _, _, _), .duplicate(let n, _, _, _), .toolsApply(let n),
              .sessionEnd(let n, _), .sessionRestart(let n, _, _):
             return n
-        case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRemove, .onboard, .prepareCancel,
+        case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
             return nil
         }
@@ -217,6 +219,10 @@ public enum WebAction: Equatable, Sendable {
             r.account = a
             r.verify = true
             return r
+        case .accountRefresh(let a):
+            var r = HostRequest(.accountRefresh)
+            r.account = a
+            return r
         case .accountRemove(let a):
             var r = HostRequest(.accountRemove)
             r.account = a
@@ -295,6 +301,7 @@ public enum WebAction: Equatable, Sendable {
             "account-default": ["account"],
             "account-keepalive": ["enabled"],
             "account-verify": ["account"],
+            "account-refresh": ["account"],
             "account-rm": ["account", "confirm"],
             "onboard": ["images"],
             "prepare-cancel": ["images"],
@@ -411,6 +418,8 @@ public enum WebAction: Equatable, Sendable {
             a = .accountKeepalive(on)
         case "account-verify":
             a = .accountVerify(try f.account("account"))
+        case "account-refresh":
+            a = .accountRefresh(try f.account("account"))
         case "account-rm":
             a = .accountRemove(try f.account("account"))
         case "onboard":
