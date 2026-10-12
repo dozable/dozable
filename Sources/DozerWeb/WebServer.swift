@@ -282,6 +282,8 @@ public final class DozerWebServer: @unchecked Sendable {
 
     /// 594 W19: a line every open page shows as a toast ("doz ui restarted — 0.12.0-rc.4").
     public func tellPages(_ text: String) { hub.broadcast("notice", ["text": text]) }
+    /// 617: the open pages go to `hash` (only the Quick try's — `WebControl.showPage` checked it; the page checks again).
+    public func showPages(_ hash: String) { hub.broadcast("show", ["hash": hash]) }
 
     /// 594 W19: `doz ui link --rotate` / `doz ui --new-link` on a running UI — every session ends (each
     /// open page is told to use the new link), then a fresh one-use link.

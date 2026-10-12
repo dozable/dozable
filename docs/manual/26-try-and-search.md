@@ -64,6 +64,27 @@ it asks (the default keeps the folder and says where it is), and off a terminal 
 **Off a terminal** (a script, `--json`, `-d`) `doz try` asks nothing and does not attach: it makes and starts the try,
 keeps it, and prints how to attach. With no key it stops and says how to add one.
 
+## In the dashboard: Quick try
+
+**Quick try** (beside New sandbox on the Sandboxes page, or `#/try` and `#/try/grok` in the address bar) is the same
+try in the browser, with the same defaults and the same plan:
+
+- **The agents**, each with its base and its key (or "needs an xAI key"). The ones that are coming are shown dimmed,
+  each saying why.
+- **What you need**, when there is no key for that agent's provider: paste a key in a masked field (kept in your
+  Mac's keychain; turned off with `ui.allow_secret_entry = false`), or the command to run for a key you keep in
+  1Password, AWS or a program — those are set up in a terminal only. A sign-in that cannot work in a sandbox is said,
+  not offered.
+- **Its image** starts preparing as soon as you pick the agent, while you deal with the key.
+- **The defaults**, said: its name, base, network, its new empty folder (not one of yours) and what reaches your Mac
+  (clipboard, files, links) — and the same as a command, to copy (`doz try grok`), and what it can reach.
+- **Create and open** makes it, starts it with the boot view and opens its session in a terminal on its page. A try's
+  page says **Sleep (hibernate)** · **Delete…** · **Keep** — Delete removes its folder too when it is empty.
+
+`doz try --ui grok` opens it from a terminal: it starts `doz ui` in the background when none runs; with a dashboard
+page already open, that page goes to the Quick try (no new tab, as `ui.open_browser` says); otherwise a new one opens
+there.
+
 ## Is it supported? `doz search`
 
 ```sh

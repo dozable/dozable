@@ -81,6 +81,15 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    /// `doz try --ui`: the control socket's `show` line points open pages at the Quick try — that page only.
+    func testTheShowLineNamesOnlyTheQuickTry() {
+        XCTAssertEqual(WebControl.showPage("show try"), "try")
+        XCTAssertEqual(WebControl.showPage("show try/grok"), "try/grok")
+        for bad in ["show settings", "show try/../x", "show try/Grok", "show #/try", "show try/grok?x", "try", "show try/", "link"] {
+            XCTAssertNil(WebControl.showPage(bad), bad)
+        }
+    }
+
     func testNoPlanFieldIsSecretShaped() throws {
         let catalog = WebTryCatalog(agents: [], coming: [], secretEntry: false)
         let p = WebPlan(CreatePlan.sample(name: "try-grok", image: "grok"))

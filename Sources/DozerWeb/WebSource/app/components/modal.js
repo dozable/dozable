@@ -9,7 +9,7 @@ import { callout } from './callout.js';
 import { dialog } from './dialog.js';
 import { paintNav } from './nav.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'),
+const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), viewTry = upcall('viewTry'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── 603: the wizards' modal ─────────────────────────────────────────────────
@@ -36,7 +36,7 @@ export function openWizardModal(v, fromPage) {
     document.body.classList.add('modal-open');
   }
   paintNav();
-  if (was !== v || !$('wm-box').firstChild) renderModal(true);
+  if (was !== v || v === 'try' || !$('wm-box').firstChild) renderModal(true);
 }
 export function closeWizardModal() {
   if (!state.modal) return;
@@ -59,8 +59,8 @@ export async function renderModal(first) {
   const v = state.modal;
   if (!v) return;
   let node;
-  try { node = v === 'new' ? await viewNew() : await viewOnboarding(); } catch (e) {
-    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : 'Set up Dozer Sandbox', null, [], null),
+  try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : await viewOnboarding(); } catch (e) {
+    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozer Sandbox', null, [], null),
       h('div', { class: 'wiz-card' }, h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) }))));
   }
   if (state.modal !== v || state.signedOut) return;
@@ -98,7 +98,7 @@ function wizDirty() {
 function wizardCloseRequest() {
   if (!state.modal) return;
   const leave = () => {
-    if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null;
+    if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;
     if (state.modalBack) history.back(); else location.replace(state.bgHash && !MODAL_VIEWS.has(state.bgHash.slice(2)) ? state.bgHash : '#/overview');
   };
   if (!wizDirty()) { leave(); return; }

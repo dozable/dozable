@@ -64,6 +64,12 @@ final class KitchenTests: XCTestCase {
         XCTAssertThrowsError(try parse(["new", "a", "--name", "b"]))
         XCTAssertThrowsError(try parse(["try", "grok", "--image", "lab"]), "a try runs its agent's own image")
         XCTAssertThrowsError(try parse(["try", "grok", "--rm", "--keep"]))
+        // 617 stage D: --ui opens the dashboard's Quick try (the page makes the choices there).
+        XCTAssertNoThrow(try parse(["try", "grok", "--ui"]))
+        XCTAssertNoThrow(try parse(["try", "--ui"]))
+        for bad in [["try", "grok", "--ui", "--rm"], ["try", "grok", "--ui", "-d"], ["try", "grok", "--ui", "--dry-run"]] {
+            XCTAssertThrowsError(try parse(bad), bad.joined(separator: " "))
+        }
         // init: --agent/--base write the file's own keys.
         let i = try XCTUnwrap(try parse(["init", "--yes", "--name", "p", "--agent", "grok", "--base", "python"]) as? Init)
         let p = try i.ask(folder: root, existing: nil, asker: Asker(yes: true, json: false))

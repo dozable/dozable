@@ -1661,6 +1661,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
+- **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — a modal like `#/new`; `views/try.js`, `WebTry.swift`): `GET
+  /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
+  `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). It makes the try with the
+  ORDINARY `create` action (`trial`, the plan's `create` fields), prepares the image early (`image-bake`), pastes a
+  provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
+  the try bar (Sleep (hibernate) · Delete… · Keep). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
+  only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
+  try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash), else a new link with
+  `&to=try/AGENT` in its fragment (the bootstrap strips the capability first). The New Sandbox review shows the plan
+  for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
+  `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
   (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
   `SandboxConfig.trialFolder` ONLY when Dozer made it; `rm` removes it with the sandbox when empty (host), the CLI asks

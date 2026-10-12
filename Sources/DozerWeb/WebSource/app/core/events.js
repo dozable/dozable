@@ -9,7 +9,7 @@ import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const hostChanged = upcall('hostChanged'), reattachTerminals = upcall('reattachTerminals'),
   refreshNav = upcall('refreshNav'), renderActivity = upcall('renderActivity'), renderOps = upcall('renderOps'),
-  renderWizard = upcall('renderWizard'), toast = upcall('toast');
+  renderTryPrep = upcall('renderTryPrep'), renderWizard = upcall('renderWizard'), toast = upcall('toast');
 
 /// What a live change re-renders: not Settings (a half-typed value), Operations (its own events) or the
 /// onboarding wizard (its own), nor a page whose masked key field is being filled in.
@@ -51,6 +51,16 @@ export function connect() {
     try { state.preps = JSON.parse(ev.data); } catch (_) { return; }
     renderOps();
     if (state.modal === 'onboarding') renderWizard();
+    if (state.modal === 'try') renderTryPrep();
+  });
+  // 617: `doz try --ui AGENT` with this page open — show the Quick try (only that page, only its own hash).
+  es.addEventListener('show', (ev) => {
+    let d; try { d = JSON.parse(ev.data); } catch (_) { return; }
+    if (!d || typeof d.hash !== 'string' || !/^#\/try(\/[a-z0-9][a-z0-9-]{0,39})?$/.test(d.hash)) return;
+    if (state.modal && state.modal !== 'try') return;            // never over a wizard the person is in
+    state.tr = null;
+    location.hash = d.hash;
+    window.focus();
   });
   es.addEventListener('op', (ev) => { try { trackOp(JSON.parse(ev.data)); } catch (_) { /* */ } });
   es.addEventListener('activity', (ev) => {

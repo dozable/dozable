@@ -31,6 +31,21 @@ import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sa
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
 let sbxRefreshing = false, sbxAgain = false;
+/// 617: a try's exit choice. Sleep hibernates it (nothing kept in memory); Delete removes it (asked, as rm is) — and its
+/// folder when the folder is empty (the host does it); a folder with the agent's files is kept, and said; Keep hides
+/// this for the page.
+function tryBar(name, i) {
+  const folder = i.trialFolder ? ' Its folder ' + i.trialFolder + ' is removed with it when empty, and kept when the agent left files there.' : '';
+  const asleep = ['hibernated', 'asleep'].includes(i.phase);
+  return callout('info', { compact: true, attrs: { 'data-try-bar': name },
+    body: 'This is a try. When you are done with it: Sleep keeps everything on disk and holds no memory; Delete removes it.' + folder,
+    actions: [
+      asleep ? null : btn('Sleep (hibernate)', () => act({ action: 'hibernate', sandbox: name }), { small: true, icon: 'moon', title: 'Everything kept on disk, no memory held' }),
+      btn('Delete…', () => lifecycle('rm', name), { small: true, danger: true, icon: 'trash-2' }),
+      btn('Keep', () => { sview(name).tryKept = true; const el = document.querySelector('[data-try-bar="' + CSS.escape(name) + '"]'); if (el) el.remove(); }, { small: true, quiet: true, icon: 'check' }),
+    ].filter(Boolean) });
+}
+
 export async function showSandbox() {
   const name = state.param;
   const want = state.session;                  // the addressed session (renderTerminals re-points the URL)
@@ -222,6 +237,8 @@ function sandboxParts(name, d, net, accounts) {
           { onClick: showTab('network'), title: 'Its network — the Network tab', data: { 'data-network-chip': '' } }),
         i.accountApplies ? chip('Account', i.account || '—') : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
+        // 617: a try (Quick try, doz try).
+        i.trial ? h('span', { class: 'tag outline', 'data-try-tag': '', title: 'A try — Sleep, Delete or Keep it when you are done' }, withIcon('play', 'try')) : null,
         // 599g: the workspace's .dozignore / .dozreadonly (the details say how many patterns and whether in force).
         i.workspaceRules ? h('span', { class: 'tag outline', 'data-workspace-rules': i.workspaceRulesView || '', title: 'Workspace rules: ' + i.workspaceRules + ' — doz ignore show ' + name },
           withIcon('shield', 'rules')) : null)),
@@ -232,6 +249,8 @@ function sandboxParts(name, d, net, accounts) {
       h('div', { 'data-op-for': name, 'data-banner': '1', role: 'status' }),
       detailsBtn),
     i.credentialProblem ? credentialBanner(name, i, accounts) : null,
+    // 617: a try's way out — doz try's "Keep this try? Sleep / Delete / Keep running", here.
+    i.trial && !sview(name).tryKept ? tryBar(name, i) : null,
     // 594 W28: its system disk came from an image an older doz made.
     i.olderImage ? callout('warn', { compact: true, cls: 'cred-banner img-banner', icon: 'flame', attrs: { 'data-older-image': name }, body: name + ' was ' + i.olderImage + '.' }) : null,
     // 596 (B8): its Dockerfile changed (or was built again) — offered, never rebuilt by itself.

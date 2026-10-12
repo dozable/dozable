@@ -295,7 +295,8 @@ doz account default work                         # every sandbox on the default 
 doz account verify work                          # one tiny request to api.anthropic.com
 doz account rm work [--force]                    # also deletes the keychain item doz made
 doz account keepalive on                          # off by default: runs `claude -p` near expiry
-doz try grok                                     # try an agent: isolated, Locked + its model, attached; on exit sleep/delete/keep
+doz try grok                                     # try an agent: a new empty folder, Locked + its model, attached; on exit sleep/delete/keep
+doz try --ui grok                                # the same in the dashboard's Quick try (#/try/grok; doz ui started in the background if needed)
 doz try grok --dry-run --json                    # the plan (also --dry-run on new, create, up)
 doz search grok                                  # supported? exit 0 supported · 8 limited · 6 coming · 2 unknown
 doz account add grok --provider xai --from op://Dev/xAI/credential   # read on use from 1Password / aws:ARN / --from-command 'ARGV'

@@ -68,6 +68,7 @@ import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/vi
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
 import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
+import { renderTryPrep, viewTry } from './app/views/try.js';
 import './app/views/sandbox-dialogs.js';
 import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout.js';
 import './app/views/sandbox-network.js';
@@ -135,9 +136,9 @@ provide({
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openSavedTerminal, openWizardModal, pageFailure,
   paintCover, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTermEmpty, paintTransition,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderWizard, showSandbox, signedOut, startApp, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,
-  wizardStopPolling,
+  viewTry, wizardStopPolling,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes
 // (probes/*, over CDP Runtime.evaluate) read and call some of them; module names are not globals, so these stay

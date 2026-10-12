@@ -21,7 +21,7 @@ struct TryCommand: AsyncParsableCommand {
         on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
         installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
-        running; --rm and --keep answer before. Deleting it removes its folder too when the folder is empty, and asks \
+        running; --rm and --keep answer before. --ui opens the same in the dashboard (doz ui), with the agent chosen. Deleting it removes its folder too when the folder is empty, and asks \
         when the agent left files there. --isolated shares no folder at all (doz get and doz put \
         copy files out and in); --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
         the try, keeps it, and prints how to attach. Every choice option of doz new works here.
@@ -35,9 +35,12 @@ struct TryCommand: AsyncParsableCommand {
     @Flag(name: [.short, .customLong("detach")], help: "Make and start it, but do not attach (it is kept).") var detach = false
     @Flag(name: .long, help: "Make nothing: print the plan — the command, its doz_project.yaml, what it can reach (--json: as data).")
     var dryRun = false
+    @Flag(name: .long, help: "Open the dashboard's Quick try instead (starting doz ui in the background when none runs; an open page is reused per ui.open_browser) — with AGENT chosen.")
+    var ui = false
 
     func validate() throws {
         if rm && keep { throw ValidationError("--rm or --keep, not both") }
+        if ui && (rm || keep || detach || dryRun) { throw ValidationError("--ui opens the dashboard's Quick try — it makes the choices there (not with --rm, --keep, -d or --dry-run)") }
         if choices.image != nil { throw ValidationError("a try runs its agent's own image — --base BASE picks another base") }
     }
 
@@ -49,6 +52,12 @@ struct TryCommand: AsyncParsableCommand {
         let given = thing ?? choices.agent
         if let t = thing, let a = choices.agent, AgentRecipes.matching(t)?.id != AgentRecipes.matching(a)?.id {
             throw fail(HostError(.invalid, "\(t) or --agent \(a) — not both"), g)
+        }
+        // 617: the dashboard's Quick try, on that agent.
+        if ui {
+            let id = try given.map { try resolve($0).id }
+            try await showDashboardPage("try" + (id.map { "/" + $0 } ?? ""), g)
+            return
         }
         let recipe: AgentRecipe
         if let t = given {

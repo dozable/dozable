@@ -21,6 +21,7 @@ import { confirmWeb, isAgentModel, permissionSwitches } from '../components/perm
 import { rulesStep } from '../components/rules-step.js';
 import { stepperNode } from '../components/stepper.js';
 import { openDefaultTerminal } from '../components/terminal.js';
+import { planBlock } from '../components/plan-view.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").
@@ -309,9 +310,22 @@ function nwImage() {
   const nw = state.nw, f = nw.form;
   const name = h('input', { type: 'text', name: 'nw-name', 'data-nw-name': '', autocomplete: 'off', spellcheck: 'false', placeholder: 'a-z 0-9 -' });
   name.value = f.name;
-  name.addEventListener('input', () => { f.name = name.value.trim(); nw.preview = null; });
-  const picker = imagePicker({ images: nw.images, bases: nw.bases, value: f.dockerfile ? (f.agent === 'pi' ? 'pi' : f.agent === 'none' ? 'lab' : 'claude-code') : f.image,
-                               dockerfile: f.dockerfile || '', onChange: () => {} });
+  // 617 (616.06 friction 2): the default name follows the agent and base — "grok-sandbox" after Grok — until the
+  // person edits it (any edit stops the following). The folder keeps the name it was given.
+  if (nw.autoName === undefined) nw.autoName = f.name;
+  name.addEventListener('input', () => { f.name = name.value.trim(); nw.preview = null; nw.nameEdited = f.name !== nw.autoName; });
+  let asked = 0, picker = null;
+  const follow = () => {
+    if (!picker || nw.nameEdited || picker.dockerfile()) return;
+    const image = picker.image(), mine = ++asked;
+    if (!image) return;
+    api('quick-add', { method: 'POST', json: { image } }).then((qa) => {
+      if (mine !== asked || nw.nameEdited || state.nw !== nw || !qa || !qa.name) return;
+      nw.autoName = qa.name; f.name = qa.name; name.value = qa.name; nw.preview = null;
+    }).catch(() => { /* the name stays as it is */ });
+  };
+  picker = imagePicker({ images: nw.images, bases: nw.bases, value: f.dockerfile ? (f.agent === 'pi' ? 'pi' : f.agent === 'none' ? 'lab' : 'claude-code') : f.image,
+                               dockerfile: f.dockerfile || '', onChange: () => follow() });
   const el = h('div', { class: 'nw-fields' }, h('label', { class: 'field' }, h('span', null, 'Sandbox name'), name, h('small', { class: 'muted' }, 'Its name in doz ls and the dashboard.')), picker.el);
   return {
     el,
@@ -514,6 +528,8 @@ function nwReview() {
   const pre = h('pre', { class: 'nw-yaml', 'data-nw-yaml': '' }, nw.preview ? nw.preview.text : 'Reading…');
   const where = h('div', { class: 'muted mono', 'data-nw-file': '' }, nw.preview ? nw.preview.path : '');
   const diffBox = h('div', { 'data-nw-diff-box': '' });
+  // 617: the plan — the command that makes the same in a terminal, and what it can reach — from the host's planner.
+  const planBox = h('div', { 'data-nw-plan-box': '' });
   const go = btn(nw.open && nw.open.file ? 'Replace the file and create' : 'Write and create', () => nwCreate(go), { primary: true, lg: true, icon: 'rocket' });
   go.dataset.nwCreate = '';
   go.disabled = !nw.preview;
@@ -523,6 +539,7 @@ function nwReview() {
     diffBox.replaceChildren(nw.preview.existing === undefined || nw.preview.existing === null ? h('small', { class: 'muted' }, 'A new file.')
       : nw.preview.existing === nw.preview.text ? h('small', { class: 'muted', 'data-nw-same': '' }, 'The same as the file there now — nothing to write.')
       : h('small', { class: 'muted' }, 'It replaces the file there now — you see what changes before it is written.'));
+    planBox.replaceChildren(...(nw.preview.plan ? [planBlock(nw.preview.plan)] : []));
     go.disabled = false;
   };
   if (nw.preview) setTimeout(paint, 0);
@@ -553,7 +570,7 @@ function nwReview() {
         fact('Session', nwAnswer('session') + ' · sudo ' + ((f.agentSudo ?? setting('sandbox.agent_sudo', true)) ? 'yes' : 'no'))),
       callout('info', { compact: true, attrs: { 'data-nw-what': '' }, body: ['Writing the file, then making the sandbox as ', h('code', null, 'doz up'),
         ' would there, starting it and setting up its tools; then it opens.', willPrepare ? ' The first start prepares the ' + f.image + ' image (minutes, needs network).' : ''] }),
-      diffBox, disclosure),
+      planBox, diffBox, disclosure),
     extra: go,
   };
 }

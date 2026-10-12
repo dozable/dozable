@@ -274,8 +274,14 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var sessionStatuses: [WebAgentStatus]?
     public var agentStatus: WebAgentStatus?
     public var agentWorking: Bool?
+    /// 617: a try (the dashboard's Quick try, `doz try`): its page offers Sleep · Delete · Keep; `trialFolder` is the
+    /// folder Dozer made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
+    public var trial: Bool?
+    public var trialFolder: String?
 
     public init(_ i: SandboxInfo) {
+        trial = i.trial
+        trialFolder = i.trialFolder
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
         agentStatus = i.agentStatus.map(WebAgentStatus.init)
         agentWorking = i.agentWorking
