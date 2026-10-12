@@ -24,7 +24,7 @@ final class CodexWebTests: XCTestCase {
         XCTAssertFalse("\(ok)".contains("sk-proj"))
         for kind in ["chatgpt", "mac"] {
             XCTAssertThrowsError(try WebAccountAdd.decode(Data(#"{"name":"x","kind":"\#(kind)","secret":"0123456789abcdefghij0123"}"#.utf8)), kind) { e in
-                XCTAssertTrue("\(e)".contains("api-key, setup-token or openai-key"), "\(e)")
+                XCTAssertTrue("\(e)".contains("api-key, setup-token, openai-key or key"), "\(e)")
             }
         }
         XCTAssertThrowsError(try WebAccountAdd.decode(Data(#"{"name":"o","kind":"openai-key","secret":"sk-proj-0123456789abcdefghij","plan":"max"}"#.utf8)),
