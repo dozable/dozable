@@ -43,7 +43,8 @@ It also says where to get a key. While you deal with the key, the image is alrea
 Keep this try? [S]leep / [d]elete / [k]eep running [S]:
 ```
 
-**Sleep** (Enter) keeps everything and costs no memory; `doz wake try-grok` (or `doz attach try-grok`) brings it back.
+**Sleep** (Enter) hibernates it: everything is kept on disk and it holds no memory; `doz wake try-grok` (or
+`doz attach try-grok`) brings it back where it was.
 **Delete** removes it and everything in it. **Keep running** leaves it as it is.
 
 **Off a terminal** (a script, `--json`, `-d`) `doz try` asks nothing and does not attach: it makes and starts the try,

@@ -116,7 +116,9 @@ struct TryCommand: AsyncParsableCommand {
             choice = TryExitChoice.parse(asker.text(TryExitChoice.question, default: "S"))
         }
         switch choice! {
-        case .sleep: _ = try lifecycle(.sleep, name, g)
+        // "Sleep" as a person means it (D14: "it then holds no memory"): Dozer's hibernate — a snapshot on disk, the
+        // RAM returned; `doz wake` or `doz attach` brings it back where it was.
+        case .sleep: _ = try lifecycle(.hibernate, name, g)
         case .delete: _ = try lifecycle(.rm, name, g)
         case .keep: Out.stdout("\(name) keeps running — doz attach \(name) · doz rm \(name) when you are done\n")
         }
@@ -195,7 +197,7 @@ struct TryCommand: AsyncParsableCommand {
         var add = HostRequest.keyAccountAdd(name: name, provider: provider.id, secret: nil)
         var secret: String?
         if option.kind == "paste" {
-            let s = try readSecret("\(provider.title) API key (not echoed): ", g)
+            let s = try readSecret("\(provider.title) \(provider.title.contains("API") ? "key" : "API key") (not echoed): ", g)
             guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw fail(HostError(.invalid, "nothing pasted"), g) }
             add.secret = s
             secret = s.trimmingCharacters(in: .whitespacesAndNewlines)

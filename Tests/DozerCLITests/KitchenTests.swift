@@ -201,6 +201,18 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(q.command, "doz try gemini --base python --workspace /tmp/617-w --network agent")
     }
 
+    /// `doz ls` says a try (SandboxInfo's own coding carries the marker and the custom keys — the VM proof found it didn't).
+    func testSandboxInfoCarriesTheTryAndItsKeys() throws {
+        var i = SandboxInfo(name: "try-grok", image: "grok", phase: "off", busy: false, cpus: 2, memoryMiB: 2048, ramHeldMiB: 0, memoryReturnedMiB: 0,
+                            diskBytes: 1, sessions: nil, network: "locked", deniedConnections: nil, workspace: nil, createdAt: nil, diedWithHost: nil,
+                            account: nil, credentialState: nil, credentialPolicy: nil, foreignCredentials: nil)
+        i.trial = true
+        i.extraKeys = ["ex"]
+        let back = try JSONDecoder().decode(SandboxInfo.self, from: JSONEncoder().encode(i))
+        XCTAssertEqual(back.trial, true)
+        XCTAssertEqual(back.extraKeys, ["ex"])
+    }
+
     func testTheWhatYouNeedCard() throws {
         let grok = try XCTUnwrap(AgentRecipes.recipe("grok")), gemini = try XCTUnwrap(AgentRecipes.recipe("gemini"))
         XCTAssertNil(TryCard.build(grok, haveKey: "work-xai"), "a key there: no card at all")

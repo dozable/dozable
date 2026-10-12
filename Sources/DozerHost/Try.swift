@@ -33,7 +33,7 @@ public struct TryCard: Equatable, Sendable {
             switch m.kind {
             case "api-key":
                 let p = m.provider.flatMap { KeyProviders.provider($0) }
-                let what = p.map { "\($0.title) API key" } ?? "API key"
+                let what = p.map { "\($0.title) " + ($0.title.contains("API") ? "key" : "API key") } ?? "API key"
                 options.append(TryCardOption(kind: "paste", label: "Paste \(what.hasPrefix("A") || what.hasPrefix("x") ? "an" : "a") \(what) (hidden)",
                                              consequence: "kept in this Mac's login keychain; the sandbox only ever gets a placeholder"))
                 options.append(TryCardOption(kind: "source", label: "A key you keep in 1Password, AWS Secrets Manager or a program",

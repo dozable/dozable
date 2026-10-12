@@ -601,6 +601,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case workspaceView                                // 608
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
+        case trial, extraKeys                             // 617
     }
 
     public init(from decoder: Decoder) throws {
@@ -639,6 +640,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         sessionStatuses = try c.decodeIfPresent([SessionStatus].self, forKey: .sessionStatuses)
         agentStatus = try c.decodeIfPresent(SessionStatus.self, forKey: .agentStatus)
         agentWorking = try c.decodeIfPresent(Bool.self, forKey: .agentWorking)
+        trial = try c.decodeIfPresent(Bool.self, forKey: .trial)
+        extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -677,6 +680,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(olderImageLine, forKey: .olderImageLine)
         try c.encodeIfPresent(imageNotice, forKey: .imageNotice)
         try c.encodeIfPresent(imagePreparation, forKey: .imagePreparation)
+        try c.encodeIfPresent(trial, forKey: .trial)
+        try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
         try c.encodeIfPresent(agentWorking, forKey: .agentWorking)
