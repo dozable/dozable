@@ -369,11 +369,21 @@ public enum CreatePlanner {
             for perm in AgentPermissions.all where names.contains(perm.id) && perm.hidden != true {
                 let kind = perm.id.hasPrefix("model") ? "model" : perm.id.hasPrefix("install") ? "packages"
                     : perm.id.hasPrefix("github") ? "github" : perm.id == "web" ? "web" : "other"
-                let hosts = perm.hosts.map(\.host)
-                let paths = perm.hosts.reduce(0) { $0 + ($1.pathPrefixes?.count ?? 0) }
+                // 617: a host the recipe gives a reason for (its vendor's own site, a start-up check) is its own line, with
+                // the reason; the summary names the rest.
+                let plain = perm.hosts.filter { $0.reason == nil }
+                var hosts: [String] = []
+                for h in plain where !hosts.contains(h.host) { hosts.append(h.host) }
+                let paths = plain.reduce(0) { $0 + ($1.pathPrefixes?.count ?? 0) }
                 var where_ = hosts.prefix(3).joined(separator: ", ") + (hosts.count > 3 ? " +\(hosts.count - 3)" : "")
                 if paths > 0 { where_ += ", \(paths) API path\(paths == 1 ? "" : "s")" }
                 out.append(ReachLine(kind, hosts.isEmpty ? perm.title : "\(perm.title) (\(where_))"))
+                for h in perm.hosts {
+                    guard let why = h.reason else { continue }
+                    let exact = (h.pathPrefixes ?? []).filter(EgressRule.isExactPath).map { String($0.dropLast()) }
+                    let what = h.host + (exact.isEmpty ? "" : " (" + exact.joined(separator: ", ") + " only)")
+                    out.append(ReachLine(kind, "\(what) — \(why)"))
+                }
             }
             if !names.contains(where: { $0.hasPrefix("install") }) { out.append(ReachLine("packages", "No package installs\(p.preset == "locked" ? " (Locked)" : "")")) }
             for r in own where r.action == .allow && !r.hasHTTPConditions { out.append(ReachLine("web", "A site you allowed: \(r.host)")) }

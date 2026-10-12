@@ -3,8 +3,10 @@ command: doz try grok
 name: try-grok · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok · trial: true
 account: none · - · xai · -
 reach model: Talk to xAI (api.x.ai, 4 API paths)
+reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
+reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach packages: No package installs (Locked)
-reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
+reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-grok (not one of yours), at /workspace
 reach bridge: Copy to your Mac's clipboard: on
@@ -18,8 +20,10 @@ command: doz try grok
 name: try-grok-2 · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok-2 · trial: true
 account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
+reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
+reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach packages: No package installs (Locked)
-reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
+reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-grok-2 (not one of yours), at /workspace
 reach bridge: Copy to your Mac's clipboard: on
@@ -64,11 +68,13 @@ command: doz new g1 --agent grok --key ex
 name: g1 · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/g1 · trial: -
 account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
+reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
+reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
 reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
-reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
+reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/g1 (not one of yours), at /workspace
 reach bridge: Copy to your Mac's clipboard: on
@@ -83,12 +89,14 @@ command: doz new g1 --agent grok --permissions site:api.example.test --key ex
 name: g1 · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/g1 · trial: -
 account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
+reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
+reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
 reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach web: A site you allowed: api.example.test
-reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai, x.ai
+reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/g1 (not one of yours), at /workspace
 reach bridge: Copy to your Mac's clipboard: on

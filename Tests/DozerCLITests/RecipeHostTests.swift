@@ -152,7 +152,8 @@ final class RecipeHostTests: XCTestCase {
         let pol = try await XCTUnwrapAsync(await c.effectiveNetworkPolicy(of: "gk"))
         XCTAssertEqual(pol.permissions, ["model:xai"], "D5: Locked = its own model only")
         XCTAssertEqual(pol.evaluateConnection(host: "api.anthropic.com", port: 443).kind, .deny)
-        XCTAssertEqual(pol.evaluateConnection(host: "x.ai", port: 443).kind, .deny)
+        XCTAssertEqual(pol.evaluateConnection(host: "x.ai", port: 443).kind, .allow, "xAI's own site: its release notes at start-up")
+        XCTAssertEqual(pol.evaluateConnection(host: "auth.x.ai", port: 443).kind, .deny, "its sign-in stays kept out")
         // The default network (Standard): its own model, no Anthropic model, its exclusions.
         let s = await create(c, "gk2", image: "grok")
         XCTAssertNil(s.error, s.error?.message ?? "")
@@ -180,7 +181,7 @@ final class RecipeHostTests: XCTestCase {
     func testGrantsAnExcludedSiteOrAnthropicsModelAreRefused() throws {
         let grok = try XCTUnwrap(AgentKind(rawValue: "grok"))
         let p = NetworkPolicy.permissions(AgentPermissions.normalized(["model:xai", "update"]))
-        XCTAssertThrowsError(try PermissionPolicy.edited(p, grant: ["site:x.ai"], revoke: [], base: "debian", agent: grok))
+        XCTAssertThrowsError(try PermissionPolicy.edited(p, grant: ["site:auth.x.ai"], revoke: [], base: "debian", agent: grok))
         XCTAssertThrowsError(try PermissionPolicy.edited(p, grant: ["model"], revoke: [], base: "debian", agent: grok))
         XCTAssertThrowsError(try PermissionPolicy.edited(p, grant: [], revoke: ["model:xai"], base: "debian", agent: grok))
         let e = try PermissionPolicy.edited(p, grant: ["web"], revoke: [], base: "debian", agent: grok)

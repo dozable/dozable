@@ -214,7 +214,12 @@ final class RecipeAgentsTests: XCTestCase {
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/v1/api-key").action, .allow)
         // The VM proof: against the real base Grok Build 1.0.50 sends its turns to the Responses API.
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "POST", path: "/v1/responses").action, .allow)
-        XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/").action, .deny, "its reachability probe carries no key — refused")
+        // 617 (owner: a fresh try shows no refusal): its key-less start-up check — the root EXACTLY, nothing under it by it.
+        XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/").action, .allow, "its start-up check (no key)")
+        XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "GET", path: "/v2/anything").action, .deny, "the root, not a prefix")
+        XCTAssertEqual(KeyProviders.provider("xai")?.binding.swapOnly, true, "the key only where Grok sent its placeholder — the start-up check stays key-less")
+        // xAI's own site: Grok Build reads its release notes there at start-up.
+        XCTAssertEqual(policy.evaluateConnection(host: "x.ai", port: 443).kind, .allow)
         XCTAssertEqual(policy.evaluate(host: "api.x.ai", port: 443, method: "POST", path: "/v1/upload").action, .deny)
         XCTAssertEqual(policy.evaluateConnection(host: "api.x.ai", port: 443).kind, .inspect)
         XCTAssertEqual(policy.evaluateConnection(host: "api.anthropic.com", port: 443).kind, .deny, "D5: no way out to Anthropic")
@@ -224,14 +229,14 @@ final class RecipeAgentsTests: XCTestCase {
         let grok = try XCTUnwrap(AgentKind(rawValue: "grok"))
         var open = NetworkPolicy.permissions(AgentPermissions.normalized(AgentPermissions.preset("open", base: "debian")! + AgentPermissions.agentPermissions(grok)))
         XCTAssertEqual(open.effectiveDefault, .allow)
-        for h in ["cli-chat-proxy.grok.com", "auth.x.ai", "x.ai", "console.x.ai"] {
+        for h in ["cli-chat-proxy.grok.com", "auth.x.ai", "accounts.x.ai", "console.x.ai"] {
             XCTAssertEqual(open.evaluateConnection(host: h, port: 443).kind, .deny, h)
             XCTAssertFalse(open.allowsName(h), "\(h): not even resolved")
         }
         XCTAssertEqual(open.evaluateConnection(host: "example.com", port: 443).kind, .allow, "Open still opens the rest")
         // A user's own site rule does not let one in (the exclusions come first).
-        open.rules.insert(EgressRule(host: "x.ai", note: "site you allowed"), at: 0)
-        XCTAssertEqual(open.evaluateConnection(host: "x.ai", port: 443).kind, .deny)
+        open.rules.insert(EgressRule(host: "auth.x.ai", note: "site you allowed"), at: 0)
+        XCTAssertEqual(open.evaluateConnection(host: "auth.x.ai", port: 443).kind, .deny)
         // Excluded hosts are in no permission at all.
         let excluded = Set(AgentRecipes.all.flatMap(\.network.excluded))
         for p in AgentPermissions.all { XCTAssertTrue(Set(p.hosts.map(\.host)).isDisjoint(with: excluded), p.id) }

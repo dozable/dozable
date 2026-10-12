@@ -14,8 +14,11 @@ public struct PermissionHost: Sendable, Equatable, Codable {
     public var ports: [UInt16]?
     /// HTTP conditions (the proxy decrypts to judge them): methods, path prefixes.
     public var pathPrefixes: [String]?
+    /// 617: why the agent calls it (a recipe's host beside its model's API) — the plan says it, host by host.
+    public var reason: String? = nil
 
-    public init(_ host: String, ports: [UInt16]? = [443], pathPrefixes: [String]? = nil) {
+    public init(_ host: String, ports: [UInt16]? = [443], pathPrefixes: [String]? = nil, reason: String? = nil) {
+        self.reason = reason
         self.host = host
         self.ports = ports
         self.pathPrefixes = pathPrefixes
@@ -102,7 +105,7 @@ public enum AgentPermissions {
         return AgentPermission(id: m.id, title: m.title ?? "Talk to its AI model",
                                summary: m.summary ?? "\(r.title)'s model — needed for \(r.title) to work.",
                                phrase: m.phrase ?? "talk to your AI model",
-                               hosts: hosts.map { PermissionHost($0.host, pathPrefixes: $0.paths) }, locked: false,
+                               hosts: hosts.map { PermissionHost($0.host, pathPrefixes: $0.conditions, reason: $0.reason) }, locked: false,
                                denies: r.network.excluded.isEmpty ? nil : r.network.excluded)
     }
 
@@ -110,7 +113,7 @@ public enum AgentPermissions {
     static func updatePermission(_ r: AgentRecipe) -> AgentPermission? {
         guard !r.isBuiltin, !r.network.update.isEmpty else { return nil }
         return AgentPermission(id: "update:" + r.id, title: "Update \(r.title)", summary: "Get new versions of \(r.title).", phrase: "update yourself",
-                               hosts: r.network.update.map { PermissionHost($0.host, pathPrefixes: $0.paths) }, locked: false, hidden: true)
+                               hosts: r.network.update.map { PermissionHost($0.host, pathPrefixes: $0.conditions, reason: $0.reason) }, locked: false, hidden: true)
     }
 
     /// The table before 617 — what every recipe is checked against (an excluded host is in none of these).

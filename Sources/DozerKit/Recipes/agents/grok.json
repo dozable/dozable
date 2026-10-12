@@ -101,10 +101,14 @@
       "title": "Talk to xAI",
       "summary": "Grok Build's model (the xAI API) — needed for Grok Build to work.",
       "phrase": "talk to your AI model (xAI)",
-      "hosts": [{ "host": "api.x.ai", "paths": ["/v1/models", "/v1/api-key", "/v1/chat/completions", "/v1/responses"] }]
+      "hosts": [
+        { "host": "api.x.ai", "paths": ["/v1/models", "/v1/api-key", "/v1/chat/completions", "/v1/responses"] },
+        { "host": "api.x.ai", "exact_paths": ["/"], "reason": "Grok Build checks that the xAI API answers when it starts (GET /, no key sent)" },
+        { "host": "x.ai", "reason": "Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts" }
+      ]
     },
     "update": [],
-    "excluded": ["cli-chat-proxy.grok.com", "auth.x.ai", "accounts.x.ai", "console.x.ai", "x.ai"]
+    "excluded": ["cli-chat-proxy.grok.com", "auth.x.ai", "accounts.x.ai", "console.x.ai"]
   },
   "status": "none",
   "prompt": { "kind": "context-file", "dir": "~/.grok/rules", "file": "dozer.md" },

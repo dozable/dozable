@@ -22,7 +22,7 @@
       "error_shape": "openai"
     },
     {
-      "id": "xai",
+      "id": "xai", "swap_only": true,
       "title": "xAI",
       "hosts": ["api.x.ai"],
       "inject": { "header": "authorization", "format": "Bearer %s" },

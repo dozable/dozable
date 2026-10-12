@@ -205,6 +205,18 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var host: String
         /// Path prefixes (the proxy decrypts to judge them); nil: the whole host.
         public var paths: [String]?
+        /// 617: paths allowed EXACTLY (`/`: the root only), beside the prefixes.
+        public var exactPaths: [String]?
+        /// 617: why the agent calls it (what a person reads in the plan's reach) — required for a host beside the model's
+        /// API (its own site, a start-up check).
+        public var reason: String?
+        enum CodingKeys: String, CodingKey { case host, paths, exactPaths = "exact_paths", reason }
+
+        /// The proxy's path conditions: the prefixes, then each exact path marked (`EgressRule.isExactPath`).
+        public var conditions: [String]? {
+            let all = (paths ?? []) + (exactPaths ?? []).map { $0 + "$" }
+            return all.isEmpty ? nil : all
+        }
     }
 
     public struct Prompt: Codable, Sendable, Equatable {
@@ -429,10 +441,14 @@ public struct KeyProvider: Codable, Sendable, Equatable {
     public var check: KeyCheck?
     /// `anthropic` | `openai` | `google` — the proxy's own 401/403 body on these hosts.
     public var errorShape: String
+    /// 617: the key goes ONLY into a request that carried its placeholder — never added to one without (a key-less
+    /// call the agent makes on purpose, Grok Build's start-up check, stays key-less).
+    public var swapOnly: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id, title, hosts, inject, env, check
         case alsoEnv = "also_env", builtinBinding = "builtin_binding", keyHint = "key_hint", errorShape = "error_shape"
+        case swapOnly = "swap_only"
     }
 
     public struct Inject: Codable, Sendable, Equatable {
@@ -455,7 +471,8 @@ public struct KeyProvider: Codable, Sendable, Equatable {
         case "openai"?: return .openai
         default:
             let header: CredentialHeader = inject.format == "Bearer %s" && inject.header.lowercased() == "authorization" ? .bearer : .apiKey(name: inject.header)
-            return CredentialBinding(id: "key:" + id, hosts: hosts, header: header, environmentVariable: env, alsoEnvironmentVariables: alsoEnv)
+            return CredentialBinding(id: "key:" + id, hosts: hosts, header: header, environmentVariable: env, alsoEnvironmentVariables: alsoEnv,
+                                     swapOnly: swapOnly == true ? true : nil)
         }
     }
 
@@ -888,7 +905,7 @@ extension AgentRecipe {
         }
         let modelHosts = (m.hosts ?? []).map(\.host), updateHosts = network.update.map(\.host)
         for h in modelHosts + updateHosts + network.excluded where !AgentRecipes.isExactHost(h) { throw bad("\(h) is not an exact host name") }
-        for p in (m.hosts ?? []).flatMap({ $0.paths ?? [] }) + network.update.flatMap({ $0.paths ?? [] }) where !p.hasPrefix("/") {
+        for p in (m.hosts ?? []).flatMap({ ($0.paths ?? []) + ($0.exactPaths ?? []) }) + network.update.flatMap({ $0.paths ?? [] }) where !p.hasPrefix("/") || p.hasSuffix("$") {
             throw bad("a path prefix starts with /: \(p)")
         }
         let excluded = Set(network.excluded)

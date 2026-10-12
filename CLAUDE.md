@@ -1631,7 +1631,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Permissions**: a recipe agent's own `model:<provider>` (Grok's path-conditioned to the API paths it uses — the VM
   proof found `/v1/responses` against the real base) and a hidden `update:<id>` (only beside "Update itself"). D5: a
   sandbox with a recipe agent's own model has NO Anthropic `model` (`normalized` drops it; its Locked is its own model
-  only); the built-in three's presets are unchanged. A recipe's `excluded` hosts are denied BEFORE the user's rules and
+  only); the built-in three's presets are unchanged. A fresh try shows NO refusal (owner): the hosts an agent calls
+  on its own vendor's domains at a normal first run are in its model permission, each with its `reason` (the plan's
+  reach lists them); `exact_paths` allow one path exactly (`$` in `EgressRule`'s conditions — Grok's key-less `GET /`),
+  and a provider's `swap_only` keeps such a call key-less. Self-update is turned off by the agent's own setting.
+  A recipe's `excluded` hosts are denied BEFORE the user's rules and
   every permission (Open included), never suggested, never grantable as a site — and are in no permission (validated).
 - **Keys read on use** (`SecretSources.swift`, `HostCore+Secrets.swift`): an API-key account (`api-key`, `openai-key`,
   `key`) may carry `AccountRecord.source` — `1password` (op://…), `aws` (an ARN, `#jsonKey`), `command` (absolute
