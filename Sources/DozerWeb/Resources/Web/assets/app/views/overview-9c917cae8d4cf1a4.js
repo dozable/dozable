@@ -6,7 +6,7 @@ import { bytes, mib } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-72d87e1085f00b4e.js';
-import { hostCard } from '../components/host-20a6921b64701bb6.js';
+import { hostCard } from '../components/host-0cefeb45e8143ac7.js';
 import { rowLifecycle } from '../components/lifecycle-cfeb0ef8e59a3c13.js';
 import { renderNavSandboxes } from '../components/nav-5fbf7db49f5a5920.js';
 import { sandboxPill } from '../components/pills-226afbfa71a8bf6d.js';

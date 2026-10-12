@@ -82,6 +82,22 @@ func openDashboardLink(_ url: URL, _ g: GlobalOptions) throws {
     }
 }
 
+/// 617 (owner: "I want to end up looking at Quick try"): bring the default browser forward through LaunchServices — the
+/// app that opens this origin, activated (no AppleScript, no Automation permission). The page itself calls
+/// window.focus() and marks its title. An installed dashboard app is its own window, not the browser's: its title says it.
+func bringBrowserForward(_ origin: String) {
+    if let log = ProcessInfo.processInfo.environment["DOZ_TEST_BROWSER_LOG"], !log.isEmpty {
+        if let h = FileHandle(forWritingAtPath: log) ?? { FileManager.default.createFile(atPath: log, contents: nil); return FileHandle(forWritingAtPath: log) }() {
+            h.seekToEndOfFile()
+            h.write(Data("activate the default browser\n".utf8))
+            try? h.close()
+        }
+        return
+    }
+    guard let url = URL(string: origin), let app = LSCopyDefaultApplicationURLForURL(url as CFURL, .all, nil)?.takeRetainedValue() else { return }
+    _ = LSOpenCFURLRef(app, nil)
+}
+
 /// 617: `doz try --ui [AGENT]` — the dashboard's Quick try (`page`: `try` or `try/AGENT`). doz ui is started in the
 /// background when none runs for this store; an open page of it is pointed there (`show`, the control socket) — per
 /// `ui.open_browser` (auto: a page already open is reused, no new tab); else a new link opens straight on that page.
@@ -108,11 +124,23 @@ func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
     }
     let ui = running!
     if ui.pages > 0, mode != "always", let n = WebControl.requestShow(store, page: page), n > 0 {
-        if !g.quiet { Out.stdout("the Quick try is open in doz ui (\(ui.origin)) — \(n == 1 ? "its open page" : "its \(n) open pages") went there\n") }
+        // A page cannot raise its own window: bring the browser forward (the page focuses itself and marks its title).
+        bringBrowserForward(ui.origin)
+        if !g.quiet {
+            Out.stdout("the Quick try is open in doz ui (\(ui.origin)) — \(n == 1 ? "its open page" : "its \(n) open pages") went there"
+                       + " (an installed Dozer app's window shows it too: look for \"Quick try\" in its title)\n")
+        }
         return
     }
     if mode == "never" {
         Out.stdout("doz ui runs at \(ui.origin) — open its Quick try: \(ui.origin)/#/\(page) (doz ui link opens a page)\n")
+        return
+    }
+    // A browser that is still signed in (a session kept for this port) needs no new link: open the page itself.
+    if let port = Int(ui.origin.split(separator: ":").last ?? ""), WebSessionStore.keptSessions(file: WebControl.sessionsFile(store), port: port) > 0,
+       let url = URL(string: ui.origin + "/#/" + page) {
+        try openDashboardLink(url, g)
+        if !g.quiet { Out.stdout("opened the Quick try in doz ui (\(ui.origin)) — if it asks you to sign in: doz ui link\n") }
         return
     }
     guard let link = WebControl.requestLink(store), let url = URL(string: link.absoluteString + "&to=" + page) else {

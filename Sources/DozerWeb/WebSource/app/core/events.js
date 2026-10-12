@@ -61,6 +61,12 @@ export function connect() {
     state.tr = null;
     location.hash = d.hash;
     window.focus();
+    // The CLI brings the browser forward; this tab cannot raise itself, so its title says where to look for a while.
+    const was = document.title;
+    if (!was.startsWith('▶ ')) {
+      document.title = '▶ Quick try — ' + was;
+      setTimeout(() => { if (document.title.startsWith('▶ Quick try')) document.title = was; }, 10000);
+    }
   });
   es.addEventListener('op', (ev) => { try { trackOp(JSON.parse(ev.data)); } catch (_) { /* */ } });
   es.addEventListener('activity', (ev) => {

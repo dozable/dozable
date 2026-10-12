@@ -99,6 +99,16 @@ final class WebTryTests: XCTestCase {
             for word in ["\"secret\"", "\"token\"", "\"password\"", "\"apikey\"", "\"key\":"] { XCTAssertFalse(s.contains(word), "\(word) in \(s.prefix(300))") }
         }
     }
+
+    /// `doz try --ui` with no page open opens the plain origin only when a browser is still signed in for that port.
+    func testKeptSessionsDecideWhetherAPlainPageSignsIn() throws {
+        let f = FileManager.default.temporaryDirectory.appendingPathComponent("uisessions-\(UUID().uuidString.prefix(6))")
+        defer { try? FileManager.default.removeItem(at: f) }
+        XCTAssertEqual(WebSessionStore.keptSessions(file: f, port: 4321), 0, "no file")
+        try Data(#"{"port":4321,"sessions":{"d1":{"csrf":"c","expiresAt":"2099-01-01T00:00:00Z"},"d2":{"csrf":"c","expiresAt":"2001-01-01T00:00:00Z"}}}"#.utf8).write(to: f)
+        XCTAssertEqual(WebSessionStore.keptSessions(file: f, port: 4321), 1, "the expired one does not count")
+        XCTAssertEqual(WebSessionStore.keptSessions(file: f, port: 9999), 0, "another port's cookie is never presented")
+    }
 }
 
 extension CreatePlan {

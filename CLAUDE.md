@@ -1680,7 +1680,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
   the try bar (Sleep (hibernate) · Delete… · Keep). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
-  try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash), else a new link with
+  try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash) — a page cannot raise its
+  own window, so the CLI activates the default browser through LaunchServices (`bringBrowserForward`, no AppleScript)
+  and the page calls `window.focus()` and marks its title "▶ Quick try — …" for 10 s (an installed dashboard app is
+  its own window: the title is the cue); with no page open, a browser still signed in for this port
+  (`WebSessionStore.keptSessions`) gets the plain `origin/#/try/AGENT`, else a new link with
   `&to=try/AGENT` in its fragment (the bootstrap strips the capability first). The New Sandbox review shows the plan
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
