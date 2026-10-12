@@ -619,7 +619,7 @@ public struct DozerSettings: Sendable {
                 guard let k = r.permissionsSettingKey else { return nil }
                 let p = k.split(separator: ".", maxSplits: 1).map(String.init)
                 return .init(p[0], p[1], .choice(["skip", "ask"]), .string("skip"),
-                             "\(r.title) in a \(r.id) sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac.",
+                             "\(r.title) in \("aeiou".contains(r.id.prefix(1)) ? "an" : "a") \(r.id) sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac.",
                              flag: "-e \(r.permissionsVariable)=… on run/exec", applies: .nextSession)
             }
             s.insert(contentsOf: perms, at: at + 1)

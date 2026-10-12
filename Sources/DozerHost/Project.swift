@@ -164,7 +164,7 @@ public struct DozerProject: Equatable, Sendable {
         return nil
     }
 
-    /// 617: "claude-code, pi, codex, gemini, grok or none" — every agent this build has a recipe for.
+    /// 617: "claude-code, pi, codex, antigravity, gemini, grok or none" — every agent this build has a recipe for.
     public static var agentWords: String {
         AgentKind.allCases.filter { $0 != .none }.map(\.rawValue).joined(separator: ", ") + " or none"
     }

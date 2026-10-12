@@ -3,64 +3,75 @@ claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code 
 pi credentials=anthropic:api-key agentName=pi package=@earendil-works/pi-coding-agent pinned=0.84.1 sha512-ncAqFrG+iybuPGOhMiZoEHkEzTpJgz3guYD32pD+M7ucc0WeHmauP6wa7qwP8V/KWvsZDVNa5XGsdZ7fkC7w7A==
 codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=@openai/codex pinned=0.160.1 sha512-JLyjBlmjPvwTaicHemw+y5xQSz3Uja2r7F/xkvS8gFufTA2g132Ak+0fo35xnJ/k2uc9fTtjm0LrsEGI78L6Ng==
 node credentials=nil agentName=nil package=nil pinned=nil
+node-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 gemini credentials=google:key agentName=Gemini CLI package=@google/gemini-cli pinned=0.63.0 sha512-mmhqMmAdsoplCzrLQQC4yJBqr4uSKXghnrLspgUU6N9drmsaq7pi7oF09skRYzEq2dYK6eMT4UpFQP6rG2o/ew==
 node-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
 python-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+python-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 python-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 python-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
 go-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+go-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 go-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 go-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
 rust-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+rust-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 rust-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 rust-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
 java-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+java-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 java-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 java-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
 ruby-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+ruby-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 ruby-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 ruby-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
 dotnet-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+dotnet-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 dotnet-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 dotnet-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
 debian-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=1.3.3+5524738307653632 sha512-G/01A1diGaECF2wTV5ZlovOehKyGqQSxF9OzPz3XUfGUqGJJa61v/pFK1G0sh3uhK2wH5tsHEotwbSOCYv5DDA==
 debian-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 grok credentials=xai:key agentName=Grok Build package=@xai-official/grok pinned=1.0.50 sha512-GeIlnoM1EZDhFOabZA7XcFpS/0wCpOyl11TlYRQsu+vLi9H5YssJeeDAwJebc3/YzxiYnXg4VLHsvBeBH4EpZw==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
 ubuntu-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+ubuntu-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 ubuntu-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 ubuntu-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+alpine-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 alpine-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 alpine-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
 df-0123456789ab-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
+df-0123456789ab-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=nil
 df-0123456789ab-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 df-0123456789ab-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil

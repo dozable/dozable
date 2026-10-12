@@ -118,8 +118,14 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     }
 
     public struct Install: Codable, Sendable, Equatable {
-        /// `builtin` | `npm` | `npm-platform-binary`.
+        /// `builtin` | `npm` | `npm-platform-binary` | `manifest-binary`.
         public var kind: String
+        /// manifest-binary (617, Antigravity CLI): the vendor's release manifest for linux-arm64 (`{"version", "url",
+        /// "sha512"}`), read on the Mac at preparation; the version recorded is `<version>+<build>` from its url.
+        public var manifest: String?
+        /// manifest-binary: the archive's URL with `{build}` (the release's `<version>-<build>` path segment) — the url
+        /// the manifest names must be exactly this, else the release is refused.
+        public var url: String?
         /// The npm package (its version is the agent's version).
         public var package: String?
         /// npm-platform-binary: the package holding the linux-arm64 program, published at the SAME version.
@@ -138,7 +144,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var bakeHosts: [String]?
 
         enum CodingKeys: String, CodingKey {
-            case kind, package, payload, compression, binary, pinned
+            case kind, package, payload, compression, binary, pinned, manifest, url
             case platformPackage = "platform_package", needsNode = "needs_node", npmArgs = "npm_args", bakeHosts = "bake_hosts"
         }
     }
@@ -199,8 +205,11 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// 617: what the agent is told when a permission is OFF — its own switch, so it does not call what is refused
         /// (Claude Code's error reports and usage data without "Send error reports").
         public var offWithout: [OffWithout]?
+        /// 617 (owner: no setting → refuse quietly): hosts the agent calls that no setting of its own turns off and that
+        /// Dozer keeps out (telemetry); denied before everything like `excluded`, logged, never counted as a refusal.
+        public var quiet: [Host]?
 
-        enum CodingKeys: String, CodingKey { case model, update, excluded, vendor, offWithout = "off_without" }
+        enum CodingKeys: String, CodingKey { case model, update, excluded, vendor, quiet, offWithout = "off_without" }
     }
 
     public struct OffWithout: Codable, Sendable, Equatable {
@@ -435,7 +444,8 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     /// The verify checks with the version filled in.
     public func verifyChecks(version: String) -> [VerifyCheck] {
-        verify.map { VerifyCheck($0.argv, expect: $0.expect?.replacingOccurrences(of: "{version}", with: version)) }
+        // `{version}` is the version a program prints: without a release's build part (`1.3.3+5524…` → `1.3.3`).
+        verify.map { VerifyCheck($0.argv, expect: $0.expect?.replacingOccurrences(of: "{version}", with: String(version.split(separator: "+").first ?? Substring(version)))) }
     }
 }
 
@@ -730,7 +740,7 @@ public enum AgentRecipes {
     /// The compiled-in recipes, in this order: the three that existed, then the new ones (AgentKind.allCases' order).
     static let compiled: [AgentRecipe] = {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
-                                          ("codex.json", PackageResources.codex_json), ("gemini.json", PackageResources.gemini_json),
+                                          ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
                                           ("grok.json", PackageResources.grok_json)]
         do {
             return try files.map { name, bytes in
@@ -742,7 +752,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "gemini.json", "grok.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -871,8 +881,17 @@ extension AgentRecipe {
                 throw bad("an npm-platform-binary install names its package, platform package, payload and integrity")
             }
             if let c = install.compression, c != "brotli" { throw bad("compression: brotli (or none)") }
+        case "manifest-binary":
+            guard !isBuiltin, install.package == nil, install.pinned.integrity != nil,
+                  let m = install.manifest, m.hasPrefix("https://"), !m.contains("'"),
+                  let u = install.url, u.hasPrefix("https://"), u.contains("{build}"), !u.contains("'"),
+                  let p = install.payload, p.range(of: "^[A-Za-z0-9._/-]+$", options: .regularExpression) != nil, !p.contains("..") else {
+                throw bad("a manifest-binary install names its manifest, its archive url (with {build}), payload and integrity")
+            }
+            guard !platforms.musl else { throw bad("a manifest-binary install pins the glibc build only (platforms.musl false)") }
+            guard install.pinned.version.contains("+") else { throw bad("a manifest-binary pin is <version>+<build>") }
         default:
-            throw bad("install kind builtin, npm or npm-platform-binary")
+            throw bad("install kind builtin, npm, npm-platform-binary or manifest-binary")
         }
         for a in install.npmArgs ?? [] where a.range(of: "^--[a-z][a-z-]*$", options: .regularExpression) == nil { throw bad("npm_args: \(a)") }
         if let n = install.needsNode, Int(n) == nil { throw bad("needs_node is a Node major version") }
@@ -936,6 +955,12 @@ extension AgentRecipe {
             if ["github.com", "api.github.com", "raw.githubusercontent.com", "codeload.github.com"].contains(v.host), v.conditions == nil {
                 throw bad("vendor host \(v.host) is allowed by path only")
             }
+        }
+        for q in network.quiet ?? [] {
+            guard AgentRecipes.isExactHost(q.host), q.conditions == nil, let r = q.reason, !r.isEmpty else {
+                throw bad("quiet host \(q.host): an exact host, whole, with its reason")
+            }
+            guard !(modelHosts + updateHosts + vendorHosts).contains(q.host) else { throw bad("quiet host \(q.host) is also one it may reach") }
         }
         for o in network.offWithout ?? [] {
             guard AgentPermissions.basePermissions.contains(where: { $0.id == o.permission }), !o.env.isEmpty, !o.says.isEmpty else {

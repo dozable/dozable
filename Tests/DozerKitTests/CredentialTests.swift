@@ -188,6 +188,20 @@ final class CredentialTests: XCTestCase {
         XCTAssertEqual(mine.bytes[3] & 0x0f, 0)
         XCTAssertEqual(Array(mine.bytes.suffix(4)), [127, 0, 1, 1])
         XCTAssertFalse(proxy.answer(q).allowed, "any other name: still the policy")
+        // 617: localhost is the loopback even under `locked` — answered, never judged or logged (no refusal).
+        var lh: [UInt8] = [0x00, 0x08, 0x01, 0x00, 0, 1, 0, 0, 0, 0, 0, 0]
+        lh.append(9); lh += Array("localhost".utf8)
+        lh += [0, 0, 1, 0, 1]
+        let loop = proxy.answer(lh)
+        XCTAssertNil(loop.name, "never logged")
+        XCTAssertEqual(Array(loop.bytes.suffix(4)), [127, 0, 0, 1])
+        // 617: an agent's expected refusal is logged, not counted.
+        let qlog = ConnectionLog()
+        qlog.quietHosts = ["play.googleapis.com"]
+        qlog.upsert(ConnectionRecord(kind: .connect, host: "play.googleapis.com", port: 443, verdict: .denied, rule: "deny play.googleapis.com"))
+        qlog.upsert(ConnectionRecord(kind: .connect, host: "example.com", port: 443, verdict: .denied, rule: "default deny"))
+        XCTAssertEqual(qlog.records.count, 2)
+        XCTAssertEqual(qlog.deniedCount, 1, "only the unexpected one counts")
         proxy.policy = NetworkPolicy(rules: [EgressRule(host: "example.com")])
         var aaaa = q; aaaa[aaaa.count - 3] = 28
         let v6 = proxy.answer(aaaa)

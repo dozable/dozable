@@ -178,7 +178,9 @@ public enum PermissionPolicy {
         tmp.permissions = names
         tmp.rules = own
         let sites = own.filter { $0.action == .allow && !$0.hasHTTPConditions }.map(\.host)
-        let deniedRecs = log.filter { $0.verdict == .denied }
+        // 617: what the agent is expected to be refused (its recipe's quiet list) is no refusal to report.
+        let quiet = Set(AgentPermissions.quietHosts(names))
+        let deniedRecs = log.filter { $0.verdict == .denied && !quiet.contains($0.host.lowercased()) }
         var byGrant: [String: PermissionSuggestion] = [:]
         var order: [String] = []
         let excluded = Set(AgentPermissions.excludedHosts(names))

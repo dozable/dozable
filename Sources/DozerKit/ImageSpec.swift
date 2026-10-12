@@ -332,10 +332,43 @@ public enum AgentImages {
                 steps.append(ImageComposer.nodeWrapper(r.install.binary))
                 if base.packageManager != .apk { hosts.append("nodejs.org") }
             }
+        case "manifest-binary":
+            steps.append(manifestBinaryInstall(r, release))
         default:            // npm-platform-binary (validated)
             steps.append(platformBinaryInstall(r, release, base: base))
         }
         return (steps, hosts)
+    }
+
+    /// 617: the archive a manifest-binary release is (its url with `{build}` = `<version>-<build>`).
+    public static func manifestArchiveURL(_ r: AgentRecipe, _ release: AgentRelease) -> String? {
+        guard let u = r.install.url, release.version.contains("+") else { return nil }
+        return u.replacingOccurrences(of: "{build}", with: release.version.replacingOccurrences(of: "+", with: "-"))
+    }
+
+    /// 617: an agent's program from its vendor's own release archive (Antigravity CLI: a tar.gz on Google's storage),
+    /// its sha512 checked against the release's integrity (read from the vendor's manifest on the Mac — in the script, so
+    /// in the bake key), installed under /opt/<id> and linked as /usr/local/bin/<binary>.
+    static func manifestBinaryInstall(_ r: AgentRecipe, _ release: AgentRelease) -> BakeStep {
+        let bin = r.install.binary, payload = r.install.payload!, dest = "/opt/\(r.id)/\(bin)"
+        let url = manifestArchiveURL(r, release) ?? ""
+        return BakeStep.script("install \(r.title) \(release.version) (linux-arm64, integrity-pinned)", """
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o pkg.tgz '\(url)'
+            got="sha512-$(python3 -c 'h=__import__("hashlib").sha512(open(__import__("sys").argv[1],"rb").read()).digest(); print(__import__("base64").b64encode(h).decode(), end="")' pkg.tgz)"
+            [ "$got" = '\(release.integrity)' ] || { echo "integrity mismatch for \(r.title) \(release.version): $got" >&2; exit 1; }
+            mkdir x && tar -xzf pkg.tgz -C x
+            src=x/\(payload)
+            test -f "$src"
+            rm -rf /opt/\(r.id)
+            mkdir -p /opt/\(r.id)
+            cp "$src" \(dest)
+            chmod 0755 \(dest)
+            chown -R root:root /opt/\(r.id)
+            ln -sf \(dest) /usr/local/bin/\(bin)
+            rm -rf x pkg.tgz
+            echo "\(r.title) \(release.version) (linux-arm64) installed under /opt/\(r.id), sha256 $(sha256sum \(dest) | cut -d' ' -f1)"
+            """)
     }
 
     /// The registry's tarball URL of `package` at `version` (`@scope/name` → `…/@scope/name/-/name-<version>.tgz`).

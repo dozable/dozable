@@ -97,6 +97,7 @@ let package = Package(
                 .embedInCode("Recipes/agents/claude-code.json"),
                 .embedInCode("Recipes/agents/pi.json"),
                 .embedInCode("Recipes/agents/codex.json"),
+                .embedInCode("Recipes/agents/antigravity.json"),
                 .embedInCode("Recipes/agents/gemini.json"),
                 .embedInCode("Recipes/agents/grok.json"),
                 .embedInCode("Recipes/providers.json"),

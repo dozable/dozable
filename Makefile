@@ -307,6 +307,10 @@ test-cli-openfiles: cli vmtest-host ## 599b: xdg-open/open/doz-open FILE in a sh
 test-cli-github: cli vmtest-host ## 599d: GitHub as the user through SEAMS only — a fake GitHub (git http-backend over TLS, its own CA; the proxy's upstream seam), a fake gh, a throwaway ssh-agent: clone, the swap (Basic + token), read-only refusals (push, API, GraphQL mutation), no token in the guest, push, identity, key source, off revokes, SSH agent on/off (prepares claude-code)
 	perl -e 'alarm shift; exec @ARGV' 2400 $(VMTEST_BIN) cli-github --doz $(CLI_BIN)
 
+AGENTS ?= claude-code pi codex gemini grok
+profile-agents: cli ## 617: the network profile of each agent (AGENTS="grok gemini"): a fresh try with the Open network in a scratch store (PROFILE_WORK, default /tmp/doz-profile), every HTTPS request decrypted and logged, its first start + a short scripted task (fake keys; xAI/Google through a fake provider) → profiles/AGENT.json, keeping every determination already made. DIFF=1: report new / missing endpoints only (exit 1 on a new one) — never writes, never allows
+	Scripts/profile-agents.sh $(if $(DIFF),--diff,) $(AGENTS)
+
 test-cli-codex: cli vmtest-host ## 599i: Codex through SEAMS only — a fake OpenAI over TLS (its own CA; the proxy's, the sign-in's and the refresh's upstream), the browser seam: Dozer's own ChatGPT sign-in, the real Codex in a VM answered via chatgpt.com with the placeholder swapped, a renewal on the Mac, the guest's renewal answered by the proxy, no token in the guest, no silent fallback, an API key, Alpine (prepares codex + alpine-codex; network: Docker Hub + npm; CODEX_KEEP=1 keeps the store)
 	perl -e 'alarm shift; exec @ARGV' 5400 $(VMTEST_BIN) cli-codex --doz $(CLI_BIN)
 

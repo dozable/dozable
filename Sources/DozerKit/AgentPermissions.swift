@@ -107,7 +107,8 @@ public enum AgentPermissions {
                                summary: m.summary ?? "\(r.title)'s model — needed for \(r.title) to work.",
                                phrase: m.phrase ?? "talk to your AI model",
                                hosts: hosts.map { PermissionHost($0.host, pathPrefixes: $0.conditions, reason: $0.reason) }, locked: false,
-                               denies: r.network.excluded.isEmpty ? nil : r.network.excluded)
+                               denies: r.network.excluded.isEmpty && (r.network.quiet ?? []).isEmpty ? nil
+                                   : r.network.excluded + (r.network.quiet ?? []).map(\.host))
     }
 
     /// 617 (D4): a recipe agent's own update hosts — on only beside "Update itself", only in its sandbox.
@@ -225,6 +226,13 @@ public enum AgentPermissions {
     public static func excludedHosts(_ names: [String]) -> [String] {
         let set = Set(names)
         return all.filter { set.contains($0.id) }.flatMap { $0.denies ?? [] }
+    }
+
+    /// 617: the hosts an agent with these permissions is EXPECTED to be refused (its recipe's `quiet` list) — logged, not counted.
+    public static func quietHosts(_ names: [String]) -> [String] {
+        let set = Set(names)
+        return AgentRecipes.all.filter { r in set.contains(r.network.model.id) || set.contains("vendor:" + r.id) }
+            .flatMap { ($0.network.quiet ?? []).map(\.host) }
     }
 
     /// 617: the deny rules for `excludedHosts` — evaluated before the user's own rules and every permission.

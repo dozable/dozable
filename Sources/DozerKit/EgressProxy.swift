@@ -71,7 +71,11 @@ public final class EgressProxy: @unchecked Sendable {
 
     public var policy: NetworkPolicy {
         get { lock.lock(); defer { lock.unlock() }; return _policy }
-        set { lock.lock(); _policy = newValue; lock.unlock() }
+        set {
+            lock.lock(); _policy = newValue; lock.unlock()
+            // 617: what this agent is expected to be refused is logged, never counted.
+            log.quietHosts = Set(AgentPermissions.quietHosts(newValue.permissions ?? []))
+        }
     }
 
     /// 599d: this sandbox's GitHub login and its mode — read-only is enforced on every request that
@@ -116,8 +120,23 @@ public final class EgressProxy: @unchecked Sendable {
            policy.evaluateConnection(host: host, port: port).kind == .deny {
             return NetworkPolicy.ConnectionVerdict(kind: .inspect, rule: "ChatGPT sign-in renewal (answered by Dozer on the Mac)", ruleIndex: nil)
         }
-        return policy.evaluateConnection(host: host, port: port)
+        let v = policy.evaluateConnection(host: host, port: port)
+        // 617 PROFILING SEAM: every allowed HTTPS connection is decrypted so each request (host, method, path, which
+        // credential rode it) is logged — the network profile of an agent (`make profile-agents`). Nothing else changes:
+        // the policy still judges every request.
+        if inspectEverythingForProfiling, v.kind == .allow, port == 443, IPv4CIDR.parseAddress(host) == nil {
+            return NetworkPolicy.ConnectionVerdict(kind: .inspect, rule: v.rule, ruleIndex: v.ruleIndex)
+        }
+        return v
     }
+
+    /// 617 PROFILING SEAM (`DOZ_TEST_PROFILE_NETWORK=1`, set by the host only from that variable): decrypt and log every
+    /// allowed HTTPS request. Used by the network profiler in a scratch store; never on by default.
+    public var inspectEverythingForProfiling: Bool {
+        get { lock.lock(); defer { lock.unlock() }; return _inspectEverything }
+        set { lock.lock(); _inspectEverything = newValue; lock.unlock() }
+    }
+    private var _inspectEverything = false
 
     /// 599i TEST SEAM: the OpenAI hosts' upstream leg (chatgpt.com, api.openai.com, auth.openai.com) goes
     /// to a fake OpenAI, trusting ONLY its CA. The host sets it only from `DOZ_TEST_OPENAI_UPSTREAM` +
@@ -290,6 +309,13 @@ public final class EgressProxy: @unchecked Sendable {
         if let own = ownName, name.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: ".")) == own {
             return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: qtype == 1 ? [0x7F00_0101] : []),
                             name: nil, allowed: true, rule: "", summary: "the sandbox's own name")
+        }
+        // 617: `localhost` (and any name under it — RFC 6761) is the loopback, answered here and never judged or logged:
+        // a program that asks DNS for it instead of reading /etc/hosts (Antigravity CLI does, at start-up) is no refusal.
+        let bare = name.lowercased().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        if bare == "localhost" || bare.hasSuffix(".localhost") {
+            return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: qtype == 1 ? [0x7F00_0001] : []),
+                            name: nil, allowed: true, rule: "", summary: "the loopback")
         }
         let pol = policy
         guard allowsName(name) else {

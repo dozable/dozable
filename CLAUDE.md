@@ -1643,6 +1643,25 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   that is off would refuse (Claude Code's `DISABLE_ERROR_REPORTING`/`DISABLE_TELEMETRY` without "Send error reports"),
   said in the plan and the facts (`HostCore.withRecipeEnvironment`). `FirstRunTests`; the VM proof is
   `probes/617-*/stageD/firstrun-netlog.sh` (0 refusals for all five, and example.com from the guest still counted).
+  What an agent calls that no setting of its own turns off (Antigravity CLI's usage log to play.googleapis.com) is
+  `network.quiet` (each with its reason): denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
+  set from the policy by `EgressProxy.policy`; `PermissionReport` skips it). `localhost` (RFC 6761) is answered by the
+  proxy's DNS as the loopback, never judged or logged.
+- **Network profiles** (`make profile-agents [AGENTS=…] [DIFF=1]`, `Scripts/profile-agents.sh` + `Scripts/agent-profile.py`
+  + `Scripts/fake-provider.py`): a fresh try per agent with the Open network in a scratch store (`/tmp/doz-profile`),
+  every HTTPS request decrypted and logged by the PROFILING seam `DOZ_TEST_PROFILE_NETWORK=1`
+  (`EgressProxy.inspectEverythingForProfiling`), its first start + a scripted task (`-p`/`exec`, FAKE keys) →
+  `profiles/AGENT.json` (version, date, how, each endpoint with credential and a determination: allow / allow-path /
+  off-by-setting / refuse + reason). New endpoints come in with `null` — `AgentProfileTests` fails until a person
+  decides them, and checks every determination against the recipe under a fresh try's policy (refuse ⇒ quiet;
+  off-by-setting ⇒ a setting the recipe sets). `DIFF=1` reports new/missing endpoints and writes nothing; nothing is
+  ever allowed by the profiler. Re-profile when an agent's version moves.
+- **Antigravity CLI** (`antigravity`, alias `agy`; Google's lead agent — Gemini CLI is superseded by it): closed source,
+  installed by the `manifest-binary` kind — Google's release manifest (`{version, url, sha512}`) read on the Mac
+  (`NpmRegistry.manifest`, `parseManifest`: the url must be the recipe's `url` with `{build}`), the release recorded as
+  `<version>+<build>` with the sha512 as SRI, checked in the bake; glibc only (`platforms.musl` false). A Gemini API key
+  (`modelProvider: gemini` first-run setting + `GEMINI_API_KEY`, the google provider); `AGY_CLI_DISABLE_AUTO_UPDATE=1`;
+  `--dangerously-skip-permissions`; the facts as a skill in `~/.agents/skills/dozer`.
   A recipe's `excluded` hosts are denied BEFORE the user's rules and
   every permission (Open included), never suggested, never grantable as a site — and are in no permission (validated).
 - **Keys read on use** (`SecretSources.swift`, `HostCore+Secrets.swift`): an API-key account (`api-key`, `openai-key`,

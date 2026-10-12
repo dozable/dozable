@@ -73,6 +73,8 @@ struct TryCommand: AsyncParsableCommand {
             throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)
         }
         var o = planned.create
+        // --rebuild: an out-of-date image is rebuilt first (a try asks nothing, so without it the current image is used).
+        if choices.rebuild { o.rebuild = true }
         if !g.json {
             // Said plainly (owner), first: where its files go and what reaches the Mac.
             let said = planned.reach.filter { $0.kind == "folder" || $0.kind == "bridge" }.map { $0.text.prefix(1).lowercased() + $0.text.dropFirst() }

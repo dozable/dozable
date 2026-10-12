@@ -372,6 +372,11 @@ public enum ProviderSeam {
         return EgressProxy.UpstreamOverride(host: String(parts[0]), port: port, anchorsPEM: pem)
     }
 
+    /// 617 PROFILING SEAM: `DOZ_TEST_PROFILE_NETWORK=1` — every allowed HTTPS request is decrypted and logged.
+    public static func profiling(environment env: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
+        env["DOZ_TEST_PROFILE_NETWORK"] == "1"
+    }
+
     /// 617: more hosts the seam sends to the fake (`DOZ_TEST_PROVIDER_HOSTS=a.example,b.example`) — only with the seam set.
     public static func extraHosts(environment env: [String: String] = ProcessInfo.processInfo.environment) -> Set<String> {
         guard upstream(environment: env) != nil, let s = env["DOZ_TEST_PROVIDER_HOSTS"] else { return [] }

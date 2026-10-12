@@ -22,7 +22,7 @@ final class AgentRecipeTests: XCTestCase {
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
 
     func test_everyCompiledRecipeDecodesAndValidates() throws {
-        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "gemini", "grok"])
+        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok"])
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
@@ -143,7 +143,8 @@ final class AgentRecipeTests: XCTestCase {
                 if s.level == "experimental" { experimental.append("\(r.id) × \(s.gateway)") }
             }
         }
-        XCTAssertEqual(unknown, [])
+        // Antigravity CLI names undocumented AGY_LLM_GATEWAY_* settings — not checked yet.
+        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway"])
         XCTAssertEqual(experimental, ["grok × openrouter"])
     }
 
