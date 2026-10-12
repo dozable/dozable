@@ -263,8 +263,14 @@ released, freshness, deprecated}, icon {id, kind (product | vendor | generated),
 viewBox, d, stroke}}` — `lifecycle` is recorded in the data, `latest` is measured on the Mac that writes the index (the
 host's hourly registry check; absent before one), `icon` is the entry's mark from the icon registry (below): `d` to draw
 it at once, `mono` the registry file relative to the index (`icons/codex.svg`) for a website that publishes
-`Recipes/icons/` beside `index.json` (617.B4's landing pages); a base has none. `icon` went into v1 as an optional field
+`Recipes/icons/` beside `index.json` (a landing page per agent); a base has none. `icon` went into v1 as an optional field
 before anything reads or fetches the index (phase 1 writes it, unsigned) — the one exception to "a new field is v2".
+
+**The recipe files** are YAML, one per agent (`Sources/DozerKit/Recipes/agents/VENDOR/PRODUCT.yaml`, `schema: 2`),
+laid out like a Docker Sandbox Kit v3 workload and held to a published JSON Schema
+(`schema/dozer-recipe-2.schema.json`). [The recipe format](recipes/RECIPE-FORMAT.md) is the spec: every field, the
+templating, the capability types, strictness, versioning, the Kit v3 mapping, and how to add a recipe.
+`RecipeDocument` reads the compiled JSON (`make recipes`) into the `AgentRecipe` model below.
 
 **Recipe additions (617):** an install kind `manifest-binary` (a vendor's own release manifest `{version, url, sha512}`,
 read on the Mac; the release recorded as `<version>+<build>`, the sha512 as its integrity); `network.vendor` (the hosts

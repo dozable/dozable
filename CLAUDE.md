@@ -1609,9 +1609,20 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### Agent recipes and key providers
 
-- **Every agent is a recipe** (`Sources/DozerKit/AgentRecipe.swift`; data in `Sources/DozerKit/Recipes/agents/*.json`,
+- **Every agent is a recipe** (`Sources/DozerKit/AgentRecipe.swift`; data in `Sources/DozerKit/Recipes/compiled/*.json`,
   `providers.json`, `gateways.json`, `tags.json`, each ONE `.embedInCode` line in Package.swift with a unique basename —
-  `AgentRecipeTests` ties the folder to the manifest). Decoded once, validated, unknown keys refused; an invalid
+  `AgentRecipeTests` ties the folder to the manifest).
+  **A recipe's SOURCE is YAML** (owner: one file per recipe, aligned with Docker Sandbox Kit v3):
+  `Recipes/agents/VENDOR/PRODUCT.yaml`, `schema: 2` — the spec is `docs/recipes/RECIPE-FORMAT.md`, the contract
+  `schema/dozer-recipe-2.schema.json` (each YAML's first line points editors at it). DozerKit never parses YAML (the
+  audit keeps Yams in DozerCLI): `make recipes` compiles each to `Recipes/compiled/PRODUCT.json` (`RecipeSource`,
+  YAML 1.2 core schema — `no` is a word — no anchors), committed and embedded; `RecipeSourceTests` fails when one
+  drifts. `RecipeDocument` decodes it STRICTLY (unknown key anywhere = error; Kit's DERIVED parts — runtime allow/deny,
+  a credential's apiKey — must equal what Dozer derives) and maps it one for one to `AgentRecipe`, which everything
+  else uses unchanged. `RecipeSchemaTests`: every recipe valid against the schema, the loader refuses what the schema
+  refuses (mutations), the Kit view (`kitDescriptor()`) valid against Kit v3's own schema
+  (`Tests/Fixtures/kit-v3/`, vendored at a pinned commit), the mapping lossless. Edit the YAML, run `make recipes`,
+  commit both; never edit `compiled/` by hand. Decoded once, validated, unknown keys refused; an invalid
   built-in recipe is a test failure. `AgentKind` is a recipe-backed struct (the same raw strings); `allCases` is the
   four that were the enum, then the recipe agents in file order. `AgentRecipes.registerForTests` is the only way to
   add one at run time — no environment variable loads a recipe.
