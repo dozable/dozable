@@ -1648,6 +1648,20 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   block it), each with its reason: denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
   set from the policy by `EgressProxy.policy`; `PermissionReport` skips it). `localhost` (RFC 6761) is answered by the
   proxy's DNS as the loopback, never judged or logged.
+- **Gemini CLI's `SANDBOX` is NOT set** (checked against 0.63.0's bundle, `probes/617-*/stageE/gemini-sandbox-env.py`).
+  It is more than a label. Any value:
+  - skips the relaunch that raises Node's heap to half the VM's memory (512 MiB instead of 1 GiB on 2 GiB);
+  - removes the supervisor, so an in-app restart (trust change, Google sign-in, admin settings) exits instead;
+  - turns off its exit when the terminal goes away;
+  - turns off its own docker sandbox;
+  - makes /docs and /extensions print their URL instead of opening a browser;
+  - turns off its browser agent;
+  - changes the system prompt from "outside of sandbox" to "running in a sandbox container".
+
+  The footer would then read "current process", not the value; only /about and /bug show the value. Hiding the red
+  "no sandbox" without those side effects is `ui.footer.hideSandboxStatus: true`, which is not set either: that is the
+  owner's call. Antigravity CLI reads no such variable: its "sandbox" is its own command sandbox (`--sandbox`,
+  `enableSandbox`).
 - **Network profiles** (`make profile-agents [AGENTS=…] [DIFF=1]`, `Scripts/profile-agents.sh` + `Scripts/agent-profile.py`
   + `Scripts/fake-provider.py`): a fresh try per agent with the Open network in a scratch store (`/tmp/doz-profile`),
   every HTTPS request decrypted and logged by the PROFILING seam `DOZ_TEST_PROFILE_NETWORK=1`
