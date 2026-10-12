@@ -137,11 +137,12 @@ final class PermissionsHostTests: XCTestCase {
     func testNewSandboxesGetPermissionsFromTheFlagTheSettingOrTheForm() throws {
         // The default: Standard for the base.
         let (py, _) = try DozerImages.spec(name: "a1", options: CreateOptions(image: "python-claude-code"), store: store, environment: [:])
-        XCTAssertEqual(py.network.policy?.permissions, standardPy)
+        // 617: and the agent's own vendor sites (hidden), added at create.
+        XCTAssertEqual(py.network.policy?.permissions, standardPy + ["vendor:claude-code"])
         XCTAssertEqual(py.network.policy?.preset, "agent")
         // --network locked.
         let (lk, _) = try DozerImages.spec(name: "a2", options: CreateOptions(image: "go-claude-code", network: "locked"), store: store, environment: [:])
-        XCTAssertEqual(lk.network.policy?.permissions, ["model"])
+        XCTAssertEqual(lk.network.policy?.permissions, ["model", "vendor:claude-code"])
         // --allow words on top, and a site.
         var o = CreateOptions(image: "python-claude-code")
         o.allow = ["web", "-error-reports", "site:api.example.com"]
@@ -157,7 +158,7 @@ final class PermissionsHostTests: XCTestCase {
         var f = CreateOptions(image: "go-pi")
         f.permissions = ["github"]
         let (fm, _) = try DozerImages.spec(name: "a5", options: f, store: store, environment: [:])
-        XCTAssertEqual(fm.network.policy?.permissions, ["model", "github"], "model forced on")
+        XCTAssertEqual(fm.network.policy?.permissions, ["model", "github", "vendor:pi"], "model forced on")
         // The setting.
         let xdg = root.appendingPathComponent("xdg")
         try FileManager.default.createDirectory(at: xdg.appendingPathComponent("dozer-sandbox"), withIntermediateDirectories: true)

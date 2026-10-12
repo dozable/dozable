@@ -312,6 +312,10 @@ public enum AgentPrompt {
         case .proxied(let p):
             // 597 (P7): what the agent may do, in plain words — and the permission to ask for.
             v["network.permissions"] = PermissionPolicy.facts(p, sandbox: name)
+            // 617: what the agent's own switches turned off because a permission is off (HostCore.withRecipeEnvironment).
+            if p.permissions != nil, let r = ImageChoice.parse(image)?.agent.recipe {
+                for o in r.network.offWithout ?? [] where !(p.permissions ?? []).contains(o.permission) { v["network.permissions"]! += " " + o.says + "." }
+            }
             let allowed = p.effectiveRules.filter { $0.action == .allow }.map(\.host)
             var unique: [String] = []
             for h in allowed where !unique.contains(h) { unique.append(h) }

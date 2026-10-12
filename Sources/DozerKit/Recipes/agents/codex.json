@@ -109,7 +109,12 @@
       "hosts": [{ "host": "chatgpt.com" }, { "host": "api.openai.com" }, { "host": "ab.chatgpt.com" }]
     },
     "update": [],
-    "excluded": []
+    "excluded": [],
+    "vendor": [
+      { "host": "raw.githubusercontent.com", "exact_paths": ["/openai/codex/main/announcement_tip.toml"], "reason": "Codex reads OpenAI's start-up tips (announcement_tip.toml on GitHub) when it starts" },
+      { "host": "github.com", "exact_paths": ["/openai/plugins.git/info/refs", "/openai/plugins.git/git-upload-pack"], "reason": "Codex fetches OpenAI's curated plugins (openai/plugins.git, read only) when it starts" },
+      { "host": "files.openai.com", "reason": "OpenAI's own site — called at start-up (not identified)" }
+    ]
   },
   "status": "none",
   "prompt": { "kind": "skill", "dir": "~/.agents/skills/dozer" },

@@ -1450,6 +1450,25 @@ public actor HostCore {
     /// `grok wrap` tells the Grok it runs that its OSC 52 is intercepted with `GROK_OSC52_SINK=1` (its pty_wrap; read in
     /// its clipboard code), which is exactly what the relay does. Never over the caller's own value.
     public static let clipboardSinkVariables = ["GROK_OSC52_SINK"]
+
+    /// 617 (owner: a fresh try shows no refusal): the agent's recipe's `launch.session_env` (its own switch for its
+    /// self-update check — pi's `PI_SKIP_VERSION_CHECK`), and each `network.off_without` whose permission the sandbox's
+    /// policy does not have (Claude Code's error reports and usage data without "Send error reports"). A policy of
+    /// rules (before permissions) or no proxy: the off switches are not added (as before). Never over the caller's value.
+    static func withRecipeEnvironment(_ env: [String: String], imageSpec: String?, permissions: [String]?) -> [String: String] {
+        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe else { return env }
+        var e = env
+        for (k, v) in r.launch.sessionEnv ?? [:] where e[k] == nil { e[k] = v }
+        if let permissions {
+            for o in r.network.offWithout ?? [] where !permissions.contains(o.permission) {
+                for (k, v) in o.env where e[k] == nil { e[k] = v }
+            }
+        }
+        return e
+    }
+    func recipeEnvironment(_ env: [String: String], _ m: Managed) -> [String: String] {
+        Self.withRecipeEnvironment(env, imageSpec: m.config.spec.imageSpec?.name, permissions: m.sandbox.egress?.policy.permissions)
+    }
     static func withClipboardSink(_ env: [String: String], on: Bool) -> [String: String] {
         guard on else { return env }
         var e = env
@@ -1582,8 +1601,8 @@ public actor HostCore {
         do {
             let sink = Self.sandboxValue(m.config, SettingKey.clipboard).plain != "off"
             try await m.sandbox.openSession(session, argv: argv,
-                                            environment: Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
-                                                                                on: sink),
+                                            environment: recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                                                                on: sink), m),
                                             workingDirectory: r.workdir ?? workdir,
                                             user: r.user, size: size)
         } catch {
@@ -1623,7 +1642,7 @@ public actor HostCore {
         let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
-        let ctx = Self.execContext(config: m.config, environment: Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name), m),
                                    workdir: r.workdir, user: r.user)
         let t0 = ContinuousClock.now
         let res: ExecResult

@@ -159,10 +159,13 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var env: [String: String]
         /// Settings the launcher writes into the agent's config — ONLY those not there yet.
         public var firstRun: [FirstRun]?
+        /// 617: environment the HOST gives every session at open (never baked — a built-in's image stays byte-identical):
+        /// the agent's own switch for its self-update check (pi's `PI_SKIP_VERSION_CHECK`). Never over the caller's value.
+        public var sessionEnv: [String: String]?
 
         enum CodingKeys: String, CodingKey {
             case command, passthrough, env
-            case noPromptsArgs = "no_prompts_args", firstRun = "first_run"
+            case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env"
         }
     }
 
@@ -189,6 +192,22 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var update: [Host]
         /// Hosts the agent is known to call that Dozer keeps out, whatever is chosen.
         public var excluded: [String]
+        /// 617 (owner: a fresh try shows no refusal): what the agent calls on its OWN vendor's sites at a normal start
+        /// (release notes, its model list, its plugin list) — each with its reason, allowed in its sandbox by a hidden
+        /// `vendor:<id>` added at create (new sandboxes only). GitHub-hosted vendor content by exact path only.
+        public var vendor: [Host]?
+        /// 617: what the agent is told when a permission is OFF — its own switch, so it does not call what is refused
+        /// (Claude Code's error reports and usage data without "Send error reports").
+        public var offWithout: [OffWithout]?
+
+        enum CodingKeys: String, CodingKey { case model, update, excluded, vendor, offWithout = "off_without" }
+    }
+
+    public struct OffWithout: Codable, Sendable, Equatable {
+        public var permission: String
+        public var env: [String: String]
+        /// Plain words for the facts and the plan ("error reports and usage data are off").
+        public var says: String
     }
 
     public struct Model: Codable, Sendable, Equatable {
@@ -865,7 +884,9 @@ extension AgentRecipe {
         for a in launch.command + launch.noPromptsArgs + launch.passthrough + (resume ?? []) where !scriptSafe(a) || a.isEmpty {
             throw bad("an argument holds a quote, a backslash or a newline: \(a)")
         }
-        for (k, v) in launch.env.merging(state.env, uniquingKeysWith: { a, _ in a }) {
+        var everyEnv = launch.env.merging(state.env, uniquingKeysWith: { a, _ in a })
+        for (k, v) in (launch.sessionEnv ?? [:]).merging((network.offWithout ?? []).flatMap(\.env), uniquingKeysWith: { a, _ in a }) { everyEnv[k] = everyEnv[k] ?? v }
+        for (k, v) in everyEnv {
             guard k.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k), scriptSafe(v) else {
                 throw bad("env \(k): a variable name that names no credential, and a value with no quote")
             }
@@ -904,12 +925,27 @@ extension AgentRecipe {
             }
         }
         let modelHosts = (m.hosts ?? []).map(\.host), updateHosts = network.update.map(\.host)
-        for h in modelHosts + updateHosts + network.excluded where !AgentRecipes.isExactHost(h) { throw bad("\(h) is not an exact host name") }
-        for p in (m.hosts ?? []).flatMap({ ($0.paths ?? []) + ($0.exactPaths ?? []) }) + network.update.flatMap({ $0.paths ?? [] }) where !p.hasPrefix("/") || p.hasSuffix("$") {
+        let vendor = network.vendor ?? [], vendorHosts = vendor.map(\.host)
+        for h in modelHosts + updateHosts + vendorHosts + network.excluded where !AgentRecipes.isExactHost(h) { throw bad("\(h) is not an exact host name") }
+        for p in ((m.hosts ?? []) + vendor).flatMap({ ($0.paths ?? []) + ($0.exactPaths ?? []) }) + network.update.flatMap({ $0.paths ?? [] }) where !p.hasPrefix("/") || p.hasSuffix("$") {
             throw bad("a path prefix starts with /: \(p)")
         }
+        for v in vendor {
+            guard let r = v.reason, !r.isEmpty else { throw bad("vendor host \(v.host) says why the agent calls it (reason)") }
+            // Never a code host whole: GitHub-hosted vendor content is allowed by its path.
+            if ["github.com", "api.github.com", "raw.githubusercontent.com", "codeload.github.com"].contains(v.host), v.conditions == nil {
+                throw bad("vendor host \(v.host) is allowed by path only")
+            }
+        }
+        for o in network.offWithout ?? [] {
+            guard AgentPermissions.basePermissions.contains(where: { $0.id == o.permission }), !o.env.isEmpty, !o.says.isEmpty else {
+                throw bad("off_without \(o.permission): a permission, its variables and what it says")
+            }
+        }
         let excluded = Set(network.excluded)
-        guard excluded.isDisjoint(with: modelHosts), excluded.isDisjoint(with: updateHosts) else { throw bad("an excluded host is also one it may reach") }
+        guard excluded.isDisjoint(with: modelHosts), excluded.isDisjoint(with: updateHosts), excluded.isDisjoint(with: vendorHosts) else {
+            throw bad("an excluded host is also one it may reach")
+        }
         if !isBuiltin {
             let everyPermissionHost = Set(AgentPermissions.basePermissions.flatMap { $0.hosts.map(\.host) })
             guard excluded.isDisjoint(with: everyPermissionHost) else {

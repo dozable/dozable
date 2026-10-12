@@ -249,7 +249,7 @@ public enum CreatePlanner {
         let newFolder = (r.purpose == "new" || isTry) && r.create.workspace == nil && o.workspace.map(Workspace.isEmptyOrMissing) == true
         let reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts,
                                newFolder: newFolder, settings: f.settings,
-                               bridgeSettings: o.settings)
+                               bridgeSettings: o.settings, agent: choice?.agent)
         let argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
         return CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
@@ -357,7 +357,7 @@ public enum CreatePlanner {
 
     static func reach(_ mode: NetworkMode?, policy: NetworkPolicy?, workspace: String?, account: PlanAccount?, keys: [String],
                       accounts: AccountsFile, newFolder: Bool = false, settings: DozerSettings? = nil,
-                      bridgeSettings: [String: TOMLValue]? = nil) -> [ReachLine] {
+                      bridgeSettings: [String: TOMLValue]? = nil, agent: AgentKind? = nil) -> [ReachLine] {
         var out: [ReachLine] = []
         switch mode {
         case .nat?: out.append(ReachLine("web", "A real network interface: every host, unfiltered and unlogged (nat)"))
@@ -366,6 +366,18 @@ public enum CreatePlanner {
         }
         if let p = policy {
             let (names, own) = PermissionPolicy.inferred(p)
+            // 617: an agent's own vendor sites (hidden) — a line per host, with its reason.
+            for perm in AgentPermissions.all where names.contains(perm.id) && AgentPermissions.isAgentVendor(perm.id) {
+                for h in perm.hosts {
+                    let exact = (h.pathPrefixes ?? []).filter(EgressRule.isExactPath).map { String($0.dropLast()) }
+                    let what = h.host + (exact.isEmpty ? "" : " (" + exact.joined(separator: ", ") + " only)")
+                    out.append(ReachLine("model", "\(what) — \(h.reason ?? perm.summary)"))
+                }
+            }
+            // 617: what the agent is told to turn off because a permission is off.
+            if p.permissions != nil, let r = agent?.recipe {
+                for o in r.network.offWithout ?? [] where !names.contains(o.permission) { out.append(ReachLine("denied", o.says)) }
+            }
             for perm in AgentPermissions.all where names.contains(perm.id) && perm.hidden != true {
                 let kind = perm.id.hasPrefix("model") ? "model" : perm.id.hasPrefix("install") ? "packages"
                     : perm.id.hasPrefix("github") ? "github" : perm.id == "web" ? "web" : "other"

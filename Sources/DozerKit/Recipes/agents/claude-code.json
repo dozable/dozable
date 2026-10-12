@@ -96,7 +96,15 @@
       { "host": "downloads.claude.ai" },
       { "host": "registry.npmjs.org", "paths": ["/@anthropic-ai/claude-code", "/@anthropic-ai%2fclaude-code", "/@anthropic-ai%2Fclaude-code"] }
     ],
-    "excluded": []
+    "excluded": [],
+    "vendor": [
+      { "host": "downloads.claude.ai", "paths": ["/model-catalog/"], "reason": "Claude Code reads Anthropic's list of models when it starts" },
+      { "host": "downloads.claude.ai", "paths": ["/claude-code-releases/plugins/"], "reason": "Claude Code reads Anthropic's official plugin list (and fetches those plugins) when it starts" },
+      { "host": "raw.githubusercontent.com", "exact_paths": ["/anthropics/claude-code/refs/heads/main/CHANGELOG.md"], "reason": "Claude Code reads its release notes (Anthropic's CHANGELOG.md on GitHub) when it starts" }
+    ],
+    "off_without": [
+      { "permission": "error-reports", "env": { "DISABLE_ERROR_REPORTING": "1", "DISABLE_TELEMETRY": "1" }, "says": "Claude Code's error reports and usage data are turned off (Send error reports is off)" }
+    ]
   },
   "status": "osc7501",
   "prompt": { "kind": "skill", "dir": "~/.claude/skills/dozer", "launcher_arg": ["--append-system-prompt"] },

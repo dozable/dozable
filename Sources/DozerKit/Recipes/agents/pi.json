@@ -23,7 +23,8 @@
     "command": ["pi"],
     "no_prompts_args": [],
     "passthrough": [],
-    "env": {}
+    "env": {},
+    "session_env": { "PI_SKIP_VERSION_CHECK": "1" }
   },
   "state": {
     "persist": ["~/.pi/agent"],
@@ -83,7 +84,10 @@
       { "host": "pi.dev" },
       { "host": "registry.npmjs.org", "paths": ["/@earendil-works/pi-coding-agent", "/@earendil-works%2fpi-coding-agent", "/@earendil-works%2Fpi-coding-agent"] }
     ],
-    "excluded": []
+    "excluded": [],
+    "vendor": [
+      { "host": "pi.dev", "reason": "pi's own site — called at start-up (not identified)" }
+    ]
   },
   "status": "osc7501",
   "prompt": { "kind": "skill", "dir": "~/.pi/agent/skills/dozer", "launcher_arg": ["--append-system-prompt"] },

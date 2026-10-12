@@ -92,6 +92,7 @@ public enum AgentPermissions {
         let recipes = AgentRecipes.all.filter { !$0.isBuiltin }
         a.insert(contentsOf: recipes.compactMap(modelPermission), at: 2)
         a += recipes.compactMap(updatePermission)
+        a += AgentRecipes.all.compactMap(vendorPermission)
         cache = (g, a)
         return a
     }
@@ -114,6 +115,15 @@ public enum AgentPermissions {
         guard !r.isBuiltin, !r.network.update.isEmpty else { return nil }
         return AgentPermission(id: "update:" + r.id, title: "Update \(r.title)", summary: "Get new versions of \(r.title).", phrase: "update yourself",
                                hosts: r.network.update.map { PermissionHost($0.host, pathPrefixes: $0.conditions, reason: $0.reason) }, locked: false, hidden: true)
+    }
+
+    /// 617 (owner: a fresh try shows no refusal): what an agent calls on its own vendor's sites at a normal start —
+    /// every agent's, the built-in three's too; hidden, added at create (`agentPermissions`), always on in its sandbox.
+    static func vendorPermission(_ r: AgentRecipe) -> AgentPermission? {
+        guard let v = r.network.vendor, !v.isEmpty else { return nil }
+        return AgentPermission(id: "vendor:" + r.id, title: "\(r.title)'s own sites", summary: "What \(r.title) reads from its maker when it starts.",
+                               phrase: "read what your maker publishes for you at start-up",
+                               hosts: v.map { PermissionHost($0.host, pathPrefixes: $0.conditions, reason: $0.reason) }, locked: false, hidden: true)
     }
 
     /// The table before 617 — what every recipe is checked against (an excluded host is in none of these).
@@ -187,13 +197,17 @@ public enum AgentPermissions {
     /// 599i: the permissions an agent always has (Codex: "Talk to OpenAI"); none for Claude Code and pi. 617: a recipe
     /// agent's own model permission, and its hidden `update:<id>` when it has update hosts.
     public static func agentPermissions(_ agent: AgentKind?) -> [String] {
-        if agent == .codex { return [openAIModel] }
-        guard let r = agent?.recipe, !r.isBuiltin else { return [] }
+        let vendor = agent?.recipe.flatMap { ($0.network.vendor ?? []).isEmpty ? nil : ["vendor:" + $0.id] } ?? []
+        if agent == .codex { return [openAIModel] + vendor }
+        guard let r = agent?.recipe, !r.isBuiltin else { return vendor }
         var out: [String] = []
         if r.network.model.shared != true { out.append(r.network.model.id) }
         if !r.network.update.isEmpty { out.append("update:" + r.id) }
-        return out
+        return out + vendor
     }
+
+    /// 617: an agent's own vendor sites (`vendor:<id>`).
+    public static func isAgentVendor(_ id: String) -> Bool { id.hasPrefix("vendor:") }
 
     /// 599i: whether `id` is an agent's own model permission (shown only where it is on).
     public static func isAgentModel(_ id: String) -> Bool { agentModelPermissions.contains(id) }
@@ -202,7 +216,7 @@ public enum AgentPermissions {
     public static func isAgentUpdate(_ id: String) -> Bool { id.hasPrefix("update:") }
 
     /// 617: a permission only an agent has (its model, its update hosts): never in a preset, never inferred or suggested.
-    public static func isAgentOwn(_ id: String) -> Bool { isAgentModel(id) || isAgentUpdate(id) }
+    public static func isAgentOwn(_ id: String) -> Bool { isAgentModel(id) || isAgentUpdate(id) || isAgentVendor(id) }
 
     /// 617 (D5): whether `names` carry a recipe agent's own model (then Anthropic's `model` is not theirs).
     public static func hasOwnModel(_ names: [String]) -> Bool { !recipeModelPermissions.isDisjoint(with: names) }

@@ -18,10 +18,13 @@ perm github:push locked=false hosts=
 perm error-reports locked=false hosts=http-intake.logs.us5.datadoghq.com browser-intake-us5-datadoghq.com
 perm web locked=false hosts=*
 perm update:gemini locked=false hosts=registry.npmjs.org[/@google/gemini-cli,/@google%2fgemini-cli,/@google%2Fgemini-cli]
-agentPermissions claude-code []
-agentPermissions pi []
+perm vendor:claude-code locked=false hosts=downloads.claude.ai[/model-catalog/] downloads.claude.ai[/claude-code-releases/plugins/] raw.githubusercontent.com[/anthropics/claude-code/refs/heads/main/CHANGELOG.md$]
+perm vendor:pi locked=false hosts=pi.dev
+perm vendor:codex locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml$] github.com[/openai/plugins.git/info/refs$,/openai/plugins.git/git-upload-pack$] files.openai.com
+agentPermissions claude-code ["vendor:claude-code"]
+agentPermissions pi ["vendor:pi"]
 agentPermissions none []
-agentPermissions codex ["model:openai"]
+agentPermissions codex ["model:openai", "vendor:codex"]
 agentPermissions gemini ["model:google", "update:gemini"]
 agentPermissions grok ["model:xai"]
 agentPermissions nil []

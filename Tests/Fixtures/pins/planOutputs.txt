@@ -110,6 +110,9 @@ yaml note: a site is not a project key — after doz up: doz net allow g1 site:a
 command: doz create c1 --agent codex --base python --isolated --cpus 4 --memory 4G --network locked --github read --tmux
 name: c1 · image: python-codex (Python · Codex, unprepared) · workspace: isolated · trial: -
 account: none · - · openai · -
+reach model: raw.githubusercontent.com (/openai/codex/main/announcement_tip.toml only) — Codex reads OpenAI's start-up tips (announcement_tip.toml on GitHub) when it starts
+reach model: github.com (/openai/plugins.git/info/refs, /openai/plugins.git/git-upload-pack only) — Codex fetches OpenAI's curated plugins (openai/plugins.git, read only) when it starts
+reach model: files.openai.com — OpenAI's own site — called at start-up (not identified)
 reach model: Talk to its AI model (api.anthropic.com, statsig.anthropic.com)
 reach model: Talk to OpenAI (chatgpt.com, api.openai.com, ab.chatgpt.com)
 reach github: Use GitHub as you (github.com, api.github.com, uploads.github.com +1)
