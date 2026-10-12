@@ -1004,6 +1004,41 @@ public struct WebAccount: Codable, Equatable, Sendable {
     }
 }
 
+/// 617: the plan (the host's `plan` op) as the New sandbox wizard's review will show it — field by field (stage D adds
+/// its route). Never a secret: an account's name, kind and where its key comes from only.
+public struct WebPlan: Codable, Equatable, Sendable {
+    public struct Line: Codable, Equatable, Sendable { public var kind: String; public var text: String }
+    public struct Image: Codable, Equatable, Sendable { public var name: String; public var title: String?; public var state: String }
+    public struct Account: Codable, Equatable, Sendable { public var name: String?; public var kind: String?; public var provider: String?; public var sourceLabel: String? }
+    public struct Problem: Codable, Equatable, Sendable { public var code: String; public var text: String; public var fix: String? }
+
+    public var name: String
+    public var image: Image
+    public var workspace: String?
+    public var trial: Bool?
+    public var command: String
+    public var argv: [String]
+    public var yaml: String
+    public var yamlNote: String?
+    public var reach: [Line]
+    public var account: Account?
+    public var problems: [Problem]
+
+    public init(_ p: CreatePlan) {
+        name = p.name
+        image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
+        workspace = p.workspace
+        trial = p.trial
+        command = p.command
+        argv = p.argv
+        yaml = p.yaml
+        yamlNote = p.yamlNote
+        reach = p.reach.map { Line(kind: $0.kind, text: $0.text) }
+        account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
+        problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
+    }
+}
+
 public struct WebAccounts: Codable, Equatable, Sendable {
     public var accounts: [WebAccount]
     public var defaultAccount: String

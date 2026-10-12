@@ -1,0 +1,44 @@
+{
+  "schema": 1,
+  "known": [
+    {
+      "id": "opencode",
+      "title": "OpenCode",
+      "publisher": "SST",
+      "homepage": "https://opencode.ai",
+      "status": "coming",
+      "reason": "a recipe is being checked on linux-arm64 (its install, its keys and the hosts it calls)",
+      "checked": "2026-10-12"
+    },
+    {
+      "id": "qwen-code",
+      "title": "Qwen Code",
+      "publisher": "Alibaba (Qwen)",
+      "aliases": ["qwen"],
+      "homepage": "https://github.com/QwenLM/qwen-code",
+      "status": "coming",
+      "reason": "a recipe is being checked (an OpenAI-compatible key; its own Qwen sign-in is not offered)",
+      "checked": "2026-10-12"
+    },
+    {
+      "id": "cursor-cli",
+      "title": "Cursor CLI",
+      "publisher": "Anysphere",
+      "aliases": ["cursor", "cursor-agent"],
+      "homepage": "https://cursor.com/cli",
+      "status": "coming",
+      "reason": "it signs in with a Cursor account, which Dozer cannot hold on the Mac for it yet",
+      "checked": "2026-10-12"
+    },
+    {
+      "id": "copilot-cli",
+      "title": "GitHub Copilot CLI",
+      "publisher": "GitHub",
+      "aliases": ["copilot"],
+      "homepage": "https://github.com/github/copilot-cli",
+      "status": "coming",
+      "reason": "it signs in with a GitHub account and a Copilot plan; a recipe is being checked",
+      "checked": "2026-10-12"
+    }
+  ]
+}

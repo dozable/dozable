@@ -169,11 +169,20 @@ extension HostCore {
         if case .record(let a) = resolvedAccount(m, accountStore.load()), a.readsOnUse, let o = secretSourceState.outcome(a.name), !o.ok, let n = o.notice {
             return n.prefix(1).uppercased() + n.dropFirst()
         }
+        let main: String?
         switch resolvedAccount(m, accountStore.load()) {
-        case .none: return AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: nil, missing: nil)
-        case .missing(let n): return AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: nil, missing: n)
-        case .record(let a): return AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: a, missing: nil)
+        case .none: main = AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: nil, missing: nil)
+        case .missing(let n): main = AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: nil, missing: n)
+        case .record(let a): main = AgentCredentials.sandboxProblem(image: m.sandbox.spec.imageSpec?.name, account: a, missing: nil)
         }
+        if let main { return main }
+        // 617: a custom key the sandbox cannot use now (its host denied, its source failing, gone) — its notice.
+        if let vault = m.sandbox.egress?.vault {
+            for k in m.config.extraKeys ?? [] where !vault.hasSecret("custom:" + k) {
+                if let n = vault.notice("custom:" + k) { return n.prefix(1).uppercased() + n.dropFirst() }
+            }
+        }
+        return nil
     }
 
     /// The account's name as `ls` shows it (`mac`, `work (default)`…); nil: none.

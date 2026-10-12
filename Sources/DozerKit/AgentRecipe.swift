@@ -351,10 +351,14 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var gateways: [String]?
         /// Plain words: where the sign-in lives, why a method is missing, what phase uses it.
         public var note: String?
+        /// vendor-sign-in without Dozer accounts: the agent's own sign-in works INSIDE a sandbox (its sign-in hosts are
+        /// reachable — none of them excluded). `doz try` offers it (labelled: the sign-in lives in that sandbox) only when
+        /// true; nil/false: shown as not offered, with `note`.
+        public var inSandbox: Bool?
 
         enum CodingKeys: String, CodingKey {
             case kind, provider, checked, account, accounts, gateways, note
-            case keysPage = "keys_page", freeTier = "free_tier", freeTierNote = "free_tier_note"
+            case keysPage = "keys_page", freeTier = "free_tier", freeTierNote = "free_tier_note", inSandbox = "in_sandbox"
         }
     }
 

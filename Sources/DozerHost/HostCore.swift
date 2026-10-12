@@ -436,6 +436,8 @@ public actor HostCore {
                            foreignCredentials: egress.map { $0.vault.foreignSightings.count }.flatMap { $0 == 0 ? nil : $0 })
         i.agent = m.sandbox.spec.imageSpec?.name
         i.credentialProblem = credentialProblem(m)
+        i.trial = m.config.trial
+        i.extraKeys = m.config.extraKeys
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
         i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
         i.workspaceView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
@@ -684,6 +686,9 @@ public actor HostCore {
             return try await point(r, emit: emit)
         case .imageList:
             return try JSONValue(encoding: images())
+        case .plan:
+            guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
+            return try JSONValue(encoding: plan(p))
         case .bases:
             let s = store
             let check = preparedCheck
@@ -910,6 +915,7 @@ public actor HostCore {
             var seen = Set<String>()
             cfg.extraKeys = keys.filter { seen.insert($0).inserted }
         }
+        if o.trial == true { cfg.trial = true }        // 617 (D14)
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
         var createDetail = ["network": cfg.networkName]
@@ -1869,6 +1875,8 @@ public actor HostCore {
         cfg.credentialSources = [:]
         cfg.diedWithHostAt = nil
         cfg.placeholderHashes = nil
+        cfg.trial = nil                 // 617: a duplicate is kept on purpose — never a try; its custom keys (extraKeys) come along
+        if spec.network.policy == nil { cfg.extraKeys = nil }
         if spec.network.policy != nil {
             switch o.account {
             case nil: if cfg.account == nil, m.config.spec.network.policy == nil { cfg.account = "default" }

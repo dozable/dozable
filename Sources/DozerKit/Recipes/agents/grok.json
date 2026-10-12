@@ -90,6 +90,7 @@
         "kind": "vendor-sign-in",
         "account": "an x.ai or X account",
         "note": "Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozer does not offer it yet.",
+        "in_sandbox": false,
         "checked": "2026-10-12"
       }
     ]

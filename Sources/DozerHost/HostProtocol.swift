@@ -130,12 +130,15 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// (`sessions.json`); an agent's default session continues its conversation unless `fresh`
     /// (`SessionRestarted`). Serialised with open-session.
     case sessionRestart = "session-restart"
+    /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
+    /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
+    case plan
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -184,6 +187,8 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var audio: Bool?
     /// 617 (D6): custom key accounts to attach (`--key NAME`, repeatable); each host must be allowed.
     public var keys: [String]?
+    /// 617 (D14): made by `doz try` — marked as a try (`doz ls` says so).
+    public var trial: Bool?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
@@ -279,6 +284,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var custom: CustomKey?
     public var extra: Bool?
     public var removeExtra: Bool?
+    /// 617: `plan` — what was chosen.
+    public var planRequest: PlanRequest?
     public var plan: String?
     public var configDir: String?
     public var keychainService: String?
@@ -569,6 +576,10 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var sessionStatuses: [SessionStatus]? = nil
     public var agentStatus: SessionStatus? = nil
     public var agentWorking: Bool? = nil
+    /// 617 (D14): made by `doz try`.
+    public var trial: Bool? = nil
+    /// 617 (D6): the custom keys attached beside the account.
+    public var extraKeys: [String]? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {

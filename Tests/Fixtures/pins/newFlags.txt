@@ -3,6 +3,6 @@ new --image codex → image=codex name=nil isolated=false detach=false
 new --name mine → image=nil name=mine isolated=false detach=false
 new --image python-pi --name p --isolated -d → image=python-pi name=p isolated=true detach=true
 new --detach → image=nil name=nil isolated=false detach=true
-new mine → refused today
-new --agent codex → refused today
-new --allow web → refused today
+new mine → ok
+new --agent codex → ok
+new --allow web → ok

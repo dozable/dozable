@@ -1,0 +1,383 @@
+import Foundation
+import DozerKit
+
+// 617 (616.03 §6 step 2b, D13, D14) — ONE plan for every way a sandbox is made: `doz new`, `create`, `up`, `try` (and
+// the wizard's review, stage D). The host's read-only op `plan` (answered in-process when no host runs) turns what a
+// person chose into what will be made:
+//   · the command that makes it — only what differs from their defaults;
+//   · the `doz_project.yaml` text of the same choices;
+//   · what it can reach, in plain words, from the SAME policy the proxy will judge with (`DozerImages.spec`);
+//   · whether its image is ready; the account and its key's source (never a value); the problems in the way.
+// The planner is pure given its facts (`PlanFacts`), so it is unit-tested without a host.
+
+/// What a person chose. `create.image` empty: not chosen (the defaults decide).
+public struct PlanRequest: Codable, Equatable, Sendable {
+    /// `new` | `create` | `up` | `init` | `try`.
+    public var purpose: String
+    /// A name given on purpose (nil: the defaults name it).
+    public var name: String?
+    public var create: CreateOptions
+
+    public init(purpose: String, name: String? = nil, create: CreateOptions) {
+        self.purpose = purpose
+        self.name = name
+        self.create = create
+    }
+
+    public static let purposes = ["new", "create", "up", "init", "try"]
+}
+
+/// One line of "what it can reach" — `kind` lets a page style it.
+public struct ReachLine: Codable, Equatable, Sendable {
+    /// `model` | `packages` | `github` | `web` | `folder` | `key` | `excluded` | `denied` | `other`.
+    public var kind: String
+    public var text: String
+    public init(_ kind: String, _ text: String) { self.kind = kind; self.text = text }
+}
+
+public struct PlanImage: Codable, Equatable, Sendable {
+    public var name: String
+    /// "Debian · Grok Build".
+    public var title: String?
+    /// `prepared` (ready now) | `older` (prepared by an older recipe — used as it is) | `unprepared` (prepared on first use).
+    public var state: String
+}
+
+public struct PlanAccount: Codable, Equatable, Sendable {
+    /// nil: none.
+    public var name: String?
+    public var kind: String?
+    public var provider: String?
+    /// Where its key comes from ("1Password: op://…", "keychain") — never a value.
+    public var sourceLabel: String?
+}
+
+public struct PlanProblem: Codable, Equatable, Sendable {
+    /// `key` | `key-host` | `image` | `name` | `invalid`.
+    public var code: String
+    public var text: String
+    /// The command (or flag) that fixes it.
+    public var fix: String?
+}
+
+/// The plan (fields only ever added).
+public struct CreatePlan: Codable, Equatable, Sendable {
+    public var purpose: String
+    public var name: String
+    public var image: String
+    /// The Mac folder at /workspace; nil: isolated.
+    public var workspace: String?
+    public var trial: Bool?
+    /// `doz try grok --base alpine` — only what differs from the defaults.
+    public var command: String
+    public var argv: [String]
+    /// The same choices as `doz_project.yaml` (with `yamlNote` when the file would differ: isolated, sites).
+    public var yaml: String
+    public var yamlNote: String?
+    public var reach: [ReachLine]
+    public var imageState: PlanImage
+    public var account: PlanAccount?
+    public var problems: [PlanProblem]
+    /// What the create will send.
+    public var create: CreateOptions
+}
+
+/// What the planner reads (the host fills it; tests make it).
+public struct PlanFacts: Sendable {
+    public var settings: DozerSettings
+    public var accounts: AccountsFile
+    /// The store's sandbox names.
+    public var taken: Set<String>
+    public var images: [ImageRow]
+    /// account name → its source's label, for accounts that read their key on use.
+    public var sourceLabels: [String: String]
+    public var store: DozerStore
+    /// The OpenAI default that applies (the Mac's Codex login when signed in), and whether the Mac's Codex is signed in.
+    public var openaiDefault: String?
+    public var codexMac: Bool
+    /// `defaults.projects_dir`, expanded; nil: from the settings.
+    public var projectsDir: String?
+
+    public init(settings: DozerSettings, accounts: AccountsFile, taken: Set<String>, images: [ImageRow], sourceLabels: [String: String] = [:],
+                store: DozerStore, openaiDefault: String? = nil, codexMac: Bool = false, projectsDir: String? = nil) {
+        self.settings = settings
+        self.accounts = accounts
+        self.taken = taken
+        self.images = images
+        self.sourceLabels = sourceLabels
+        self.store = store
+        self.openaiDefault = openaiDefault
+        self.codexMac = codexMac
+        self.projectsDir = projectsDir
+    }
+}
+
+public enum CreatePlanner {
+    /// The image a request gets: the chosen one, else `defaults.image` (lab when none).
+    public static func image(_ r: PlanRequest, settings: DozerSettings) -> String {
+        r.create.image.isEmpty ? (settings.string(SettingKey.defaultImage) ?? "lab") : r.create.image
+    }
+
+    /// The name a try gets: `try-<agent>`, then `-2`, `-3` …
+    public static func tryName(agent: AgentKind, taken: Set<String>) -> String {
+        let base = "try-" + (agent.recipe?.shortName ?? agent.rawValue)
+        if !taken.contains(base) { return base }
+        var i = 2
+        while taken.contains("\(base)-\(i)") { i += 1 }
+        return "\(base)-\(i)"
+    }
+
+    public static func plan(_ r: PlanRequest, facts f: PlanFacts) -> CreatePlan {
+        var problems: [PlanProblem] = []
+        var o = r.create
+        let image = Self.image(r, settings: f.settings)
+        o.image = image
+        let choice = ImageChoice.parse(image)
+        let isTry = r.purpose == "try"
+        let projects = f.projectsDir ?? (Workspace.defaultPath(name: "x", settings: f.settings) as NSString).deletingLastPathComponent
+
+        // D14: a try's defaults — isolated, Locked + its own model, marked as a try.
+        if isTry {
+            if o.workspace == nil { o.isolated = true }
+            if o.network == nil { o.network = "locked" }
+            o.trial = true
+            if choice?.agent == nil || choice?.agent == AgentKind.none {
+                problems.append(PlanProblem(code: "invalid", text: "a try is of an agent — doz search lists them", fix: "doz try AGENT"))
+            }
+        }
+
+        // The name.
+        let name: String
+        if let n = r.name {
+            name = n
+            if !WebNameCheck.isSandboxName(n) {
+                problems.append(PlanProblem(code: "name", text: "the name: 1–40 of a-z 0-9 - (not starting with -) — not \(n)", fix: nil))
+            } else if f.taken.contains(n), r.purpose != "up" {
+                problems.append(PlanProblem(code: "name", text: "sandbox \(n) already exists", fix: "doz up \(n) attaches to it"))
+            }
+        } else if isTry, let a = choice?.agent {
+            name = tryName(agent: a, taken: f.taken)
+        } else {
+            name = Workspace.suggestedName(image: image, taken: f.taken, projects: r.purpose == "new" ? projects : nil)
+        }
+
+        // The workspace: `doz new` makes `<projects_dir>/<name>` unless isolated or given.
+        if r.purpose == "new", o.workspace == nil, o.isolated != true {
+            o.workspace = (projects as NSString).appendingPathComponent(name)
+        }
+        let isolated = o.workspace == nil
+
+        // The policy the proxy will judge with — the create's own function, without the folder (it may not exist yet).
+        var specOptions = o
+        specOptions.workspace = nil
+        var policy: NetworkPolicy?
+        var networkMode: NetworkMode?
+        do {
+            let (spec, _) = try DozerImages.spec(name: WebNameCheck.isSandboxName(name) ? name : "plan", options: specOptions, store: f.store)
+            networkMode = spec.network
+            policy = spec.network.policy
+        } catch {
+            problems.append(PlanProblem(code: "invalid", text: (error as? HostError)?.message ?? "\(error)", fix: nil))
+        }
+        if let c = choice, c.agent != .none, let r = c.agent.recipe, BaseCatalogue.base(c.base)?.musl == true, !r.platforms.musl {
+            problems.append(PlanProblem(code: "invalid", text: r.muslRefusal, fix: "--base \(r.defaultBase)"))
+        }
+
+        // The account and its key.
+        var kinds: [String: AccountKind] = ["mac": .mac]
+        var providers: [String: String] = [:]
+        for a in f.accounts.accounts {
+            kinds[a.name] = a.kind
+            if let p = a.provider { providers[a.name] = p }
+        }
+        var account: PlanAccount?
+        if policy != nil, AgentCredentials.kinds(image) != nil {
+            if let p = AgentCredentials.createProblem(image: image, account: o.account, defaultAccount: f.accounts.defaultAccount, kinds: kinds,
+                                                      openaiDefault: f.openaiDefault, codexMac: f.codexMac,
+                                                      providers: providers, providerDefaults: f.accounts.providerDefaults ?? [:]) {
+                problems.append(PlanProblem(code: "key", text: p, fix: AgentCredentials.addCommand(image)))
+            }
+            let requested = o.account ?? "default"
+            let resolved = requested == "default"
+                ? AgentCredentials.defaultAccount(for: image, anthropic: f.accounts.defaultAccount, openai: f.openaiDefault,
+                                                  providers: f.accounts.providerDefaults ?? [:])
+                : requested
+            if resolved != "none" {
+                let rec = f.accounts.accounts.first { $0.name == resolved }
+                account = PlanAccount(name: resolved, kind: rec?.kind.rawValue ?? (resolved == "mac" ? (AgentCredentials.provider(image) == "openai" ? "codex-mac" : "mac") : nil),
+                                      provider: rec?.providerID ?? AgentCredentials.provider(image),
+                                      sourceLabel: f.sourceLabels[resolved] ?? rec?.keychainService.map { _ in "keychain" })
+            } else {
+                account = PlanAccount(name: nil, kind: nil, provider: AgentCredentials.provider(image), sourceLabel: nil)
+            }
+        }
+
+        // Custom keys: each must exist and each of its hosts be allowed.
+        for k in o.keys ?? [] {
+            guard let c = f.accounts.accounts.first(where: { $0.name == k })?.custom else {
+                problems.append(PlanProblem(code: "key-host", text: "no custom key \(k)", fix: "doz account add \(k) --custom --host HOST --env-var VAR"))
+                continue
+            }
+            if let p = policy {
+                let refused = c.hosts.filter { p.evaluateConnection(host: $0, port: 443).kind == .deny }
+                if !refused.isEmpty {
+                    problems.append(PlanProblem(code: "key-host", text: "the custom key \(k) goes to \(refused.joined(separator: ", ")), which this sandbox may not reach",
+                                                fix: refused.map { "--allow site:\($0)" }.joined(separator: " ")))
+                }
+            } else {
+                problems.append(PlanProblem(code: "key-host", text: "a custom key needs a proxied network", fix: nil))
+            }
+        }
+
+        // The image's readiness.
+        let row = f.images.first { $0.name == image }
+        let state = row?.baked != true ? "unprepared" : (row?.olderRecipe == nil && row?.current != false ? "prepared" : "older")
+        let imageState = PlanImage(name: image, title: choice?.title, state: state)
+
+        let reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts)
+        let argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
+        let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
+        return CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
+                          argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
+                          problems: problems, create: o)
+    }
+
+    // MARK: the command
+
+    /// `doz <purpose> [NAME] --flag …`: only what differs from the defaults (a try: from the try's own).
+    static func argv(purpose: String, name: String?, options o: CreateOptions, given: CreateOptions, choice: ImageChoice?, settings: DozerSettings) -> [String] {
+        var a = ["doz", purpose]
+        let isTry = purpose == "try"
+        if isTry {
+            a.append(choice?.agent.rawValue ?? o.image)
+            if let c = choice, let r = c.agent.recipe, c.base != r.defaultBase, o.dockerfile == nil { a += ["--base", c.base] }
+        } else {
+            if let n = name { a.append(n) }
+            let defaultImage = settings.string(SettingKey.defaultImage) ?? "lab"
+            if o.dockerfile != nil {
+                if let c = choice { a += ["--agent", c.agent.rawValue] }
+            } else if purpose != "new" || o.image != defaultImage {
+                if let c = choice, c.name == o.image, o.image != "lab", c.agent != .none || BaseCatalogue.base(o.image) == nil {
+                    a += ["--agent", c.agent.rawValue]
+                    if c.base != (c.agent.recipe?.defaultBase ?? "node") { a += ["--base", c.base] }
+                } else if let c = choice, c.agent == .none, c.name == o.image, o.image != "lab" {
+                    a += ["--agent", "none", "--base", c.base]
+                } else {
+                    a += ["--image", o.image]
+                }
+            }
+        }
+        if let d = o.dockerfile { a += ["--dockerfile", d] }
+        // The folder: as given (`doz new`'s own `<projects_dir>/<name>` and a try's isolation are defaults).
+        if let w = given.workspace { a += ["--workspace", w] }
+        if given.isolated == true, !isTry { a.append("--isolated") }
+        if let c = o.cpus { a += ["--cpus", String(c)] }
+        if let m = o.memoryMiB { a += ["--memory", m % 1024 == 0 ? "\(m / 1024)G" : "\(m)M"] }
+        if let n = o.network, !(isTry && n == "locked") { a += ["--network", n] }
+        if let s = o.subnet { a += ["--subnet", s] }
+        let (words, github) = splitGitHub(o.allow ?? [])
+        if !words.isEmpty { a += ["--permissions", words.joined(separator: ",")] }
+        if let g = github { a += ["--github", g] }
+        if let acc = o.account { a += ["--account", acc] }
+        for k in o.keys ?? [] { a += ["--key", k] }
+        if let s = o.agentSudo { a.append(s ? "--agent-sudo" : "--no-agent-sudo") }
+        for (key, flag) in settingFlags {
+            guard let v = o.settings?[key] else { continue }
+            if key == SettingKey.tmux { a.append(v == .bool(true) ? "--tmux" : "--no-tmux") } else { a += [flag, v.plain] }
+        }
+        return a
+    }
+
+    /// The per-sandbox settings' flags, in the file's order.
+    static let settingFlags: [(String, String)] = [
+        (SettingKey.clipboard, "--clipboard"), (SettingKey.browserBridge, "--browser-bridge"), (SettingKey.openFiles, "--open-files"),
+        (SettingKey.sshAgent, "--ssh-agent"), (SettingKey.tmux, "--tmux"), (SettingKey.ignoreMode, "--ignore-mode"),
+        (SettingKey.workspaceView, "--workspace-view"),
+    ]
+
+    /// The permission words without GitHub's two, and those two as `--github`'s word (nil: not given).
+    static func splitGitHub(_ allow: [String]) -> (words: [String], github: String?) {
+        let asYou = AgentPermissions.gitHubAsYou, push = AgentPermissions.gitHubPush
+        let gh = allow.filter { [asYou, push].contains($0.hasPrefix("+") || $0.hasPrefix("-") ? String($0.dropFirst()) : $0) }
+        let words = allow.filter { !gh.contains($0) }
+        guard !gh.isEmpty else { return (words, nil) }
+        let on = Set(gh.filter { !$0.hasPrefix("-") }.map { $0.hasPrefix("+") ? String($0.dropFirst()) : $0 })
+        return (words, on.contains(push) ? "push" : on.contains(asYou) ? "read" : "off")
+    }
+
+    static func shellLine(_ argv: [String]) -> String {
+        argv.map { $0.range(of: #"^[A-Za-z0-9._/:=,@+-]+$"#, options: .regularExpression) != nil ? $0 : "'" + $0.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+            .joined(separator: " ")
+    }
+
+    // MARK: doz_project.yaml
+
+    static func yaml(name: String, options o: CreateOptions, choice: ImageChoice?, isolated: Bool) -> (String, String?) {
+        var p = DozerProject(name: WebNameCheck.isSandboxName(name) ? name : "sandbox", image: o.image)
+        if let d = o.dockerfile { p.agent = choice?.agent.rawValue; p.dockerfile = d }
+        p.cpus = o.cpus
+        p.memoryMiB = o.memoryMiB
+        p.network = o.network
+        p.account = o.account
+        p.agentSudo = o.agentSudo
+        p.agentPrompt = o.agentPrompt
+        p.agentPromptMode = o.agentPromptMode
+        p.settings = o.settings ?? [:]
+        p.keys = o.keys
+        let (words, github) = splitGitHub(o.allow ?? [])
+        p.github = github
+        let sites = words.filter { $0.hasPrefix("site:") }
+        var perms = words.filter { !$0.hasPrefix("site:") }
+        if perms.first == "standard", perms.count > 1 { perms.removeFirst() }
+        if !perms.isEmpty, SettingType.permissionWords(perms.joined(separator: ",")) != nil { p.permissions = perms }
+        var notes: [String] = []
+        if isolated { notes.append("in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)") }
+        if !sites.isEmpty {
+            notes.append("a site is not a project key — after doz up: " + sites.map { "doz net allow \(p.name) \($0)" }.joined(separator: "; "))
+        }
+        return (p.render(), notes.isEmpty ? nil : notes.joined(separator: " · "))
+    }
+
+    // MARK: what it can reach
+
+    static func reach(_ mode: NetworkMode?, policy: NetworkPolicy?, workspace: String?, account: PlanAccount?, keys: [String],
+                      accounts: AccountsFile) -> [ReachLine] {
+        var out: [ReachLine] = []
+        switch mode {
+        case .nat?: out.append(ReachLine("web", "A real network interface: every host, unfiltered and unlogged (nat)"))
+        case .none?: out.append(ReachLine("denied", "No network at all"))
+        case .proxied?, nil: break
+        }
+        if let p = policy {
+            let (names, own) = PermissionPolicy.inferred(p)
+            for perm in AgentPermissions.all where names.contains(perm.id) && perm.hidden != true {
+                let kind = perm.id.hasPrefix("model") ? "model" : perm.id.hasPrefix("install") ? "packages"
+                    : perm.id.hasPrefix("github") ? "github" : perm.id == "web" ? "web" : "other"
+                let hosts = perm.hosts.map(\.host)
+                let paths = perm.hosts.reduce(0) { $0 + ($1.pathPrefixes?.count ?? 0) }
+                var where_ = hosts.prefix(3).joined(separator: ", ") + (hosts.count > 3 ? " +\(hosts.count - 3)" : "")
+                if paths > 0 { where_ += ", \(paths) API path\(paths == 1 ? "" : "s")" }
+                out.append(ReachLine(kind, hosts.isEmpty ? perm.title : "\(perm.title) (\(where_))"))
+            }
+            if !names.contains(where: { $0.hasPrefix("install") }) { out.append(ReachLine("packages", "No package installs\(p.preset == "locked" ? " (Locked)" : "")")) }
+            for r in own where r.action == .allow && !r.hasHTTPConditions { out.append(ReachLine("web", "A site you allowed: \(r.host)")) }
+            let excluded = AgentPermissions.excludedHosts(names)
+            if !excluded.isEmpty { out.append(ReachLine("excluded", "Kept out whatever you choose: " + excluded.joined(separator: ", "))) }
+            if !names.contains("web") { out.append(ReachLine("denied", "Every other host: refused and logged")) }
+        }
+        out.append(ReachLine("folder", workspace.map { "Your folder \($0) at /workspace" } ?? "No folder of this Mac (isolated)"))
+        if let a = account {
+            if let n = a.name {
+                out.append(ReachLine("key", "Key: \(n)" + (a.sourceLabel.map { " from \($0)" } ?? "") + " — the sandbox gets a placeholder, the key stays on this Mac"))
+            } else if a.provider != nil {
+                out.append(ReachLine("key", "No key yet"))
+            }
+        }
+        for k in keys {
+            if let c = accounts.accounts.first(where: { $0.name == k })?.custom {
+                out.append(ReachLine("key", "Custom key \(k): only to \(c.hosts.joined(separator: ", ")), as a placeholder"))
+            }
+        }
+        return out
+    }
+}

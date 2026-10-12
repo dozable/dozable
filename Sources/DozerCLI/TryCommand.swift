@@ -1,0 +1,228 @@
+import ArgumentParser
+import Darwin
+import Foundation
+import DozerKit
+import DozerHost
+
+// 617 (D14, 616.07, the owner's "try = a hybrid") — `doz try THING`: from nothing to talking to an agent in one
+// command. It is `doz new` with Quick-try defaults through the SAME choice options and planner (no second code path):
+// isolated, Locked + the agent's own model, the agent's default base, the provider's default key, named try-<agent>
+// and marked as a try. With no key: the "What you need" card (from the recipe's auth) — while the image prepares at
+// once in the background. Attached; on the way out: "Keep this try? [S]leep / [d]elete / [k]eep running".
+
+struct TryCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "try",
+        abstract: "Try an agent now: a throwaway sandbox with safe defaults — made, started and attached in one command.",
+        discussion: """
+        doz try grok · doz try gemini --base python · doz try (a numbered list of the agents, with your keys). \
+        A try shares no folder of this Mac, reaches only its own model (Locked; --permissions standard opens package \
+        installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
+        named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
+        running; --rm and --keep answer before. Off a terminal it does not attach and asks nothing: it makes and starts \
+        the try, keeps it, and prints how to attach. Every choice option of doz new works here.
+        """)
+
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The agent: an id or an alias (doz search lists them). None: a numbered list to pick from.") var thing: String?
+    @OptionGroup var choices: ChoiceOptions
+    @Flag(name: .long, help: "Delete the try when you leave it, without asking.") var rm = false
+    @Flag(name: .long, help: "Keep the try running when you leave it, without asking.") var keep = false
+    @Flag(name: [.short, .customLong("detach")], help: "Make and start it, but do not attach (it is kept).") var detach = false
+    @Flag(name: .long, help: "Make nothing: print the plan — the command, its doz_project.yaml, what it can reach (--json: as data).")
+    var dryRun = false
+
+    func validate() throws {
+        if rm && keep { throw ValidationError("--rm or --keep, not both") }
+        if choices.image != nil { throw ValidationError("a try runs its agent's own image — --base BASE picks another base") }
+    }
+
+    /// Ask the questions and attach: a terminal on both ends, and neither --json nor -d.
+    var interactive: Bool { !g.json && !detach && isatty(STDIN_FILENO) == 1 && isatty(STDOUT_FILENO) == 1 }
+
+    func run() async throws {
+        // Which agent.
+        let given = thing ?? choices.agent
+        if let t = thing, let a = choices.agent, AgentRecipes.matching(t)?.id != AgentRecipes.matching(a)?.id {
+            throw fail(HostError(.invalid, "\(t) or --agent \(a) — not both"), g)
+        }
+        let recipe: AgentRecipe
+        if let t = given {
+            recipe = try resolve(t)
+        } else {
+            recipe = try await pickFromList()
+        }
+        var c = choices
+        c.agent = recipe.id
+        let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices()), g)
+        if dryRun { printPlan(planned, g); return }
+        if let p = planned.problems.first(where: { $0.code != "key" }) {
+            throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)
+        }
+        var o = planned.create
+        // The image prepares NOW, in the host, while the key is dealt with (joined by the start below).
+        if planned.imageState.state == "unprepared" {
+            var prep = HostRequest(.prepare)
+            prep.images = [planned.image]
+            prep.follow = false
+            prep.requestedBy = "doz try"
+            if (try? rawCall(prep, g))?.ok == true, !g.json, !g.quiet {
+                Out.stderr("[doz] preparing the \(planned.imageState.title ?? planned.image) image now (once) — it goes on while you set up the key\n")
+            }
+        }
+        // The key: the plan's account, else the card (a terminal), else the problem and how to fix it.
+        if let p = planned.problems.first(where: { $0.code == "key" }) {
+            guard interactive else { throw fail(HostError(.invalid, p.text), g) }
+            if recipe.isBuiltin {
+                try preflightAgentAccount(&o, g)
+            } else {
+                o.account = try whatYouNeed(recipe)
+            }
+        }
+        // Make it, start it, open its session.
+        if !g.json { Out.stdout("\(planned.name) · \(planned.imageState.title ?? planned.image) · isolated · a try\n") }
+        var r = HostRequest(.create, name: planned.name)
+        r.create = o
+        _ = try decode(try call(r, g), SandboxInfo.self, g)
+        let started = try decode(try call(HostRequest(.start, name: planned.name), g), LifecycleResult.self, g)
+        var open = HostRequest(.openSession, name: planned.name)
+        let size = terminalSize()
+        open.cols = size.cols
+        open.rows = size.rows
+        let opened = try decode(try call(open, g), SessionOpened.self, g)
+        if !g.json, let n = opened.notice { Out.stderr("[doz] \(n)\n") }
+        let attachLine = reattachCommand(sandbox: planned.name, session: opened.session, defaultSession: opened.defaultSession)
+        guard interactive else {
+            if g.json {
+                Out.json(["name": .string(planned.name), "image": .string(planned.image), "phase": .string(started.phase), "session": .string(opened.session),
+                          "trial": .bool(true), "attach": .string(attachLine)] as [String: JSONValue])
+            } else {
+                Out.stdout("\(planned.name) is \(Out.phaseLabel(started.phase)) and kept — \(attachLine) · doz rm \(planned.name) when you are done\n")
+            }
+            return
+        }
+        let key = try parseDetachKey("ctrl-]")
+        if !g.quiet {
+            Out.stderr("[doz] \(planned.name) started — attaching to \(opened.session)\(key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "")\n")
+        }
+        let end = AttachClient.attach(store: g.dozerStore, sandbox: planned.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
+        try finish(planned.name, end: end)
+    }
+
+    /// "Keep this try?" — or what --rm / --keep said.
+    func finish(_ name: String, end: AttachEnd) throws {
+        let asker = Asker(yes: false, json: g.json)
+        var choice = TryExitChoice.decided(rm: rm, keep: keep, interactive: asker.interactive)
+        while choice == nil {
+            choice = TryExitChoice.parse(asker.text(TryExitChoice.question, default: "S"))
+        }
+        switch choice! {
+        case .sleep: _ = try lifecycle(.sleep, name, g)
+        case .delete: _ = try lifecycle(.rm, name, g)
+        case .keep: Out.stdout("\(name) keeps running — doz attach \(name) · doz rm \(name) when you are done\n")
+        }
+        if case .ended(let c) = end, c != 0 { throw ExitCode(c) }
+    }
+
+    /// THING → a recipe; a known-but-unsupported thing → its sentence (exit 6); nothing → did you mean (exit 2).
+    func resolve(_ t: String) throws -> AgentRecipe {
+        if t.contains("@") { throw fail(HostError(.notImplemented, "a model (THING@MODEL) comes in a later version — doz try \(t.split(separator: "@").first ?? "") for now"), g) }
+        if let r = AgentRecipes.matching(t) { return r }
+        let index = DirectoryIndex.build(version: DozerCommand.version)
+        let found = DirectorySearch.search(SearchQuery.parse([t]), in: index)
+        if let h = found.hits.first(where: { $0.entry.kind == "agent" }) {
+            if h.outcome == "supported", let r = AgentRecipes.recipe(h.entry.id) { return r }
+            Out.stderr("[doz] \(searchLine(h, local: nil, base: nil))\n")
+            throw ExitCode(DozerExit.unavailable)
+        }
+        let hint = found.suggestion ?? DirectorySearch.suggest(t.lowercased(), in: index)
+        Out.stderr("[doz] nothing called '\(t)'" + (hint.map { " — did you mean \($0)? (doz try \($0))" } ?? " — doz search lists the agents") + "\n")
+        throw ExitCode(DozerExit.notFound)
+    }
+
+    /// `doz try` alone: the numbered list (a terminal), else the list and exit 64.
+    func pickFromList() async throws -> AgentRecipe {
+        let index = DirectoryIndex.build(version: DozerCommand.version)
+        let (accounts, images) = await searchLocals(g)
+        let agents = index.entries.filter { $0.kind == "agent" && $0.status == "supported" }
+        let coming = index.entries.filter { $0.kind == "agent" && $0.status != "supported" }
+        if g.json {
+            Out.json(agents.map { SearchHitJSON(entry: $0, outcome: "supported", limit: nil, local: searchLocal($0, accounts: accounts, images: images)) })
+            throw ExitCode(DozerExit.usage)
+        }
+        var s = "Try an agent:\n"
+        for (i, e) in agents.enumerated() {
+            let l = searchLocal(e, accounts: accounts, images: images)
+            let key = l?.haveKey.map { "key: \($0)" + (l?.source.map { " (\($0))" } ?? "") } ?? "no key yet — you'll be asked"
+            let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"
+            s += String(format: "  %2d. %@ — %@ · %@ · %@\n", i + 1, e.title, e.publisher ?? "", key, image)
+        }
+        if !coming.isEmpty { s += "  coming: " + coming.map(\.title).joined(separator: ", ") + "\n" }
+        Out.stdout(s)
+        let asker = Asker(yes: false, json: g.json)
+        guard interactive, asker.interactive else {
+            Out.stderr("[doz] pick one: doz try AGENT (e.g. doz try \(agents.first?.id ?? "grok"))\n")
+            throw ExitCode(DozerExit.usage)
+        }
+        let answer = asker.text("Pick a number or a name", default: "1") { a in
+            if let n = Int(a), (1...agents.count).contains(n) { return nil }
+            return AgentRecipes.matching(a) == nil ? "a number from 1 to \(agents.count), or an agent's name" : nil
+        }
+        if let n = Int(answer) { return try resolve(agents[n - 1].id) }
+        return try resolve(answer)
+    }
+
+    /// "What you need" (no key of the agent's provider yet): the card, a choice, and the account it makes — or `none`
+    /// for a sign-in inside the agent.
+    func whatYouNeed(_ recipe: AgentRecipe) throws -> String {
+        guard let card = TryCard.build(recipe, haveKey: nil), !card.options.isEmpty,
+              let provider = recipe.provider.flatMap({ KeyProviders.provider($0) }) else {
+            throw fail(HostError(.invalid, AgentCredentials.requirement(recipe.id)), g)
+        }
+        Out.stdout("\n" + card.lines.joined(separator: "\n") + "\n\n")
+        let asker = Asker(yes: false, json: false)
+        let pick = asker.text("Choose 1–\(card.options.count)", default: "1") { a in
+            Int(a).map { (1...card.options.count).contains($0) } == true ? nil : "a number from 1 to \(card.options.count)"
+        }
+        let option = card.options[Int(pick)! - 1]
+        if option.kind == "sign-in" {
+            Out.stdout("Then sign in inside \(recipe.title) — the sign-in lives in this sandbox (doz rm deletes it)\n")
+            return "none"
+        }
+        let taken = Set(((try? decode(try rawCall(HostRequest(.accountList), g).result ?? .null, [AccountRow].self, g)) ?? []).map(\.name))
+        let name = asker.text("Account name", default: taken.contains(provider.id) ? "\(provider.id)-2" : provider.id) {
+            (try? AccountStore.validateName($0)) == nil ? "1–40 of a-z 0-9 - (not default or none)" : (taken.contains($0) ? "\($0) exists" : nil)
+        }
+        var add = HostRequest.keyAccountAdd(name: name, provider: provider.id, secret: nil)
+        var secret: String?
+        if option.kind == "paste" {
+            let s = try readSecret("\(provider.title) API key (not echoed): ", g)
+            guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw fail(HostError(.invalid, "nothing pasted"), g) }
+            add.secret = s
+            secret = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        } else {
+            let ref = asker.text("Where is it? op://VAULT/ITEM/FIELD, aws:arn:aws:secretsmanager:…, or a command that prints it", default: "") {
+                $0.isEmpty ? "a reference or a command" : nil
+            }
+            do {
+                if ref.hasPrefix("op://") || ref.hasPrefix("aws:") { add.secretSource = try SecretSource.parse(from: ref) } else {
+                    let src = try SecretSource.parseCommand(ref, resolve: SecretSources.locate)
+                    if case .command(let p, let a) = src {
+                        let shown = ([p] + a).map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
+                        guard asker.yesNo("The key will be read on this Mac by running: \(shown) (no shell; its output is the key). Save it?", default: true) else {
+                            Out.stderr("[doz] nothing saved\n")
+                            throw ExitCode(DozerExit.declined)
+                        }
+                    }
+                    add.secretSource = src
+                }
+            } catch let e as HostError { throw fail(e, g) }
+        }
+        let m = try rawCall(add, g)
+        guard m.ok == true else {
+            let why = (m.error?.message ?? "no reason")
+            throw fail(HostError(.invalid, "could not add \(name): " + (secret.map { why.replacingOccurrences(of: $0, with: "…") } ?? why)), g)
+        }
+        Out.stderr("[doz] account \(name) added (\(provider.title) key) — this try uses it\n")
+        return name
+    }
+}

@@ -1,4 +1,5 @@
 import Foundation
+import DozerKit
 import DozerHost
 
 // 591 settings — the UI's Settings page. GET /api/v1/settings answers every setting (value, default,
@@ -357,8 +358,10 @@ public struct WebOnboardingConfig: Equatable, Sendable {
         guard Set(d.keys).isSuperset(of: ["defaultImage", "account"]), Set(d.keys).isSubset(of: ["defaultImage", "account", "access", "ignoreMode"]) else {
             throw WebAction.Invalid("exactly defaultImage and account (and access, ignoreMode)")
         }
-        guard let i = d["defaultImage"] as? String, ["lab", "claude-code", "pi", "codex"].contains(i) else {
-            throw WebAction.Invalid("defaultImage: lab, claude-code, pi or codex")
+        // 617: every agent this build has a recipe for (its own default image: `grok` is Debian · Grok Build).
+        let images = ["lab"] + AgentKind.allCases.filter { $0 != .none }.map(\.rawValue)
+        guard let i = d["defaultImage"] as? String, images.contains(i) else {
+            throw WebAction.Invalid("defaultImage: " + images.joined(separator: ", "))
         }
         guard let a = d["account"] as? String, Onboarding.Account(rawValue: a) != nil else {
             throw WebAction.Invalid("account: \(Onboarding.Account.allCases.map(\.rawValue).joined(separator: ", "))")

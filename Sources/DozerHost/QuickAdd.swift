@@ -64,10 +64,12 @@ public enum QuickAdd {
     /// standing line when it is prepared but out of date.
     public static func requirement(image: String, network: String?, defaultAccount: String,
                                    accountKinds: [String: AccountKind], outOfDate: String?, openaiDefault: String? = nil,
-                                   codexMac: Bool = false) -> (kind: String, text: String)? {
+                                   codexMac: Bool = false, providers: [String: String] = [:],
+                                   providerDefaults: [String: String] = [:]) -> (kind: String, text: String)? {
         if AgentCredentials.kinds(image) != nil, network != "nat", network != "none",
            let problem = AgentCredentials.createProblem(image: image, account: nil, defaultAccount: defaultAccount, kinds: accountKinds,
-                                                        openaiDefault: openaiDefault, codexMac: codexMac) {
+                                                        openaiDefault: openaiDefault, codexMac: codexMac,
+                                                        providers: providers, providerDefaults: providerDefaults) {
             return ("account", problem)
         }
         if let s = outOfDate {

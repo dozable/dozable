@@ -125,6 +125,8 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 617 (D6): custom key accounts attached beside the account (`--key NAME`), each swapped only on its own hosts,
     /// only while the policy allows them. Absent for every sandbox before 617.
     public var extraKeys: [String]?
+    /// 617 (D14): made by `doz try` (nil for every other sandbox).
+    public var trial: Bool?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

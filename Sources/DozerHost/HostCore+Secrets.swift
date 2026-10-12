@@ -142,6 +142,21 @@ extension HostCore {
         }
     }
 
+    /// 617: the planner's facts from this host (or, with no host, this in-process reader) — then the plan.
+    func plan(_ r: PlanRequest) -> CreatePlan {
+        let settings = DozerSettings.load()
+        let file = accountStore.load()
+        let image = CreatePlanner.image(r, settings: settings)
+        var labels: [String: String] = [:]
+        for a in file.accounts where a.readsOnUse { labels[a.name] = a.source?.label }
+        let openai = AgentCredentials.provider(image) == "openai"
+        let facts = PlanFacts(settings: settings, accounts: file, taken: Set(managed.keys).union(store.sandboxNames()),
+                              images: (try? images()) ?? [], sourceLabels: labels, store: store,
+                              openaiDefault: openai ? effectiveOpenAIDefault(file) : file.openaiDefault,
+                              codexMac: openai && codexMacSignedIn())
+        return CreatePlanner.plan(r, facts: facts)
+    }
+
     /// The source's last read, for `account ls|show` and the banner.
     func sourceRowFields(_ a: AccountRecord) -> (label: String?, state: String?, problem: String?) {
         guard a.readsOnUse, let s = a.source else { return (nil, nil, nil) }

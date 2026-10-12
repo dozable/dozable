@@ -44,7 +44,7 @@ public struct DozerCommand: AsyncParsableCommand {
         """,
         version: version,
         subcommands: [
-            Onboard.self, Init.self, New.self, Create.self, Up.self, Start.self, Pause.self, Resume.self, SleepCommand.self, Hibernate.self, Wake.self,
+            Onboard.self, Init.self, New.self, TryCommand.self, SearchCommand.self, AgentCommand.self, Create.self, Up.self, Start.self, Pause.self, Resume.self, SleepCommand.self, Hibernate.self, Wake.self,
             Shutdown.self, Reset.self, Remove.self,
             List.self, Inspect.self, Sessions.self, Attach.self, Run.self, Exec.self,
             ImageCommand.self, BaseCommand.self, BuilderCommand.self, ResourcesCommand.self, TemplateCommand.self, Duplicate.self, PointCommand.self, NetCommand.self, KeyCommand.self, AccountCommand.self, AccessCommand.self, ToolsCommand.self, IgnoreCommand.self,
@@ -127,6 +127,8 @@ public enum DozerExit {
     public static let declined: Int32 = 5
     public static let unavailable: Int32 = 6
     public static let notImplemented: Int32 = 7
+    /// 617: `doz search` — supported, but not with what was asked (`--base alpine`).
+    public static let limited: Int32 = 8
     public static let usage: Int32 = 64
     /// exec / run / attach: doz itself failed (the program's own codes pass through).
     public static let dozerFailed: Int32 = 125

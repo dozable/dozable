@@ -152,6 +152,8 @@ final class CLIParityPinTests: XCTestCase {
             let n = try XCTUnwrap(try parse(["new"] + l) as? New)
             lines.append("new \(l.joined(separator: " ")) → image=\(n.image ?? "nil") name=\(n.name ?? "nil") isolated=\(n.isolated) detach=\(n.detach)")
         }
+        // 617 stage C (D13): these three became ok deliberately — `doz new` takes the whole set of choice options and a
+        // positional NAME (--name stays as its alias). Nothing else in this file moved.
         for l in [["mine"], ["--agent", "codex"], ["--allow", "web"]] {
             do { _ = try parse(["new"] + l); lines.append("new \(l.joined(separator: " ")) → ok") }
             catch { lines.append("new \(l.joined(separator: " ")) → refused today") }

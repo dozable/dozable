@@ -3,8 +3,12 @@ import Foundation
 import DozerKit
 import DozerHost
 
-/// What `create` and `up` take to make a sandbox.
-struct CreateArguments: ParsableArguments {
+/// 617 (D13): the ONE set of choice options `new`, `create`, `up` and `try` take — named after `doz_project.yaml`'s keys
+/// (`--agent`, `--base`, `--dockerfile`, `--permissions`, `--account`, `--github`, `--key`, …), with the old spellings
+/// kept as aliases (`--image` = agent + base, `--allow` = `--permissions`).
+typealias CreateArguments = ChoiceOptions
+
+struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "lab (Alpine + bash), claude-code, pi, codex, a base × agent image (python-claude-code, go-codex, go, …), or a template (doz image ls). Shorthand for --agent/--base.")
     var image: String?
 
@@ -73,8 +77,9 @@ struct CreateArguments: ParsableArguments {
     @Flag(name: .long, help: "When the image is out of date (an older doz's recipe, or a newer agent release): rebuild it first (~2 min, needs network; existing sandboxes are not affected).")
     var rebuild = false
 
-    // `--allow -error-reports`: the value may start with a dash.
-    @Option(name: .long, parsing: .unconditionalSingleValue, help: "What the agent may do, on top of the default (defaults.permissions): permissions (doz net permissions), -PERMISSION to remove, site:HOST, or standard/locked/open. Comma-separated or repeated.")
+    // `--permissions -error-reports`: the value may start with a dash. `--allow` is the same option (its earlier name).
+    @Option(name: [.customLong("permissions"), .customLong("allow")], parsing: .unconditionalSingleValue,
+            help: "What the agent may do, on top of the default (defaults.permissions): permissions (doz net permissions), -PERMISSION to remove, site:HOST, or standard/locked/open. Comma-separated or repeated. --allow is the same.")
     var allow: [String] = []
 
     @Flag(name: .long, help: "When the image is out of date: use it as it is (the default off a terminal; said as a warning).")
@@ -128,6 +133,16 @@ struct CreateArguments: ParsableArguments {
         guard let img = try chosenImage() ?? image ?? defaultImage else {
             throw ValidationError("--image (or --agent/--base/--dockerfile) is required: lab, claude-code, pi, codex, a base × agent image or a template")
         }
+        return try choices(image: img)
+    }
+
+    /// 617: the choices as `CreateOptions` for the planner — `image` empty when none was chosen (the defaults decide).
+    func planChoices() throws -> CreateOptions { try choices(image: try chosenImage() ?? image ?? "") }
+
+    /// 617: `ChoiceOptions` itself, from argv (a plan's, a probe's) — the round trip's other half.
+    static func from(_ argv: [String]) throws -> ChoiceOptions { try parse(argv) }
+
+    private func choices(image img: String) throws -> CreateOptions {
         var mem: UInt64?
         if let m = memory {
             guard let v = DozerImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
@@ -261,10 +276,13 @@ struct Create: AsyncParsableCommand {
     @Flag(name: .long, help: "Start it too.") var start = false
     @Flag(name: .long, help: "Prepare its image now (download and bake it once, with progress), so its first start does not wait; the sandbox stays off. Ctrl-C stops watching: the preparation goes on.")
     var prepare = false
+    @Flag(name: .long, help: "Make nothing: print the plan — the command, its doz_project.yaml, what it can reach (--json: the plan as data).")
+    var dryRun = false
 
     func run() async throws {
         var r = HostRequest(.create, name: name)
         var o = try create.options()
+        if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "create", name: name, create: o), g), g); return }
         if prepare { o.prepare = true }
         try preflightAgentAccount(&o, g)          // 594: pi needs an API-key account — before anything is made
         // 596 (B7, B9): a Dockerfile base — where it is built, and Apple's tool ready before a start builds it.
@@ -308,35 +326,42 @@ struct New: AsyncParsableCommand {
         """)
 
     @OptionGroup var g: GlobalOptions
-    @Option(name: .long, help: "The image (default: the setting defaults.image).") var image: String?
-    @Option(name: .long, help: "The name (default: the image's — claude-sandbox, claude-sandbox-2, …).") var name: String?
-    @Flag(name: .long, help: "Share no folder: /workspace is private to the sandbox.") var isolated = false
+    @Argument(help: "The name (default: the image's — claude-sandbox, claude-sandbox-2, …).") var positionalName: String?
+    @Option(name: .customLong("name"), help: ArgumentHelp("The name (the same as NAME).", visibility: .hidden)) var nameOption: String?
+    @OptionGroup var choices: ChoiceOptions
     @Flag(name: [.short, .customLong("detach")], help: "Create and start it, but do not attach.") var detach = false
-    @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must already be allowed by defaults.permissions (else: doz create … --allow site:HOST --key NAME).")
-    var key: [String] = []
+    @Flag(name: .long, help: "Make nothing: print the plan — the command, its doz_project.yaml, what it can reach (--json: the plan as data).")
+    var dryRun = false
+
+    /// The name given (NAME, or --name).
+    var name: String? { positionalName ?? nameOption }
+    var image: String? { choices.image }
+    var isolated: Bool { choices.isolated }
+
+    func validate() throws {
+        if positionalName != nil, nameOption != nil { throw ValidationError("NAME or --name, not both") }
+    }
 
     func run() async throws {
-        let rows = try decode(try await query(HostRequest(.ls), g), [SandboxInfo].self, g)
-        let plan: QuickAddPlan
-        do {
-            plan = try QuickAdd.plan(image: image, name: name, isolated: isolated, taken: Set(rows.map(\.name)), settings: .load())
-        } catch let e as HostError {
-            throw fail(e, g)
+        let planned = try await requestPlan(PlanRequest(purpose: "new", name: name, create: try choices.planChoices()), g)
+        if dryRun { printPlan(planned, g); return }
+        if let p = planned.problems.first(where: { $0.code != "key" && $0.code != "image" }) {
+            throw fail(HostError(p.code == "name" && p.text.contains("exists") ? .exists : .invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)
         }
+        let plan = QuickAddPlan(name: planned.name, image: planned.image, workspace: planned.workspace, projectsDir: "")
         if !g.json { Out.stdout(plan.line() + "\n") }
-        var o = CreateOptions(image: plan.image, workspace: plan.workspace)
-        o.isolated = isolated ? true : nil
-        if !key.isEmpty { o.keys = key }          // 617 (D6): custom keys
+        var o = planned.create
         do {
             try preflightAgentAccount(&o, g)      // pi needs an API-key account: offered on a terminal, else the next step
         } catch {
             if !g.json {
                 Out.stderr("[doz] doz new uses the store's default account: doz account default NAME makes one the default "
-                           + "— or doz create NAME --image \(plan.image) --account NAME --start\n")
+                           + "— or doz new --account NAME\n")
             }
             throw error
         }
-        let notice = try await chooseImage(&o, rebuild: false, useCurrent: false, g)
+        let notice = try await chooseImage(&o, rebuild: choices.rebuild, useCurrent: choices.useCurrent, g)
+        if o.dockerfile != nil { try await builderPreflight(g, required: true) }
         var r = HostRequest(.create, name: plan.name)
         r.create = o
         let info = try decode(try call(r, g), SandboxInfo.self, g)
@@ -488,6 +513,8 @@ struct Up: AsyncParsableCommand {
     @Option(name: .long, help: "The session to attach to (default: the image's own).") var session: String?
     @Flag(name: [.short, .customLong("detach")], help: "Do not attach.") var detach = false
     @Option(name: .long, help: "The key that detaches: ctrl-] (default), ctrl-<letter>, or none.") var detachKey = "ctrl-]"
+    @Flag(name: .long, help: "Make nothing: print the plan of the sandbox it would create — the command, its doz_project.yaml, what it can reach (--json: as data).")
+    var dryRun = false
     @Argument(parsing: .postTerminator, help: "A program for a NEW session instead of the default one.") var command: [String] = []
 
     func run() async throws {
@@ -535,6 +562,8 @@ struct Up: AsyncParsableCommand {
                 if !allowWords.isEmpty { o.allow = (o.allow ?? []) + allowWords }       // 597 (the file's github: first, the flags after)
                 if let s = try create.sandboxSettings() { o.settings = (o.settings ?? [:]).merging(s) { _, flag in flag } }
                 try create.applyPrompt(to: &o)
+                if !create.key.isEmpty { o.keys = create.key }          // 617: custom keys given here win over the file's
+                if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 // 594: doz_project.yaml's image and account are checked like any create.
                 try preflightAgentAccount(&o, g)
                 if create.rebuild && create.useCurrent { throw ValidationError("--rebuild or --use-current, not both") }
@@ -542,6 +571,7 @@ struct Up: AsyncParsableCommand {
                 r.create = o
             } else {
                 var o = try create.options(defaultImage: DozerSettings.load().string(SettingKey.defaultImage) ?? "lab")
+                if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 try preflightAgentAccount(&o, g)
                 _ = try await chooseImage(&o, rebuild: create.rebuild, useCurrent: create.useCurrent, g)
                 r.create = o
@@ -554,6 +584,11 @@ struct Up: AsyncParsableCommand {
             }
             noteWorkspace(info, isolatedAsked: create.isolated, g)
         } else {
+            if dryRun {
+                if g.json { Out.json(["name": .string(name), "exists": .bool(true)] as [String: JSONValue]) }
+                else { Out.stdout("\(name) exists — doz up starts or wakes it and attaches; nothing would be made\n") }
+                return
+            }
             if create.givenAny && !g.quiet {
                 Out.stderr("[doz] \(name) exists — its image and settings are kept (the options apply only to a new sandbox)\n")
             }

@@ -255,6 +255,65 @@ private func finish(_ code: Int32) -> Never {
     exit(code)
 }
 
+// MARK: 617 — a RETURNING attach (`doz try`'s "Keep this try?" after it)
+
+/// How an attach ended.
+enum AttachEnd: Equatable {
+    /// Ctrl-] (or the terminal went away, a signal).
+    case detached
+    /// The session's program exited with this code.
+    case ended(Int32)
+    /// No session, the sandbox stopped, or the connection could not be made (the exit code `run` would use).
+    case lost(Int32)
+
+    var exitCode: Int32 {
+        switch self {
+        case .detached: 0
+        case .ended(let c), .lost(let c): c
+        }
+    }
+}
+
+/// true while `AttachClient.attach` runs: every way out is RECORDED (once) instead of `exit`, the relay loop is woken
+/// (its socket shut down) and the keyboard thread is stopped (the self-pipe) — so the next prompt gets its first key.
+nonisolated(unsafe) private var returning = false
+nonisolated(unsafe) private var recordedEnd: AttachEnd?
+nonisolated(unsafe) private var stopPipe: [Int32] = [-1, -1]
+private let endLock = NSLock()
+
+private func takeEnd() -> AttachEnd? { endLock.withLock { recordedEnd } }
+
+/// End the attach: `exit` (doz attach/run/up/new), or — returning — record it and wake both threads.
+private func endAttach(_ e: AttachEnd) {
+    restoreTerminal()
+    guard returning else { exit(e.exitCode) }
+    let first: Bool = endLock.withLock {
+        guard recordedEnd == nil else { return false }
+        recordedEnd = e
+        return true
+    }
+    guard first else { return }
+    if stopPipe[1] >= 0 { var b: UInt8 = 1; _ = write(stopPipe[1], &b, 1) }
+    let fd = currentSocket()
+    if fd >= 0 { shutdown(fd, SHUT_RDWR) }
+}
+
+/// The keyboard thread's read: stdin, unless the self-pipe says stop (nil). -1: EOF/error, as `read`.
+func stoppableRead(_ buf: inout [UInt8], stop: Int32, input: Int32 = STDIN_FILENO) -> Int? {
+    while true {
+        var fds = [pollfd(fd: input, events: Int16(POLLIN), revents: 0)]
+        if stop >= 0 { fds.append(pollfd(fd: stop, events: Int16(POLLIN), revents: 0)) }
+        let n = poll(&fds, nfds_t(fds.count), -1)
+        if n < 0 { if errno == EINTR { continue }; return -1 }
+        if fds.count > 1, fds[1].revents != 0 { return nil }
+        if fds[0].revents != 0 {
+            let r = read(input, &buf, buf.count)
+            if r < 0 && errno == EINTR { continue }
+            return r
+        }
+    }
+}
+
 /// `ctrl-]` → 0x1D, `ctrl-x` → 0x18, `none` → nil.
 func parseDetachKey(_ s: String) throws -> UInt8? {
     let t = s.lowercased()
@@ -275,6 +334,39 @@ func describeKey(_ k: UInt8) -> String {
 enum AttachClient {
     /// Attach to `session` in `sandbox` and relay until it ends or the user detaches. Never returns.
     static func run(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> Never {
+        let e = relay(store: store, sandbox: sandbox, session: session, wake: wake, detachKey: detachKey, quiet: quiet)
+        finish(e.exitCode)
+    }
+
+    /// 617: the same attach, RETURNING how it ended — with the terminal put back, the signal handlers and timers
+    /// gone and the keyboard thread stopped, so the caller can ask its next question (`doz try`).
+    static func attach(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> AttachEnd {
+        returning = true
+        endLock.withLock { recordedEnd = nil }
+        var p: [Int32] = [-1, -1]
+        if pipe(&p) == 0 { stopPipe = p; for fd in p { _ = fcntl(fd, F_SETFD, FD_CLOEXEC) } }
+        let e = relay(store: store, sandbox: sandbox, session: session, wake: wake, detachKey: detachKey, quiet: quiet)
+        // Every way back: the terminal, the signals, the timers, the keyboard thread (the self-pipe stays written).
+        restoreTerminal()
+        for s in retained { s.cancel() }
+        retained.removeAll()
+        retainedTimer?.cancel()
+        retainedTimer = nil
+        retainedWinch?.cancel()
+        retainedWinch = nil
+        for sig in [SIGTERM, SIGHUP, SIGINT, SIGWINCH] { signal(sig, SIG_DFL) }
+        _ = keyboardDone.wait(timeout: .now() + 1)
+        if stopPipe[0] >= 0 { close(stopPipe[0]); close(stopPipe[1]) }
+        stopPipe = [-1, -1]
+        returning = false
+        return e
+    }
+
+    /// The keyboard thread has left its loop (signalled once).
+    private static let keyboardDone = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) private static var retainedWinch: DispatchSourceSignal?
+
+    private static func relay(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool) -> AttachEnd {
         signal(SIGPIPE, SIG_IGN)
         if isatty(STDIN_FILENO) != 0 {
             tcgetattr(STDIN_FILENO, &savedTermios)
@@ -292,10 +384,11 @@ enum AttachClient {
             if fd >= 0 { UnixSocket.writeAll(fd, Data(ClientWire.resize(terminalSize()))) }
         }
         winch.resume()
+        retainedWinch = winch
         for sig in [SIGTERM, SIGHUP, SIGINT] where !(sig == SIGINT && rawMode) {
             signal(sig, SIG_IGN)
             let s = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            s.setEventHandler { finish(0) }
+            s.setEventHandler { endAttach(.detached) }
             s.resume()
             retained.append(s)
         }
@@ -314,7 +407,7 @@ enum AttachClient {
             retainedTimer = tick
         }
 
-        func detachNow(_ before: [UInt8]) -> Never {
+        @Sendable func detachNow(_ before: [UInt8]) {
             let fd = currentSocket()
             if fd >= 0, !before.isEmpty { UnixSocket.writeAll(fd, Data(before)) }
             restoreTerminal()
@@ -324,30 +417,33 @@ enum AttachClient {
                     ?? "doz attach \(sandbox)\(session.map { " \($0)" } ?? "")"
                 say("detached — the session keeps running (\(again))")
             }
-            finish(0)
+            endAttach(.detached)
         }
 
         // Keyboard → host, for the whole life of the client. Dropped while disconnected or held.
+        // 617: stoppable (poll + the self-pipe) — a returning attach must not leave it waiting for a key.
+        let stop = stopPipe[0]
+        let done = keyboardDone
         Thread.detachNewThread {
+            defer { done.signal() }
             var buf = [UInt8](repeating: 0, count: 4096)
             var scanner = detachKey.map(DetachKeyScanner.init(key:))
             // 599 (594.B4): Ctrl-] opens a one-line menu (a terminal on both ends); a second press detaches.
             let menuAllowed = rawMode && isatty(STDOUT_FILENO) != 0
             var lastPress = Date.distantPast
             while true {
-                let n = read(STDIN_FILENO, &buf, buf.count)
-                if n < 0 && errno == EINTR { continue }
+                guard let n = stoppableRead(&buf, stop: stop) else { return }
                 if n <= 0 {
                     // A terminal that went away: detach. A pipe or file that ran out: stop typing,
                     // keep showing the session until it ends (SIGTERM / Ctrl-C detaches).
-                    if rawMode { finish(0) }
+                    if rawMode { endAttach(.detached) }
                     return
                 }
                 var bytes = Array(buf[0..<n])
                 if menuIsOpen() {
                     // At the menu: the detach key (any encoding) detaches; the rest are menu keys.
-                    if scanner != nil, case .detach(let before, _) = scanner!.scan(bytes) { detachNow(before) }
-                    if menuKey(bytes, store: store, sandbox: sandbox) { detachNow([]) }
+                    if scanner != nil, case .detach(let before, _) = scanner!.scan(bytes) { detachNow(before); return }
+                    if menuKey(bytes, store: store, sandbox: sandbox) { detachNow([]); return }
                     continue
                 }
                 // 594 (W16): the detach key in every encoding the session may have put the terminal in
@@ -357,16 +453,16 @@ enum AttachClient {
                     case .forward(let b):
                         bytes = b
                     case .detach(let before, let after):
-                        guard menuAllowed else { detachNow(before) }
+                        guard menuAllowed else { detachNow(before); return }
                         // A quick double press is a plain detach.
-                        if Date().timeIntervalSince(lastPress) < 0.5 { detachNow(before) }
+                        if Date().timeIntervalSince(lastPress) < 0.5 { detachNow(before); return }
                         lastPress = Date()
                         let fd = currentSocket()
                         if fd >= 0, !before.isEmpty { UnixSocket.writeAll(fd, Data(before)) }
                         openMenu()
                         if !after.isEmpty {
-                            if case .detach(let b2, _) = scanner!.scan(after) { detachNow(b2) }
-                            if menuKey(after, store: store, sandbox: sandbox) { detachNow([]) }
+                            if case .detach(let b2, _) = scanner!.scan(after) { detachNow(b2); return }
+                            if menuKey(after, store: store, sandbox: sandbox) { detachNow([]); return }
                         }
                         continue
                     }
@@ -380,9 +476,10 @@ enum AttachClient {
         var announcedHeld = false
         var resolvedSession = session
         while true {
+            if let e = takeEnd() { return e }
             let client: HostClient
             do { client = try HostClient.connect(store: store, autostart: true) } catch {
-                if first { sayLast(error.localizedDescription); finish(DozerExit.dozerFailed) }
+                if first { sayLast(error.localizedDescription); endAttach(.lost(DozerExit.dozerFailed)); return takeEnd() ?? .lost(DozerExit.dozerFailed) }
                 sleep(1)
                 continue
             }
@@ -400,14 +497,16 @@ enum AttachClient {
                 reply = nil
             }
             guard let reply, reply.ok != nil else {
-                if first { sayLast("the host closed the connection"); finish(DozerExit.dozerFailed) }
+                if first { sayLast("the host closed the connection"); endAttach(.lost(DozerExit.dozerFailed)); return takeEnd() ?? .lost(DozerExit.dozerFailed) }
                 usleep(500_000)
                 continue
             }
             if reply.ok == false {
                 let e = reply.error ?? HostError(.failed, "attach failed")
                 sayLast(e.message)
-                finish(first ? DozerExit.code(for: e) == DozerExit.failed ? DozerExit.dozerFailed : DozerExit.code(for: e) : DozerExit.failed)
+                let code = first ? DozerExit.code(for: e) == DozerExit.failed ? DozerExit.dozerFailed : DozerExit.code(for: e) : DozerExit.failed
+                endAttach(.lost(code))
+                return takeEnd() ?? .lost(code)
             }
             first = false
             resolvedSession = reply.result?["session"]?.stringValue ?? resolvedSession
@@ -453,6 +552,7 @@ enum AttachClient {
                 chunk = Array(buf[0..<n])
             }
             setSocket(-1)
+            if let e = takeEnd() { return e }
             // 599 (594.B4): the menu switched sessions — attach there (the same client, the same terminal).
             if ending == nil, let target = takeSwitch() {
                 resolvedSession = target
@@ -460,11 +560,14 @@ enum AttachClient {
                 continue
             }
             if let ending {
+                let e: AttachEnd
                 switch ending {
-                case .exited(let c): finish(c)
-                case .noSession: finish(DozerExit.notFound)
-                case .stopped: finish(DozerExit.failed)
+                case .exited(let c): e = .ended(c)
+                case .noSession: e = .lost(DozerExit.notFound)
+                case .stopped: e = .lost(DozerExit.failed)
                 }
+                endAttach(e)
+                return takeEnd() ?? e
             }
             writeOut(stream.flush()[...])
             if !quiet && !announcedHeld { say("connection closed (\(sandbox) is asleep or stopping) — reattaching when it runs…") }
