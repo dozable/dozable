@@ -409,6 +409,16 @@ public enum AgentVersions {
                 let platform = try await npm(p, AgentImages.codexPlatformVersion(v))
                 return AgentRelease(version: v, integrity: platform.integrity)
             }
+        } else if let r = AgentRecipes.recipe(image), r.install.kind == "npm-platform-binary", let platformPackage = r.install.platformPackage {
+            // 617: an agent whose program is a SEPARATE platform package at the same version (Grok Build): the version
+            // is the MAIN package's latest (the platform package's own `latest` tag is stale), the integrity the
+            // platform package's at that version — the tarball a bake downloads.
+            lookup = { p, tag in
+                var v = tag
+                if tag == "latest" { v = try await npm(p, "latest").version }
+                let platform = try await npm(platformPackage, v)
+                return AgentRelease(version: v, integrity: platform.integrity)
+            }
         } else {
             lookup = npm
         }

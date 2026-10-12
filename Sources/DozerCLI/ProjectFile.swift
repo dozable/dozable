@@ -89,7 +89,7 @@ extension DozerProject {
                 image = s
             case "agent":
                 let s = try scalarString(v, key)
-                guard ["claude-code", "pi", "codex", "none"].contains(s) else { throw bad(v, "agent: claude-code, pi, codex or none") }
+                guard AgentKind(rawValue: s) != nil else { throw bad(v, "agent: \(DozerProject.agentWords)") }
                 p.agent = s
             case "base":
                 let s = try scalarString(v, key)

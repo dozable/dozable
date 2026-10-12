@@ -1,0 +1,993 @@
+import Foundation
+
+// 617 (616.03 §4) — every agent is a RECIPE: data that says how to install it, how to turn its own approval prompts
+// off, which keys and hosts it uses, where its state lives and what it reaches. The recipes are JSON files compiled
+// into DozerKit (`Recipes/agents/*.json`, SwiftPM `.embedInCode` — no `Bundle.module`), decoded once and validated;
+// an invalid built-in recipe is a test failure, never a runtime fallback.
+//
+// The three agents that existed before (Claude Code, pi, Codex) are `builtin`: their recipe DESCRIBES them (title,
+// credentials, permissions, settings, state, prompt, resume) while their install steps and launchers stay in
+// `AgentImages`' Swift — so their images keep every byte (RecipePinTests) — and `RecipeTruthTests` proves each
+// describes its image truthfully. Every other recipe (Gemini CLI, Grok Build, …) is composed from its data alone.
+//
+// Rules a recipe can never break (validated here): it names no credential (no env key a bake would scrub), its
+// hosts are exact names, the hosts it keeps out (`excluded`) are in no permission, and its pins are well-formed
+// (they go into a bake script).
+
+/// A JSON value inside a recipe (first-run settings, a manifest) — data only.
+public enum RecipeValue: Codable, Sendable, Equatable {
+    case string(String), bool(Bool), number(Double), object([String: RecipeValue]), array([RecipeValue]), null
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer()
+        if c.decodeNil() { self = .null }
+        else if let b = try? c.decode(Bool.self) { self = .bool(b) }
+        else if let n = try? c.decode(Double.self) { self = .number(n) }
+        else if let s = try? c.decode(String.self) { self = .string(s) }
+        else if let a = try? c.decode([RecipeValue].self) { self = .array(a) }
+        else { self = .object(try c.decode([String: RecipeValue].self)) }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        switch self {
+        case .string(let s): try c.encode(s)
+        case .bool(let b): try c.encode(b)
+        case .number(let n): if n == n.rounded(), abs(n) < 1e15 { try c.encode(Int64(n)) } else { try c.encode(n) }
+        case .object(let o): try c.encode(o)
+        case .array(let a): try c.encode(a)
+        case .null: try c.encodeNil()
+        }
+    }
+
+    /// Every string inside (for the quote checks of what goes into a script).
+    var strings: [String] {
+        switch self {
+        case .string(let s): [s]
+        case .object(let o): o.keys.map { $0 } + o.values.flatMap(\.strings)
+        case .array(let a): a.flatMap(\.strings)
+        default: []
+        }
+    }
+}
+
+public struct AgentRecipe: Codable, Sendable, Equatable {
+    public var schema: Int
+    /// `[a-z][a-z0-9-]*` — the agent's id: `gemini`, `grok`; never a base id, `lab`, `none` or `custom`.
+    public var id: String
+    public var title: String
+    public var publisher: String
+    public var licence: String
+    public var homepage: String
+    /// What a person may also type for it (`claude`).
+    public var aliases: [String]?
+    /// true: install and launcher are `AgentImages`' Swift (Claude Code, pi, Codex).
+    public var builtin: Bool?
+    /// The base whose image is named `id` alone (D9) — Quick try's base.
+    public var defaultBase: String
+    public var platforms: Platforms
+    /// Supported, with a limit: on which bases, and why (the index's `limits`).
+    public var limits: [Limit]?
+    public var install: Install
+    public var launch: Launch
+    public var state: State
+    public var credentials: [CredentialUse]
+    public var network: Network
+    /// `osc7501` (Dozer's status protocol) | `none`.
+    public var status: String
+    /// Where Dozer's facts go (nil: nowhere).
+    public var prompt: Prompt?
+    /// Appended to the default session's argv on a restart (nil: it restarts fresh).
+    public var resume: [String]?
+    /// A guest check that there is a conversation to resume (an agent that refuses its resume flag without one).
+    public var resumeCheck: String?
+    /// Credential-free checks after the bake (`{version}` is the installed version).
+    public var verify: [Check]
+    /// Shown where an account is chosen.
+    public var terms: String?
+    /// The date the recipe was last checked against the real agent.
+    public var checked: String?
+    /// The settings keys it uses (nil: derived — `images.<id>_version`, `<id>.permissions`).
+    public var settings: SettingKeys?
+    /// 617 (owner, "the try experience = a hybrid"): the ways a person can let this agent talk to its model, in order —
+    /// the recommended first. Data for `doz try` / `doz search` / the Kitchen (stage C); `credentials` stays what the
+    /// proxy and the account checks use today.
+    public var auth: Auth
+    /// 617 (owner): how this agent works through each model gateway of the catalogue (`Gateways.all`) — one entry per
+    /// gateway, always. Data only in phase 1; phase 2 applies `how` mechanically (`experimental` only behind an opt-in).
+    public var gateways: [GatewaySupport]
+    /// 617 (owner): the capability tags with NO underlying field (`headless`) — declared, one per such tag of the
+    /// vocabulary. Every other tag is derived (`capabilityTags`), so it cannot drift from the data.
+    public var tags: [RecipeTag]
+
+    enum CodingKeys: String, CodingKey {
+        case schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
+             network, status, prompt, resume, verify, terms, checked, settings, auth, gateways, tags
+        case defaultBase = "default_base", resumeCheck = "resume_check"
+    }
+
+    public struct Platforms: Codable, Sendable, Equatable {
+        public var glibc: Bool
+        public var musl: Bool
+    }
+
+    public struct Limit: Codable, Sendable, Equatable {
+        public var musl: Bool?
+        public var base: String?
+        public var reason: String
+    }
+
+    public struct Install: Codable, Sendable, Equatable {
+        /// `builtin` | `npm` | `npm-platform-binary`.
+        public var kind: String
+        /// The npm package (its version is the agent's version).
+        public var package: String?
+        /// npm-platform-binary: the package holding the linux-arm64 program, published at the SAME version.
+        public var platformPackage: String?
+        /// npm-platform-binary: the program inside that package (`bin/grok.br`).
+        public var payload: String?
+        /// `brotli` when the payload is compressed (nil: as it is).
+        public var compression: String?
+        /// The program the launcher runs, at `/usr/local/bin/<binary>`.
+        public var binary: String
+        /// The Node major an npm install needs on a base without Node.
+        public var needsNode: String?
+        public var npmArgs: [String]?
+        public var pinned: Pin
+        /// Hosts a bake reaches beyond the bake preset's registries.
+        public var bakeHosts: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case kind, package, payload, compression, binary, pinned
+            case platformPackage = "platform_package", needsNode = "needs_node", npmArgs = "npm_args", bakeHosts = "bake_hosts"
+        }
+    }
+
+    public struct Pin: Codable, Sendable, Equatable {
+        public var version: String
+        /// npm's sha512 integrity of the tarball a bake downloads (the platform package's, for npm-platform-binary).
+        public var integrity: String?
+    }
+
+    public struct Launch: Codable, Sendable, Equatable {
+        public var command: [String]
+        /// What the launcher puts first unless `DOZ_<ID>_PERMISSIONS=ask` or root.
+        public var noPromptsArgs: [String]
+        /// First arguments that run the program as it is (no flags, no first-run settings).
+        public var passthrough: [String]
+        /// Non-credential environment of every run.
+        public var env: [String: String]
+        /// Settings the launcher writes into the agent's config — ONLY those not there yet.
+        public var firstRun: [FirstRun]?
+
+        enum CodingKeys: String, CodingKey {
+            case command, passthrough, env
+            case noPromptsArgs = "no_prompts_args", firstRun = "first_run"
+        }
+    }
+
+    public struct FirstRun: Codable, Sendable, Equatable {
+        /// `~/…json` or `~/…toml`.
+        public var file: String
+        /// Dotted key → value (`general.enableAutoUpdate` → false; TOML: `[general] enableAutoUpdate = false`).
+        public var set: [String: RecipeValue]
+    }
+
+    public struct State: Codable, Sendable, Equatable {
+        public var persist: [String]
+        public var env: [String: String]
+    }
+
+    public struct CredentialUse: Codable, Sendable, Equatable {
+        public var provider: String
+        public var accounts: [String]
+    }
+
+    public struct Network: Codable, Sendable, Equatable {
+        public var model: Model
+        /// Folded into "Update itself" in this agent's sandbox only (a hidden `update:<id>`).
+        public var update: [Host]
+        /// Hosts the agent is known to call that Dozer keeps out, whatever is chosen.
+        public var excluded: [String]
+    }
+
+    public struct Model: Codable, Sendable, Equatable {
+        /// `model` (Anthropic's, shared by Claude Code and pi) or `model:<provider>`.
+        public var id: String
+        public var shared: Bool?
+        public var title: String?
+        public var summary: String?
+        public var phrase: String?
+        public var hosts: [Host]?
+    }
+
+    public struct Host: Codable, Sendable, Equatable {
+        public var host: String
+        /// Path prefixes (the proxy decrypts to judge them); nil: the whole host.
+        public var paths: [String]?
+    }
+
+    public struct Prompt: Codable, Sendable, Equatable {
+        /// `skill` (a SKILL.md in `dir`) | `context-file` (the facts as `dir/file`, plus an optional manifest).
+        public var kind: String
+        public var dir: String?
+        public var file: String?
+        public var manifest: Manifest?
+        public var launcherArg: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case kind, dir, file, manifest
+            case launcherArg = "launcher_arg"
+        }
+    }
+
+    public struct Manifest: Codable, Sendable, Equatable {
+        public var file: String
+        public var json: RecipeValue
+    }
+
+    public struct Check: Codable, Sendable, Equatable {
+        public var argv: [String]
+        public var expect: String?
+    }
+
+    public struct SettingKeys: Codable, Sendable, Equatable {
+        public var version: String?
+        public var permissions: String?
+    }
+
+    /// One agent × one gateway. `level`: `documented` (the vendor documents it: `source`) · `verified` (Dozer proved it:
+    /// `evidence`) · `experimental` (plausible, unproven — only ever an explicit opt-in, always shown as "not supported by
+    /// the vendor": `evidence`) · `no` (`reason`) · `unknown` (not looked at yet). `how` is machine-applicable: values are
+    /// templates over `{gateway.endpoint.<id>}`, `{placeholder}` (the gateway key's doz placeholder) and `{model}`.
+    public struct GatewaySupport: Codable, Sendable, Equatable {
+        public var gateway: String
+        public var level: String
+        /// `openai-chat` | `openai-responses` | `anthropic-messages` | `gemini` — what the agent speaks to it.
+        public var shape: String?
+        /// The gateway endpoint (`Gateway.endpoints[].id`) it is pointed at.
+        public var endpoint: String?
+        public var how: GatewayHow?
+        /// A candidate for routing by Dozer's proxy itself (phase 2 idea): the agent's own host and the path mapping.
+        public var proxyRoute: ProxyRoute?
+        public var limits: [String]?
+        public var notes: [String]?
+        public var evidence: String?
+        public var source: String?
+        public var checked: String?
+        public var reason: String?
+
+        enum CodingKeys: String, CodingKey {
+            case gateway, level, shape, endpoint, how, limits, notes, evidence, source, checked, reason
+            case proxyRoute = "proxy_route"
+        }
+
+        public static let levels = ["documented", "verified", "experimental", "no", "unknown"]
+        /// A level phase 2 may apply (experimental only behind an opt-in).
+        public var isApplicable: Bool { ["documented", "verified", "experimental"].contains(level) }
+
+        /// `how` with every template filled in. Throws on a placeholder this vocabulary does not have, or an endpoint
+        /// the gateway does not have.
+        public func resolved(placeholder: String, model: String) throws -> GatewayHow? {
+            guard let how else { return nil }
+            guard let g = Gateways.gateway(gateway) else { throw SandboxError.invalidSpec("no gateway \(gateway)") }
+            func fill(_ s: String) throws -> String {
+                var out = ""
+                var rest = Substring(s)
+                while let open = rest.firstIndex(of: "{") {
+                    out += rest[..<open]
+                    guard let close = rest[open...].firstIndex(of: "}") else { throw SandboxError.invalidSpec("\(gateway): an unclosed { in \(s)") }
+                    let name = String(rest[rest.index(after: open)..<close])
+                    if name == "placeholder" { out += placeholder }
+                    else if name == "model" { out += model }
+                    else if name.hasPrefix("gateway.endpoint."), let e = g.endpoints.first(where: { $0.id == String(name.dropFirst(17)) }) { out += e.baseUrl }
+                    else { throw SandboxError.invalidSpec("\(gateway): {\(name)} is not a template of the gateway vocabulary") }
+                    rest = rest[rest.index(after: close)...]
+                }
+                return out + rest
+            }
+            var r = how
+            r.env = try how.env.map { try $0.mapValues(fill) }
+            r.args = try how.args?.map(fill)
+            r.modelArgs = try how.modelArgs?.map(fill)
+            r.config = try how.config?.map { c in
+                var x = c
+                x.set = try c.set.mapValues { v in if case .string(let s) = v { return .string(try fill(s)) }; return v }
+                return x
+            }
+            return r
+        }
+    }
+
+    /// The machine-applicable part: session environment, config-file merges (absent keys only, as `first_run`), extra
+    /// arguments, and how a model is chosen.
+    public struct GatewayHow: Codable, Sendable, Equatable {
+        public var env: [String: String]?
+        public var config: [FirstRun]?
+        public var args: [String]?
+        public var modelArgs: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case env, config, args
+            case modelArgs = "model_args"
+        }
+    }
+
+    public struct ProxyRoute: Codable, Sendable, Equatable {
+        public var fromHost: String
+        /// The agent's path → the gateway's.
+        public var paths: [String: String]
+        /// Vendor-only paths with no gateway equivalent.
+        public var unmapped: [String]?
+
+        enum CodingKeys: String, CodingKey {
+            case paths, unmapped
+            case fromHost = "from_host"
+        }
+    }
+
+    public struct Auth: Codable, Sendable, Equatable {
+        /// Recommended first.
+        public var methods: [AuthMethod]
+    }
+
+    /// One way in. `kind`: `api-key` (a key of `provider`, made at `keys_page`) · `vendor-sign-in` (the agent maker's
+    /// own account — `account` says which, in words) · `none` (keyless or free) · `gateway` (through one of `gateways`;
+    /// declared now, used in phase 2).
+    public struct AuthMethod: Codable, Sendable, Equatable {
+        public var kind: String
+        public var provider: String?
+        public var keysPage: String?
+        /// Only when it can be cited with a date (`checked`); unset otherwise.
+        public var freeTier: Bool?
+        public var freeTierNote: String?
+        /// The ISO date this method's facts were last checked.
+        public var checked: String?
+        /// vendor-sign-in: "an x.ai or X account", "a Claude subscription".
+        public var account: String?
+        /// The Dozer account kinds this method maps to today (`mac`, `setup-token`, `api-key`, `chatgpt`, …); nil: none yet.
+        public var accounts: [String]?
+        /// gateway: `openrouter`, …
+        public var gateways: [String]?
+        /// Plain words: where the sign-in lives, why a method is missing, what phase uses it.
+        public var note: String?
+
+        enum CodingKeys: String, CodingKey {
+            case kind, provider, checked, account, accounts, gateways, note
+            case keysPage = "keys_page", freeTier = "free_tier", freeTierNote = "free_tier_note"
+        }
+    }
+
+    // MARK: derived
+
+    public var isBuiltin: Bool { builtin == true }
+
+    /// The release the recipe pins.
+    public var pinnedRelease: AgentRelease? {
+        install.pinned.integrity.map { AgentRelease(version: install.pinned.version, integrity: $0) }
+    }
+
+    /// The default session's name and the image-name suffix (`claude` for Claude Code, `gemini`).
+    public var shortName: String { launch.command.first.map { ($0 as NSString).lastPathComponent } ?? id }
+
+    /// `DOZ_GEMINI_PERMISSIONS` — what the launcher reads (ask / skip); by the short name, so Claude Code's is
+    /// `DOZ_CLAUDE_PERMISSIONS` as it always was.
+    public var permissionsVariable: String { "DOZ_" + shortName.uppercased().replacingOccurrences(of: "-", with: "_") + "_PERMISSIONS" }
+
+    /// The settings key of the agent's version (`images.gemini_version`).
+    public var versionSettingKey: String { settings?.version ?? "images.\(id.replacingOccurrences(of: "-", with: "_"))_version" }
+    /// The settings key of its prompts (`gemini.permissions`); nil for an agent with none to skip.
+    public var permissionsSettingKey: String? {
+        if let p = settings?.permissions { return p }
+        return isBuiltin || launch.noPromptsArgs.isEmpty ? nil : "\(id).permissions"
+    }
+
+    /// The key provider the agent uses (its first credential's).
+    public var provider: String? { credentials.first?.provider }
+
+    /// The sentence a musl base gets when the agent has no musl build.
+    public var muslRefusal: String { "\(title) has no musl build — choose a Debian-based base (not Alpine)" }
+
+    /// `2026-10-12`: a real calendar date.
+    static func isISODate(_ s: String) -> Bool {
+        guard s.range(of: #"^\d{4}-\d{2}-\d{2}$"#, options: .regularExpression) != nil else { return false }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = TimeZone(identifier: "UTC")
+        f.dateFormat = "yyyy-MM-dd"
+        return f.date(from: s).map { f.string(from: $0) == s } ?? false
+    }
+
+    /// The verify checks with the version filled in.
+    public func verifyChecks(version: String) -> [VerifyCheck] {
+        verify.map { VerifyCheck($0.argv, expect: $0.expect?.replacingOccurrences(of: "{version}", with: version)) }
+    }
+}
+
+// MARK: - key providers
+
+/// 617 (616.03 §4.1): one provider of API keys — which hosts a key may go to, in which header, under which guest
+/// variable its placeholder lives, how a key is checked, and the proxy's refusal shape.
+public struct KeyProvider: Codable, Sendable, Equatable {
+    public var id: String
+    public var title: String
+    /// Exact hosts the key may go to (the proxy decrypts these and only these for it).
+    public var hosts: [String]
+    public var inject: Inject
+    /// The guest variable holding the placeholder (`XAI_API_KEY`).
+    public var env: String
+    public var alsoEnv: [String]?
+    /// The provider's binding is one that existed before 617 (`anthropic`, `openai`) — its id kept, so placeholder
+    /// hashes and stored credential sources keep working.
+    public var builtinBinding: String?
+    /// What a key usually starts with — a hint at add time, never a refusal.
+    public var keyHint: String?
+    public var check: KeyCheck?
+    /// `anthropic` | `openai` | `google` — the proxy's own 401/403 body on these hosts.
+    public var errorShape: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, hosts, inject, env, check
+        case alsoEnv = "also_env", builtinBinding = "builtin_binding", keyHint = "key_hint", errorShape = "error_shape"
+    }
+
+    public struct Inject: Codable, Sendable, Equatable {
+        public var header: String
+        /// `%s` or `Bearer %s`.
+        public var format: String
+    }
+
+    public struct KeyCheck: Codable, Sendable, Equatable {
+        public var method: String
+        public var url: String
+        /// Statuses that mean the key is bad (xAI and Google answer a bad key with 400).
+        public var rejected: [Int]
+    }
+
+    /// The vault binding a key of this provider goes in.
+    public var binding: CredentialBinding {
+        switch builtinBinding {
+        case "anthropic"?: return .anthropic
+        case "openai"?: return .openai
+        default:
+            let header: CredentialHeader = inject.format == "Bearer %s" && inject.header.lowercased() == "authorization" ? .bearer : .apiKey(name: inject.header)
+            return CredentialBinding(id: "key:" + id, hosts: hosts, header: header, environmentVariable: env, alsoEnvironmentVariables: alsoEnv)
+        }
+    }
+
+    /// The header a check sends (name, value).
+    public func header(for key: String) -> (String, String) {
+        (inject.header, inject.format.replacingOccurrences(of: "%s", with: key))
+    }
+
+    /// 617: one check request from the Mac over the proxy's own leg (`HTTPSOnce`; with `override`, ONLY the test seam's
+    /// CA): 200 → good, a `rejected` status → bad (xAI and Google answer a bad key with 400), anything else → unknown.
+    public func checkKey(_ key: String, override: EgressProxy.UpstreamOverride? = nil) -> Result<Bool, CheckFailure> {
+        guard let c = check, let u = URL(string: c.url), let host = u.host else { return .failure(CheckFailure("\(title) keys have no check")) }
+        let path = u.path.isEmpty ? "/" : u.path + (u.query.map { "?" + $0 } ?? "")
+        switch HTTPSOnce.request(host: host, method: c.method, path: path, headers: [header(for: key)], override: override, timeout: 20) {
+        case .failure(let f): return .failure(f)
+        case .success(let r):
+            if r.status == 200 { return .success(true) }
+            if c.rejected.contains(r.status) { return .success(false) }
+            return .failure(CheckFailure("HTTP \(r.status)"))
+        }
+    }
+}
+
+public enum KeyProviders {
+    struct File: Codable { var schema: Int; var providers: [KeyProvider] }
+
+    public static let all: [KeyProvider] = {
+        do {
+            let f = try JSONDecoder().decode(File.self, from: Data(PackageResources.providers_json))
+            return f.providers
+        } catch {
+            fatalError("617: the built-in providers.json does not decode: \(error)")
+        }
+    }()
+
+    public static func provider(_ id: String) -> KeyProvider? { all.first { $0.id == id } }
+
+    /// The provider whose hosts include `host` (its key goes there).
+    public static func owning(host: String) -> KeyProvider? {
+        let h = host.lowercased()
+        return all.first { $0.hosts.contains(h) }
+    }
+
+    /// The hosts of the providers that are new in 617 (their upstream leg goes to the test seam's fake).
+    public static var seamHosts: Set<String> { Set(all.filter { $0.builtinBinding == nil }.flatMap(\.hosts)) }
+
+    /// Every binding a key provider defines (the new ones; Anthropic's and OpenAI's are the existing bindings).
+    public static var keyBindings: [CredentialBinding] { all.filter { $0.builtinBinding == nil }.map(\.binding) }
+
+    public static func validate(_ providers: [KeyProvider]) throws {
+        var ids = Set<String>(), hosts = Set<String>()
+        for p in providers {
+            guard p.id.range(of: "^[a-z][a-z0-9-]{0,23}$", options: .regularExpression) != nil, ids.insert(p.id).inserted, p.id != "custom" else {
+                throw SandboxError.invalidSpec("provider id \(p.id): [a-z][a-z0-9-]*, unique, not custom")
+            }
+            guard !p.hosts.isEmpty else { throw SandboxError.invalidSpec("provider \(p.id) has no hosts") }
+            for h in p.hosts {
+                guard AgentRecipes.isExactHost(h) else { throw SandboxError.invalidSpec("provider \(p.id): \(h) is not an exact host name") }
+                guard hosts.insert(h).inserted else { throw SandboxError.invalidSpec("provider \(p.id): \(h) is another provider's host") }
+            }
+            guard p.inject.header.range(of: "^[A-Za-z][A-Za-z0-9-]*$", options: .regularExpression) != nil,
+                  ["%s", "Bearer %s"].contains(p.inject.format) else {
+                throw SandboxError.invalidSpec("provider \(p.id): inject is a header name and %s or Bearer %s")
+            }
+            for v in [p.env] + (p.alsoEnv ?? []) where v.range(of: "^[A-Z][A-Z0-9_]*$", options: .regularExpression) == nil || !BakeEnvironment.isCredential(v) {
+                throw SandboxError.invalidSpec("provider \(p.id): \(v) must be a credential-shaped variable name (…_API_KEY)")
+            }
+            guard ["anthropic", "openai", "google"].contains(p.errorShape) else { throw SandboxError.invalidSpec("provider \(p.id): error_shape anthropic, openai or google") }
+            if let b = p.builtinBinding, !["anthropic", "openai"].contains(b) { throw SandboxError.invalidSpec("provider \(p.id): builtin_binding anthropic or openai") }
+            if let c = p.check {
+                guard ["GET", "POST"].contains(c.method), let u = URL(string: c.url), u.scheme == "https", let h = u.host, p.hosts.contains(h), !c.rejected.isEmpty else {
+                    throw SandboxError.invalidSpec("provider \(p.id): check is GET/POST https on one of its hosts, with rejected statuses")
+                }
+            }
+        }
+    }
+}
+
+// MARK: - capability tags
+
+/// 617 (owner): one searchable capability (`Recipes/tags.json`, a CLOSED vocabulary).
+public struct CapabilityTag: Codable, Sendable, Equatable {
+    public var id: String
+    public var title: String
+    public var meaning: String
+    /// true: computed from recipe data (`AgentRecipe.capabilityTags`); false: declared in each recipe's `tags`.
+    public var derived: Bool
+}
+
+/// A tag on one recipe: supported or not, at a level (the gateway levels) with its evidence — a `no` is a fact too.
+public struct RecipeTag: Codable, Sendable, Equatable {
+    public var tag: String
+    public var level: String
+    public var evidence: String?
+    public var source: String?
+    public var notes: [String]?
+    public var checked: String?
+}
+
+public enum CapabilityTags {
+    struct File: Codable { var schema: Int; var tags: [CapabilityTag] }
+
+    public static let all: [CapabilityTag] = {
+        do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.tags_json)).tags } catch {
+            fatalError("617: the built-in tags.json does not decode: \(error)")
+        }
+    }()
+
+    public static func tag(_ id: String) -> CapabilityTag? { all.first { $0.id == id } }
+
+    /// Licences counted as open source.
+    static let openSourceLicences: Set<String> = ["MIT", "Apache-2.0", "BSD-2-Clause", "BSD-3-Clause", "ISC", "MPL-2.0", "GPL-3.0", "AGPL-3.0"]
+
+    public static func validate(_ tags: [CapabilityTag]) throws {
+        var ids = Set<String>()
+        for t in tags where t.id.range(of: "^[a-z][a-z0-9-]*(:[a-z][a-z0-9-]*)?$", options: .regularExpression) == nil || !ids.insert(t.id).inserted || t.title.isEmpty || t.meaning.isEmpty {
+            throw SandboxError.invalidSpec("tag \(t.id): an id, unique, with a title and a meaning")
+        }
+        // gateway:<id> for exactly the catalogue's gateways.
+        let gw = Set(tags.filter { $0.id.hasPrefix("gateway:") }.map { String($0.id.dropFirst(8)) })
+        guard gw == Set(Gateways.all.map(\.id)) else { throw SandboxError.invalidSpec("tags: one gateway:<id> per catalogue gateway") }
+    }
+}
+
+extension AgentRecipe {
+    /// Every tag of the vocabulary for this recipe, in the vocabulary's order — derived from its data, or declared.
+    public var capabilityTags: [RecipeTag] {
+        let rank = ["documented": 0, "verified": 1, "experimental": 2, "no": 3, "unknown": 4]
+        func derived(_ id: String) -> RecipeTag? {
+            func fact(_ yes: Bool, _ what: String, unknown: Bool = false, level: String = "documented") -> RecipeTag {
+                RecipeTag(tag: id, level: unknown ? "unknown" : yes ? level : "no", evidence: "the recipe's \(what)", checked: checked)
+            }
+            if id.hasPrefix("gateway:") {
+                guard let s = gateways.first(where: { "gateway:" + $0.gateway == id }) else { return nil }
+                return RecipeTag(tag: id, level: s.level, evidence: s.evidence ?? s.reason, source: s.source, notes: s.limits, checked: s.checked)
+            }
+            switch id {
+            case "multi-vendor-models":
+                let best = gateways.min { rank[$0.level, default: 9] < rank[$1.level, default: 9] }
+                let level = gateways.contains(where: \.isApplicable) ? best!.level : gateways.allSatisfy { $0.level == "no" } ? "no" : "unknown"
+                let via = gateways.filter { $0.level == level }.map(\.gateway)
+                return RecipeTag(tag: id, level: level, evidence: "through \(via.joined(separator: ", ")) (its gateways)", source: best?.source, checked: best?.checked)
+            case "api-key": return fact(auth.methods.contains { $0.kind == "api-key" }, "auth methods")
+            case "vendor-sign-in": return fact(auth.methods.contains { $0.kind == "vendor-sign-in" }, "auth methods")
+            case "no-account": return fact(auth.methods.contains { $0.kind == "none" }, "auth methods")
+            case "free-tier":
+                let f = auth.methods.compactMap(\.freeTier)
+                return fact(f.contains(true), "auth methods' free tier", unknown: f.isEmpty)
+            case "status": return fact(status == "osc7501", "status", level: "verified")
+            case "resume": return fact(resume != nil, "resume", unknown: resume == nil, level: "verified")
+            case "musl": return fact(platforms.musl, "platforms", level: "verified")
+            case "open-source": return fact(CapabilityTags.openSourceLicences.contains(licence), "licence (\(licence))")
+            default: return nil
+            }
+        }
+        return CapabilityTags.all.compactMap { t in t.derived ? derived(t.id) : tags.first { $0.tag == t.id } }
+    }
+
+    /// The recipe's tags at `levels` (default: the supported ones) — what `doz search --tag` filters on.
+    public func hasTag(_ id: String, levels: Set<String> = ["documented", "verified"]) -> Bool {
+        capabilityTags.contains { $0.tag == id && levels.contains($0.level) }
+    }
+}
+
+// MARK: - model gateways
+
+/// 617 (owner): a model gateway — one key, many models (`Recipes/gateways.json`). Data in phase 1; a gateway key
+/// binding and the proxy's routing are phase 2.
+public struct Gateway: Codable, Sendable, Equatable {
+    public var id: String
+    public var title: String
+    public var homepage: String
+    public var hosts: [String]
+    public var endpoints: [Endpoint]
+    /// The variable its own docs use for the key (`OPENROUTER_API_KEY`).
+    public var keyEnv: String
+    public var keysPage: String
+    /// How it names a model (`{creator}/{name}`).
+    public var modelId: String
+    public var source: String
+    public var checked: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, homepage, hosts, endpoints, source, checked
+        case keyEnv = "key_env", keysPage = "keys_page", modelId = "model_id"
+    }
+
+    public struct Endpoint: Codable, Sendable, Equatable {
+        public var id: String
+        public var shapes: [String]
+        public var baseUrl: String
+        enum CodingKeys: String, CodingKey {
+            case id, shapes
+            case baseUrl = "base_url"
+        }
+    }
+
+    public static let shapes = ["openai-chat", "openai-responses", "anthropic-messages", "gemini"]
+}
+
+public enum Gateways {
+    struct File: Codable { var schema: Int; var gateways: [Gateway] }
+
+    public static let all: [Gateway] = {
+        do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.gateways_json)).gateways } catch {
+            fatalError("617: the built-in gateways.json does not decode: \(error)")
+        }
+    }()
+
+    public static func gateway(_ id: String) -> Gateway? { all.first { $0.id == id } }
+
+    public static func validate(_ gateways: [Gateway]) throws {
+        var ids = Set<String>()
+        for g in gateways {
+            func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("gateway \(g.id): \(s)") }
+            guard g.id.range(of: "^[a-z][a-z0-9-]*$", options: .regularExpression) != nil, ids.insert(g.id).inserted else { throw bad("an id, unique") }
+            guard !g.hosts.isEmpty, g.hosts.allSatisfy(AgentRecipes.isExactHost) else { throw bad("exact hosts") }
+            guard !g.endpoints.isEmpty else { throw bad("no endpoints") }
+            var eids = Set<String>()
+            for e in g.endpoints {
+                guard eids.insert(e.id).inserted, !e.shapes.isEmpty, e.shapes.allSatisfy(Gateway.shapes.contains),
+                      let u = URL(string: e.baseUrl), u.scheme == "https", let h = u.host, g.hosts.contains(h) else {
+                    throw bad("endpoint \(e.id): a unique id, known shapes, an https base URL on its hosts")
+                }
+            }
+            guard g.keysPage.hasPrefix("https://"), g.source.hasPrefix("https://"), g.homepage.hasPrefix("https://") else { throw bad("https URLs") }
+            guard AgentRecipe.isISODate(g.checked) else { throw bad("checked is an ISO date") }
+            guard g.keyEnv.range(of: "^[A-Z][A-Z0-9_]*$", options: .regularExpression) != nil else { throw bad("key_env") }
+        }
+    }
+}
+
+// MARK: - the recipes
+
+public enum AgentRecipes {
+    /// The compiled-in recipes, in this order: the three that existed, then the new ones (AgentKind.allCases' order).
+    static let compiled: [AgentRecipe] = {
+        let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
+                                          ("codex.json", PackageResources.codex_json), ("gemini.json", PackageResources.gemini_json),
+                                          ("grok.json", PackageResources.grok_json)]
+        do {
+            return try files.map { name, bytes in
+                do { return try decode(Data(bytes)) } catch { throw SandboxError.invalidSpec("\(name): \(error)") }
+            }
+        } catch {
+            fatalError("617: a built-in agent recipe does not decode: \(error)")
+        }
+    }()
+
+    /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "gemini.json", "grok.json"]
+
+    nonisolated(unsafe) private static var registered: [AgentRecipe] = []
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var _generation = 0
+
+    /// Every recipe this build knows (and, in tests, the ones registered).
+    public static var all: [AgentRecipe] {
+        lock.lock(); defer { lock.unlock() }
+        return compiled + registered
+    }
+
+    /// Bumped by every registration — what caches derived from the recipes check.
+    public static var generation: Int {
+        lock.lock(); defer { lock.unlock() }
+        return _generation
+    }
+
+    public static func recipe(_ id: String) -> AgentRecipe? { all.first { $0.id == id } }
+
+    /// By id or alias.
+    public static func matching(_ s: String) -> AgentRecipe? {
+        let k = s.lowercased()
+        return all.first { $0.id == k || ($0.aliases ?? []).contains(k) }
+    }
+
+    /// TEST SEAM (616.03 §5, acceptance 9): a recipe registered at run time, as if compiled in. Validated like one.
+    /// No environment variable ever reaches this — a shipped build has only its compiled recipes.
+    public static func registerForTests(_ r: AgentRecipe) throws {
+        try validate(all + [r])
+        lock.lock()
+        registered.removeAll { $0.id == r.id }
+        registered.append(r)
+        _generation += 1
+        lock.unlock()
+    }
+
+    public static func unregisterForTests(_ id: String) {
+        lock.lock()
+        registered.removeAll { $0.id == id }
+        _generation += 1
+        lock.unlock()
+    }
+
+    /// A recipe from its JSON: decoded, and refused when it carries a key this build does not know (a typo
+    /// would otherwise be silently ignored).
+    public static func decode(_ data: Data) throws -> AgentRecipe {
+        let r = try JSONDecoder().decode(AgentRecipe.self, from: data)
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys]
+        let back = try JSONSerialization.jsonObject(with: try enc.encode(r))
+        let original = try JSONSerialization.jsonObject(with: data)
+        if let unknown = unknownKey(original, back, path: "") { throw SandboxError.invalidSpec("unknown key \(unknown)") }
+        try r.validate()
+        return r
+    }
+
+    /// The first key of `a` that `b` (the decoded value encoded again) does not have — a null in `a` may be absent.
+    static func unknownKey(_ a: Any, _ b: Any, path: String) -> String? {
+        if let x = a as? [String: Any] {
+            let y = b as? [String: Any] ?? [:]
+            for (k, v) in x {
+                guard let w = y[k] else {
+                    if v is NSNull { continue }
+                    return path.isEmpty ? k : path + "." + k
+                }
+                if let u = unknownKey(v, w, path: path.isEmpty ? k : path + "." + k) { return u }
+            }
+        } else if let x = a as? [Any], let y = b as? [Any], x.count == y.count {
+            for (i, v) in x.enumerated() { if let u = unknownKey(v, y[i], path: "\(path)[\(i)]") { return u } }
+        }
+        return nil
+    }
+
+    static func isExactHost(_ h: String) -> Bool {
+        h.range(of: #"^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$"#, options: .regularExpression) != nil
+    }
+
+    /// The rules between recipes: unique ids and aliases, model permissions, providers' hosts.
+    public static func validate(_ recipes: [AgentRecipe]) throws {
+        var names = Set<String>(), models = Set<String>()
+        for r in recipes {
+            try r.validate()
+            for n in [r.id] + (r.aliases ?? []) where !names.insert(n).inserted {
+                throw SandboxError.invalidSpec("\(r.id): \(n) is another recipe's id or alias")
+            }
+            if r.network.model.shared != true, !models.insert(r.network.model.id).inserted {
+                throw SandboxError.invalidSpec("\(r.id): its model permission \(r.network.model.id) is another recipe's")
+            }
+        }
+    }
+}
+
+extension AgentRecipe {
+    /// One recipe's own rules (see the file's header).
+    public func validate() throws {
+        func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("recipe \(id): \(s)") }
+        guard schema == 1 else { throw bad("schema \(schema) — this build reads 1") }
+        let idRule = "^[a-z][a-z0-9-]{0,23}$"
+        for n in [id] + (aliases ?? []) {
+            guard n.range(of: idRule, options: .regularExpression) != nil else { throw bad("\(n): an id is [a-z][a-z0-9-]*, at most 24") }
+            guard BaseCatalogue.base(n) == nil, !["lab", "none", "custom", "shell"].contains(n), !ImageChoice.isDockerfileBase(n) else {
+                throw bad("\(n) is a base or a reserved name")
+            }
+        }
+        guard !title.isEmpty, !publisher.isEmpty, !licence.isEmpty, homepage.hasPrefix("https://") else { throw bad("title, publisher, licence and an https homepage") }
+        guard BaseCatalogue.base(defaultBase) != nil else { throw bad("default_base \(defaultBase) is not a catalogue base") }
+        guard platforms.glibc || platforms.musl else { throw bad("it runs nowhere (platforms)") }
+        if !platforms.musl, BaseCatalogue.base(defaultBase)?.musl == true { throw bad("its default base is musl, which it does not support") }
+        guard ["osc7501", "none"].contains(status) else { throw bad("status osc7501 or none") }
+        // install
+        let release = AgentRelease(version: install.pinned.version, integrity: install.pinned.integrity ?? "sha512-A")
+        guard release.isWellFormed else { throw bad("pinned \(install.pinned.version) / its integrity are not well-formed") }
+        let packageRule = #"^(@[a-z0-9-]+/)?[a-z0-9._-]+$"#
+        for p in [install.package, install.platformPackage].compactMap({ $0 }) where p.range(of: packageRule, options: .regularExpression) == nil {
+            throw bad("package \(p) is not an npm package name")
+        }
+        guard install.binary.range(of: "^[a-z][a-z0-9_-]{0,31}$", options: .regularExpression) != nil else { throw bad("binary \(install.binary)") }
+        switch install.kind {
+        case "builtin":
+            guard isBuiltin else { throw bad("install kind builtin is only for the built-in agents") }
+        case "npm":
+            guard !isBuiltin, install.package != nil, install.pinned.integrity != nil else { throw bad("an npm install names its package and pins an integrity") }
+        case "npm-platform-binary":
+            guard !isBuiltin, install.package != nil, install.platformPackage != nil, install.pinned.integrity != nil,
+                  let p = install.payload, p.range(of: "^[A-Za-z0-9._/-]+$", options: .regularExpression) != nil, !p.contains("..") else {
+                throw bad("an npm-platform-binary install names its package, platform package, payload and integrity")
+            }
+            if let c = install.compression, c != "brotli" { throw bad("compression: brotli (or none)") }
+        default:
+            throw bad("install kind builtin, npm or npm-platform-binary")
+        }
+        for a in install.npmArgs ?? [] where a.range(of: "^--[a-z][a-z-]*$", options: .regularExpression) == nil { throw bad("npm_args: \(a)") }
+        if let n = install.needsNode, Int(n) == nil { throw bad("needs_node is a Node major version") }
+        for h in install.bakeHosts ?? [] where !AgentRecipes.isExactHost(h) { throw bad("bake host \(h) is not an exact host name") }
+        // launch
+        guard let first = launch.command.first, !first.isEmpty else { throw bad("launch.command is empty") }
+        if !isBuiltin, first != install.binary { throw bad("launch.command runs \(first), not its binary \(install.binary)") }
+        let scriptSafe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") }
+        for a in launch.command + launch.noPromptsArgs + launch.passthrough + (resume ?? []) where !scriptSafe(a) || a.isEmpty {
+            throw bad("an argument holds a quote, a backslash or a newline: \(a)")
+        }
+        for (k, v) in launch.env.merging(state.env, uniquingKeysWith: { a, _ in a }) {
+            guard k.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k), scriptSafe(v) else {
+                throw bad("env \(k): a variable name that names no credential, and a value with no quote")
+            }
+        }
+        for f in launch.firstRun ?? [] {
+            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml"), !f.file.contains(".."), scriptSafe(f.file) else {
+                throw bad("first_run file \(f.file): ~/….json or ~/….toml")
+            }
+            for (k, v) in f.set {
+                guard k.range(of: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
+                if f.file.hasSuffix(".toml") {
+                    guard k.contains(".") else { throw bad("first_run TOML key \(k) names its table (table.key)") }
+                    if case .object = v { throw bad("first_run TOML value of \(k) is a string, a number or a bool") }
+                    if case .array = v { throw bad("first_run TOML value of \(k) is a string, a number or a bool") }
+                }
+                for s in v.strings where !scriptSafe(s) { throw bad("first_run value of \(k) holds a quote") }
+            }
+        }
+        // state
+        for d in state.persist where !(d.hasPrefix("~/") || d.hasPrefix("/")) || !scriptSafe(d) { throw bad("persist dir \(d)") }
+        // credentials
+        guard !credentials.isEmpty else { throw bad("no credentials") }
+        for c in credentials {
+            guard KeyProviders.provider(c.provider) != nil || c.provider == "custom" else { throw bad("provider \(c.provider) is not in providers.json") }
+            if !isBuiltin, c.accounts != ["key"] { throw bad("a recipe agent takes key accounts only") }
+        }
+        // network
+        let m = network.model
+        if m.shared == true {
+            guard m.id == "model", m.hosts == nil else { throw bad("the shared model permission is `model`, with no hosts of its own") }
+            guard isBuiltin else { throw bad("a recipe agent has its own model permission") }
+        } else {
+            guard m.id.hasPrefix("model:"), m.id.dropFirst(6).range(of: "^[a-z][a-z0-9-]*$", options: .regularExpression) != nil,
+                  m.title != nil, let hosts = m.hosts, !hosts.isEmpty else {
+                throw bad("its model permission is model:<name>, with a title and hosts")
+            }
+        }
+        let modelHosts = (m.hosts ?? []).map(\.host), updateHosts = network.update.map(\.host)
+        for h in modelHosts + updateHosts + network.excluded where !AgentRecipes.isExactHost(h) { throw bad("\(h) is not an exact host name") }
+        for p in (m.hosts ?? []).flatMap({ $0.paths ?? [] }) + network.update.flatMap({ $0.paths ?? [] }) where !p.hasPrefix("/") {
+            throw bad("a path prefix starts with /: \(p)")
+        }
+        let excluded = Set(network.excluded)
+        guard excluded.isDisjoint(with: modelHosts), excluded.isDisjoint(with: updateHosts) else { throw bad("an excluded host is also one it may reach") }
+        if !isBuiltin {
+            let everyPermissionHost = Set(AgentPermissions.basePermissions.flatMap { $0.hosts.map(\.host) })
+            guard excluded.isDisjoint(with: everyPermissionHost) else {
+                throw bad("an excluded host is in a permission: \(excluded.intersection(everyPermissionHost).sorted().joined(separator: ", "))")
+            }
+            // A key's hosts are its provider's, and its model reaches them.
+            for c in credentials { if let p = KeyProviders.provider(c.provider), !Set(p.hosts).isSubset(of: Set(modelHosts)) {
+                throw bad("its model permission does not reach its provider \(p.id)'s hosts")
+            } }
+        }
+        // prompt, resume, verify
+        if let p = prompt {
+            switch p.kind {
+            case "skill": guard p.dir?.hasPrefix("~/") == true else { throw bad("a skill prompt names its ~/ dir") }
+            case "context-file":
+                guard let d = p.dir, d.hasPrefix("~/"), let f = p.file, f.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil, scriptSafe(d) else {
+                    throw bad("a context-file prompt names its ~/ dir and its file")
+                }
+                if let mf = p.manifest {
+                    guard mf.file.range(of: "^[A-Za-z0-9._-]+$", options: .regularExpression) != nil, mf.file != f else { throw bad("the prompt's manifest file") }
+                }
+            default: throw bad("prompt kind skill or context-file")
+            }
+        }
+        guard !verify.isEmpty, verify.allSatisfy({ !$0.argv.isEmpty }) else { throw bad("no verify check") }
+        if let d = checked, !Self.isISODate(d) { throw bad("checked \(d) is not an ISO date (YYYY-MM-DD)") }
+        // tags (owner, 617): exactly the vocabulary's declared tags, each once; never a derivable one.
+        for t in tags {
+            guard let v = CapabilityTags.tag(t.tag) else { throw bad("tag \(t.tag) is not in the vocabulary (tags.json)") }
+            guard !v.derived else { throw bad("tag \(t.tag) is derived from the recipe's data — it is never declared") }
+            guard GatewaySupport.levels.contains(t.level) else { throw bad("tag \(t.tag): level \(t.level)") }
+            if let d = t.checked, !Self.isISODate(d) { throw bad("tag \(t.tag): checked is not an ISO date") }
+            if let u = t.source, !u.hasPrefix("https://") { throw bad("tag \(t.tag): source is an https URL") }
+            if t.level == "documented", t.source == nil { throw bad("tag \(t.tag): documented cites its source") }
+            if ["verified", "experimental"].contains(t.level), t.evidence == nil { throw bad("tag \(t.tag): \(t.level) says its evidence") }
+        }
+        let declared = CapabilityTags.all.filter { !$0.derived }.map(\.id)
+        guard tags.map(\.tag).sorted() == declared.sorted() else {
+            throw bad("tags: one entry for each declared tag (\(declared.joined(separator: ", "))) — unknown is allowed, said explicitly")
+        }
+        // gateways (owner, 617): one entry per catalogue gateway, each with its evidence and machine-applicable how.
+        let catalogue = Gateways.all.map(\.id)
+        guard gateways.map(\.gateway).sorted() == catalogue.sorted() else {
+            throw bad("gateways: one entry for each of \(catalogue.joined(separator: ", ")) (unknown is allowed, said explicitly)")
+        }
+        for s in gateways {
+            let at = "gateways[\(s.gateway)]"
+            guard GatewaySupport.levels.contains(s.level) else { throw bad("\(at).level: \(GatewaySupport.levels.joined(separator: ", "))") }
+            if let d = s.checked, !Self.isISODate(d) { throw bad("\(at).checked is not an ISO date") }
+            if let u = s.source, !u.hasPrefix("https://") { throw bad("\(at).source is an https URL") }
+            if let sh = s.shape, !Gateway.shapes.contains(sh) { throw bad("\(at).shape \(sh)") }
+            if let e = s.endpoint {
+                guard let ep = Gateways.gateway(s.gateway)?.endpoints.first(where: { $0.id == e }) else { throw bad("\(at).endpoint \(e) is not the gateway's") }
+                if let sh = s.shape, !ep.shapes.contains(sh) { throw bad("\(at): endpoint \(e) does not serve \(sh)") }
+            }
+            switch s.level {
+            case "documented", "verified", "experimental":
+                guard let how = s.how, !(how.env ?? [:]).isEmpty || !(how.config ?? []).isEmpty else { throw bad("\(at): how (env or config) is required") }
+                guard s.checked != nil else { throw bad("\(at): checked is required") }
+                if s.level == "documented", s.source == nil { throw bad("\(at): a documented entry cites its source") }
+                if s.level != "documented", s.evidence?.isEmpty != false { throw bad("\(at): a \(s.level) entry says its evidence") }
+                for c in how.config ?? [] where !c.file.hasPrefix("~/") { throw bad("\(at): a config file is ~/…") }
+                _ = try s.resolved(placeholder: "doz_cred_x", model: "m/m")
+            case "no":
+                guard s.reason?.isEmpty == false else { throw bad("\(at): a no says why (reason)") }
+            default:
+                break
+            }
+        }
+        // auth (owner, 617): at least one way in; each well-formed.
+        guard !auth.methods.isEmpty else { throw bad("auth.methods is empty — say how a person lets it talk to its model") }
+        for (i, a) in auth.methods.enumerated() {
+            let at = "auth.methods[\(i)]"
+            if let d = a.checked, !Self.isISODate(d) { throw bad("\(at).checked \(d) is not an ISO date (YYYY-MM-DD)") }
+            if let u = a.keysPage, !(u.hasPrefix("https://") && URL(string: u)?.host != nil) { throw bad("\(at).keys_page is an https URL") }
+            if a.freeTierNote != nil, a.freeTier == nil { throw bad("\(at): a free-tier note without free_tier") }
+            if a.freeTier != nil, a.checked == nil { throw bad("\(at): free_tier is only said with the date it was checked") }
+            let takes = Set(credentials.flatMap(\.accounts))
+            for k in a.accounts ?? [] where !takes.contains(k) { throw bad("\(at).accounts: \(k) is not an account kind it takes (credentials)") }
+            switch a.kind {
+            case "api-key":
+                guard let p = a.provider, KeyProviders.provider(p) != nil else { throw bad("\(at): an api-key method names a provider of providers.json") }
+                guard a.keysPage != nil else { throw bad("\(at): an api-key method says where the key is made (keys_page)") }
+            case "vendor-sign-in":
+                guard let acc = a.account, !acc.isEmpty else { throw bad("\(at): a vendor sign-in says which account (account)") }
+            case "none":
+                break
+            case "gateway":
+                guard let g = a.gateways, !g.isEmpty, g.allSatisfy({ $0.range(of: "^[a-z][a-z0-9-]*$", options: .regularExpression) != nil }) else {
+                    throw bad("\(at): a gateway method names its gateways")
+                }
+            default:
+                throw bad("\(at).kind: api-key, vendor-sign-in, none or gateway")
+            }
+        }
+        if let s = settings {
+            for k in [s.version, s.permissions].compactMap({ $0 }) where k.range(of: "^[a-z_]+(\\.[a-z_]+)+$", options: .regularExpression) == nil {
+                throw bad("settings key \(k)")
+            }
+        }
+    }
+}

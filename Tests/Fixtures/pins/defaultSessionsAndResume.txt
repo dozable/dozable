@@ -12,4 +12,6 @@ resume claude-code --continue check=d="$HOME/.claude/projects/$(pwd -P | sed 's/
 resume pi --continue check=nil
 resume none  check=nil
 resume codex resume --last check=nil
+resume gemini --resume latest check=nil
+resume grok  check=nil
 resume nil 

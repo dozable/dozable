@@ -91,6 +91,17 @@ let package = Package(
                 .copy("Resources/doznet"),
                 // 599g: workspace rules' view of a share — a filtering FUSE daemon (Guest/dozview/).
                 .copy("Resources/dozview"),
+                // 617: the agent recipes and the key providers, compiled in (`PackageResources.<basename>_json`,
+                // no Bundle.module). ONE line per file, and every basename unique across Recipes/ — the
+                // identifier is the basename (`AgentRecipeTests` checks the list against the folder).
+                .embedInCode("Recipes/agents/claude-code.json"),
+                .embedInCode("Recipes/agents/pi.json"),
+                .embedInCode("Recipes/agents/codex.json"),
+                .embedInCode("Recipes/agents/gemini.json"),
+                .embedInCode("Recipes/agents/grok.json"),
+                .embedInCode("Recipes/providers.json"),
+                .embedInCode("Recipes/gateways.json"),
+                .embedInCode("Recipes/tags.json"),
             ]
         ),
         // 599g — the `.dozignore` matcher in C (Docker's patternmatcher + an RE2-subset engine + Unicode

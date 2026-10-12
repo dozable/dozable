@@ -2,50 +2,74 @@ kind claude-code Claude Code
 kind pi pi
 kind none none
 kind codex Codex
+kind gemini Gemini CLI
+kind grok Grok Build
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
 parse codex → node codex codex Node.js · Codex base-name codex-sandbox
 parse node → node none node Node.js · none base-name node-sandbox
+parse gemini → node gemini gemini Node.js · Gemini CLI base-name gemini-sandbox
+parse node-grok → node grok node-grok Node.js · Grok Build base-name node-grok-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
 parse python-codex → python codex python-codex Python · Codex base-name python-codex-sandbox
+parse python-gemini → python gemini python-gemini Python · Gemini CLI base-name python-gemini-sandbox
+parse python-grok → python grok python-grok Python · Grok Build base-name python-grok-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
 parse go-codex → go codex go-codex Go · Codex base-name go-codex-sandbox
+parse go-gemini → go gemini go-gemini Go · Gemini CLI base-name go-gemini-sandbox
+parse go-grok → go grok go-grok Go · Grok Build base-name go-grok-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
 parse rust-codex → rust codex rust-codex Rust · Codex base-name rust-codex-sandbox
+parse rust-gemini → rust gemini rust-gemini Rust · Gemini CLI base-name rust-gemini-sandbox
+parse rust-grok → rust grok rust-grok Rust · Grok Build base-name rust-grok-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
 parse java-codex → java codex java-codex Java · Codex base-name java-codex-sandbox
+parse java-gemini → java gemini java-gemini Java · Gemini CLI base-name java-gemini-sandbox
+parse java-grok → java grok java-grok Java · Grok Build base-name java-grok-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
 parse ruby-codex → ruby codex ruby-codex Ruby · Codex base-name ruby-codex-sandbox
+parse ruby-gemini → ruby gemini ruby-gemini Ruby · Gemini CLI base-name ruby-gemini-sandbox
+parse ruby-grok → ruby grok ruby-grok Ruby · Grok Build base-name ruby-grok-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
 parse dotnet-codex → dotnet codex dotnet-codex .NET · Codex base-name dotnet-codex-sandbox
+parse dotnet-gemini → dotnet gemini dotnet-gemini .NET · Gemini CLI base-name dotnet-gemini-sandbox
+parse dotnet-grok → dotnet grok dotnet-grok .NET · Grok Build base-name dotnet-grok-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
 parse debian-codex → debian codex debian-codex Debian · Codex base-name debian-codex-sandbox
+parse debian-gemini → debian gemini debian-gemini Debian · Gemini CLI base-name debian-gemini-sandbox
+parse grok → debian grok grok Debian · Grok Build base-name grok-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
 parse ubuntu-codex → ubuntu codex ubuntu-codex Ubuntu · Codex base-name ubuntu-codex-sandbox
+parse ubuntu-gemini → ubuntu gemini ubuntu-gemini Ubuntu · Gemini CLI base-name ubuntu-gemini-sandbox
+parse ubuntu-grok → ubuntu grok ubuntu-grok Ubuntu · Grok Build base-name ubuntu-grok-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
+parse alpine-gemini → alpine gemini alpine-gemini Alpine · Gemini CLI base-name alpine-gemini-sandbox
+parse alpine-grok → alpine grok alpine-grok Alpine · Grok Build base-name alpine-grok-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
 parse df-0123456789ab-codex → df-0123456789ab codex df-0123456789ab-codex Dockerfile · Codex base-name dockerfile-codex-sandbox
+parse df-0123456789ab-gemini → df-0123456789ab gemini df-0123456789ab-gemini Dockerfile · Gemini CLI base-name dockerfile-gemini-sandbox
+parse df-0123456789ab-grok → df-0123456789ab grok df-0123456789ab-grok Dockerfile · Grok Build base-name dockerfile-grok-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

@@ -1,0 +1,45 @@
+{
+  "schema": 1,
+  "providers": [
+    {
+      "id": "anthropic",
+      "title": "Anthropic",
+      "hosts": ["api.anthropic.com"],
+      "inject": { "header": "x-api-key", "format": "%s" },
+      "env": "ANTHROPIC_API_KEY",
+      "builtin_binding": "anthropic",
+      "key_hint": "sk-ant-",
+      "error_shape": "anthropic"
+    },
+    {
+      "id": "openai",
+      "title": "OpenAI",
+      "hosts": ["api.openai.com"],
+      "inject": { "header": "authorization", "format": "Bearer %s" },
+      "env": "OPENAI_API_KEY",
+      "builtin_binding": "openai",
+      "key_hint": "sk-",
+      "error_shape": "openai"
+    },
+    {
+      "id": "xai",
+      "title": "xAI",
+      "hosts": ["api.x.ai"],
+      "inject": { "header": "authorization", "format": "Bearer %s" },
+      "env": "XAI_API_KEY",
+      "key_hint": "xai-",
+      "check": { "method": "GET", "url": "https://api.x.ai/v1/api-key", "rejected": [400, 401, 403] },
+      "error_shape": "openai"
+    },
+    {
+      "id": "google",
+      "title": "Google AI (Gemini API)",
+      "hosts": ["generativelanguage.googleapis.com"],
+      "inject": { "header": "x-goog-api-key", "format": "%s" },
+      "env": "GEMINI_API_KEY",
+      "key_hint": "AIza",
+      "check": { "method": "GET", "url": "https://generativelanguage.googleapis.com/v1beta/models", "rejected": [400, 401, 403] },
+      "error_shape": "google"
+    }
+  ]
+}

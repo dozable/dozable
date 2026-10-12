@@ -39,6 +39,25 @@ public struct AgentPermission: Sendable, Equatable, Codable {
     public var warning: String?
     /// `install` for the per-ecosystem sub-switches.
     public var group: String?
+    /// 617: hosts the agent this permission belongs to is known to call that Dozer keeps out — denied before
+    /// anything else in a sandbox that has it (a recipe's `excluded`). nil for every other permission.
+    public var denies: [String]?
+    /// 617: never shown as a switch (an agent's own update hosts, folded into "Update itself").
+    public var hidden: Bool?
+
+    public init(id: String, title: String, summary: String, phrase: String, hosts: [PermissionHost], locked: Bool,
+                warning: String? = nil, group: String? = nil, denies: [String]? = nil, hidden: Bool? = nil) {
+        self.id = id
+        self.title = title
+        self.summary = summary
+        self.phrase = phrase
+        self.hosts = hosts
+        self.locked = locked
+        self.warning = warning
+        self.group = group
+        self.denies = denies
+        self.hidden = hidden
+    }
 }
 
 public enum AgentPermissions {
@@ -60,8 +79,42 @@ public enum AgentPermissions {
         ("dotnet", ".NET (NuGet)", ".NET packages (NuGet)", [PermissionHost("api.nuget.org"), PermissionHost("globalcdn.nuget.org")], ["dotnet"]),
     ]
 
-    /// P1's table, in the order the page lists it (Install software's sub-switches after "update").
-    public static let all: [AgentPermission] = {
+    /// P1's table, in the order the page lists it (Install software's sub-switches after "update"). 617: with every
+    /// recipe agent's own model permission after "Talk to OpenAI", and its hidden `update:<id>` at the end.
+    public static var all: [AgentPermission] {
+        let g = AgentRecipes.generation
+        cacheLock.lock(); defer { cacheLock.unlock() }
+        if let c = cache, c.generation == g { return c.all }
+        var a = basePermissions
+        let recipes = AgentRecipes.all.filter { !$0.isBuiltin }
+        a.insert(contentsOf: recipes.compactMap(modelPermission), at: 2)
+        a += recipes.compactMap(updatePermission)
+        cache = (g, a)
+        return a
+    }
+    nonisolated(unsafe) private static var cache: (generation: Int, all: [AgentPermission])?
+    private static let cacheLock = NSLock()
+
+    /// 617: a recipe agent's own model permission ("Talk to xAI"): its hosts and paths, and the hosts it keeps out.
+    static func modelPermission(_ r: AgentRecipe) -> AgentPermission? {
+        let m = r.network.model
+        guard m.shared != true, let hosts = m.hosts else { return nil }
+        return AgentPermission(id: m.id, title: m.title ?? "Talk to its AI model",
+                               summary: m.summary ?? "\(r.title)'s model — needed for \(r.title) to work.",
+                               phrase: m.phrase ?? "talk to your AI model",
+                               hosts: hosts.map { PermissionHost($0.host, pathPrefixes: $0.paths) }, locked: false,
+                               denies: r.network.excluded.isEmpty ? nil : r.network.excluded)
+    }
+
+    /// 617 (D4): a recipe agent's own update hosts — on only beside "Update itself", only in its sandbox.
+    static func updatePermission(_ r: AgentRecipe) -> AgentPermission? {
+        guard !r.isBuiltin, !r.network.update.isEmpty else { return nil }
+        return AgentPermission(id: "update:" + r.id, title: "Update \(r.title)", summary: "Get new versions of \(r.title).", phrase: "update yourself",
+                               hosts: r.network.update.map { PermissionHost($0.host, pathPrefixes: $0.paths) }, locked: false, hidden: true)
+    }
+
+    /// The table before 617 — what every recipe is checked against (an excluded host is in none of these).
+    public static let basePermissions: [AgentPermission] = {
         var a: [AgentPermission] = [
             AgentPermission(id: "model", title: "Talk to its AI model", summary: "Needed for the agent to work.", phrase: "talk to your AI model",
                             hosts: [PermissionHost("api.anthropic.com", ports: nil), PermissionHost("statsig.anthropic.com", ports: nil)], locked: true),
@@ -119,15 +172,56 @@ public enum AgentPermissions {
     /// a preset (Open included): it is added for the agent that needs it (`agentPermissions`), kept across
     /// preset changes, never inferred, never suggested, and not listed in another agent's checklist or facts.
     public static let openAIModel = "model:openai"
-    static let agentModelPermissions: Set<String> = [openAIModel]
+    /// 599i: Codex's; 617: and every recipe agent's own (`model:xai`, `model:google`).
+    static var agentModelPermissions: Set<String> { Set([openAIModel]).union(recipeModelPermissions) }
 
-    /// 599i: the permissions an agent always has (Codex: "Talk to OpenAI"); none for Claude Code and pi.
+    /// 617 (D5): the model permissions of recipe agents — a sandbox that has one has NO Anthropic `model` (its Locked
+    /// reaches only its own model). Codex keeps today's shape (`model` + "Talk to OpenAI").
+    static var recipeModelPermissions: Set<String> {
+        Set(AgentRecipes.all.filter { !$0.isBuiltin && $0.network.model.shared != true }.map(\.network.model.id))
+    }
+
+    /// 599i: the permissions an agent always has (Codex: "Talk to OpenAI"); none for Claude Code and pi. 617: a recipe
+    /// agent's own model permission, and its hidden `update:<id>` when it has update hosts.
     public static func agentPermissions(_ agent: AgentKind?) -> [String] {
-        agent == .codex ? [openAIModel] : []
+        if agent == .codex { return [openAIModel] }
+        guard let r = agent?.recipe, !r.isBuiltin else { return [] }
+        var out: [String] = []
+        if r.network.model.shared != true { out.append(r.network.model.id) }
+        if !r.network.update.isEmpty { out.append("update:" + r.id) }
+        return out
     }
 
     /// 599i: whether `id` is an agent's own model permission (shown only where it is on).
     public static func isAgentModel(_ id: String) -> Bool { agentModelPermissions.contains(id) }
+
+    /// 617: an agent's own update hosts (`update:<id>` — never a switch of its own).
+    public static func isAgentUpdate(_ id: String) -> Bool { id.hasPrefix("update:") }
+
+    /// 617: a permission only an agent has (its model, its update hosts): never in a preset, never inferred or suggested.
+    public static func isAgentOwn(_ id: String) -> Bool { isAgentModel(id) || isAgentUpdate(id) }
+
+    /// 617 (D5): whether `names` carry a recipe agent's own model (then Anthropic's `model` is not theirs).
+    public static func hasOwnModel(_ names: [String]) -> Bool { !recipeModelPermissions.isDisjoint(with: names) }
+
+    /// 617: the hosts kept out of a sandbox with these permissions (its agent's `excluded`), whatever else is on.
+    public static func excludedHosts(_ names: [String]) -> [String] {
+        let set = Set(names)
+        return all.filter { set.contains($0.id) }.flatMap { $0.denies ?? [] }
+    }
+
+    /// 617: the deny rules for `excludedHosts` — evaluated before the user's own rules and every permission.
+    public static func exclusions(for names: [String]) -> [EgressRule] {
+        let set = Set(names)
+        var out: [EgressRule] = []
+        for p in all where set.contains(p.id) {
+            for h in p.denies ?? [] {
+                out.append(EgressRule(.deny, host: h, note: "kept out of a \(p.title.replacingOccurrences(of: "Talk to ", with: "")) agent's sandbox",
+                                      id: stableID(p.id + "|deny", h)))
+            }
+        }
+        return out
+    }
 
     public static let gitHubAsYou = "github:as-you"
     public static let gitHubPush = "github:push"
@@ -151,31 +245,49 @@ public enum AgentPermissions {
         switch name {
         case "locked": return ["model"]
         case "agent", "standard": return ["model", "update"] + installDefaults(base: base) + ["github", "error-reports"]
-        case "open": return all.map(\.id).filter { !identityPermissions.contains($0) && !agentModelPermissions.contains($0) }
+        case "open": return all.map(\.id).filter { !identityPermissions.contains($0) && !isAgentOwn($0) }
         default: return nil
         }
+    }
+
+    /// 617 (D5): the preset for an AGENT — a recipe agent with its own model has no Anthropic `model` in it (its
+    /// Locked is only its own model, which `agentPermissions` adds); the built-in three get exactly `preset(_:base:)`.
+    public static func preset(_ name: String, base: String?, agent: AgentKind?) -> [String]? {
+        guard let p = preset(name, base: base) else { return nil }
+        guard let r = agent?.recipe, !r.isBuiltin, r.network.model.shared != true else { return p }
+        return p.filter { $0 != "model" }
     }
 
     /// Which preset `names` is for `base` (nil: Custom).
     public static func presetName(_ names: [String], base: String?) -> String? {
         // 599d: the user's GitHub login is beside the preset, not part of it (a preset + "as you" is still that preset).
-        let rest = Set(names).subtracting(identityPermissions).subtracting(agentModelPermissions)
-        for p in ["locked", "agent", "open"] where Set(preset(p, base: base) ?? []) == rest { return p }
+        let rest = Set(names).subtracting(identityPermissions).filter { !isAgentOwn($0) }
+        // 617 (D5): a recipe agent's sandbox has no Anthropic `model` — its presets are the same without it.
+        let own = hasOwnModel(names)
+        for p in ["locked", "agent", "open"] {
+            var want = Set(preset(p, base: base) ?? [])
+            if own { want.remove("model") }
+            if want == rest { return p }
+        }
         return nil
     }
 
-    /// Canonical order, locked ones forced on, unknown names dropped.
+    /// Canonical order, locked ones forced on, unknown names dropped. 617 (D5): with a recipe agent's own model,
+    /// Anthropic's `model` is neither forced on nor kept.
     public static func normalized(_ names: [String]) -> [String] {
         var set = Set(names)
         // 599d: "Push to GitHub" is a step of "Use GitHub as you" — never on without it.
         if !set.contains(gitHubAsYou) { set.remove(gitHubPush) }
-        return all.filter { $0.locked || set.contains($0.id) }.map(\.id)
+        let own = hasOwnModel(names)
+        if own { set.remove("model") }
+        return all.filter { ($0.locked && !(own && $0.id == "model")) || set.contains($0.id) }.map(\.id)
     }
 
-    /// The rules the names allow, in the catalogue's order (the user's own rules come before these).
+    /// The rules the names allow, in the catalogue's order (the user's own rules come before these). 617: an agent's
+    /// own update hosts only beside "Update itself" (D4).
     public static func rules(for names: [String]) -> [EgressRule] {
         let set = Set(names)
-        let chosen = all.filter { set.contains($0.id) && $0.id != "web" }
+        let chosen = all.filter { set.contains($0.id) && $0.id != "web" && !(isAgentUpdate($0.id) && !set.contains("update")) }
         // A host another permission allows whole (npm with Install: Node) needs no path condition —
         // which would otherwise make the proxy decrypt every npm connection.
         let whole = Set(chosen.flatMap { p in (p.hosts + (addedForTests[p.id] ?? [])).filter { $0.pathPrefixes == nil }.map(\.host) })
@@ -194,7 +306,7 @@ public enum AgentPermissions {
     public static func permission(forHost host: String) -> AgentPermission? {
         let h = host.lowercased()
         // 599d: a denied host never suggests the user's own GitHub login (that is switched on deliberately).
-        let candidates = all.filter { $0.id != "web" && $0.group != "github" && !agentModelPermissions.contains($0.id) }
+        let candidates = all.filter { $0.id != "web" && $0.group != "github" && !isAgentOwn($0.id) }
         for p in candidates {
             for ph in p.hosts where ph.host == h && ph.pathPrefixes == nil { return p }
         }
@@ -225,7 +337,8 @@ extension NetworkPolicy {
     /// permission as THIS build defines them. A pre-597 policy (no permissions): its rules.
     public var effectiveRules: [EgressRule] {
         guard let names = permissions else { return rules }
-        return rules + AgentPermissions.rules(for: names)
+        // 617: a recipe agent's excluded hosts first — kept out whatever else is chosen (none for the built-in three).
+        return AgentPermissions.exclusions(for: names) + rules + AgentPermissions.rules(for: names)
     }
 
     /// "Browse the web" is an allowing default.

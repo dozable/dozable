@@ -76,8 +76,17 @@ struct AccountAdd: AsyncParsableCommand {
     @Flag(name: .long, help: "An OpenAI API key (Codex).") var openaiKey = false
     @Flag(name: .long, help: ArgumentHelp("Sign in with ChatGPT in your browser (Codex on your ChatGPT plan) — Dozer's own sign-in, not your Mac's Codex login.",
                                           visibility: BuildFlavor.current.chatgptSignIn ? .default : .hidden)) var chatgpt = false
+    @Option(name: .long, help: "An API key of this provider: xai (Grok Build), google (Gemini CLI); anthropic = --api-key, openai = --openai-key.") var provider: String?
     @Option(name: .long, help: "With --claude-login: the CLAUDE_CONFIG_DIR it uses.") var configDir: String?
-    @Option(name: .long, help: "With --api-key: adopt an existing keychain item (its service name) instead of storing a new one.") var keychain: String?
+    @Option(name: .long, help: "With --api-key, --openai-key or --provider: adopt an existing keychain item (its service name) instead of storing a new one.") var keychain: String?
+
+    /// 617: `--provider anthropic|openai` are `--api-key|--openai-key`; any other is a `key` of that provider.
+    var keyProvider: KeyProvider? {
+        guard let provider, let p = KeyProviders.provider(provider.lowercased()), p.builtinBinding == nil else { return nil }
+        return p
+    }
+    var useAPIKey: Bool { apiKey || provider?.lowercased() == "anthropic" }
+    var useOpenAIKey: Bool { openaiKey || provider?.lowercased() == "openai" }
     @Option(name: .long, help: "With --setup-token: the plan (max, pro, team, enterprise) — Claude Code in the sandbox shows it and picks its default model by it.") var plan: String?
     @Flag(name: .long, help: "Store it without the check request.") var noVerify = false
     @Flag(name: .long, help: "Replace an account of that name.") var force = false
@@ -85,20 +94,30 @@ struct AccountAdd: AsyncParsableCommand {
     func validate() throws {
         // 611: a public build has no ChatGPT sign-in of its own.
         if chatgpt, !BuildFlavor.current.chatgptSignIn { throw ValidationError(BuildFlavor.chatgptSignInMissing) }
-        guard [setupToken, apiKey, claudeLogin, openaiKey, chatgpt].filter({ $0 }).count == 1 else {
-            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key or --chatgpt")
+        if let p = provider, KeyProviders.provider(p.lowercased()) == nil {
+            throw ValidationError("--provider: \(KeyProviders.all.map(\.id).joined(separator: ", ")) — not \(p)")
+        }
+        guard [setupToken, apiKey, claudeLogin, openaiKey, chatgpt, provider != nil].filter({ $0 }).count == 1 else {
+            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key, --chatgpt or --provider xai|google")
         }
         if claudeLogin && configDir == nil { throw ValidationError("--claude-login needs --config-dir (the default Mac login is the built-in account mac)") }
-        if keychain != nil && !apiKey && !openaiKey { throw ValidationError("--keychain is for --api-key or --openai-key") }
-        if plan != nil && (chatgpt || openaiKey) { throw ValidationError("--plan is for --setup-token (a ChatGPT sign-in says its own plan)") }
+        if keychain != nil && !useAPIKey && !useOpenAIKey && keyProvider == nil { throw ValidationError("--keychain is for --api-key, --openai-key or --provider") }
+        if plan != nil && (chatgpt || useOpenAIKey || keyProvider != nil) { throw ValidationError("--plan is for --setup-token (a ChatGPT sign-in says its own plan)") }
         if let p = plan, !["max", "pro", "team", "enterprise"].contains(p.lowercased()) { throw ValidationError("--plan: max, pro, team or enterprise") }
     }
 
     func run() async throws {
-        let kind: AccountKind = setupToken ? .setupToken : apiKey ? .apiKey : openaiKey ? .openaiKey : chatgpt ? .chatgpt : .mac
+        let kind: AccountKind = setupToken ? .setupToken : useAPIKey ? .apiKey : useOpenAIKey ? .openaiKey : chatgpt ? .chatgpt : keyProvider != nil ? .key : .mac
         var r = HostRequest.accountAdd(name: name, kind: kind, plan: plan, secret: nil,
                              verify: !noVerify, force: force, configDir: configDir, keychain: keychain)
-        if chatgpt {
+        if let p = keyProvider {
+            r.provider = p.id
+            if keychain == nil {
+                let s = try readSecret("\(p.title) API key (not echoed): ", g)
+                guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw fail(HostError(.invalid, "nothing read (pipe it in, or paste it at the prompt)"), g) }
+                r.secret = s
+            }
+        } else if chatgpt {
             // 599i: check the name first (an existing account without --force), then sign in.
             try AccountStore.validateName(name)
             if !force, let m = try? rawCall(HostRequest(.accountList), g), let rows = try? m.result?.decode([AccountRow].self),
@@ -108,9 +127,9 @@ struct AccountAdd: AsyncParsableCommand {
             let tokens: ChatGPTTokens
             do { tokens = try ChatGPTSignIn.run { Out.stderr("[doz] \($0)\n") } } catch { throw fail(HostError(.failed, error.localizedDescription), g) }
             r.secret = tokens.json
-        } else if setupToken || ((apiKey || openaiKey) && keychain == nil) {
+        } else if setupToken || ((useAPIKey || useOpenAIKey) && keychain == nil) {
             let s = try readSecret(setupToken ? "setup token from `claude setup-token` (not echoed): "
-                                   : openaiKey ? "OpenAI API key (not echoed): " : "Anthropic API key (not echoed): ", g)
+                                   : useOpenAIKey ? "OpenAI API key (not echoed): " : "Anthropic API key (not echoed): ", g)
             guard !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { throw fail(HostError(.invalid, "nothing read (pipe it in, or paste it at the prompt)"), g) }
             r.secret = s
         }
@@ -118,7 +137,8 @@ struct AccountAdd: AsyncParsableCommand {
         if g.json { Out.json(rows); return }
         let a = rows.first { $0.name == name }
         let who = [a?.identity, a?.plan].compactMap { $0 }.joined(separator: ", ")
-        Out.stdout("account \(name) added (\(a?.kind ?? "?")\(who.isEmpty ? "" : ": " + who)\(a?.verification.map { ", \($0)" } ?? "")) — doz account use SANDBOX \(name)\n")
+        let what = a?.kind == AccountKind.key.rawValue ? "key, \(a?.provider ?? "?")" : (a?.kind ?? "?")
+        Out.stdout("account \(name) added (\(what)\(who.isEmpty ? "" : ": " + who)\(a?.verification.map { ", \($0)" } ?? "")) — doz account use SANDBOX \(name)\n")
     }
 }
 
@@ -154,13 +174,21 @@ struct AccountDefault: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Flag(name: .long, help: "Set the default of Codex sandboxes: mac (this Mac's own Codex login), an OpenAI account, or none.") var codex = false
+    @Option(name: .long, help: "With none: clear this key provider's default (xai, google). A key account sets its own provider's default.") var provider: String?
     func run() async throws {
         var r = HostRequest(.accountDefault)
         r.account = name
         if codex { r.accountKind = "codex" }
+        r.provider = provider
         let rows = try decode(try call(r, g), [AccountRow].self, g)
         if g.json { Out.json(rows) } else {
-            let openai = codex || rows.first { $0.name == name }.flatMap { AccountKind(rawValue: $0.kind) }?.provider == "openai"
+            let row = rows.first { $0.name == name }
+            if row?.kind == AccountKind.key.rawValue || (name == "none" && provider != nil) {
+                let p = (row?.provider ?? provider).flatMap { KeyProviders.provider($0) }
+                Out.stdout("the default \(p?.title ?? "key") account is \(name)\n")
+                return
+            }
+            let openai = codex || row.flatMap { AccountKind(rawValue: $0.kind) }?.provider == "openai"
             Out.stdout(openai ? "the default OpenAI account (Codex) is \(name)\n" : "the default account is \(name)\n")
         }
     }

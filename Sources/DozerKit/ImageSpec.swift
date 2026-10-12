@@ -202,9 +202,14 @@ public struct AgentCredentialSupport: Sendable, Codable, Equatable, Hashable {
 public struct AgentPackage: Sendable, Codable, Equatable, Hashable {
     public var package: String
     public var version: String
-    public init(package: String, version: String) {
+    /// 617: a recipe agent's sha512 integrity (what its install step checks), so `recompose` reads its release from
+    /// data. nil for the three built-in agents — and then ABSENT from the canonical JSON, so their bake keys are
+    /// unchanged (RecipePinTests).
+    public var integrity: String?
+    public init(package: String, version: String, integrity: String? = nil) {
         self.package = package
         self.version = version
+        self.integrity = integrity
     }
 }
 
@@ -265,37 +270,259 @@ public enum AgentImages {
     /// API key only (it reads ANTHROPIC_API_KEY — the proxy's placeholder); a Claude subscription is
     /// never given to it. Other providers can be added per agent later. nil: no agent (the lab).
     /// 596: by the image's AGENT, whatever its base (`python-pi` is pi's).
+    /// 617: from the agent's recipe (Claude Code: any Anthropic account; pi: an Anthropic API key only; Codex: an OpenAI
+    /// account — this Mac's Codex login first, the least setup; Gemini CLI / Grok Build: a key of their provider).
     public static func credentials(_ image: String) -> [AgentCredentialSupport]? {
-        switch ImageChoice.parse(image)?.agent {
-        case .claudeCode?: [AgentCredentialSupport(provider: "anthropic", accountKinds: ["mac", "setup-token", "api-key"])]
-        case .pi?: [AgentCredentialSupport(provider: "anthropic", accountKinds: ["api-key"])]
-        // 599i: Codex — OpenAI only: Dozer's own ChatGPT sign-in, or an OpenAI API key.
-        // rc.3: and `mac` — this Mac's own Codex login (read-only), first: the least setup.
-        case .codex?: [AgentCredentialSupport(provider: "openai", accountKinds: ["codex-mac", "chatgpt", "openai-key"])]
-        default: nil
-        }
+        guard let r = ImageChoice.parse(image)?.agent.recipe else { return nil }
+        return r.credentials.map { AgentCredentialSupport(provider: $0.provider, accountKinds: $0.accounts) }
     }
 
     /// The agent's name as a person reads it (596: any image of that agent).
     public static func agentName(_ image: String) -> String? {
-        switch ImageChoice.parse(image)?.agent { case .claudeCode?: "Claude Code"; case .pi?: "pi"; case .codex?: "Codex"; default: nil }
+        ImageChoice.parse(image)?.agent.recipe?.title
     }
 
-    /// The npm package of an agent image (nil: not an agent image).
+    /// The npm package of an agent image (nil: not an agent image). By the agent's own name only (`codex`, `gemini`).
     public static func package(_ image: String) -> String? {
-        switch image { case "claude-code": claudeCodePackage; case "pi": piPackage; case "codex": codexPackage; default: nil }
+        AgentRecipes.recipe(image)?.install.package
     }
+    /// The release an agent's recipe pins (the built-in three: the constants below, which their recipes repeat).
     public static func pinned(_ image: String) -> AgentRelease? {
-        switch image { case "claude-code": claudeCodePinned; case "pi": piPinned; case "codex": codexPinned; default: nil }
+        switch image {
+        case "claude-code": claudeCodePinned
+        case "pi": piPinned
+        case "codex": codexPinned
+        default: AgentRecipes.recipe(image)?.pinnedRelease
+        }
     }
-    /// The agent image's spec at `release`.
+    /// The agent image's spec at `release` (617: a recipe agent's on its default base).
     public static func spec(_ image: String, release: AgentRelease) -> ImageSpec? {
         switch image {
-        case "claude-code": claudeCode(release)
-        case "pi": pi(release)
-        case "codex": try? ImageComposer.spec(name: "codex", base: BaseCatalogue.base("node")!.source(), agent: .codex, release: release, native: nil)
-        default: nil
+        case "claude-code": return claudeCode(release)
+        case "pi": return pi(release)
+        case "codex": return try? ImageComposer.spec(name: "codex", base: BaseCatalogue.base("node")!.source(), agent: .codex, release: release, native: nil)
+        default:
+            guard let r = AgentRecipes.recipe(image), !r.isBuiltin, let a = AgentKind(rawValue: r.id), let b = BaseCatalogue.base(r.defaultBase) else { return nil }
+            return try? ImageComposer.spec(name: r.id, base: b.source(), agent: a, release: release, native: nil)
         }
+    }
+
+    // MARK: 617 — an agent from its recipe
+
+    /// A recipe agent's install steps on `base`, and the hosts its bake reaches beyond the registries.
+    static func recipeInstall(_ r: AgentRecipe, _ release: AgentRelease, base: BaseSource) -> (steps: [BakeStep], bakeHosts: [String]) {
+        var steps: [BakeStep] = []
+        var hosts: [String] = []
+        // A Dockerfile's base: its libc is known only in the bake.
+        if base.musl == nil, !r.platforms.musl {
+            steps.append(BakeStep.script("check \(r.title) can run here (glibc)", """
+                if [ -e /lib/ld-musl-aarch64.so.1 ]; then echo "doz: \(r.muslRefusal)" >&2; exit 1; fi
+                echo glibc
+                """, needsNetworkFalse: ()))
+        }
+        switch r.install.kind {
+        case "npm":
+            var install = npmInstall(r.install.package!, version: release.version, integrity: release.integrity, extraArgs: r.install.npmArgs ?? [])
+            if base.hasNode {
+                steps.append(install)
+            } else {
+                steps.append(ImageComposer.nodeRuntime(base.packageManager, for: r.title))
+                install.environment["PATH"] = "/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                steps.append(install)
+                steps.append(ImageComposer.nodeWrapper(r.install.binary))
+                if base.packageManager != .apk { hosts.append("nodejs.org") }
+            }
+        default:            // npm-platform-binary (validated)
+            steps.append(platformBinaryInstall(r, release, base: base))
+        }
+        return (steps, hosts)
+    }
+
+    /// The registry's tarball URL of `package` at `version` (`@scope/name` → `…/@scope/name/-/name-<version>.tgz`).
+    static func tarballURL(_ package: String, _ version: String) -> String {
+        let short = package.split(separator: "/").last.map(String.init) ?? package
+        return "https://registry.npmjs.org/\(package)/-/\(short)-\(version).tgz"
+    }
+
+    /// 617: an agent's program from the npm registry's linux-arm64 PLATFORM package at the agent's version (Grok Build:
+    /// `@xai-official/grok-linux-arm64`), its sha512 checked against the release's integrity (resolved on the Mac — in
+    /// the script, so in the bake key; the check line has npm installs' shape, so the integrity reads back), the
+    /// payload decompressed when it is (brotli: Node's zlib where the base has Node, else the distribution's `brotli`),
+    /// installed under /opt/<id> and linked as /usr/local/bin/<binary>.
+    static func platformBinaryInstall(_ r: AgentRecipe, _ release: AgentRelease, base: BaseSource) -> BakeStep {
+        let pkg = r.install.platformPackage!, bin = r.install.binary, payload = r.install.payload!
+        let dest = "/opt/\(r.id)/\(bin)"
+        let place: String
+        if r.install.compression == "brotli" {
+            let node = #"node -e 'const z=require("zlib"),f=require("fs");f.writeFileSync(process.argv[2],z.brotliDecompressSync(f.readFileSync(process.argv[1])))' "$src" "$dst""#
+            let apt = "export DEBIAN_FRONTEND=noninteractive; apt-get install -y --no-install-recommends -o Dpkg::Use-Pty=0 brotli\nbrotli -d -f -o \"$dst\" \"$src\""
+            let apk = "apk add brotli\nbrotli -d -f -o \"$dst\" \"$src\""
+            if base.hasNode {
+                place = node
+            } else {
+                switch base.packageManager {
+                case .apt: place = apt
+                case .apk: place = apk
+                case .auto:
+                    place = """
+                        if command -v node >/dev/null 2>&1; then
+                        \(node)
+                        elif command -v apt-get >/dev/null 2>&1; then
+                        \(apt)
+                        else
+                        \(apk)
+                        fi
+                        """
+                }
+            }
+        } else {
+            place = "cp \"$src\" \"$dst\""
+        }
+        return BakeStep.script("install \(r.title) \(release.version) (linux-arm64, integrity-pinned)", """
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o pkg.tgz '\(tarballURL(pkg, release.version))'
+            got="sha512-$(python3 -c 'h=__import__("hashlib").sha512(open(__import__("sys").argv[1],"rb").read()).digest(); print(__import__("base64").b64encode(h).decode(), end="")' pkg.tgz)"
+            [ "$got" = '\(release.integrity)' ] || { echo "integrity mismatch for \(pkg)@\(release.version): $got" >&2; exit 1; }
+            tar -xzf pkg.tgz
+            src=package/\(payload)
+            test -f "$src"
+            rm -rf /opt/\(r.id)
+            mkdir -p /opt/\(r.id)
+            dst=\(dest)
+            \(place)
+            chmod 0755 "$dst"
+            chown -R root:root /opt/\(r.id)
+            ln -sf "$dst" /usr/local/bin/\(bin)
+            rm -rf package pkg.tgz
+            echo "\(r.title) \(release.version) (linux-arm64) installed under /opt/\(r.id), sha256 $(sha256sum "$dst" | cut -d' ' -f1)"
+            """)
+    }
+
+    /// 617: a recipe agent starts ready to work, like Claude Code and Codex: `~/.local/bin/<binary>` (first on the
+    /// agent's PATH) exports the recipe's environment; runs the recipe's first arguments that need nothing (its
+    /// `--version`, `login`, `mcp` …) as they are; otherwise writes the recipe's first-run settings that are NOT there
+    /// yet (a person's own choice is kept; python3, an atomic 0600 replace) and puts the recipe's approval-off
+    /// arguments first — unless `DOZ_<ID>_PERMISSIONS=ask` (the setting `<id>.permissions`) or root. It names no
+    /// credential (ImageSpecTests). `DOZ_<ID>_LAUNCHER_ECHO=1` prints the command it would run instead (the VM suite).
+    static func recipeLauncher(_ r: AgentRecipe) -> BakeStep {
+        BakeStep.script("install the doz \(r.install.binary) launcher", recipeLauncherScript(r), needsNetworkFalse: ())
+    }
+
+    static func shellQuoted(_ s: String) -> String { "'" + s + "'" }       // recipe strings hold no quote (validated)
+
+    static func recipeLauncherScript(_ r: AgentRecipe) -> String {
+        let bin = r.install.binary, setup = "/usr/local/lib/dozer/\(r.id)-setup.py"
+        let echoVar = r.permissionsVariable.replacingOccurrences(of: "_PERMISSIONS", with: "_LAUNCHER_ECHO")
+        var sh = """
+            #!/bin/sh
+            # doz: \(r.title) with its first-run settings in place and, by default, its approval prompts off.
+            mode=skip
+            [ "${\(r.permissionsVariable):-skip}" = ask ] && mode=ask
+            [ "$(id -u)" = 0 ] && mode=ask
+
+            """
+        for (k, v) in r.launch.env.sorted(by: { $0.key < $1.key }) { sh += "export \(k)=\(shellQuoted(v))\n" }
+        if !r.launch.passthrough.isEmpty {
+            sh += "case \"$1\" in\n  \(r.launch.passthrough.joined(separator: "|"))) exec /usr/local/bin/\(bin) \"$@\" ;;\nesac\n"
+        }
+        if r.launch.firstRun?.isEmpty == false {
+            sh += "python3 \(setup) || echo \"doz: could not pre-seed \(r.title)'s settings\" >&2\n"
+        }
+        if !r.launch.noPromptsArgs.isEmpty {
+            sh += "[ \"$mode\" = skip ] && set -- \(r.launch.noPromptsArgs.map(shellQuoted).joined(separator: " ")) \"$@\"\n"
+        }
+        sh += """
+            if [ "${\(echoVar):-}" = 1 ]; then printf '%s\\n' /usr/local/bin/\(bin) "$@"; exit 0; fi
+            exec /usr/local/bin/\(bin) "$@"
+            """
+        var script = "mkdir -p /usr/local/lib/dozer /home/agent/.local/bin\n"
+        if let merges = r.launch.firstRun, !merges.isEmpty {
+            script += "cat > \(setup) <<'PY'\n\(recipeSetupPython(merges))\nPY\n"
+        }
+        script += "cat > /home/agent/.local/bin/\(bin) <<'SH'\n\(sh)\nSH\n"
+        script += "chmod 0755 /home/agent/.local/bin/\(bin) /usr/local/lib/dozer\n"
+        if r.launch.firstRun?.isEmpty == false { script += "chmod 0644 \(setup)\n" }
+        script += "chown -R agent:agent /home/agent/.local"
+        return script
+    }
+
+    /// The launcher's helper: each first-run file's keys that are absent are set (JSON: nested objects; TOML: under
+    /// their table, a table the file defines some other way is left alone); a file that does not parse is left as it is.
+    static func recipeSetupPython(_ merges: [AgentRecipe.FirstRun]) -> String {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+        let data = String(decoding: (try? enc.encode(merges)) ?? Data("[]".utf8), as: UTF8.self)
+        return #"""
+            json, os, sys = __import__('json'), __import__('os'), __import__('sys')   # (no line starts with an import: the audit reads Swift's)
+            MERGES = json.loads(r'''\#(data)''')
+            home = os.environ.get('HOME') or '/home/agent'
+            def put(f, text):
+                os.makedirs(os.path.dirname(f), exist_ok=True)
+                t = f + '.doz-tmp'
+                with os.fdopen(os.open(t, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600), 'w', encoding='utf-8') as h: h.write(text)
+                os.replace(t, f)
+            def merge_json(f, keys):
+                try:
+                    with open(f, encoding='utf-8') as h: c = json.load(h)
+                except FileNotFoundError:
+                    c = {}
+                except Exception:
+                    return
+                if not isinstance(c, dict): return
+                changed = False
+                for k, v in sorted(keys.items()):
+                    parts, d = k.split('.'), c
+                    for p in parts[:-1]:
+                        if p not in d:
+                            d[p] = {}
+                            changed = True
+                        d = d[p] if isinstance(d[p], dict) else None
+                        if d is None: break
+                    if d is not None and parts[-1] not in d:
+                        d[parts[-1]] = v
+                        changed = True
+                if changed: put(f, json.dumps(c, indent=2) + '\n')
+            def toml_value(v):
+                if isinstance(v, bool): return 'true' if v else 'false'
+                if isinstance(v, (int, float)): return str(int(v)) if float(v).is_integer() else str(v)
+                return json.dumps(v)
+            def merge_toml(f, keys):
+                try:
+                    with open(f, encoding='utf-8') as h: text = h.read()
+                except FileNotFoundError:
+                    text = ''
+                try:
+                    cfg = __import__('tomllib').loads(text)
+                except Exception:
+                    return
+                lines = text.split('\n') if text else []
+                while lines and lines[-1] == '': lines.pop()
+                changed = False
+                for k, v in sorted(keys.items()):
+                    parts = k.split('.')
+                    table, key = parts[:-1], parts[-1]
+                    d = cfg
+                    for p in table:
+                        d = d.get(p) if isinstance(d, dict) else None
+                    if isinstance(d, dict) and key in d: continue
+                    header = '[' + '.'.join(table) + ']'
+                    at = next((i for i, l in enumerate(lines) if l.strip() == header), None)
+                    if at is None:
+                        if d is not None: continue
+                        if lines: lines.append('')
+                        lines += [header, key + ' = ' + toml_value(v)]
+                    else:
+                        lines.insert(at + 1, key + ' = ' + toml_value(v))
+                    t = cfg
+                    for p in table: t = t.setdefault(p, {})
+                    t[key] = v
+                    changed = True
+                if changed: put(f, '\n'.join(lines) + '\n')
+            for m in MERGES:
+                f = m['file']
+                f = os.path.join(home, f[2:]) if f.startswith('~/') else f
+                (merge_toml if f.endswith('.toml') else merge_json)(f, m['set'])
+            """#
     }
 
     // MARK: 599i — Codex

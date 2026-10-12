@@ -436,6 +436,12 @@ func basesMatrixPart(_ binary: String) async {
             check(v.contains("codex-cli "), "\(name): codex --version → \(v.trimmingCharacters(in: .whitespacesAndNewlines))")
         case .none:
             check(h.run(["exec", name, "--", "sh", "-c", "command -v claude || command -v pi || command -v codex || echo no-agent"]).out == "no-agent\n", "\(name): no agent")
+        default:
+            // 617: a recipe agent — its own verify argv answers (the agents suite checks the rest).
+            if let r = a.recipe, let check0 = r.verify.first {
+                let v = h.run(["exec", name, "--"] + check0.argv).out
+                check(h.run(["exec", name, "--"] + check0.argv).code == 0, "\(name): \(check0.argv.joined(separator: " ")) → \(v.trimmingCharacters(in: .whitespacesAndNewlines))")
+            }
         }
         if b == "go" {
             check(h.run(["net", "policy", name]).out.contains("proxy.golang.org"), "\(name): Go's module proxy is allowed")

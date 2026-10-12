@@ -370,7 +370,7 @@ public actor HostCore {
         let (def, kinds) = accountKinds()
         switch kinds[account == "default" ? def : account] {
         case .mac?, .codexMac?: return "mac"
-        case .apiKey?, .openaiKey?: return "api-key"
+        case .apiKey?, .openaiKey?, .key?: return "api-key"
         case .setupToken?: return "setup-token"
         case nil: return account == "default" && (def.isEmpty || def == "none") ? "none" : nil
         default: return nil
@@ -850,8 +850,10 @@ public actor HostCore {
         // 594: the agent's credential prerequisite, before anything is made (pi: an API-key account).
         if spec.network.policy != nil {
             let (def, kinds) = accountKinds()
+            let (providers, providerDefaults) = accountProviders()
             if let p = AgentCredentials.createProblem(image: spec.imageSpec?.name, account: o.account, defaultAccount: def, kinds: kinds,
-                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn()) {
+                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn(),
+                                                      providers: providers, providerDefaults: providerDefaults) {
                 throw HostError(.invalid, p)
             }
         }
@@ -1387,17 +1389,13 @@ public actor HostCore {
     /// (`skip`), and never over the caller's own `-e DOZ_CLAUDE_PERMISSIONS=…`.
     static func withClaudePermissions(_ env: [String: String], imageSpec: String?,
                                       settings: @autoclosure () -> DozerSettings = .load()) -> [String: String] {
-        // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way.
-        if imageSpec.flatMap({ ImageChoice.parse($0) })?.agent == .codex {
-            guard env["DOZ_CODEX_PERMISSIONS"] == nil, let mode = settings().string(SettingKey.codexPermissions), mode != "skip" else { return env }
-            var e = env
-            e["DOZ_CODEX_PERMISSIONS"] = mode
-            return e
-        }
-        guard imageSpec.flatMap({ ImageChoice.parse($0) })?.agent == .claudeCode, env["DOZ_CLAUDE_PERMISSIONS"] == nil else { return env }
-        guard let mode = settings().string(SettingKey.claudePermissions), mode != "skip" else { return env }
+        // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way. 617: every
+        // agent whose recipe has a permissions setting — its launcher's DOZ_<SHORT>_PERMISSIONS (gemini.permissions →
+        // DOZ_GEMINI_PERMISSIONS); pi has none.
+        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = r.permissionsSettingKey,
+              env[r.permissionsVariable] == nil, let mode = settings().string(key), mode != "skip" else { return env }
         var e = env
-        e["DOZ_CLAUDE_PERMISSIONS"] = mode
+        e[r.permissionsVariable] = mode
         return e
     }
 
@@ -1641,13 +1639,13 @@ public actor HostCore {
         let policy = effectivePolicy(m, file).rawValue
         let sightings = vault.foreignSightings
         let inUse: String? = {
-            if case .record(let a) = account { return a.kind.binding.id }
+            if case .record(let a) = account { return a.binding.id }
             return vault.allBindings.first { vault.hasSecret($0.id) }?.id
         }()
         return vault.allBindings.enumerated().map { i, b in
             var row = CredentialRow(binding: b.id, hosts: b.hosts, set: vault.hasSecret(b.id), source: m.config.credentialSources[b.id])
             row.policy = policy
-            if case .record(let a) = account, a.kind.binding.id == b.id {
+            if case .record(let a) = account, a.binding.id == b.id {
                 row.source = "account:\(a.name)"
                 row.account = a.name
             } else if case .missing(let n) = account, b.id == CredentialBinding.claudeOAuth.id {
@@ -1852,8 +1850,10 @@ public actor HostCore {
             }
             // 594: the agent's credential prerequisite (a duplicate keeps the source's account unless told).
             let (def, kinds) = accountKinds()
+            let (providers, providerDefaults) = accountProviders()
             if let p = AgentCredentials.createProblem(image: spec.imageSpec?.name, account: o.account ?? cfg.account ?? "none", defaultAccount: def, kinds: kinds,
-                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn()) {
+                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn(),
+                                                      providers: providers, providerDefaults: providerDefaults) {
                 throw HostError(.invalid, p)
             }
         } else {

@@ -175,6 +175,20 @@
 # (boolean; applies at once (the UI re-reads it))
 # keep_alive = false
 
+[gemini]
+
+# Gemini CLI in a gemini sandbox: skip its approval prompts (the sandbox is the boundary), or ask
+# as on a Mac.
+# (skip | ask; flag -e DOZ_GEMINI_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[grok]
+
+# Grok Build in a grok sandbox: skip its approval prompts (the sandbox is the boundary), or ask as
+# on a Mac.
+# (skip | ask; flag -e DOZ_GROK_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -187,7 +201,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | gemini | grok; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -393,6 +407,16 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # codex_version = "latest"
 
+# The Gemini CLI the gemini image (and every base's Gemini CLI image) is prepared with: latest or
+# an exact version like 0.63.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# gemini_version = "latest"
+
+# The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an
+# exact version like 1.0.50, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# grok_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -431,6 +455,26 @@
 # memory_mib = 2048
 
 # The network of a new codex sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.gemini]
+
+# Memory (MiB) of a new gemini sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new gemini sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.grok]
+
+# Memory (MiB) of a new grok sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new grok sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

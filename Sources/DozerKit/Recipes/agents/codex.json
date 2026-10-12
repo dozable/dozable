@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "id": "codex",
+  "title": "Codex",
+  "publisher": "OpenAI",
+  "licence": "Apache-2.0",
+  "homepage": "https://github.com/openai/codex",
+  "builtin": true,
+  "default_base": "node",
+  "platforms": { "glibc": true, "musl": true },
+  "install": {
+    "kind": "builtin",
+    "package": "@openai/codex",
+    "binary": "codex",
+    "pinned": {
+      "version": "0.160.1",
+      "integrity": "sha512-JLyjBlmjPvwTaicHemw+y5xQSz3Uja2r7F/xkvS8gFufTA2g132Ak+0fo35xnJ/k2uc9fTtjm0LrsEGI78L6Ng=="
+    }
+  },
+  "launch": {
+    "command": ["codex"],
+    "no_prompts_args": ["--dangerously-bypass-approvals-and-sandbox"],
+    "passthrough": ["login", "logout", "mcp", "--version", "-V", "--help", "-h"],
+    "env": {}
+  },
+  "state": {
+    "persist": ["~/.codex"],
+    "env": { "CODEX_HOME": "/home/agent/.codex" }
+  },
+  "credentials": [{ "provider": "openai", "accounts": ["codex-mac", "chatgpt", "openai-key"] }],
+  "tags": [
+    { "tag": "headless", "level": "documented", "source": "https://learn.chatgpt.com/codex/non-interactive-mode", "notes": ["codex exec"], "checked": "2026-10-12" }
+  ],
+  "gateways": [
+    {
+      "gateway": "openrouter",
+      "level": "documented",
+      "shape": "openai-responses",
+      "endpoint": "v1",
+      "how": {
+        "env": { "OPENROUTER_API_KEY": "{placeholder}" },
+        "config": [
+          {
+            "file": "~/.codex/config.toml",
+            "set": {
+              "model_provider": "openrouter",
+              "model_providers.openrouter.name": "openrouter",
+              "model_providers.openrouter.base_url": "{gateway.endpoint.v1}",
+              "model_providers.openrouter.env_key": "OPENROUTER_API_KEY",
+              "model_providers.openrouter.wire_api": "responses"
+            }
+          }
+        ],
+        "model_args": ["--model", "{model}"]
+      },
+      "limits": ["with env_key Codex does not fetch OpenRouter's model catalogue: other makers' models show an \"Unknown model\" warning (OpenRouter recommends an auth command instead)"],
+      "notes": ["wire_api = responses is added here: OpenRouter's page omits it, and Codex speaks only the Responses API (Vercel's page)"],
+      "source": "https://openrouter.ai/docs/cookbook/coding-agents/codex-cli.md",
+      "checked": "2026-10-12"
+    },
+    {
+      "gateway": "vercel-ai-gateway",
+      "level": "documented",
+      "shape": "openai-responses",
+      "endpoint": "codex",
+      "how": {
+        "env": { "AI_GATEWAY_API_KEY": "{placeholder}" },
+        "config": [
+          {
+            "file": "~/.codex/config.toml",
+            "set": {
+              "model_provider": "vercel",
+              "model_providers.vercel.name": "Vercel AI Gateway",
+              "model_providers.vercel.base_url": "{gateway.endpoint.codex}",
+              "model_providers.vercel.env_key": "AI_GATEWAY_API_KEY",
+              "model_providers.vercel.wire_api": "responses"
+            }
+          }
+        ],
+        "model_args": ["--model", "{model}"]
+      },
+      "notes": ["/codex/v1 is Codex's own compatibility endpoint; /model lists the gateway's catalogue"],
+      "source": "https://vercel.com/docs/ai-gateway/coding-agents",
+      "checked": "2026-10-12"
+    }
+  ],
+  "auth": {
+    "methods": [
+      {
+        "kind": "vendor-sign-in",
+        "account": "a ChatGPT plan",
+        "accounts": ["codex-mac", "chatgpt"],
+        "note": "This Mac's own Codex login (the account mac, read-only), or Dozer's own ChatGPT sign-in on this Mac (doz account add NAME --chatgpt). The sign-in stays on the Mac — the sandbox's auth.json holds placeholders.",
+        "checked": "2026-10-12"
+      },
+      {
+        "kind": "api-key",
+        "provider": "openai",
+        "keys_page": "https://platform.openai.com/api-keys",
+        "accounts": ["openai-key"],
+        "checked": "2026-10-12"
+      }
+    ]
+  },
+  "network": {
+    "model": {
+      "id": "model:openai",
+      "title": "Talk to OpenAI",
+      "hosts": [{ "host": "chatgpt.com" }, { "host": "api.openai.com" }, { "host": "ab.chatgpt.com" }]
+    },
+    "update": [],
+    "excluded": []
+  },
+  "status": "none",
+  "prompt": { "kind": "skill", "dir": "~/.agents/skills/dozer" },
+  "resume": ["resume", "--last"],
+  "verify": [{ "argv": ["codex", "--version"], "expect": "codex-cli {version}" }],
+  "settings": { "version": "images.codex_version", "permissions": "codex.permissions" }
+}

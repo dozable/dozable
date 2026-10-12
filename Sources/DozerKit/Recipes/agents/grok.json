@@ -1,0 +1,113 @@
+{
+  "schema": 1,
+  "id": "grok",
+  "title": "Grok Build",
+  "publisher": "xAI",
+  "licence": "Apache-2.0",
+  "homepage": "https://github.com/xai-org/grok-build",
+  "default_base": "debian",
+  "platforms": { "glibc": true, "musl": true },
+  "install": {
+    "kind": "npm-platform-binary",
+    "package": "@xai-official/grok",
+    "platform_package": "@xai-official/grok-linux-arm64",
+    "payload": "bin/grok.br",
+    "compression": "brotli",
+    "binary": "grok",
+    "pinned": {
+      "version": "1.0.50",
+      "integrity": "sha512-GeIlnoM1EZDhFOabZA7XcFpS/0wCpOyl11TlYRQsu+vLi9H5YssJeeDAwJebc3/YzxiYnXg4VLHsvBeBH4EpZw=="
+    }
+  },
+  "launch": {
+    "command": ["grok"],
+    "no_prompts_args": ["--always-approve"],
+    "passthrough": ["--version", "-v", "--help", "-h", "login", "logout", "mcp", "models", "doctor", "version", "update", "agent",
+                    "completions", "inspect", "sessions", "export", "usage", "du"],
+    "env": { "GROK_DISABLE_AUTOUPDATER": "1" },
+    "first_run": [
+      {
+        "file": "~/.grok/config.toml",
+        "set": {
+          "cli.auto_update": false,
+          "features.feedback": false,
+          "features.telemetry": false,
+          "telemetry.trace_upload": false
+        }
+      }
+    ]
+  },
+  "state": { "persist": ["~/.grok"], "env": { "GROK_HOME": "/home/agent/.grok" } },
+  "credentials": [{ "provider": "xai", "accounts": ["key"] }],
+  "tags": [
+    { "tag": "headless", "level": "verified", "evidence": "617 step 0: grok -p \"say ok\" printed the fake's answer and exited in a sandbox (617.01 §1.3)", "notes": ["grok -p / --single"], "checked": "2026-10-12" }
+  ],
+  "gateways": [
+    {
+      "gateway": "openrouter",
+      "level": "experimental",
+      "shape": "openai-chat",
+      "endpoint": "v1",
+      "how": {
+        "env": { "GROK_MODELS_BASE_URL": "{gateway.endpoint.v1}", "XAI_API_KEY": "{placeholder}" },
+        "config": [{ "file": "~/.grok/config.toml", "set": { "models.default": "{model}" } }]
+      },
+      "proxy_route": {
+        "from_host": "api.x.ai",
+        "paths": { "/v1/chat/completions": "/api/v1/chat/completions", "/v1/models": "/api/v1/models" },
+        "unmapped": ["/v1/api-key"]
+      },
+      "limits": ["not supported by xAI or OpenRouter for this pair: an opt-in only"],
+      "evidence": "xAI's custom-models guide says any OpenAI Chat Completions or Responses server works through GROK_MODELS_BASE_URL (+ XAI_API_KEY); Dozer's step-0 run (617.01 §1.3) saw Grok Build 1.0.50 honour GROK_XAI_API_BASE_URL / GROK_MODELS_BASE_URL against a local OpenAI-compatible fake — evidence the variables are read, not a run against OpenRouter",
+      "source": "https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/11-custom-models.md",
+      "checked": "2026-10-12"
+    },
+    {
+      "gateway": "vercel-ai-gateway",
+      "level": "documented",
+      "shape": "openai-chat",
+      "endpoint": "coding-agent",
+      "how": {
+        "env": { "GROK_MODELS_BASE_URL": "{gateway.endpoint.coding-agent}", "GROK_CODE_XAI_API_KEY": "{placeholder}" },
+        "config": [{ "file": "~/.grok/config.toml", "set": { "models.default": "{model}" } }]
+      },
+      "limits": ["a grok login session takes precedence over the key: grok logout first", "web search needs a second, Responses-backed model entry"],
+      "notes": ["Ctrl+M lists the gateway's /v1/models"],
+      "source": "https://vercel.com/docs/ai-gateway/coding-agents/grok-build",
+      "checked": "2026-10-12"
+    }
+  ],
+  "auth": {
+    "methods": [
+      {
+        "kind": "api-key",
+        "provider": "xai",
+        "keys_page": "https://console.x.ai/",
+        "accounts": ["key"],
+        "checked": "2026-10-12"
+      },
+      {
+        "kind": "vendor-sign-in",
+        "account": "an x.ai or X account",
+        "note": "Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozer does not offer it yet.",
+        "checked": "2026-10-12"
+      }
+    ]
+  },
+  "network": {
+    "model": {
+      "id": "model:xai",
+      "title": "Talk to xAI",
+      "summary": "Grok Build's model (the xAI API) — needed for Grok Build to work.",
+      "phrase": "talk to your AI model (xAI)",
+      "hosts": [{ "host": "api.x.ai", "paths": ["/v1/models", "/v1/api-key", "/v1/chat/completions"] }]
+    },
+    "update": [],
+    "excluded": ["cli-chat-proxy.grok.com", "auth.x.ai", "accounts.x.ai", "console.x.ai", "x.ai"]
+  },
+  "status": "none",
+  "prompt": { "kind": "context-file", "dir": "~/.grok/rules", "file": "dozer.md" },
+  "verify": [{ "argv": ["grok", "--version"], "expect": "grok {version}" }],
+  "terms": "Your xAI API key — a key from console.x.ai. When Dozer has no key for it, Grok Build says \"Not signed in\".",
+  "checked": "2026-10-12"
+}

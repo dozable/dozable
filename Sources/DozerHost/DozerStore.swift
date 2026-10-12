@@ -149,13 +149,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
 
     /// The session `up` and `attach` use when none is named, and what it runs.
     public var defaultSession: (name: String, argv: [String]) {
-        // 596: by the image's AGENT, whatever its base (`python-claude-code` runs claude).
-        switch spec.imageSpec.flatMap({ ImageChoice.parse($0.name) })?.agent {
-        case .claudeCode?: ("claude", ["claude"])
-        case .pi?: ("pi", ["pi"])
-        case .codex?: ("codex", ["codex"])          // 599i
-        default: ("shell", ["bash", "-l"])
-        }
+        // 596: by the image's AGENT, whatever its base (`python-claude-code` runs claude). 617: its recipe's command,
+        // named by its short name (claude, pi, codex, gemini, grok).
+        guard let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name) })?.agent.recipe else { return ("shell", ["bash", "-l"]) }
+        return (r.shortName, r.launch.command)
     }
 
     /// 596: the image's base × agent (nil: a template of an older image, or the lab's own path).

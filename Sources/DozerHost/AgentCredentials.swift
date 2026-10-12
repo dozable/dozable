@@ -6,6 +6,8 @@ import DozerKit
 // (`AgentImages.credentials`), and a sandbox is checked against it BEFORE it is created — the CLI, New
 // sandbox, the wizard, Duplicate — and an existing one whose account does not fit says so (and the
 // account is not handed to an agent that cannot use it: a Claude subscription never reaches pi).
+// 617: the kinds come from the agent's recipe; a recipe agent takes `key` accounts of ITS provider only (a Grok
+// sandbox never gets an Anthropic or a Google key).
 
 public enum AgentCredentials {
     /// The account kinds the agent of `image` (an image spec's name: claude-code, pi) can use; nil: no
@@ -15,43 +17,60 @@ public enum AgentCredentials {
         return Set(c.flatMap(\.accountKinds).compactMap(AccountKind.init(rawValue:)))
     }
 
-    public static func accepts(_ image: String?, _ kind: AccountKind) -> Bool {
-        kinds(image)?.contains(kind) ?? true
+    /// 617: whether the agent of `image` can use an account of `kind` from `provider` (only a `key` account has one).
+    public static func accepts(_ image: String?, _ kind: AccountKind, provider: String? = nil) -> Bool {
+        guard let k = kinds(image) else { return true }
+        guard k.contains(kind) else { return false }
+        return kind != .key || provider == Self.provider(image)
     }
 
-    /// An agent that has no way to work without one of its accounts (pi); Claude Code may be created
-    /// with none, as before.
+    public static func accepts(_ image: String?, _ a: AccountRecord) -> Bool { accepts(image, a.kind, provider: a.provider) }
+
+    /// An agent that has no way to work without one of its accounts (pi, Codex, the recipe agents); Claude Code may
+    /// be created with none, as before.
     public static func needsAccount(_ image: String?) -> Bool {
         guard let k = kinds(image) else { return false }
         return !k.contains(.mac)
+    }
+
+    /// 617: the agent's key provider, when it is a recipe agent's (`xai`, `google`); nil for the built-in three.
+    public static func keyProvider(_ image: String?) -> KeyProvider? {
+        guard let image, let r = ImageChoice.parse(image)?.agent.recipe, !r.isBuiltin else { return nil }
+        return r.provider.flatMap(KeyProviders.provider)
     }
 
     /// "pi needs an Anthropic API key".
     public static func requirement(_ image: String) -> String {
         let name = AgentImages.agentName(image) ?? image
         guard let k = kinds(image) else { return "" }
+        if let p = keyProvider(image) {
+            return "\(name) needs \(p.title.hasPrefix("A") || p.title.hasPrefix("x") ? "an" : "a") \(p.title) \(p.title.contains("API") ? "key" : "API key")"
+        }
         if k == [.apiKey] { return "\(name) needs an Anthropic API key" }
         // 599i: Codex — an OpenAI account.
         if provider(image) == "openai" { return "\(name) needs an OpenAI account: this Mac's Codex login, a ChatGPT sign-in or an OpenAI API key" }
         return "\(name) needs an Anthropic account: " + k.map(\.label).sorted().joined(separator: ", ")
     }
 
-    /// 599i: whose accounts the agent of `image` uses — `anthropic` (Claude Code, pi), `openai` (Codex);
-    /// nil: no agent.
+    /// 599i: whose accounts the agent of `image` uses — `anthropic` (Claude Code, pi), `openai` (Codex), 617: a key
+    /// provider (`xai`, `google`); nil: no agent.
     public static func provider(_ image: String?) -> String? {
         guard let image else { return nil }
         return AgentImages.credentials(image)?.first?.provider
     }
 
     /// 599i: the store default that applies to `image` — the OpenAI default (none until one is chosen)
-    /// for Codex, the store's default account otherwise. Never one provider's account for the other's agent.
-    public static func defaultAccount(for image: String?, anthropic: String, openai: String?) -> String {
-        provider(image) == "openai" ? (openai ?? "none") : anthropic
+    /// for Codex, 617: the provider's default for a key agent (none until one is chosen), the store's default account
+    /// otherwise. Never one provider's account for another's agent.
+    public static func defaultAccount(for image: String?, anthropic: String, openai: String?, providers: [String: String] = [:]) -> String {
+        if let p = keyProvider(image) { return providers[p.id] ?? "none" }
+        return provider(image) == "openai" ? (openai ?? "none") : anthropic
     }
 
     /// The command that adds an account `image`'s agent can use.
     static func addCommand(_ image: String) -> String {
-        provider(image) == "openai" ? "doz account add NAME --chatgpt (or --openai-key)" : "doz account add NAME --api-key"
+        if let p = keyProvider(image) { return "doz account add NAME --provider \(p.id)" }
+        return provider(image) == "openai" ? "doz account add NAME --chatgpt (or --openai-key)" : "doz account add NAME --api-key"
     }
 
     /// What is wrong with `account` (a name, `none`, or nil = the store default) for a new sandbox of
@@ -59,29 +78,36 @@ public enum AgentCredentials {
     /// sandbox then says it has no credential); the default resolving to none is not.
     /// 599i: `openaiDefault` — the store's OpenAI default (Codex follows it, never the Anthropic one).
     /// rc.3: `codexMac` — this Mac's Codex is signed in, so `mac` is a Codex account.
+    /// 617: `providers` — each `key` account's provider; `providerDefaults` — each provider's default.
     public static func createProblem(image: String?, account: String?, defaultAccount: String, kinds accountKinds: [String: AccountKind],
-                                     openaiDefault: String? = nil, codexMac: Bool = false) -> String? {
+                                     openaiDefault: String? = nil, codexMac: Bool = false,
+                                     providers: [String: String] = [:], providerDefaults: [String: String] = [:]) -> String? {
         guard let image, let _ = kinds(image) else { return nil }
         let requested = account ?? "default"
         if requested == "none" { return nil }
-        let name = requested == "default" ? Self.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault) : requested
+        let name = requested == "default"
+            ? Self.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault, providers: providerDefaults) : requested
         let openai = provider(image) == "openai"
+        let key = keyProvider(image)
         if openai, name == "mac" {
             return codexMac ? nil : "Codex can't use mac: this Mac's Codex is not signed in (run codex login on the Mac) — or add an account: \(addCommand(image))"
         }
-        let compatible = (accountKinds.filter { accepts(image, $0.value) && !(openai && $0.key == "mac") }.keys.sorted()) + (openai && codexMac ? ["mac"] : [])
+        let compatible = (accountKinds.filter { accepts(image, $0.value, provider: providers[$0.key]) && !((openai || key != nil) && $0.key == "mac") }.keys.sorted())
+            + (openai && codexMac ? ["mac"] : [])
         let fix = compatible.isEmpty
             ? "add one: \(addCommand(image)) (then create with --account NAME)"
             : "use one: --account \(compatible.joined(separator: " | --account ")) — or add one: \(addCommand(image))"
         if name == "none" {
             guard needsAccount(image) else { return nil }
-            let which = provider(image) == "openai" ? "the store's default OpenAI account is none" : "the store's default account is none"
+            let which = key.map { "the store has no default \($0.title) account" }
+                ?? (openai ? "the store's default OpenAI account is none" : "the store's default account is none")
             return "\(requirement(image)) — \(which). \(fix.prefix(1).uppercased() + fix.dropFirst())"
         }
         let kind = accountKinds[name] ?? (name == "mac" ? .mac : nil)
         guard let kind else { return nil }                          // an unknown account: the create says so itself
-        guard !accepts(image, kind) else { return nil }
-        return "\(AgentImages.agentName(image) ?? image) can't use the account \(name) (\(kind.label)) — \(requirement(image)). "
+        guard !accepts(image, kind, provider: providers[name]) else { return nil }
+        let label = kind == .key ? (providers[name].flatMap(KeyProviders.provider).map { "a \($0.title) key" } ?? "a key") : kind.label
+        return "\(AgentImages.agentName(image) ?? image) can't use the account \(name) (\(label)) — \(requirement(image)). "
             + fix.prefix(1).uppercased() + fix.dropFirst()
     }
 
@@ -90,13 +116,14 @@ public enum AgentCredentials {
     public static func sandboxProblem(image: String?, account: AccountRecord?, missing: String?) -> String? {
         guard let image, let k = kinds(image) else { return nil }
         let agent = AgentImages.agentName(image) ?? image
-        let choose = k == [.apiKey] ? "choose an API-key account"
-            : provider(image) == "openai" ? "choose an OpenAI account (mac, a ChatGPT sign-in or an OpenAI API key)" : "choose an account \(agent) can use"
+        let choose = keyProvider(image).map { "choose a \($0.title) key account (doz account add NAME --provider \($0.id))" }
+            ?? (k == [.apiKey] ? "choose an API-key account"
+                : provider(image) == "openai" ? "choose an OpenAI account (mac, a ChatGPT sign-in or an OpenAI API key)" : "choose an account \(agent) can use")
         if let missing { return "\(agent) has no credential: the account \(missing) no longer exists — \(choose)" }
         guard let a = account else {
             return needsAccount(image) ? "\(agent) has no credential — \(requirement(image)); \(choose)" : nil
         }
-        guard !accepts(image, a.kind) else { return nil }
+        guard !accepts(image, a) else { return nil }
         return "\(agent) can't use the account \(a.name) — \(choose)"
     }
 }
@@ -111,6 +138,7 @@ extension AccountKind {
         case .openaiKey: "an OpenAI API key"
         case .chatgpt: "a ChatGPT sign-in"
         case .codexMac: "this Mac's Codex login"
+        case .key: "an API key"
         }
     }
 }

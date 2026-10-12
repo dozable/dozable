@@ -141,7 +141,7 @@ public struct DozerProject: Equatable, Sendable {
     public func problem(effectiveNetwork: String? = nil) -> String? {
         if !WebNameCheck.isSandboxName(name) { return "name: 1–40 of a-z 0-9 - (not starting with -)" }
         if base != nil, dockerfile != nil { return "base or dockerfile — not both" }
-        if let a = agent, !["claude-code", "pi", "codex", "none"].contains(a) { return "agent: claude-code, pi, codex or none" }
+        if let a = agent, AgentKind(rawValue: a) == nil { return "agent: \(Self.agentWords)" }
         if let b = base, BaseCatalogue.base(b) == nil { return "base: \(BaseCatalogue.ids.joined(separator: ", ")) (doz base ls)" }
         if let c = cpus, !(1...64).contains(c) { return "cpus: a whole number 1–64" }
         if let m = memoryMiB, !(256...262_144).contains(m) { return "memory: 256 MiB – 256 GiB" }
@@ -161,11 +161,17 @@ public struct DozerProject: Equatable, Sendable {
         return nil
     }
 
-    /// 596: the image agent + base name (a Dockerfile's: the agent's, the host swaps in its base).
+    /// 617: "claude-code, pi, codex, gemini, grok or none" — every agent this build has a recipe for.
+    public static var agentWords: String {
+        AgentKind.allCases.filter { $0 != .none }.map(\.rawValue).joined(separator: ", ") + " or none"
+    }
+
+    /// 596: the image agent + base name (a Dockerfile's: the agent's, the host swaps in its base). 617: with no
+    /// base, the agent's recipe's default base (Node for the three that existed — as before; Debian for Grok Build).
     public var chosenImage: String {
-        let a: AgentKind = switch agent ?? "claude-code" { case "pi": .pi; case "codex": .codex; case "none": .none; default: .claudeCode }
+        let a = AgentKind(rawValue: agent ?? "claude-code") ?? .claudeCode
         if dockerfile != nil { return ImageChoice(base: a == .none ? "alpine" : "node", agent: a).name }
-        return ImageChoice(base: base ?? "node", agent: a).name
+        return ImageChoice(base: base ?? a.recipe?.defaultBase ?? "node", agent: a).name
     }
 
     /// The file `doz init` and the wizard write: every key listed; the ones not set are commented (their defaults).

@@ -149,9 +149,19 @@ public final class EgressProxy: @unchecked Sendable {
         chatgptRenewal != nil && host.lowercased() == OpenAIAccess.authHost && method == "POST" && path == OpenAIAccess.tokenPath
     }
 
+    /// 617 TEST SEAM: the hosts of the key providers new in 617 (api.x.ai, generativelanguage.googleapis.com) go to a
+    /// fake provider, trusting ONLY its CA. The host sets it only from `DOZ_TEST_PROVIDER_UPSTREAM` + `DOZ_TEST_PROVIDER_CA`.
+    public var providerUpstreamForTests: UpstreamOverride? {
+        get { lock.lock(); defer { lock.unlock() }; return _providerUpstream }
+        set { lock.lock(); _providerUpstream = newValue; lock.unlock() }
+    }
+    private var _providerUpstream: UpstreamOverride?
+
     /// 599d test seam: where a GitHub host's upstream leg goes instead (nil: the real host). 599i: and the OpenAI hosts'.
+    /// 617: and the key providers'.
     func upstreamOverride(for host: String) -> UpstreamOverride? {
         if let o = openaiUpstreamForTests, OpenAIAccess.isOpenAIHost(host) { return o }
+        if let o = providerUpstreamForTests, KeyProviders.seamHosts.contains(host.lowercased()) { return o }
         guard let o = githubUpstreamForTests, GitHubAccess.credentialHosts.contains(host.lowercased()) else { return nil }
         return o
     }
@@ -685,8 +695,9 @@ public final class EgressProxy: @unchecked Sendable {
                         r.credential = code == 401 ? "unavailable: \(why)" : "refused: \(why)"
                         log.upsert(r)
                         current = nil
-                        // 599i: in OpenAI's error shape on OpenAI's hosts (Codex shows its message).
-                        reject(OpenAIAccess.isOpenAIHost(host) ? OpenAIAccess.refusal(code, why) : Self.refusal(code, why))
+                        // 599i: in OpenAI's error shape on OpenAI's hosts (Codex shows its message). 617: and in each key
+                        // provider's own shape on its hosts (xAI's is OpenAI's; Google's its own).
+                        reject(Self.refusal(host: host, code, why))
                         return
                     case .swapped(_, let b): r.credential = "swapped \(b)"; awaitingStatus = b
                     case .injected(_, let b): r.credential = "injected \(b)"; awaitingStatus = b
@@ -843,6 +854,26 @@ public final class EgressProxy: @unchecked Sendable {
 
     static func forbidden(_ why: String) -> [UInt8] {
         response(403, "refused by the sandbox proxy: \(why)\n", extra: "X-Sandbox-Policy: credential\r\n")
+    }
+
+    /// 617: the proxy's own answer in the error shape of the API on `host` — OpenAI's on OpenAI's hosts (and xAI's,
+    /// which is OpenAI-compatible), Google's on the Gemini API's, Anthropic's everywhere else (as before 617).
+    static func refusal(host: String, _ code: Int, _ message: String) -> [UInt8] {
+        if OpenAIAccess.isOpenAIHost(host) { return OpenAIAccess.refusal(code, message) }
+        switch KeyProviders.owning(host: host)?.errorShape {
+        case "openai"?: return OpenAIAccess.refusal(code, message)
+        case "google"?: return googleRefusal(code, message)
+        default: return refusal(code, message)
+        }
+    }
+
+    /// 617: Google's API error shape (`{"error":{"code":401,"message":…,"status":"UNAUTHENTICATED"}}`), which Gemini
+    /// CLI shows.
+    static func googleRefusal(_ code: Int, _ message: String) -> [UInt8] {
+        let obj: [String: Any] = ["error": ["code": code, "message": "doz: " + message, "status": code == 401 ? "UNAUTHENTICATED" : "PERMISSION_DENIED"]]
+        let b = (try? JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys, .withoutEscapingSlashes])).map(Array.init) ?? []
+        let reason = code == 401 ? "Unauthorized" : "Forbidden"
+        return Array("HTTP/1.1 \(code) \(reason)\r\nContent-Type: application/json\r\nX-Sandbox-Policy: credential\r\nConnection: close\r\nContent-Length: \(b.count)\r\n\r\n".utf8) + b
     }
 
     /// The proxy's own answer in the shape of an Anthropic API error, so a client shows its message

@@ -1,0 +1,98 @@
+{
+  "schema": 1,
+  "id": "gemini",
+  "title": "Gemini CLI",
+  "publisher": "Google",
+  "licence": "Apache-2.0",
+  "homepage": "https://github.com/google-gemini/gemini-cli",
+  "default_base": "node",
+  "platforms": { "glibc": true, "musl": true },
+  "limits": [
+    { "musl": true, "reason": "on Alpine (musl), Gemini CLI's shell tool runs without a terminal: its PTY module has no musl build" }
+  ],
+  "install": {
+    "kind": "npm",
+    "package": "@google/gemini-cli",
+    "binary": "gemini",
+    "needs_node": "20",
+    "npm_args": ["--ignore-scripts"],
+    "pinned": {
+      "version": "0.63.0",
+      "integrity": "sha512-mmhqMmAdsoplCzrLQQC4yJBqr4uSKXghnrLspgUU6N9drmsaq7pi7oF09skRYzEq2dYK6eMT4UpFQP6rG2o/ew=="
+    }
+  },
+  "launch": {
+    "command": ["gemini"],
+    "no_prompts_args": ["--approval-mode=yolo"],
+    "passthrough": ["--version", "-v", "--help", "-h", "mcp", "extensions"],
+    "env": { "GEMINI_CLI_TRUST_WORKSPACE": "true" },
+    "first_run": [
+      {
+        "file": "~/.gemini/settings.json",
+        "set": {
+          "security.auth.selectedType": "gemini-api-key",
+          "privacy.usageStatisticsEnabled": false,
+          "general.enableAutoUpdate": false,
+          "general.enableAutoUpdateNotification": false
+        }
+      }
+    ]
+  },
+  "state": { "persist": ["~/.gemini"], "env": {} },
+  "credentials": [{ "provider": "google", "accounts": ["key"] }],
+  "tags": [
+    { "tag": "headless", "level": "verified", "evidence": "617 step 0: gemini -p \"say ok\" --approval-mode=yolo answered and exited in a sandbox (617.01 §2.2–2.3)", "notes": ["gemini -p"], "checked": "2026-10-12" }
+  ],
+  "gateways": [
+    {
+      "gateway": "openrouter",
+      "level": "no",
+      "reason": "Gemini CLI speaks only the Gemini API (GOOGLE_GEMINI_BASE_URL); OpenRouter serves Chat Completions, Responses and Anthropic Messages, no Gemini API",
+      "source": "https://openrouter.ai/docs/_llms/api-reference.txt",
+      "checked": "2026-10-12"
+    },
+    {
+      "gateway": "vercel-ai-gateway",
+      "level": "no",
+      "reason": "Gemini CLI speaks only the Gemini API (GOOGLE_GEMINI_BASE_URL); AI Gateway serves Chat Completions, Responses and Anthropic Messages, no Gemini API",
+      "source": "https://vercel.com/docs/ai-gateway/sdks-and-apis",
+      "checked": "2026-10-12"
+    }
+  ],
+  "auth": {
+    "methods": [
+      {
+        "kind": "api-key",
+        "provider": "google",
+        "keys_page": "https://aistudio.google.com/apikey",
+        "accounts": ["key"],
+        "note": "API key only: Google's terms forbid third-party tools from using the Google sign-in behind Gemini CLI, so Dozer never offers it.",
+        "checked": "2026-10-12"
+      }
+    ]
+  },
+  "network": {
+    "model": {
+      "id": "model:google",
+      "title": "Talk to Google AI",
+      "summary": "Gemini CLI's model (the Gemini API, with an API key) — needed for Gemini CLI to work.",
+      "phrase": "talk to your AI model (Google AI)",
+      "hosts": [{ "host": "generativelanguage.googleapis.com" }]
+    },
+    "update": [
+      { "host": "registry.npmjs.org", "paths": ["/@google/gemini-cli", "/@google%2fgemini-cli", "/@google%2Fgemini-cli"] }
+    ],
+    "excluded": ["play.googleapis.com", "accounts.google.com", "oauth2.googleapis.com", "cloudcode-pa.googleapis.com"]
+  },
+  "status": "none",
+  "prompt": {
+    "kind": "context-file",
+    "dir": "~/.gemini/extensions/dozer",
+    "file": "DOZER.md",
+    "manifest": { "file": "gemini-extension.json", "json": { "name": "dozer", "version": "1.0.0", "contextFileName": "DOZER.md" } }
+  },
+  "resume": ["--resume", "latest"],
+  "verify": [{ "argv": ["gemini", "--version"], "expect": "{version}" }],
+  "terms": "API key only — Google's terms forbid third-party tools from using the Google sign-in behind Gemini CLI.",
+  "checked": "2026-10-12"
+}

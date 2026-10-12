@@ -407,7 +407,12 @@ public enum SettingKey {
     /// rc.3: run the Mac's own codex near its login's expiry while a sandbox uses it (`mac` for Codex).
     public static let codexKeepAlive = "codex.keep_alive"
     public static func agentVersion(_ image: String) -> String? {
-        switch image { case "claude-code": claudeCodeVersion; case "pi": piVersion; case "codex": codexVersion; default: nil }
+        switch image {
+        case "claude-code": claudeCodeVersion
+        case "pi": piVersion
+        case "codex": codexVersion
+        default: AgentRecipes.recipe(image).flatMap { $0.isBuiltin ? nil : $0.versionSettingKey }       // 617: images.gemini_version
+        }
     }
 }
 
@@ -419,8 +424,24 @@ public struct DozerSettings: Sendable {
 
     static let networks = ["agent", "bake", "locked", "open", "nat", "none"]
 
-    /// Every setting, in file order. CLOSED: a key not here is unknown everywhere (file, CLI, UI).
-    public static let schema: [SettingDefinition] = {
+    /// Every setting, in file order. CLOSED: a key not here is unknown everywhere (file, CLI, UI). 617: still a fixed
+    /// list per build — the keys of the recipe agents (`images.<id>_version`, `<id>.permissions`, `images.<id>.*`) are
+    /// generated from the compiled-in recipes (and, in tests, a registered one).
+    public static var schema: [SettingDefinition] {
+        let g = AgentRecipes.generation
+        schemaLock.lock(); defer { schemaLock.unlock() }
+        if let c = schemaCache, c.generation == g { return c.schema }
+        let s = buildSchema()
+        schemaCache = (g, s)
+        return s
+    }
+    nonisolated(unsafe) private static var schemaCache: (generation: Int, schema: [SettingDefinition])?
+    private static let schemaLock = NSLock()
+
+    /// The recipe agents (not the built-in three): their settings are generated.
+    static var recipeAgents: [AgentRecipe] { AgentRecipes.all.filter { !$0.isBuiltin } }
+
+    static func buildSchema() -> [SettingDefinition] {
         var s: [SettingDefinition] = [
             .init("ui", "boot_view_on_start", .bool, .bool(true),
                   "Start opens a terminal on the boot sequence (the kernel console) until the sandbox is up; false: Start just starts it.",
@@ -510,7 +531,7 @@ public struct DozerSettings: Sendable {
             .init("defaults", "nat_subnet", .subnet, .string(""),
                   "The vmnet subnet of a new --network nat sandbox.",
                   env: "DOZ_SUBNET", flag: "doz create --subnet", applies: .nextCreate),
-            .init("defaults", "image", .choice(["lab", "claude-code", "pi", "codex"]), .string("lab"),
+            .init("defaults", "image", .choice(["lab", "claude-code", "pi", "codex"] + recipeAgents.map(\.id)), .string("lab"),
                   "The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose.",
                   flag: "doz create --image", applies: .nextCreate),
             .init("defaults", "projects_dir", .path, .string("~/dozer-sandbox-workspaces"),
@@ -586,7 +607,25 @@ public struct DozerSettings: Sendable {
         s.append(.init("images", "codex_version", .version, .string("latest"),
                        "The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or an exact version like 0.160.1, as images.claude_code_version.",
                        applies: .nextCreate))
-        for (image, memory, network) in [("lab", 1024, "bake"), ("claude-code", 2048, "agent"), ("pi", 2048, "agent"), ("codex", 2048, "agent")] {
+        // 617: each recipe agent's version, and whether its own approval prompts are skipped (the VM is the boundary).
+        for r in recipeAgents {
+            let v = r.versionSettingKey.split(separator: ".", maxSplits: 1).map(String.init)
+            s.append(.init(v[0], v[1], .version, .string("latest"),
+                           "The \(r.title) the \(r.id) image (and every base's \(r.title) image) is prepared with: latest or an exact version like \(r.install.pinned.version), as images.claude_code_version.",
+                           applies: .nextCreate))
+        }
+        if let at = s.firstIndex(where: { $0.key == SettingKey.codexKeepAlive }) {
+            let perms: [SettingDefinition] = recipeAgents.compactMap { r in
+                guard let k = r.permissionsSettingKey else { return nil }
+                let p = k.split(separator: ".", maxSplits: 1).map(String.init)
+                return .init(p[0], p[1], .choice(["skip", "ask"]), .string("skip"),
+                             "\(r.title) in a \(r.id) sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac.",
+                             flag: "-e \(r.permissionsVariable)=… on run/exec", applies: .nextSession)
+            }
+            s.insert(contentsOf: perms, at: at + 1)
+        }
+        for (image, memory, network) in [("lab", 1024, "bake"), ("claude-code", 2048, "agent"), ("pi", 2048, "agent"), ("codex", 2048, "agent")]
+            + recipeAgents.map({ ($0.id, 2048, "agent") }) {
             s.append(.init("images.\(image)", "memory_mib", .int(256...262_144), .int(memory),
                            "Memory (MiB) of a new \(image) sandbox (a custom image follows the image it was saved from).",
                            flag: "doz create --memory", applies: .nextCreate))
@@ -601,7 +640,7 @@ public struct DozerSettings: Sendable {
                        "Where the pinned kernel is cached (\"\": the store's own); share one between stores.",
                        env: "DOZ_KERNEL_CACHE", applies: .nextCreate, ui: false))
         return s
-    }()
+    }
 
     public static func definition(_ key: String) -> SettingDefinition? { schema.first { $0.key == key } }
 
@@ -763,7 +802,14 @@ public struct DozerSettings: Sendable {
         case "claude-code": "claude-code"
         case "pi": "pi"
         case "codex": "codex"
-        case let n?: ImageChoice.parse(n)?.agent == .pi ? "pi" : ImageChoice.parse(n)?.agent == .codex ? "codex" : "claude-code"
+        case let n?:
+            switch ImageChoice.parse(n)?.agent {
+            case .pi?: "pi"
+            case .codex?: "codex"
+            // 617: a recipe agent's own section (images.gemini, images.grok).
+            case let a? where !a.isBuiltin: a.rawValue
+            default: "claude-code"
+            }
         }
     }
 

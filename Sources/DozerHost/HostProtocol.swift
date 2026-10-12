@@ -265,6 +265,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// Claude config dir, adopted keychain service; the policy; verify (default true); force; on/off.
     public var account: String?
     public var accountKind: String?
+    /// 617: a `key` account's provider (`xai`, `google`); `account-default` by provider.
+    public var provider: String?
     public var plan: String?
     public var configDir: String?
     public var keychainService: String?

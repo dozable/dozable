@@ -25,19 +25,28 @@ public enum AccountKind: String, Codable, Sendable, CaseIterable {
     case chatgpt
     /// 599i rc.3: THIS Mac's own Codex login, read-only (the account `mac` of a Codex sandbox) — never written.
     case codexMac = "codex-mac"
+    /// 617: an API key of a key provider (`AccountRecord.provider`: xai, google) in `doz-<provider>:NAME`.
+    case key
 
-    /// The vault binding its secret goes in.
+    /// The vault binding its secret goes in (a `key` account's is its provider's — `AccountRecord.binding`).
     public var binding: CredentialBinding {
         switch self {
         case .apiKey: .anthropic
         case .mac, .setupToken: .claudeOAuth
         case .openaiKey: .openai
         case .chatgpt, .codexMac: .chatgpt
+        case .key: CredentialBinding(id: "key:?", hosts: [], header: .bearer)       // never used: see AccountRecord.binding
         }
     }
 
-    /// 599i: whose credential it is — `anthropic` (Claude Code, pi) or `openai` (Codex).
-    public var provider: String { self == .openaiKey || self == .chatgpt || self == .codexMac ? "openai" : "anthropic" }
+    /// 599i: whose credential it is — `anthropic` (Claude Code, pi) or `openai` (Codex). 617: `key` — its record's provider.
+    public var provider: String {
+        switch self {
+        case .openaiKey, .chatgpt, .codexMac: "openai"
+        case .key: "key"
+        default: "anthropic"
+        }
+    }
 }
 
 public struct AccountRecord: Codable, Equatable, Sendable {
@@ -64,6 +73,23 @@ public struct AccountRecord: Codable, Equatable, Sendable {
     /// 599i: a ChatGPT sign-in's email and account id (from its id_token's claims) — not secrets.
     public var email: String?
     public var accountID: String?
+    /// 617: a `key` account's key provider (`xai`, `google`) — nil for every other kind (and in every older file).
+    public var provider: String?
+
+    /// 617: whose credential it is — the provider of a `key` account, the kind's otherwise.
+    public var providerID: String { kind == .key ? (provider ?? "") : kind.provider }
+
+    /// 617: as a person reads it ("an xAI API key").
+    public var label: String {
+        guard kind == .key, let p = provider.flatMap(KeyProviders.provider) else { return kind.label }
+        return "a \(p.title) key"
+    }
+
+    /// 617: the vault binding its secret goes in.
+    public var binding: CredentialBinding {
+        guard kind == .key else { return kind.binding }
+        return provider.flatMap(KeyProviders.provider)?.binding ?? kind.binding
+    }
 
     public init(name: String, kind: AccountKind, keychainService: String? = nil, adopted: Bool? = nil, configDir: String? = nil,
                 plan: String? = nil, tier: String? = nil, identity: ClaudeIdentity? = nil, fingerprint: String? = nil,
@@ -99,12 +125,15 @@ public struct AccountsFile: Codable, Equatable, Sendable {
     /// 599i: the OpenAI account Codex sandboxes that follow the default use (nil: none — never an
     /// Anthropic account). `doz account default NAME` with an OpenAI account sets it.
     public var openaiDefault: String?
+    /// 617: each key provider's default account (`xai` → `work-xai`); nil — none chosen.
+    public var providerDefaults: [String: String]?
 
     public init() {}
 
-    /// 599i: the default account that applies to a sandbox of `image` (Codex: the OpenAI one).
+    /// 599i: the default account that applies to a sandbox of `image` (Codex: the OpenAI one; 617: a key agent: its
+    /// provider's).
     public func defaultAccount(for image: String?) -> String {
-        AgentCredentials.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault)
+        AgentCredentials.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault, providers: providerDefaults ?? [:])
     }
 }
 
@@ -135,6 +164,14 @@ public struct AccountStore: Sendable {
     /// 599i: an OpenAI API key, and a ChatGPT sign-in's tokens (a JSON document, never on disk).
     public static let openaiKeyPrefix = "doz-openai:"
     public static let chatgptPrefix = "doz-chatgpt:"
+    /// 617: a key provider's key: `doz-xai:NAME`, `doz-google:NAME`.
+    public static func keyPrefix(_ provider: String) -> String { "doz-\(provider):" }
+
+    /// 617: a keychain item Dozer made for an account (and so may delete): one of the prefixes above.
+    public static func isDozItem(_ service: String) -> Bool {
+        [setupTokenPrefix, apiKeyPrefix, openaiKeyPrefix, chatgptPrefix].contains(where: service.hasPrefix)
+            || KeyProviders.all.filter { $0.builtinBinding == nil }.contains { service.hasPrefix(keyPrefix($0.id)) }
+    }
     /// A setup token lives one year (`claude setup-token`: 31 536 000 s).
     public static let setupTokenLifetime: TimeInterval = 31_536_000
 
@@ -193,6 +230,14 @@ extension HostRequest {
         return r
     }
 
+    /// 617: a key of a key provider (`--provider xai|google`) — the same one path.
+    public static func keyAccountAdd(name: String, provider: String, secret: String?, verify: Bool = true, force: Bool = false,
+                                     keychain: String? = nil) -> HostRequest {
+        var r = accountAdd(name: name, kind: .key, plan: nil, secret: secret, verify: verify, force: force, keychain: keychain)
+        r.provider = provider
+        return r
+    }
+
     /// The request `doz key set NAME --anthropic` sends — the ONE path a sandbox's own key takes (594:
     /// the web UI's masked field builds it here too). The host holds it in memory (a stdin/prompt/browser
     /// key lasts while the host runs), gives the guest a placeholder, and forgets the other credential.
@@ -219,6 +264,8 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var state: String
     public var keychainService: String?
     public var fingerprint: String?
+    /// 617: whose key it is (`anthropic`, `openai`, `xai`, `google`).
+    public var provider: String?
 }
 
 // MARK: verification
@@ -233,12 +280,51 @@ public enum AccountVerification: Equatable, Sendable {
 
 public protocol AccountVerifying: Sendable {
     func verify(kind: AccountKind, secret: String) async -> AccountVerification
+    /// 617: with a `key` account's provider.
+    func verify(kind: AccountKind, secret: String, provider: String?) async -> AccountVerification
+}
+
+extension AccountVerifying {
+    public func verify(kind: AccountKind, secret: String, provider: String?) async -> AccountVerification {
+        await verify(kind: kind, secret: secret)
+    }
+}
+
+/// 617 TEST SEAM: `DOZ_TEST_PROVIDER_UPSTREAM=host:port` + `DOZ_TEST_PROVIDER_CA=<pem>` — the key providers' hosts (the
+/// proxy's leg, the key check) go to a fake provider, trusting ONLY that CA.
+public enum ProviderSeam {
+    public static func upstream(environment env: [String: String] = ProcessInfo.processInfo.environment) -> EgressProxy.UpstreamOverride? {
+        guard let u = env["DOZ_TEST_PROVIDER_UPSTREAM"], !u.isEmpty, let caPath = env["DOZ_TEST_PROVIDER_CA"],
+              let pem = try? String(contentsOfFile: caPath, encoding: .utf8) else { return nil }
+        let parts = u.split(separator: ":")
+        guard parts.count == 2, let port = UInt16(parts[1]) else { return nil }
+        return EgressProxy.UpstreamOverride(host: String(parts[0]), port: port, anchorsPEM: pem)
+    }
+
+    /// 617: a key provider's check, over the proxy's leg (the seam's fake in tests).
+    static func check(provider: String?, secret: String) async -> AccountVerification {
+        guard let p = provider.flatMap(KeyProviders.provider) else { return .unavailable("no provider") }
+        let override = upstream()
+        return await Task.detached {
+            switch p.checkKey(secret, override: override) {
+            case .success(true): return AccountVerification.verified
+            case .success(false): return .rejected("\(p.title) refused the key")
+            case .failure(let f): return .unavailable(f.reason)
+            }
+        }.value
+    }
 }
 
 /// One minimal request, from the host, to api.anthropic.com only: `POST /v1/messages`, haiku,
 /// `max_tokens: 1`, the credential in its header. 200 verified · 401/403 rejected · else unavailable.
+/// 617: and a key provider's own check (`KeyProvider.check`: xAI `GET /v1/api-key`, Google `GET /v1beta/models`).
 public struct AnthropicVerifier: AccountVerifying {
     public init() {}
+
+    public func verify(kind: AccountKind, secret: String, provider: String?) async -> AccountVerification {
+        if kind == .key { return await ProviderSeam.check(provider: provider, secret: secret) }
+        return await verify(kind: kind, secret: secret)
+    }
 
     public func verify(kind: AccountKind, secret: String) async -> AccountVerification {
         // 599i: an OpenAI key — one GET api.openai.com/v1/models (over the proxy's leg; the test seam's CA in tests).

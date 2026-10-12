@@ -97,7 +97,8 @@ final class PermissionsHostTests: XCTestCase {
         XCTAssertEqual(r.preset, "agent")
         XCTAssertFalse(r.inferred)
         // 599i: an agent's own model permission ("Talk to OpenAI") is listed only where it is on.
-        XCTAssertEqual(r.permissions.count, AgentPermissions.all.count - 1)
+        // 617: and every other agent's own (model:xai, model:google, the hidden update:gemini).
+        XCTAssertEqual(r.permissions.count, AgentPermissions.all.filter { !AgentPermissions.isAgentOwn($0.id) }.count)
         XCTAssertNil(r.permissions.first { $0.id == AgentPermissions.openAIModel })
         XCTAssertEqual(r.permissions.first { $0.id == "install:node" }?.on, true)
         XCTAssertEqual(r.permissions.first { $0.id == "install:node" }?.standard, true)

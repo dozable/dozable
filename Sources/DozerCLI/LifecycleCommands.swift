@@ -8,7 +8,7 @@ struct CreateArguments: ParsableArguments {
     @Option(name: .long, help: "lab (Alpine + bash), claude-code, pi, codex, a base × agent image (python-claude-code, go-codex, go, …), or a template (doz image ls). Shorthand for --agent/--base.")
     var image: String?
 
-    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex) or none (a shell only). Default claude-code.")
+    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex), gemini (Gemini CLI), grok (Grok Build) or none (a shell only). Default claude-code.")
     var agent: String?
 
     @Option(name: .long, help: "A recommended base (doz base ls): node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine. Default node.")
@@ -92,18 +92,21 @@ struct CreateArguments: ParsableArguments {
         guard image == nil else { throw ValidationError("--image, or --agent/--base/--dockerfile — not both") }
         let a: AgentKind
         switch agent ?? "claude-code" {
-        case "claude-code", "claude": a = .claudeCode
-        case "pi": a = .pi
-        case "codex": a = .codex
         case "none", "shell": a = .none
-        case let x: throw ValidationError("--agent: claude-code, pi, codex or none — not \(x)")
+        // 617: any agent this build has a recipe for, by id or alias (`claude`).
+        case let x:
+            guard let r = AgentRecipes.matching(x), let k = AgentKind(rawValue: r.id) else {
+                throw ValidationError("--agent: \(DozerProject.agentWords) — not \(x)")
+            }
+            a = k
         }
         if dockerfile != nil {
             guard base == nil else { throw ValidationError("--base or --dockerfile — not both") }
             // The host names the image by the Dockerfile's own base id; this carries the agent.
             return ImageChoice(base: a == .none ? "alpine" : "node", agent: a).name
         }
-        let b = base ?? "node"
+        // 617: no --base — the agent's own default base (Node for Claude Code, pi and Codex, as before).
+        let b = base ?? a.recipe?.defaultBase ?? "node"
         guard BaseCatalogue.base(b) != nil else {
             throw ValidationError("--base: \(BaseCatalogue.ids.joined(separator: ", ")) (doz base ls) — or --dockerfile PATH — not \(b)")
         }

@@ -239,7 +239,8 @@ struct Doctor: AsyncParsableCommand {
             }
         }
         let rows = accounts.accounts.map { a -> String in
-            var s = a.name + (accounts.defaultAccount == a.name || accounts.openaiDefault == a.name ? " (default)" : "")
+            var s = a.name + (accounts.defaultAccount == a.name || accounts.openaiDefault == a.name
+                              || accounts.providerDefaults?.values.contains(a.name) == true ? " (default)" : "")
             switch a.kind {
             case .mac: s += a.configDir.map { " (Mac login, \($0))" } ?? ""
             case .setupToken: s += " (setup-token" + (a.expiresAt.map { ", expires \($0.formatted(date: .abbreviated, time: .omitted))" } ?? "") + ")"
@@ -247,6 +248,7 @@ struct Doctor: AsyncParsableCommand {
             case .openaiKey: s += " (openai-key)"
             case .chatgpt: s += " (chatgpt" + (a.plan.map { ", \($0)" } ?? "") + ")"
             case .codexMac: s += " (codex-mac)"
+            case .key: s += " (key, \(a.provider ?? "?"))"          // 617
             }
             return s
         }

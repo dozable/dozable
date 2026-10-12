@@ -104,6 +104,13 @@ final class BaseImagesTests: XCTestCase {
                 case .none:
                     XCTAssertNil(s.agent)
                     XCTAssertTrue(s.persistDirs.isEmpty)
+                default:
+                    // 617: a recipe agent — its install (integrity-checked), its launcher, its state, its integrity recorded.
+                    let r = try XCTUnwrap(a.recipe)
+                    XCTAssertTrue(script.contains("[ \"$got\" = 'sha512-AAAA' ]"), name)
+                    XCTAssertTrue(script.contains("cat > /home/agent/.local/bin/\(r.install.binary) <<'SH'"), name)
+                    XCTAssertEqual(s.persistDirs, r.state.persist, name)
+                    XCTAssertEqual(s.agent, AgentPackage(package: r.install.package!, version: "2.1.285", integrity: "sha512-AAAA"))
                 }
                 if let t = b.toolchain, !(b.id == "node" && a != .none) { XCTAssertTrue(s.verify.contains(t), name) }
                 XCTAssertTrue(script.contains(b.packageManager == .apk ? "apk add" : "apt-get install"), name)

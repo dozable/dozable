@@ -120,10 +120,13 @@ public enum Workspace {
         case "lab": return "lab-sandbox"
         case "codex": return "codex-sandbox"          // 599i
         // 596: base × agent — python-claude-sandbox, go-pi-sandbox, debian-sandbox, dockerfile-claude-sandbox.
+        // 617: an agent by its short name (Claude Code's `claude`); a recipe agent's own image is `<short>-sandbox`
+        // (grok-sandbox, gemini-sandbox).
         case let n where ImageChoice.parse(n)?.name == n:
             let c = ImageChoice.parse(n)!
-            let agent = switch c.agent { case .claudeCode: "-claude"; case .pi: "-pi"; case .codex: "-codex"; case .none: "" }
-            return (c.isDockerfile ? "dockerfile" : c.base) + agent + "-sandbox"
+            let short = c.agent.recipe?.shortName
+            if let short, n == c.agent.rawValue { return short + "-sandbox" }
+            return (c.isDockerfile ? "dockerfile" : c.base) + (short.map { "-" + $0 } ?? "") + "-sandbox"
         default:
             let n = image.hasPrefix("custom:") ? String(image.dropFirst(7)) : image
             let base = String(n.prefix(32)) + "-sandbox"

@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "id": "pi",
+  "title": "pi",
+  "publisher": "Mario Zechner",
+  "licence": "MIT",
+  "homepage": "https://github.com/earendil-works/pi",
+  "builtin": true,
+  "default_base": "node",
+  "platforms": { "glibc": true, "musl": true },
+  "install": {
+    "kind": "builtin",
+    "package": "@earendil-works/pi-coding-agent",
+    "binary": "pi",
+    "needs_node": "22",
+    "npm_args": ["--ignore-scripts"],
+    "pinned": {
+      "version": "0.84.1",
+      "integrity": "sha512-ncAqFrG+iybuPGOhMiZoEHkEzTpJgz3guYD32pD+M7ucc0WeHmauP6wa7qwP8V/KWvsZDVNa5XGsdZ7fkC7w7A=="
+    }
+  },
+  "launch": {
+    "command": ["pi"],
+    "no_prompts_args": [],
+    "passthrough": [],
+    "env": {}
+  },
+  "state": {
+    "persist": ["~/.pi/agent"],
+    "env": { "PI_CODING_AGENT_DIR": "/home/agent/.pi/agent" }
+  },
+  "credentials": [{ "provider": "anthropic", "accounts": ["api-key"] }],
+  "tags": [
+    { "tag": "headless", "level": "documented", "source": "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md", "notes": ["pi -p / --print, --mode json"], "checked": "2026-10-12" }
+  ],
+  "gateways": [
+    {
+      "gateway": "openrouter",
+      "level": "documented",
+      "shape": "openai-chat",
+      "endpoint": "v1",
+      "how": {
+        "env": { "OPENROUTER_API_KEY": "{placeholder}" },
+        "model_args": ["--model", "openrouter/{model}"]
+      },
+      "notes": ["pi's own openrouter provider knows the base URL (https://openrouter.ai/api/v1) and also speaks Anthropic Messages there for Anthropic models (packages/ai/src/providers/openrouter.ts)", "--model is PROVIDER/MODEL in pi's docs (azure/gpt-5.4)"],
+      "source": "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md",
+      "checked": "2026-10-12"
+    },
+    {
+      "gateway": "vercel-ai-gateway",
+      "level": "documented",
+      "how": {
+        "env": { "AI_GATEWAY_API_KEY": "{placeholder}" },
+        "model_args": ["--model", "{model}"]
+      },
+      "notes": ["pi's own vercel-ai-gateway provider knows the base URL; AI_GATEWAY_API_KEY is in pi's providers.md, and Vercel's setup writes the key to ~/.pi/agent/auth.json instead", "which API shape pi's Vercel provider speaks is not stated by either side (left out)"],
+      "source": "https://vercel.com/docs/ai-gateway/coding-agents/pi",
+      "checked": "2026-10-12"
+    }
+  ],
+  "auth": {
+    "methods": [
+      {
+        "kind": "api-key",
+        "provider": "anthropic",
+        "keys_page": "https://platform.claude.com/settings/keys",
+        "accounts": ["api-key"],
+        "note": "pi reads ANTHROPIC_API_KEY; a Claude subscription is never given to it.",
+        "checked": "2026-10-12"
+      },
+      {
+        "kind": "gateway",
+        "gateways": ["openrouter"],
+        "note": "pi reads OPENROUTER_API_KEY (its docs/providers.md). Dozer offers gateways in a later version.",
+        "checked": "2026-10-12"
+      }
+    ]
+  },
+  "network": {
+    "model": { "id": "model", "shared": true },
+    "update": [
+      { "host": "pi.dev" },
+      { "host": "registry.npmjs.org", "paths": ["/@earendil-works/pi-coding-agent", "/@earendil-works%2fpi-coding-agent", "/@earendil-works%2Fpi-coding-agent"] }
+    ],
+    "excluded": []
+  },
+  "status": "osc7501",
+  "prompt": { "kind": "skill", "dir": "~/.pi/agent/skills/dozer", "launcher_arg": ["--append-system-prompt"] },
+  "resume": ["--continue"],
+  "verify": [{ "argv": ["pi", "--version"], "expect": "{version}" }],
+  "settings": { "version": "images.pi_version" }
+}
