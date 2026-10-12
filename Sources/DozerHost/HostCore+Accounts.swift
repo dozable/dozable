@@ -569,7 +569,8 @@ extension HostCore {
                                    usedBy: sandboxesUsing(a.name, file).map(\.name) + extraUsers, state: state,
                                    keychainService: a.kind == .mac ? ClaudeLogin.service(configDir: a.configDir) : a.keychainService,
                                    fingerprint: a.fingerprint, provider: a.providerID,
-                                   sourceLabel: src.label, sourceState: src.state, sourceProblem: src.problem, hosts: a.custom?.hosts))
+                                   sourceLabel: src.label, sourceState: src.state, sourceProblem: src.problem, hosts: a.custom?.hosts,
+                                   verifiedAt: a.verifiedAt))
         }
         if let r = codexMacRow(file, now: now) { rows.append(r) }
         return rows
@@ -863,8 +864,8 @@ extension HostCore {
         case .setupToken, .apiKey, .openaiKey, .key:
             if a.readsOnUse, let s = a.source {
                 // 617: read from its source now (that is the check), then the provider's key check.
-                let env = a.sourceEnv ?? [:]
-                let read = await Task.detached { SecretSources.read(s, account: name, sourceEnv: env) }.value
+                let env = a.sourceEnv ?? [:], known = a.fingerprint
+                let read = await Task.detached { SecretSources.read(s, account: name, sourceEnv: env, knownFingerprint: known) }.value
                 secretSourceState.record(name, read)
                 guard let v = read.secret else {
                     file.accounts[i].verification = "rejected: \(read.notice ?? "its source answered nothing")"

@@ -214,8 +214,11 @@ public enum SecretSources {
 
     /// Read the key now. `account`: its name, for the notice. Never throws; a failure is the notice the proxy
     /// answers with (the cause and the fix), never another key.
+    /// `knownFingerprint`: the account's last key fingerprint — a failing tool's message is never shown when a word of
+    /// it is that key (a tool that echoes what it read).
     public static func read(_ source: SecretSource, account: String, sourceEnv: [String: String],
-                            environment: [String: String] = ProcessInfo.processInfo.environment) -> CredentialVault.SecretRead {
+                            environment: [String: String] = ProcessInfo.processInfo.environment,
+                            knownFingerprint: String? = nil) -> CredentialVault.SecretRead {
         let from = "the key of account \(account) comes from \(source.label)"
         let argv: [String], timeout: TimeInterval
         switch source {
@@ -247,7 +250,9 @@ public enum SecretSources {
             }
             return (nil, "\(from), but \(tool) timed out after \(Int(timeout)) s — check it on this Mac, then doz account refresh \(account)")
         }
-        if r.status != 0 { return (nil, from + ", but " + classify(source, r, account: account, sourceEnv: sourceEnv)) }
+        if r.status != 0 {
+            return (nil, from + ", but " + classify(source, r, account: account, sourceEnv: sourceEnv, program: argv[0], knownFingerprint: knownFingerprint))
+        }
         guard var value = clean(r.stdout) else {
             return (nil, "\(from), but \(tool) answered nothing usable (empty, more than one line, control characters or over 8 KiB)")
         }
@@ -275,30 +280,93 @@ public enum SecretSources {
 
     static func opAccount(_ env: [String: String]) -> String { env["OP_ACCOUNT"].map { " --account \($0)" } ?? "" }
 
-    /// Why a tool failed, from its exit and its stderr (read only for this; never shown).
-    static func classify(_ source: SecretSource, _ r: SecretRun, account: String, sourceEnv: [String: String]) -> String {
+    /// Why a tool failed, in three parts (owner, after an opaque "exited 44"): the TOOL'S OWN WORDS — the first line of
+    /// its stderr, made inert and short (`firstErrorLine`); a plain reason for the codes and messages that are known;
+    /// and what to do. stdout is never used (it may hold a key).
+    static func classify(_ source: SecretSource, _ r: SecretRun, account: String, sourceEnv: [String: String],
+                         program: String? = nil, knownFingerprint: String? = nil) -> String {
         let e = r.stderr.lowercased()
+        // 1Password's and AWS's tools by their names; a command by its path (the person wrote it).
+        let path = source.tool ?? program ?? "the tool"
+        let words = firstErrorLine(r.stderr, tool: (path as NSString).lastPathComponent, knownFingerprint: knownFingerprint)
+        let refresh = "doz account refresh \(account)"
+        func told(_ reason: String?, _ fix: String) -> String {
+            var s = words.map { "\(path) says: \($0)" } ?? "\(path) exited \(r.status)"
+            if let reason { s += " (\(reason))" }
+            return s + " — " + fix
+        }
         switch source {
         case .onePassword:
             if e.contains("not signed in") || e.contains("not currently signed in") || e.contains("sign in") || e.contains("authorization") || e.contains("session expired") {
-                return "op is not signed in — run op signin\(opAccount(sourceEnv)) (or give the host OP_SERVICE_ACCOUNT_TOKEN), then doz account refresh \(account)"
+                return told("op is not signed in", "run op signin\(opAccount(sourceEnv)) (or give the host OP_SERVICE_ACCOUNT_TOKEN), then \(refresh)")
             }
             if e.contains("isn't an item") || e.contains("could not find") || e.contains("not found") || e.contains("no item") {
-                return "1Password has no such item or field — check the reference (op read REF on this Mac)"
+                return told("1Password has no such item or field", "check the reference with op read REF in Terminal, then \(refresh)")
             }
-            return "op exited \(r.status) — run op read REF on this Mac to see why"
+            return told(nil, "run op read REF in Terminal to see why, then \(refresh)")
         case .awsSecretsManager(let arn, _):
-            for (code, what) in [("accessdenied", "AccessDeniedException for \(arn) — the profile may not read it"),
-                                 ("resourcenotfound", "ResourceNotFoundException: no secret \(arn)"),
-                                 ("expiredtoken", "its credentials expired — aws sso login\(sourceEnv["AWS_PROFILE"].map { " --profile \($0)" } ?? "")"),
+            for (code, what) in [("accessdenied", "AccessDenied: the profile may not read \(arn)"),
+                                 ("resourcenotfound", "no secret \(arn)"),
+                                 ("expiredtoken", "its AWS credentials expired — aws sso login\(sourceEnv["AWS_PROFILE"].map { " --profile \($0)" } ?? "")"),
                                  ("unable to locate credentials", "no AWS credentials on this Mac — aws configure (or --env AWS_PROFILE=…)")]
-            where e.contains(code) { return "aws answered \(what)" }
-            return "aws exited \(r.status) — run the same get-secret-value on this Mac to see why"
+            where e.contains(code) { return told(what, "check it in Terminal, then \(refresh)") }
+            return told(nil, "run the same get-secret-value in Terminal to see why, then \(refresh)")
         case .command(let p, _):
-            return "\(p) exited \(r.status)"
+            return told(knownReason((p as NSString).lastPathComponent, status: r.status, stderr: e), "run that command in Terminal to check it, then \(refresh)")
         case .keychain:
             return "the keychain refused"
         }
+    }
+
+    /// Plain words for the exits and messages of the programs people use as a key's command.
+    static func knownReason(_ tool: String, status: Int32, stderr e: String) -> String? {
+        switch tool {
+        case "security":
+            switch status {
+            case 44: return "the keychain has no such item"
+            case 51: return "the keychain would have to ask you, and nobody can answer here"
+            case 36: return "the keychain is locked"
+            default: return nil
+            }
+        case "op":
+            if e.contains("not signed in") || e.contains("sign in") || e.contains("session expired") { return "op is not signed in" }
+            return nil
+        case "aws":
+            if e.contains("accessdenied") { return "AccessDenied" }
+            if e.contains("expiredtoken") { return "its AWS credentials expired" }
+            return nil
+        case "gh":
+            if e.contains("not logged in") || e.contains("gh auth login") || e.contains("authentication") { return "gh is not signed in — gh auth login" }
+            return nil
+        default: return nil
+        }
+    }
+
+    /// The first non-empty line of a tool's stderr as a person may read it: control characters removed, the tool's own
+    /// "name:" prefix and an API name ("SecKeychainSearchCopyNext:") dropped, at most 160 characters — and nothing at
+    /// all when a word of it is the account's last key (its fingerprint matches).
+    static func firstErrorLine(_ stderr: String, tool: String, knownFingerprint: String?) -> String? {
+        guard var line = stderr.split(whereSeparator: \.isNewline).map({ String($0).trimmingCharacters(in: .whitespaces) }).first(where: { !$0.isEmpty }) else {
+            return nil
+        }
+        line = String(line.unicodeScalars.filter { $0.value >= 0x20 && $0.value != 0x7F && !(0x80...0x9F).contains($0.value) })
+        // A log prefix ("[ERROR] 2026/10/12 16:21:03 " — 1Password's op) is not the message.
+        if let r = line.range(of: #"^\[[A-Z]+\]\s*(\d{4}/\d{2}/\d{2} \d{2}:\d{2}:\d{2}\s*)?"#, options: .regularExpression) { line = String(line[r.upperBound...]) }
+        if let fp = knownFingerprint, !fp.isEmpty {
+            for w in line.split(whereSeparator: { $0 == " " || $0 == "\"" || $0 == "'" || $0 == "=" || $0 == ":" }) where w.count >= 8 {
+                if CredentialFingerprint.of(String(w)) == fp { return nil }
+            }
+        }
+        for _ in 0..<2 {
+            // One word and a colon: the tool's own name, or an API's (capitalised) — never a sentence.
+            if let r = line.range(of: #"^[A-Za-z][A-Za-z0-9_.-]*:\s+"#, options: .regularExpression),
+               line[r].lowercased().hasPrefix(tool.lowercased() + ":") || line[r].first?.isUppercase == true {
+                line = String(line[r.upperBound...])
+            }
+        }
+        line = line.trimmingCharacters(in: .whitespaces)
+        guard !line.isEmpty else { return nil }
+        return line.count > 160 ? String(line.prefix(159)) + "…" : line
     }
 
     /// The output as a key: trimmed, one line, no control characters, not empty, ≤ 8 KiB.

@@ -335,6 +335,8 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var sourceProblem: String?
     /// 617 (D6): a custom key's hosts.
     public var hosts: [String]?
+    /// 617: when `verification` was decided — history ("last verified 12 Oct 16:21"), not a live state.
+    public var verifiedAt: Date? = nil
 }
 
 // MARK: verification

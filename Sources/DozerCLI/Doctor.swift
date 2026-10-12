@@ -254,9 +254,19 @@ struct Doctor: AsyncParsableCommand {
             return s
         }
         // 617 (§7): a key read on use whose tool is missing.
+        var said = Set<String>()
         for a in accounts.accounts where a.readsOnUse {
             if let src = a.source, let why = SecretSources.missingTool(src) {
                 out.append(DoctorCheck(check: "key source", status: .warn, detail: "account \(a.name): \(why)"))
+                said.insert(a.name)
+            }
+        }
+        // 617: and the running host's last read that FAILED — the same words the proxy answered with.
+        if accounts.accounts.contains(where: \.readsOnUse), store.hostIsRunning(),
+           let m = try? HostClient.request(HostRequest(.accountList), store: store, autostart: false),
+           let rows = try? m.result?.decode([AccountRow].self) {
+            for r in rows where r.sourceState == "failed" && !said.contains(r.name) {
+                out.append(DoctorCheck(check: "key source", status: .warn, detail: r.sourceProblem ?? "account \(r.name): its last read failed"))
             }
         }
         let expiring = accounts.accounts.filter { a in a.kind != .mac && (a.expiresAt.map { $0.timeIntervalSince(now) < 30 * 86_400 } ?? false) }

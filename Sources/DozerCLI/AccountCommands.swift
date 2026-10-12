@@ -250,6 +250,18 @@ struct AccountShow: AsyncParsableCommand {
     }
 }
 
+/// 617 (owner): the verification is HISTORY — when it was checked, not a state now ("last verified 12 Oct 16:21";
+/// "rejected: … (12 Oct 16:21)"). The live state is the `state` line (and, for a key read on use, its last read).
+func verifiedLine(_ a: AccountRow, now: Date = Date()) -> String {
+    guard let v = a.verification else { return "—" }
+    guard let at = a.verifiedAt else { return v }
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_GB")
+    f.dateFormat = Calendar.current.isDate(at, equalTo: now, toGranularity: .year) ? "d MMM HH:mm" : "d MMM yyyy HH:mm"
+    let when = f.string(from: at)
+    return v == "verified" ? "last verified \(when)" : "\(v) (\(when))"
+}
+
 func renderAccount(_ a: AccountRow) -> String {
     var lines: [(String, String)] = [("name", a.name), ("kind", a.kind == AccountKind.key.rawValue ? "key, \(a.provider ?? "?")" : a.kind)]
     if let h = a.hosts { lines.append(("hosts", h.joined(separator: ", "))) }
@@ -257,7 +269,7 @@ func renderAccount(_ a: AccountRow) -> String {
     lines.append(("state", a.sourceState.map { $0 == "unchecked" ? "not read since the host started" : $0 } ?? a.state))
     if let p = a.sourceProblem { lines.append(("problem", p)) }
     if let f = a.fingerprint { lines.append(("fingerprint", f)) }
-    lines.append(("verified", a.verification ?? "—"))
+    lines.append(("verified", verifiedLine(a)))
     if let p = a.plan { lines.append(("plan", p)) }
     if let i = a.identity { lines.append(("identity", i)) }
     lines.append(("default", a.isDefault ? "yes" : "no"))

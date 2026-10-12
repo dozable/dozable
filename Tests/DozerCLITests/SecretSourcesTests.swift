@@ -146,11 +146,13 @@ final class SecretSourcesTests: XCTestCase {
         FileManager.default.createFile(atPath: bin.appendingPathComponent("op-signedout").path, contents: Data())
         let op = SecretSources.read(.onePassword(reference: "op://Dev/xai/credential"), account: "grok-op", sourceEnv: ["OP_ACCOUNT": "my"], environment: env)
         XCTAssertNil(op.secret)
-        XCTAssertEqual(op.notice, "the key of account grok-op comes from 1Password: op://Dev/xai/credential, but op is not signed in — run op signin --account my "
-                       + "(or give the host OP_SERVICE_ACCOUNT_TOKEN), then doz account refresh grok-op")
+        // 617 (owner): the tool's own first line (its log prefix dropped), the plain reason, then what to do.
+        XCTAssertEqual(op.notice, "the key of account grok-op comes from 1Password: op://Dev/xai/credential, but op says: "
+                       + "You are not currently signed in. Please run op signin --help"
+                       + " (op is not signed in) — run op signin --account my (or give the host OP_SERVICE_ACCOUNT_TOKEN), then doz account refresh grok-op")
         FileManager.default.createFile(atPath: bin.appendingPathComponent("aws-denied").path, contents: Data())
         let aws = SecretSources.read(.awsSecretsManager(arn: "arn:aws:secretsmanager:eu-west-1:123456789012:secret:x", jsonKey: nil), account: "a", sourceEnv: [:], environment: env)
-        XCTAssertTrue(aws.notice?.contains("AccessDeniedException") == true, aws.notice ?? "")
+        XCTAssertTrue(aws.notice?.contains("AccessDenied") == true, aws.notice ?? "")
         // Not installed (no seam, outside a guarded run) and the guarded run's own refusal.
         let none = SecretSources.read(.onePassword(reference: "op://Dev/xai/credential"), account: "a", sourceEnv: [:], environment: ["DOZ_TEST_REAL_MAC": "1", "PATH": "/nonexistent"])
         if SecretSources.locate("op") == nil { XCTAssertTrue(none.notice?.contains("brew install 1password-cli") == true, none.notice ?? "") }
@@ -161,8 +163,59 @@ final class SecretSourcesTests: XCTestCase {
         // A command that exits non-zero.
         try script("fails", "#!/bin/sh\necho oops >&2\nexit 3\n")
         let f = SecretSources.read(.command(program: bin.appendingPathComponent("fails").path, arguments: []), account: "a", sourceEnv: [:], environment: env)
-        XCTAssertTrue(f.notice?.hasSuffix("fails exited 3") == true, f.notice ?? "")
-        XCTAssertFalse(f.notice?.contains("oops") == true, "stderr only classifies — never shown")
+        XCTAssertEqual(f.notice, "the key of account a comes from command: \(bin.path)/fails, but \(bin.path)/fails says: oops — run that command in Terminal "
+                       + "to check it, then doz account refresh a")
+    }
+
+    /// 617 (owner): `account show`'s verification is history — when it was checked.
+    func testVerifiedIsHistory() throws {
+        var r = AccountRow(name: "demo", kind: "key", isDefault: false, usedBy: [], state: "ok")
+        XCTAssertEqual(verifiedLine(r), "—")
+        r.verification = "verified"
+        XCTAssertEqual(verifiedLine(r), "verified", "no date known (an older record)")
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-10-12T18:00:00Z"))
+        r.verifiedAt = now.addingTimeInterval(-3600)
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_GB")
+        f.dateFormat = "d MMM HH:mm"
+        XCTAssertEqual(verifiedLine(r, now: now), "last verified " + f.string(from: r.verifiedAt!))
+        r.verification = "rejected: 401"
+        XCTAssertEqual(verifiedLine(r, now: now), "rejected: 401 (" + f.string(from: r.verifiedAt!) + ")")
+        r.verifiedAt = now.addingTimeInterval(-400 * 86_400)
+        XCTAssertTrue(verifiedLine(r, now: now).contains("2025"), "another year: with the year")
+    }
+
+    /// 617 (owner, after "…exited 44"): the tool's first stderr line — inert, ≤ 160 characters, never stdout, never a line
+    /// with the account's key in it; known exits in plain words; what to do.
+    func testAFailingToolSaysWhyInItsOwnWords() throws {
+        // The owner's case: a command reading the keychain with /usr/bin/security (a fake of the same name).
+        try script("security", "#!/bin/sh\necho 'security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.' >&2\nexit 44\n")
+        let p = bin.appendingPathComponent("security").path
+        let s = SecretSources.read(.command(program: p, arguments: ["find-generic-password", "-w", "-s", "demo"]), account: "demo", sourceEnv: [:], environment: env)
+        XCTAssertEqual(s.notice, "the key of account demo comes from command: \(p) find-generic-password -w -s demo, but \(p) says: The specified item could "
+                       + "not be found in the keychain. (the keychain has no such item) — run that command in Terminal to check it, then doz account refresh demo")
+        XCTAssertEqual(SecretSources.knownReason("security", status: 51, stderr: ""), "the keychain would have to ask you, and nobody can answer here")
+        XCTAssertEqual(SecretSources.knownReason("security", status: 36, stderr: ""), "the keychain is locked")
+        XCTAssertEqual(SecretSources.knownReason("gh", status: 1, stderr: "you are not logged into any github hosts. run gh auth login"), "gh is not signed in — gh auth login")
+        XCTAssertEqual(SecretSources.knownReason("aws", status: 254, stderr: "an error occurred (expiredtokenexception)"), "its AWS credentials expired")
+        // Never stdout (it may be the key), even when the tool fails.
+        try script("leaky", "#!/bin/sh\nprintf 'sk-STDOUT-SECRET-123456'\necho 'bad request' >&2\nexit 2\n")
+        let l = SecretSources.read(.command(program: bin.appendingPathComponent("leaky").path, arguments: []), account: "a", sourceEnv: [:], environment: env)
+        XCTAssertFalse(l.notice?.contains("sk-STDOUT") == true, l.notice ?? "")
+        XCTAssertTrue(l.notice?.contains("says: bad request") == true, l.notice ?? "")
+        // A tool that echoes the key on stderr: its line is not shown when a word matches the account's last fingerprint.
+        let key = "xai-ECHOED-KEY-0123456789"
+        try script("echoes", "#!/bin/sh\necho \"invalid key \(key) rejected\" >&2\nexit 1\n")
+        let k = SecretSources.read(.command(program: bin.appendingPathComponent("echoes").path, arguments: []), account: "a", sourceEnv: [:], environment: env,
+                                   knownFingerprint: CredentialFingerprint.of(key))
+        XCTAssertFalse(k.notice?.contains(key) == true, k.notice ?? "")
+        XCTAssertTrue(k.notice?.contains("echoes exited 1") == true, "said without its words: \(k.notice ?? "")")
+        // Inert and short.
+        XCTAssertEqual(SecretSources.firstErrorLine("\n\u{1B}]52;c;eA==\u{07}ESC in it\u{9B}2J\nsecond", tool: "x", knownFingerprint: nil), "]52;c;eA==ESC in it2J")
+        XCTAssertEqual(SecretSources.firstErrorLine(String(repeating: "a", count: 300), tool: "x", knownFingerprint: nil)?.count, 160)
+        XCTAssertEqual(SecretSources.firstErrorLine("Error: the vault is locked", tool: "x", knownFingerprint: nil), "the vault is locked")
+        XCTAssertEqual(SecretSources.firstErrorLine("the request: denied", tool: "x", knownFingerprint: nil), "the request: denied", "a sentence keeps its words")
+        XCTAssertNil(SecretSources.firstErrorLine("  \n \n", tool: "x", knownFingerprint: nil))
     }
 
     func testOutputMustBeOneCleanLineUnderTheCap() throws {
@@ -321,7 +374,7 @@ final class SecretSourcesTests: XCTestCase {
         XCTAssertTrue(row.sourceProblem?.contains("run op signin") == true, row.sourceProblem ?? "")
         v.prefetch("key:xai")
         XCTAssertFalse(v.hasSecret("key:xai"), "never another key")
-        XCTAssertTrue(v.notice("key:xai")?.contains("op is not signed in — run op signin") == true, v.notice("key:xai") ?? "")
+        XCTAssertTrue(v.notice("key:xai")?.contains("(op is not signed in) — run op signin") == true, v.notice("key:xai") ?? "")
         // The sandbox's banner says the same.
         var ls = HostRequest(.ls)
         ls.withSessions = false

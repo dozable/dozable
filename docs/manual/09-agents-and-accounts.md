@@ -153,10 +153,20 @@ doz account refresh grok                                                        
   sign-in variables (`OP_SERVICE_ACCOUNT_TOKEN`, `AWS_*`) and the `--env` variables the account names —
   only `OP_ACCOUNT`, `AWS_PROFILE`, `AWS_REGION`, `AWS_CONFIG_FILE` and `AWS_SHARED_CREDENTIALS_FILE`
   (never a secret). Nothing is typed into it. 1Password gets 20 seconds (a Touch ID prompt), the others 10.
-- **When it fails** the agent's request gets a 401 saying why and what to do — "op is not signed in — run
-  op signin, then doz account refresh grok", "aws is not installed — brew install awscli",
-  AccessDeniedException — and never another key. `doz account show`, the sandbox's page and
-  `doz doctor` (a tool that is not installed) say the same.
+- **When it fails** the agent's request gets a 401 saying why, in the tool's own words (the first line it
+  wrote to its errors, cleaned and shortened — never its output, never a line holding the key), the reason
+  in plain words where it is known, and what to do — never another key. For example:
+
+  ```
+  the key of account demo comes from command: /usr/bin/security find-generic-password -w -s demo, but
+  /usr/bin/security says: The specified item could not be found in the keychain. (the keychain has no such
+  item) — run that command in Terminal to check it, then doz account refresh demo
+  ```
+
+  Known: `security`'s exits 44 (no such item), 51 (it would have to ask you) and 36 (the keychain is locked);
+  `op` signed out; `aws` AccessDenied and expired credentials; `gh` not signed in. `doz account show`, the
+  sandbox's page and `doz doctor` say the same; `account show` gives the last verification as history ("last
+  verified 12 Oct 16:21").
 - **In the dashboard** an account like this shows where its key comes from and its last read, with
   **Refresh**. Adding or changing where a key comes from is done with `doz` only.
 

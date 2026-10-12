@@ -13,13 +13,13 @@ extension HostCore {
         let sb = m.sandbox
         guard let vault = sb.egress?.vault else { return }
         if a.readsOnUse, let source = a.source {
-            let state = secretSourceState, account = a.name, env = a.sourceEnv ?? [:]
+            let state = secretSourceState, account = a.name, env = a.sourceEnv ?? [:], known = a.fingerprint
             let base = SecretSources.fingerprint(source, environment: env)
             let environment = ProcessInfo.processInfo.environment
             vault.setProvider(binding, ttl: TimeInterval(a.ttlSeconds ?? SecretSources.defaultTTL),
                               version: { base + ":" + String(state.generation(account)) },
                               read: {
-                                  let r = SecretSources.read(source, account: account, sourceEnv: env, environment: environment)
+                                  let r = SecretSources.read(source, account: account, sourceEnv: env, environment: environment, knownFingerprint: known)
                                   state.record(account, r)
                                   if r.secret != nil { HostLog.line("account \(account): read its key from \(source.tool.map { $0 == "op" ? "1Password" : "AWS" } ?? "its command") (fp \(CredentialFingerprint.of(r.secret!)))") }
                                   return r
@@ -114,8 +114,8 @@ extension HostCore {
             throw HostError(.invalid, "\(name) keeps its key in the keychain — nothing to read again (doz account verify \(name) checks it)")
         }
         secretSourceState.bump(name)
-        let env = a.sourceEnv ?? [:], state = secretSourceState
-        let read = await Task.detached { SecretSources.read(source, account: name, sourceEnv: env) }.value
+        let env = a.sourceEnv ?? [:], state = secretSourceState, known = a.fingerprint
+        let read = await Task.detached { SecretSources.read(source, account: name, sourceEnv: env, knownFingerprint: known) }.value
         state.record(name, read)
         for m in sandboxesUsing(name, file) + managed.values.filter({ $0.config.extraKeys?.contains(name) == true }) {
             m.sandbox.egress?.vault.expireProviders()
