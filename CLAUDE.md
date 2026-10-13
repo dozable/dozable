@@ -1713,6 +1713,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
   recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
   `~/Library/Caches/DozerKit-ci/recipes-store`). A new recipe passes it before it ships.
+- **OpenCode** (`opencode`, npm `opencode-ai` + the platform package `opencode-linux-arm64`, glibc only; an xAI key, model
+  `xai/grok-build-0.1`): it installs `@opencode-ai/plugin` into each config dir in the background (`Npm.install`: skipped
+  when `node_modules` exists and `package-lock.json`'s root lists the package) — 28 npm requests at a try's first start,
+  refusals under Locked. Its first-run files seed exactly that (an empty `node_modules/.package-lock.json`, the lock's
+  root dependency), so it calls nothing but its model; `OPENCODE_DISABLE_MODELS_FETCH` keeps models.dev out (the model
+  must then be in its bundled list — `opencode models xai`). No OSC 7501 (recipe-check's status probe saw nothing).
 - **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
   every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
   cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:

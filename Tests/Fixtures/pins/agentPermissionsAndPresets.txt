@@ -12,6 +12,7 @@ perm model:shell-gpt locked=false hosts=api.x.ai
 perm model:zeroclaw locked=false hosts=api.x.ai
 perm model:aichat locked=false hosts=api.x.ai
 perm model:tgpt locked=false hosts=generativelanguage.googleapis.com
+perm model:opencode locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,/v1/responses]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -51,6 +52,7 @@ agentPermissions shell-gpt ["model:shell-gpt"]
 agentPermissions zeroclaw ["model:zeroclaw"]
 agentPermissions aichat ["model:aichat"]
 agentPermissions tgpt ["model:tgpt"]
+agentPermissions opencode ["model:opencode"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

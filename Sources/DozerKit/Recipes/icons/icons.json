@@ -172,6 +172,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (GPL-3.0); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "T", "frame": "diamond" }
+    },
+    {
+      "id": "opencode", "kind": "product", "name": "OpenCode",
+      "variants": { "mono": "opencode.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/anomalyco/opencode",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and the project publishes no logo terms — so a neutral lettermark.",
+      "lettermark": { "text": "O", "frame": "square" }
     }
   ]
 }

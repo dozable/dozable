@@ -100,7 +100,7 @@ there.
 ```sh
 doz search grok                          # Grok Build — supported · key: xAI (you have work-xai) · try it: doz try grok
 doz search grokk                         # nothing called 'grokk' — did you mean grok?
-doz search opencode                      # OpenCode — coming: …
+doz search qwen-code                     # Qwen Code — coming: …
 doz search                               # everything: supported, then coming
 doz search tag:multi-vendor-models       # agents with a capability
 doz search --tag api-key --level any     # every agent, with that tag at any level

@@ -15,6 +15,7 @@ node-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 node-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 node-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 node-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+node-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -31,6 +32,7 @@ python-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 python-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 python-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 python-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+python-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -47,6 +49,7 @@ go-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 go-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 go-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 go-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+go-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -63,6 +66,7 @@ rust-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 rust-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 rust-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 rust-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+rust-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -79,6 +83,7 @@ java-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 java-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 java-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 java-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+java-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -95,6 +100,7 @@ ruby-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 ruby-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 ruby-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 ruby-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+ruby-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -111,6 +117,7 @@ dotnet-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 dotnet-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 dotnet-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 dotnet-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+dotnet-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -127,6 +134,7 @@ shell-gpt credentials=xai:key agentName=ShellGPT package=shell-gpt pinned=1.5.1 
 zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=0.8.5 sha512-z05xgONSrtERDekKh7jpbQuSrKNq2e9W2Zux3W5gDw3z9zKZyW6QHUpA9dGU3do4spzNTDSfeR1PtNjsX5lCmQ==
 aichat credentials=xai:key agentName=AIChat package=nil pinned=0.30.0 sha512-j+5lNCpZW9rhWwziKvT9KpQB17zLUKKEazhlPD4C9425uczt5zGEJxYXGHzrQH6DiutwpSZeaKdcZiBPm9UHmg==
 tgpt credentials=google:key agentName=tgpt package=nil pinned=2.15.0 sha512-EcCxUb8C5DTvpeY7PpRxbOQFOBL6875cweRzAokS4aY0/m3pHKvS2+g6niA4SlqzT8G1Wp7SGGxxUezmH8rv4w==
+opencode credentials=xai:key agentName=OpenCode package=opencode-ai pinned=1.19.0 sha512-XD1qcVN4jEiaYHqtx40p8cEPJxBc1mcB99ksgQ81akZsGGwcNFyG6GH857jVEplbGgdzWiWxDCrSii56sHjmRQ==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -143,6 +151,7 @@ ubuntu-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 ubuntu-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 ubuntu-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 ubuntu-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+ubuntu-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -158,6 +167,7 @@ alpine-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
 alpine-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 alpine-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 alpine-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+alpine-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -174,3 +184,4 @@ df-0123456789ab-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pin
 df-0123456789ab-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 df-0123456789ab-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 df-0123456789ab-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
+df-0123456789ab-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil

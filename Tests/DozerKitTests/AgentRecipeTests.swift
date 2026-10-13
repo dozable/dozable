@@ -24,7 +24,7 @@ final class AgentRecipeTests: XCTestCase {
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
 
     func test_everyCompiledRecipeDecodesAndValidates() throws {
-        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt"])
+        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt", "opencode"])
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
@@ -208,7 +208,7 @@ final class AgentRecipeTests: XCTestCase {
         XCTAssertEqual(level("grok", "headless"), "verified")
         XCTAssertTrue(AgentRecipes.recipe("codex")!.hasTag("multi-vendor-models"))
         XCTAssertFalse(AgentRecipes.recipe("gemini")!.hasTag("multi-vendor-models"))
-        XCTAssertEqual(AgentRecipes.all.filter { $0.hasTag("gateway:openrouter") }.map(\.id), ["claude-code", "pi", "codex", "fabric"])
+        XCTAssertEqual(AgentRecipes.all.filter { $0.hasTag("gateway:openrouter") }.map(\.id), ["claude-code", "pi", "codex", "fabric", "opencode"])
     }
 
     func test_tagRefusals() throws {

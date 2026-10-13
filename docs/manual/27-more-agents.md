@@ -1,12 +1,13 @@
-# More agents: Antigravity CLI, Grok Build, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, Gemini CLI
 
-Beside Claude Code, pi and Codex, Dozer runs three agents from other makers. Each uses an **API key** of its
+Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
 on the way out — and only to that maker's own API.
 
 ```sh
 doz try antigravity      # Google's agent (alias: agy)
 doz try grok             # xAI's agent
+doz try opencode         # OpenCode, the open-source agent, on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -40,6 +41,20 @@ Google's terminal agent and **the one to use with a Google key** (`doz try antig
 - **May reach:** xAI's API (the paths Grok Build uses, and its key-less start-up check of `api.x.ai/`), and its release
   notes on `x.ai` when it starts.
 - **Kept out, whatever you choose:** xAI's sign-in hosts (Dozer never offers the sign-in).
+
+## OpenCode (open source)
+
+An open-source terminal agent that works with many model providers (`doz try opencode`). Dozer offers it on an
+**xAI API key** for now, with xAI's coding model (`xai/grok-build-0.1`); its other providers come later.
+
+- **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine yet).
+- **Key:** an xAI API key, as Grok Build (`doz account add xai --provider xai`). Never its own sign-ins.
+- **Set up for you:** its auto-update, session sharing, language-server downloads and the online model list off; the
+  model set in `~/.config/opencode/opencode.json` (written only when it is not there yet). Its plugin kit is not
+  downloaded into `~/.config/opencode` when it first starts (it is only for plugins you write; `cd ~/.config/opencode
+  && npm install @opencode-ai/plugin` adds it). OpenCode asks no approval questions by default.
+- **May reach:** xAI's API (the paths OpenCode uses).
+- **Use:** `opencode` (its TUI), or `opencode run "…"` for one answer.
 
 ## Gemini CLI (Google) — superseded
 

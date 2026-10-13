@@ -2,15 +2,6 @@
   "schema": 1,
   "known": [
     {
-      "id": "opencode",
-      "title": "OpenCode",
-      "publisher": "SST",
-      "homepage": "https://opencode.ai",
-      "status": "coming",
-      "reason": "a recipe is being checked on linux-arm64 (its install, its keys and the hosts it calls)",
-      "checked": "2026-10-12"
-    },
-    {
       "id": "qwen-code",
       "title": "Qwen Code",
       "publisher": "Alibaba (Qwen)",
