@@ -57,6 +57,8 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// `[a-z][a-z0-9-]*` — the agent's id: `gemini`, `grok`; never a base id, `lab`, `none` or `custom`.
     public var id: String
     public var title: String
+    /// 617: one sentence (the recipe file's `description`; the Quick try's details show it).
+    public var description: String?
     public var publisher: String
     public var licence: String
     public var homepage: String
@@ -106,7 +108,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var tags: [RecipeTag]
 
     enum CodingKeys: String, CodingKey {
-        case lifecycle, icon, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
+        case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
              network, status, prompt, resume, verify, terms, checked, settings, auth, gateways, tags
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }

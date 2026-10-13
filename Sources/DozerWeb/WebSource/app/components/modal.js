@@ -35,8 +35,6 @@ export function openWizardModal(v, fromPage) {
     $('wiz-modal').hidden = false;
     document.body.classList.add('modal-open');
   }
-  // 617 (owner): Quick try is a FULL-PAGE modal — it covers the whole app, the left nav included.
-  $('wiz-modal').classList.toggle('full', v === 'try');
   paintNav();
   if (was !== v || v === 'try' || !$('wm-box').firstChild) renderModal(true);
 }
@@ -45,7 +43,6 @@ export function closeWizardModal() {
   if (state.modal === 'onboarding') wizardStopPolling();
   state.modal = null;
   $('wiz-modal').hidden = true;
-  $('wiz-modal').classList.remove('full');
   $('wm-box').replaceChildren();
   document.body.classList.remove('modal-open');
   modalInert(false);

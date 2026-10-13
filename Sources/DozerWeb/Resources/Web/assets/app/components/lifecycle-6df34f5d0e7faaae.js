@@ -6,7 +6,7 @@ import { DESTRUCTIVE, NEXT_VERB, opRunningFor, PRIMARY_VERB, VERBS, verbsFor } f
 import { bootViewOnStart, saveSetting, setting } from '../core/settings-70247ce370cb44d9.js';
 import { terminals } from '../core/terminals-fa5cf7fc28fdb48f.js';
 import { btn } from './button-a9b0357c06093925.js';
-import { confirmAction, dialog } from './dialog-5af479db6c46c58c.js';
+import { confirmAction, dialog } from './dialog-4d39657de89884ed.js';
 import { moreMenu } from './menus-899ea287ec89b464.js';
 import { pageFailure } from './notices-82f2fa6c4cb061e0.js';
 import { openTerminal } from './terminal-9954af88b5e8d9b3.js';

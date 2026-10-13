@@ -5,7 +5,7 @@ import { DOCKERFILE_POLICY_NOTE } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { bytes, full, mib, plural, when } from '../core/format.js';
 import { act, actOrThrow, transitionOf } from '../core/operations.js';
-import { opRunningFor } from '../core/sandboxes.js';
+import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes.js';
 import { saveSetting, setting } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { pageTerminals, sview, terminals } from '../core/terminals.js';
@@ -14,7 +14,7 @@ import { accountDialog, credentialBanner, keyEntry } from '../components/account
 import { chip, panel, stat, table } from '../components/blocks.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
-import { confirmAction, dialog } from '../components/dialog.js';
+import { confirmAction, confirmWithCheck, dialog } from '../components/dialog.js';
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle.js';
 import { moreMenu } from '../components/menus.js';
 import { sessionMenuItems } from '../components/session-actions.js';
@@ -41,7 +41,10 @@ function tryBar(name, i) {
     body: 'This is a try. When you are done with it: Sleep keeps everything on disk and holds no memory; Delete removes it.' + folder,
     actions: [
       asleep ? null : btn('Sleep (hibernate)', () => act({ action: 'hibernate', sandbox: name }), { small: true, icon: 'moon', title: 'Everything kept on disk, no memory held' }),
-      btn('Delete…', () => lifecycle('rm', name), { small: true, danger: true, icon: 'trash-2' }),
+      // 617 (owner: no typed name for a try — "i hate this"): a box to tick.
+      btn('Delete…', () => confirmWithCheck('Delete ' + name + '?', DESTRUCTIVE.rm + (i.trialFolder ? ' Its folder is removed too when it is empty.' : ''),
+        'Yes, delete ' + name + ' and everything it has on disk', name, { action: 'rm', sandbox: name }, 'Delete'),
+        { small: true, danger: true, icon: 'trash-2' }),
       btn('Keep', () => { sview(name).tryKept = true; const el = document.querySelector('[data-try-bar="' + CSS.escape(name) + '"]'); if (el) el.remove(); }, { small: true, quiet: true, icon: 'check' }),
     ].filter(Boolean) });
 }

@@ -6,8 +6,8 @@ import { state } from '../core/state-450cb6573a620304.js';
 import { WIZ } from '../core/wizards-3abae15180cc8b7c.js';
 import { btn } from './button-a9b0357c06093925.js';
 import { callout } from './callout-e08cdc5a5cc374bb.js';
-import { dialog } from './dialog-5af479db6c46c58c.js';
-import { paintNav } from './nav-4b973d0fdc466021.js';
+import { dialog } from './dialog-4d39657de89884ed.js';
+import { paintNav } from './nav-1f61b51635a876ef.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), viewTry = upcall('viewTry'),
   wizardStopPolling = upcall('wizardStopPolling');
@@ -35,8 +35,6 @@ export function openWizardModal(v, fromPage) {
     $('wiz-modal').hidden = false;
     document.body.classList.add('modal-open');
   }
-  // 617 (owner): Quick try is a FULL-PAGE modal — it covers the whole app, the left nav included.
-  $('wiz-modal').classList.toggle('full', v === 'try');
   paintNav();
   if (was !== v || v === 'try' || !$('wm-box').firstChild) renderModal(true);
 }
@@ -45,7 +43,6 @@ export function closeWizardModal() {
   if (state.modal === 'onboarding') wizardStopPolling();
   state.modal = null;
   $('wiz-modal').hidden = true;
-  $('wiz-modal').classList.remove('full');
   $('wm-box').replaceChildren();
   document.body.classList.remove('modal-open');
   modalInert(false);

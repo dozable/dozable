@@ -39,7 +39,7 @@ export function paintNav() {
   for (const a of document.querySelectorAll('#nav > a')) {
     // A sandbox's own page marks its child entry; New sandbox belongs to All sandboxes.
     // (603: an open wizard's entry — Onboarding, or All sandboxes for New sandbox — marks the nav under its modal.)
-    const cur = state.modal === 'onboarding' ? 'onboarding' : state.modal === 'new' ? 'overview' : state.view;
+    const cur = state.modal === 'onboarding' ? 'onboarding' : state.modal === 'new' ? 'overview' : state.modal === 'try' ? 'try' : state.view;
     const on = a.dataset.view === cur;
     a.classList.toggle('active', on);
     if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');

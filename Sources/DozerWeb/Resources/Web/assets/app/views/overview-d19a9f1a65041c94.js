@@ -6,13 +6,13 @@ import { bytes, mib } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
-import { hostCard } from '../components/host-05543a811c4a2925.js';
-import { rowLifecycle } from '../components/lifecycle-2318de5c343910dd.js';
-import { renderNavSandboxes } from '../components/nav-4b973d0fdc466021.js';
+import { hostCard } from '../components/host-2cbf9da41a9e3fff.js';
+import { rowLifecycle } from '../components/lifecycle-6df34f5d0e7faaae.js';
+import { renderNavSandboxes } from '../components/nav-1f61b51635a876ef.js';
 import { sandboxPill } from '../components/pills-b1ced72bf0decf4f.js';
-import { quickAddButton } from '../components/quick-add-24ff327b1777c583.js';
+import { quickAddButton } from '../components/quick-add-44a29da2e6b88d81.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-9f693b1ddde34d32.js';
-import { newSandboxWizard } from './new-sandbox-62c885623314f852.js';
+import { newSandboxWizard } from './new-sandbox-7244b1e5bed26ee7.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {
@@ -34,12 +34,8 @@ export async function viewOverview() {
     h('td', { class: 'row-acts-cell' }, rowLifecycle(s))));
   return h('div', null,
     h('div', { class: 'head' }, h('h1', null, 'Sandboxes'),
+      // 617 (owner): Quick try is the nav's TRY section now (its item and its +), not a button here.
       h('div', { class: 'actions' }, quickAddButton(), (() => {
-        // 617: Quick try — an agent and its key, everything else a safe default (#/try).
-        const t = btn('Quick try', () => { location.hash = '#/try'; }, { icon: 'play', title: 'Try an agent now: a throwaway sandbox with safe defaults' });
-        t.dataset.quickTry = '';
-        return t;
-      })(), (() => {
         const b = btn('New sandbox', () => newSandboxWizard(), { primary: true, title: 'Step by step — your choices go in the project folder’s doz_project.yaml' });
         b.dataset.newSandbox = '';
         return b;

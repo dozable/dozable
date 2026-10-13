@@ -211,10 +211,11 @@ name: todo-app</pre></details>
 
 <section>
   <h2>Quick try — search, pills, cards or a list, marks</h2>
-  <p>A full-page modal (<code>.wiz-modal.full</code>; its header has the title, a line and a labelled <b>Close</b> with its Esc hint).
+  <p>The wizards' modal over the app, like onboarding (the app stays visible behind the scrim; opened from the nav's TRY section — its one item, or the + on its heading); its header has the title, a line and a labelled <b>Close</b> with its Esc hint.
     Inside, <code>.qt</code>: the search box (<code>.qt-box</code>, <code>/</code> focuses it), the filter pills (<code>.qt-pill</code>, <code>aria-pressed</code>; they combine),
     the count and the cards/list toggle (<code>.qt-seg</code>), the results (<code>.qt-item</code> — a mark, the title and maker, version and age, a ready check;
-    superseded and coming ones quieter), and the chosen agent on the right. Below 760 px the panes stack, with a back control.</p>
+    superseded and coming ones quieter), and the chosen agent on the right — INFORMATION ONLY (what a published recipe page shows) with a <b>Try</b> button.
+    Below 760 px the panes stack, with a back control.</p>
   <div class="pair wide"><div class="scheme">
     <header class="qt-mhead"><div><h1>Quick try</h1><p class="sub">Pick an agent and try it in a fresh sandbox: its own folder, the network locked to its model, your key never inside. Nothing is prepared until you press Start.</p></div>
       <button class="btn qt-close" type="button" title="Close (Esc)"><i data-i="x"></i>Close<span class="qt-kbd" aria-hidden="true">Esc</span></button></header>
@@ -241,12 +242,11 @@ name: todo-app</pre></details>
       </section>
       <section class="qt-right" aria-label="The chosen agent">
         <div class="qt-head"><span data-mark="codex" class="mark lg"></span><div><h2>Codex</h2><div class="p">OpenAI · open source</div></div></div>
-        <div class="qt-facts"><span class="tag ok">current</span><span class="tag outline">0.160.1 · released 3 days ago</span><span class="tag outline">headless</span><span class="tag outline">through a gateway</span></div>
-        <div class="qt-sect"><h3>What you need</h3><ul class="qt-need">
-          <li><span class="ok"><i data-i="circle-check"></i></span><span>Key: <strong>openai — keychain</strong> — the sandbox only ever sees a placeholder.</span></li>
-          <li><span class="ok"><i data-i="circle-check"></i></span><span>Nothing else — its image is prepared when you press Start; the progress shows in its terminal area.</span></li></ul></div>
-        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-codex</dd><dt>Base</dt><dd>Node.js</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div>
-        <div class="qt-foot"><span class="qt-gap"></span><span class="qt-note">Enter</span><button class="btn lg primary" type="button"><i data-i="rocket"></i>Start</button></div>
+        <div class="qt-facts"><span class="tag ok">current</span><span class="tag outline">headless</span><span class="tag outline">through a gateway</span><span class="tag outline">resumes a conversation</span></div>
+        <p class="qt-desc">OpenAI's open-source coding agent.</p>
+        <div class="qt-sect"><h3>Versions</h3><dl class="qt-plan"><dt>Dozer installs</dt><dd>0.160.1 · released 3 days ago</dd><dt>Base</dt><dd>Node.js</dd></dl></div>
+        <div class="qt-sect"><h3>What it can reach</h3><ul class="reach-list"><li class="reach-model">Talk to OpenAI (chatgpt.com, api.openai.com)</li><li class="reach-folder">A new empty folder, at /workspace</li></ul></div>
+        <div class="qt-foot"><span class="qt-gap"></span><span class="qt-note">Enter</span><button class="btn lg primary" type="button"><i data-i="rocket"></i>Try Codex…</button></div>
       </section>
     </div>
   </div></div>
@@ -258,6 +258,40 @@ name: todo-app</pre></details>
       <button type="button" role="option" class="qt-item coming" aria-selected="false"><span data-mark="openai"></span><span class="tp"><span class="t">An agent to come</span><span class="p">its maker</span></span><span class="v">coming</span><span class="ready-gap"></span></button>
     </div>
     <div class="qt-empty"><i data-i="search"></i><p>No agent matches “qwertyagent”.</p><button class="btn sm" type="button"><i data-i="x"></i>Clear search and filters</button><p class="muted">Missing an agent? <code>doz search NAME</code> says whether it is coming.</p></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Try’s setup, and confirming with a box to tick</h2>
+  <p><b>Try</b> opens a smaller modal over the Quick try (<code>dialog.dlg.try-setup</code>): every prerequisite — the key (the one it uses, a choice when it can use
+    several, or the card: paste, a source kept outside, what is not offered), the image, the plan — and the final <b>Start</b>; Cancel or Esc leaves nothing behind.
+    Deleting a try asks with a box to tick (<code>dialog</code>'s <code>confirmCheck</code>), never a typed name.</p>
+  <div class="pair"><div class="scheme">
+    <dialog class="dlg try-setup" open><form method="dialog">
+      <div class="dlg-head"><span data-mark="pi" class="mark"></span><h2 class="h-title">Try pi</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">A fresh sandbox, try-pi: a new empty folder of its own, the network locked to its model, your key never inside.</p>
+        <div class="qt-sect"><h3>Key</h3><p class="try-key"><i data-i="circle-check"></i> <strong>anthropic</strong> — keychain — the sandbox only ever sees a placeholder.</p></div>
+        <div class="qt-sect"><h3>Image</h3><div class="try-prep">Node.js · pi — ready.</div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
+    </form></dialog>
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">The sandbox, its disks, snapshot and restore points are deleted.</p>
+        <label class="field check confirm-check"><input type="checkbox"><span>Yes, delete try-pi and everything it has on disk</span></label></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button" disabled><i data-i="trash-2"></i>Delete</button></div>
+    </form></dialog>
+  </div></div>
+</section>
+
+<section>
+  <h2>The terminal strip</h2>
+  <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row" style="gap:0">
+      <div class="tab-wrap"><button type="button" class="tab active"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis"></i></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
+    </div>
   </div></div>
 </section>
 

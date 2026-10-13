@@ -23,6 +23,7 @@ import { actOrThrow } from '../core/operations.js';
  * @property {boolean} [danger]          the submit button is destructive
  * @property {string}  [icon]            the submit button's icon (else `iconFor(submitLabel)`)
  * @property {string}  [confirmName]     the person types this name before submit is enabled
+ * @property {string}  [confirmCheck]    617: the person ticks this sentence before submit is enabled (no typing)
  * @typedef {{ extra: HTMLElement, error: HTMLElement, submit: HTMLButtonElement }} DialogParts
  */
 /**
@@ -83,6 +84,14 @@ export function dialog(title, intro, fields, submitLabel, onSubmit, opts = {}) {
     inputs.__confirm = typed;
     extra.before(h('label', { class: 'field' }, h('span', null, 'Type ', h('code', null, opts.confirmName), ' to confirm'), typed));
   }
+  // 617 (owner, on deleting a try: "i hate this" — typing the name): a box to tick instead.
+  if (opts.confirmCheck) {
+    submit.disabled = true;
+    const box = h('input', { type: 'checkbox', 'data-confirm-check': '' });
+    box.addEventListener('change', () => { submit.disabled = !box.checked; });
+    inputs.__check = box;
+    extra.before(h('label', { class: 'field check confirm-check' }, box, h('span', null, opts.confirmCheck)));
+  }
   form.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     error.textContent = '';
@@ -96,16 +105,23 @@ export function dialog(title, intro, fields, submitLabel, onSubmit, opts = {}) {
     } catch (e) {
       error.textContent = e.message || String(e);
     } finally {
-      if (!opts.confirmName || (inputs.__confirm && inputs.__confirm.value === opts.confirmName)) submit.disabled = false;
+      if ((!opts.confirmName || (inputs.__confirm && inputs.__confirm.value === opts.confirmName))
+          && (!opts.confirmCheck || (inputs.__check && inputs.__check.checked))) submit.disabled = false;
     }
   });
   d.addEventListener('close', () => d.remove());
   d.append(form);
   document.body.append(d);
   d.showModal();
-  const first = form.querySelector('input,select,textarea');
+  const first = opts.confirmCheck ? cancel : form.querySelector('input,select,textarea');
   if (first) first.focus();
   return Object.assign(d, { inputs, why });
+}
+
+/// 617: a destructive action confirmed by ticking a box (the request still carries the name as `confirm`, as the
+/// host requires).
+export function confirmWithCheck(title, text, check, name, body, submitLabel) {
+  dialog(title, text, [], submitLabel || title, async () => actOrThrow({ ...body, confirm: name }), { danger: true, confirmCheck: check, icon: 'trash-2' });
 }
 
 /// A destructive action: the person types the name; the request carries it as `confirm`.

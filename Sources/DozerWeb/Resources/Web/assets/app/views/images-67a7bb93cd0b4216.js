@@ -9,7 +9,7 @@ import { refresh } from '../core/router-01efde03fb80ec68.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
-import { confirmAction, dialog } from '../components/dialog-5af479db6c46c58c.js';
+import { confirmAction, dialog } from '../components/dialog-4d39657de89884ed.js';
 import { moreMenu } from '../components/menus-899ea287ec89b464.js';
 
 /// 593: Images › Table | Lineage. The lineage is measured by the host (every disk's extent map), so

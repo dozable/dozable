@@ -18,13 +18,15 @@ public struct WebPlanQuery: Equatable, Sendable {
     public var agent: String?
     public var base: String?
     public var isolated = false
+    /// 617: the account the try uses (the Quick try's setup: a key just saved, or one chosen) — nil: the default.
+    public var account: String?
 
     public static func decode(_ body: Data) throws -> WebPlanQuery {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated"]) else {
-            throw WebAction.Invalid("only purpose, name, agent, base and isolated")
+        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account"]) else {
+            throw WebAction.Invalid("only purpose, name, agent, base, isolated and account")
         }
         var q = WebPlanQuery()
         if let v = d["purpose"], !(v is NSNull) {
@@ -49,6 +51,12 @@ public struct WebPlanQuery: Equatable, Sendable {
             guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw WebAction.Invalid("isolated: true or false") }
             q.isolated = b
         }
+        if let v = d["account"], !(v is NSNull) {
+            guard let s = v as? String, s.range(of: "^[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil else {
+                throw WebAction.Invalid("account: an account name")
+            }
+            q.account = s
+        }
         if q.purpose == "try", q.agent == nil || q.agent == "none" { throw WebAction.Invalid("agent: a try is of an agent") }
         return q
     }
@@ -62,6 +70,7 @@ public struct WebPlanQuery: Equatable, Sendable {
             o.image = ImageChoice(base: base ?? kind.recipe?.defaultBase ?? "node", agent: kind).name
         }
         if isolated { o.isolated = true }
+        if let account { o.account = account }
         return PlanRequest(purpose: purpose, name: name, create: o)
     }
 }
@@ -69,7 +78,7 @@ public struct WebPlanQuery: Equatable, Sendable {
 extension WebTryCatalog {
     /// The list from each agent's plan (`plan` answers it — the host's op, the same as the CLI's).
     public static func build(plan: (PlanRequest) async throws -> WebPlan, secretEntry: Bool,
-                             currency: [String: AgentCurrency] = [:]) async -> WebTryCatalog {
+                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = []) async -> WebTryCatalog {
         var agents: [Agent] = []
         for kind in AgentKind.allCases where kind != .none {
             guard let r = kind.recipe else { continue }
@@ -96,6 +105,12 @@ extension WebTryCatalog {
             a.ready = card == nil && !p.problems.contains { $0.code != "key" }
             a.version = r.install.pinned.version.split(separator: "+").first.map(String.init)
             a.age = currency[r.id]?.ageDays.map(Self.age)
+            a.description = r.description
+            // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
+            // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).
+            a.usableAccounts = accounts.filter { w in
+                AccountKind(rawValue: w.kind).map { AgentCredentials.accepts(p.create?.image ?? r.id, $0, provider: w.provider) } ?? false
+            }.map { Agent.Usable(name: $0.name, kind: $0.kind, source: $0.sourceLabel, isDefault: $0.isDefault) }
             agents.append(a)
         }
         // 617: a superseded or retired agent comes after the current ones (still selectable).

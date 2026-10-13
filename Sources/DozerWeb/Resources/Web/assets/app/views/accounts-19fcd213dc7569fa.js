@@ -5,10 +5,10 @@ import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act } from '../core/operations-73b26effbe04935d.js';
 import { refresh } from '../core/router-01efde03fb80ec68.js';
 import { secretEntryAllowed } from '../core/settings-70247ce370cb44d9.js';
-import { accountCommandsNode, accountForm } from '../components/accounts-aa06fa2b3ae29e8b.js';
+import { accountCommandsNode, accountForm } from '../components/accounts-04562d99a52eeb10.js';
 import { card, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
-import { confirmAction } from '../components/dialog-5af479db6c46c58c.js';
+import { confirmAction } from '../components/dialog-4d39657de89884ed.js';
 import { moreMenu } from '../components/menus-899ea287ec89b464.js';
 import { toast } from '../components/notices-82f2fa6c4cb061e0.js';
 

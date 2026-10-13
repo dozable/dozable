@@ -5,28 +5,28 @@ import { DOCKERFILE_POLICY_NOTE } from '../core/agents-66154a04b9c4696c.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { bytes, full, mib, plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, transitionOf } from '../core/operations-73b26effbe04935d.js';
-import { opRunningFor } from '../core/sandboxes-e50f57c55febd40a.js';
+import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes-e50f57c55febd40a.js';
 import { saveSetting, setting } from '../core/settings-70247ce370cb44d9.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { pageTerminals, sview, terminals } from '../core/terminals-fa5cf7fc28fdb48f.js';
 import { isRemote } from '../core/session-1aade2056efaf7bf.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-aa06fa2b3ae29e8b.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-04562d99a52eeb10.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
 import { callout } from '../components/callout-e08cdc5a5cc374bb.js';
-import { confirmAction, dialog } from '../components/dialog-5af479db6c46c58c.js';
-import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-2318de5c343910dd.js';
+import { confirmAction, confirmWithCheck, dialog } from '../components/dialog-4d39657de89884ed.js';
+import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-6df34f5d0e7faaae.js';
 import { moreMenu } from '../components/menus-899ea287ec89b464.js';
-import { sessionMenuItems } from '../components/session-actions-b6c8b7fd0bc73b8a.js';
+import { sessionMenuItems } from '../components/session-actions-aa455b996f6de9ee.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-82f2fa6c4cb061e0.js';
 import { sandboxPill } from '../components/pills-b1ced72bf0decf4f.js';
 import { agentChip } from '../components/agent-status-7be854d4712ab66a.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-9954af88b5e8d9b3.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-9f693b1ddde34d32.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-984436aacf865759.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-252e474dccc509db.js';
-import { networkPanel } from './sandbox-network-1d77d0e89a6d8e28.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sandbox-terminals-db88a53fdb9de72f.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-7a820a56e0818100.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-c175ad5f20b2a98b.js';
+import { networkPanel } from './sandbox-network-0398d41627c35a1c.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sandbox-terminals-cace7f50ce9c4550.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
@@ -41,7 +41,10 @@ function tryBar(name, i) {
     body: 'This is a try. When you are done with it: Sleep keeps everything on disk and holds no memory; Delete removes it.' + folder,
     actions: [
       asleep ? null : btn('Sleep (hibernate)', () => act({ action: 'hibernate', sandbox: name }), { small: true, icon: 'moon', title: 'Everything kept on disk, no memory held' }),
-      btn('Delete…', () => lifecycle('rm', name), { small: true, danger: true, icon: 'trash-2' }),
+      // 617 (owner: no typed name for a try — "i hate this"): a box to tick.
+      btn('Delete…', () => confirmWithCheck('Delete ' + name + '?', DESTRUCTIVE.rm + (i.trialFolder ? ' Its folder is removed too when it is empty.' : ''),
+        'Yes, delete ' + name + ' and everything it has on disk', name, { action: 'rm', sandbox: name }, 'Delete'),
+        { small: true, danger: true, icon: 'trash-2' }),
       btn('Keep', () => { sview(name).tryKept = true; const el = document.querySelector('[data-try-bar="' + CSS.escape(name) + '"]'); if (el) el.remove(); }, { small: true, quiet: true, icon: 'check' }),
     ].filter(Boolean) });
 }

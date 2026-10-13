@@ -8,7 +8,7 @@ import { secretEntryAllowed, secretEntryWhy } from '../core/settings-70247ce370c
 import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from './button-a9b0357c06093925.js';
 import { callout } from './callout-e08cdc5a5cc374bb.js';
-import { dialog } from './dialog-5af479db6c46c58c.js';
+import { dialog } from './dialog-4d39657de89884ed.js';
 import { toast } from './notices-82f2fa6c4cb061e0.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refreshSandbox = upcall('refreshSandbox');

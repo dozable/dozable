@@ -1,15 +1,18 @@
-// views/try — Quick try (617; the owner's redesign, mock 616 quick-try-v2): a FULL-PAGE modal over the whole app
-// (#/try, #/try/AGENT; Esc or Close returns to where it was opened; the app behind is inert). Two panes: on the left a
-// search box (`doz search`'s matching + fuzzy, core/agent-search.js), the filter pills (Ready · Open source · Current ·
-// Headless · Through a gateway — AND), the count and the cards/list toggle (remembered), then the results, superseded
-// last; on the right the chosen agent: its mark, version and age, standing, What you need, the plan and Start.
-// Keyboard: / searches, ↑/↓ move through the results, Enter starts. Below 760 px the panes stack (a back control).
+// views/try — Quick try (617; the owner's redesign, mock 616 quick-try-v2, then the owner's feedback on the built one):
+// the wizards' modal over the app, like onboarding (#/try, #/try/AGENT; the app stays visible behind the scrim; Esc or
+// Close returns to where it was opened). Two panes: on the left a search box (`doz search`'s matching + fuzzy,
+// core/agent-search.js), the filter pills (Ready · Open source · Current · Headless · Through a gateway — AND), the
+// count and the cards/list toggle (remembered), then the results, superseded last; on the right the chosen agent,
+// INFORMATION ONLY (what a published recipe page shows: description, versions, tags, what it can reach, the command)
+// and a Try button. Try opens the SETUP — a smaller modal holding every prerequisite (the key, what is not offered,
+// the image, the plan) and Start. Keyboard: / searches, ↑/↓ move through the results, Enter opens the setup. Below
+// 760 px the panes stack (a back control).
 //
 // The same decisions as `doz try`: the host's planner (`POST plan`, purpose try) names it try-AGENT, gives it a NEW
-// EMPTY folder of its own, Locked + its own model, the agent's own base and the provider's default key; "What you
-// need" comes from the recipe (`GET try`). Browsing prepares NOTHING (owner: no build per recipe looked at); Start
-// makes it with the ordinary `create` action (trial), starts it (the image prepared then, its progress in the terminal
-// area) and opens its session. A try's page then offers Sleep · Delete · Keep (`tryBar`, components/try-bar.js).
+// EMPTY folder of its own, Locked + its own model, the agent's own base and a key it can use. Browsing prepares
+// NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action (trial), starts it
+// (the image prepared then, its progress in the terminal area) and opens its session. A try's page then offers
+// Sleep · Delete · Keep (`tryBar`, views/sandbox.js).
 import { h } from '../dom/h.js';
 import { icon, mark } from '../dom/icons.js';
 import { api } from '../core/api.js';
@@ -91,9 +94,9 @@ function prepNodes(a) {
   const p = (state.preps || []).find((x) => x.image === a.plan.image.name);
   if (p && (prepRunning(p) || p.error)) return [prepCard(p)];
   if (a.plan.image.state === 'unprepared' && !(p && p.state === 'done')) {
-    return [h('span', null, 'Nothing else — its image is prepared when you press Start (minutes the first time; it needs the network); the progress shows in its terminal area.')];
+    return [h('span', null, (a.plan.image.title || a.plan.image.name) + ' — prepared when you press Start (minutes the first time; it needs the network); the progress shows in its terminal area.')];
   }
-  return [h('span', { 'data-try-ready': '' }, 'Nothing else — its image (' + (a.plan.image.title || a.plan.image.name) + ') is ready.')];
+  return [h('span', { 'data-try-ready': '' }, (a.plan.image.title || a.plan.image.name) + ' — ready.')];
 }
 
 // ── the left pane ────────────────────────────────────────────────────────────
@@ -167,66 +170,15 @@ function leftPane() {
     h('div', { class: 'qt-results ' + tr.view, role: 'listbox', 'aria-label': 'Agents', 'data-try-results': '' }, ...resultsNodes()));
 }
 
-// ── the right pane ───────────────────────────────────────────────────────────
-
-/// "What you need" when a key is missing — the recipe's card: paste a key here (where the setting allows it), or the
-/// command for the ways that stay in a terminal (1Password, AWS, a program); a sign-in that cannot work in a sandbox
-/// is labelled, not offered.
-function whatYouNeed(a) {
-  const tr = state.tr, c = a.card;
-  const rows = [];
-  for (const o of c.options) {
-    if (o.kind === 'paste') {
-      if (secretEntryAllowed()) {
-        const field = h('input', { type: 'password', autocomplete: 'off', spellcheck: 'false', 'data-try-key': '', placeholder: 'paste the key', 'aria-label': o.label });
-        const save = btn('Save the key', async () => {
-          const secret = field.value.trim();
-          field.value = '';                                   // emptied before the request
-          if (!secret) return;
-          save.disabled = true;
-          try {
-            const p = a.provider;
-            const kind = p === 'anthropic' ? 'api-key' : p === 'openai' ? 'openai-key' : 'key';
-            await api('accounts', { method: 'POST', json: { name: p || a.id, kind, secret, ...(kind === 'key' ? { provider: p } : {}) } });
-            toast('Key saved — ' + (a.providerTitle || p));
-            tr.asked = '\u0000';                               // read the list again: the key is there now
-            rerender();
-          } catch (e) { tr.error = e.message || String(e); save.disabled = false; rerender(); }
-        }, { small: true, icon: 'key-round' });
-        rows.push(h('div', { class: 'try-option' }, h('div', null, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence)), h('div', { class: 'try-paste' }, field, save)));
-      } else {
-        rows.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, 'Pasting keys here is off (ui.allow_secret_entry) — in a terminal on this Mac:'),
-          h('code', null, c.addCommand || 'doz account add NAME')));
-      }
-    } else if (o.kind === 'source') {
-      rows.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence + ' — set up in a terminal on this Mac:'),
-        h('code', null, (c.addCommand || 'doz account add NAME') + ' --from op://VAULT/ITEM/FIELD'),
-        h('div', { class: 'muted' }, 'or --from aws:arn:… or --from-command \'…\'; then press Check again.')));
-    } else {
-      rows.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence)));
-    }
-  }
-  for (const n of c.notOffered) rows.push(h('div', { class: 'try-option not-offered', 'data-try-not-offered': '' }, h('strong', null, 'Not offered here'), h('div', { class: 'muted' }, n)));
-  return h('div', { class: 'try-need', 'data-try-need': '' },
-    h('h4', null, c.title),
-    ...rows,
-    c.getKey ? h('p', { class: 'muted' }, c.getKey) : null,
-    h('div', null, btn('Check again', () => { tr.asked = '\u0000'; rerender(); }, { small: true, quiet: true, icon: 'refresh-cw' })));
-}
-
-function planFacts(a) {
-  const p = a.plan;
-  const lines = (kind) => p.reach.filter((r) => r.kind === kind).map((r) => r.text);
-  const fact = (k, v) => [h('dt', null, k), h('dd', null, v)];
-  return h('dl', { class: 'qt-plan try-facts' },
-    ...fact('Name', p.name),
-    ...fact('Base', a.base || '—'),
-    ...fact('Network', 'Locked — only its model (' + (lines('model')[0] || 'its model') + ')'),
-    ...fact('Folder', lines('folder')[0] || '—'),
-    ...fact('Your Mac', lines('bridge').join(' · ') || '—'));
-}
+// ── the right pane: information only ─────────────────────────────────────────
+// 617 (owner): "similar to what we will eventually publish" — browsing is the first intention. What it is, its
+// versions and tags, what it can reach and the command; no key, no plan form. Try opens the setup (below).
 
 function sect(title, ...body) { return h('div', { class: 'qt-sect' }, h('h3', null, title), ...body); }
+
+/// Tags no pill already says (its other capabilities), as the directory names them.
+const TAG_WORDS = { 'api-key': 'an API key', 'vendor-sign-in': 'its maker’s sign-in', 'multi-vendor-models': 'many models', 'no-account': 'no account',
+                    'free-tier': 'a free tier', status: 'reports its status', resume: 'resumes a conversation', musl: 'runs on Alpine' };
 
 function detailNodes() {
   const tr = state.tr, a = current();
@@ -241,34 +193,215 @@ function detailNodes() {
   }
   const facts = h('div', { class: 'qt-facts' },
     h('span', { class: 'tag ' + (a.current === false ? 'warn' : 'ok') }, a.current === false ? 'superseded' : 'current'),
-    a.version ? h('span', { class: 'tag outline', 'data-try-latest': a.id }, a.version + (a.age ? ' · released ' + ago(a.age) : '')) : null,
     a.headless ? h('span', { class: 'tag outline' }, 'headless') : null,
-    a.gateway ? h('span', { class: 'tag outline' }, 'through a gateway') : null);
+    a.gateway ? h('span', { class: 'tag outline' }, 'through a gateway') : null,
+    ...(a.tags || []).filter((t) => TAG_WORDS[t]).map((t) => h('span', { class: 'tag outline', 'data-try-tag': t }, TAG_WORDS[t])));
   const by = a.supersededBy && state.tr.catalog.agents.find((x) => x.id === a.supersededBy);
   const standing = a.current === false
     ? callout('warn', { attrs: { 'data-try-standing': a.id }, title: by ? 'Superseded by ' + by.title : 'Not current with its maker',
-      body: h('span', null, (a.standing || '').replace(/^Superseded by [^—]*—\s*/, '') + ' ', by ? h('button', { type: 'button', class: 'linkish', on: { click: () => select(by.id, { detail: true }) } }, 'Try ' + by.title + ' instead') : null) })
+      body: h('span', null, (a.standing || '').replace(/^Superseded by [^—]*—\s*/, '') + ' ', by ? h('button', { type: 'button', class: 'linkish', on: { click: () => select(by.id, { detail: true }) } }, 'See ' + by.title) : null) })
     : null;
-  const blocked = a.plan.problems.filter((p) => p.code !== 'key');
-  const need = a.card ? whatYouNeed(a)
-    : h('ul', { class: 'qt-need' },
-      h('li', { 'data-try-key-ok': '' }, h('span', { class: 'ok' }, icon('circle-check')),
-        h('span', null, 'Key: ', h('strong', null, (a.plan.account && (a.plan.account.name + (a.plan.account.sourceLabel ? ' — ' + a.plan.account.sourceLabel : ''))) || 'none needed'),
-          ' — the sandbox only ever sees a placeholder.')),
-      h('li', null, h('span', { class: 'ok' }, icon('circle-check')), h('span', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes(a))));
-  const start = btn(a.card ? 'Add a key first' : 'Start', () => tryCreate(start), { primary: true, lg: true, icon: 'rocket' });
-  start.dataset.tryCreate = '';
-  start.disabled = !!a.card || blocked.length > 0 || tr.creating;
-  return [back, head, facts, standing,
-    a.latest ? h('p', { class: 'muted qt-latest' }, a.latest) : null,
-    sect('What you need', need),
-    sect('The plan', planFacts(a)),
+  const versions = h('dl', { class: 'qt-plan' },
+    h('dt', null, 'Dozer installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
+    a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
+    h('dt', null, 'Base'), h('dd', null, a.base || '—'));
+  const tryBtn = btn('Try ' + a.title + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
+  tryBtn.dataset.tryOpen = '';
+  return [back, head, facts,
+    a.description ? h('p', { class: 'qt-desc', 'data-try-description': '' }, a.description) : null,
+    standing,
+    sect('Versions', versions),
+    sect('What it can reach', reachList(a.plan.reach)),
     sect('The same, in a terminal', planCommand(a.plan)),
-    h('details', { class: 'disclosure' }, h('summary', null, icon('chevron-down'), 'What it can reach'), reachList(a.plan.reach)),
-    ...blocked.map((p) => callout('bad', { compact: true, body: p.text + (p.fix ? ' — ' + p.fix : '') })),
-    tr.error ? callout('bad', { compact: true, attrs: { 'data-try-error': '' }, body: tr.error }) : null,
-    h('div', { class: 'qt-foot' }, h('span', { class: 'qt-gap' }),
-      h('span', { class: 'qt-note' }, a.card ? 'Add a key first' : 'Enter'), start)].filter(Boolean);   // (replaceChildren writes a null as "null")
+    h('div', { class: 'qt-foot' }, h('span', { class: 'qt-gap' }), h('span', { class: 'qt-note' }, 'Enter'), tryBtn)].filter(Boolean);   // (replaceChildren writes a null as "null")
+}
+
+// ── Try: the setup — a smaller modal over the Quick try ──────────────────────
+// 617 (owner): every prerequisite lives here — the key (one there, one saved now, one kept outside: the command),
+// what is not offered (a sign-in, a gateway), the image, the plan — and the final Start. Cancel (or Esc) leaves
+// nothing behind. Later: customising the try (the clipboard bridge off, …) gets a section of its own here.
+//
+// The key that did not work (owner): a key saved for an agent the provider's DEFAULT account cannot serve (pi, whose
+// Anthropic default is the Mac's Claude Code login — pi takes API keys only) was saved, then the plan asked the
+// default again and still found none. The setup now plans WITH the account it uses — the one just saved, one chosen,
+// or (the default being unusable) the first usable one — as `doz try` does ("this try uses it").
+
+const SETUP = { d: null, a: null, plan: null, account: null, busy: false, error: '' };
+
+/// The accounts the agent can use, the provider's default first.
+function usable(a) { return [...(a.usableAccounts || [])].sort((x, y) => (y.isDefault ? 1 : 0) - (x.isDefault ? 1 : 0)); }
+
+async function replan(account) {
+  const a = SETUP.a;
+  SETUP.account = account || null;
+  SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.id, ...(account ? { account } : {}) } });
+}
+
+function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 'key'); }
+
+async function openSetup(a) {
+  if (SETUP.d) return;
+  SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.busy = false; SETUP.error = '';
+  const d = h('dialog', { class: 'dlg try-setup', 'aria-labelledby': 'try-setup-title', 'data-try-setup': a.id });
+  d.addEventListener('close', () => { d.remove(); SETUP.d = null; });
+  SETUP.d = d;
+  document.body.append(d);
+  d.showModal();
+  // The default cannot serve it, but a key it can use is here: use that one.
+  const u = usable(a);
+  if (keyProblem(a.plan) && u.length) { try { await replan(u[0].name); } catch (e) { SETUP.error = e.message || String(e); } }
+  paintSetup();
+}
+
+function paintSetup() {
+  const d = SETUP.d, a = SETUP.a, plan = SETUP.plan;
+  if (!d) return;
+  const missing = keyProblem(plan);
+  const blocked = (plan.problems || []).filter((p) => p.code !== 'key');
+  const close = h('button', { type: 'button', class: 'btn sm quiet icon-only', title: 'Cancel', 'aria-label': 'Cancel', on: { click: () => d.close() } }, icon('x'));
+  const start = btn('Start', () => tryCreate(start), { primary: true, icon: 'rocket' });
+  start.dataset.tryCreate = '';
+  start.disabled = !!missing || blocked.length > 0 || SETUP.busy;
+  const cancel = btn('Cancel', () => d.close(), { quiet: true, icon: 'x' });
+  d.replaceChildren(h('form', { method: 'dialog', on: { submit: (ev) => { ev.preventDefault(); if (!start.disabled) tryCreate(start); } } },
+    h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + a.title), close),
+    h('div', { class: 'dlg-body' },
+      h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, the network locked to its model, your key never inside.'),
+      sect('Key', ...keyNodes(a, plan, missing)),
+      sect('Image', h('div', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes({ ...a, plan }))),
+      sect('The plan', planFacts(a, plan)),
+      ...blocked.map((p) => callout('bad', { compact: true, body: p.text + (p.fix ? ' — ' + p.fix : '') })),
+      SETUP.error ? callout('bad', { compact: true, attrs: { 'data-try-error': '' }, body: SETUP.error }) : null),
+    h('div', { class: 'dlg-foot dlg-buttons' }, h('span', { class: 'why' }, missing ? 'Add a key first' : ''), cancel, start)));
+  const f = d.querySelector('[data-try-key]');
+  (f || (start.disabled ? cancel : start)).focus();
+}
+
+/// The key part: the one this try uses (and, when it can use several, a choice), or what it needs.
+function keyNodes(a, plan, missing) {
+  const u = usable(a);
+  const nodes = [];
+  if (!missing) {
+    const acc = plan.account;
+    nodes.push(h('p', { class: 'try-key', 'data-try-key-ok': '' }, icon('circle-check'), ' ',
+      acc && acc.name ? h('strong', null, acc.name) : 'none needed', acc && acc.sourceLabel ? ' — ' + acc.sourceLabel : '',
+      acc && acc.name ? ' — the sandbox only ever sees a placeholder.' : ''));
+    if (u.length > 1) {
+      const sel = h('select', { 'aria-label': 'The key this try uses', 'data-try-account': '' },
+        ...u.map((x) => h('option', { value: x.name }, x.name + (x.source ? ' — ' + x.source : '') + (x.isDefault ? ' (default)' : ''))));
+      sel.value = (acc && acc.name) || u[0].name;
+      sel.addEventListener('change', async () => { await replan(sel.value).catch((e) => { SETUP.error = e.message || String(e); }); paintSetup(); });
+      nodes.push(h('label', { class: 'field' }, h('span', null, 'Use another key'), sel));
+    }
+    return nodes;
+  }
+  const c = a.card;
+  if (!c) return [callout('bad', { compact: true, body: missing.text + (missing.fix ? ' — ' + missing.fix : '') })];
+  nodes.push(h('h4', null, c.title));
+  for (const o of c.options) {
+    if (o.kind === 'paste') {
+      if (secretEntryAllowed()) {
+        const field = h('input', { type: 'password', autocomplete: 'off', spellcheck: 'false', 'data-try-key': '', placeholder: 'paste the key', 'aria-label': o.label });
+        const save = btn('Save the key', () => saveKey(field, save), { small: true, icon: 'key-round' });
+        field.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); saveKey(field, save); } });
+        nodes.push(h('div', { class: 'try-option' }, h('div', null, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence)), h('div', { class: 'try-paste' }, field, save)));
+      } else {
+        nodes.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, 'Pasting keys here is off (ui.allow_secret_entry) — in a terminal on this Mac:'),
+          h('code', null, c.addCommand || 'doz account add NAME')));
+      }
+    } else if (o.kind === 'source') {
+      nodes.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence + ' — set up in a terminal on this Mac:'),
+        h('code', null, (c.addCommand || 'doz account add NAME') + ' --from op://VAULT/ITEM/FIELD'),
+        h('div', { class: 'muted' }, 'or --from aws:arn:… or --from-command \'…\'; then press Check again.')));
+    } else {
+      nodes.push(h('div', { class: 'try-option' }, h('strong', null, o.label), h('div', { class: 'muted' }, o.consequence)));
+    }
+  }
+  for (const n of c.notOffered) nodes.push(h('div', { class: 'try-option not-offered', 'data-try-not-offered': '' }, h('strong', null, 'Not offered here'), h('div', { class: 'muted' }, n)));
+  if (c.getKey) nodes.push(h('p', { class: 'muted' }, c.getKey));
+  nodes.push(h('div', null, btn('Check again', () => recheck(), { small: true, quiet: true, icon: 'refresh-cw' })));
+  return [h('div', { class: 'try-need', 'data-try-need': '' }, ...nodes)];
+}
+
+/// A pasted key: saved as an account of the provider (a free name), then THIS try plans with it.
+async function saveKey(field, button) {
+  const a = SETUP.a;
+  const secret = field.value.trim();
+  field.value = '';                                   // emptied before the request
+  if (!secret || SETUP.busy) return;
+  button.disabled = true;
+  SETUP.error = '';
+  try {
+    const p = a.provider;
+    const kind = p === 'anthropic' ? 'api-key' : p === 'openai' ? 'openai-key' : 'key';
+    const taken = new Set(((await api('accounts')).accounts || []).map((x) => x.name));
+    const base = p || a.id;
+    let name = base;
+    for (let n = 2; taken.has(name); n++) name = base + '-' + n;
+    await api('accounts', { method: 'POST', json: { name, kind, secret, ...(kind === 'key' ? { provider: p } : {}) } });
+    toast('Key saved — ' + name + ' (' + (a.providerTitle || p) + ')');
+    await replan(name);
+    refreshCatalog();
+  } catch (e) { SETUP.error = e.message || String(e); }
+  paintSetup();
+}
+
+/// Check again (a key set up in a terminal): the catalog read again, and the try planned with a key it can use.
+async function recheck() {
+  SETUP.error = '';
+  try {
+    const catalog = await api('try');
+    state.tr.catalog = catalog;
+    const a = catalog.agents.find((x) => x.id === SETUP.a.id) || SETUP.a;
+    SETUP.a = a;
+    SETUP.plan = a.plan;
+    const u = usable(a);
+    if (keyProblem(a.plan) && u.length) await replan(u[0].name);
+    paint({});
+  } catch (e) { SETUP.error = e.message || String(e); }
+  paintSetup();
+}
+
+function refreshCatalog() {
+  api('try').then((catalog) => { if (state.tr) { state.tr.catalog = catalog; paint({}); } }).catch(() => { /* the list stays */ });
+}
+
+function planFacts(a, p) {
+  const lines = (kind) => p.reach.filter((r) => r.kind === kind).map((r) => r.text);
+  const fact = (k, v) => [h('dt', null, k), h('dd', null, v)];
+  return h('dl', { class: 'qt-plan try-facts' },
+    ...fact('Name', p.name),
+    ...fact('Base', a.base || '—'),
+    ...fact('Network', 'Locked — only its model (' + (lines('model')[0] || 'its model') + ')'),
+    ...fact('Folder', lines('folder')[0] || '—'),
+    ...fact('Your Mac', lines('bridge').join(' · ') || '—'));
+}
+
+/// Start → the ordinary `create` action (a try: `trial`, its new folder, the account the setup chose), then the start
+/// with the boot view, which opens its own session in a terminal on its page.
+async function tryCreate(button) {
+  const a = SETUP.a, plan = SETUP.plan;
+  if (!a || SETUP.busy) return;
+  SETUP.busy = true;
+  button.disabled = true;
+  const c = plan.create;
+  try {
+    const op = await actOrThrow({ action: 'create', sandbox: plan.name, image: c.image, trial: true,
+      ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
+      ...(c.account ? { account: c.account } : {}) });
+    const end = await waitOp(op.id);
+    if (!end || end.state !== 'done') { SETUP.busy = false; button.disabled = false; return; }
+    toast('Made ' + plan.name + ' — a try');
+    if (SETUP.d) SETUP.d.close();
+    state.tr = null;
+    location.hash = '#/sandbox/' + plan.name;
+    await startWithBootView(plan.name);
+  } catch (e) {
+    SETUP.busy = false;
+    SETUP.error = e.message || String(e);
+    pageFailure('Quick try: ' + SETUP.error, { key: 'quick-try' });
+    paintSetup();
+  }
 }
 
 // ── the page ─────────────────────────────────────────────────────────────────
@@ -310,8 +443,9 @@ function onKey(ev) {
     select(next.id, { focusItem: !inSearch });
     return;
   }
+  // Enter = Try (the setup opens; Start is there).
   if (ev.key === 'Enter' && !inField && (inSearch || (t.closest && t.closest('[data-try-results]')))) {
-    const s = document.querySelector('[data-try-create]');
+    const s = document.querySelector('[data-try-open]');
     if (s && !s.disabled) { ev.preventDefault(); s.click(); }
   }
 }
@@ -335,30 +469,4 @@ function tryNode() {
   if (current()) root.dataset.try = current().id;
   root.addEventListener('keydown', onKey);
   return h('div', { class: 'wizard try qt-page' }, head, root);
-}
-
-/// Start → the ordinary `create` action (a try: `trial`, its new folder), then the start with the boot view, which
-/// opens its own session in a terminal on its page.
-async function tryCreate(button) {
-  const tr = state.tr, a = current();
-  if (!a || a.kind !== 'agent' || tr.creating) return;
-  tr.creating = true;
-  button.disabled = true;
-  const c = a.plan.create;
-  try {
-    const op = await actOrThrow({ action: 'create', sandbox: a.plan.name, image: c.image, trial: true,
-      ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
-      ...(c.account ? { account: c.account } : {}) });
-    const end = await waitOp(op.id);
-    if (!end || end.state !== 'done') { tr.creating = false; button.disabled = false; return; }
-    toast('Made ' + a.plan.name + ' — a try');
-    state.tr = null;
-    location.hash = '#/sandbox/' + a.plan.name;
-    await startWithBootView(a.plan.name);
-  } catch (e) {
-    tr.creating = false;
-    tr.error = e.message || String(e);
-    pageFailure('Quick try: ' + tr.error, { key: 'quick-try' });
-    rerender();
-  }
 }

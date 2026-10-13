@@ -1100,6 +1100,16 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         /// The version Dozer installs, and how long ago its latest release came out ("4 days"), when measured.
         public var version: String? = nil
         public var age: String? = nil
+        /// 617: one sentence about it (the recipe's description).
+        public var description: String? = nil
+        /// 617: the accounts it can use (name, kind, where the key comes from, the provider's default) — never a secret.
+        public var usableAccounts: [Usable] = []
+        public struct Usable: Codable, Equatable, Sendable {
+            public var name: String
+            public var kind: String
+            public var source: String?
+            public var isDefault: Bool
+        }
     }
     public struct Coming: Codable, Equatable, Sendable {
         public var id: String; public var title: String; public var publisher: String; public var reason: String

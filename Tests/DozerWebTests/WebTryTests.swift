@@ -145,6 +145,35 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(WebTryCatalog.age(100), "3 months")
     }
 
+    /// 617 (owner: a key added in "What you need" did not work — pi, whose Anthropic default is the Mac's Claude Code
+    /// login, takes API keys only): the catalog lists the accounts each agent can use, and the plan takes the one the
+    /// setup chose.
+    func testTheSetupPlansWithAKeyTheAgentCanUse() async throws {
+        func acct(_ name: String, _ kind: String, provider: String? = nil, isDefault: Bool = false) -> WebAccount {
+            var w = WebAccount(AccountRow(name: name, kind: kind, isDefault: isDefault, usedBy: [], state: "ok"))
+            w.provider = provider
+            return w
+        }
+        let accounts = [acct("mac", "mac", isDefault: true), acct("anthropic", "api-key"), acct("oai", "openai-key"),
+                        acct("xai1", "key", provider: "xai"), acct("google", "key", provider: "google")]
+        let catalog = await WebTryCatalog.build(plan: { r in WebPlan(CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)) },
+                                                secretEntry: true, accounts: accounts)
+        let by = Dictionary(uniqueKeysWithValues: catalog.agents.map { ($0.id, $0) })
+        XCTAssertEqual(by["pi"]?.usableAccounts.map(\.name), ["anthropic"], "pi: an API key, never the Mac's login")
+        XCTAssertEqual(by["claude-code"]?.usableAccounts.map(\.name), ["mac", "anthropic"])
+        XCTAssertEqual(by["codex"]?.usableAccounts.map(\.name), ["oai"])
+        XCTAssertEqual(by["grok"]?.usableAccounts.map(\.name), ["xai1"], "a key of its own provider only")
+        XCTAssertEqual(by["antigravity"]?.usableAccounts.map(\.name), ["google"])
+        XCTAssertEqual(by["grok"]?.description, "xAI's coding agent, on an xAI API key.", "the recipe's description")
+        // The plan question takes the account (a name), strictly.
+        let q = try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"pi","account":"anthropic"}"#.utf8))
+        XCTAssertEqual(q.account, "anthropic")
+        XCTAssertEqual(q.request.create.account, "anthropic")
+        for bad in [#"{"purpose":"try","agent":"pi","account":"Bad Name"}"#, #"{"purpose":"try","agent":"pi","account":7}"#] {
+            XCTAssertThrowsError(try WebPlanQuery.decode(Data(bad.utf8)), bad)
+        }
+    }
+
     /// A start's progress for the terminal area: steps in plain words, the one under way, a short tail — raw build output
     /// never becomes the operation's one-line text (the header strip).
     func testAStartsProgressIsStepsInPlainWordsAndATail() {

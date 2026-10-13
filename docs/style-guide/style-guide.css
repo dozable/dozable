@@ -39,6 +39,7 @@
   .scheme .wiz-modal { position: relative; inset: auto; z-index: auto; padding: 16px; height: 470px; }
   .scheme .wm-box { height: 100%; }
   .scheme .menu { position: static; display: block; width: 280px; }
+  .scheme dialog.dlg { position: static; margin: 0; width: auto; max-width: 100%; }
   .scheme .qt { height: 560px; flex: none; }
   .scheme .terms.sg-terms { flex: none; height: 300px; display: block; border: var(--bw) solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
   .src { font-size: var(--fs-sm); color: var(--ink-2); }

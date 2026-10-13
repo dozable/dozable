@@ -6,8 +6,8 @@ import { act, actOrThrow } from '../core/operations-73b26effbe04935d.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { card } from './blocks-53c969feeec8fe89.js';
 import { btn } from './button-a9b0357c06093925.js';
-import { dialog } from './dialog-5af479db6c46c58c.js';
-import { refreshNav } from './nav-4b973d0fdc466021.js';
+import { dialog } from './dialog-4d39657de89884ed.js';
+import { refreshNav } from './nav-1f61b51635a876ef.js';
 import { banner, dropBanner } from './notices-82f2fa6c4cb061e0.js';
 
 function sandboxLinks(names) {

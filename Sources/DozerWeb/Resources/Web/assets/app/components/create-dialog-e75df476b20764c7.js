@@ -5,11 +5,11 @@ import { AGENT_NAMES } from '../core/agents-66154a04b9c4696c.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { actOrThrow } from '../core/operations-73b26effbe04935d.js';
 import { setting } from '../core/settings-70247ce370cb44d9.js';
-import { accountChooser } from './accounts-aa06fa2b3ae29e8b.js';
+import { accountChooser } from './accounts-04562d99a52eeb10.js';
 import { callout } from './callout-e08cdc5a5cc374bb.js';
-import { dialog } from './dialog-5af479db6c46c58c.js';
+import { dialog } from './dialog-4d39657de89884ed.js';
 import { imagePicker, pickerNameHint } from './image-picker-47459405c68906ea.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-609e71de85fb75ca.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-55f927897cfaacbc.js';
 import { workspaceChooser } from './workspace-chooser-9f693b1ddde34d32.js';
 
 export async function createDialog(quick = null) {

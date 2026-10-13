@@ -34,12 +34,8 @@ export async function viewOverview() {
     h('td', { class: 'row-acts-cell' }, rowLifecycle(s))));
   return h('div', null,
     h('div', { class: 'head' }, h('h1', null, 'Sandboxes'),
+      // 617 (owner): Quick try is the nav's TRY section now (its item and its +), not a button here.
       h('div', { class: 'actions' }, quickAddButton(), (() => {
-        // 617: Quick try — an agent and its key, everything else a safe default (#/try).
-        const t = btn('Quick try', () => { location.hash = '#/try'; }, { icon: 'play', title: 'Try an agent now: a throwaway sandbox with safe defaults' });
-        t.dataset.quickTry = '';
-        return t;
-      })(), (() => {
         const b = btn('New sandbox', () => newSandboxWizard(), { primary: true, title: 'Step by step — your choices go in the project folder’s doz_project.yaml' });
         b.dataset.newSandbox = '';
         return b;

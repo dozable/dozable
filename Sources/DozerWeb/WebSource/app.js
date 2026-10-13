@@ -81,6 +81,9 @@ import './app/views/shortcuts.js';
 // 599c: Quick add in the sidebar, beside Sandboxes.
 $('nav-quick-add').replaceChildren(icon('plus'));
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
+// 617 (owner): TRY is a section of its own — its + opens the Quick try, as its one item does.
+$('nav-try-add').replaceChildren(icon('plus'));
+$('nav-try-add').addEventListener('click', (ev) => { ev.preventDefault(); location.hash = '#/try'; });
 $('sign-out').addEventListener('click', async () => {
   try { await api('session', { method: 'DELETE' }); } catch (_) { /* already gone */ }
   signedOut('This browser is signed out of Dozer.', 'signed-out');
@@ -89,7 +92,7 @@ $('sign-out').addEventListener('click', async () => {
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
 const NAV_ICONS = { devices: 'user-round', overview: 'box', sessions: 'layout-grid', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
-                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings' };
+                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', try: 'play' };
 for (const a of document.querySelectorAll('#nav > a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
   a.title = a.querySelector('.lbl').textContent;       // the rail's tooltip (the label stays readable to assistive tech)

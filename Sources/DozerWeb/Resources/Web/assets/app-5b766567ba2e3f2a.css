@@ -97,7 +97,7 @@
 
   /* layers, bottom to top */
   --z-sticky: 5; --z-menu: 20; --z-modal: 25; --z-toast: 30; --z-overlay: 50; --z-banner-paused: 60; --z-toast-paused: 70;
-  --wm-max: 1080px; --wm-h: 860px;   /* the wizards' modal: at most this wide and tall (less the gutters) */
+  --wm-max: 1400px; --wm-h: 1000px;   /* the wizards' modal: at most this wide and tall (less the gutters; 617: larger) */
 
   /* motion */
   --dur-1: 120ms; --dur-2: 200ms; --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -444,6 +444,9 @@ td.bar-cell { min-width: 110px; vertical-align: middle; }
 .tabs { display: flex; gap: 2px; padding: 4px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }
 .tab-wrap { display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; }
 .tab-wrap:has(.tab.active) { background: var(--term-bg); }
+/* 617 (owner): the active tab sits on the terminal's dark chrome in both themes — its close, move and session buttons take
+   the terminal's ink, not the page's (they were dark on dark in light mode). */
+.tab-wrap:has(.tab.active) > .tab-x, .tab-wrap:has(.tab.active) .menu-wrap > .tab-x { color: var(--term-ink); }
 .tab { font: inherit; font-size: var(--fs-sm); border: 0; background: none; color: var(--ink-2); padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tab.active { color: var(--term-ink); }
 .tab .tag.shared { background: color-mix(in srgb, var(--warn) 25%, transparent); color: var(--term-warn); }
@@ -1289,7 +1292,7 @@ td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
    The step strip is one row of equal columns — the circle (done: a check · current: the accent · later: its
    number) joined by a line, the name under it; below 720 px the circles only, with "Step N of M · name" above. ── */
 .wiz-modal { position: fixed; inset: 0; z-index: var(--z-modal); display: flex; align-items: center; justify-content: center;
-  padding: var(--sp-6) var(--sp-7); }
+  padding: var(--sp-4) var(--sp-5); }   /* 617 (owner): less margin around the modal */
 .wiz-modal[hidden] { display: none; }
 .wm-scrim { position: absolute; inset: 0; background: var(--scrim); }
 .wm-box { position: relative; display: flex; flex-direction: column; width: min(var(--wm-max), 100%); height: min(var(--wm-h), 100%);
@@ -1397,12 +1400,10 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 /* Quick try (617): the agents as cards (coming ones dimmed, with why), the "What you need" card, the defaults. */
 }
 @layer views {
-/* ── 617: Quick try (the owner's redesign, mock 616 quick-try-v2) — a FULL-PAGE modal over the whole app: its own
-   header (title, a line, a labelled Close with its Esc hint), then two panes — search, pills, count and the view toggle
+/* ── 617: Quick try (the owner's redesign, mock 616 quick-try-v2) — the wizards' modal over the app (the owner's later
+   ruling: like onboarding, the app visible behind the scrim): its own header (title, a line, a labelled Close with
+   its Esc hint), then two panes — search, pills, count and the view toggle
    over the results on the left; the chosen agent on the right. Below 760 px the panes stack (a back control). ── */
-.wiz-modal.full { padding: 0; }
-.wiz-modal.full .wm-scrim { background: var(--bg); }
-.wiz-modal.full .wm-box { width: 100%; height: 100%; border-radius: 0; box-shadow: none; background: var(--bg); }
 .qt-page { padding: var(--sp-5) var(--sp-6) var(--sp-6); gap: var(--sp-4); }
 .qt-mhead { display: flex; align-items: flex-start; gap: var(--sp-4); flex: none; }
 .qt-mhead > div { flex: 1; min-width: 0; }
@@ -1480,6 +1481,14 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .qt-plan dd { margin: 0; overflow-wrap: anywhere; }
 .qt-foot { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding-top: var(--sp-4); border-top: var(--bw) solid var(--line); }
 .qt-note { font-size: var(--fs-sm); color: var(--ink-2); }
+.qt-desc { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-prose); max-width: 72ch; }
+/* 617 (owner): Try's setup — a smaller modal over the Quick try, every prerequisite and Start. */
+dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
+.try-setup .dlg-head .mark { width: 28px; height: 28px; }
+.try-setup .qt-sect h3 { margin-bottom: var(--sp-1); }
+.try-setup .try-key { display: flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; margin: 0; color: var(--ink); }
+.try-setup .try-key .icon { color: var(--ok); }
+.confirm-check { align-items: flex-start; }
 @media (max-width: 760px) {
   .qt-page { padding: var(--sp-4) 0 0; }
   .qt-mhead { padding: 0 var(--sp-4); }

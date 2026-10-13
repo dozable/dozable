@@ -9,7 +9,7 @@ import { refresh } from '../core/router-01efde03fb80ec68.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { meter, pageIndex, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
-import { dialog } from '../components/dialog-5af479db6c46c58c.js';
+import { dialog } from '../components/dialog-4d39657de89884ed.js';
 import { pageFailure, toast } from '../components/notices-82f2fa6c4cb061e0.js';
 import { phasePill } from '../components/pills-b1ced72bf0decf4f.js';
 

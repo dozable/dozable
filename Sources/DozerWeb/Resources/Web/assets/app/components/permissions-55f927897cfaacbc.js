@@ -1,7 +1,7 @@
 // components/permissions — What the agent can do (597): the permission switches and their confirmations.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { agentKey } from '../core/agents-66154a04b9c4696c.js';
-import { dialog } from './dialog-5af479db6c46c58c.js';
+import { dialog } from './dialog-4d39657de89884ed.js';
 
 // ── 597: what the agent can do ────────────────────────────────────────────
 // Owner ruling (2026-09-30, P1–P7): a proxied sandbox's network as plain-language permissions, each a

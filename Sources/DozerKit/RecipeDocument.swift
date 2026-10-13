@@ -468,7 +468,7 @@ extension RecipeDocument {
                                manifest: a.dozer.manifest, launcherArg: a.dozer.launcherArg)
         }
         return AgentRecipe(
-            schema: 1, id: product, title: displayName, publisher: author, licence: d.licence ?? licenses[0], homepage: sourceUrl,
+            schema: 1, id: product, title: displayName, description: description, publisher: author, licence: d.licence ?? licenses[0], homepage: sourceUrl,
             aliases: d.aliases, builtin: i.builtin, defaultBase: d.defaultBase, platforms: d.platforms, limits: d.limits,
             install: AgentRecipe.Install(kind: i.kind, manifest: i.manifest, url: i.url.map(Self.toModel), package: i.package,
                                          platformPackage: i.platformPackage, payload: i.payload, compression: i.compression, binary: i.binary,
@@ -486,13 +486,13 @@ extension RecipeDocument {
 
     /// The file a model would be written as (the inverse of `recipe()`): what the recipe says, plus what only the file
     /// has — its vendor, its description, its SPDX licences and its version's pattern and build arg.
-    public init(_ r: AgentRecipe, vendor: String, description: String, licenses: [String],
+    public init(_ r: AgentRecipe, vendor: String, description: String? = nil, licenses: [String],
                 versionPattern: String = #"[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?"#) {
         schema = Self.schemaVersion
         kind = "workload"
         id = vendor + "/" + r.id
         displayName = r.title
-        self.description = description
+        self.description = description ?? r.description ?? r.title
         author = r.publisher
         sourceUrl = r.homepage
         self.licenses = licenses

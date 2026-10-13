@@ -554,7 +554,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     successes; `toast(text, true)` routes to the page notices.
   - **Never `append`/`replaceChildren` a `null`** — the DOM writes it as the text "null" (the Split menu's bug);
     `h()` skips nulls, those do not.
-  - **Structure**: the sidebar's four groups are static markup in `index.html` (`#nav > a[data-view]` stay direct
+  - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav > a[data-view]` stay direct
     children; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
     pane; the inspector's tabs `INSP_TABS`, the chosen tab per sandbox in `sview(name).inspTab` (page memory, no
@@ -1739,8 +1739,15 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
-- **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal made FULL-PAGE (`.wiz-modal.full`: it
-  covers the nav; Esc/Close return to where it was opened; the app inert); `views/try.js`, `WebTry.swift`). The owner's
+- **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal over the app, like onboarding (owner: the
+  app visible behind the scrim; larger, less margin); Esc/Close return to where it was opened; the app inert; opened from
+  the nav's TRY section — its one item and the + on its heading; `views/try.js`, `WebTry.swift`). The details pane is
+  INFORMATION ONLY (description, versions, tags, what it can reach, the command — what a published recipe page shows);
+  **Try** opens the SETUP (`dialog.dlg.try-setup`, `openSetup`): the key, what is not offered, the image, the plan and
+  Start. The setup PLANS WITH the account it uses (`POST plan {account}`; the catalog's `usableAccounts` —
+  `AgentCredentials.accepts`): a key saved there, one chosen, or — when the provider's default cannot serve the agent
+  (pi with the Mac's Claude login) — the first usable one (the owner's "adding a key did not work": it planned with the
+  default again). Deleting a try asks with a box to tick (`confirmWithCheck`), never a typed name. The owner's
   redesign (mock 616 quick-try-v2): two panes — search (`core/agent-search.js`: `DirectorySearch`'s matching ported, +
   fuzzy within one word, + its did-you-mean) with pills (Ready · Open source · Current · Headless · Through a gateway,
   AND) and the count over the results (cards | list, `localStorage doz.tryView` in try/catch; superseded, then coming,
