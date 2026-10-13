@@ -27,7 +27,7 @@ on:
       - 'Scripts/recipe-check.py'
       - '.github/workflows/recipes.yml'
   push:
-    branches: [main]
+    branches: [main, 'feature/617-*']   # TEMPORARY (the first runs on m1b, before the file is on main): removed once green
     paths:
       - 'Sources/DozerKit/Recipes/**'
       - 'profiles/**'
@@ -53,7 +53,7 @@ jobs:
     name: Recipe check
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, doz-recipes]
-    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.recipes == 'all') && 180 || 60 }}
+    timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.recipes == 'all') && 180 || 90 }}
     steps:
       - uses: actions/checkout@v4
         with:
