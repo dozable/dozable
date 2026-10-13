@@ -157,6 +157,21 @@ function revealPending(t) {
   renderTerminals();
   if (!t.activity) focusTerm(t);
 }
+/// 617 (owner: "keep its log as a small tab to the LEFT of Console"): the build log of the sandbox's image — read-only,
+/// no socket (the frame's saved mode, like a Boot log), any phase: it stays across shutdown and sleep while the page
+/// shows the sandbox. Opened behind the others (never selected by itself). No log kept → no tab (404 closes it).
+export function openBuildLogTerminal(sandbox, log) {
+  const t = newTerm(sandbox, null, 'watch');
+  t.buildlog = true;
+  t.buildlogData = log || null;                       // already read (the tab exists only when one is kept)
+  t.buildlogInfo = log ? { state: log.state, finishedAt: log.finishedAt, image: log.image } : null;
+  t.saved = { reason: 'build' };
+  t.pane = 0;
+  t.lazy = true;                                      // its engine loads when its tab is first shown
+  paintCover(t);
+  renderTerminals();
+  return t;
+}
 /// 617: tab zero — the sandbox's system console (read-only, the stream `doz console NAME` shows), while its VM is
 /// powered on. `select`: it becomes the pane's shown tab (a start under way); else it waits behind the others.
 export async function openConsoleTerminal(sandbox, select) {
@@ -408,7 +423,7 @@ export function paintCover(t) {
   const e = t.els;
   let kind = 'none', headline = '', detail = '', action = null, spinner = false, glyphKey = null;
   if (t.errorText) { kind = 'error'; headline = 'This terminal could not open'; detail = t.errorText; }
-  else if (t.bootlog) { kind = t.savedShown ? 'none' : 'reattaching'; headline = 'Loading…'; spinner = !t.savedShown; }
+  else if (t.bootlog || t.buildlog) { kind = t.savedShown ? 'none' : 'reattaching'; headline = 'Loading…'; spinner = !t.savedShown; }
   else if (t.saved) { ({ headline, detail, action, glyphKey } = savedCover(t)); kind = 'saved'; }
   // A boot view asked for by Start: "Starting…" from its first paint until the host's steps take over
   // (never the shut-down cover the sandbox had a moment before the start reached the host).
@@ -509,7 +524,7 @@ function savedCoverFor(t) {
 }
 /// A key on a saved screen: the ordinary wake / resume action (the page's own; never a cold boot).
 function savedKey(t) {
-  if (!t.saved || t.grid) return;
+  if (!t.saved || t.grid || t.buildlog) return;      // 617: a build log is only read
   const w = SAVED_WAKE[sandboxPhase(t.sandbox)];
   if (!w || sandboxBusy(t.sandbox)) return;
   act({ action: w[1], sandbox: t.sandbox });
@@ -519,14 +534,17 @@ async function loadSavedScreen(t) {
   let s;
   try {
     // 593: a Boot log terminal draws a kept boot (rendered by the host's boot-view renderer) the same way.
-    s = await api(t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : 'sandboxes/' + t.sandbox + '/sessions/' + t.session + '/screen');
+    // 617: the build log's tab draws the image's build (rendered by the host) the same way.
+    s = t.buildlogData || await api(t.buildlog ? 'sandboxes/' + t.sandbox + '/build-log' : t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : 'sandboxes/' + t.sandbox + '/sessions/' + t.session + '/screen');
   } catch (e) {
+    if (t.buildlog && e.status === 404) { closeTerminal(t.id); return; }     // no build log is kept: no tab
     t.errorText = e.status === 404 ? (t.bootlog ? 'that boot is no longer kept' : 'no saved screen of ' + t.session) : e.message || String(e);
     paintCover(t);
     return;
   }
   if (t.closed || !t.saved) return;
-  if (!t.bootlog) t.saved = { ...t.saved, savedAt: s.savedAt, reason: s.reason };
+  t.buildlogData = null;
+  if (!t.bootlog && !t.buildlog) t.saved = { ...t.saved, savedAt: s.savedAt, reason: s.reason };
   const bin = atob(s.vt);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
@@ -534,9 +552,9 @@ async function loadSavedScreen(t) {
     const chunk = bytes.slice(i, i + (1 << 20)).buffer;
     toFrame(t, { t: 'write', data: chunk }, [chunk]);
   }
-  if (t.bootlog) toFrame(t, { t: 'top' });            // a Boot log opens at its steps
+  if (t.bootlog || t.buildlog) toFrame(t, { t: 'top' });   // a Boot log (and a build log) opens at its steps
   t.savedShown = true;
-  if (t.els.wrap) t.els.wrap.dataset.saved = t.bootlog ? 'boot' : s.reason;
+  if (t.els.wrap) t.els.wrap.dataset.saved = t.buildlog ? 'build' : t.bootlog ? 'boot' : s.reason;
   paintCover(t);
   paintTabs();
 }

@@ -60,6 +60,9 @@ public enum SandboxEvent: Sendable, Equatable {
     /// 593: a line a bake step printed (guest text: control characters removed, capped; at most
     /// four a second — `OutputTail`).
     case output(String)
+    /// 617: a bake step's whole output when it ended (`StepOutputLines`, inert, capped) — for the image's build log
+    /// only: the host keeps it with the preparation and never sends it to a client.
+    case stepOutput(String, lines: [String])
     /// The readouts changed (RAM held, snapshot size, busy).
     case status(SandboxStatus)
 }

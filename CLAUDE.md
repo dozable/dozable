@@ -79,7 +79,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozerHost/ImageTree.swift`; `Sources/DozerCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
 | `Sources/DozerHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozerCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `dozer` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
 | `Sources/DozerKit/SavedScreens.swift`; `Sources/DozerHost/TerminalLayout.swift`; `Sources/DozerWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
-| `Sources/DozerHost/BootLogs.swift`; `Sources/DozerWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; the web's Boot log projections |
+| `Sources/DozerHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozerWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
 | `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozerCLI/DozerCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozerCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
 | `Sources/DozerHost/Resources.swift`, `HostCore+Resources.swift`; `Sources/DozerCLI/ResourcesCommands.swift`; `Sources/DozerWeb/WebResources.swift`; `Tests/DozerCLITests/ResourcesTests.swift` | the account of everything Dozer uses (the walk, one leaf per entry, the three numbers from `DiskAccounting.exclusive`), refusals, the plan and the deletion; the host ops `resources` / `resources-rm` / `resources-clean` / `resources-kernel`; `doz resources`; the web projection + preview route |
 | `Sources/DozerKit/BaseCatalogue.swift`, `OCIImport.swift`; `Sources/DozerHost/BaseImages.swift`, `ContainerTool.swift`, `AppleContainerResources.swift`; `Sources/DozerCLI/BaseCommands.swift`; `Sources/DozerWeb/WebBases.swift`; `Sources/doz-vmtest/BasesSuite.swift` | base × agent images — the catalogue, `ImageChoice` names, `ImageComposer` (+ `recompose` for W28), native Claude Code, pi's Node, digests; the store's base digests and Dockerfiles; Apple's `container` (status/start/install/build) and its storage in Resources; `doz base`, `doz builder`; the bases route and the Dockerfile picker; `make test-cli-bases` |
@@ -440,7 +440,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `HostWebData.restartHost` refuses unless the running host is an OLDER build than the UI). Destructive ones (reset, rm,
   point revert/rm, image rm, account rm) carry `confirm` equal to the name. Shutdown keeps the disk,
   so it carries no `confirm`: the page asks with a plain dialog that can stop asking
-  (the setting `ui.confirm_shutdown`, doz.toml — no longer localStorage). **No secret is ever an
+  (the setting `ui.confirm_shutdown`, doz.toml — no longer localStorage). 617 (owner: "same simplified delete
+  experience"): the page confirms every destructive one with ONE component, a box to tick (`confirmAction` /
+  `confirmWithCheck`, `components/dialog.js`: "Yes, reset demo") — never a name to type; the request still carries
+  `confirm`. **No secret is ever an
   action's input** (590's D3). Since 594 an ACCOUNT's key or token may be typed in a
   masked field — through the one typed route `POST /api/v1/accounts`, never an action, while
   `ui.allow_secret_entry` (see the 594 section); and a sandbox's own key through `POST
@@ -1791,7 +1794,21 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   header's "N denied" menu (`deniedChip` → Review in Network), never a banner. A start from a Sandboxes row is the
   plain start; its page shows Console when opened. `WebTerminalUnitTests` (console + quiet decode);
   `probes/617-*/stageE/browser-start-sequence.mjs` (records the page every 100 ms: nothing moves, the stages in
-  order, the bar never back, no vminitd byte on the agent's socket; screenshots 22–25). Waiting for an operation is
+  order, the bar never back, no vminitd byte on the agent's socket; screenshots 22–25). While it builds the panel is
+  no card: its bar spans the terminal area up to `--build-max` (1100 px). **The build log** (owner: "keep its log as a
+  small tab to the LEFT of Console"): the library hands each bake step's WHOLE output (`StepOutputLines`, every line in
+  order, inert, head 200 + tail 1800) as `SandboxEvent.stepOutput` — never a `HostEvent` (runPreparation passes it to
+  `HostCore.buildOutputSink`, a task-local the preparation sets, so no client, host.log or Activity ever sees it); the
+  preparation keeps it with its steps and, when it ends (done or failed), writes `<store>/build-logs/<image>.json`
+  (`BuildLogs`, 0600 in 0700, atomic, ≤ 8000 lines; Resources: Dozer's own records) — so it survives a ui and a host
+  restart, and a sandbox whose start built nothing shows the log of the build that made its image (none kept → no
+  tab). Read by the host op `build-log` (by sandbox; in-process when no host runs) → `GET /api/v1/sandboxes/NAME/build-log`
+  (`WebBuildLog`: `BuildLogs.render` — the steps with their times, then each step's output, inert again). The page:
+  `syncBuildLogTab` (each sandbox refresh and each preparations event) opens `openBuildLogTerminal` — a saved-mode,
+  socketless record (`t.buildlog`, like a Boot log; keys never wake) — only after the read found one; hidden while its
+  image builds and replaced when that build ends; first in the strip, icon `list-checks`, tooltip "Build log", no
+  close box, never chosen by itself, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
+  `isAux` in `core/terminals.js` names the page's own panes). `BuildLogsTests`, the HTTP test. Waiting for an operation is
   EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`): a hidden tab's short timers run once a minute (Chrome's
   intensive throttling — the owner's 68 s pause). `browser-try-twice.mjs` (throttling emulated), `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`

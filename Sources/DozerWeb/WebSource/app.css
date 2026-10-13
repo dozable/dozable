@@ -98,6 +98,7 @@
   /* layers, bottom to top */
   --z-sticky: 5; --z-menu: 20; --z-modal: 25; --z-toast: 30; --z-overlay: 50; --z-banner-paused: 60; --z-toast-paused: 70;
   --wm-max: 1400px; --wm-h: 1000px;   /* the wizards' modal: at most this wide and tall (less the gutters; 617: larger) */
+  --build-max: 1100px;                 /* 617: the build panel's width at most (its bar spans the terminal area up to it) */
 
   /* motion */
   --dur-1: 120ms; --dur-2: 200ms; --ease: cubic-bezier(0.2, 0, 0, 1);
@@ -440,7 +441,9 @@ td.bar-cell { min-width: 110px; vertical-align: middle; }
 .sp-failed { margin-top: var(--sp-3); }
 .sp-acts { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* 617: the build panel's bar for the whole build, and its "Step N of M · step · elapsed" line. */
-.start-progress.building .sp-box { width: min(860px, 100%); }
+.start-progress.building { padding: var(--sp-5) var(--sp-5); }
+/* While it builds, the area IS the build (owner: the bar spans the terminal area's width, up to --build-max) — no card. */
+.start-progress.building .sp-box { width: min(var(--build-max), 100%); background: none; border: 0; box-shadow: none; padding: 0; }
 .sp-barbox { margin: var(--sp-3) 0 var(--sp-4); }
 progress.sp-bar { display: block; width: 100%; height: 12px; appearance: none; -webkit-appearance: none; border: 0; border-radius: var(--r-pill);
   background: var(--surface-3); overflow: hidden; }
@@ -456,9 +459,14 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-wrap.term-pending { visibility: hidden; pointer-events: none; }
 /* 617: tab zero, Console — and the activity dot on a tab that is ready but not shown. */
 .tab-console .icon { color: var(--term-ink); opacity: 0.8; }
+/* 617: the build log's tab, left of Console — small: an icon only, its name in the tooltip. */
+.tab.tab-buildlog { padding: 6px 7px; }
+.tab-buildlog .icon { opacity: 0.8; }
 .tab-activity { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: var(--sp-1); }
 /* 617: the header's "N denied" opens what was refused (a menu), never a banner that moves the page. */
-.denied-chip { border: 0; font: inherit; font-size: var(--fs-xs); cursor: pointer; margin-left: var(--sp-1); }
+.denied-chip { border: 0; font: inherit; font-size: var(--fs-xs); cursor: pointer; margin: 0 0 0 var(--sp-1); height: 22px; }
+/* Its menu's wrapper sits in the chips' row like a chip: it must never make that row taller (the header would move). */
+.menu-wrap:has(> .denied-chip) { display: inline-flex; align-items: center; vertical-align: middle; }
 .denied-chip:hover { box-shadow: inset 0 0 0 1px var(--warn); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
@@ -822,6 +830,8 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .btn.danger.primary { background: var(--bad); border-color: var(--bad); color: var(--on-danger); }
 .btn.danger.primary:hover { background: color-mix(in srgb, var(--bad) 88%, var(--ink)); color: var(--on-danger); }
 .btn:disabled, .btn[aria-disabled="true"] { background: var(--surface-2); border-color: var(--line); color: var(--ink-3); cursor: not-allowed; }
+/* 617: a danger button waiting for its confirmation's tick looks disabled too (.btn.danger.primary outranked the rule above). */
+.btn.danger:disabled, .btn.danger.primary:disabled { background: var(--surface-2); border-color: var(--line); color: var(--ink-3); }
 .btn.quiet:disabled { background: transparent; border-color: transparent; }
 .btn[aria-busy="true"] { cursor: progress; }
 .btn.sm { height: var(--ctl-sm); padding: 0 8px; font-size: var(--fs-sm); gap: 5px; }

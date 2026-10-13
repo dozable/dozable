@@ -649,6 +649,13 @@ public actor HostCore {
             return try JSONValue(encoding: SessionScreen(name: m.name, saved))
         case .bootLog:
             return try bootLog(r)
+        case .buildLog:
+            // 617: the log of the build that made the sandbox's image (or its last attempt).
+            let m = try get(r.name)
+            guard let log = BuildLogs.read(m.config.image, store: store) else {
+                throw HostError(.notFound, "no build log of \(m.config.image) is kept — one is kept each time this store prepares an image")
+            }
+            return try JSONValue(encoding: log)
         case .resources:
             return try JSONValue(encoding: await resourceReport())
         case .resourcesRemove, .resourcesClean:

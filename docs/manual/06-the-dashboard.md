@@ -112,7 +112,7 @@ top shows the whole sidebar over the page.
 
 ### Safety catches
 
-**Reset**, **Remove**, **Revert** and every delete ask you to type the name first. **Shut down**
+**Reset**, **Remove**, **Revert** and every delete ask you to tick a box first ("Yes, remove …"). **Shut down**
 asks with a plain confirmation. Clicking an action again while it runs does nothing more.
 
 ### When something fails

@@ -262,10 +262,13 @@ name: todo-app</pre></details>
 </section>
 
 <section>
-  <h2>Try’s setup, and confirming with a box to tick</h2>
+  <h2>Try’s setup, and every destructive confirmation: a box to tick</h2>
   <p><b>Try</b> opens a smaller modal over the Quick try (<code>dialog.dlg.try-setup</code>): every prerequisite — the key (the one it uses, a choice when it can use
     several, or the card: paste, a source kept outside, what is not offered), the image, the plan — and the final <b>Start</b>; Cancel or Esc leaves nothing behind.
-    Deleting a try asks with a box to tick (<code>dialog</code>'s <code>confirmCheck</code>), never a typed name.</p>
+    <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
+    sentence says what happens (“Yes, reset demo”), the button disabled until it is ticked and named by the verb, its icon by the verb (trash for Remove and Delete,
+    <code>rotate-ccw</code> for Reset, <code>history</code> for Revert) — never a name to type. Removing or resetting a sandbox, deleting or reverting to a restore point,
+    removing an account, an image or a template, deleting a try.</p>
   <div class="pair"><div class="scheme">
     <dialog class="dlg try-setup" open><form method="dialog">
       <div class="dlg-head"><span data-mark="pi" class="mark"></span><h2 class="h-title">Try pi</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
@@ -281,6 +284,12 @@ name: todo-app</pre></details>
         <label class="field check confirm-check"><input type="checkbox"><span>Yes, delete try-pi and everything it has on disk</span></label></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button" disabled><i data-i="trash-2"></i>Delete</button></div>
     </form></dialog>
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Reset demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">Its root disk goes back to the image: everything installed or changed outside the workspace is lost.</p>
+        <label class="field check confirm-check"><input type="checkbox" checked><span>Yes, reset demo</span></label></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
+    </form></dialog>
   </div></div>
 </section>
 
@@ -288,9 +297,12 @@ name: todo-app</pre></details>
   <h2>The terminal strip</h2>
   <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).
     Tab zero, <strong>Console</strong> (<code>.tab-console</code>), is the system console: first, its own icon (<code>cpu</code>), no number, no close box, there exactly while the VM is powered on.
-    A tab that is ready but not shown carries a dot (<code>.tab-activity</code>): the agent’s, when <code>ui.boot_view_on_start</code> keeps the page on Console.</p>
+    A tab that is ready but not shown carries a dot (<code>.tab-activity</code>): the agent’s, when <code>ui.boot_view_on_start</code> keeps the page on Console.
+    Left of Console, the <strong>build log</strong>’s small tab (<code>.tab-buildlog</code>): an icon only (<code>list-checks</code>), its name in the tooltip, read-only, no close box —
+    the image’s last build (its steps with their times, then each step’s whole output), there whenever one is kept, through shutdown and sleep; never chosen by itself.</p>
   <div class="pair"><div class="scheme">
     <div class="sg-row" style="gap:0">
+      <div class="tab-wrap"><button type="button" class="tab tab-buildlog" title="Build log" aria-label="Build log"><i data-i="list-checks"></i></button></div>
       <div class="tab-wrap"><button type="button" class="tab tab-console"><i data-i="cpu"></i>Console</button></div>
       <div class="tab-wrap"><button type="button" class="tab active"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis"></i></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
@@ -300,11 +312,12 @@ name: todo-app</pre></details>
 
 <section>
   <h2>A start, in the terminal area</h2>
-  <p>After Start the page is there at once and nothing moves. The terminal area shows, in the same place: the build, while the image is prepared
+  <p>After Start the page is there at once and nothing moves. While it builds the area IS the build — no card: the bar spans the terminal area’s width up to
+    <code>--build-max</code> (1100 px; wider is hard to read). The terminal area shows, in the same place: the build, while the image is prepared
     (<code>.start-progress</code>, <code>components/start-progress.js</code>) — a bar for the whole build that never moves back (steps weighted by this Mac’s last build of the recipe,
     else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then tab zero, Console, when the VM powers on;
     then the agent’s tab once it has drawn its screen (switched to, or a dot). A cached image shows no bar. A failure keeps the area, with the error, the log, Start again and Dismiss.
-    The header’s pill says Preparing…, then Booting…. What the agent was refused is the header’s “N denied” menu, never a banner.</p>
+    The header’s pill says Preparing…, then Booting…. When the build ends its log stays, as the small build-log tab left of Console. What the agent was refused is the header’s “N denied” menu, never a banner.</p>
   <div class="pair"><div class="scheme">
     <section class="terms sg-terms">
       <div class="start-progress building" role="status"><div class="sp-box">
@@ -332,8 +345,9 @@ name: todo-app</pre></details>
     </section>
   </div></div>
   <div class="pair"><div class="scheme">
-    <div class="sg-row"><span class="pill ph-busy"><span class="mini-spin" aria-hidden="true"></span> Preparing…</span>
-      <button type="button" class="tag warn denied-chip">4 denied</button></div>
+    <div class="sg-row"><span class="pill ph-busy"><span class="mini-spin" aria-hidden="true"></span> Preparing…</span></div>
+    <div class="sbx-title" data-sg-chips-plain><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button></span></div>
+    <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
   </div></div>
 </section>
 

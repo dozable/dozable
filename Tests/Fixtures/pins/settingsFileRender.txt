@@ -23,7 +23,7 @@
 # boot_view_on_start = false
 
 # Shut Down asks first (its dialog's "don't ask again" sets this to false). Reset and Remove
-# always ask for the name.
+# always ask with a box to tick.
 # (boolean; applies at once (the UI re-reads it))
 # confirm_shutdown = true
 

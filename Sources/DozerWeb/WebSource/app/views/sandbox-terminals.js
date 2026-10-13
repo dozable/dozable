@@ -6,10 +6,10 @@ import { icon, setButton } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
 import { actOrThrow, TRANSITION_LABEL, transitionOf, waitForOp } from '../core/operations.js';
-import { opRunningFor, sandboxPhase } from '../core/sandboxes.js';
+import { opRunningFor, sandboxImage, sandboxPhase } from '../core/sandboxes.js';
 import { bootViewOnStart, saveSetting, setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
-import { pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals.js';
+import { isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals.js';
 import { splitArgs } from '../core/util.js';
 import { isRemote } from '../core/session.js';
 import { btn } from '../components/button.js';
@@ -18,7 +18,7 @@ import { lifecycle, sessionsWhyNot } from '../components/lifecycle.js';
 import { menuButton } from '../components/menus.js';
 import { agentChip } from '../components/agent-status.js';
 import { failureFor, pageFailure } from '../components/notices.js';
-import { bootTerm, closeTerminal, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal.js';
+import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
 import { sessionMenuItems } from '../components/session-actions.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -86,13 +86,15 @@ function drawTerminals() {
   // Another sandbox's terminals stay open (hidden) — going back to it is instant.
   for (const t of terminals.values()) if (!t.grid && t.sandbox !== name) t.els.wrap.hidden = true;
   termUI.panes.forEach((p, i) => {
-    // 617: tab zero (Console) first; an agent's terminal still PENDING (not drawn yet) is laid out but has no tab.
+    // 617: the build log's small tab, then tab zero (Console), then the sessions; an agent's terminal still PENDING (not
+    // drawn yet) is laid out but has no tab. The build log is never chosen by itself: it shows when its tab is clicked.
     const all = name ? pageTerminals(name).filter((t) => t.pane === i) : [];
-    const mine = [...all.filter((t) => t.mode === 'console'), ...all.filter((t) => t.mode !== 'console' && !t.pending)];
-    if (!mine.some((t) => t.id === v.selected[i])) v.selected[i] = mine.length ? mine[mine.length - 1].id : null;
+    const mine = [...all.filter((t) => t.buildlog), ...all.filter((t) => t.mode === 'console'), ...all.filter((t) => !isAux(t) && !t.pending)];
+    const choosable = mine.filter((t) => !t.buildlog);
+    if (!mine.some((t) => t.id === v.selected[i])) v.selected[i] = choosable.length ? choosable[choosable.length - 1].id : null;
     p.strip.replaceChildren(...mine.map((t) => tabElement(t, i)));
     scrollActiveTab(p.strip);
-    p.empty.hidden = all.length > 0;
+    p.empty.hidden = all.some((t) => !t.buildlog) || all.some((t) => t.buildlog && t.id === v.selected[i]);
     for (const t of all) {
       if (t.els.wrap.parentNode !== p.body) p.body.append(t.els.wrap);
       t.els.wrap.classList.toggle('term-pending', !!t.pending);
@@ -196,8 +198,9 @@ function tabElement(t, pane) {
   const v = sview(t.sandbox);
   // Tabs are numbered (1, 2, …) per sandbox, so a shared session can say which tab it is shared with.
   // Numbered 1, 2, … — tab zero is the console ("Console"), not numbered; a pending one is not a tab yet.
-  const order = pageTerminals(t.sandbox).filter((x) => x.mode !== 'console' && !x.pending).map((x) => x.id);
+  const order = pageTerminals(t.sandbox).filter((x) => !isAux(x) && !x.pending).map((x) => x.id);
   if (t.mode === 'console') return consoleTab(t, pane, v);
+  if (t.buildlog) return buildLogTab(t, pane, v);
   const num = order.indexOf(t.id) + 1;
   const label = num + ' · ' + terminalTitle(t);
   const twins = t.session && !t.ended ? pageTerminals(t.sandbox).filter((o) => o.id !== t.id && !o.ended && o.session === t.session) : [];
@@ -237,6 +240,35 @@ function consoleTab(t, pane, v) {
     on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); focusTerm(t); } } },
     icon('cpu'), 'Console');
   return h('div', { class: 'tab-wrap' }, select);
+}
+/// 617: the build log's tab — icon only (its name in the tooltip), no number, no close box.
+function buildLogTab(t, pane, v) {
+  const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-buildlog' + (t.id === v.selected[pane] ? ' active' : ''),
+    title: 'Build log — how ' + (t.buildlogInfo ? t.buildlogInfo.image : 'its image') + ' was built' + (t.buildlogInfo ? (t.buildlogInfo.state === 'done' ? ', ' : ' (it failed), ') + when(t.buildlogInfo.finishedAt) : '') + ': the steps and their output (read-only)',
+    'aria-label': 'Build log',
+    'data-term': String(t.id), 'data-buildlog-tab': t.sandbox,
+    on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); } } },
+    icon('list-checks'));
+  return h('div', { class: 'tab-wrap' }, select);
+}
+/// 617: the build log's tab follows the image's kept log: shown once the page has read that one is kept (a 404 closes
+/// it again), hidden while the image is being built (its new log replaces it when the build ends — `stale`).
+export function syncBuildLogTab(name) {
+  if (!terminalsAllowed() || !name) return;
+  const image = sandboxImage(name);
+  const building = !!image && (state.preps || []).some((p) => p.image === image && (p.state === 'running' || p.state === 'cancelling'));
+  const seen = (state.blogChecked = state.blogChecked || new Set());
+  const was = (state.blogBuilding = state.blogBuilding || new Set());
+  const stale = was.has(name) && !building;           // a build of its image just ended: its new log replaces the tab
+  if (building) was.add(name); else was.delete(name);
+  if (building || stale) { for (const t of pageTerminals(name).filter((x) => x.buildlog)) closeTerminal(t.id); seen.delete(name); }
+  if (building || seen.has(name)) return;
+  seen.add(name);
+  // Only when one is kept (no tab that would only say "none"); the tab draws what was read here.
+  api('sandboxes/' + name + '/build-log').then((log) => {
+    if (pageTerminals(name).some((t) => t.buildlog)) return;
+    openBuildLogTerminal(name, log);
+  }).catch(() => { /* none kept (404), or not now: no tab */ });
 }
 /// 617: tab zero exists exactly while the sandbox's VM is powered on (booting, running, paused); it goes when it shuts
 /// down, sleeps or hibernates, and comes back at the next power-on. A start under way (an agent's terminal still

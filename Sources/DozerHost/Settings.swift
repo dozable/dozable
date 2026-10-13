@@ -449,7 +449,7 @@ public struct DozerSettings: Sendable {
                   "After Start the page stays on tab zero, Console (the kernel and vminitd), and marks the agent's tab when it is ready; false (the default): it switches to the agent's tab as soon as that has drawn its screen.",
                   applies: .now),
             .init("ui", "confirm_shutdown", .bool, .bool(true),
-                  "Shut Down asks first (its dialog's \"don't ask again\" sets this to false). Reset and Remove always ask for the name.",
+                  "Shut Down asks first (its dialog's \"don't ask again\" sets this to false). Reset and Remove always ask with a box to tick.",
                   applies: .now),
             .init("ui", "split_default", .choice(["shell", "watch", "attach", "dialog"]), .string("shell"),
                   "What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left terminal's session), attach (a second, shared view of it), dialog (choose each time).",

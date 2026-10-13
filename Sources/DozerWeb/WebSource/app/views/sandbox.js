@@ -8,7 +8,7 @@ import { act, actOrThrow, transitionOf } from '../core/operations.js';
 import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes.js';
 import { saveSetting, setting } from '../core/settings.js';
 import { state } from '../core/state.js';
-import { pageTerminals, sview, terminals } from '../core/terminals.js';
+import { isAux, pageTerminals, sview, terminals } from '../core/terminals.js';
 import { isRemote } from '../core/session.js';
 import { accountDialog, credentialBanner, keyEntry } from '../components/accounts.js';
 import { chip, panel, stat, table } from '../components/blocks.js';
@@ -26,7 +26,7 @@ import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncConsoleTab } from './sandbox-terminals.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
@@ -112,6 +112,8 @@ export async function refreshSandbox() {
     takeArrival(name);
     // 617: tab zero (Console) follows the VM's power.
     syncConsoleTab(name, d.info.phase);
+    // 617: and the build log's small tab, to its left, follows the image's kept build log.
+    syncBuildLogTab(name);
     // An arrival that found it under way restores once it has settled (never over a tab opened since).
     const sv = sview(name);
     if (sv.deferred && !sv.restoring && !d.info.busy && d.info.phase !== 'booting' && !opRunningFor(name)) {
@@ -139,7 +141,7 @@ export async function prefetchSandbox(name) {
   } catch (_) { /* the page reads it as usual */ }
 }
 /// The page's terminals that are a session's (617: never tab zero, the console).
-function sessionTerminals(name) { return pageTerminals(name).filter((t) => t.mode !== 'console'); }
+function sessionTerminals(name) { return pageTerminals(name).filter((t) => !isAux(t)); }
 /// On arriving at a sandbox's page: an addressed session (#/sandbox/NAME/SESSION, from the grid)
 /// gets its tab — opened, or selected; otherwise, when the sandbox runs and its own session runs,
 /// the page attaches to it (explicit viewing of a live VM, which keeps nothing alive the VM does

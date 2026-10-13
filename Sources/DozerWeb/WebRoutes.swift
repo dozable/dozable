@@ -61,6 +61,8 @@ public enum WebRoute: Equatable, Sendable {
     // 593 — the Boot log (WebBootLogs.swift): the kept boots, and one of them rendered (read-only).
     case bootLogs(String)               // GET  /api/v1/sandboxes/{name}/boots
     case bootLog(String, Int)           // GET  /api/v1/sandboxes/{name}/boots/{n}   (1 = the latest; 1–99)
+    // 617 — the build log of the sandbox's image (WebBootLogs.swift), rendered (read-only).
+    case buildLog(String)               // GET  /api/v1/sandboxes/{name}/build-log
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {defaultImage, account}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -224,6 +226,7 @@ public enum WebRoute: Equatable, Sendable {
             case "terminal-socket": return .terminalSocket(rest[1])
             case "layout": return .terminalLayout(rest[1])
             case "boots": return .bootLogs(rest[1])
+            case "build-log": return .buildLog(rest[1])
             default: return nil
             }
         case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "boots":

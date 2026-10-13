@@ -73,7 +73,7 @@ import { renderTryPrep, viewTry } from './app/views/try.js';
 import './app/views/sandbox-dialogs.js';
 import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout.js';
 import './app/views/sandbox-network.js';
-import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith, syncConsoleTab } from './app/views/sandbox-terminals.js';
+import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions.js';
 import { viewSettings } from './app/views/settings.js';
@@ -140,7 +140,7 @@ provide({
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openSavedTerminal, openWizardModal, pageFailure,
   paintCover, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTermEmpty, paintTransition,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,
   viewTry, wizardStopPolling,
 });

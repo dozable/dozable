@@ -351,13 +351,24 @@ public struct ImageBaker: Sendable {
                 try Task.checkCancellation()
                 // 593: the step's own output, live — a tail of it, as inert text, at most 4 lines a second.
                 let tail = OutputTail { events(.output($0)) }
-                let r = try await timed("step: \(step.name)") {
-                    try await Sandbox.exec(on: c, step.argv,
-                                           environment: BakeEnvironment.scrubbed(step.environment.merging(Self.userEnv(step.user, imageSpec)) { a, _ in a }.merging(netEnv) { a, _ in a }),
-                                           workingDirectory: "/", privileged: false, timeout: step.timeoutSeconds, user: step.user,
-                                           onOutput: { tail.add($0) })
+                // 617: and all of it, for the image's build log (the step's lines, in the order they came).
+                let whole = StepOutputLines()
+                let label = "step: \(step.name)"
+                let r: ExecResult
+                do {
+                    r = try await timed(label) {
+                        try await Sandbox.exec(on: c, step.argv,
+                                               environment: BakeEnvironment.scrubbed(step.environment.merging(Self.userEnv(step.user, imageSpec)) { a, _ in a }.merging(netEnv) { a, _ in a }),
+                                               workingDirectory: "/", privileged: false, timeout: step.timeoutSeconds, user: step.user,
+                                               onOutput: { tail.add($0); whole.add($0) })
+                    }
+                } catch {
+                    tail.flush()
+                    events(.stepOutput(label, lines: whole.finish()))
+                    throw error
                 }
                 tail.flush()
+                events(.stepOutput(label, lines: whole.finish()))
                 guard r.exitCode == 0 else {
                     throw SandboxError.commandFailed(command: "bake step \(step.name)", exitCode: r.exitCode, output: r.output + r.errorOutput)
                 }

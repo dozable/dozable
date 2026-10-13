@@ -986,7 +986,7 @@ What you can do from it:
 | **Accounts & keys** | Make an account the default; verify one; remove one; keep-alive on or off. |
 | **Metrics** | Filter by image, time and steps; download the rows as CSV. |
 
-Reset, remove, revert and every delete ask you to **type the name** first. Shut down keeps the
+In the dashboard, reset, remove, revert and every delete ask you to **tick a box** first. Shut down keeps the
 disk, so it asks with a plain confirmation; "don't ask again" sets the setting
 `ui.confirm_shutdown = false` (the **Settings** page turns it back on). An
 operation's progress shows in the sandbox's row and in its control bar while it runs (the

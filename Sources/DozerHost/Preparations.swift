@@ -285,6 +285,8 @@ final class Preparation: @unchecked Sendable {
     private var steps: [PreparationStep] = []
     private var open: [String: Date] = [:]
     private var lastOutput: [String] = []
+    /// 617: each bake step's whole output — the image's build log (`BuildLogs`), never sent to a client.
+    private var sections: [BuildLog.Section] = []
     /// Timed steps a run of this image takes (the last run's count, else the image spec's plan).
     let planned: Int?
     /// The last successful run of this image in this store (its steps' times) — nil: the first time.
@@ -307,6 +309,22 @@ final class Preparation: @unchecked Sendable {
 
     var state: String { lock.withLock { _state } }
     var isRunning: Bool { lock.withLock { _state == "running" || _state == "cancelling" } }
+
+    /// 617: a bake step's whole output (`SandboxEvent.stepOutput`, by way of `HostCore.buildOutputSink`).
+    func addSection(_ label: String, _ lines: [String]) {
+        lock.withLock {
+            sections.append(BuildLog.Section(label: ProgressFormat.trimDigests(label), lines: lines))
+            if sections.count > 200 { sections.removeFirst(sections.count - 200) }
+        }
+    }
+
+    /// 617: what is kept of this preparation when it ends.
+    var buildLog: BuildLog {
+        let i = info
+        let kept = lock.withLock { sections }
+        return BuildLog(image: image, state: i.state, startedAt: startedAt, finishedAt: i.finishedAt ?? Date(), seconds: i.seconds,
+                        error: i.error, steps: i.steps ?? [], sections: kept)
+    }
 
     func joined(by who: String) { lock.withLock { if !_requestedBy.contains(who) { _requestedBy.append(who) } } }
 
@@ -529,6 +547,9 @@ extension HostCore {
         }
     }
 
+    /// 617: where a preparation's bake steps' whole output goes (set around the runner; nil: nowhere).
+    @TaskLocal static var buildOutputSink: (@Sendable (String, [String]) -> Void)?
+
     func runningPreparation(_ image: String) -> Preparation? {
         preparations[image].flatMap { $0.isRunning ? $0 : nil }
     }
@@ -561,7 +582,10 @@ extension HostCore {
             var cancelled = false
             let result: Result<Void, Error>
             do {
-                try await run(image, store, emit)
+                // 617: each bake step's whole output reaches this preparation's build log (never a client).
+                try await HostCore.$buildOutputSink.withValue({ label, lines in p.addSection(label, lines) }) {
+                    try await run(image, store, emit)
+                }
                 result = .success(())
             } catch {
                 cancelled = Task.isCancelled || error is CancellationError
@@ -578,6 +602,8 @@ extension HostCore {
         if recentPreparations.count > 12 { recentPreparations.removeLast(recentPreparations.count - 12) }
         if preparations[p.image] === p { preparations[p.image] = nil }
         let i = p.info
+        // 617: the build log — what the sandbox page's build-log tab shows, across restarts.
+        BuildLogs.save(p.buildLog, store: store)
         note(nil, "preparation of \(p.image) \(i.state)" + (i.error.map { ": \($0)" } ?? "") + String(format: " (%.0f s)", i.seconds))
         let failed = ok ? nil : p.finishedSteps.last(where: { $0.kind == "failed" }).map { PreparationStepID.of($0.label) }
         recordPreparation(p.image, started: started, t0: t0, ok: ok, error: i.error, failedStep: failed)
@@ -627,7 +653,14 @@ extension HostCore {
         let sb = try Sandbox(spec: spec)
         let stream = sb.events()
         let relabel = installLabel(image, spec: spec)
-        let forward = Task { for await e in stream { if let he = HostEvent(e, sandbox: image) { emit(relabel(he)) } } }
+        let sink = HostCore.buildOutputSink
+        let forward = Task {
+            for await e in stream {
+                // 617: a step's whole output goes to the preparation's build log only.
+                if case .stepOutput(let label, let lines) = e { sink?(relabel(HostEvent(kind: .step, sandbox: image, text: label)).text ?? label, lines); continue }
+                if let he = HostEvent(e, sandbox: image) { emit(relabel(he)) }
+            }
+        }
         defer { forward.cancel() }
         do {
             try Task.checkCancellation()

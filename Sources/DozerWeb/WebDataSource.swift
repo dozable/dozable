@@ -43,6 +43,8 @@ public protocol DozerWebData: Sendable {
     /// 593: the kept boots (the host's `boot-log`; in-process when no host runs), and one rendered.
     func bootLogs(_ name: String) async throws -> WebBootList
     func bootLog(_ name: String, number: Int) async throws -> WebBootLog
+    /// 617: the build log of the sandbox's image (the host's `build-log`; in-process when no host runs).
+    func buildLog(_ name: String) async throws -> WebBuildLog
     /// 594: the onboarding wizard's facts — the checks, the account step, the images, the preparations,
     /// the store's onboarding record (the settings file's part is the server's).
     func onboarding() async throws -> WebOnboarding
@@ -574,6 +576,10 @@ public final class HostWebData: DozerWebData, @unchecked Sendable {
         var r = HostRequest(.bootLog, name: name)
         r.boot = number
         return WebBootLog(try await query(r).0.decode(BootLogRecord.self))
+    }
+
+    public func buildLog(_ name: String) async throws -> WebBuildLog {
+        WebBuildLog(try await query(HostRequest(.buildLog, name: name)).0.decode(BuildLog.self))
     }
 
     /// `doz attach NAME`, with `--store` when this is not the default store (shell-quoted). The UI

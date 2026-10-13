@@ -84,6 +84,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// latest): its events and kernel console. Read-only; from the sandbox's directory (plus, from the
     /// host, a boot under way).
     case bootLog = "boot-log"
+    /// 617: the build log of a sandbox's image (`BuildLogs`: its last preparation in this store — steps and every
+    /// step's whole output). Read-only; from the store.
+    case buildLog = "build-log"
     /// 595: everything Dozer uses (`ResourceReport`: every byte of the store attributed, memory, CPUs,
     /// traffic, kernels). Read-only; answered in-process when no host runs.
     case resources
@@ -141,7 +144,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
-        case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .resources,
+        case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
@@ -472,7 +475,8 @@ public struct HostEvent: Codable, Equatable, Sendable {
             self.init(kind: .failed, sandbox: sandbox, text: s, milliseconds: ms)
             error = why
         case .output(let s): self.init(kind: .output, sandbox: sandbox, text: s)
-        case .status: return nil
+        // 617: a step's whole output is the preparation's build log, never a client's event (runPreparation takes it).
+        case .status, .stepOutput: return nil
         }
     }
 

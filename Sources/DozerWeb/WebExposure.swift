@@ -45,7 +45,7 @@ public enum WebExposure {
         case .index, .asset, .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd:
             return .page
         case .overview, .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics,
-             .metricsCSV, .events, .doctor, .stream, .operations, .settings, .sessionScreen, .terminalLayout, .bootLogs, .bootLog,
+             .metricsCSV, .events, .doctor, .stream, .operations, .settings, .sessionScreen, .terminalLayout, .bootLogs, .bootLog, .buildLog,
              .onboarding, .preparations, .resources, .bases, .access, .tryCatalog:
             return .read
         case .actions, .policyPreview, .terminalTicket, .terminalSocket, .settingsChange, .terminalLayoutSet, .onboardingConfig,

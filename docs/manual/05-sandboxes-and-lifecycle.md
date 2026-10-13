@@ -173,8 +173,8 @@ Each sandbox has an entry under **Sandboxes** in the sidebar, with a dot in its 
 while it holds memory, a ring when it holds none, a square when it failed). Its page has the lifecycle
 buttons across the top — **Start**, **Pause**, **Resume**, **Sleep**, **Hibernate**, **Wake**, **Shut
 down** — showing only those that make sense in its state, the one that brings it back first;
-**Reset…** and **Remove…** are under **⋯**. **Reset** and **Remove** ask you to type the sandbox's
-name; **Shut down** asks with a plain confirmation ("Don't ask again" sets `ui.confirm_shutdown` to
+**Reset…** and **Remove…** are under **⋯**. **Reset** and **Remove** ask you to tick a box
+first; **Shut down** asks with a plain confirmation ("Don't ask again" sets `ui.confirm_shutdown` to
 `false`).
 
 ## See what you have
