@@ -19,6 +19,7 @@ node-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 node-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 node-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 node-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+node-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -39,6 +40,7 @@ python-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 python-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 python-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 python-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+python-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -59,6 +61,7 @@ go-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 go-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 go-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 go-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+go-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -79,6 +82,7 @@ rust-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 rust-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 rust-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 rust-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+rust-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -99,6 +103,7 @@ java-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 java-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 java-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 java-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+java-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -119,6 +124,7 @@ ruby-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 ruby-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 ruby-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 ruby-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+ruby-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -139,6 +145,7 @@ dotnet-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 dotnet-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 dotnet-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 dotnet-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+dotnet-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -159,6 +166,7 @@ opencode credentials=xai:key agentName=OpenCode package=opencode-ai pinned=1.19.
 smolagents credentials=xai:key agentName=smolagents package=smolagents pinned=1.26.0 sha512-pILyUgYQX7m3SyYmADBbYmx9ab/aRsJ4vOHdhbSw0DlwOQIDMToq8acWqLfkIK0sv0NlttXNjJqwaQQspljiPg==
 adk credentials=google:key agentName=Agent Development Kit package=google-adk pinned=2.11.0 sha512-DShVMBN0VVb5tBVoYVwIai9msoRYD3NVKsPMu/drat96+OilvfeM4r8Y4CCBjrI9jMXgeQ7ejvkMoVGDL78tWQ==
 promptfoo credentials=xai:key agentName=promptfoo package=promptfoo pinned=0.124.1 sha512-Y6fq/WGTL7lPvDsirNSmmmcPLhURwRao03iv8fCoLbFq6H1eqg5VVTmXiap5Jl+fiRaQQZXYMHb2N1gQm1tGyQ==
+clai credentials=xai:key agentName=clai (Pydantic AI) package=clai pinned=2.55.0 sha512-nlbupA+j3uyuetCpA2w1XKDiWfbiPmhOUJmkFGzFr9t4VxCrjL9kD4rsQDZgnqf7xw4Nox1gNr4v/cY99mM9mA==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -179,6 +187,7 @@ ubuntu-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 ubuntu-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 ubuntu-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 ubuntu-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+ubuntu-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -198,6 +207,7 @@ alpine-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 alpine-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 alpine-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 alpine-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+alpine-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -218,3 +228,4 @@ df-0123456789ab-opencode credentials=xai:key agentName=OpenCode package=nil pinn
 df-0123456789ab-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 df-0123456789ab-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 df-0123456789ab-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
+df-0123456789ab-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil

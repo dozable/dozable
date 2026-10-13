@@ -16,6 +16,7 @@ perm model:opencode locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,
 perm model:smolagents locked=false hosts=api.x.ai
 perm model:adk locked=false hosts=generativelanguage.googleapis.com
 perm model:promptfoo locked=false hosts=api.x.ai
+perm model:clai locked=false hosts=api.x.ai
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -59,6 +60,7 @@ agentPermissions opencode ["model:opencode"]
 agentPermissions smolagents ["model:smolagents"]
 agentPermissions adk ["model:adk"]
 agentPermissions promptfoo ["model:promptfoo"]
+agentPermissions clai ["model:clai"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

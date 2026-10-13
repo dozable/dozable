@@ -149,6 +149,17 @@ in a sandbox the key stays on the Mac.
   "telemetry disabled" event each run; no setting stops it, so Dozer refuses it without counting it as a refusal.
 - **Later:** `promptfoo view` (its web viewer) needs a forwarded port.
 
+## clai (Pydantic AI)
+
+Pydantic AI's command line for chatting with models.
+
+- **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
+- **Key:** an xAI API key, through Pydantic AI's OpenAI provider: `OPENAI_BASE_URL` is xAI's API and the key's placeholder
+  is also `OPENAI_API_KEY`. The session starts `clai -m openai:grok-4-1-fast`.
+- **Use:** one question is `clai -m openai:grok-4-1-fast "a question"`.
+- **May reach:** xAI's API.
+- **Later:** `clai web` (its chat page) needs a forwarded port.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

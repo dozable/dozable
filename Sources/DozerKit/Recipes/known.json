@@ -295,6 +295,280 @@
       "status": "coming",
       "reason": "needs a headless Chromium in the image: it crawls with a real browser",
       "checked": "2026-10-14"
+    },
+    {
+      "id": "hermes",
+      "title": "Hermes Agent",
+      "publisher": "Nous Research",
+      "aliases": ["hermes-agent"],
+      "homepage": "https://github.com/NousResearch/hermes-agent",
+      "status": "coming",
+      "reason": "Nous distributes it only through its own installer (a source checkout it sets up with uv), Docker or Nix — its build refuses to make an installable package — so Dozer cannot pin it yet; its gateway, dashboard and browser tools also need a background service, a forwarded port and a headless Chromium",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "garak",
+      "title": "garak",
+      "publisher": "NVIDIA",
+      "homepage": "https://github.com/NVIDIA/garak",
+      "status": "coming",
+      "reason": "its install pulls PyTorch with NVIDIA's CUDA libraries, several GB on linux-arm64 for a sandbox that has no GPU; a CPU-only PyTorch needs a second package index",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "ironclaw",
+      "title": "IronClaw",
+      "publisher": "NEAR AI",
+      "homepage": "https://github.com/nearai/ironclaw",
+      "status": "coming",
+      "reason": "its setup (a database, its encrypted credential vault, its web gateway) is not yet worked out for a sandbox",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "nanoclaw",
+      "title": "NanoClaw",
+      "publisher": "qwibitai",
+      "homepage": "https://github.com/qwibitai/nanoclaw",
+      "status": "coming",
+      "reason": "it runs each session in its own Docker container: needs Docker inside the sandbox",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "autogpt",
+      "title": "AutoGPT Platform",
+      "publisher": "Significant Gravitas",
+      "homepage": "https://github.com/Significant-Gravitas/AutoGPT",
+      "status": "coming",
+      "reason": "a multi-service platform run with Docker: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "steel-browser",
+      "title": "Steel Browser",
+      "publisher": "Steel",
+      "homepage": "https://github.com/steel-dev/steel-browser",
+      "status": "coming",
+      "reason": "a browser API server shipped as a Docker image: needs Docker images as a base, a headless Chromium and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "librechat",
+      "title": "LibreChat",
+      "publisher": "LibreChat",
+      "homepage": "https://github.com/LibreChat-AI/LibreChat",
+      "status": "coming",
+      "reason": "a web app with MongoDB and other services: needs Docker inside the sandbox (or several background services) and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "anythingllm",
+      "title": "AnythingLLM",
+      "publisher": "Mintplex Labs",
+      "homepage": "https://github.com/Mintplex-Labs/anything-llm",
+      "status": "coming",
+      "reason": "a web app shipped as a Docker image: needs Docker images as a base and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "lobehub",
+      "title": "LobeHub",
+      "publisher": "LobeHub",
+      "aliases": ["lobechat"],
+      "homepage": "https://github.com/lobehub/lobehub",
+      "status": "coming",
+      "reason": "a web app shipped as a Docker image: needs Docker images as a base and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "localai",
+      "title": "LocalAI",
+      "publisher": "mudler",
+      "homepage": "https://github.com/mudler/LocalAI",
+      "status": "coming",
+      "reason": "it runs models inside the sandbox: needs a background service, a forwarded port and room for model downloads",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "llmster",
+      "title": "LM Studio llmster",
+      "publisher": "LM Studio",
+      "aliases": ["lms"],
+      "homepage": "https://github.com/lmstudio-ai/lms",
+      "status": "coming",
+      "reason": "a model server daemon: needs a background service and room for model downloads (the Mac's own LM Studio is faster, which a sandbox cannot reach yet)",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "oterm",
+      "title": "oterm",
+      "publisher": "ggozad",
+      "homepage": "https://github.com/ggozad/oterm",
+      "status": "coming",
+      "reason": "a terminal client for Ollama: needs an Ollama it can reach — in the sandbox (a background service) or on the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "ai-shell",
+      "title": "AI Shell",
+      "publisher": "Builder.io",
+      "homepage": "https://github.com/BuilderIO/ai-shell",
+      "status": "coming",
+      "reason": "it reads its key only from its own config file, where Dozer cannot put a key's placeholder yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "butterfish",
+      "title": "Butterfish",
+      "publisher": "bakks",
+      "homepage": "https://github.com/bakks/butterfish",
+      "status": "coming",
+      "reason": "it publishes no linux-arm64 release to pin (it is installed with go install), and it keeps its key in its own file",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "mcpo",
+      "title": "mcpo",
+      "publisher": "Open WebUI",
+      "homepage": "https://github.com/open-webui/mcpo",
+      "status": "coming",
+      "reason": "it serves MCP servers as an HTTP API for other programs: needs a background service and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "contextforge",
+      "title": "ContextForge MCP Gateway",
+      "publisher": "IBM",
+      "homepage": "https://github.com/IBM/mcp-context-forge",
+      "status": "coming",
+      "reason": "a gateway with a web admin: needs a background service and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "toolhive",
+      "title": "ToolHive",
+      "publisher": "Stacklok",
+      "homepage": "https://github.com/stacklok/toolhive",
+      "status": "coming",
+      "reason": "it runs each MCP server in a container: needs Docker or Podman inside the sandbox",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "docker-mcp-gateway",
+      "title": "Docker MCP Gateway",
+      "publisher": "Docker",
+      "homepage": "https://github.com/docker/mcp-gateway",
+      "status": "coming",
+      "reason": "a Docker CLI plugin: needs Docker inside the sandbox",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "metamcp",
+      "title": "MetaMCP",
+      "publisher": "metatool-ai",
+      "homepage": "https://github.com/metatool-ai/metamcp",
+      "status": "coming",
+      "reason": "shipped as a Docker image with a web UI: needs Docker images as a base and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "mcpjungle",
+      "title": "MCPJungle",
+      "publisher": "MCPJungle",
+      "homepage": "https://github.com/mcpjungle/MCPJungle",
+      "status": "coming",
+      "reason": "an MCP registry server: needs a background service and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "dify",
+      "title": "Dify",
+      "publisher": "LangGenius",
+      "homepage": "https://github.com/langgenius/dify",
+      "status": "coming",
+      "reason": "a multi-container platform run with Docker Compose: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "activepieces",
+      "title": "Activepieces",
+      "publisher": "Activepieces",
+      "homepage": "https://github.com/activepieces/activepieces",
+      "status": "coming",
+      "reason": "a web app run with Docker: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "sim",
+      "title": "Sim",
+      "publisher": "Sim Studio",
+      "homepage": "https://github.com/simstudioai/sim",
+      "status": "coming",
+      "reason": "a web app run with Docker Compose: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "windmill",
+      "title": "Windmill",
+      "publisher": "Windmill Labs",
+      "homepage": "https://github.com/windmill-labs/windmill",
+      "status": "coming",
+      "reason": "a platform with PostgreSQL, run with Docker: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "vane",
+      "title": "Vane",
+      "publisher": "ItzCrazyKns",
+      "aliases": ["perplexica"],
+      "homepage": "https://github.com/ItzCrazyKns/Vane",
+      "status": "coming",
+      "reason": "a web app shipped as a Docker image with SearXNG: needs Docker images as a base and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "open-notebook",
+      "title": "Open Notebook",
+      "publisher": "lfnovo",
+      "homepage": "https://github.com/lfnovo/open-notebook",
+      "status": "coming",
+      "reason": "a web app with SurrealDB, run with Docker Compose: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "surfsense",
+      "title": "SurfSense",
+      "publisher": "MODSetter",
+      "homepage": "https://github.com/MODSetter/SurfSense",
+      "status": "coming",
+      "reason": "a multi-service web app: needs Docker inside the sandbox and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "data-formulator",
+      "title": "Data Formulator",
+      "publisher": "Microsoft",
+      "homepage": "https://github.com/microsoft/data-formulator",
+      "status": "coming",
+      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "firecrawl",
+      "title": "Firecrawl (self-hosted)",
+      "publisher": "Firecrawl",
+      "homepage": "https://github.com/firecrawl/firecrawl",
+      "status": "coming",
+      "reason": "self-hosting is a multi-service stack run with Docker: needs Docker inside the sandbox",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "whisper-cpp",
+      "title": "whisper.cpp",
+      "publisher": "ggml",
+      "homepage": "https://github.com/ggml-org/whisper.cpp",
+      "status": "coming",
+      "reason": "it runs a speech model inside the sandbox, with no API key: Dozer's tools all talk to a model provider today, and its models are downloads",
+      "checked": "2026-10-14"
     }
   ]
 }

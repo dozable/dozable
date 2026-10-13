@@ -208,6 +208,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "PF", "frame": "circle" }
+    },
+    {
+      "id": "clai", "kind": "product", "name": "clai (Pydantic AI)",
+      "variants": { "mono": "clai.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/pydantic/pydantic-ai",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and Pydantic publishes no logo terms for others — so a neutral lettermark.",
+      "lettermark": { "text": "PY", "frame": "square" }
     }
   ]
 }
