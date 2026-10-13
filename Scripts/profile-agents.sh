@@ -57,6 +57,7 @@ for a in "$@"; do
     opencode) bin=opencode; task="opencode run \"\$T\"" ;;
     qwen-code) bin=qwen; task="qwen -p \"\$T\"" ;;
     goose) bin=goose; task="goose run --no-session -t \"\$T\"" ;;
+    kilo) bin=kilo; task="kilo run --auto \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

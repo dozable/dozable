@@ -838,7 +838,8 @@ public enum AgentRecipes {
                                           ("opencode.json", PackageResources.opencode_json), ("smolagents.json", PackageResources.smolagents_json), ("adk.json", PackageResources.adk_json), ("promptfoo.json", PackageResources.promptfoo_json), ("clai.json", PackageResources.clai_json),
                                           ("copilot.json", PackageResources.copilot_json),
                                           ("qwen-code.json", PackageResources.qwen_code_json),
-                                          ("goose.json", PackageResources.goose_json)]
+                                          ("goose.json", PackageResources.goose_json),
+                                          ("kilo.json", PackageResources.kilo_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -850,7 +851,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()

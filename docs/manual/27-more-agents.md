@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -11,6 +11,7 @@ doz try opencode         # OpenCode, the open-source agent, on an xAI key
 doz try copilot          # GitHub Copilot CLI with your own xAI key (no Copilot plan)
 doz try qwen-code        # Qwen Code (alias qwen), on an xAI key
 doz try goose            # Goose, on an xAI key
+doz try kilo             # Kilo Code CLI (alias kilocode), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -98,6 +99,18 @@ provider, model `grok-code-fast-1`).
   the sandbox), its telemetry off.
 - **May reach:** xAI's API only.
 - **Use:** `goose` (a session), or `goose run -t "…"` for one task.
+
+## Kilo Code CLI (Kilo Code)
+
+Kilo Code's terminal agent, an OpenCode derivative (`doz try kilo`), on an **xAI API key** (model
+`xai/grok-build-0.1`).
+
+- **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine yet).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Kilo's own gateway and sign-in are not offered.
+- **Set up for you:** its auto-update, sharing and online model list off; its usage telemetry off
+  (`experimental.openTelemetry: false` — Kilo sends it by default); its Kilo Gateway provider off, so it does not call
+  Kilo's servers. In its TUI, Kilo asks before running commands (its own default); `kilo run --auto` does not.
+- **May reach:** xAI's API only.
 
 ## Gemini CLI (Google) — superseded
 

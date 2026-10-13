@@ -244,6 +244,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "G", "frame": "hex" }
+    },
+    {
+      "id": "kilo", "kind": "product", "name": "Kilo Code CLI",
+      "variants": { "mono": "kilo.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/Kilo-Org/kilocode",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "K", "frame": "square" }
     }
   ]
 }
