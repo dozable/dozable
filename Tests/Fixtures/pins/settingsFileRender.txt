@@ -225,6 +225,13 @@
 # (skip | ask; flag -e DOZ_VIBE_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[droid]
+
+# Factory Droid in a droid sandbox: skip its approval prompts (the sandbox is the boundary), or
+# ask as on a Mac.
+# (skip | ask; flag -e DOZ_DROID_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -237,7 +244,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -553,6 +560,11 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # mistral_vibe_version = "latest"
 
+# The Factory Droid the droid image (and every base's Factory Droid image) is prepared with:
+# latest or an exact version like 0.240.1, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# droid_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -817,6 +829,16 @@
 
 # The network of a new mistral-vibe sandbox: agent, bake, locked, open (proxied presets), nat or
 # none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.droid]
+
+# Memory (MiB) of a new droid sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new droid sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

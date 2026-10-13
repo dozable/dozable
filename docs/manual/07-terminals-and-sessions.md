@@ -206,6 +206,7 @@ Which agents say it:
 | Goose | no (checked with 1.54.0) |
 | Kilo Code CLI | no (checked with 7.8.8) |
 | Mistral Vibe | no (checked with 2.26.1) |
+| Factory Droid | 0.240.1 (the version Dozer installs) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

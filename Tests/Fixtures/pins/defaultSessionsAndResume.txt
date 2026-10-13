@@ -34,4 +34,5 @@ resume qwen-code --continue check=nil
 resume goose session --resume check=nil
 resume kilo --continue check=nil
 resume mistral-vibe --continue check=nil
+resume droid --resume --last check=nil
 resume nil 

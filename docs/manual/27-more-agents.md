@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -13,6 +13,7 @@ doz try qwen-code        # Qwen Code (alias qwen), on an xAI key
 doz try goose            # Goose, on an xAI key
 doz try kilo             # Kilo Code CLI (alias kilocode), on an xAI key
 doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
+doz try droid            # Factory Droid (alias factory), on an xAI key, no Factory account
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -126,6 +127,22 @@ Mistral key, which Dozer does not hold yet.
   set the same way (`VIBE_PROVIDERS`, `VIBE_MODELS`, `VIBE_ACTIVE_MODEL`), not in its settings file.
 - **May reach:** xAI's API only.
 - **Use:** `vibe` (a session), or `vibe --trust --auto-approve -p "…"` for one task.
+
+## Factory Droid (Factory)
+
+Factory's terminal agent (`doz try droid`) in its **airgap mode**, on an **xAI API key**: no Factory account, and
+none of Factory's servers — Droid takes the key as a custom model on xAI's API (`grok-build-0.1`).
+
+- **Installed** from Factory's download server (its linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Debian and Node bases (not Alpine: Factory publishes a glibc build only).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Droid reads it each time it starts
+  (`apiKeyHelper: printenv XAI_API_KEY` in `~/.factory/settings.json`), so it is never written into Droid's settings.
+- **Set up for you:** airgap mode (`FACTORY_AIRGAP_ENABLED=1`): without it Droid calls Factory's API (sessions, usage,
+  feature flags) and its telemetry even with your own model; with it, only the model. Its first start in a folder asks
+  whether to trust it.
+- **May reach:** xAI's API only.
+- **Use:** `droid` (a session; with approvals off, `--auto high`), or `droid exec -m custom:grok-build-0.1 "…"` for one
+  task.
 
 ## Gemini CLI (Google) — superseded
 

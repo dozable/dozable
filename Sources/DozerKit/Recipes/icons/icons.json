@@ -262,6 +262,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); Mistral's logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "MV", "frame": "octagon" }
+    },
+    {
+      "id": "droid", "kind": "product", "name": "Factory Droid",
+      "variants": { "mono": "droid.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://factory.ai",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Proprietary; Factory's logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "FD", "frame": "diamond" }
     }
   ]
 }

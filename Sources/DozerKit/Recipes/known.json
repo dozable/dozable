@@ -21,6 +21,16 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "mimo-code",
+      "title": "MiMo Code",
+      "publisher": "Xiaomi",
+      "aliases": ["mimo", "mimocode"],
+      "homepage": "https://mimo.xiaomi.com",
+      "status": "coming",
+      "reason": "its code is MIT, but it comes with Xiaomi's own use restrictions, which need a reading before Dozer installs it for you; technically it runs (0.1.15 answered a turn on an xAI key in a sandbox, its usage tracking off)",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

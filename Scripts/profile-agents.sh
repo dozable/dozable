@@ -59,6 +59,7 @@ for a in "$@"; do
     goose) bin=goose; task="goose run --no-session -t \"\$T\"" ;;
     kilo) bin=kilo; task="kilo run --auto \"\$T\"" ;;
     mistral-vibe) bin=vibe; task="vibe --trust --auto-approve -p \"\$T\"" ;;
+    droid) bin=droid; task="droid exec --auto high -m custom:grok-build-0.1 \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
