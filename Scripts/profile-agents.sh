@@ -55,6 +55,7 @@ for a in "$@"; do
     antigravity) bin=agy; task="agy -p \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
+    llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
     nanobot) bin=nanobot; task="nanobot agent -m \"\$T\"" ;;
     gptme) bin=gptme; task="gptme --non-interactive \"\$T\"" ;;
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;

@@ -204,7 +204,9 @@ public struct SettingDefinition: Sendable {
             guard s.isEmpty || Self.isSubnet(s) else { throw SettingsError("\(key) is an IPv4 subnet like 192.168.64.0/24, or \"\"") }
             return v
         case (.version, .string(let s)):
-            guard s == "latest" || SettingType.isExactVersion(s) else { throw SettingsError("\(key) is latest, or an exact version like 2.1.227") }
+            // 617: a pinned-only recipe (pypi, release-binary) takes its own pin too, which may have two parts (llm 0.36).
+            let pin = AgentRecipes.all.first { !$0.isBuiltin && $0.versionSettingKey == key && AgentRecipe.pinnedOnlyKinds.contains($0.install.kind) }?.install.pinned.version
+            guard s == "latest" || SettingType.isExactVersion(s) || s == pin else { throw SettingsError("\(key) is latest, or an exact version like 2.1.227") }
             return v
         case (.timeZone, .string(let s)):
             guard s == "mac" || SettingType.isTimeZoneName(s) else { throw SettingsError("\(key) is mac, or a time zone like Australia/Sydney") }

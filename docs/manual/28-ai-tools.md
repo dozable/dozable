@@ -51,6 +51,18 @@ A terminal agent with shell, Python and file tools.
 - **May reach:** xAI's API, and OpenAI's public tokenizer file (as nanobot).
 - **Later:** its browser tool needs Chromium in the image; `gptme-server`'s web UI needs a forwarded port.
 
+## llm
+
+Simon Willison's command-line tool for prompting models (and logging every prompt to SQLite).
+
+- **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases), with the
+  `llm-grok` plugin, which talks to xAI.
+- **Key:** an xAI API key (`XAI_API_KEY`, read by the plugin).
+- **Use:** the session is a shell. `llm -m grok-4-1-fast "a question"`; `llm models default grok-4-1-fast` once makes
+  that the default (without it llm asks OpenAI, which Dozer does not offer it).
+- **May reach:** xAI's API.
+- **Later:** `llm install` (more plugins) needs PyPI at run time, which no permission offers yet.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

@@ -127,6 +127,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "GM", "frame": "square" }
+    },
+    {
+      "id": "llm", "kind": "product", "name": "llm",
+      "variants": { "mono": "llm.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/simonw/llm",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); the licence grants no trademark rights and the project publishes no logo terms — so a neutral lettermark.",
+      "lettermark": { "text": "L", "frame": "circle" }
     }
   ]
 }
