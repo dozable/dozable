@@ -94,6 +94,33 @@ final class ToolRecipeKindsTests: XCTestCase {
         XCTAssertThrowsError(try recipe({ i in i["requirements"] = ok }), "requirements are a pypi install's")
     }
 
+    // MARK: Node 24
+
+    /// An npm recipe that needs a newer Node than the bases' gets Dozer's Node 24 under /opt/node on every glibc base —
+    /// the Node base included — and a wrapper; never on musl.
+    func test_aNewerNodeIsInstalledForTheRecipeThatNeedsIt() throws {
+        let r = try XCTUnwrap(AgentRecipes.recipe("openclaw"))
+        XCTAssertEqual(r.install.needsNode, "24")
+        for base in ["node", "debian", "python"] {
+            let steps = AgentImages.recipeInstall(r, r.pinnedRelease!, base: BaseCatalogue.base(base)!.source())
+            XCTAssertEqual(steps.steps.map(\.name).first, "install Node \(NodeRuntime.V24.version) for OpenClaw (/opt/node, checksum-verified)", base)
+            XCTAssertTrue(steps.steps[0].argv.last!.contains(NodeRuntime.V24.sha256))
+            XCTAssertEqual(steps.steps[1].environment["PATH"]?.hasPrefix("/opt/node/bin:"), true)
+            XCTAssertEqual(steps.steps.last?.name, "install the openclaw wrapper (/usr/local/bin/openclaw)")
+        }
+        var o = try AgentRecipeTests.json("openclaw")
+        o["platforms"] = ["glibc": true, "musl": true]
+        XCTAssertThrowsError(try AgentRecipes.decode(AgentRecipeTests.data(o)), "Node 24 is glibc only")
+        o = try AgentRecipeTests.json("openclaw")
+        var i = try XCTUnwrap(o["install"] as? [String: Any])
+        i["needs_node"] = "26"
+        o["install"] = i
+        XCTAssertThrowsError(try AgentRecipes.decode(AgentRecipeTests.data(o)), "Node 24 at most")
+        // An agent whose needs_node is the bases' own keeps the old steps (Gemini CLI on Node: the npm install alone).
+        let g = try XCTUnwrap(AgentRecipes.recipe("gemini"))
+        XCTAssertEqual(AgentImages.recipeInstall(g, g.pinnedRelease!, base: BaseCatalogue.base("node")!.source()).steps.count, 1)
+    }
+
     // MARK: launch
 
     func test_shellSessionAndDotenvFirstRun() throws {

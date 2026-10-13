@@ -831,7 +831,7 @@ public enum AgentRecipes {
     static let compiled: [AgentRecipe] = {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
-                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json)]
+                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -843,7 +843,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -1022,6 +1022,10 @@ extension AgentRecipe {
         if install.requirements != nil, install.kind != "pypi" { throw bad("requirements are a pypi install's") }
         for a in install.npmArgs ?? [] where a.range(of: "^--[a-z][a-z-]*$", options: .regularExpression) == nil { throw bad("npm_args: \(a)") }
         if let n = install.needsNode, Int(n) == nil { throw bad("needs_node is a Node major version") }
+        if let n = install.needsNode.flatMap(Int.init), n > NodeRuntime.major {
+            // 617: Dozer's Node 24 (glibc only: Node publishes no musl arm64 build).
+            guard n <= 24, install.kind == "npm", !platforms.musl else { throw bad("needs_node \(n): an npm install on glibc, Node 24 at most") }
+        }
         for h in install.bakeHosts ?? [] where !AgentRecipes.isExactHost(h) { throw bad("bake host \(h) is not an exact host name") }
         // launch
         guard let first = launch.command.first, !first.isEmpty else { throw bad("launch.command is empty") }

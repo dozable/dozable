@@ -6,6 +6,7 @@ kind antigravity Antigravity CLI
 kind gemini Gemini CLI
 kind grok Grok Build
 kind fabric Fabric
+kind openclaw OpenClaw
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -15,6 +16,7 @@ parse node-antigravity → node antigravity node-antigravity Node.js · Antigrav
 parse gemini → node gemini gemini Node.js · Gemini CLI base-name gemini-sandbox
 parse node-grok → node grok node-grok Node.js · Grok Build base-name node-grok-sandbox
 parse node-fabric → node fabric node-fabric Node.js · Fabric base-name node-fabric-sandbox
+parse node-openclaw → node openclaw node-openclaw Node.js · OpenClaw base-name node-openclaw-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -23,6 +25,7 @@ parse python-antigravity → python antigravity python-antigravity Python · Ant
 parse python-gemini → python gemini python-gemini Python · Gemini CLI base-name python-gemini-sandbox
 parse python-grok → python grok python-grok Python · Grok Build base-name python-grok-sandbox
 parse python-fabric → python fabric python-fabric Python · Fabric base-name python-fabric-sandbox
+parse python-openclaw → python openclaw python-openclaw Python · OpenClaw base-name python-openclaw-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -31,6 +34,7 @@ parse go-antigravity → go antigravity go-antigravity Go · Antigravity CLI bas
 parse go-gemini → go gemini go-gemini Go · Gemini CLI base-name go-gemini-sandbox
 parse go-grok → go grok go-grok Go · Grok Build base-name go-grok-sandbox
 parse go-fabric → go fabric go-fabric Go · Fabric base-name go-fabric-sandbox
+parse go-openclaw → go openclaw go-openclaw Go · OpenClaw base-name go-openclaw-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -39,6 +43,7 @@ parse rust-antigravity → rust antigravity rust-antigravity Rust · Antigravity
 parse rust-gemini → rust gemini rust-gemini Rust · Gemini CLI base-name rust-gemini-sandbox
 parse rust-grok → rust grok rust-grok Rust · Grok Build base-name rust-grok-sandbox
 parse rust-fabric → rust fabric rust-fabric Rust · Fabric base-name rust-fabric-sandbox
+parse rust-openclaw → rust openclaw rust-openclaw Rust · OpenClaw base-name rust-openclaw-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -47,6 +52,7 @@ parse java-antigravity → java antigravity java-antigravity Java · Antigravity
 parse java-gemini → java gemini java-gemini Java · Gemini CLI base-name java-gemini-sandbox
 parse java-grok → java grok java-grok Java · Grok Build base-name java-grok-sandbox
 parse java-fabric → java fabric java-fabric Java · Fabric base-name java-fabric-sandbox
+parse java-openclaw → java openclaw java-openclaw Java · OpenClaw base-name java-openclaw-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -55,6 +61,7 @@ parse ruby-antigravity → ruby antigravity ruby-antigravity Ruby · Antigravity
 parse ruby-gemini → ruby gemini ruby-gemini Ruby · Gemini CLI base-name ruby-gemini-sandbox
 parse ruby-grok → ruby grok ruby-grok Ruby · Grok Build base-name ruby-grok-sandbox
 parse ruby-fabric → ruby fabric ruby-fabric Ruby · Fabric base-name ruby-fabric-sandbox
+parse ruby-openclaw → ruby openclaw ruby-openclaw Ruby · OpenClaw base-name ruby-openclaw-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -63,6 +70,7 @@ parse dotnet-antigravity → dotnet antigravity dotnet-antigravity .NET · Antig
 parse dotnet-gemini → dotnet gemini dotnet-gemini .NET · Gemini CLI base-name dotnet-gemini-sandbox
 parse dotnet-grok → dotnet grok dotnet-grok .NET · Grok Build base-name dotnet-grok-sandbox
 parse dotnet-fabric → dotnet fabric dotnet-fabric .NET · Fabric base-name dotnet-fabric-sandbox
+parse dotnet-openclaw → dotnet openclaw dotnet-openclaw .NET · OpenClaw base-name dotnet-openclaw-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -71,6 +79,7 @@ parse antigravity → debian antigravity antigravity Debian · Antigravity CLI b
 parse debian-gemini → debian gemini debian-gemini Debian · Gemini CLI base-name debian-gemini-sandbox
 parse grok → debian grok grok Debian · Grok Build base-name grok-sandbox
 parse fabric → debian fabric fabric Debian · Fabric base-name fabric-sandbox
+parse openclaw → debian openclaw openclaw Debian · OpenClaw base-name openclaw-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -79,6 +88,7 @@ parse ubuntu-antigravity → ubuntu antigravity ubuntu-antigravity Ubuntu · Ant
 parse ubuntu-gemini → ubuntu gemini ubuntu-gemini Ubuntu · Gemini CLI base-name ubuntu-gemini-sandbox
 parse ubuntu-grok → ubuntu grok ubuntu-grok Ubuntu · Grok Build base-name ubuntu-grok-sandbox
 parse ubuntu-fabric → ubuntu fabric ubuntu-fabric Ubuntu · Fabric base-name ubuntu-fabric-sandbox
+parse ubuntu-openclaw → ubuntu openclaw ubuntu-openclaw Ubuntu · OpenClaw base-name ubuntu-openclaw-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -86,6 +96,7 @@ parse alpine-antigravity → alpine antigravity alpine-antigravity Alpine · Ant
 parse alpine-gemini → alpine gemini alpine-gemini Alpine · Gemini CLI base-name alpine-gemini-sandbox
 parse alpine-grok → alpine grok alpine-grok Alpine · Grok Build base-name alpine-grok-sandbox
 parse alpine-fabric → alpine fabric alpine-fabric Alpine · Fabric base-name alpine-fabric-sandbox
+parse alpine-openclaw → alpine openclaw alpine-openclaw Alpine · OpenClaw base-name alpine-openclaw-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -94,6 +105,7 @@ parse df-0123456789ab-antigravity → df-0123456789ab antigravity df-0123456789a
 parse df-0123456789ab-gemini → df-0123456789ab gemini df-0123456789ab-gemini Dockerfile · Gemini CLI base-name dockerfile-gemini-sandbox
 parse df-0123456789ab-grok → df-0123456789ab grok df-0123456789ab-grok Dockerfile · Grok Build base-name dockerfile-grok-sandbox
 parse df-0123456789ab-fabric → df-0123456789ab fabric df-0123456789ab-fabric Dockerfile · Fabric base-name dockerfile-fabric-sandbox
+parse df-0123456789ab-openclaw → df-0123456789ab openclaw df-0123456789ab-openclaw Dockerfile · OpenClaw base-name dockerfile-openclaw-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

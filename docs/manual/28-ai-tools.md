@@ -12,6 +12,21 @@ doz search gemini        # what Dozer runs with a Google key
 
 A tool that answers and exits opens a **shell** as its session, with the tool on the PATH. Type its commands there.
 
+## OpenClaw
+
+A self-hosted personal agent with shell and file tools. Its own docs recommend running it isolated: in a sandbox its
+tools act on the sandbox, not your Mac.
+
+- **Installed** from the npm registry, integrity-checked, on Node 24, which Dozer installs for it (Debian-based bases
+  only). The image is large (about 1.3 GB).
+- **Key:** a Gemini API key, as Fabric below.
+- **Use:** one headless turn — `openclaw agent exec "a task" --auth-env-only --model google/gemini-2.5-flash`. Its
+  auto-update is off (`OPENCLAW_NO_AUTO_UPDATE`).
+- **May reach:** the Gemini API.
+- **Later:** its Gateway (the TUI, the Control UI on port 18789, chat channels such as Telegram or Slack) is a
+  background service with a web page, which Dozer does not run or forward yet. You can start it by hand in a second
+  session (`openclaw gateway`), but nothing keeps it running and the Control UI is not reachable from the Mac.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

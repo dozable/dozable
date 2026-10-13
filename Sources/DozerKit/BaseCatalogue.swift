@@ -307,6 +307,16 @@ public enum NodeRuntime {
     public static let version = "22.23.3"
     public static let sha256 = "a44aeb94849a299b22df10b9e622ec2f605c2183501bc40590705131de7c740f"
     public static var url: String { "https://nodejs.org/dist/v\(version)/node-v\(version)-linux-arm64.tar.xz" }
+    /// The major `version` is (what the bases' Node and this runtime give an npm recipe).
+    public static let major = 22
+
+    /// 617: Node 24 LTS, for an npm recipe whose `needs_node` is above 22 (OpenClaw needs ≥ 24.16) — installed under
+    /// /opt/node on every glibc base, the Node base included (its own Node 22 stays the sessions'). Checksum-pinned.
+    public enum V24 {
+        public static let version = "24.21.0"
+        public static let sha256 = "6ad1325edbdb5649c379b75a237147a666c95d4f9ae8d340fef2d1575d289ad2"
+        public static var url: String { "https://nodejs.org/dist/v\(version)/node-v\(version)-linux-arm64.tar.xz" }
+    }
 }
 
 /// 617: the Python a `pypi` recipe's venv is made from, whatever the base: python-build-standalone's CPython for
@@ -661,6 +671,21 @@ public enum ImageComposer {
                 fi
                 """)
         }
+    }
+
+    /// 617: Node 24 (`NodeRuntime.V24`) under /opt/node for an npm recipe that needs it, on a glibc base (validated).
+    static func node24Runtime(for agent: String) -> BakeStep {
+        BakeStep.script("install Node \(NodeRuntime.V24.version) for \(agent) (/opt/node, checksum-verified)", """
+            command -v xz >/dev/null 2>&1 || { export DEBIAN_FRONTEND=noninteractive; apt-get install -y --no-install-recommends -o Dpkg::Use-Pty=0 xz-utils; }
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o node.tar.xz '\(NodeRuntime.V24.url)'
+            got=$(sha256sum node.tar.xz | cut -d' ' -f1)
+            [ "$got" = '\(NodeRuntime.V24.sha256)' ] || { echo "checksum mismatch for Node \(NodeRuntime.V24.version): $got" >&2; exit 1; }
+            rm -rf /opt/node
+            mkdir -p /opt/node && tar -xJf node.tar.xz -C /opt/node --strip-components=1 --no-same-owner
+            rm -f node.tar.xz
+            /opt/node/bin/node --version
+            """)
     }
 
     /// `/usr/local/bin/pi`: pi with /opt/node first on its PATH — Node is pi's, not on the sessions' PATH.

@@ -4,6 +4,7 @@ perm model:antigravity locked=false hosts=generativelanguage.googleapis.com
 perm model:google locked=false hosts=generativelanguage.googleapis.com
 perm model:xai locked=false hosts=api.x.ai[/v1/models,/v1/api-key,/v1/chat/completions,/v1/responses] api.x.ai[/$] x.ai
 perm model:fabric locked=false hosts=generativelanguage.googleapis.com
+perm model:openclaw locked=false hosts=generativelanguage.googleapis.com
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -33,6 +34,7 @@ agentPermissions antigravity ["model:antigravity", "update:antigravity", "vendor
 agentPermissions gemini ["model:google", "update:gemini"]
 agentPermissions grok ["model:xai"]
 agentPermissions fabric ["model:fabric"]
+agentPermissions openclaw ["model:openclaw"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

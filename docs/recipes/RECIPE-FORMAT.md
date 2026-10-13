@@ -173,7 +173,7 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 | `package`, `platform_package`, `payload`, `compression` | The npm package(s), the program inside, and `brotli` when it is compressed. |
 | `manifest`, `url` | `manifest-binary`: the manifest's URL; the archive URL, a template with `${{ dozer.build }}`. |
 | `binary` | The program, at `/usr/local/bin/BINARY`. |
-| `needs_node`, `npm_args` | The Node major an npm install needs; extra `npm install` flags. |
+| `needs_node`, `npm_args` | The Node major an npm install needs; extra `npm install` flags. Above 22 (the bases' Node), `24`: Dozer installs Node 24 under `/opt/node` for it on every glibc base, the Node base included, and runs the program on it (`platforms.musl: false`). |
 | `bake_hosts` | Hosts the image preparation reaches beyond the base's registries. |
 | `integrity` | The pinned release's sha512 (`sha512-…`). |
 | `requirements` | `pypi` only: every distribution the tool's venv holds, one string each, `name==version --hash=sha256:<64 hex>` — the package itself and all its dependencies. |

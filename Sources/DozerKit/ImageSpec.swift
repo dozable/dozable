@@ -324,7 +324,14 @@ public enum AgentImages {
         switch r.install.kind {
         case "npm":
             var install = npmInstall(r.install.package!, version: release.version, integrity: release.integrity, extraArgs: r.install.npmArgs ?? [])
-            if base.hasNode {
+            if let n = r.install.needsNode.flatMap(Int.init), n > NodeRuntime.major {
+                // 617: a newer Node than the bases' (OpenClaw: ≥ 24) — Dozer's Node 24 under /opt/node, on any glibc base.
+                steps.append(ImageComposer.node24Runtime(for: r.title))
+                install.environment["PATH"] = "/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+                steps.append(install)
+                steps.append(ImageComposer.nodeWrapper(r.install.binary))
+                hosts.append("nodejs.org")
+            } else if base.hasNode {
                 steps.append(install)
             } else {
                 steps.append(ImageComposer.nodeRuntime(base.packageManager, for: r.title))
