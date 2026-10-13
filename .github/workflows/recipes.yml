@@ -27,7 +27,7 @@ on:
       - 'Scripts/recipe-check.py'
       - '.github/workflows/recipes.yml'
   push:
-    branches: [main, 'feature/617-*']   # TEMPORARY (the first runs on m1b, before the file is on main): removed once green
+    branches: [main]
     paths:
       - 'Sources/DozerKit/Recipes/**'
       - 'profiles/**'
