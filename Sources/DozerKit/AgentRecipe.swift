@@ -834,7 +834,7 @@ public enum AgentRecipes {
     static let compiled: [AgentRecipe] = {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
-                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json)]
+                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json), ("zeroclaw.json", PackageResources.zeroclaw_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -846,7 +846,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -1076,7 +1076,7 @@ extension AgentRecipe {
                 }
                 guard k.range(of: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
                 if f.file.hasSuffix(".toml") {
-                    guard k.contains(".") else { throw bad("first_run TOML key \(k) names its table (table.key)") }
+                    // 617: a key with no table is a top-level key (ZeroClaw's schema_version), written above the first table.
                     if case .object = v { throw bad("first_run TOML value of \(k) is a string, a number or a bool") }
                     if case .array = v { throw bad("first_run TOML value of \(k) is a string, a number or a bool") }
                 }
@@ -1093,7 +1093,7 @@ extension AgentRecipe {
             for a in c.envAliases ?? [] {
                 // 617: the same placeholder under another name — credential-shaped, never the provider's own name, never
                 // a variable the recipe sets itself.
-                guard !isBuiltin, a.range(of: "^[A-Z][A-Z0-9_]*$", options: .regularExpression) != nil, BakeEnvironment.isCredential(a) || a.hasSuffix("_KEY"),
+                guard !isBuiltin, a.range(of: "^[A-Za-z_][A-Za-z0-9_]*$", options: .regularExpression) != nil, BakeEnvironment.isCredential(a) || a.hasSuffix("_KEY"),
                       a != KeyProviders.provider(c.provider)?.env, everyEnvName(a) == false else {
                     throw bad("env alias \(a): a credential-shaped variable (…_KEY), not the provider's own, not one the recipe sets")
                 }

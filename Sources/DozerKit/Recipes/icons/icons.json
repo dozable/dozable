@@ -145,6 +145,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "SG", "frame": "diamond" }
+    },
+    {
+      "id": "zeroclaw", "kind": "product", "name": "ZeroClaw",
+      "variants": { "mono": "zeroclaw.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/zeroclaw-labs/zeroclaw",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); the licence grants no trademark rights and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "ZC", "frame": "hex" }
     }
   ]
 }

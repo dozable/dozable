@@ -162,7 +162,7 @@
               "type": "object", "additionalProperties": false, "required": ["accounts"],
               "properties": {
                 "accounts": { "$ref": "#/$defs/strings" },
-                "env_aliases": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+                "env_aliases": { "type": "array", "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" },
                                  "description": "More guest variables that hold the same placeholder." }
               }
             }

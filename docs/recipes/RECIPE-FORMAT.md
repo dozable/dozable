@@ -204,7 +204,7 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `no_prompts_args` | What turns its own approval prompts off (the sandbox is the boundary). |
 | `passthrough` | First arguments that run it as it is (`--version`, `login`). |
 | `env`, `state_env` | Environment of every run; of its state folders (both baked). |
-| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name). |
+| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; in a TOML file a key with no table (`schema_version`) is a top-level key, written above the first table; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name). |
 | `session_env` | Environment Dozer gives each session when it opens (never baked). |
 | `session` | `shell` for a command-line tool that answers and exits (Fabric, llm): the default session is a login shell (`bash -l`) with the program on its PATH, named for the program. Absent: the session runs `command`. A shell session has no `resume`. |
 | `status` | `osc7501` (it reports its state to Dozer) or `none`. |

@@ -588,6 +588,34 @@ public enum AgentImages {
 
         """#
 
+    /// 617: a first-run TOML key with no table (ZeroClaw's `schema_version`) — written above the first table, only when
+    /// absent; emitted only into such a recipe's helper (the other launchers and bake keys are unchanged).
+    static func hasTopLevelTOML(_ merges: [AgentRecipe.FirstRun]) -> Bool {
+        merges.contains { $0.file.hasSuffix(".toml") && $0.set.keys.contains { !$0.contains(".") } }
+    }
+
+    static let tomlTopPython = #"""
+        def merge_toml_top(f, keys):
+            try:
+                with open(f, encoding='utf-8') as h: text = h.read()
+            except FileNotFoundError:
+                text = ''
+            try:
+                cfg = __import__('tomllib').loads(text)
+            except Exception:
+                return
+            add = [k + ' = ' + toml_value(v) for k, v in sorted(keys.items()) if k not in cfg]
+            if add: put(f, '\n'.join(add) + ('\n' + text if text else '\n'))
+        for m in MERGES:
+            if m['file'].endswith('.toml'):
+                top = {k: v for k, v in m['set'].items() if '.' not in k}
+                if top:
+                    g = os.path.join(home, m['file'][2:]) if m['file'].startswith('~/') else m['file']
+                    merge_toml_top(g, top)
+                    m['set'] = {k: v for k, v in m['set'].items() if '.' in k}
+
+        """#
+
     /// The launcher's helper: each first-run file's keys that are absent are set (JSON: nested objects; TOML: under
     /// their table, a table the file defines some other way is left alone); a file that does not parse is left as it is.
     static func recipeSetupPython(_ merges: [AgentRecipe.FirstRun]) -> String {
@@ -660,7 +688,7 @@ public enum AgentImages {
                     t[key] = v
                     changed = True
                 if changed: put(f, '\n'.join(lines) + '\n')
-            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")for m in MERGES:
+            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")\#(Self.hasTopLevelTOML(merges) ? tomlTopPython : "")for m in MERGES:
                 f = m['file']
                 f = os.path.join(home, f[2:]) if f.startswith('~/') else f
                 (merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")merge_json)(f, m['set'])

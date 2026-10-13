@@ -24,7 +24,7 @@ final class AgentRecipeTests: XCTestCase {
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
 
     func test_everyCompiledRecipeDecodesAndValidates() throws {
-        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt"])
+        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw"])
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
@@ -146,7 +146,7 @@ final class AgentRecipeTests: XCTestCase {
             }
         }
         // Antigravity CLI names undocumented AGY_LLM_GATEWAY_* settings — not checked yet.
-        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "shell-gpt × openrouter", "shell-gpt × vercel-ai-gateway"])
+        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "shell-gpt × openrouter", "shell-gpt × vercel-ai-gateway", "zeroclaw × openrouter", "zeroclaw × vercel-ai-gateway"])
         XCTAssertEqual(experimental, ["grok × openrouter"])
     }
 
@@ -248,7 +248,7 @@ final class AgentRecipeTests: XCTestCase {
         try refused("grok", { $0["default_base"] = "cobol" }, "an unknown default base")
         try refused("grok", { o in o["credentials"] = [["provider": "xai", "accounts": ["mac"]]] }, "a recipe agent takes key accounts only")
         try refused("gemini", { o in var l = o["launch"] as! [String: Any]; l["first_run"] = [["file": "/etc/x.json", "set": ["a": true]]]; o["launch"] = l }, "a first-run file outside ~/")
-        try refused("grok", { o in var l = o["launch"] as! [String: Any]; l["first_run"] = [["file": "~/.grok/config.toml", "set": ["flat": true]]]; o["launch"] = l }, "a TOML key with no table")
+        try refused("grok", { o in var l = o["launch"] as! [String: Any]; l["first_run"] = [["file": "~/.grok/config.toml", "set": ["flat": ["a": 1]]]]; o["launch"] = l }, "a TOML value that is a table (617: a key with no table is a top-level key now)")
         // Between recipes: an alias that is another's id.
         var g = try AgentRecipes.decode(Self.data(Self.json("gemini")))
         g.aliases = ["grok"]

@@ -57,6 +57,7 @@ for a in "$@"; do
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
     shell-gpt) bin=sgpt; task="sgpt \"\$T\"" ;;
+    zeroclaw) bin=zeroclaw; task="zeroclaw agent -a main -m \"\$T\"" ;;
     nanobot) bin=nanobot; task="nanobot agent -m \"\$T\"" ;;
     gptme) bin=gptme; task="gptme --non-interactive \"\$T\"" ;;
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;

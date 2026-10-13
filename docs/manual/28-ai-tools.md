@@ -74,6 +74,19 @@ A command-line assistant (`sgpt`) that answers questions and turns requests into
 - **Use:** the session is a shell. `sgpt "a question"`, `sgpt --shell "find large files"`.
 - **May reach:** xAI's API.
 
+## ZeroClaw
+
+A personal-agent runtime in one Rust program, with shell, file and web tools.
+
+- **Installed** from the project's linux-arm64 release on GitHub, checked against the SHA-512 Dozer recorded (Debian-based
+  bases).
+- **Key:** an xAI API key. ZeroClaw is set up (`~/.zeroclaw/config.toml`, keys written only when not there yet) with one
+  OpenAI-shaped provider pointed at xAI's API, the model `grok-4-1-fast`, and one agent, `main`, at full autonomy — the
+  sandbox is the boundary. The key's placeholder reaches it through ZeroClaw's own environment override.
+- **Use:** the session is `zeroclaw agent -a main`; one headless turn is `zeroclaw agent -a main -m "a task"`.
+- **May reach:** xAI's API.
+- **Later:** its gateway, web dashboard and chat channels need a background service and a forwarded port.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

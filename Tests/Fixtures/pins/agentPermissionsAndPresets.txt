@@ -9,6 +9,7 @@ perm model:nanobot locked=false hosts=api.x.ai
 perm model:gptme locked=false hosts=api.x.ai
 perm model:llm locked=false hosts=api.x.ai
 perm model:shell-gpt locked=false hosts=api.x.ai
+perm model:zeroclaw locked=false hosts=api.x.ai
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -45,6 +46,7 @@ agentPermissions nanobot ["model:nanobot", "vendor:nanobot"]
 agentPermissions gptme ["model:gptme", "vendor:gptme"]
 agentPermissions llm ["model:llm"]
 agentPermissions shell-gpt ["model:shell-gpt"]
+agentPermissions zeroclaw ["model:zeroclaw"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

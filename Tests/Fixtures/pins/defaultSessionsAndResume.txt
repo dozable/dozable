@@ -21,4 +21,5 @@ resume nanobot  check=nil
 resume gptme  check=nil
 resume llm  check=nil
 resume shell-gpt  check=nil
+resume zeroclaw  check=nil
 resume nil 

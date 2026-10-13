@@ -12,6 +12,7 @@ node-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 node-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 node-llm credentials=xai:key agentName=llm package=nil pinned=nil
 node-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+node-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -25,6 +26,7 @@ python-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 python-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 python-llm credentials=xai:key agentName=llm package=nil pinned=nil
 python-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+python-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -38,6 +40,7 @@ go-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 go-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 go-llm credentials=xai:key agentName=llm package=nil pinned=nil
 go-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+go-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -51,6 +54,7 @@ rust-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 rust-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 rust-llm credentials=xai:key agentName=llm package=nil pinned=nil
 rust-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+rust-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -64,6 +68,7 @@ java-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 java-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 java-llm credentials=xai:key agentName=llm package=nil pinned=nil
 java-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+java-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -77,6 +82,7 @@ ruby-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 ruby-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 ruby-llm credentials=xai:key agentName=llm package=nil pinned=nil
 ruby-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+ruby-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -90,6 +96,7 @@ dotnet-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 dotnet-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 dotnet-llm credentials=xai:key agentName=llm package=nil pinned=nil
 dotnet-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+dotnet-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -103,6 +110,7 @@ nanobot credentials=xai:key agentName=nanobot package=nanobot-ai pinned=0.3.5 sh
 gptme credentials=xai:key agentName=gptme package=gptme pinned=0.34.0 sha512-A065mIqznI15ogh80XbWn0poFD8xs85ib5cR+HBavWHzZ+Ga1mXRJSVjQxkYoYXNtvPaQjWC58eqbQz/hZZxzA==
 llm credentials=xai:key agentName=llm package=llm pinned=0.36 sha512-4FONrqeisXCQbzGIznoMxBPT1NcG/QHc8uW5M9zCtif4s1X3R/FDMvfQEmAm0YTUko2Ga/JJkdS96htIWXcykw==
 shell-gpt credentials=xai:key agentName=ShellGPT package=shell-gpt pinned=1.5.1 sha512-wtiD9Hjrac0l5s1jfrEzncC0o7Wl61cJM/22qeBHKya9eYsJ7cxBk0wxRRXilNbON/2lrJaM1onMNWApQcVBNg==
+zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=0.8.5 sha512-z05xgONSrtERDekKh7jpbQuSrKNq2e9W2Zux3W5gDw3z9zKZyW6QHUpA9dGU3do4spzNTDSfeR1PtNjsX5lCmQ==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -116,6 +124,7 @@ ubuntu-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 ubuntu-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 ubuntu-llm credentials=xai:key agentName=llm package=nil pinned=nil
 ubuntu-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+ubuntu-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -128,6 +137,7 @@ alpine-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
 alpine-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 alpine-llm credentials=xai:key agentName=llm package=nil pinned=nil
 alpine-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+alpine-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -141,3 +151,4 @@ df-0123456789ab-nanobot credentials=xai:key agentName=nanobot package=nil pinned
 df-0123456789ab-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 df-0123456789ab-llm credentials=xai:key agentName=llm package=nil pinned=nil
 df-0123456789ab-shell-gpt credentials=xai:key agentName=ShellGPT package=nil pinned=nil
+df-0123456789ab-zeroclaw credentials=xai:key agentName=ZeroClaw package=nil pinned=nil

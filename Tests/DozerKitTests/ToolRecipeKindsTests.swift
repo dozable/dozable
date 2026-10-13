@@ -157,6 +157,45 @@ final class ToolRecipeKindsTests: XCTestCase {
         XCTAssertThrowsError(try recipe(launch: { $0["first_run"] = [["file": "~/.config/fabric/.env", "set": ["A": "$(id)"]]] }))
     }
 
+    /// A TOML first-run key with no table goes above the first table (ZeroClaw's schema_version), only when absent; the
+    /// other recipes' helpers are unchanged.
+    func test_topLevelTOMLFirstRunKey() throws {
+        XCTAssertTrue(AgentImages.recipeSetupPython(AgentRecipes.recipe("zeroclaw")!.launch.firstRun!).contains("merge_toml_top(g, top)"))
+        XCTAssertFalse(AgentImages.recipeSetupPython(AgentRecipes.recipe("grok")!.launch.firstRun!).contains("merge_toml_top"))
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/python3") else { throw XCTSkip("no python3") }
+        let probe = Process()
+        probe.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        probe.arguments = ["-c", "import tomllib"]
+        probe.standardError = FileHandle.nullDevice
+        try probe.run()
+        probe.waitUntilExit()
+        guard probe.terminationStatus == 0 else { throw XCTSkip("this Mac's python3 has no tomllib (3.11+); the VM proof covers it") }
+        let r = try XCTUnwrap(AgentRecipes.recipe("zeroclaw"))
+        let py = AgentImages.recipeSetupPython(r.launch.firstRun!)
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("toml-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        let script = home.appendingPathComponent("setup.py")
+        try py.write(to: script, atomically: true, encoding: .utf8)
+        func run() throws {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            p.arguments = [script.path]
+            p.environment = ["HOME": home.path]
+            try p.run()
+            p.waitUntilExit()
+            XCTAssertEqual(p.terminationStatus, 0)
+        }
+        let f = home.appendingPathComponent(".zeroclaw/config.toml")
+        try run()
+        let text = try String(contentsOf: f, encoding: .utf8)
+        XCTAssertTrue(text.hasPrefix("schema_version = 3\n"), text)
+        XCTAssertTrue(text.contains("[providers.models.openai.xai]") && text.contains("uri = \"https://api.x.ai/v1\""), text)
+        try run()
+        XCTAssertEqual(try String(contentsOf: f, encoding: .utf8), text, "a second run changes nothing")
+        XCTAssertFalse(AgentImages.recipeSetupPython(AgentRecipes.recipe("grok")!.launch.firstRun!).contains("merge_toml_top"))
+    }
+
     /// The dotenv helper: absent keys appended, a person's own line (set or commented out) kept, the file made when missing.
     func test_dotenvFirstRunMergesAbsentKeysOnly() throws {
         guard FileManager.default.isExecutableFile(atPath: "/usr/bin/python3") else { throw XCTSkip("no python3") }
