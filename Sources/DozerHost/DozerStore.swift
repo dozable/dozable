@@ -159,6 +159,8 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
         // 596: by the image's AGENT, whatever its base (`python-claude-code` runs claude). 617: its recipe's command,
         // named by its short name (claude, pi, codex, gemini, grok).
         guard let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name) })?.agent.recipe else { return ("shell", ["bash", "-l"]) }
+        // 617: a command-line tool that answers and exits (Fabric, llm) opens a login shell, named for the tool.
+        if r.launch.session == "shell" { return (r.shortName, ["bash", "-l"]) }
         return (r.shortName, r.launch.command)
     }
 

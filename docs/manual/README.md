@@ -30,6 +30,7 @@ both.
 | [Agents and accounts](09-agents-and-accounts.md) | use Claude Code or pi, add accounts, change what the agent is told |
 | [Trying agents, and what Dozer supports](26-try-and-search.md) | try an agent in one command (`doz try`), check what Dozer runs (`doz search`), see a plan before anything is made (`--dry-run`) |
 | [More agents](27-more-agents.md) | run Antigravity CLI, Grok Build or Gemini CLI with an API key — what each may reach, what is kept out, whether it is current |
+| [Other AI tools](28-ai-tools.md) | AI tools that are not coding agents (Fabric, …) — tried like an agent, each on an API key |
 | [Codex](24-codex.md) | run OpenAI's Codex on your ChatGPT plan (Dozer's own sign-in) or an OpenAI key — the token never enters the sandbox |
 | [Signing in from a sandbox](11-signing-in-from-a-sandbox.md) | let a tool in a sandbox sign in through your Mac's browser |
 | [GitHub as you](18-github.md) | let git and gh in a sandbox use your GitHub login — read-only or with push — without the token entering it |

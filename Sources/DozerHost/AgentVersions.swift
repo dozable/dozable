@@ -45,6 +45,7 @@ public struct NpmRegistry: Sendable {
     /// 617: the release info over HTTPS (`base`: the npm registry).
     public static func httpReleaseInfo(_ base: URL, timeout: TimeInterval = 20) -> ReleaseInfoLookup {
         { r, release in
+            if AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) { return ReleaseInfo(released: nil, deprecated: nil) }
             if r.install.kind == "manifest-binary" {
                 guard let s = AgentImages.manifestArchiveURL(r, release), let url = URL(string: s) else { return ReleaseInfo(released: nil, deprecated: nil) }
                 var req = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: timeout)
@@ -534,6 +535,14 @@ public enum AgentVersions {
                 update(image, store) { $0.failedAt = now; $0.lastError = f.error }
             }
             f.looked = true
+            return f
+        }
+        // 617: a pypi or release-binary recipe is prepared at its pin only (its requirements lock or download is for that
+        // release) — nothing is looked up, and a setting naming another version says so.
+        if let r = AgentRecipes.recipe(image), AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) {
+            if want != "latest", want != r.install.pinned.version {
+                f.error = "\(r.title) is prepared at the release its recipe pins (\(r.install.pinned.version)), not \(want)"
+            }
             return f
         }
         guard let package = AgentImages.package(image), let npm = registry.lookup else { return f }

@@ -91,6 +91,15 @@
       "allowed": "lettermark", "checked": "2026-10-13",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and the project publishes no logo terms — so a neutral lettermark.",
       "lettermark": { "text": "π", "frame": "octagon" }
+    },
+    {
+      "id": "fabric", "kind": "product", "name": "Fabric",
+      "variants": { "mono": "fabric.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/danielmiessler/Fabric",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and the project publishes no logo terms — so a neutral lettermark.",
+      "lettermark": { "text": "F", "frame": "circle" }
     }
   ]
 }

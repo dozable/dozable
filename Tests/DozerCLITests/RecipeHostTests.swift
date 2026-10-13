@@ -61,7 +61,7 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(project("grok").chosenImage, "grok", "the agent's own default base")
         XCTAssertEqual(project("gemini", base: "python").chosenImage, "python-gemini")
         XCTAssertNil(project("grok").problem())
-        XCTAssertEqual(project("nope").problem(), "agent: claude-code, pi, codex, antigravity, gemini, grok or none")
+        XCTAssertEqual(project("nope").problem(), "agent: claude-code, pi, codex, antigravity, gemini, grok, fabric or none")
     }
 
     func testCreateArgumentsTakeTheNewAgentsAndTheirDefaultBase() throws {

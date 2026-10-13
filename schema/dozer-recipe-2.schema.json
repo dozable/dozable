@@ -213,7 +213,7 @@
         "config": {
           "type": "object", "additionalProperties": false, "required": ["kind", "binary"],
           "properties": {
-            "kind": { "enum": ["builtin", "npm", "npm-platform-binary", "manifest-binary"] },
+            "kind": { "enum": ["builtin", "npm", "npm-platform-binary", "manifest-binary", "pypi", "release-binary"] },
             "builtin": { "type": "boolean" },
             "package": { "type": "string" },
             "platform_package": { "type": "string" },
@@ -225,7 +225,12 @@
             "manifest": { "type": "string", "pattern": "^https://" },
             "url": { "type": "string", "pattern": "^https://" },
             "bake_hosts": { "type": "array", "items": { "$ref": "#/$defs/host" } },
-            "integrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" }
+            "integrity": { "type": "string", "pattern": "^sha512-[A-Za-z0-9+/]+=*$" },
+            "requirements": {
+              "type": "array", "minItems": 1,
+              "description": "pypi: every distribution the venv holds, each name==version --hash=sha256:<64 hex>.",
+              "items": { "type": "string", "pattern": "^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?==[A-Za-z0-9.+!_-]+ --hash=sha256:[0-9a-f]{64}$" }
+            }
           }
         }
       }
@@ -248,6 +253,7 @@
             "state_env": { "$ref": "#/$defs/stringMap" },
             "first_run": { "type": "array", "items": { "$ref": "#/$defs/firstRun" } },
             "session_env": { "$ref": "#/$defs/stringMap" },
+            "session": { "enum": ["shell"], "description": "shell: the default session is a login shell with the program on its PATH (a tool that answers and exits)." },
             "status": { "enum": ["osc7501", "none"] },
             "resume": { "$ref": "#/$defs/strings" },
             "resume_check": { "type": "string" },

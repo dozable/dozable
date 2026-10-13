@@ -65,6 +65,8 @@ for a in "$@"; do
     gemini) bin=gemini; task="gemini -p \"\$T\"" ;;
     grok) bin=grok; task="grok -p \"\$T\"" ;;
     antigravity) bin=agy; task="agy -p \"\$T\"" ;;
+    # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
+    fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     *) echo "profile-agents: no scripted task for $a — add one here" >&2; rc=2; continue ;;
   esac
   old=$(trial); [ -n "$old" ] && doz rm "$old" --yes >/dev/null 2>&1

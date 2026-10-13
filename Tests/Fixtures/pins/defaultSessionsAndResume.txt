@@ -15,4 +15,5 @@ resume codex resume --last check=nil
 resume antigravity --continue check=nil
 resume gemini --resume latest check=nil
 resume grok  check=nil
+resume fabric  check=nil
 resume nil 

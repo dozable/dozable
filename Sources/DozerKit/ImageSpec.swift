@@ -227,7 +227,8 @@ public struct AgentRelease: Sendable, Codable, Equatable, Hashable {
     /// integrity — nothing a registry answer could use to break out of the script's quotes.
     public var isWellFormed: Bool {
         version.count <= 64 && integrity.count <= 200
-            && version.range(of: #"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$"#, options: .regularExpression) != nil
+            // 617: a PyPI release may have two parts (llm 0.36).
+            && version.range(of: #"^\d+\.\d+(\.\d+)?([-+][0-9A-Za-z.-]+)?$"#, options: .regularExpression) != nil
             && integrity.range(of: #"^sha512-[A-Za-z0-9+/]+={0,2}$"#, options: .regularExpression) != nil
     }
 
@@ -334,6 +335,12 @@ public enum AgentImages {
             }
         case "manifest-binary":
             steps.append(manifestBinaryInstall(r, release))
+        case "pypi":
+            steps.append(pythonRuntime(for: r.title))
+            steps.append(pypiInstall(r, release))
+            hosts += PythonRuntime.bakeHosts + ["pypi.org", "files.pythonhosted.org"]
+        case "release-binary":
+            steps.append(releaseBinaryInstall(r, release))
         default:            // npm-platform-binary (validated)
             steps.append(platformBinaryInstall(r, release, base: base))
         }
@@ -367,6 +374,84 @@ public enum AgentImages {
             chown -R root:root /opt/\(r.id)
             ln -sf \(dest) /usr/local/bin/\(bin)
             rm -rf x pkg.tgz
+            echo "\(r.title) \(release.version) (linux-arm64) installed under /opt/\(r.id), sha256 $(sha256sum \(dest) | cut -d' ' -f1)"
+            """)
+    }
+
+    /// 617: the sha512 check every pinned download gets, in npm's integrity form (python3 — the dev baseline has it).
+    static func sha512Check(_ file: String, _ integrity: String, what: String) -> String {
+        """
+        got="sha512-$(python3 -c 'h=__import__("hashlib").sha512(open(__import__("sys").argv[1],"rb").read()).digest(); print(__import__("base64").b64encode(h).decode(), end="")' "\(file)")"
+        [ "$got" = '\(integrity)' ] || { echo "integrity mismatch for \(what): $got" >&2; exit 1; }
+        """
+    }
+
+    /// 617: Dozer's pinned Python (`PythonRuntime`) under /opt/python, for a pypi recipe's venv.
+    static func pythonRuntime(for agent: String) -> BakeStep {
+        BakeStep.script("install Python \(PythonRuntime.version) for \(agent) (/opt/python, checksum-verified)", """
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o python.tar.gz '\(PythonRuntime.url)'
+            got=$(sha256sum python.tar.gz | cut -d' ' -f1)
+            [ "$got" = '\(PythonRuntime.sha256)' ] || { echo "checksum mismatch for Python \(PythonRuntime.version): $got" >&2; exit 1; }
+            rm -rf /opt/python
+            mkdir -p /opt/python && tar -xzf python.tar.gz -C /opt/python --strip-components=1 --no-same-owner
+            rm -f python.tar.gz
+            chown -R root:root /opt/python
+            /opt/python/bin/python3 --version
+            """)
+    }
+
+    /// 617: a Python tool from PyPI — every distribution in the recipe's requirements, hash-checked by pip
+    /// (`--require-hashes`, nothing else installed: `--no-deps`), the package's own file also against the sha512
+    /// integrity; in its own venv (/opt/<id>/venv) on Dozer's Python, the program linked as /usr/local/bin/<binary>.
+    static func pypiInstall(_ r: AgentRecipe, _ release: AgentRelease) -> BakeStep {
+        let venv = "/opt/\(r.id)/venv", bin = r.install.binary
+        let main = AgentRecipe.Install.wheelName(r.install.package ?? r.id) + "-" + release.version
+        let pip = "\(venv)/bin/pip --disable-pip-version-check --no-input"
+        return BakeStep.script("install \(r.title) \(release.version) (PyPI, every distribution hash-pinned)", """
+            cd "$(mktemp -d)"
+            cat > requirements.txt <<'REQ'
+            \((r.install.requirements ?? []).joined(separator: "\n"))
+            REQ
+            rm -rf /opt/\(r.id)
+            mkdir -p /opt/\(r.id)
+            /opt/python/bin/python3 -m venv \(venv)
+            \(pip) download --no-deps --require-hashes -d dist -r requirements.txt
+            main=$(ls dist | grep -i '^\(main)[-.]' | head -n 1)
+            test -n "$main"
+            \(sha512Check("dist/$main", release.integrity, what: "\(r.install.package ?? r.id) \(release.version)"))
+            \(pip) install --no-index --find-links dist --no-deps --require-hashes -r requirements.txt
+            chown -R root:root /opt/\(r.id)
+            ln -sf \(venv)/bin/\(bin) /usr/local/bin/\(bin)
+            rm -rf dist requirements.txt
+            echo "\(r.title) \(release.version) installed under \(venv), \((r.install.requirements ?? []).count) distributions"
+            """, timeoutSeconds: 1800)
+    }
+
+    /// 617: one program from a release download (`url`, `{version}` in it): a tar.gz or zip unpacked and its `payload`
+    /// taken, or the download itself; sha512-checked against the integrity; under /opt/<id>, linked as /usr/local/bin/<binary>.
+    static func releaseBinaryInstall(_ r: AgentRecipe, _ release: AgentRelease) -> BakeStep {
+        let bin = r.install.binary, dest = "/opt/\(r.id)/\(bin)"
+        let url = (r.install.url ?? "").replacingOccurrences(of: "{version}", with: String(release.version.split(separator: "+")[0]))
+        let unpack: String
+        switch r.install.archive {
+        case "tar.gz": unpack = "mkdir x && tar -xzf dl -C x --no-same-owner\nsrc=x/\(r.install.payload!)"
+        case "zip": unpack = "mkdir x && python3 -c 'import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])' dl x\nsrc=x/\(r.install.payload!)"
+        default: unpack = "src=dl"
+        }
+        return BakeStep.script("install \(r.title) \(release.version) (linux-arm64 release, integrity-pinned)", """
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o dl '\(url)'
+            \(sha512Check("dl", release.integrity, what: "\(r.title) \(release.version)"))
+            \(unpack)
+            test -f "$src"
+            rm -rf /opt/\(r.id)
+            mkdir -p /opt/\(r.id)
+            cp "$src" \(dest)
+            chmod 0755 \(dest)
+            chown -R root:root /opt/\(r.id)
+            ln -sf \(dest) /usr/local/bin/\(bin)
+            rm -rf x dl
             echo "\(r.title) \(release.version) (linux-arm64) installed under /opt/\(r.id), sha256 $(sha256sum \(dest) | cut -d' ' -f1)"
             """)
     }
@@ -479,6 +564,23 @@ public enum AgentImages {
         return script
     }
 
+    /// 617: the dotenv merge (a recipe whose first-run file is `…/.env` — Fabric); only in such a recipe's helper, so the
+    /// other recipes' launchers (and bake keys) are unchanged. KEY=value lines; a key already there (set or commented
+    /// out by the person) is kept; the file is made when missing even with nothing to add.
+    static let dotenvPython = #"""
+        def merge_env(f, keys):
+            try:
+                with open(f, encoding='utf-8') as h: text = h.read()
+            except FileNotFoundError:
+                text = None
+            lines = text.split('\n') if text else []
+            while lines and lines[-1] == '': lines.pop()
+            have = set(l.split('=', 1)[0].strip().lstrip('#').strip() for l in lines if '=' in l)
+            add = [k + '=' + str(v) for k, v in sorted(keys.items()) if k not in have]
+            if add or text is None: put(f, '\n'.join(lines + add) + '\n')
+
+        """#
+
     /// The launcher's helper: each first-run file's keys that are absent are set (JSON: nested objects; TOML: under
     /// their table, a table the file defines some other way is left alone); a file that does not parse is left as it is.
     static func recipeSetupPython(_ merges: [AgentRecipe.FirstRun]) -> String {
@@ -551,10 +653,10 @@ public enum AgentImages {
                     t[key] = v
                     changed = True
                 if changed: put(f, '\n'.join(lines) + '\n')
-            for m in MERGES:
+            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")for m in MERGES:
                 f = m['file']
                 f = os.path.join(home, f[2:]) if f.startswith('~/') else f
-                (merge_toml if f.endswith('.toml') else merge_json)(f, m['set'])
+                (merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")merge_json)(f, m['set'])
             """#
     }
 

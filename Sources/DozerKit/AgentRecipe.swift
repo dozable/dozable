@@ -125,7 +125,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     }
 
     public struct Install: Codable, Sendable, Equatable {
-        /// `builtin` | `npm` | `npm-platform-binary` | `manifest-binary`.
+        /// `builtin` | `npm` | `npm-platform-binary` | `manifest-binary` | 617: `pypi` (a Python package and every
+        /// dependency, hash-pinned, in its own venv on Dozer's pinned Python) | `release-binary` (one program from a
+        /// release download at `url`, `{version}` in it).
         public var kind: String
         /// manifest-binary (617, Antigravity CLI): the vendor's release manifest for linux-arm64 (`{"version", "url",
         /// "sha512"}`), read on the Mac at preparation; the version recorded is `<version>+<build>` from its url.
@@ -149,12 +151,32 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var pinned: Pin
         /// Hosts a bake reaches beyond the bake preset's registries.
         public var bakeHosts: [String]?
+        /// 617 (pypi): every distribution the install puts in its venv, each `name==version --hash=sha256:<hex>` — the
+        /// package itself and all its dependencies, resolved once in a scratch VM; pip installs exactly these, hash-checked.
+        public var requirements: [String]? = nil
 
         enum CodingKeys: String, CodingKey {
-            case kind, package, payload, compression, binary, pinned, manifest, url
+            case kind, package, payload, compression, binary, pinned, manifest, url, requirements
             case platformPackage = "platform_package", needsNode = "needs_node", npmArgs = "npm_args", bakeHosts = "bake_hosts"
         }
+
+        /// 617 (release-binary): how the download is unpacked, read from the url's end — `tar.gz`, `zip`, or `none` (the
+        /// download is the program).
+        public var archive: String {
+            let u = (url ?? "").lowercased()
+            if u.hasSuffix(".tar.gz") || u.hasSuffix(".tgz") { return "tar.gz" }
+            if u.hasSuffix(".zip") { return "zip" }
+            return "none"
+        }
+
+        /// 617 (pypi): a distribution's name as wheel file names spell it (PEP 503 normalised, `-` → `_`).
+        public static func wheelName(_ name: String) -> String {
+            name.lowercased().replacingOccurrences(of: #"[-_.]+"#, with: "_", options: .regularExpression)
+        }
     }
+
+    /// 617: install kinds whose release is the recipe's pin only — nothing is looked up for them (`latest` is the pin).
+    public static let pinnedOnlyKinds: Set<String> = ["pypi", "release-binary"]
 
     public struct Pin: Codable, Sendable, Equatable {
         public var version: String
@@ -175,9 +197,12 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// 617: environment the HOST gives every session at open (never baked — a built-in's image stays byte-identical):
         /// the agent's own switch for its self-update check (pi's `PI_SKIP_VERSION_CHECK`). Never over the caller's value.
         public var sessionEnv: [String: String]?
+        /// 617: `shell` — the default session is a login shell with the program on its PATH, for a command-line tool that
+        /// answers and exits (Fabric, llm) rather than an interactive program; nil: the session runs `command`.
+        public var session: String? = nil
 
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env
+            case command, passthrough, env, session
             case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env"
         }
     }
@@ -790,7 +815,7 @@ public enum AgentRecipes {
     static let compiled: [AgentRecipe] = {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
-                                          ("grok.json", PackageResources.grok_json)]
+                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -802,7 +827,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -943,15 +968,52 @@ extension AgentRecipe {
             }
             guard !platforms.musl else { throw bad("a manifest-binary install pins the glibc build only (platforms.musl false)") }
             guard install.pinned.version.contains("+") else { throw bad("a manifest-binary pin is <version>+<build>") }
+        case "pypi":
+            // 617: the package and every dependency, each pinned with its sha256 (pip --require-hashes), on Dozer's
+            // pinned glibc Python; the package's own distribution also checked against the sha512 integrity.
+            guard !isBuiltin, let p = install.package, install.pinned.integrity != nil, install.platformPackage == nil, install.payload == nil,
+                  install.manifest == nil, install.url == nil, install.compression == nil, install.needsNode == nil, install.npmArgs == nil,
+                  let reqs = install.requirements, !reqs.isEmpty else {
+                throw bad("a pypi install names its package, its integrity and its requirements (and nothing of npm's)")
+            }
+            guard p.range(of: #"^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?$"#, options: .regularExpression) != nil else { throw bad("package \(p) is not a PyPI name") }
+            let line = #"^[A-Za-z0-9]([A-Za-z0-9._-]*[A-Za-z0-9])?==[A-Za-z0-9.+!_-]+ --hash=sha256:[0-9a-f]{64}$"#
+            var names = Set<String>()
+            for r in reqs {
+                guard r.range(of: line, options: .regularExpression) != nil else { throw bad("requirement \(r): name==version --hash=sha256:<64 hex>") }
+                guard names.insert(Install.wheelName(String(r.split(separator: "=")[0]))).inserted else { throw bad("requirement \(r) names a distribution twice") }
+            }
+            guard reqs.contains(where: { Install.wheelName(String($0.split(separator: "=")[0])) == Install.wheelName(p) && $0.contains("==" + install.pinned.version + " ") }) else {
+                throw bad("the requirements pin \(p) at \(install.pinned.version) (the recipe's version)")
+            }
+            guard !platforms.musl else { throw bad("a pypi install runs on Dozer's glibc Python (platforms.musl false)") }
+        case "release-binary":
+            guard !isBuiltin, install.package == nil, install.platformPackage == nil, install.manifest == nil, install.requirements == nil,
+                  install.pinned.integrity != nil, install.compression == nil,
+                  let u = install.url, u.hasPrefix("https://"), u.contains("{version}"), !u.contains("'"), !u.contains(" ") else {
+                throw bad("a release-binary install names its url (https, with {version}) and its integrity")
+            }
+            if install.archive != "none" {
+                guard let p = install.payload, p.range(of: "^[A-Za-z0-9._/-]+$", options: .regularExpression) != nil, !p.contains("..") else {
+                    throw bad("a release-binary archive names the program inside it (payload)")
+                }
+            } else if install.payload != nil {
+                throw bad("a release-binary download that is the program itself has no payload")
+            }
         default:
-            throw bad("install kind builtin, npm, npm-platform-binary or manifest-binary")
+            throw bad("install kind builtin, npm, npm-platform-binary, manifest-binary, pypi or release-binary")
         }
+        if install.requirements != nil, install.kind != "pypi" { throw bad("requirements are a pypi install's") }
         for a in install.npmArgs ?? [] where a.range(of: "^--[a-z][a-z-]*$", options: .regularExpression) == nil { throw bad("npm_args: \(a)") }
         if let n = install.needsNode, Int(n) == nil { throw bad("needs_node is a Node major version") }
         for h in install.bakeHosts ?? [] where !AgentRecipes.isExactHost(h) { throw bad("bake host \(h) is not an exact host name") }
         // launch
         guard let first = launch.command.first, !first.isEmpty else { throw bad("launch.command is empty") }
         if !isBuiltin, first != install.binary { throw bad("launch.command runs \(first), not its binary \(install.binary)") }
+        if let s = launch.session {
+            guard s == "shell", !isBuiltin else { throw bad("launch.session is shell (a recipe agent's), or absent") }
+            guard resume == nil else { throw bad("a shell session has nothing to resume") }
+        }
         let scriptSafe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") }
         for a in launch.command + launch.noPromptsArgs + launch.passthrough + (resume ?? []) where !scriptSafe(a) || a.isEmpty {
             throw bad("an argument holds a quote, a backslash or a newline: \(a)")
@@ -964,10 +1026,18 @@ extension AgentRecipe {
             }
         }
         for f in launch.firstRun ?? [] {
-            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml"), !f.file.contains(".."), scriptSafe(f.file) else {
-                throw bad("first_run file \(f.file): ~/….json or ~/….toml")
+            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml") || f.file.hasSuffix("/.env"), !f.file.contains(".."), scriptSafe(f.file) else {
+                throw bad("first_run file \(f.file): ~/….json, ~/….toml or ~/…/.env")
             }
             for (k, v) in f.set {
+                // 617: a dotenv file (Fabric's ~/.config/fabric/.env): KEY=value lines, never a credential's name.
+                if f.file.hasSuffix("/.env") {
+                    guard k.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k) else {
+                        throw bad("first_run .env key \(k): a variable name that names no credential")
+                    }
+                    guard case .string(let s) = v, scriptSafe(s), !s.contains("\""), !s.contains("$") else { throw bad("first_run .env value of \(k) is a plain string") }
+                    continue
+                }
                 guard k.range(of: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
                 if f.file.hasSuffix(".toml") {
                     guard k.contains(".") else { throw bad("first_run TOML key \(k) names its table (table.key)") }

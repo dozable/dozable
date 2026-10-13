@@ -138,8 +138,10 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var bakeHosts: [String]?
         /// The pinned release's sha512 (npm's integrity form).
         public var integrity: String?
+        /// 617 (pypi): every distribution the venv holds, `name==version --hash=sha256:<hex>`.
+        public var requirements: [String]? = nil
         enum CodingKeys: String, CodingKey {
-            case kind, builtin, package, payload, compression, binary, manifest, url, integrity
+            case kind, builtin, package, payload, compression, binary, manifest, url, integrity, requirements
             case platformPackage = "platform_package", needsNode = "needs_node", npmArgs = "npm_args", bakeHosts = "bake_hosts"
         }
     }
@@ -154,6 +156,8 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var stateEnv: [String: String]
         public var firstRun: [AgentRecipe.FirstRun]?
         public var sessionEnv: [String: String]?
+        /// 617: `shell` — the default session is a login shell (a tool that answers and exits).
+        public var session: String? = nil
         public var status: String
         public var resume: [String]?
         public var resumeCheck: String?
@@ -161,7 +165,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var verify: [AgentRecipe.Check]
         public var settings: AgentRecipe.SettingKeys?
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env, status, resume, verify, settings
+            case command, passthrough, env, status, resume, verify, settings, session
             case noPromptsArgs = "no_prompts_args", stateEnv = "state_env", firstRun = "first_run", sessionEnv = "session_env",
                  resumeCheck = "resume_check"
         }
@@ -473,9 +477,10 @@ extension RecipeDocument {
             install: AgentRecipe.Install(kind: i.kind, manifest: i.manifest, url: i.url.map(Self.toModel), package: i.package,
                                          platformPackage: i.platformPackage, payload: i.payload, compression: i.compression, binary: i.binary,
                                          needsNode: i.needsNode, npmArgs: i.npmArgs,
-                                         pinned: AgentRecipe.Pin(version: args.version.default, integrity: i.integrity), bakeHosts: i.bakeHosts),
+                                         pinned: AgentRecipe.Pin(version: args.version.default, integrity: i.integrity), bakeHosts: i.bakeHosts,
+                                         requirements: i.requirements),
             launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env,
-                                       firstRun: l.firstRun, sessionEnv: l.sessionEnv),
+                                       firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
             credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts) },
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
@@ -520,11 +525,11 @@ extension RecipeDocument {
         caps.append(RecipeCapability(type: T.install, config: .install(Install(
             kind: i.kind, builtin: r.builtin, package: i.package, platformPackage: i.platformPackage, payload: i.payload, compression: i.compression,
             binary: i.binary, needsNode: i.needsNode, npmArgs: i.npmArgs, manifest: i.manifest, url: i.url.map(Self.toFile), bakeHosts: i.bakeHosts,
-            integrity: i.pinned.integrity))))
+            integrity: i.pinned.integrity, requirements: i.requirements))))
         let l = r.launch
         caps.append(RecipeCapability(type: T.launch, config: .launch(Launch(
             command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
-            firstRun: l.firstRun, sessionEnv: l.sessionEnv, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
+            firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
             verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, settings: r.settings))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))
         caps.append(RecipeCapability(type: T.gateways, config: .gateways(Gateways(entries: r.gateways.map { Self.mapGateway($0, Self.toFile) }))))

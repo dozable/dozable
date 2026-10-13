@@ -309,6 +309,20 @@ public enum NodeRuntime {
     public static var url: String { "https://nodejs.org/dist/v\(version)/node-v\(version)-linux-arm64.tar.xz" }
 }
 
+/// 617: the Python a `pypi` recipe's venv is made from, whatever the base: python-build-standalone's CPython for
+/// aarch64 glibc (install_only, stripped), checksum-verified, under /opt/python — so a recipe's hash-pinned wheels are
+/// always for the same interpreter (cp313). The base's own python3 is left alone.
+public enum PythonRuntime {
+    public static let version = "3.13.15"
+    public static let build = "20260929"
+    public static let sha256 = "3807936bef22d3e347454df4f8774c786f98c7caa5e7328425e7b40766a9cff8"
+    public static var url: String {
+        "https://github.com/astral-sh/python-build-standalone/releases/download/\(build)/cpython-\(version)%2B\(build)-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    }
+    /// Where the download is served from (GitHub redirects a release asset to its asset host).
+    public static let bakeHosts = ["github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]
+}
+
 /// 596: what a base contributes to an image spec — resolved (a digest-pinned reference) and described.
 public struct BaseSource: Sendable, Equatable {
     public var reference: String

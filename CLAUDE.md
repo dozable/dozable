@@ -1713,6 +1713,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   before a superseded try), the Quick try cards (`WebTryCatalog.Agent.latest/standing`, superseded last), the index
   (`Entry.lifecycle`, `Entry.latest`), the manual (26). `make agent-currency` (`Scripts/agent-currency.py`) is the
   people's report → `profiles/currency.json`, with TODO lines (a new release → re-profile; deprecated/archived → review).
+- **Other AI tools are recipes too** (617, RT list; the manual's 28): same shape, same rules. Two install kinds for them,
+  both pinned-only (`AgentRecipe.pinnedOnlyKinds`: nothing looked up, `latest` = the pin, `AgentVersions.refreshPackage`
+  returns early): `release-binary` (one program from a release download, `{version}` in the url, tar.gz/zip/raw by the
+  url's end, sha512-checked) and `pypi` (Dozer's own Python — `PythonRuntime`, python-build-standalone 3.13 glibc,
+  sha256-pinned, /opt/python — a venv at /opt/<id>/venv holding EXACTLY `install.requirements`, every line
+  `name==version --hash=sha256:…`, pip `--require-hashes --no-deps`, the package's own file also against the sha512
+  integrity; the lock is resolved once in a scratch VM). `launch.session: shell` makes the default session `bash -l`
+  (a tool that answers and exits: `DozerStore.defaultSession`); a first-run file may be `~/…/.env` (Fabric) — its merge
+  code is emitted only into such a recipe's helper, so the other launchers and bake keys are unchanged
+  (`ToolRecipeKindsTests`). The VM proofs: workspace `probes/617-*/recipes/` (`setup.sh`, `proof.sh TOOL 'CMD'`, a fake
+  provider for xAI + Gemini on 18xxx).
 - **Antigravity CLI** (`antigravity`, alias `agy`; Google's lead agent — Gemini CLI is superseded by it): closed source,
   installed by the `manifest-binary` kind — Google's release manifest (`{version, url, sha512}`) read on the Mac
   (`NpmRegistry.manifest`, `parseManifest`: the url must be the recipe's `url` with `{build}`), the release recorded as

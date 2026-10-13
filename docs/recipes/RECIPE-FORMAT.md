@@ -165,7 +165,7 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 
 | Field | Meaning |
 |---|---|
-| `kind` | `builtin` (Dozer's own installer: Claude Code, pi, Codex), `npm`, `npm-platform-binary` (the linux-arm64 program from a platform package), `manifest-binary` (the maker's release manifest). |
+| `kind` | `builtin` (Dozer's own installer: Claude Code, pi, Codex), `npm`, `npm-platform-binary` (the linux-arm64 program from a platform package), `manifest-binary` (the maker's release manifest), `pypi` (a Python tool and every dependency, hash-pinned — below), `release-binary` (one program from a release download — below). |
 | `builtin` | `true` for the three agents Dozer's own code installs and launches. |
 | `package`, `platform_package`, `payload`, `compression` | The npm package(s), the program inside, and `brotli` when it is compressed. |
 | `manifest`, `url` | `manifest-binary`: the manifest's URL; the archive URL, a template with `${{ dozer.build }}`. |
@@ -173,6 +173,24 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 | `needs_node`, `npm_args` | The Node major an npm install needs; extra `npm install` flags. |
 | `bake_hosts` | Hosts the image preparation reaches beyond the base's registries. |
 | `integrity` | The pinned release's sha512 (`sha512-…`). |
+| `requirements` | `pypi` only: every distribution the tool's venv holds, one string each, `name==version --hash=sha256:<64 hex>` — the package itself and all its dependencies. |
+
+**`pypi`** installs a Python tool from PyPI. The image gets Dozer's own Python (python-build-standalone CPython 3.13 for
+aarch64 glibc, checksum-pinned, under `/opt/python` — the base's python3 is left alone, so the same wheels fit every
+glibc base), a venv at `/opt/PRODUCT/venv`, and in it exactly the `requirements`: pip with `--require-hashes --no-deps`
+downloads each one, checks its sha256, and installs nothing else; the package's own file is also checked against
+`integrity` (its sha512, computed from the download when the recipe is written). `binary` is linked as
+`/usr/local/bin/BINARY`. The lock is written once, in a scratch VM, from pip's own resolver (`pip install --dry-run
+--report` against Dozer's Python, which lists each file and its PyPI sha256). The bake reaches PyPI
+(`pypi.org`, `files.pythonhosted.org`) and GitHub's release hosts for the Python download. glibc only
+(`platforms.musl: false`). A `pypi` recipe is prepared at its pin only: the lock belongs to that release, so nothing is
+looked up and `latest` means the pin.
+
+**`release-binary`** installs one program from a release download: `url` (https, with `${{ kit.args.version }}` in it);
+when it ends in `.tar.gz`/`.tgz` or `.zip` it is unpacked and `payload` names the program inside, otherwise the download
+is the program. Its sha512 is checked against `integrity`; it is placed under `/opt/PRODUCT` and linked as
+`/usr/local/bin/BINARY`. Its download hosts go in `bake_hosts` (GitHub: `github.com` and
+`release-assets.githubusercontent.com`). Like `pypi`, it is prepared at its pin only.
 
 **`com.dozersandbox/launch@1`** — how the agent runs.
 
@@ -182,8 +200,9 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 | `no_prompts_args` | What turns its own approval prompts off (the sandbox is the boundary). |
 | `passthrough` | First arguments that run it as it is (`--version`, `login`). |
 | `env`, `state_env` | Environment of every run; of its state folders (both baked). |
-| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`. |
+| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name). |
 | `session_env` | Environment Dozer gives each session when it opens (never baked). |
+| `session` | `shell` for a command-line tool that answers and exits (Fabric, llm): the default session is a login shell (`bash -l`) with the program on its PATH, named for the program. Absent: the session runs `command`. A shell session has no `resume`. |
 | `status` | `osc7501` (it reports its state to Dozer) or `none`. |
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |

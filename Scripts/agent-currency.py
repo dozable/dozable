@@ -55,6 +55,26 @@ def manifest(recipe):
         pass
     return m["version"], released, None, recipe.get("homepage")
 
+def pypi(package):
+    # 617: a pypi recipe's package — PyPI's latest release and when its files were uploaded.
+    _, body = get("https://pypi.org/pypi/%s/json" % package)
+    d = json.loads(body)
+    v = d["info"]["version"]
+    files = d.get("releases", {}).get(v) or []
+    t = min((f.get("upload_time") or "" for f in files), default="")
+    urls = d["info"].get("project_urls") or {}
+    repo = next((u for u in urls.values() if "github.com" in (u or "")), d["info"].get("home_page"))
+    return v, t[:10] or None, "yanked" if any(f.get("yanked") for f in files) else None, repo
+
+def release(recipe):
+    # 617: a release-binary recipe's GitHub repository (its url) — the latest release's tag and date.
+    m = re.search(r"github\.com/([^/]+)/([^/]+)/releases/", recipe["install"]["url"])
+    if not m:
+        return None, None, None, recipe.get("homepage")
+    _, body = get("https://api.github.com/repos/%s/%s/releases/latest" % (m.group(1), m.group(2)), accept="application/vnd.github+json")
+    d = json.loads(body)
+    return (d.get("tag_name") or "").lstrip("v") or None, (d.get("published_at") or "")[:10] or None, None, "https://github.com/%s/%s" % (m.group(1), m.group(2))
+
 def github(url):
     m = re.search(r"github\.com[/:]([^/]+)/([^/#?]+?)(?:\.git)?(?:[/#?]|$)", url or "")
     if not m:
@@ -89,6 +109,10 @@ def main():
         try:
             if r["install"]["kind"] == "manifest-binary":
                 v, released, dep, repo = manifest(r)
+            elif r["install"]["kind"] == "pypi":
+                v, released, dep, repo = pypi(r["install"]["package"])
+            elif r["install"]["kind"] == "release-binary":
+                v, released, dep, repo = release(r)
             else:
                 v, released, dep, repo = npm(r["install"].get("package") or BUILTIN_PACKAGES[aid])
             err = None
