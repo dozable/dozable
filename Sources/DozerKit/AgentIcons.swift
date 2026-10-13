@@ -95,6 +95,7 @@ public enum AgentIcons {
         "aichat.svg": PackageResources.aichat_svg,
         "tgpt.svg": PackageResources.tgpt_svg,
         "opencode.svg": PackageResources.opencode_svg,
+        "smolagents.svg": PackageResources.smolagents_svg,
     ]
 
     public static let all: [IconEntry] = {

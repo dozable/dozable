@@ -112,6 +112,19 @@ A small terminal chat client.
 - **May reach:** the Gemini API. Its key-less "free" providers are other companies' services, which Dozer does not allow
   by default.
 
+## smolagents
+
+Hugging Face's library for agents that write and run Python, with its `smolagent` command. Its own README says its
+built-in Python executor is not a security boundary and recommends a sandbox — this is one.
+
+- **Installed** from PyPI (with its toolkit and OpenAI extras) with every dependency pinned by its hash, on Dozer's own
+  Python (Debian-based bases).
+- **Key:** an xAI API key, through its OpenAI-compatible model: `smolagent "a task" --model-type OpenAIModel --model-id
+  grok-4-1-fast --api-base https://api.x.ai/v1` (the key's placeholder is also `OPENAI_API_KEY`).
+- **Set up for you:** Hugging Face Hub telemetry off (`HF_HUB_DISABLE_TELEMETRY`).
+- **Use:** the session is a shell.
+- **May reach:** xAI's API. Its web-search tools reach the open web only when you allow it.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

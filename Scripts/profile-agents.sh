@@ -61,6 +61,7 @@ for a in "$@"; do
     zeroclaw) bin=zeroclaw; task="zeroclaw agent -a main -m \"\$T\"" ;;
     aichat) bin=aichat; task="aichat \"\$T\"" ;;
     tgpt) bin=tgpt; task="tgpt -q \"\$T\"" ;;
+    smolagents) bin=smolagent; task="smolagent \"\$T\" --model-type OpenAIModel --model-id grok-4-1-fast --api-base https://api.x.ai/v1" ;;
     nanobot) bin=nanobot; task="nanobot agent -m \"\$T\"" ;;
     gptme) bin=gptme; task="gptme --non-interactive \"\$T\"" ;;
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;

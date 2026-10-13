@@ -181,6 +181,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and the project publishes no logo terms — so a neutral lettermark.",
       "lettermark": { "text": "O", "frame": "square" }
+    },
+    {
+      "id": "smolagents", "kind": "product", "name": "smolagents",
+      "variants": { "mono": "smolagents.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/huggingface/smolagents",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); the licence grants no trademark rights, and Hugging Face's brand needs its permission — so a neutral lettermark.",
+      "lettermark": { "text": "SA", "frame": "hex" }
     }
   ]
 }
