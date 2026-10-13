@@ -24,6 +24,7 @@ perm model:kilo locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,/v1/
 perm model:mistral-vibe locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:droid locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:dirac locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:kimi-code locked=false hosts=api.x.ai[/v1/chat/completions]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -75,6 +76,7 @@ agentPermissions kilo ["model:kilo"]
 agentPermissions mistral-vibe ["model:mistral-vibe"]
 agentPermissions droid ["model:droid"]
 agentPermissions dirac ["model:dirac"]
+agentPermissions kimi-code ["model:kimi-code"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

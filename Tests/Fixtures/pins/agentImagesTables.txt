@@ -27,6 +27,7 @@ node-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 node-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 node-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 dirac credentials=xai:key agentName=Dirac package=dirac-cli pinned=0.5.20 sha512-t2sUPPI9APCTHq+Lwr1IOq1OkubRSIrzB3lHJMMaAT+OLVjAGjWhxVIS/3xFCouBvQHB2xQF/jyVb57bbOjJvw==
+kimi-code credentials=xai:key agentName=Kimi Code package=@moonshot-ai/kimi-code pinned=2.1.1 sha512-xClqcnTQUKgKDbeOGPU78qcwxGzL8wA2rqWuOX3CLpyQ1/NhSX7jAh6hZo/JFwThSX8obkgef3uw/li5JaJNyw==
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -55,6 +56,7 @@ python-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 python-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 python-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 python-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+python-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -83,6 +85,7 @@ go-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 go-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 go-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 go-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+go-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -111,6 +114,7 @@ rust-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 rust-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 rust-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 rust-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+rust-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -139,6 +143,7 @@ java-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 java-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 java-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 java-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+java-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -167,6 +172,7 @@ ruby-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 ruby-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 ruby-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 ruby-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+ruby-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -195,6 +201,7 @@ dotnet-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 dotnet-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 dotnet-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 dotnet-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+dotnet-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -223,6 +230,7 @@ kilo credentials=xai:key agentName=Kilo Code CLI package=@kilocode/cli pinned=7.
 mistral-vibe credentials=xai:key agentName=Mistral Vibe package=mistral-vibe pinned=2.26.1 sha512-KZrMkRaK8CxRmXEgQUadnFakofvUDwysdxDyAVA1EIk+STDpQLfdUZHjT1U3jJYp2lpGXoKUDGnJlLJhJUcWAg==
 droid credentials=xai:key agentName=Factory Droid package=nil pinned=0.240.1 sha512-GmruvHDRWTbSNZ76lfS5iGWSTlekbTicf2EGNkzj/griE3bmR9uIaXqmFqp4fjBibjWlkX9q66BnjXl2B9/5vg==
 debian-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+debian-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -251,6 +259,7 @@ ubuntu-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 ubuntu-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 ubuntu-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 ubuntu-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+ubuntu-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -278,6 +287,7 @@ alpine-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
 alpine-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 alpine-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 alpine-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+alpine-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -306,3 +316,4 @@ df-0123456789ab-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pin
 df-0123456789ab-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 df-0123456789ab-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 df-0123456789ab-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
+df-0123456789ab-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil

@@ -31,6 +31,16 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "junie",
+      "title": "JetBrains Junie CLI",
+      "publisher": "JetBrains",
+      "aliases": ["junie-cli"],
+      "homepage": "https://junie.jetbrains.com",
+      "status": "coming",
+      "reason": "a Java application in a 340 MB release folder: Dozer installs one program file, and its bundled Java runtime does not trust the sandbox's certificate authority yet; its own-key mode (an xAI key, no JetBrains account) reached xAI in a sandbox once both were done by hand",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

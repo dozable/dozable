@@ -208,6 +208,7 @@ Which agents say it:
 | Mistral Vibe | no (checked with 2.26.1) |
 | Factory Droid | 0.240.1 (the version Dozer installs) |
 | Dirac | no (checked with 0.5.20) |
+| Kimi Code | no (checked with 2.1.1) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

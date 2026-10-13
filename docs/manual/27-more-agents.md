@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -15,6 +15,7 @@ doz try kilo             # Kilo Code CLI (alias kilocode), on an xAI key
 doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
 doz try droid            # Factory Droid (alias factory), on an xAI key, no Factory account
 doz try dirac            # Dirac, a Cline-derived agent, on an xAI key
+doz try kimi-code        # Kimi Code (alias kimi), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -157,6 +158,22 @@ xAI model).
   and its self-update off (`DIRAC_NO_AUTO_UPDATE=1`).
 - **May reach:** xAI's API only.
 - **Use:** `dirac` (a session; with approvals off, `--auto-approve-all`), or `dirac --yolo "…"` for one task.
+
+## Kimi Code (Moonshot AI)
+
+Moonshot AI's terminal agent, the successor to kimi-cli (`doz try kimi-code`, or `kimi`), on an **xAI API key**: Kimi
+Code takes any OpenAI-compatible provider in its settings, and Dozer names xAI's API as one (model `grok-build-0.1`).
+Kimi's own models need a Kimi account or a Moonshot key, which Dozer does not hold yet.
+
+- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases (not Alpine: it needs
+  Node 22.19 or later).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Its settings name the variable
+  (`api_key_env`), so the key is read on each request and never written into `~/.kimi-code/config.toml`.
+- **Set up for you:** its telemetry and self-update off (`KIMI_DISABLE_TELEMETRY`, `KIMI_CODE_NO_AUTO_UPDATE`). At each
+  start it asks Moonshot for its public client settings; Dozer keeps that request out quietly, and Kimi Code does
+  without them. Its first start in a folder asks whether to trust it.
+- **May reach:** xAI's API only.
+- **Use:** `kimi` (a session; with approvals off, `--auto`), or `kimi -p "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

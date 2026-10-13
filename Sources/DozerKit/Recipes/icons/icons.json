@@ -280,6 +280,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); no logo terms were found — a neutral lettermark.",
       "lettermark": { "text": "D", "frame": "circle" }
+    },
+    {
+      "id": "kimi-code", "kind": "product", "name": "Kimi Code",
+      "variants": { "mono": "kimi-code.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/MoonshotAI/kimi-code",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); Moonshot's Kimi logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "KC", "frame": "hex" }
     }
   ]
 }

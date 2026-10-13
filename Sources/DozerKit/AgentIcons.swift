@@ -106,6 +106,7 @@ public enum AgentIcons {
         "mistral-vibe.svg": PackageResources.mistral_vibe_svg,
         "droid.svg": PackageResources.droid_svg,
         "dirac.svg": PackageResources.dirac_svg,
+        "kimi-code.svg": PackageResources.kimi_code_svg,
     ]
 
     public static let all: [IconEntry] = {
