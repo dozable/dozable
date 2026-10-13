@@ -321,7 +321,7 @@
       "publisher": "NEAR AI",
       "homepage": "https://github.com/nearai/ironclaw",
       "status": "coming",
-      "reason": "its setup (a database, its encrypted credential vault, its web gateway) is not yet worked out for a sandbox",
+      "reason": "it keeps its model key in its own encrypted store, typed at a prompt, where Dozer cannot put a key's placeholder yet; its service and web UI need a background service and a forwarded port",
       "checked": "2026-10-14"
     },
     {

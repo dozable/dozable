@@ -131,7 +131,7 @@ Google's Python framework for building agents (`adk`).
 
 - **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
 - **Key:** a Gemini API key, read by Google's genai SDK (`GOOGLE_GENAI_USE_VERTEXAI=FALSE`: the API key, never Vertex AI).
-- **Use:** the session is a shell. Write an agent (a folder with `agent.py` defining `root_agent`, and `__init__.py`), then
+- **Use:** the session is a shell. Write an agent (a Python package folder whose agent module defines `root_agent`), then
   `adk run FOLDER` talks to it in the terminal.
 - **May reach:** the Gemini API.
 - **Later:** `adk web` (its dev UI) and `adk api_server` need a forwarded port.
