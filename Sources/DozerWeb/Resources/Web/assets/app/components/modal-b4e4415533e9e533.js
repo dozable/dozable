@@ -7,7 +7,7 @@ import { WIZ } from '../core/wizards-3abae15180cc8b7c.js';
 import { btn } from './button-a9b0357c06093925.js';
 import { callout } from './callout-e08cdc5a5cc374bb.js';
 import { dialog } from './dialog-95ecf7dc813b5568.js';
-import { paintNav } from './nav-98213551b19c7223.js';
+import { paintNav } from './nav-4d7b6d251ae0f6fd.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), viewTry = upcall('viewTry'),
   wizardStopPolling = upcall('wizardStopPolling');

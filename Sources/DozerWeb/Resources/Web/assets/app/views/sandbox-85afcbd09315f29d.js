@@ -10,23 +10,23 @@ import { saveSetting, setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-933851e9be49078e.js';
 import { isRemote } from '../core/session-444bcd7608e10aa5.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-bcc3b20f34a7e2c7.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-93adf2bfb08e23da.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
 import { callout } from '../components/callout-e08cdc5a5cc374bb.js';
 import { confirmAction, confirmWithCheck, dialog } from '../components/dialog-95ecf7dc813b5568.js';
-import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-1c5327830ffb7d8e.js';
+import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-46682df2daa422ac.js';
 import { menuButton, moreMenu } from '../components/menus-899ea287ec89b464.js';
-import { sessionMenuItems } from '../components/session-actions-72309990d91cb049.js';
-import { failureFor, pageFailure, paintRowOps } from '../components/notices-ba8d850523845930.js';
-import { sandboxPill } from '../components/pills-72cd2a421710f20a.js';
-import { agentChip } from '../components/agent-status-27eb280c20b4078d.js';
-import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-de997502b721f8fa.js';
+import { sessionMenuItems } from '../components/session-actions-6d7d6384f371511b.js';
+import { failureFor, pageFailure, paintRowOps } from '../components/notices-e8352beef02d66d2.js';
+import { sandboxPill } from '../components/pills-138e30c7f4fd75c4.js';
+import { agentChip } from '../components/agent-status-f4f5ce0cb2385448.js';
+import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-4eaf172a8969cd10.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-8f60af6e5a520950.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-1f60eadfe645cc73.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-b50428fce5d97caa.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-0f5051107745050b.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-2321b4ce82ac657c.js';
 import { networkPanel } from './sandbox-network-cbcfb233b41f254e.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-e70f00140cf8b60a.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-313e76728d3bcb80.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.

@@ -4,7 +4,7 @@ import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-450cb6573a620304.js';
-import { agentDot, paintAgentStatuses } from './agent-status-27eb280c20b4078d.js';
+import { agentDot, paintAgentStatuses } from './agent-status-f4f5ce0cb2385448.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const renderHostFoot = upcall('renderHostFoot');
 

@@ -11,7 +11,7 @@ import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings-3ae
 import { state } from '../core/state-450cb6573a620304.js';
 import { INPUT_CHUNK, PASTE_CONFIRM_BYTES, PASTE_MAX_BYTES, sview, terminals, termUI } from '../core/terminals-933851e9be49078e.js';
 import { isInt, quietly, utf8 } from '../core/util-1195caf40612902f.js';
-import { bridgeNotice, failureFor } from './notices-ba8d850523845930.js';
+import { bridgeNotice, failureFor } from './notices-e8352beef02d66d2.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
 

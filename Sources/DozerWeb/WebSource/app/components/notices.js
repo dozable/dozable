@@ -94,6 +94,12 @@ export function paintRowOps() {
     } else if (o && o.state === 'interrupted' && Date.now() - oAt < 60000) {
       kind = 'interrupted'; text = o.text;           // 605: ended while doz ui restarted, outcome not seen
     }
+    // 617 (owner): on the sandbox's own page, while the build panel shows the start, the slot says nothing more about
+    // it (the panel is the progress). A failure and the "off → running in N s" result still show here; a row on the
+    // Sandboxes page keeps its running line (no panel there).
+    if (kind === 'running' && el.dataset.banner && [...document.querySelectorAll('[data-start-progress]')].some((p) => p.dataset.startProgress === name)) {
+      kind = 'none'; text = '';
+    }
     const key = kind + '|' + text;
     if (el.dataset.painted === key) continue;
     el.dataset.painted = key;

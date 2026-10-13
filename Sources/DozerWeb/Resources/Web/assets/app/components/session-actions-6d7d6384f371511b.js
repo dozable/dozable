@@ -6,8 +6,8 @@ import { state } from '../core/state-450cb6573a620304.js';
 import { terminals } from '../core/terminals-933851e9be49078e.js';
 import { actOrThrow, waitForOp } from '../core/operations-b157c160346b7775.js';
 import { dialog } from './dialog-95ecf7dc813b5568.js';
-import { keepScrollback, paintCover, reattachTerminals } from './terminal-de997502b721f8fa.js';
-import { failureFor } from './notices-ba8d850523845930.js';
+import { keepScrollback, paintCover, reattachTerminals } from './terminal-4eaf172a8969cd10.js';
+import { failureFor } from './notices-e8352beef02d66d2.js';
 
 const AGENT_SESSIONS = { claude: 'Claude Code', codex: 'Codex', pi: 'pi' };
 

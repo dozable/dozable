@@ -5,12 +5,12 @@ import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act } from '../core/operations-b157c160346b7775.js';
 import { refresh } from '../core/router-ce5dd6bcbdf7c5fe.js';
 import { secretEntryAllowed } from '../core/settings-3ae9fe68f586ce42.js';
-import { accountCommandsNode, accountForm } from '../components/accounts-bcc3b20f34a7e2c7.js';
+import { accountCommandsNode, accountForm } from '../components/accounts-93adf2bfb08e23da.js';
 import { card, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
 import { confirmAction } from '../components/dialog-95ecf7dc813b5568.js';
 import { moreMenu } from '../components/menus-899ea287ec89b464.js';
-import { toast } from '../components/notices-ba8d850523845930.js';
+import { toast } from '../components/notices-e8352beef02d66d2.js';
 
 export async function viewAccounts() {
   const a = await api('accounts');

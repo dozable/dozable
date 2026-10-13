@@ -1794,8 +1794,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   header's "N denied" menu (`deniedChip` → Review in Network), never a banner. A start from a Sandboxes row is the
   plain start; its page shows Console when opened. `WebTerminalUnitTests` (console + quiet decode);
   `probes/617-*/stageE/browser-start-sequence.mjs` (records the page every 100 ms: nothing moves, the stages in
-  order, the bar never back, no vminitd byte on the agent's socket; screenshots 22–25). While it builds the panel is
-  no card: its bar spans the terminal area up to `--build-max` (1100 px). **The build log** (owner: "keep its log as a
+  order, the bar never back, no vminitd byte on the agent's socket; screenshots 22–25). The panel is never a card and
+  is at its final width from its first frame (`.start-progress .sp-box`: the terminal area up to `--build-max`, 1100 px —
+  it used to open as a 720 px card until the preparation's data arrived); while it shows, the action bar's status slot
+  has no running line (`paintRowOps`: a failure and the result still show there; a Sandboxes row keeps its line). **The build log** (owner: "keep its log as a
   small tab to the LEFT of Console"): the library hands each bake step's WHOLE output (`StepOutputLines`, every line in
   order, inert, head 200 + tail 1800) as `SandboxEvent.stepOutput` — never a `HostEvent` (runPreparation passes it to
   `HostCore.buildOutputSink`, a task-local the preparation sets, so no client, host.log or Activity ever sees it); the

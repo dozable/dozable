@@ -312,8 +312,8 @@ name: todo-app</pre></details>
 
 <section>
   <h2>A start, in the terminal area</h2>
-  <p>After Start the page is there at once and nothing moves. While it builds the area IS the build — no card: the bar spans the terminal area’s width up to
-    <code>--build-max</code> (1100 px; wider is hard to read). The terminal area shows, in the same place: the build, while the image is prepared
+  <p>After Start the page is there at once and nothing moves. While it starts the area IS the start — no card, at its final width from the first frame: the bar spans the terminal area up to
+    <code>--build-max</code> (1100 px; wider is hard to read). The action bar’s status slot says nothing while the panel shows (a failure and the result still do). The terminal area shows, in the same place: the build, while the image is prepared
     (<code>.start-progress</code>, <code>components/start-progress.js</code>) — a bar for the whole build that never moves back (steps weighted by this Mac’s last build of the recipe,
     else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then tab zero, Console, when the VM powers on;
     then the agent’s tab once it has drawn its screen (switched to, or a dot). A cached image shows no bar. A failure keeps the area, with the error, the log, Start again and Dismiss.

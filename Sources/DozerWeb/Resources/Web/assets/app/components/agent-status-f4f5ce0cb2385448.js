@@ -5,7 +5,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from './button-a9b0357c06093925.js';
-import { dropPageNotice, pageFailure } from './notices-ba8d850523845930.js';
+import { dropPageNotice, pageFailure } from './notices-e8352beef02d66d2.js';
 
 /// The status of `session` in `sandbox` (null: its program said nothing — Codex, a shell, an older holder).
 export function agentStatusOf(sandbox, session) {

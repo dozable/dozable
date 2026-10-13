@@ -441,9 +441,13 @@ td.bar-cell { min-width: 110px; vertical-align: middle; }
 .sp-failed { margin-top: var(--sp-3); }
 .sp-acts { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
 /* 617: the build panel's bar for the whole build, and its "Step N of M · step · elapsed" line. */
-.start-progress.building { padding: var(--sp-5) var(--sp-5); }
+/* 617 (owner: it opened narrow, then widened): the panel is ALWAYS at its final width — the terminal area up to
+   --build-max, no card — from its first frame, whether or not the preparation's data has arrived yet (the wider rules
+   used to wait for .building, set only once it had). */
+.start-progress { padding: var(--sp-5) var(--sp-5); scrollbar-gutter: stable; }   /* a scrollbar never narrows it either */
+.start-progress .sp-box { width: min(var(--build-max), 100%); background: none; border: 0; box-shadow: none; padding: 0; }
 /* While it builds, the area IS the build (owner: the bar spans the terminal area's width, up to --build-max) — no card. */
-.start-progress.building .sp-box { width: min(var(--build-max), 100%); background: none; border: 0; box-shadow: none; padding: 0; }
+
 .sp-barbox { margin: var(--sp-3) 0 var(--sp-4); }
 progress.sp-bar { display: block; width: 100%; height: 12px; appearance: none; -webkit-appearance: none; border: 0; border-radius: var(--r-pill);
   background: var(--surface-3); overflow: hidden; }

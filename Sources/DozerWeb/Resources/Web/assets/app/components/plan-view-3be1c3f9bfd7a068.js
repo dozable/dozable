@@ -3,7 +3,7 @@
 // the Quick try page draw the SAME plan the CLI's --dry-run prints.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { btn } from './button-a9b0357c06093925.js';
-import { toast } from './notices-ba8d850523845930.js';
+import { toast } from './notices-e8352beef02d66d2.js';
 
 /// The command, copyable (a page served over plain HTTP from another device has no clipboard: the text stays selectable).
 export function planCommand(plan) {

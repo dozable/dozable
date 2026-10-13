@@ -22,12 +22,12 @@ import { secretEntryAllowed } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
 import { callout } from '../components/callout-e08cdc5a5cc374bb.js';
-import { startWithBootView } from '../components/lifecycle-1c5327830ffb7d8e.js';
-import { renderModal, wizardCloseRequest } from '../components/modal-03378fe91a11dfce.js';
-import { renderNavSandboxes } from '../components/nav-98213551b19c7223.js';
-import { prefetchSandbox } from './sandbox-fa14db632ac77e32.js';
-import { pageFailure, toast } from '../components/notices-ba8d850523845930.js';
-import { planCommand, reachList } from '../components/plan-view-e3cec86e86f04a1f.js';
+import { startWithBootView } from '../components/lifecycle-46682df2daa422ac.js';
+import { renderModal, wizardCloseRequest } from '../components/modal-b4e4415533e9e533.js';
+import { renderNavSandboxes } from '../components/nav-4d7b6d251ae0f6fd.js';
+import { prefetchSandbox } from './sandbox-85afcbd09315f29d.js';
+import { pageFailure, toast } from '../components/notices-e8352beef02d66d2.js';
+import { planCommand, reachList } from '../components/plan-view-3be1c3f9bfd7a068.js';
 import { prepCard } from '../components/prep-card-96c72f29e759cc3b.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
