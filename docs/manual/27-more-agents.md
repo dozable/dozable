@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -12,6 +12,7 @@ doz try copilot          # GitHub Copilot CLI with your own xAI key (no Copilot 
 doz try qwen-code        # Qwen Code (alias qwen), on an xAI key
 doz try goose            # Goose, on an xAI key
 doz try kilo             # Kilo Code CLI (alias kilocode), on an xAI key
+doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -111,6 +112,20 @@ Kilo Code's terminal agent, an OpenCode derivative (`doz try kilo`), on an **xAI
   (`experimental.openTelemetry: false` — Kilo sends it by default); its Kilo Gateway provider off, so it does not call
   Kilo's servers. In its TUI, Kilo asks before running commands (its own default); `kilo run --auto` does not.
 - **May reach:** xAI's API only.
+
+## Mistral Vibe (Mistral AI)
+
+Mistral AI's terminal agent (`doz try mistral-vibe`, or `vibe`), on an **xAI API key**: Vibe takes any
+OpenAI-compatible provider, and Dozer names xAI's API as one (model `grok-build-0.1`). Mistral's own models need a
+Mistral key, which Dozer does not hold yet.
+
+- **Installed** from PyPI with every dependency hash-pinned, into its own Python (Debian base; not Alpine).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Vibe's Mistral key and sign-in
+  (`vibe --setup`) are not offered.
+- **Set up for you:** its telemetry, update checks and auto-update off (`VIBE_ENABLE_*`); the provider and model are
+  set the same way (`VIBE_PROVIDERS`, `VIBE_MODELS`, `VIBE_ACTIVE_MODEL`), not in its settings file.
+- **May reach:** xAI's API only.
+- **Use:** `vibe` (a session), or `vibe --trust --auto-approve -p "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

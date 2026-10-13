@@ -253,6 +253,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "K", "frame": "square" }
+    },
+    {
+      "id": "mistral-vibe", "kind": "product", "name": "Mistral Vibe",
+      "variants": { "mono": "mistral-vibe.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/mistralai/mistral-vibe",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); Mistral's logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "MV", "frame": "octagon" }
     }
   ]
 }

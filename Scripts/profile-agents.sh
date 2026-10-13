@@ -58,6 +58,7 @@ for a in "$@"; do
     qwen-code) bin=qwen; task="qwen -p \"\$T\"" ;;
     goose) bin=goose; task="goose run --no-session -t \"\$T\"" ;;
     kilo) bin=kilo; task="kilo run --auto \"\$T\"" ;;
+    mistral-vibe) bin=vibe; task="vibe --trust --auto-approve -p \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
@@ -76,13 +77,16 @@ for a in "$@"; do
   esac
   # The release it runs is the one Dozer installs: a recipe agent's pin (exact), a built-in one's latest. The profile
   # is of that release, and a sandbox that reports another (an updater that ran, a wrong install) fails the run.
-  read -r setting want <<EOF2
-$(/usr/bin/python3 - "$REPO/Sources/DozerKit/Recipes/compiled/$a.json" "$a" <<'PY'
+  read -r setting want vcmd <<EOF2
+$(/usr/bin/python3 - "$REPO/Sources/DozerKit/Recipes/compiled/$a.json" "$a" "$bin" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); caps = {c["type"]: c["config"] for c in d["capabilities"]}
 launch, inst = caps["com.dozersandbox/launch@1"], caps["com.dozersandbox/install@1"]
 key = (launch.get("settings") or {}).get("version") or "images.%s_version" % sys.argv[2].replace("-", "_")
-print(key, "latest" if inst.get("builtin") else d["args"]["version"]["default"])
+# How it reports its release: a recipe agent's first verify command (smolagents has no --version); built-ins BIN --version.
+import shlex
+v = (not inst.get("builtin") and (launch.get("verify") or [{}])[0].get("argv")) or [sys.argv[3], "--version"]
+print(key, "latest" if inst.get("builtin") else d["args"]["version"]["default"], shlex.join(v))
 PY
 )
 EOF2
@@ -96,8 +100,10 @@ EOF2
   echo "== $a: the scripted task"
   doz exec "$n" -- sh -c "cd /workspace && printf 'hello\n' > notes.txt && T='$TASK' && timeout ${PROFILE_TASK_SECONDS:-90} $task" > "$W/runs/$a.task.txt" 2>&1
   sleep 5
-  version=$(doz exec "$n" -- "$bin" --version 2>/dev/null | head -1)
   pin=${want%%+*}
+  out=$(doz exec "$n" -- sh -c "$vcmd" 2>/dev/null)
+  version=$(printf '%s\n' "$out" | grep -F -m1 -- "$pin")
+  [ -n "$version" ] || version=$(printf '%s\n' "$out" | head -1)
   if [ "$want" != latest ] && [ "${version#*"$pin"}" = "$version" ]; then
     echo "profile-agents: $a reports \"$version\" — not its pin $pin (an updater ran, or another release was installed)" >&2
     rc=1

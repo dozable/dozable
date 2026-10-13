@@ -103,6 +103,7 @@ public enum AgentIcons {
         "qwen-code.svg": PackageResources.qwen_code_svg,
         "goose.svg": PackageResources.goose_svg,
         "kilo.svg": PackageResources.kilo_svg,
+        "mistral-vibe.svg": PackageResources.mistral_vibe_svg,
     ]
 
     public static let all: [IconEntry] = {

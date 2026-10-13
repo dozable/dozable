@@ -23,6 +23,7 @@ kind copilot GitHub Copilot CLI
 kind qwen-code Qwen Code
 kind goose Goose
 kind kilo Kilo Code CLI
+kind mistral-vibe Mistral Vibe
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -49,6 +50,7 @@ parse node-copilot → node copilot node-copilot Node.js · GitHub Copilot CLI b
 parse qwen-code → node qwen-code qwen-code Node.js · Qwen Code base-name qwen-sandbox
 parse node-goose → node goose node-goose Node.js · Goose base-name node-goose-sandbox
 parse node-kilo → node kilo node-kilo Node.js · Kilo Code CLI base-name node-kilo-sandbox
+parse node-mistral-vibe → node mistral-vibe node-mistral-vibe Node.js · Mistral Vibe base-name node-vibe-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -74,6 +76,7 @@ parse python-copilot → python copilot python-copilot Python · GitHub Copilot 
 parse python-qwen-code → python qwen-code python-qwen-code Python · Qwen Code base-name python-qwen-sandbox
 parse python-goose → python goose python-goose Python · Goose base-name python-goose-sandbox
 parse python-kilo → python kilo python-kilo Python · Kilo Code CLI base-name python-kilo-sandbox
+parse python-mistral-vibe → python mistral-vibe python-mistral-vibe Python · Mistral Vibe base-name python-vibe-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -99,6 +102,7 @@ parse go-copilot → go copilot go-copilot Go · GitHub Copilot CLI base-name go
 parse go-qwen-code → go qwen-code go-qwen-code Go · Qwen Code base-name go-qwen-sandbox
 parse go-goose → go goose go-goose Go · Goose base-name go-goose-sandbox
 parse go-kilo → go kilo go-kilo Go · Kilo Code CLI base-name go-kilo-sandbox
+parse go-mistral-vibe → go mistral-vibe go-mistral-vibe Go · Mistral Vibe base-name go-vibe-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -124,6 +128,7 @@ parse rust-copilot → rust copilot rust-copilot Rust · GitHub Copilot CLI base
 parse rust-qwen-code → rust qwen-code rust-qwen-code Rust · Qwen Code base-name rust-qwen-sandbox
 parse rust-goose → rust goose rust-goose Rust · Goose base-name rust-goose-sandbox
 parse rust-kilo → rust kilo rust-kilo Rust · Kilo Code CLI base-name rust-kilo-sandbox
+parse rust-mistral-vibe → rust mistral-vibe rust-mistral-vibe Rust · Mistral Vibe base-name rust-vibe-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -149,6 +154,7 @@ parse java-copilot → java copilot java-copilot Java · GitHub Copilot CLI base
 parse java-qwen-code → java qwen-code java-qwen-code Java · Qwen Code base-name java-qwen-sandbox
 parse java-goose → java goose java-goose Java · Goose base-name java-goose-sandbox
 parse java-kilo → java kilo java-kilo Java · Kilo Code CLI base-name java-kilo-sandbox
+parse java-mistral-vibe → java mistral-vibe java-mistral-vibe Java · Mistral Vibe base-name java-vibe-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -174,6 +180,7 @@ parse ruby-copilot → ruby copilot ruby-copilot Ruby · GitHub Copilot CLI base
 parse ruby-qwen-code → ruby qwen-code ruby-qwen-code Ruby · Qwen Code base-name ruby-qwen-sandbox
 parse ruby-goose → ruby goose ruby-goose Ruby · Goose base-name ruby-goose-sandbox
 parse ruby-kilo → ruby kilo ruby-kilo Ruby · Kilo Code CLI base-name ruby-kilo-sandbox
+parse ruby-mistral-vibe → ruby mistral-vibe ruby-mistral-vibe Ruby · Mistral Vibe base-name ruby-vibe-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -199,6 +206,7 @@ parse dotnet-copilot → dotnet copilot dotnet-copilot .NET · GitHub Copilot CL
 parse dotnet-qwen-code → dotnet qwen-code dotnet-qwen-code .NET · Qwen Code base-name dotnet-qwen-sandbox
 parse dotnet-goose → dotnet goose dotnet-goose .NET · Goose base-name dotnet-goose-sandbox
 parse dotnet-kilo → dotnet kilo dotnet-kilo .NET · Kilo Code CLI base-name dotnet-kilo-sandbox
+parse dotnet-mistral-vibe → dotnet mistral-vibe dotnet-mistral-vibe .NET · Mistral Vibe base-name dotnet-vibe-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -224,6 +232,7 @@ parse copilot → debian copilot copilot Debian · GitHub Copilot CLI base-name 
 parse debian-qwen-code → debian qwen-code debian-qwen-code Debian · Qwen Code base-name debian-qwen-sandbox
 parse goose → debian goose goose Debian · Goose base-name goose-sandbox
 parse kilo → debian kilo kilo Debian · Kilo Code CLI base-name kilo-sandbox
+parse mistral-vibe → debian mistral-vibe mistral-vibe Debian · Mistral Vibe base-name vibe-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -249,6 +258,7 @@ parse ubuntu-copilot → ubuntu copilot ubuntu-copilot Ubuntu · GitHub Copilot 
 parse ubuntu-qwen-code → ubuntu qwen-code ubuntu-qwen-code Ubuntu · Qwen Code base-name ubuntu-qwen-sandbox
 parse ubuntu-goose → ubuntu goose ubuntu-goose Ubuntu · Goose base-name ubuntu-goose-sandbox
 parse ubuntu-kilo → ubuntu kilo ubuntu-kilo Ubuntu · Kilo Code CLI base-name ubuntu-kilo-sandbox
+parse ubuntu-mistral-vibe → ubuntu mistral-vibe ubuntu-mistral-vibe Ubuntu · Mistral Vibe base-name ubuntu-vibe-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -273,6 +283,7 @@ parse alpine-copilot → alpine copilot alpine-copilot Alpine · GitHub Copilot 
 parse alpine-qwen-code → alpine qwen-code alpine-qwen-code Alpine · Qwen Code base-name alpine-qwen-sandbox
 parse alpine-goose → alpine goose alpine-goose Alpine · Goose base-name alpine-goose-sandbox
 parse alpine-kilo → alpine kilo alpine-kilo Alpine · Kilo Code CLI base-name alpine-kilo-sandbox
+parse alpine-mistral-vibe → alpine mistral-vibe alpine-mistral-vibe Alpine · Mistral Vibe base-name alpine-vibe-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -298,6 +309,7 @@ parse df-0123456789ab-copilot → df-0123456789ab copilot df-0123456789ab-copilo
 parse df-0123456789ab-qwen-code → df-0123456789ab qwen-code df-0123456789ab-qwen-code Dockerfile · Qwen Code base-name dockerfile-qwen-sandbox
 parse df-0123456789ab-goose → df-0123456789ab goose df-0123456789ab-goose Dockerfile · Goose base-name dockerfile-goose-sandbox
 parse df-0123456789ab-kilo → df-0123456789ab kilo df-0123456789ab-kilo Dockerfile · Kilo Code CLI base-name dockerfile-kilo-sandbox
+parse df-0123456789ab-mistral-vibe → df-0123456789ab mistral-vibe df-0123456789ab-mistral-vibe Dockerfile · Mistral Vibe base-name dockerfile-vibe-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

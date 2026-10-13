@@ -24,6 +24,7 @@ node-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned
 qwen-code credentials=xai:key agentName=Qwen Code package=@qwen-code/qwen-code pinned=0.25.1 sha512-6cEbtfx4Ugl1d3FdFLa8fcsG6knHuUUHqvDseLxGY06Xan8p7Fcd7+g5KlX694zX4mo/+Vh56AHxT/4R15zpYA==
 node-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 node-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+node-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -49,6 +50,7 @@ python-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinn
 python-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 python-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 python-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+python-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -74,6 +76,7 @@ go-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=n
 go-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 go-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 go-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+go-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -99,6 +102,7 @@ rust-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned
 rust-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 rust-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 rust-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+rust-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -124,6 +128,7 @@ java-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned
 java-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 java-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 java-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+java-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -149,6 +154,7 @@ ruby-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned
 ruby-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 ruby-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 ruby-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+ruby-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -174,6 +180,7 @@ dotnet-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinn
 dotnet-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 dotnet-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 dotnet-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+dotnet-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -199,6 +206,7 @@ copilot credentials=xai:key agentName=GitHub Copilot CLI package=@github/copilot
 debian-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 goose credentials=xai:key agentName=Goose package=nil pinned=1.54.0 sha512-dopMlnmnYA443NEV1YLTTt5wO5FMSxfHL5e93GjkV97Q2Q9SxyNk7zKnMrdNXrfHYpXS+uLAuR8MbvnnavhutQ==
 kilo credentials=xai:key agentName=Kilo Code CLI package=@kilocode/cli pinned=7.8.8 sha512-JrZu4EsdaajRsafvgXN+dEcscV7VKM6sGp3Xm51EndrTnI7+76tKeyrPs6J5Bvn2yR/BNKhoId4LEjwjQGSHYg==
+mistral-vibe credentials=xai:key agentName=Mistral Vibe package=mistral-vibe pinned=2.26.1 sha512-KZrMkRaK8CxRmXEgQUadnFakofvUDwysdxDyAVA1EIk+STDpQLfdUZHjT1U3jJYp2lpGXoKUDGnJlLJhJUcWAg==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -224,6 +232,7 @@ ubuntu-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinn
 ubuntu-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 ubuntu-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 ubuntu-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+ubuntu-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -248,6 +257,7 @@ alpine-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinn
 alpine-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 alpine-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 alpine-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+alpine-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -273,3 +283,4 @@ df-0123456789ab-copilot credentials=xai:key agentName=GitHub Copilot CLI package
 df-0123456789ab-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 df-0123456789ab-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 df-0123456789ab-kilo credentials=xai:key agentName=Kilo Code CLI package=nil pinned=nil
+df-0123456789ab-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=nil

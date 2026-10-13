@@ -100,7 +100,11 @@ def main():
         old = {"schema": 1, "agent": a.agent, "endpoints": []}
     known = {keyof(e): e for e in old.get("endpoints", [])}
     now = {keyof(e): e for e in found}
-    new = [k for k in now if k not in known]
+    # A tunnel with no request in it, to a host the profile already lists request by request: the program exited
+    # before its request went (promptfoo's telemetry event at the end of a run) — that host is not new.
+    decrypted_known = {k[0] for k in known if k[1] != "CONNECT"}
+    now = {k: e for k, e in now.items() if not (k[1] == "CONNECT" and k[0] in decrypted_known)}
+    new =[k for k in now if k not in known]
     missing = [k for k in known if k not in now]
 
     def show(k):

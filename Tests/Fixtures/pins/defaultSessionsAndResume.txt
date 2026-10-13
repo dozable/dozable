@@ -33,4 +33,5 @@ resume copilot --continue check=nil
 resume qwen-code --continue check=nil
 resume goose session --resume check=nil
 resume kilo --continue check=nil
+resume mistral-vibe --continue check=nil
 resume nil 
