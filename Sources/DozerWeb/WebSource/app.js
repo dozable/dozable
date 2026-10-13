@@ -16,6 +16,7 @@
 //   · 605: the page outlives its server. doz ui restarting is a calm pause (terminals reattach, operations
 //     resolve, a newer build offers a reload); a sign-in again happens INSIDE the page, over what it shows.
 
+import { paintStartProgress } from './app/components/start-progress.js';
 import { expose, provide } from './app/core/hooks.js';
 import { $ } from './app/dom/h.js';
 import { icon, setButton } from './app/dom/icons.js';
@@ -72,7 +73,7 @@ import { renderTryPrep, viewTry } from './app/views/try.js';
 import './app/views/sandbox-dialogs.js';
 import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout.js';
 import './app/views/sandbox-network.js';
-import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith } from './app/views/sandbox-terminals.js';
+import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith, syncConsoleTab } from './app/views/sandbox-terminals.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions.js';
 import { viewSettings } from './app/views/settings.js';
@@ -139,7 +140,7 @@ provide({
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openSavedTerminal, openWizardModal, pageFailure,
   paintCover, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTermEmpty, paintTransition,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,
   viewTry, wizardStopPolling,
 });

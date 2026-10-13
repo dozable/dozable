@@ -439,6 +439,27 @@ td.bar-cell { min-width: 110px; vertical-align: middle; }
   padding: var(--sp-2) var(--sp-3); margin: 0; white-space: pre-wrap; word-break: break-all; max-height: 5.5em; overflow: hidden; }
 .sp-failed { margin-top: var(--sp-3); }
 .sp-acts { display: flex; gap: var(--sp-2); margin-top: var(--sp-2); }
+/* 617: the build panel's bar for the whole build, and its "Step N of M · step · elapsed" line. */
+.start-progress.building .sp-box { width: min(860px, 100%); }
+.sp-barbox { margin: var(--sp-3) 0 var(--sp-4); }
+progress.sp-bar { display: block; width: 100%; height: 12px; appearance: none; -webkit-appearance: none; border: 0; border-radius: var(--r-pill);
+  background: var(--surface-3); overflow: hidden; }
+progress.sp-bar::-webkit-progress-bar { background: var(--surface-3); border-radius: var(--r-pill); }
+progress.sp-bar::-webkit-progress-value { background: var(--accent); border-radius: var(--r-pill); transition: width var(--dur-2, 300ms) var(--ease); }
+progress.sp-bar::-moz-progress-bar { background: var(--accent); border-radius: var(--r-pill); }
+progress.sp-bar.failed::-webkit-progress-value { background: var(--bad); }
+progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
+.sp-stepline { margin-top: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.sp-details { margin-top: var(--sp-2); }
+.sp-details .sp-tail { max-height: 14em; overflow: auto; }
+/* 617: the agent's terminal of a start, laid out (it has a size) but not shown until it has drawn its first frame. */
+.term-wrap.term-pending { visibility: hidden; pointer-events: none; }
+/* 617: tab zero, Console — and the activity dot on a tab that is ready but not shown. */
+.tab-console .icon { color: var(--term-ink); opacity: 0.8; }
+.tab-activity { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: var(--sp-1); }
+/* 617: the header's "N denied" opens what was refused (a menu), never a banner that moves the page. */
+.denied-chip { border: 0; font: inherit; font-size: var(--fs-xs); cursor: pointer; margin-left: var(--sp-1); }
+.denied-chip:hover { box-shadow: inset 0 0 0 1px var(--warn); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
 .tabs { display: flex; gap: 2px; padding: 4px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }

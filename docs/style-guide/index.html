@@ -286,35 +286,54 @@ name: todo-app</pre></details>
 
 <section>
   <h2>The terminal strip</h2>
-  <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).</p>
+  <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).
+    Tab zero, <strong>Console</strong> (<code>.tab-console</code>), is the system console: first, its own icon (<code>cpu</code>), no number, no close box, there exactly while the VM is powered on.
+    A tab that is ready but not shown carries a dot (<code>.tab-activity</code>): the agent’s, when <code>ui.boot_view_on_start</code> keeps the page on Console.</p>
   <div class="pair"><div class="scheme">
     <div class="sg-row" style="gap:0">
+      <div class="tab-wrap"><button type="button" class="tab tab-console"><i data-i="cpu"></i>Console</button></div>
       <div class="tab-wrap"><button type="button" class="tab active"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis"></i></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
-      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
     </div>
   </div></div>
 </section>
 
 <section>
-  <h2>A start’s progress, in the terminal area</h2>
-  <p>While a sandbox starts (an image prepared, the VM booting, the session opening) its terminal area shows the progress instead of a blank pane:
-    the finished steps in plain words, the one under way with its time, and the last lines of the build (<code>.start-progress</code>, <code>components/start-progress.js</code>).
-    It goes when the session is there; a failure stays, with Start and Dismiss.</p>
+  <h2>A start, in the terminal area</h2>
+  <p>After Start the page is there at once and nothing moves. The terminal area shows, in the same place: the build, while the image is prepared
+    (<code>.start-progress</code>, <code>components/start-progress.js</code>) — a bar for the whole build that never moves back (steps weighted by this Mac’s last build of the recipe,
+    else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then tab zero, Console, when the VM powers on;
+    then the agent’s tab once it has drawn its screen (switched to, or a dot). A cached image shows no bar. A failure keeps the area, with the error, the log, Start again and Dismiss.
+    The header’s pill says Preparing…, then Booting…. What the agent was refused is the header’s “N denied” menu, never a banner.</p>
   <div class="pair"><div class="scheme">
     <section class="terms sg-terms">
-      <div class="start-progress" role="status"><div class="sp-box">
-        <h3>Starting try-gemini…</h3>
-        <p class="muted">Its terminal opens here as soon as the sandbox runs and its session is open.</p>
+      <div class="start-progress building" role="status"><div class="sp-box">
+        <h3>Preparing gemini for try-gemini</h3>
+        <div class="sp-barbox"><progress class="sp-bar" max="1" value="0.42"></progress>
+          <div class="sp-stepline">Step 3 of 5 · Installing Gemini CLI · <span>0:42</span></div></div>
         <ol class="sp-steps">
           <li class="sp-step"><i data-i="check"></i><span>The Node.js base image was already downloaded</span></li>
           <li class="sp-step"><i data-i="check"></i><span>Started a VM to prepare the image</span><span class="muted">0.5 s</span></li>
-          <li class="sp-step current"><span class="mini-spin" aria-hidden="true"></span><span>Installing the developer baseline…</span><span class="muted"> · 12 s</span></li>
+          <li class="sp-step current"><span class="mini-spin" aria-hidden="true"></span><span>Installing Gemini CLI…</span><span class="muted">0:12</span></li>
         </ol>
-        <pre class="sp-tail">Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
-Unpacking ripgrep (13.0.0-4+b2) ...
-Setting up jq (1.6-2.1) ...</pre>
+        <details class="disclosure sp-details"><summary><i data-i="chevron-down"></i>Show details</summary><pre class="sp-tail">added 412 packages in 9s</pre></details>
       </div></div>
     </section>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <section class="terms sg-terms">
+      <div class="start-progress building" role="status"><div class="sp-box">
+        <h3>Starting try-gemini failed</h3>
+        <div class="sp-barbox"><progress class="sp-bar failed" max="1" value="0.6"></progress>
+          <div class="sp-stepline">Step 3 of 5 · <span>1:05</span></div></div>
+        <div class="sp-failed" role="alert"><p><strong>try-gemini did not start: </strong>npm install failed (exit 1)</p>
+          <div class="sp-acts"><button class="btn primary sm" type="button"><i data-i="play"></i>Start again</button><button class="btn quiet sm" type="button">Dismiss</button></div></div>
+      </div></div>
+    </section>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row"><span class="pill ph-busy"><span class="mini-spin" aria-hidden="true"></span> Preparing…</span>
+      <button type="button" class="tag warn denied-chip">4 denied</button></div>
   </div></div>
 </section>
 

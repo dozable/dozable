@@ -16,7 +16,7 @@ import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { confirmAction, confirmWithCheck, dialog } from '../components/dialog.js';
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle.js';
-import { moreMenu } from '../components/menus.js';
+import { menuButton, moreMenu } from '../components/menus.js';
 import { sessionMenuItems } from '../components/session-actions.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
@@ -26,21 +26,29 @@ import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals } from './sandbox-terminals.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncConsoleTab } from './sandbox-terminals.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
 let sbxRefreshing = false, sbxAgain = false;
-/// 617: a try's exit choice. Sleep hibernates it (nothing kept in memory); Delete removes it (asked, as rm is) — and its
-/// folder when the folder is empty (the host does it); a folder with the agent's files is kept, and said; Keep hides
-/// this for the page.
+/// 617: the header's "N denied" — a menu: what was refused (each opens the Network tab), and Review in Network.
+function deniedChip(name, denied, suggestions, review) {
+  const b = h('button', { type: 'button', class: 'tag warn denied-chip', 'data-denied-chip': name, title: 'What the agent was refused — and how to decide' },
+    denied + ' denied');
+  const items = suggestions.slice(0, 6).map((s) => ({ label: s.what + ' (' + s.count + ')', icon: 'ban', desc: s.permission ? 'its permission: ' + s.permission : 'a site', onSelect: review }));
+  if (items.length) items.push({ sep: true });
+  items.push({ label: 'Review in Network', icon: 'shield', desc: 'Allow what it needs, or keep it out', onSelect: review, data: { 'review-network': name } });
+  return menuButton(b, items, { label: 'Refused for ' + name, align: 'start' }).el;
+}
+/// 617: a try's exit choice. Delete removes it (asked with a box to tick) — and its folder when the folder is empty
+/// (the host does it); a folder with the agent's files is kept, and said; Keep hides this for the page. (Sleep and
+/// Hibernate are the action bar's — owner.)
 function tryBar(name, i) {
   const folder = i.trialFolder ? ' Its folder ' + i.trialFolder + ' is removed with it when empty, and kept when the agent left files there.' : '';
-  const asleep = ['hibernated', 'asleep'].includes(i.phase);
   return callout('info', { compact: true, attrs: { 'data-try-bar': name },
-    body: 'This is a try. When you are done with it: Sleep keeps everything on disk and holds no memory; Delete removes it.' + folder,
+    // 617 (owner): the banner keeps its message, Keep and Delete — Sleep and Hibernate are the action bar's.
+    body: 'This is a try: when you are done with it, Delete removes it (Keep hides this note).' + folder,
     actions: [
-      asleep ? null : btn('Sleep (hibernate)', () => act({ action: 'hibernate', sandbox: name }), { small: true, icon: 'moon', title: 'Everything kept on disk, no memory held' }),
       // 617 (owner: no typed name for a try — "i hate this"): a box to tick.
       btn('Delete…', () => confirmWithCheck('Delete ' + name + '?', DESTRUCTIVE.rm + (i.trialFolder ? ' Its folder is removed too when it is empty.' : ''),
         'Yes, delete ' + name + ' and everything it has on disk', name, { action: 'rm', sandbox: name }, 'Delete'),
@@ -54,9 +62,16 @@ export async function showSandbox() {
   const want = state.session;                  // the addressed session (renderTerminals re-points the URL)
   const first = !state.sbx || state.sbx.name !== name;
   if (first) {
-    state.sbx = { name, d: null };
-    $('sbx-bar').replaceChildren(h('div', { class: 'sbx-title' }, h('h1', null, name)));
-    $('sbx-details').replaceChildren();
+    // 617 (owner: the real page at once — nothing appears later that moves it): a page whose detail was read just
+    // before it was shown (a try's Start) draws its header, action bar and banners in its first frame.
+    const pre = state.sbxPrefetch && state.sbxPrefetch.name === name && Date.now() - state.sbxPrefetch.at < 10000 ? state.sbxPrefetch : null;
+    state.sbxPrefetch = null;
+    state.sbx = pre ? { name, d: pre.d, net: pre.net, accounts: pre.accounts } : { name, d: null };
+    if (pre) drawParts(name, pre.d, pre.net, pre.accounts);
+    else {
+      $('sbx-bar').replaceChildren(h('div', { class: 'sbx-title' }, h('h1', null, name)));
+      $('sbx-details').replaceChildren();
+    }
     $('main').scrollTop = 0;
   }
   renderTerminals();
@@ -87,10 +102,7 @@ export async function refreshSandbox() {
     if (gen !== state.trGen) { sbxAgain = true; return; }
     state.sbx = { name, d, net, accounts };
     if ($('sbx-bar').querySelector('.menu:not([hidden])') || $('sbx-details').querySelector('.menu:not([hidden])')) { state.sbxHeld = true; return; }
-    const parts = sandboxParts(name, d, net, accounts);
-    $('sbx-bar').replaceChildren(parts.bar);
-    $('sbx-details').replaceChildren(parts.details);
-    $('sbx-body').classList.toggle('details-closed', !setting('ui.details_open', true));
+    drawParts(name, d, net, accounts);
     paintRowOps();
     paintTermEmpty();
     paintStripActs();
@@ -98,10 +110,12 @@ export async function refreshSandbox() {
     promoteSaved(name, d.info.phase === 'running' && !d.info.busy && d.sessions ? d.sessions.filter((x) => !x.ended).map((x) => x.name) : null);
     paintTabs();
     takeArrival(name);
+    // 617: tab zero (Console) follows the VM's power.
+    syncConsoleTab(name, d.info.phase);
     // An arrival that found it under way restores once it has settled (never over a tab opened since).
     const sv = sview(name);
     if (sv.deferred && !sv.restoring && !d.info.busy && d.info.phase !== 'booting' && !opRunningFor(name)) {
-      if (pageTerminals(name).length) { sv.deferred = false; sv.restored = true; } else restorePanes(name);
+      if (sessionTerminals(name).length) { sv.deferred = false; sv.restored = true; } else restorePanes(name);
     }
   } catch (e) {
     if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = '#/overview'; return; }
@@ -111,6 +125,21 @@ export async function refreshSandbox() {
     if (sbxAgain) { sbxAgain = false; refreshSandbox(); }
   }
 }
+function drawParts(name, d, net, accounts) {
+  const parts = sandboxParts(name, d, net, accounts);
+  $('sbx-bar').replaceChildren(parts.bar);
+  $('sbx-details').replaceChildren(parts.details);
+  $('sbx-body').classList.toggle('details-closed', !setting('ui.details_open', true));
+}
+/// 617: read a sandbox's page detail BEFORE showing it (a try's Start), so its first frame is the whole page.
+export async function prefetchSandbox(name) {
+  try {
+    const [d, net, accounts] = await Promise.all([api('sandboxes/' + name), api('sandboxes/' + name + '/network'), api('accounts').catch(() => ({ accounts: [] }))]);
+    state.sbxPrefetch = { name, d, net, accounts, at: Date.now() };
+  } catch (_) { /* the page reads it as usual */ }
+}
+/// The page's terminals that are a session's (617: never tab zero, the console).
+function sessionTerminals(name) { return pageTerminals(name).filter((t) => t.mode !== 'console'); }
 /// On arriving at a sandbox's page: an addressed session (#/sandbox/NAME/SESSION, from the grid)
 /// gets its tab — opened, or selected; otherwise, when the sandbox runs and its own session runs,
 /// the page attaches to it (explicit viewing of a live VM, which keeps nothing alive the VM does
@@ -118,7 +147,7 @@ export async function refreshSandbox() {
 async function sandboxArrived(name, want) {
   const s = state.sbx;
   if (!s || s.name !== name || !s.d) return;
-  const mine = [...terminals.values()].filter((t) => !t.grid && t.sandbox === name);
+  const mine = sessionTerminals(name);
   const running = s.d.info.phase === 'running';
   const live = (s.d.sessions || []).filter((x) => !x.ended).map((x) => x.name);
   // 593 §9 (S1): the panes the host kept for this sandbox, the first time this page shows it.
@@ -131,7 +160,7 @@ async function sandboxArrived(name, want) {
     else failureFor(name, 'Session ' + want + ' is not running in ' + name);
     return;
   }
-  if (!pageTerminals(name).length && running && live.includes(s.d.defaultSession) && setting('ui.terminals', true) && !sview(name).restoredAny) {
+  if (!sessionTerminals(name).length && running && live.includes(s.d.defaultSession) && setting('ui.terminals', true) && !sview(name).restoredAny) {
     openTerminal(name, s.d.defaultSession, 'interactive');
   }
 }
@@ -229,15 +258,15 @@ function sandboxParts(name, d, net, accounts) {
   }, { quiet: true, iconOnly: true, icon: 'panel-right', title: (detailsOpen ? 'Hide' : 'Show') + ' the details: sessions, restore points, network, keys (remembered: ui.details_open)' });
   detailsBtn.setAttribute('aria-pressed', detailsOpen ? 'true' : 'false');
   const suggestions = net.permissions ? net.permissions.suggestions : [];
-  const refused = suggestions.reduce((n, s) => n + s.count, 0);
   const bar = h('div', { class: 'sbx-bar-inner' },
     h('div', { class: 'sbx-title' },
       h('h1', null, name), sandboxPill(i),
       h('span', { class: 'chips sbx-meta' },
         chip('Image', h('span', { 'data-image-title': '' }, i.imageTitle || i.image), { title: i.image + (i.dockerfile ? ' — Dockerfile ' + i.dockerfile : '') }),
         chip('RAM', (i.ramHeldMiB ? mib(i.ramHeldMiB) : '—') + ' of ' + mib(i.memoryMiB)),
-        chip('Network', [i.network, i.deniedConnections ? h('span', { class: 'tag warn' }, i.deniedConnections + ' denied') : null, icon('panel-right')],
-          { onClick: showTab('network'), title: 'Its network — the Network tab', data: { 'data-network-chip': '' } }),
+        chip('Network', [i.network, icon('panel-right')], { onClick: showTab('network'), title: 'Its network — the Network tab', data: { 'data-network-chip': '' } }),
+        // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
+        i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617: a try (Quick try, doz try).
@@ -261,10 +290,7 @@ function sandboxParts(name, d, net, accounts) {
       actions: [btn('Rebuild the image', () => dialog('Rebuild ' + i.image + '?',
         'Runs container build again (seconds when nothing changed: its cache), then bakes only if the built image changed. ' + DOCKERFILE_POLICY_NOTE + ' This sandbox keeps its disk until you reset it.',
         [], 'Rebuild', async () => { await actOrThrow({ action: 'image-bake', image: i.image }); }, { icon: 'flame' }), { small: true, icon: 'flame' })] }) : null,
-    // 597: what the agent was refused, said once here with the way to decide (the Network tab).
-    refused ? callout('warn', { compact: true, attrs: { 'data-refused': name }, body: ['The agent was refused ' + plural(refused, 'time', 'times') + ' — ',
-      ...suggestions.slice(0, 3).flatMap((s, n) => [n ? ', ' : '', h('strong', null, s.permission ? s.what : s.what), ' (' + s.count + ')']), '.'],
-      actions: [btn('Review in Network', showTab('network'), { small: true, icon: 'shield' })] }) : null);
+    null);
   // ── the inspector: six tabs instead of nine stacked sections ──
   const tab = sview(name).inspTab || 'overview';
   const counts = { sessions: live.length ? h('span', { class: 'count' }, String(live.length)) : null,

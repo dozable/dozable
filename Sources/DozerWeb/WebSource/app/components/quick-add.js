@@ -1,7 +1,7 @@
 // components/quick-add — Quick add (599c): a sandbox with every default, started and opened.
 import { api } from '../core/api.js';
 import { act, actOrThrow, waitOp } from '../core/operations.js';
-import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings.js';
+import { setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { btn } from './button.js';
 import { createDialog } from './create-dialog.js';
@@ -34,7 +34,8 @@ export async function quickAdd(button) {
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') return;        // a failure is said by the operation's own toast
     toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.workspace || 'isolated'));
-    if (bootViewOnStart()) { await startWithBootView(p.name); return; }
+    // 617: the start sequence (the build, then tab zero Console, then the agent's tab), on its page.
+    if (terminalsAllowed()) { location.hash = '#/sandbox/' + p.name; await startWithBootView(p.name); return; }
     location.hash = '#/sandbox/' + p.name;
     const started = await act({ action: 'start', sandbox: p.name });
     if (started && terminalsAllowed()) {

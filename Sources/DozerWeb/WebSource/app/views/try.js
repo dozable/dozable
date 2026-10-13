@@ -24,6 +24,8 @@ import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { startWithBootView } from '../components/lifecycle.js';
 import { renderModal, wizardCloseRequest } from '../components/modal.js';
+import { renderNavSandboxes } from '../components/nav.js';
+import { prefetchSandbox } from './sandbox.js';
 import { pageFailure, toast } from '../components/notices.js';
 import { planCommand, reachList } from '../components/plan-view.js';
 import { prepCard } from '../components/prep-card.js';
@@ -240,10 +242,11 @@ async function replan(account) {
 function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 'key'); }
 
 async function openSetup(a) {
-  if (SETUP.d) return;
+  if (SETUP.d && SETUP.d.open) return;
+  if (SETUP.d) { SETUP.d.remove(); SETUP.d = null; }      // closed, its (asynchronous) close event not yet run
   SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.busy = false; SETUP.error = '';
   const d = h('dialog', { class: 'dlg try-setup', 'aria-labelledby': 'try-setup-title', 'data-try-setup': a.id });
-  d.addEventListener('close', () => { d.remove(); SETUP.d = null; });
+  d.addEventListener('close', () => { d.remove(); if (SETUP.d === d) SETUP.d = null; });
   SETUP.d = d;
   document.body.append(d);
   d.showModal();
@@ -392,6 +395,9 @@ async function tryCreate(button) {
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') { SETUP.busy = false; button.disabled = false; return; }
     toast('Made ' + plan.name + ' — a try');
+    // 617 (owner: the real page at once): the nav lists it before its page shows — nothing appears later.
+    try { state.overview = await api('overview'); renderNavSandboxes(); } catch (_) { /* the next poll */ }
+    await prefetchSandbox(plan.name);
     if (SETUP.d) SETUP.d.close();
     state.tr = null;
     location.hash = '#/sandbox/' + plan.name;

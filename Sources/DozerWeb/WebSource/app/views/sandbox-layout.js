@@ -13,7 +13,7 @@ import { renderTerminals } from './sandbox-terminals.js';
 // stored one, so arriving never overwrites it with an empty page.
 function layoutOf(name) {
   const v = sview(name);
-  const kept = pageTerminals(name).filter((t) => t.session && !t.ended && !t.errorText);
+  const kept = pageTerminals(name).filter((t) => t.session && !t.ended && !t.errorText && !t.pending && t.mode !== 'console');
   const panes = (v.split ? [0, 1] : [0]).map((pi) => {
     const inPane = kept.filter((t) => (v.split ? t.pane : 0) === pi).slice(0, 16);
     const idx = inPane.findIndex((t) => t.id === v.selected[pi]);
@@ -88,7 +88,7 @@ export async function restorePanes(name) {
       for (const r of rows.values()) plan.push({ pane: 0, session: r.name, mode: 'interactive', saved: r });
     }
     // Something was opened meanwhile (a click, the grid), or the page moved on: leave it be.
-    if (!plan.length || pageTerminals(name).length || state.view !== 'sandbox' || state.param !== name) return;
+    if (!plan.length || pageTerminals(name).some((t) => t.mode !== 'console') || state.view !== 'sandbox' || state.param !== name) return;
     const split = !!(layout && layout.split && plan.some((p) => p.pane === 1) && plan.some((p) => p.pane === 0));
     const made = plan.map((p) => addTab(name, p.session, p.mode, split ? p.pane : 0, p.saved));
     v.split = split;
@@ -117,10 +117,11 @@ export function promoteSaved(name, live) {
   const running = phase === 'running' && !sandboxBusy(name);
   const gone = phase === 'off' && !sandboxBusy(name);
   // The plain off state is one area, not an empty split.
-  if (gone && !pageTerminals(name).some((t) => t.bootIntent)) { const v = sview(name); v.split = false; v.focusedPane = 0; }
+  if (gone && !pageTerminals(name).some((t) => t.bootIntent || t.pending)) { const v = sview(name); v.split = false; v.focusedPane = 0; }
   for (const t of [...terminals.values()]) {
     if (t.sandbox !== name || t.bootlog) continue;       // a Boot log terminal is never a session's
-    if (gone && !t.bootIntent) { if (t.grid) continue; closeTerminal(t.id); continue; }
+    // 617: a start's pending agent terminal waits through the preparation (the sandbox is still off then).
+    if (gone && !t.bootIntent && !(t.pending && opRunningFor(name))) { if (t.grid) continue; closeTerminal(t.id); continue; }
     if (!t.saved) continue;
     if (running && live) {
       if (live.includes(t.session)) goLive(t);

@@ -443,8 +443,10 @@ public struct DozerSettings: Sendable {
 
     static func buildSchema() -> [SettingDefinition] {
         var s: [SettingDefinition] = [
-            .init("ui", "boot_view_on_start", .bool, .bool(true),
-                  "Start opens a terminal on the boot sequence (the kernel console) until the sandbox is up; false: Start just starts it.",
+            // 617 (owner, the start sequence): the boot console is tab zero on every start; this only decides whether the
+            // page stays on it. Off by default — the agent's tab is what a start is for.
+            .init("ui", "boot_view_on_start", .bool, .bool(false),
+                  "After Start the page stays on tab zero, Console (the kernel and vminitd), and marks the agent's tab when it is ready; false (the default): it switches to the agent's tab as soon as that has drawn its screen.",
                   applies: .now),
             .init("ui", "confirm_shutdown", .bool, .bool(true),
                   "Shut Down asks first (its dialog's \"don't ask again\" sets this to false). Reset and Remove always ask for the name.",

@@ -1087,12 +1087,14 @@ to its own session (starting it if needed); each session row has **Open** and **
 view — the session keeps running, as Ctrl-] does in `doz attach`.
 
 - **Watch** is read-only: nothing you type reaches the session, and it never resizes it.
-- **Watch it boot.** **Start** opens a terminal on the sandbox's page that shows
-  the start as it happens — doz's timed steps (on a first start, the download and the bake) and
-  the kernel's boot console — and then becomes the image's own session in the same pane, with the
-  boot log kept in the scrollback. `doz console NAME [--follow]` shows the same console in a
-  terminal; the whole boot is kept afterwards (**Boot log** on the control bar, `doz console NAME
-  --steps` — below). Turn it off with the setting `ui.boot_view_on_start = false`: Start then just starts.
+- **Watch it boot.** **Start** on the sandbox's page shows the start in its terminal area, in one
+  place: while the image is prepared, a bar for the whole build ("Step N of M · step · elapsed") over
+  doz's timed steps; once the VM is powered on, tab zero, **Console** — the kernel's and vminitd's
+  console, read-only, no close box, there exactly while the VM is on; then the agent's own tab, added
+  once it has drawn its screen (the console is never written into it). `doz console NAME [--follow]`
+  shows the same console in a terminal; the whole boot is kept afterwards (**Boot log** on the control
+  bar, `doz console NAME --steps` — below). With the setting `ui.boot_view_on_start = true` the page
+  stays on Console after Start and marks the agent's tab with a dot instead of switching to it.
   While a step runs it shows a spinner and its seconds so far, and becomes "✓ step — 1.2 s" (or
   "✗ step — why") when it ends; a first start's image pull shows a bar ("pulling node@1a2b3c4d5e6f
   ██████░░░░ 87 / 142 MB 6.1 MB/s ~9 s (3/5 layers)") and then "pulled … : 142 MB in 23 s"; a bake
@@ -1150,15 +1152,15 @@ commented out:
 # Start opens a terminal on the boot sequence (the kernel console) until the sandbox is up; false:
 # Start just starts it.
 # (boolean; applies at once (the UI re-reads it))
-# boot_view_on_start = true
+# boot_view_on_start = false
 ```
 
 Uncomment a line to set it — or let doz write it:
 
 ```bash
 doz config                               # every setting: value, source (flag / env / file / default), default
-doz config set ui.boot_view_on_start false
-doz config get ui.boot_view_on_start     # false
+doz config set ui.boot_view_on_start true
+doz config get ui.boot_view_on_start     # true
 doz config unset ui.boot_view_on_start   # back to the default
 doz config init                          # write the file with everything commented out
 doz config path
@@ -1171,7 +1173,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 
 | Section | Settings |
 |---|---|
-| `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (true), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `details_open` (true), `grid_live_tiles` (8, 1–12), `grid_tile_size` (`small` · `medium` · `large`), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
+| `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `details_open` (true), `grid_live_tiles` (8, 1–12), `grid_tile_size` (`small` · `medium` · `large`), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
 | `[host]` | `idle_timeout_minutes` (5; `$DOZ_HOST_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
 | `[store]` | `path` (`--store`, `$DOZ_STORE`) |
 | `[claude]` | `permissions` (`skip` · `ask`) — Claude Code's own prompts in a claude-code sandbox; `-e DOZ_CLAUDE_PERMISSIONS=…` on `run`/`exec` still wins |

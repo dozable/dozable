@@ -1760,7 +1760,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). It makes the try with the
   ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
   provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
-  the try bar (Sleep (hibernate) · Delete… · Keep). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
+  the try bar (its message, Delete… · Keep — owner, 617.05: Sleep is the action bar's). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
   try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash) — a page cannot raise its
   own window, so the CLI activates the default browser through LaunchServices (`bringBrowserForward`, no AppleScript)
@@ -1770,15 +1770,30 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `&to=try/AGENT` in its fragment (the bootstrap strips the capability first). The New Sandbox review shows the plan
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
-- **A start shows its progress in the terminal area** (owner: no blank terminal while a build runs): `WebOperation.progress`
-  (`WebOpProgress`, folded from the operation's host events in `WebOperations.progress`: finished steps in StepWording,
-  the step under way + since, a transfer, the last 3 output lines — inert) drives `components/start-progress.js` — a panel
-  over `#terminals` while the sandbox's `start` runs (a failure stays, with Start/Dismiss), gone when it is done (the
-  terminal has the session). A build's raw output never becomes the operation's one-line `text` (the header strip).
-  Waiting for an operation is EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`; `startWithBootView` is woken by
-  the pane's state and starts at once in a hidden tab): a hidden tab's short timers run once a minute (Chrome's intensive
-  throttling — the owner's 68 s pause). `probes/617-*/stageE/browser-try-twice.mjs` (throttling emulated),
-  `browser-start-progress.mjs`.
+- **The start sequence** (617.05, owner: "a confusing flash of activity"; one stable page): from Start the sandbox
+  page is there at once (header, action bar, try banner, the nav entry — `tryCreate` re-reads the overview first) and
+  NOTHING later moves it. The terminal area shows, in the same place: (1) while the image is prepared, the build panel
+  (`components/start-progress.js`, over `#terminals`): a bar for the whole build — the preparation's own estimate when
+  this Mac built the recipe before (`seconds / (seconds + remainingSeconds)`), else a fixed weight per step by its
+  wording; a download fills its share by bytes (`transferFraction`); a step past its estimate creeps; monotonic per
+  operation (`state.spBar`) — "Step N of M · step · elapsed", the finished steps (`WebOperation.progress`), the raw
+  output under "Show details"; a cached image has no preparation, so no bar; a failure keeps the panel (error, log,
+  Start again / Dismiss); a running preparation is JOINED (the host's single flight), never started again; the header
+  pill says Preparing…, then Booting…; (2) tab zero, **Console** — terminal mode `console` (ticket `{"mode":"console"}`,
+  no session, no size): the bridge's `consoleLoop` streams `data.bootConsole` (what `doz console NAME --follow` shows)
+  as inert text, read-only, never an attach; first in the strip, icon `cpu`, no number, no close box, never persisted;
+  it exists exactly while the VM is powered on (`syncConsoleTab` on each sandbox refresh and on the pending pane's phase);
+  (3) the agent's tab: `openPendingTerminal` makes it at Start, laid out but `visibility: hidden` and tab-less
+  (`t.pending`), its ticket `quiet` — the bridge then never enters the boot view for it (the old boot view wrote
+  `console --follow` into the agent's own pane: vminitd's lines for every exec of the start in Codex's tab, owner's shot
+  7625) — and it becomes a tab on its first binary frame: selected, or with `ui.boot_view_on_start` (now default
+  FALSE: "stay on Console") an activity dot. No blank terminal, no "Attaching…". What the agent was refused is the
+  header's "N denied" menu (`deniedChip` → Review in Network), never a banner. A start from a Sandboxes row is the
+  plain start; its page shows Console when opened. `WebTerminalUnitTests` (console + quiet decode);
+  `probes/617-*/stageE/browser-start-sequence.mjs` (records the page every 100 ms: nothing moves, the stages in
+  order, the bar never back, no vminitd byte on the agent's socket; screenshots 22–25). Waiting for an operation is
+  EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`): a hidden tab's short timers run once a minute (Chrome's
+  intensive throttling — the owner's 68 s pause). `browser-try-twice.mjs` (throttling emulated), `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
   (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
   `SandboxConfig.trialFolder` ONLY when Dozer made it; `rm` removes it with the sandbox when empty (host), the CLI asks

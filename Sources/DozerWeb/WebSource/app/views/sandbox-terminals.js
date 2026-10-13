@@ -1,4 +1,5 @@
 // views/sandbox-terminals — A sandbox's terminal area: tabs, the split, New shell / New terminal.
+import { paintStartProgress } from '../components/start-progress.js';
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
 import { icon, setButton } from '../dom/icons.js';
@@ -17,7 +18,7 @@ import { lifecycle, sessionsWhyNot } from '../components/lifecycle.js';
 import { menuButton } from '../components/menus.js';
 import { agentChip } from '../components/agent-status.js';
 import { failureFor, pageFailure } from '../components/notices.js';
-import { bootTerm, closeTerminal, focusTerm, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal.js';
+import { bootTerm, closeTerminal, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
 import { sessionMenuItems } from '../components/session-actions.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -26,6 +27,9 @@ const openSavedTerminal = upcall('openSavedTerminal'), persistLayout = upcall('p
 // ── a sandbox's terminal area: tabs, and a split (593: per sandbox; the grid's tiles are apart)
 export function paintTabs() { if (state.view === 'sandbox') renderTerminals(); }
 export function renderTerminals() {
+  try { drawTerminals(); } finally { paintStartProgress(); }   // 617: the build panel follows the tabs (Console takes over at once)
+}
+function drawTerminals() {
   const root = $('terminals');
   if (!termUI.built) {
     // Split is a split button (owner, 591): the main part splits and ALWAYS fills the right pane
@@ -82,14 +86,18 @@ export function renderTerminals() {
   // Another sandbox's terminals stay open (hidden) — going back to it is instant.
   for (const t of terminals.values()) if (!t.grid && t.sandbox !== name) t.els.wrap.hidden = true;
   termUI.panes.forEach((p, i) => {
-    const mine = name ? pageTerminals(name).filter((t) => t.pane === i) : [];
+    // 617: tab zero (Console) first; an agent's terminal still PENDING (not drawn yet) is laid out but has no tab.
+    const all = name ? pageTerminals(name).filter((t) => t.pane === i) : [];
+    const mine = [...all.filter((t) => t.mode === 'console'), ...all.filter((t) => t.mode !== 'console' && !t.pending)];
     if (!mine.some((t) => t.id === v.selected[i])) v.selected[i] = mine.length ? mine[mine.length - 1].id : null;
     p.strip.replaceChildren(...mine.map((t) => tabElement(t, i)));
     scrollActiveTab(p.strip);
-    p.empty.hidden = mine.length > 0;
-    for (const t of mine) {
+    p.empty.hidden = all.length > 0;
+    for (const t of all) {
       if (t.els.wrap.parentNode !== p.body) p.body.append(t.els.wrap);
-      t.els.wrap.hidden = t.id !== v.selected[i];
+      t.els.wrap.classList.toggle('term-pending', !!t.pending);
+      t.els.wrap.hidden = !t.pending && t.id !== v.selected[i];
+      if (t.id === v.selected[i] && t.activity) t.activity = false;     // seen
       // 593 §9: a restored tab loads its engine the first time it is shown — a hidden frame has no size,
       // and an interactive attach at no size would resize its session.
       if (t.lazy && !t.els.wrap.hidden) {
@@ -187,7 +195,9 @@ function tabElement(t, pane) {
     : t.saved ? sandboxPhase(t.sandbox) || 'unknown' : (t.state && t.state.phase) || 'unknown';
   const v = sview(t.sandbox);
   // Tabs are numbered (1, 2, …) per sandbox, so a shared session can say which tab it is shared with.
-  const order = pageTerminals(t.sandbox).map((x) => x.id);
+  // Numbered 1, 2, … — tab zero is the console ("Console"), not numbered; a pending one is not a tab yet.
+  const order = pageTerminals(t.sandbox).filter((x) => x.mode !== 'console' && !x.pending).map((x) => x.id);
+  if (t.mode === 'console') return consoleTab(t, pane, v);
   const num = order.indexOf(t.id) + 1;
   const label = num + ' · ' + terminalTitle(t);
   const twins = t.session && !t.ended ? pageTerminals(t.sandbox).filter((o) => o.id !== t.id && !o.ended && o.session === t.session) : [];
@@ -199,6 +209,7 @@ function tabElement(t, pane) {
                                'data-term': String(t.id),
                                on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); focusTerm(t); } } },
     h('span', { class: 'tab-dot ph-' + phase, 'aria-hidden': 'true' }), icon(t.mode === 'watch' ? 'eye' : 'terminal'), label,
+    t.activity ? h('span', { class: 'tab-activity', 'data-tab-activity': '', title: 'Ready — it has drawn its screen', 'aria-label': 'ready' }) : null,
     t.mode === 'watch' ? h('span', { class: 'tag' }, 'watch') : null,
     t.session && !t.bootlog ? agentChip(t.sandbox, t.session) : null,     // 612: what its agent is doing
     t.saved ? h('span', { class: 'tag saved', title: 'Its last saved screen (' + (t.saved.reason || 'saved') + ', ' + when(t.saved.savedAt) + ') — it goes live when the sandbox runs' }, 'saved') : null,
@@ -218,6 +229,24 @@ function tabElement(t, pane) {
   } else if (!live && t.sessionMenu) t.sessionMenu = null;
   const menu = live ? t.sessionMenu.el : null;
   return h('div', { class: 'tab-wrap' }, select, move, menu, close);
+}
+/// 617: tab zero — the system console. A distinct icon, no number, no close box (it goes when the VM powers off).
+function consoleTab(t, pane, v) {
+  const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-console' + (t.id === v.selected[pane] ? ' active' : ''),
+    title: 'The system console (the kernel and vminitd) — what doz console ' + t.sandbox + ' shows; read-only', 'data-term': String(t.id), 'data-console-tab': t.sandbox,
+    on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); focusTerm(t); } } },
+    icon('cpu'), 'Console');
+  return h('div', { class: 'tab-wrap' }, select);
+}
+/// 617: tab zero exists exactly while the sandbox's VM is powered on (booting, running, paused); it goes when it shuts
+/// down, sleeps or hibernates, and comes back at the next power-on. A start under way (an agent's terminal still
+/// pending) shows it at once.
+export function syncConsoleTab(name, phase) {
+  const on = ['booting', 'running', 'paused'].includes(phase);
+  const have = pageTerminals(name).filter((t) => t.mode === 'console');
+  if (on && !have.length) openConsoleTerminal(name, pageTerminals(name).some((t) => t.pending));
+  // A read of the phase can be older than the start under way: Console stays while the agent's terminal still waits.
+  else if (!on && !pageTerminals(name).some((t) => t.pending)) for (const t of have) closeTerminal(t.id);
 }
 const SPLIT_ICONS = { shell: 'plus', watch: 'eye', attach: 'link', dialog: 'terminal' };
 export function paintSplitButton() {

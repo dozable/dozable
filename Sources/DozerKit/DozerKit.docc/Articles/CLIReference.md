@@ -687,8 +687,8 @@ One settings file, `doz.toml`, lists every setting grouped in sections (`[ui]`, 
 `[store]`, `[claude]`, `[defaults]`, `[agent]`, `[telemetry]`, `[resources]`, `[sandbox]`, `[images.lab]`, `[images.claude-code]`, `[images.pi]`,
 `[kernel]`), each with a description and `# key = default` commented out; only what you set is
 uncommented. Precedence: a command-line flag, then its environment variable, then the file, then
-the default. `ui.boot_view_on_start` (default `true`) makes Start in the web UI open a terminal on
-the boot; the UI's **Settings** page edits the same file (a host path, or a value the environment
+the default. `ui.boot_view_on_start` (default `false`) keeps the web UI on the boot console (tab zero,
+Console) after Start instead of switching to the agent's tab; the UI's **Settings** page edits the same file (a host path, or a value the environment
 sets, is read-only there). The file is written whole, atomically, `0600`; an unknown key is a
 warning, and a file that doesn't parse is ignored (and never overwritten) until it's fixed. Not
 settable, by design: the web UI's security limits and checks, the terminal's paste cap and tickets,

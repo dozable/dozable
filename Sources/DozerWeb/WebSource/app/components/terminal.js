@@ -6,13 +6,13 @@ import { api } from '../core/api.js';
 import { bytes, elapsedText, ms, when } from '../core/format.js';
 import { act, TRANSITION_LABEL, transitionOf, waitForOp } from '../core/operations.js';
 import { sandboxBusy, sandboxImage, sandboxPhase } from '../core/sandboxes.js';
-import { setting, terminalsAllowed } from '../core/settings.js';
+import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { INPUT_CHUNK, PASTE_CONFIRM_BYTES, PASTE_MAX_BYTES, sview, terminals, termUI } from '../core/terminals.js';
 import { isInt, quietly, utf8 } from '../core/util.js';
 import { bridgeNotice, failureFor } from './notices.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals');
+const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
 
 // This page never opens windows.
 window.open = function refuseToOpen() { return null; };
@@ -91,7 +91,7 @@ export async function bootTerm(t, fontSize) {
     if (t.closed) return false;
     const opened = new Promise((resolve, reject) => { t.onOpened = resolve; t.onFailed = reject; });
     t.onReady = () => {
-      t.initMode = t.saved ? 'saved' : t.mode;
+      t.initMode = t.saved ? 'saved' : t.mode === 'console' ? 'watch' : t.mode;     // 617: the console is read-only
       toFrame(t, { t: 'init', wasm: wasm.slice(0), mode: t.initMode, fontSize: isInt(fontSize, 9, 32) ? fontSize : 13 });
     };
     // The engine's frame: an opaque origin (allow-scripts only — no same-origin, no popups, no forms).
@@ -108,7 +108,7 @@ export async function bootTerm(t, fontSize) {
   t.booted = true;
   if (t.saved) { loadSavedScreen(t); return true; }       // 593 §9: no socket — the saved screen
   // A saved pane whose sandbox ran again while its engine loaded: the frame leaves saved mode first.
-  if (t.initMode === 'saved') toFrame(t, { t: 'live', mode: t.mode });
+  if (t.initMode === 'saved') toFrame(t, { t: 'live', mode: t.mode === 'console' ? 'watch' : t.mode });
   connectTerminal(t);
   return true;
 }
@@ -129,12 +129,57 @@ export async function openTerminal(sandbox, session, mode, pane, opts = {}) {
   if (await bootTerm(t, setting('ui.terminal_font_size', 13))) focusTerm(t);
 }
 
+/// 617 (owner: the agent's tab "appears once, ready"): the agent's terminal of a start, PREPARED but not shown — no tab,
+/// its pane laid out under the others (it has a size; a hidden frame has none) — attached QUIETLY once the sandbox
+/// runs (nothing of the boot written into it: tab zero, Console, shows that). It becomes a tab when it has drawn its
+/// first frame (`revealPending`): selected at once — or, with ui.boot_view_on_start (stay on Console), marked with an
+/// activity dot.
+export async function openPendingTerminal(sandbox) {
+  if (!terminalsAllowed()) return null;
+  const t = newTerm(sandbox, null, 'interactive');
+  t.pending = true;
+  t.quiet = true;
+  t.pane = 0;
+  paintCover(t);
+  if (state.view !== 'sandbox' || state.param !== sandbox) location.hash = '#/sandbox/' + sandbox;
+  else renderTerminals();
+  await new Promise((r) => setTimeout(r, 0));
+  renderTerminals();
+  bootTerm(t, setting('ui.terminal_font_size', 13));
+  return t;
+}
+function revealPending(t) {
+  if (!t.pending) return;
+  t.pending = false;
+  const v = sview(t.sandbox);
+  if (bootViewOnStart() && !t.errorText && !t.ended) t.activity = true;    // stay on Console; the agent's tab says it has something
+  else { v.selected[t.pane] = t.id; v.focusedPane = t.pane; }
+  renderTerminals();
+  if (!t.activity) focusTerm(t);
+}
+/// 617: tab zero — the sandbox's system console (read-only, the stream `doz console NAME` shows), while its VM is
+/// powered on. `select`: it becomes the pane's shown tab (a start under way); else it waits behind the others.
+export async function openConsoleTerminal(sandbox, select) {
+  if (!terminalsAllowed()) return null;
+  const t = newTerm(sandbox, null, 'console');
+  t.pane = 0;
+  const v = sview(sandbox);
+  if (select || v.selected[0] == null) v.selected[0] = t.id;
+  paintCover(t);
+  renderTerminals();
+  await new Promise((r) => setTimeout(r, 0));
+  renderTerminals();
+  bootTerm(t, setting('ui.terminal_font_size', 13));
+  return t;
+}
+
 /// 605: `opts.reattach` — the page had this terminal (doz ui restarted, or a sign-in again): the server
 /// keeps its scrollback; the answer is 'ok', 'retry' (busy: too many terminals or tickets) or 'failed'.
 async function connectTerminal(t, opts = {}) {
   const body = { mode: t.mode };
   if (t.session) body.session = t.session;
   if (opts.reattach) body.reattach = true;
+  if (t.quiet) body.quiet = true;
   if (t.mode === 'interactive') {
     body.cols = Math.max(2, Math.min(1000, t.cols));
     body.rows = Math.max(1, Math.min(500, t.rows));
@@ -216,6 +261,7 @@ function termNote(t, text, ms = 4000) {
 function onTerminalMessage(t, ev) {
   if (typeof ev.data !== 'string') {
     toFrame(t, { t: 'write', data: ev.data }, [ev.data]);
+    if (t.pending) revealPending(t);                 // 617: its first frame — now it is a tab
     if (t.reattached) { t.reattached = false; t.els.wrap.dataset.reattached = String((+t.els.wrap.dataset.reattached || 0) + 1); termNote(t, 'Reconnected', 3000); }
     return;
   }
@@ -227,6 +273,8 @@ function onTerminalMessage(t, ev) {
     wakeStateWaiters(t);
     if (t.bootIntent && m.cover && !['shutDown', 'failed', 'reattaching'].includes(m.cover.kind)) t.bootIntent = false;
     if (m.session) t.session = m.session;
+    // 617: the VM is on (the agent's quiet terminal hears it first): tab zero, Console, appears.
+    if (t.pending && ['booting', 'running', 'paused'].includes(m.phase)) syncConsoleTab(t.sandbox, m.phase);
     // "woke in 0.4 s": one line over the screen, for a few seconds.
     if (typeof m.notice === 'string' && m.notice) termNote(t, m.notice);
   } else if (m.t === 'notice') {
@@ -243,6 +291,8 @@ function onTerminalMessage(t, ev) {
   } else if (m.t === 'error') {
     t.errorText = m.message || m.code; wakeStateWaiters(t);
   }
+  // 617: a quiet terminal that ended or failed before drawing anything is shown — with why.
+  if (t.pending && (t.ended || t.errorText)) revealPending(t);
   paintCover(t);
   paintTabs();
 }

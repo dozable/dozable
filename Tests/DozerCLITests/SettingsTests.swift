@@ -90,7 +90,7 @@ final class SettingsTests: XCTestCase {
                   "images.pi.memory_mib", "images.pi.network", "kernel.path", "kernel.cache"] {
             XCTAssertNotNil(DozerSettings.definition(k), k)
         }
-        XCTAssertEqual(DozerSettings.definition("ui.boot_view_on_start")?.defaultValue, .bool(true), "the owner's default: on")
+        XCTAssertEqual(DozerSettings.definition("ui.boot_view_on_start")?.defaultValue, .bool(false), "617, the owner's default: off (switch to the agent's tab)")
         for d in DozerSettings.schema {
             XCTAssertNoThrow(try d.validate(d.defaultValue), "\(d.key)'s default is valid")
             XCTAssertTrue(TOML.isBareKey(d.name), d.key)
@@ -139,7 +139,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(s.warnings.contains { $0.hasPrefix("line 3:") && $0.contains("9–32") })
         XCTAssertTrue(s.warnings.contains { $0.contains("unknown setting ui.colour") })
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .default)
-        XCTAssertEqual(s.resolve("ui.boot_view_on_start").value, .bool(true))
+        XCTAssertEqual(s.resolve("ui.boot_view_on_start").value, .bool(false))
         // A rewrite keeps the unknown keys, as they were.
         let again = DozerSettings(text: DozerSettings.render(values: s.fileValues, unknown: s.unknown))
         XCTAssertEqual(again.unknown.map(\.path), ["ui.colour", "future.thing"])
@@ -279,17 +279,17 @@ final class SettingsTests: XCTestCase {
         var s = DozerSettings.load(environment: env)
         XCTAssertEqual(s.url, file)
         XCTAssertFalse(s.fileExists)
-        s = try s.writing("ui.boot_view_on_start", .bool(false))
+        s = try s.writing("ui.boot_view_on_start", .bool(true))
         XCTAssertTrue(s.fileExists)
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .file)
-        XCTAssertFalse(s.bool(SettingKey.bootViewOnStart))
+        XCTAssertTrue(s.bool(SettingKey.bootViewOnStart))
         var st = stat()
         XCTAssertEqual(stat(file.path, &st), 0)
         XCTAssertEqual(st.st_mode & 0o777, 0o600)
         XCTAssertEqual(stat(file.deletingLastPathComponent().path, &st), 0)
         XCTAssertEqual(st.st_mode & 0o777, 0o700)
         let text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertTrue(text.contains("\nboot_view_on_start = false\n"))
+        XCTAssertTrue(text.contains("\nboot_view_on_start = true\n"))
         for d in DozerSettings.schema where d.key != "ui.boot_view_on_start" {
             XCTAssertTrue(text.contains("\n# \(d.name) = "), "\(d.key) still listed")
         }

@@ -829,7 +829,7 @@ public final class DozerWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             guard settings.terminalsEnabled else { throw WebRejection.terminalsOff }
             let r = try WebTerminalTicketRequest.decode(body)
-            let t = try await tickets.mint(cookie: cookie, sandbox: name, session: r.session, mode: r.mode, size: r.size, reattach: r.reattach)
+            let t = try await tickets.mint(cookie: cookie, sandbox: name, session: r.session, mode: r.mode, size: r.size, reattach: r.reattach, quiet: r.quiet)
             return json(WebTerminalTicketInfo(ticket: t, expiresInSeconds: Int(tickets.lifetime), session: r.session, mode: r.mode))
         case .terminalSocket:
             throw WebRejection.upgradeRequired            // answered in respond(); never dispatched

@@ -9,7 +9,8 @@ import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const hostChanged = upcall('hostChanged'), reattachTerminals = upcall('reattachTerminals'),
   refreshNav = upcall('refreshNav'), renderActivity = upcall('renderActivity'), renderOps = upcall('renderOps'),
-  renderTryPrep = upcall('renderTryPrep'), renderWizard = upcall('renderWizard'), toast = upcall('toast');
+  renderTryPrep = upcall('renderTryPrep'), renderWizard = upcall('renderWizard'), toast = upcall('toast'),
+  paintStartProgress = upcall('paintStartProgress');
 
 /// What a live change re-renders: not Settings (a half-typed value), Operations (its own events) or the
 /// onboarding wizard (its own), nor a page whose masked key field is being filled in.
@@ -52,6 +53,7 @@ export function connect() {
     renderOps();
     if (state.modal === 'onboarding') renderWizard();
     if (state.modal === 'try') renderTryPrep();
+    paintStartProgress();                              // 617: the build bar follows the preparation
   });
   // 617: `doz try --ui AGENT` with this page open — show the Quick try (only that page, only its own hash).
   es.addEventListener('show', (ev) => {

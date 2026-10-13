@@ -16,10 +16,11 @@
 
 [ui]
 
-# Start opens a terminal on the boot sequence (the kernel console) until the sandbox is up; false:
-# Start just starts it.
+# After Start the page stays on tab zero, Console (the kernel and vminitd), and marks the agent's
+# tab when it is ready; false (the default): it switches to the agent's tab as soon as that has
+# drawn its screen.
 # (boolean; applies at once (the UI re-reads it))
-# boot_view_on_start = true
+# boot_view_on_start = false
 
 # Shut Down asks first (its dialog's "don't ask again" sets this to false). Reset and Remove
 # always ask for the name.
