@@ -253,6 +253,20 @@
 # (skip | ask; flag -e DOZ_CODER_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[openhands]
+
+# OpenHands CLI in an openhands sandbox: skip its approval prompts (the sandbox is the boundary),
+# or ask as on a Mac.
+# (skip | ask; flag -e DOZ_OPENHANDS_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[codebuddy]
+
+# CodeBuddy Code in a codebuddy sandbox: skip its approval prompts (the sandbox is the boundary),
+# or ask as on a Mac.
+# (skip | ask; flag -e DOZ_CODEBUDDY_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -265,7 +279,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline | openhands | codebuddy; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -606,6 +620,16 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # cline_version = "latest"
 
+# The OpenHands CLI the openhands image (and every base's OpenHands CLI image) is prepared with:
+# latest or an exact version like 1.16.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# openhands_version = "latest"
+
+# The CodeBuddy Code the codebuddy image (and every base's CodeBuddy Code image) is prepared with:
+# latest or an exact version like 2.164.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# codebuddy_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -922,6 +946,28 @@
 # memory_mib = 2048
 
 # The network of a new cline sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.openhands]
+
+# Memory (MiB) of a new openhands sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new openhands sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.codebuddy]
+
+# Memory (MiB) of a new codebuddy sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new codebuddy sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

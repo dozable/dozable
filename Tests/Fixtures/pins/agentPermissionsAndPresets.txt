@@ -27,6 +27,8 @@ perm model:dirac locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:kimi-code locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:every-code locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:cline locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:openhands locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:codebuddy locked=false hosts=api.x.ai[/v1/chat/completions]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -51,6 +53,7 @@ perm vendor:antigravity locked=false hosts=antigravity-unleash.goog play.googlea
 perm vendor:nanobot locked=false hosts=openaipublic.blob.core.windows.net[/encodings/]
 perm vendor:gptme locked=false hosts=openaipublic.blob.core.windows.net[/encodings/]
 perm vendor:every-code locked=false hosts=api.github.com[/repos/just-every/code/releases/latest]
+perm vendor:openhands locked=false hosts=github.com[/OpenHands/extensions/] pypi.org[/pypi/openhands/json]
 agentPermissions claude-code ["vendor:claude-code"]
 agentPermissions pi ["vendor:pi"]
 agentPermissions none []
@@ -82,6 +85,8 @@ agentPermissions dirac ["model:dirac"]
 agentPermissions kimi-code ["model:kimi-code"]
 agentPermissions every-code ["model:every-code", "vendor:every-code"]
 agentPermissions cline ["model:cline"]
+agentPermissions openhands ["model:openhands", "vendor:openhands"]
+agentPermissions codebuddy ["model:codebuddy"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

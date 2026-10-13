@@ -307,6 +307,24 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); Cline's logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "CL", "frame": "octagon" }
+    },
+    {
+      "id": "openhands", "kind": "product", "name": "OpenHands CLI",
+      "variants": { "mono": "openhands.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/OpenHands/OpenHands-CLI",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); OpenHands' logo is its mark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "OH", "frame": "circle" }
+    },
+    {
+      "id": "codebuddy", "kind": "product", "name": "CodeBuddy Code",
+      "variants": { "mono": "codebuddy.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://www.codebuddy.ai",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "MIT licence for the code; Tencent's CodeBuddy logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "CB", "frame": "hex" }
     }
   ]
 }

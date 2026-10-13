@@ -106,6 +106,10 @@
         "check" : {
           "argv" : [
             "cline",
+            "-P",
+            "xai",
+            "-m",
+            "grok-build-0.1",
             "say ok"
           ],
           "expect" : "DOZ_FAKE_OK"
@@ -230,7 +234,7 @@
         "tags" : [
           {
             "checked" : "2026-10-14",
-            "evidence" : "make recipe-check: cline \"say ok\" printed the stand-in's answer and exited in a fresh try",
+            "evidence" : "make recipe-check: cline -P xai -m grok-build-0.1 \"say ok\" printed the stand-in's answer and exited in a fresh try",
             "level" : "verified",
             "notes" : [
               "cline -P xai -m grok-build-0.1 \"…\""

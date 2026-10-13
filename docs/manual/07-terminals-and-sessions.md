@@ -211,6 +211,8 @@ Which agents say it:
 | Kimi Code | no (checked with 2.1.1) |
 | Every Code | no (checked with 0.6.196) |
 | Cline CLI | no (checked with 3.0.71) |
+| OpenHands CLI | no (checked with 1.16.0) |
+| CodeBuddy Code | no (checked with 2.164.0) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

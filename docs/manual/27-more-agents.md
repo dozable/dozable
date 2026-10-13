@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -18,6 +18,8 @@ doz try dirac            # Dirac, a Cline-derived agent, on an xAI key
 doz try kimi-code        # Kimi Code (alias kimi), on an xAI key
 doz try every-code       # Every Code, a Codex CLI fork, on an xAI key
 doz try cline            # Cline CLI, on an xAI key, no Cline account
+doz try openhands        # OpenHands CLI, on an xAI key
+doz try codebuddy        # CodeBuddy Code (Tencent), on an xAI key, no CodeBuddy account
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -204,7 +206,39 @@ Cline's terminal agent (`doz try cline`), on an **xAI API key** — no Cline acc
   does without them. Cline approves its own tool calls by default (its
   `--auto-approve` is on unless you pass `--auto-approve false`).
 - **May reach:** xAI's API only.
-- **Use:** `cline` (a session), or `cline "…"` for one task.
+- **Use:** `cline` (a session), or `cline -P xai -m grok-build-0.1 "…"` for one task.
+
+## OpenHands CLI (OpenHands)
+
+OpenHands' terminal agent (`doz try openhands`), on an **xAI API key**: its LLM settings come from the environment
+(`--override-with-envs`, in Dozer's command), with xAI's API as an OpenAI-compatible endpoint (model `grok-build-0.1`).
+Nothing is written to its settings.
+
+- **Installed** from its GitHub release (the linux-arm64 build), checked against the SHA-512 Dozer recorded. Debian and
+  Node bases (not Alpine: OpenHands publishes a glibc build only).
+- **Key:** an xAI API key (`LLM_API_KEY` and `XAI_API_KEY`, the same placeholder in the sandbox). OpenHands Cloud's
+  sign-in is not offered.
+- **Set up for you:** its model price list read locally (`LITELLM_LOCAL_MODEL_COST_MAP`, not fetched from GitHub) and
+  its banner off.
+- **May reach:** xAI's API, and two reads no setting turns off: its public skills (a git clone of
+  github.com/OpenHands/extensions at each start) and its latest release on PyPI (a notice only; Dozer installs the
+  pinned release).
+- **Use:** `openhands` (a session; with approvals off, `--always-approve`), or
+  `openhands --override-with-envs --headless -t "…"` for one task.
+
+## CodeBuddy Code (Tencent)
+
+Tencent's terminal agent (`doz try codebuddy`), with a **custom model on an xAI API key** (`grok-build-0.1`) and its
+built-in models — which need a CodeBuddy account — off.
+
+- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). `~/.codebuddy/models.json` names it as
+  `${XAI_API_KEY}`, which CodeBuddy reads each run, so the key is never written there.
+- **Set up for you:** its telemetry, trace collector, remote settings, plugin marketplace downloads and self-update off.
+  Its TUI offers CodeBuddy's sign-in when it starts; Esc skips it, and it answers on your xAI key.
+- **May reach:** xAI's API only.
+- **Use:** `codebuddy` (a session; with approvals off, `--dangerously-skip-permissions`), or
+  `codebuddy --model grok-build -p "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

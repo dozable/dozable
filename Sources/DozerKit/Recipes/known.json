@@ -60,6 +60,56 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "amp",
+      "title": "Amp",
+      "publisher": "Amp",
+      "aliases": ["ampcode"],
+      "homepage": "https://ampcode.com",
+      "status": "coming",
+      "reason": "its models run only through Amp's own service, with an Amp API key (sgamp_…), which Dozer cannot hold for you yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "kiro-cli",
+      "title": "Kiro CLI",
+      "publisher": "Amazon Web Services",
+      "aliases": ["kiro", "amazon-q"],
+      "homepage": "https://kiro.dev/cli",
+      "status": "coming",
+      "reason": "it runs only on Kiro's own models, with a Kiro API key from a paid plan (Pro and above) or an AWS sign-in, which Dozer cannot hold for you yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "qoder-cli",
+      "title": "Qoder CLI",
+      "publisher": "Qoder (Alibaba)",
+      "aliases": ["qoder", "qodercli"],
+      "homepage": "https://docs.qoder.com/cli",
+      "status": "coming",
+      "reason": "it signs in with a Qoder personal access token, which Dozer cannot hold for you yet; its own-model mode is set inside its interface and may need a paid plan",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "poolside-pool",
+      "title": "Poolside pool",
+      "publisher": "Poolside",
+      "aliases": ["pool", "poolside"],
+      "homepage": "https://github.com/poolsideai/pool",
+      "status": "coming",
+      "reason": "installing it means agreeing to Poolside's end-user licence on your behalf, which needs a reading first; and it runs on Poolside's own models with a Poolside key or an OpenRouter sign-in",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "aider",
+      "title": "Aider",
+      "publisher": "Aider-AI",
+      "aliases": ["aider-chat"],
+      "homepage": "https://aider.chat",
+      "status": "coming",
+      "reason": "its current release (0.86.2) needs Python 3.10 to 3.12; the Python Dozer installs tools into is 3.13",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

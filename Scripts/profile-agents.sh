@@ -64,6 +64,8 @@ for a in "$@"; do
     kimi-code) bin=kimi; task="kimi -p \"\$T\"" ;;
     every-code) bin=coder; task="coder exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \"\$T\"" ;;
     cline) bin=cline; task="cline -P xai -m grok-build-0.1 \"\$T\"" ;;
+    openhands) bin=openhands; task="openhands --override-with-envs --headless -t \"\$T\"" ;;
+    codebuddy) bin=codebuddy; task="codebuddy --model grok-build -p --dangerously-skip-permissions \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
