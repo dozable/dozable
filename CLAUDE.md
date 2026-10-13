@@ -1333,7 +1333,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   it sends the query only where it already asks the terminal for its version — deckhold's `TERM=xterm-256color` with no
   `TERM_PROGRAM` is such a terminal — and never inside tmux (it would need `program_status = "on"` and tmux's
   `allow-passthrough`, neither set). Its `working` carries a msg ("Waiting for response…", "Service unavailable (502) |
-  Retrying (n/15)"), its `done` "Turn complete in 4.0s."; `probes/617-*/stageF/grok-status-run.sh` is the VM proof.
+  Retrying (n/15)"), its `done` "Turn complete in 4.0s."; `blocked` is `state=blocked:app=grok-build:kind=permission:msg=<the command>`
+  (seen in its ask mode, `DOZ_GROK_PERMISSIONS=ask` + `--permission-mode default`, on a network command — a write to
+  /tmp ran without asking). `probes/617-*/stageF/grok-status-run.sh` and `grok-blocked-run.sh` are the VM proofs.
 - **What deckhold exposes is the ROOT record**: in `deckhold ls`'s INFO (`status=<canonical report body>\tstatus_age=S`,
   BEFORE the command — an older parser takes an unknown field for the command, which comes last) and as STATUS
   ('T') frames to a client that sent WATCH ('W'). Frame types are only ever appended (the header comment). An

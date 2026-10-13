@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "agent": "grok",
-  "version": "grok 1.0.50 (c58f321264ba)",
-  "profiled": "2026-10-12",
+  "version": "grok 1.0.52 (0920c8169e27)",
+  "profiled": "2026-10-14",
   "how": "a fresh try with the Open network, every HTTPS request decrypted and logged; its first start, then a scripted task (read a file, edit it, run a command) run non-interactively with FAKE keys — xAI and Google through a fake provider that answers text only, Anthropic and OpenAI refused by the real API (401). A real-key run would see more: the model's turns and what its tool calls fetch.",
   "taskEnded": "DOZ_FAKE_OK",
   "endpoints": [
