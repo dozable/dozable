@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -16,6 +16,8 @@ doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
 doz try droid            # Factory Droid (alias factory), on an xAI key, no Factory account
 doz try dirac            # Dirac, a Cline-derived agent, on an xAI key
 doz try kimi-code        # Kimi Code (alias kimi), on an xAI key
+doz try every-code       # Every Code, a Codex CLI fork, on an xAI key
+doz try cline            # Cline CLI, on an xAI key, no Cline account
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -174,6 +176,35 @@ Kimi's own models need a Kimi account or a Moonshot key, which Dozer does not ho
   without them. Its first start in a folder asks whether to trust it.
 - **May reach:** xAI's API only.
 - **Use:** `kimi` (a session; with approvals off, `--auto`), or `kimi -p "…"` for one task.
+
+## Every Code (just-every)
+
+A Codex CLI fork with multi-agent orchestration (`doz try every-code`; its command is `coder`), on an **xAI API key**
+through a Codex-style `model_providers` entry (model `grok-build-0.1`).
+
+- **Installed** from the npm registry's linux-arm64 package (a static build), integrity-checked. Every base, Alpine
+  included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), named by `env_key` in `~/.code/config.toml`.
+  Its ChatGPT sign-in is not offered.
+- **May reach:** xAI's API, and GitHub's API for one read: its latest release, which it asks for when its TUI starts
+  (no setting turns it off; Dozer installs the pinned release).
+- **Use:** `coder` (a session; with approvals off, `--dangerously-bypass-approvals-and-sandbox`), or
+  `coder exec --skip-git-repo-check "…"` for one task.
+
+## Cline CLI (Cline)
+
+Cline's terminal agent (`doz try cline`), on an **xAI API key** — no Cline account (`cline -P xai -m grok-build-0.1`).
+
+- **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox); Cline reads it each run and saves only the
+  provider and model.
+- **Set up for you:** its telemetry and self-update off (`telemetryOptOut`, `autoUpdateEnabled: false`,
+  `CLINE_NO_AUTO_UPDATE`), and its ClinePass notice. When it starts it asks for feature flags (its PostHog host), its
+  recommended models (api.cline.bot) and the models.dev catalogue; Dozer keeps those requests out quietly, and Cline
+  does without them. Cline approves its own tool calls by default (its
+  `--auto-approve` is on unless you pass `--auto-approve false`).
+- **May reach:** xAI's API only.
+- **Use:** `cline` (a session), or `cline "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

@@ -246,6 +246,13 @@
 # (skip | ask; flag -e DOZ_KIMI_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[every-code]
+
+# Every Code in an every-code sandbox: skip its approval prompts (the sandbox is the boundary), or
+# ask as on a Mac.
+# (skip | ask; flag -e DOZ_CODER_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -258,7 +265,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -589,6 +596,16 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # kimi_code_version = "latest"
 
+# The Every Code the every-code image (and every base's Every Code image) is prepared with: latest
+# or an exact version like 0.6.196, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# every_code_version = "latest"
+
+# The Cline CLI the cline image (and every base's Cline CLI image) is prepared with: latest or an
+# exact version like 3.0.71, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# cline_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -884,6 +901,27 @@
 
 # The network of a new kimi-code sandbox: agent, bake, locked, open (proxied presets), nat or
 # none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.every-code]
+
+# Memory (MiB) of a new every-code sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new every-code sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.cline]
+
+# Memory (MiB) of a new cline sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new cline sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

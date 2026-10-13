@@ -41,6 +41,25 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "forgecode",
+      "title": "ForgeCode",
+      "publisher": "Tailcall",
+      "aliases": ["forge"],
+      "homepage": "https://forgecode.dev",
+      "status": "coming",
+      "reason": "it no longer reads an API key from the environment: it copies the key into its own credentials file, where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "jcode",
+      "title": "jcode",
+      "publisher": "1jehuang",
+      "homepage": "https://github.com/1jehuang/jcode",
+      "status": "coming",
+      "reason": "its linux-arm64 build needs glibc 2.38 or later (Ubuntu 24.04); Dozer's agent images are on Debian 12 (glibc 2.36), and an agent on the Ubuntu base is not set up yet",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

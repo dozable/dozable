@@ -135,7 +135,7 @@ Their `config` is Kit's shape exactly. Dozer's additions sit only under `config.
 | `dozer.update` | The hosts "Update itself" opens in its sandbox only. |
 | `dozer.excluded` | Hosts kept out whatever is chosen (a sign-in Dozer does not offer, a host it must not use). |
 | `dozer.vendor` | Hosts on its own maker's sites it calls at a normal start, each with its `reason`; allowed in its sandbox only. |
-| `dozer.quiet` | Hosts it calls that no setting of its own turns off and that Dozer keeps out without counting a refusal (promptfoo's telemetry event; Kimi Code's start-up client settings). |
+| `dozer.quiet` | Hosts it calls that no setting of its own turns off and that Dozer keeps out without counting a refusal (promptfoo's telemetry event; Kimi Code's and Cline's start-up requests). |
 | `dozer.off_without` | Its own switches, set when a permission is off: `permission`, `env`, `says`. |
 
 A host entry is `{host, paths?, exact_paths?, reason?}`: `paths` are prefixes (the proxy decrypts the connection to

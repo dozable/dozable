@@ -27,6 +27,8 @@ kind mistral-vibe Mistral Vibe
 kind droid Factory Droid
 kind dirac Dirac
 kind kimi-code Kimi Code
+kind every-code Every Code
+kind cline Cline CLI
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -57,6 +59,8 @@ parse node-mistral-vibe → node mistral-vibe node-mistral-vibe Node.js · Mistr
 parse node-droid → node droid node-droid Node.js · Factory Droid base-name node-droid-sandbox
 parse dirac → node dirac dirac Node.js · Dirac base-name dirac-sandbox
 parse kimi-code → node kimi-code kimi-code Node.js · Kimi Code base-name kimi-sandbox
+parse node-every-code → node every-code node-every-code Node.js · Every Code base-name node-coder-sandbox
+parse node-cline → node cline node-cline Node.js · Cline CLI base-name node-cline-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -86,6 +90,8 @@ parse python-mistral-vibe → python mistral-vibe python-mistral-vibe Python · 
 parse python-droid → python droid python-droid Python · Factory Droid base-name python-droid-sandbox
 parse python-dirac → python dirac python-dirac Python · Dirac base-name python-dirac-sandbox
 parse python-kimi-code → python kimi-code python-kimi-code Python · Kimi Code base-name python-kimi-sandbox
+parse python-every-code → python every-code python-every-code Python · Every Code base-name python-coder-sandbox
+parse python-cline → python cline python-cline Python · Cline CLI base-name python-cline-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -115,6 +121,8 @@ parse go-mistral-vibe → go mistral-vibe go-mistral-vibe Go · Mistral Vibe bas
 parse go-droid → go droid go-droid Go · Factory Droid base-name go-droid-sandbox
 parse go-dirac → go dirac go-dirac Go · Dirac base-name go-dirac-sandbox
 parse go-kimi-code → go kimi-code go-kimi-code Go · Kimi Code base-name go-kimi-sandbox
+parse go-every-code → go every-code go-every-code Go · Every Code base-name go-coder-sandbox
+parse go-cline → go cline go-cline Go · Cline CLI base-name go-cline-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -144,6 +152,8 @@ parse rust-mistral-vibe → rust mistral-vibe rust-mistral-vibe Rust · Mistral 
 parse rust-droid → rust droid rust-droid Rust · Factory Droid base-name rust-droid-sandbox
 parse rust-dirac → rust dirac rust-dirac Rust · Dirac base-name rust-dirac-sandbox
 parse rust-kimi-code → rust kimi-code rust-kimi-code Rust · Kimi Code base-name rust-kimi-sandbox
+parse rust-every-code → rust every-code rust-every-code Rust · Every Code base-name rust-coder-sandbox
+parse rust-cline → rust cline rust-cline Rust · Cline CLI base-name rust-cline-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -173,6 +183,8 @@ parse java-mistral-vibe → java mistral-vibe java-mistral-vibe Java · Mistral 
 parse java-droid → java droid java-droid Java · Factory Droid base-name java-droid-sandbox
 parse java-dirac → java dirac java-dirac Java · Dirac base-name java-dirac-sandbox
 parse java-kimi-code → java kimi-code java-kimi-code Java · Kimi Code base-name java-kimi-sandbox
+parse java-every-code → java every-code java-every-code Java · Every Code base-name java-coder-sandbox
+parse java-cline → java cline java-cline Java · Cline CLI base-name java-cline-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -202,6 +214,8 @@ parse ruby-mistral-vibe → ruby mistral-vibe ruby-mistral-vibe Ruby · Mistral 
 parse ruby-droid → ruby droid ruby-droid Ruby · Factory Droid base-name ruby-droid-sandbox
 parse ruby-dirac → ruby dirac ruby-dirac Ruby · Dirac base-name ruby-dirac-sandbox
 parse ruby-kimi-code → ruby kimi-code ruby-kimi-code Ruby · Kimi Code base-name ruby-kimi-sandbox
+parse ruby-every-code → ruby every-code ruby-every-code Ruby · Every Code base-name ruby-coder-sandbox
+parse ruby-cline → ruby cline ruby-cline Ruby · Cline CLI base-name ruby-cline-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -231,6 +245,8 @@ parse dotnet-mistral-vibe → dotnet mistral-vibe dotnet-mistral-vibe .NET · Mi
 parse dotnet-droid → dotnet droid dotnet-droid .NET · Factory Droid base-name dotnet-droid-sandbox
 parse dotnet-dirac → dotnet dirac dotnet-dirac .NET · Dirac base-name dotnet-dirac-sandbox
 parse dotnet-kimi-code → dotnet kimi-code dotnet-kimi-code .NET · Kimi Code base-name dotnet-kimi-sandbox
+parse dotnet-every-code → dotnet every-code dotnet-every-code .NET · Every Code base-name dotnet-coder-sandbox
+parse dotnet-cline → dotnet cline dotnet-cline .NET · Cline CLI base-name dotnet-cline-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -260,6 +276,8 @@ parse mistral-vibe → debian mistral-vibe mistral-vibe Debian · Mistral Vibe b
 parse droid → debian droid droid Debian · Factory Droid base-name droid-sandbox
 parse debian-dirac → debian dirac debian-dirac Debian · Dirac base-name debian-dirac-sandbox
 parse debian-kimi-code → debian kimi-code debian-kimi-code Debian · Kimi Code base-name debian-kimi-sandbox
+parse every-code → debian every-code every-code Debian · Every Code base-name coder-sandbox
+parse cline → debian cline cline Debian · Cline CLI base-name cline-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -289,6 +307,8 @@ parse ubuntu-mistral-vibe → ubuntu mistral-vibe ubuntu-mistral-vibe Ubuntu · 
 parse ubuntu-droid → ubuntu droid ubuntu-droid Ubuntu · Factory Droid base-name ubuntu-droid-sandbox
 parse ubuntu-dirac → ubuntu dirac ubuntu-dirac Ubuntu · Dirac base-name ubuntu-dirac-sandbox
 parse ubuntu-kimi-code → ubuntu kimi-code ubuntu-kimi-code Ubuntu · Kimi Code base-name ubuntu-kimi-sandbox
+parse ubuntu-every-code → ubuntu every-code ubuntu-every-code Ubuntu · Every Code base-name ubuntu-coder-sandbox
+parse ubuntu-cline → ubuntu cline ubuntu-cline Ubuntu · Cline CLI base-name ubuntu-cline-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -317,6 +337,8 @@ parse alpine-mistral-vibe → alpine mistral-vibe alpine-mistral-vibe Alpine · 
 parse alpine-droid → alpine droid alpine-droid Alpine · Factory Droid base-name alpine-droid-sandbox
 parse alpine-dirac → alpine dirac alpine-dirac Alpine · Dirac base-name alpine-dirac-sandbox
 parse alpine-kimi-code → alpine kimi-code alpine-kimi-code Alpine · Kimi Code base-name alpine-kimi-sandbox
+parse alpine-every-code → alpine every-code alpine-every-code Alpine · Every Code base-name alpine-coder-sandbox
+parse alpine-cline → alpine cline alpine-cline Alpine · Cline CLI base-name alpine-cline-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -346,6 +368,8 @@ parse df-0123456789ab-mistral-vibe → df-0123456789ab mistral-vibe df-012345678
 parse df-0123456789ab-droid → df-0123456789ab droid df-0123456789ab-droid Dockerfile · Factory Droid base-name dockerfile-droid-sandbox
 parse df-0123456789ab-dirac → df-0123456789ab dirac df-0123456789ab-dirac Dockerfile · Dirac base-name dockerfile-dirac-sandbox
 parse df-0123456789ab-kimi-code → df-0123456789ab kimi-code df-0123456789ab-kimi-code Dockerfile · Kimi Code base-name dockerfile-kimi-sandbox
+parse df-0123456789ab-every-code → df-0123456789ab every-code df-0123456789ab-every-code Dockerfile · Every Code base-name dockerfile-coder-sandbox
+parse df-0123456789ab-cline → df-0123456789ab cline df-0123456789ab-cline Dockerfile · Cline CLI base-name dockerfile-cline-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

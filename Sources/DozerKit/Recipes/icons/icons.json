@@ -289,6 +289,24 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); Moonshot's Kimi logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "KC", "frame": "hex" }
+    },
+    {
+      "id": "every-code", "kind": "product", "name": "Every Code",
+      "variants": { "mono": "every-code.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/just-every/code",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "EC", "frame": "square" }
+    },
+    {
+      "id": "cline", "kind": "product", "name": "Cline CLI",
+      "variants": { "mono": "cline.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/cline/cline",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); Cline's logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "CL", "frame": "octagon" }
     }
   ]
 }

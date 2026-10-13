@@ -209,6 +209,8 @@ Which agents say it:
 | Factory Droid | 0.240.1 (the version Dozer installs) |
 | Dirac | no (checked with 0.5.20) |
 | Kimi Code | no (checked with 2.1.1) |
+| Every Code | no (checked with 0.6.196) |
+| Cline CLI | no (checked with 3.0.71) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session
