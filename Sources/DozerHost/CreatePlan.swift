@@ -177,6 +177,11 @@ public enum CreatePlanner {
                 }
             }
         }
+        // A folder Dozer would refuse to make or share (inside the store, a system location, a file): said by the plan,
+        // before a try asks for a key — never after.
+        if let w = o.workspace, let path = try? Workspace.normalize(w), let why = Workspace.refusal(path, store: f.store) {
+            problems.append(PlanProblem(code: "invalid", text: why, fix: isTry || r.purpose == "new" ? "--isolated, or --workspace DIR" : nil))
+        }
         let isolated = o.workspace == nil
 
         // The policy the proxy will judge with — the create's own function, without the folder (it may not exist yet).

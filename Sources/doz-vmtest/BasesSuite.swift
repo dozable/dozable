@@ -63,8 +63,8 @@ func basesCLIPart(_ binary: String) async {
     check(r.code != 0 && r.err.contains("--base: node, python"), "an unknown base is refused, the bases named")
     r = h.run(["create", "x1", "--image", "lab", "--agent", "pi"])
     check(r.code != 0 && r.err.contains("not both"), "--image with --agent: refused")
-    r = h.run(["create", "x1", "--agent", "gemini"])      // codex is an agent since 599i
-    check(r.code != 0 && r.err.contains("--agent: claude-code, pi, codex or none"), "an unknown agent is refused")
+    r = h.run(["create", "x1", "--agent", "cobol-agent"])      // codex is an agent since 599i, gemini since 617
+    check(r.code != 0 && r.err.contains("--agent: \(DozerProject.agentWords)"), "an unknown agent is refused, every agent named")
     r = h.run(["create", "g1", "--base", "go", "--agent", "none", "--isolated", "--json"])
     let g1 = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)
     check(r.code == 0 && g1?.image == "go" && g1?.imageTitle == "Go · none" && g1?.base == "go", "create --base go --agent none: image go, Go · none")

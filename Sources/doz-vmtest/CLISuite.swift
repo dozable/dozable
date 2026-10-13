@@ -590,10 +590,10 @@ func cliBootLogChecks(_ h: CLIHarness) {
     let table = h.run(["console", "clibt", "--list"])
     check(table.code == 0 && table.out.contains("KIND") && table.out.contains("cold boot") && table.out.contains("✓"), "console --list prints a table")
     var r = h.run(["console", "clibt", "--boot", "2", "--steps"])
-    check(r.code == 0 && r.out.contains("── wake of clibt") && r.out.contains("restored VM state from disk") && r.out.contains("── kernel console"),
+    check(r.code == 0 && r.out.contains("── wake of clibt") && r.out.contains(StepWording.of("restored VM state from disk").done) && r.out.contains("── kernel console"),
           "--boot 2 --steps: the previous boot (a wake from hibernation): its steps, then its console")
     r = h.run(["console", "clibt", "--boot", "4", "--steps"])
-    check(r.code == 0 && r.out.contains("── cold boot of clibt") && r.out.contains("VM created and booted") && r.out.range(of: #"\[ *\d+\.\d+\]"#, options: .regularExpression) != nil,
+    check(r.code == 0 && r.out.contains("── cold boot of clibt") && r.out.contains(StepWording.of("VM created and booted (VZ start + Linux kernel + vminitd)").done) && r.out.range(of: #"\[ *\d+\.\d+\]"#, options: .regularExpression) != nil,
           "--boot 4 --steps: an older cold boot's steps and its kernel console")
     check(!r.out.contains("\u{1B}"), "…as plain text off a terminal (no escape)")
     let rec = h.json(["console", "clibt", "--boot", "1"], BootLogRecord.self)

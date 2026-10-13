@@ -931,6 +931,10 @@ Task {
             // 617: the recipe agents (Grok Build, Gemini CLI, Antigravity CLI) through a fake provider (seams only).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliAgentsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-try":
+            // 617: doz try on a terminal — the key card, the exit question, --rm/--keep (a fake provider, seams only).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliTrySuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-codex":
             // 599i: Codex — Dozer's own ChatGPT sign-in, the proxy's swap and renewal, an API key (a fake OpenAI).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

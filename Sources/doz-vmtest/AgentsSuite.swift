@@ -19,7 +19,7 @@ func cliAgentsSuite(binary: String) async {
     let pid = getpid()
     let env = ProcessInfo.processInfo.environment
     let keep = env["AGENTS_KEEP"] == "1"
-    let parts = Set((env["AGENTS_PARTS"] ?? "grok,gemini,antigravity").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
+    let parts = Set((env["AGENTS_PARTS"] ?? "grok,gemini,antigravity,custom").split(separator: ",").map { String($0).trimmingCharacters(in: .whitespaces) })
     let kept = URL(fileURLWithPath: "/tmp/dzo-agents-keep")
     let t: CLIHarness
     let seed = ["kernels", "content", "state.json", "initfs.ext4", "golden"]
@@ -61,7 +61,7 @@ func cliAgentsSuite(binary: String) async {
     let xaiKey = "xai-FAKE-SUITE-0123456789abcdef", googleKey = "AIzaFAKESUITE-0123456789abcdef"
     let repo = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
     try? "basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n".write(toFile: ws + "/ca.ext", atomically: true, encoding: .utf8)
-    try? "subjectAltName=DNS:api.x.ai,DNS:generativelanguage.googleapis.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n"
+    try? "subjectAltName=DNS:api.x.ai,DNS:generativelanguage.googleapis.com,DNS:www.example.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n"
         .write(toFile: ws + "/leaf.ext", atomically: true, encoding: .utf8)
     let m0 = onMac(["/bin/sh", "-c", """
         set -e
@@ -90,6 +90,8 @@ func cliAgentsSuite(binary: String) async {
     }
     t.env["DOZ_TEST_PROVIDER_UPSTREAM"] = "127.0.0.1:\(port)"
     t.env["DOZ_TEST_PROVIDER_CA"] = ws + "/ca.pem"
+    // A custom key's host goes to the fake too (nothing reaches the real www.example.com).
+    t.env["DOZ_TEST_PROVIDER_HOSTS"] = "www.example.com"
     // A fake op: prints the key for op://T/xai/k, or plays "signed out" when the file says so.
     let opScript = ws + "/op"
     try? """
@@ -102,7 +104,7 @@ func cliAgentsSuite(binary: String) async {
     chmod(opScript, 0o755)
     t.env["DOZ_TEST_OP"] = opScript
     _ = d(["host", "stop"], timeout: 300)
-    if keep { for n in ["ag-grok", "ag-gemini", "ag-antigravity", "ag-op", "try-grok", "try-gemini", "try-agy"] { _ = d(["rm", n, "--yes"], timeout: 120) } }
+    if keep { for n in ["ag-grok", "ag-gemini", "ag-antigravity", "ag-op", "ag-custom", "try-grok", "try-gemini", "try-agy"] { _ = d(["rm", n, "--yes"], timeout: 120) } }
 
     // Keys: fake, checked against the fake (the provider's check request goes there too).
     let a1 = d(["account", "add", "xai", "--provider", "xai", "--force"], stdin: Data((xaiKey + "\n").utf8))
@@ -188,6 +190,38 @@ func cliAgentsSuite(binary: String) async {
         let tryName = t.ls().first { $0.trial == true }?.name ?? ""
         check(r.code == 0 && r.out.contains("doz attach \(tryName)"), "\(c.agent): doz try off a terminal starts it and prints the attach command")
         if !tryName.isEmpty { _ = d(["rm", tryName, "--yes"], timeout: 300) }
+    }
+
+    // ── A custom key (a host no provider owns): refused unless its host is allowed, swapped there only ─────
+    if parts.contains("custom") && parts.contains("grok") {
+        let customKey = "EXAMPLE-FAKE-SUITE-custom-0123456789"
+        let ca = d(["account", "add", "ex", "--custom", "--host", "www.example.com", "--env-var", "EXAMPLE_API_KEY", "--bearer", "--force"],
+                   stdin: Data((customKey + "\n").utf8))
+        check(ca.code == 0, "doz account add ex --custom --host www.example.com --bearer: a custom key, held in memory")
+        let refused = d(["create", "ag-custom", "--image", "grok", "--account", "xai", "--key", "ex", "--isolated"], timeout: 300)
+        check(refused.code != 0 && t.row("ag-custom") == nil, "a custom key is refused when the policy does not allow its host (\(refused.err.trimmingCharacters(in: .whitespacesAndNewlines).suffix(120)))")
+        let mk = d(["create", "ag-custom", "--image", "grok", "--account", "xai", "--key", "ex", "--allow", "site:www.example.com", "--isolated", "--start"], timeout: 1500)
+        check(mk.code == 0, "with --allow site:www.example.com it is attached")
+        let ph = d(["exec", "ag-custom", "--", "sh", "-c", "printf %s \"$EXAMPLE_API_KEY\""])
+        check(ph.out.hasPrefix("doz_cred_"), "the guest's EXAMPLE_API_KEY is a doz placeholder")
+        let n0 = requests().count
+        let on = d(["exec", "ag-custom", "--", "sh", "-c", "curl -s -o /dev/null -w '%{http_code}' -H \"Authorization: Bearer $EXAMPLE_API_KEY\" https://www.example.com/custom/echo"])
+        let seen = requests().dropFirst(n0)
+        check(seen.contains { $0["path"] as? String == "/custom/echo" && (($0["auth"] as? [String: String]) ?? [:]).values.contains("Bearer " + customKey) },
+              "the custom key is swapped in on its own host (\(on.out))")
+        let n1 = requests().count
+        let off = d(["exec", "ag-custom", "--", "sh", "-c", "curl -s -o /dev/null -w '%{http_code}' -H \"Authorization: Bearer $EXAMPLE_API_KEY\" https://api.x.ai/v1/models"])
+        let leaked = requests().dropFirst(n1).contains { (($0["auth"] as? [String: String]) ?? [:]).values.contains { $0.contains("doz_cred_") || $0.contains(customKey) } }
+        check(["400", "401", "403"].contains(off.out.trimmingCharacters(in: .whitespaces)) && !leaked,
+              "its placeholder sent to api.x.ai is refused, nothing reaches the provider (\(off.out))")
+        let rt = d(["exec", "ag-custom", "--", "grok", "-p", "say ok"], timeout: 240)
+        check(rt.out.contains("DOZ_FAKE_OK"), "Grok Build still works beside the custom key")
+        let scan = d(["exec", "ag-custom", "--user", "root", "--", "sh", "-c",
+                      "grep -rlsF -e '\(customKey)' -e '\(xaiKey)' /proc/[0-9]*/environ /home /root /run /tmp /etc 2>/dev/null | head -3; echo scanned"])
+        check(scan.out.trimmingCharacters(in: .whitespacesAndNewlines) == "scanned", "no key in the guest (\(scan.out.prefix(120)))")
+        let log = (try? String(contentsOf: t.store.appendingPathComponent("host.log"), encoding: .utf8)) ?? ""
+        check(!log.contains(customKey), "host.log holds no custom key")
+        _ = d(["rm", "ag-custom", "--yes"], timeout: 300)
     }
 
     // ── A key from 1Password (a fake op): used, then its signed-out reason — never another key ───────────

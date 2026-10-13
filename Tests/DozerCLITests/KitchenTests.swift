@@ -192,11 +192,14 @@ final class KitchenTests: XCTestCase {
     // MARK: doz try (D14)
 
     func testATriesDefaultsAndItsName() throws {
-        let projects = root.appendingPathComponent("projects")
+        // Beside the store and outside the system locations ($TMPDIR is under /private/var): a folder Dozer would make.
+        let projects = URL(fileURLWithPath: "/tmp/doz-kitchen-projects-\(UUID().uuidString.prefix(8))")
+        defer { try? FileManager.default.removeItem(at: projects) }
         try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
         var f = facts()
         f.projectsDir = projects.path
         let p = try plan("try", ["--agent", "grok"], facts: f)
+        XCTAssertEqual(p.problems.map(\.code), ["key"], "only the key is missing: \(p.problems.map(\.text))")
         XCTAssertEqual(p.create.image, "grok")
         XCTAssertEqual(p.create.network, "locked")
         // Owner, after the demo: a NEW EMPTY folder of its own under projects_dir, shared at /workspace (files the agent
@@ -229,6 +232,13 @@ final class KitchenTests: XCTestCase {
         XCTAssertTrue(iso.reach.contains { $0.text == "Open files on your Mac: off (no folder)" })
         let mine = try plan("try", ["--agent", "grok", "--workspace", "/tmp/617-w"], facts: f)
         XCTAssertTrue(mine.reach.contains { $0.text.hasPrefix("Your folder /tmp/617-w") })
+        // A projects folder inside the store: the plan says so before anything is asked (a try used to take the key
+        // and only then fail at create).
+        var inStore = f
+        inStore.projectsDir = root.appendingPathComponent("projects").path
+        let bad = try plan("try", ["--agent", "grok"], facts: inStore)
+        XCTAssertTrue(bad.problems.contains { $0.text.contains("inside the store") && $0.fix == "--isolated, or --workspace DIR" }, "\(bad.problems)")
+        XCTAssertFalse(try plan("try", ["--agent", "grok", "--isolated"], facts: inStore).problems.contains { $0.text.contains("inside the store") })
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: []), "try-grok")
         XCTAssertEqual(CreatePlanner.tryName(agent: AgentKind(rawValue: "grok")!, taken: ["try-grok", "try-grok-2"]), "try-grok-3")
         XCTAssertEqual(CreatePlanner.tryName(agent: .claudeCode, taken: []), "try-claude")
@@ -330,7 +340,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertTrue(ids(["alpine"]).contains("base:alpine"))
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grokk"]), in: index).suggestion, "grok")
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grokk"]), in: index).verdict, "unknown")
-        XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["opencode"]), in: index).verdict, "coming")
+        XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["qwen-code"]), in: index).verdict, "coming")
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grok"]), in: index).verdict, "supported")
         // Tags: tag: terms and --tag, filtered by level.
         let multi = ids(["tag:multi-vendor-models"])
@@ -364,7 +374,7 @@ final class KitchenTests: XCTestCase {
         }
         let a = await code(["grok"])
         XCTAssertEqual(a, 0)
-        let b = await code(["opencode"])
+        let b = await code(["qwen-code"])
         XCTAssertEqual(b, DozerExit.unavailable)
         let c = await code(["grokk"])
         XCTAssertEqual(c, DozerExit.notFound)

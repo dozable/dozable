@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -329,6 +329,9 @@ recipe-check: cli ## 617: run each recipe for real (RECIPES="grok gemini" or all
 
 agent-currency: ## 617: every agent's latest release, its date and age, freshness, deprecation, its GitHub repository archived or not, and its recorded lifecycle → profiles/currency.json; TODO lines for a new release (re-profile its network) or a deprecation/archive (review its lifecycle). Read-only requests to npm, the vendor manifest and GitHub
 	Scripts/agent-currency.py
+
+test-cli-try: cli vmtest-host ## 617: doz try on a terminal (script(1)) through seams only — the key card with a FAKE key typed hidden (never in accounts.json), the try made and attached, Ctrl-] twice and "Keep this try?": Enter sleeps it, an unknown answer is asked again, d deletes it and its empty folder, k keeps it; --rm and --keep ask nothing; the slept try wakes (prepares grok at its pin)
+	perl -e 'alarm shift; exec @ARGV' 2400 $(VMTEST_BIN) cli-try --doz $(CLI_BIN)
 
 test-cli-codex: cli vmtest-host ## 599i: Codex through SEAMS only — a fake OpenAI over TLS (its own CA; the proxy's, the sign-in's and the refresh's upstream), the browser seam: Dozer's own ChatGPT sign-in, the real Codex in a VM answered via chatgpt.com with the placeholder swapped, a renewal on the Mac, the guest's renewal answered by the proxy, no token in the guest, no silent fallback, an API key, Alpine (prepares codex + alpine-codex; network: Docker Hub + npm; CODEX_KEEP=1 keeps the store)
 	perl -e 'alarm shift; exec @ARGV' 5400 $(VMTEST_BIN) cli-codex --doz $(CLI_BIN)
