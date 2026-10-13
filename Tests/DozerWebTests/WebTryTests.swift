@@ -136,7 +136,7 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(by["antigravity"]?.current, true)
         XCTAssertEqual(by["grok"]?.ready, false, "no key: not ready")
         XCTAssertEqual(by["codex"]?.ready, true)
-        XCTAssertEqual(by["antigravity"]?.version, "1.3.3", "the pinned version, without its build")
+        XCTAssertEqual(by["antigravity"]?.version, "1.3.4", "the pinned version, without its build")
         XCTAssertTrue(catalog.coming.allSatisfy { $0.icon != nil }, "a coming agent has a mark (its vendor's, or a lettermark)")
         XCTAssertEqual(WebTryCatalog.age(0), "today")
         XCTAssertEqual(WebTryCatalog.age(1), "1 day")

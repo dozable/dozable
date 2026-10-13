@@ -1701,7 +1701,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   off-by-setting / refuse + reason). New endpoints come in with `null` — `AgentProfileTests` fails until a person
   decides them, and checks every determination against the recipe under a fresh try's policy (refuse ⇒ quiet;
   off-by-setting ⇒ a setting the recipe sets). `DIFF=1` reports new/missing endpoints and writes nothing; nothing is
-  ever allowed by the profiler. Re-profile when an agent's version moves.
+  ever allowed by the profiler. Re-profile when an agent's version moves. A profile is of the release Dozer installs:
+  `profile-agents.sh` sets each recipe agent's version setting to its PIN (the built-in three: `latest`) before the
+  try, and fails when the sandbox reports another version (an updater that ran, or a wrong install — the profile of
+  Antigravity 1.3.4 against a 1.3.3 pin was this); `recipe-check` checks the image holds the pin and runs `verify`
+  again AFTER the smoke turn; `agent-currency`'s TODOs compare the latest with the recipe's pin (built-ins: with the
+  profile), never with the last report.
 - **Every recipe is checked for real** (`make recipe-check RECIPES="grok gemini"|all`, `Scripts/recipe-check.py`, driven by
   the recipe's own data — nothing per agent): in a scratch store (`RECIPE_STORE`, default `/tmp/doz-recipe-check`; images
   kept, sandboxes never; it runs a COPY of the build) — build at the pin (the built-in three at `latest`: their pins are

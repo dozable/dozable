@@ -99,6 +99,9 @@ public enum AgentIcons {
         "adk.svg": PackageResources.adk_svg,
         "promptfoo.svg": PackageResources.promptfoo_svg,
         "clai.svg": PackageResources.clai_svg,
+        "copilot.svg": PackageResources.copilot_svg,
+        "qwen-code.svg": PackageResources.qwen_code_svg,
+        "goose.svg": PackageResources.goose_svg,
     ]
 
     public static let all: [IconEntry] = {

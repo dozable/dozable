@@ -217,6 +217,33 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and Pydantic publishes no logo terms for others — so a neutral lettermark.",
       "lettermark": { "text": "PY", "frame": "square" }
+    },
+    {
+      "id": "copilot", "kind": "product", "name": "GitHub Copilot CLI",
+      "variants": { "mono": "copilot.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/logos",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "GitHub's logo terms allow its marks only to refer to GitHub and its products, unaltered, and its licence grants no use of its trademarks or logos — so a neutral lettermark.",
+      "lettermark": { "text": "CP", "frame": "circle" }
+    },
+    {
+      "id": "qwen-code", "kind": "product", "name": "Qwen Code",
+      "variants": { "mono": "qwen-code.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/QwenLM/qwen-code",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "Q", "frame": "circle" }
+    },
+    {
+      "id": "goose", "kind": "product", "name": "Goose",
+      "variants": { "mono": "goose.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/aaif-goose/goose",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "G", "frame": "hex" }
     }
   ]
 }

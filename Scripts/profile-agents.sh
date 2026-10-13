@@ -53,8 +53,11 @@ for a in "$@"; do
     gemini) bin=gemini; task="gemini -p \"\$T\"" ;;
     grok) bin=grok; task="grok -p \"\$T\"" ;;
     antigravity) bin=agy; task="agy -p \"\$T\"" ;;
-    # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
+    copilot) bin=copilot; task="copilot -p \"\$T\"" ;;
     opencode) bin=opencode; task="opencode run \"\$T\"" ;;
+    qwen-code) bin=qwen; task="qwen -p \"\$T\"" ;;
+    goose) bin=goose; task="goose run --no-session -t \"\$T\"" ;;
+    # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
     shell-gpt) bin=sgpt; task="sgpt \"\$T\"" ;;
@@ -70,6 +73,19 @@ for a in "$@"; do
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;
     *) echo "profile-agents: no scripted task for $a — add one here" >&2; rc=2; continue ;;
   esac
+  # The release it runs is the one Dozer installs: a recipe agent's pin (exact), a built-in one's latest. The profile
+  # is of that release, and a sandbox that reports another (an updater that ran, a wrong install) fails the run.
+  read -r setting want <<EOF2
+$(/usr/bin/python3 - "$REPO/Sources/DozerKit/Recipes/compiled/$a.json" "$a" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1])); caps = {c["type"]: c["config"] for c in d["capabilities"]}
+launch, inst = caps["com.dozersandbox/launch@1"], caps["com.dozersandbox/install@1"]
+key = (launch.get("settings") or {}).get("version") or "images.%s_version" % sys.argv[2].replace("-", "_")
+print(key, "latest" if inst.get("builtin") else d["args"]["version"]["default"])
+PY
+)
+EOF2
+  doz config set "$setting" "$want" >/dev/null || { echo "profile-agents: could not set $setting = $want" >&2; rc=1; continue; }
   old=$(trial); [ -n "$old" ] && doz rm "$old" --yes >/dev/null 2>&1
   echo "== $a: a fresh try (Open network, every request logged)"
   doz try "$a" -d -q --rebuild --network open || { rc=1; continue; }
@@ -80,6 +96,11 @@ for a in "$@"; do
   doz exec "$n" -- sh -c "cd /workspace && printf 'hello\n' > notes.txt && T='$TASK' && timeout ${PROFILE_TASK_SECONDS:-90} $task" > "$W/runs/$a.task.txt" 2>&1
   sleep 5
   version=$(doz exec "$n" -- "$bin" --version 2>/dev/null | head -1)
+  pin=${want%%+*}
+  if [ "$want" != latest ] && [ "${version#*"$pin"}" = "$version" ]; then
+    echo "profile-agents: $a reports \"$version\" — not its pin $pin (an updater ran, or another release was installed)" >&2
+    rc=1
+  fi
   doz net log "$n" --json > "$W/runs/$a.log.json"
   /usr/bin/python3 "$REPO/Scripts/agent-profile.py" "$MODE" --agent "$a" --version "$version" --log "$W/runs/$a.log.json" \
     --task-start "$start" --task-output "$W/runs/$a.task.txt" --profile "$OUT/$a.json" || rc=1

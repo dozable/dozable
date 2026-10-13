@@ -29,4 +29,7 @@ resume smolagents  check=nil
 resume adk  check=nil
 resume promptfoo  check=nil
 resume clai  check=nil
+resume copilot --continue check=nil
+resume qwen-code --continue check=nil
+resume goose session --resume check=nil
 resume nil 

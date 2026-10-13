@@ -220,6 +220,8 @@ class Harness:
             return self.finish(res, t_all)
         row = self.image_row(r.product) or {}
         res["version"] = row.get("version") or want
+        if want != "latest" and res["version"].split("+")[0] != want.split("+")[0]:
+            fail("build: the image holds %s, not the pin %s" % (res["version"], want))
 
         # 2. a fresh try
         def make_try():
@@ -255,13 +257,13 @@ class Harness:
         fail = res["failures"].append
         version = (res["version"] or "").split("+")[0]
 
-        # 3. verify
-        def verify():
+        # 3. verify (again after the smoke turn: an agent that updated itself while it ran is caught)
+        def verify(after=""):
             for v in r.verify:
                 code, out = self.doz("exec", name, "--", *v["argv"], timeout=180)
                 exp = (v.get("expect") or "").replace("${{ kit.args.version }}", version)
                 if code != 0 or (exp and exp not in out):
-                    fail("verify: %s → exit %d, %r (expected %r)" % (" ".join(v["argv"]), code, out.strip()[-200:], exp))
+                    fail("verify%s: %s → exit %d, %r (expected %r)" % (after, " ".join(v["argv"]), code, out.strip()[-200:], exp))
         step("verify", verify)
 
         # 4. smoke
@@ -278,6 +280,7 @@ class Harness:
             if not any(KEYS[r.provider] in json.dumps(q.get("auth") or {}) for q in seen):
                 fail("smoke: the stand-in never saw the %s key swapped in by the proxy (%d requests)" % (r.provider, len(seen)))
         step("smoke", smoke)
+        verify(" after the turn")
 
         # 5. keys: a placeholder in the guest, no key, the leak guard
         def keys():
@@ -350,21 +353,28 @@ class Harness:
                 if until is None and states:
                     return True
             return False
+        def send(b):
+            try:
+                os.write(fd, b)
+                return True
+            except OSError:              # the attach ended (the program exited, or the session could not open)
+                return False
         read_for(60)                     # until the first status (or a minute)
         read_for(3, until="\x00")        # let it settle
         mark = len(screen)
-        os.write(fd, b"say ok DOZ_SLOW")
+        if not send(b"say ok DOZ_SLOW"):
+            res["notes"].append("status: the attach ended before the turn — " + screen[-300:].decode(errors="replace"))
         time.sleep(1)
-        os.write(fd, b"\r")
+        send(b"\r")
         end = time.time() + int(r.check.get("timeout") or 240)
         got = False
         while time.time() < end and not got:
             read_for(1)
             got = r.check["expect"].encode() in screen[mark:] and "done" in states
         read_for(5, until="\x00")
-        os.write(fd, b"\x1d")
+        send(b"\x1d")
         time.sleep(0.1)
-        os.write(fd, b"\x1d")
+        send(b"\x1d")
         read_for(5, until="\x00")
         try:
             os.kill(pid, signal.SIGTERM)

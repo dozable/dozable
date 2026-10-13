@@ -204,6 +204,20 @@
 # (skip | ask; flag -e DOZ_GPTME_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[copilot]
+
+# GitHub Copilot CLI in a copilot sandbox: skip its approval prompts (the sandbox is the
+# boundary), or ask as on a Mac.
+# (skip | ask; flag -e DOZ_COPILOT_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[qwen-code]
+
+# Qwen Code in a qwen-code sandbox: skip its approval prompts (the sandbox is the boundary), or
+# ask as on a Mac.
+# (skip | ask; flag -e DOZ_QWEN_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -216,7 +230,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -423,7 +437,7 @@
 # codex_version = "latest"
 
 # The Antigravity CLI the antigravity image (and every base's Antigravity CLI image) is prepared
-# with: latest or an exact version like 1.3.3+5524738307653632, as images.claude_code_version.
+# with: latest or an exact version like 1.3.4+5524158944247808, as images.claude_code_version.
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # antigravity_version = "latest"
 
@@ -506,6 +520,21 @@
 # with: latest or an exact version like 2.55.0, as images.claude_code_version.
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # clai_version = "latest"
+
+# The GitHub Copilot CLI the copilot image (and every base's GitHub Copilot CLI image) is prepared
+# with: latest or an exact version like 1.0.96, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# copilot_version = "latest"
+
+# The Qwen Code the qwen-code image (and every base's Qwen Code image) is prepared with: latest or
+# an exact version like 0.25.1, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# qwen_code_version = "latest"
+
+# The Goose the goose image (and every base's Goose image) is prepared with: latest or an exact
+# version like 1.54.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# goose_version = "latest"
 
 [images.lab]
 
@@ -719,6 +748,37 @@
 # memory_mib = 2048
 
 # The network of a new clai sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.copilot]
+
+# Memory (MiB) of a new copilot sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new copilot sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.qwen-code]
+
+# Memory (MiB) of a new qwen-code sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new qwen-code sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.goose]
+
+# Memory (MiB) of a new goose sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new goose sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

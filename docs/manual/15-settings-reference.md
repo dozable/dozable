@@ -156,13 +156,25 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `gptme.permissions` | `skip` | skip \| ask | next session | `-e DOZ_GPTME_PERMISSIONS=… on run/exec` | gptme in a gptme sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
 
+### `[copilot]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `copilot.permissions` | `skip` | skip \| ask | next session | `-e DOZ_COPILOT_PERMISSIONS=… on run/exec` | GitHub Copilot CLI in a copilot sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
+### `[qwen-code]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `qwen-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_QWEN_PERMISSIONS=… on run/exec` | Qwen Code in a qwen-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
 ### `[defaults]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
-| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
+| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
 | `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
@@ -236,7 +248,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.claude_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Claude Code the claude-code image is prepared with: latest (asked of the npm registry when the image is prepared, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake claude-code rebuilds when you choose) or an exact version like 2.1.227. A sandbox keeps the version it was created with; doz reset NAME moves it to the image's current one. |
 | `images.pi_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The pi coding agent the pi image is prepared with: latest or an exact version, as images.claude_code_version. |
 | `images.codex_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or an exact version like 0.160.1, as images.claude_code_version. |
-| `images.antigravity_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Antigravity CLI the antigravity image (and every base's Antigravity CLI image) is prepared with: latest or an exact version like 1.3.3+5524738307653632, as images.claude_code_version. |
+| `images.antigravity_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Antigravity CLI the antigravity image (and every base's Antigravity CLI image) is prepared with: latest or an exact version like 1.3.4+5524158944247808, as images.claude_code_version. |
 | `images.gemini_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Gemini CLI the gemini image (and every base's Gemini CLI image) is prepared with: latest or an exact version like 0.63.0, as images.claude_code_version. |
 | `images.grok_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an exact version like 1.0.52, as images.claude_code_version. |
 | `images.fabric_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Fabric the fabric image (and every base's Fabric image) is prepared with: latest or an exact version like 1.4.518, as images.claude_code_version. |
@@ -253,6 +265,9 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.adk_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Agent Development Kit the adk image (and every base's Agent Development Kit image) is prepared with: latest or an exact version like 2.11.0, as images.claude_code_version. |
 | `images.promptfoo_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The promptfoo the promptfoo image (and every base's promptfoo image) is prepared with: latest or an exact version like 0.124.1, as images.claude_code_version. |
 | `images.clai_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The clai (Pydantic AI) the clai image (and every base's clai (Pydantic AI) image) is prepared with: latest or an exact version like 2.55.0, as images.claude_code_version. |
+| `images.copilot_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The GitHub Copilot CLI the copilot image (and every base's GitHub Copilot CLI image) is prepared with: latest or an exact version like 1.0.96, as images.claude_code_version. |
+| `images.qwen_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Qwen Code the qwen-code image (and every base's Qwen Code image) is prepared with: latest or an exact version like 0.25.1, as images.claude_code_version. |
+| `images.goose_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Goose the goose image (and every base's Goose image) is prepared with: latest or an exact version like 1.54.0, as images.claude_code_version. |
 
 ### `[images.lab]`
 
@@ -400,6 +415,27 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `images.clai.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new clai sandbox (a custom image follows the image it was saved from). |
 | `images.clai.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new clai sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.copilot]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.copilot.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new copilot sandbox (a custom image follows the image it was saved from). |
+| `images.copilot.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new copilot sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.qwen-code]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.qwen-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new qwen-code sandbox (a custom image follows the image it was saved from). |
+| `images.qwen-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new qwen-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.goose]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.goose.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new goose sandbox (a custom image follows the image it was saved from). |
+| `images.goose.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new goose sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
 

@@ -13,7 +13,7 @@ licenses:
 args:
   version:
     description: The Antigravity CLI release Dozer installs (its pin).
-    default: 1.3.3+5524738307653632
+    default: 1.3.4+5524158944247808
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: ANTIGRAVITY_VERSION
 provides:
@@ -91,7 +91,7 @@ capabilities:
     url: https://storage.googleapis.com/antigravity-public/antigravity-cli/${{ dozer.build }}/linux-arm/cli_linux_arm64.tar.gz
     bake_hosts:
     - storage.googleapis.com
-    integrity: sha512-G/01A1diGaECF2wTV5ZlovOehKyGqQSxF9OzPz3XUfGUqGJJa61v/pFK1G0sh3uhK2wH5tsHEotwbSOCYv5DDA==
+    integrity: sha512-JKHUYzGXAfSUOy1JMsuGyjTWDS6f7c2QGMoxgJdz1xnyclEgaJEWMtsXXXIzCIVRAzvOzAoqVrG8+gQSaWh+rw==
 - type: com.dozersandbox/launch@1
   config:
     command:

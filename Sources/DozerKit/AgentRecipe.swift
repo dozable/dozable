@@ -835,7 +835,10 @@ public enum AgentRecipes {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
                                           ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json), ("zeroclaw.json", PackageResources.zeroclaw_json), ("aichat.json", PackageResources.aichat_json), ("tgpt.json", PackageResources.tgpt_json),
-                                          ("opencode.json", PackageResources.opencode_json), ("smolagents.json", PackageResources.smolagents_json), ("adk.json", PackageResources.adk_json), ("promptfoo.json", PackageResources.promptfoo_json), ("clai.json", PackageResources.clai_json)]
+                                          ("opencode.json", PackageResources.opencode_json), ("smolagents.json", PackageResources.smolagents_json), ("adk.json", PackageResources.adk_json), ("promptfoo.json", PackageResources.promptfoo_json), ("clai.json", PackageResources.clai_json),
+                                          ("copilot.json", PackageResources.copilot_json),
+                                          ("qwen-code.json", PackageResources.qwen_code_json),
+                                          ("goose.json", PackageResources.goose_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -847,7 +850,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()

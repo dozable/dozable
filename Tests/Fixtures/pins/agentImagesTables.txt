@@ -20,6 +20,9 @@ node-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 node-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 node-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 node-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+node-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+qwen-code credentials=xai:key agentName=Qwen Code package=@qwen-code/qwen-code pinned=0.25.1 sha512-6cEbtfx4Ugl1d3FdFLa8fcsG6knHuUUHqvDseLxGY06Xan8p7Fcd7+g5KlX694zX4mo/+Vh56AHxT/4R15zpYA==
+node-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -41,6 +44,9 @@ python-smolagents credentials=xai:key agentName=smolagents package=nil pinned=ni
 python-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 python-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 python-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+python-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+python-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+python-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -62,6 +68,9 @@ go-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 go-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 go-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 go-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+go-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+go-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+go-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -83,6 +92,9 @@ rust-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 rust-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 rust-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 rust-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+rust-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+rust-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+rust-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -104,6 +116,9 @@ java-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 java-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 java-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 java-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+java-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+java-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+java-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -125,6 +140,9 @@ ruby-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
 ruby-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 ruby-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 ruby-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+ruby-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+ruby-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+ruby-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -146,11 +164,14 @@ dotnet-smolagents credentials=xai:key agentName=smolagents package=nil pinned=ni
 dotnet-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 dotnet-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 dotnet-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+dotnet-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+dotnet-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+dotnet-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
 debian-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
-antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=1.3.3+5524738307653632 sha512-G/01A1diGaECF2wTV5ZlovOehKyGqQSxF9OzPz3XUfGUqGJJa61v/pFK1G0sh3uhK2wH5tsHEotwbSOCYv5DDA==
+antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=1.3.4+5524158944247808 sha512-JKHUYzGXAfSUOy1JMsuGyjTWDS6f7c2QGMoxgJdz1xnyclEgaJEWMtsXXXIzCIVRAzvOzAoqVrG8+gQSaWh+rw==
 debian-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
 grok credentials=xai:key agentName=Grok Build package=@xai-official/grok pinned=1.0.52 sha512-aweQyHPi5r+qMG0BUp1XH22R7RGeQNYhqQMpePlsjyGesd5/v79HQPs9PIkKLjrcX4uz5cFFe8RcnkKu5J5zCA==
 fabric credentials=google:key agentName=Fabric package=nil pinned=1.4.518 sha512-qTS9O3ps0FqHLqmgi1sV4U3u8LdRvJNV7Y5WYOQ48agmaIJoEVBKD9ghZ6LoakoFFQxc1wBr1LXKszCSCeH6kQ==
@@ -167,6 +188,9 @@ smolagents credentials=xai:key agentName=smolagents package=smolagents pinned=1.
 adk credentials=google:key agentName=Agent Development Kit package=google-adk pinned=2.11.0 sha512-DShVMBN0VVb5tBVoYVwIai9msoRYD3NVKsPMu/drat96+OilvfeM4r8Y4CCBjrI9jMXgeQ7ejvkMoVGDL78tWQ==
 promptfoo credentials=xai:key agentName=promptfoo package=promptfoo pinned=0.124.1 sha512-Y6fq/WGTL7lPvDsirNSmmmcPLhURwRao03iv8fCoLbFq6H1eqg5VVTmXiap5Jl+fiRaQQZXYMHb2N1gQm1tGyQ==
 clai credentials=xai:key agentName=clai (Pydantic AI) package=clai pinned=2.55.0 sha512-nlbupA+j3uyuetCpA2w1XKDiWfbiPmhOUJmkFGzFr9t4VxCrjL9kD4rsQDZgnqf7xw4Nox1gNr4v/cY99mM9mA==
+copilot credentials=xai:key agentName=GitHub Copilot CLI package=@github/copilot pinned=1.0.96 sha512-fwKUr1B47xLk6r3a49BCwrBb3nPbiOyKYaoq/JVPwEFAwOJyu+m+BHx4kDzkYawn98vQt7neKFuuNAnrlHh4cQ==
+debian-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+goose credentials=xai:key agentName=Goose package=nil pinned=1.54.0 sha512-dopMlnmnYA443NEV1YLTTt5wO5FMSxfHL5e93GjkV97Q2Q9SxyNk7zKnMrdNXrfHYpXS+uLAuR8MbvnnavhutQ==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -188,6 +212,9 @@ ubuntu-smolagents credentials=xai:key agentName=smolagents package=nil pinned=ni
 ubuntu-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 ubuntu-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 ubuntu-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+ubuntu-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+ubuntu-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+ubuntu-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -208,6 +235,9 @@ alpine-smolagents credentials=xai:key agentName=smolagents package=nil pinned=ni
 alpine-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 alpine-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 alpine-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+alpine-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+alpine-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+alpine-goose credentials=xai:key agentName=Goose package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -229,3 +259,6 @@ df-0123456789ab-smolagents credentials=xai:key agentName=smolagents package=nil 
 df-0123456789ab-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 df-0123456789ab-promptfoo credentials=xai:key agentName=promptfoo package=nil pinned=nil
 df-0123456789ab-clai credentials=xai:key agentName=clai (Pydantic AI) package=nil pinned=nil
+df-0123456789ab-copilot credentials=xai:key agentName=GitHub Copilot CLI package=nil pinned=nil
+df-0123456789ab-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
+df-0123456789ab-goose credentials=xai:key agentName=Goose package=nil pinned=nil

@@ -201,6 +201,9 @@ Which agents say it:
 | Grok Build | 1.0.52 and later (the version Dozer installs) |
 | Codex | no — its sessions show nothing, and everything else works as usual |
 | OpenCode | no (checked with 1.19.0) |
+| GitHub Copilot CLI | no (checked with 1.0.96) |
+| Qwen Code | no (checked with 0.25.1) |
+| Goose | no (checked with 1.54.0) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

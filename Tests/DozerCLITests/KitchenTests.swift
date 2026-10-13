@@ -340,7 +340,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertTrue(ids(["alpine"]).contains("base:alpine"))
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grokk"]), in: index).suggestion, "grok")
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grokk"]), in: index).verdict, "unknown")
-        XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["qwen-code"]), in: index).verdict, "coming")
+        XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["cursor-cli"]), in: index).verdict, "coming")
         XCTAssertEqual(DirectorySearch.search(SearchQuery.parse(["grok"]), in: index).verdict, "supported")
         // Tags: tag: terms and --tag, filtered by level.
         let multi = ids(["tag:multi-vendor-models"])
@@ -374,7 +374,7 @@ final class KitchenTests: XCTestCase {
         }
         let a = await code(["grok"])
         XCTAssertEqual(a, 0)
-        let b = await code(["qwen-code"])
+        let b = await code(["cursor-cli"])
         XCTAssertEqual(b, DozerExit.unavailable)
         let c = await code(["grokk"])
         XCTAssertEqual(c, DozerExit.notFound)

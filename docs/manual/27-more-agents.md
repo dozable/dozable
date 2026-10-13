@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -8,6 +8,9 @@ on the way out — and only to that maker's own API.
 doz try antigravity      # Google's agent (alias: agy)
 doz try grok             # xAI's agent
 doz try opencode         # OpenCode, the open-source agent, on an xAI key
+doz try copilot          # GitHub Copilot CLI with your own xAI key (no Copilot plan)
+doz try qwen-code        # Qwen Code (alias qwen), on an xAI key
+doz try goose            # Goose, on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -55,6 +58,46 @@ An open-source terminal agent that works with many model providers (`doz try ope
   && npm install @opencode-ai/plugin` adds it). OpenCode asks no approval questions by default.
 - **May reach:** xAI's API (the paths OpenCode uses).
 - **Use:** `opencode` (its TUI), or `opencode run "…"` for one answer.
+
+## GitHub Copilot CLI (GitHub)
+
+GitHub's terminal agent, run in its own **bring-your-own-key** mode (`doz try copilot`): it talks to your model with
+your key and never signs in to GitHub, so no Copilot plan is needed. Dozer offers it on an **xAI API key** for now
+(xAI's OpenAI-compatible API, model `grok-code-fast-1`).
+
+- **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine yet).
+  It is GitHub's software under its own licence; Dozer installs it from npm, it does not redistribute it.
+- **Key:** an xAI API key (`doz account add xai --provider xai`); the sandbox gets a placeholder in `XAI_API_KEY` and
+  `COPILOT_PROVIDER_API_KEY`.
+- **Set up for you:** approval prompts off (`--allow-all`; `copilot.permissions = ask` keeps them), its offline mode
+  (no GitHub sign-in, no calls to GitHub) and its auto-update off.
+- **May reach:** xAI's API only.
+
+## Qwen Code (Alibaba Qwen)
+
+Alibaba Qwen's open-source agent, a Gemini CLI fork (`doz try qwen-code`, or `qwen`). Its free Qwen sign-in ended in
+April 2026; Dozer runs it in its **OpenAI-compatible mode on an xAI API key** (`OPENAI_BASE_URL` at xAI's API, model
+`grok-code-fast-1`).
+
+- **Installed** from the npm registry, integrity-checked; it needs Node 22 (the Node and Debian bases; not Alpine).
+- **Key:** an xAI API key; the sandbox gets a placeholder in `XAI_API_KEY` and `OPENAI_API_KEY`.
+- **Set up for you:** approval prompts off (`--approval-mode=yolo`; `qwen-code.permissions = ask` keeps them), its
+  auto-update and usage statistics off, and its download of the public model catalogue (models.dev) off — it uses the
+  catalogue it ships with.
+- **May reach:** xAI's API only.
+
+## Goose (Agentic AI Foundation)
+
+The open-source agent from Block, now an Agentic AI Foundation project (`doz try goose`), on an **xAI API key** (its xAI
+provider, model `grok-code-fast-1`).
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key, read from `XAI_API_KEY` (a placeholder in the sandbox).
+- **Set up for you:** it runs without asking (`GOOSE_MODE=auto`, its default), its keyring off (it would keep secrets in
+  the sandbox), its telemetry off.
+- **May reach:** xAI's API only.
+- **Use:** `goose` (a session), or `goose run -t "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

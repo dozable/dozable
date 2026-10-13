@@ -14,6 +14,9 @@ import argparse, datetime, json, re, sys
 
 DETERMINATIONS = ("allow", "allow-path", "off-by-setting", "refuse")
 
+# How every profile is made (Scripts/profile-agents.sh) — what a new profile says until a person says otherwise.
+HOW = "a fresh try with the Open network, every HTTPS request decrypted and logged; its first start, then a scripted task (read a file, edit it, run a command) run non-interactively with FAKE keys — xAI and Google through a fake provider that answers text only, Anthropic and OpenAI refused by the real API (401). A real-key run would see more: the model's turns and what its tool calls fetch."
+
 def pattern(path):
     if not path:
         return None
@@ -136,7 +139,7 @@ def main():
         "agent": a.agent,
         "version": a.version,
         "profiled": datetime.date.today().isoformat(),
-        "how": old.get("how") or "",
+        "how": old.get("how") or HOW,
         "taskEnded": task_note,
         "endpoints": merged,
     }

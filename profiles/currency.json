@@ -1,28 +1,50 @@
 {
   "schema": 1,
-  "checked": "2026-10-12",
+  "checked": "2026-10-14",
   "agents": [
+    {
+      "agent": "aichat",
+      "title": "AIChat",
+      "pin": "0.30.0",
+      "latest": "0.30.0",
+      "released": "2025-07-06",
+      "ageDays": 465,
+      "freshness": "stale",
+      "deprecated": null,
+      "github": {
+        "repo": "sigoden/aichat",
+        "archived": false,
+        "pushed": "2026-02-23"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "aichat 0.30.0",
+      "error": null
+    },
     {
       "agent": "antigravity",
       "title": "Antigravity CLI",
-      "latest": "1.3.3",
-      "released": "2026-10-10",
-      "ageDays": 2,
+      "pin": "1.3.4",
+      "latest": "1.3.4",
+      "released": "2026-10-13",
+      "ageDays": 1,
       "freshness": "active",
       "deprecated": null,
       "github": null,
       "lifecycle": {
         "status": "current"
       },
-      "profiledVersion": "1.3.3",
+      "profiledVersion": "1.3.4",
       "error": null
     },
     {
       "agent": "claude-code",
       "title": "Claude Code",
+      "pin": "2.1.227",
       "latest": "2.1.296",
       "released": "2026-10-09",
-      "ageDays": 3,
+      "ageDays": 5,
       "freshness": "active",
       "deprecated": null,
       "github": null,
@@ -35,15 +57,16 @@
     {
       "agent": "codex",
       "title": "Codex",
+      "pin": "0.160.1",
       "latest": "0.162.1",
       "released": "2026-10-09",
-      "ageDays": 3,
+      "ageDays": 5,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "openai/codex",
         "archived": false,
-        "pushed": "2026-10-12"
+        "pushed": "2026-10-13"
       },
       "lifecycle": {
         "status": "current"
@@ -52,34 +75,116 @@
       "error": null
     },
     {
+      "agent": "copilot",
+      "title": "GitHub Copilot CLI",
+      "pin": "1.0.96",
+      "latest": "1.0.97",
+      "released": "2026-10-13",
+      "ageDays": 1,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "github/copilot-cli",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "GitHub Copilot CLI 1.0.96.",
+      "error": null
+    },
+    {
+      "agent": "fabric",
+      "title": "Fabric",
+      "pin": "1.4.518",
+      "latest": "1.4.518",
+      "released": "2026-10-10",
+      "ageDays": 4,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "danielmiessler/Fabric",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "1.4.518",
+      "error": null
+    },
+    {
       "agent": "gemini",
       "title": "Gemini CLI",
+      "pin": "0.63.0",
       "latest": "0.63.0",
       "released": "2026-10-06",
-      "ageDays": 6,
+      "ageDays": 8,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "google-gemini/gemini-cli",
         "archived": false,
-        "pushed": "2026-10-12"
+        "pushed": "2026-10-13"
       },
       "lifecycle": {
-        "status": "superseded",
         "by": "antigravity",
+        "checked": "2026-10-12",
         "note": "Superseded by Antigravity CLI — Google retired Gemini CLI for personal accounts; it still works with a paid Gemini API key",
         "source": "https://github.com/google-gemini/gemini-cli/discussions/27274",
-        "checked": "2026-10-12"
+        "status": "superseded"
       },
       "profiledVersion": "0.63.0",
       "error": null
     },
     {
+      "agent": "goose",
+      "title": "Goose",
+      "pin": "1.54.0",
+      "latest": "1.54.0",
+      "released": "2026-10-08",
+      "ageDays": 6,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "aaif-goose/goose",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": " 1.54.0",
+      "error": null
+    },
+    {
+      "agent": "gptme",
+      "title": "gptme",
+      "pin": "0.34.0",
+      "latest": "0.34.0",
+      "released": "2026-09-18",
+      "ageDays": 26,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "gptme/gptme",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "0.34.0",
+      "error": null
+    },
+    {
       "agent": "grok",
       "title": "Grok Build",
-      "latest": "1.0.50",
-      "released": "2026-10-06",
-      "ageDays": 6,
+      "pin": "1.0.52",
+      "latest": "1.0.52",
+      "released": "2026-10-11",
+      "ageDays": 3,
       "freshness": "active",
       "deprecated": null,
       "github": {
@@ -90,26 +195,187 @@
       "lifecycle": {
         "status": "current"
       },
-      "profiledVersion": "grok 1.0.50 (c58f321264ba)",
+      "profiledVersion": "grok 1.0.52 (0920c8169e27)",
+      "error": null
+    },
+    {
+      "agent": "llm",
+      "title": "llm",
+      "pin": "0.36",
+      "latest": "0.36",
+      "released": "2026-09-22",
+      "ageDays": 22,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "simonw/llm",
+        "archived": false,
+        "pushed": "2026-10-09"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "llm, version 0.36",
+      "error": null
+    },
+    {
+      "agent": "nanobot",
+      "title": "nanobot",
+      "pin": "0.3.5",
+      "latest": "0.3.5",
+      "released": "2026-09-15",
+      "ageDays": 29,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "HKUDS/nanobot",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "🐈 nanobot v0.3.5",
+      "error": null
+    },
+    {
+      "agent": "openclaw",
+      "title": "OpenClaw",
+      "pin": "2026.10.3",
+      "latest": "2026.10.3",
+      "released": "2026-10-13",
+      "ageDays": 1,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "openclaw/openclaw",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "OpenClaw 2026.10.3 (59cb447)",
+      "error": null
+    },
+    {
+      "agent": "opencode",
+      "title": "OpenCode",
+      "pin": "1.19.0",
+      "latest": "1.19.0",
+      "released": "2026-10-11",
+      "ageDays": 3,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "anomalyco/opencode",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "1.19.0",
       "error": null
     },
     {
       "agent": "pi",
       "title": "pi",
-      "latest": "1.1.0",
-      "released": "2026-10-07",
-      "ageDays": 5,
+      "pin": "0.84.1",
+      "latest": "1.2.0",
+      "released": "2026-10-12",
+      "ageDays": 2,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "earendil-works/pi",
         "archived": false,
-        "pushed": "2026-10-12"
+        "pushed": "2026-10-13"
       },
       "lifecycle": {
         "status": "current"
       },
-      "profiledVersion": "1.1.0",
+      "profiledVersion": "1.2.0",
+      "error": null
+    },
+    {
+      "agent": "qwen-code",
+      "title": "Qwen Code",
+      "pin": "0.25.1",
+      "latest": "0.25.1",
+      "released": "2026-10-11",
+      "ageDays": 3,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "QwenLM/qwen-code",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "0.25.1",
+      "error": null
+    },
+    {
+      "agent": "shell-gpt",
+      "title": "ShellGPT",
+      "pin": "1.5.1",
+      "latest": "1.5.1",
+      "released": "2026-05-06",
+      "ageDays": 161,
+      "freshness": "quiet",
+      "deprecated": null,
+      "github": {
+        "repo": "TheR1D/shell_gpt",
+        "archived": false,
+        "pushed": "2026-07-02"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "ShellGPT 1.5.1",
+      "error": null
+    },
+    {
+      "agent": "tgpt",
+      "title": "tgpt",
+      "pin": "2.15.0",
+      "latest": "2.15.0",
+      "released": "2026-09-23",
+      "ageDays": 21,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "aandrew-me/tgpt",
+        "archived": false,
+        "pushed": "2026-10-05"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "tgpt 2.15.0",
+      "error": null
+    },
+    {
+      "agent": "zeroclaw",
+      "title": "ZeroClaw",
+      "pin": "0.8.5",
+      "latest": "0.8.5",
+      "released": "2026-09-05",
+      "ageDays": 39,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "zeroclaw-labs/zeroclaw",
+        "archived": false,
+        "pushed": "2026-10-13"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "zeroclaw 0.8.5",
       "error": null
     }
   ]

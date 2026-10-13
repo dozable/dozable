@@ -21,7 +21,7 @@ def flat(doc):
     """The few fields this report reads, from a schema-2 recipe (its capabilities by type)."""
     caps = {c["type"]: c.get("config", {}) for c in doc["capabilities"]}
     return {"id": doc["id"].split("/")[-1], "title": doc["displayName"], "homepage": doc["sourceUrl"],
-            "install": caps["com.dozersandbox/install@1"],
+            "install": caps["com.dozersandbox/install@1"], "pin": doc["args"]["version"]["default"].split("+")[0],
             "lifecycle": caps.get("com.dozersandbox/currency@1", {}).get("lifecycle")}
 OUT = os.path.join(REPO, "profiles/currency.json")
 TODAY = datetime.date.today()
@@ -124,16 +124,21 @@ def main():
             profiled = json.load(open(os.path.join(REPO, "profiles", aid + ".json"))).get("version", "")
         except FileNotFoundError:
             profiled = None
-        row = {"agent": aid, "title": r["title"], "latest": v, "released": released,
+        row = {"agent": aid, "title": r["title"], "pin": r["pin"], "latest": v, "released": released,
                "ageDays": (TODAY - datetime.date.fromisoformat(released)).days if released else None,
                "freshness": freshness(released, dep), "deprecated": dep, "github": gh,
                "lifecycle": life, "profiledVersion": profiled, "error": err}
         rows.append(row)
         prev = old.get(aid, {})
-        if v and prev.get("latest") and prev["latest"] != v:
-            todo.append("%s: a new release %s (was %s) — re-profile its network: make profile-agents AGENTS=%s" % (aid, v, prev["latest"], aid))
-        elif v and profiled is not None and v not in profiled:
-            todo.append("%s: its profile is of %s, the latest is %s — re-profile its network: make profile-agents AGENTS=%s" % (aid, profiled, v, aid))
+        # What needs doing is measured against the recipe, never against the last report: a recipe agent runs at its
+        # pin (a newer release means checking it and moving the pin), a built-in one at the latest (its profile must be
+        # of what it runs). The profile must always be of the version that runs.
+        builtin = bool(r["install"].get("builtin"))
+        runs = v if builtin else r["pin"]
+        if v and not builtin and v != r["pin"]:
+            todo.append("%s: a new release %s; the recipe pins %s — check it, move the pin (download + hash), re-profile: make profile-agents AGENTS=%s" % (aid, v, r["pin"], aid))
+        elif runs and profiled is not None and runs not in profiled:
+            todo.append("%s: its profile is of %s, it runs %s — re-profile its network: make profile-agents AGENTS=%s" % (aid, profiled, runs, aid))
         if dep and not prev.get("deprecated"):
             todo.append("%s: deprecated by its maker (%s) — review its lifecycle" % (aid, dep))
         if gh and gh.get("archived") and not (prev.get("github") or {}).get("archived"):
