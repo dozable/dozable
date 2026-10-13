@@ -133,6 +133,14 @@
     },
     {
       "config" : {
+        "check" : {
+          "argv" : [
+            "claude",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
         "command" : [
           "claude"
         ],

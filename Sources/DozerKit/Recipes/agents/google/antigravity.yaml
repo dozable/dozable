@@ -132,6 +132,12 @@ capabilities:
       - agy
       - --version
       expect: ${{ kit.args.version }}
+    check:
+      argv:
+      - agy
+      - -p
+      - say ok
+      expect: DOZ_FAKE_OK
 - type: com.dozersandbox/auth@1
   config:
     methods:

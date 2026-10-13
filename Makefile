@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -319,6 +319,13 @@ profile-agents: cli ## 617: the network profile of each agent (AGENTS="grok gemi
 
 test-cli-agents: cli vmtest-host ## 617: the recipe agents (Grok Build, Gemini CLI, Antigravity CLI) in real VMs through SEAMS only — a fake provider over TLS (Scripts/fake-provider.py), fake keys in memory, a fake op: the pin, the launcher, the swap, no key in the guest, the leak guard, a fresh try with no counted refusal, op as a key source (AGENTS_PARTS=grok,gemini,antigravity; AGENTS_KEEP=1 keeps the store; network: the registries + Google's release)
 	perl -e 'alarm shift; exec @ARGV' 5400 $(VMTEST_BIN) cli-agents --doz $(CLI_BIN)
+
+# 617: every recipe run for real — build, verify, a fresh try with fake keys against a stand-in provider, its `check`
+# turn, no key in the guest, the leak guard, and its OSC 7501 states (Scripts/recipe-check.py; docs/recipes/RECIPE-FORMAT.md).
+RECIPE_STORE ?= /tmp/doz-recipe-check
+recipe-check: cli ## 617: run each recipe for real (RECIPES="grok gemini" or all) in a scratch store (RECIPE_STORE, default /tmp/doz-recipe-check; images kept, sandboxes never): build at the pin, verify, a fresh try with FAKE keys against Scripts/fake-provider.py, the recipe's check turn, the key swapped in and never in the guest, the leak guard, and for status osc7501 idle/working/done seen; a JSON report (RECIPE_REPORT, default $(RECIPE_STORE)/report.json; RECIPE_SUMMARY appends a markdown table; RECIPE_VERSIONS=latest). Exits non-zero on any failure
+	@test -n "$(RECIPES)" || { echo 'name the recipes: make recipe-check RECIPES="grok gemini" (or RECIPES=all)' >&2; exit 64; }
+	/usr/bin/python3 Scripts/recipe-check.py --store "$(RECIPE_STORE)" $(if $(RECIPE_REPORT),--report "$(RECIPE_REPORT)",) $(if $(RECIPE_SUMMARY),--summary "$(RECIPE_SUMMARY)",) $(if $(RECIPE_VERSIONS),--versions $(RECIPE_VERSIONS),) $(RECIPES)
 
 agent-currency: ## 617: every agent's latest release, its date and age, freshness, deprecation, its GitHub repository archived or not, and its recorded lifecycle → profiles/currency.json; TODO lines for a new release (re-profile its network) or a deprecation/archive (review its lifecycle). Read-only requests to npm, the vendor manifest and GitHub
 	Scripts/agent-currency.py

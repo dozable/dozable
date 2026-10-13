@@ -88,6 +88,9 @@ capabilities:
     verify:
     - argv: [grok, --version]
       expect: grok ${{ kit.args.version }}
+    check:
+      argv: [grok, -p, say ok]
+      expect: DOZ_FAKE_OK
 # … auth@1, gateways@1, currency@1, directory@1
 ```
 
@@ -206,6 +209,7 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `status` | `osc7501` (it reports its state to Dozer) or `none`. |
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |
+| `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). See "Checking a recipe" below. |
 | `settings` | Its settings keys, when not the defaults (`images.ID_version`, `ID.permissions`). |
 
 **`com.dozersandbox/auth@1`** — `methods`: the ways a person lets it reach its model, recommended first. Each is
@@ -301,4 +305,28 @@ final.
    with its own setting (`first_run`, `off_without`).
 7. **Its currency:** `make agent-currency` records its latest release and how fresh it is.
 8. **Test:** `make test` checks the schema, the loader, the Kit view, the profile decisions and the first-run
-   settings. `make test-cli-agents` proves it installs and starts in a real sandbox.
+   settings. `make recipe-check RECIPES=PRODUCT` proves it builds, starts and answers in a real sandbox (below).
+
+## Checking a recipe
+
+`make recipe-check RECIPES="grok gemini"` (`RECIPES=all`: every recipe) runs each recipe for real, in a scratch store
+(`RECIPE_STORE`, default `/tmp/doz-recipe-check`; prepared images are kept there between runs, sandboxes never are):
+
+1. **Build** its image at the pinned release (the registries are not asked for a newer one) — the bake checks the
+   pin's integrity and runs `verify`.
+2. **Verify** — each `verify` command again, in a sandbox, its output compared with `expect`.
+3. **A fresh try** with fake keys held in the host's memory; the model's hosts (xAI, Google, Anthropic, OpenAI) go to
+   a stand-in on this Mac (`Scripts/fake-provider.py`, TLS with its own throwaway CA) that answers `DOZ_FAKE_OK`.
+4. **The smoke turn** — `check.argv` as the agent; its output must contain `check.expect`, its exit status be
+   `check.exit`. The stand-in must have seen the fake key, swapped in by Dozer's proxy, while the guest holds only a
+   placeholder.
+5. **No key in the guest** (its processes' environments, home folders, `/tmp`, `/run`, `/etc`), and **the leak
+   guard**: the placeholder sent to another provider's host is refused and never reaches it.
+6. **Its status** — for `status: osc7501`, an interactive turn in its default session: Dozer must see it report at
+   least `idle`, `working` and `done`.
+
+It exits non-zero when any step fails and writes a JSON report (`RECIPE_REPORT`, default
+`$RECIPE_STORE/report.json`): per recipe pass/fail, the version, each step's duration, the states seen and the
+failures. The **Recipes** workflow (`.github/workflows/recipes.yml`) runs it on a self-hosted Mac for every change to
+a recipe, the stand-in or the harness, and every night for all of them with `make agent-currency` and
+`make profile-agents DIFF=1`.

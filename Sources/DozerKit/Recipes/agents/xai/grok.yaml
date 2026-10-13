@@ -130,6 +130,12 @@ capabilities:
       - grok
       - --version
       expect: grok ${{ kit.args.version }}
+    check:
+      argv:
+      - grok
+      - -p
+      - say ok
+      expect: DOZ_FAKE_OK
 - type: com.dozersandbox/auth@1
   config:
     methods:

@@ -122,6 +122,15 @@
     },
     {
       "config" : {
+        "check" : {
+          "argv" : [
+            "codex",
+            "exec",
+            "--skip-git-repo-check",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
         "command" : [
           "codex"
         ],

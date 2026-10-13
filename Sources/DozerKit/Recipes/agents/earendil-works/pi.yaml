@@ -95,6 +95,12 @@ capabilities:
       - pi
       - --version
       expect: ${{ kit.args.version }}
+    check:
+      argv:
+      - pi
+      - -p
+      - say ok
+      expect: DOZ_FAKE_OK
     settings:
       version: images.pi_version
 - type: com.dozersandbox/auth@1

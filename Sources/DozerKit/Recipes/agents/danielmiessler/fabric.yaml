@@ -87,6 +87,12 @@ capabilities:
       - fabric
       - --version
       expect: ${{ kit.args.version }}
+    check:
+      argv:
+      - sh
+      - -c
+      - echo hello | fabric "say ok"
+      expect: DOZ_FAKE_OK
 - type: com.dozersandbox/auth@1
   config:
     methods:

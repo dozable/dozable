@@ -71,6 +71,11 @@ final class RecipeSchemaTests: XCTestCase {
             ("an agent-context filename with a slash", { editConfig(&$0, T.agentContext) { $0["filename"] = "a/b.md" } }),
             ("an unknown install kind", { editConfig(&$0, T.install) { $0["kind"] = "curl-pipe-sh" } }),
             ("a launch status of another protocol", { editConfig(&$0, T.launch) { $0["status"] = "loud" } }),
+            ("no check (the smoke turn)", { editConfig(&$0, T.launch) { $0["check"] = nil } }),
+            ("a check with no argv", { editConfig(&$0, T.launch) { $0["check"] = ["argv": [String](), "expect": "DOZ_FAKE_OK"] } }),
+            ("a check that expects nothing", { editConfig(&$0, T.launch) { $0["check"] = ["argv": ["grok", "-p", "x"], "expect": ""] } }),
+            ("a check timeout of a day", { editConfig(&$0, T.launch) { $0["check"] = ["argv": ["grok"], "expect": "x", "timeout": 86400] } }),
+            ("an unknown key in a check", { editConfig(&$0, T.launch) { $0["check"] = ["argv": ["grok"], "expect": "x", "stdin": "y"] } }),
             ("an unknown auth kind", { editConfig(&$0, T.auth) { c in var m = c["methods"] as! [[String: Any]]; m[0]["kind"] = "password"; c["methods"] = m } }),
             ("an unknown gateway level", { editConfig(&$0, T.gateways) { c in var e = c["entries"] as! [[String: Any]]; e[0]["level"] = "maybe"; c["entries"] = e } }),
             ("an unknown tag level", { editConfig(&$0, T.directory) { c in var tg = c["tags"] as! [[String: Any]]; tg[0]["level"] = "maybe"; c["tags"] = tg } }),
@@ -79,6 +84,7 @@ final class RecipeSchemaTests: XCTestCase {
         let accepted: [(String, (inout [String: Any]) -> Void)] = [
             ("another description", { $0["description"] = "Words." }),
             ("a capability's description", { editCap(&$0, T.install) { $0["description"] = "How it is installed." } }),
+            ("a check with its exit and timeout", { editConfig(&$0, T.launch) { $0["check"] = ["argv": ["grok", "-p", "x"], "expect": "x", "exit": 0, "timeout": 300] } }),
         ]
         var v = JSONSchemaValidator()
         for (f, original) in try Self.trees() where f == "claude-code.json" || f == "grok.json" {

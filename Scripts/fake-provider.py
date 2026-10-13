@@ -1,20 +1,73 @@
-# A fake xAI + Gemini API over TLS (its own throwaway CA) for the network profiler and VM proofs (617). Python 3.9+ stdlib only.
-# Usage: python3 fake_provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE
-# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY — the (fake) real keys the proxy must swap in; anything else is answered 401/400.
-# Every request is one JSON line in REQUESTS.log: method, path, the auth header's name and value, and whether the
-# body carried the facts marker. Never a real key.
-import http.server, json, os, ssl, sys
+# A fake model provider over TLS (its own throwaway CA) for the network profiler, `make recipe-check` and VM proofs
+# (617): xAI, the Gemini API, Anthropic's Messages API and OpenAI's Responses API, each answering DOZ_FAKE_OK.
+# Python 3.9+ stdlib only.
+# Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
+#        the leaf and starts it)
+# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY — the (fake) real keys the proxy must swap in;
+#      anything else is answered in that provider's own refusal shape. FAKE_PORT — a fixed port (default: any).
+# A request whose body holds DOZ_SLOW is answered after 3 s (so a status poller sees `working`).
+# Every request is one JSON line in REQUESTS.log: method, host, path, the auth headers' names and values, and whether
+# the body carried the facts marker. Never a real key.
+import http.server, json, os, ssl, sys, time
 
 leaf, key, logf, portf = sys.argv[1:5]
 XAI, GOOGLE = os.environ.get("FAKE_XAI_KEY", ""), os.environ.get("FAKE_GOOGLE_KEY", "")
+ANTHROPIC, OPENAI = os.environ.get("FAKE_ANTHROPIC_KEY", ""), os.environ.get("FAKE_OPENAI_KEY", "")
+ANSWER = "DOZ_FAKE_OK"
+
+
+def responses_sse(model, text=ANSWER):
+    """OpenAI's Responses API as a stream (xAI's /v1/responses and api.openai.com's)."""
+    item = {"id": "msg_1", "type": "message", "role": "assistant", "status": "completed",
+            "content": [{"type": "output_text", "text": text, "annotations": []}]}
+    done = {"id": "resp_1", "object": "response", "created_at": 0, "status": "completed", "model": model,
+            "output": [item], "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2,
+                                        "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}
+    started = dict(done, status="in_progress", output=[], usage=None)
+    open_item = dict(item, status="in_progress", content=[])
+    part = {"type": "output_text", "text": "", "annotations": []}
+    evs = [("response.created", {"response": started}),
+           ("response.in_progress", {"response": started}),
+           ("response.output_item.added", {"output_index": 0, "item": open_item}),
+           ("response.content_part.added", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "part": part}),
+           ("response.output_text.delta", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "delta": text}),
+           ("response.output_text.done", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "text": text}),
+           ("response.content_part.done", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "part": item["content"][0]}),
+           ("response.output_item.done", {"output_index": 0, "item": item}),
+           ("response.completed", {"response": done})]
+    out = ""
+    for i, (t, d) in enumerate(evs):
+        out += "event: " + t + "\ndata: " + json.dumps(dict(d, type=t, sequence_number=i)) + "\n\n"
+    return done, out.encode()
+
+
+def anthropic_message(model, text=ANSWER):
+    """Anthropic's Messages API: the whole message, and the same as a stream."""
+    usage = {"input_tokens": 1, "output_tokens": 1, "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+    msg = {"id": "msg_fake", "type": "message", "role": "assistant", "model": model,
+           "content": [{"type": "text", "text": text}], "stop_reason": "end_turn", "stop_sequence": None, "usage": usage}
+    start = dict(msg, content=[], stop_reason=None)
+    evs = [("message_start", {"message": start}),
+           ("content_block_start", {"index": 0, "content_block": {"type": "text", "text": ""}}),
+           ("content_block_delta", {"index": 0, "delta": {"type": "text_delta", "text": text}}),
+           ("content_block_stop", {"index": 0}),
+           ("message_delta", {"delta": {"stop_reason": "end_turn", "stop_sequence": None}, "usage": {"output_tokens": 1}}),
+           ("message_stop", {})]
+    out = "".join("event: %s\ndata: %s\n\n" % (t, json.dumps(dict(d, type=t))) for t, d in evs)
+    return msg, out.encode()
+
 
 class H(http.server.BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    def host(self):
+        return (self.headers.get("host") or "").split(":")[0].lower()
+
     def record(self, body=b""):
         auth = {k.lower(): self.headers[k] for k in self.headers.keys() if k.lower() in ("authorization", "x-goog-api-key", "x-api-key")}
         with open(logf, "a") as f:
-            f.write(json.dumps({"method": self.command, "path": self.path, "host": self.headers.get("host"), "auth": auth,
+            f.write(json.dumps({"t": time.time(), "method": self.command, "path": self.path, "host": self.headers.get("host"), "auth": auth,
+                                "upgrade": self.headers.get("upgrade", ""),
                                 "facts_in_body": b"Dozer" in body or b"dozer" in body}) + "\n")
         return auth
 
@@ -24,16 +77,56 @@ class H(http.server.BaseHTTPRequestHandler):
         self.send_header("content-type", ctype)
         self.send_header("content-length", str(len(b)))
         self.end_headers()
-        self.wfile.write(b)
+        if self.command != "HEAD":
+            self.wfile.write(b)
 
     def xai_ok(self, auth):
-        return auth.get("authorization") == "Bearer " + XAI
+        return bool(XAI) and auth.get("authorization") == "Bearer " + XAI
 
     def google_ok(self, auth):
-        return auth.get("x-goog-api-key") == GOOGLE
+        return bool(GOOGLE) and auth.get("x-goog-api-key") == GOOGLE
+
+    def anthropic_ok(self, auth):
+        return bool(ANTHROPIC) and (auth.get("x-api-key") == ANTHROPIC or auth.get("authorization") == "Bearer " + ANTHROPIC)
+
+    def openai_ok(self, auth):
+        return bool(OPENAI) and auth.get("authorization") == "Bearer " + OPENAI
+
+    # ── Anthropic (api.anthropic.com) ─────────────────────────────────────────
+    def anthropic(self, auth, body):
+        p = self.path.split("?")[0]
+        if not self.anthropic_ok(auth):
+            return self.send(401, {"type": "error", "error": {"type": "authentication_error", "message": "invalid x-api-key"}})
+        if self.command == "POST" and p == "/v1/messages/count_tokens":
+            return self.send(200, {"input_tokens": 1})
+        if self.command == "POST" and p == "/v1/messages":
+            req = json.loads(body or b"{}")
+            msg, stream = anthropic_message(req.get("model", "claude-fake"))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, msg)
+        if p.startswith("/v1/models"):
+            return self.send(200, {"data": [{"type": "model", "id": "claude-fake", "display_name": "Fake"}], "has_more": False})
+        return self.send(404, {"type": "error", "error": {"type": "not_found_error", "message": "not here"}})
+
+    # ── OpenAI (api.openai.com; chatgpt.com is not faked here) ────────────────
+    def openai(self, auth, body):
+        p = self.path.split("?")[0]
+        if p.startswith("/v1/responses") and self.headers.get("upgrade", "").lower() == "websocket":
+            return self.send(426, {"error": {"message": "use HTTP"}})
+        if not self.openai_ok(auth):
+            return self.send(401, {"error": {"message": "Incorrect API key provided", "type": "invalid_request_error", "code": "invalid_api_key"}})
+        if p.startswith("/v1/models"):
+            return self.send(200, {"object": "list", "data": [{"id": "gpt-fake", "object": "model", "owned_by": "openai"}], "models": []})
+        if self.command == "POST" and p.startswith("/v1/responses"):
+            req = json.loads(body or b"{}")
+            done, stream = responses_sse(req.get("model", "gpt-fake"))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
+        return self.send(200, {})
 
     def do_GET(self):
         auth = self.record()
+        h = self.host()
+        if h == "api.anthropic.com": return self.anthropic(auth, b"")
+        if h == "api.openai.com": return self.openai(auth, b"")
         p = self.path.split("?")[0]
         if p == "/v1/models":
             if not self.xai_ok(auth): return self.send(400, {"code": "invalid-argument", "error": "Incorrect API key provided"})
@@ -47,17 +140,24 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.send(200, {"models": [{"name": "models/gemini-fake"}]})
         self.send(404, {"error": "not here"})
 
+    do_HEAD = do_GET
+
     def do_POST(self):
         n = int(self.headers.get("content-length") or 0)
         body = self.rfile.read(n) if n else b""
         auth = self.record(body)
+        if b"DOZ_SLOW" in body:
+            time.sleep(3)
+        h = self.host()
+        if h == "api.anthropic.com": return self.anthropic(auth, body)
+        if h == "api.openai.com": return self.openai(auth, body)
         p = self.path.split("?")[0]
         if p.endswith("/chat/completions"):
             if not self.xai_ok(auth): return self.send(401, {"error": "the proxy did not swap the key"})
             req = json.loads(body or b"{}")
             if req.get("stream"):
                 c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",
-                     "choices": [{"index": 0, "delta": {"role": "assistant", "content": "DOZ_FAKE_OK"}, "finish_reason": None}]}
+                     "choices": [{"index": 0, "delta": {"role": "assistant", "content": ANSWER}, "finish_reason": None}]}
                 out = "data: " + json.dumps(c) + "\n\n"
                 c["choices"][0]["delta"] = {}
                 c["choices"][0]["finish_reason"] = "stop"
@@ -65,50 +165,34 @@ class H(http.server.BaseHTTPRequestHandler):
                 out += "data: " + json.dumps(c) + "\n\ndata: [DONE]\n\n"
                 return self.send(200, out.encode(), "text/event-stream")
             return self.send(200, {"id": "x", "object": "chat.completion", "created": 0, "model": "grok-4.6",
-                                   "choices": [{"index": 0, "message": {"role": "assistant", "content": "DOZ_FAKE_OK"}, "finish_reason": "stop"}],
+                                   "choices": [{"index": 0, "message": {"role": "assistant", "content": ANSWER}, "finish_reason": "stop"}],
                                    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}})
         if p == "/v1/responses":
-            # OpenAI's Responses API (what Grok Build 1.0.50 uses against the real api.x.ai).
+            # OpenAI's Responses API (what Grok Build uses against the real api.x.ai).
             if not self.xai_ok(auth): return self.send(401, {"error": "the proxy did not swap the key"})
             req = json.loads(body or b"{}")
-            item = {"id": "msg_1", "type": "message", "role": "assistant", "status": "completed",
-                    "content": [{"type": "output_text", "text": "DOZ_FAKE_OK", "annotations": []}]}
-            done = {"id": "resp_1", "object": "response", "created_at": 0, "status": "completed", "model": req.get("model", "grok-4.6"),
-                    "output": [item], "usage": {"input_tokens": 1, "output_tokens": 1, "total_tokens": 2,
-                                                "input_tokens_details": {"cached_tokens": 0}, "output_tokens_details": {"reasoning_tokens": 0}}}
-            if not req.get("stream"):
-                return self.send(200, done)
-            started = dict(done, status="in_progress", output=[], usage=None)
-            open_item = dict(item, status="in_progress", content=[])
-            part = {"type": "output_text", "text": "", "annotations": []}
-            evs = [("response.created", {"response": started}),
-                   ("response.in_progress", {"response": started}),
-                   ("response.output_item.added", {"output_index": 0, "item": open_item}),
-                   ("response.content_part.added", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "part": part}),
-                   ("response.output_text.delta", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "delta": "DOZ_FAKE_OK"}),
-                   ("response.output_text.done", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "text": "DOZ_FAKE_OK"}),
-                   ("response.content_part.done", {"item_id": "msg_1", "output_index": 0, "content_index": 0, "part": item["content"][0]}),
-                   ("response.output_item.done", {"output_index": 0, "item": item}),
-                   ("response.completed", {"response": done})]
-            out = ""
-            for i, (t, d) in enumerate(evs):
-                out += "event: " + t + "\ndata: " + json.dumps(dict(d, type=t, sequence_number=i)) + "\n\n"
-            return self.send(200, out.encode(), "text/event-stream")
+            done, stream = responses_sse(req.get("model", "grok-4.6"))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
         if ":streamGenerateContent" in p or ":generateContent" in p:
             if not self.google_ok(auth): return self.send(400, {"error": {"code": 400, "message": "API key not valid.", "status": "INVALID_ARGUMENT"}})
             if ":streamGenerateContent" in p:
-                ev = {"candidates": [{"content": {"role": "model", "parts": [{"text": "DOZ_FAKE_OK"}]}, "finishReason": "STOP", "index": 0}],
+                ev = {"candidates": [{"content": {"role": "model", "parts": [{"text": ANSWER}]}, "finishReason": "STOP", "index": 0}],
                       "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2}}
                 return self.send(200, ("data: " + json.dumps(ev) + "\r\n\r\n").encode(), "text/event-stream")
-            ev = {"candidates": [{"content": {"role": "model", "parts": [{"text": "{\"complexity_reasoning\":\"x\",\"complexity_score\":1}"}]},
-                                  "finishReason": "STOP", "index": 0}]}
+            # A request for JSON (Gemini CLI's model router) gets its JSON; any other an answer in words.
+            gc = (json.loads(body or b"{}").get("generationConfig") or {})
+            wants_json = gc.get("responseMimeType") == "application/json" or "responseSchema" in gc or "responseJsonSchema" in gc
+            text = "{\"complexity_reasoning\":\"x\",\"complexity_score\":1}" if wants_json else ANSWER
+            ev = {"candidates": [{"content": {"role": "model", "parts": [{"text": text}]}, "finishReason": "STOP", "index": 0}],
+                  "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2}}
             return self.send(200, ev)
         self.send(404, {"error": "not here"})
 
     def log_message(self, *a):
         pass
 
-srv = http.server.ThreadingHTTPServer(("127.0.0.1", 0), H)
+
+srv = http.server.ThreadingHTTPServer(("127.0.0.1", int(os.environ.get("FAKE_PORT") or 0)), H)
 ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 ctx.load_cert_chain(leaf, key)
 srv.socket = ctx.wrap_socket(srv.socket, server_side=True)

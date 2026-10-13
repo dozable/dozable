@@ -1,0 +1,526 @@
+#!/usr/bin/python3
+# `make recipe-check` (617): every recipe run for real, in a SCRATCH store, through the test seams only — never a real
+# key, the Mac's logins, the keychain, the default store or a real op/aws. Per recipe (the data comes from the recipe
+# itself, Recipes/compiled/ID.json — nothing here is per agent):
+#   1. build   its image (`doz image bake`, skipped when this store already holds it for this build and release);
+#              the bake checks the release's integrity and runs the recipe's `verify`
+#   2. try     a fresh try (`doz try ID -d -q`), its provider's FAKE key held in the host's memory; the model's hosts go
+#              to Scripts/fake-provider.py (TLS, a throwaway CA — DOZ_TEST_PROVIDER_* / DOZ_TEST_OPENAI_*)
+#   3. verify  each `verify` command again, in the try, its output against `expect`
+#   4. smoke   the recipe's `check`: argv as the agent (through its launcher); the output holds `expect`, the exit status
+#              is `exit`; the stand-in saw the fake key (swapped in by the proxy) while the guest holds a placeholder
+#   5. keys    no fake key anywhere in the guest; the leak guard: the placeholder sent to another provider's host is
+#              refused and never reaches it
+#   6. status  `status: osc7501` only: an interactive turn in the default session — deckhold must hold at least
+#              idle, working and done (sampled with `deckhold ls` in the guest)
+# Exit 0 when every recipe passed, 1 otherwise (2: usage). The report (JSON) has, per recipe, pass/fail, the version,
+# each step's duration, the states seen and the failures; --summary FILE appends a markdown table.
+#
+# Usage: recipe-check.py [--store DIR] [--report FILE] [--summary FILE] [--doz BIN] [--versions pin|latest] ID…|all
+#   --store     the scratch root (default /tmp/doz-recipe-check; keep it short — the host's socket path must fit in 104
+#               bytes). Prepared images are kept there between runs; sandboxes never are.
+#   --versions  pin (default): each recipe agent at its pinned release; the built-in three (Claude Code, pi, Codex)
+#               at `latest` — their pins are frozen fallbacks (RecipePinTests) and Dozer installs latest for them.
+#               latest: every agent at its latest release.
+import argparse, datetime, glob, json, os, pty, re, select, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
+
+REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+COMPILED = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+# The fake keys (never real ones) and how each provider's account is added.
+KEYS = {
+    "xai": "xai-FAKE-RECIPECHECK-0123456789abcdef",
+    "google": "AIzaFAKERECIPECHECK-0123456789abcdef",
+    "anthropic": "sk-ant-api03-FAKERECIPECHECK-0123456789abcdefghijklmnopqrstuvwxyz",
+    "openai": "sk-proj-FAKERECIPECHECK-0123456789abcdefghijklmnopqrstuvwxyz",
+}
+ACCOUNT_ARGS = {
+    "xai": ["--provider", "xai"],
+    "google": ["--provider", "google"],
+    "anthropic": ["--api-key", "--no-verify"],
+    "openai": ["--openai-key", "--no-verify"],
+}
+# A provider's host and how a key rides on it — for the leak guard (a placeholder sent where it does not belong).
+LEAK_TARGET = {
+    "xai": ("api.x.ai", "Authorization: Bearer %s", "/v1/models"),
+    "google": ("generativelanguage.googleapis.com", "x-goog-api-key: %s", "/v1beta/models"),
+}
+STATES_NEEDED = ("idle", "working", "done")
+
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat()
+
+
+class Recipe:
+    def __init__(self, path):
+        self.product = os.path.basename(path)[:-5]
+        d = json.load(open(path))
+        self.doc_id = d["id"]
+        caps = d["capabilities"]
+        cfg = lambda t: next((c["config"] for c in caps if c["type"] == t), None)
+        self.pin = d["args"]["version"]["default"]
+        inst = cfg("com.dozersandbox/install@1")
+        self.builtin = bool(inst.get("builtin"))
+        launch = cfg("com.dozersandbox/launch@1")
+        self.check = launch.get("check")
+        self.verify = launch.get("verify", [])
+        self.status = launch.get("status", "none")
+        self.version_setting = (launch.get("settings") or {}).get("version") or "images.%s_version" % self.product.replace("-", "_")
+        cred = cfg("com.docker.sandbox/credential@1") or {}
+        self.provider = cred.get("service")
+        self.key_env = (cred.get("apiKey") or {}).get("name")
+        self.volumes = [c["config"]["path"] for c in caps if c["type"] == "com.docker.sandbox/volume@1"]
+
+
+class Harness:
+    def __init__(self, args):
+        self.root = os.path.abspath(args.store)
+        self.args = args
+        self.store = os.path.join(self.root, "store")
+        self.fake = os.path.join(self.root, "fake")
+        self.bin = os.path.join(self.root, "bin")
+        for d in ("xdg/dozer-sandbox", "store", "projects", "codex-home", "fake"):
+            os.makedirs(os.path.join(self.root, d), exist_ok=True)
+        with open(os.path.join(self.root, "xdg/dozer-sandbox/doz.toml"), "w") as f:
+            f.write('[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s/projects"\n' % (self.store, self.root))
+        self.env = dict(os.environ)
+        for k in list(self.env):
+            if k.startswith("DOZ_") and k not in ("DOZ_KERNEL_CACHE", "DOZ_KERNEL"):
+                del self.env[k]
+        self.env.update({
+            "XDG_CONFIG_HOME": os.path.join(self.root, "xdg"), "DO_NOT_TRACK": "1", "DOZ_TEST_GUARD": "1",
+            "DOZ_TEST_NO_MAC_LOGIN": "1", "DOZ_TEST_CREDENTIALS": "memory",
+            "DOZ_TEST_CODEX_HOME": os.path.join(self.root, "codex-home"), "DOZ_TEST_BASE_REGISTRY": "pinned",
+            "DOZ_PROGRESS": "plain", "NO_COLOR": "1",
+        })
+        if not self.env.get("DOZ_KERNEL_CACHE"):
+            self.env.pop("DOZ_KERNEL_CACHE", None)
+
+    # ── doz ────────────────────────────────────────────────────────────────────
+    def doz(self, *a, stdin=None, timeout=600):
+        argv = [os.path.join(self.bin, "doz")] + list(a)
+        if "--" in argv:
+            i = argv.index("--")
+            argv[i:i] = ["--store", self.store]
+        else:
+            argv += ["--store", self.store]
+        try:
+            p = subprocess.run(argv, input=stdin, capture_output=True, text=True, errors="replace", env=self.env, timeout=timeout)
+            return p.returncode, p.stdout + p.stderr
+        except subprocess.TimeoutExpired as e:
+            out = (e.stdout or b"") + (e.stderr or b"")
+            return 124, (out.decode(errors="replace") if isinstance(out, bytes) else str(out)) + "\n(timed out after %ds)" % timeout
+
+    def install_binary(self):
+        """A COPY of the build (never run a long VM job from the file `make cli` rewrites): the old host stopped first."""
+        if os.path.exists(os.path.join(self.bin, "doz")):
+            self.doz("host", "stop", timeout=300)
+        src = os.path.abspath(self.args.doz)
+        new = self.bin + ".new"
+        shutil.rmtree(new, ignore_errors=True)
+        os.makedirs(new)
+        shutil.copy2(src, os.path.join(new, "doz"))
+        d = os.path.dirname(src)
+        for b in glob.glob(os.path.join(d, "*.bundle")):
+            shutil.copytree(b, os.path.join(new, os.path.basename(b)), symlinks=True)
+        if os.path.exists(os.path.join(d, "VERSION")):
+            shutil.copy2(os.path.join(d, "VERSION"), os.path.join(new, "VERSION"))
+        shutil.rmtree(self.bin, ignore_errors=True)
+        os.rename(new, self.bin)
+
+    def start_fake(self):
+        pidf = os.path.join(self.fake, "pid")
+        if os.path.exists(pidf):
+            try:
+                os.kill(int(open(pidf).read()), signal.SIGTERM)
+            except (ValueError, OSError):
+                pass
+            os.remove(pidf)
+        fenv = dict(os.environ, FAKE_XAI_KEY=KEYS["xai"], FAKE_GOOGLE_KEY=KEYS["google"], FAKE_ANTHROPIC_KEY=KEYS["anthropic"],
+                    FAKE_OPENAI_KEY=KEYS["openai"])
+        p = subprocess.run(["/bin/sh", os.path.join(REPO, "Scripts/fake-provider-up.sh"), self.fake], capture_output=True, text=True, env=fenv)
+        if p.returncode != 0:
+            raise SystemExit("recipe-check: the fake provider did not start: " + p.stderr)
+        port = p.stdout.strip()
+        ca = os.path.join(self.fake, "ca.pem")
+        self.env.update({"DOZ_TEST_PROVIDER_UPSTREAM": "127.0.0.1:" + port, "DOZ_TEST_PROVIDER_CA": ca,
+                         "DOZ_TEST_PROVIDER_HOSTS": "api.anthropic.com",
+                         "DOZ_TEST_OPENAI_UPSTREAM": "127.0.0.1:" + port, "DOZ_TEST_OPENAI_CA": ca})
+
+    def stop_fake(self):
+        try:
+            os.kill(int(open(os.path.join(self.fake, "pid")).read()), signal.SIGTERM)
+        except (ValueError, OSError):
+            pass
+
+    def requests(self):
+        try:
+            return [json.loads(l) for l in open(os.path.join(self.fake, "requests.log")) if l.strip()]
+        except OSError:
+            return []
+
+    def sandboxes(self):
+        code, out = self.doz("ls", "--json", timeout=120)
+        try:
+            return json.loads(out[out.index("["):]) if code == 0 else []
+        except ValueError:
+            return []
+
+    def prepare_store(self, providers):
+        # A host started under another environment would not use this run's fake: start afresh.
+        self.doz("host", "stop", timeout=300)
+        for s in self.sandboxes():
+            self.doz("rm", s["name"], "--yes", timeout=300)
+        for p in sorted(providers):
+            if p not in KEYS:
+                continue
+            self.doz("account", "add", "rc-" + p, *ACCOUNT_ARGS[p], "--force", stdin=KEYS[p] + "\n", timeout=120)
+            self.doz("account", "default", "rc-" + p, timeout=60)
+
+    # ── one recipe ─────────────────────────────────────────────────────────────
+    def run(self, r):
+        res = {"id": r.product, "recipe": r.doc_id, "provider": r.provider, "status_protocol": r.status, "version": None,
+               "pass": False, "durations": {}, "status_states": [], "failures": [], "notes": []}
+        fail = res["failures"].append
+        t_all = time.time()
+
+        def step(name, fn):
+            t = time.time()
+            try:
+                return fn()
+            finally:
+                res["durations"][name] = round(time.time() - t, 1)
+
+        if not r.check:
+            fail("the recipe has no check block")
+            return self.finish(res, t_all)
+        if r.provider not in KEYS:
+            fail("no stand-in for its provider %r (Scripts/fake-provider.py fakes %s)" % (r.provider, ", ".join(sorted(KEYS))))
+            return self.finish(res, t_all)
+        want = "latest" if (self.args.versions == "latest" or r.builtin) else r.pin
+        code, out = self.doz("config", "set", r.version_setting, want, timeout=60)
+        if code != 0:
+            fail("config set %s %s: %s" % (r.version_setting, want, out.strip()[-300:]))
+            return self.finish(res, t_all)
+        if want == "latest":
+            res["notes"].append("at its latest release (%s)" % ("a built-in agent: its pin is a frozen fallback" if r.builtin else "--versions latest"))
+
+        # 1. build
+        def build():
+            row = self.image_row(r.product)
+            if row and row.get("current") and row.get("status") == "up to date" and (want == "latest" or row.get("version") == want.split("+")[0] or row.get("version") == want):
+                res["notes"].append("image already prepared for this build (%s)" % row.get("version"))
+                return True
+            code, out = self.doz("image", "bake", r.product, "--yes", "-q", timeout=2400)
+            if code != 0:
+                fail("build: doz image bake %s exited %d: %s" % (r.product, code, out.strip()[-600:]))
+                return False
+            return True
+        if not step("build", build):
+            return self.finish(res, t_all)
+        row = self.image_row(r.product) or {}
+        res["version"] = row.get("version") or want
+
+        # 2. a fresh try
+        def make_try():
+            before = {s["name"] for s in self.sandboxes()}
+            code, out = self.doz("try", r.product, "-d", "-q", timeout=1500)
+            names = [s["name"] for s in self.sandboxes() if s.get("trial") and s["name"] not in before]
+            if code != 0 or not names:
+                fail("try: doz try %s -d exited %d: %s" % (r.product, code, out.strip()[-600:]))
+                return None
+            return names[0]
+        name = step("try", make_try)
+        if not name:
+            return self.finish(res, t_all)
+        res["sandbox"] = name
+        try:
+            self.checks(r, name, res, step)
+        finally:
+            self.doz("rm", name, "--yes", timeout=300)
+            folder = os.path.join(self.root, "projects", name)
+            if os.path.isdir(folder) and not os.listdir(folder):
+                os.rmdir(folder)
+        return self.finish(res, t_all)
+
+    def image_row(self, name):
+        code, out = self.doz("image", "ls", "--json", timeout=120)
+        try:
+            rows = json.loads(out[out.index("["):])
+        except ValueError:
+            return None
+        return next((x for x in rows if x.get("name") == name), None)
+
+    def checks(self, r, name, res, step):
+        fail = res["failures"].append
+        version = (res["version"] or "").split("+")[0]
+
+        # 3. verify
+        def verify():
+            for v in r.verify:
+                code, out = self.doz("exec", name, "--", *v["argv"], timeout=180)
+                exp = (v.get("expect") or "").replace("${{ kit.args.version }}", version)
+                if code != 0 or (exp and exp not in out):
+                    fail("verify: %s → exit %d, %r (expected %r)" % (" ".join(v["argv"]), code, out.strip()[-200:], exp))
+        step("verify", verify)
+
+        # 4. smoke
+        def smoke():
+            c = r.check
+            n0 = len(self.requests())
+            code, out = self.doz("exec", name, "--", *c["argv"], timeout=int(c.get("timeout") or 240) + 30)
+            res["smoke_output"] = out.strip()[-400:]
+            if c["expect"] not in out:
+                fail("smoke: %s did not print %r (exit %d): %s" % (" ".join(c["argv"]), c["expect"], code, out.strip()[-400:]))
+            if code != int(c.get("exit") or 0):
+                fail("smoke: %s exited %d, expected %d" % (" ".join(c["argv"]), code, int(c.get("exit") or 0)))
+            seen = self.requests()[n0:]
+            if not any(KEYS[r.provider] in json.dumps(q.get("auth") or {}) for q in seen):
+                fail("smoke: the stand-in never saw the %s key swapped in by the proxy (%d requests)" % (r.provider, len(seen)))
+        step("smoke", smoke)
+
+        # 5. keys: a placeholder in the guest, no key, the leak guard
+        def keys():
+            dirs = " ".join("'%s'" % v for v in r.volumes)
+            code, out = self.doz("exec", name, "--", "sh", "-c",
+                                 "env; for d in %s; do find \"$d\" -maxdepth 2 -type f -size -64k -exec cat {} + 2>/dev/null; done; true" % dirs,
+                                 timeout=120)
+            m = re.search(r"doz_cred_[A-Za-z0-9_-]+", out)
+            if not m:
+                fail("keys: no doz placeholder in the guest (%s or its state folders)" % r.key_env)
+            pats = " ".join("-e '%s'" % k for k in KEYS.values())
+            code, out = self.doz("exec", name, "--user", "root", "--", "sh", "-c",
+                                 "grep -rlsF %s /proc/[0-9]*/environ /home /root /run /tmp /etc 2>/dev/null | head -3; echo scanned" % pats,
+                                 timeout=300)
+            if out.strip() != "scanned":
+                fail("keys: a key is in the guest: %s" % out.strip()[:200])
+            if not m:
+                return
+            other = "google" if r.provider == "xai" else "xai"
+            host, header, path = LEAK_TARGET[other]
+            self.doz("net", "allow", name, "site:" + host, "--yes", timeout=120)
+            n0 = len(self.requests())
+            code, out = self.doz("exec", name, "--", "sh", "-c",
+                                 "curl -s -m 20 -o /dev/null -w '%%{http_code}' -H '%s' https://%s%s" % (header % m.group(0), host, path),
+                                 timeout=120)
+            leaked = [q for q in self.requests()[n0:] if "doz_cred_" in json.dumps(q.get("auth") or {})
+                      or any(k in json.dumps(q.get("auth") or {}) for k in KEYS.values())]
+            got = out.strip()[-3:]
+            if got not in ("400", "401", "403") or leaked:
+                fail("keys: the placeholder sent to %s was not refused by the proxy (HTTP %s, %d reached the stand-in)" % (host, got, len(leaked)))
+        step("keys", keys)
+
+        # 6. status (OSC 7501)
+        if r.status == "osc7501":
+            step("status", lambda: self.status(r, name, res))
+
+    def status(self, r, name, res):
+        states, stop = [], threading.Event()
+
+        def poll():
+            while not stop.is_set():
+                code, out = self.doz("exec", name, "--user", "root", "--", "/usr/local/bin/deckhold", "ls", timeout=30)
+                for m in re.finditer(r"status=state=([a-z]+)", out):
+                    if not states or states[-1] != m.group(1):
+                        states.append(m.group(1))
+                stop.wait(0.5)
+        t = threading.Thread(target=poll, daemon=True)
+        t.start()
+        pid, fd = pty.fork()
+        if pid == 0:
+            argv = [os.path.join(self.bin, "doz"), "attach", name, "--store", self.store]
+            os.execve(argv[0], argv, self.env)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+        screen = bytearray()
+
+        def read_for(seconds, until=None):
+            end = time.time() + seconds
+            while time.time() < end:
+                r_, _, _ = select.select([fd], [], [], 0.25)
+                if r_:
+                    try:
+                        b = os.read(fd, 65536)
+                    except OSError:
+                        return False
+                    if not b:
+                        return False
+                    screen.extend(b)
+                    if until and until.encode() in screen[-200000:]:
+                        return True
+                if until is None and states:
+                    return True
+            return False
+        read_for(60)                     # until the first status (or a minute)
+        read_for(3, until="\x00")        # let it settle
+        mark = len(screen)
+        os.write(fd, b"say ok DOZ_SLOW")
+        time.sleep(1)
+        os.write(fd, b"\r")
+        end = time.time() + int(r.check.get("timeout") or 240)
+        got = False
+        while time.time() < end and not got:
+            read_for(1)
+            got = r.check["expect"].encode() in screen[mark:] and "done" in states
+        read_for(5, until="\x00")
+        os.write(fd, b"\x1d")
+        time.sleep(0.1)
+        os.write(fd, b"\x1d")
+        read_for(5, until="\x00")
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        try:
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+        os.close(fd)
+        stop.set()
+        t.join(timeout=40)
+        res["status_states"] = states
+        missing = [s for s in STATES_NEEDED if s not in states]
+        if missing:
+            res["failures"].append("status: deckhold never held %s (seen: %s)" % (", ".join(missing), " → ".join(states) or "nothing"))
+
+    def finish(self, res, t_all):
+        res["durations"]["total"] = round(time.time() - t_all, 1)
+        res["pass"] = not res["failures"]
+        return res
+
+
+def summary_markdown(report):
+    lines = ["### Recipes — %s" % ("all passed" if report["pass"] else "FAILED"), "",
+             "| Recipe | Result | Version | Build | Smoke | Status states | Total | Failures |", "|---|---|---|---|---|---|---|---|"]
+    for r in report["recipes"]:
+        d = r["durations"]
+        lines.append("| %s | %s | %s | %s | %s | %s | %s | %s |" % (
+            r["id"], "pass" if r["pass"] else "**FAIL**", r.get("version") or "", "%ss" % d.get("build", "–"), "%ss" % d.get("smoke", "–"),
+            " → ".join(r["status_states"]) or ("–" if r["status_protocol"] != "osc7501" else "none"), "%ss" % d.get("total", "–"),
+            "<br>".join(x.replace("|", "\\|")[:300] for x in r["failures"]) or ""))
+    return "\n".join(lines) + "\n"
+
+
+# What makes every recipe's check stale: the harness, the stand-in, the shared recipe data, the format.
+SHARED = ("Scripts/recipe-check.py", "Scripts/fake-provider.py", "Scripts/fake-provider-up.sh", ".github/workflows/recipes.yml",
+          "Sources/DozerKit/Recipes/providers.json", "Sources/DozerKit/Recipes/gateways.json", "Sources/DozerKit/Recipes/tags.json",
+          "schema/dozer-recipe-2.schema.json")
+
+
+def changed_recipes(base, known):
+    """The recipes a change since BASE touches: `all` when something they share changed, else each recipe whose
+    YAML, compiled JSON or network profile changed (a new recipe included; a removed one left out)."""
+    p = subprocess.run(["git", "-C", REPO, "diff", "--name-only", base + "...HEAD"], capture_output=True, text=True)
+    if p.returncode != 0:
+        p = subprocess.run(["git", "-C", REPO, "diff", "--name-only", base, "HEAD"], capture_output=True, text=True)
+    if p.returncode != 0:
+        return ["all"]
+    out = []
+    for f in p.stdout.split():
+        if f in SHARED:
+            return ["all"]
+        m = (re.match(r"Sources/DozerKit/Recipes/agents/[^/]+/([^/]+)\.yaml$", f) or re.match(r"Sources/DozerKit/Recipes/compiled/([^/]+)\.json$", f)
+             or re.match(r"profiles/([^/]+)\.json$", f))
+        if m and m.group(1) in known and m.group(1) not in out:
+            out.append(m.group(1))
+    return out
+
+
+def prune(h, days):
+    """Remove prepared images (one bake each) made more than DAYS ago: the next check prepares them again."""
+    if not os.path.exists(os.path.join(h.bin, "doz")):
+        print("recipe-check: nothing to prune (no store at %s)" % h.root)
+        return 0
+    code, out = h.doz("resources", "--json", timeout=600)
+    try:
+        tree = json.loads(out[out.index("{"):])
+    except ValueError:
+        print("recipe-check: could not read the store's resources: " + out[-300:], file=sys.stderr)
+        return 1
+    old, cutoff = [], time.time() - days * 86400
+
+    def walk(x):
+        if isinstance(x, dict):
+            i, path = str(x.get("id", "")), x.get("path")
+            if i.startswith("image:") and "@" in i and path and x.get("deletable"):
+                try:
+                    if os.path.getmtime(os.path.join(h.store, path)) < cutoff:
+                        old.append(i)
+                except OSError:
+                    pass
+            for v in x.values():
+                walk(v)
+        elif isinstance(x, list):
+            for v in x:
+                walk(v)
+    walk(tree)
+    if not old:
+        print("recipe-check: no image older than %d days" % days)
+        return 0
+    code, out = h.doz("resources", "rm", *old, "--yes", timeout=900)
+    print("recipe-check: pruned %s (exit %d)\n%s" % (", ".join(old), code, out.strip()[-600:]))
+    h.doz("host", "stop", timeout=300)
+    return code
+
+
+def main():
+    ap = argparse.ArgumentParser(description="Run each recipe for real in a scratch store (make recipe-check).")
+    ap.add_argument("--store", default=os.environ.get("RECIPE_STORE") or "/tmp/doz-recipe-check")
+    ap.add_argument("--report")
+    ap.add_argument("--summary")
+    ap.add_argument("--doz", default=os.path.join(REPO, ".build/debug/doz"))
+    ap.add_argument("--versions", choices=["pin", "latest"], default="pin")
+    ap.add_argument("--changed", metavar="BASE", help="print the recipes a change since BASE touches (all, or ids, or nothing) and exit")
+    ap.add_argument("--prune-days", type=int, metavar="N", help="remove prepared images baked more than N days ago from the store, then exit")
+    ap.add_argument("recipes", nargs="*")
+    a = ap.parse_args()
+    known = sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(COMPILED, "*.json")))
+    if a.changed:
+        print(" ".join(changed_recipes(a.changed, known)))
+        return 0
+    if a.prune_days is not None:
+        return prune(Harness(a), a.prune_days)
+    wanted = [w for x in a.recipes for w in x.replace(",", " ").split()]
+    if not wanted:
+        ap.error("name the recipes (or all): " + " ".join(known))
+    ids = known if wanted == ["all"] else wanted
+    unknown = [i for i in ids if i not in known]
+    if unknown:
+        ap.error("no such recipe: %s (known: %s)" % (", ".join(unknown), " ".join(known)))
+    if not os.path.exists(a.doz):
+        ap.error("no doz at %s (make cli)" % a.doz)
+    recipes = [Recipe(os.path.join(COMPILED, i + ".json")) for i in ids]
+    h = Harness(a)
+    report_path = a.report or os.path.join(h.root, "report.json")
+    report = {"started": now(), "store": h.root, "versions": a.versions, "recipes": []}
+    h.install_binary()
+    code, out = h.doz("--version", timeout=60)
+    report["doz"] = out.strip().splitlines()[-1] if out.strip() else ""
+    h.start_fake()
+    try:
+        h.prepare_store({r.provider for r in recipes if r.provider})
+        for r in recipes:
+            print("recipe-check: %s …" % r.product, flush=True)
+            res = h.run(r)
+            report["recipes"].append(res)
+            print("recipe-check: %s %s (%s, %ss)%s" % (r.product, "PASS" if res["pass"] else "FAIL", res.get("version"), res["durations"].get("total"),
+                                                      "".join("\n  - " + f for f in res["failures"])), flush=True)
+            report["pass"] = all(x["pass"] for x in report["recipes"])
+            report["finished"] = now()
+            with open(report_path, "w") as f:
+                json.dump(report, f, indent=2)
+    finally:
+        h.doz("host", "stop", timeout=300)
+        h.stop_fake()
+    report["pass"] = all(x["pass"] for x in report["recipes"])
+    report["finished"] = now()
+    with open(report_path, "w") as f:
+        json.dump(report, f, indent=2)
+    if a.summary:
+        with open(a.summary, "a") as f:
+            f.write(summary_markdown(report))
+    print("recipe-check: %d of %d passed — report %s" % (sum(x["pass"] for x in report["recipes"]), len(report["recipes"]), report_path))
+    return 0 if report["pass"] else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -244,7 +244,7 @@
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false,
-          "required": ["command", "no_prompts_args", "passthrough", "env", "state_env", "status", "verify"],
+          "required": ["command", "no_prompts_args", "passthrough", "env", "state_env", "status", "verify", "check"],
           "properties": {
             "command": { "type": "array", "minItems": 1, "items": { "type": "string" } },
             "no_prompts_args": { "$ref": "#/$defs/strings" },
@@ -262,6 +262,16 @@
               "items": {
                 "type": "object", "additionalProperties": false, "required": ["argv"],
                 "properties": { "argv": { "type": "array", "minItems": 1, "items": { "type": "string" } }, "expect": { "type": "string" } }
+              }
+            },
+            "check": {
+              "type": "object", "additionalProperties": false, "required": ["argv", "expect"],
+              "description": "The smoke turn `make recipe-check` runs in a fresh try against the stand-in provider: argv (through the launcher, as the agent), the text its output must contain, its exit status (default 0) and how long it may take in seconds (default 240).",
+              "properties": {
+                "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+                "expect": { "type": "string", "minLength": 1 },
+                "exit": { "type": "integer", "minimum": 0, "maximum": 255 },
+                "timeout": { "type": "integer", "minimum": 10, "maximum": 1800 }
               }
             },
             "settings": {

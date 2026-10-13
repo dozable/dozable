@@ -163,9 +163,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var resumeCheck: String?
         /// `expect` is a template: `${{ kit.args.version }}` (compared without a release's `+build`).
         public var verify: [AgentRecipe.Check]
+        /// The smoke turn `make recipe-check` runs (required: `check()` refuses a file without one).
+        public var check: AgentRecipe.Smoke?
         public var settings: AgentRecipe.SettingKeys?
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env, status, resume, verify, settings, session
+            case command, passthrough, env, status, resume, verify, check, settings, session
             case noPromptsArgs = "no_prompts_args", stateEnv = "state_env", firstRun = "first_run", sessionEnv = "session_env",
                  resumeCheck = "resume_check"
         }
@@ -310,6 +312,7 @@ extension RecipeDocument {
         }
         for t in [Types.agentContext, Types.currency] where types.filter({ $0 == t }).count > 1 { throw bad("at most one \(t)") }
         for c in capabilities where c.optional != nil || c.name != nil { throw bad("\(c.type): optional and name are export's, not the recipe's") }
+        guard launch.check != nil else { throw bad("launch@1 has no check (the smoke turn make recipe-check runs)") }
         let recipe = try recipeUnchecked()
         // The Kit parts Dozer derives: equal, or the file is out of date.
         let want = Self.networkRules(recipe)
@@ -484,7 +487,7 @@ extension RecipeDocument {
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
             credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts) },
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
-            verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) },
+            verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
             gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags)
     }
@@ -530,7 +533,7 @@ extension RecipeDocument {
         caps.append(RecipeCapability(type: T.launch, config: .launch(Launch(
             command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
             firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
-            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, settings: r.settings))))
+            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))
         caps.append(RecipeCapability(type: T.gateways, config: .gateways(Gateways(entries: r.gateways.map { Self.mapGateway($0, Self.toFile) }))))
         if r.checked != nil || r.lifecycle != nil {

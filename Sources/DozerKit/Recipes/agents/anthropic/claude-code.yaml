@@ -113,6 +113,12 @@ capabilities:
       - claude
       - --version
       expect: ${{ kit.args.version }}
+    check:
+      argv:
+      - claude
+      - -p
+      - say ok
+      expect: DOZ_FAKE_OK
     settings:
       version: images.claude_code_version
       permissions: claude.permissions

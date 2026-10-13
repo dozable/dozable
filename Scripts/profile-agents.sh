@@ -28,20 +28,8 @@ export DOZ_TEST_CODEX_HOME="$W/codex-home" DOZ_TEST_PROFILE_NETWORK=1
 
 # The fake provider (xAI, Google) with its own CA.
 F="$W/fake"
-if [ ! -f "$F/pid" ] || ! kill -0 "$(cat "$F/pid")" 2>/dev/null; then
-  ( cd "$F" || exit 1
-    printf 'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n' > ca.ext
-    printf 'subjectAltName=DNS:api.x.ai,DNS:generativelanguage.googleapis.com\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n' > leaf.ext
-    /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer profiler fake provider CA' 2>/dev/null
-    /usr/bin/openssl x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>/dev/null
-    /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=api.x.ai' 2>/dev/null
-    /usr/bin/openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>/dev/null
-    rm -f port requests.log
-    FAKE_XAI_KEY=xai-FAKE-PROFILE-0123456789abcdef FAKE_GOOGLE_KEY=AIzaFAKEPROFILE-0123456789abcdef \
-      nohup /usr/bin/python3 "$REPO/Scripts/fake-provider.py" leaf.pem leaf.key requests.log port > fake.out 2>&1 &
-    echo $! > pid )
-  sleep 1
-fi
+FAKE_XAI_KEY=xai-FAKE-PROFILE-0123456789abcdef FAKE_GOOGLE_KEY=AIzaFAKEPROFILE-0123456789abcdef \
+  sh "$REPO/Scripts/fake-provider-up.sh" "$F" >/dev/null || exit 1
 export DOZ_TEST_PROVIDER_UPSTREAM="127.0.0.1:$(cat "$F/port")" DOZ_TEST_PROVIDER_CA="$F/ca.pem"
 
 doz() { "$DOZ" "$@"; }
@@ -86,4 +74,5 @@ for a in "$@"; do
   rm -rf "$W/projects/$n"
 done
 doz host stop >/dev/null 2>&1
+kill "$(cat "$F/pid")" 2>/dev/null
 exit $rc

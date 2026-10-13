@@ -99,6 +99,10 @@ struct JSONSchemaValidator {
             if let n = s["minLength"] as? Int, str.count < n { errors.append("\(here): shorter than \(n)") }
             if let n = s["maxLength"] as? Int, str.count > n { errors.append("\(here): longer than \(n)") }
         }
+        if Self.isNumber(v), let n = v as? NSNumber {
+            if let lo = s["minimum"] as? NSNumber, n.doubleValue < lo.doubleValue { errors.append("\(here): less than \(lo)") }
+            if let hi = s["maximum"] as? NSNumber, n.doubleValue > hi.doubleValue { errors.append("\(here): more than \(hi)") }
+        }
         if let o = v as? [String: Any] {
             let props = s["properties"] as? [String: Any] ?? [:]
             for r in s["required"] as? [String] ?? [] where o[r] == nil { errors.append("\(here): \(r) is required") }
@@ -160,5 +164,5 @@ struct JSONSchemaValidator {
     static let known: Set<String> = ["$ref", "type", "const", "enum", "pattern", "minLength", "maxLength", "properties", "required",
                                      "additionalProperties", "propertyNames", "minProperties", "maxProperties", "dependencies", "dependentRequired",
                                      "items", "minItems", "maxItems", "uniqueItems", "contains", "minContains", "maxContains", "allOf", "anyOf",
-                                     "oneOf", "not", "if", "then", "else"]
+                                     "oneOf", "not", "if", "then", "else", "minimum", "maximum"]
 }

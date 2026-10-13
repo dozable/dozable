@@ -1702,6 +1702,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   decides them, and checks every determination against the recipe under a fresh try's policy (refuse ⇒ quiet;
   off-by-setting ⇒ a setting the recipe sets). `DIFF=1` reports new/missing endpoints and writes nothing; nothing is
   ever allowed by the profiler. Re-profile when an agent's version moves.
+- **Every recipe is checked for real** (`make recipe-check RECIPES="grok gemini"|all`, `Scripts/recipe-check.py`, driven by
+  the recipe's own data — nothing per agent): in a scratch store (`RECIPE_STORE`, default `/tmp/doz-recipe-check`; images
+  kept, sandboxes never; it runs a COPY of the build) — build at the pin (the built-in three at `latest`: their pins are
+  RecipePinTests' frozen fallbacks), verify again in a fresh try, the recipe's **`launch@1.check`** turn (REQUIRED in every
+  recipe: `{argv, expect, exit?, timeout?}`; the stand-in `Scripts/fake-provider.py` — xAI, Google, Anthropic Messages,
+  OpenAI Responses, started by `fake-provider-up.sh` — answers `DOZ_FAKE_OK`), the fake key seen by the stand-in and only a
+  placeholder in the guest, no key anywhere in it, the leak guard, and for `status: osc7501` idle/working/done held by
+  deckhold in an interactive turn (a pty attach typing `say ok DOZ_SLOW`). A JSON report; `--changed BASE` and
+  `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
+  recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
+  `~/Library/Caches/DozerKit-ci/recipes-store`). A new recipe passes it before it ships.
 - **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
   every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
   cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:
@@ -1978,6 +1989,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
+make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozer's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
 make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before

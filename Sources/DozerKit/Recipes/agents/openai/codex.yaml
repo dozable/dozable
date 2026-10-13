@@ -110,6 +110,13 @@ capabilities:
       - codex
       - --version
       expect: codex-cli ${{ kit.args.version }}
+    check:
+      argv:
+      - codex
+      - exec
+      - --skip-git-repo-check
+      - say ok
+      expect: DOZ_FAKE_OK
     settings:
       version: images.codex_version
       permissions: codex.permissions

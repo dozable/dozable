@@ -117,6 +117,14 @@
     },
     {
       "config" : {
+        "check" : {
+          "argv" : [
+            "gemini",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
         "command" : [
           "gemini"
         ],

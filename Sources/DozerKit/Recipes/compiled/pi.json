@@ -107,6 +107,14 @@
     },
     {
       "config" : {
+        "check" : {
+          "argv" : [
+            "pi",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
         "command" : [
           "pi"
         ],

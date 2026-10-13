@@ -84,6 +84,14 @@
     },
     {
       "config" : {
+        "check" : {
+          "argv" : [
+            "sh",
+            "-c",
+            "echo hello | fabric \"say ok\""
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
         "command" : [
           "fabric"
         ],

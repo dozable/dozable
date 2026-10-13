@@ -86,6 +86,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var resumeCheck: String?
     /// Credential-free checks after the bake (`{version}` is the installed version).
     public var verify: [Check]
+    /// 617: the smoke turn `make recipe-check` runs in a fresh try against the stand-in provider (the file's
+    /// `launch@1.check`; every recipe file has one — the document refuses one without).
+    public var smoke: Smoke?
     /// Shown where an account is chosen.
     public var terms: String?
     /// 617: where it stands with its maker (nil: current).
@@ -109,7 +112,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
-             network, status, prompt, resume, verify, terms, checked, settings, auth, gateways, tags
+             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
 
@@ -301,6 +304,19 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public struct Check: Codable, Sendable, Equatable {
         public var argv: [String]
         public var expect: String?
+    }
+
+    /// 617: one headless turn — `argv` run as the agent through its launcher in a fresh try (keys fake, the model a
+    /// stand-in that answers DOZ_FAKE_OK); its output must contain `expect` and it must exit `exit` (default 0) within
+    /// `timeout` seconds (default 240).
+    public struct Smoke: Codable, Sendable, Equatable {
+        public var argv: [String]
+        public var expect: String
+        public var exit: Int?
+        public var timeout: Int?
+        public init(argv: [String], expect: String, exit: Int? = nil, timeout: Int? = nil) {
+            self.argv = argv; self.expect = expect; self.exit = exit; self.timeout = timeout
+        }
     }
 
     public struct SettingKeys: Codable, Sendable, Equatable {
@@ -1119,6 +1135,11 @@ extension AgentRecipe {
             }
         }
         guard !verify.isEmpty, verify.allSatisfy({ !$0.argv.isEmpty }) else { throw bad("no verify check") }
+        if let c = smoke {
+            guard !c.argv.isEmpty, c.argv.allSatisfy({ !$0.isEmpty }), !c.expect.isEmpty else { throw bad("check: an argv and the text to expect") }
+            if let e = c.exit, !(0...255).contains(e) { throw bad("check: exit is 0–255") }
+            if let t = c.timeout, !(10...1800).contains(t) { throw bad("check: timeout is 10–1800 seconds") }
+        }
         if let d = checked, !Self.isISODate(d) { throw bad("checked \(d) is not an ISO date (YYYY-MM-DD)") }
         // tags (owner, 617): exactly the vocabulary's declared tags, each once; never a derivable one.
         for t in tags {
