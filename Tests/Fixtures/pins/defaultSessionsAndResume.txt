@@ -27,4 +27,5 @@ resume tgpt  check=nil
 resume opencode --continue check=nil
 resume smolagents  check=nil
 resume adk  check=nil
+resume promptfoo  check=nil
 resume nil 

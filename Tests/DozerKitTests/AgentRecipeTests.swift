@@ -24,7 +24,7 @@ final class AgentRecipeTests: XCTestCase {
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
 
     func test_everyCompiledRecipeDecodesAndValidates() throws {
-        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt", "opencode", "smolagents", "adk"])
+        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt", "opencode", "smolagents", "adk", "promptfoo"])
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
@@ -146,7 +146,7 @@ final class AgentRecipeTests: XCTestCase {
             }
         }
         // Antigravity CLI names undocumented AGY_LLM_GATEWAY_* settings — not checked yet.
-        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "shell-gpt × openrouter", "shell-gpt × vercel-ai-gateway", "zeroclaw × openrouter", "zeroclaw × vercel-ai-gateway", "aichat × openrouter", "aichat × vercel-ai-gateway", "tgpt × openrouter", "tgpt × vercel-ai-gateway", "smolagents × openrouter", "smolagents × vercel-ai-gateway", "adk × openrouter", "adk × vercel-ai-gateway"])
+        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "shell-gpt × openrouter", "shell-gpt × vercel-ai-gateway", "zeroclaw × openrouter", "zeroclaw × vercel-ai-gateway", "aichat × openrouter", "aichat × vercel-ai-gateway", "tgpt × openrouter", "tgpt × vercel-ai-gateway", "smolagents × openrouter", "smolagents × vercel-ai-gateway", "adk × openrouter", "adk × vercel-ai-gateway", "promptfoo × openrouter", "promptfoo × vercel-ai-gateway"])
         XCTAssertEqual(experimental, ["grok × openrouter"])
     }
 

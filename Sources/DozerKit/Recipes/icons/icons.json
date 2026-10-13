@@ -199,6 +199,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Google's terms, as for its own mark (the code is Apache-2.0; that licence grants no trademark rights).",
       "lettermark": { "text": "AD", "frame": "hex" }
+    },
+    {
+      "id": "promptfoo", "kind": "product", "name": "promptfoo",
+      "variants": { "mono": "promptfoo.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/promptfoo/promptfoo",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "PF", "frame": "circle" }
     }
   ]
 }

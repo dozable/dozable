@@ -1,0 +1,212 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "PROMPTFOO_VERSION",
+      "default" : "0.124.1",
+      "description" : "The promptfoo release Dozer installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "promptfoo",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozer" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.x.ai"
+              }
+            ],
+            "id" : "model:promptfoo",
+            "phrase" : "talk to your AI model (xAI)",
+            "summary" : "promptfoo's model (the xAI API, with an API key) — needed for promptfoo to answer.",
+            "title" : "Talk to xAI"
+          },
+          "quiet" : [
+            {
+              "host" : "r.promptfoo.app",
+              "reason" : "promptfoo reports that its telemetry is off (one \"telemetry disabled\" event each run) even with PROMPTFOO_DISABLE_TELEMETRY; no setting stops it"
+            }
+          ],
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.x.ai:443"
+          ],
+          "deny" : [
+            "r.promptfoo.app:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozer" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.promptfoo"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "binary" : "promptfoo",
+        "integrity" : "sha512-Y6fq/WGTL7lPvDsirNSmmmcPLhURwRao03iv8fCoLbFq6H1eqg5VVTmXiap5Jl+fiRaQQZXYMHb2N1gQm1tGyQ==",
+        "kind" : "npm",
+        "needs_node" : "22",
+        "package" : "promptfoo"
+      },
+      "type" : "com.dozersandbox/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "sh",
+            "-c",
+            "printf 'prompts: [\"say {{word}}\"]\\nproviders: [\"xai:grok-4-1-fast\"]\\ntests: [{vars: {word: ok}}]\\n' > /tmp/pf-check.yaml && promptfoo eval -c /tmp/pf-check.yaml --no-cache -o /tmp/pf-check.json > /dev/null && grep -o DOZ_FAKE_OK /tmp/pf-check.json | head -n 1"
+          ],
+          "expect" : "DOZ_FAKE_OK",
+          "timeout" : 300
+        },
+        "command" : [
+          "promptfoo"
+        ],
+        "env" : {
+          "PROMPTFOO_DISABLE_TELEMETRY" : "1",
+          "PROMPTFOO_DISABLE_UPDATE" : "1"
+        },
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+          "--version",
+          "-V",
+          "--help",
+          "-h"
+        ],
+        "session" : "shell",
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "promptfoo",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "promptfoo's xai provider reads XAI_API_KEY (providers: [xai:grok-4-1-fast] in a config). Its telemetry and update check are off. Its other providers are not offered here yet.",
+            "provider" : "xai"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-14",
+            "gateway" : "openrouter",
+            "level" : "unknown",
+            "reason" : "not checked against promptfoo"
+          },
+          {
+            "checked" : "2026-10-14",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "unknown",
+            "reason" : "not checked against promptfoo"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/gateways@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozersandbox/currency@1"
+    },
+    {
+      "config" : {
+        "default_base" : "debian",
+        "icon" : "promptfoo",
+        "platforms" : {
+          "glibc" : true,
+          "musl" : false
+        },
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "evidence" : "A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/promptfoo)",
+            "level" : "verified",
+            "notes" : [
+              "promptfoo eval -c CONFIG"
+            ],
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your xAI API key — a key from console.x.ai. promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet."
+      },
+      "type" : "com.dozersandbox/directory@1"
+    }
+  ],
+  "description" : "A command line for evaluating and red-teaming LLM prompts and apps, on an xAI API key.",
+  "displayName" : "promptfoo",
+  "id" : "promptfoo/promptfoo",
+  "kind" : "workload",
+  "licenses" : [
+    "MIT"
+  ],
+  "provides" : [
+    "com.dozersandbox/promptfoo@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/promptfoo/promptfoo"
+}

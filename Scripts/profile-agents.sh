@@ -63,6 +63,7 @@ for a in "$@"; do
     tgpt) bin=tgpt; task="tgpt -q \"\$T\"" ;;
     smolagents) bin=smolagent; task="smolagent \"\$T\" --model-type OpenAIModel --model-id grok-4-1-fast --api-base https://api.x.ai/v1" ;;
     adk) bin=adk; task="mkdir -p hello && echo 'from . import agent' > hello/__init__.py && printf 'from google.adk.agents import Agent\\nroot_agent = Agent(name=\"hello\", model=\"gemini-2.5-flash\", instruction=\"Answer briefly.\")\\n' > hello/agent.py && printf '%s\\nexit\\n' \"\$T\" | adk run hello" ;;
+    promptfoo) bin=promptfoo; task="printf '%s' \"\$T\" > /tmp/pf-prompt.txt && printf 'prompts: [\"file:///tmp/pf-prompt.txt\"]\\nproviders: [\"xai:grok-4-1-fast\"]\\n' > /tmp/pf.yaml && promptfoo eval -c /tmp/pf.yaml --no-cache" ;;
     nanobot) bin=nanobot; task="nanobot agent -m \"\$T\"" ;;
     gptme) bin=gptme; task="gptme --non-interactive \"\$T\"" ;;
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;

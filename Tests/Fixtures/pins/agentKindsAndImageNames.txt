@@ -17,6 +17,7 @@ kind tgpt tgpt
 kind opencode OpenCode
 kind smolagents smolagents
 kind adk Agent Development Kit
+kind promptfoo promptfoo
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -37,6 +38,7 @@ parse node-tgpt → node tgpt node-tgpt Node.js · tgpt base-name node-tgpt-sand
 parse node-opencode → node opencode node-opencode Node.js · OpenCode base-name node-opencode-sandbox
 parse node-smolagents → node smolagents node-smolagents Node.js · smolagents base-name node-smolagent-sandbox
 parse node-adk → node adk node-adk Node.js · Agent Development Kit base-name node-adk-sandbox
+parse node-promptfoo → node promptfoo node-promptfoo Node.js · promptfoo base-name node-promptfoo-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -56,6 +58,7 @@ parse python-tgpt → python tgpt python-tgpt Python · tgpt base-name python-tg
 parse python-opencode → python opencode python-opencode Python · OpenCode base-name python-opencode-sandbox
 parse python-smolagents → python smolagents python-smolagents Python · smolagents base-name python-smolagent-sandbox
 parse python-adk → python adk python-adk Python · Agent Development Kit base-name python-adk-sandbox
+parse python-promptfoo → python promptfoo python-promptfoo Python · promptfoo base-name python-promptfoo-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -75,6 +78,7 @@ parse go-tgpt → go tgpt go-tgpt Go · tgpt base-name go-tgpt-sandbox
 parse go-opencode → go opencode go-opencode Go · OpenCode base-name go-opencode-sandbox
 parse go-smolagents → go smolagents go-smolagents Go · smolagents base-name go-smolagent-sandbox
 parse go-adk → go adk go-adk Go · Agent Development Kit base-name go-adk-sandbox
+parse go-promptfoo → go promptfoo go-promptfoo Go · promptfoo base-name go-promptfoo-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -94,6 +98,7 @@ parse rust-tgpt → rust tgpt rust-tgpt Rust · tgpt base-name rust-tgpt-sandbox
 parse rust-opencode → rust opencode rust-opencode Rust · OpenCode base-name rust-opencode-sandbox
 parse rust-smolagents → rust smolagents rust-smolagents Rust · smolagents base-name rust-smolagent-sandbox
 parse rust-adk → rust adk rust-adk Rust · Agent Development Kit base-name rust-adk-sandbox
+parse rust-promptfoo → rust promptfoo rust-promptfoo Rust · promptfoo base-name rust-promptfoo-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -113,6 +118,7 @@ parse java-tgpt → java tgpt java-tgpt Java · tgpt base-name java-tgpt-sandbox
 parse java-opencode → java opencode java-opencode Java · OpenCode base-name java-opencode-sandbox
 parse java-smolagents → java smolagents java-smolagents Java · smolagents base-name java-smolagent-sandbox
 parse java-adk → java adk java-adk Java · Agent Development Kit base-name java-adk-sandbox
+parse java-promptfoo → java promptfoo java-promptfoo Java · promptfoo base-name java-promptfoo-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -132,6 +138,7 @@ parse ruby-tgpt → ruby tgpt ruby-tgpt Ruby · tgpt base-name ruby-tgpt-sandbox
 parse ruby-opencode → ruby opencode ruby-opencode Ruby · OpenCode base-name ruby-opencode-sandbox
 parse ruby-smolagents → ruby smolagents ruby-smolagents Ruby · smolagents base-name ruby-smolagent-sandbox
 parse ruby-adk → ruby adk ruby-adk Ruby · Agent Development Kit base-name ruby-adk-sandbox
+parse ruby-promptfoo → ruby promptfoo ruby-promptfoo Ruby · promptfoo base-name ruby-promptfoo-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -151,6 +158,7 @@ parse dotnet-tgpt → dotnet tgpt dotnet-tgpt .NET · tgpt base-name dotnet-tgpt
 parse dotnet-opencode → dotnet opencode dotnet-opencode .NET · OpenCode base-name dotnet-opencode-sandbox
 parse dotnet-smolagents → dotnet smolagents dotnet-smolagents .NET · smolagents base-name dotnet-smolagent-sandbox
 parse dotnet-adk → dotnet adk dotnet-adk .NET · Agent Development Kit base-name dotnet-adk-sandbox
+parse dotnet-promptfoo → dotnet promptfoo dotnet-promptfoo .NET · promptfoo base-name dotnet-promptfoo-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -170,6 +178,7 @@ parse tgpt → debian tgpt tgpt Debian · tgpt base-name tgpt-sandbox
 parse opencode → debian opencode opencode Debian · OpenCode base-name opencode-sandbox
 parse smolagents → debian smolagents smolagents Debian · smolagents base-name smolagent-sandbox
 parse adk → debian adk adk Debian · Agent Development Kit base-name adk-sandbox
+parse promptfoo → debian promptfoo promptfoo Debian · promptfoo base-name promptfoo-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -189,6 +198,7 @@ parse ubuntu-tgpt → ubuntu tgpt ubuntu-tgpt Ubuntu · tgpt base-name ubuntu-tg
 parse ubuntu-opencode → ubuntu opencode ubuntu-opencode Ubuntu · OpenCode base-name ubuntu-opencode-sandbox
 parse ubuntu-smolagents → ubuntu smolagents ubuntu-smolagents Ubuntu · smolagents base-name ubuntu-smolagent-sandbox
 parse ubuntu-adk → ubuntu adk ubuntu-adk Ubuntu · Agent Development Kit base-name ubuntu-adk-sandbox
+parse ubuntu-promptfoo → ubuntu promptfoo ubuntu-promptfoo Ubuntu · promptfoo base-name ubuntu-promptfoo-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -207,6 +217,7 @@ parse alpine-tgpt → alpine tgpt alpine-tgpt Alpine · tgpt base-name alpine-tg
 parse alpine-opencode → alpine opencode alpine-opencode Alpine · OpenCode base-name alpine-opencode-sandbox
 parse alpine-smolagents → alpine smolagents alpine-smolagents Alpine · smolagents base-name alpine-smolagent-sandbox
 parse alpine-adk → alpine adk alpine-adk Alpine · Agent Development Kit base-name alpine-adk-sandbox
+parse alpine-promptfoo → alpine promptfoo alpine-promptfoo Alpine · promptfoo base-name alpine-promptfoo-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -226,6 +237,7 @@ parse df-0123456789ab-tgpt → df-0123456789ab tgpt df-0123456789ab-tgpt Dockerf
 parse df-0123456789ab-opencode → df-0123456789ab opencode df-0123456789ab-opencode Dockerfile · OpenCode base-name dockerfile-opencode-sandbox
 parse df-0123456789ab-smolagents → df-0123456789ab smolagents df-0123456789ab-smolagents Dockerfile · smolagents base-name dockerfile-smolagent-sandbox
 parse df-0123456789ab-adk → df-0123456789ab adk df-0123456789ab-adk Dockerfile · Agent Development Kit base-name dockerfile-adk-sandbox
+parse df-0123456789ab-promptfoo → df-0123456789ab promptfoo df-0123456789ab-promptfoo Dockerfile · promptfoo base-name dockerfile-promptfoo-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

@@ -136,6 +136,19 @@ Google's Python framework for building agents (`adk`).
 - **May reach:** the Gemini API.
 - **Later:** `adk web` (its dev UI) and `adk api_server` need a forwarded port.
 
+## promptfoo
+
+A command line for evaluating and red-teaming prompts and LLM apps. A red-team run sends attack prompts with your key —
+in a sandbox the key stays on the Mac.
+
+- **Installed** from the npm registry, integrity-checked, on Node 22 (Debian-based bases).
+- **Key:** an xAI API key; its `xai` provider reads `XAI_API_KEY` (`providers: [xai:grok-4-1-fast]` in a config).
+- **Set up for you:** its telemetry and update check off (`PROMPTFOO_DISABLE_TELEMETRY`, `PROMPTFOO_DISABLE_UPDATE`).
+- **Use:** the session is a shell. `promptfoo eval -c promptfooconfig.yaml`.
+- **May reach:** xAI's API. **Kept out, quietly:** `r.promptfoo.app` — with its telemetry off, promptfoo still sends one
+  "telemetry disabled" event each run; no setting stops it, so Dozer refuses it without counting it as a refusal.
+- **Later:** `promptfoo view` (its web viewer) needs a forwarded port.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.
