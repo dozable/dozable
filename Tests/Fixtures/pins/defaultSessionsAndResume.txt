@@ -42,4 +42,7 @@ resume cline  check=nil
 resume openhands --resume --last check=nil
 resume codebuddy --continue check=nil
 resume letta-code  check=nil
+resume docker-agent  check=nil
+resume nanocoder  check=nil
+resume mini-swe-agent  check=nil
 resume nil 

@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -21,6 +21,9 @@ doz try cline            # Cline CLI, on an xAI key, no Cline account
 doz try openhands        # OpenHands CLI, on an xAI key
 doz try codebuddy        # CodeBuddy Code (Tencent), on an xAI key, no CodeBuddy account
 doz try letta-code       # Letta Code (alias letta), local backend, on an xAI key
+doz try docker-agent     # Docker Agent (alias cagent), its built-in coding agent, on an xAI key
+doz try nanocoder        # Nanocoder, on an xAI key
+doz try mini-swe-agent   # mini-swe-agent (alias mini), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -148,8 +151,8 @@ none of Factory's servers — Droid takes the key as a custom model on xAI's API
   feature flags) and its telemetry even with your own model; with it, only the model. Its first start in a folder asks
   whether to trust it.
 - **May reach:** xAI's API only.
-- **Use:** `droid` (a session; with approvals off, `--auto high`), or `droid exec -m custom:grok-build-0.1 "…"` for one
-  task.
+- **Use:** `droid` (a session; with approvals off, `--auto high`), or `droid exec -m custom:grok-build-0.1 "…"` for
+  one task.
 
 ## Dirac (dirac-run)
 
@@ -255,6 +258,49 @@ not in its catalogue).
   does without them. Letta asks before running commands (its own default).
 - **May reach:** xAI's API only.
 - **Use:** `letta` (a session), or `letta --backend local -m xai/grok-4.3 --new-agent -p "…"` for one task.
+
+## Docker Agent (Docker)
+
+Docker's YAML-defined agent runner, formerly cagent (`doz try docker-agent`), as a program in the sandbox — Docker
+Desktop is not used. A session runs its built-in coding agent (`docker-agent run coder`) on an **xAI API key** (model
+`xai/grok-build-0.1`); your own agent files run the same way (`docker-agent run ./agent.yaml`).
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox).
+- **Set up for you:** its telemetry, self-update, tour and setup wizard off. At each run it reads the public models.dev
+  catalogue; Dozer keeps that request out quietly, and it does without it.
+- **May reach:** xAI's API only.
+- **Use:** `docker-agent` (a session; with approvals off, `--yolo`), or
+  `docker-agent run coder --model xai/grok-build-0.1 --exec "…"` for one task.
+
+## Nanocoder (Nano Collective)
+
+A local-first terminal agent (`doz try nanocoder`), with an OpenAI-compatible provider on an **xAI API key** (model
+`grok-build-0.1`).
+
+- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). `~/.config/nanocoder/agents.config.json`
+  names it as `${XAI_API_KEY}`, which Nanocoder expands each run, so the key is never written there.
+- **Set up for you:** its context size given (`NANOCODER_CONTEXT_LIMIT`). It reads the public models.dev catalogue for
+  prices when it needs them; Dozer keeps that request out quietly, and it does without it. Its first start in a
+  folder asks whether to trust it.
+- **May reach:** xAI's API only.
+- **Use:** `nanocoder` (a session; with approvals off, `--mode yolo`), or
+  `nanocoder run "…" --trust-directory --plain` for one task.
+
+## mini-swe-agent (SWE-agent team)
+
+A minimal bash-only coding agent from the SWE-agent team (`doz try mini-swe-agent`; its command is `mini`), on an
+**xAI API key** through LiteLLM (model `xai/grok-build-0.1`).
+
+- **Installed** from PyPI with every dependency hash-pinned, into its own Python (Debian base; not Alpine).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Its first-run `.env` setup is skipped.
+- **Set up for you:** LiteLLM's price list read locally (not fetched), and cost tracking that does not stop on a model
+  without a price.
+- **May reach:** xAI's API only.
+- **Use:** `mini` (a session; with approvals off, `--yolo`), or
+  `mini -m xai/grok-build-0.1 -t "…" --yolo --exit-immediately` for one task.
 
 ## Gemini CLI (Google) — superseded
 

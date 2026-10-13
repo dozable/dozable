@@ -33,6 +33,9 @@ node-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 node-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 codebuddy credentials=xai:key agentName=CodeBuddy Code package=@tencent-ai/codebuddy-code pinned=2.164.0 sha512-1DvSEszHJQUysANsE1GF78dn6tWWjUpQYI4xZfJe5MTQqj3AfZDTywrNYJRKW2jTLYK8QaIX5rOSB8hUNFp8wA==
 letta-code credentials=xai:key agentName=Letta Code package=@letta-ai/letta-code pinned=0.34.13 sha512-aEu3M1aYGA2HzpDjRd4rMJKRe4owLpPvdUnQZ0Nzf9/I7wo5Bl0yu7oM8hxBvelCZpPVug+pI/K06fBhbq4ckw==
+node-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+nanocoder credentials=xai:key agentName=Nanocoder package=@nanocollective/nanocoder pinned=1.31.0 sha512-EyJn8aO7YFKDA+IYyUmSN9/XHCqgBfrYKHE61iKMf6B4ASY9GDd8VHG0J09w0bd/V5kQdUQzHszk0fiCv8fRHQ==
+node-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -67,6 +70,9 @@ python-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 python-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 python-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 python-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+python-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+python-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+python-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -101,6 +107,9 @@ go-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 go-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 go-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 go-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+go-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+go-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+go-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -135,6 +144,9 @@ rust-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 rust-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 rust-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 rust-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+rust-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+rust-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+rust-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -169,6 +181,9 @@ java-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 java-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 java-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 java-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+java-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+java-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+java-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -203,6 +218,9 @@ ruby-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ruby-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 ruby-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 ruby-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+ruby-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+ruby-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+ruby-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -237,6 +255,9 @@ dotnet-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 dotnet-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 dotnet-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 dotnet-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+dotnet-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+dotnet-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+dotnet-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -271,6 +292,9 @@ cline credentials=xai:key agentName=Cline CLI package=cline pinned=3.0.71 sha512
 openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=1.16.0 sha512-wh73oUH4wtdNUftFo20QXOa2IujQTFOhmp3y8EYk8kUpahRtjnZRKYutNo1/VZGcAOS7HfFtrn9wnt5hCqNOSg==
 debian-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 debian-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=1.150.0 sha512-KklBky8+usd4CK6S48S940vZJpxg1wn1cKqmGgJmsfBw3YAkRWusE/nlnDqT4TM0l4Lh/SVPgAvC/d8XQdAVmA==
+debian-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=mini-swe-agent pinned=2.4.6 sha512-nKAiYWd2x7qCDYjFdFltPDty8e8qCBYZ6qeaWRfhmheH6RJX49J6zccUrHEuZScu7xhKzvgB00EbPjDyznr9xQ==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -305,6 +329,9 @@ ubuntu-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ubuntu-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 ubuntu-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 ubuntu-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+ubuntu-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+ubuntu-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+ubuntu-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -338,6 +365,9 @@ alpine-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 alpine-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 alpine-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 alpine-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+alpine-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+alpine-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+alpine-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -372,3 +402,6 @@ df-0123456789ab-cline credentials=xai:key agentName=Cline CLI package=nil pinned
 df-0123456789ab-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 df-0123456789ab-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 df-0123456789ab-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
+df-0123456789ab-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
+df-0123456789ab-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
+df-0123456789ab-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil

@@ -1,6 +1,7 @@
 # A fake model provider over TLS (its own throwaway CA) for the network profiler, `make recipe-check` and VM proofs
 # (617): xAI, the Gemini API, Anthropic's Messages API and OpenAI's Responses API, each answering DOZ_FAKE_OK (an agent
-# that ends a task only through its `respond` tool, Dirac, gets that tool call with DOZ_FAKE_OK).
+# that ends a task only through its `respond` tool, Dirac, gets that tool call with DOZ_FAKE_OK; one whose only tool is
+# `bash`, mini-swe-agent, gets a bash call that submits DOZ_FAKE_OK).
 # Python 3.9+ stdlib only.
 # Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
 #        the leaf and starts it)
@@ -166,6 +167,11 @@ class H(http.server.BaseHTTPRequestHandler):
             if "respond" in names and last != "tool":
                 call = {"index": 0, "id": "call_doz", "type": "function",
                         "function": {"name": "respond", "arguments": json.dumps({"operation": "complete", "text": ANSWER})}}
+            # An agent whose only tool is `bash` and which ends with its submit marker (mini-swe-agent): that call.
+            elif names == {"bash"} and last != "tool":
+                cmd = "echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && echo " + ANSWER
+                call = {"index": 0, "id": "call_doz", "type": "function",
+                        "function": {"name": "bash", "arguments": json.dumps({"command": cmd})}}
             if req.get("stream"):
                 delta = {"role": "assistant", "content": None, "tool_calls": [call]} if call else {"role": "assistant", "content": ANSWER}
                 c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",

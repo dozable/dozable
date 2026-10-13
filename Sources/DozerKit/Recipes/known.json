@@ -119,6 +119,33 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "trae-agent",
+      "title": "Trae Agent",
+      "publisher": "ByteDance",
+      "homepage": "https://github.com/bytedance/trae-agent",
+      "status": "coming",
+      "reason": "it has no releases: it runs from a git checkout set up with uv, which Dozer cannot pin and install yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "kimchi",
+      "title": "Kimchi",
+      "publisher": "CAST AI",
+      "homepage": "https://github.com/getkimchi/kimchi",
+      "status": "coming",
+      "reason": "it runs on CAST AI's own model service with a Kimchi key, which Dozer cannot hold for you yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "ante",
+      "title": "Ante",
+      "publisher": "Antigma Labs",
+      "homepage": "https://ante.run",
+      "status": "coming",
+      "reason": "its source is Apache-2.0 but the binary it installs comes under preview terms, which need a reading before Dozer installs it for you",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

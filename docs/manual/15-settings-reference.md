@@ -210,13 +210,31 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `codebuddy.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CODEBUDDY_PERMISSIONS=… on run/exec` | CodeBuddy Code in a codebuddy sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
 
+### `[docker-agent]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `docker-agent.permissions` | `skip` | skip \| ask | next session | `-e DOZ_DOCKER_AGENT_PERMISSIONS=… on run/exec` | Docker Agent in a docker-agent sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
+### `[nanocoder]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `nanocoder.permissions` | `skip` | skip \| ask | next session | `-e DOZ_NANOCODER_PERMISSIONS=… on run/exec` | Nanocoder in a nanocoder sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
+### `[mini-swe-agent]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `mini-swe-agent.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MINI_PERMISSIONS=… on run/exec` | mini-swe-agent in a mini-swe-agent sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
 ### `[defaults]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
-| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose \| kilo \| mistral-vibe \| droid \| dirac \| kimi-code \| every-code \| cline \| openhands \| codebuddy \| letta-code | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
+| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose \| kilo \| mistral-vibe \| droid \| dirac \| kimi-code \| every-code \| cline \| openhands \| codebuddy \| letta-code \| docker-agent \| nanocoder \| mini-swe-agent | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
 | `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
@@ -320,6 +338,9 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.openhands_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenHands CLI the openhands image (and every base's OpenHands CLI image) is prepared with: latest or an exact version like 1.16.0, as images.claude_code_version. |
 | `images.codebuddy_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The CodeBuddy Code the codebuddy image (and every base's CodeBuddy Code image) is prepared with: latest or an exact version like 2.164.0, as images.claude_code_version. |
 | `images.letta_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Letta Code the letta-code image (and every base's Letta Code image) is prepared with: latest or an exact version like 0.34.13, as images.claude_code_version. |
+| `images.docker_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Docker Agent the docker-agent image (and every base's Docker Agent image) is prepared with: latest or an exact version like 1.150.0, as images.claude_code_version. |
+| `images.nanocoder_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Nanocoder the nanocoder image (and every base's Nanocoder image) is prepared with: latest or an exact version like 1.31.0, as images.claude_code_version. |
+| `images.mini_swe_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The mini-swe-agent the mini-swe-agent image (and every base's mini-swe-agent image) is prepared with: latest or an exact version like 2.4.6, as images.claude_code_version. |
 
 ### `[images.lab]`
 
@@ -558,6 +579,27 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `images.letta-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new letta-code sandbox (a custom image follows the image it was saved from). |
 | `images.letta-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new letta-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.docker-agent]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.docker-agent.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new docker-agent sandbox (a custom image follows the image it was saved from). |
+| `images.docker-agent.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new docker-agent sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.nanocoder]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.nanocoder.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new nanocoder sandbox (a custom image follows the image it was saved from). |
+| `images.nanocoder.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new nanocoder sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.mini-swe-agent]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.mini-swe-agent.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mini-swe-agent sandbox (a custom image follows the image it was saved from). |
+| `images.mini-swe-agent.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mini-swe-agent sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
 

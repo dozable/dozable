@@ -267,6 +267,27 @@
 # (skip | ask; flag -e DOZ_CODEBUDDY_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[docker-agent]
+
+# Docker Agent in a docker-agent sandbox: skip its approval prompts (the sandbox is the boundary),
+# or ask as on a Mac.
+# (skip | ask; flag -e DOZ_DOCKER_AGENT_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[nanocoder]
+
+# Nanocoder in a nanocoder sandbox: skip its approval prompts (the sandbox is the boundary), or
+# ask as on a Mac.
+# (skip | ask; flag -e DOZ_NANOCODER_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[mini-swe-agent]
+
+# mini-swe-agent in a mini-swe-agent sandbox: skip its approval prompts (the sandbox is the
+# boundary), or ask as on a Mac.
+# (skip | ask; flag -e DOZ_MINI_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -279,7 +300,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline | openhands | codebuddy | letta-code; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline | openhands | codebuddy | letta-code | docker-agent | nanocoder | mini-swe-agent; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -635,6 +656,21 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # letta_code_version = "latest"
 
+# The Docker Agent the docker-agent image (and every base's Docker Agent image) is prepared with:
+# latest or an exact version like 1.150.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# docker_agent_version = "latest"
+
+# The Nanocoder the nanocoder image (and every base's Nanocoder image) is prepared with: latest or
+# an exact version like 1.31.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# nanocoder_version = "latest"
+
+# The mini-swe-agent the mini-swe-agent image (and every base's mini-swe-agent image) is prepared
+# with: latest or an exact version like 2.4.6, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# mini_swe_agent_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -983,6 +1019,40 @@
 # memory_mib = 2048
 
 # The network of a new letta-code sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.docker-agent]
+
+# Memory (MiB) of a new docker-agent sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new docker-agent sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.nanocoder]
+
+# Memory (MiB) of a new nanocoder sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new nanocoder sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.mini-swe-agent]
+
+# Memory (MiB) of a new mini-swe-agent sandbox (a custom image follows the image it was saved
+# from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new mini-swe-agent sandbox: agent, bake, locked, open (proxied presets), nat or
 # none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"

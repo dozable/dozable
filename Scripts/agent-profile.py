@@ -104,6 +104,10 @@ def main():
     # before its request went (promptfoo's telemetry event at the end of a run) — that host is not new.
     decrypted_known = {k[0] for k in known if k[1] != "CONNECT"}
     now = {k: e for k, e in now.items() if not (k[1] == "CONNECT" and k[0] in decrypted_known)}
+    # And the other way round: a host the profile knows only as a tunnel (its request never came when profiled — Docker
+    # Agent's models.dev) seen request by request now is the same host, already decided as a whole.
+    tunnel_known = {k[0] for k in known if k[1] == "CONNECT"}
+    now = {k: e for k, e in now.items() if not (k[1] != "CONNECT" and k[0] in tunnel_known and k[0] not in decrypted_known)}
     new =[k for k in now if k not in known]
     missing = [k for k in known if k not in now]
 

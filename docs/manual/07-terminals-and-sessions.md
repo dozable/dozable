@@ -214,6 +214,9 @@ Which agents say it:
 | OpenHands CLI | no (checked with 1.16.0) |
 | CodeBuddy Code | no (checked with 2.164.0) |
 | Letta Code | no (checked with 0.34.13) |
+| Docker Agent | 1.150.0 (the version Dozer installs) |
+| Nanocoder | no (checked with 1.31.0) |
+| mini-swe-agent | no (checked with 2.4.6) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

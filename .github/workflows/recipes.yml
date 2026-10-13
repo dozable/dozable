@@ -48,6 +48,12 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels that PR's older run (both lanes push often, and a PR touching shared recipe
+# files runs every recipe); nightly, dispatch and main runs are never cancelled.
+concurrency:
+  group: recipes-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   recipes:
     name: Recipe check

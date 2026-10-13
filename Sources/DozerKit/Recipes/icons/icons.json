@@ -334,6 +334,33 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); Letta's logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "LC", "frame": "circle" }
+    },
+    {
+      "id": "docker-agent", "kind": "product", "name": "Docker Agent",
+      "variants": { "mono": "docker-agent.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/docker/docker-agent",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); Docker's logo and marks are its trademarks and are not used — a neutral lettermark.",
+      "lettermark": { "text": "DA", "frame": "square" }
+    },
+    {
+      "id": "nanocoder", "kind": "product", "name": "Nanocoder",
+      "variants": { "mono": "nanocoder.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/Nano-Collective/nanocoder",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "NC", "frame": "diamond" }
+    },
+    {
+      "id": "mini-swe-agent", "kind": "product", "name": "mini-swe-agent",
+      "variants": { "mono": "mini-swe-agent.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/SWE-agent/mini-swe-agent",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); SWE-agent's logo is not used — a neutral lettermark.",
+      "lettermark": { "text": "MS", "frame": "square" }
     }
   ]
 }

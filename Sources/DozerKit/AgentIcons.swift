@@ -112,6 +112,9 @@ public enum AgentIcons {
         "openhands.svg": PackageResources.openhands_svg,
         "codebuddy.svg": PackageResources.codebuddy_svg,
         "letta-code.svg": PackageResources.letta_code_svg,
+        "docker-agent.svg": PackageResources.docker_agent_svg,
+        "nanocoder.svg": PackageResources.nanocoder_svg,
+        "mini-swe-agent.svg": PackageResources.mini_swe_agent_svg,
     ]
 
     public static let all: [IconEntry] = {

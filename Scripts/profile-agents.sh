@@ -67,6 +67,9 @@ for a in "$@"; do
     openhands) bin=openhands; task="openhands --override-with-envs --headless -t \"\$T\"" ;;
     codebuddy) bin=codebuddy; task="codebuddy --model grok-build -p --dangerously-skip-permissions \"\$T\"" ;;
     letta-code) bin=letta; task="letta --backend local -m xai/grok-4.3 --new-agent -p \"\$T\"" ;;
+    docker-agent) bin=docker-agent; task="docker-agent run coder --model xai/grok-build-0.1 --exec --yolo \"\$T\"" ;;
+    nanocoder) bin=nanocoder; task="nanocoder run \"\$T\" --trust-directory --plain" ;;
+    mini-swe-agent) bin=mini; task="mini -m xai/grok-build-0.1 -t \"\$T\" --yolo --cost-limit 0 --exit-immediately" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

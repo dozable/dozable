@@ -32,6 +32,9 @@ kind cline Cline CLI
 kind openhands OpenHands CLI
 kind codebuddy CodeBuddy Code
 kind letta-code Letta Code
+kind docker-agent Docker Agent
+kind nanocoder Nanocoder
+kind mini-swe-agent mini-swe-agent
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -67,6 +70,9 @@ parse node-cline → node cline node-cline Node.js · Cline CLI base-name node-c
 parse node-openhands → node openhands node-openhands Node.js · OpenHands CLI base-name node-openhands-sandbox
 parse codebuddy → node codebuddy codebuddy Node.js · CodeBuddy Code base-name codebuddy-sandbox
 parse letta-code → node letta-code letta-code Node.js · Letta Code base-name letta-sandbox
+parse node-docker-agent → node docker-agent node-docker-agent Node.js · Docker Agent base-name node-docker-agent-sandbox
+parse nanocoder → node nanocoder nanocoder Node.js · Nanocoder base-name nanocoder-sandbox
+parse node-mini-swe-agent → node mini-swe-agent node-mini-swe-agent Node.js · mini-swe-agent base-name node-mini-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -101,6 +107,9 @@ parse python-cline → python cline python-cline Python · Cline CLI base-name p
 parse python-openhands → python openhands python-openhands Python · OpenHands CLI base-name python-openhands-sandbox
 parse python-codebuddy → python codebuddy python-codebuddy Python · CodeBuddy Code base-name python-codebuddy-sandbox
 parse python-letta-code → python letta-code python-letta-code Python · Letta Code base-name python-letta-sandbox
+parse python-docker-agent → python docker-agent python-docker-agent Python · Docker Agent base-name python-docker-agent-sandbox
+parse python-nanocoder → python nanocoder python-nanocoder Python · Nanocoder base-name python-nanocoder-sandbox
+parse python-mini-swe-agent → python mini-swe-agent python-mini-swe-agent Python · mini-swe-agent base-name python-mini-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -135,6 +144,9 @@ parse go-cline → go cline go-cline Go · Cline CLI base-name go-cline-sandbox
 parse go-openhands → go openhands go-openhands Go · OpenHands CLI base-name go-openhands-sandbox
 parse go-codebuddy → go codebuddy go-codebuddy Go · CodeBuddy Code base-name go-codebuddy-sandbox
 parse go-letta-code → go letta-code go-letta-code Go · Letta Code base-name go-letta-sandbox
+parse go-docker-agent → go docker-agent go-docker-agent Go · Docker Agent base-name go-docker-agent-sandbox
+parse go-nanocoder → go nanocoder go-nanocoder Go · Nanocoder base-name go-nanocoder-sandbox
+parse go-mini-swe-agent → go mini-swe-agent go-mini-swe-agent Go · mini-swe-agent base-name go-mini-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -169,6 +181,9 @@ parse rust-cline → rust cline rust-cline Rust · Cline CLI base-name rust-clin
 parse rust-openhands → rust openhands rust-openhands Rust · OpenHands CLI base-name rust-openhands-sandbox
 parse rust-codebuddy → rust codebuddy rust-codebuddy Rust · CodeBuddy Code base-name rust-codebuddy-sandbox
 parse rust-letta-code → rust letta-code rust-letta-code Rust · Letta Code base-name rust-letta-sandbox
+parse rust-docker-agent → rust docker-agent rust-docker-agent Rust · Docker Agent base-name rust-docker-agent-sandbox
+parse rust-nanocoder → rust nanocoder rust-nanocoder Rust · Nanocoder base-name rust-nanocoder-sandbox
+parse rust-mini-swe-agent → rust mini-swe-agent rust-mini-swe-agent Rust · mini-swe-agent base-name rust-mini-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -203,6 +218,9 @@ parse java-cline → java cline java-cline Java · Cline CLI base-name java-clin
 parse java-openhands → java openhands java-openhands Java · OpenHands CLI base-name java-openhands-sandbox
 parse java-codebuddy → java codebuddy java-codebuddy Java · CodeBuddy Code base-name java-codebuddy-sandbox
 parse java-letta-code → java letta-code java-letta-code Java · Letta Code base-name java-letta-sandbox
+parse java-docker-agent → java docker-agent java-docker-agent Java · Docker Agent base-name java-docker-agent-sandbox
+parse java-nanocoder → java nanocoder java-nanocoder Java · Nanocoder base-name java-nanocoder-sandbox
+parse java-mini-swe-agent → java mini-swe-agent java-mini-swe-agent Java · mini-swe-agent base-name java-mini-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -237,6 +255,9 @@ parse ruby-cline → ruby cline ruby-cline Ruby · Cline CLI base-name ruby-clin
 parse ruby-openhands → ruby openhands ruby-openhands Ruby · OpenHands CLI base-name ruby-openhands-sandbox
 parse ruby-codebuddy → ruby codebuddy ruby-codebuddy Ruby · CodeBuddy Code base-name ruby-codebuddy-sandbox
 parse ruby-letta-code → ruby letta-code ruby-letta-code Ruby · Letta Code base-name ruby-letta-sandbox
+parse ruby-docker-agent → ruby docker-agent ruby-docker-agent Ruby · Docker Agent base-name ruby-docker-agent-sandbox
+parse ruby-nanocoder → ruby nanocoder ruby-nanocoder Ruby · Nanocoder base-name ruby-nanocoder-sandbox
+parse ruby-mini-swe-agent → ruby mini-swe-agent ruby-mini-swe-agent Ruby · mini-swe-agent base-name ruby-mini-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -271,6 +292,9 @@ parse dotnet-cline → dotnet cline dotnet-cline .NET · Cline CLI base-name dot
 parse dotnet-openhands → dotnet openhands dotnet-openhands .NET · OpenHands CLI base-name dotnet-openhands-sandbox
 parse dotnet-codebuddy → dotnet codebuddy dotnet-codebuddy .NET · CodeBuddy Code base-name dotnet-codebuddy-sandbox
 parse dotnet-letta-code → dotnet letta-code dotnet-letta-code .NET · Letta Code base-name dotnet-letta-sandbox
+parse dotnet-docker-agent → dotnet docker-agent dotnet-docker-agent .NET · Docker Agent base-name dotnet-docker-agent-sandbox
+parse dotnet-nanocoder → dotnet nanocoder dotnet-nanocoder .NET · Nanocoder base-name dotnet-nanocoder-sandbox
+parse dotnet-mini-swe-agent → dotnet mini-swe-agent dotnet-mini-swe-agent .NET · mini-swe-agent base-name dotnet-mini-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -305,6 +329,9 @@ parse cline → debian cline cline Debian · Cline CLI base-name cline-sandbox
 parse openhands → debian openhands openhands Debian · OpenHands CLI base-name openhands-sandbox
 parse debian-codebuddy → debian codebuddy debian-codebuddy Debian · CodeBuddy Code base-name debian-codebuddy-sandbox
 parse debian-letta-code → debian letta-code debian-letta-code Debian · Letta Code base-name debian-letta-sandbox
+parse docker-agent → debian docker-agent docker-agent Debian · Docker Agent base-name docker-agent-sandbox
+parse debian-nanocoder → debian nanocoder debian-nanocoder Debian · Nanocoder base-name debian-nanocoder-sandbox
+parse mini-swe-agent → debian mini-swe-agent mini-swe-agent Debian · mini-swe-agent base-name mini-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -339,6 +366,9 @@ parse ubuntu-cline → ubuntu cline ubuntu-cline Ubuntu · Cline CLI base-name u
 parse ubuntu-openhands → ubuntu openhands ubuntu-openhands Ubuntu · OpenHands CLI base-name ubuntu-openhands-sandbox
 parse ubuntu-codebuddy → ubuntu codebuddy ubuntu-codebuddy Ubuntu · CodeBuddy Code base-name ubuntu-codebuddy-sandbox
 parse ubuntu-letta-code → ubuntu letta-code ubuntu-letta-code Ubuntu · Letta Code base-name ubuntu-letta-sandbox
+parse ubuntu-docker-agent → ubuntu docker-agent ubuntu-docker-agent Ubuntu · Docker Agent base-name ubuntu-docker-agent-sandbox
+parse ubuntu-nanocoder → ubuntu nanocoder ubuntu-nanocoder Ubuntu · Nanocoder base-name ubuntu-nanocoder-sandbox
+parse ubuntu-mini-swe-agent → ubuntu mini-swe-agent ubuntu-mini-swe-agent Ubuntu · mini-swe-agent base-name ubuntu-mini-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -372,6 +402,9 @@ parse alpine-cline → alpine cline alpine-cline Alpine · Cline CLI base-name a
 parse alpine-openhands → alpine openhands alpine-openhands Alpine · OpenHands CLI base-name alpine-openhands-sandbox
 parse alpine-codebuddy → alpine codebuddy alpine-codebuddy Alpine · CodeBuddy Code base-name alpine-codebuddy-sandbox
 parse alpine-letta-code → alpine letta-code alpine-letta-code Alpine · Letta Code base-name alpine-letta-sandbox
+parse alpine-docker-agent → alpine docker-agent alpine-docker-agent Alpine · Docker Agent base-name alpine-docker-agent-sandbox
+parse alpine-nanocoder → alpine nanocoder alpine-nanocoder Alpine · Nanocoder base-name alpine-nanocoder-sandbox
+parse alpine-mini-swe-agent → alpine mini-swe-agent alpine-mini-swe-agent Alpine · mini-swe-agent base-name alpine-mini-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -406,6 +439,9 @@ parse df-0123456789ab-cline → df-0123456789ab cline df-0123456789ab-cline Dock
 parse df-0123456789ab-openhands → df-0123456789ab openhands df-0123456789ab-openhands Dockerfile · OpenHands CLI base-name dockerfile-openhands-sandbox
 parse df-0123456789ab-codebuddy → df-0123456789ab codebuddy df-0123456789ab-codebuddy Dockerfile · CodeBuddy Code base-name dockerfile-codebuddy-sandbox
 parse df-0123456789ab-letta-code → df-0123456789ab letta-code df-0123456789ab-letta-code Dockerfile · Letta Code base-name dockerfile-letta-sandbox
+parse df-0123456789ab-docker-agent → df-0123456789ab docker-agent df-0123456789ab-docker-agent Dockerfile · Docker Agent base-name dockerfile-docker-agent-sandbox
+parse df-0123456789ab-nanocoder → df-0123456789ab nanocoder df-0123456789ab-nanocoder Dockerfile · Nanocoder base-name dockerfile-nanocoder-sandbox
+parse df-0123456789ab-mini-swe-agent → df-0123456789ab mini-swe-agent df-0123456789ab-mini-swe-agent Dockerfile · mini-swe-agent base-name dockerfile-mini-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox
