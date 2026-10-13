@@ -31,6 +31,7 @@ kind every-code Every Code
 kind cline Cline CLI
 kind openhands OpenHands CLI
 kind codebuddy CodeBuddy Code
+kind letta-code Letta Code
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -65,6 +66,7 @@ parse node-every-code → node every-code node-every-code Node.js · Every Code 
 parse node-cline → node cline node-cline Node.js · Cline CLI base-name node-cline-sandbox
 parse node-openhands → node openhands node-openhands Node.js · OpenHands CLI base-name node-openhands-sandbox
 parse codebuddy → node codebuddy codebuddy Node.js · CodeBuddy Code base-name codebuddy-sandbox
+parse letta-code → node letta-code letta-code Node.js · Letta Code base-name letta-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -98,6 +100,7 @@ parse python-every-code → python every-code python-every-code Python · Every 
 parse python-cline → python cline python-cline Python · Cline CLI base-name python-cline-sandbox
 parse python-openhands → python openhands python-openhands Python · OpenHands CLI base-name python-openhands-sandbox
 parse python-codebuddy → python codebuddy python-codebuddy Python · CodeBuddy Code base-name python-codebuddy-sandbox
+parse python-letta-code → python letta-code python-letta-code Python · Letta Code base-name python-letta-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -131,6 +134,7 @@ parse go-every-code → go every-code go-every-code Go · Every Code base-name g
 parse go-cline → go cline go-cline Go · Cline CLI base-name go-cline-sandbox
 parse go-openhands → go openhands go-openhands Go · OpenHands CLI base-name go-openhands-sandbox
 parse go-codebuddy → go codebuddy go-codebuddy Go · CodeBuddy Code base-name go-codebuddy-sandbox
+parse go-letta-code → go letta-code go-letta-code Go · Letta Code base-name go-letta-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -164,6 +168,7 @@ parse rust-every-code → rust every-code rust-every-code Rust · Every Code bas
 parse rust-cline → rust cline rust-cline Rust · Cline CLI base-name rust-cline-sandbox
 parse rust-openhands → rust openhands rust-openhands Rust · OpenHands CLI base-name rust-openhands-sandbox
 parse rust-codebuddy → rust codebuddy rust-codebuddy Rust · CodeBuddy Code base-name rust-codebuddy-sandbox
+parse rust-letta-code → rust letta-code rust-letta-code Rust · Letta Code base-name rust-letta-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -197,6 +202,7 @@ parse java-every-code → java every-code java-every-code Java · Every Code bas
 parse java-cline → java cline java-cline Java · Cline CLI base-name java-cline-sandbox
 parse java-openhands → java openhands java-openhands Java · OpenHands CLI base-name java-openhands-sandbox
 parse java-codebuddy → java codebuddy java-codebuddy Java · CodeBuddy Code base-name java-codebuddy-sandbox
+parse java-letta-code → java letta-code java-letta-code Java · Letta Code base-name java-letta-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -230,6 +236,7 @@ parse ruby-every-code → ruby every-code ruby-every-code Ruby · Every Code bas
 parse ruby-cline → ruby cline ruby-cline Ruby · Cline CLI base-name ruby-cline-sandbox
 parse ruby-openhands → ruby openhands ruby-openhands Ruby · OpenHands CLI base-name ruby-openhands-sandbox
 parse ruby-codebuddy → ruby codebuddy ruby-codebuddy Ruby · CodeBuddy Code base-name ruby-codebuddy-sandbox
+parse ruby-letta-code → ruby letta-code ruby-letta-code Ruby · Letta Code base-name ruby-letta-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -263,6 +270,7 @@ parse dotnet-every-code → dotnet every-code dotnet-every-code .NET · Every Co
 parse dotnet-cline → dotnet cline dotnet-cline .NET · Cline CLI base-name dotnet-cline-sandbox
 parse dotnet-openhands → dotnet openhands dotnet-openhands .NET · OpenHands CLI base-name dotnet-openhands-sandbox
 parse dotnet-codebuddy → dotnet codebuddy dotnet-codebuddy .NET · CodeBuddy Code base-name dotnet-codebuddy-sandbox
+parse dotnet-letta-code → dotnet letta-code dotnet-letta-code .NET · Letta Code base-name dotnet-letta-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -296,6 +304,7 @@ parse every-code → debian every-code every-code Debian · Every Code base-name
 parse cline → debian cline cline Debian · Cline CLI base-name cline-sandbox
 parse openhands → debian openhands openhands Debian · OpenHands CLI base-name openhands-sandbox
 parse debian-codebuddy → debian codebuddy debian-codebuddy Debian · CodeBuddy Code base-name debian-codebuddy-sandbox
+parse debian-letta-code → debian letta-code debian-letta-code Debian · Letta Code base-name debian-letta-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -329,6 +338,7 @@ parse ubuntu-every-code → ubuntu every-code ubuntu-every-code Ubuntu · Every 
 parse ubuntu-cline → ubuntu cline ubuntu-cline Ubuntu · Cline CLI base-name ubuntu-cline-sandbox
 parse ubuntu-openhands → ubuntu openhands ubuntu-openhands Ubuntu · OpenHands CLI base-name ubuntu-openhands-sandbox
 parse ubuntu-codebuddy → ubuntu codebuddy ubuntu-codebuddy Ubuntu · CodeBuddy Code base-name ubuntu-codebuddy-sandbox
+parse ubuntu-letta-code → ubuntu letta-code ubuntu-letta-code Ubuntu · Letta Code base-name ubuntu-letta-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -361,6 +371,7 @@ parse alpine-every-code → alpine every-code alpine-every-code Alpine · Every 
 parse alpine-cline → alpine cline alpine-cline Alpine · Cline CLI base-name alpine-cline-sandbox
 parse alpine-openhands → alpine openhands alpine-openhands Alpine · OpenHands CLI base-name alpine-openhands-sandbox
 parse alpine-codebuddy → alpine codebuddy alpine-codebuddy Alpine · CodeBuddy Code base-name alpine-codebuddy-sandbox
+parse alpine-letta-code → alpine letta-code alpine-letta-code Alpine · Letta Code base-name alpine-letta-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -394,6 +405,7 @@ parse df-0123456789ab-every-code → df-0123456789ab every-code df-0123456789ab-
 parse df-0123456789ab-cline → df-0123456789ab cline df-0123456789ab-cline Dockerfile · Cline CLI base-name dockerfile-cline-sandbox
 parse df-0123456789ab-openhands → df-0123456789ab openhands df-0123456789ab-openhands Dockerfile · OpenHands CLI base-name dockerfile-openhands-sandbox
 parse df-0123456789ab-codebuddy → df-0123456789ab codebuddy df-0123456789ab-codebuddy Dockerfile · CodeBuddy Code base-name dockerfile-codebuddy-sandbox
+parse df-0123456789ab-letta-code → df-0123456789ab letta-code df-0123456789ab-letta-code Dockerfile · Letta Code base-name dockerfile-letta-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

@@ -41,4 +41,5 @@ resume every-code resume --last check=nil
 resume cline  check=nil
 resume openhands --resume --last check=nil
 resume codebuddy --continue check=nil
+resume letta-code  check=nil
 resume nil 

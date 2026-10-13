@@ -847,7 +847,8 @@ public enum AgentRecipes {
                                           ("every-code.json", PackageResources.every_code_json),
                                           ("cline.json", PackageResources.cline_json),
                                           ("openhands.json", PackageResources.openhands_json),
-                                          ("codebuddy.json", PackageResources.codebuddy_json)]
+                                          ("codebuddy.json", PackageResources.codebuddy_json),
+                                          ("letta-code.json", PackageResources.letta_code_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -859,7 +860,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()

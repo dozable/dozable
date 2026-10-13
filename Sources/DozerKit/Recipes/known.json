@@ -110,6 +110,15 @@
       "checked": "2026-10-14"
     },
     {
+      "id": "kode",
+      "title": "Kode",
+      "publisher": "shareAI-lab",
+      "homepage": "https://github.com/shareAI-lab/Kode-cli",
+      "status": "coming",
+      "reason": "it keeps the model's API key in its own settings file (~/.kode.json; an imported fromEnv key is copied in as text), where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
+      "checked": "2026-10-14"
+    },
+    {
       "id": "browser-use",
       "title": "browser-use",
       "publisher": "browser-use",

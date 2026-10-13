@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -20,6 +20,7 @@ doz try every-code       # Every Code, a Codex CLI fork, on an xAI key
 doz try cline            # Cline CLI, on an xAI key, no Cline account
 doz try openhands        # OpenHands CLI, on an xAI key
 doz try codebuddy        # CodeBuddy Code (Tencent), on an xAI key, no CodeBuddy account
+doz try letta-code       # Letta Code (alias letta), local backend, on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -239,6 +240,21 @@ built-in models — which need a CodeBuddy account — off.
 - **May reach:** xAI's API only.
 - **Use:** `codebuddy` (a session; with approvals off, `--dangerously-skip-permissions`), or
   `codebuddy --model grok-build -p "…"` for one task.
+
+## Letta Code (Letta)
+
+Letta's memory-first coding agent (`doz try letta-code`, or `letta`) on its **local backend** — no Letta account, its
+agents and memory kept in the sandbox (`~/.letta`) — on an **xAI API key** (model `xai/grok-4.3`; `grok-build-0.1` is
+not in its catalogue).
+
+- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases (not Alpine: it needs
+  Node 22.19 or later).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), read each run.
+- **Set up for you:** its telemetry and self-update off (`LETTA_CODE_TELEM=0`, `DISABLE_AUTOUPDATER`). When its TUI
+  starts it may ask Letta Cloud for its health and an account balance; Dozer keeps those requests out quietly, and it
+  does without them. Letta asks before running commands (its own default).
+- **May reach:** xAI's API only.
+- **Use:** `letta` (a session), or `letta --backend local -m xai/grok-4.3 --new-agent -p "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

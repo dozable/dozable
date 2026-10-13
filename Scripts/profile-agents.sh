@@ -66,6 +66,7 @@ for a in "$@"; do
     cline) bin=cline; task="cline -P xai -m grok-build-0.1 \"\$T\"" ;;
     openhands) bin=openhands; task="openhands --override-with-envs --headless -t \"\$T\"" ;;
     codebuddy) bin=codebuddy; task="codebuddy --model grok-build -p --dangerously-skip-permissions \"\$T\"" ;;
+    letta-code) bin=letta; task="letta --backend local -m xai/grok-4.3 --new-agent -p \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

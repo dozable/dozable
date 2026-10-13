@@ -32,6 +32,7 @@ node-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 node-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 node-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 codebuddy credentials=xai:key agentName=CodeBuddy Code package=@tencent-ai/codebuddy-code pinned=2.164.0 sha512-1DvSEszHJQUysANsE1GF78dn6tWWjUpQYI4xZfJe5MTQqj3AfZDTywrNYJRKW2jTLYK8QaIX5rOSB8hUNFp8wA==
+letta-code credentials=xai:key agentName=Letta Code package=@letta-ai/letta-code pinned=0.34.13 sha512-aEu3M1aYGA2HzpDjRd4rMJKRe4owLpPvdUnQZ0Nzf9/I7wo5Bl0yu7oM8hxBvelCZpPVug+pI/K06fBhbq4ckw==
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -65,6 +66,7 @@ python-every-code credentials=xai:key agentName=Every Code package=nil pinned=ni
 python-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 python-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 python-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+python-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -98,6 +100,7 @@ go-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 go-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 go-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 go-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+go-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -131,6 +134,7 @@ rust-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 rust-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 rust-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 rust-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+rust-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -164,6 +168,7 @@ java-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 java-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 java-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 java-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+java-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -197,6 +202,7 @@ ruby-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 ruby-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ruby-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 ruby-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+ruby-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -230,6 +236,7 @@ dotnet-every-code credentials=xai:key agentName=Every Code package=nil pinned=ni
 dotnet-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 dotnet-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 dotnet-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+dotnet-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -263,6 +270,7 @@ every-code credentials=xai:key agentName=Every Code package=@just-every/code pin
 cline credentials=xai:key agentName=Cline CLI package=cline pinned=3.0.71 sha512-d0z0d//cOfuMaPWmU++0eg6L4jmE9E0t8DZPIWlqoBLdax4o3u7E2MqkKenrtX6mTG7LiA4wrRk3KIF/zXMdOA==
 openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=1.16.0 sha512-wh73oUH4wtdNUftFo20QXOa2IujQTFOhmp3y8EYk8kUpahRtjnZRKYutNo1/VZGcAOS7HfFtrn9wnt5hCqNOSg==
 debian-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+debian-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -296,6 +304,7 @@ ubuntu-every-code credentials=xai:key agentName=Every Code package=nil pinned=ni
 ubuntu-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ubuntu-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 ubuntu-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+ubuntu-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -328,6 +337,7 @@ alpine-every-code credentials=xai:key agentName=Every Code package=nil pinned=ni
 alpine-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 alpine-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 alpine-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+alpine-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -361,3 +371,4 @@ df-0123456789ab-every-code credentials=xai:key agentName=Every Code package=nil 
 df-0123456789ab-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 df-0123456789ab-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
 df-0123456789ab-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
+df-0123456789ab-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
