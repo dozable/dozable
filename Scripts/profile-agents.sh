@@ -56,6 +56,7 @@ for a in "$@"; do
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     nanobot) bin=nanobot; task="nanobot agent -m \"\$T\"" ;;
+    gptme) bin=gptme; task="gptme --non-interactive \"\$T\"" ;;
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;
     *) echo "profile-agents: no scripted task for $a — add one here" >&2; rc=2; continue ;;
   esac

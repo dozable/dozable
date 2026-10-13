@@ -18,4 +18,5 @@ resume grok  check=nil
 resume fabric  check=nil
 resume openclaw  check=nil
 resume nanobot  check=nil
+resume gptme  check=nil
 resume nil 

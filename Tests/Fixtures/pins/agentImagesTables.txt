@@ -9,6 +9,7 @@ node-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 node-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 node-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 node-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+node-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -19,6 +20,7 @@ python-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 python-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 python-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 python-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+python-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -29,6 +31,7 @@ go-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 go-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 go-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 go-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+go-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -39,6 +42,7 @@ rust-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 rust-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 rust-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 rust-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+rust-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -49,6 +53,7 @@ java-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 java-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 java-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 java-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+java-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -59,6 +64,7 @@ ruby-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 ruby-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 ruby-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 ruby-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+ruby-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -69,6 +75,7 @@ dotnet-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 dotnet-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 dotnet-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 dotnet-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+dotnet-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -79,6 +86,7 @@ grok credentials=xai:key agentName=Grok Build package=@xai-official/grok pinned=
 fabric credentials=google:key agentName=Fabric package=nil pinned=1.4.518 sha512-qTS9O3ps0FqHLqmgi1sV4U3u8LdRvJNV7Y5WYOQ48agmaIJoEVBKD9ghZ6LoakoFFQxc1wBr1LXKszCSCeH6kQ==
 openclaw credentials=google:key agentName=OpenClaw package=openclaw pinned=2026.10.3 sha512-ncl6LntMlf76K39LFhVrDXQTbaGNAG5j52f7PL5P8vIn0knWmCrvfAe9DHMslFq+47HeOWBH2CBYQH8zEb+UAA==
 nanobot credentials=xai:key agentName=nanobot package=nanobot-ai pinned=0.3.5 sha512-DccObCniXz2dUajdZrvWhwSjrJMH7K45OqpiUovWFjhOwIvZz2DBMF0MSDPLYh2z+PSf877yAnR5DNmhYQLLaA==
+gptme credentials=xai:key agentName=gptme package=gptme pinned=0.34.0 sha512-A065mIqznI15ogh80XbWn0poFD8xs85ib5cR+HBavWHzZ+Ga1mXRJSVjQxkYoYXNtvPaQjWC58eqbQz/hZZxzA==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -89,6 +97,7 @@ ubuntu-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 ubuntu-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 ubuntu-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 ubuntu-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+ubuntu-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -98,6 +107,7 @@ alpine-grok credentials=xai:key agentName=Grok Build package=nil pinned=nil
 alpine-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 alpine-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 alpine-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+alpine-gptme credentials=xai:key agentName=gptme package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -108,3 +118,4 @@ df-0123456789ab-grok credentials=xai:key agentName=Grok Build package=nil pinned
 df-0123456789ab-fabric credentials=google:key agentName=Fabric package=nil pinned=nil
 df-0123456789ab-openclaw credentials=google:key agentName=OpenClaw package=nil pinned=nil
 df-0123456789ab-nanobot credentials=xai:key agentName=nanobot package=nil pinned=nil
+df-0123456789ab-gptme credentials=xai:key agentName=gptme package=nil pinned=nil

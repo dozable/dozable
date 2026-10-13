@@ -40,6 +40,17 @@ A small personal agent in the terminal (an OpenClaw-style assistant its authors 
   the token counter it uses downloads at the first turn.
 - **Later:** its gateway (chat channels) and web UI need a background service and a forwarded port.
 
+## gptme
+
+A terminal agent with shell, Python and file tools.
+
+- **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
+- **Key:** an xAI API key; gptme finds `XAI_API_KEY` and picks its xAI model itself (or `--model xai/MODEL`).
+- **Set up for you:** its confirmation prompts off (`--no-confirm`; `gptme.permissions = ask` keeps them).
+- **Use:** `gptme` (the session); one headless run is `gptme --non-interactive "a task"`.
+- **May reach:** xAI's API, and OpenAI's public tokenizer file (as nanobot).
+- **Later:** its browser tool needs Chromium in the image; `gptme-server`'s web UI needs a forwarded port.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.
