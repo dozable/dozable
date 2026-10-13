@@ -153,7 +153,9 @@ class H(http.server.BaseHTTPRequestHandler):
         if h == "api.openai.com": return self.openai(auth, body)
         p = self.path.split("?")[0]
         if p.endswith("/chat/completions"):
-            if not self.xai_ok(auth): return self.send(401, {"error": "the proxy did not swap the key"})
+            # 617: the Gemini API's OpenAI-compatible endpoint (/v1beta/openai/…) on Google's host takes the Google key.
+            ok = self.google_ok(auth) if h == "generativelanguage.googleapis.com" else self.xai_ok(auth)
+            if not ok: return self.send(401, {"error": "the proxy did not swap the key"})
             req = json.loads(body or b"{}")
             if req.get("stream"):
                 c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",

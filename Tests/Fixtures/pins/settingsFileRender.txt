@@ -216,7 +216,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -472,6 +472,16 @@
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # zeroclaw_version = "latest"
 
+# The AIChat the aichat image (and every base's AIChat image) is prepared with: latest or an exact
+# version like 0.30.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# aichat_version = "latest"
+
+# The tgpt the tgpt image (and every base's tgpt image) is prepared with: latest or an exact
+# version like 2.15.0, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# tgpt_version = "latest"
+
 [images.lab]
 
 # Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
@@ -612,6 +622,26 @@
 # memory_mib = 2048
 
 # The network of a new zeroclaw sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.aichat]
+
+# Memory (MiB) of a new aichat sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new aichat sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.tgpt]
+
+# Memory (MiB) of a new tgpt sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new tgpt sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"
 

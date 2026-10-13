@@ -94,6 +94,134 @@
       "status": "coming",
       "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
       "checked": "2026-10-14"
+    },
+    {
+      "id": "picoclaw",
+      "title": "PicoClaw",
+      "publisher": "Sipeed",
+      "homepage": "https://github.com/sipeed/picoclaw",
+      "status": "coming",
+      "reason": "it reads its model keys only from its own key file, where Dozer cannot put a key's placeholder yet; its gateway needs a background service",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "openmanus",
+      "title": "OpenManus",
+      "publisher": "FoundationAgents",
+      "homepage": "https://github.com/FoundationAgents/OpenManus",
+      "status": "coming",
+      "reason": "it has no release to pin (it runs from a checkout of its source), and its browser tool needs a headless Chromium in the image",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "agent-zero",
+      "title": "Agent Zero",
+      "publisher": "agent0ai",
+      "homepage": "https://github.com/agent0ai/agent-zero",
+      "status": "coming",
+      "reason": "it ships as a Docker image with its own desktop and a web UI: needs Docker images as a base and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "khoj",
+      "title": "Khoj",
+      "publisher": "Khoj",
+      "homepage": "https://github.com/khoj-ai/khoj",
+      "status": "coming",
+      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "elizaos",
+      "title": "elizaOS",
+      "publisher": "elizaOS",
+      "aliases": ["eliza"],
+      "homepage": "https://github.com/elizaOS/eliza",
+      "status": "coming",
+      "reason": "it runs from its source with Bun, as a background service with a web UI: needs a release to pin, a background service and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "agent-browser",
+      "title": "agent-browser",
+      "publisher": "Vercel Labs",
+      "homepage": "https://github.com/vercel-labs/agent-browser",
+      "status": "coming",
+      "reason": "needs a headless Chromium in the image: it drives a browser for other agents",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "playwright-mcp",
+      "title": "Playwright MCP",
+      "publisher": "Microsoft",
+      "homepage": "https://github.com/microsoft/playwright-mcp",
+      "status": "coming",
+      "reason": "needs a headless Chromium in the image, and an MCP bridge so a client on the Mac can use it",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "skyvern",
+      "title": "Skyvern",
+      "publisher": "Skyvern",
+      "homepage": "https://github.com/Skyvern-AI/skyvern",
+      "status": "coming",
+      "reason": "needs a headless Chromium in the image, a background service and its web UI's port forwarded to the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "agent-tars",
+      "title": "Agent TARS CLI",
+      "publisher": "ByteDance",
+      "homepage": "https://github.com/bytedance/UI-TARS-desktop",
+      "status": "coming",
+      "reason": "needs a headless Chromium in the image and its web UI's port forwarded to the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "computer-use-demo",
+      "title": "Anthropic computer-use demo",
+      "publisher": "Anthropic",
+      "homepage": "https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo",
+      "status": "coming",
+      "reason": "it ships as a Docker image with a Linux desktop: needs Docker images as a base and its web UI's port forwarded to the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "ollama",
+      "title": "Ollama",
+      "publisher": "Ollama",
+      "homepage": "https://github.com/ollama/ollama",
+      "status": "coming",
+      "reason": "it runs models inside the sandbox: needs a background service and room for model downloads (on the CPU; the Mac's own Ollama is faster, which a sandbox cannot reach yet)",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "llama-cpp",
+      "title": "llama.cpp server",
+      "publisher": "ggml",
+      "aliases": ["llama-server"],
+      "homepage": "https://github.com/ggml-org/llama.cpp",
+      "status": "coming",
+      "reason": "it runs models inside the sandbox: needs a background service, its web UI's port forwarded to the Mac and room for model downloads",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "litellm",
+      "title": "LiteLLM proxy",
+      "publisher": "BerriAI",
+      "homepage": "https://github.com/BerriAI/litellm",
+      "status": "coming",
+      "reason": "a gateway for other programs: needs a background service and its port forwarded to the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "sillytavern",
+      "title": "SillyTavern",
+      "publisher": "SillyTavern",
+      "homepage": "https://github.com/SillyTavern/SillyTavern",
+      "status": "coming",
+      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "checked": "2026-10-14"
     }
   ]
 }

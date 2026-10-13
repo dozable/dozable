@@ -154,6 +154,24 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); the licence grants no trademark rights and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "ZC", "frame": "hex" }
+    },
+    {
+      "id": "aichat", "kind": "product", "name": "AIChat",
+      "variants": { "mono": "aichat.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/sigoden/aichat",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0 or MIT); the licences grant no trademark rights and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "AC", "frame": "square" }
+    },
+    {
+      "id": "tgpt", "kind": "product", "name": "tgpt",
+      "variants": { "mono": "tgpt.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/aandrew-me/tgpt",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (GPL-3.0); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "T", "frame": "diamond" }
     }
   ]
 }

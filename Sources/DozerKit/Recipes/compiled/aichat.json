@@ -1,0 +1,206 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "AICHAT_VERSION",
+      "default" : "0.30.0",
+      "description" : "The AIChat release Dozer installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "sigoden",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozer" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.x.ai"
+              }
+            ],
+            "id" : "model:aichat",
+            "phrase" : "talk to your AI model (xAI)",
+            "summary" : "AIChat's model (the xAI API, with an API key) — needed for AIChat to answer.",
+            "title" : "Talk to xAI"
+          },
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.x.ai:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozer" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.config/aichat"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "bake_hosts" : [
+          "github.com",
+          "release-assets.githubusercontent.com"
+        ],
+        "binary" : "aichat",
+        "integrity" : "sha512-j+5lNCpZW9rhWwziKvT9KpQB17zLUKKEazhlPD4C9425uczt5zGEJxYXGHzrQH6DiutwpSZeaKdcZiBPm9UHmg==",
+        "kind" : "release-binary",
+        "payload" : "aichat",
+        "url" : "https://github.com/sigoden/aichat/releases/download/v${{ kit.args.version }}/aichat-v${{ kit.args.version }}-aarch64-unknown-linux-musl.tar.gz"
+      },
+      "type" : "com.dozersandbox/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "aichat",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "aichat"
+        ],
+        "env" : {
+          "AICHAT_MODEL" : "xai:grok-4-1-fast",
+          "AICHAT_PROVIDER" : "xai"
+        },
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+          "--version",
+          "-V",
+          "--help",
+          "-h",
+          "--info",
+          "--list-models"
+        ],
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "aichat",
+              "--version"
+            ],
+            "expect" : "aichat ${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "AIChat runs with its built-in xAI client and no config file (AICHAT_PROVIDER=xai, which reads XAI_API_KEY); the model is xai:grok-4-1-fast (AICHAT_MODEL, or -m). Its other clients are not offered here yet.",
+            "provider" : "xai"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-14",
+            "gateway" : "openrouter",
+            "level" : "unknown",
+            "reason" : "not checked against AIChat"
+          },
+          {
+            "checked" : "2026-10-14",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "unknown",
+            "reason" : "not checked against AIChat"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/gateways@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozersandbox/currency@1"
+    },
+    {
+      "config" : {
+        "default_base" : "debian",
+        "icon" : "aichat",
+        "platforms" : {
+          "glibc" : true,
+          "musl" : true
+        },
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "evidence" : "A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/aichat)",
+            "level" : "verified",
+            "notes" : [
+              "aichat PROMPT"
+            ],
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your xAI API key — a key from console.x.ai. Its --serve playground needs a forwarded port, which Dozer does not offer yet."
+      },
+      "type" : "com.dozersandbox/directory@1"
+    }
+  ],
+  "description" : "An all-in-one LLM command line: a chat REPL, a shell assistant, roles, sessions and RAG; on an xAI API key.",
+  "displayName" : "AIChat",
+  "id" : "sigoden/aichat",
+  "kind" : "workload",
+  "licenses" : [
+    "Apache-2.0"
+  ],
+  "provides" : [
+    "com.dozersandbox/aichat@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/sigoden/aichat"
+}

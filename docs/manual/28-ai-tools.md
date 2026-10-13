@@ -87,6 +87,31 @@ A personal-agent runtime in one Rust program, with shell, file and web tools.
 - **May reach:** xAI's API.
 - **Later:** its gateway, web dashboard and chat channels need a background service and a forwarded port.
 
+## AIChat
+
+An all-in-one LLM command line: a chat REPL, a shell assistant (`-e`), roles, sessions.
+
+- **Installed** from the project's static linux-arm64 release on GitHub, checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key. AIChat runs with its built-in xAI client and no config file (`AICHAT_PROVIDER=xai`); the
+  model is `xai:grok-4-1-fast` (`AICHAT_MODEL`, or `-m`).
+- **Use:** the session is its REPL; one question is `aichat "a question"`, a shell command `aichat -e "list big files"`.
+- **May reach:** xAI's API.
+- **Later:** `aichat --serve` (its playground) needs a forwarded port.
+
+## tgpt
+
+A small terminal chat client.
+
+- **Installed** from the project's static linux-arm64 release on GitHub, checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** a Gemini API key; tgpt is set to its Gemini provider (`AI_PROVIDER=gemini`, `GEMINI_MODEL`). It calls the
+  Gemini API's OpenAI-compatible endpoint, and Dozer's proxy sends the key as Google's `x-goog-api-key` header —
+  checked against a stand-in provider, not yet against Google itself.
+- **Use:** the session is its interactive mode (`tgpt -i`); one question is `tgpt -q "a question"`.
+- **May reach:** the Gemini API. Its key-less "free" providers are other companies' services, which Dozer does not allow
+  by default.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

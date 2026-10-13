@@ -22,4 +22,6 @@ resume gptme  check=nil
 resume llm  check=nil
 resume shell-gpt  check=nil
 resume zeroclaw  check=nil
+resume aichat  check=nil
+resume tgpt  check=nil
 resume nil 
