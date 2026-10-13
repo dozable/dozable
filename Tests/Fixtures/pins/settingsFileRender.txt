@@ -426,7 +426,7 @@
 # gemini_version = "latest"
 
 # The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an
-# exact version like 1.0.50, as images.claude_code_version.
+# exact version like 1.0.52, as images.claude_code_version.
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # grok_version = "latest"
 

@@ -198,6 +198,7 @@ Which agents say it:
 |---|---|
 | Claude Code | 2.1.295 and later (images install the newest by default) |
 | pi | 1.1.0 and later |
+| Grok Build | 1.0.52 and later (the version Dozer installs) |
 | Codex | no — its sessions show nothing, and everything else works as usual |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*

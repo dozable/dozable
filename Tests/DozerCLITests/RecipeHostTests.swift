@@ -241,7 +241,7 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(AgentVersions.all(store)["grok"]?.latest, AgentRelease(version: "1.0.60", integrity: "sha512-UExBVA=="))
         let spec = try XCTUnwrap(try AgentVersions.spec("grok", purpose: .prepare, store: store, settings: DozerSettings(text: "")))
         XCTAssertEqual(spec.agent, AgentPackage(package: "@xai-official/grok", version: "1.0.60", integrity: "sha512-UExBVA=="))
-        XCTAssertEqual(AgentVersions.known("grok", version: "1.0.50", store: store), AgentRecipes.recipe("grok")?.pinnedRelease, "the pin is known")
+        XCTAssertEqual(AgentVersions.known("grok", version: "1.0.52", store: store), AgentRecipes.recipe("grok")?.pinnedRelease, "the pin is known")
     }
 
     // MARK: acceptance 9 — a recipe and no Swift

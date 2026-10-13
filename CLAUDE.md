@@ -1329,6 +1329,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   NOT changed: the emulator and every viewer get them as written (`SessionBridgeScanner` does not own 7501 —
   `SessionStatusTests` cuts it at every offset). OSC 133 `A` deliberately does NOT end working/blocked: Claude
   Code writes it at its own turn start and reports only on change. Codex does not report (nothing shown).
+  Grok Build ≥ 1.0.52 reports too (`app=grok-build`; its `ui.notifications.program_status = "auto"` default, nothing set):
+  it sends the query only where it already asks the terminal for its version — deckhold's `TERM=xterm-256color` with no
+  `TERM_PROGRAM` is such a terminal — and never inside tmux (it would need `program_status = "on"` and tmux's
+  `allow-passthrough`, neither set). Its `working` carries a msg ("Waiting for response…", "Service unavailable (502) |
+  Retrying (n/15)"), its `done` "Turn complete in 4.0s."; `probes/617-*/stageF/grok-status-run.sh` is the VM proof.
 - **What deckhold exposes is the ROOT record**: in `deckhold ls`'s INFO (`status=<canonical report body>\tstatus_age=S`,
   BEFORE the command — an older parser takes an unknown field for the command, which comes last) and as STATUS
   ('T') frames to a client that sent WATCH ('W'). Frame types are only ever appended (the header comment). An

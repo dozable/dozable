@@ -35,7 +35,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    default: 1.0.50
+    default: 1.0.52
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: GROK_VERSION
 provides:

@@ -54,7 +54,7 @@ debian credentials=nil agentName=nil package=nil pinned=nil
 debian-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
 antigravity credentials=google:key agentName=Antigravity CLI package=nil pinned=1.3.3+5524738307653632 sha512-G/01A1diGaECF2wTV5ZlovOehKyGqQSxF9OzPz3XUfGUqGJJa61v/pFK1G0sh3uhK2wH5tsHEotwbSOCYv5DDA==
 debian-gemini credentials=google:key agentName=Gemini CLI package=nil pinned=nil
-grok credentials=xai:key agentName=Grok Build package=@xai-official/grok pinned=1.0.50 sha512-GeIlnoM1EZDhFOabZA7XcFpS/0wCpOyl11TlYRQsu+vLi9H5YssJeeDAwJebc3/YzxiYnXg4VLHsvBeBH4EpZw==
+grok credentials=xai:key agentName=Grok Build package=@xai-official/grok pinned=1.0.52 sha512-aweQyHPi5r+qMG0BUp1XH22R7RGeQNYhqQMpePlsjyGesd5/v79HQPs9PIkKLjrcX4uz5cFFe8RcnkKu5J5zCA==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil

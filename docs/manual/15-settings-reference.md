@@ -232,7 +232,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.codex_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or an exact version like 0.160.1, as images.claude_code_version. |
 | `images.antigravity_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Antigravity CLI the antigravity image (and every base's Antigravity CLI image) is prepared with: latest or an exact version like 1.3.3+5524738307653632, as images.claude_code_version. |
 | `images.gemini_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Gemini CLI the gemini image (and every base's Gemini CLI image) is prepared with: latest or an exact version like 0.63.0, as images.claude_code_version. |
-| `images.grok_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an exact version like 1.0.50, as images.claude_code_version. |
+| `images.grok_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an exact version like 1.0.52, as images.claude_code_version. |
 
 ### `[images.lab]`
 

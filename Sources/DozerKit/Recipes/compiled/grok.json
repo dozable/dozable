@@ -2,7 +2,7 @@
   "args" : {
     "version" : {
       "buildArg" : "GROK_VERSION",
-      "default" : "1.0.50",
+      "default" : "1.0.52",
       "description" : "The Grok Build release Dozer installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
@@ -109,7 +109,7 @@
       "config" : {
         "binary" : "grok",
         "compression" : "brotli",
-        "integrity" : "sha512-GeIlnoM1EZDhFOabZA7XcFpS/0wCpOyl11TlYRQsu+vLi9H5YssJeeDAwJebc3/YzxiYnXg4VLHsvBeBH4EpZw==",
+        "integrity" : "sha512-aweQyHPi5r+qMG0BUp1XH22R7RGeQNYhqQMpePlsjyGesd5/v79HQPs9PIkKLjrcX4uz5cFFe8RcnkKu5J5zCA==",
         "kind" : "npm-platform-binary",
         "package" : "@xai-official/grok",
         "payload" : "bin/grok.br",
@@ -162,7 +162,7 @@
         "state_env" : {
           "GROK_HOME" : "/home/agent/.grok"
         },
-        "status" : "none",
+        "status" : "osc7501",
         "verify" : [
           {
             "argv" : [
