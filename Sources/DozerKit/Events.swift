@@ -63,6 +63,9 @@ public enum SandboxEvent: Sendable, Equatable {
     /// 617: a bake step's whole output when it ended (`StepOutputLines`, inert, capped) — for the image's build log
     /// only: the host keeps it with the preparation and never sends it to a client.
     case stepOutput(String, lines: [String])
+    /// 617: what a bake runs (`BakePlan`: every step's argv, user and environment, the checks, the inputs) — once per
+    /// bake, before it starts; for the image's build log only (never a client's event).
+    case bakePlan(BakePlan)
     /// The readouts changed (RAM held, snapshot size, busy).
     case status(SandboxStatus)
 }

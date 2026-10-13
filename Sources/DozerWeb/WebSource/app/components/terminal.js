@@ -1,4 +1,5 @@
 // components/terminal — A browser terminal (591): its sandboxed frame, socket, cover, paste, saved screen and boot log.
+import { buildLogNode } from './build-log.js';
 import { upcall } from '../core/hooks.js';
 import { h } from '../dom/h.js';
 import { icon, PHASE_GLYPH, setButton, withIcon } from '../dom/icons.js';
@@ -163,11 +164,13 @@ function revealPending(t) {
 export function openBuildLogTerminal(sandbox, log) {
   const t = newTerm(sandbox, null, 'watch');
   t.buildlog = true;
-  t.buildlogData = log || null;                       // already read (the tab exists only when one is kept)
   t.buildlogInfo = log ? { state: log.state, finishedAt: log.finishedAt, image: log.image } : null;
-  t.saved = { reason: 'build' };
   t.pane = 0;
-  t.lazy = true;                                      // its engine loads when its tab is first shown
+  // A document, not a terminal (owner: "show how the image was made including all the commands"): headings, the
+  // commands verbatim in monospace, the files folded when long — no engine, no socket.
+  t.savedShown = true;
+  t.els.host.replaceChildren(buildLogNode(log.document));
+  t.els.wrap.dataset.saved = 'build';
   paintCover(t);
   renderTerminals();
   return t;
@@ -535,7 +538,7 @@ async function loadSavedScreen(t) {
   try {
     // 593: a Boot log terminal draws a kept boot (rendered by the host's boot-view renderer) the same way.
     // 617: the build log's tab draws the image's build (rendered by the host) the same way.
-    s = t.buildlogData || await api(t.buildlog ? 'sandboxes/' + t.sandbox + '/build-log' : t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : 'sandboxes/' + t.sandbox + '/sessions/' + t.session + '/screen');
+    s = await api(t.buildlog ? 'sandboxes/' + t.sandbox + '/build-log' : t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : 'sandboxes/' + t.sandbox + '/sessions/' + t.session + '/screen');
   } catch (e) {
     if (t.buildlog && e.status === 404) { closeTerminal(t.id); return; }     // no build log is kept: no tab
     t.errorText = e.status === 404 ? (t.bootlog ? 'that boot is no longer kept' : 'no saved screen of ' + t.session) : e.message || String(e);
@@ -543,7 +546,6 @@ async function loadSavedScreen(t) {
     return;
   }
   if (t.closed || !t.saved) return;
-  t.buildlogData = null;
   if (!t.bootlog && !t.buildlog) t.saved = { ...t.saved, savedAt: s.savedAt, reason: s.reason };
   const bin = atob(s.vt);
   const bytes = new Uint8Array(bin.length);

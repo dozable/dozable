@@ -51,6 +51,7 @@ builder/start
 builder/install
 image/ls
 image/bake
+image/log
 image/rm
 image/pull
 image/push

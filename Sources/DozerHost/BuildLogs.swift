@@ -24,10 +24,15 @@ public struct BuildLog: Codable, Equatable, Sendable {
     public var error: String?
     /// Every finished step (and download), oldest first — the summary.
     public var steps: [PreparationStep]
-    /// Each bake step's whole output.
+    /// Each bake step's whole output (and each check's).
     public var sections: [Section]
+    /// 617 (owner: "show how the image was made including all the commands"): what the bake ran — every step's argv,
+    /// user and environment, the checks, the inputs — exactly as the baker ran it (`BakePlan`). nil: no bake ran (a
+    /// failure before it, the lab's first boot) or a log an earlier build kept.
+    public var plan: BakePlan?
     public init(image: String, state: String, startedAt: Date, finishedAt: Date, seconds: Double, error: String?,
-                steps: [PreparationStep], sections: [Section]) {
+                steps: [PreparationStep], sections: [Section], plan: BakePlan? = nil) {
+        self.plan = plan
         self.image = image
         self.state = state
         self.startedAt = startedAt
@@ -63,7 +68,7 @@ public enum BuildLogs {
             let enc = JSONEncoder()
             enc.dateEncodingStrategy = .iso8601
             let tmp = folder(store).appendingPathComponent(".\(log.image).json.\(UUID().uuidString.prefix(8))")
-            try enc.encode(capped(log)).write(to: tmp)
+            try enc.encode(scrubbed(capped(log))).write(to: tmp)
             try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: tmp.path)
             if rename(tmp.path, u.path) != 0 { try? fm.removeItem(at: tmp) }
         } catch {}
@@ -91,31 +96,8 @@ public enum BuildLogs {
         return l
     }
 
-    /// The log as a terminal draws it (the boot log's way: CRLF, a little colour, the text inert): a heading, the
-    /// steps with their times (✓ / ✗ / a download), then each step's output under its name.
+    /// The log as a terminal draws it: the document's plain text (`doz image log`), with CRLF line ends.
     public static func render(_ log: BuildLog) -> String {
-        let dim = "\u{1B}[2m", bold = "\u{1B}[1m", green = "\u{1B}[32m", red = "\u{1B}[31m", reset = "\u{1B}[0m"
-        // Inert again here: the file is read back from disk, and nothing in it reaches a terminal as a sequence.
-        func t(_ s: String) -> String { InertText.line(Substring(s), limit: StepOutputLines.maximumLineBytes) }
-        func secs(_ s: Double) -> String { s >= 60 ? String(format: "%d:%02d", Int(s) / 60, Int(s) % 60) : String(format: "%.1f s", s) }
-        var out: [String] = []
-        let when = log.finishedAt.formatted(date: .abbreviated, time: .shortened)
-        let result = log.state == "done" ? "\(green)built\(reset)" : log.state == "cancelled" ? "cancelled" : "\(red)failed\(reset)"
-        out.append("\(bold)Build of \(t(log.image))\(reset) — \(result) in \(secs(log.seconds)) · \(when)")
-        if let e = log.error, log.state != "done" { out.append("\(red)\(t(e))\(reset)") }
-        out.append("")
-        for s in log.steps {
-            switch s.kind {
-            case "failed": out.append("\(red)✗\(reset) \(t(s.label))  \(dim)\(secs(s.seconds))\(reset)" + (s.error.map { " — \(t($0))" } ?? ""))
-            case "transfer": out.append("\(green)↓\(reset) \(t(s.label))")
-            default: out.append("\(green)✓\(reset) \(t(s.label))  \(dim)\(secs(s.seconds))\(reset)")
-            }
-        }
-        for sec in log.sections where !sec.lines.isEmpty {
-            out.append("")
-            out.append("\(bold)── \(t(sec.label)) ──\(reset)")
-            for l in sec.lines { out.append(dim + t(l) + reset) }
-        }
-        return out.joined(separator: "\r\n") + "\r\n"
+        plainText(document(scrubbed(log))).replacingOccurrences(of: "\n", with: "\r\n")
     }
 }

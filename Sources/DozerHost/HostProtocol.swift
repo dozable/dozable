@@ -476,7 +476,7 @@ public struct HostEvent: Codable, Equatable, Sendable {
             error = why
         case .output(let s): self.init(kind: .output, sandbox: sandbox, text: s)
         // 617: a step's whole output is the preparation's build log, never a client's event (runPreparation takes it).
-        case .status, .stepOutput: return nil
+        case .status, .stepOutput, .bakePlan: return nil
         }
     }
 

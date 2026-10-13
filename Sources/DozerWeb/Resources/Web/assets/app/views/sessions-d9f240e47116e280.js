@@ -7,11 +7,11 @@ import { SAVED_PHASES, VERBS } from '../core/sandboxes-e50f57c55febd40a.js';
 import { saveSetting, setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { btn } from '../components/button-a9b0357c06093925.js';
-import { lifecycle } from '../components/lifecycle-a1f86753c6d91ed2.js';
+import { lifecycle } from '../components/lifecycle-1c5327830ffb7d8e.js';
 import { renderNavSandboxes } from '../components/nav-98213551b19c7223.js';
 import { agentChip } from '../components/agent-status-27eb280c20b4078d.js';
 import { pageFailure } from '../components/notices-ba8d850523845930.js';
-import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from '../components/terminal-35c43ccc0e213d2a.js';
+import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from '../components/terminal-de997502b721f8fa.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox — a live, read-only (watch) view: the same ticket,

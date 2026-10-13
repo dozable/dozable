@@ -1808,7 +1808,20 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   socketless record (`t.buildlog`, like a Boot log; keys never wake) — only after the read found one; hidden while its
   image builds and replaced when that build ends; first in the strip, icon `list-checks`, tooltip "Build log", no
   close box, never chosen by itself, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
-  `isAux` in `core/terminals.js` names the page's own panes). `BuildLogsTests`, the HTTP test. Waiting for an operation is
+  `isAux` in `core/terminals.js` names the page's own panes). `BuildLogsTests`, the HTTP test.
+  **It is the record of how the image was made** (owner: "including all the commands to build and configure"): the
+  baker hands out `BakePlan` once per bake (`SandboxEvent.bakePlan`, built by `ImageBaker.plan` — the SAME argv, user and
+  environment each exec gets, the checks, the trim, the inputs: base@digest, kernel, guest init, the agent package and
+  version/integrity, the bake policy's rules), each check's output is a `stepOutput` too, and nothing a bake DOES changes
+  (bake keys, scripts, checks — `RecipePinTests`). `BuildLogDocument` (DozerHost) is the ONE builder: the inputs (early
+  steps with "cached"), each step under a display-only plain title (`BuildLogs.title(ofStep:)`/`title(ofCheck:)` —
+  never part of a key), its command or script verbatim, every file its script writes (`files(inScript:)`: the
+  `cat > PATH <<'TAG'` heredocs), its output; the checks (command, expects, got); the trim. The web tab draws it as
+  HTML (`components/build-log.js`, text only), `doz image log IMAGE [--json]` prints `plainText(document)` (host op
+  `build-log` with `image`). Every string is scrubbed when the log is saved and again when shown (`BuildLogs.redact`:
+  key/token/JWT/placeholder/URL-password/private-key shapes → "[redacted]"; a credential-named variable dropped) and
+  made inert (`verbatim`: whole escape sequences and control characters removed, indentation kept). A log kept by an
+  earlier build has no plan and says so. Waiting for an operation is
   EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`): a hidden tab's short timers run once a minute (Chrome's
   intensive throttling — the owner's 68 s pause). `browser-try-twice.mjs` (throttling emulated), `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`

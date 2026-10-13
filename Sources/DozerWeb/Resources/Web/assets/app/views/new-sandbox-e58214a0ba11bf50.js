@@ -20,7 +20,7 @@ import { pageFailure, toast } from '../components/notices-ba8d850523845930.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-183532240d65b069.js';
 import { rulesStep } from '../components/rules-step-7ba262fa77612bef.js';
 import { stepperNode } from '../components/stepper-86c6252bb76b9d50.js';
-import { openDefaultTerminal } from '../components/terminal-35c43ccc0e213d2a.js';
+import { openDefaultTerminal } from '../components/terminal-de997502b721f8fa.js';
 import { planBlock } from '../components/plan-view-e3cec86e86f04a1f.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps

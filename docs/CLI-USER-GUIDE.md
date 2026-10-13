@@ -826,8 +826,16 @@ question names the point's name, id and when it was taken.
 doz image ls                   # built-in images and templates, and whether each is baked here
 doz image ls --tree            # the lineage, with each disk's size, shared bytes and own bytes
 doz image bake claude-code     # bake now rather than at the first start (minutes, needs network)
+doz image log claude-code      # how it was built: inputs, every command and script as it ran, the files, the checks, the output
 doz image rm NAME              # sandboxes already made from it keep working
 ```
+
+`doz image log IMAGE` prints this store's last build of an image — kept when a build ends, done or failed:
+the inputs (the base with its digest, the kernel, the guest init, the recipe and its version, the bake's network
+policy, which early steps were cached), then each step under a plain heading with its command or script exactly
+as it ran, every file it writes (path and contents), and its output; then each check (the command, what it
+expects, what it got). `--json` gives the same record as data. The dashboard's build-log tab shows the same.
+Nothing shaped like a secret is ever kept in it.
 
 `image pull` / `push` are not built yet (exit 7).
 

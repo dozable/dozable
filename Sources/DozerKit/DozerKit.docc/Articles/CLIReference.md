@@ -478,6 +478,7 @@ doz image ls                   # built-in images and templates, whether each is 
                                # and an agent image's version: claude-code 2.1.227 (2.1.285 available — preparing)
 doz image ls --tree            # the lineage: OCI base → image → template → sandboxes, with sizes
 doz image bake claude-code     # prepare it now (joins a preparation already running; minutes, needs network)
+doz image log claude-code      # how it was built: inputs, every command/script verbatim, files written, checks, output (--json)
 doz image rm NAME              # sandboxes already made from it keep working
 ```
 

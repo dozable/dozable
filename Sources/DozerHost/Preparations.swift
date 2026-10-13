@@ -287,6 +287,7 @@ final class Preparation: @unchecked Sendable {
     private var lastOutput: [String] = []
     /// 617: each bake step's whole output — the image's build log (`BuildLogs`), never sent to a client.
     private var sections: [BuildLog.Section] = []
+    private var plan: BakePlan?
     /// Timed steps a run of this image takes (the last run's count, else the image spec's plan).
     let planned: Int?
     /// The last successful run of this image in this store (its steps' times) — nil: the first time.
@@ -310,20 +311,25 @@ final class Preparation: @unchecked Sendable {
     var state: String { lock.withLock { _state } }
     var isRunning: Bool { lock.withLock { _state == "running" || _state == "cancelling" } }
 
-    /// 617: a bake step's whole output (`SandboxEvent.stepOutput`, by way of `HostCore.buildOutputSink`).
-    func addSection(_ label: String, _ lines: [String]) {
+    /// 617: a bake step's whole output, or what the bake ran (by way of `HostCore.buildOutputSink`).
+    func addRecord(_ piece: BuildRecordPiece) {
         lock.withLock {
-            sections.append(BuildLog.Section(label: ProgressFormat.trimDigests(label), lines: lines))
-            if sections.count > 200 { sections.removeFirst(sections.count - 200) }
+            switch piece {
+            case .section(let label, let lines):
+                sections.append(BuildLog.Section(label: label, lines: lines))
+                if sections.count > 200 { sections.removeFirst(sections.count - 200) }
+            case .plan(let p):
+                plan = p
+            }
         }
     }
 
     /// 617: what is kept of this preparation when it ends.
     var buildLog: BuildLog {
         let i = info
-        let kept = lock.withLock { sections }
+        let (kept, ran) = lock.withLock { (sections, plan) }
         return BuildLog(image: image, state: i.state, startedAt: startedAt, finishedAt: i.finishedAt ?? Date(), seconds: i.seconds,
-                        error: i.error, steps: i.steps ?? [], sections: kept)
+                        error: i.error, steps: i.steps ?? [], sections: kept, plan: ran)
     }
 
     func joined(by who: String) { lock.withLock { if !_requestedBy.contains(who) { _requestedBy.append(who) } } }
@@ -548,7 +554,7 @@ extension HostCore {
     }
 
     /// 617: where a preparation's bake steps' whole output goes (set around the runner; nil: nowhere).
-    @TaskLocal static var buildOutputSink: (@Sendable (String, [String]) -> Void)?
+    @TaskLocal static var buildOutputSink: (@Sendable (BuildRecordPiece) -> Void)?
 
     func runningPreparation(_ image: String) -> Preparation? {
         preparations[image].flatMap { $0.isRunning ? $0 : nil }
@@ -583,7 +589,7 @@ extension HostCore {
             let result: Result<Void, Error>
             do {
                 // 617: each bake step's whole output reaches this preparation's build log (never a client).
-                try await HostCore.$buildOutputSink.withValue({ label, lines in p.addSection(label, lines) }) {
+                try await HostCore.$buildOutputSink.withValue({ piece in p.addRecord(piece) }) {
                     try await run(image, store, emit)
                 }
                 result = .success(())
@@ -657,7 +663,14 @@ extension HostCore {
         let forward = Task {
             for await e in stream {
                 // 617: a step's whole output goes to the preparation's build log only.
-                if case .stepOutput(let label, let lines) = e { sink?(relabel(HostEvent(kind: .step, sandbox: image, text: label)).text ?? label, lines); continue }
+                // (Step names are relabelled as their events are — "latest, resolved now" — so the two match.)
+                let named = { (t: String) in relabel(HostEvent(kind: .step, sandbox: image, text: t)).text ?? t }
+                if case .stepOutput(let label, let lines) = e { sink?(.section(named(label), lines)); continue }
+                if case .bakePlan(var plan) = e {
+                    for i in plan.steps.indices { plan.steps[i].name = named(plan.steps[i].name) }
+                    sink?(.plan(plan))
+                    continue
+                }
                 if let he = HostEvent(e, sandbox: image) { emit(relabel(he)) }
             }
         }

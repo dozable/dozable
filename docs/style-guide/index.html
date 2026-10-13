@@ -346,8 +346,50 @@ name: todo-app</pre></details>
   </div></div>
   <div class="pair"><div class="scheme">
     <div class="sg-row"><span class="pill ph-busy"><span class="mini-spin" aria-hidden="true"></span> Preparing…</span></div>
+    <div class="sbx-actions toolbar" data-sg-bar-plain><button class="btn" type="button"><i data-i="play"></i>Start</button><span class="spacer"></span>
+      <div class="op-banner op-running"><span class="mini-spin" aria-hidden="true"></span><span class="op-text">start · 3 s — VM created and booted</span></div></div>
+    <div class="sbx-actions toolbar" data-sg-bar-failed><button class="btn" type="button"><i data-i="play"></i>Start</button><span class="spacer"></span>
+      <div class="op-banner op-failed"><div class="callout bad compact" role="alert"><i data-i="circle-x"></i><div class="c-body">try-gemini did not start: the image could not be prepared</div>
+        <div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div></div></div>
     <div class="sbx-title" data-sg-chips-plain><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button></span></div>
     <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>The build log</h2>
+  <p>The build log’s tab draws a document, not a terminal (<code>components/build-log.js</code>, from the host’s <code>BuildLogDocument</code> — the same record
+    <code>doz image log IMAGE</code> prints): how the image was made. The inputs (the base with its digest, kernel, guest init, the recipe and its version, the bake’s
+    network policy folded, the early steps and which were cached); then each step under a plain heading, with its command or script exactly as it ran in a
+    monospace block (<code>.bl-code</code>), every file it writes (path and contents, folded when long), and its output; then each check — the command, what it
+    expects, what it got. Text only; nothing secret-shaped is ever kept in it.</p>
+  <div class="pair"><div class="scheme">
+    <section class="terms sg-terms" style="height:420px">
+      <div class="buildlog-doc">
+        <header class="bl-head"><h2>How debian-gemini was built</h2><p class="bl-sub">Built in 1:12 · 13 Oct 2026, 19:34</p></header>
+        <section class="bl-inputs"><h3>Inputs</h3>
+          <dl class="bl-facts"><dt>Base image</dt><dd>docker.io/library/debian@sha256:6f1e2d…</dd><dt>Kernel</dt><dd>vmlinux-6.18.15-186 (sha256 2fe4a58d2885d623…)</dd>
+            <dt>Recipe</dt><dd>gemini — @google/gemini-cli 0.63.0 (integrity sha512-…)</dd><dt>Bake network</dt><dd>no interface — only through the Mac’s proxy, policy bake (anything else: deny)</dd></dl>
+          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Bake network policy (6 rules)</summary><pre class="bl-code">allow deb.debian.org:443</pre></details>
+          <ul class="bl-early"><li><span class="bl-mark ok">✓</span>kernel ready (vmlinux-6.18.15-186, cached) <span class="muted">0.0 s</span><span class="tag">cached</span></li></ul>
+        </section>
+        <section class="bl-step"><h3><span class="bl-mark ok">✓</span>2. Install the developer baseline</h3>
+          <p class="bl-sub">step: install the developer baseline (procps git …) · as root · ran in 15.2 s</p>
+          <div class="bl-cmd"><div class="bl-label">Command: bash -euo pipefail -c — the script, verbatim</div>
+            <pre class="bl-code bl-script">export DEBIAN_FRONTEND=noninteractive
+apt-get update
+apt-get install -y --no-install-recommends apt-utils
+apt-get install -y --no-install-recommends procps git less jq …</pre></div>
+          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Writes /home/agent/.local/bin/gemini (14 lines)</summary><pre class="bl-code bl-file">#!/bin/sh
+exec /usr/local/bin/gemini "$@"</pre></details>
+          <div class="bl-out"><div class="bl-label">Output (113 lines)</div><pre class="bl-code bl-output">Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]</pre></div>
+        </section>
+        <section class="bl-checks"><h3>Checks</h3><ul class="bl-check-list"><li class="bl-check">
+          <div class="bl-check-head"><span class="bl-mark ok">✓</span><strong>Check: apt’s package lists are kept</strong><span class="muted">0.6 s</span></div>
+          <dl class="bl-facts"><dt>Command</dt><dd><code>sh -c 'apt-cache policy cowsay | grep -q Candidate: …'</code></dd><dt>Expects</dt><dd>exit 0, and the output contains “apt-lists-ok”</dd>
+            <dt>Got</dt><dd><pre class="bl-code">apt-lists-ok</pre></dd></dl></li></ul></section>
+      </div>
+    </section>
   </div></div>
 </section>
 

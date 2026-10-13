@@ -650,10 +650,16 @@ public actor HostCore {
         case .bootLog:
             return try bootLog(r)
         case .buildLog:
-            // 617: the log of the build that made the sandbox's image (or its last attempt).
-            let m = try get(r.name)
-            guard let log = BuildLogs.read(m.config.image, store: store) else {
-                throw HostError(.notFound, "no build log of \(m.config.image) is kept — one is kept each time this store prepares an image")
+            // 617: the log of the build that made an image (`image`), or a sandbox's image (`name`) — or its last attempt.
+            let image: String
+            if let i = r.image {
+                guard BuildLogs.isValidImage(i) else { throw HostError(.invalid, "not an image name: \(i)") }
+                image = i
+            } else {
+                image = try get(r.name).config.image
+            }
+            guard let log = BuildLogs.read(image, store: store) else {
+                throw HostError(.notFound, "no build log of \(image) is kept — one is kept each time this store prepares an image (doz image bake \(image))")
             }
             return try JSONValue(encoding: log)
         case .resources:

@@ -234,6 +234,24 @@ public struct ImageBaker: Sendable {
         }
     }
 
+    /// 617: what a bake of `imageSpec` runs — the SAME values the bake below passes to each exec (the step's argv, its
+    /// user, its environment: the spec's, scrubbed, with the user's and the proxy's), its checks and the trim; with the
+    /// inputs. The bake emits it; tests read it from here.
+    public static func plan(_ imageSpec: ImageSpec, key: String, kernelFile: String, kernelSHA256: String, initfsReference: String,
+                            policy: NetworkPolicy?, networkEnvironment: [String: String], cpus: Int, memoryMiB: UInt64) -> BakePlan {
+        let steps = imageSpec.steps.map { step in
+            BakePlan.Step(name: step.name, argv: step.argv, user: step.user,
+                          environment: BakeEnvironment.scrubbed(step.environment.merging(userEnv(step.user, imageSpec)) { a, _ in a }).merging(networkEnvironment) { a, _ in a },
+                          timeoutSeconds: step.timeoutSeconds)
+        }
+        let checks = imageSpec.verify.map { BakePlan.Check(argv: $0.argv, expect: $0.expect, user: imageSpec.user) }
+        return BakePlan(image: imageSpec.name, base: imageSpec.base, key: key, baseKey: imageSpec.baseKey, agent: imageSpec.agent,
+                        kernelFile: kernelFile, kernelSHA256: kernelSHA256, initfsReference: initfsReference,
+                        network: policy != nil ? "proxy" : "nat", policyPreset: policy?.preset, policyRules: policy?.rules.map(BakePlan.describe) ?? [],
+                        policyDefault: policy.map { $0.defaultAction.rawValue }, cpus: cpus, memoryMiB: memoryMiB,
+                        user: imageSpec.user, home: imageSpec.home, steps: steps, checks: checks, trimCommand: ["sh", "-c", GuestCommand.trimRoot])
+    }
+
     /// The baked disk for `imageSpec`: a cache hit, or a bake.
     public func ensure(_ imageSpec: ImageSpec, inputs: BakeInputs,
                        events: @escaping @Sendable (SandboxEvent) -> Void = { _ in }) async throws -> BakedImage {
@@ -292,6 +310,11 @@ public struct ImageBaker: Sendable {
         let dns = proxied ? ["127.0.0.1"] : inputs.dnsServers
         let cpus = inputs.cpus, mem = inputs.memoryMiB
         let proxy = try inputs.egress.map { try EgressProxy(policy: $0, ca: nil, log: inputs.egressLog ?? ConnectionLog()) }
+        // 617: what this bake runs, exactly as it will run it (the spec's argv and checks, the environment each step is
+        // given, the inputs) — for the image's build log. Nothing here changes the bake.
+        events(.bakePlan(Self.plan(imageSpec, key: key, kernelFile: inputs.kernel.path.lastPathComponent, kernelSHA256: inputs.kernelSHA256,
+                                   initfsReference: inputs.initfsReference, policy: proxy?.policy, networkEnvironment: proxy?.guestEnvironment ?? [:],
+                                   cpus: cpus, memoryMiB: mem)))
         // 587: the base is flattened once per base key; this bake starts from an APFS clone of it.
         let hadBaseDisk = cachedBase(imageSpec.baseKey) != nil
         let baseLabel = hadBaseDisk ? "base disk ready (cached, \(imageSpec.baseKey.prefix(12)))" : "base disk flattened (\(Self.shortReference(imageSpec.base)), \(imageSpec.baseKey.prefix(12)))"
@@ -390,6 +413,10 @@ public struct ImageBaker: Sendable {
                 }
                 let ms = milliseconds(since: t0)
                 let out = (r.output + r.errorOutput).trimmingCharacters(in: .whitespacesAndNewlines)
+                // 617: what the check got, whole, for the build log (before the verdict: a failed check's too).
+                let got = StepOutputLines()
+                got.add(Data((out + "\n").utf8))
+                events(.stepOutput(label, lines: got.finish()))
                 guard r.exitCode == 0, check.expect.map({ out.contains($0) }) ?? true else {
                     events(.stepFailed(label, milliseconds: ms, error: "exit \(r.exitCode): \(out.prefix(200))"))
                     throw SandboxError.commandFailed(command: "verify \(check.argv.joined(separator: " "))", exitCode: r.exitCode, output: out)

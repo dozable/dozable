@@ -462,6 +462,32 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 617: the build log's tab, left of Console — small: an icon only, its name in the tooltip. */
 .tab.tab-buildlog { padding: 6px 7px; }
 .tab-buildlog .icon { opacity: 0.8; }
+/* 617: the build log is a document (how the image was made: inputs, every command verbatim, the files, the checks). */
+.buildlog-doc { position: absolute; inset: 0; overflow: auto; background: var(--surface); color: var(--ink); padding: var(--sp-4) var(--sp-5);
+  font-size: var(--fs-sm); }
+.buildlog-doc > * { max-width: var(--build-max); }
+.buildlog-doc h2 { margin: 0 0 var(--sp-1); font-size: var(--fs-lg); }
+.buildlog-doc h3 { margin: 0 0 var(--sp-1); font-size: var(--fs-md); display: flex; align-items: baseline; gap: var(--sp-2); }
+.bl-sub { color: var(--ink-2); margin: 0 0 var(--sp-2); }
+.bl-note { color: var(--warn); margin: var(--sp-1) 0 0; }
+.bl-step, .bl-inputs, .bl-checks, .bl-closing { border-top: var(--bw) solid var(--line); padding-top: var(--sp-3); margin-top: var(--sp-3); }
+.bl-label { font-size: var(--fs-xs); color: var(--ink-2); margin-top: var(--sp-2); }
+.bl-code { font-family: var(--mono); font-size: var(--fs-xs); background: var(--surface-2); border-radius: var(--r-md); padding: var(--sp-2) var(--sp-3);
+  margin: var(--sp-1) 0 var(--sp-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.bl-code.bl-output { max-height: 24em; overflow: auto; color: var(--ink-2); }
+.bl-fold { margin: var(--sp-1) 0; }
+.bl-fold > summary { font-size: var(--fs-xs); color: var(--ink-2); font-family: var(--mono); }
+.bl-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-1) var(--sp-3); margin: 0 0 var(--sp-2); }
+.bl-facts dt { color: var(--ink-2); }
+.bl-facts dd { margin: 0; overflow-wrap: anywhere; }
+.bl-facts dd .bl-code { margin: 0; }
+.bl-early, .bl-check-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: var(--sp-1); }
+.bl-early .tag { margin-left: var(--sp-2); }
+.bl-check { padding: var(--sp-2) 0; border-bottom: var(--bw) solid var(--line); }
+.bl-check-head { display: flex; gap: var(--sp-2); align-items: baseline; margin-bottom: var(--sp-1); }
+.bl-mark { font-weight: 600; }
+.bl-mark.ok { color: var(--ok); }
+.bl-mark.bad { color: var(--bad); }
 .tab-activity { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); margin-left: var(--sp-1); }
 /* 617: the header's "N denied" opens what was refused (a menu), never a banner that moves the page. */
 .denied-chip { border: 0; font: inherit; font-size: var(--fs-xs); cursor: pointer; margin: 0 0 0 var(--sp-1); height: 22px; }
@@ -1203,6 +1229,13 @@ button.chip-kv:hover { background: var(--surface-3); }
 .sbx-life { display: inline-flex; gap: var(--sp-2); align-items: center; flex-wrap: wrap; }
 .sbx-actions .op-banner { flex: 0 1 auto; min-width: 0; max-width: min(560px, 60%); }
 .sbx-actions .op-banner .callout { padding: 3px 4px 3px 10px; }
+/* 617: the status slot never makes the action bar taller, whatever it says (a failed start's callout with its dismiss
+   made the header 4 px taller — the terminal moved). One line, the bar's own height. */
+.sbx-actions .op-banner { height: 28px; }
+.sbx-actions .op-banner .callout { padding-top: 0; padding-bottom: 0; height: 28px; align-items: center; }
+.sbx-actions .op-banner .callout .c-body { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sbx-actions .op-banner .callout .c-acts { grid-row: auto; }
+.sbx-actions .op-banner .callout .b-x { width: 22px; height: 22px; }
 .sbx-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) var(--insp-w, 360px); gap: 10px; }
 .sbx-body.details-closed { grid-template-columns: minmax(0, 1fr); }
 .sbx-body.details-closed .sbx-details { display: none; }

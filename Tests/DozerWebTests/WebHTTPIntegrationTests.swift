@@ -393,7 +393,11 @@ final class WebHTTPIntegrationTests: XCTestCase {
         XCTAssertEqual(log.image, "pi")
         XCTAssertEqual(log.state, "done")
         let text = String(decoding: Data(base64Encoded: log.vt) ?? Data(), as: UTF8.self)
-        XCTAssertTrue(text.contains("Build of pi") && text.contains("step: install pi") && text.contains("added 1 package"), text)
+        XCTAssertTrue(text.contains("How pi was built") && text.contains("step: install pi") && text.contains("added 1 package"), text)
+        // 617: the document the tab draws — the same record.
+        XCTAssertEqual(log.document.image, "pi")
+        XCTAssertEqual(log.document.steps.first?.output.first, "added 1 package")
+        XCTAssertFalse(r.text.contains("]52;"), "no OSC anywhere in the answer")
         XCTAssertFalse(text.contains("\u{1B}]52"), "no OSC reaches the terminal")
         XCTAssertEqual(try get("/api/v1/sandboxes/nope/build-log", ["Cookie": cookie]).status, 404)
         XCTAssertEqual(try get("/api/v1/sandboxes/demo/build-log/raw", ["Cookie": cookie]).status, 404)
