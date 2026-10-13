@@ -1,4 +1,5 @@
 import Security
+import X509
 import XCTest
 @testable import DozerKit
 
@@ -145,6 +146,11 @@ final class CredentialTests: XCTestCase {
         XCTAssertFalse(try Self.verifies(leaf: leaf.certificatePEM, ca: ca.certificatePEM, host: "example.com"), "SAN is exactly the host")
         let other = try SandboxCA.generate(sandbox: "t2")
         XCTAssertFalse(try Self.verifies(leaf: leaf.certificatePEM, ca: other.certificatePEM, host: "api.anthropic.com"), "per-sandbox trust")
+        // 617: the leaf names its issuer's key — Python 3.13+'s default VERIFY_X509_STRICT refuses one without an
+        // Authority Key Identifier ("Missing Authority Key Identifier"), so every Python tool's HTTPS failed.
+        let l = try Certificate(pemEncoded: leaf.certificatePEM), c = try Certificate(pemEncoded: ca.certificatePEM)
+        let aki = try XCTUnwrap(try l.extensions.authorityKeyIdentifier?.keyIdentifier)
+        XCTAssertEqual(aki, try XCTUnwrap(try c.extensions.subjectKeyIdentifier?.keyIdentifier))
     }
 
     static func verifies(leaf: String, ca: String, host: String) throws -> Bool {

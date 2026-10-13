@@ -27,6 +27,19 @@ tools act on the sandbox, not your Mac.
   background service with a web page, which Dozer does not run or forward yet. You can start it by hand in a second
   session (`openclaw gateway`), but nothing keeps it running and the Control UI is not reachable from the Mac.
 
+## nanobot
+
+A small personal agent in the terminal (an OpenClaw-style assistant its authors keep auditable).
+
+- **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
+- **Key:** an xAI API key (`doz account add xai --provider xai`). nanobot is set up with its custom OpenAI-compatible
+  provider pointed at xAI's API and the model `grok-4.6` (`~/.nanobot/config.json`, keys written only when not there
+  yet — change the model there).
+- **Use:** `nanobot` opens its terminal UI (the session); one headless turn is `nanobot agent -m "a task"`.
+- **May reach:** xAI's API, and OpenAI's public tokenizer file (`openaipublic.blob.core.windows.net/encodings/…`), which
+  the token counter it uses downloads at the first turn.
+- **Later:** its gateway (chat channels) and web UI need a background service and a forwarded port.
+
 ## Fabric
 
 A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.

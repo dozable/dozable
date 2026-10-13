@@ -156,7 +156,7 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
-| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
+| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
 | `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
@@ -235,6 +235,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.grok_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an exact version like 1.0.52, as images.claude_code_version. |
 | `images.fabric_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Fabric the fabric image (and every base's Fabric image) is prepared with: latest or an exact version like 1.4.518, as images.claude_code_version. |
 | `images.openclaw_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenClaw the openclaw image (and every base's OpenClaw image) is prepared with: latest or an exact version like 2026.10.3, as images.claude_code_version. |
+| `images.nanobot_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The nanobot the nanobot image (and every base's nanobot image) is prepared with: latest or an exact version like 0.3.5, as images.claude_code_version. |
 
 ### `[images.lab]`
 
@@ -298,6 +299,13 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `images.openclaw.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new openclaw sandbox (a custom image follows the image it was saved from). |
 | `images.openclaw.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new openclaw sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.nanobot]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.nanobot.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new nanobot sandbox (a custom image follows the image it was saved from). |
+| `images.nanobot.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new nanobot sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
 

@@ -5,6 +5,7 @@ perm model:google locked=false hosts=generativelanguage.googleapis.com
 perm model:xai locked=false hosts=api.x.ai[/v1/models,/v1/api-key,/v1/chat/completions,/v1/responses] api.x.ai[/$] x.ai
 perm model:fabric locked=false hosts=generativelanguage.googleapis.com
 perm model:openclaw locked=false hosts=generativelanguage.googleapis.com
+perm model:nanobot locked=false hosts=api.x.ai
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -26,6 +27,7 @@ perm vendor:claude-code locked=false hosts=downloads.claude.ai[/model-catalog/] 
 perm vendor:pi locked=false hosts=pi.dev
 perm vendor:codex locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml$] github.com[/openai/plugins.git/info/refs$,/openai/plugins.git/git-upload-pack$] files.openai.com
 perm vendor:antigravity locked=false hosts=antigravity-unleash.goog play.googleapis.com
+perm vendor:nanobot locked=false hosts=openaipublic.blob.core.windows.net[/encodings/]
 agentPermissions claude-code ["vendor:claude-code"]
 agentPermissions pi ["vendor:pi"]
 agentPermissions none []
@@ -35,6 +37,7 @@ agentPermissions gemini ["model:google", "update:gemini"]
 agentPermissions grok ["model:xai"]
 agentPermissions fabric ["model:fabric"]
 agentPermissions openclaw ["model:openclaw"]
+agentPermissions nanobot ["model:nanobot", "vendor:nanobot"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

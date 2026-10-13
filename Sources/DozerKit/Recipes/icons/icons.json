@@ -109,6 +109,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
       "lettermark": { "text": "OC", "frame": "octagon" }
+    },
+    {
+      "id": "nanobot", "kind": "product", "name": "nanobot",
+      "variants": { "mono": "nanobot.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/HKUDS/nanobot",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "NB", "frame": "hex" }
     }
   ]
 }

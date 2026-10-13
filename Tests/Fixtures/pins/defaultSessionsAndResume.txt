@@ -17,4 +17,5 @@ resume gemini --resume latest check=nil
 resume grok  check=nil
 resume fabric  check=nil
 resume openclaw  check=nil
+resume nanobot  check=nil
 resume nil 
