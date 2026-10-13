@@ -1,11 +1,12 @@
 # A fake model provider over TLS (its own throwaway CA) for the network profiler, `make recipe-check` and VM proofs
-# (617): xAI, the Gemini API, Anthropic's Messages API and OpenAI's Responses API, each answering DOZ_FAKE_OK.
+# (617): xAI, the Gemini API, Anthropic's Messages API and OpenAI's Responses API, each answering DOZ_FAKE_OK (an agent
+# that ends a task only through its `respond` tool, Dirac, gets that tool call with DOZ_FAKE_OK).
 # Python 3.9+ stdlib only.
 # Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
 #        the leaf and starts it)
 # Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY — the (fake) real keys the proxy must swap in;
 #      anything else is answered in that provider's own refusal shape. FAKE_PORT — a fixed port (default: any).
-# A request whose body holds DOZ_SLOW is answered after 3 s (so a status poller sees `working`).
+# A request whose body holds DOZ_SLOW is answered after 6 s (so a status poller, a `doz exec` every ~1 s, sees `working`).
 # Every request is one JSON line in REQUESTS.log: method, host, path, the auth headers' names and values, and whether
 # the body carried the facts marker. Never a real key.
 import http.server, json, os, ssl, sys, time
@@ -147,7 +148,7 @@ class H(http.server.BaseHTTPRequestHandler):
         body = self.rfile.read(n) if n else b""
         auth = self.record(body)
         if b"DOZ_SLOW" in body:
-            time.sleep(3)
+            time.sleep(6)
         h = self.host()
         if h == "api.anthropic.com": return self.anthropic(auth, body)
         if h == "api.openai.com": return self.openai(auth, body)
@@ -157,17 +158,28 @@ class H(http.server.BaseHTTPRequestHandler):
             ok = self.google_ok(auth) if h == "generativelanguage.googleapis.com" else self.xai_ok(auth)
             if not ok: return self.send(401, {"error": "the proxy did not swap the key"})
             req = json.loads(body or b"{}")
+            # An agent that ends its task only through a tool (Dirac's `respond`, operation complete) gets that call,
+            # once — never after a tool result. Every other request: the answer in words.
+            names = {(t.get("function") or t).get("name") for t in req.get("tools") or []}
+            last = (req.get("messages") or [{}])[-1].get("role")
+            call = None
+            if "respond" in names and last != "tool":
+                call = {"index": 0, "id": "call_doz", "type": "function",
+                        "function": {"name": "respond", "arguments": json.dumps({"operation": "complete", "text": ANSWER})}}
             if req.get("stream"):
+                delta = {"role": "assistant", "content": None, "tool_calls": [call]} if call else {"role": "assistant", "content": ANSWER}
                 c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",
-                     "choices": [{"index": 0, "delta": {"role": "assistant", "content": ANSWER}, "finish_reason": None}]}
+                     "choices": [{"index": 0, "delta": delta, "finish_reason": None}]}
                 out = "data: " + json.dumps(c) + "\n\n"
                 c["choices"][0]["delta"] = {}
-                c["choices"][0]["finish_reason"] = "stop"
+                c["choices"][0]["finish_reason"] = "tool_calls" if call else "stop"
                 c["usage"] = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
                 out += "data: " + json.dumps(c) + "\n\ndata: [DONE]\n\n"
                 return self.send(200, out.encode(), "text/event-stream")
             return self.send(200, {"id": "x", "object": "chat.completion", "created": 0, "model": "grok-4.6",
-                                   "choices": [{"index": 0, "message": {"role": "assistant", "content": ANSWER}, "finish_reason": "stop"}],
+                                   "choices": [{"index": 0, "message": {"role": "assistant", "content": None if call else ANSWER,
+                                                                          **({"tool_calls": [call]} if call else {})},
+                                                "finish_reason": "tool_calls" if call else "stop"}],
                                    "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}})
         if p == "/v1/responses":
             # OpenAI's Responses API (what Grok Build uses against the real api.x.ai).

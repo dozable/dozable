@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -14,6 +14,7 @@ doz try goose            # Goose, on an xAI key
 doz try kilo             # Kilo Code CLI (alias kilocode), on an xAI key
 doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
 doz try droid            # Factory Droid (alias factory), on an xAI key, no Factory account
+doz try dirac            # Dirac, a Cline-derived agent, on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -143,6 +144,19 @@ none of Factory's servers — Droid takes the key as a custom model on xAI's API
 - **May reach:** xAI's API only.
 - **Use:** `droid` (a session; with approvals off, `--auto high`), or `droid exec -m custom:grok-build-0.1 "…"` for one
   task.
+
+## Dirac (dirac-run)
+
+A Cline-derived terminal agent aimed at lower API cost (`doz try dirac`), on an **xAI API key** (Dirac picks its own
+xAI model).
+
+- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases (not Alpine: Dirac needs
+  Node 22.13 to 24).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), with xAI set as its provider.
+- **Set up for you:** its telemetry off (`telemetrySetting: disabled` — Dirac sends events to dirac.run by default)
+  and its self-update off (`DIRAC_NO_AUTO_UPDATE=1`).
+- **May reach:** xAI's API only.
+- **Use:** `dirac` (a session; with approvals off, `--auto-approve-all`), or `dirac --yolo "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

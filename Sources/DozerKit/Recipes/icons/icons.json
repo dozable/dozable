@@ -271,6 +271,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Proprietary; Factory's logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "FD", "frame": "diamond" }
+    },
+    {
+      "id": "dirac", "kind": "product", "name": "Dirac",
+      "variants": { "mono": "dirac.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/dirac-run/dirac",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "D", "frame": "circle" }
     }
   ]
 }
