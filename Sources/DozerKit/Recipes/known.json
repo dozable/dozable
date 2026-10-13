@@ -213,6 +213,88 @@
       "status": "coming",
       "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
       "checked": "2026-10-14"
+    },
+    {
+      "id": "langgraph-cli",
+      "title": "LangGraph CLI",
+      "publisher": "LangChain",
+      "aliases": ["langgraph"],
+      "homepage": "https://github.com/langchain-ai/langgraph",
+      "status": "coming",
+      "reason": "its dev server is used from a browser (LangGraph Studio): needs its port forwarded to the Mac",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "crewai",
+      "title": "CrewAI",
+      "publisher": "CrewAI",
+      "homepage": "https://github.com/crewAIInc/crewAI",
+      "status": "coming",
+      "reason": "its CLI builds each new crew's own environment with uv from PyPI at run time, which no permission offers yet",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "mastra",
+      "title": "Mastra",
+      "publisher": "Mastra",
+      "homepage": "https://github.com/mastra-ai/mastra",
+      "status": "coming",
+      "reason": "a new project is scaffolded from npm at run time, and its Studio is a web page: needs npm at run time and a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "supergateway",
+      "title": "Supergateway",
+      "publisher": "Supercorp",
+      "homepage": "https://github.com/supercorp-ai/supergateway",
+      "status": "coming",
+      "reason": "it serves an MCP server over HTTP for clients elsewhere: needs a forwarded port (or an MCP bridge) and the servers from npm or PyPI",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "mcp-proxy",
+      "title": "mcp-proxy",
+      "publisher": "sparfenyuk",
+      "homepage": "https://github.com/sparfenyuk/mcp-proxy",
+      "status": "coming",
+      "reason": "it bridges MCP servers to clients elsewhere: needs a forwarded port (or an MCP bridge)",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "gpt-researcher",
+      "title": "GPT Researcher",
+      "publisher": "assafelovic",
+      "homepage": "https://github.com/assafelovic/gpt-researcher",
+      "status": "coming",
+      "reason": "its web research needs a Tavily key (a provider Dozer does not offer yet), and its UI a forwarded port",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "local-deep-research",
+      "title": "Local Deep Research",
+      "publisher": "LearningCircuit",
+      "homepage": "https://github.com/LearningCircuit/local-deep-research",
+      "status": "coming",
+      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "jupyter-ai",
+      "title": "Jupyter AI",
+      "publisher": "Project Jupyter",
+      "homepage": "https://github.com/jupyterlab/jupyter-ai",
+      "status": "coming",
+      "reason": "it runs inside JupyterLab, a web app: needs its port forwarded to the Mac's browser and a background service",
+      "checked": "2026-10-14"
+    },
+    {
+      "id": "crawl4ai",
+      "title": "crawl4ai",
+      "publisher": "unclecode",
+      "homepage": "https://github.com/unclecode/crawl4ai",
+      "status": "coming",
+      "reason": "needs a headless Chromium in the image: it crawls with a real browser",
+      "checked": "2026-10-14"
     }
   ]
 }

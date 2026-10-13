@@ -190,6 +190,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); the licence grants no trademark rights, and Hugging Face's brand needs its permission — so a neutral lettermark.",
       "lettermark": { "text": "SA", "frame": "hex" }
+    },
+    {
+      "id": "adk", "kind": "product", "name": "Agent Development Kit",
+      "variants": { "mono": "adk.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://partnermarketinghub.withgoogle.com/brands/google/trademarks-and-terms/trademark-guidelines-for-proper-usage/",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Google's terms, as for its own mark (the code is Apache-2.0; that licence grants no trademark rights).",
+      "lettermark": { "text": "AD", "frame": "hex" }
     }
   ]
 }

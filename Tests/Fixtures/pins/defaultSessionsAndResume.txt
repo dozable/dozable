@@ -26,4 +26,5 @@ resume aichat  check=nil
 resume tgpt  check=nil
 resume opencode --continue check=nil
 resume smolagents  check=nil
+resume adk  check=nil
 resume nil 

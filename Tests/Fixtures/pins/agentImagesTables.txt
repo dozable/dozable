@@ -17,6 +17,7 @@ node-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 node-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 node-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 node-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+node-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -35,6 +36,7 @@ python-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 python-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 python-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 python-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+python-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -53,6 +55,7 @@ go-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 go-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 go-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 go-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+go-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -71,6 +74,7 @@ rust-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 rust-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 rust-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 rust-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+rust-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -89,6 +93,7 @@ java-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 java-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 java-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 java-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+java-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -107,6 +112,7 @@ ruby-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 ruby-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 ruby-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 ruby-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+ruby-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -125,6 +131,7 @@ dotnet-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 dotnet-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 dotnet-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 dotnet-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+dotnet-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -143,6 +150,7 @@ aichat credentials=xai:key agentName=AIChat package=nil pinned=0.30.0 sha512-j+5
 tgpt credentials=google:key agentName=tgpt package=nil pinned=2.15.0 sha512-EcCxUb8C5DTvpeY7PpRxbOQFOBL6875cweRzAokS4aY0/m3pHKvS2+g6niA4SlqzT8G1Wp7SGGxxUezmH8rv4w==
 opencode credentials=xai:key agentName=OpenCode package=opencode-ai pinned=1.19.0 sha512-XD1qcVN4jEiaYHqtx40p8cEPJxBc1mcB99ksgQ81akZsGGwcNFyG6GH857jVEplbGgdzWiWxDCrSii56sHjmRQ==
 smolagents credentials=xai:key agentName=smolagents package=smolagents pinned=1.26.0 sha512-pILyUgYQX7m3SyYmADBbYmx9ab/aRsJ4vOHdhbSw0DlwOQIDMToq8acWqLfkIK0sv0NlttXNjJqwaQQspljiPg==
+adk credentials=google:key agentName=Agent Development Kit package=google-adk pinned=2.11.0 sha512-DShVMBN0VVb5tBVoYVwIai9msoRYD3NVKsPMu/drat96+OilvfeM4r8Y4CCBjrI9jMXgeQ7ejvkMoVGDL78tWQ==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -161,6 +169,7 @@ ubuntu-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 ubuntu-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 ubuntu-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 ubuntu-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+ubuntu-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -178,6 +187,7 @@ alpine-aichat credentials=xai:key agentName=AIChat package=nil pinned=nil
 alpine-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 alpine-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 alpine-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+alpine-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -196,3 +206,4 @@ df-0123456789ab-aichat credentials=xai:key agentName=AIChat package=nil pinned=n
 df-0123456789ab-tgpt credentials=google:key agentName=tgpt package=nil pinned=nil
 df-0123456789ab-opencode credentials=xai:key agentName=OpenCode package=nil pinned=nil
 df-0123456789ab-smolagents credentials=xai:key agentName=smolagents package=nil pinned=nil
+df-0123456789ab-adk credentials=google:key agentName=Agent Development Kit package=nil pinned=nil
