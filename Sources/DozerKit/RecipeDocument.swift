@@ -98,6 +98,10 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public struct CredentialDozer: Codable, Sendable, Equatable {
             /// The Dozer account kinds that serve it (`mac`, `setup-token`, `api-key`, `key`, …).
             public var accounts: [String]
+            /// 617: more guest variables that hold the same placeholder (a tool that reads its key under another name:
+            /// OPENAI_API_KEY for an OpenAI-compatible base URL, LLM_GEMINI_KEY).
+            public var envAliases: [String]? = nil
+            enum CodingKeys: String, CodingKey { case accounts, envAliases = "env_aliases" }
         }
     }
 
@@ -485,7 +489,7 @@ extension RecipeDocument {
             launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env,
                                        firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
-            credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts) },
+            credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts, envAliases: $0.dozer.envAliases) },
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
             verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
@@ -516,7 +520,7 @@ extension RecipeDocument {
             caps.append(RecipeCapability(type: T.credential, description: (KeyProviders.provider(c.provider)?.title ?? c.provider) + " API access",
                                          config: .credential(Credential(service: c.provider, phase: "runtime",
                                                                         apiKey: Self.apiKey(c.provider) ?? Credential.ApiKey(name: "", proxyManaged: true, inject: []),
-                                                                        dozer: Credential.CredentialDozer(accounts: c.accounts)))))
+                                                                        dozer: Credential.CredentialDozer(accounts: c.accounts, envAliases: c.envAliases)))))
         }
         for p in r.state.persist { caps.append(RecipeCapability(type: T.volume, config: .volume(Volume(path: Self.toGuest(p))))) }
         if let p = r.prompt {

@@ -225,6 +225,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public struct CredentialUse: Codable, Sendable, Equatable {
         public var provider: String
         public var accounts: [String]
+        /// 617: more guest variables holding the same placeholder (the tool reads its key under another name).
+        public var envAliases: [String]? = nil
+        enum CodingKeys: String, CodingKey { case provider, accounts, envAliases = "env_aliases" }
     }
 
     public struct Network: Codable, Sendable, Equatable {
@@ -831,7 +834,7 @@ public enum AgentRecipes {
     static let compiled: [AgentRecipe] = {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
-                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json)]
+                                          ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -843,7 +846,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -940,6 +943,19 @@ public enum AgentRecipes {
 }
 
 extension AgentRecipe {
+    /// Whether the recipe sets `name` itself (its launch, state or session environment).
+    func everyEnvName(_ name: String) -> Bool {
+        launch.env[name] != nil || state.env[name] != nil || launch.sessionEnv?[name] != nil
+    }
+
+    /// 617: the vault binding a recipe agent's key goes in — its provider's, plus the recipe's own env aliases.
+    public func keyBinding(_ p: KeyProvider) -> CredentialBinding {
+        var b = p.binding
+        let aliases = credentials.first { $0.provider == p.id }?.envAliases ?? []
+        if !aliases.isEmpty { b.alsoEnvironmentVariables = (b.alsoEnvironmentVariables ?? []) + aliases }
+        return b
+    }
+
     /// One recipe's own rules (see the file's header).
     public func validate() throws {
         func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("recipe \(id): \(s)") }
@@ -1074,6 +1090,15 @@ extension AgentRecipe {
         for c in credentials {
             guard KeyProviders.provider(c.provider) != nil || c.provider == "custom" else { throw bad("provider \(c.provider) is not in providers.json") }
             if !isBuiltin, c.accounts != ["key"] { throw bad("a recipe agent takes key accounts only") }
+            for a in c.envAliases ?? [] {
+                // 617: the same placeholder under another name — credential-shaped, never the provider's own name, never
+                // a variable the recipe sets itself.
+                guard !isBuiltin, a.range(of: "^[A-Z][A-Z0-9_]*$", options: .regularExpression) != nil, BakeEnvironment.isCredential(a) || a.hasSuffix("_KEY"),
+                      a != KeyProviders.provider(c.provider)?.env, everyEnvName(a) == false else {
+                    throw bad("env alias \(a): a credential-shaped variable (…_KEY), not the provider's own, not one the recipe sets")
+                }
+            }
+            if let a = c.envAliases, Set(a).count != a.count { throw bad("an env alias is named twice") }
         }
         // network
         let m = network.model

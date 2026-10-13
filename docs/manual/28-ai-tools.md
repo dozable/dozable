@@ -33,7 +33,7 @@ A small personal agent in the terminal (an OpenClaw-style assistant its authors 
 
 - **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
 - **Key:** an xAI API key (`doz account add xai --provider xai`). nanobot is set up with its custom OpenAI-compatible
-  provider pointed at xAI's API and the model `grok-4.6` (`~/.nanobot/config.json`, keys written only when not there
+  provider pointed at xAI's API and the model `grok-4-1-fast` (`~/.nanobot/config.json`, keys written only when not there
   yet — change the model there).
 - **Use:** `nanobot` opens its terminal UI (the session); one headless turn is `nanobot agent -m "a task"`.
 - **May reach:** xAI's API, and OpenAI's public tokenizer file (`openaipublic.blob.core.windows.net/encodings/…`), which
@@ -62,6 +62,17 @@ Simon Willison's command-line tool for prompting models (and logging every promp
   that the default (without it llm asks OpenAI, which Dozer does not offer it).
 - **May reach:** xAI's API.
 - **Later:** `llm install` (more plugins) needs PyPI at run time, which no permission offers yet.
+
+## ShellGPT
+
+A command-line assistant (`sgpt`) that answers questions and turns requests into shell commands (`sgpt --shell`).
+
+- **Installed** from PyPI with every dependency pinned by its hash, on Dozer's own Python (Debian-based bases).
+- **Key:** an xAI API key. ShellGPT speaks OpenAI's API; Dozer points it at xAI's (`API_BASE_URL`) and gives it the
+  key's placeholder under `OPENAI_API_KEY` too — the placeholder still works only on xAI's API. The model is
+  `grok-4-1-fast` (`DEFAULT_MODEL`, or `--model`).
+- **Use:** the session is a shell. `sgpt "a question"`, `sgpt --shell "find large files"`.
+- **May reach:** xAI's API.
 
 ## Fabric
 

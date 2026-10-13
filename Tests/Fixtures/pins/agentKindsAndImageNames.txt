@@ -10,6 +10,7 @@ kind openclaw OpenClaw
 kind nanobot nanobot
 kind gptme gptme
 kind llm llm
+kind shell-gpt ShellGPT
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -23,6 +24,7 @@ parse node-openclaw → node openclaw node-openclaw Node.js · OpenClaw base-nam
 parse node-nanobot → node nanobot node-nanobot Node.js · nanobot base-name node-nanobot-sandbox
 parse node-gptme → node gptme node-gptme Node.js · gptme base-name node-gptme-sandbox
 parse node-llm → node llm node-llm Node.js · llm base-name node-llm-sandbox
+parse node-shell-gpt → node shell-gpt node-shell-gpt Node.js · ShellGPT base-name node-sgpt-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -35,6 +37,7 @@ parse python-openclaw → python openclaw python-openclaw Python · OpenClaw bas
 parse python-nanobot → python nanobot python-nanobot Python · nanobot base-name python-nanobot-sandbox
 parse python-gptme → python gptme python-gptme Python · gptme base-name python-gptme-sandbox
 parse python-llm → python llm python-llm Python · llm base-name python-llm-sandbox
+parse python-shell-gpt → python shell-gpt python-shell-gpt Python · ShellGPT base-name python-sgpt-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -47,6 +50,7 @@ parse go-openclaw → go openclaw go-openclaw Go · OpenClaw base-name go-opencl
 parse go-nanobot → go nanobot go-nanobot Go · nanobot base-name go-nanobot-sandbox
 parse go-gptme → go gptme go-gptme Go · gptme base-name go-gptme-sandbox
 parse go-llm → go llm go-llm Go · llm base-name go-llm-sandbox
+parse go-shell-gpt → go shell-gpt go-shell-gpt Go · ShellGPT base-name go-sgpt-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -59,6 +63,7 @@ parse rust-openclaw → rust openclaw rust-openclaw Rust · OpenClaw base-name r
 parse rust-nanobot → rust nanobot rust-nanobot Rust · nanobot base-name rust-nanobot-sandbox
 parse rust-gptme → rust gptme rust-gptme Rust · gptme base-name rust-gptme-sandbox
 parse rust-llm → rust llm rust-llm Rust · llm base-name rust-llm-sandbox
+parse rust-shell-gpt → rust shell-gpt rust-shell-gpt Rust · ShellGPT base-name rust-sgpt-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -71,6 +76,7 @@ parse java-openclaw → java openclaw java-openclaw Java · OpenClaw base-name j
 parse java-nanobot → java nanobot java-nanobot Java · nanobot base-name java-nanobot-sandbox
 parse java-gptme → java gptme java-gptme Java · gptme base-name java-gptme-sandbox
 parse java-llm → java llm java-llm Java · llm base-name java-llm-sandbox
+parse java-shell-gpt → java shell-gpt java-shell-gpt Java · ShellGPT base-name java-sgpt-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -83,6 +89,7 @@ parse ruby-openclaw → ruby openclaw ruby-openclaw Ruby · OpenClaw base-name r
 parse ruby-nanobot → ruby nanobot ruby-nanobot Ruby · nanobot base-name ruby-nanobot-sandbox
 parse ruby-gptme → ruby gptme ruby-gptme Ruby · gptme base-name ruby-gptme-sandbox
 parse ruby-llm → ruby llm ruby-llm Ruby · llm base-name ruby-llm-sandbox
+parse ruby-shell-gpt → ruby shell-gpt ruby-shell-gpt Ruby · ShellGPT base-name ruby-sgpt-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -95,6 +102,7 @@ parse dotnet-openclaw → dotnet openclaw dotnet-openclaw .NET · OpenClaw base-
 parse dotnet-nanobot → dotnet nanobot dotnet-nanobot .NET · nanobot base-name dotnet-nanobot-sandbox
 parse dotnet-gptme → dotnet gptme dotnet-gptme .NET · gptme base-name dotnet-gptme-sandbox
 parse dotnet-llm → dotnet llm dotnet-llm .NET · llm base-name dotnet-llm-sandbox
+parse dotnet-shell-gpt → dotnet shell-gpt dotnet-shell-gpt .NET · ShellGPT base-name dotnet-sgpt-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -107,6 +115,7 @@ parse openclaw → debian openclaw openclaw Debian · OpenClaw base-name opencla
 parse nanobot → debian nanobot nanobot Debian · nanobot base-name nanobot-sandbox
 parse gptme → debian gptme gptme Debian · gptme base-name gptme-sandbox
 parse llm → debian llm llm Debian · llm base-name llm-sandbox
+parse shell-gpt → debian shell-gpt shell-gpt Debian · ShellGPT base-name sgpt-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -119,6 +128,7 @@ parse ubuntu-openclaw → ubuntu openclaw ubuntu-openclaw Ubuntu · OpenClaw bas
 parse ubuntu-nanobot → ubuntu nanobot ubuntu-nanobot Ubuntu · nanobot base-name ubuntu-nanobot-sandbox
 parse ubuntu-gptme → ubuntu gptme ubuntu-gptme Ubuntu · gptme base-name ubuntu-gptme-sandbox
 parse ubuntu-llm → ubuntu llm ubuntu-llm Ubuntu · llm base-name ubuntu-llm-sandbox
+parse ubuntu-shell-gpt → ubuntu shell-gpt ubuntu-shell-gpt Ubuntu · ShellGPT base-name ubuntu-sgpt-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -130,6 +140,7 @@ parse alpine-openclaw → alpine openclaw alpine-openclaw Alpine · OpenClaw bas
 parse alpine-nanobot → alpine nanobot alpine-nanobot Alpine · nanobot base-name alpine-nanobot-sandbox
 parse alpine-gptme → alpine gptme alpine-gptme Alpine · gptme base-name alpine-gptme-sandbox
 parse alpine-llm → alpine llm alpine-llm Alpine · llm base-name alpine-llm-sandbox
+parse alpine-shell-gpt → alpine shell-gpt alpine-shell-gpt Alpine · ShellGPT base-name alpine-sgpt-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -142,6 +153,7 @@ parse df-0123456789ab-openclaw → df-0123456789ab openclaw df-0123456789ab-open
 parse df-0123456789ab-nanobot → df-0123456789ab nanobot df-0123456789ab-nanobot Dockerfile · nanobot base-name dockerfile-nanobot-sandbox
 parse df-0123456789ab-gptme → df-0123456789ab gptme df-0123456789ab-gptme Dockerfile · gptme base-name dockerfile-gptme-sandbox
 parse df-0123456789ab-llm → df-0123456789ab llm df-0123456789ab-llm Dockerfile · llm base-name dockerfile-llm-sandbox
+parse df-0123456789ab-shell-gpt → df-0123456789ab shell-gpt df-0123456789ab-shell-gpt Dockerfile · ShellGPT base-name dockerfile-sgpt-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

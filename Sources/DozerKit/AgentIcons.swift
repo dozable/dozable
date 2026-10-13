@@ -90,6 +90,7 @@ public enum AgentIcons {
         "nanobot.svg": PackageResources.nanobot_svg,
         "gptme.svg": PackageResources.gptme_svg,
         "llm.svg": PackageResources.llm_svg,
+        "shell-gpt.svg": PackageResources.shell_gpt_svg,
     ]
 
     public static let all: [IconEntry] = {

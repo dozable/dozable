@@ -136,6 +136,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (Apache-2.0); the licence grants no trademark rights and the project publishes no logo terms — so a neutral lettermark.",
       "lettermark": { "text": "L", "frame": "circle" }
+    },
+    {
+      "id": "shell-gpt", "kind": "product", "name": "ShellGPT",
+      "variants": { "mono": "shell-gpt.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/TheR1D/shell_gpt",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); the licence covers the code, not a mark, and no logo terms were found — so a neutral lettermark.",
+      "lettermark": { "text": "SG", "frame": "diamond" }
     }
   ]
 }

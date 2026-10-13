@@ -175,7 +175,7 @@ capabilities:
         providers.custom.apiBase: https://api.x.ai/v1
         providers.custom.apiKey: ${XAI_API_KEY}
         modelPresets.primary.provider: custom
-        modelPresets.primary.model: grok-4.6
+        modelPresets.primary.model: grok-4-1-fast
         agents.defaults.modelPreset: primary
     status: none
     verify:
@@ -198,7 +198,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: nanobot is set up with its custom OpenAI-compatible provider on xAI's API (providers.custom, the key from XAI_API_KEY) and the model grok-4.6; change the model in ~/.nanobot/config.json. Its other providers are not offered here yet.
+      note: nanobot is set up with its custom OpenAI-compatible provider on xAI's API (providers.custom, the key from XAI_API_KEY) and the model grok-4-1-fast; change the model in ~/.nanobot/config.json. Its other providers are not offered here yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:

@@ -121,6 +121,31 @@ final class ToolRecipeKindsTests: XCTestCase {
         XCTAssertEqual(AgentImages.recipeInstall(g, g.pinnedRelease!, base: BaseCatalogue.base("node")!.source()).steps.count, 1)
     }
 
+    // MARK: env aliases
+
+    /// A recipe's env aliases put the SAME placeholder under more names (ShellGPT reads OPENAI_API_KEY beside a base URL
+    /// pointed at xAI); the binding's hosts stay the provider's, so the placeholder works nowhere else.
+    func test_envAliasesAddNamesNotHosts() throws {
+        let r = try XCTUnwrap(AgentRecipes.recipe("shell-gpt"))
+        let p = try XCTUnwrap(KeyProviders.provider("xai"))
+        let b = r.keyBinding(p)
+        XCTAssertEqual(b.placeholderVariables, ["XAI_API_KEY", "OPENAI_API_KEY"])
+        XCTAssertEqual(b.hosts, p.binding.hosts)
+        XCTAssertEqual(b.id, p.binding.id, "the same binding: placeholders and stored sources keep working")
+        XCTAssertEqual(try XCTUnwrap(AgentRecipes.recipe("fabric")).keyBinding(KeyProviders.provider("google")!).placeholderVariables, ["GEMINI_API_KEY"])
+        func with(_ aliases: [String]) throws -> AgentRecipe {
+            var o = try AgentRecipeTests.json("shell-gpt")
+            var c = try XCTUnwrap((o["credentials"] as? [[String: Any]])?.first)
+            c["env_aliases"] = aliases
+            o["credentials"] = [c]
+            return try AgentRecipes.decode(AgentRecipeTests.data(o))
+        }
+        XCTAssertNoThrow(try with(["OPENAI_API_KEY", "LLM_XAI_KEY"]))
+        XCTAssertThrowsError(try with(["XAI_API_KEY"]), "the provider's own name")
+        XCTAssertThrowsError(try with(["API_BASE_URL"]), "not credential-shaped")
+        XCTAssertThrowsError(try with(["OPENAI_API_KEY", "OPENAI_API_KEY"]), "twice")
+    }
+
     // MARK: launch
 
     func test_shellSessionAndDotenvFirstRun() throws {

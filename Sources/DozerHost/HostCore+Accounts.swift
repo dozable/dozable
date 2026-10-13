@@ -380,7 +380,8 @@ extension HostCore {
     /// No silent fallback: a missing key is the proxy's 401 with what to do.
     func applyKeyAccount(_ m: Managed, _ p: KeyProvider, _ resolved: ResolvedAccount) {
         let sb = m.sandbox
-        let binding = p.binding
+        // 617: with the recipe's own env aliases (the same placeholder under the name the tool reads).
+        let binding = sb.spec.imageSpec.flatMap { ImageChoice.parse($0.name)?.agent.recipe }?.keyBinding(p) ?? p.binding
         for other in [CredentialBinding.anthropic, .claudeOAuth] + KeyProviders.keyBindings where other.id != binding.id {
             sb.egress?.vault.remove(other.id)
         }
