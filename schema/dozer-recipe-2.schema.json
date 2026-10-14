@@ -309,6 +309,7 @@
           "properties": {
             "command": { "type": "array", "minItems": 1, "items": { "type": "string" } },
             "no_prompts_args": { "$ref": "#/$defs/strings" },
+            "no_prompts_env": { "$ref": "#/$defs/stringMap", "description": "Environment set only when the launcher puts no_prompts_args first (the same rule: not with <ID>.permissions = ask, nor as root)." },
             "passthrough": { "$ref": "#/$defs/strings" },
             "env": { "$ref": "#/$defs/stringMap" },
             "state_env": { "$ref": "#/$defs/stringMap" },
@@ -365,7 +366,7 @@
     },
     "firstRun": {
       "type": "object", "additionalProperties": false, "required": ["file", "set"],
-      "properties": { "file": { "type": "string", "pattern": "^~/" }, "set": { "type": "object" } }
+      "properties": { "file": { "type": "string", "pattern": "^~/" }, "set": { "type": "object" }, "format": { "enum": ["json"], "description": "json: a JSON file whose name has no extension." } }
     },
 
     "authCapability": {

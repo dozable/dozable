@@ -72,8 +72,10 @@ capabilities:
   config:
     command:
     - mimo
-    no_prompts_args:
-    - --dangerously-skip-permissions
+    # Its --dangerously-skip-permissions asks again on a terminal ("No, exit" first); its variable does not.
+    no_prompts_args: []
+    no_prompts_env:
+      MIMOCODE_DANGEROUSLY_SKIP_PERMISSIONS: '1'
     passthrough:
     - --version
     - -v
@@ -98,6 +100,13 @@ capabilities:
         model: xai/grok-build-0.1
         autoupdate: false
         share: disabled
+    # /workspace is trusted at the first start, as Claude Code's and Codex's are (the VM is the boundary), so the
+    # session opens on the agent, not on its trust question.
+    - file: ~/.local/share/mimocode/trusted-workspaces.json
+      set:
+        version: 1
+        trustedPaths:
+        - /workspace
     status: none
     resume:
     - --continue
@@ -114,6 +123,12 @@ capabilities:
       - xai/grok-build-0.1
       - say ok
       expect: DOZ_FAKE_OK
+      screen:
+        # Its ready screen shows a rotating tip; one is about Xiaomi's own (ended) free service and its /login.
+        allow:
+        - Tip .*(/login|sign in)
+        expect:
+        - Type your message
 - type: com.dozersandbox/auth@1
   config:
     methods:

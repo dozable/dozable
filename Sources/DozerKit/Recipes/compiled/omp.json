@@ -150,6 +150,14 @@
         "env" : {
 
         },
+        "first_run" : [
+          {
+            "file" : "~/.omp/agent/config.yml",
+            "set" : {
+              "setupVersion" : 2
+            }
+          }
+        ],
         "no_prompts_args" : [
 
         ],

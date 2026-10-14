@@ -271,6 +271,87 @@ final class ToolRecipeKindsTests: XCTestCase {
         XCTAssertThrowsError(try bad.validate())
     }
 
+    /// Runs a recipe's first-run helper under python3 with HOME = `home` (twice: the second run must change nothing).
+    private func runSetup(_ recipe: String, home: URL) throws {
+        let py = AgentImages.recipeSetupPython(try XCTUnwrap(AgentRecipes.recipe(recipe)?.launch.firstRun))
+        let script = home.appendingPathComponent("setup.py")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try py.write(to: script, atomically: true, encoding: .utf8)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        p.arguments = [script.path]
+        p.environment = ["HOME": home.path]
+        try p.run()
+        p.waitUntilExit()
+        XCTAssertEqual(p.terminationStatus, 0, recipe)
+    }
+
+    /// 617 (the first-screen survey: seven agents opened on a "trust this folder?" question): the folder is trusted at the
+    /// first start the way each agent records it — Kimi Code's extension-less JSON record (`format: json`), Open
+    /// Interpreter's quoted TOML table `[projects."/workspace"]` — and a person's own answer is kept.
+    func test_trustRecordsAreWrittenTheWayEachAgentKeepsThem() throws {
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/python3") else { throw XCTSkip("no python3") }
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("trust-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        try runSetup("kimi-code", home: home)
+        let kimi = home.appendingPathComponent(".kimi-code/workspace-trust/wd_workspace_c52ddf65534b")
+        let record = try JSONSerialization.jsonObject(with: Data(contentsOf: kimi)) as? [String: Any]
+        XCTAssertEqual(record?["root"] as? String, "/workspace")
+        XCTAssertNotNil(record?["trustedAt"] as? NSNumber)
+
+        // The quoted TOML table: only where this Mac's python3 has tomllib (3.11+); recipe-check's VM run covers it too.
+        let probe = Process()
+        probe.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        probe.arguments = ["-c", "import tomllib"]
+        probe.standardError = FileHandle.nullDevice
+        try probe.run()
+        probe.waitUntilExit()
+        if probe.terminationStatus == 0 { try checkQuotedTOML(home) }
+        try checkHelpersAndRefusals()
+    }
+
+    private func checkQuotedTOML(_ home: URL) throws {
+        try runSetup("open-interpreter", home: home)
+        let toml = home.appendingPathComponent(".openinterpreter/config.toml")
+        let text = try String(contentsOf: toml, encoding: .utf8)
+        XCTAssertTrue(text.contains("[projects.\"/workspace\"]\ntrust_level = \"trusted\""), text)
+        try runSetup("open-interpreter", home: home)
+        XCTAssertEqual(try String(contentsOf: toml, encoding: .utf8), text, "a second run changes nothing")
+        try Data("[projects.\"/workspace\"]\ntrust_level = \"untrusted\"\n".utf8).write(to: toml)
+        try runSetup("open-interpreter", home: home)
+        XCTAssertTrue(try String(contentsOf: toml, encoding: .utf8).contains("trust_level = \"untrusted\""), "a person's answer is kept")
+        XCTAssertFalse(try String(contentsOf: toml, encoding: .utf8).contains("trust_level = \"trusted\""))
+    }
+
+    private func checkHelpersAndRefusals() throws {
+        // The quoted-key and format code is only in the helpers that need it (every other bake key unchanged).
+        for other in ["zeroclaw", "every-code", "grok", "codewhale"] {
+            guard let runs = AgentRecipes.recipe(other)?.launch.firstRun else { continue }
+            let py = AgentImages.recipeSetupPython(runs)
+            XCTAssertFalse(py.contains("toml_parts"), other)
+            XCTAssertFalse(py.contains("m.get('format')"), other)
+        }
+        // A quoted segment is a TOML thing only, and a format other than json is refused.
+        var bad = try XCTUnwrap(AgentRecipes.recipe("kimi-code"))
+        bad.launch.firstRun = [.init(file: "~/.x/settings.json", set: ["projects.\"/w\".a": .string("x")])]
+        XCTAssertThrowsError(try bad.validate())
+        bad.launch.firstRun = [.init(file: "~/.x/record", set: ["a": .string("x")], format: "toml")]
+        XCTAssertThrowsError(try bad.validate())
+        bad.launch.firstRun = [.init(file: "~/.x/record", set: ["a": .string("x")])]
+        XCTAssertThrowsError(try bad.validate(), "a file with no known extension needs format: json")
+    }
+
+    /// 617: MiMo Code's --dangerously-skip-permissions asks again on a terminal ("No, exit" first); its variable does not —
+    /// set only when the launcher skips prompts (not with mimo-code.permissions = ask, nor as root).
+    func test_noPromptsEnvIsSetOnlyWhenPromptsAreSkipped() throws {
+        let r = try XCTUnwrap(AgentRecipes.recipe("mimo-code"))
+        let sh = AgentImages.recipeLauncherScript(r)
+        XCTAssertTrue(sh.contains("[ \"$mode\" = skip ] && export MIMOCODE_DANGEROUSLY_SKIP_PERMISSIONS='1'"), sh)
+        XCTAssertFalse(sh.contains("--dangerously-skip-permissions"))
+        XCTAssertEqual(r.permissionsSettingKey, "mimo-code.permissions", "it still has a permissions setting")
+        XCTAssertFalse(AgentImages.recipeLauncherScript(try XCTUnwrap(AgentRecipes.recipe("grok"))).contains("&& export"))
+    }
+
     /// 617: a recipe's first-screen expectations round-trip through the strict loader (an unknown key is refused).
     func test_theCheckCarriesTheFirstScreen() throws {
         let r = try XCTUnwrap(AgentRecipes.recipe("goose"))

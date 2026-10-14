@@ -72,15 +72,15 @@ STATES_NEEDED = ("idle", "working", "done")
 # What a ready agent's first screen never asks (case-insensitive; a line a recipe's check.screen.allow matches is excused).
 SETUP_SCREEN = [
     (r"\bwelcome\b", "a welcome screen"),
-    (r"let'?s get (?:you )?(?:set up|started)|\bset ?up\b|\bsetup\b|get started", "set-up"),
-    (r"\bconfigur(?:e|ation|ing)\b", "configuration"),
-    (r"\bsign(?:ed)?[ -]?in\b|\blog(?:ged)?[ -]?in\b|\bauthenticat", "a sign-in"),
-    (r"would you like|how would you like|do you want to", "a question"),
+    (r"let'?s get (?:you )?(?:set up|started)|\bsetup\b|set ?up wizard|\bget started\b", "set-up"),
+    (r"let'?s configure|\bconfigure (?:your|a|an) |configuration (?:wizard|setup)", "configuration"),
+    (r"\bsign[ -]?in\b|\blog[ -]?in\b", "a sign-in"),
+    (r"would you like|how would you like|do you want to (?:share|send|allow|enable|help|opt)", "a question"),
     (r"usage data|anonymous (?:usage|data|statistics)|telemetry|analytics|improve (?:the )?product", "a usage-data consent"),
     (r"\btrust\b.{0,30}\b(?:folder|directory|workspace|files|project)|do you trust", "a trust question"),
     (r"(?:select|choose|pick) (?:a |your )?(?:theme|colou?r scheme|style)", "a theme choice"),
     (r"\bonboarding\b", "onboarding"),
-    (r"(?:enter|paste|provide|add|set) (?:your |an? )?(?:\w+ )?api[ _-]?key", "a key request"),
+    (r"(?:enter|paste|provide) (?:your |an? )?(?:own )?(?:\w+ )?api[ _-]?key", "a key request"),
     (r"terms of (?:service|use)|privacy (?:policy|notice)", "terms"),
 ]
 
@@ -516,6 +516,36 @@ class Harness:
         live = [x for x in rows if not x.get("saved")]
         return (live or rows or [{}])[0].get("name")
 
+    @staticmethod
+    def end_attach(pid, fd):
+        """The attach client gone, whatever it was doing: TERM, then KILL after 5 s — never a wait that hangs the run."""
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        end = time.time() + 5
+        while time.time() < end:
+            try:
+                if os.waitpid(pid, os.WNOHANG)[0]:
+                    break
+            except OSError:
+                break
+            try:                              # drain, so a client blocked writing to its terminal can exit
+                if select.select([fd], [], [], 0.1)[0]:
+                    os.read(fd, 65536)
+            except OSError:
+                pass
+        else:
+            try:
+                os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
+            except OSError:
+                pass
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
     def first_screen(self, r, name, res):
         """The default session as a person first sees it: attached on a 120×40 pty, nothing typed, left to settle, then
         its screen (deckhold's text dump; the pty's bytes made plain when the session is gone)."""
@@ -558,15 +588,7 @@ class Harness:
             except OSError:
                 pass
             time.sleep(0.15)
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-        try:
-            os.waitpid(pid, 0)
-        except OSError:
-            pass
-        os.close(fd)
+        self.end_attach(pid, fd)
         lines = [l.rstrip() for l in text.splitlines()]
         while lines and not lines[-1]:
             lines.pop()
@@ -648,15 +670,7 @@ class Harness:
         time.sleep(0.1)
         send(b"\x1d")
         read_for(5, until="\x00")
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            pass
-        try:
-            os.waitpid(pid, 0)
-        except OSError:
-            pass
-        os.close(fd)
+        self.end_attach(pid, fd)
         stop.set()
         t.join(timeout=40)
         res["status_states"] = states

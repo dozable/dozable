@@ -106,6 +106,9 @@ capabilities:
         model_providers.xai.base_url: https://api.x.ai/v1
         model_providers.xai.env_key: XAI_API_KEY
         model_providers.xai.wire_api: chat
+        # /workspace is trusted at the first start, as Claude Code's and Codex's are (the VM is the boundary), so the
+        # session opens on the agent, not on its trust question.
+        'projects."/workspace".trust_level': trusted
     status: none
     resume:
     - resume

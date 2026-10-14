@@ -102,6 +102,12 @@ capabilities:
           apiKey: ${XAI_API_KEY}
           models:
           - grok-build-0.1
+    # /workspace is trusted at the first start, as Claude Code's and Codex's are (the VM is the boundary), so the
+    # session opens on the agent, not on its trust question.
+    - file: ~/.config/nanocoder/nanocoder-preferences.json
+      set:
+        trustedDirectories:
+        - /workspace
     status: none
     verify:
     - argv:

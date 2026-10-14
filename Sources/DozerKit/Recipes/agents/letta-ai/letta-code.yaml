@@ -115,6 +115,10 @@ capabilities:
       - -p
       - say ok
       expect: DOZ_FAKE_OK
+      screen:
+        # Its ready screen lists /login among its commands (Letta's own cloud, not needed here).
+        allow:
+        - /login +sign in with Letta
 - type: com.dozersandbox/auth@1
   config:
     methods:

@@ -163,6 +163,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
     public struct Launch: Codable, Sendable, Equatable {
         public var command: [String]
         public var noPromptsArgs: [String]
+        public var noPromptsEnv: [String: String]? = nil
         public var passthrough: [String]
         public var env: [String: String]
         /// The environment of its state folders (baked).
@@ -184,7 +185,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         enum CodingKeys: String, CodingKey {
             case command, passthrough, env, status, resume, verify, check, settings, session, service
             case noPromptsArgs = "no_prompts_args", stateEnv = "state_env", firstRun = "first_run", sessionEnv = "session_env",
-                 resumeCheck = "resume_check"
+                 resumeCheck = "resume_check", noPromptsEnv = "no_prompts_env"
         }
     }
 
@@ -532,8 +533,8 @@ extension RecipeDocument {
                                          pinned: AgentRecipe.Pin(version: args.version.default, integrity: i.integrity), bakeHosts: i.bakeHosts,
                                          requirements: i.requirements,
                                          extras: i.extras?.map { var e = $0; e.url = Self.toModel(e.url); e.path = Self.toModel(e.path); return e }),
-            launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env,
-                                       firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, service: l.service),
+            launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, noPromptsEnv: l.noPromptsEnv, passthrough: l.passthrough,
+                                       env: l.env, firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, service: l.service),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
             credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts, envAliases: $0.dozer.envAliases) },
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
@@ -583,7 +584,7 @@ extension RecipeDocument {
             extras: i.extras?.map { var e = $0; e.url = Self.toFile(e.url); e.path = Self.toFile(e.path); return e }))))
         let l = r.launch
         caps.append(RecipeCapability(type: T.launch, config: .launch(Launch(
-            command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
+            command: l.command, noPromptsArgs: l.noPromptsArgs, noPromptsEnv: l.noPromptsEnv, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
             firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
             verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings, service: l.service))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))

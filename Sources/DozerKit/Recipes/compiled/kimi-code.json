@@ -101,7 +101,15 @@
             "-p",
             "say ok"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "allow" : [
+              "Welcome to Kimi Code"
+            ],
+            "expect" : [
+              "context"
+            ]
+          }
         },
         "command" : [
           "kimi"
@@ -122,6 +130,14 @@
               "providers.xai.base_url" : "https://api.x.ai/v1",
               "providers.xai.type" : "openai",
               "telemetry" : false
+            }
+          },
+          {
+            "file" : "~/.kimi-code/workspace-trust/wd_workspace_c52ddf65534b",
+            "format" : "json",
+            "set" : {
+              "root" : "/workspace",
+              "trustedAt" : 1791936000000
             }
           }
         ],

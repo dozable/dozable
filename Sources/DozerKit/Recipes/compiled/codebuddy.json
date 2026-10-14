@@ -127,6 +127,14 @@
                 }
               ]
             }
+          },
+          {
+            "file" : "~/.codebuddy/settings.json",
+            "set" : {
+              "trustedDirectories" : [
+                "/workspace"
+              ]
+            }
           }
         ],
         "no_prompts_args" : [
