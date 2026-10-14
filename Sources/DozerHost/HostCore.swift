@@ -714,6 +714,11 @@ public actor HostCore {
         case .plan:
             guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
             return try JSONValue(encoding: plan(p))
+        case .plans:
+            guard let ps = r.planRequests, ps.count <= 128, ps.allSatisfy({ PlanRequest.purposes.contains($0.purpose) }) else {
+                throw HostError(.invalid, "plans: at most 128 plans, each with a purpose (new, create, up, init or try)")
+            }
+            return try JSONValue(encoding: plans(ps))
         case .bases:
             let s = store
             let check = preparedCheck

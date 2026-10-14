@@ -266,6 +266,18 @@ name: todo-app</pre></details>
     </div>
     <div class="qt-empty"><i data-i="search"></i><p>No agent matches “qwertyagent”.</p><button class="btn sm" type="button"><i data-i="x"></i>Clear search and filters</button><p class="muted">Missing an agent? <code>doz search NAME</code> says whether it is coming.</p></div>
   </div></div>
+  <p class="src" style="margin-top:8px">While the list is read (the modal is drawn at once): placeholder cards (<code>.qt-item.skeleton</code>, <code>.sk</code>) — never the empty state;
+    a failed read is said in the list (<code>.qt-error</code>, a compact bad callout with Retry):</p>
+  <div class="pair"><div class="scheme">
+    <div class="qt-results cards" aria-hidden="true" style="padding:0">
+      <div class="qt-item skeleton"><span class="sk sk-mark"></span><span class="tp"><span class="sk sk-line"></span><span class="sk sk-line short"></span></span></div>
+      <div class="qt-item skeleton"><span class="sk sk-mark"></span><span class="tp"><span class="sk sk-line"></span><span class="sk sk-line short"></span></span></div>
+      <div class="qt-item skeleton"><span class="sk sk-mark"></span><span class="tp"><span class="sk sk-line"></span><span class="sk sk-line short"></span></span></div>
+    </div>
+    <div class="qt-results cards" style="padding:0">
+      <div class="callout bad compact qt-error" role="alert"><i data-i="circle-x"></i><div class="c-body"><div class="c-title">The agents could not be read</div>HTTP 503</div><div class="c-acts"><button class="btn sm" type="button"><i data-i="refresh-cw"></i>Retry</button></div></div>
+    </div>
+  </div></div>
 </section>
 
 <section>

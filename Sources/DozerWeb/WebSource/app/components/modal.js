@@ -40,6 +40,7 @@ export function openWizardModal(v, fromPage) {
 }
 export function closeWizardModal() {
   if (!state.modal) return;
+  stopTryRead();
   if (state.modal === 'onboarding') wizardStopPolling();
   state.modal = null;
   $('wiz-modal').hidden = true;
@@ -53,6 +54,11 @@ export function closeWizardModal() {
   const heir = !usable(o) && k && k.sec && k.sec.isConnected && k.name
     ? [...k.sec.querySelectorAll('button, a[href], [tabindex]')].find((e) => usable(e) && accName(e) === k.name) : null;
   (usable(o) ? o : heir || $('main')).focus();
+}
+/// 617: the Quick try's list read in flight (`state.tr.reader`, an AbortController) is cancelled when the modal closes.
+function stopTryRead() {
+  const tr = state.tr;
+  if (tr && tr.reader) { tr.reader.abort(); tr.reader = null; }
 }
 function accName(e) { return (e.getAttribute('aria-label') || e.textContent || '').replace(/\s+/g, ' ').trim(); }
 export async function renderModal(first) {
@@ -98,6 +104,7 @@ function wizDirty() {
 export function wizardCloseRequest() {
   if (!state.modal) return;
   const leave = () => {
+    if (state.modal === 'try') stopTryRead();
     if (state.modal === 'new') state.nw = null; else if (state.modal === 'onboarding') state.wiz = null; else if (state.modal === 'try') state.tr = null;
     if (state.modalBack) history.back(); else location.replace(state.bgHash && !MODAL_VIEWS.has(state.bgHash.slice(2)) ? state.bgHash : '#/overview');
   };

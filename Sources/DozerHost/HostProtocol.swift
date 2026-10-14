@@ -143,12 +143,16 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 617 (RP-1): a sandbox's web-port forwards — listed, or one added (`portAdd`) or removed (`portRemove`); answered
     /// with `PortsAnswer`. Listeners live in the host, so this always needs it.
     case ports
+    /// 617 (owner: "try now … a blank modal with a considerable delay"): `plan` for many requests at once
+    /// (`planRequests`, ≤ 128) — the store's facts read ONCE (the image list alone costs ~0.6 s), answered with
+    /// `[CreatePlan]` in the same order. The Quick try's readiness. Read-only.
+    case plans
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -300,6 +304,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var removeExtra: Bool?
     /// 617: `plan` — what was chosen.
     public var planRequest: PlanRequest?
+    /// 617: `plans` — several at once.
+    public var planRequests: [PlanRequest]?
     /// 617: `copy`'s what and where.
     public var fileCopy: CopyRequest?
     /// 617: `attach` with no session named — open the image's own session when it is not running (`doz attach`).

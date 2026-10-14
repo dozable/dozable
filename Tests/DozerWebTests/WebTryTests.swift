@@ -30,6 +30,39 @@ final class WebTryTests: XCTestCase {
         XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/plan"), "the plan is a POST (CSRF)")
         XCTAssertEqual(WebExposure.kind(.plan), .change)
         XCTAssertEqual(WebExposure.kind(.tryCatalog), .read)
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/try/list"), .tryList)
+        XCTAssertNil(WebRoute.parse(method: .post, target: "/api/v1/try/list"))
+        XCTAssertEqual(WebExposure.kind(.tryList), .read)
+    }
+
+    /// 617 (owner: "a blank modal with a considerable delay"): the list alone is the recipes' — the same agents as the
+    /// whole catalog, no plan, nothing ready yet (the page draws its cards from it while the plans are read).
+    func testTheListAloneHasEveryAgentAndNoPlan() async throws {
+        let list = WebTryCatalog.list(secretEntry: true)
+        let whole = await WebTryCatalog.build(plan: { r in WebPlan(CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)) }, secretEntry: true)
+        XCTAssertEqual(list.agents.map(\.id), whole.agents.map(\.id))
+        XCTAssertEqual(list.coming.map(\.id), whole.coming.map(\.id))
+        XCTAssertTrue(list.agents.allSatisfy { $0.plan == nil && $0.card == nil && !$0.ready && $0.usableAccounts.isEmpty })
+        XCTAssertTrue(whole.agents.allSatisfy { $0.plan != nil })
+        let grok = try XCTUnwrap(list.agents.first { $0.id == "grok" })
+        XCTAssertEqual(grok.title, "Grok Build")
+        XCTAssertNotNil(grok.icon)
+        XCTAssertEqual(list.kinds.map(\.id), ["coding-agent", "ai-tool"], "the page's first draw names these two before the list arrives")
+        let json = String(decoding: try JSONEncoder().encode(list), as: UTF8.self)
+        XCTAssertFalse(json.contains("\"plan\":{"), "no plan in the list")
+    }
+
+    /// The whole catalog asks for every agent's plan in ONE call (the host's `plans`: one reading of the store).
+    func testTheWholeCatalogPlansEveryAgentInOneCall() async {
+        var calls: [[PlanRequest]] = []
+        let catalog = await WebTryCatalog.build(plans: { rs in
+            calls.append(rs)
+            return rs.map { r in r.create.image == "grok" ? nil : WebPlan(CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)) }
+        }, secretEntry: false)
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls.first?.count, WebTryCatalog.list(secretEntry: false).agents.count)
+        XCTAssertTrue(calls.first?.allSatisfy { $0.purpose == "try" } == true)
+        XCTAssertFalse(catalog.agents.contains { $0.id == "grok" }, "one that could not be planned is left out, as before")
     }
 
     func testTheCatalogComesFromThePlansAndTheRecipes() async throws {

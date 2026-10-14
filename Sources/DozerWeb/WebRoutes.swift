@@ -99,6 +99,7 @@ public enum WebRoute: Equatable, Sendable {
     // file picker for a Dockerfile (one at a time; the answer is a path and its folder).
     case bases                     // GET  /api/v1/bases
     case tryCatalog                // GET  /api/v1/try (617: the Quick try page's list)
+    case tryList                   // GET  /api/v1/try/list (617: the same list without the plans — the page draws at once)
     case plan                      // POST /api/v1/plan  ({purpose, name?, agent?, base?, isolated?} — 617)
     case dockerfileChoose          // POST /api/v1/dockerfile/choose  ({start?})
     // 599e — Access: each credential's choice and last confirmation (read, never starts a host); a live
@@ -210,6 +211,8 @@ public enum WebRoute: Equatable, Sendable {
             case "serve": return .serveStatus
             default: return nil
             }
+        case 2 where rest == ["try", "list"]:
+            return .tryList
         case 2 where rest == ["images", "tree"]:
             return .imageTree
         case 2 where rest == ["serve", "devices"]:

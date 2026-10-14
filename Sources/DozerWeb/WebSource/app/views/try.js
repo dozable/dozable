@@ -42,21 +42,83 @@ const ago = (age) => age === 'today' ? 'today' : age + ' ago';
 
 function savedView() { try { return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'cards'; } catch (_) { return 'cards'; } }
 
-/// The modal's view (the router passes the agent of `#/try/AGENT`).
+// 617 (owner: "try now button in the UI creates a blank modal with a considerable delay … this needs to be an async
+// step on the page which should load instantly"): the modal is drawn AT ONCE — the head, the search, the two sections,
+// the pills — with the list of the last open (kept for the page's life) or skeleton cards, and fills in by itself:
+// the list (`GET try/list`: from the recipes, milliseconds), then the plans (`GET try`: readiness — Ready, the key
+// card, the image — and what each can reach; one reading of the store for all of them). One read at a time
+// (`tr.reader`, an AbortController — closing the modal cancels it); a failure is said in the list, with Retry; while
+// it loads the list never says "nothing matches". `tr.stage`: loading (nothing yet) · list · full — `data-try-state`.
+let CACHE = null;
+/// Before the first list arrives: the two sections as tags.json names them (the list's own words replace them).
+const FIRST_KINDS = [{ id: 'coding-agent', title: 'Coding agents', meaning: '' }, { id: 'ai-tool', title: 'AI tools', meaning: '' }];
+const NOTHING_YET = { agents: [], coming: [], kinds: FIRST_KINDS, categories: [], secretEntry: false };
+
+/// The modal's view (the router passes the agent of `#/try/AGENT`). Never waits for the server.
 export async function viewTry() {
   const want = state.tryAgent && AGENT_ID.test(state.tryAgent) ? state.tryAgent : null;
   const old = state.tr;
-  if (!old || old.asked !== want) {
-    const catalog = await api('try');
-    const named = catalog.agents.find((a) => a.id === want) || catalog.coming.find((a) => a.id === want);
-    const kind = named && named.catalogKind ? named.catalogKind : old ? old.kind : 'coding-agent';
-    const first = named || catalog.agents.find((a) => a.catalogKind === kind && a.ready) || catalog.agents.find((a) => a.catalogKind === kind) || catalog.agents[0] || null;
-    // The search, the section, the pills, the view and the pane survive a re-read (a key saved, Check again).
-    state.tr = { asked: want, catalog, agent: first ? first.id : null, error: '', creating: false, kind,
-      q: old ? old.q : '', f: old ? old.f : new Set(), view: old ? old.view : savedView(), detail: old ? old.detail : !!want };
+  if (!old) {
+    state.tr = { asked: want, catalog: CACHE ? CACHE.catalog : NOTHING_YET, stage: CACHE ? CACHE.stage : 'loading', reader: null, loadError: '',
+      agent: null, error: '', creating: false, kind: 'coding-agent', q: '', f: new Set(), view: savedView(), detail: !!want };
+    choose(state.tr, want);
+    load(state.tr, true);
+  } else {
+    // The search, the section, the pills, the view and the pane survive (a key saved, Check again, #/try/AGENT).
+    if (old.asked !== want) { old.asked = want; choose(old, want); if (want) old.detail = true; }
+    if (old.stage !== 'full' && !old.reader) load(old, false);
   }
   return tryNode();
 }
+
+/// The agent shown: the one asked for (its section with it), else the one chosen if the list still has it, else the
+/// section's first ready one, else its first.
+function choose(tr, want) {
+  const c = tr.catalog;
+  const named = c.agents.find((a) => a.id === want) || c.coming.find((a) => a.id === want);
+  if (named && named.catalogKind) tr.kind = named.catalogKind;
+  if (named) { tr.agent = named.id; return; }
+  if (tr.agent && (c.agents.some((a) => a.id === tr.agent) || c.coming.some((a) => a.id === tr.agent))) return;
+  const first = c.agents.find((a) => a.catalogKind === tr.kind && a.ready) || c.agents.find((a) => a.catalogKind === tr.kind) || c.agents[0] || null;
+  tr.agent = first ? first.id : null;
+}
+
+/// Read the list (unless one is there), then the plans — drawn in place as each arrives. `fresh`: a new open, so
+/// the plans are read again even when the kept list has them (a key may have been added since).
+async function load(tr, fresh) {
+  if (tr.reader) return;
+  if (!fresh && tr.stage === 'full') return;
+  const ctl = new AbortController();
+  tr.reader = ctl;
+  tr.loadError = '';
+  const live = () => state.tr === tr && !ctl.signal.aborted;
+  try {
+    if (tr.stage === 'loading') {
+      const list = await api('try/list', { signal: ctl.signal });
+      if (!live()) return;
+      take(tr, list, 'list');
+    }
+    const whole = await api('try', { signal: ctl.signal });
+    if (!live()) return;
+    take(tr, whole, 'full');
+  } catch (e) {
+    if (ctl.signal.aborted || state.tr !== tr) return;
+    tr.loadError = e.message || String(e);
+    if (state.modal === 'try') paint({});
+  } finally {
+    if (tr.reader === ctl) tr.reader = null;
+  }
+}
+
+function take(tr, catalog, stage) {
+  CACHE = { catalog, stage };
+  tr.catalog = catalog;
+  tr.stage = stage;
+  choose(tr, tr.agent || tr.asked);
+  if (state.modal === 'try') paint({});
+}
+
+function retryLoad() { const tr = state.tr; if (tr) { tr.loadError = ''; paint({}); load(tr, true); } }
 
 /// Agents (and the coming ones) as the search sees them.
 function entries() {
@@ -121,7 +183,7 @@ function rerender() { if (state.modal === 'try') renderModal(false); }
 export function renderTryPrep() {
   const box = document.querySelector('[data-try-prep]');
   const a = current();
-  if (!box || !a || a.kind !== 'agent') return;
+  if (!box || !a || a.kind !== 'agent' || !a.plan) return;
   box.replaceChildren(...prepNodes(a));
 }
 
@@ -161,26 +223,45 @@ function resultItem(a) {
   return b;
 }
 
+/// While the list is read: placeholder cards (never "nothing matches"). A failed read: said here, with Retry.
+function skeletonNodes() {
+  return Array.from({ length: 9 }, () => h('div', { class: 'qt-item skeleton', 'aria-hidden': 'true', 'data-try-skeleton': '' },
+    h('span', { class: 'sk sk-mark' }), h('span', { class: 'tp' }, h('span', { class: 'sk sk-line' }), h('span', { class: 'sk sk-line short' }))));
+}
+
+function loadErrorNode() {
+  const tr = state.tr;
+  if (!tr.loadError) return null;
+  const retry = btn('Retry', retryLoad, { small: true, icon: 'refresh-cw' });
+  retry.dataset.tryRetry = '';
+  return callout('bad', { compact: true, cls: 'qt-error', attrs: { 'data-try-error': '' },
+    title: tr.stage === 'loading' ? 'The agents could not be read' : 'Whether each one is ready could not be read', body: tr.loadError, actions: [retry] });
+}
+
 function resultsNodes() {
-  const tr = state.tr, list = hits();
+  const tr = state.tr;
+  const err = loadErrorNode();
+  if (tr.stage === 'loading') return err ? [err] : skeletonNodes();
+  const list = hits();
   if (!list.length) {
     const s = suggest(tr.q, entries());
-    return [h('div', { class: 'qt-empty', 'data-try-empty': '' },
+    return [err, h('div', { class: 'qt-empty', 'data-try-empty': '' },
       icon('search'),
       h('p', null, 'Nothing here matches' + (tr.q.trim() ? ' “' + tr.q.trim() + '”' : '') + (tr.f.size ? ' with these filters' : '') + '.'),
       (() => { const o = otherKind(); return o && o.n ? h('p', null, h('button', { type: 'button', class: 'linkish', 'data-try-other-kind': o.kind.id,
         on: { click: () => switchKind(o.kind.id) } }, o.n + ' in ' + o.kind.title)) : null; })(),
       s ? h('p', null, 'Did you mean ', h('button', { type: 'button', class: 'linkish', on: { click: () => { tr.q = s.id; tr.f.clear(); paint({ keepSearch: false }); } } }, s.title), '?') : null,
       btn('Clear search and filters', () => { tr.q = ''; tr.f.clear(); paint({ keepSearch: false }); }, { small: true, icon: 'x' }),
-      h('p', { class: 'muted' }, 'Missing an agent? ', h('code', null, 'doz search NAME'), ' says whether it is coming.'))];
+      h('p', { class: 'muted' }, 'Missing an agent? ', h('code', null, 'doz search NAME'), ' says whether it is coming.'))].filter(Boolean);
   }
   if (!list.some((a) => a.id === tr.agent)) tr.agent = list[0].id;
-  return list.map(resultItem);
+  return [err, ...list.map(resultItem)].filter(Boolean);       // (replaceChildren writes a null as "null")
 }
 
 function countText() {
   const tr = state.tr;
   const word = tr.kind === 'ai-tool' ? 'tools' : 'agents';
+  if (tr.stage === 'loading') return tr.loadError ? '' : 'Reading the ' + word + '…';
   const all = entries().filter((e) => e.kind === 'agent' && inKind(e)).length;
   const list = hits(), agents = list.filter((e) => e.kind === 'agent').length;
   const base = !tr.q.trim() && !tr.f.size ? all + ' ' + word : agents + ' of ' + all + ' ' + word + (list.length > agents ? ' · ' + (list.length - agents) + ' coming' : '');
@@ -194,7 +275,7 @@ function kindNodes() {
   return (tr.catalog.kinds || []).map((k) => {
     const n = entries().filter((e) => e.kind === 'agent' && e.catalogKind === k.id).length;
     return h('button', { type: 'button', 'aria-pressed': String(tr.kind === k.id), 'data-try-kind': k.id, title: k.meaning,
-      on: { click: () => switchKind(k.id) } }, k.title, h('span', { class: 'n' }, String(n)));
+      on: { click: () => switchKind(k.id) } }, k.title, h('span', { class: 'n' }, tr.stage === 'loading' ? '' : String(n)));
   });
 }
 
@@ -245,6 +326,10 @@ function detailNodes() {
   const tr = state.tr, a = current();
   const back = btn('All agents', () => { tr.detail = false; paint({}); }, { small: true, quiet: true, icon: 'arrow-left' });
   back.classList.add('qt-back');
+  if (!a && tr.stage === 'loading') {
+    return [back, h('div', { class: 'qt-loading', 'aria-hidden': 'true', 'data-try-loading': '' },
+      h('span', { class: 'sk sk-mark lg' }), h('span', { class: 'sk sk-line' }), h('span', { class: 'sk sk-line' }), h('span', { class: 'sk sk-line short' }))];
+  }
   if (!a) return [back, h('div', { class: 'qt-empty' }, h('p', null, 'Nothing selected.'))];
   const head = h('div', { class: 'qt-head' }, mark(a.icon, 'lg'),
     h('div', null, h('h2', { 'data-try-title': '' }, a.title), h('div', { class: 'p' }, a.publisher + (a.kind === 'agent' ? ' · ' + (a.openSource ? 'open source' : 'closed source') : ''))));
@@ -268,12 +353,15 @@ function detailNodes() {
     h('dt', null, 'Base'), h('dd', null, a.base || '—'));
   const tryBtn = btn('Try ' + a.title + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
   tryBtn.dataset.tryOpen = '';
+  // The list alone (no plan yet): what it can reach and its command follow with the plans; Try waits for them.
+  const planning = (what) => h('p', { class: 'muted', 'data-try-planning': '' }, tr.loadError ? 'Not read: ' + tr.loadError : 'Reading ' + what + '…');
+  if (!a.plan) { tryBtn.disabled = true; tryBtn.title = 'Reading its plan…'; }
   return [back, head, facts,
     a.description ? h('p', { class: 'qt-desc', 'data-try-description': '' }, a.description) : null,
     standing,
     sect('Versions', versions),
-    sect('What it can reach', reachList(a.plan.reach)),
-    sect('The same, in a terminal', planCommand(a.plan)),
+    sect('What it can reach', a.plan ? reachList(a.plan.reach) : planning('what it can reach')),
+    sect('The same, in a terminal', a.plan ? planCommand(a.plan) : planning('its command')),
     h('div', { class: 'qt-foot' }, h('span', { class: 'qt-gap' }), h('span', { class: 'qt-note' }, 'Enter'), tryBtn)].filter(Boolean);   // (replaceChildren writes a null as "null")
 }
 
@@ -358,6 +446,7 @@ function modelNodes(plan) {
 function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 'key'); }
 
 async function openSetup(a) {
+  if (!a.plan) return;                                            // the list alone: its plan is still being read
   if (SETUP.d && SETUP.d.open) return;
   if (SETUP.d) { SETUP.d.remove(); SETUP.d = null; }      // closed, its (asynchronous) close event not yet run
   SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.source = null; SETUP.model = ''; SETUP.busy = false; SETUP.error = '';
@@ -496,7 +585,7 @@ async function recheck() {
   SETUP.error = '';
   try {
     const catalog = await api('try');
-    state.tr.catalog = catalog;
+    take(state.tr, catalog, 'full');
     const a = catalog.agents.find((x) => x.id === SETUP.a.id) || SETUP.a;
     SETUP.a = a;
     if (SETUP.source || SETUP.model) {
@@ -513,7 +602,7 @@ async function recheck() {
 }
 
 function refreshCatalog() {
-  api('try').then((catalog) => { if (state.tr) { state.tr.catalog = catalog; paint({}); } }).catch(() => { /* the list stays */ });
+  api('try').then((catalog) => { if (state.tr) take(state.tr, catalog, 'full'); }).catch(() => { /* the list stays */ });
 }
 
 function planFacts(a, p) {
@@ -578,6 +667,7 @@ function paint(opts) {
   if (opts.keepSearch === false) search.value = tr.q;
   root.querySelector('[data-try-detail]').replaceChildren(...detailNodes());
   root.dataset.detail = tr.detail ? '1' : '';
+  root.dataset.tryState = tr.stage;
   if (opts.focusItem) { const s = results.querySelector('[aria-selected="true"]'); if (s) { s.focus(); s.scrollIntoView({ block: 'nearest' }); } }
   if (current()) root.dataset.try = current().id;
 }
@@ -617,10 +707,10 @@ function tryNode() {
     h('div', null, h('h1', { id: 'wm-title' }, 'Quick try'),
       h('p', { class: 'sub' }, 'Pick an agent and try it in a fresh sandbox: its own folder, the network locked to its model, your key never inside. Nothing is prepared until you press Start.')),
     close);
-  if (!tr.catalog.agents.length && !tr.catalog.coming.length) {
+  if (tr.stage !== 'loading' && !tr.catalog.agents.length && !tr.catalog.coming.length) {
     return h('div', { class: 'wizard try qt-page' }, head, callout('info', { body: 'No agent this Dozer can try.' }));
   }
-  const root = h('div', { class: 'qt', 'data-qt': '', 'data-detail': tr.detail ? '1' : '' },
+  const root = h('div', { class: 'qt', 'data-qt': '', 'data-detail': tr.detail ? '1' : '', 'data-try-state': tr.stage },
     leftPane(),
     h('section', { class: 'qt-right', 'aria-live': 'polite', 'aria-label': 'The chosen agent', 'data-try-detail': '' }, ...detailNodes()));
   if (current()) root.dataset.try = current().id;

@@ -143,18 +143,28 @@ extension HostCore {
     }
 
     /// 617: the planner's facts from this host (or, with no host, this in-process reader) — then the plan.
-    func plan(_ r: PlanRequest) -> CreatePlan {
+    func plan(_ r: PlanRequest) -> CreatePlan { plans([r])[0] }
+
+    /// 617 (owner: Quick try "a blank modal with a considerable delay"): several plans on ONE reading of the store's
+    /// facts — the image list (`images()`: every image's readiness, ~0.6 s with ~50 images) was read again for each
+    /// of the ~45 agents the Quick try plans. Every plan is exactly what `plan` alone answers.
+    func plans(_ rs: [PlanRequest]) -> [CreatePlan] {
+        guard !rs.isEmpty else { return [] }
         let settings = DozerSettings.load()
         let file = accountStore.load()
-        let image = CreatePlanner.image(r, settings: settings)
         var labels: [String: String] = [:]
         for a in file.accounts where a.readsOnUse { labels[a.name] = a.source?.label }
-        let openai = AgentCredentials.codexFlow(image)
-        let facts = PlanFacts(settings: settings, accounts: file, taken: Set(managed.keys).union(store.sandboxNames()),
-                              images: (try? images()) ?? [], sourceLabels: labels, store: store,
-                              openaiDefault: openai ? effectiveOpenAIDefault(file) : file.openaiDefault,
-                              codexMac: openai && codexMacSignedIn())
-        return CreatePlanner.plan(r, facts: facts)
+        let taken = Set(managed.keys).union(store.sandboxNames())
+        let rows = (try? images()) ?? []
+        var codex: (openaiDefault: String?, signedIn: Bool)?        // read once, and only for a Codex plan
+        return rs.map { r in
+            let openai = AgentCredentials.codexFlow(CreatePlanner.image(r, settings: settings))
+            if openai, codex == nil { codex = (effectiveOpenAIDefault(file), codexMacSignedIn()) }
+            let facts = PlanFacts(settings: settings, accounts: file, taken: taken, images: rows, sourceLabels: labels, store: store,
+                                  openaiDefault: openai ? codex?.openaiDefault : file.openaiDefault,
+                                  codexMac: openai && codex?.signedIn == true)
+            return CreatePlanner.plan(r, facts: facts)
+        }
     }
 
     /// The source's last read, for `account ls|show` and the banner.

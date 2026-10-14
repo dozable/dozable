@@ -92,12 +92,36 @@ extension WebTryCatalog {
     /// The list from each agent's plan (`plan` answers it — the host's op, the same as the CLI's).
     public static func build(plan: (PlanRequest) async throws -> WebPlan, secretEntry: Bool,
                              currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = []) async -> WebTryCatalog {
+        await build(plans: { rs in var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out },
+                    secretEntry: secretEntry, currency: currency, accounts: accounts)
+    }
+
+    /// 617 (owner: "a blank modal with a considerable delay … should load instantly"): the list alone — what each agent
+    /// is, from its recipe and the currency file, no plan (`plan` nil, `ready` false). Milliseconds: the page draws its
+    /// cards from it while `build` (the plans: readiness, the key card, what it can reach) is read.
+    public static func list(secretEntry: Bool, currency: [String: AgentCurrency] = [:]) -> WebTryCatalog {
+        assemble(planned: nil, secretEntry: secretEntry, currency: currency, accounts: [])
+    }
+
+    /// The whole list, every agent's try planned on ONE reading of the store (`plans`).
+    public static func build(plans: ([PlanRequest]) async -> [WebPlan?], secretEntry: Bool,
+                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = []) async -> WebTryCatalog {
+        let recipes = recipeAgents()
+        let ps = await plans(recipes.map { WebPlanQuery(purpose: "try", agent: $0.id).request })
+        var planned: [String: WebPlan] = [:]
+        for (r, p) in zip(recipes, ps) { if let p { planned[r.id] = p } }
+        return assemble(planned: planned, secretEntry: secretEntry, currency: currency, accounts: accounts)
+    }
+
+    static func recipeAgents() -> [AgentRecipe] { AgentKind.allCases.filter { $0 != .none }.compactMap(\.recipe) }
+
+    /// planned nil: the list only. Else an agent with no plan is left out (it could not be planned).
+    static func assemble(planned: [String: WebPlan]?, secretEntry: Bool, currency: [String: AgentCurrency], accounts: [WebAccount]) -> WebTryCatalog {
         var agents: [Agent] = []
-        for kind in AgentKind.allCases where kind != .none {
-            guard let r = kind.recipe else { continue }
-            let q = WebPlanQuery(purpose: "try", agent: r.id)
-            guard let p = try? await plan(q.request) else { continue }
-            let keyProblem = p.problems.first { $0.code == "key" }
+        for r in recipeAgents() {
+            let p = planned?[r.id]
+            if planned != nil, p == nil { continue }
+            let keyProblem = p?.problems.first { $0.code == "key" }
             var card: Card?
             if keyProblem != nil, let c = TryCard.build(r, haveKey: nil) {
                 card = Card(title: c.title, options: c.options.map { Option(kind: $0.kind, label: $0.label, consequence: $0.consequence) },
@@ -116,7 +140,7 @@ extension WebTryCatalog {
             a.headless = r.hasTag("headless")
             a.gateway = r.gateways.contains { ["documented", "verified"].contains($0.level) }
             a.current = r.lifecycle?.isCurrent ?? true
-            a.ready = card == nil && !p.problems.contains { $0.code != "key" }
+            a.ready = p.map { card == nil && !$0.problems.contains { $0.code != "key" } } ?? false
             a.version = r.install.pinned.version.split(separator: "+").first.map(String.init)
             a.age = currency[r.id]?.ageDays.map(Self.age)
             a.description = r.description
@@ -125,7 +149,7 @@ extension WebTryCatalog {
             // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).
             a.usableAccounts = accounts.filter { w in
-                AccountKind(rawValue: w.kind).map { AgentCredentials.accepts(p.create?.image ?? r.id, $0, provider: w.provider) } ?? false
+                AccountKind(rawValue: w.kind).map { AgentCredentials.accepts(p?.create?.image ?? r.id, $0, provider: w.provider) } ?? false
             }.map { w in Agent.Usable(name: w.name, kind: w.kind, source: w.sourceLabel, isDefault: w.isDefault,
                                       modelSource: AccountKind(rawValue: w.kind).flatMap { AgentCredentials.source(of: $0, provider: w.provider) }) }
             agents.append(a)
@@ -156,5 +180,20 @@ extension HostWebData {
         var q = HostRequest(.plan)
         q.planRequest = r
         return WebPlan(try await query(q).0.decode(CreatePlan.self))
+    }
+
+    /// 617: many plans on one reading of the store (`plans`). A host of an earlier build does not know the op: then
+    /// one `plan` each, a few at a time (nil: that one could not be planned).
+    public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] {
+        var q = HostRequest(.plans)
+        q.planRequests = rs
+        if let all = try? await query(q).0.decode([CreatePlan].self), all.count == rs.count { return all.map(WebPlan.init) }
+        return await withTaskGroup(of: (Int, WebPlan?).self) { g in
+            var out = [WebPlan?](repeating: nil, count: rs.count), next = 0
+            func add() { let i = next; next += 1; g.addTask { (i, try? await self.plan(rs[i])) } }
+            while next < min(6, rs.count) { add() }
+            while let (i, p) = await g.next() { out[i] = p; if next < rs.count { add() } }
+            return out
+        }
     }
 }

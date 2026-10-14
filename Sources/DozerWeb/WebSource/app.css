@@ -1541,6 +1541,17 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .qt-empty { text-align: center; padding: var(--sp-7) var(--sp-4); color: var(--ink-2); display: grid; gap: var(--sp-3); justify-items: center; grid-column: 1 / -1; }
 .qt-empty p { margin: 0; }
 .qt-empty > .icon { width: 28px; height: 28px; }
+/* 617: while the list is read — placeholder cards and a placeholder pane (never "nothing matches"), and a failed read said in the list */
+.qt-item.skeleton { cursor: default; }
+.qt-item.skeleton:hover { border-color: var(--line); }
+.sk { display: block; background: var(--surface-2); border-radius: var(--r-sm); }
+.sk-mark { width: 34px; height: 34px; }
+.sk-mark.lg { width: 56px; height: 56px; }
+.sk-line { height: 10px; width: 80%; margin: 3px 0; }
+.sk-line.short { width: 50%; }
+.list .qt-item.skeleton .sk-mark { width: 22px; height: 22px; }
+.qt-loading { display: grid; gap: var(--sp-3); }
+.qt-error { grid-column: 1 / -1; }
 .linkish { border: 0; background: none; padding: 0; font: inherit; color: var(--focus); text-decoration: underline; cursor: pointer; }
 .qt-right { overflow: auto; padding: var(--sp-6); display: grid; gap: var(--sp-5); align-content: start; min-width: 0; }
 .qt-back { display: none; }

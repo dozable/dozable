@@ -1834,7 +1834,14 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   no markup parsed) and the pills' facts (`ready`, `openSource`, `headless`, `gateway`, `current`, `version`, `age`).
   `probes/617-*/stageE/browser-quick-try.mjs` (screenshots 10–16). `GET
   /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
-  `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). It makes the try with the
+  `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). **The modal draws at once**
+  (owner: "a blank modal with a considerable delay"; it waited ~25 s on `GET try`, one `plan` per agent, each re-reading
+  every image's readiness): `viewTry` never awaits — the last list (kept for the page's life) or skeleton cards, then
+  `GET /api/v1/try/list` (`WebTryCatalog.list`: the recipes alone, no plan, ms), then `GET try` (`plans`: a read-only
+  host op planning every agent on ONE reading of the store; an older host gets one `plan` each, six at a time) fills in
+  readiness; one read at a time (`tr.reader`, aborted on close), a failure said in the list with Retry, never "nothing
+  matches" while loading (`data-try-state` loading|list|full). `TryPlansTests`, `probes/617-*/stageE/browser-try-open-fast.mjs`
+  (its control against 16e91ea shows the delay). It makes the try with the
   ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
   provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
   the try bar (its message, Delete… · Keep — owner, 617.05: Sleep is the action bar's). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the

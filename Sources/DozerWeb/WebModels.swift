@@ -1161,7 +1161,8 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         public var providerTitle: String?
         /// The base it runs on by default (title, e.g. "Debian").
         public var base: String?
-        public var plan: WebPlan
+        /// nil in the list alone (`WebTryCatalog.list`): the plan comes with the whole list.
+        public var plan: WebPlan?
         public var card: Card?
         /// 617: its latest release as this Mac last saw it (`latest 1.3.3 · released 10 Oct 2026 (2 days ago) · active`).
         public var latest: String? = nil

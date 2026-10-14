@@ -82,11 +82,14 @@ public protocol DozerWebData: Sendable {
     func tools(_ name: String) async throws -> ToolsLayerReport
     /// 617: the host's read-only `plan` for a try or a new sandbox (in-process when no host runs).
     func plan(_ r: PlanRequest) async throws -> WebPlan
+    /// 617: many plans on one reading of the store (the Quick try's readiness); nil: that one could not be planned.
+    func plans(_ rs: [PlanRequest]) async -> [WebPlan?]
 }
 
 extension DozerWebData {
     public func tools(_ name: String) async throws -> ToolsLayerReport { throw HostError(.notImplemented, "tools") }
     public func plan(_ r: PlanRequest) async throws -> WebPlan { throw HostError(.notImplemented, "plan") }
+    public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func bases() async throws -> WebBases { throw HostError(.notImplemented, "bases") }
