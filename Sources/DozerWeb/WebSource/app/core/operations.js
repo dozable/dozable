@@ -41,14 +41,17 @@ export const TRANSITION_LABEL = { start: 'Booting…', wake: 'Waking…', resume
                            hibernate: 'Hibernating…', shutdown: 'Shutting down…', reset: 'Resetting…', rm: 'Removing…' };
 state.transitions = new Map();
 state.trGen = 0;
-export function beginTransition(name, action) {
+export function beginTransition(name, action, verbs) {
   if (!name || !TRANSITION_LABEL[action]) return;
   const have = state.transitions.get(name);
   if (have && have.action === action) return;
   state.trGen++;
-  state.transitions.set(name, { action, verbs: verbsFor(sandboxPhase(name)) });
+  // `verbs`: the buttons to keep showing when the page knows no phase yet (617: a try's page before its create returns).
+  state.transitions.set(name, { action, verbs: verbs || verbsFor(sandboxPhase(name)) });
   paintTransition(name);
 }
+/// 617: a transition this page began for an operation that never came (a try whose create failed) — ended, repainted.
+export function cancelTransition(name, action) { endTransition(name, action, true); }
 /// `repaint`: the action failed or was refused — show what is true again at once. After a success the
 /// refresh that follows repaints from the NEW state (repainting now would show the phase it just left).
 function endTransition(name, action, repaint = true) {

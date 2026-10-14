@@ -80,7 +80,9 @@ struct TryCommand: AsyncParsableCommand {
             // A family member picked from the list: by its major (its id alone would be the family's recommended one).
             c.agent = AgentRef.typed(recipe)
         }
-        let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices()), g)
+        // 617: the plan's command is the whole command — the try's own flags too (`doz try grok --rm --dry-run`).
+        let flags = (rm ? ["--rm"] : []) + (keep ? ["--keep"] : []) + (detach ? ["-d"] : [])
+        let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices(), tryFlags: flags.isEmpty ? nil : flags), g)
         if dryRun { printPlan(planned, g); return }
         if let p = planned.problems.first(where: { $0.code != "key" }) {
             throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)

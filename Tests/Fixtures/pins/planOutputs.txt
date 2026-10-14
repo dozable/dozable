@@ -148,3 +148,8 @@ reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 yaml: version: 1 | name: try-none | image: debian                  # when made | network: locked
 problem invalid: a try is of an agent — doz search lists them [fix: doz try AGENT]
+== try opencode --rm: command: doz try opencode --rm
+== try opencode --keep: command: doz try opencode --keep
+== try opencode -d: command: doz try opencode -d
+== try opencode --rm -d --bogus: command: doz try opencode --rm -d
+== new grok (try flags are a try's only): command: doz new --agent grok

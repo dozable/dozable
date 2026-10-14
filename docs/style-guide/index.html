@@ -381,7 +381,28 @@ name: todo-app</pre></details>
     (<code>.start-progress</code>, <code>components/start-progress.js</code>) — a bar for the whole build that never moves back (steps weighted by this Mac’s last build of the recipe,
     else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then tab zero, Console, when the VM powers on;
     then the agent’s tab once it has drawn its screen (switched to, or a dot). A cached image shows no bar. A failure keeps the area, with the error, the log, Start again and Dismiss.
-    The header’s pill says Preparing…, then Booting…. When the build ends its log stays, as the small build-log tab left of Console. What the agent was refused is the header’s “N denied” menu, never a banner.</p>
+    The header’s pill says Preparing…, then Booting…. When the build ends its log stays, as the small build-log tab left of Console. What the agent was refused is the header’s “N denied” menu, never a banner.
+    A try’s Start moves at once: the button says Starting… with a spinner in the click’s own frame, both modals close, and the try’s page draws its header and an
+    indeterminate “Preparing NAME” panel from the plan while the sandbox is made behind it. A create that fails says so there — “NAME was not made”, the reason, Back to setup
+    (the setup again, with the error) — never only a toast.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-row"><button class="btn primary" type="button" disabled aria-busy="true"><span class="mini-spin" aria-hidden="true"></span><span>Starting…</span></button></div>
+    <section class="terms sg-terms">
+      <div class="start-progress building" role="status" data-start-pending><div class="sp-box">
+        <h3>Preparing try-grok</h3>
+        <div class="sp-barbox"><progress class="sp-bar" max="1"></progress>
+          <div class="sp-stepline">Preparing · <span>0:00</span></div></div>
+        <ol class="sp-steps"></ol>
+      </div></div>
+    </section>
+    <section class="terms sg-terms">
+      <div class="start-progress" role="alert" data-start-failure><div class="sp-box">
+        <h3>try-grok was not made</h3>
+        <div class="sp-failed"><p>sandbox try-grok already exists</p>
+          <div class="sp-acts"><button class="btn primary sm" type="button"><i data-i="arrow-left"></i>Back to setup</button></div></div>
+      </div></div>
+    </section>
+  </div></div>
   <div class="pair"><div class="scheme">
     <section class="terms sg-terms">
       <div class="start-progress building" role="status"><div class="sp-box">
