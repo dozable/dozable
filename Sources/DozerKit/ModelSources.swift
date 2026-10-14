@@ -112,7 +112,7 @@ extension AgentRecipe {
     static func validateSelectionEnv(_ env: [String: String], keyEnv: [String]?, baseURL: Bool, recipe: AgentRecipe, _ bad: (String) -> SandboxError) throws {
         let safe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") && !s.contains("$(") && !s.contains("`") }
         for (k, v) in env {
-            guard k.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k), safe(v) else {
+            guard k.range(of: "^[A-Za-z_][A-Za-z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k), safe(v) else {
                 throw bad("models env \(k): a variable name that names no credential, and a plain value")
             }
             if !baseURL, v.contains("{base_url}") { throw bad("models native env \(k): no {base_url} (a native client has none)") }

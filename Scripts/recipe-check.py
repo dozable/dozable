@@ -25,7 +25,7 @@
 #               latest: every agent at its latest release.
 #   --selections a recipe with models@1 (it can be tried with several providers and gateways): steps 2–5 run once PER
 #               model source it is offered — each in a fresh try with that source's FAKE key (`doz try ID --provider|
-#               --gateway SOURCE`), `${{ dozer.model }}` in its check argv = that source's model, the request seen on
+#               --gateway SOURCE`), `${{ dozer.model }}` and `${{ dozer.base_url }}` in its check argv = that source's, the request seen on
 #               that source's host with that key, and the leak guard to another provider AND another gateway. all
 #               (default; also $RECIPE_SELECTIONS), default (its default source only), or a list. The build is once.
 import argparse, datetime, glob, json, os, pty, re, select, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
@@ -93,6 +93,7 @@ class Harness:
     def __init__(self, args):
         self.root = os.path.abspath(args.store)
         self.args = args
+        self.base_urls = {}          # (recipe, source) → the base URL of its selection (the plan's)
         self.store = os.path.join(self.root, "store")
         self.fake = os.path.join(self.root, "fake")
         self.bin = os.path.join(self.root, "bin")
@@ -204,6 +205,8 @@ class Harness:
         try:
             plan = json.loads(out[out.index("{"):])
             offered = [(o["id"], o["defaultModel"]) for o in (plan.get("model") or {}).get("offered") or []]
+            for o in (plan.get("model") or {}).get("offered") or []:
+                self.base_urls[(r.product, o["id"])] = o.get("baseURL") or ""
         except (ValueError, KeyError):
             offered = []
         if not offered:
@@ -338,7 +341,8 @@ class Harness:
         # 4. smoke — the check turn; `${{ dozer.model }}` is this selection's model
         def smoke():
             c = r.check
-            argv = [a.replace("${{ dozer.model }}", model or "") for a in c["argv"]]
+            base = self.base_urls.get((r.product, source), "")
+            argv = [a.replace("${{ dozer.model }}", model or "").replace("${{ dozer.base_url }}", base) for a in c["argv"]]
             n0 = len(self.requests())
             code, out = self.doz("exec", name, "--", *argv, timeout=int(c.get("timeout") or 240) + 30)
             res["smoke_output"] = out.strip()[-400:]

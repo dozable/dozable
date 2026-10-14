@@ -76,6 +76,8 @@ public struct PlanSource: Codable, Equatable, Sendable {
     public var accountKind: String
     /// Where such a key starts (`sk-or-`), when it is known — a hint only.
     public var keyHint: String?
+    /// The base URL its endpoint for the recipe's shape has (nil: the tool's own client).
+    public var baseURL: String? = nil
 }
 
 public struct PlanProblem: Codable, Equatable, Sendable {
@@ -284,7 +286,7 @@ public enum CreatePlanner {
                 let offered = r.offeredSources.compactMap { id -> PlanSource? in
                     guard let d = r.selection(source: id) else { return nil }
                     return PlanSource(id: id, title: ModelSources.title(id), gateway: ModelSources.isGateway(id), defaultModel: d.model,
-                                      accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint)
+                                      accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint, baseURL: d.baseURL)
                 }
                 planModel = PlanModel(source: source, title: ModelSources.title(source), gateway: ModelSources.isGateway(source), model: sel.model,
                                       shape: sel.shape, offered: offered)

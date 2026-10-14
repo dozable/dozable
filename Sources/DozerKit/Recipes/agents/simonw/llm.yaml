@@ -5,7 +5,7 @@ schema: 2
 kind: workload
 id: simonw/llm
 displayName: llm
-description: Simon Willison's command-line tool for prompting models, logging to SQLite, embeddings and tools; on an xAI API key.
+description: Simon Willison's command-line tool for prompting models, logging to SQLite, embeddings and tools; on an xAI or OpenAI key.
 author: Simon Willison
 sourceUrl: https://github.com/simonw/llm
 licenses:
@@ -23,15 +23,19 @@ capabilities:
   config:
     runtime:
       allow:
+      - api.openai.com:443
       - api.x.ai:443
     dozer:
       model:
         id: model:llm
-        title: Talk to xAI
-        summary: llm's model (the xAI API, with an API key) — needed for llm to answer.
-        phrase: talk to your AI model (xAI)
+        title: Talk to its model provider
+        summary: llm's model — the provider or gateway its key is for (OpenAI or xAI), with an API key. Needed for llm to answer.
+        phrase: talk to your AI model
         hosts:
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
         - host: api.x.ai
+          reason: xAI — when the sandbox's key is xAI's
       update: []
       excluded: []
 - type: com.docker.sandbox/credential@1
@@ -122,8 +126,6 @@ capabilities:
     check:
       argv:
       - llm
-      - '-m'
-      - grok-4-1-fast
       - say ok
       expect: DOZ_FAKE_OK
 - type: com.dozersandbox/auth@1
@@ -134,19 +136,36 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: llm talks to xAI through the llm-grok plugin (installed with it), which reads XAI_API_KEY; choose its model with -m grok-4-1-fast (or llm models default grok-4-1-fast). Other plugins and providers are not offered here yet.
+      note: 'llm talks to xAI through the llm-grok plugin (installed with it) and to OpenAI through its own; Dozer sets LLM_MODEL to the chosen model (grok-4-1-fast on xAI; or -m). Other plugins are not in the image.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'llm through OpenAI: doz try llm --provider openai (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
     entries:
     - gateway: openrouter
-      level: unknown
-      reason: not checked against llm
+      level: 'no'
+      reason: 'its plugin for OpenRouter is not installed in this image (llm install needs PyPI at run time)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
-      level: unknown
-      reason: not checked against llm
+      level: 'no'
+      reason: 'its plugin for Vercel AI Gateway is not installed in this image (llm install needs PyPI at run time)'
       checked: '2026-10-14'
+- type: com.dozersandbox/models@1
+  config:
+    default: xai
+    native:
+    - source: openai
+      env:
+        LLM_MODEL: '${{ dozer.model }}'
+    - source: xai
+      env:
+        LLM_MODEL: '${{ dozer.model }}'
 - type: com.dozersandbox/currency@1
   config:
     checked: '2026-10-14'
@@ -164,4 +183,4 @@ capabilities:
       - llm -m MODEL PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/llm)'
       checked: '2026-10-14'
-    terms: Your xAI API key — a key from console.x.ai. llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet.
+    terms: Your xAI or OpenAI API key (xAI by default). llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet.

@@ -18,13 +18,34 @@
           "model" : {
             "hosts" : [
               {
-                "host" : "api.x.ai"
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
               }
             ],
             "id" : "model:gptme",
-            "phrase" : "talk to your AI model (xAI)",
-            "summary" : "gptme's model (the xAI API, with an API key) — needed for gptme to answer.",
-            "title" : "Talk to xAI"
+            "phrase" : "talk to your AI model",
+            "summary" : "gptme's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for gptme to answer.",
+            "title" : "Talk to its model provider"
           },
           "update" : [
 
@@ -41,7 +62,12 @@
         },
         "runtime" : {
           "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
             "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443",
             "openaipublic.blob.core.windows.net:443"
           ]
         }
@@ -220,8 +246,58 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "gptme reads XAI_API_KEY and picks its xAI model by itself (or --model xai/MODEL). Its other providers and its ChatGPT/SuperGrok subscription sign-ins are not offered here yet.",
+            "note" : "Dozer sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.",
             "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "gptme through Anthropic: doz try gptme --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "gptme through OpenAI: doz try gptme --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "gptme through Google AI: doz try gptme --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "gptme through OpenRouter: doz try gptme --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication",
+            "kind" : "api-key",
+            "note" : "gptme through Vercel AI Gateway: doz try gptme --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
           }
         ]
       },
@@ -232,19 +308,85 @@
         "entries" : [
           {
             "checked" : "2026-10-14",
+            "endpoint" : "v1",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
             "gateway" : "openrouter",
-            "level" : "unknown",
-            "reason" : "not checked against gptme"
+            "how" : {
+              "env" : {
+                "MODEL" : "openrouter/${{ dozer.model }}"
+              }
+            },
+            "level" : "verified",
+            "shape" : "openai-chat"
           },
           {
             "checked" : "2026-10-14",
+            "endpoint" : "v1",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
             "gateway" : "vercel-ai-gateway",
-            "level" : "unknown",
-            "reason" : "not checked against gptme"
+            "how" : {
+              "env" : {
+                "MODEL" : "openrouter/${{ dozer.model }}"
+              }
+            },
+            "level" : "verified",
+            "shape" : "openai-chat"
           }
         ]
       },
       "type" : "com.dozersandbox/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "native" : [
+          {
+            "env" : {
+              "MODEL" : "anthropic/${{ dozer.model }}"
+            },
+            "source" : "anthropic"
+          },
+          {
+            "env" : {
+              "MODEL" : "openai/${{ dozer.model }}"
+            },
+            "source" : "openai"
+          },
+          {
+            "env" : {
+              "MODEL" : "xai/${{ dozer.model }}",
+              "TOOL_FORMAT" : "markdown"
+            },
+            "source" : "xai"
+          },
+          {
+            "env" : {
+              "MODEL" : "gemini/${{ dozer.model }}",
+              "TOOL_FORMAT" : "markdown"
+            },
+            "source" : "google"
+          },
+          {
+            "env" : {
+              "MODEL" : "openrouter/${{ dozer.model }}"
+            },
+            "source" : "openrouter"
+          }
+        ],
+        "shapes" : [
+          {
+            "env" : {
+              "MODEL" : "local/${{ dozer.model }}",
+              "OPENAI_BASE_URL" : "${{ dozer.base_url }}"
+            },
+            "key_env" : [
+              "OPENAI_API_KEY"
+            ],
+            "shape" : "openai-chat"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/models@1"
     },
     {
       "config" : {
@@ -271,12 +413,12 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your xAI API key — a key from console.x.ai. Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     }
   ],
-  "description" : "A terminal agent with shell, Python, file and browser tools, on an xAI API key.",
+  "description" : "A terminal agent with shell, Python, file and browser tools, on an Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway key.",
   "displayName" : "gptme",
   "id" : "gptme/gptme",
   "kind" : "workload",

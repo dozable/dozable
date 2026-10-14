@@ -5,7 +5,7 @@ schema: 2
 kind: workload
 id: gptme/gptme
 displayName: gptme
-description: A terminal agent with shell, Python, file and browser tools, on an xAI API key.
+description: A terminal agent with shell, Python, file and browser tools, on an Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway key.
 author: Erik Bjäreholt and contributors
 sourceUrl: https://github.com/gptme/gptme
 licenses:
@@ -23,16 +23,32 @@ capabilities:
   config:
     runtime:
       allow:
+      - api.anthropic.com:443
+      - api.openai.com:443
       - api.x.ai:443
+      - generativelanguage.googleapis.com:443
+      - openrouter.ai:443
+      - ai-gateway.vercel.sh:443
       - openaipublic.blob.core.windows.net:443
     dozer:
       model:
         id: model:gptme
-        title: Talk to xAI
-        summary: gptme's model (the xAI API, with an API key) — needed for gptme to answer.
-        phrase: talk to your AI model (xAI)
+        title: Talk to its model provider
+        summary: gptme's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for gptme to answer.
+        phrase: talk to your AI model
         hosts:
+        - host: api.anthropic.com
+          reason: Anthropic — when the sandbox's key is Anthropic's
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
         - host: api.x.ai
+          reason: xAI — when the sandbox's key is xAI's
+        - host: generativelanguage.googleapis.com
+          reason: Google AI — when the sandbox's key is Google AI's
+        - host: openrouter.ai
+          reason: OpenRouter — when the sandbox's key is OpenRouter's
+        - host: ai-gateway.vercel.sh
+          reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
       update: []
       excluded: []
       vendor:
@@ -175,19 +191,92 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: gptme reads XAI_API_KEY and picks its xAI model by itself (or --model xai/MODEL). Its other providers and its ChatGPT/SuperGrok subscription sign-ins are not offered here yet.
+      note: 'Dozer sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: anthropic
+      accounts:
+      - api-key
+      keys_page: https://console.anthropic.com/settings/keys
+      note: 'gptme through Anthropic: doz try gptme --provider anthropic (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'gptme through OpenAI: doz try gptme --provider openai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: google
+      accounts:
+      - key
+      keys_page: https://aistudio.google.com/apikey
+      note: 'gptme through Google AI: doz try gptme --provider google (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openrouter
+      accounts:
+      - key
+      keys_page: https://openrouter.ai/keys
+      note: 'gptme through OpenRouter: doz try gptme --gateway openrouter (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: vercel-ai-gateway
+      accounts:
+      - key
+      keys_page: https://vercel.com/docs/ai-gateway/authentication
+      note: 'gptme through Vercel AI Gateway: doz try gptme --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
     entries:
     - gateway: openrouter
-      level: unknown
-      reason: not checked against gptme
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          MODEL: 'openrouter/${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
-      level: unknown
-      reason: not checked against gptme
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          MODEL: 'openrouter/${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-14'
+- type: com.dozersandbox/models@1
+  config:
+    default: xai
+    native:
+    - source: anthropic
+      env:
+        MODEL: 'anthropic/${{ dozer.model }}'
+    - source: openai
+      env:
+        MODEL: 'openai/${{ dozer.model }}'
+    - source: xai
+      env:
+        MODEL: 'xai/${{ dozer.model }}'
+        TOOL_FORMAT: markdown
+    - source: google
+      env:
+        MODEL: 'gemini/${{ dozer.model }}'
+        TOOL_FORMAT: markdown
+    - source: openrouter
+      env:
+        MODEL: 'openrouter/${{ dozer.model }}'
+    shapes:
+    - shape: openai-chat
+      env:
+        MODEL: 'local/${{ dozer.model }}'
+        OPENAI_BASE_URL: '${{ dozer.base_url }}'
+      key_env:
+      - OPENAI_API_KEY
 - type: com.dozersandbox/currency@1
   config:
     checked: '2026-10-14'
@@ -205,4 +294,4 @@ capabilities:
       - gptme --non-interactive PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/gptme)'
       checked: '2026-10-14'
-    terms: Your xAI API key — a key from console.x.ai. Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet.

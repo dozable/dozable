@@ -342,10 +342,10 @@ extension RecipeDocument {
             for name in Self.templateNames(s) where !Self.allowedTemplate(name) { throw bad("\(s): ${{ \(name) }} is not a template a recipe has") }
             if Self.bareTemplate(s) { throw bad("\(s): templates are ${{ … }} (Kit's syntax), not {…}") }
         }
-        // 617 (models@1): the check turn may name the selection's model (`make recipe-check` fills it in) — nothing else.
+        // 617 (models@1): the check turn may name the selection's model and base URL (`make recipe-check` fills them in).
         for s in launch.check?.argv ?? [] {
-            for name in Self.templateNames(s) where name != "dozer.model" { throw bad("\(s): ${{ \(name) }} is not a template a check has") }
-            if Self.templateNames(s).contains("dozer.model"), models == nil { throw bad("\(s): ${{ dozer.model }} needs models@1") }
+            for name in Self.templateNames(s) where !["dozer.model", "dozer.base_url"].contains(name) { throw bad("\(s): ${{ \(name) }} is not a template a check has") }
+            if !Self.templateNames(s).isEmpty, models == nil { throw bad("\(s): ${{ dozer.model }} and ${{ dozer.base_url }} need models@1") }
         }
     }
 

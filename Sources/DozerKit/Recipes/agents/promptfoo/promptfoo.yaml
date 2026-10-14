@@ -5,7 +5,7 @@ schema: 2
 kind: workload
 id: promptfoo/promptfoo
 displayName: promptfoo
-description: A command line for evaluating and red-teaming LLM prompts and apps, on an xAI API key.
+description: A command line for evaluating and red-teaming LLM prompts and apps, on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.
 author: promptfoo
 sourceUrl: https://github.com/promptfoo/promptfoo
 licenses:
@@ -23,17 +23,30 @@ capabilities:
   config:
     runtime:
       allow:
+      - api.openai.com:443
       - api.x.ai:443
+      - generativelanguage.googleapis.com:443
+      - openrouter.ai:443
+      - ai-gateway.vercel.sh:443
       deny:
       - r.promptfoo.app:443
     dozer:
       model:
         id: model:promptfoo
-        title: Talk to xAI
-        summary: promptfoo's model (the xAI API, with an API key) — needed for promptfoo to answer.
-        phrase: talk to your AI model (xAI)
+        title: Talk to its model provider
+        summary: promptfoo's model — the provider or gateway its key is for (OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for promptfoo to answer.
+        phrase: talk to your AI model
         hosts:
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
         - host: api.x.ai
+          reason: xAI — when the sandbox's key is xAI's
+        - host: generativelanguage.googleapis.com
+          reason: Google AI — when the sandbox's key is Google AI's
+        - host: openrouter.ai
+          reason: OpenRouter — when the sandbox's key is OpenRouter's
+        - host: ai-gateway.vercel.sh
+          reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
       update: []
       excluded: []
       quiet:
@@ -89,7 +102,7 @@ capabilities:
       argv:
       - sh
       - '-c'
-      - 'printf ''prompts: ["say {{word}}"]\nproviders: ["xai:grok-4-1-fast"]\ntests: [{vars: {word: ok}}]\n'' > /tmp/pf-check.yaml && promptfoo eval -c /tmp/pf-check.yaml --no-cache -o /tmp/pf-check.json > /dev/null && grep -o DOZ_FAKE_OK /tmp/pf-check.json | head -n 1'
+      - 'printf ''prompts: ["say {{word}}"]\nproviders: ["openai:chat:${{ dozer.model }}"]\ntests: [{vars: {word: ok}}]\n'' > /tmp/pf-check.yaml && promptfoo eval -c /tmp/pf-check.yaml --no-cache -o /tmp/pf-check.json > /dev/null && grep -o DOZ_FAKE_OK /tmp/pf-check.json | head -n 1'
       expect: DOZ_FAKE_OK
       timeout: 300
 - type: com.dozersandbox/auth@1
@@ -100,19 +113,69 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'promptfoo''s xai provider reads XAI_API_KEY (providers: [xai:grok-4-1-fast] in a config). Its telemetry and update check are off. Its other providers are not offered here yet.'
+      note: 'promptfoo''s openai provider is pointed at the chosen source (OPENAI_BASE_URL, the key under OPENAI_API_KEY; providers: [openai:chat:$DOZ_MODEL] in a config); its xai provider reads XAI_API_KEY too. Its telemetry and update check are off.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'promptfoo through OpenAI: doz try promptfoo --provider openai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: google
+      accounts:
+      - key
+      keys_page: https://aistudio.google.com/apikey
+      note: 'promptfoo through Google AI: doz try promptfoo --provider google (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openrouter
+      accounts:
+      - key
+      keys_page: https://openrouter.ai/keys
+      note: 'promptfoo through OpenRouter: doz try promptfoo --gateway openrouter (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: vercel-ai-gateway
+      accounts:
+      - key
+      keys_page: https://vercel.com/docs/ai-gateway/authentication
+      note: 'promptfoo through Vercel AI Gateway: doz try promptfoo --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
     entries:
     - gateway: openrouter
-      level: unknown
-      reason: not checked against promptfoo
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          OPENAI_BASE_URL: '${{ dozer.gateway.endpoint.v1 }}'
+          DOZ_MODEL: '${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
-      level: unknown
-      reason: not checked against promptfoo
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          OPENAI_BASE_URL: '${{ dozer.gateway.endpoint.v1 }}'
+          DOZ_MODEL: '${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-14'
+- type: com.dozersandbox/models@1
+  config:
+    default: xai
+    shapes:
+    - shape: openai-chat
+      env:
+        OPENAI_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_MODEL: '${{ dozer.model }}'
+      key_env:
+      - OPENAI_API_KEY
 - type: com.dozersandbox/currency@1
   config:
     checked: '2026-10-14'
@@ -130,4 +193,4 @@ capabilities:
       - promptfoo eval -c CONFIG
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/promptfoo)'
       checked: '2026-10-14'
-    terms: Your xAI API key — a key from console.x.ai. promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet.

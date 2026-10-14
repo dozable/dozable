@@ -5,7 +5,7 @@ schema: 2
 kind: workload
 id: openclaw/openclaw
 displayName: OpenClaw
-description: A self-hosted personal agent with shell and file tools; its headless agent turn on a Gemini API key (its Gateway, TUI and chat channels later).
+description: A self-hosted personal agent with shell and file tools; its headless agent turn on a Google AI, Anthropic, OpenAI, xAI or OpenRouter key (its Gateway, TUI and chat channels later).
 author: OpenClaw
 sourceUrl: https://github.com/openclaw/openclaw
 licenses:
@@ -23,15 +23,28 @@ capabilities:
   config:
     runtime:
       allow:
+      - api.anthropic.com:443
+      - api.openai.com:443
+      - api.x.ai:443
       - generativelanguage.googleapis.com:443
+      - openrouter.ai:443
     dozer:
       model:
         id: model:openclaw
-        title: Talk to Google AI
-        summary: OpenClaw's model (the Gemini API, with an API key) — needed for OpenClaw to answer.
-        phrase: talk to your AI model (Google AI)
+        title: Talk to its model provider
+        summary: OpenClaw's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI or OpenRouter), with an API key. Needed for OpenClaw to answer.
+        phrase: talk to your AI model
         hosts:
+        - host: api.anthropic.com
+          reason: Anthropic — when the sandbox's key is Anthropic's
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
+        - host: api.x.ai
+          reason: xAI — when the sandbox's key is xAI's
         - host: generativelanguage.googleapis.com
+          reason: Google AI — when the sandbox's key is Google AI's
+        - host: openrouter.ai
+          reason: OpenRouter — when the sandbox's key is OpenRouter's
       update: []
       excluded: []
 - type: com.docker.sandbox/credential@1
@@ -87,7 +100,7 @@ capabilities:
       - say ok
       - --auth-env-only
       - --model
-      - google/gemini-2.5-flash
+      - '${{ dozer.model }}'
       - --timeout
       - '120'
       expect: DOZ_FAKE_OK
@@ -99,19 +112,77 @@ capabilities:
       accounts:
       - key
       keys_page: https://aistudio.google.com/apikey
-      note: OpenClaw reads GEMINI_API_KEY (openclaw agent exec --auth-env-only --model google/MODEL). Its other providers, its Gateway and its chat channels are not offered yet.
+      note: 'OpenClaw reads the chosen source''s key (openclaw agent exec --auth-env-only --model "$DOZ_MODEL", provider/model: google/gemini-2.5-flash by default). Its Gateway and its chat channels are not offered yet.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: anthropic
+      accounts:
+      - api-key
+      keys_page: https://console.anthropic.com/settings/keys
+      note: 'OpenClaw through Anthropic: doz try openclaw --provider anthropic (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'OpenClaw through OpenAI: doz try openclaw --provider openai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: xai
+      accounts:
+      - key
+      keys_page: https://console.x.ai/
+      note: 'OpenClaw through xAI: doz try openclaw --provider xai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openrouter
+      accounts:
+      - key
+      keys_page: https://openrouter.ai/keys
+      note: 'OpenClaw through OpenRouter: doz try openclaw --gateway openrouter (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
     entries:
     - gateway: openrouter
-      level: unknown
-      reason: OpenClaw names OpenRouter among its providers; how its key and base URL are set was not checked
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          DOZ_MODEL: '${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
-      level: unknown
-      reason: not checked against OpenClaw
+      level: 'no'
+      reason: 'its own client has no Vercel AI Gateway setting (an OpenAI-compatible base URL), so it is not offered'
       checked: '2026-10-14'
+- type: com.dozersandbox/models@1
+  config:
+    default: google
+    native:
+    - source: anthropic
+      env:
+        DOZ_MODEL: '${{ dozer.model }}'
+    - source: openai
+      env:
+        DOZ_MODEL: '${{ dozer.model }}'
+    - source: xai
+      env:
+        DOZ_MODEL: '${{ dozer.model }}'
+    - source: google
+      env:
+        DOZ_MODEL: '${{ dozer.model }}'
+    - source: openrouter
+      env:
+        DOZ_MODEL: '${{ dozer.model }}'
+    models:
+      anthropic: anthropic/claude-sonnet-4-6
+      openai: openai/gpt-5.4-mini
+      xai: xai/grok-4-1-fast
+      google: google/gemini-2.5-flash
+      openrouter: openrouter/openai/gpt-5.4-mini
 - type: com.dozersandbox/currency@1
   config:
     checked: '2026-10-14'
@@ -132,4 +203,4 @@ capabilities:
       - openclaw agent exec "PROMPT" --auth-env-only --model google/gemini-2.5-flash
       evidence: 'A2 VM proof: one agent exec turn answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/openclaw)'
       checked: '2026-10-14'
-    terms: Your Gemini API key — a key from aistudio.google.com. Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet.

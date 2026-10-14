@@ -3,19 +3,19 @@ perm model:openai locked=false hosts=chatgpt.com api.openai.com ab.chatgpt.com
 perm model:antigravity locked=false hosts=generativelanguage.googleapis.com
 perm model:google locked=false hosts=generativelanguage.googleapis.com
 perm model:xai locked=false hosts=api.x.ai[/v1/models,/v1/api-key,/v1/chat/completions,/v1/responses] api.x.ai[/$] x.ai
-perm model:fabric locked=false hosts=generativelanguage.googleapis.com
-perm model:openclaw locked=false hosts=generativelanguage.googleapis.com
-perm model:nanobot locked=false hosts=api.x.ai
-perm model:gptme locked=false hosts=api.x.ai
-perm model:llm locked=false hosts=api.x.ai
+perm model:fabric locked=false hosts=api.anthropic.com api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai
+perm model:openclaw locked=false hosts=api.anthropic.com api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai
+perm model:nanobot locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
+perm model:gptme locked=false hosts=api.anthropic.com api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
+perm model:llm locked=false hosts=api.openai.com api.x.ai
 perm model:shell-gpt locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
-perm model:zeroclaw locked=false hosts=api.x.ai
-perm model:aichat locked=false hosts=api.x.ai
+perm model:zeroclaw locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
+perm model:aichat locked=false hosts=api.anthropic.com api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai
 perm model:tgpt locked=false hosts=generativelanguage.googleapis.com
 perm model:opencode locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,/v1/responses]
-perm model:smolagents locked=false hosts=api.x.ai
+perm model:smolagents locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
 perm model:adk locked=false hosts=generativelanguage.googleapis.com
-perm model:promptfoo locked=false hosts=api.x.ai
+perm model:promptfoo locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
 perm model:clai locked=false hosts=api.x.ai
 perm model:copilot locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,/v1/responses]
 perm model:qwen-code locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions,/v1/responses]

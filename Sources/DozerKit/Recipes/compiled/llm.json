@@ -18,13 +18,18 @@
           "model" : {
             "hosts" : [
               {
-                "host" : "api.x.ai"
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "reason" : "xAI — when the sandbox's key is xAI's"
               }
             ],
             "id" : "model:llm",
-            "phrase" : "talk to your AI model (xAI)",
-            "summary" : "llm's model (the xAI API, with an API key) — needed for llm to answer.",
-            "title" : "Talk to xAI"
+            "phrase" : "talk to your AI model",
+            "summary" : "llm's model — the provider or gateway its key is for (OpenAI or xAI), with an API key. Needed for llm to answer.",
+            "title" : "Talk to its model provider"
           },
           "update" : [
 
@@ -32,6 +37,7 @@
         },
         "runtime" : {
           "allow" : [
+            "api.openai.com:443",
             "api.x.ai:443"
           ]
         }
@@ -122,8 +128,6 @@
         "check" : {
           "argv" : [
             "llm",
-            "-m",
-            "grok-4-1-fast",
             "say ok"
           ],
           "expect" : "DOZ_FAKE_OK"
@@ -173,8 +177,18 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "llm talks to xAI through the llm-grok plugin (installed with it), which reads XAI_API_KEY; choose its model with -m grok-4-1-fast (or llm models default grok-4-1-fast). Other plugins and providers are not offered here yet.",
+            "note" : "llm talks to xAI through the llm-grok plugin (installed with it) and to OpenAI through its own; Dozer sets LLM_MODEL to the chosen model (grok-4-1-fast on xAI; or -m). Other plugins are not in the image.",
             "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-14",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "llm through OpenAI: doz try llm --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
           }
         ]
       },
@@ -186,18 +200,38 @@
           {
             "checked" : "2026-10-14",
             "gateway" : "openrouter",
-            "level" : "unknown",
-            "reason" : "not checked against llm"
+            "level" : "no",
+            "reason" : "its plugin for OpenRouter is not installed in this image (llm install needs PyPI at run time)"
           },
           {
             "checked" : "2026-10-14",
             "gateway" : "vercel-ai-gateway",
-            "level" : "unknown",
-            "reason" : "not checked against llm"
+            "level" : "no",
+            "reason" : "its plugin for Vercel AI Gateway is not installed in this image (llm install needs PyPI at run time)"
           }
         ]
       },
       "type" : "com.dozersandbox/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "native" : [
+          {
+            "env" : {
+              "LLM_MODEL" : "${{ dozer.model }}"
+            },
+            "source" : "openai"
+          },
+          {
+            "env" : {
+              "LLM_MODEL" : "${{ dozer.model }}"
+            },
+            "source" : "xai"
+          }
+        ]
+      },
+      "type" : "com.dozersandbox/models@1"
     },
     {
       "config" : {
@@ -224,12 +258,12 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your xAI API key — a key from console.x.ai. llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet."
+        "terms" : "Your xAI or OpenAI API key (xAI by default). llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet."
       },
       "type" : "com.dozersandbox/directory@1"
     }
   ],
-  "description" : "Simon Willison's command-line tool for prompting models, logging to SQLite, embeddings and tools; on an xAI API key.",
+  "description" : "Simon Willison's command-line tool for prompting models, logging to SQLite, embeddings and tools; on an xAI or OpenAI key.",
   "displayName" : "llm",
   "id" : "simonw/llm",
   "kind" : "workload",
