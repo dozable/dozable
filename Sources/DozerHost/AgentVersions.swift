@@ -476,7 +476,7 @@ public enum AgentVersions {
             if purpose == .create, let p = usable(image, store: store, settings: settings).first(where: { $0.agent?.version == want }) { return p }
             guard let r = known(agent, version: want, store: store) else {
                 if version != nil {
-                    throw HostError(.unavailable, "\(agent)@\(want) is not known here yet and the npm registry could not be asked — try again online")
+                    throw HostError(.unavailable, "\(agent)@\(want) is not a release Dozer has checked — it checks one against the npm registry before anything is made")
                 }
                 throw HostError(.unavailable, "\(agent) \(want) (\(key)) is not known here yet and the npm registry could not be asked — "
                                 + "try again online, or set \(key) to a version this store has (\(pin.version) is built in)")

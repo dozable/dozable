@@ -166,7 +166,8 @@ extension HostCore {
                                   openaiDefault: openai ? codex?.openaiDefault : file.openaiDefault,
                                   codexMac: openai && codex?.signedIn == true)
             var p = CreatePlanner.plan(r, facts: facts)
-            if let e = versionProblems[i] { p.problems.append(PlanProblem(code: "version", text: e, fix: nil)) }
+            // First: it says why (the registry's own answer), before what follows from it.
+            if let e = versionProblems[i] { p.problems.insert(PlanProblem(code: "version", text: e, fix: nil), at: 0) }
             return p
         }
     }
