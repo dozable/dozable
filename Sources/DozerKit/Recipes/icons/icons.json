@@ -424,6 +424,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); Hugging Face's logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "T", "frame": "circle" }
+    },
+    {
+      "id": "stitch", "kind": "product", "name": "Google Stitch CLI",
+      "variants": { "mono": "stitch.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/google-labs-code/stitch-sdk",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); Google's and Stitch's logos are Google's trademarks and are not used — a neutral lettermark.",
+      "lettermark": { "text": "S", "frame": "circle" }
     }
   ]
 }

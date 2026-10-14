@@ -10,6 +10,7 @@ doz try fabric                                  # Fabric, on its default (a Goog
 doz try shell-gpt --provider openai             # ShellGPT on an OpenAI key
 doz try gptme --gateway openrouter --model anthropic/claude-sonnet-4.6
 doz try aichat --dry-run                        # the plan: its model, and every provider and gateway it can use
+doz try stitch                                  # Google Stitch's command line, on a Stitch API key
 doz search gemini                               # what Dozer runs with a Google key
 ```
 
@@ -206,3 +207,22 @@ A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.
 - **May reach:** those providers' APIs.
 - **Its REST API:** run `fabric --serve` in a session; the sandbox's **Open Fabric REST API** button (or `doz open NAME`)
   opens its API reference in your Mac's browser — see [Web ports](29-web-ports.md).
+
+## Google Stitch CLI
+
+Google Labs' command line for Stitch, Google's UI design service: it generates and edits app screens from a prompt (on
+Google's side, with Gemini) and prints their ids and links. It is a client of the hosted service — every command is a
+call to Stitch.
+
+- **Installed** from the npm registry, integrity-checked, on Node 22 (Debian-based bases).
+- **Key:** a **Stitch API key** (it starts `AQ.`), made in Stitch's settings at https://stitch.withgoogle.com —
+  `doz account add stitch --provider google-stitch --no-verify`. Not a Gemini or Google Cloud key (`AIza…`), which Stitch
+  refuses. Generation uses your Stitch account's quota.
+- **Not offered:** its Google sign-in (`stitch login`), which would keep Google tokens in the sandbox. The API key covers
+  projects, screens and design systems.
+- **Use:** the session is a shell. `stitch find projects --json`;
+  `stitch generate screen --new-project "My app" --prompt "A sign-up screen" --device MOBILE`. Every command takes
+  `--json` and `--dry-run`.
+- **May reach:** Stitch's API only (`stitch.googleapis.com`). It has no update check; its client header's telemetry is off.
+- **Preview:** `stitch serve -p PROJECT --port 3000` serves a project's screens; `doz ports add NAME 3000` opens them on
+  your Mac — see [Web ports](29-web-ports.md).

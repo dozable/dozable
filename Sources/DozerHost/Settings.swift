@@ -700,7 +700,7 @@ public struct DozerSettings: Sendable {
             return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not a file")
         }
         guard st.st_size <= off_t(TOML.maximumBytes), let data = FileManager.default.contents(atPath: url.path) else {
-            return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) could not be read (or is over 64 KiB)")
+            return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) could not be read (or is over \(TOML.maximumBytes / 1024) KiB)")
         }
         guard let text = String(data: data, encoding: .utf8) else {
             return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not UTF-8")

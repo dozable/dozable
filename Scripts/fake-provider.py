@@ -2,11 +2,13 @@
 # (617): xAI, the Gemini API, Anthropic's Messages API, OpenAI's Responses and Chat Completions APIs and the two gateways
 # (OpenRouter, Vercel AI Gateway: both shapes under their base URLs), each answering DOZ_FAKE_OK (an agent
 # that ends a task only through its `respond` tool, Dirac, gets that tool call with DOZ_FAKE_OK; one whose only tool is
-# `bash`, mini-swe-agent, gets a bash call that submits DOZ_FAKE_OK).
+# `bash`, mini-swe-agent, gets a bash call that submits DOZ_FAKE_OK) — and Google Stitch's MCP endpoint
+# (stitch.googleapis.com/mcp, JSON-RPC over HTTP: initialize, tools/list, tools/call list_projects → one project titled
+# DOZ_FAKE_OK; every other tool is refused, so nothing is ever generated).
 # Python 3.9+ stdlib only.
 # Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
 #        the leaf and starts it)
-# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY — the (fake)
+# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY, FAKE_STITCH_KEY — the (fake)
 #      real keys the proxy must swap in;
 #      anything else is answered in that provider's own refusal shape. FAKE_PORT — a fixed port (default: any).
 # A request whose body holds DOZ_SLOW is answered after 6 s (so a status poller, a `doz exec` every ~1 s, sees `working`).
@@ -17,6 +19,7 @@ import http.server, json, os, ssl, sys, time
 leaf, key, logf, portf = sys.argv[1:5]
 XAI, GOOGLE = os.environ.get("FAKE_XAI_KEY", ""), os.environ.get("FAKE_GOOGLE_KEY", "")
 ANTHROPIC, OPENAI = os.environ.get("FAKE_ANTHROPIC_KEY", ""), os.environ.get("FAKE_OPENAI_KEY", "")
+STITCH = os.environ.get("FAKE_STITCH_KEY", "")
 # 617 (models@1): the gateways — each serves the OpenAI shapes and Anthropic's Messages under its own base URLs, on its
 # own key (gateways.json: openrouter.ai/api/v1 + /api, ai-gateway.vercel.sh/v1 + /).
 GATEWAYS = {"openrouter.ai": ("/api", os.environ.get("FAKE_OPENROUTER_KEY", "")),
@@ -133,6 +136,37 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.chat(body)
         return self.send(200, {})
 
+    # ── Google Stitch (stitch.googleapis.com/mcp): MCP's JSON-RPC over HTTP, the key in x-goog-api-key ─────────
+    def stitch(self, auth, body):
+        p = self.path.split("?")[0]
+        if not STITCH or auth.get("x-goog-api-key") != STITCH:
+            return self.send(401, {"error": {"code": 401, "message": "API key not valid. Please pass a valid API key.", "status": "UNAUTHENTICATED"}})
+        if p != "/mcp":
+            return self.send(404, {"error": {"code": 404, "message": "not here", "status": "NOT_FOUND"}})
+        if self.command != "POST":                                          # no server-sent stream: the client then only POSTs
+            return self.send(405, {"error": {"code": 405, "message": "no stream here", "status": "METHOD_NOT_ALLOWED"}})
+        try:
+            req = json.loads(body or b"{}")
+        except ValueError:
+            return self.send(400, {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "parse error"}})
+        if isinstance(req, list) or "id" not in req:                        # a notification (or a batch of them)
+            return self.send(202, b"")
+        rid, method, params = req.get("id"), req.get("method"), req.get("params") or {}
+        if method == "initialize":
+            result = {"protocolVersion": params.get("protocolVersion", "2025-06-18"), "capabilities": {"tools": {}},
+                      "serverInfo": {"name": "doz-fake-stitch", "version": "0"}}
+        elif method == "tools/list":
+            result = {"tools": [{"name": "list_projects", "description": "Lists projects (the stand-in has one).",
+                                 "inputSchema": {"type": "object"}}]}
+        elif method == "tools/call" and params.get("name") == "list_projects":
+            projects = {"projects": [{"name": "projects/617", "title": ANSWER}]}
+            result = {"content": [{"type": "text", "text": json.dumps(projects)}], "structuredContent": projects}
+        elif method == "tools/call":
+            result = {"content": [{"type": "text", "text": "not served by the stand-in"}], "isError": True}
+        else:
+            return self.send(200, {"jsonrpc": "2.0", "id": rid, "error": {"code": -32601, "message": "method not found"}})
+        return self.send(200, {"jsonrpc": "2.0", "id": rid, "result": result})
+
     # ── a gateway (openrouter.ai, ai-gateway.vercel.sh): OpenAI shapes + Anthropic Messages, its own key ──────────
     def gateway(self, auth, body):
         prefix, k = GATEWAYS[self.host()]
@@ -166,6 +200,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if h == "api.anthropic.com": return self.anthropic(auth, b"")
         if h == "api.openai.com": return self.openai(auth, b"")
         if h in GATEWAYS: return self.gateway(auth, b"")
+        if h == "stitch.googleapis.com": return self.stitch(auth, b"")
         p = self.path.split("?")[0]
         if p == "/v1/models":
             if not self.xai_ok(auth): return self.send(400, {"code": "invalid-argument", "error": "Incorrect API key provided"})
@@ -191,6 +226,7 @@ class H(http.server.BaseHTTPRequestHandler):
         if h == "api.anthropic.com": return self.anthropic(auth, body)
         if h == "api.openai.com": return self.openai(auth, body)
         if h in GATEWAYS: return self.gateway(auth, body)
+        if h == "stitch.googleapis.com": return self.stitch(auth, body)
         p = self.path.split("?")[0]
         if p.endswith("/chat/completions"):
             # 617: the Gemini API's OpenAI-compatible endpoint (/v1beta/openai/…) on Google's host takes the Google key.

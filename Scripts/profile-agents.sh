@@ -8,7 +8,7 @@
 #   make profile-agents AGENTS="grok gemini"            record (keeps every determination already made)
 #   make profile-agents AGENTS="grok" DIFF=1            report new / missing endpoints only — never writes, never allows
 #
-# Keys are FAKE, always: xAI and Google go to Scripts/fake-provider.py (the provider seam, its own CA), which answers
+# Keys are FAKE, always: xAI, Google and Google Stitch go to Scripts/fake-provider.py (the provider seam, its own CA), which answers
 # text only (no tool calls); Anthropic and OpenAI get a fake key the real API refuses (401). A real-key run would see
 # more — the model's turns and what its tool calls fetch — and is never automated. Never the default store, the Mac's
 # logins, the keychain or a real op/aws: the scratch store is $PROFILE_WORK (default /tmp/doz-profile, kept between
@@ -26,9 +26,10 @@ mkdir -p "$W/xdg/dozer-sandbox" "$W/store" "$W/projects" "$W/codex-home" "$W/fak
 export XDG_CONFIG_HOME="$W/xdg" DO_NOT_TRACK=1 DOZ_TEST_NO_MAC_LOGIN=1 DOZ_TEST_CREDENTIALS=memory DOZ_TEST_GUARD=1
 export DOZ_TEST_CODEX_HOME="$W/codex-home" DOZ_TEST_PROFILE_NETWORK=1
 
-# The fake provider (xAI, Google) with its own CA.
+# The fake provider (xAI, Google, Google Stitch) with its own CA.
 F="$W/fake"
 FAKE_XAI_KEY=xai-FAKE-PROFILE-0123456789abcdef FAKE_GOOGLE_KEY=AIzaFAKEPROFILE-0123456789abcdef \
+  FAKE_STITCH_KEY=AQ.FAKEPROFILE-0123456789abcdefghij \
   sh "$REPO/Scripts/fake-provider-up.sh" "$F" >/dev/null || exit 1
 export DOZ_TEST_PROVIDER_UPSTREAM="127.0.0.1:$(cat "$F/port")" DOZ_TEST_PROVIDER_CA="$F/ca.pem"
 
@@ -37,6 +38,7 @@ doz() { "$DOZ" "$@"; }
 doz host stop >/dev/null 2>&1
 printf 'xai-FAKE-PROFILE-0123456789abcdef\n' | doz account add xai --provider xai --force >/dev/null 2>&1
 printf 'AIzaFAKEPROFILE-0123456789abcdef\n' | doz account add google --provider google --force >/dev/null 2>&1
+printf 'AQ.FAKEPROFILE-0123456789abcdefghij\n' | doz account add google-stitch --provider google-stitch --no-verify --force >/dev/null 2>&1
 printf 'sk-ant-api03-FAKEPROFILE-0123456789abcdefghijklmnopqrstuvwxyz\n' | doz account add anthropic --api-key --no-verify --force >/dev/null 2>&1
 printf 'sk-proj-FAKEPROFILE-0123456789abcdefghijklmnopqrstuvwxyz\n' | doz account add openai --openai-key --no-verify --force >/dev/null 2>&1
 doz account default anthropic >/dev/null 2>&1
@@ -77,6 +79,7 @@ for a in "$@"; do
     maki) bin=maki; task="maki -p -m xai/grok-build-0.1 --yolo \"\$T\"" ;;
     omp) bin=omp; task="omp -p --model xai/grok-build-0.1 \"\$T\"" ;;
     tau) bin=tau; task="tau -p --provider xai -m grok-build-0.1 \"\$T\"" ;;
+    stitch) bin=stitch; task="stitch find projects --limit 1 --json" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

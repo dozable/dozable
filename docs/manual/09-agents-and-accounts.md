@@ -139,7 +139,7 @@ A key typed or piped in lasts while the host runs; after the host stops, set it 
 
 ## Keys from 1Password, AWS or a command
 
-An API-key account (`--api-key`, `--openai-key`, `--provider xai|google|openrouter|vercel-ai-gateway`, `--custom`) can keep its key
+An API-key account (`--api-key`, `--openai-key`, `--provider xai|google|google-stitch|openrouter|vercel-ai-gateway`, `--custom`) can keep its key
 where you already keep it. Dozer stores only **where** it is — never the key, not even in the keychain —
 and the host reads it on your Mac when a sandbox needs it:
 

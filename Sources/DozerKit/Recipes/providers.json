@@ -55,6 +55,15 @@
       ]
     },
     {
+      "id": "google-stitch", "swap_only": true,
+      "title": "Google Stitch",
+      "hosts": ["stitch.googleapis.com"],
+      "inject": { "header": "x-goog-api-key", "format": "%s" },
+      "env": "STITCH_API_KEY",
+      "key_hint": "AQ.",
+      "error_shape": "google"
+    },
+    {
       "id": "openrouter",
       "title": "OpenRouter",
       "gateway": true,

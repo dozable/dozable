@@ -76,7 +76,7 @@ struct AccountAdd: AsyncParsableCommand {
     @Flag(name: .long, help: "An OpenAI API key (Codex).") var openaiKey = false
     @Flag(name: .long, help: ArgumentHelp("Sign in with ChatGPT in your browser (Codex on your ChatGPT plan) — Dozer's own sign-in, not your Mac's Codex login.",
                                           visibility: BuildFlavor.current.chatgptSignIn ? .default : .hidden)) var chatgpt = false
-    @Option(name: .long, help: "An API key of this provider or gateway: xai, google, openrouter, vercel-ai-gateway; anthropic = --api-key, openai = --openai-key.") var provider: String?
+    @Option(name: .long, help: "An API key of this provider or gateway: xai, google, google-stitch, openrouter, vercel-ai-gateway; anthropic = --api-key, openai = --openai-key.") var provider: String?
     @Option(name: .long, help: "With --claude-login: the CLAUDE_CONFIG_DIR it uses.") var configDir: String?
     @Option(name: .long, help: "With --api-key, --openai-key or --provider: adopt an existing keychain item (its service name) instead of storing a new one.") var keychain: String?
 
@@ -116,7 +116,7 @@ struct AccountAdd: AsyncParsableCommand {
             throw ValidationError("--provider: \(KeyProviders.all.map(\.id).joined(separator: ", ")) — not \(p)")
         }
         guard [setupToken, apiKey, claudeLogin, openaiKey, chatgpt, provider != nil, custom].filter({ $0 }).count == 1 else {
-            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key, --chatgpt, --provider xai|google|openrouter|vercel-ai-gateway or --custom")
+            throw ValidationError("which kind? --setup-token, --api-key, --claude-login, --openai-key, --chatgpt, --provider xai|google|google-stitch|openrouter|vercel-ai-gateway or --custom")
         }
         // 617 (§7): where the key is read from.
         if from != nil && fromCommand != nil { throw ValidationError("--from or --from-command, not both") }
@@ -296,7 +296,7 @@ struct AccountDefault: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Flag(name: .long, help: "Set the default of Codex sandboxes: mac (this Mac's own Codex login), an OpenAI account, or none.") var codex = false
-    @Option(name: .long, help: "With none: clear this key provider's default (xai, google, openrouter, vercel-ai-gateway). A key account sets its own provider's default.") var provider: String?
+    @Option(name: .long, help: "With none: clear this key provider's default (xai, google, google-stitch, openrouter, vercel-ai-gateway). A key account sets its own provider's default.") var provider: String?
     func run() async throws {
         var r = HostRequest(.accountDefault)
         r.account = name

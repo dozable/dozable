@@ -122,6 +122,7 @@ public enum AgentIcons {
         "maki.svg": PackageResources.maki_svg,
         "omp.svg": PackageResources.omp_svg,
         "tau.svg": PackageResources.tau_svg,
+        "stitch.svg": PackageResources.stitch_svg,
     ]
 
     public static let all: [IconEntry] = {

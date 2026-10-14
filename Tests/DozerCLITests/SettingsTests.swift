@@ -68,6 +68,9 @@ final class SettingsTests: XCTestCase {
             }
         }
         XCTAssertThrowsError(try TOML.parse(String(repeating: "#", count: TOML.maximumBytes + 1)))
+        // The file Dozer generates (every setting, each recipe agent's included) is read back with room to grow: at 44
+        // recipes it passed the old 64 KiB limit and a written setting made the whole file unreadable.
+        XCTAssertLessThan(DozerSettings.render(values: [:]).utf8.count * 2, TOML.maximumBytes)
     }
 
     func testRenderRoundTrips() throws {

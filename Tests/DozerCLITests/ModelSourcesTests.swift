@@ -31,9 +31,13 @@ final class ModelSourcesTests: XCTestCase {
     // MARK: the data
 
     func testEveryProviderAndGatewayIsAModelSourceWithEndpoints() throws {
-        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "google-stitch", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(ModelSources.ids.filter(ModelSources.isGateway), ["openrouter", "vercel-ai-gateway"])
-        for id in ModelSources.ids {
+        // Google Stitch's key is a service's (a hosted design tool), not a model's: it serves no shape, so no recipe is
+        // ever offered it as a model source — only the Stitch CLI, whose credential it is.
+        XCTAssertTrue(ModelSources.endpoints("google-stitch").isEmpty)
+        XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("google-stitch") }.map(\.id), ["stitch"])
+        for id in ModelSources.ids where id != "google-stitch" {
             XCTAssertFalse(ModelSources.endpoints(id).isEmpty, "\(id) serves a shape")
             for e in ModelSources.endpoints(id) {
                 let host = try XCTUnwrap(URL(string: e.baseUrl)?.host)

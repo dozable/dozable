@@ -24,11 +24,11 @@ final class AgentRecipeTests: XCTestCase {
     static func data(_ o: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: o) }
 
     func test_everyCompiledRecipeDecodesAndValidates() throws {
-        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt", "opencode", "smolagents", "adk", "promptfoo", "clai", "copilot", "qwen-code", "goose", "kilo", "mistral-vibe", "droid", "dirac", "kimi-code", "every-code", "cline", "openhands", "codebuddy", "letta-code", "docker-agent", "nanocoder", "mini-swe-agent", "open-interpreter", "crush", "mimo-code", "codewhale", "maki", "omp", "tau"])
+        XCTAssertEqual(AgentRecipes.all.map(\.id), ["claude-code", "pi", "codex", "antigravity", "gemini", "grok", "fabric", "openclaw", "nanobot", "gptme", "llm", "shell-gpt", "zeroclaw", "aichat", "tgpt", "opencode", "smolagents", "adk", "promptfoo", "clai", "copilot", "qwen-code", "goose", "kilo", "mistral-vibe", "droid", "dirac", "kimi-code", "every-code", "cline", "openhands", "codebuddy", "letta-code", "docker-agent", "nanocoder", "mini-swe-agent", "open-interpreter", "crush", "mimo-code", "codewhale", "maki", "omp", "tau", "stitch"])
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
-        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google", "google-stitch", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(Gateways.all.map(\.id), ["openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(AgentRecipes.all.filter(\.isBuiltin).map(\.id), ["claude-code", "pi", "codex"])
     }

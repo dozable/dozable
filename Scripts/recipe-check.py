@@ -40,6 +40,7 @@ KEYS = {
     "openai": "sk-proj-FAKERECIPECHECK-0123456789abcdefghijklmnopqrstuvwxyz",
     "openrouter": "sk-or-v1-FAKERECIPECHECK-0123456789abcdef0123456789abcdef",
     "vercel-ai-gateway": "vck_FAKERECIPECHECK0123456789abcdefghijklmnop",
+    "google-stitch": "AQ.FAKERECIPECHECK-0123456789abcdefghijklmnop",
 }
 ACCOUNT_ARGS = {
     "xai": ["--provider", "xai"],
@@ -48,6 +49,7 @@ ACCOUNT_ARGS = {
     "openai": ["--openai-key", "--no-verify"],
     "openrouter": ["--provider", "openrouter"],
     "vercel-ai-gateway": ["--provider", "vercel-ai-gateway", "--no-verify"],
+    "google-stitch": ["--provider", "google-stitch", "--no-verify"],
 }
 # A source's host and how a key rides on it — for the leak guard (a placeholder sent where it does not belong).
 LEAK_TARGET = {
@@ -57,6 +59,7 @@ LEAK_TARGET = {
     "anthropic": ("api.anthropic.com", "x-api-key: %s", "/v1/models"),
     "openrouter": ("openrouter.ai", "Authorization: Bearer %s", "/api/v1/models"),
     "vercel-ai-gateway": ("ai-gateway.vercel.sh", "Authorization: Bearer %s", "/v1/models"),
+    "google-stitch": ("stitch.googleapis.com", "x-goog-api-key: %s", "/mcp"),
 }
 GATEWAYS = ("openrouter", "vercel-ai-gateway")
 STATES_NEEDED = ("idle", "working", "done")
@@ -172,7 +175,8 @@ class Harness:
                 pass
             os.remove(pidf)
         fenv = dict(os.environ, FAKE_XAI_KEY=KEYS["xai"], FAKE_GOOGLE_KEY=KEYS["google"], FAKE_ANTHROPIC_KEY=KEYS["anthropic"],
-                    FAKE_OPENAI_KEY=KEYS["openai"], FAKE_OPENROUTER_KEY=KEYS["openrouter"], FAKE_VERCEL_KEY=KEYS["vercel-ai-gateway"])
+                    FAKE_OPENAI_KEY=KEYS["openai"], FAKE_OPENROUTER_KEY=KEYS["openrouter"], FAKE_VERCEL_KEY=KEYS["vercel-ai-gateway"],
+                    FAKE_STITCH_KEY=KEYS["google-stitch"])
         p = subprocess.run(["/bin/sh", os.path.join(REPO, "Scripts/fake-provider-up.sh"), self.fake], capture_output=True, text=True, env=fenv)
         if p.returncode != 0:
             raise SystemExit("recipe-check: the fake provider did not start: " + p.stderr)
