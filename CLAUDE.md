@@ -768,7 +768,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `createElementNS` (aria-hidden; the button keeps its text or aria-label); `btn()` takes `opts.icon`,
   else `iconFor(label)` (ONE map: the exact label, then its first word). The fallback `circle-dot` is a
   bug the probe fails on. Colour is CSS (`stroke: currentColor`). The CSP is unchanged (`img-src 'self'`
-  covers `<use>`). The compiler's external-URL rule ignores only the SVG namespace string.
+  covers `<use>`). **Icons refer to symbols IN the page** (617, the owner's "icons flicker every few seconds"):
+  Chrome resolves a `<use>` of ANOTHER document anew for each element made, so every re-render (the sandbox page's
+  bar, banners and tabs at each refresh) drew its icons blank for a frame. `dom/icons.js` fetches the sprite once,
+  copies its `<symbol>`s (only those) into a hidden `<svg id="doz-icon-symbols">` with ids `doz-icon-NAME` (prefixed:
+  no page id can shadow one), points the icons already drawn at them, and `icon()` uses `#doz-icon-NAME` from then
+  on (the sprite's URL until then, or if the fetch fails). `probes/617-*/stageE/browser-icon-flicker.mjs` measures
+  every icon a forced refresh adds one frame later (0 blank; the build before: 60 of 225). The compiler's external-URL rule ignores only the SVG namespace string.
 - **A template NEVER contains the state disk** (the agent's logins and history) — `saveAsImage` clones
   the root only; `RestorePointTests.test_aTemplateNeverHoldsTheStateDisk` and `make test-vm-templates`
   keep it. From a live sandbox, `template-create` and `duplicate` go through a TEMPORARY restore point
