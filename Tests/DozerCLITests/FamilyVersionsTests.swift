@@ -100,6 +100,21 @@ final class FamilyVersionsTests: XCTestCase {
         XCTAssertEqual(cfg.image, "opencode2")
     }
 
+    /// An existing sandbox never changes major: its stored image name is its recipe's (OpenCode 1 keeps `opencode`), and
+    /// a stored name is never resolved as a family — whatever the family recommends now.
+    func testAStoredImageNameKeepsItsMajor() throws {
+        XCTAssertEqual(ImageChoice.parse("opencode")?.agent.rawValue, "opencode")
+        let (spec, _) = try DozerImages.spec(name: "oc1", options: CreateOptions(image: "opencode", network: "locked"), store: store,
+                                             environment: ["XDG_CONFIG_HOME": root.path])
+        XCTAssertEqual(spec.imageSpec?.agent?.package, "opencode-ai", "OpenCode 1's package")
+        XCTAssertEqual(AgentRef.major(of: spec.imageSpec?.agent?.version ?? ""), 1)
+        let (spec2, _) = try DozerImages.spec(name: "oc2", options: CreateOptions(image: "opencode2", network: "locked"), store: store,
+                                              environment: ["XDG_CONFIG_HOME": root.path])
+        XCTAssertEqual(AgentRef.major(of: spec2.imageSpec?.agent?.version ?? ""), 2)
+        // What a person types does resolve: the family's name is its recommended major.
+        XCTAssertEqual(try AgentRef.resolve("opencode")?.recipe.id, AgentRef.recommended("opencode")?.id)
+    }
+
     func testTheGuideSaysWhichMajorAndHowToGetTheOther() throws {
         let o2 = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
         let g = try XCTUnwrap(SandboxGuide.make(o2, version: "2.0.28", source: nil, model: nil, account: "x", accountKind: .key,
