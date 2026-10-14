@@ -390,6 +390,14 @@
         ]
       },
       "type" : "com.dozersandbox/guide@1"
+    },
+    {
+      "config" : {
+        "family" : "opencode",
+        "major" : 2,
+        "title" : "OpenCode 2"
+      },
+      "type" : "com.dozersandbox/family@1"
     }
   ],
   "description" : "OpenCode's second major release — an open-source coding agent for the terminal with a background server and a web UI, here on an xAI API key.",

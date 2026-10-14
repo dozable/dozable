@@ -721,12 +721,15 @@ public actor HostCore {
             return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
         case .plan:
             guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
-            return try JSONValue(encoding: plan(p))
+            let e = await exactVersionProblem(p.create, mustCheck: false)
+            return try JSONValue(encoding: plans([p], versionProblems: e.map { [0: $0] } ?? [:])[0])
         case .plans:
             guard let ps = r.planRequests, ps.count <= 128, ps.allSatisfy({ PlanRequest.purposes.contains($0.purpose) }) else {
                 throw HostError(.invalid, "plans: at most 128 plans, each with a purpose (new, create, up, init or try)")
             }
-            return try JSONValue(encoding: plans(ps))
+            var problems: [Int: String] = [:]
+            for (i, p) in ps.enumerated() { if let e = await exactVersionProblem(p.create, mustCheck: false) { problems[i] = e } }
+            return try JSONValue(encoding: plans(ps, versionProblems: problems))
         case .bases:
             let s = store
             let check = preparedCheck
@@ -884,6 +887,8 @@ public actor HostCore {
         // gets the image already prepared. 594 W28: an out-of-date one is used as it is (the CLI and
         // the page say so) unless the user chose `rebuild` — then this doz's image is prepared first.
         await freshen(o.image, update: false)
+        // 618: an exact release asked for this sandbox (NAME@VERSION) is checked like a pin before anything is made.
+        if let e = await exactVersionProblem(o, mustCheck: true) { throw HostError(.invalid, e) }
         if o.rebuild == true, DozerImages.builtIn.contains(DozerImages.canonicalName(o.image))
             || DozerImages.isPreparable(DozerImages.canonicalName(o.image), store: store) {
             let img = DozerImages.canonicalName(o.image)
@@ -963,6 +968,10 @@ public actor HostCore {
             cfg.extraKeys = keys.filter { seen.insert($0).inserted }
         }
         if let model = o.model, let source = modelSource { cfg.models = [source: model] }     // 617 (models@1)
+        // 618: what it was made as — the family's (or tool's) name and the exact release (`opencode@2.0.29`).
+        if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }), r.family != nil || o.agentRef != nil {
+            cfg.agentRef = AgentRef.recorded(r, version: spec.imageSpec?.agent?.version)
+        }
         if o.trial == true {                           // 617 (D14)
             cfg.trial = true
             // The try's own folder — made now by Dozer, so its delete may offer to remove it (never one of yours).

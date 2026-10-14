@@ -124,6 +124,21 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// 617 (RP-1, owner: "web port forwarding first"): the web ports its program serves in the sandbox, each forwarded
     /// to the Mac's loopback while the sandbox runs (`com.dozersandbox/ports@1`). nil: none.
     public var ports: WebPorts? = nil
+    /// 618 (owner: "make sure there is a way the user can chose an earlier major version"): the major release line this
+    /// recipe is of a family whose majors are separate recipes (`com.dozersandbox/family@1`; AgentRef.swift). nil: none.
+    public var family: Family? = nil
+
+    public struct Family: Codable, Sendable, Equatable {
+        /// What a person types (`opencode`): the recommended major's recipe.
+        public var family: String
+        public var major: Int
+        /// "OpenCode 2".
+        public var title: String
+        /// The major the family's name means — exactly one per family, moved by Dozer only once the new major passes
+        /// `make recipe-check`. Labelled "recommended", never "latest".
+        public var recommended: Bool? = nil
+        public var isRecommended: Bool { recommended == true }
+    }
 
     /// The web ports a recipe declares, and how its web part is started when the session's program is not it.
     public struct WebPorts: Codable, Sendable, Equatable {
@@ -1067,6 +1082,29 @@ public enum AgentRecipes {
             }
             if let i = r.icon, AgentIcons.entry(i)?.kind != "product" {
                 throw SandboxError.invalidSpec("\(r.id): icon \(i) is not a product in Recipes/icons/icons.json")
+            }
+        }
+        try validateFamilies(recipes)
+    }
+
+    /// 618: a family's majors are separate recipes — one recommended, majors once each, the family's name the id of one
+    /// of them (the one that predates the family: its sandboxes, image, settings and statistics keep that id) and no other
+    /// recipe's id or alias, each member's pin of its own major, the same kind of tool.
+    static func validateFamilies(_ recipes: [AgentRecipe]) throws {
+        let byFamily = Dictionary(grouping: recipes.filter { $0.family != nil }, by: { $0.family!.family })
+        for (name, members) in byFamily {
+            func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("family \(name): \(s)") }
+            guard members.filter({ $0.family!.isRecommended }).count == 1 else { throw bad("exactly one recommended major") }
+            guard Set(members.map { $0.family!.major }).count == members.count else { throw bad("each major once") }
+            guard members.contains(where: { $0.id == name }) else { throw bad("its name is the id of one of its majors") }
+            for r in recipes where r.family?.family != name && (r.id == name || (r.aliases ?? []).contains(name)) {
+                throw bad("\(r.id) is outside the family but answers to its name")
+            }
+            for r in members {
+                guard AgentRef.major(of: r.install.pinned.version) == r.family!.major else {
+                    throw bad("\(r.id) pins \(r.install.pinned.version), not a release of major \(r.family!.major)")
+                }
+                guard r.catalogKind == members[0].catalogKind else { throw bad("its majors are one kind of tool") }
             }
         }
     }

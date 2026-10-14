@@ -50,6 +50,7 @@
           { "$ref": "#/$defs/modelsCapability" },
           { "$ref": "#/$defs/directoryCapability" },
           { "$ref": "#/$defs/portsCapability" },
+          { "$ref": "#/$defs/familyCapability" },
           { "$ref": "#/$defs/guideCapability" }
         ]
       },
@@ -64,7 +65,8 @@
         { "contains": { "$ref": "#/$defs/isCurrency" }, "minContains": 0, "maxContains": 1 },
         { "contains": { "$ref": "#/$defs/isModels" }, "minContains": 0, "maxContains": 1 },
         { "contains": { "$ref": "#/$defs/isPorts" }, "minContains": 0, "maxContains": 1 },
-        { "contains": { "$ref": "#/$defs/isGuide" }, "minContains": 0, "maxContains": 1 }
+        { "contains": { "$ref": "#/$defs/isGuide" }, "minContains": 0, "maxContains": 1 },
+        { "contains": { "$ref": "#/$defs/isFamily" }, "minContains": 0, "maxContains": 1 }
       ]
     }
   },
@@ -118,6 +120,7 @@
     },
     "isPorts": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/ports@1" } } },
     "isGuide": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/guide@1" } } },
+    "isFamily": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/family@1" } } },
 
     "networkPolicyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
@@ -488,6 +491,24 @@
               }
             },
             "serve": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } }
+          }
+        }
+      }
+    },
+
+    "familyCapability": {
+      "type": "object", "additionalProperties": false, "required": ["type", "config"],
+      "description": "com.dozersandbox/family@1 (618): one major release line of a tool whose majors are separate recipes. NAME is the family's recommended major, NAME@MAJOR a major, NAME@VERSION an exact release.",
+      "properties": {
+        "type": { "const": "com.dozersandbox/family@1" },
+        "description": { "type": "string" },
+        "config": {
+          "type": "object", "additionalProperties": false, "required": ["family", "major", "title"],
+          "properties": {
+            "family": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
+            "major": { "type": "integer", "minimum": 0, "maximum": 9999 },
+            "title": { "type": "string", "minLength": 1, "maxLength": 40 },
+            "recommended": { "type": "boolean", "description": "The major NAME means: exactly one per family, moved across majors only by Dozer once the new major passes make recipe-check." }
           }
         }
       }

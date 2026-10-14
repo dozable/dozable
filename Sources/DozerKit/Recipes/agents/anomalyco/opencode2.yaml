@@ -253,3 +253,8 @@ capabilities:
     - "Files it makes are in /workspace — your folder on the Mac."
     - "Restart its session from the session's ⋯ menu; End stops it."
     docs: https://opencode.ai/v2/docs/
+- type: com.dozersandbox/family@1
+  config:
+    family: opencode
+    major: 2
+    title: OpenCode 2

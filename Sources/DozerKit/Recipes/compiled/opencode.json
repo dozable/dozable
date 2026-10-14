@@ -313,6 +313,15 @@
         ]
       },
       "type" : "com.dozersandbox/guide@1"
+    },
+    {
+      "config" : {
+        "family" : "opencode",
+        "major" : 1,
+        "recommended" : true,
+        "title" : "OpenCode 1"
+      },
+      "type" : "com.dozersandbox/family@1"
     }
   ],
   "description" : "An open-source coding agent for the terminal that works with many model providers, here on an xAI API key.",

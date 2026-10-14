@@ -207,6 +207,12 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// openrouter, vercel-ai-gateway) — its account is then a key of that source — and the model (`--model`).
     public var modelSource: String?
     public var model: String?
+    /// 618: an exact release of the agent (`NAME@VERSION`) for this sandbox only, over its `images.<id>_version` setting —
+    /// checked like a pin before anything is made (the registry has it, its integrity, its major: AgentRef).
+    public var agentVersion: String?
+    /// 618: what the person typed, resolved (`opencode`, `opencode@1`, `opencode@2.0.28`) — recorded with the release it
+    /// made (`SandboxConfig.agentRef`); nil: the image named the agent.
+    public var agentRef: String?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
