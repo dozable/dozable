@@ -85,10 +85,10 @@ public struct TOMLError: Error, Equatable, Sendable, CustomStringConvertible {
 }
 
 public enum TOML {
-    /// A settings file is small; anything bigger is not one.
-    /// 617: the generated doz.toml lists every setting, each recipe agent adding its own — at 44 recipes it passed 64 KiB
-    /// and a file Dozer itself wrote could no longer be read. Room for many more.
-    public static let maximumBytes = 256 * 1024
+    /// Only a guard against reading something that is not a settings file (1 MiB, as doz serve's audit log). 617: the
+    /// generated doz.toml no longer grows with the recipes — an agent's settings are written only once one is set
+    /// (`DozerSettings.render`) — so it stays far below this.
+    public static let maximumBytes = 1 << 20
 
     /// Parse a document into its entries, in file order.
     public static func parse(_ text: String) throws -> [TOMLEntry] {

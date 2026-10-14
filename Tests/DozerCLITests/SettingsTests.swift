@@ -68,9 +68,56 @@ final class SettingsTests: XCTestCase {
             }
         }
         XCTAssertThrowsError(try TOML.parse(String(repeating: "#", count: TOML.maximumBytes + 1)))
-        // The file Dozer generates (every setting, each recipe agent's included) is read back with room to grow: at 44
-        // recipes it passed the old 64 KiB limit and a written setting made the whole file unreadable.
-        XCTAssertLessThan(DozerSettings.render(values: [:]).utf8.count * 2, TOML.maximumBytes)
+    }
+
+    /// 617 (owner: the generated file grew ~1.5 KiB per recipe and crossed the reader's limit at 44): with nothing set,
+    /// doz.toml lists Dozer's own settings and no recipe agent's — it does not grow with the recipes.
+    func testTheGeneratedFileDoesNotGrowWithTheRecipes() throws {
+        let before = DozerSettings.render(values: [:])
+        let data = try Data(contentsOf: Pins.packageRoot.appendingPathComponent("Tests/Fixtures/agents/echo-agent.json"))
+        try AgentRecipes.registerForTests(try AgentRecipes.decode(data))
+        defer { AgentRecipes.unregisterForTests("echo-agent") }
+        XCTAssertNotNil(DozerSettings.definition("echo-agent.permissions"), "the recipe's settings exist")
+        XCTAssertEqual(DozerSettings.render(values: [:]), before, "one more recipe adds nothing to the file")
+        XCTAssertLessThan(before.utf8.count, 32 * 1024)
+        XCTAssertLessThan(before.utf8.count * 20, TOML.maximumBytes)
+        for d in DozerSettings.schema where d.agent != nil {
+            if d.section == "images" {
+                XCTAssertFalse(before.contains("\n# \(d.name) = "), "\(d.key) is not listed")
+            } else {
+                XCTAssertFalse(before.contains("[\(d.section)]"), "no section of \(d.agent!)'s: \(d.section)")
+            }
+        }
+        XCTAssertTrue(before.contains("doz config show --agent ID"), "one line says where they are listed")
+    }
+
+    /// Setting an agent's value brings its whole block into the file; unsetting its last one takes the block out again.
+    /// A value set by hand for any agent is read as before.
+    func testAnAgentsBlockAppearsWhenOneOfItsSettingsIsSetAndGoesWithTheLast() throws {
+        let grok = DozerSettings.schema.filter { $0.agent == "grok" }.map(\.key)
+        XCTAssertEqual(Set(grok), ["images.grok_version", "grok.permissions", "images.grok.memory_mib", "images.grok.network"])
+        var s = DozerSettings.load(environment: env)
+        s = try s.writing("grok.permissions", .string("ask"))
+        var text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.contains("\n[grok]\n"))
+        XCTAssertTrue(text.contains("\npermissions = \"ask\"\n"))
+        XCTAssertTrue(text.contains("[images.grok]\n"), "its whole block: memory and network too")
+        XCTAssertTrue(text.contains("\n# grok_version = \"latest\"\n"))
+        XCTAssertFalse(text.contains("[gemini]"), "another agent stays out")
+        XCTAssertEqual(DozerSettings.load(environment: env).fileValues["grok.permissions"], .string("ask"))
+        s = try s.writing("images.grok.memory_mib", .int(4096))
+        s = try s.writing("grok.permissions", nil)
+        text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertTrue(text.contains("[images.grok]\n"), "still one value set")
+        XCTAssertTrue(text.contains("# permissions = \"skip\""))
+        _ = try s.writing("images.grok.memory_mib", nil)
+        text = try String(contentsOf: file, encoding: .utf8)
+        XCTAssertFalse(text.contains("[grok]") || text.contains("[images.grok]") || text.contains("grok_version"), "the last one unset: the block is gone")
+        // By hand: a value for an agent not in the file is read and applies.
+        try write("[gemini]\npermissions = \"ask\"\n")
+        let hand = DozerSettings.load(environment: env)
+        XCTAssertEqual(hand.fileValues["gemini.permissions"], .string("ask"))
+        XCTAssertTrue(hand.warnings.isEmpty)
     }
 
     func testRenderRoundTrips() throws {
@@ -103,7 +150,7 @@ final class SettingsTests: XCTestCase {
 
     func testTheTemplateListsEverySettingCommentedOutAndParses() throws {
         let text = DozerSettings.render(values: [:])
-        for d in DozerSettings.schema {
+        for d in DozerSettings.schema where d.agent == nil {
             XCTAssertTrue(text.contains("\n# \(d.name) = \(TOML.render(d.defaultValue))\n"), "\(d.key) is listed at its default")
         }
         XCTAssertTrue(text.contains("[images.claude-code]"))
@@ -293,7 +340,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(st.st_mode & 0o777, 0o700)
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\nboot_view_on_start = true\n"))
-        for d in DozerSettings.schema where d.key != "ui.boot_view_on_start" {
+        for d in DozerSettings.schema where d.key != "ui.boot_view_on_start" && d.agent == nil {
             XCTAssertTrue(text.contains("\n# \(d.name) = "), "\(d.key) still listed")
         }
         s = try s.writing("defaults.cpus", .int(8))

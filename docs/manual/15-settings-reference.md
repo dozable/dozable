@@ -2,8 +2,11 @@
 
 Every setting Dozer has is in one file, **`~/.config/dozer-sandbox/doz.toml`** (under
 `$XDG_CONFIG_HOME` when that is set). The file lists every setting with a description and its
-default, commented out; only the values you set are uncommented. The dashboard's **Settings** page
-shows and edits the same file.
+default, commented out; only the values you set are uncommented. An agent or tool's own settings
+(`images.ID_version`, `ID.permissions`, `[images.ID]`) are written there only once one of them is set —
+then its whole block, defaults commented as usual — so the file stays small however many agents Dozer
+offers; `doz config show --agent ID` lists them. The dashboard's **Settings** page shows and edits the
+same file.
 
 ## Where a value comes from
 
@@ -27,6 +30,7 @@ doz config get ui.theme                     # one value (--json adds its source 
 doz config set ui.theme dark                # write it to the file (checked against its type first)
 doz config unset ui.theme                   # back to the default (commented out again)
 doz config init                             # write the file with every setting commented out
+doz config show --agent grok                # one agent or tool's own settings
 doz config path                             # where the file is
 ```
 
@@ -264,7 +268,7 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
-| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose \| kilo \| mistral-vibe \| droid \| dirac \| kimi-code \| every-code \| cline \| openhands \| codebuddy \| letta-code \| docker-agent \| nanocoder \| mini-swe-agent \| open-interpreter \| crush \| mimo-code \| codewhale \| maki \| omp \| tau \| stitch | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
+| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex, or an agent or tool's id (doz try lists them) | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
 | `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
