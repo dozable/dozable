@@ -70,6 +70,9 @@ for a in "$@"; do
     docker-agent) bin=docker-agent; task="docker-agent run coder --model xai/grok-build-0.1 --exec --yolo \"\$T\"" ;;
     nanocoder) bin=nanocoder; task="nanocoder run \"\$T\" --trust-directory --plain" ;;
     mini-swe-agent) bin=mini; task="mini -m xai/grok-build-0.1 -t \"\$T\" --yolo --cost-limit 0 --exit-immediately" ;;
+    open-interpreter) bin=interpreter; task="interpreter exec --skip-git-repo-check --dangerously-bypass-approvals-and-sandbox \"\$T\"" ;;
+    crush) bin=crush; task="crush run -q -m xai/grok-build-0.1 \"\$T\"" ;;
+    mimo-code) bin=mimo; task="mimo run -m xai/grok-build-0.1 --dangerously-skip-permissions \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

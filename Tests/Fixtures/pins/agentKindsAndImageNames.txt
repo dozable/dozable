@@ -35,6 +35,9 @@ kind letta-code Letta Code
 kind docker-agent Docker Agent
 kind nanocoder Nanocoder
 kind mini-swe-agent mini-swe-agent
+kind open-interpreter Open Interpreter
+kind crush Crush
+kind mimo-code MiMo Code
 parse lab → alpine none lab Alpine · none base-name lab-sandbox
 parse claude-code → node claude-code claude-code Node.js · Claude Code base-name claude-sandbox
 parse pi → node pi pi Node.js · pi base-name pi-sandbox
@@ -73,6 +76,9 @@ parse letta-code → node letta-code letta-code Node.js · Letta Code base-name 
 parse node-docker-agent → node docker-agent node-docker-agent Node.js · Docker Agent base-name node-docker-agent-sandbox
 parse nanocoder → node nanocoder nanocoder Node.js · Nanocoder base-name nanocoder-sandbox
 parse node-mini-swe-agent → node mini-swe-agent node-mini-swe-agent Node.js · mini-swe-agent base-name node-mini-sandbox
+parse node-open-interpreter → node open-interpreter node-open-interpreter Node.js · Open Interpreter base-name node-interpreter-sandbox
+parse node-crush → node crush node-crush Node.js · Crush base-name node-crush-sandbox
+parse node-mimo-code → node mimo-code node-mimo-code Node.js · MiMo Code base-name node-mimo-sandbox
 parse python-claude-code → python claude-code python-claude-code Python · Claude Code base-name python-claude-sandbox
 parse python-pi → python pi python-pi Python · pi base-name python-pi-sandbox
 parse python → python none python Python · none base-name python-sandbox
@@ -110,6 +116,9 @@ parse python-letta-code → python letta-code python-letta-code Python · Letta 
 parse python-docker-agent → python docker-agent python-docker-agent Python · Docker Agent base-name python-docker-agent-sandbox
 parse python-nanocoder → python nanocoder python-nanocoder Python · Nanocoder base-name python-nanocoder-sandbox
 parse python-mini-swe-agent → python mini-swe-agent python-mini-swe-agent Python · mini-swe-agent base-name python-mini-sandbox
+parse python-open-interpreter → python open-interpreter python-open-interpreter Python · Open Interpreter base-name python-interpreter-sandbox
+parse python-crush → python crush python-crush Python · Crush base-name python-crush-sandbox
+parse python-mimo-code → python mimo-code python-mimo-code Python · MiMo Code base-name python-mimo-sandbox
 parse go-claude-code → go claude-code go-claude-code Go · Claude Code base-name go-claude-sandbox
 parse go-pi → go pi go-pi Go · pi base-name go-pi-sandbox
 parse go → go none go Go · none base-name go-sandbox
@@ -147,6 +156,9 @@ parse go-letta-code → go letta-code go-letta-code Go · Letta Code base-name g
 parse go-docker-agent → go docker-agent go-docker-agent Go · Docker Agent base-name go-docker-agent-sandbox
 parse go-nanocoder → go nanocoder go-nanocoder Go · Nanocoder base-name go-nanocoder-sandbox
 parse go-mini-swe-agent → go mini-swe-agent go-mini-swe-agent Go · mini-swe-agent base-name go-mini-sandbox
+parse go-open-interpreter → go open-interpreter go-open-interpreter Go · Open Interpreter base-name go-interpreter-sandbox
+parse go-crush → go crush go-crush Go · Crush base-name go-crush-sandbox
+parse go-mimo-code → go mimo-code go-mimo-code Go · MiMo Code base-name go-mimo-sandbox
 parse rust-claude-code → rust claude-code rust-claude-code Rust · Claude Code base-name rust-claude-sandbox
 parse rust-pi → rust pi rust-pi Rust · pi base-name rust-pi-sandbox
 parse rust → rust none rust Rust · none base-name rust-sandbox
@@ -184,6 +196,9 @@ parse rust-letta-code → rust letta-code rust-letta-code Rust · Letta Code bas
 parse rust-docker-agent → rust docker-agent rust-docker-agent Rust · Docker Agent base-name rust-docker-agent-sandbox
 parse rust-nanocoder → rust nanocoder rust-nanocoder Rust · Nanocoder base-name rust-nanocoder-sandbox
 parse rust-mini-swe-agent → rust mini-swe-agent rust-mini-swe-agent Rust · mini-swe-agent base-name rust-mini-sandbox
+parse rust-open-interpreter → rust open-interpreter rust-open-interpreter Rust · Open Interpreter base-name rust-interpreter-sandbox
+parse rust-crush → rust crush rust-crush Rust · Crush base-name rust-crush-sandbox
+parse rust-mimo-code → rust mimo-code rust-mimo-code Rust · MiMo Code base-name rust-mimo-sandbox
 parse java-claude-code → java claude-code java-claude-code Java · Claude Code base-name java-claude-sandbox
 parse java-pi → java pi java-pi Java · pi base-name java-pi-sandbox
 parse java → java none java Java · none base-name java-sandbox
@@ -221,6 +236,9 @@ parse java-letta-code → java letta-code java-letta-code Java · Letta Code bas
 parse java-docker-agent → java docker-agent java-docker-agent Java · Docker Agent base-name java-docker-agent-sandbox
 parse java-nanocoder → java nanocoder java-nanocoder Java · Nanocoder base-name java-nanocoder-sandbox
 parse java-mini-swe-agent → java mini-swe-agent java-mini-swe-agent Java · mini-swe-agent base-name java-mini-sandbox
+parse java-open-interpreter → java open-interpreter java-open-interpreter Java · Open Interpreter base-name java-interpreter-sandbox
+parse java-crush → java crush java-crush Java · Crush base-name java-crush-sandbox
+parse java-mimo-code → java mimo-code java-mimo-code Java · MiMo Code base-name java-mimo-sandbox
 parse ruby-claude-code → ruby claude-code ruby-claude-code Ruby · Claude Code base-name ruby-claude-sandbox
 parse ruby-pi → ruby pi ruby-pi Ruby · pi base-name ruby-pi-sandbox
 parse ruby → ruby none ruby Ruby · none base-name ruby-sandbox
@@ -258,6 +276,9 @@ parse ruby-letta-code → ruby letta-code ruby-letta-code Ruby · Letta Code bas
 parse ruby-docker-agent → ruby docker-agent ruby-docker-agent Ruby · Docker Agent base-name ruby-docker-agent-sandbox
 parse ruby-nanocoder → ruby nanocoder ruby-nanocoder Ruby · Nanocoder base-name ruby-nanocoder-sandbox
 parse ruby-mini-swe-agent → ruby mini-swe-agent ruby-mini-swe-agent Ruby · mini-swe-agent base-name ruby-mini-sandbox
+parse ruby-open-interpreter → ruby open-interpreter ruby-open-interpreter Ruby · Open Interpreter base-name ruby-interpreter-sandbox
+parse ruby-crush → ruby crush ruby-crush Ruby · Crush base-name ruby-crush-sandbox
+parse ruby-mimo-code → ruby mimo-code ruby-mimo-code Ruby · MiMo Code base-name ruby-mimo-sandbox
 parse dotnet-claude-code → dotnet claude-code dotnet-claude-code .NET · Claude Code base-name dotnet-claude-sandbox
 parse dotnet-pi → dotnet pi dotnet-pi .NET · pi base-name dotnet-pi-sandbox
 parse dotnet → dotnet none dotnet .NET · none base-name dotnet-sandbox
@@ -295,6 +316,9 @@ parse dotnet-letta-code → dotnet letta-code dotnet-letta-code .NET · Letta Co
 parse dotnet-docker-agent → dotnet docker-agent dotnet-docker-agent .NET · Docker Agent base-name dotnet-docker-agent-sandbox
 parse dotnet-nanocoder → dotnet nanocoder dotnet-nanocoder .NET · Nanocoder base-name dotnet-nanocoder-sandbox
 parse dotnet-mini-swe-agent → dotnet mini-swe-agent dotnet-mini-swe-agent .NET · mini-swe-agent base-name dotnet-mini-sandbox
+parse dotnet-open-interpreter → dotnet open-interpreter dotnet-open-interpreter .NET · Open Interpreter base-name dotnet-interpreter-sandbox
+parse dotnet-crush → dotnet crush dotnet-crush .NET · Crush base-name dotnet-crush-sandbox
+parse dotnet-mimo-code → dotnet mimo-code dotnet-mimo-code .NET · MiMo Code base-name dotnet-mimo-sandbox
 parse debian-claude-code → debian claude-code debian-claude-code Debian · Claude Code base-name debian-claude-sandbox
 parse debian-pi → debian pi debian-pi Debian · pi base-name debian-pi-sandbox
 parse debian → debian none debian Debian · none base-name debian-sandbox
@@ -332,6 +356,9 @@ parse debian-letta-code → debian letta-code debian-letta-code Debian · Letta 
 parse docker-agent → debian docker-agent docker-agent Debian · Docker Agent base-name docker-agent-sandbox
 parse debian-nanocoder → debian nanocoder debian-nanocoder Debian · Nanocoder base-name debian-nanocoder-sandbox
 parse mini-swe-agent → debian mini-swe-agent mini-swe-agent Debian · mini-swe-agent base-name mini-sandbox
+parse open-interpreter → debian open-interpreter open-interpreter Debian · Open Interpreter base-name interpreter-sandbox
+parse crush → debian crush crush Debian · Crush base-name crush-sandbox
+parse mimo-code → debian mimo-code mimo-code Debian · MiMo Code base-name mimo-sandbox
 parse ubuntu-claude-code → ubuntu claude-code ubuntu-claude-code Ubuntu · Claude Code base-name ubuntu-claude-sandbox
 parse ubuntu-pi → ubuntu pi ubuntu-pi Ubuntu · pi base-name ubuntu-pi-sandbox
 parse ubuntu → ubuntu none ubuntu Ubuntu · none base-name ubuntu-sandbox
@@ -369,6 +396,9 @@ parse ubuntu-letta-code → ubuntu letta-code ubuntu-letta-code Ubuntu · Letta 
 parse ubuntu-docker-agent → ubuntu docker-agent ubuntu-docker-agent Ubuntu · Docker Agent base-name ubuntu-docker-agent-sandbox
 parse ubuntu-nanocoder → ubuntu nanocoder ubuntu-nanocoder Ubuntu · Nanocoder base-name ubuntu-nanocoder-sandbox
 parse ubuntu-mini-swe-agent → ubuntu mini-swe-agent ubuntu-mini-swe-agent Ubuntu · mini-swe-agent base-name ubuntu-mini-sandbox
+parse ubuntu-open-interpreter → ubuntu open-interpreter ubuntu-open-interpreter Ubuntu · Open Interpreter base-name ubuntu-interpreter-sandbox
+parse ubuntu-crush → ubuntu crush ubuntu-crush Ubuntu · Crush base-name ubuntu-crush-sandbox
+parse ubuntu-mimo-code → ubuntu mimo-code ubuntu-mimo-code Ubuntu · MiMo Code base-name ubuntu-mimo-sandbox
 parse alpine-claude-code → alpine claude-code alpine-claude-code Alpine · Claude Code base-name alpine-claude-sandbox
 parse alpine-pi → alpine pi alpine-pi Alpine · pi base-name alpine-pi-sandbox
 parse alpine-codex → alpine codex alpine-codex Alpine · Codex base-name alpine-codex-sandbox
@@ -405,6 +435,9 @@ parse alpine-letta-code → alpine letta-code alpine-letta-code Alpine · Letta 
 parse alpine-docker-agent → alpine docker-agent alpine-docker-agent Alpine · Docker Agent base-name alpine-docker-agent-sandbox
 parse alpine-nanocoder → alpine nanocoder alpine-nanocoder Alpine · Nanocoder base-name alpine-nanocoder-sandbox
 parse alpine-mini-swe-agent → alpine mini-swe-agent alpine-mini-swe-agent Alpine · mini-swe-agent base-name alpine-mini-sandbox
+parse alpine-open-interpreter → alpine open-interpreter alpine-open-interpreter Alpine · Open Interpreter base-name alpine-interpreter-sandbox
+parse alpine-crush → alpine crush alpine-crush Alpine · Crush base-name alpine-crush-sandbox
+parse alpine-mimo-code → alpine mimo-code alpine-mimo-code Alpine · MiMo Code base-name alpine-mimo-sandbox
 parse df-0123456789ab-claude-code → df-0123456789ab claude-code df-0123456789ab-claude-code Dockerfile · Claude Code base-name dockerfile-claude-sandbox
 parse df-0123456789ab-pi → df-0123456789ab pi df-0123456789ab-pi Dockerfile · pi base-name dockerfile-pi-sandbox
 parse df-0123456789ab → df-0123456789ab none df-0123456789ab Dockerfile · none base-name dockerfile-sandbox
@@ -442,6 +475,9 @@ parse df-0123456789ab-letta-code → df-0123456789ab letta-code df-0123456789ab-
 parse df-0123456789ab-docker-agent → df-0123456789ab docker-agent df-0123456789ab-docker-agent Dockerfile · Docker Agent base-name dockerfile-docker-agent-sandbox
 parse df-0123456789ab-nanocoder → df-0123456789ab nanocoder df-0123456789ab-nanocoder Dockerfile · Nanocoder base-name dockerfile-nanocoder-sandbox
 parse df-0123456789ab-mini-swe-agent → df-0123456789ab mini-swe-agent df-0123456789ab-mini-swe-agent Dockerfile · mini-swe-agent base-name dockerfile-mini-sandbox
+parse df-0123456789ab-open-interpreter → df-0123456789ab open-interpreter df-0123456789ab-open-interpreter Dockerfile · Open Interpreter base-name dockerfile-interpreter-sandbox
+parse df-0123456789ab-crush → df-0123456789ab crush df-0123456789ab-crush Dockerfile · Crush base-name dockerfile-crush-sandbox
+parse df-0123456789ab-mimo-code → df-0123456789ab mimo-code df-0123456789ab-mimo-code Dockerfile · MiMo Code base-name dockerfile-mimo-sandbox
 parse node-claude-code → node claude-code claude-code Node.js · Claude Code base-name node-claude-code-sandbox
 parse node-pi → node pi pi Node.js · pi base-name node-pi-sandbox
 parse node-codex → node codex codex Node.js · Codex base-name node-codex-sandbox

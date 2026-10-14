@@ -228,13 +228,31 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `mini-swe-agent.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MINI_PERMISSIONS=… on run/exec` | mini-swe-agent in a mini-swe-agent sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
 
+### `[open-interpreter]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `open-interpreter.permissions` | `skip` | skip \| ask | next session | `-e DOZ_INTERPRETER_PERMISSIONS=… on run/exec` | Open Interpreter in an open-interpreter sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
+### `[crush]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `crush.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CRUSH_PERMISSIONS=… on run/exec` | Crush in a crush sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
+### `[mimo-code]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `mimo-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MIMO_PERMISSIONS=… on run/exec` | MiMo Code in a mimo-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
+
 ### `[defaults]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
-| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose \| kilo \| mistral-vibe \| droid \| dirac \| kimi-code \| every-code \| cline \| openhands \| codebuddy \| letta-code \| docker-agent \| nanocoder \| mini-swe-agent | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
+| `defaults.image` | `lab` | lab \| claude-code \| pi \| codex \| antigravity \| gemini \| grok \| fabric \| openclaw \| nanobot \| gptme \| llm \| shell-gpt \| zeroclaw \| aichat \| tgpt \| opencode \| smolagents \| adk \| promptfoo \| clai \| copilot \| qwen-code \| goose \| kilo \| mistral-vibe \| droid \| dirac \| kimi-code \| every-code \| cline \| openhands \| codebuddy \| letta-code \| docker-agent \| nanocoder \| mini-swe-agent \| open-interpreter \| crush \| mimo-code | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
 | `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
@@ -341,6 +359,9 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.docker_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Docker Agent the docker-agent image (and every base's Docker Agent image) is prepared with: latest or an exact version like 1.150.0, as images.claude_code_version. |
 | `images.nanocoder_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Nanocoder the nanocoder image (and every base's Nanocoder image) is prepared with: latest or an exact version like 1.31.0, as images.claude_code_version. |
 | `images.mini_swe_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The mini-swe-agent the mini-swe-agent image (and every base's mini-swe-agent image) is prepared with: latest or an exact version like 2.4.6, as images.claude_code_version. |
+| `images.open_interpreter_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Open Interpreter the open-interpreter image (and every base's Open Interpreter image) is prepared with: latest or an exact version like 0.0.56, as images.claude_code_version. |
+| `images.crush_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Crush the crush image (and every base's Crush image) is prepared with: latest or an exact version like 0.98.1, as images.claude_code_version. |
+| `images.mimo_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The MiMo Code the mimo-code image (and every base's MiMo Code image) is prepared with: latest or an exact version like 0.1.15, as images.claude_code_version. |
 
 ### `[images.lab]`
 
@@ -600,6 +621,27 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `images.mini-swe-agent.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mini-swe-agent sandbox (a custom image follows the image it was saved from). |
 | `images.mini-swe-agent.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mini-swe-agent sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.open-interpreter]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.open-interpreter.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new open-interpreter sandbox (a custom image follows the image it was saved from). |
+| `images.open-interpreter.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new open-interpreter sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.crush]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.crush.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new crush sandbox (a custom image follows the image it was saved from). |
+| `images.crush.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new crush sandbox: agent, bake, locked, open (proxied presets), nat or none. |
+
+### `[images.mimo-code]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `images.mimo-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mimo-code sandbox (a custom image follows the image it was saved from). |
+| `images.mimo-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mimo-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
 

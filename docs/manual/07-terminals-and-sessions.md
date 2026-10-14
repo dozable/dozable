@@ -217,6 +217,9 @@ Which agents say it:
 | Docker Agent | 1.150.0 (the version Dozer installs) |
 | Nanocoder | no (checked with 1.31.0) |
 | mini-swe-agent | no (checked with 2.4.6) |
+| Open Interpreter | no (checked with 0.0.56) |
+| Crush | partly (0.98.1 reports idle and working, never done; not used yet) |
+| MiMo Code | no (checked with 0.1.15) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

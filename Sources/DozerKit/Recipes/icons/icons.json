@@ -361,6 +361,33 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); SWE-agent's logo is not used — a neutral lettermark.",
       "lettermark": { "text": "MS", "frame": "square" }
+    },
+    {
+      "id": "open-interpreter", "kind": "product", "name": "Open Interpreter",
+      "variants": { "mono": "open-interpreter.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/openinterpreter/openinterpreter",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (Apache-2.0); Open Interpreter's logo is not used — a neutral lettermark.",
+      "lettermark": { "text": "OI", "frame": "octagon" }
+    },
+    {
+      "id": "crush", "kind": "product", "name": "Crush",
+      "variants": { "mono": "crush.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/charmbracelet/crush",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "FSL-1.1-MIT code; Charmbracelet's logo and marks are not used — a neutral lettermark.",
+      "lettermark": { "text": "CR", "frame": "circle" }
+    },
+    {
+      "id": "mimo-code", "kind": "product", "name": "MiMo Code",
+      "variants": { "mono": "mimo-code.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://mimo.xiaomi.com",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "MIT code; Xiaomi's MiMo logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "MI", "frame": "hex" }
     }
   ]
 }

@@ -33,6 +33,9 @@ perm model:letta-code locked=false hosts=api.x.ai[/v1/responses]
 perm model:docker-agent locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:nanocoder locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:mini-swe-agent locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:open-interpreter locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:crush locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:mimo-code locked=false hosts=api.x.ai[/v1/responses,/v1/chat/completions]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -58,6 +61,8 @@ perm vendor:nanobot locked=false hosts=openaipublic.blob.core.windows.net[/encod
 perm vendor:gptme locked=false hosts=openaipublic.blob.core.windows.net[/encodings/]
 perm vendor:every-code locked=false hosts=api.github.com[/repos/just-every/code/releases/latest]
 perm vendor:openhands locked=false hosts=github.com[/OpenHands/extensions/] pypi.org[/pypi/openhands/json]
+perm vendor:open-interpreter locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml]
+perm vendor:crush locked=false hosts=api.github.com[/repos/charmbracelet/crush/releases/latest]
 agentPermissions claude-code ["vendor:claude-code"]
 agentPermissions pi ["vendor:pi"]
 agentPermissions none []
@@ -95,6 +100,9 @@ agentPermissions letta-code ["model:letta-code"]
 agentPermissions docker-agent ["model:docker-agent"]
 agentPermissions nanocoder ["model:nanocoder"]
 agentPermissions mini-swe-agent ["model:mini-swe-agent"]
+agentPermissions open-interpreter ["model:open-interpreter", "vendor:open-interpreter"]
+agentPermissions crush ["model:crush", "vendor:crush"]
+agentPermissions mimo-code ["model:mimo-code"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

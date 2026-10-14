@@ -851,7 +851,10 @@ public enum AgentRecipes {
                                           ("letta-code.json", PackageResources.letta_code_json),
                                           ("docker-agent.json", PackageResources.docker_agent_json),
                                           ("nanocoder.json", PackageResources.nanocoder_json),
-                                          ("mini-swe-agent.json", PackageResources.mini_swe_agent_json)]
+                                          ("mini-swe-agent.json", PackageResources.mini_swe_agent_json),
+                                          ("open-interpreter.json", PackageResources.open_interpreter_json),
+                                          ("crush.json", PackageResources.crush_json),
+                                          ("mimo-code.json", PackageResources.mimo_code_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -863,7 +866,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()

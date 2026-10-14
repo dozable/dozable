@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -24,6 +24,9 @@ doz try letta-code       # Letta Code (alias letta), local backend, on an xAI ke
 doz try docker-agent     # Docker Agent (alias cagent), its built-in coding agent, on an xAI key
 doz try nanocoder        # Nanocoder, on an xAI key
 doz try mini-swe-agent   # mini-swe-agent (alias mini), on an xAI key
+doz try open-interpreter # Open Interpreter (alias interpreter), on an xAI key
+doz try crush            # Crush (Charmbracelet), on an xAI key
+doz try mimo-code        # MiMo Code (Xiaomi, alias mimo), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -301,6 +304,49 @@ A minimal bash-only coding agent from the SWE-agent team (`doz try mini-swe-agen
 - **May reach:** xAI's API only.
 - **Use:** `mini` (a session; with approvals off, `--yolo`), or
   `mini -m xai/grok-build-0.1 -t "…" --yolo --exit-immediately` for one task.
+
+## Open Interpreter
+
+Open Interpreter, rebuilt as a Codex CLI derivative (`doz try open-interpreter`; its command is `interpreter`), on an
+**xAI API key** through a Codex-style `model_providers` entry (model `grok-build-0.1`).
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), named by `env_key` in
+  `~/.openinterpreter/config.toml`. Its ChatGPT sign-in is not offered.
+- **Set up for you:** its analytics, plugins, apps and update check off (without them it calls ChatGPT's and GitHub's
+  servers).
+- **May reach:** xAI's API, and one read when its TUI starts: Codex's announcement tips file on GitHub.
+- **Use:** `interpreter` (a session; with approvals off, `--dangerously-bypass-approvals-and-sandbox`), or
+  `interpreter exec --skip-git-repo-check "…"` for one task.
+
+## Crush (Charmbracelet)
+
+Charmbracelet's terminal agent (`doz try crush`), on an **xAI API key** (its built-in xAI provider, model
+`grok-build-0.1`). Its licence is FSL-1.1-MIT: each release becomes MIT two years on, and until then it forbids a
+competing use — running it in your own sandbox is not one.
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox).
+- **Set up for you:** its metrics and provider auto-update off (`CRUSH_DISABLE_METRICS`,
+  `CRUSH_DISABLE_PROVIDER_AUTO_UPDATE`; without them it calls Charm's catalogue and Hyper hosts).
+- **May reach:** xAI's API, and GitHub's API for one read: its latest release, asked at each run.
+- **Use:** `crush` (a session; with approvals off, `--yolo`), or `crush run -q -m xai/grok-build-0.1 "…"` for one
+  task.
+
+## MiMo Code (Xiaomi)
+
+Xiaomi's terminal agent, an OpenCode derivative (`doz try mimo-code`, or `mimo`), on an **xAI API key** (model
+`xai/grok-build-0.1`). Its code is MIT, with Xiaomi's use restrictions beside it.
+
+- **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine yet).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). Its MiMo Platform sign-in is not offered.
+- **Set up for you:** its usage analytics off (`MIMOCODE_ENABLE_ANALYSIS=false` — by default it posts to
+  tracking.miui.com, which is never allowed), its online model list, auto-update and sharing off.
+- **May reach:** xAI's API only.
+- **Use:** `mimo` (a session; with approvals off, `--dangerously-skip-permissions`), or
+  `mimo run -m xai/grok-build-0.1 "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

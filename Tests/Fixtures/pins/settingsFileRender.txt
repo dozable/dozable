@@ -288,6 +288,27 @@
 # (skip | ask; flag -e DOZ_MINI_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
 # permissions = "skip"
 
+[open-interpreter]
+
+# Open Interpreter in an open-interpreter sandbox: skip its approval prompts (the sandbox is the
+# boundary), or ask as on a Mac.
+# (skip | ask; flag -e DOZ_INTERPRETER_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[crush]
+
+# Crush in a crush sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on
+# a Mac.
+# (skip | ask; flag -e DOZ_CRUSH_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
+[mimo-code]
+
+# MiMo Code in a mimo-code sandbox: skip its approval prompts (the sandbox is the boundary), or
+# ask as on a Mac.
+# (skip | ask; flag -e DOZ_MIMO_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
+# permissions = "skip"
+
 [defaults]
 
 # CPUs of a new sandbox.
@@ -300,7 +321,7 @@
 
 # The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz
 # onboard writes the one you chose.
-# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline | openhands | codebuddy | letta-code | docker-agent | nanocoder | mini-swe-agent; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
+# (lab | claude-code | pi | codex | antigravity | gemini | grok | fabric | openclaw | nanobot | gptme | llm | shell-gpt | zeroclaw | aichat | tgpt | opencode | smolagents | adk | promptfoo | clai | copilot | qwen-code | goose | kilo | mistral-vibe | droid | dirac | kimi-code | every-code | cline | openhands | codebuddy | letta-code | docker-agent | nanocoder | mini-swe-agent | open-interpreter | crush | mimo-code; flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
@@ -670,6 +691,21 @@
 # with: latest or an exact version like 2.4.6, as images.claude_code_version.
 # (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
 # mini_swe_agent_version = "latest"
+
+# The Open Interpreter the open-interpreter image (and every base's Open Interpreter image) is
+# prepared with: latest or an exact version like 0.0.56, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# open_interpreter_version = "latest"
+
+# The Crush the crush image (and every base's Crush image) is prepared with: latest or an exact
+# version like 0.98.1, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# crush_version = "latest"
+
+# The MiMo Code the mimo-code image (and every base's MiMo Code image) is prepared with: latest or
+# an exact version like 0.1.15, as images.claude_code_version.
+# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
+# mimo_code_version = "latest"
 
 [images.lab]
 
@@ -1053,6 +1089,39 @@
 # memory_mib = 2048
 
 # The network of a new mini-swe-agent sandbox: agent, bake, locked, open (proxied presets), nat or
+# none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.open-interpreter]
+
+# Memory (MiB) of a new open-interpreter sandbox (a custom image follows the image it was saved
+# from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new open-interpreter sandbox: agent, bake, locked, open (proxied presets), nat
+# or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.crush]
+
+# Memory (MiB) of a new crush sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new crush sandbox: agent, bake, locked, open (proxied presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
+
+[images.mimo-code]
+
+# Memory (MiB) of a new mimo-code sandbox (a custom image follows the image it was saved from).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new mimo-code sandbox: agent, bake, locked, open (proxied presets), nat or
 # none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "agent"

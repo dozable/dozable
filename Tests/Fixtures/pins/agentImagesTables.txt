@@ -36,6 +36,9 @@ letta-code credentials=xai:key agentName=Letta Code package=@letta-ai/letta-code
 node-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 nanocoder credentials=xai:key agentName=Nanocoder package=@nanocollective/nanocoder pinned=1.31.0 sha512-EyJn8aO7YFKDA+IYyUmSN9/XHCqgBfrYKHE61iKMf6B4ASY9GDd8VHG0J09w0bd/V5kQdUQzHszk0fiCv8fRHQ==
 node-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+node-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+node-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+node-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -73,6 +76,9 @@ python-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=ni
 python-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 python-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 python-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+python-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+python-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+python-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -110,6 +116,9 @@ go-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 go-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 go-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 go-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+go-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+go-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+go-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -147,6 +156,9 @@ rust-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 rust-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 rust-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 rust-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+rust-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+rust-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+rust-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -184,6 +196,9 @@ java-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 java-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 java-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 java-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+java-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+java-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+java-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -221,6 +236,9 @@ ruby-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 ruby-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 ruby-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 ruby-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+ruby-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+ruby-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+ruby-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -258,6 +276,9 @@ dotnet-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=ni
 dotnet-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 dotnet-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 dotnet-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+dotnet-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+dotnet-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+dotnet-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -295,6 +316,9 @@ debian-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=ni
 docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=1.150.0 sha512-KklBky8+usd4CK6S48S940vZJpxg1wn1cKqmGgJmsfBw3YAkRWusE/nlnDqT4TM0l4Lh/SVPgAvC/d8XQdAVmA==
 debian-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=mini-swe-agent pinned=2.4.6 sha512-nKAiYWd2x7qCDYjFdFltPDty8e8qCBYZ6qeaWRfhmheH6RJX49J6zccUrHEuZScu7xhKzvgB00EbPjDyznr9xQ==
+open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=0.0.56 sha512-+wUeWOq+twYjtpVk+J5dfAgCXveoIlTyn3zkGCgsAwCkxzPKCq3ZzZWxq//uHBzQfGflqbpi0UEl3EDVPBG6FA==
+crush credentials=xai:key agentName=Crush package=nil pinned=0.98.1 sha512-VbfBLF8cxG8tzN4xTkFwCmzcTYSYAbnMNNKs8y+tQGJzKWnj9QsXFRtD7m+pfvtfe0sqixU6ttLtx1Doc7MFFg==
+mimo-code credentials=xai:key agentName=MiMo Code package=@mimo-ai/cli pinned=0.1.15 sha512-x5x7cRstiRlSuXIPUcXs8UTH5JxbJwrd2XwKlX4Z8bxuXf8kxu7udm0qMuti7QRQ3U2vY/G4uTSZ5B1Vz3S4yw==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -332,6 +356,9 @@ ubuntu-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=ni
 ubuntu-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 ubuntu-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 ubuntu-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+ubuntu-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+ubuntu-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+ubuntu-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -368,6 +395,9 @@ alpine-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=ni
 alpine-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 alpine-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 alpine-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+alpine-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+alpine-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+alpine-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -405,3 +435,6 @@ df-0123456789ab-letta-code credentials=xai:key agentName=Letta Code package=nil 
 df-0123456789ab-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 df-0123456789ab-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
 df-0123456789ab-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinned=nil
+df-0123456789ab-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
+df-0123456789ab-crush credentials=xai:key agentName=Crush package=nil pinned=nil
+df-0123456789ab-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
