@@ -49,4 +49,5 @@ resume open-interpreter resume --last check=nil
 resume crush  check=nil
 resume mimo-code --continue check=nil
 resume codewhale --continue check=nil
+resume maki --continue check=nil
 resume nil 

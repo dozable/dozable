@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -28,6 +28,7 @@ doz try open-interpreter # Open Interpreter (alias interpreter), on an xAI key
 doz try crush            # Crush (Charmbracelet), on an xAI key
 doz try mimo-code        # MiMo Code (Xiaomi, alias mimo), on an xAI key
 doz try codewhale        # CodeWhale (formerly DeepSeek TUI), on an xAI key
+doz try maki             # Maki, on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -364,6 +365,19 @@ provider, model `grok-build-0.1`).
 - **May reach:** xAI's API only.
 - **Use:** `codewhale` (a session; with approvals off, `--approval-policy never`), or `codewhale exec "…"` for one task
   (`--auto` lets it use tools).
+
+## Maki
+
+A Rust terminal agent with Lua plugins (`doz try maki`), on an **xAI API key** (its xAI provider, model
+`xai/grok-build-0.1` — its own default is an Anthropic model).
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), read each run. Its telemetry is off unless
+  turned on.
+- **May reach:** xAI's API, and GitHub's API for one read: its latest release, asked when its TUI starts. It also
+  fetches the models.dev catalogue then; Dozer keeps that out quietly, and it does without it.
+- **Use:** `maki` (a session; with approvals off, `--yolo`), or `maki -p -m xai/grok-build-0.1 "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

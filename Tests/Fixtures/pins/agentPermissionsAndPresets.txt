@@ -37,6 +37,7 @@ perm model:open-interpreter locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:crush locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:mimo-code locked=false hosts=api.x.ai[/v1/responses,/v1/chat/completions]
 perm model:codewhale locked=false hosts=api.x.ai[/v1/chat/completions]
+perm model:maki locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -64,6 +65,7 @@ perm vendor:every-code locked=false hosts=api.github.com[/repos/just-every/code/
 perm vendor:openhands locked=false hosts=github.com[/OpenHands/extensions/] pypi.org[/pypi/openhands/json]
 perm vendor:open-interpreter locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml]
 perm vendor:crush locked=false hosts=api.github.com[/repos/charmbracelet/crush/releases/latest]
+perm vendor:maki locked=false hosts=api.github.com[/repos/tontinton/maki/releases/latest]
 agentPermissions claude-code ["vendor:claude-code"]
 agentPermissions pi ["vendor:pi"]
 agentPermissions none []
@@ -105,6 +107,7 @@ agentPermissions open-interpreter ["model:open-interpreter", "vendor:open-interp
 agentPermissions crush ["model:crush", "vendor:crush"]
 agentPermissions mimo-code ["model:mimo-code"]
 agentPermissions codewhale ["model:codewhale"]
+agentPermissions maki ["model:maki", "vendor:maki"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

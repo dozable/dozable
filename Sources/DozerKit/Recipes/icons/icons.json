@@ -397,6 +397,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
       "lettermark": { "text": "CW", "frame": "diamond" }
+    },
+    {
+      "id": "maki", "kind": "product", "name": "Maki",
+      "variants": { "mono": "maki.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/tontinton/maki",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "MK", "frame": "square" }
     }
   ]
 }

@@ -119,6 +119,7 @@ public enum AgentIcons {
         "crush.svg": PackageResources.crush_svg,
         "mimo-code.svg": PackageResources.mimo_code_svg,
         "codewhale.svg": PackageResources.codewhale_svg,
+        "maki.svg": PackageResources.maki_svg,
     ]
 
     public static let all: [IconEntry] = {

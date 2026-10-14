@@ -158,6 +158,8 @@
       "publisher": "esengine",
       "homepage": "https://github.com/esengine/DeepSeek-Reasonix",
       "status": "coming",
+      "kind": "coding-agent",
+      "categories": ["coding-agent"],
       "reason": "it reads provider keys only from its own ~/.reasonix/.env file, never the environment, where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
       "checked": "2026-10-14"
     },

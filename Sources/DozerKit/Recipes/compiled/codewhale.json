@@ -203,8 +203,12 @@
         "aliases" : [
           "deepseek-tui"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "codewhale",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

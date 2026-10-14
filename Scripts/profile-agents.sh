@@ -74,6 +74,7 @@ for a in "$@"; do
     crush) bin=crush; task="crush run -q -m xai/grok-build-0.1 \"\$T\"" ;;
     mimo-code) bin=mimo; task="mimo run -m xai/grok-build-0.1 --dangerously-skip-permissions \"\$T\"" ;;
     codewhale) bin=codewhale; task="codewhale exec --auto \"\$T\"" ;;
+    maki) bin=maki; task="maki -p -m xai/grok-build-0.1 --yolo \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;
