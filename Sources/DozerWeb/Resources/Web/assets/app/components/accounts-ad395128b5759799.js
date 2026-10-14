@@ -39,9 +39,13 @@ export function accountForm(opts) {
     ? h('select', { name: 'acct-source', 'aria-label': 'Provider or gateway' }, ...opts.sources.map((x) => h('option', { value: x }, (opts.titles || {})[x] || x)))
     : h('select', { name: 'acct-kind', 'aria-label': 'Kind' },
       h('option', { value: 'api-key' }, 'Anthropic API key'), h('option', { value: 'setup-token' }, 'Claude setup token'),
-      h('option', { value: 'openai-key' }, 'OpenAI API key (Codex)'));
+      h('option', { value: 'openai-key' }, 'OpenAI API key'),
+      // 617: every other provider's or gateway's key (xAI, Google, OpenRouter, …) — a `key` account of that provider.
+      ...(opts.keyProviders || []).map((p) => h('option', { value: 'key:' + p.id }, p.title + ' key')));
   if (opts.kind) kindSel.value = opts.kind;
-  const kindNow = () => (opts.sources ? kindForSource(kindSel.value) : kindSel.value);
+  const keyProvider = () => (!opts.sources && kindSel.value.startsWith('key:') ? kindSel.value.slice(4) : null);
+  const keyTitle = () => ((opts.keyProviders || []).find((p) => p.id === keyProvider()) || {}).title || keyProvider();
+  const kindNow = () => (opts.sources ? kindForSource(kindSel.value) : keyProvider() ? 'key' : kindSel.value);
   const name = h('input', { type: 'text', name: 'acct-name', autocomplete: 'off', spellcheck: 'false', placeholder: 'a-z 0-9 -' });
   name.value = opts.name || 'work';
   const plan = h('select', { name: 'acct-plan', 'aria-label': 'Plan' }, ['max', 'pro', 'team', 'enterprise'].map((p) => h('option', { value: p }, p)));
@@ -56,6 +60,7 @@ export function accountForm(opts) {
     planRow.hidden = !token;
     secretLabel.textContent = token ? 'Setup token' : 'API key';
     hint.textContent = opts.sources ? 'A ' + ((opts.titles || {})[kindSel.value] || kindSel.value) + ' key — only ever sent there. Not shown, not kept in this page.'
+      : keyProvider() ? 'Your ' + keyTitle() + ' key — only ever sent there. Not shown, not kept in this page.'
       : token ? 'Run claude setup-token on this Mac and paste what it prints (it starts sk-ant-oat…; valid a year). Not shown, not kept in this page.'
       : kindSel.value === 'openai-key' ? 'An OpenAI API key (sk-…) for Codex. Not shown, not kept in this page.'
       : 'An Anthropic API key (sk-ant-api…). Not shown, not kept in this page.';
@@ -75,6 +80,7 @@ export function accountForm(opts) {
       const body = { name: n, kind: kindNow(), secret: value };
       if (kindNow() === 'setup-token') body.plan = plan.value;
       if (opts.sources && kindNow() === 'key') body.provider = kindSel.value;
+      if (keyProvider()) body.provider = keyProvider();
       const r = await api('accounts', { method: 'POST', json: body });
       opts.onAdded(r, n);
     } catch (e) {

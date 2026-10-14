@@ -9,7 +9,7 @@ import { loadSettings, saveSetting, secretEntryAllowed, setting } from '../core/
 import { state } from '../core/state-450cb6573a620304.js';
 import { WIZ, WIZ_ORDER, WIZ_STEPS } from '../core/wizards-3abae15180cc8b7c.js';
 import { ACCESS_TITLES, renderAccessStep } from '../components/access-step-1e14712d5c702111.js';
-import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-cc9a7e9532218c97.js';
+import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-ad395128b5759799.js';
 import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
