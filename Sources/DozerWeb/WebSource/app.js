@@ -69,7 +69,7 @@ import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/vi
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations.js';
 import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
-import { renderTryPrep, viewTry } from './app/views/try.js';
+import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try.js';
 import './app/views/sandbox-dialogs.js';
 import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout.js';
 import './app/views/sandbox-network.js';
@@ -136,7 +136,7 @@ async function startApp() {
 // The calls that go UP the layers (core/hooks.js): every upcall('name') a lower module makes is provided here, once,
 // before anything runs.
 provide({
-  acknowledgeOps, banner, btn, callout, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
+  acknowledgeOps, backToTrySetup, banner, btn, callout, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openSavedTerminal, openWizardModal, pageFailure,
   paintCover, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTermEmpty, paintTransition,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,

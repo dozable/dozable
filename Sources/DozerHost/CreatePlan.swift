@@ -17,12 +17,18 @@ public struct PlanRequest: Codable, Equatable, Sendable {
     /// A name given on purpose (nil: the defaults name it).
     public var name: String?
     public var create: CreateOptions
+    /// 617: a try's own flags that change nothing in the sandbox but belong to the command a person runs — `--rm`,
+    /// `--keep`, `-d` — echoed at the end of the plan's command (`doz try grok --rm`). Only those three.
+    public var tryFlags: [String]?
 
-    public init(purpose: String, name: String? = nil, create: CreateOptions) {
+    public init(purpose: String, name: String? = nil, create: CreateOptions, tryFlags: [String]? = nil) {
         self.purpose = purpose
         self.name = name
         self.create = create
+        self.tryFlags = tryFlags
     }
+
+    public static let tryFlagWords: Set<String> = ["--rm", "--keep", "-d"]
 
     public static let purposes = ["new", "create", "up", "init", "try"]
 }
@@ -323,7 +329,8 @@ public enum CreatePlanner {
             let hosts = ModelSources.hosts(m.source).joined(separator: ", ")
             reach.insert(ReachLine("model", "Model: \(m.model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
         }
-        let argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
+        var argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
+        if r.purpose == "try" { argv += (r.tryFlags ?? []).filter { PlanRequest.tryFlagWords.contains($0) } }
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
         var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
                               argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,

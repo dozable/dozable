@@ -126,6 +126,13 @@ final class KitchenTests: XCTestCase {
             if let n = p.yamlNote { out.append("yaml note: \(n)") }
             for pr in p.problems { out.append("problem \(pr.code): \(pr.text) [fix: \(pr.fix ?? "-")]") }
         }
+        // 617: the plan's command is the whole command — a try's own --rm / --keep / -d too (nothing else is echoed).
+        for flags in [["--rm"], ["--keep"], ["-d"], ["--rm", "-d", "--bogus"]] {
+            let p = CreatePlanner.plan(PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "opencode"]).planChoices(), tryFlags: flags), facts: facts())
+            out.append("== try opencode \(flags.joined(separator: " ")): command: \(p.command)")
+        }
+        let notTry = CreatePlanner.plan(PlanRequest(purpose: "new", create: try ChoiceOptions.from(["--agent", "grok"]).planChoices(), tryFlags: ["--rm"]), facts: facts())
+        out.append("== new grok (try flags are a try's only): command: \(notTry.command)")
         Pins.check(#function, out.joined(separator: "\n"))
     }
 

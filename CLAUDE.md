@@ -1863,8 +1863,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
 - **The start sequence** (617.05, owner: "a confusing flash of activity"; one stable page): from Start the sandbox
-  page is there at once (header, action bar, try banner, the nav entry — `tryCreate` re-reads the overview first) and
-  NOTHING later moves it. The terminal area shows, in the same place: (1) while the image is prepared, the build panel
+  page is there at once (header, action bar, try banner, the nav entry) and NOTHING later moves it. 617 (owner, 2026-10-15:
+  "fix the delay when clicking the Try button"): `tryCreate` moves in the click's own frame — Start says Starting… (spinner), both
+  modals close, the try's page draws its header from the PLAN (`state.pendingTry`, `drawPendingTry`: the same parts as its detail
+  will, so nothing moves; the nav lists it) and an indeterminate "Preparing NAME" panel, while the create runs behind it (a 404
+  meanwhile is the pending try, not "gone"). A create that fails stays on that page: "NAME was not made", the reason, Back to setup
+  (`backToTrySetup`: the setup again with its plan and the error). `probes/617-*/stageE/browser-try-start-latency.mjs` (feedback ≤
+  100 ms, modals closed ≤ 300 ms; was 0.9–1.8 s). The terminal area shows, in the same place: (1) while the image is prepared, the build panel
   (`components/start-progress.js`, over `#terminals`): a bar for the whole build — the preparation's own estimate when
   this Mac built the recipe before (`seconds / (seconds + remainingSeconds)`), else a fixed weight per step by its
   wording; a download fills its share by bytes (`transferFraction`); a step past its estimate creeps; monotonic per

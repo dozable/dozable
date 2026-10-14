@@ -100,6 +100,7 @@ export async function showSandbox() {
     state.sbxPrefetch = null;
     state.sbx = pre ? { name, d: pre.d, net: pre.net, accounts: pre.accounts } : { name, d: null };
     if (pre) drawParts(name, pre.d, pre.net, pre.accounts);
+    else if (state.pendingTry && state.pendingTry.name === name) drawPendingTry(name);
     else {
       $('sbx-bar').replaceChildren(h('div', { class: 'sbx-title' }, h('h1', null, name)));
       $('sbx-details').replaceChildren();
@@ -152,6 +153,8 @@ export async function refreshSandbox() {
       if (sessionTerminals(name).length) { sv.deferred = false; sv.restored = true; } else restorePanes(name);
     }
   } catch (e) {
+    // 617: a try whose create is under way (or failed) has its page before its sandbox exists.
+    if (e.status === 404 && state.pendingTry && state.pendingTry.name === name) { drawPendingTry(name); return; }
     if (e.status === 404) { if (state.view === 'sandbox' && state.param === name) location.hash = '#/overview'; return; }
     if (!state.signedOut) failureFor(name, e.message || String(e));
   } finally {
@@ -167,15 +170,29 @@ function drawParts(name, d, net, accounts) {
   $('sbx-details').replaceChildren(parts.details);
   $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
 }
+/// 617: a try's page from its plan, before its create returns (`state.pendingTry`): the same header as its detail will
+/// draw (so nothing moves when it arrives — the try banner with its folder, the chips, the transition's buttons), the
+/// details pane as a try's first visit has it (open on its Guide), and no tab strip (the build panel has the area).
+export function drawPendingTry(name) {
+  const p = state.pendingTry;
+  if (!p || p.name !== name || (state.sbx && state.sbx.name === name && state.sbx.d)) return;
+  const failed = !!p.error;
+  const i = { name, phase: failed ? 'failed' : 'off', busy: !failed, image: p.image, imageTitle: p.imageTitle, ramHeldMiB: 0, memoryMiB: 2048,
+    network: p.network, accountApplies: !!p.account, account: p.account, workspace: p.workspace, trial: true, trialFolder: p.workspace };
+  const d = { info: i, sessions: [], restorePoints: [], credentials: [], attachCommand: 'doz attach ' + name, defaultSession: null, guide: null,
+    cpus: 2, hasRootDisk: false, memoryMiB: 2048, shares: [], agentPrompt: null };
+  if (sview(name).guideShown === undefined) { sview(name).guideShown = true; if (!sview(name).inspTab) sview(name).inspTab = 'guide'; }
+  try {
+    const parts = sandboxParts(name, d, { proxied: false, note: '' }, [])   // only the bar is used;
+    $('sbx-bar').replaceChildren(parts.bar);
+  } catch (_) {
+    $('sbx-bar').replaceChildren(h('div', { class: 'sbx-title' }, h('h1', null, name)));
+  }
+  $('sbx-details').replaceChildren();
+  $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
+}
 /// The details panel is open: the setting, or a try's first visit (its Guide).
 function detailsShown(name) { return setting('ui.details_open', true) || sview(name).guideShown === true; }
-/// 617: read a sandbox's page detail BEFORE showing it (a try's Start), so its first frame is the whole page.
-export async function prefetchSandbox(name) {
-  try {
-    const [d, net, accounts] = await Promise.all([api('sandboxes/' + name), api('sandboxes/' + name + '/network'), api('accounts').catch(() => ({ accounts: [] }))]);
-    state.sbxPrefetch = { name, d, net, accounts, at: Date.now() };
-  } catch (_) { /* the page reads it as usual */ }
-}
 /// The page's terminals that are a session's (617: never tab zero, the console).
 function sessionTerminals(name) { return pageTerminals(name).filter((t) => !isAux(t)); }
 /// On arriving at a sandbox's page: an addressed session (#/sandbox/NAME/SESSION, from the grid)
@@ -195,6 +212,9 @@ async function sandboxArrived(name, want) {
     if (have) { const v = sview(name); v.selected[have.pane] = have.id; v.focusedPane = have.pane; renderTerminals(); if (!have.saved) focusTerm(have); }
     else if (running && live.includes(want)) openTerminal(name, want, 'interactive');
     else if (!running && (await savedRows(name)).some((r) => r.name === want)) openSavedTerminal(name, (await savedRows(name)).find((r) => r.name === want));
+    // 617: a sandbox that is off has no sessions — its page's address (kept by a reload) drops the session quietly; a
+    // notice there pushed the page down (browser-start-sequence C). A running one without it is still said.
+    else if (s.d.info.phase === 'off' || s.d.info.phase === 'failed') history.replaceState(null, '', '#/sandbox/' + name);
     else failureFor(name, 'Session ' + want + ' is not running in ' + name);
     return;
   }

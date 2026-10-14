@@ -22,7 +22,11 @@ export function renderNavSandboxes() {
   // 594 (owner: "add a link to Onboarding in the left nav"): a dot until this store is onboarded.
   if (state.overview) $('onb-dot').hidden = state.overview.onboarded !== false;
   renderHostFoot();
-  const list = state.overview ? state.overview.sandboxes.slice().sort((a, b) => a.name.localeCompare(b.name)) : [];
+  const list = state.overview ? state.overview.sandboxes.slice() : [];
+  // 617: a try whose create is under way is listed from its Start (its page is already there).
+  const p = state.pendingTry;
+  if (p && !p.error && !list.some((s) => s.name === p.name)) list.push({ name: p.name, phase: 'off', phaseLabel: 'being made' });
+  list.sort((a, b) => a.name.localeCompare(b.name));
   $('nav-count').textContent = state.overview ? String(list.length) : '';
   // 603: each sandbox under "All sandboxes", its phase as a dot whose shape says whether it holds RAM (and
   // its word for assistive tech and the tooltip); the one shown is the page's current item.

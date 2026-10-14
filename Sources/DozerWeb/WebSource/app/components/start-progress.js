@@ -20,6 +20,7 @@ import { pageTerminals } from '../core/terminals.js';
 import { btn } from './button.js';
 
 const lifecycle = upcall('lifecycle');
+const backToTrySetup = upcall('backToTrySetup');
 
 let ticker = null;
 
@@ -30,6 +31,9 @@ function elapsed(since) {
 
 /// The start of `name` this page should show: the running one, else a failed one not yet dismissed.
 function startOf(name) {
+  // 617: a try's page before its create returns — the start is under way from the person's point of view.
+  const pend = state.pendingTry && state.pendingTry.name === name ? state.pendingTry : null;
+  if (pend) return { id: 'pending-' + name, state: pend.error ? 'failed' : 'running', pending: true, progress: null, text: pend.error || '', startedAt: new Date(pend.at).toISOString() };
   const ops = [...state.ops.values()].filter((o) => o.sandbox === name && o.action === 'start');
   const running = ops.find((o) => o.state === 'running');
   if (running) return running;
@@ -50,6 +54,7 @@ function consoleUp(name) { return pageTerminals(name).some((t) => t.mode === 'co
 
 /// 617: the header's word for a start — preparing while the image builds, booting once the VM is on.
 export function startStage(name) {
+  if (state.pendingTry && state.pendingTry.name === name) return 'Preparing…';
   const o = startOf(name);
   return o && o.state === 'running' && prepOf(name, o) && !consoleUp(name) ? 'Preparing…' : 'Booting…';
 }
@@ -91,7 +96,28 @@ function shortStep(s) {
   return String(s || '').replace(/^step:\s*/i, '').replace(/…$/, '').replace(/\s*\([^)]{24,}\)/g, '').trim();
 }
 
+/// 617: the try's page while its create runs (a moment), and a create that failed: what it says and Back to setup.
+function pendingPanel(name, o) {
+  if (o.state === 'failed') {
+    return h('div', { class: 'start-progress', 'data-start-progress': name, 'data-start-failure': '', role: 'alert' },
+      h('div', { class: 'sp-box' },
+        h('h3', null, name + ' was not made'),
+        h('div', { class: 'sp-failed' },
+          h('p', null, o.text),
+          h('div', { class: 'sp-acts' },
+            btn('Back to setup', () => backToTrySetup(), { primary: true, small: true, icon: 'arrow-left' })))));
+  }
+  return h('div', { class: 'start-progress building', 'data-start-progress': name, 'data-start-pending': '', role: 'status', 'aria-live': 'polite' },
+    h('div', { class: 'sp-box' },
+      h('h3', null, 'Preparing ' + name),
+      h('div', { class: 'sp-barbox' },
+        h('progress', { class: 'sp-bar', max: '1', 'aria-label': 'The start of ' + name }),
+        h('div', { class: 'sp-stepline' }, 'Preparing · ', h('span', { 'data-sp-elapsed': o.startedAt }, elapsed(o.startedAt)))),
+      h('ol', { class: 'sp-steps' })));
+}
+
 function panelFor(name, o, p) {
+  if (o.pending) return pendingPanel(name, o);
   const prog = o.progress || { steps: [], tail: [] };
   const failed = o.state === 'failed';
   const now = shortStep(prog.current || (p && p.step));
