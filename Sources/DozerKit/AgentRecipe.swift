@@ -109,10 +109,13 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// 617 (owner): the capability tags with NO underlying field (`headless`) — declared, one per such tag of the
     /// vocabulary. Every other tag is derived (`capabilityTags`), so it cannot drift from the data.
     public var tags: [RecipeTag]
+    /// 617 (models@1): the model sources it can be tried with and how a choice reaches its settings; nil: its one
+    /// credential, as before.
+    public var models: Models? = nil
 
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
-             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags
+             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
 
@@ -566,9 +569,13 @@ public struct KeyProvider: Codable, Sendable, Equatable {
     /// 617: the key goes ONLY into a request that carried its placeholder — never added to one without (a key-less
     /// call the agent makes on purpose, Grok Build's start-up check, stays key-less).
     public var swapOnly: Bool?
+    /// 617: a provider's API endpoints by shape (a gateway's are in gateways.json — `gateway: true`).
+    public var endpoints: [Gateway.Endpoint]? = nil
+    /// 617: a model gateway (OpenRouter, Vercel AI Gateway): its key is this provider's, its endpoints the gateway's.
+    public var gateway: Bool? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, hosts, inject, env, check
+        case id, title, hosts, inject, env, check, endpoints, gateway
         case alsoEnv = "also_env", builtinBinding = "builtin_binding", keyHint = "key_hint", errorShape = "error_shape"
         case swapOnly = "swap_only"
     }
@@ -667,6 +674,18 @@ public enum KeyProviders {
             if let c = p.check {
                 guard ["GET", "POST"].contains(c.method), let u = URL(string: c.url), u.scheme == "https", let h = u.host, p.hosts.contains(h), !c.rejected.isEmpty else {
                     throw SandboxError.invalidSpec("provider \(p.id): check is GET/POST https on one of its hosts, with rejected statuses")
+                }
+            }
+            // 617: a model source — a provider's endpoints on its own hosts; a gateway's are gateways.json's, on the same hosts.
+            if p.gateway == true {
+                guard p.endpoints == nil, p.builtinBinding == nil, let g = Gateways.gateway(p.id), Set(g.hosts) == Set(p.hosts), g.keyEnv == p.env else {
+                    throw SandboxError.invalidSpec("provider \(p.id): a gateway names its gateway in gateways.json (same id, hosts and key variable) and no endpoints of its own")
+                }
+            }
+            for e in p.endpoints ?? [] {
+                guard !e.shapes.isEmpty, e.shapes.allSatisfy(Gateway.shapes.contains), let u = URL(string: e.baseUrl), u.scheme == "https",
+                      let h = u.host, p.hosts.contains(h), e.defaultModel.map(ModelSelection.isModelID) ?? true else {
+                    throw SandboxError.invalidSpec("provider \(p.id): endpoint \(e.id): known shapes, an https base URL on its hosts, a model id")
                 }
             }
         }
@@ -786,9 +805,12 @@ public struct Gateway: Codable, Sendable, Equatable {
         public var id: String
         public var shapes: [String]
         public var baseUrl: String
+        /// 617: the model a recipe is given on this endpoint when nobody chose one (a gateway's: `creator/name`). Only an
+        /// endpoint with one is offered to recipes (`ModelSources`) — the coding-agent variants are not generic.
+        public var defaultModel: String? = nil
         enum CodingKeys: String, CodingKey {
             case id, shapes
-            case baseUrl = "base_url"
+            case baseUrl = "base_url", defaultModel = "default_model"
         }
     }
 
@@ -971,8 +993,11 @@ extension AgentRecipe {
     /// 617: the vault binding a recipe agent's key goes in — its provider's, plus the recipe's own env aliases.
     public func keyBinding(_ p: KeyProvider) -> CredentialBinding {
         var b = p.binding
-        let aliases = credentials.first { $0.provider == p.id }?.envAliases ?? []
-        if !aliases.isEmpty { b.alsoEnvironmentVariables = (b.alsoEnvironmentVariables ?? []) + aliases }
+        // 617: and the chosen models@1 entry's key_env (the tool's own name for the key, for this source).
+        let aliases = (credentials.first { $0.provider == p.id }?.envAliases ?? []) + (selection(source: p.id)?.keyEnv ?? [])
+        for a in aliases where a != b.environmentVariable && !(b.alsoEnvironmentVariables ?? []).contains(a) {
+            b.alsoEnvironmentVariables = (b.alsoEnvironmentVariables ?? []) + [a]
+        }
         return b
     }
 
@@ -1109,7 +1134,9 @@ extension AgentRecipe {
         guard !credentials.isEmpty else { throw bad("no credentials") }
         for c in credentials {
             guard KeyProviders.provider(c.provider) != nil || c.provider == "custom" else { throw bad("provider \(c.provider) is not in providers.json") }
-            if !isBuiltin, c.accounts != ["key"] { throw bad("a recipe agent takes key accounts only") }
+            // 617: a recipe agent takes its source's API key — a `key` account, an Anthropic or an OpenAI API key; never a
+            // subscription.
+            if !isBuiltin, c.accounts != [ModelSources.accountKind(c.provider)] { throw bad("a recipe agent takes \(ModelSources.accountKind(c.provider)) accounts of \(c.provider) only") }
             for a in c.envAliases ?? [] {
                 // 617: the same placeholder under another name — credential-shaped, never the provider's own name, never
                 // a variable the recipe sets itself.
@@ -1169,6 +1196,7 @@ extension AgentRecipe {
                 throw bad("its model permission does not reach its provider \(p.id)'s hosts")
             } }
         }
+        try validateModels(bad)
         // prompt, resume, verify
         if let p = prompt {
             switch p.kind {
@@ -1241,7 +1269,8 @@ extension AgentRecipe {
             if let u = a.keysPage, !(u.hasPrefix("https://") && URL(string: u)?.host != nil) { throw bad("\(at).keys_page is an https URL") }
             if a.freeTierNote != nil, a.freeTier == nil { throw bad("\(at): a free-tier note without free_tier") }
             if a.freeTier != nil, a.checked == nil { throw bad("\(at): free_tier is only said with the date it was checked") }
-            let takes = Set(credentials.flatMap(\.accounts))
+            // 617 (models@1): and the key kind of every model source it is offered.
+            let takes = Set(credentials.flatMap(\.accounts)).union(models == nil ? [] : offeredSources.map(ModelSources.accountKind))
             for k in a.accounts ?? [] where !takes.contains(k) { throw bad("\(at).accounts: \(k) is not an account kind it takes (credentials)") }
             switch a.kind {
             case "api-key":

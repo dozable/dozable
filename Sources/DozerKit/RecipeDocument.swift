@@ -62,10 +62,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public static let auth = "com.dozersandbox/auth@1"
         public static let gateways = "com.dozersandbox/gateways@1"
         public static let currency = "com.dozersandbox/currency@1"
+        public static let models = "com.dozersandbox/models@1"
         public static let directory = "com.dozersandbox/directory@1"
         /// Kit's own types (exported as they are, `dozer:` keys removed).
         public static let kit = [networkPolicy, credential, volume, agentContext]
-        public static let dozer = [install, launch, auth, gateways, currency, directory]
+        public static let dozer = [install, launch, auth, gateways, currency, directory, models]
     }
 
     /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozer's whole network under `dozer`.
@@ -227,6 +228,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case gateways(RecipeDocument.Gateways)
         case currency(RecipeDocument.Currency)
         case directory(RecipeDocument.Directory)
+        case models(AgentRecipe.Models)
     }
 
     enum CodingKeys: String, CodingKey { case type, name, optional, description, config }
@@ -253,6 +255,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case T.gateways: config = .gateways(try c.decode(RecipeDocument.Gateways.self, forKey: .config))
         case T.currency: config = .currency(try c.decode(RecipeDocument.Currency.self, forKey: .config))
         case T.directory: config = .directory(try c.decode(RecipeDocument.Directory.self, forKey: .config))
+        case T.models: config = .models(try c.decode(AgentRecipe.Models.self, forKey: .config))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "capability type \(type) is not one this build knows")
         }
@@ -275,6 +278,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case .gateways(let v): try c.encode(v, forKey: .config)
         case .currency(let v): try c.encode(v, forKey: .config)
         case .directory(let v): try c.encode(v, forKey: .config)
+        case .models(let v): try c.encode(v, forKey: .config)
         }
     }
 }
@@ -314,7 +318,7 @@ extension RecipeDocument {
         for t in [Types.networkPolicy, Types.install, Types.launch, Types.auth, Types.gateways, Types.directory] where types.filter({ $0 == t }).count != 1 {
             throw bad("exactly one \(t)")
         }
-        for t in [Types.agentContext, Types.currency] where types.filter({ $0 == t }).count > 1 { throw bad("at most one \(t)") }
+        for t in [Types.agentContext, Types.currency, Types.models] where types.filter({ $0 == t }).count > 1 { throw bad("at most one \(t)") }
         for c in capabilities where c.optional != nil || c.name != nil { throw bad("\(c.type): optional and name are export's, not the recipe's") }
         guard launch.check != nil else { throw bad("launch@1 has no check (the smoke turn make recipe-check runs)") }
         let recipe = try recipeUnchecked()
@@ -338,6 +342,11 @@ extension RecipeDocument {
             for name in Self.templateNames(s) where !Self.allowedTemplate(name) { throw bad("\(s): ${{ \(name) }} is not a template a recipe has") }
             if Self.bareTemplate(s) { throw bad("\(s): templates are ${{ … }} (Kit's syntax), not {…}") }
         }
+        // 617 (models@1): the check turn may name the selection's model (`make recipe-check` fills it in) — nothing else.
+        for s in launch.check?.argv ?? [] {
+            for name in Self.templateNames(s) where name != "dozer.model" { throw bad("\(s): ${{ \(name) }} is not a template a check has") }
+            if Self.templateNames(s).contains("dozer.model"), models == nil { throw bad("\(s): ${{ dozer.model }} needs models@1") }
+        }
     }
 
     static func describe(_ r: NetworkPolicy.Rules) -> String {
@@ -358,11 +367,14 @@ extension RecipeDocument {
     var auth: AgentRecipe.Auth { one { if case .auth(let v) = $0 { v } else { nil } }! }
     var gateways: Gateways { one { if case .gateways(let v) = $0 { v } else { nil } }! }
     var currency: Currency? { one { if case .currency(let v) = $0 { v } else { nil } } }
+    var models: AgentRecipe.Models? { one { if case .models(let v) = $0 { v } else { nil } } }
     var directory: Directory { one { if case .directory(let v) = $0 { v } else { nil } }! }
 
     /// Every string that is a template.
     var templateStrings: [String] {
         var out = [install.url].compactMap { $0 } + launch.verify.compactMap(\.expect)
+        for e in models?.shapes ?? [] { out += e.env.values.sorted() }
+        for e in models?.native ?? [] { out += e.env.values.sorted() }
         for g in gateways.entries {
             guard let h = g.how else { continue }
             out += (h.env ?? [:]).values.sorted() + (h.args ?? []) + (h.modelArgs ?? [])
@@ -385,7 +397,7 @@ extension RecipeDocument {
     }
 
     static func allowedTemplate(_ name: String) -> Bool {
-        name == "kit.args.version" || name == "dozer.build" || name == "dozer.placeholder" || name == "dozer.model"
+        name == "kit.args.version" || name == "dozer.build" || name == "dozer.placeholder" || name == "dozer.model" || name == "dozer.base_url"
             || name.range(of: #"^dozer\.gateway\.endpoint\.[a-z0-9-]+$"#, options: .regularExpression) != nil
     }
 
@@ -411,7 +423,7 @@ extension RecipeDocument {
 
     /// `{version}` → `${{ kit.args.version }}`, `{NAME}` → `${{ dozer.NAME }}`.
     static func toFile(_ s: String) -> String {
-        let re = try! NSRegularExpression(pattern: #"\{([a-z][a-z0-9.-]*)\}"#)
+        let re = try! NSRegularExpression(pattern: #"\{([a-z][a-z0-9._-]*)\}"#)
         let ns = s as NSString
         var out = "", last = 0
         for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
@@ -421,6 +433,14 @@ extension RecipeDocument {
             last = m.range.location + m.range.length
         }
         return out + ns.substring(from: last)
+    }
+
+    /// 617: models@1's env values between the file's templates and the model's.
+    static func mapModels(_ m: AgentRecipe.Models, _ f: @escaping (String) -> String) -> AgentRecipe.Models {
+        var x = m
+        x.shapes = m.shapes?.map { var e = $0; e.env = e.env.mapValues(f); return e }
+        x.native = m.native?.map { var e = $0; e.env = e.env.mapValues(f); return e }
+        return x
     }
 
     static func mapGateway(_ g: AgentRecipe.GatewaySupport, _ f: @escaping (String) -> String) -> AgentRecipe.GatewaySupport {
@@ -493,7 +513,8 @@ extension RecipeDocument {
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
             verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
-            gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags)
+            gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags,
+            models: models.map { Self.mapModels($0, Self.toModel) })
     }
 
     /// The file a model would be written as (the inverse of `recipe()`): what the recipe says, plus what only the file
@@ -540,6 +561,7 @@ extension RecipeDocument {
             verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))
         caps.append(RecipeCapability(type: T.gateways, config: .gateways(Gateways(entries: r.gateways.map { Self.mapGateway($0, Self.toFile) }))))
+        if let m = r.models { caps.append(RecipeCapability(type: T.models, config: .models(Self.mapModels(m, Self.toFile)))) }
         if r.checked != nil || r.lifecycle != nil {
             caps.append(RecipeCapability(type: T.currency, config: .currency(Currency(checked: r.checked, lifecycle: r.lifecycle))))
         }

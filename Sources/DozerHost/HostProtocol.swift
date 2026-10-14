@@ -196,6 +196,10 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var keys: [String]?
     /// 617 (D14): made by `doz try` — marked as a try (`doz ls` says so).
     public var trial: Bool?
+    /// 617 (models@1): the model source a recipe agent uses (`--provider`/`--gateway`: anthropic, openai, xai, google,
+    /// openrouter, vercel-ai-gateway) — its account is then a key of that source — and the model (`--model`).
+    public var modelSource: String?
+    public var model: String?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {

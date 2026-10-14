@@ -1,11 +1,13 @@
 # A fake model provider over TLS (its own throwaway CA) for the network profiler, `make recipe-check` and VM proofs
-# (617): xAI, the Gemini API, Anthropic's Messages API and OpenAI's Responses API, each answering DOZ_FAKE_OK (an agent
+# (617): xAI, the Gemini API, Anthropic's Messages API, OpenAI's Responses and Chat Completions APIs and the two gateways
+# (OpenRouter, Vercel AI Gateway: both shapes under their base URLs), each answering DOZ_FAKE_OK (an agent
 # that ends a task only through its `respond` tool, Dirac, gets that tool call with DOZ_FAKE_OK; one whose only tool is
 # `bash`, mini-swe-agent, gets a bash call that submits DOZ_FAKE_OK).
 # Python 3.9+ stdlib only.
 # Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
 #        the leaf and starts it)
-# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY — the (fake) real keys the proxy must swap in;
+# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY — the (fake)
+#      real keys the proxy must swap in;
 #      anything else is answered in that provider's own refusal shape. FAKE_PORT — a fixed port (default: any).
 # A request whose body holds DOZ_SLOW is answered after 6 s (so a status poller, a `doz exec` every ~1 s, sees `working`).
 # Every request is one JSON line in REQUESTS.log: method, host, path, the auth headers' names and values, and whether
@@ -15,6 +17,10 @@ import http.server, json, os, ssl, sys, time
 leaf, key, logf, portf = sys.argv[1:5]
 XAI, GOOGLE = os.environ.get("FAKE_XAI_KEY", ""), os.environ.get("FAKE_GOOGLE_KEY", "")
 ANTHROPIC, OPENAI = os.environ.get("FAKE_ANTHROPIC_KEY", ""), os.environ.get("FAKE_OPENAI_KEY", "")
+# 617 (models@1): the gateways — each serves the OpenAI shapes and Anthropic's Messages under its own base URLs, on its
+# own key (gateways.json: openrouter.ai/api/v1 + /api, ai-gateway.vercel.sh/v1 + /).
+GATEWAYS = {"openrouter.ai": ("/api", os.environ.get("FAKE_OPENROUTER_KEY", "")),
+            "ai-gateway.vercel.sh": ("", os.environ.get("FAKE_VERCEL_KEY", ""))}
 ANSWER = "DOZ_FAKE_OK"
 
 
@@ -86,7 +92,8 @@ class H(http.server.BaseHTTPRequestHandler):
         return bool(XAI) and auth.get("authorization") == "Bearer " + XAI
 
     def google_ok(self, auth):
-        return bool(GOOGLE) and auth.get("x-goog-api-key") == GOOGLE
+        # (the Gemini API's OpenAI-compatible endpoint takes the key as a Bearer token)
+        return bool(GOOGLE) and (auth.get("x-goog-api-key") == GOOGLE or auth.get("authorization") == "Bearer " + GOOGLE)
 
     def anthropic_ok(self, auth):
         return bool(ANTHROPIC) and (auth.get("x-api-key") == ANTHROPIC or auth.get("authorization") == "Bearer " + ANTHROPIC)
@@ -122,13 +129,43 @@ class H(http.server.BaseHTTPRequestHandler):
             req = json.loads(body or b"{}")
             done, stream = responses_sse(req.get("model", "gpt-fake"))
             return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
+        if self.command == "POST" and p == "/v1/chat/completions":          # 617: a tool on the OpenAI API
+            return self.chat(body)
         return self.send(200, {})
+
+    # ── a gateway (openrouter.ai, ai-gateway.vercel.sh): OpenAI shapes + Anthropic Messages, its own key ──────────
+    def gateway(self, auth, body):
+        prefix, k = GATEWAYS[self.host()]
+        p = self.path.split("?")[0]
+        if prefix and p.startswith(prefix):
+            p = p[len(prefix):]
+        if not k or not any(v in (k, "Bearer " + k) for v in auth.values()):
+            return self.send(401, {"error": {"message": "No auth credentials found", "code": 401}})
+        if p == "/v1/key":                                                  # OpenRouter's key check
+            return self.send(200, {"data": {"label": "fake", "usage": 0, "limit": None, "is_free_tier": False}})
+        if p.startswith("/v1/models"):
+            return self.send(200, {"object": "list", "data": [{"id": "openai/gpt-5.4-mini", "object": "model"},
+                                                              {"id": "anthropic/claude-sonnet-4.6", "object": "model"}]})
+        if self.command == "POST" and p == "/v1/chat/completions":
+            return self.chat(body)
+        if self.command == "POST" and p.startswith("/v1/responses"):
+            req = json.loads(body or b"{}")
+            done, stream = responses_sse(req.get("model", "openai/gpt-fake"))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
+        if self.command == "POST" and p == "/v1/messages/count_tokens":
+            return self.send(200, {"input_tokens": 1})
+        if self.command == "POST" and p == "/v1/messages":
+            req = json.loads(body or b"{}")
+            msg, stream = anthropic_message(req.get("model", "anthropic/claude-fake"))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, msg)
+        return self.send(404, {"error": {"message": "not here", "code": 404}})
 
     def do_GET(self):
         auth = self.record()
         h = self.host()
         if h == "api.anthropic.com": return self.anthropic(auth, b"")
         if h == "api.openai.com": return self.openai(auth, b"")
+        if h in GATEWAYS: return self.gateway(auth, b"")
         p = self.path.split("?")[0]
         if p == "/v1/models":
             if not self.xai_ok(auth): return self.send(400, {"code": "invalid-argument", "error": "Incorrect API key provided"})
@@ -153,46 +190,54 @@ class H(http.server.BaseHTTPRequestHandler):
         h = self.host()
         if h == "api.anthropic.com": return self.anthropic(auth, body)
         if h == "api.openai.com": return self.openai(auth, body)
+        if h in GATEWAYS: return self.gateway(auth, body)
         p = self.path.split("?")[0]
         if p.endswith("/chat/completions"):
             # 617: the Gemini API's OpenAI-compatible endpoint (/v1beta/openai/…) on Google's host takes the Google key.
             ok = self.google_ok(auth) if h == "generativelanguage.googleapis.com" else self.xai_ok(auth)
             if not ok: return self.send(401, {"error": "the proxy did not swap the key"})
-            req = json.loads(body or b"{}")
-            # An agent that ends its task only through a tool (Dirac's `respond`, operation complete) gets that call,
-            # once — never after a tool result. Every other request: the answer in words.
-            names = {(t.get("function") or t).get("name") for t in req.get("tools") or []}
-            last = (req.get("messages") or [{}])[-1].get("role")
-            call = None
-            if "respond" in names and last != "tool":
-                call = {"index": 0, "id": "call_doz", "type": "function",
-                        "function": {"name": "respond", "arguments": json.dumps({"operation": "complete", "text": ANSWER})}}
-            # An agent whose only tool is `bash` and which ends with its submit marker (mini-swe-agent): that call.
-            elif names == {"bash"} and last != "tool":
-                cmd = "echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && echo " + ANSWER
-                call = {"index": 0, "id": "call_doz", "type": "function",
-                        "function": {"name": "bash", "arguments": json.dumps({"command": cmd})}}
-            if req.get("stream"):
-                delta = {"role": "assistant", "content": None, "tool_calls": [call]} if call else {"role": "assistant", "content": ANSWER}
-                c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",
-                     "choices": [{"index": 0, "delta": delta, "finish_reason": None}]}
-                out = "data: " + json.dumps(c) + "\n\n"
-                c["choices"][0]["delta"] = {}
-                c["choices"][0]["finish_reason"] = "tool_calls" if call else "stop"
-                c["usage"] = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
-                out += "data: " + json.dumps(c) + "\n\ndata: [DONE]\n\n"
-                return self.send(200, out.encode(), "text/event-stream")
-            return self.send(200, {"id": "x", "object": "chat.completion", "created": 0, "model": "grok-4.6",
-                                   "choices": [{"index": 0, "message": {"role": "assistant", "content": None if call else ANSWER,
-                                                                          **({"tool_calls": [call]} if call else {})},
-                                                "finish_reason": "tool_calls" if call else "stop"}],
-                                   "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}})
+            return self.chat(body)
         if p == "/v1/responses":
             # OpenAI's Responses API (what Grok Build uses against the real api.x.ai).
             if not self.xai_ok(auth): return self.send(401, {"error": "the proxy did not swap the key"})
             req = json.loads(body or b"{}")
             done, stream = responses_sse(req.get("model", "grok-4.6"))
             return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
+        return self.gemini(auth, body, p)
+
+    def chat(self, body):
+        """OpenAI's Chat Completions (xAI, OpenAI, the Gemini API's compatible endpoint, the gateways)."""
+        req = json.loads(body or b"{}")
+        # An agent that ends its task only through a tool (Dirac's `respond`, operation complete) gets that call,
+        # once — never after a tool result. Every other request: the answer in words.
+        names = {(t.get("function") or t).get("name") for t in req.get("tools") or []}
+        last = (req.get("messages") or [{}])[-1].get("role")
+        call = None
+        if "respond" in names and last != "tool":
+            call = {"index": 0, "id": "call_doz", "type": "function",
+                    "function": {"name": "respond", "arguments": json.dumps({"operation": "complete", "text": ANSWER})}}
+        # An agent whose only tool is `bash` and which ends with its submit marker (mini-swe-agent): that call.
+        elif names == {"bash"} and last != "tool":
+            cmd = "echo COMPLETE_TASK_AND_SUBMIT_FINAL_OUTPUT && echo " + ANSWER
+            call = {"index": 0, "id": "call_doz", "type": "function",
+                    "function": {"name": "bash", "arguments": json.dumps({"command": cmd})}}
+        if req.get("stream"):
+            delta = {"role": "assistant", "content": None, "tool_calls": [call]} if call else {"role": "assistant", "content": ANSWER}
+            c = {"id": "x", "object": "chat.completion.chunk", "created": 0, "model": "grok-4.6",
+                 "choices": [{"index": 0, "delta": delta, "finish_reason": None}]}
+            out = "data: " + json.dumps(c) + "\n\n"
+            c["choices"][0]["delta"] = {}
+            c["choices"][0]["finish_reason"] = "tool_calls" if call else "stop"
+            c["usage"] = {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}
+            out += "data: " + json.dumps(c) + "\n\ndata: [DONE]\n\n"
+            return self.send(200, out.encode(), "text/event-stream")
+        return self.send(200, {"id": "x", "object": "chat.completion", "created": 0, "model": "grok-4.6",
+                               "choices": [{"index": 0, "message": {"role": "assistant", "content": None if call else ANSWER,
+                                                                      **({"tool_calls": [call]} if call else {})},
+                                            "finish_reason": "tool_calls" if call else "stop"}],
+                               "usage": {"prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2}})
+
+    def gemini(self, auth, body, p):
         if ":streamGenerateContent" in p or ":generateContent" in p:
             if not self.google_ok(auth): return self.send(400, {"error": {"code": 400, "message": "API key not valid.", "status": "INVALID_ARGUMENT"}})
             if ":streamGenerateContent" in p:

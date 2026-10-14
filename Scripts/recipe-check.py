@@ -16,12 +16,18 @@
 # Exit 0 when every recipe passed, 1 otherwise (2: usage). The report (JSON) has, per recipe, pass/fail, the version,
 # each step's duration, the states seen and the failures; --summary FILE appends a markdown table.
 #
-# Usage: recipe-check.py [--store DIR] [--report FILE] [--summary FILE] [--doz BIN] [--versions pin|latest] ID…|all
+# Usage: recipe-check.py [--store DIR] [--report FILE] [--summary FILE] [--doz BIN] [--versions pin|latest]
+#                        [--selections all|default|SOURCE…] ID…|all
 #   --store     the scratch root (default /tmp/doz-recipe-check; keep it short — the host's socket path must fit in 104
 #               bytes). Prepared images are kept there between runs; sandboxes never are.
 #   --versions  pin (default): each recipe agent at its pinned release; the built-in three (Claude Code, pi, Codex)
 #               at `latest` — their pins are frozen fallbacks (RecipePinTests) and Dozer installs latest for them.
 #               latest: every agent at its latest release.
+#   --selections a recipe with models@1 (it can be tried with several providers and gateways): steps 2–5 run once PER
+#               model source it is offered — each in a fresh try with that source's FAKE key (`doz try ID --provider|
+#               --gateway SOURCE`), `${{ dozer.model }}` in its check argv = that source's model, the request seen on
+#               that source's host with that key, and the leak guard to another provider AND another gateway. all
+#               (default; also $RECIPE_SELECTIONS), default (its default source only), or a list. The build is once.
 import argparse, datetime, glob, json, os, pty, re, select, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,18 +38,27 @@ KEYS = {
     "google": "AIzaFAKERECIPECHECK-0123456789abcdef",
     "anthropic": "sk-ant-api03-FAKERECIPECHECK-0123456789abcdefghijklmnopqrstuvwxyz",
     "openai": "sk-proj-FAKERECIPECHECK-0123456789abcdefghijklmnopqrstuvwxyz",
+    "openrouter": "sk-or-v1-FAKERECIPECHECK-0123456789abcdef0123456789abcdef",
+    "vercel-ai-gateway": "vck_FAKERECIPECHECK0123456789abcdefghijklmnop",
 }
 ACCOUNT_ARGS = {
     "xai": ["--provider", "xai"],
     "google": ["--provider", "google"],
     "anthropic": ["--api-key", "--no-verify"],
     "openai": ["--openai-key", "--no-verify"],
+    "openrouter": ["--provider", "openrouter"],
+    "vercel-ai-gateway": ["--provider", "vercel-ai-gateway", "--no-verify"],
 }
-# A provider's host and how a key rides on it — for the leak guard (a placeholder sent where it does not belong).
+# A source's host and how a key rides on it — for the leak guard (a placeholder sent where it does not belong).
 LEAK_TARGET = {
     "xai": ("api.x.ai", "Authorization: Bearer %s", "/v1/models"),
     "google": ("generativelanguage.googleapis.com", "x-goog-api-key: %s", "/v1beta/models"),
+    "openai": ("api.openai.com", "Authorization: Bearer %s", "/v1/models"),
+    "anthropic": ("api.anthropic.com", "x-api-key: %s", "/v1/models"),
+    "openrouter": ("openrouter.ai", "Authorization: Bearer %s", "/api/v1/models"),
+    "vercel-ai-gateway": ("ai-gateway.vercel.sh", "Authorization: Bearer %s", "/v1/models"),
 }
+GATEWAYS = ("openrouter", "vercel-ai-gateway")
 STATES_NEEDED = ("idle", "working", "done")
 
 
@@ -70,6 +85,8 @@ class Recipe:
         self.provider = cred.get("service")
         self.key_env = (cred.get("apiKey") or {}).get("name")
         self.volumes = [c["config"]["path"] for c in caps if c["type"] == "com.docker.sandbox/volume@1"]
+        # 617 (models@1): the model sources it can be tried with (the plan says which: `doz try ID --dry-run --json`).
+        self.models = cfg("com.dozersandbox/models@1")
 
 
 class Harness:
@@ -137,7 +154,7 @@ class Harness:
                 pass
             os.remove(pidf)
         fenv = dict(os.environ, FAKE_XAI_KEY=KEYS["xai"], FAKE_GOOGLE_KEY=KEYS["google"], FAKE_ANTHROPIC_KEY=KEYS["anthropic"],
-                    FAKE_OPENAI_KEY=KEYS["openai"])
+                    FAKE_OPENAI_KEY=KEYS["openai"], FAKE_OPENROUTER_KEY=KEYS["openrouter"], FAKE_VERCEL_KEY=KEYS["vercel-ai-gateway"])
         p = subprocess.run(["/bin/sh", os.path.join(REPO, "Scripts/fake-provider-up.sh"), self.fake], capture_output=True, text=True, env=fenv)
         if p.returncode != 0:
             raise SystemExit("recipe-check: the fake provider did not start: " + p.stderr)
@@ -178,34 +195,53 @@ class Harness:
             self.doz("account", "default", "rc-" + p, timeout=60)
 
     # ── one recipe ─────────────────────────────────────────────────────────────
+    def selections(self, r):
+        """617 (models@1): the model sources to check — every one the recipe is offered (`--selections all`, the
+        default), only its default (`default`), or those named that it is offered. Without models@1: its provider."""
+        if not r.models:
+            return [(r.provider, None)]
+        code, out = self.doz("try", r.product, "--dry-run", "--json", timeout=120)
+        try:
+            plan = json.loads(out[out.index("{"):])
+            offered = [(o["id"], o["defaultModel"]) for o in (plan.get("model") or {}).get("offered") or []]
+        except (ValueError, KeyError):
+            offered = []
+        if not offered:
+            return [(r.models.get("default") or r.provider, None)]
+        want = self.args.selections
+        if want == "default":
+            return offered[:1]
+        if want == "all":
+            return offered
+        names = [w for w in want.replace(",", " ").split() if w]
+        return [o for o in offered if o[0] in names]
+
     def run(self, r):
-        res = {"id": r.product, "recipe": r.doc_id, "provider": r.provider, "status_protocol": r.status, "version": None,
-               "pass": False, "durations": {}, "status_states": [], "failures": [], "notes": []}
+        """Build once, then each selection (a model source) in a fresh try of its own. One result per selection."""
+        results = []
+        res = self.new_result(r, r.provider)
         fail = res["failures"].append
         t_all = time.time()
-
-        def step(name, fn):
-            t = time.time()
-            try:
-                return fn()
-            finally:
-                res["durations"][name] = round(time.time() - t, 1)
-
         if not r.check:
             fail("the recipe has no check block")
-            return self.finish(res, t_all)
-        if r.provider not in KEYS:
-            fail("no stand-in for its provider %r (Scripts/fake-provider.py fakes %s)" % (r.provider, ", ".join(sorted(KEYS))))
-            return self.finish(res, t_all)
+            return [self.finish(res, t_all)]
+        sels = self.selections(r)
+        if not sels:
+            fail("no selection to check (--selections %s; the recipe offers: %s)" % (self.args.selections, r.models))
+            return [self.finish(res, t_all)]
+        missing = [s for s, _ in sels if s not in KEYS]
+        if missing:
+            fail("no stand-in for %s (Scripts/fake-provider.py fakes %s)" % (", ".join(missing), ", ".join(sorted(KEYS))))
+            return [self.finish(res, t_all)]
         want = "latest" if (self.args.versions == "latest" or r.builtin) else r.pin
         code, out = self.doz("config", "set", r.version_setting, want, timeout=60)
         if code != 0:
             fail("config set %s %s: %s" % (r.version_setting, want, out.strip()[-300:]))
-            return self.finish(res, t_all)
+            return [self.finish(res, t_all)]
         if want == "latest":
             res["notes"].append("at its latest release (%s)" % ("a built-in agent: its pin is a frozen fallback" if r.builtin else "--versions latest"))
 
-        # 1. build
+        # 1. build (once for every selection: one image serves every model source)
         def build():
             row = self.image_row(r.product)
             if row and row.get("current") and row.get("status") == "up to date" and (want == "latest" or row.get("version") == want.split("+")[0] or row.get("version") == want):
@@ -216,34 +252,66 @@ class Harness:
                 fail("build: doz image bake %s exited %d: %s" % (r.product, code, out.strip()[-600:]))
                 return False
             return True
-        if not step("build", build):
-            return self.finish(res, t_all)
+        t = time.time()
+        built = build()
+        res["durations"]["build"] = round(time.time() - t, 1)
+        if not built:
+            return [self.finish(res, t_all)]
         row = self.image_row(r.product) or {}
-        res["version"] = row.get("version") or want
-        if want != "latest" and res["version"].split("+")[0] != want.split("+")[0]:
-            fail("build: the image holds %s, not the pin %s" % (res["version"], want))
+        version = row.get("version") or want
+        if want != "latest" and version.split("+")[0] != want.split("+")[0]:
+            fail("build: the image holds %s, not the pin %s" % (version, want))
+        for i, (source, model) in enumerate(sels):
+            s = res if i == 0 else self.new_result(r, source)
+            s["provider"] = source
+            s["selection"] = source if r.models else None
+            s["model"] = model
+            s["version"] = version
+            if i > 0:
+                s["notes"].append("the image of the first selection")
+            print("recipe-check: %s · %s …" % (r.product, source), flush=True) if r.models else None
+            self.run_selection(r, s, source, model, first=(i == 0))
+            results.append(self.finish(s, t_all if i == 0 else s.pop("_t")))
+        return results
 
-        # 2. a fresh try
+    def new_result(self, r, provider):
+        return {"id": r.product, "recipe": r.doc_id, "provider": provider, "selection": None, "model": None,
+                "status_protocol": r.status, "version": None, "pass": False, "durations": {}, "status_states": [],
+                "failures": [], "notes": [], "_t": time.time()}
+
+    def run_selection(self, r, res, source, model, first):
+        fail = res["failures"].append
+
+        def step(name, fn):
+            t = time.time()
+            try:
+                return fn()
+            finally:
+                res["durations"][name] = round(time.time() - t, 1)
+
+        # 2. a fresh try (with this model source: its account is the rc-SOURCE key)
         def make_try():
             before = {s["name"] for s in self.sandboxes()}
-            code, out = self.doz("try", r.product, "-d", "-q", timeout=1500)
+            extra = []
+            if r.models:
+                extra = ["--gateway" if source in GATEWAYS else "--provider", source, "--account", "rc-" + source]
+            code, out = self.doz("try", r.product, *extra, "-d", "-q", timeout=1500)
             names = [s["name"] for s in self.sandboxes() if s.get("trial") and s["name"] not in before]
             if code != 0 or not names:
-                fail("try: doz try %s -d exited %d: %s" % (r.product, code, out.strip()[-600:]))
+                fail("try: doz try %s %s -d exited %d: %s" % (r.product, " ".join(extra), code, out.strip()[-600:]))
                 return None
             return names[0]
         name = step("try", make_try)
         if not name:
-            return self.finish(res, t_all)
+            return
         res["sandbox"] = name
         try:
-            self.checks(r, name, res, step)
+            self.checks(r, name, res, step, source, model, first)
         finally:
             self.doz("rm", name, "--yes", timeout=300)
             folder = os.path.join(self.root, "projects", name)
             if os.path.isdir(folder) and not os.listdir(folder):
                 os.rmdir(folder)
-        return self.finish(res, t_all)
 
     def image_row(self, name):
         code, out = self.doz("image", "ls", "--json", timeout=120)
@@ -253,36 +321,43 @@ class Harness:
             return None
         return next((x for x in rows if x.get("name") == name), None)
 
-    def checks(self, r, name, res, step):
+    def checks(self, r, name, res, step, source, model, first):
         fail = res["failures"].append
         version = (res["version"] or "").split("+")[0]
 
-        # 3. verify (again after the smoke turn: an agent that updated itself while it ran is caught)
+        # 3. verify (again after the smoke turn: an agent that updated itself while it ran is caught) — first selection only
         def verify(after=""):
             for v in r.verify:
                 code, out = self.doz("exec", name, "--", *v["argv"], timeout=180)
                 exp = (v.get("expect") or "").replace("${{ kit.args.version }}", version)
                 if code != 0 or (exp and exp not in out):
                     fail("verify%s: %s → exit %d, %r (expected %r)" % (after, " ".join(v["argv"]), code, out.strip()[-200:], exp))
-        step("verify", verify)
+        if first:
+            step("verify", verify)
 
-        # 4. smoke
+        # 4. smoke — the check turn; `${{ dozer.model }}` is this selection's model
         def smoke():
             c = r.check
+            argv = [a.replace("${{ dozer.model }}", model or "") for a in c["argv"]]
             n0 = len(self.requests())
-            code, out = self.doz("exec", name, "--", *c["argv"], timeout=int(c.get("timeout") or 240) + 30)
+            code, out = self.doz("exec", name, "--", *argv, timeout=int(c.get("timeout") or 240) + 30)
             res["smoke_output"] = out.strip()[-400:]
             if c["expect"] not in out:
-                fail("smoke: %s did not print %r (exit %d): %s" % (" ".join(c["argv"]), c["expect"], code, out.strip()[-400:]))
+                fail("smoke: %s did not print %r (exit %d): %s" % (" ".join(argv), c["expect"], code, out.strip()[-400:]))
             if code != int(c.get("exit") or 0):
-                fail("smoke: %s exited %d, expected %d" % (" ".join(c["argv"]), code, int(c.get("exit") or 0)))
+                fail("smoke: %s exited %d, expected %d" % (" ".join(argv), code, int(c.get("exit") or 0)))
             seen = self.requests()[n0:]
-            if not any(KEYS[r.provider] in json.dumps(q.get("auth") or {}) for q in seen):
-                fail("smoke: the stand-in never saw the %s key swapped in by the proxy (%d requests)" % (r.provider, len(seen)))
+            if not any(KEYS[source] in json.dumps(q.get("auth") or {}) for q in seen):
+                fail("smoke: the stand-in never saw the %s key swapped in by the proxy (%d requests: %s)" % (
+                    source, len(seen), ", ".join(sorted({(q.get("host") or "") + (q.get("path") or "") for q in seen}))[:300]))
+            hosts = {(q.get("host") or "").split(":")[0] for q in seen}
+            if r.models and LEAK_TARGET[source][0] not in hosts:
+                fail("smoke: no request reached %s (the chosen source) — it went to %s" % (LEAK_TARGET[source][0], ", ".join(sorted(hosts)) or "nothing"))
         step("smoke", smoke)
-        verify(" after the turn")
+        if first:
+            verify(" after the turn")
 
-        # 5. keys: a placeholder in the guest, no key, the leak guard
+        # 5. keys: a placeholder in the guest, no key, the leak guard (to another provider AND another gateway)
         def keys():
             dirs = " ".join("'%s'" % v for v in r.volumes)
             code, out = self.doz("exec", name, "--", "sh", "-c",
@@ -299,22 +374,25 @@ class Harness:
                 fail("keys: a key is in the guest: %s" % out.strip()[:200])
             if not m:
                 return
-            other = "google" if r.provider == "xai" else "xai"
-            host, header, path = LEAK_TARGET[other]
-            self.doz("net", "allow", name, "site:" + host, "--yes", timeout=120)
-            n0 = len(self.requests())
-            code, out = self.doz("exec", name, "--", "sh", "-c",
-                                 "curl -s -m 20 -o /dev/null -w '%%{http_code}' -H '%s' https://%s%s" % (header % m.group(0), host, path),
-                                 timeout=120)
-            leaked = [q for q in self.requests()[n0:] if "doz_cred_" in json.dumps(q.get("auth") or {})
-                      or any(k in json.dumps(q.get("auth") or {}) for k in KEYS.values())]
-            got = out.strip()[-3:]
-            if got not in ("400", "401", "403") or leaked:
-                fail("keys: the placeholder sent to %s was not refused by the proxy (HTTP %s, %d reached the stand-in)" % (host, got, len(leaked)))
+            targets = [next(p for p in ("xai", "google") if p != source)]
+            if r.models:
+                targets.append(next(g for g in GATEWAYS if g != source))
+            for other in targets:
+                host, header, path = LEAK_TARGET[other]
+                self.doz("net", "allow", name, "site:" + host, "--yes", timeout=120)
+                n0 = len(self.requests())
+                code, out = self.doz("exec", name, "--", "sh", "-c",
+                                     "curl -s -m 20 -o /dev/null -w '%%{http_code}' -H '%s' https://%s%s" % (header % m.group(0), host, path),
+                                     timeout=120)
+                leaked = [q for q in self.requests()[n0:] if "doz_cred_" in json.dumps(q.get("auth") or {})
+                          or any(k in json.dumps(q.get("auth") or {}) for k in KEYS.values())]
+                got = out.strip()[-3:]
+                if got not in ("400", "401", "403") or leaked:
+                    fail("keys: the placeholder sent to %s was not refused by the proxy (HTTP %s, %d reached the stand-in)" % (host, got, len(leaked)))
         step("keys", keys)
 
-        # 6. status (OSC 7501)
-        if r.status == "osc7501":
+        # 6. status (OSC 7501) — the default selection only (the protocol is the agent's, not the source's)
+        if r.status == "osc7501" and first:
             step("status", lambda: self.status(r, name, res))
 
     def status(self, r, name, res):
@@ -393,6 +471,7 @@ class Harness:
             res["failures"].append("status: deckhold never held %s (seen: %s)" % (", ".join(missing), " → ".join(states) or "nothing"))
 
     def finish(self, res, t_all):
+        res.pop("_t", None)
         res["durations"]["total"] = round(time.time() - t_all, 1)
         res["pass"] = not res["failures"]
         return res
@@ -404,7 +483,7 @@ def summary_markdown(report):
     for r in report["recipes"]:
         d = r["durations"]
         lines.append("| %s | %s | %s | %s | %s | %s | %s | %s |" % (
-            r["id"], "pass" if r["pass"] else "**FAIL**", r.get("version") or "", "%ss" % d.get("build", "–"), "%ss" % d.get("smoke", "–"),
+            r["id"] + (" · " + r["selection"] if r.get("selection") else ""), "pass" if r["pass"] else "**FAIL**", r.get("version") or "", "%ss" % d.get("build", "–"), "%ss" % d.get("smoke", "–"),
             " → ".join(r["status_states"]) or ("–" if r["status_protocol"] != "osc7501" else "none"), "%ss" % d.get("total", "–"),
             "<br>".join(x.replace("|", "\\|")[:300] for x in r["failures"]) or ""))
     return "\n".join(lines) + "\n"
@@ -479,6 +558,8 @@ def main():
     ap.add_argument("--summary")
     ap.add_argument("--doz", default=os.path.join(REPO, ".build/debug/doz"))
     ap.add_argument("--versions", choices=["pin", "latest"], default="pin")
+    ap.add_argument("--selections", default=os.environ.get("RECIPE_SELECTIONS") or "all",
+                    help="a models@1 recipe: all (default) | default | a list of sources (\"openai openrouter\")")
     ap.add_argument("--changed", metavar="BASE", help="print the recipes a change since BASE touches (all, or ids, or nothing) and exit")
     ap.add_argument("--prune-days", type=int, metavar="N", help="remove prepared images baked more than N days ago from the store, then exit")
     ap.add_argument("recipes", nargs="*")
@@ -507,13 +588,15 @@ def main():
     report["doz"] = out.strip().splitlines()[-1] if out.strip() else ""
     h.start_fake()
     try:
-        h.prepare_store({r.provider for r in recipes if r.provider})
+        # Every source's account (rc-SOURCE, a FAKE key): a selection's try names its own.
+        h.prepare_store(set(KEYS) | {r.provider for r in recipes if r.provider})
         for r in recipes:
             print("recipe-check: %s …" % r.product, flush=True)
-            res = h.run(r)
-            report["recipes"].append(res)
-            print("recipe-check: %s %s (%s, %ss)%s" % (r.product, "PASS" if res["pass"] else "FAIL", res.get("version"), res["durations"].get("total"),
-                                                      "".join("\n  - " + f for f in res["failures"])), flush=True)
+            for res in h.run(r):
+                report["recipes"].append(res)
+                print("recipe-check: %s%s %s (%s, %ss)%s" % (r.product, " · " + res["selection"] if res.get("selection") else "",
+                                                            "PASS" if res["pass"] else "FAIL", res.get("version"), res["durations"].get("total"),
+                                                            "".join("\n  - " + f for f in res["failures"])), flush=True)
             report["pass"] = all(x["pass"] for x in report["recipes"])
             report["finished"] = now()
             with open(report_path, "w") as f:

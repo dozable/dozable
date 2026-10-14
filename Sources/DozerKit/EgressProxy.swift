@@ -182,6 +182,15 @@ public final class EgressProxy: @unchecked Sendable {
     }
     private var _providerSeamHosts: Set<String> = []
 
+    /// 617 (models@1): hosts decrypted even with no binding of theirs, so the leak guard sees a placeholder sent there
+    /// (a recipe agent's sandbox: every model source's hosts — its key goes to ONE of them, and a placeholder sent to
+    /// any other is refused, never tunnelled unseen). A request there that carries none passes as before.
+    public var leakGuardHosts: Set<String> {
+        get { lock.lock(); defer { lock.unlock() }; return _leakGuardHosts }
+        set { lock.lock(); _leakGuardHosts = newValue; lock.unlock() }
+    }
+    private var _leakGuardHosts: Set<String> = []
+
     /// 599d test seam: where a GitHub host's upstream leg goes instead (nil: the real host). 599i: and the OpenAI hosts'.
     /// 617: and the key providers'.
     func upstreamOverride(for host: String) -> UpstreamOverride? {
@@ -398,7 +407,7 @@ public final class EgressProxy: @unchecked Sendable {
         let v = connectionVerdict(host: host, port: port)
         var rec = ConnectionRecord(kind: kind, host: host, port: port, verdict: .allowed, rule: v.rule, open: true)
         // A credential is only ever inserted into HTTPS; SSH (599d, port 22) is end-to-end and passes as it is.
-        let bound = vault.boundHosts.contains(host) && port != 22
+        let bound = (vault.boundHosts.contains(host) || leakGuardHosts.contains(host.lowercased())) && port != 22
         let decrypt = (bound || v.kind == .inspect) && IPv4CIDR.parseAddress(host) == nil
         if v.kind == .deny || (v.kind == .inspect && (ca == nil || !decrypt)) {
             rec.verdict = .denied

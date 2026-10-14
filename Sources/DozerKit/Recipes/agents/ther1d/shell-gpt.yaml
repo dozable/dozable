@@ -5,7 +5,7 @@ schema: 2
 kind: workload
 id: ther1d/shell-gpt
 displayName: ShellGPT
-description: A command-line assistant that answers questions and turns requests into shell commands (sgpt), on an xAI API key.
+description: A command-line assistant that answers questions and turns requests into shell commands (sgpt), on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.
 author: TheR1D
 sourceUrl: https://github.com/TheR1D/shell_gpt
 licenses:
@@ -23,15 +23,28 @@ capabilities:
   config:
     runtime:
       allow:
+      - api.openai.com:443
       - api.x.ai:443
+      - generativelanguage.googleapis.com:443
+      - openrouter.ai:443
+      - ai-gateway.vercel.sh:443
     dozer:
       model:
         id: model:shell-gpt
-        title: Talk to xAI
-        summary: ShellGPT's model (the xAI API, with an API key) — needed for ShellGPT to answer.
-        phrase: talk to your AI model (xAI)
+        title: Talk to its model provider
+        summary: ShellGPT's model — the provider or gateway its key is for (OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for ShellGPT to answer.
+        phrase: talk to your AI model
         hosts:
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
         - host: api.x.ai
+          reason: xAI — when the sandbox's key is xAI's
+        - host: generativelanguage.googleapis.com
+          reason: Google AI — when the sandbox's key is Google AI's
+        - host: openrouter.ai
+          reason: OpenRouter — when the sandbox's key is OpenRouter's
+        - host: ai-gateway.vercel.sh
+          reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
       update: []
       excluded: []
 - type: com.docker.sandbox/credential@1
@@ -49,8 +62,6 @@ capabilities:
     dozer:
       accounts:
       - key
-      env_aliases:
-      - OPENAI_API_KEY
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.config/shell_gpt
@@ -96,9 +107,7 @@ capabilities:
     passthrough:
     - '--version'
     - '--help'
-    env:
-      API_BASE_URL: https://api.x.ai/v1
-      DEFAULT_MODEL: grok-4-1-fast
+    env: {}
     state_env: {}
     session: shell
     status: none
@@ -121,19 +130,69 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: ShellGPT speaks OpenAI's API; Dozer points it at xAI's (API_BASE_URL) and gives it the xAI key's placeholder under OPENAI_API_KEY too. The model is grok-4-1-fast (DEFAULT_MODEL, or --model).
+      note: ShellGPT speaks OpenAI's API; Dozer points it at the chosen provider's or gateway's (API_BASE_URL) and puts the key's placeholder under OPENAI_API_KEY too. On xAI (the default) the model is grok-4-1-fast (DEFAULT_MODEL; doz try --model, or sgpt --model).
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'ShellGPT through OpenAI: doz try shell-gpt --provider openai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: google
+      accounts:
+      - key
+      keys_page: https://aistudio.google.com/apikey
+      note: 'ShellGPT through Google AI: doz try shell-gpt --provider google (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: openrouter
+      accounts:
+      - key
+      keys_page: https://openrouter.ai/keys
+      note: 'ShellGPT through OpenRouter: doz try shell-gpt --gateway openrouter (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-14'
+    - kind: api-key
+      provider: vercel-ai-gateway
+      accounts:
+      - key
+      keys_page: https://vercel.com/docs/ai-gateway/authentication
+      note: 'ShellGPT through Vercel AI Gateway: doz try shell-gpt --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
     entries:
     - gateway: openrouter
-      level: unknown
-      reason: not checked against ShellGPT
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          API_BASE_URL: '${{ dozer.gateway.endpoint.v1 }}'
+          DEFAULT_MODEL: '${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
-      level: unknown
-      reason: not checked against ShellGPT
+      level: verified
+      shape: openai-chat
+      endpoint: v1
+      how:
+        env:
+          API_BASE_URL: '${{ dozer.gateway.endpoint.v1 }}'
+          DEFAULT_MODEL: '${{ dozer.model }}'
+      evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-14'
+- type: com.dozersandbox/models@1
+  config:
+    default: xai
+    shapes:
+    - shape: openai-chat
+      env:
+        API_BASE_URL: '${{ dozer.base_url }}'
+        DEFAULT_MODEL: '${{ dozer.model }}'
+      key_env:
+      - OPENAI_API_KEY
 - type: com.dozersandbox/currency@1
   config:
     checked: '2026-10-14'
@@ -151,4 +210,4 @@ capabilities:
       - sgpt PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/shell-gpt)'
       checked: '2026-10-14'
-    terms: Your xAI API key — a key from console.x.ai.
+    terms: Your API key of the provider or gateway you choose (xAI by default).

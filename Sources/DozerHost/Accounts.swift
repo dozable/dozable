@@ -194,7 +194,8 @@ public struct AccountsFile: Codable, Equatable, Sendable {
     /// 599i: the default account that applies to a sandbox of `image` (Codex: the OpenAI one; 617: a key agent: its
     /// provider's).
     public func defaultAccount(for image: String?) -> String {
-        AgentCredentials.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault, providers: providerDefaults ?? [:])
+        AgentCredentials.defaultAccount(for: image, anthropic: defaultAccount, openai: openaiDefault, providers: providerDefaults ?? [:],
+                                        kinds: Dictionary(accounts.map { ($0.name, $0.kind) }) { a, _ in a })
     }
 }
 

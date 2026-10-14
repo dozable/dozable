@@ -88,6 +88,26 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must be allowed (--allow site:HOST).")
     var key: [String] = []
 
+    @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default.")
+    var provider: String?
+
+    @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter or vercel-ai-gateway (one key, many models). Its account is then a key of that gateway.")
+    var gateway: String?
+
+    @Option(name: .long, help: "The model it uses (a gateway's are creator/name: anthropic/claude-sonnet-4.6). Default: the provider's or gateway's default model.")
+    var model: String?
+
+    /// 617 (models@1): `--provider`/`--gateway` (one of them) and `--model` onto the create.
+    func applyModelSource(to o: inout CreateOptions) throws {
+        if provider != nil && gateway != nil { throw ValidationError("--provider or --gateway, not both") }
+        if let g = gateway, !ModelSources.isGateway(g) {
+            throw ValidationError("\(g) is not a gateway — " + ModelSources.ids.filter(ModelSources.isGateway).joined(separator: ", "))
+        }
+        if let p = provider, ModelSources.isGateway(p) { throw ValidationError("\(p) is a gateway: --gateway \(p)") }
+        if let s = provider ?? gateway { o.modelSource = s }
+        if let m = model { o.model = m }
+    }
+
     // EXPERIMENTAL (604): an audio sandbox.
     @Flag(name: .long, help: ArgumentHelp("EXPERIMENTAL: give the sandbox the Mac's microphone and speakers (a sound device and its own kernel; doz-sound inside to record and play). macOS asks about the microphone for the app that started doz.",
                                           visibility: BuildFlavor.current.isPublic ? .hidden : .default))
@@ -162,6 +182,7 @@ struct ChoiceOptions: ParsableArguments {
         words += try Self.githubWords(github, flag: "--github")
         if !words.isEmpty { o.allow = words }
         if !key.isEmpty { o.keys = key }          // 617 (D6)
+        try applyModelSource(to: &o)              // 617 (models@1)
         if let df = absoluteDockerfile {
             guard FileManager.default.fileExists(atPath: df) else { throw ValidationError("--dockerfile: no file at \(df)") }
             o.dockerfile = df
@@ -633,6 +654,7 @@ struct Up: AsyncParsableCommand {
                 if let s = try create.sandboxSettings() { o.settings = (o.settings ?? [:]).merging(s) { _, flag in flag } }
                 try create.applyPrompt(to: &o)
                 if !create.key.isEmpty { o.keys = create.key }          // 617: custom keys given here win over the file's
+                try create.applyModelSource(to: &o)                       // 617 (models@1)
                 if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 // 594: doz_project.yaml's image and account are checked like any create.
                 try preflightAgentAccount(&o, g)

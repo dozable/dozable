@@ -222,6 +222,9 @@ checked?}`; `kind` is `api-key`, `vendor-sign-in`, `none` or `gateway`.
 source?, checked?, reason?}`. `how` is `{env?, config?, args?, model_args?}`, whose values may hold
 `${{ dozer.placeholder }}`, `${{ dozer.model }}` and `${{ dozer.gateway.endpoint.ID }}`.
 
+**`com.dozersandbox/models@1`** — which model sources it can be tried with, and how a choice reaches its own settings.
+See [Model sources](#model-sources-providers-and-gateways).
+
 **`com.dozersandbox/currency@1`** — `checked` (when the recipe was last checked against the real agent) and
 `lifecycle` (`{status: current | superseded | retired | discontinued, by?, note?, source?, checked?}`). How fresh the
 agent's releases are is measured on each Mac, never recorded here.
@@ -230,6 +233,56 @@ agent's releases are is measured on each Mac, never recorded here.
 `icon` (a product in the icon registry), `default_base`, `platforms {glibc, musl}`, `limits` (`{musl?, base?,
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
 `terms`, `licence` (the licence in words, when it is not just the SPDX id).
+
+## Model sources: providers and gateways
+
+A **model source** is where a key goes: a provider (`anthropic`, `openai`, `xai`, `google`) or a gateway
+(`openrouter`, `vercel-ai-gateway`). Each is a key provider in `Recipes/providers.json` — its hosts, the header its key
+rides in, the variable its placeholder is in, its check — and each lists its **endpoints**: the API shapes it serves
+(`openai-chat`, `openai-responses`, `anthropic-messages`, `gemini`), the base URL of each, and a default model (a
+gateway's is `creator/name`). Gateways take their endpoints from `Recipes/gateways.json`.
+
+A recipe says what it can speak, and nothing about keys:
+
+```yaml
+- type: com.dozersandbox/models@1
+  config:
+    default: xai                         # the source a try uses when none is chosen
+    shapes:                              # the shapes it speaks to ANY source's base URL, preferred first
+    - shape: openai-chat
+      env: {API_BASE_URL: '${{ dozer.base_url }}', DEFAULT_MODEL: '${{ dozer.model }}'}
+      key_env: [OPENAI_API_KEY]          # where it reads the key for this shape
+    native:                              # the sources it reaches through its own client (no base URL)
+    - source: anthropic
+      env: {DEFAULT_MODEL: 'anthropic/${{ dozer.model }}'}
+    models:                              # optional: a default model per source, over the source's own
+      openrouter: openai/gpt-5.4-mini
+```
+
+`launch@1.check.argv` may name `${{ dozer.model }}` too: `make recipe-check` runs the check turn once per source the
+recipe is offered (in a fresh try with that source's fake key) and puts that source's model there.
+
+- **What it is offered:** every source with an endpoint speaking one of `shapes` (the first shape listed that the source
+  serves wins), and every source named in `native`. `except` (a list of source ids) leaves sources out a shape would
+  offer. The try setup, New Sandbox, `doz try --provider SOURCE` (`--gateway` is the same flag) and `doz create` offer
+  exactly these.
+- **What a choice does:** at every session open and every `doz exec`, Dozer sets the chosen entry's `env` (never over a
+  value the caller gave), with `${{ dozer.base_url }}` = the source endpoint's base URL and `${{ dozer.model }}` = the
+  sandbox's model (`--model`, else `models.<source>` here, else the source endpoint's default). Nothing is baked: one
+  image serves every source.
+- **The key is Dozer's, never the recipe's.** The sandbox's account decides the source (its kind and provider); the
+  proxy holds that source's key and swaps it ONLY into requests to that source's own hosts (providers.json /
+  gateways.json — a recipe cannot add one). The placeholder is put in the source's own variable
+  (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY` …) and in the chosen entry's `key_env` names
+  (credential-shaped, validated). A recipe-chosen base URL is therefore harmless: the placeholder sent anywhere else is
+  refused by the leak guard, and the key never leaves the Mac.
+- **Its model permission** reaches the hosts of every source it is offered (validated), so a sandbox can use the source
+  its account names.
+- **Accounts:** an Anthropic source takes an Anthropic API-key account (`--api-key`; never a Claude subscription), an
+  OpenAI source an OpenAI API-key account (`--openai-key`; never a ChatGPT sign-in), every other source a `key` account
+  of that provider (`doz account add NAME --provider openrouter`).
+- A recipe without `models@1` keeps its one credential exactly as before (the built-in three; Claude Code's and Codex's
+  own account flows are untouched).
 
 ## Templating
 

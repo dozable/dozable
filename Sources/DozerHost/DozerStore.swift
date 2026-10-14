@@ -129,6 +129,9 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     public var trial: Bool?
     /// 617: the folder Dozer MADE for this try (a delete offers to remove it: at once when empty, asked otherwise).
     public var trialFolder: String?
+    /// 617 (models@1): the model chosen for a recipe agent, by model source (`--model` with `--provider`/`--gateway`) —
+    /// used while the sandbox's account is of that source; the source's default model otherwise. Absent before 617.
+    public var models: [String: String]?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

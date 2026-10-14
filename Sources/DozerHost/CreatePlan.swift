@@ -52,6 +52,32 @@ public struct PlanAccount: Codable, Equatable, Sendable {
     public var sourceLabel: String?
 }
 
+/// 617 (models@1): the model source and model a recipe agent will use, and every source it could use instead.
+public struct PlanModel: Codable, Equatable, Sendable {
+    /// `xai`, `openai`, `openrouter` …
+    public var source: String
+    /// "OpenRouter".
+    public var title: String
+    public var gateway: Bool
+    public var model: String
+    /// The API shape spoken (nil: the tool's own client).
+    public var shape: String?
+    /// Every source it can be tried with, its default first.
+    public var offered: [PlanSource]
+}
+
+public struct PlanSource: Codable, Equatable, Sendable {
+    public var id: String
+    public var title: String
+    public var gateway: Bool
+    /// The model it gets when none is chosen.
+    public var defaultModel: String
+    /// The account kind its key is added as (`key` with the provider, `api-key`, `openai-key`).
+    public var accountKind: String
+    /// Where such a key starts (`sk-or-`), when it is known — a hint only.
+    public var keyHint: String?
+}
+
 public struct PlanProblem: Codable, Equatable, Sendable {
     /// `key` | `key-host` | `image` | `name` | `invalid`.
     public var code: String
@@ -78,6 +104,8 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     public var imageState: PlanImage
     public var account: PlanAccount?
     public var problems: [PlanProblem]
+    /// 617 (models@1): the model source and model (nil: an agent without a choice of source).
+    public var model: PlanModel? = nil
     /// What the create will send.
     public var create: CreateOptions
 }
@@ -200,6 +228,20 @@ public enum CreatePlanner {
             problems.append(PlanProblem(code: "invalid", text: r.muslRefusal, fix: "--base \(r.defaultBase)"))
         }
 
+        // 617 (models@1): a model source chosen — the account is a key of that source (the one given, else its default).
+        let modelSource = o.modelSource ?? (o.model != nil ? AgentCredentials.sources(image)?.first : nil)
+        var accountChoice = o.account
+        var sourceProblem = false
+        if let source = modelSource, policy != nil {
+            let found = AgentCredentials.account(forSource: source, model: o.model, image: image, account: o.account, file: f.accounts)
+            if let p = found.problem {
+                problems.append(PlanProblem(code: p.fix.hasPrefix("doz account add") ? "key" : "invalid", text: p.text, fix: p.fix))
+                sourceProblem = true
+            } else if let n = found.name { accountChoice = n }
+        } else if modelSource != nil {
+            problems.append(PlanProblem(code: "invalid", text: "a model provider needs a proxied network: its key lives in the host's proxy", fix: nil))
+        }
+
         // The account and its key.
         var kinds: [String: AccountKind] = ["mac": .mac]
         var providers: [String: String] = [:]
@@ -209,23 +251,43 @@ public enum CreatePlanner {
         }
         var account: PlanAccount?
         if policy != nil, AgentCredentials.kinds(image) != nil {
-            if let p = AgentCredentials.createProblem(image: image, account: o.account, defaultAccount: f.accounts.defaultAccount, kinds: kinds,
+            if !sourceProblem, let p = AgentCredentials.createProblem(image: image, account: accountChoice, defaultAccount: f.accounts.defaultAccount, kinds: kinds,
                                                       openaiDefault: f.openaiDefault, codexMac: f.codexMac,
                                                       providers: providers, providerDefaults: f.accounts.providerDefaults ?? [:]) {
                 problems.append(PlanProblem(code: "key", text: p, fix: AgentCredentials.addCommand(image)))
             }
-            let requested = o.account ?? "default"
+            let requested = accountChoice ?? "default"
             let resolved = requested == "default"
-                ? AgentCredentials.defaultAccount(for: image, anthropic: f.accounts.defaultAccount, openai: f.openaiDefault,
-                                                  providers: f.accounts.providerDefaults ?? [:])
+                ? AgentCredentials.defaultAccount(for: image, anthropic: f.accounts.defaultAccount, openai: f.openaiDefault ?? f.accounts.openaiDefault,
+                                                  providers: f.accounts.providerDefaults ?? [:], kinds: kinds)
                 : requested
             if resolved != "none" {
                 let rec = f.accounts.accounts.first { $0.name == resolved }
-                account = PlanAccount(name: resolved, kind: rec?.kind.rawValue ?? (resolved == "mac" ? (AgentCredentials.provider(image) == "openai" ? "codex-mac" : "mac") : nil),
+                account = PlanAccount(name: resolved, kind: rec?.kind.rawValue ?? (resolved == "mac" ? (AgentCredentials.codexFlow(image) ? "codex-mac" : "mac") : nil),
                                       provider: rec?.providerID ?? AgentCredentials.provider(image),
                                       sourceLabel: f.sourceLabels[resolved] ?? rec?.keychainService.map { _ in "keychain" })
             } else {
                 account = PlanAccount(name: nil, kind: nil, provider: AgentCredentials.provider(image), sourceLabel: nil)
+            }
+        }
+
+        // A source chosen with no key of it yet: no account (the try setup offers that source's key).
+        if sourceProblem, let s = modelSource, policy != nil { account = PlanAccount(name: nil, kind: nil, provider: s, sourceLabel: nil) }
+
+        // 617 (models@1): which source and model — the account's source (the chosen one's when it has no key yet).
+        var planModel: PlanModel?
+        if let r = choice?.agent.recipe, r.models != nil {
+            var source = modelSource ?? r.offeredSources.first ?? ""
+            if modelSource == nil, let n = account?.name, let rec = f.accounts.accounts.first(where: { $0.name == n }),
+               AgentCredentials.accepts(image, rec), let s = AgentCredentials.source(of: rec) { source = s }
+            if let sel = r.selection(source: source, model: o.model.flatMap { ModelSelection.isModelID($0) ? $0 : nil }) {
+                let offered = r.offeredSources.compactMap { id -> PlanSource? in
+                    guard let d = r.selection(source: id) else { return nil }
+                    return PlanSource(id: id, title: ModelSources.title(id), gateway: ModelSources.isGateway(id), defaultModel: d.model,
+                                      accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint)
+                }
+                planModel = PlanModel(source: source, title: ModelSources.title(source), gateway: ModelSources.isGateway(source), model: sel.model,
+                                      shape: sel.shape, offered: offered)
             }
         }
 
@@ -252,14 +314,20 @@ public enum CreatePlanner {
         let imageState = PlanImage(name: image, title: choice?.title, state: state)
 
         let newFolder = (r.purpose == "new" || isTry) && r.create.workspace == nil && o.workspace.map(Workspace.isEmptyOrMissing) == true
-        let reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts,
+        var reach = Self.reach(networkMode, policy: policy, workspace: o.workspace, account: account, keys: o.keys ?? [], accounts: f.accounts,
                                newFolder: newFolder, settings: f.settings,
                                bridgeSettings: o.settings, agent: choice?.agent)
+        if let m = planModel {
+            let hosts = ModelSources.hosts(m.source).joined(separator: ", ")
+            reach.insert(ReachLine("model", "Model: \(m.model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
+        }
         let argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
-        return CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
-                          argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
-                          problems: problems, create: o)
+        var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
+                              argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
+                              problems: problems, create: o)
+        plan.model = planModel
+        return plan
     }
 
     // MARK: the command
@@ -299,6 +367,9 @@ public enum CreatePlanner {
         if !words.isEmpty { a += ["--permissions", words.joined(separator: ",")] }
         if let g = github { a += ["--github", g] }
         if let acc = o.account { a += ["--account", acc] }
+        // 617 (models@1): the source (a gateway by its own flag) and the model.
+        if let s = o.modelSource { a += [ModelSources.isGateway(s) ? "--gateway" : "--provider", s] }
+        if let m = o.model { a += ["--model", m] }
         for k in o.keys ?? [] { a += ["--key", k] }
         if let s = o.agentSudo { a.append(s ? "--agent-sudo" : "--no-agent-sudo") }
         for (key, flag) in settingFlags {
@@ -352,6 +423,7 @@ public enum CreatePlanner {
         if !perms.isEmpty, SettingType.permissionWords(perms.joined(separator: ",")) != nil { p.permissions = perms }
         var notes: [String] = []
         if isolated { notes.append("in a folder, doz up shares that folder at /workspace; this sandbox has none (isolated)") }
+        if o.modelSource != nil || o.model != nil { notes.append("the model provider and model are not project keys — give --provider/--gateway and --model to doz up") }
         if !sites.isEmpty {
             notes.append("a site is not a project key — after doz up: " + sites.map { "doz net allow \(p.name) \($0)" }.joined(separator: "; "))
         }

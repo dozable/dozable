@@ -134,7 +134,7 @@ extension HostCore {
         let name = a == "default" ? defaultAccount(for: image, file) : a
         if name == "none" { return .none }
         // rc.3: `mac` for Codex is this Mac's Codex login.
-        if name == "mac", AgentCredentials.provider(image) == "openai" { return .record(.codexMac) }
+        if name == "mac", AgentCredentials.codexFlow(image) { return .record(.codexMac) }
         return file.accounts.first { $0.name == name }.map(ResolvedAccount.record) ?? .missing(name)
     }
 
@@ -157,7 +157,7 @@ extension HostCore {
     /// 599i: the store's OpenAI default (nil: none).
     /// Only for a Codex image (it may read this Mac's Codex login).
     func openaiDefault(for image: String?) -> String? {
-        AgentCredentials.provider(image) == "openai" ? effectiveOpenAIDefault(accountStore.load()) : nil
+        AgentCredentials.codexFlow(image) ? effectiveOpenAIDefault(accountStore.load()) : nil
     }
 
     /// 594: an existing sandbox whose account does not fit its agent — what its page says.
@@ -308,17 +308,25 @@ extension HostCore {
         // 617 TEST SEAM: the key providers' hosts go to a fake provider (DOZ_TEST_PROVIDER_UPSTREAM + _CA), whatever the agent.
         sb.egress?.providerUpstreamForTests = ProviderSeam.upstream()
         sb.egress?.providerSeamHostsForTests = ProviderSeam.extraHosts()
+        // 599i TEST SEAM (617: for a recipe agent on an OpenAI key too): api.openai.com's leg goes to the fake OpenAI.
+        sb.egress?.openaiUpstreamForTests = OpenAISeam.upstream()
         // 617 PROFILING SEAM: the network profiler's scratch host logs every request (DOZ_TEST_PROFILE_NETWORK=1).
         sb.egress?.inspectEverythingForProfiling = ProviderSeam.profiling()
         // 599i: Codex uses OpenAI accounts only — its own path; the Anthropic bindings stay empty.
-        if AgentCredentials.provider(sb.spec.imageSpec?.name) == "openai" {
+        if AgentCredentials.codexFlow(sb.spec.imageSpec?.name) {
             applyOpenAIAccount(m, resolvedAccount(m, file))
             applyPolicy(m, file)
             return
         }
         // 617: a key agent (Grok Build, Gemini CLI) uses its provider's key only — never an Anthropic binding.
+        // 617: a multi-source recipe agent takes the source of the account it is given (OpenAI, OpenRouter, …) — its
+        // default source's when it has none or one it cannot use.
         if let p = AgentCredentials.keyProvider(sb.spec.imageSpec?.name) {
-            applyKeyAccount(m, p, resolvedAccount(m, file))
+            let resolved = resolvedAccount(m, file)
+            var source = p
+            if case .record(let a) = resolved, AgentCredentials.accepts(sb.spec.imageSpec?.name, a),
+               let s = AgentCredentials.source(of: a).flatMap(KeyProviders.provider) { source = s }
+            applyKeyAccount(m, source, resolved)
             applyPolicy(m, file)
             return
         }
@@ -382,10 +390,13 @@ extension HostCore {
         let sb = m.sandbox
         // 617: with the recipe's own env aliases (the same placeholder under the name the tool reads).
         let binding = sb.spec.imageSpec.flatMap { ImageChoice.parse($0.name)?.agent.recipe }?.keyBinding(p) ?? p.binding
-        for other in [CredentialBinding.anthropic, .claudeOAuth] + KeyProviders.keyBindings where other.id != binding.id {
+        for other in [CredentialBinding.anthropic, .claudeOAuth, .openai, .chatgpt] + KeyProviders.keyBindings where other.id != binding.id {
             sb.egress?.vault.remove(other.id)
         }
         m.config.credentialSources[binding.id] = nil
+        // 617 (models@1): every model source's hosts are decrypted, so a placeholder sent to one that is not this key's is
+        // refused by the leak guard (never tunnelled unseen).
+        sb.egress?.leakGuardHosts = Set(ModelSources.ids.flatMap(ModelSources.hosts))
         let add = "doz account add NAME --provider \(p.id)"
         switch resolved {
         case .none:
@@ -446,7 +457,7 @@ extension HostCore {
         var file = accountStore.load()
         let target = value == "default" ? defaultAccount(for: m.sandbox.spec.imageSpec?.name, file) : value
         // 599i rc.3: `mac` for Codex is this Mac's Codex login (read-only) — usable when it is signed in.
-        let codexMac = target == "mac" && AgentCredentials.provider(m.sandbox.spec.imageSpec?.name) == "openai"
+        let codexMac = target == "mac" && AgentCredentials.codexFlow(m.sandbox.spec.imageSpec?.name)
         if codexMac, let p = codexMacSignInProblem() { throw HostError(.invalid, p) }
         if target != "none", !codexMac {
             guard let a = file.accounts.first(where: { $0.name == target }) else { throw HostError(.notFound, "no account \(target) (doz account ls)") }
@@ -479,7 +490,7 @@ extension HostCore {
         m.config.credentialSources = [:]
         try m.config.write(store.configFile(m.name))
         applyAccount(m)
-        let openai = AgentCredentials.provider(m.sandbox.spec.imageSpec?.name) == "openai"
+        let openai = AgentCredentials.codexFlow(m.sandbox.spec.imageSpec?.name)
         let keyProvider = AgentCredentials.keyProvider(m.sandbox.spec.imageSpec?.name)
         if value == "none", keyProvider == nil {          // 617: a key agent's binding already says why (applyKeyAccount)
             // Sessions still hold placeholders: tell them why their requests fail (E20), rather

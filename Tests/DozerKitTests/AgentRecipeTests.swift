@@ -28,7 +28,7 @@ final class AgentRecipeTests: XCTestCase {
         XCTAssertNoThrow(try AgentRecipes.validate(AgentRecipes.all))
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
-        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google"])
+        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(Gateways.all.map(\.id), ["openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(AgentRecipes.all.filter(\.isBuiltin).map(\.id), ["claude-code", "pi", "codex"])
     }
@@ -146,7 +146,7 @@ final class AgentRecipeTests: XCTestCase {
             }
         }
         // Antigravity CLI names undocumented AGY_LLM_GATEWAY_* settings — not checked yet.
-        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "shell-gpt × openrouter", "shell-gpt × vercel-ai-gateway", "zeroclaw × openrouter", "zeroclaw × vercel-ai-gateway", "aichat × openrouter", "aichat × vercel-ai-gateway", "tgpt × openrouter", "tgpt × vercel-ai-gateway", "smolagents × openrouter", "smolagents × vercel-ai-gateway", "adk × openrouter", "adk × vercel-ai-gateway", "promptfoo × openrouter", "promptfoo × vercel-ai-gateway", "clai × openrouter", "clai × vercel-ai-gateway", "goose × vercel-ai-gateway", "kilo × vercel-ai-gateway", "mistral-vibe × openrouter", "mistral-vibe × vercel-ai-gateway", "droid × openrouter", "droid × vercel-ai-gateway", "dirac × openrouter", "dirac × vercel-ai-gateway", "kimi-code × openrouter", "kimi-code × vercel-ai-gateway", "every-code × openrouter", "every-code × vercel-ai-gateway", "cline × openrouter", "cline × vercel-ai-gateway", "openhands × openrouter", "openhands × vercel-ai-gateway", "codebuddy × openrouter", "codebuddy × vercel-ai-gateway", "letta-code × openrouter", "letta-code × vercel-ai-gateway", "docker-agent × openrouter", "docker-agent × vercel-ai-gateway", "nanocoder × openrouter", "nanocoder × vercel-ai-gateway", "mini-swe-agent × openrouter", "mini-swe-agent × vercel-ai-gateway", "open-interpreter × openrouter", "open-interpreter × vercel-ai-gateway", "crush × openrouter", "crush × vercel-ai-gateway", "mimo-code × openrouter", "mimo-code × vercel-ai-gateway"])
+        XCTAssertEqual(unknown, ["antigravity × openrouter", "antigravity × vercel-ai-gateway", "fabric × vercel-ai-gateway", "openclaw × openrouter", "openclaw × vercel-ai-gateway", "nanobot × openrouter", "nanobot × vercel-ai-gateway", "gptme × openrouter", "gptme × vercel-ai-gateway", "llm × openrouter", "llm × vercel-ai-gateway", "zeroclaw × openrouter", "zeroclaw × vercel-ai-gateway", "aichat × openrouter", "aichat × vercel-ai-gateway", "tgpt × openrouter", "tgpt × vercel-ai-gateway", "smolagents × openrouter", "smolagents × vercel-ai-gateway", "adk × openrouter", "adk × vercel-ai-gateway", "promptfoo × openrouter", "promptfoo × vercel-ai-gateway", "clai × openrouter", "clai × vercel-ai-gateway", "goose × vercel-ai-gateway", "kilo × vercel-ai-gateway", "mistral-vibe × openrouter", "mistral-vibe × vercel-ai-gateway", "droid × openrouter", "droid × vercel-ai-gateway", "dirac × openrouter", "dirac × vercel-ai-gateway", "kimi-code × openrouter", "kimi-code × vercel-ai-gateway", "every-code × openrouter", "every-code × vercel-ai-gateway", "cline × openrouter", "cline × vercel-ai-gateway", "openhands × openrouter", "openhands × vercel-ai-gateway", "codebuddy × openrouter", "codebuddy × vercel-ai-gateway", "letta-code × openrouter", "letta-code × vercel-ai-gateway", "docker-agent × openrouter", "docker-agent × vercel-ai-gateway", "nanocoder × openrouter", "nanocoder × vercel-ai-gateway", "mini-swe-agent × openrouter", "mini-swe-agent × vercel-ai-gateway", "open-interpreter × openrouter", "open-interpreter × vercel-ai-gateway", "crush × openrouter", "crush × vercel-ai-gateway", "mimo-code × openrouter", "mimo-code × vercel-ai-gateway"])
         XCTAssertEqual(experimental, ["grok × openrouter"])
     }
 
@@ -208,7 +208,7 @@ final class AgentRecipeTests: XCTestCase {
         XCTAssertEqual(level("grok", "headless"), "verified")
         XCTAssertTrue(AgentRecipes.recipe("codex")!.hasTag("multi-vendor-models"))
         XCTAssertFalse(AgentRecipes.recipe("gemini")!.hasTag("multi-vendor-models"))
-        XCTAssertEqual(AgentRecipes.all.filter { $0.hasTag("gateway:openrouter") }.map(\.id), ["claude-code", "pi", "codex", "fabric", "opencode", "copilot", "qwen-code", "goose", "kilo"])
+        XCTAssertEqual(AgentRecipes.all.filter { $0.hasTag("gateway:openrouter") }.map(\.id), ["claude-code", "pi", "codex", "fabric", "shell-gpt", "opencode", "copilot", "qwen-code", "goose", "kilo"])
     }
 
     func test_tagRefusals() throws {

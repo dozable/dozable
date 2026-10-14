@@ -100,6 +100,9 @@ struct TryCommand: AsyncParsableCommand {
             guard interactive else { throw fail(HostError(.invalid, p.text), g) }
             if recipe.isBuiltin {
                 try preflightAgentAccount(&o, g)
+            } else if let s = o.modelSource, s != recipe.provider {
+                // 617 (models@1): another provider or a gateway — a key of THAT source.
+                o.account = try preflightSourceAccount(image: o.image, source: s, account: o.account, g)
             } else {
                 o.account = try whatYouNeed(recipe)
             }

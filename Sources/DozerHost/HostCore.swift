@@ -874,12 +874,21 @@ public actor HostCore {
             guard !buildFlavor.isPublic else { throw HostError(.invalid, BuildFlavor.audioMissing) }   // 611
             try MacAudio.installSoundKernel(into: spec.kernelCacheDirectory ?? StoreLayout(spec: spec).kernels)
         }
+        // 617 (models@1): a model source chosen (`--provider`/`--gateway`; `--model` alone: the default source) — the
+        // account becomes a key of that source: the one given, else its default.
+        let modelSource = o.modelSource ?? (o.model != nil ? AgentCredentials.sources(spec.imageSpec?.name)?.first : nil)
+        if let source = modelSource {
+            guard spec.network.policy != nil else { throw HostError(.invalid, "a model provider needs a proxied network: its key lives in the host's proxy") }
+            let r = AgentCredentials.account(forSource: source, model: o.model, image: spec.imageSpec?.name, account: o.account, file: accountStore.load())
+            if let p = r.problem { throw HostError(.invalid, p.text + " — " + p.fix) }
+            if let n = r.name { o.account = n }
+        }
         // 594: the agent's credential prerequisite, before anything is made (pi: an API-key account).
         if spec.network.policy != nil {
             let (def, kinds) = accountKinds()
             let (providers, providerDefaults) = accountProviders()
             if let p = AgentCredentials.createProblem(image: spec.imageSpec?.name, account: o.account, defaultAccount: def, kinds: kinds,
-                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn(),
+                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.codexFlow(spec.imageSpec?.name) && codexMacSignedIn(),
                                                       providers: providers, providerDefaults: providerDefaults) {
                 throw HostError(.invalid, p)
             }
@@ -931,6 +940,7 @@ public actor HostCore {
             var seen = Set<String>()
             cfg.extraKeys = keys.filter { seen.insert($0).inserted }
         }
+        if let model = o.model, let source = modelSource { cfg.models = [source: model] }     // 617 (models@1)
         if o.trial == true {                           // 617 (D14)
             cfg.trial = true
             // The try's own folder — made now by Dozer, so its delete may offer to remove it (never one of yours).
@@ -1489,7 +1499,22 @@ public actor HostCore {
         return e
     }
     func recipeEnvironment(_ env: [String: String], _ m: Managed) -> [String: String] {
-        Self.withRecipeEnvironment(env, imageSpec: m.config.spec.imageSpec?.name, permissions: m.sandbox.egress?.policy.permissions)
+        var e = Self.withRecipeEnvironment(env, imageSpec: m.config.spec.imageSpec?.name, permissions: m.sandbox.egress?.policy.permissions)
+        // 617 (models@1): the chosen model source's settings (base URL, model), never over the caller's own value.
+        for (k, v) in modelSelection(m)?.env ?? [:] where e[k] == nil { e[k] = v }
+        return e
+    }
+
+    /// 617 (models@1): what this sandbox's recipe agent is set to use — the source of its account (its default source
+    /// when it has none it can use) and the model chosen for that source, else the source's default. nil: not a
+    /// models@1 recipe.
+    func modelSelection(_ m: Managed) -> ModelSelection? {
+        let image = m.sandbox.spec.imageSpec?.name
+        guard let r = image.flatMap({ ImageChoice.parse($0) })?.agent.recipe, r.models != nil,
+              var source = AgentCredentials.sources(image)?.first else { return nil }
+        if case .record(let a) = resolvedAccount(m, accountStore.load()), AgentCredentials.accepts(image, a),
+           let s = AgentCredentials.source(of: a) { source = s }
+        return r.selection(source: source, model: m.config.models?[source])
     }
     static func withClipboardSink(_ env: [String: String], on: Bool) -> [String: String] {
         guard on else { return env }
@@ -1963,7 +1988,7 @@ public actor HostCore {
             let (def, kinds) = accountKinds()
             let (providers, providerDefaults) = accountProviders()
             if let p = AgentCredentials.createProblem(image: spec.imageSpec?.name, account: o.account ?? cfg.account ?? "none", defaultAccount: def, kinds: kinds,
-                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.provider(spec.imageSpec?.name) == "openai" && codexMacSignedIn(),
+                                                      openaiDefault: openaiDefault(for: spec.imageSpec?.name), codexMac: AgentCredentials.codexFlow(spec.imageSpec?.name) && codexMacSignedIn(),
                                                       providers: providers, providerDefaults: providerDefaults) {
                 throw HostError(.invalid, p)
             }

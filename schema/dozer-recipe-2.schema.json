@@ -47,6 +47,7 @@
           { "$ref": "#/$defs/authCapability" },
           { "$ref": "#/$defs/gatewaysCapability" },
           { "$ref": "#/$defs/currencyCapability" },
+          { "$ref": "#/$defs/modelsCapability" },
           { "$ref": "#/$defs/directoryCapability" }
         ]
       },
@@ -58,7 +59,8 @@
         { "contains": { "$ref": "#/$defs/isGateways" }, "minContains": 1, "maxContains": 1 },
         { "contains": { "$ref": "#/$defs/isDirectory" }, "minContains": 1, "maxContains": 1 },
         { "contains": { "$ref": "#/$defs/isAgentContext" }, "minContains": 0, "maxContains": 1 },
-        { "contains": { "$ref": "#/$defs/isCurrency" }, "minContains": 0, "maxContains": 1 }
+        { "contains": { "$ref": "#/$defs/isCurrency" }, "minContains": 0, "maxContains": 1 },
+        { "contains": { "$ref": "#/$defs/isModels" }, "minContains": 0, "maxContains": 1 }
       ]
     }
   },
@@ -78,6 +80,38 @@
     "isDirectory": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/directory@1" } } },
     "isAgentContext": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.docker.sandbox/agent-context@1" } } },
     "isCurrency": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/currency@1" } } },
+    "isModels": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/models@1" } } },
+
+    "modelsCapability": {
+      "type": "object", "additionalProperties": false, "required": ["type", "config"],
+      "description": "com.dozersandbox/models@1: the model sources (providers and gateways) it can be tried with, and how a choice reaches its own settings. Dozer, never the recipe, owns the key's destination hosts.",
+      "properties": {
+        "type": { "const": "com.dozersandbox/models@1" },
+        "description": { "type": "string" },
+        "config": {
+          "type": "object", "additionalProperties": false, "required": ["default"],
+          "properties": {
+            "default": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+            "shapes": { "type": "array", "items": {
+              "type": "object", "additionalProperties": false, "required": ["shape", "env"],
+              "properties": {
+                "shape": { "enum": ["openai-chat", "openai-responses", "anthropic-messages", "gemini"] },
+                "env": { "$ref": "#/$defs/stringMap" },
+                "key_env": { "$ref": "#/$defs/strings" }
+              } } },
+            "native": { "type": "array", "items": {
+              "type": "object", "additionalProperties": false, "required": ["source", "env"],
+              "properties": {
+                "source": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+                "env": { "$ref": "#/$defs/stringMap" },
+                "key_env": { "$ref": "#/$defs/strings" }
+              } } },
+            "except": { "$ref": "#/$defs/strings" },
+            "models": { "$ref": "#/$defs/stringMap" }
+          }
+        }
+      }
+    },
 
     "networkPolicyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],

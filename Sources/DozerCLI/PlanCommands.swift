@@ -29,6 +29,14 @@ func renderPlan(_ p: CreatePlan) -> String {
     if let a = p.account {
         s += "  account: " + (a.name.map { "\($0)" + (a.kind.map { " (\($0)\(a.provider.map { ", \($0)" } ?? ""))" } ?? "") + (a.sourceLabel.map { " — key from \($0)" } ?? "") } ?? "none") + "\n"
     }
+    // 617 (models@1): the model and where it goes; the other providers and gateways it can use, and how.
+    if let m = p.model {
+        s += "  model: \(m.model) through \(m.title)\n"
+        let others = m.offered.filter { $0.id != m.source }
+        if !others.isEmpty {
+            s += "  can also use: " + others.map { "\($0.gateway ? "--gateway" : "--provider") \($0.id)" }.joined(separator: " · ") + " (and --model)\n"
+        }
+    }
     s += "What it can reach:\n"
     for r in p.reach {
         let mark = r.text.hasPrefix("No ") ? "✗" : ["denied": "✗", "excluded": "✗", "folder": "·", "key": "·"][r.kind] ?? "✓"

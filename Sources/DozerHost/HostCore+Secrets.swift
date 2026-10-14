@@ -149,7 +149,7 @@ extension HostCore {
         let image = CreatePlanner.image(r, settings: settings)
         var labels: [String: String] = [:]
         for a in file.accounts where a.readsOnUse { labels[a.name] = a.source?.label }
-        let openai = AgentCredentials.provider(image) == "openai"
+        let openai = AgentCredentials.codexFlow(image)
         let facts = PlanFacts(settings: settings, accounts: file, taken: Set(managed.keys).union(store.sandboxNames()),
                               images: (try? images()) ?? [], sourceLabels: labels, store: store,
                               openaiDefault: openai ? effectiveOpenAIDefault(file) : file.openaiDefault,
