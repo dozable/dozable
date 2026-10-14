@@ -83,7 +83,7 @@ let package = Package(
             ],
             path: "Sources/DozerKit",
             // 617: the YAML recipe sources — compiled to Recipes/compiled/ (DozerKit embeds the JSON, never parses YAML).
-            exclude: ["Recipes/agents"],
+            exclude: ["Recipes/agents", "Recipes/parked"],
             resources: [
                 // The guest PTY holder: a static aarch64-linux-musl ELF, committed as the pin
                 // (Resources/PROVENANCE.md records sha256, toolchain and command; the C source
