@@ -416,9 +416,11 @@ class Harness:
         # 4b. the guide (617.11): its first step IS the check turn (the loader holds them equal); every later step with a
         # command that is not an edit runs as a person would type it, in a shell — exit 0 — the first selection only.
         def guide():
-            for i, s in enumerate((r.guide or {}).get("steps") or []):
+            steps = (r.guide or {}).get("steps") or []
+            check_step = next((i for i, s in enumerate(steps) if s.get("command")), None)
+            for i, s in enumerate(steps):
                 cmd = s.get("command")
-                if i == 0 or not cmd or s.get("edit"):
+                if i == check_step or not cmd or s.get("edit"):
                     continue
                 code, out = self.doz("exec", name, "--", "sh", "-c", cmd, timeout=int(r.check.get("timeout") or 240) + 30)
                 res.setdefault("guide_steps", []).append({"step": i + 1, "exit": code})
@@ -576,6 +578,20 @@ class Harness:
                         os.write(fd, b"\x1b[1;1R")
                     except OSError:
                         pass
+        # check.screen.keys: a choice nothing skips that is not the person's decision, typed to reach the screen checked.
+        for k in r.screen.get("keys") or []:
+            try:
+                os.write(fd, {"enter": b"\r", "esc": b"\x1b", "up": b"\x1b[A", "down": b"\x1b[B", "tab": b"\t", "space": b" "}[k])
+            except (OSError, KeyError):
+                pass
+            end = time.time() + 4
+            while time.time() < end:
+                if select.select([fd], [], [], 0.25)[0]:
+                    try:
+                        if not os.read(fd, 65536):
+                            break
+                    except OSError:
+                        break
         session = self.session_name(name)
         text = ""
         if session:

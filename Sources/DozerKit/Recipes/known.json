@@ -914,6 +914,30 @@
       "categories": ["local-models"],
       "reason": "it runs a speech model inside the sandbox, with no API key: Dozer's tools all talk to a model provider today, and its models are downloads",
       "checked": "2026-10-14"
+    },
+    {
+      "id": "codebuddy",
+      "title": "CodeBuddy Code",
+      "publisher": "Tencent Cloud",
+      "aliases": ["codebuddy-code", "cbc"],
+      "homepage": "https://www.codebuddy.ai/docs/cli",
+      "status": "coming",
+      "kind": "coding-agent",
+      "categories": ["coding-agent"],
+      "reason": "its first screen asks you to sign in to a CodeBuddy account, even with Dozer's model set, and Dozer cannot offer that sign-in",
+      "checked": "2026-10-15"
+    },
+    {
+      "id": "every-code",
+      "title": "Every Code",
+      "publisher": "just-every",
+      "aliases": ["just-every-code", "coder"],
+      "homepage": "https://github.com/just-every/code",
+      "status": "coming",
+      "kind": "coding-agent",
+      "categories": ["coding-agent"],
+      "reason": "it shows a ChatGPT sign-in whenever it has no login file, whatever provider is set; Dozer will add it when it honours the configured provider",
+      "checked": "2026-10-15"
     }
   ]
 }

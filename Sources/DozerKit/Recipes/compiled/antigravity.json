@@ -139,7 +139,19 @@
             "-p",
             "say ok"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "allow" : [
+              "Terms of Service",
+              "Privacy Policy"
+            ],
+            "expect" : [
+              "Terms of Service & Data Use"
+            ],
+            "keys" : [
+              "enter"
+            ]
+          }
         },
         "command" : [
           "agy"
@@ -153,7 +165,10 @@
             "set" : {
               "enableTelemetry" : false,
               "modelProvider" : "gemini",
-              "showFeedbackSurvey" : false
+              "showFeedbackSurvey" : false,
+              "trustedWorkspaces" : [
+                "/workspace"
+              ]
             }
           }
         ],
@@ -280,7 +295,11 @@
       "config" : {
         "docs" : "https://antigravity.google",
         "intro" : "Antigravity CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "notice" : "at its first start it asks you to accept Google's Terms of Service & Data Use (data sharing is ticked by default; you can untick it)",
         "steps" : [
+          {
+            "text" : "Antigravity asks you to accept Google's Terms of Service & Data Use; data sharing is ticked by default and you can untick it."
+          },
           {
             "command" : "agy -p \"say ok\"",
             "text" : "Check it answers, without its screen."

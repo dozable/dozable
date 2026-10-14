@@ -428,6 +428,10 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var refuse: [String]?
         public var allow: [String]?
         public var wait: Int?
+        /// 617: keys typed (`enter`, `esc`, `up`, `down`, `tab`, `space`), each then left to settle, before the screen is
+        /// read — a choice nothing can skip that is not the person's decision (Antigravity CLI's colour scheme), to reach
+        /// the screen the check is about.
+        public var keys: [String]?
     }
 
     public struct SettingKeys: Codable, Sendable, Equatable {
@@ -971,10 +975,8 @@ public enum AgentRecipes {
                                           ("droid.json", PackageResources.droid_json),
                                           ("dirac.json", PackageResources.dirac_json),
                                           ("kimi-code.json", PackageResources.kimi_code_json),
-                                          ("every-code.json", PackageResources.every_code_json),
                                           ("cline.json", PackageResources.cline_json),
                                           ("openhands.json", PackageResources.openhands_json),
-                                          ("codebuddy.json", PackageResources.codebuddy_json),
                                           ("letta-code.json", PackageResources.letta_code_json),
                                           ("docker-agent.json", PackageResources.docker_agent_json),
                                           ("nanocoder.json", PackageResources.nanocoder_json),
@@ -999,7 +1001,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json", "codewhale.json", "maki.json", "omp.json", "tau.json", "stitch.json", "opencode2.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "cline.json", "openhands.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json", "codewhale.json", "maki.json", "omp.json", "tau.json", "stitch.json", "opencode2.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()

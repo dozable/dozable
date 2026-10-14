@@ -196,23 +196,11 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `kimi-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_KIMI_PERMISSIONS=… on run/exec` | Kimi Code in a kimi-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
 
-### `[every-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `every-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CODER_PERMISSIONS=… on run/exec` | Every Code in an every-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
 ### `[openhands]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `openhands.permissions` | `skip` | skip \| ask | next session | `-e DOZ_OPENHANDS_PERMISSIONS=… on run/exec` | OpenHands CLI in an openhands sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[codebuddy]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `codebuddy.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CODEBUDDY_PERMISSIONS=… on run/exec` | CodeBuddy Code in a codebuddy sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
 
 ### `[docker-agent]`
 
@@ -367,10 +355,8 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.droid_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Factory Droid the droid image (and every base's Factory Droid image) is prepared with: latest or an exact version like 0.240.1, as images.claude_code_version. |
 | `images.dirac_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Dirac the dirac image (and every base's Dirac image) is prepared with: latest or an exact version like 0.5.20, as images.claude_code_version. |
 | `images.kimi_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Kimi Code the kimi-code image (and every base's Kimi Code image) is prepared with: latest or an exact version like 2.1.1, as images.claude_code_version. |
-| `images.every_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Every Code the every-code image (and every base's Every Code image) is prepared with: latest or an exact version like 0.6.196, as images.claude_code_version. |
 | `images.cline_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Cline CLI the cline image (and every base's Cline CLI image) is prepared with: latest or an exact version like 3.0.71, as images.claude_code_version. |
 | `images.openhands_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenHands CLI the openhands image (and every base's OpenHands CLI image) is prepared with: latest or an exact version like 1.16.0, as images.claude_code_version. |
-| `images.codebuddy_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The CodeBuddy Code the codebuddy image (and every base's CodeBuddy Code image) is prepared with: latest or an exact version like 2.164.0, as images.claude_code_version. |
 | `images.letta_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Letta Code the letta-code image (and every base's Letta Code image) is prepared with: latest or an exact version like 0.34.13, as images.claude_code_version. |
 | `images.docker_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Docker Agent the docker-agent image (and every base's Docker Agent image) is prepared with: latest or an exact version like 1.150.0, as images.claude_code_version. |
 | `images.nanocoder_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Nanocoder the nanocoder image (and every base's Nanocoder image) is prepared with: latest or an exact version like 1.31.0, as images.claude_code_version. |
@@ -588,13 +574,6 @@ This table is generated from `doz config show` and checked against it on every b
 | `images.kimi-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new kimi-code sandbox (a custom image follows the image it was saved from). |
 | `images.kimi-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new kimi-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
-### `[images.every-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.every-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new every-code sandbox (a custom image follows the image it was saved from). |
-| `images.every-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new every-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
 ### `[images.cline]`
 
 | key | default | values | applies | overridden by | what it does |
@@ -608,13 +587,6 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `images.openhands.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new openhands sandbox (a custom image follows the image it was saved from). |
 | `images.openhands.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new openhands sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.codebuddy]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.codebuddy.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new codebuddy sandbox (a custom image follows the image it was saved from). |
-| `images.codebuddy.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new codebuddy sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[images.letta-code]`
 

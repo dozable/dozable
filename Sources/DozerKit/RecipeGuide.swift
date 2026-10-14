@@ -18,6 +18,9 @@ extension AgentRecipe {
         public var tips: [String]?
         /// Its own documentation (https).
         public var docs: String?
+        /// 617 (owner, 2026-10-15): one short line `doz try` says FIRST — what the person meets at the tool's first start
+        /// that Dozer leaves to them (Antigravity CLI's Terms of Service, accepted by the person, never by Dozer).
+        public var notice: String? = nil
 
         public struct Step: Codable, Sendable, Equatable {
             public var text: String
@@ -27,9 +30,12 @@ extension AgentRecipe {
             public init(text: String, command: String? = nil, edit: Bool? = nil) { self.text = text; self.command = command; self.edit = edit }
         }
 
-        public init(intro: String, steps: [Step], tips: [String]? = nil, docs: String? = nil) {
-            self.intro = intro; self.steps = steps; self.tips = tips; self.docs = docs
+        public init(intro: String, steps: [Step], tips: [String]? = nil, docs: String? = nil, notice: String? = nil) {
+            self.intro = intro; self.steps = steps; self.tips = tips; self.docs = docs; self.notice = notice
         }
+
+        /// The check turn's step: the first with a command (a step before it only says something — Antigravity's terms).
+        public var checkStep: Step? { steps.first { $0.command != nil } }
 
         public static let maximumSteps = 8, maximumTips = 6
         public static let maximumIntro = 400, maximumText = 200, maximumCommand = 300, maximumTip = 240
@@ -136,9 +142,12 @@ extension AgentRecipe {
                 throw bad("guide step \(i + 1): a command starts with \(install.binary) (or \(words.subtracting([install.binary]).sorted().joined(separator: ", ")))")
             }
         }
-        guard let first = g.steps[0].command, g.steps[0].edit != true, guideMatchesCheck(first) else {
-            throw bad("guide: the first step's command is the check turn as a person types it (launch@1 check)")
+        // 617 (owner, 2026-10-15): a step without a command may come first (what the person meets at the first start);
+        // the first step WITH a command is the check turn.
+        guard let step = g.checkStep, let first = step.command, step.edit != true, guideMatchesCheck(first) else {
+            throw bad("guide: the first step with a command is the check turn as a person types it (launch@1 check)")
         }
+        if let n = g.notice, !plain(n, Guide.maximumText) { throw bad("guide notice: one line, at most \(Guide.maximumText) characters") }
     }
 }
 

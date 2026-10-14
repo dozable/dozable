@@ -28,10 +28,8 @@ node-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=
 node-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 dirac credentials=xai:key agentName=Dirac package=dirac-cli pinned=0.5.20 sha512-t2sUPPI9APCTHq+Lwr1IOq1OkubRSIrzB3lHJMMaAT+OLVjAGjWhxVIS/3xFCouBvQHB2xQF/jyVb57bbOjJvw==
 kimi-code credentials=xai:key agentName=Kimi Code package=@moonshot-ai/kimi-code pinned=2.1.1 sha512-xClqcnTQUKgKDbeOGPU78qcwxGzL8wA2rqWuOX3CLpyQ1/NhSX7jAh6hZo/JFwThSX8obkgef3uw/li5JaJNyw==
-node-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 node-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 node-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-codebuddy credentials=xai:key agentName=CodeBuddy Code package=@tencent-ai/codebuddy-code pinned=2.164.0 sha512-1DvSEszHJQUysANsE1GF78dn6tWWjUpQYI4xZfJe5MTQqj3AfZDTywrNYJRKW2jTLYK8QaIX5rOSB8hUNFp8wA==
 letta-code credentials=xai:key agentName=Letta Code package=@letta-ai/letta-code pinned=0.34.13 sha512-aEu3M1aYGA2HzpDjRd4rMJKRe4owLpPvdUnQZ0Nzf9/I7wo5Bl0yu7oM8hxBvelCZpPVug+pI/K06fBhbq4ckw==
 node-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 nanocoder credentials=xai:key agentName=Nanocoder package=@nanocollective/nanocoder pinned=1.31.0 sha512-EyJn8aO7YFKDA+IYyUmSN9/XHCqgBfrYKHE61iKMf6B4ASY9GDd8VHG0J09w0bd/V5kQdUQzHszk0fiCv8fRHQ==
@@ -74,10 +72,8 @@ python-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinne
 python-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 python-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 python-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-python-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 python-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 python-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-python-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 python-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 python-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 python-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -120,10 +116,8 @@ go-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=ni
 go-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 go-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 go-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-go-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 go-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 go-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-go-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 go-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 go-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 go-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -166,10 +160,8 @@ rust-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=
 rust-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 rust-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 rust-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-rust-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 rust-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 rust-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-rust-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 rust-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 rust-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 rust-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -212,10 +204,8 @@ java-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=
 java-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 java-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 java-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-java-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 java-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 java-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-java-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 java-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 java-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 java-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -258,10 +248,8 @@ ruby-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinned=
 ruby-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 ruby-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 ruby-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-ruby-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 ruby-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ruby-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-ruby-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 ruby-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 ruby-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 ruby-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -304,10 +292,8 @@ dotnet-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinne
 dotnet-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 dotnet-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 dotnet-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-dotnet-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 dotnet-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 dotnet-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-dotnet-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 dotnet-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 dotnet-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 dotnet-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -350,10 +336,8 @@ mistral-vibe credentials=xai:key agentName=Mistral Vibe package=mistral-vibe pin
 droid credentials=xai:key agentName=Factory Droid package=nil pinned=0.240.1 sha512-GmruvHDRWTbSNZ76lfS5iGWSTlekbTicf2EGNkzj/griE3bmR9uIaXqmFqp4fjBibjWlkX9q66BnjXl2B9/5vg==
 debian-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 debian-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-every-code credentials=xai:key agentName=Every Code package=@just-every/code pinned=0.6.196 sha512-3Ss/lvzTxV1Z7C/y/0DHk3M7oCkV42FRCxp6t8twr2AtRIok43erm3BxTlmhmrOt/CjZGAMKOoaMgawzIOFvXg==
 cline credentials=xai:key agentName=Cline CLI package=cline pinned=3.0.71 sha512-d0z0d//cOfuMaPWmU++0eg6L4jmE9E0t8DZPIWlqoBLdax4o3u7E2MqkKenrtX6mTG7LiA4wrRk3KIF/zXMdOA==
 openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=1.16.0 sha512-wh73oUH4wtdNUftFo20QXOa2IujQTFOhmp3y8EYk8kUpahRtjnZRKYutNo1/VZGcAOS7HfFtrn9wnt5hCqNOSg==
-debian-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 debian-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=1.150.0 sha512-KklBky8+usd4CK6S48S940vZJpxg1wn1cKqmGgJmsfBw3YAkRWusE/nlnDqT4TM0l4Lh/SVPgAvC/d8XQdAVmA==
 debian-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -396,10 +380,8 @@ ubuntu-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinne
 ubuntu-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 ubuntu-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 ubuntu-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-ubuntu-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 ubuntu-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 ubuntu-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-ubuntu-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 ubuntu-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 ubuntu-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 ubuntu-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -441,10 +423,8 @@ alpine-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=nil pinne
 alpine-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 alpine-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 alpine-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-alpine-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 alpine-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 alpine-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-alpine-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 alpine-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 alpine-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 alpine-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil
@@ -487,10 +467,8 @@ df-0123456789ab-mistral-vibe credentials=xai:key agentName=Mistral Vibe package=
 df-0123456789ab-droid credentials=xai:key agentName=Factory Droid package=nil pinned=nil
 df-0123456789ab-dirac credentials=xai:key agentName=Dirac package=nil pinned=nil
 df-0123456789ab-kimi-code credentials=xai:key agentName=Kimi Code package=nil pinned=nil
-df-0123456789ab-every-code credentials=xai:key agentName=Every Code package=nil pinned=nil
 df-0123456789ab-cline credentials=xai:key agentName=Cline CLI package=nil pinned=nil
 df-0123456789ab-openhands credentials=xai:key agentName=OpenHands CLI package=nil pinned=nil
-df-0123456789ab-codebuddy credentials=xai:key agentName=CodeBuddy Code package=nil pinned=nil
 df-0123456789ab-letta-code credentials=xai:key agentName=Letta Code package=nil pinned=nil
 df-0123456789ab-docker-agent credentials=xai:key agentName=Docker Agent package=nil pinned=nil
 df-0123456789ab-nanocoder credentials=xai:key agentName=Nanocoder package=nil pinned=nil

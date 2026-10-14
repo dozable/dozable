@@ -21,9 +21,20 @@ final class GuideTests: XCTestCase {
     func testEveryRecipeHasAGuideWhoseFirstStepIsItsCheck() throws {
         for r in AgentRecipes.all {
             let g = try XCTUnwrap(r.guide, "\(r.id) has a guide")
-            XCTAssertTrue(r.guideMatchesCheck(try XCTUnwrap(g.steps.first?.command)), r.id)
+            XCTAssertTrue(r.guideMatchesCheck(try XCTUnwrap(g.checkStep?.command)), r.id)
             XCTAssertNotNil(g.docs, "\(r.id): its docs")
         }
+        // 617 (owner, 2026-10-15): Antigravity CLI's guide first says what the person meets — Google's terms, theirs to
+        // accept — then its check turn; `doz try` says it first, in short.
+        let agy = try XCTUnwrap(AgentRecipes.recipe("antigravity")?.guide)
+        XCTAssertEqual(agy.steps.first?.text, "Antigravity asks you to accept Google's Terms of Service & Data Use; data sharing is ticked by default and you can untick it.")
+        XCTAssertNil(agy.steps.first?.command)
+        XCTAssertEqual(agy.checkStep?.command, #"agy -p "say ok""#)
+        XCTAssertTrue(agy.notice?.contains("Terms of Service & Data Use") == true)
+        // A step without a command before the check is fine; a guide with no command at all is not.
+        var r = try XCTUnwrap(AgentRecipes.recipe("antigravity"))
+        r.guide?.steps = [.init(text: "Only words.")]
+        XCTAssertThrowsError(try r.validate())
         let fabric = try XCTUnwrap(AgentRecipes.recipe("fabric")?.guide)
         XCTAssertEqual(fabric.steps.map(\.command), [#"echo hello | fabric "say ok""#, "fabric -l", #"echo "Dozer runs each agent in its own VM" | fabric -p summarize"#,
                                                      "fabric -p extract_wisdom < notes.md"])

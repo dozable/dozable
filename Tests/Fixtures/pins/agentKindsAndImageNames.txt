@@ -27,10 +27,8 @@ kind mistral-vibe Mistral Vibe
 kind droid Factory Droid
 kind dirac Dirac
 kind kimi-code Kimi Code
-kind every-code Every Code
 kind cline Cline CLI
 kind openhands OpenHands CLI
-kind codebuddy CodeBuddy Code
 kind letta-code Letta Code
 kind docker-agent Docker Agent
 kind nanocoder Nanocoder
@@ -74,10 +72,8 @@ parse node-mistral-vibe → node mistral-vibe node-mistral-vibe Node.js · Mistr
 parse node-droid → node droid node-droid Node.js · Factory Droid base-name node-droid-sandbox
 parse dirac → node dirac dirac Node.js · Dirac base-name dirac-sandbox
 parse kimi-code → node kimi-code kimi-code Node.js · Kimi Code base-name kimi-sandbox
-parse node-every-code → node every-code node-every-code Node.js · Every Code base-name node-coder-sandbox
 parse node-cline → node cline node-cline Node.js · Cline CLI base-name node-cline-sandbox
 parse node-openhands → node openhands node-openhands Node.js · OpenHands CLI base-name node-openhands-sandbox
-parse codebuddy → node codebuddy codebuddy Node.js · CodeBuddy Code base-name codebuddy-sandbox
 parse letta-code → node letta-code letta-code Node.js · Letta Code base-name letta-sandbox
 parse node-docker-agent → node docker-agent node-docker-agent Node.js · Docker Agent base-name node-docker-agent-sandbox
 parse nanocoder → node nanocoder nanocoder Node.js · Nanocoder base-name nanocoder-sandbox
@@ -120,10 +116,8 @@ parse python-mistral-vibe → python mistral-vibe python-mistral-vibe Python · 
 parse python-droid → python droid python-droid Python · Factory Droid base-name python-droid-sandbox
 parse python-dirac → python dirac python-dirac Python · Dirac base-name python-dirac-sandbox
 parse python-kimi-code → python kimi-code python-kimi-code Python · Kimi Code base-name python-kimi-sandbox
-parse python-every-code → python every-code python-every-code Python · Every Code base-name python-coder-sandbox
 parse python-cline → python cline python-cline Python · Cline CLI base-name python-cline-sandbox
 parse python-openhands → python openhands python-openhands Python · OpenHands CLI base-name python-openhands-sandbox
-parse python-codebuddy → python codebuddy python-codebuddy Python · CodeBuddy Code base-name python-codebuddy-sandbox
 parse python-letta-code → python letta-code python-letta-code Python · Letta Code base-name python-letta-sandbox
 parse python-docker-agent → python docker-agent python-docker-agent Python · Docker Agent base-name python-docker-agent-sandbox
 parse python-nanocoder → python nanocoder python-nanocoder Python · Nanocoder base-name python-nanocoder-sandbox
@@ -166,10 +160,8 @@ parse go-mistral-vibe → go mistral-vibe go-mistral-vibe Go · Mistral Vibe bas
 parse go-droid → go droid go-droid Go · Factory Droid base-name go-droid-sandbox
 parse go-dirac → go dirac go-dirac Go · Dirac base-name go-dirac-sandbox
 parse go-kimi-code → go kimi-code go-kimi-code Go · Kimi Code base-name go-kimi-sandbox
-parse go-every-code → go every-code go-every-code Go · Every Code base-name go-coder-sandbox
 parse go-cline → go cline go-cline Go · Cline CLI base-name go-cline-sandbox
 parse go-openhands → go openhands go-openhands Go · OpenHands CLI base-name go-openhands-sandbox
-parse go-codebuddy → go codebuddy go-codebuddy Go · CodeBuddy Code base-name go-codebuddy-sandbox
 parse go-letta-code → go letta-code go-letta-code Go · Letta Code base-name go-letta-sandbox
 parse go-docker-agent → go docker-agent go-docker-agent Go · Docker Agent base-name go-docker-agent-sandbox
 parse go-nanocoder → go nanocoder go-nanocoder Go · Nanocoder base-name go-nanocoder-sandbox
@@ -212,10 +204,8 @@ parse rust-mistral-vibe → rust mistral-vibe rust-mistral-vibe Rust · Mistral 
 parse rust-droid → rust droid rust-droid Rust · Factory Droid base-name rust-droid-sandbox
 parse rust-dirac → rust dirac rust-dirac Rust · Dirac base-name rust-dirac-sandbox
 parse rust-kimi-code → rust kimi-code rust-kimi-code Rust · Kimi Code base-name rust-kimi-sandbox
-parse rust-every-code → rust every-code rust-every-code Rust · Every Code base-name rust-coder-sandbox
 parse rust-cline → rust cline rust-cline Rust · Cline CLI base-name rust-cline-sandbox
 parse rust-openhands → rust openhands rust-openhands Rust · OpenHands CLI base-name rust-openhands-sandbox
-parse rust-codebuddy → rust codebuddy rust-codebuddy Rust · CodeBuddy Code base-name rust-codebuddy-sandbox
 parse rust-letta-code → rust letta-code rust-letta-code Rust · Letta Code base-name rust-letta-sandbox
 parse rust-docker-agent → rust docker-agent rust-docker-agent Rust · Docker Agent base-name rust-docker-agent-sandbox
 parse rust-nanocoder → rust nanocoder rust-nanocoder Rust · Nanocoder base-name rust-nanocoder-sandbox
@@ -258,10 +248,8 @@ parse java-mistral-vibe → java mistral-vibe java-mistral-vibe Java · Mistral 
 parse java-droid → java droid java-droid Java · Factory Droid base-name java-droid-sandbox
 parse java-dirac → java dirac java-dirac Java · Dirac base-name java-dirac-sandbox
 parse java-kimi-code → java kimi-code java-kimi-code Java · Kimi Code base-name java-kimi-sandbox
-parse java-every-code → java every-code java-every-code Java · Every Code base-name java-coder-sandbox
 parse java-cline → java cline java-cline Java · Cline CLI base-name java-cline-sandbox
 parse java-openhands → java openhands java-openhands Java · OpenHands CLI base-name java-openhands-sandbox
-parse java-codebuddy → java codebuddy java-codebuddy Java · CodeBuddy Code base-name java-codebuddy-sandbox
 parse java-letta-code → java letta-code java-letta-code Java · Letta Code base-name java-letta-sandbox
 parse java-docker-agent → java docker-agent java-docker-agent Java · Docker Agent base-name java-docker-agent-sandbox
 parse java-nanocoder → java nanocoder java-nanocoder Java · Nanocoder base-name java-nanocoder-sandbox
@@ -304,10 +292,8 @@ parse ruby-mistral-vibe → ruby mistral-vibe ruby-mistral-vibe Ruby · Mistral 
 parse ruby-droid → ruby droid ruby-droid Ruby · Factory Droid base-name ruby-droid-sandbox
 parse ruby-dirac → ruby dirac ruby-dirac Ruby · Dirac base-name ruby-dirac-sandbox
 parse ruby-kimi-code → ruby kimi-code ruby-kimi-code Ruby · Kimi Code base-name ruby-kimi-sandbox
-parse ruby-every-code → ruby every-code ruby-every-code Ruby · Every Code base-name ruby-coder-sandbox
 parse ruby-cline → ruby cline ruby-cline Ruby · Cline CLI base-name ruby-cline-sandbox
 parse ruby-openhands → ruby openhands ruby-openhands Ruby · OpenHands CLI base-name ruby-openhands-sandbox
-parse ruby-codebuddy → ruby codebuddy ruby-codebuddy Ruby · CodeBuddy Code base-name ruby-codebuddy-sandbox
 parse ruby-letta-code → ruby letta-code ruby-letta-code Ruby · Letta Code base-name ruby-letta-sandbox
 parse ruby-docker-agent → ruby docker-agent ruby-docker-agent Ruby · Docker Agent base-name ruby-docker-agent-sandbox
 parse ruby-nanocoder → ruby nanocoder ruby-nanocoder Ruby · Nanocoder base-name ruby-nanocoder-sandbox
@@ -350,10 +336,8 @@ parse dotnet-mistral-vibe → dotnet mistral-vibe dotnet-mistral-vibe .NET · Mi
 parse dotnet-droid → dotnet droid dotnet-droid .NET · Factory Droid base-name dotnet-droid-sandbox
 parse dotnet-dirac → dotnet dirac dotnet-dirac .NET · Dirac base-name dotnet-dirac-sandbox
 parse dotnet-kimi-code → dotnet kimi-code dotnet-kimi-code .NET · Kimi Code base-name dotnet-kimi-sandbox
-parse dotnet-every-code → dotnet every-code dotnet-every-code .NET · Every Code base-name dotnet-coder-sandbox
 parse dotnet-cline → dotnet cline dotnet-cline .NET · Cline CLI base-name dotnet-cline-sandbox
 parse dotnet-openhands → dotnet openhands dotnet-openhands .NET · OpenHands CLI base-name dotnet-openhands-sandbox
-parse dotnet-codebuddy → dotnet codebuddy dotnet-codebuddy .NET · CodeBuddy Code base-name dotnet-codebuddy-sandbox
 parse dotnet-letta-code → dotnet letta-code dotnet-letta-code .NET · Letta Code base-name dotnet-letta-sandbox
 parse dotnet-docker-agent → dotnet docker-agent dotnet-docker-agent .NET · Docker Agent base-name dotnet-docker-agent-sandbox
 parse dotnet-nanocoder → dotnet nanocoder dotnet-nanocoder .NET · Nanocoder base-name dotnet-nanocoder-sandbox
@@ -396,10 +380,8 @@ parse mistral-vibe → debian mistral-vibe mistral-vibe Debian · Mistral Vibe b
 parse droid → debian droid droid Debian · Factory Droid base-name droid-sandbox
 parse debian-dirac → debian dirac debian-dirac Debian · Dirac base-name debian-dirac-sandbox
 parse debian-kimi-code → debian kimi-code debian-kimi-code Debian · Kimi Code base-name debian-kimi-sandbox
-parse every-code → debian every-code every-code Debian · Every Code base-name coder-sandbox
 parse cline → debian cline cline Debian · Cline CLI base-name cline-sandbox
 parse openhands → debian openhands openhands Debian · OpenHands CLI base-name openhands-sandbox
-parse debian-codebuddy → debian codebuddy debian-codebuddy Debian · CodeBuddy Code base-name debian-codebuddy-sandbox
 parse debian-letta-code → debian letta-code debian-letta-code Debian · Letta Code base-name debian-letta-sandbox
 parse docker-agent → debian docker-agent docker-agent Debian · Docker Agent base-name docker-agent-sandbox
 parse debian-nanocoder → debian nanocoder debian-nanocoder Debian · Nanocoder base-name debian-nanocoder-sandbox
@@ -442,10 +424,8 @@ parse ubuntu-mistral-vibe → ubuntu mistral-vibe ubuntu-mistral-vibe Ubuntu · 
 parse ubuntu-droid → ubuntu droid ubuntu-droid Ubuntu · Factory Droid base-name ubuntu-droid-sandbox
 parse ubuntu-dirac → ubuntu dirac ubuntu-dirac Ubuntu · Dirac base-name ubuntu-dirac-sandbox
 parse ubuntu-kimi-code → ubuntu kimi-code ubuntu-kimi-code Ubuntu · Kimi Code base-name ubuntu-kimi-sandbox
-parse ubuntu-every-code → ubuntu every-code ubuntu-every-code Ubuntu · Every Code base-name ubuntu-coder-sandbox
 parse ubuntu-cline → ubuntu cline ubuntu-cline Ubuntu · Cline CLI base-name ubuntu-cline-sandbox
 parse ubuntu-openhands → ubuntu openhands ubuntu-openhands Ubuntu · OpenHands CLI base-name ubuntu-openhands-sandbox
-parse ubuntu-codebuddy → ubuntu codebuddy ubuntu-codebuddy Ubuntu · CodeBuddy Code base-name ubuntu-codebuddy-sandbox
 parse ubuntu-letta-code → ubuntu letta-code ubuntu-letta-code Ubuntu · Letta Code base-name ubuntu-letta-sandbox
 parse ubuntu-docker-agent → ubuntu docker-agent ubuntu-docker-agent Ubuntu · Docker Agent base-name ubuntu-docker-agent-sandbox
 parse ubuntu-nanocoder → ubuntu nanocoder ubuntu-nanocoder Ubuntu · Nanocoder base-name ubuntu-nanocoder-sandbox
@@ -487,10 +467,8 @@ parse alpine-mistral-vibe → alpine mistral-vibe alpine-mistral-vibe Alpine · 
 parse alpine-droid → alpine droid alpine-droid Alpine · Factory Droid base-name alpine-droid-sandbox
 parse alpine-dirac → alpine dirac alpine-dirac Alpine · Dirac base-name alpine-dirac-sandbox
 parse alpine-kimi-code → alpine kimi-code alpine-kimi-code Alpine · Kimi Code base-name alpine-kimi-sandbox
-parse alpine-every-code → alpine every-code alpine-every-code Alpine · Every Code base-name alpine-coder-sandbox
 parse alpine-cline → alpine cline alpine-cline Alpine · Cline CLI base-name alpine-cline-sandbox
 parse alpine-openhands → alpine openhands alpine-openhands Alpine · OpenHands CLI base-name alpine-openhands-sandbox
-parse alpine-codebuddy → alpine codebuddy alpine-codebuddy Alpine · CodeBuddy Code base-name alpine-codebuddy-sandbox
 parse alpine-letta-code → alpine letta-code alpine-letta-code Alpine · Letta Code base-name alpine-letta-sandbox
 parse alpine-docker-agent → alpine docker-agent alpine-docker-agent Alpine · Docker Agent base-name alpine-docker-agent-sandbox
 parse alpine-nanocoder → alpine nanocoder alpine-nanocoder Alpine · Nanocoder base-name alpine-nanocoder-sandbox
@@ -533,10 +511,8 @@ parse df-0123456789ab-mistral-vibe → df-0123456789ab mistral-vibe df-012345678
 parse df-0123456789ab-droid → df-0123456789ab droid df-0123456789ab-droid Dockerfile · Factory Droid base-name dockerfile-droid-sandbox
 parse df-0123456789ab-dirac → df-0123456789ab dirac df-0123456789ab-dirac Dockerfile · Dirac base-name dockerfile-dirac-sandbox
 parse df-0123456789ab-kimi-code → df-0123456789ab kimi-code df-0123456789ab-kimi-code Dockerfile · Kimi Code base-name dockerfile-kimi-sandbox
-parse df-0123456789ab-every-code → df-0123456789ab every-code df-0123456789ab-every-code Dockerfile · Every Code base-name dockerfile-coder-sandbox
 parse df-0123456789ab-cline → df-0123456789ab cline df-0123456789ab-cline Dockerfile · Cline CLI base-name dockerfile-cline-sandbox
 parse df-0123456789ab-openhands → df-0123456789ab openhands df-0123456789ab-openhands Dockerfile · OpenHands CLI base-name dockerfile-openhands-sandbox
-parse df-0123456789ab-codebuddy → df-0123456789ab codebuddy df-0123456789ab-codebuddy Dockerfile · CodeBuddy Code base-name dockerfile-codebuddy-sandbox
 parse df-0123456789ab-letta-code → df-0123456789ab letta-code df-0123456789ab-letta-code Dockerfile · Letta Code base-name dockerfile-letta-sandbox
 parse df-0123456789ab-docker-agent → df-0123456789ab docker-agent df-0123456789ab-docker-agent Dockerfile · Docker Agent base-name dockerfile-docker-agent-sandbox
 parse df-0123456789ab-nanocoder → df-0123456789ab nanocoder df-0123456789ab-nanocoder Dockerfile · Nanocoder base-name dockerfile-nanocoder-sandbox
