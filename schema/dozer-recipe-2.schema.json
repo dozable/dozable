@@ -329,7 +329,17 @@
                 "argv": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
                 "expect": { "type": "string", "minLength": 1 },
                 "exit": { "type": "integer", "minimum": 0, "maximum": 255 },
-                "timeout": { "type": "integer", "minimum": 10, "maximum": 1800 }
+                "timeout": { "type": "integer", "minimum": 10, "maximum": 1800 },
+                "screen": {
+                  "type": "object", "additionalProperties": false,
+                  "description": "The default session's first screen, with nothing typed (not for `session: shell`): expect — regular expressions each of which must match it; refuse — ones none may match, on top of the generic setup/sign-in/consent list; allow — a line matching one of these is not held against the generic list; wait — seconds to let it settle (default 15).",
+                  "properties": {
+                    "expect": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                    "refuse": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                    "allow": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+                    "wait": { "type": "integer", "minimum": 3, "maximum": 120 }
+                  }
+                }
               }
             },
             "settings": {

@@ -371,9 +371,24 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var expect: String
         public var exit: Int?
         public var timeout: Int?
-        public init(argv: [String], expect: String, exit: Int? = nil, timeout: Int? = nil) {
-            self.argv = argv; self.expect = expect; self.exit = exit; self.timeout = timeout
+        /// 617 (the owner's first `doz try goose` opened Goose's own setup wizard; the headless check never sees it):
+        /// what the default session's FIRST screen must and must not show, beside the generic setup/sign-in/consent
+        /// patterns `make recipe-check` refuses (`Scripts/recipe-check.py`, `SETUP_SCREEN`).
+        public var screen: Screen?
+        public init(argv: [String], expect: String, exit: Int? = nil, timeout: Int? = nil, screen: Screen? = nil) {
+            self.argv = argv; self.expect = expect; self.exit = exit; self.timeout = timeout; self.screen = screen
         }
+    }
+
+    /// The first screen of an agent's default session (no keys typed): `expect` — regular expressions each of which must
+    /// match it; `refuse` — ones none may match (on top of the generic list); `allow` — a line matching one of these is
+    /// not held against the generic list (a ready screen's own "Welcome to …" banner); `wait` — seconds to let it
+    /// settle (default 15).
+    public struct Screen: Codable, Sendable, Equatable {
+        public var expect: [String]?
+        public var refuse: [String]?
+        public var allow: [String]?
+        public var wait: Int?
     }
 
     public struct SettingKeys: Codable, Sendable, Equatable {
@@ -1179,8 +1194,10 @@ extension AgentRecipe {
             }
         }
         for f in launch.firstRun ?? [] {
-            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml") || f.file.hasSuffix("/.env"), !f.file.contains(".."), scriptSafe(f.file) else {
-                throw bad("first_run file \(f.file): ~/….json, ~/….toml or ~/…/.env")
+            let yaml = f.file.hasSuffix(".yaml") || f.file.hasSuffix(".yml")
+            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml") || f.file.hasSuffix("/.env") || yaml,
+                  !f.file.contains(".."), scriptSafe(f.file) else {
+                throw bad("first_run file \(f.file): ~/….json, ~/….toml, ~/….yaml or ~/…/.env")
             }
             for (k, v) in f.set {
                 // 617: a dotenv file (Fabric's ~/.config/fabric/.env): KEY=value lines, never a credential's name.
@@ -1192,6 +1209,12 @@ extension AgentRecipe {
                     continue
                 }
                 guard k.range(of: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
+                if yaml {
+                    // 617 (Goose's ~/.config/goose/config.yaml): top-level keys only, each a string, a number or a bool.
+                    guard !k.contains(".") else { throw bad("first_run YAML key \(k) is a top-level key (no dots)") }
+                    if case .object = v { throw bad("first_run YAML value of \(k) is a string, a number or a bool") }
+                    if case .array = v { throw bad("first_run YAML value of \(k) is a string, a number or a bool") }
+                }
                 if f.file.hasSuffix(".toml") {
                     // 617: a key with no table is a top-level key (ZeroClaw's schema_version), written above the first table.
                     if case .object = v { throw bad("first_run TOML value of \(k) is a string, a number or a bool") }

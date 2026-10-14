@@ -113,7 +113,12 @@
             "-t",
             "say ok"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "expect" : [
+              "goose is ready"
+            ]
+          }
         },
         "command" : [
           "goose"
@@ -126,6 +131,16 @@
           "GOOSE_TELEMETRY_ENABLED" : "false",
           "GOOSE_TELEMETRY_OFF" : "1"
         },
+        "first_run" : [
+          {
+            "file" : "~/.config/goose/config.yaml",
+            "set" : {
+              "GOOSE_MODEL" : "grok-code-fast-1",
+              "GOOSE_PROVIDER" : "xai",
+              "GOOSE_TELEMETRY_ENABLED" : false
+            }
+          }
+        ],
         "no_prompts_args" : [
 
         ],

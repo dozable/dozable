@@ -1748,7 +1748,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   recipe: `{argv, expect, exit?, timeout?}`; the stand-in `Scripts/fake-provider.py` — xAI, Google, Anthropic Messages,
   OpenAI Responses, started by `fake-provider-up.sh` — answers `DOZ_FAKE_OK`), the fake key seen by the stand-in and only a
   placeholder in the guest, no key anywhere in it, the leak guard, and for `status: osc7501` idle/working/done held by
-  deckhold in an interactive turn (a pty attach typing `say ok DOZ_SLOW`). A JSON report; `--changed BASE` and
+  deckhold in an interactive turn (a pty attach typing `say ok DOZ_SLOW`); and FIRST, for every recipe whose default
+  session is the agent, its **first screen** (attached on a pty, nothing typed, ~15 s, read back with `deckhold dump`):
+  no setup wizard, sign-in, consent, trust or theme question (`SETUP_SCREEN`, less `check.screen.allow`; plus the
+  recipe's `check.screen.expect/refuse`) — the owner's first `doz try goose` opened Goose's own wizard, which the
+  headless check never sees; `RECIPE_ONLY=screen` runs it alone. A first-run file may be YAML (top-level keys, Goose's
+  `config.yaml`; `merge_yaml` is emitted only into such a recipe's helper). A JSON report; `--changed BASE` and
   `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
   recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
   `~/Library/Caches/DozerKit-ci/recipes-store`). A new recipe passes it before it ships.

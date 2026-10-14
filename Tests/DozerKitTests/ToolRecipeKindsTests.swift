@@ -225,4 +225,55 @@ final class ToolRecipeKindsTests: XCTestCase {
         // The other recipes' helpers are unchanged by the dotenv support (their bake keys stay).
         XCTAssertFalse(AgentImages.recipeSetupPython(AgentRecipes.recipe("gemini")!.launch.firstRun!).contains("merge_env"))
     }
+
+    /// 617 (the owner's first `doz try goose` opened Goose's setup wizard: it runs whenever its config.yaml is missing,
+    /// whatever the environment says): the YAML helper writes the file when absent, adds absent top-level keys only, and
+    /// keeps a person's own line, set or commented out.
+    func test_yamlFirstRunMakesGoosesConfigAndKeepsAPersonsLines() throws {
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/python3") else { throw XCTSkip("no python3") }
+        let r = try XCTUnwrap(AgentRecipes.recipe("goose"))
+        let py = AgentImages.recipeSetupPython(r.launch.firstRun!)
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("yaml-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let script = home.appendingPathComponent("setup.py")
+        try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+        try py.write(to: script, atomically: true, encoding: .utf8)
+        func run() throws {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+            p.arguments = [script.path]
+            p.environment = ["HOME": home.path]
+            try p.run()
+            p.waitUntilExit()
+            XCTAssertEqual(p.terminationStatus, 0)
+        }
+        let f = home.appendingPathComponent(".config/goose/config.yaml")
+        try run()
+        XCTAssertEqual(try String(contentsOf: f, encoding: .utf8),
+                       "GOOSE_MODEL: \"grok-code-fast-1\"\nGOOSE_PROVIDER: \"xai\"\nGOOSE_TELEMETRY_ENABLED: false\n")
+        try Data("GOOSE_PROVIDER: openrouter\n# GOOSE_MODEL: mine\nextensions:\n  GOOSE_TELEMETRY_ENABLED: x\n".utf8).write(to: f)
+        try run()
+        XCTAssertEqual(try String(contentsOf: f, encoding: .utf8),
+                       "GOOSE_PROVIDER: openrouter\n# GOOSE_MODEL: mine\nextensions:\n  GOOSE_TELEMETRY_ENABLED: x\nGOOSE_TELEMETRY_ENABLED: false\n",
+                       "only the top-level key that is absent is added; a nested one is not the top-level key")
+        let text = try String(contentsOf: f, encoding: .utf8)
+        try run()
+        XCTAssertEqual(try String(contentsOf: f, encoding: .utf8), text, "a second run changes nothing")
+        // The other recipes' helpers are unchanged by the YAML support (their bake keys stay).
+        for other in ["grok", "gemini", "fabric", "zeroclaw"] {
+            XCTAssertFalse(AgentImages.recipeSetupPython(AgentRecipes.recipe(other)!.launch.firstRun!).contains("merge_yaml"), other)
+        }
+        // A YAML first-run key is top-level and a scalar.
+        var bad = r
+        bad.launch.firstRun = [.init(file: "~/.config/goose/config.yaml", set: ["a.b": .string("x")])]
+        XCTAssertThrowsError(try bad.validate())
+        bad.launch.firstRun = [.init(file: "~/.config/goose/config.yaml", set: ["A": .array([.string("x")])])]
+        XCTAssertThrowsError(try bad.validate())
+    }
+
+    /// 617: a recipe's first-screen expectations round-trip through the strict loader (an unknown key is refused).
+    func test_theCheckCarriesTheFirstScreen() throws {
+        let r = try XCTUnwrap(AgentRecipes.recipe("goose"))
+        XCTAssertEqual(r.smoke?.screen?.expect, ["goose is ready"])
+    }
 }

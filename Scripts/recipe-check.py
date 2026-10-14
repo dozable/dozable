@@ -13,6 +13,11 @@
 #              refused and never reaches it
 #   6. status  `status: osc7501` only: an interactive turn in the default session — deckhold must hold at least
 #              idle, working and done (sampled with `deckhold ls` in the guest)
+#   0. screen  (right after the try, before anything else runs in it) every recipe whose default session is the agent
+#              (not `session: shell`): its default session opened on a pty, nothing typed, left to settle (~15 s), its
+#              screen read back (`deckhold dump`) — no setup wizard, onboarding, sign-in, consent or trust question
+#              (SETUP_SCREEN, less the lines the recipe's check.screen.allow excuses), each check.screen.expect found,
+#              no check.screen.refuse. A headless check turn never sees such a screen; a person's first try does.
 # Exit 0 when every recipe passed, 1 otherwise (2: usage). The report (JSON) has, per recipe, pass/fail, the version,
 # each step's duration, the states seen and the failures; --summary FILE appends a markdown table.
 #
@@ -23,6 +28,7 @@
 #   --versions  pin (default): each recipe agent at its pinned release; the built-in three (Claude Code, pi, Codex)
 #               at `latest` — their pins are frozen fallbacks (RecipePinTests) and Dozer installs latest for them.
 #               latest: every agent at its latest release.
+#   --only      screen: only the try and its first-screen check (a quick survey of every agent's first screen).
 #   --selections a recipe with models@1 (it can be tried with several providers and gateways): steps 2–5 run once PER
 #               model source it is offered — each in a fresh try with that source's FAKE key (`doz try ID --provider|
 #               --gateway SOURCE`), `${{ dozer.model }}` and `${{ dozer.base_url }}` in its check argv = that source's, the request seen on
@@ -63,6 +69,20 @@ LEAK_TARGET = {
 }
 GATEWAYS = ("openrouter", "vercel-ai-gateway")
 STATES_NEEDED = ("idle", "working", "done")
+# What a ready agent's first screen never asks (case-insensitive; a line a recipe's check.screen.allow matches is excused).
+SETUP_SCREEN = [
+    (r"\bwelcome\b", "a welcome screen"),
+    (r"let'?s get (?:you )?(?:set up|started)|\bset ?up\b|\bsetup\b|get started", "set-up"),
+    (r"\bconfigur(?:e|ation|ing)\b", "configuration"),
+    (r"\bsign(?:ed)?[ -]?in\b|\blog(?:ged)?[ -]?in\b|\bauthenticat", "a sign-in"),
+    (r"would you like|how would you like|do you want to", "a question"),
+    (r"usage data|anonymous (?:usage|data|statistics)|telemetry|analytics|improve (?:the )?product", "a usage-data consent"),
+    (r"\btrust\b.{0,30}\b(?:folder|directory|workspace|files|project)|do you trust", "a trust question"),
+    (r"(?:select|choose|pick) (?:a |your )?(?:theme|colou?r scheme|style)", "a theme choice"),
+    (r"\bonboarding\b", "onboarding"),
+    (r"(?:enter|paste|provide|add|set) (?:your |an? )?(?:\w+ )?api[ _-]?key", "a key request"),
+    (r"terms of (?:service|use)|privacy (?:policy|notice)", "terms"),
+]
 
 
 def now():
@@ -94,6 +114,9 @@ class Recipe:
         self.guide = cfg("com.dozersandbox/guide@1")
         # 617 (RP-1): its web ports, and the command that serves them when the session's program does not.
         self.ports = cfg("com.dozersandbox/ports@1")
+        # 617: `shell` — the default session is a login shell (a tool that answers and exits): no first screen of its own.
+        self.session = launch.get("session")
+        self.screen = (self.check or {}).get("screen") or {}
 
 
 def http_status(host, port, path):
@@ -349,6 +372,12 @@ class Harness:
         fail = res["failures"].append
         version = (res["version"] or "").split("+")[0]
 
+        # 0. the first screen — before anything else runs in the try (a turn may write the very files a wizard looks for)
+        if r.session != "shell" and first:
+            step("screen", lambda: self.first_screen(r, name, res))
+        if self.args.only == "screen":
+            return
+
         # 3. verify (again after the smoke turn: an agent that updated itself while it ran is caught) — first selection only
         def verify(after=""):
             for v in r.verify:
@@ -477,6 +506,88 @@ class Harness:
                 got.append("%d→%d %s" % (p["port"], row["mac_port"], line))
         res["ports"] = got
 
+
+    def session_name(self, name):
+        code, out = self.doz("sessions", name, "--json", timeout=60)
+        try:
+            rows = json.loads(out[out.index("["):])
+        except ValueError:
+            return None
+        live = [x for x in rows if not x.get("saved")]
+        return (live or rows or [{}])[0].get("name")
+
+    def first_screen(self, r, name, res):
+        """The default session as a person first sees it: attached on a 120×40 pty, nothing typed, left to settle, then
+        its screen (deckhold's text dump; the pty's bytes made plain when the session is gone)."""
+        fail = res["failures"].append
+        wait = int(r.screen.get("wait") or 15)
+        pid, fd = pty.fork()
+        if pid == 0:
+            argv = [os.path.join(self.bin, "doz"), "attach", name, "--store", self.store]
+            os.execve(argv[0], argv, self.env)
+        fcntl.ioctl(fd, termios.TIOCSWINSZ, struct.pack("HHHH", 40, 120, 0, 0))
+        raw, end = bytearray(), time.time() + wait
+        while time.time() < end:
+            r_, _, _ = select.select([fd], [], [], 0.25)
+            if r_:
+                try:
+                    b = os.read(fd, 65536)
+                except OSError:
+                    break
+                if not b:
+                    break
+                raw.extend(b)
+                if b"\x1b[6n" in b:          # a cursor-position query a terminal answers (deckhold forwards it)
+                    try:
+                        os.write(fd, b"\x1b[1;1R")
+                    except OSError:
+                        pass
+        session = self.session_name(name)
+        text = ""
+        if session:
+            code, out = self.doz("exec", name, "--user", "root", "--", "/usr/local/bin/deckhold", "dump", "-s", session, timeout=60)
+            if code == 0:
+                text = out
+        if not text.strip():
+            text = re.sub(r"\x1b\[[0-9;?]*[A-Za-z]", " ", re.sub(r"\x1b\][^\x07\x1b]*(?:\x07|\x1b\\)", "", raw.decode(errors="replace")))
+            text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", text)
+            res["notes"].append("screen: read from the attach's bytes (no live session to dump: %s)" % (session or "none"))
+        for k in (b"\x1d", b"\x1d"):
+            try:
+                os.write(fd, k)
+            except OSError:
+                pass
+            time.sleep(0.15)
+        try:
+            os.kill(pid, signal.SIGTERM)
+        except OSError:
+            pass
+        try:
+            os.waitpid(pid, 0)
+        except OSError:
+            pass
+        os.close(fd)
+        lines = [l.rstrip() for l in text.splitlines()]
+        while lines and not lines[-1]:
+            lines.pop()
+        res["first_screen"] = "\n".join(lines)[-4000:]
+        allow = [re.compile(a, re.I) for a in r.screen.get("allow") or []]
+        found = []
+        for pat, what in SETUP_SCREEN:
+            for l in lines:
+                if re.search(pat, l, re.I) and not any(a.search(l) for a in allow):
+                    found.append("%s: %r" % (what, l.strip()[:120]))
+        for pat in r.screen.get("refuse") or []:
+            for l in lines:
+                if re.search(pat, l, re.I):
+                    found.append("refused %r: %r" % (pat, l.strip()[:120]))
+        if found:
+            fail("screen: the first screen is not the agent ready to work — " + "; ".join(dict.fromkeys(found))[:900])
+        for pat in r.screen.get("expect") or []:
+            if not re.search(pat, "\n".join(lines), re.I | re.M):
+                fail("screen: the first screen does not show %r" % pat)
+        if not any(l.strip() for l in lines):
+            fail("screen: the first screen is empty")
 
     def status(self, r, name, res):
         states, stop = [], threading.Event()
@@ -641,6 +752,7 @@ def main():
     ap.add_argument("--summary")
     ap.add_argument("--doz", default=os.path.join(REPO, ".build/debug/doz"))
     ap.add_argument("--versions", choices=["pin", "latest"], default="pin")
+    ap.add_argument("--only", choices=["screen"], help="screen: only the try and its first-screen check")
     ap.add_argument("--selections", default=os.environ.get("RECIPE_SELECTIONS") or "all",
                     help="a models@1 recipe: all (default) | default | a list of sources (\"openai openrouter\")")
     ap.add_argument("--changed", metavar="BASE", help="print the recipes a change since BASE touches (all, or ids, or nothing) and exit")

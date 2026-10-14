@@ -619,6 +619,29 @@ public enum AgentImages {
 
     /// 617: a first-run TOML key with no table (ZeroClaw's `schema_version`) — written above the first table, only when
     /// absent; emitted only into such a recipe's helper (the other launchers and bake keys are unchanged).
+    /// 617: a first-run YAML file (Goose's `~/.config/goose/config.yaml`) — emitted only into such a recipe's helper (the
+    /// other launchers and bake keys are unchanged).
+    static func hasYAML(_ merges: [AgentRecipe.FirstRun]) -> Bool {
+        merges.contains { $0.file.hasSuffix(".yaml") || $0.file.hasSuffix(".yml") }
+    }
+
+    /// Top-level `KEY: value` lines (a JSON scalar is a YAML scalar), each added only when no line of the file starts with
+    /// that key — a person's own value, or a key they commented out, is kept; the file is made when missing. No YAML parser
+    /// in the guest: anything the file says otherwise is left as it is.
+    static let yamlTopPython = #"""
+        def merge_yaml(f, keys):
+            try:
+                with open(f, encoding='utf-8') as h: text = h.read()
+            except FileNotFoundError:
+                text = None
+            lines = text.split('\n') if text else []
+            while lines and lines[-1] == '': lines.pop()
+            have = set(l.lstrip('#').strip().split(':', 1)[0].strip() for l in lines if ':' in l and not l.startswith((' ', '\t', '-')))
+            add = [k + ': ' + json.dumps(v) for k, v in sorted(keys.items()) if k not in have]
+            if add or text is None: put(f, '\n'.join(lines + add) + '\n')
+
+        """#
+
     static func hasTopLevelTOML(_ merges: [AgentRecipe.FirstRun]) -> Bool {
         merges.contains { $0.file.hasSuffix(".toml") && $0.set.keys.contains { !$0.contains(".") } }
     }
@@ -717,10 +740,10 @@ public enum AgentImages {
                     t[key] = v
                     changed = True
                 if changed: put(f, '\n'.join(lines) + '\n')
-            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")\#(Self.hasTopLevelTOML(merges) ? tomlTopPython : "")for m in MERGES:
+            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")\#(Self.hasYAML(merges) ? yamlTopPython : "")\#(Self.hasTopLevelTOML(merges) ? tomlTopPython : "")for m in MERGES:
                 f = m['file']
                 f = os.path.join(home, f[2:]) if f.startswith('~/') else f
-                (merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")merge_json)(f, m['set'])
+                (merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")\#(Self.hasYAML(merges) ? "merge_yaml if f.endswith(('.yaml', '.yml')) else " : "")merge_json)(f, m['set'])
             """#
     }
 

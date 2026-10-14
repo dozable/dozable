@@ -205,13 +205,13 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `no_prompts_args` | What turns its own approval prompts off (the sandbox is the boundary). |
 | `passthrough` | First arguments that run it as it is (`--version`, `login`). |
 | `env`, `state_env` | Environment of every run; of its state folders (both baked). |
-| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; in a TOML file a key with no table (`schema_version`) is a top-level key, written above the first table; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name). |
+| `first_run` | Settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; in a TOML file a key with no table (`schema_version`) is a top-level key, written above the first table; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name); or a YAML file, `{file: ~/….yaml, set: {KEY: value}}` (top-level `KEY: value` lines only, each a string, number or bool — a key the file already has at the top level, even commented out, is kept; the file is made when missing). |
 | `session_env` | Environment Dozer gives each session when it opens (never baked). |
 | `session` | `shell` for a command-line tool that answers and exits (Fabric, llm): the default session is a login shell (`bash -l`) with the program on its PATH, named for the program. Absent: the session runs `command`. A shell session has no `resume`. |
 | `status` | `osc7501` (it reports its state to Dozer) or `none`. |
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |
-| `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). See "Checking a recipe" below. |
+| `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). `screen` (optional, `{expect?, refuse?, allow?, wait?}`): what the default session's first screen must show (`expect`, regular expressions) and must not (`refuse`, on top of the generic setup/sign-in/consent list), the lines the generic list excuses (`allow` — a ready screen's own banner), and how long it settles (`wait`, default 15 s). See "Checking a recipe" below. |
 | `settings` | Its settings keys, when not the defaults (`images.ID_version`, `ID.permissions`). |
 
 **`com.dozersandbox/auth@1`** — `methods`: the ways a person lets it reach its model, recommended first. Each is
@@ -476,6 +476,15 @@ final.
    guard**: the placeholder sent to another provider's host is refused and never reaches it.
 6. **Its status** — for `status: osc7501`, an interactive turn in its default session: Dozer must see it report at
    least `idle`, `working` and `done`.
+
+Before any of the try's commands run (step 3 onwards), **its first screen**: every recipe whose default session is the
+agent (not `session: shell`) has that session opened on a terminal, nothing typed, left to settle (`check.screen.wait`,
+default 15 s), and its screen read back. It must be the agent ready to work: no setup wizard, onboarding, sign-in,
+usage-data consent, trust or theme question, no request for a key (a generic list in `Scripts/recipe-check.py`,
+`SETUP_SCREEN`; a line `check.screen.allow` matches is excused), each `check.screen.expect` found and no
+`check.screen.refuse`. A headless check turn never sees such a screen — a person's first try does (Goose ran its own
+setup whenever its `config.yaml` was missing, whatever the environment said). `RECIPE_ONLY=screen` runs this check
+alone, for a quick look at every agent's first screen.
 
 It exits non-zero when any step fails and writes a JSON report (`RECIPE_REPORT`, default
 `$RECIPE_STORE/report.json`): per recipe pass/fail, the version, each step's duration, the states seen and the

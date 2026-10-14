@@ -102,6 +102,14 @@ capabilities:
       GOOSE_DISABLE_KEYRING: '1'
       GOOSE_TELEMETRY_ENABLED: 'false'
       GOOSE_TELEMETRY_OFF: '1'
+    # Its interactive start runs its own setup wizard (usage-data consent, then a provider) whenever
+    # ~/.config/goose/config.yaml is missing, whatever the environment says: the file is written when absent.
+    first_run:
+    - file: ~/.config/goose/config.yaml
+      set:
+        GOOSE_PROVIDER: xai
+        GOOSE_MODEL: grok-code-fast-1
+        GOOSE_TELEMETRY_ENABLED: false
     state_env: {}
     status: none
     resume:
@@ -120,6 +128,9 @@ capabilities:
       - -t
       - say ok
       expect: DOZ_FAKE_OK
+      screen:
+        expect:
+        - goose is ready
 - type: com.dozersandbox/auth@1
   config:
     methods:
