@@ -122,6 +122,13 @@ public struct AgentRef: Equatable, Sendable {
         return Problem(description: "\(name) has \(have.joined(separator: " and ")) — not @\(q)")
     }
 
+    /// The name that means exactly `recipe` when typed: a family's name for its recommended major, `family@major` for any
+    /// other (its id alone would be the family's), else its id.
+    public static func typed(_ recipe: AgentRecipe) -> String {
+        guard let f = recipe.family else { return recipe.id }
+        return f.isRecommended ? f.family : "\(f.family)@\(f.major)"
+    }
+
     /// What a sandbox records: `opencode@2.0.29` — the family's (or tool's) name and the exact release it was made with.
     public static func recorded(_ recipe: AgentRecipe, version: String?) -> String {
         let n = recipe.family?.family ?? recipe.id

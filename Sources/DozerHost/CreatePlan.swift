@@ -108,8 +108,42 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     public var problems: [PlanProblem]
     /// 617 (models@1): the model source and model (nil: an agent without a choice of source).
     public var model: PlanModel? = nil
+    /// 618: the release it installs and, for a family, its majors (the Version choice; "also @1").
+    public var version: PlanVersion? = nil
     /// What the create will send.
     public var create: CreateOptions
+}
+
+/// 618: what release a create installs, and a family's majors to choose from.
+public struct PlanVersion: Codable, Equatable, Sendable {
+    /// The release (nil: not known before its preparation).
+    public var version: String?
+    /// What it is made as: `opencode`, `opencode@1`, `opencode@2.0.28` (the typed reference, else the family's name).
+    public var ref: String
+    /// "OpenCode 2" (a family member) or the tool's title.
+    public var title: String
+    /// Every major of its family, oldest first (empty: not a family).
+    public var majors: [Major] = []
+    public struct Major: Codable, Equatable, Sendable {
+        public var major: Int
+        public var title: String
+        /// `opencode@1`.
+        public var ref: String
+        public var recommended: Bool
+        /// The one this plan is of.
+        public var chosen: Bool
+        /// Its pinned release (what Dozer checked).
+        public var pinned: String
+    }
+
+    /// "OpenCode 2 2.0.29 (recommended) — OpenCode 1: doz try opencode@1" — a try's first line and its Guide (nil: not a
+    /// family). Never "latest": the recommended major is a pin Dozer checked.
+    public func familyLine(command: String = "doz try") -> String? {
+        guard let c = majors.first(where: \.chosen) else { return nil }
+        let head = "\(c.title)" + (version.map { " \($0)" } ?? "") + (c.recommended ? " (recommended)" : "")
+        let others = majors.filter { !$0.chosen }.map { "\($0.title)" + ($0.recommended ? " (recommended)" : "") + ": \(command) \($0.ref)" }
+        return others.isEmpty ? head : head + " — " + others.joined(separator: " · ")
+    }
 }
 
 /// What the planner reads (the host fills it; tests make it).
@@ -218,10 +252,12 @@ public enum CreatePlanner {
         var specOptions = o
         specOptions.workspace = nil
         var policy: NetworkPolicy?
+        var specVersion: String?        // 618: the release the create installs
         var networkMode: NetworkMode?
         do {
             let (spec, _) = try DozerImages.spec(name: WebNameCheck.isSandboxName(name) ? name : "plan", options: specOptions, store: f.store)
             networkMode = spec.network
+            specVersion = spec.imageSpec?.agent?.version
             policy = spec.network.policy
         } catch {
             problems.append(PlanProblem(code: "invalid", text: (error as? HostError)?.message ?? "\(error)", fix: nil))
@@ -329,7 +365,22 @@ public enum CreatePlanner {
                               argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
                               problems: problems, create: o)
         plan.model = planModel
+        plan.version = Self.version(choice: choice, given: o, release: specVersion)
         return plan
+    }
+
+    /// 618: the release and, for a family, its majors (nil: no agent).
+    static func version(choice: ImageChoice?, given o: CreateOptions, release: String?) -> PlanVersion? {
+        guard let r = choice?.agent.recipe else { return nil }
+        let v = o.agentVersion ?? release?.split(separator: "+").first.map(String.init)      // what was asked, else what it gets
+        guard let f = r.family else {
+            return PlanVersion(version: v, ref: o.agentRef ?? r.id, title: r.title)
+        }
+        let majors = AgentRef.members(f.family).map { m in
+            PlanVersion.Major(major: m.family!.major, title: m.family!.title, ref: "\(f.family)@\(m.family!.major)",
+                              recommended: m.family!.isRecommended, chosen: m.id == r.id, pinned: m.install.pinned.version)
+        }
+        return PlanVersion(version: v, ref: o.agentRef ?? (f.isRecommended ? f.family : "\(f.family)@\(f.major)"), title: f.title, majors: majors)
     }
 
     // MARK: the command
@@ -339,16 +390,16 @@ public enum CreatePlanner {
         var a = ["doz", purpose]
         let isTry = purpose == "try"
         if isTry {
-            a.append(choice?.agent.rawValue ?? o.image)
+            a.append(o.agentRef ?? choice.flatMap { $0.agent.recipe.map(AgentRef.typed) ?? $0.agent.rawValue } ?? o.image)   // 618: what was typed (opencode@1)
             if let c = choice, let r = c.agent.recipe, c.base != r.defaultBase, o.dockerfile == nil { a += ["--base", c.base] }
         } else {
             if let n = name { a.append(n) }
             let defaultImage = settings.string(SettingKey.defaultImage) ?? "lab"
             if o.dockerfile != nil {
-                if let c = choice { a += ["--agent", c.agent.rawValue] }
+                if let c = choice { a += ["--agent", o.agentRef ?? c.agent.recipe.map(AgentRef.typed) ?? c.agent.rawValue] }
             } else if purpose != "new" || o.image != defaultImage {
                 if let c = choice, c.name == o.image, o.image != "lab", c.agent != .none || BaseCatalogue.base(o.image) == nil {
-                    a += ["--agent", c.agent.rawValue]
+                    a += ["--agent", o.agentRef ?? c.agent.recipe.map(AgentRef.typed) ?? c.agent.rawValue]
                     if c.base != (c.agent.recipe?.defaultBase ?? "node") { a += ["--base", c.base] }
                 } else if let c = choice, c.agent == .none, c.name == o.image, o.image != "lab" {
                     a += ["--agent", "none", "--base", c.base]
@@ -408,6 +459,11 @@ public enum CreatePlanner {
     static func yaml(name: String, options o: CreateOptions, choice: ImageChoice?, isolated: Bool) -> (String, String?) {
         var p = DozerProject(name: WebNameCheck.isSandboxName(name) ? name : "sandbox", image: o.image)
         if let d = o.dockerfile { p.agent = choice?.agent.rawValue; p.dockerfile = d }
+        // 618: a tool's major or release as typed (`agent: opencode@1`) — the file then says it the same way.
+        if let ref = o.agentRef {
+            if o.dockerfile == nil, let c = choice, c.base != c.agent.recipe?.defaultBase { p.base = c.base }
+            p.agent = ref
+        }
         p.cpus = o.cpus
         p.memoryMiB = o.memoryMiB
         p.network = o.network

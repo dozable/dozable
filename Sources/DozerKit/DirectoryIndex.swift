@@ -257,7 +257,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                      keys: r.credentials.map { KeyRef(provider: $0.provider, accounts: $0.accounts) },
                      reach: Reach(model: model, update: r.network.update.map { HostPaths(host: $0.host, paths: $0.paths) }, excluded: r.network.excluded),
                      install: Install(kind: r.install.kind, version: r.install.pinned.version, source: r.install.package),
-                     defaultBase: r.defaultBase, terms: r.terms, tryCommand: "doz try \(r.id)", homepage: r.homepage,
+                     defaultBase: r.defaultBase, terms: r.terms, tryCommand: "doz try \(AgentRef.typed(r))", homepage: r.homepage,
                      auth: r.auth.methods.map { AuthFact(kind: $0.kind, provider: $0.provider, keysPage: $0.keysPage, freeTier: $0.freeTier,
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gateways.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason) },

@@ -41,8 +41,9 @@ public struct WebPlanQuery: Equatable, Sendable {
             q.name = s
         }
         if let v = d["agent"], !(v is NSNull) {
-            guard let s = v as? String, s.count <= 40, s == "none" || AgentRecipes.matching(s) != nil else {
-                throw WebAction.Invalid("agent: an agent this Dozer has (doz search lists them)")
+            // 618: NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28) — refused with a fixed message.
+            guard let s = v as? String, s.count <= 60, s == "none" || ((try? AgentRef.resolve(s)) ?? nil) != nil else {
+                throw WebAction.Invalid("agent: an agent this Dozer has (doz search lists them), or NAME@MAJOR / NAME@VERSION")
             }
             q.agent = s
         }
@@ -76,9 +77,14 @@ public struct WebPlanQuery: Equatable, Sendable {
     public var request: PlanRequest {
         var o = CreateOptions(image: "")
         if agent != nil || base != nil {
-            let kind: AgentKind = agent == "none" || agent == nil ? .none
-                : AgentRecipes.matching(agent!).flatMap { AgentKind(rawValue: $0.id) } ?? .none
+            let ref = agent == "none" ? nil : agent.flatMap { (try? AgentRef.resolve($0)) ?? nil }
+            let kind: AgentKind = ref.flatMap { AgentKind(rawValue: $0.recipe.id) } ?? .none
             o.image = ImageChoice(base: base ?? kind.recipe?.defaultBase ?? "node", agent: kind).name
+            // 618: its exact release, and what was asked (the Quick try's Version choice: opencode@1).
+            if let ref {
+                o.agentVersion = ref.exact
+                if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+            }
         }
         if isolated { o.isolated = true }
         if let account { o.account = account }
@@ -125,7 +131,7 @@ extension WebTryCatalog {
                              currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = [],
                              installs: ([String: String]) -> [String: String] = { _ in [:] }) async -> WebTryCatalog {
         let recipes = recipeAgents()
-        let ps = await plans(recipes.map { WebPlanQuery(purpose: "try", agent: $0.id).request })
+        let ps = await plans(recipes.map { WebPlanQuery(purpose: "try", agent: AgentRef.typed($0)).request })
         var planned: [String: WebPlan] = [:]
         for (r, p) in zip(recipes, ps) { if let p { planned[r.id] = p } }
         let images = planned.compactMapValues { $0.create?.image }

@@ -89,7 +89,8 @@ extension DozerProject {
                 image = s
             case "agent":
                 let s = try scalarString(v, key)
-                guard AgentKind(rawValue: s) != nil else { throw bad(v, "agent: \(DozerProject.agentWords)") }
+                // 618: a tool's major or release too (opencode@1, opencode@2.0.28).
+                if let why = DozerProject.agentProblem(s) { throw bad(v, why) }
                 p.agent = s
             case "base":
                 let s = try scalarString(v, key)

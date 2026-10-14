@@ -12,7 +12,7 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "lab (Alpine + bash), claude-code, pi, codex, a base × agent image (python-claude-code, go-codex, go, …), or a template (doz image ls). Shorthand for --agent/--base.")
     var image: String?
 
-    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex), gemini (Gemini CLI), grok (Grok Build) or none (a shell only). Default claude-code.")
+    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex), gemini (Gemini CLI), grok (Grok Build) or none (a shell only). Default claude-code. A tool's major or exact release: NAME@MAJOR (opencode@1), NAME@VERSION (opencode@2.0.28).")
     var agent: String?
 
     @Option(name: .long, help: "A recommended base (doz base ls): node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine. Default node.")
@@ -121,9 +121,9 @@ struct ChoiceOptions: ParsableArguments {
         let a: AgentKind
         switch agent ?? "claude-code" {
         case "none", "shell": a = .none
-        // 617: any agent this build has a recipe for, by id or alias (`claude`).
+        // 617: any agent this build has a recipe for, by id or alias (`claude`). 618: NAME@MAJOR / NAME@VERSION too.
         case let x:
-            guard let r = AgentRecipes.matching(x), let k = AgentKind(rawValue: r.id) else {
+            guard let r = try Self.resolveAgent(x)?.recipe, let k = AgentKind(rawValue: r.id) else {
                 throw ValidationError("--agent: \(DozerProject.agentWords) — not \(x)")
             }
             a = k
@@ -139,6 +139,19 @@ struct ChoiceOptions: ParsableArguments {
             throw ValidationError("--base: \(BaseCatalogue.ids.joined(separator: ", ")) (doz base ls) — or --dockerfile PATH — not \(b)")
         }
         return ImageChoice(base: b, agent: a).name
+    }
+
+    /// 618: the tool `--agent` names (or `--image`, when it names a tool by NAME@… or a family's name): NAME, NAME@MAJOR,
+    /// NAME@VERSION. nil: neither names one (a base, a template, none).
+    func agentReference() throws -> AgentRef? {
+        if let x = agent, !["none", "shell"].contains(x) { return try Self.resolveAgent(x) }
+        if agent == nil, let i = image, i.contains("@") || !AgentRef.members(i.lowercased()).isEmpty { return try Self.resolveAgent(i) }
+        return nil
+    }
+
+    /// AgentRef.resolve, its refusal as the command's own error.
+    static func resolveAgent(_ s: String) throws -> AgentRef? {
+        do { return try AgentRef.resolve(s) } catch let p as AgentRef.Problem { throw ValidationError(p.description) }
     }
 
     /// 596: `--dockerfile` as an absolute path (a relative one is this command's working folder's).
@@ -162,7 +175,13 @@ struct ChoiceOptions: ParsableArguments {
     /// 617: `ChoiceOptions` itself, from argv (a plan's, a probe's) — the round trip's other half.
     static func from(_ argv: [String]) throws -> ChoiceOptions { try parse(argv) }
 
-    private func choices(image img: String) throws -> CreateOptions {
+    private func choices(image given: String) throws -> CreateOptions {
+        var img = given
+        // 618: a tool named NAME@MAJOR / NAME@VERSION (or a family's name) — its image, its exact release, what was typed.
+        let ref = try agentReference()
+        if let ref, agent == nil, image != nil, let k = AgentKind(rawValue: ref.recipe.id) {
+            img = ImageChoice(base: base ?? ref.recipe.defaultBase, agent: k).name
+        }
         var mem: UInt64?
         if let m = memory {
             guard let v = DozerImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
@@ -173,6 +192,10 @@ struct ChoiceOptions: ParsableArguments {
         if rebuild && useCurrent { throw ValidationError("--rebuild or --use-current, not both") }
         var o = CreateOptions(image: img, cpus: cpus, memoryMiB: mem, workspace: absoluteWorkspace, network: network, subnet: subnet, account: account)
         o.isolated = isolated ? true : nil
+        if let ref {
+            o.agentVersion = ref.exact
+            if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+        }
         o.agentSudo = agentSudo
         if audio, BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
         o.audio = audio ? true : nil

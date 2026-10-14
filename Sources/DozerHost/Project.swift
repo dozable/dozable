@@ -90,7 +90,7 @@ public struct DozerProject: Equatable, Sendable {
         ("version", "the file's format: 1"),
         ("name", "the sandbox: 1–40 of a-z 0-9 -"),
         ("image", "claude-code, pi, codex, lab, a base × agent image (python-claude-code, …), or a template (doz image ls) — or agent + base/dockerfile"),
-        ("agent", "claude-code, pi, codex or none (default claude-code)"),
+        ("agent", "claude-code, pi, codex or none (default claude-code); a tool's major or release: opencode@1, opencode@2.0.28"),
         ("base", "a recommended base: node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine (doz base ls)"),
         ("dockerfile", "your Dockerfile (./Dockerfile): built with Apple's container build — its RUN steps run OUTSIDE Dozer's network policy"),
         ("cpus", "virtual CPUs, 1–64 (default: the settings' defaults.cpus)"),
@@ -144,7 +144,7 @@ public struct DozerProject: Equatable, Sendable {
     public func problem(effectiveNetwork: String? = nil) -> String? {
         if !WebNameCheck.isSandboxName(name) { return "name: 1–40 of a-z 0-9 - (not starting with -)" }
         if base != nil, dockerfile != nil { return "base or dockerfile — not both" }
-        if let a = agent, AgentKind(rawValue: a) == nil { return "agent: \(Self.agentWords)" }
+        if let a = agent, let why = Self.agentProblem(a) { return why }
         if let b = base, BaseCatalogue.base(b) == nil { return "base: \(BaseCatalogue.ids.joined(separator: ", ")) (doz base ls)" }
         if let c = cpus, !(1...64).contains(c) { return "cpus: a whole number 1–64" }
         if let m = memoryMiB, !(256...262_144).contains(m) { return "memory: 256 MiB – 256 GiB" }
@@ -165,6 +165,16 @@ public struct DozerProject: Equatable, Sendable {
     }
 
     /// 617: "claude-code, pi, codex, antigravity, gemini, grok or none" — every agent this build has a recipe for.
+    /// 618: why `agent:` cannot be served (nil: fine) — an agent id, `none`, or NAME@MAJOR / NAME@VERSION (AgentRef).
+    public static func agentProblem(_ a: String) -> String? {
+        if a == "none" || AgentKind(rawValue: a) != nil { return nil }
+        do {
+            return try AgentRef.resolve(a) == nil ? "agent: \(agentWords)" : nil
+        } catch {
+            return "agent: \((error as? AgentRef.Problem)?.description ?? "\(error)")"
+        }
+    }
+
     public static var agentWords: String {
         AgentKind.allCases.filter { $0 != .none }.map(\.rawValue).joined(separator: ", ") + " or none"
     }
@@ -172,7 +182,9 @@ public struct DozerProject: Equatable, Sendable {
     /// 596: the image agent + base name (a Dockerfile's: the agent's, the host swaps in its base). 617: with no
     /// base, the agent's recipe's default base (Node for the three that existed — as before; Debian for Grok Build).
     public var chosenImage: String {
-        let a = AgentKind(rawValue: agent ?? "claude-code") ?? .claudeCode
+        // 618: `agent: opencode@1` is that major's recipe (a family's name: its recommended major).
+        let ref = agent.flatMap { try? AgentRef.resolve($0) }
+        let a = ref.flatMap { AgentKind(rawValue: $0.recipe.id) } ?? AgentKind(rawValue: agent ?? "claude-code") ?? .claudeCode
         if dockerfile != nil { return ImageChoice(base: a == .none ? "alpine" : "node", agent: a).name }
         return ImageChoice(base: base ?? a.recipe?.defaultBase ?? "node", agent: a).name
     }
@@ -271,6 +283,11 @@ public struct DozerProject: Equatable, Sendable {
         o.agentPrompt = agentPrompt
         o.agentPromptMode = agentPromptMode
         o.agentSudo = agentSudo
+        // 618: `agent: opencode@1` / `opencode@2.0.28` — its exact release, and what the file said.
+        if let a = agent, let ref = try? AgentRef.resolve(a) {
+            o.agentVersion = ref.exact
+            if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+        }
         o.settings = settings.isEmpty ? nil : settings
         // 599f: permissions: words on Standard (a preset word replaces it); 599d: github: → its two permissions.
         var words: [String] = []
