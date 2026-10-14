@@ -1122,8 +1122,12 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var model: String?
     }
     public var create: Create?
+    /// 618: the release it installs and what it is made as (`opencode@1`) — the setup's Version row.
+    public struct Version: Codable, Equatable, Sendable { public var version: String?; public var ref: String; public var title: String }
+    public var version: Version?
 
     public init(_ p: CreatePlan) {
+        version = p.version.map { Version(version: $0.version, ref: $0.ref, title: $0.title) }
         name = p.name
         image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
         workspace = p.workspace

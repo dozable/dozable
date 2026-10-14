@@ -149,6 +149,12 @@ function alsoWords(a) {
   return others.length ? 'also ' + others.map((x) => '@' + x.family.major).join(', ') : null;
 }
 
+/// 618: what a major is called — "OpenCode 1" (its family's title), else the tool's own.
+function nameOf(a) { return a && a.family ? a.family.title : a ? a.title : ''; }
+
+/// 618: the major chosen in its card's setup (the card itself until one is).
+function chosenOf(card) { const tr = state.tr; return (tr && tr.version && familyOf(card).find((x) => x.id === tr.version)) || card; }
+
 /// 618: a catalog agent by id — a family's other majors included (they have no card of their own).
 function anyAgent(id) { return state.tr ? state.tr.catalog.agents.find((x) => x.id === id) : null; }
 
@@ -380,17 +386,18 @@ function detailNodes() {
     ...(familyOf(a).length > 1 ? [h('dt', null, 'Majors'), h('dd', { 'data-try-majors': '' },
       familyOf(a).map((x) => x.family.title + (x.version ? ' ' + x.version : '') + (x.family.recommended ? ' (recommended)' : '')).join(' · ')
         + ' — Try lets you choose')] : []));
-  const tryBtn = btn('Try ' + a.title + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
+  const shown = chosenOf(a);                                    // 618: the major chosen in its setup
+  const tryBtn = btn('Try ' + nameOf(shown) + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
   tryBtn.dataset.tryOpen = '';
   // The list alone (no plan yet): what it can reach and its command follow with the plans; Try waits for them.
   const planning = (what) => h('p', { class: 'muted', 'data-try-planning': '' }, tr.loadError ? 'Not read: ' + tr.loadError : 'Reading ' + what + '…');
-  if (!a.plan) { tryBtn.disabled = true; tryBtn.title = 'Reading its plan…'; }
+  if (!shown.plan) { tryBtn.disabled = true; tryBtn.title = 'Reading its plan…'; }
   return [back, head, facts,
     a.description ? h('p', { class: 'qt-desc', 'data-try-description': '' }, a.description) : null,
     standing,
     sect('Versions', versions),
-    sect('What it can reach', a.plan ? reachList(a.plan.reach) : planning('what it can reach')),
-    sect('The same, in a terminal', a.plan ? planCommand(a.plan) : planning('its command')),
+    sect('What it can reach', shown.plan ? reachList(shown.plan.reach) : planning('what it can reach')),
+    sect('The same, in a terminal', shown.plan ? planCommand(shown.plan) : planning('its command')),
     h('div', { class: 'qt-foot' }, h('span', { class: 'qt-gap' }), h('span', { class: 'qt-note' }, 'Enter'), tryBtn)].filter(Boolean);   // (replaceChildren writes a null as "null")
 }
 
@@ -437,16 +444,20 @@ const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
 function versionNodes(a) {
   const fam = familyOf(a);
   if (fam.length < 2) return [];
+  // The recommended major first, then the others newest first; the chosen one is the segmented control's `.active`.
+  const order = [...fam].sort((x, y) => (y.family.recommended ? 1 : 0) - (x.family.recommended ? 1 : 0) || y.family.major - x.family.major);
   const seg = h('div', { class: 'segmented try-versions', role: 'group', 'aria-label': 'Version', 'data-try-version': a.id },
-    ...fam.map((x) => h('button', { type: 'button', class: 'seg', 'aria-pressed': String(x.id === a.id), 'data-try-version-choice': x.id,
+    ...order.map((x) => h('button', { type: 'button', class: 'seg' + (x.id === a.id ? ' active' : ''), 'aria-pressed': String(x.id === a.id), 'data-try-version-choice': x.id,
       title: x.family.recommended ? 'The major Dozer recommends' : 'An earlier (or other) major',
-      on: { click: () => chooseVersion(x) } }, x.family.title + (x.version ? ' · ' + x.version : '') + (x.family.recommended ? ' (recommended)' : ''))));
+      on: { click: () => chooseVersion(x) } }, x.id === a.id ? icon('check') : null,
+      x.family.title + (x.version ? ' · ' + x.version : '') + (x.family.recommended ? ' (recommended)' : ''))));
   return [seg, h('p', { class: 'muted' }, 'A sandbox keeps the major it is made with — the other one is a new try.')];
 }
 
 async function chooseVersion(x) {
   if (!SETUP.a || SETUP.a.id === x.id || SETUP.busy) return;
   SETUP.a = x; SETUP.source = null; SETUP.model = ''; SETUP.error = '';
+  if (state.tr) state.tr.version = x.family && x.family.recommended ? null : x.id;
   try {
     // Its own plan, with a key it can use (another major may take other keys).
     const u = usable(x);
@@ -454,6 +465,7 @@ async function chooseVersion(x) {
     await replan(x.plan && keyProblem(x.plan) && u.length ? u[0].name : null);
   } catch (e) { SETUP.error = e.message || String(e); }
   paintSetup();
+  if (state.modal === 'try') paint({});                          // the details pane behind follows the choice
 }
 
 function modelNodes(plan) {
@@ -528,7 +540,7 @@ function paintSetup() {
   start.disabled = !!missing || blocked.length > 0 || SETUP.busy;
   const cancel = btn('Cancel', () => d.close(), { quiet: true, icon: 'x' });
   d.replaceChildren(h('form', { method: 'dialog', on: { submit: (ev) => { ev.preventDefault(); if (!start.disabled) tryCreate(start); } } },
-    h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + a.title), close),
+    h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + nameOf(a)), close),
     h('div', { class: 'dlg-body' },
       h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, the network locked to its model, your key never inside.'),
       ...(familyOf(a).length > 1 ? [sect('Version', ...versionNodes(a))] : []),
@@ -667,6 +679,8 @@ function planFacts(a, p) {
   const fact = (k, v) => [h('dt', null, k), h('dd', null, v)];
   return h('dl', { class: 'qt-plan try-facts' },
     ...fact('Name', p.name),
+    // 618: which major and release ("OpenCode 1 · 1.19.0").
+    ...fact('Version', nameOf(a) + ' · ' + ((p.version && p.version.version) || a.version || '—')),
     ...fact('Base', a.base || '—'),
     // 617 (models@1): the model and where its key goes; the network line then names no single host.
     ...(p.model ? fact('Model', p.model.model + ' through ' + p.model.title) : []),
