@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Tau, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Cline CLI, OpenHands CLI, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Tau, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -16,10 +16,8 @@ doz try mistral-vibe     # Mistral Vibe (alias vibe), on an xAI key
 doz try droid            # Factory Droid (alias factory), on an xAI key, no Factory account
 doz try dirac            # Dirac, a Cline-derived agent, on an xAI key
 doz try kimi-code        # Kimi Code (alias kimi), on an xAI key
-doz try every-code       # Every Code, a Codex CLI fork, on an xAI key
 doz try cline            # Cline CLI, on an xAI key, no Cline account
 doz try openhands        # OpenHands CLI, on an xAI key
-doz try codebuddy        # CodeBuddy Code (Tencent), on an xAI key, no CodeBuddy account
 doz try letta-code       # Letta Code (alias letta), local backend, on an xAI key
 doz try docker-agent     # Docker Agent (alias cagent), its built-in coding agent, on an xAI key
 doz try nanocoder        # Nanocoder, on an xAI key
@@ -51,6 +49,9 @@ Google's terminal agent and **the one to use with a Google key** (`doz try antig
   Dozer never offers the Google sign-in: it keeps its token in a keyring inside the machine.
 - **Set up for you:** approval prompts off (`antigravity.permissions = ask` keeps them), its updater off, its
   telemetry setting off.
+- **Its first start is yours:** it asks you to pick a colour scheme, then to accept Google's **Terms of Service &
+  Data Use** — data sharing is ticked by default and you can untick it. Dozer never accepts those terms for you;
+  `doz try antigravity` says so first, and so does the first step of its Guide.
 - **May reach:** the Gemini API (its model); Google's feature switches for it (`antigravity-unleash.goog`) when it
   starts; its usage log to `play.googleapis.com`, every few seconds. Its own telemetry setting does not stop that log,
   and Dozer allows it rather than blocking it.
@@ -190,20 +191,6 @@ Kimi's own models need a Kimi account or a Moonshot key, which Dozer does not ho
 - **May reach:** xAI's API only.
 - **Use:** `kimi` (a session; with approvals off, `--auto`), or `kimi -p "…"` for one task.
 
-## Every Code (just-every)
-
-A Codex CLI fork with multi-agent orchestration (`doz try every-code`; its command is `coder`), on an **xAI API key**
-through a Codex-style `model_providers` entry (model `grok-build-0.1`).
-
-- **Installed** from the npm registry's linux-arm64 package (a static build), integrity-checked. Every base, Alpine
-  included.
-- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), named by `env_key` in `~/.code/config.toml`.
-  Its ChatGPT sign-in is not offered.
-- **May reach:** xAI's API, and GitHub's API for one read: its latest release, which it asks for when its TUI starts
-  (no setting turns it off; Dozer installs the pinned release).
-- **Use:** `coder` (a session; with approvals off, `--dangerously-bypass-approvals-and-sandbox`), or
-  `coder exec --skip-git-repo-check "…"` for one task.
-
 ## Cline CLI (Cline)
 
 Cline's terminal agent (`doz try cline`), on an **xAI API key** — no Cline account (`cline -P xai -m grok-build-0.1`).
@@ -236,20 +223,6 @@ Nothing is written to its settings.
   pinned release).
 - **Use:** `openhands` (a session; with approvals off, `--always-approve`), or
   `openhands --override-with-envs --headless -t "…"` for one task.
-
-## CodeBuddy Code (Tencent)
-
-Tencent's terminal agent (`doz try codebuddy`), with a **custom model on an xAI API key** (`grok-build-0.1`) and its
-built-in models — which need a CodeBuddy account — off.
-
-- **Installed** from the npm registry, integrity-checked. Node 22 on the Node and Debian bases.
-- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox). `~/.codebuddy/models.json` names it as
-  `${XAI_API_KEY}`, which CodeBuddy reads each run, so the key is never written there.
-- **Set up for you:** its telemetry, trace collector, remote settings, plugin marketplace downloads and self-update off.
-  Its TUI offers CodeBuddy's sign-in when it starts; Esc skips it, and it answers on your xAI key.
-- **May reach:** xAI's API only.
-- **Use:** `codebuddy` (a session; with approvals off, `--dangerously-skip-permissions`), or
-  `codebuddy --model grok-build -p "…"` for one task.
 
 ## Letta Code (Letta)
 
@@ -415,6 +388,18 @@ API key. Dozer keeps it, listed after the current agents; `doz try gemini` says 
 - **Key:** a Gemini API key, as Antigravity CLI. Never the Google sign-in (Google's terms forbid third-party tools from
   using it).
 - **Set up for you:** approval prompts off, usage statistics off, auto-update off.
+
+## Coming: CodeBuddy Code, Every Code
+
+Two agents Dozer had recipes for are **coming** again, because their first screen is a sign-in Dozer cannot offer
+(`doz search` says why):
+
+- **CodeBuddy Code** (Tencent) asks you to sign in to a CodeBuddy account at its first screen, even with Dozer's model
+  set.
+- **Every Code** (just-every, a Codex CLI fork) shows a ChatGPT sign-in whenever it has no login file, whatever
+  provider is set.
+
+Each comes back when it can start on the model Dozer gives it.
 
 ## What each one calls — the network profiles
 

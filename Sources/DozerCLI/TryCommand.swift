@@ -84,6 +84,8 @@ struct TryCommand: AsyncParsableCommand {
         var o = planned.create
         // --rebuild: an out-of-date image is rebuilt first (a try asks nothing, so without it the current image is used).
         if choices.rebuild { o.rebuild = true }
+        // 617 (owner, 2026-10-15): what the person meets at the first start that Dozer leaves to them — said first.
+        if !g.json, let n = recipe.guide?.notice { Out.stdout("\(recipe.title): \(n)\n") }
         if !g.json {
             // Said plainly (owner), first: where its files go and what reaches the Mac.
             let said = planned.reach.filter { $0.kind == "folder" || $0.kind == "bridge" }.map { $0.text.prefix(1).lowercased() + $0.text.dropFirst() }

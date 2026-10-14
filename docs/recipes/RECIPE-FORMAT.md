@@ -212,7 +212,7 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `status` | `osc7501` (it reports its state to Dozer) or `none`. |
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |
-| `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). `screen` (optional, `{expect?, refuse?, allow?, wait?}`): what the default session's first screen must show (`expect`, regular expressions) and must not (`refuse`, on top of the generic setup/sign-in/consent list), the lines the generic list excuses (`allow` — a ready screen's own banner), and how long it settles (`wait`, default 15 s). See "Checking a recipe" below. |
+| `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). `screen` (optional, `{expect?, refuse?, allow?, wait?}`): what the default session's first screen must show (`expect`, regular expressions) and must not (`refuse`, on top of the generic setup/sign-in/consent list), the lines the generic list excuses (`allow` — a ready screen's own banner), how long it settles (`wait`, default 15 s), and keys typed first (`keys`: `enter`, `esc`, `up`, `down`, `tab`, `space` — only for a choice nothing skips that is not the person's decision, to reach the screen checked: Antigravity CLI's colour scheme before its terms). See "Checking a recipe" below. |
 | `settings` | Its settings keys, when not the defaults (`images.ID_version`, `ID.permissions`). |
 
 **`com.dozersandbox/auth@1`** — `methods`: the ways a person lets it reach its model, recommended first. Each is
@@ -238,7 +238,7 @@ reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the 
 `terms`, `licence` (the licence in words, when it is not just the SPDX id).
 
 **`com.dozersandbox/guide@1`** (optional, at most one; every shipped recipe has one) — its companion guide: intro, first
-steps (the first is its check turn), tips, docs. See [The guide](#the-guide).
+steps (the first with a command is its check turn), tips, docs, a notice. See [The guide](#the-guide).
 
 **`com.dozersandbox/ports@1`** (optional, at most one) — the web ports the program serves inside the sandbox, each
 forwarded to the Mac's loopback (`127.0.0.1`) while the sandbox runs, with an Open button ([Web
@@ -287,17 +287,19 @@ one-time note in that shell's first login.
 
 - **`intro`** — one or two sentences: what it is, and whether it is a chat, an agent with its own screen, or a tool
   that answers in the shell and exits (≤ 400 characters).
-- **`steps`** — 1 to 8 `{text, command?, edit?}`. The FIRST step's command is the recipe's `launch@1.check` turn as a
+- **`steps`** — 1 to 8 `{text, command?, edit?}`. The first step WITH a command is the recipe's `launch@1.check` turn as a
   person types it (`sh -c X` is X; `${{ dozer.model }}` is the variable models@1 sets to it, `"$DOZ_MODEL"`), so the
   first thing a person runs is known to work. Every command starts with the tool's program, its session's command, its
   short name, or a plain shell builtin (`echo`, `printf`, `cat`, `ls`, `cd`, `mkdir`, `head`, `tail`, `export`), is one
-  line, its quotes closed. `edit: true`: the page types it and never presses Enter.
+  line, its quotes closed. `edit: true`: the page types it and never presses Enter. A step without a command may come
+  before it — what the person meets at the first start that Dozer leaves to them (Antigravity CLI: Google's terms).
+- **`notice`** — optional, one line (≤ 200 characters) `doz try` says first: that same thing, in short.
 - **`tips`** — at most 6, `code` in backquotes (the page draws it as code, never as markup); **`docs`** — https.
 
 Dozer adds the rest, never the recipe: the preamble (what kind of thing it is, how to use it here) and "This try" —
 the version (the pin), the provider and model with the account's NAME ("your key stays on the Mac"), the network, the
-folder (the Mac's path) and where its settings live. `make recipe-check` runs every step after the first that is not
-an edit, in a shell in the try (exit 0).
+folder (the Mac's path) and where its settings live. `make recipe-check` runs every step with a command after the check
+turn's that is not an edit, in a shell in the try (exit 0).
 
 ## Kinds and categories
 

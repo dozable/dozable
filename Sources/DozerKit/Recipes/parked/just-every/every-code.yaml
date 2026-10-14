@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# PARKED (owner, 2026-10-15): "coming" in Recipes/known.json — it shows a ChatGPT sign-in whenever ~/.code has no
+# login file, whatever provider is set. Kept here, not compiled, so it can come back when that changes: move it back
+# to Recipes/agents/, run make recipes, add the embed line, drop the known entry.
 # Every Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/every-code.json, which Dozer embeds).
 schema: 2

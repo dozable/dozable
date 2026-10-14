@@ -115,22 +115,6 @@
       "error": null
     },
     {
-      "agent": "codebuddy",
-      "title": "CodeBuddy Code",
-      "pin": "2.164.0",
-      "latest": "2.164.0",
-      "released": "2026-10-09",
-      "ageDays": 5,
-      "freshness": "active",
-      "deprecated": null,
-      "github": null,
-      "lifecycle": {
-        "status": "current"
-      },
-      "profiledVersion": "2.164.0",
-      "error": null
-    },
-    {
       "agent": "codewhale",
       "title": "CodeWhale",
       "pin": "0.10.1",
@@ -264,26 +248,6 @@
         "status": "current"
       },
       "profiledVersion": "0.240.1",
-      "error": null
-    },
-    {
-      "agent": "every-code",
-      "title": "Every Code",
-      "pin": "0.6.196",
-      "latest": "0.6.196",
-      "released": "2026-09-29",
-      "ageDays": 15,
-      "freshness": "active",
-      "deprecated": null,
-      "github": {
-        "repo": "just-every/code",
-        "archived": false,
-        "pushed": "2026-09-29"
-      },
-      "lifecycle": {
-        "status": "current"
-      },
-      "profiledVersion": "code 0.6.196",
       "error": null
     },
     {

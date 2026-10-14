@@ -209,10 +209,8 @@ Which agents say it:
 | Factory Droid | 0.240.1 (the version Dozer installs) |
 | Dirac | no (checked with 0.5.20) |
 | Kimi Code | no (checked with 2.1.1) |
-| Every Code | no (checked with 0.6.196) |
 | Cline CLI | no (checked with 3.0.71) |
 | OpenHands CLI | no (checked with 1.16.0) |
-| CodeBuddy Code | no (checked with 2.164.0) |
 | Letta Code | no (checked with 0.34.13) |
 | Docker Agent | 1.150.0 (the version Dozer installs) |
 | Nanocoder | no (checked with 1.31.0) |

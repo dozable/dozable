@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# PARKED (owner, 2026-10-15): "coming" in Recipes/known.json — its interactive start asks to log in to a CodeBuddy
+# account even with Dozer's model set. Kept here, not compiled, so it can come back when a skip appears: move it back
+# to Recipes/agents/, run make recipes, add the embed line, drop the known entry.
 # CodeBuddy Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/codebuddy.json, which Dozer embeds).
 schema: 2
