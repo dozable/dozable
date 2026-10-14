@@ -177,8 +177,10 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         /// The smoke turn `make recipe-check` runs (required: `check()` refuses a file without one).
         public var check: AgentRecipe.Smoke?
         public var settings: AgentRecipe.SettingKeys?
+        /// 618: a background service restarted when it runs with another value of `env` (AgentRecipe.Launch.service).
+        public var service: AgentRecipe.Launch.Service? = nil
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env, status, resume, verify, check, settings, session
+            case command, passthrough, env, status, resume, verify, check, settings, session, service
             case noPromptsArgs = "no_prompts_args", stateEnv = "state_env", firstRun = "first_run", sessionEnv = "session_env",
                  resumeCheck = "resume_check"
         }
@@ -525,7 +527,7 @@ extension RecipeDocument {
                                          requirements: i.requirements,
                                          extras: i.extras?.map { var e = $0; e.url = Self.toModel(e.url); e.path = Self.toModel(e.path); return e }),
             launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env,
-                                       firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session),
+                                       firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, service: l.service),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
             credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts, envAliases: $0.dozer.envAliases) },
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
@@ -577,7 +579,7 @@ extension RecipeDocument {
         caps.append(RecipeCapability(type: T.launch, config: .launch(Launch(
             command: l.command, noPromptsArgs: l.noPromptsArgs, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
             firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
-            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings))))
+            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings, service: l.service))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))
         caps.append(RecipeCapability(type: T.gateways, config: .gateways(Gateways(entries: r.gateways.map { Self.mapGateway($0, Self.toFile) }))))
         if let m = r.models { caps.append(RecipeCapability(type: T.models, config: .models(Self.mapModels(m, Self.toFile)))) }

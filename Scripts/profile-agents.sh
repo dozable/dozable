@@ -56,7 +56,7 @@ for a in "$@"; do
     grok) bin=grok; task="grok -p \"\$T\"" ;;
     antigravity) bin=agy; task="agy -p \"\$T\"" ;;
     copilot) bin=copilot; task="copilot -p \"\$T\"" ;;
-    opencode) bin=opencode; task="opencode run \"\$T\"" ;;
+    opencode|opencode2) bin=opencode; task="opencode run \"\$T\"" ;;
     qwen-code) bin=qwen; task="qwen -p \"\$T\"" ;;
     goose) bin=goose; task="goose run --no-session -t \"\$T\"" ;;
     kilo) bin=kilo; task="kilo run --auto \"\$T\"" ;;

@@ -576,6 +576,7 @@ public enum AgentImages {
 
             """
         for (k, v) in r.launch.env.sorted(by: { $0.key < $1.key }) { sh += "export \(k)=\(shellQuoted(v))\n" }
+        if let s = r.launch.service { sh += recipeServiceCheck(r, s) }
         if !r.launch.passthrough.isEmpty {
             sh += "case \"$1\" in\n  \(r.launch.passthrough.joined(separator: "|"))) exec /usr/local/bin/\(bin) \"$@\" ;;\nesac\n"
         }
@@ -598,6 +599,38 @@ public enum AgentImages {
         if r.launch.firstRun?.isEmpty == false { script += "chmod 0644 \(setup)\n" }
         script += "chown -R agent:agent /home/agent/.local"
         return script
+    }
+
+    /// 618: a background service that keeps the environment of the run that started it (OpenCode 2's `opencode serve
+    /// --service`): before this run goes on, a service of THIS user (`/proc/PID` owned by it) whose program is the
+    /// recipe's binary and whose arguments are exactly `service.args`, running with another value of one of
+    /// `service.env` than this run sets, is restarted with `service.restart` — so a model or source chosen since applies.
+    /// A variable this run does not set is not compared (a plain shell); nothing is restarted when the values agree.
+    /// Only in such a recipe's launcher: every other launcher (and bake key) is unchanged.
+    static func recipeServiceCheck(_ r: AgentRecipe, _ s: AgentRecipe.Launch.Service) -> String {
+        let bin = r.install.binary
+        let want = bin + "|" + s.args.joined(separator: " ")
+        let start = s.start.map { " || /usr/local/bin/\(bin) \($0.joined(separator: " ")) >/dev/null 2>&1" } ?? ""
+        var differs: [String] = []
+        for v in s.env {
+            differs.append("{ [ -n \"${\(v)+x}\" ] && [ \"$(tr '\\000' '\\n' < \"$p/environ\" 2>/dev/null | sed -n 's/^\(v)=//p')\" != \"$\(v)\" ]; }")
+        }
+        return """
+            # doz: its background service keeps the environment it was started with; restart it when that differs.
+            doz_service_check() {
+              for p in /proc/[0-9]*; do
+                [ -O "$p" ] || continue
+                c=$(tr '\\000' '\\n' < "$p/cmdline" 2>/dev/null | awk 'NR==1{n=split($0,x,"/"); b=x[n]; next} {r=r (r==""?"":" ") $0} END{print b "|" r}')
+                [ "$c" = \(shellQuoted(want)) ] || continue
+                if \(differs.joined(separator: " || ")); then
+                  /usr/local/bin/\(bin) \(s.restart.joined(separator: " ")) >/dev/null 2>&1\(start) || echo "doz: could not restart \(r.title)'s background service" >&2
+                fi
+                return 0
+              done
+            }
+            doz_service_check
+
+            """
     }
 
     /// 617: the dotenv merge (a recipe whose first-run file is `…/.env` — Fabric); only in such a recipe's helper, so the

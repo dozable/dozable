@@ -257,9 +257,25 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// 617: `shell` — the default session is a login shell with the program on its PATH, for a command-line tool that
         /// answers and exits (Fabric, llm) rather than an interactive program; nil: the session runs `command`.
         public var session: String? = nil
+        /// 618: a background service the program starts and keeps (OpenCode 2's `opencode serve --service`) — it holds
+        /// the environment of the command that started it, so the launcher restarts it first when it runs with another
+        /// value of `env` than this run has (a model or source chosen since). Emitted only into such a recipe's launcher.
+        public var service: Service? = nil
+
+        public struct Service: Codable, Sendable, Equatable {
+            /// The service process's arguments after the program (`[serve, --service]`).
+            public var args: [String]
+            /// What restarts it, after the program (`[service, restart]`) — run with this run's environment.
+            public var restart: [String]
+            /// 618: what starts it when the restart fails — OpenCode 2 waits for the old server to go, and in the VM it stays a
+            /// zombie (the init never reaps it) after it stopped: start it then (`[service, start]`).
+            public var start: [String]? = nil
+            /// The variables compared (`[DOZ_MODEL]`); one this run does not set is not compared.
+            public var env: [String]
+        }
 
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env, session
+            case command, passthrough, env, session, service
             case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env"
         }
     }
@@ -947,7 +963,8 @@ public enum AgentRecipes {
                                           ("maki.json", PackageResources.maki_json),
                                           ("omp.json", PackageResources.omp_json),
                                           ("tau.json", PackageResources.tau_json),
-                                          ("stitch.json", PackageResources.stitch_json)]
+                                          ("stitch.json", PackageResources.stitch_json),
+                                          ("opencode2.json", PackageResources.opencode2_json)]
         do {
             // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
             return try files.map { name, bytes in
@@ -959,7 +976,7 @@ public enum AgentRecipes {
     }()
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
-    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json", "codewhale.json", "maki.json", "omp.json", "tau.json", "stitch.json"]
+    public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "every-code.json", "cline.json", "openhands.json", "codebuddy.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json", "codewhale.json", "maki.json", "omp.json", "tau.json", "stitch.json", "opencode2.json"]
 
     nonisolated(unsafe) private static var registered: [AgentRecipe] = []
     private static let lock = NSLock()
@@ -1185,6 +1202,16 @@ extension AgentRecipe {
         let scriptSafe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") }
         for a in launch.command + launch.noPromptsArgs + launch.passthrough + (resume ?? []) where !scriptSafe(a) || a.isEmpty {
             throw bad("an argument holds a quote, a backslash or a newline: \(a)")
+        }
+        if let s = launch.service {
+            // 618: plain words only — they are written into the launcher (a shell script).
+            let word = { (w: String) in w.range(of: "^[A-Za-z0-9-][A-Za-z0-9._=-]*$", options: .regularExpression) != nil }
+            guard !isBuiltin, !s.args.isEmpty, !s.restart.isEmpty, s.start?.isEmpty != true, (s.args + s.restart + (s.start ?? [])).allSatisfy(word) else {
+                throw bad("launch.service: a recipe agent's, its args and restart plain words (letters, digits, . _ = -)")
+            }
+            guard !s.env.isEmpty, Set(s.env).count == s.env.count, s.env.allSatisfy({
+                $0.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil && !BakeEnvironment.isCredential($0)
+            }) else { throw bad("launch.service env: variable names, once each, none a credential (placeholders differ per run)") }
         }
         var everyEnv = launch.env.merging(state.env, uniquingKeysWith: { a, _ in a })
         for (k, v) in (launch.sessionEnv ?? [:]).merging((network.offWithout ?? []).flatMap(\.env), uniquingKeysWith: { a, _ in a }) { everyEnv[k] = everyEnv[k] ?? v }

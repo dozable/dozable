@@ -312,6 +312,16 @@
             "first_run": { "type": "array", "items": { "$ref": "#/$defs/firstRun" } },
             "session_env": { "$ref": "#/$defs/stringMap" },
             "session": { "enum": ["shell"], "description": "shell: the default session is a login shell with the program on its PATH (a tool that answers and exits)." },
+            "service": {
+              "type": "object", "additionalProperties": false, "required": ["args", "restart", "env"],
+              "description": "A background service the program starts and keeps, which holds the environment of the command that started it: the launcher restarts it (args after the program) when it runs with another value of one of env than this run sets.",
+              "properties": {
+                "args": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+                "restart": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 } },
+                "start": { "type": "array", "minItems": 1, "items": { "type": "string", "minLength": 1 }, "description": "What starts it when the restart fails (a stopped server left as a zombie)." },
+                "env": { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[A-Za-z_][A-Za-z0-9_]*$" } }
+              }
+            },
             "status": { "enum": ["osc7501", "none"] },
             "resume": { "$ref": "#/$defs/strings" },
             "resume_check": { "type": "string" },
