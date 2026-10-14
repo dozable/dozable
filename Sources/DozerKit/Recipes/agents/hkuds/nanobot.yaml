@@ -238,7 +238,7 @@ capabilities:
       provider: vercel-ai-gateway
       accounts:
       - key
-      keys_page: https://vercel.com/docs/ai-gateway/authentication
+      keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'nanobot through Vercel AI Gateway: doz try nanobot --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1

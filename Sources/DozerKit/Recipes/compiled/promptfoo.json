@@ -200,7 +200,7 @@
               "key"
             ],
             "checked" : "2026-10-14",
-            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
             "kind" : "api-key",
             "note" : "promptfoo through Vercel AI Gateway: doz try promptfoo --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
             "provider" : "vercel-ai-gateway"

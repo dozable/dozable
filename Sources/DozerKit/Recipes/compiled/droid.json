@@ -254,7 +254,7 @@
     },
     {
       "config" : {
-        "docs" : "https://docs.factory.ai/cli/getting-started/overview",
+        "docs" : "https://docs.factory.com/droid-cli/overview",
         "intro" : "Factory Droid is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
         "steps" : [
           {
@@ -288,5 +288,5 @@
     "com.dozersandbox/droid@${{ kit.args.version }}"
   ],
   "schema" : 2,
-  "sourceUrl" : "https://docs.factory.ai/cli/getting-started/overview"
+  "sourceUrl" : "https://docs.factory.com/droid-cli/overview"
 }

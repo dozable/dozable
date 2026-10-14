@@ -7,7 +7,7 @@ id: factory-ai/droid
 displayName: Factory Droid
 description: Factory's coding agent for the terminal, in its airgap mode with your own xAI API key (no Factory account).
 author: Factory
-sourceUrl: https://docs.factory.ai/cli/getting-started/overview
+sourceUrl: https://docs.factory.com/droid-cli/overview
 licenses:
 - LicenseRef-Factory-Droid
 args:
@@ -183,4 +183,4 @@ capabilities:
     tips:
     - "Files it makes are in /workspace — your folder on the Mac."
     - "Restart its session from the session's ⋯ menu; End stops it."
-    docs: https://docs.factory.ai/cli/getting-started/overview
+    docs: https://docs.factory.com/droid-cli/overview
