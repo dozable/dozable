@@ -8,6 +8,7 @@ import { createDialog } from './create-dialog.js';
 import { startWithBootView } from './lifecycle.js';
 import { pageFailure, toast } from './notices.js';
 import { openTerminal } from './terminal.js';
+import { tildePath } from '../core/paths.js';
 
 // ── 599c: Quick add (owner: "a "Quick Add" sandbox that picks defaults for workspace name etc and opens
 // it immediately") — one click, no form: the default image (defaults.image), a free name (claude-sandbox,
@@ -33,7 +34,7 @@ export async function quickAdd(button) {
     const op = await actOrThrow({ action: 'create', sandbox: p.name, image: p.image, ...(p.workspace ? { workspace: p.workspace } : { isolated: true }) });
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') return;        // a failure is said by the operation's own toast
-    toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.workspace || 'isolated'));
+    toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.workspace ? tildePath(p.workspace) : 'isolated'));
     // 617: the start sequence (the build, then tab zero Console, then the agent's tab), on its page.
     if (terminalsAllowed()) { location.hash = '#/sandbox/' + p.name; await startWithBootView(p.name); return; }
     location.hash = '#/sandbox/' + p.name;

@@ -134,8 +134,7 @@ enum CopyHint {
 
 enum FileTransfer {
     static func shown(_ p: String) -> String {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return p.hasPrefix(home + "/") ? "~" + p.dropFirst(home.count) : p
+        return DisplayPath.tilde(p)
     }
 
     /// Open the copy: the request, then the host's events (a wake, a start) until its answer.

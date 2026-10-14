@@ -7,6 +7,7 @@ import { loadSettings } from './settings-3ae9fe68f586ce42.js';
 import { state } from './state-450cb6573a620304.js';
 import { terminals } from './terminals-933851e9be49078e.js';
 import { quietly } from './util-1195caf40612902f.js';
+import { setHomes, tildePath } from './paths-074fefdb8b1d48aa.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const banner = upcall('banner'), connect = upcall('connect'), dropBanner = upcall('dropBanner'), modalInert = upcall('modalInert'),
   paintCover = upcall('paintCover'), startApp = upcall('startApp');
@@ -54,9 +55,10 @@ export function adopt(info) {
   state.signupPage = typeof info.signupPage === 'string' && /^https:\/\//.test(info.signupPage) ? info.signupPage : '';
   state.chatgptSignIn = info.chatgptSignIn !== false;   // a public build has no ChatGPT sign-in of its own
   const mac = state.serve ? (state.serve.mac || 'the Mac') : null;
+  setHomes(info.homes);
   const sp = $('store-path');
-  sp.textContent = mac ? 'on ' + mac + ' · ' + info.store : info.store;
-  sp.title = info.store;
+  sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
+  sp.title = tildePath(info.store);
   $('version').textContent = 'doz ' + info.version;
   document.title = (mac ? 'Dozer on ' + mac : 'Dozer') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');

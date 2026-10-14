@@ -6,7 +6,7 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { when, full } from '../core/format-b2e68384da8d2f36.js';
 import { refresh } from '../core/router-ce5dd6bcbdf7c5fe.js';
-import { isRemote } from '../core/session-58420e477c9d4278.js';
+import { isRemote } from '../core/session-2eebad49dbd4f35a.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';

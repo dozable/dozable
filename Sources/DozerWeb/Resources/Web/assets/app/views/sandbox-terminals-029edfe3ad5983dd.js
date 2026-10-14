@@ -11,7 +11,7 @@ import { bootViewOnStart, saveSetting, setting, terminalsAllowed } from '../core
 import { state } from '../core/state-450cb6573a620304.js';
 import { isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals-933851e9be49078e.js';
 import { splitArgs } from '../core/util-1195caf40612902f.js';
-import { isRemote } from '../core/session-58420e477c9d4278.js';
+import { isRemote } from '../core/session-2eebad49dbd4f35a.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { dialog } from '../components/dialog-c156b45597794d5a.js';
 import { lifecycle, sessionsWhyNot } from '../components/lifecycle-0540d1744b9a654c.js';
@@ -19,7 +19,7 @@ import { menuButton } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { agentChip } from '../components/agent-status-1c5452706d34c439.js';
 import { failureFor, pageFailure } from '../components/notices-0e797679ef46047b.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal-3860fb4a366360aa.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-8a24b813977ec776.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-8e96c7bef95d90dc.js';
 import { sessionMenuItems } from '../components/session-actions-84b2628c0c4894bf.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const openSavedTerminal = upcall('openSavedTerminal'), persistLayout = upcall('persistLayout');

@@ -280,8 +280,7 @@ func chooseImage(_ o: inout CreateOptions, rebuild: Bool, useCurrent: Bool, _ g:
 func noteWorkspace(_ info: SandboxInfo, isolatedAsked: Bool, _ g: GlobalOptions) {
     guard !g.json, !g.quiet else { return }
     if info.workspaceCreated == true, let w = info.workspace {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        Out.stderr("[doz] created \(w.hasPrefix(home + "/") ? "~" + w.dropFirst(home.count) : Substring(w))\n")
+        Out.stderr("[doz] created \(DisplayPath.tilde(w))\n")
     }
     if info.workspace == nil, !isolatedAsked {
         Out.stderr("[doz] \(Workspace.isolatedNote) — --workspace DIR shares a folder (--isolated says it on purpose)\n")
@@ -568,8 +567,7 @@ func tryFolder(_ name: String, _ g: GlobalOptions) async -> TryFolder? {
 func cleanUpTryFolder(_ folder: TryFolder?, _ g: GlobalOptions) {
     guard let folder else { return }
     let p = folder.path
-    let home = FileManager.default.homeDirectoryForCurrentUser.path
-    let shown = p.hasPrefix(home + "/") ? "~" + p.dropFirst(home.count) : Substring(p)
+    let shown = DisplayPath.tilde(p)
     if !FileManager.default.fileExists(atPath: p) || Workspace.isEmptyOrMissing(p) {
         try? FileManager.default.removeItem(atPath: p)
         if folder.wasEmpty, !g.json, !g.quiet { Out.stdout("removed its empty folder \(shown)\n") }

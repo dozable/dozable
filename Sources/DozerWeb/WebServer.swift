@@ -675,6 +675,7 @@ public final class DozerWebServer: @unchecked Sendable {
 
     func sessionInfo(_ s: WebSession, _ ctx: WebRequestContext, _ device: WebDeviceView?) -> WebSessionInfo {
         var info = WebSessionInfo(csrf: s.csrfToken, expiresAt: s.expiresAt, serverRun: serverRun, store: data.storePath, version: version)
+        info.homes = DisplayPath.homes()
         info.chatgptSignIn = BuildFlavor.current.chatgptSignIn          // 611
         info.update = updateNotice
         info.signup = Usage.isOfficial

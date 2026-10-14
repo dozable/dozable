@@ -3,7 +3,7 @@ import { upcall } from './hooks-a4b871a481b363cd.js';
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { withIcon } from '../dom/icons-2b30ba761d2d921b.js';
 import { clock, plural } from './format-b2e68384da8d2f36.js';
-import { adopt, pausedParts, setLive, signedOut } from './session-58420e477c9d4278.js';
+import { adopt, pausedParts, setLive, signedOut } from './session-2eebad49dbd4f35a.js';
 import { state } from './state-450cb6573a620304.js';
 import { terminals } from './terminals-933851e9be49078e.js';
 // Calls up the layers (provided by app.js — core/hooks.js):

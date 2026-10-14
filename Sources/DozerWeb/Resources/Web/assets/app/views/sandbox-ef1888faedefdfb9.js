@@ -9,7 +9,7 @@ import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes-e50f57c55febd40a.js
 import { saveSetting, setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-933851e9be49078e.js';
-import { isRemote } from '../core/session-58420e477c9d4278.js';
+import { isRemote } from '../core/session-2eebad49dbd4f35a.js';
 import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-27f14f4df79f023b.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
@@ -18,16 +18,17 @@ import { confirmAction, confirmWithCheck, dialog } from '../components/dialog-c1
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-0540d1744b9a654c.js';
 import { menuButton, moreMenu } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { sessionMenuItems } from '../components/session-actions-84b2628c0c4894bf.js';
-import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-dbbdeb4ac1c75e4e.js';
+import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-09ad82c4640ce553.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-0e797679ef46047b.js';
 import { sandboxPill } from '../components/pills-24d9953a9a9b39a1.js';
 import { agentChip } from '../components/agent-status-1c5452706d34c439.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-3860fb4a366360aa.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-0e2bcb412d5048c8.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-8a24b813977ec776.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-47d24bc8daed146c.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-54f3bb88d44b13e1.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-8e96c7bef95d90dc.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-2430ff271ee240a1.js';
 import { networkPanel } from './sandbox-network-e11c4d8f8eea379d.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-82daec0e376499e5.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-029edfe3ad5983dd.js';
+import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
@@ -64,7 +65,7 @@ function portRows(name, i) {
 /// (the host does it); a folder with the agent's files is kept, and said; Keep hides this for the page. (Sleep and
 /// Hibernate are the action bar's — owner.)
 function tryBar(name, i) {
-  const folder = i.trialFolder ? ' Its folder ' + i.trialFolder + ' is removed with it when empty, and kept when the agent left files there.' : '';
+  const folder = i.trialFolder ? ' Its folder ' + tildePath(i.trialFolder) + ' is removed with it when empty, and kept when the agent left files there.' : '';
   return callout('info', { compact: true, attrs: { 'data-try-bar': name },
     // 617 (owner): the banner keeps its message, Keep and Delete — Sleep and Hibernate are the action bar's.
     body: 'This is a try: when you are done with it, Delete removes it (Keep hides this note).' + folder,
@@ -289,7 +290,7 @@ function sandboxParts(name, d, net, accounts) {
     h('div', { class: 'sbx-title' },
       h('h1', null, name), sandboxPill(i),
       h('span', { class: 'chips sbx-meta' },
-        chip('Image', h('span', { 'data-image-title': '' }, i.imageTitle || i.image), { title: i.image + (i.dockerfile ? ' — Dockerfile ' + i.dockerfile : '') }),
+        chip('Image', h('span', { 'data-image-title': '' }, i.imageTitle || i.image), { title: i.image + (i.dockerfile ? ' — Dockerfile ' + tildePath(i.dockerfile) : '') }),
         chip('RAM', (i.ramHeldMiB ? mib(i.ramHeldMiB) : '—') + ' of ' + mib(i.memoryMiB)),
         chip('Network', [i.network, icon('panel-right')], { onClick: showTab('network'), title: 'Its network — the Network tab', data: { 'data-network-chip': '' } }),
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
@@ -341,7 +342,7 @@ function sandboxParts(name, d, net, accounts) {
         stat('CPUs', String(d.cpus))),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Attach from a terminal'), h('div', { class: 'cmd' }, h('code', null, d.attachCommand), copy)),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Workspace'),
-        h('div', { class: i.workspace ? null : 'muted' }, i.workspace ? [h('code', null, i.workspace), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
+        h('div', { class: i.workspace ? null : 'muted' }, i.workspace ? [h('code', null, tildePath(i.workspace)), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
         i.workspaceRules ? h('p', { class: 'muted', 'data-workspace-rules-line': '' },
           'Workspace rules: ' + i.workspaceRules + '. Which rule decides a path: doz ignore check ' + name + ' PATH. Not a security boundary.')
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
@@ -384,7 +385,7 @@ function sandboxParts(name, d, net, accounts) {
         fact('Memory', mib(d.memoryMiB)), fact('Root disk', mib(d.rootfsMiB)), fact('State disk', mib(d.stateDiskMiB)),
         fact('Journal', d.journalMiB ? mib(d.journalMiB) : 'none'), fact('Network', d.networkMode + (d.subnet ? ' · ' + d.subnet : '')),
         fact('Account', i.accountApplies ? (i.account || '—') : 'n/a'),
-        fact('Workspace', i.workspace ? i.workspace + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
+        fact('Workspace', i.workspace ? tildePath(i.workspace) + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
         fact('Shares', d.shares.length ? d.shares.map((s) => s.hostPath + ' → ' + s.guestPath).join(', ') : 'none'),
         d.project ? fact('Project', d.project) : null,
         fact('Directory', d.directory)))),

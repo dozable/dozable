@@ -7,21 +7,22 @@ import { plural } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitOp } from '../core/operations-b157c160346b7775.js';
 import { setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
-import { isRemote } from '../core/session-58420e477c9d4278.js';
+import { isRemote } from '../core/session-2eebad49dbd4f35a.js';
 import { renderAccessStep } from '../components/access-step-09afb06a7cf08f27.js';
 import { accountChooser } from '../components/accounts-27f14f4df79f023b.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { createDialog } from '../components/create-dialog-8484aa411d69673e.js';
+import { createDialog } from '../components/create-dialog-24908928f363f7d6.js';
 import { dialog } from '../components/dialog-c156b45597794d5a.js';
-import { imagePicker } from '../components/image-picker-d2725bb4df416a4a.js';
+import { imagePicker } from '../components/image-picker-c644b168adfc7ab3.js';
 import { renderModal, wizHead, wizMount } from '../components/modal-c994024a746823eb.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-32ce4e99960020cf.js';
 import { rulesStep } from '../components/rules-step-5de53662175cc5bd.js';
 import { stepperNode } from '../components/stepper-61e5dacc702ce715.js';
 import { openDefaultTerminal } from '../components/terminal-3860fb4a366360aa.js';
-import { planBlock } from '../components/plan-view-d77c61dcd0ee6e3d.js';
+import { planBlock } from '../components/plan-view-8993d955c93cc793.js';
+import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").
@@ -100,9 +101,8 @@ function nwPayload() {
 function nwAnswer(id) {
   const nw = state.nw, f = nw.form;
   if (!f) return null;
-  const home = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
   switch (id) {
-    case 'folder': return nw.open ? home(nw.open.folder) : null;
+    case 'folder': return nw.open ? tildePath(nw.open.folder) : null;
     case 'image': return f.name + ' · ' + (f.dockerfile ? 'Dockerfile' : f.image);
     case 'account': { const a = nwAgent(f); return a ? (f.account && f.account !== 'default' ? f.account : 'the store default') : 'none needed'; }
     case 'access': { const g = f.github || setting('defaults.github', 'off'), ssh = f.sshAgent || setting('sandbox.ssh_agent', 'off');
@@ -267,8 +267,8 @@ function nwFolder() {
   };
   const name = h('input', { type: 'text', name: 'nw-new-name', 'data-nw-new-name': '', autocomplete: 'off', spellcheck: 'false', placeholder: 'a-z 0-9 -' });
   name.value = nw.newName;
-  const where = h('div', { class: 'muted mono', 'data-nw-new-path': '' }, nw.projectsDir + '/' + nw.newName);
-  name.addEventListener('input', () => { nw.newName = name.value.trim(); where.textContent = nw.projectsDir + '/' + nw.newName; nw.open = null; nw.form = null; });
+  const where = h('div', { class: 'muted mono', 'data-nw-new-path': '' }, tildePath(nw.projectsDir + '/' + nw.newName));
+  name.addEventListener('input', () => { nw.newName = name.value.trim(); where.textContent = tildePath(nw.projectsDir + '/' + nw.newName); nw.open = null; nw.form = null; });
   const path = h('input', { type: 'text', name: 'nw-path', 'data-nw-path': '', autocomplete: 'off', spellcheck: 'false', placeholder: '~/code/my-app' });
   path.value = nw.path;
   path.addEventListener('input', () => { nw.path = path.value.trim(); nw.open = null; nw.form = null; });

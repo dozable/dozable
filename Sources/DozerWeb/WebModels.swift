@@ -1346,6 +1346,9 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     public var serverRun: String
     public var store: String
     public var version: String
+    /// 617: the Mac user's home (and its resolved spelling) — the page shows a path under it as `~/…`
+    /// (`core/paths.js`; `DisplayPath`). Display only: every path field stays absolute.
+    public var homes: [String] = []
     /// 606: doz serve — what this browser is and may do (nil on doz ui).
     public var serve: WebServeSessionInfo? = nil
     /// 611: this build has Dozer's own ChatGPT sign-in (a public build does not: the page never offers it).

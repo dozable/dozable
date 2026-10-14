@@ -13,7 +13,7 @@ import { accountChooser, accountCommandsNode, accountForm } from '../components/
 import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { imagePicker, pickerNameHint } from '../components/image-picker-d2725bb4df416a4a.js';
+import { imagePicker, pickerNameHint } from '../components/image-picker-c644b168adfc7ab3.js';
 import { wizHead, wizMount } from '../components/modal-c994024a746823eb.js';
 import { refreshNav } from '../components/nav-4c4539148a8a27c0.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
@@ -21,7 +21,7 @@ import { statusPill } from '../components/pills-24d9953a9a9b39a1.js';
 import { prepCard } from '../components/prep-card-be35217ab46f1958.js';
 import { rulesStep } from '../components/rules-step-5de53662175cc5bd.js';
 import { stepperNode } from '../components/stepper-61e5dacc702ce715.js';
-import { workspaceChooser } from '../components/workspace-chooser-0e2bcb412d5048c8.js';
+import { workspaceChooser } from '../components/workspace-chooser-54f3bb88d44b13e1.js';
 import { renderOps } from './operations-5ee6c870cfd7e549.js';
 
 let wizTimer = null;

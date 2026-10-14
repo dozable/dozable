@@ -13,6 +13,7 @@ import { isAux, pageTerminals, sview } from '../core/terminals.js';
 import { btn } from './button.js';
 import { toast } from './notices.js';
 import { focusTerm, sendInput } from './terminal.js';
+import { tildeIn } from '../core/paths.js';
 
 /// Which steps ran, per sandbox (page memory).
 const RAN = new Map();
@@ -49,7 +50,7 @@ export function guidePanel(name, g, onTab = () => {}) {
     h('p', { class: 'muted' }, g.howTo));
   const facts = h('dl', { class: 'facts guide-facts', 'data-guide-facts': '' },
     ...g.facts.flatMap((f) => [h('dt', null, f.label),
-      h('dd', { 'data-guide-fact': f.id }, f.value, f.id === 'network'
+      h('dd', { 'data-guide-fact': f.id }, tildeIn(f.value), f.id === 'network'
         ? h('button', { type: 'button', class: 'linkish', on: { click: () => onTab('network') } }, ' · Network') : null)]));
   const steps = h('ol', { class: 'guide-steps', 'data-guide-steps': '' }, ...g.steps.map((s, i) => {
     const kids = [h('p', null, ...codeText(s.text), ran.has(i) ? h('span', { class: 'guide-ran', 'data-guide-ran': String(i + 1) }, ' ✓ ran') : null)];

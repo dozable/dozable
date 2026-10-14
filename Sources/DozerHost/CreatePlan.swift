@@ -482,8 +482,7 @@ public enum CreatePlanner {
             if !excluded.isEmpty { out.append(ReachLine("excluded", "Kept out whatever you choose: " + excluded.joined(separator: ", "))) }
             if !names.contains("web") { out.append(ReachLine("denied", "Every other host: refused and logged")) }
         }
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        func tilde(_ p: String) -> String { p.hasPrefix(home + "/") ? "~" + p.dropFirst(home.count) : p }
+        func tilde(_ p: String) -> String { DisplayPath.tilde(p) }
         if let w = workspace {
             out.append(ReachLine("folder", newFolder ? "A new empty folder \(tilde(w)) (not one of yours), at /workspace" : "Your folder \(tilde(w)) at /workspace"))
         } else {

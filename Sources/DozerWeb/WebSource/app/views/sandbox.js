@@ -28,6 +28,7 @@ import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takeP
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
 import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
+import { tildePath } from '../core/paths.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.
@@ -64,7 +65,7 @@ function portRows(name, i) {
 /// (the host does it); a folder with the agent's files is kept, and said; Keep hides this for the page. (Sleep and
 /// Hibernate are the action bar's — owner.)
 function tryBar(name, i) {
-  const folder = i.trialFolder ? ' Its folder ' + i.trialFolder + ' is removed with it when empty, and kept when the agent left files there.' : '';
+  const folder = i.trialFolder ? ' Its folder ' + tildePath(i.trialFolder) + ' is removed with it when empty, and kept when the agent left files there.' : '';
   return callout('info', { compact: true, attrs: { 'data-try-bar': name },
     // 617 (owner): the banner keeps its message, Keep and Delete — Sleep and Hibernate are the action bar's.
     body: 'This is a try: when you are done with it, Delete removes it (Keep hides this note).' + folder,
@@ -289,7 +290,7 @@ function sandboxParts(name, d, net, accounts) {
     h('div', { class: 'sbx-title' },
       h('h1', null, name), sandboxPill(i),
       h('span', { class: 'chips sbx-meta' },
-        chip('Image', h('span', { 'data-image-title': '' }, i.imageTitle || i.image), { title: i.image + (i.dockerfile ? ' — Dockerfile ' + i.dockerfile : '') }),
+        chip('Image', h('span', { 'data-image-title': '' }, i.imageTitle || i.image), { title: i.image + (i.dockerfile ? ' — Dockerfile ' + tildePath(i.dockerfile) : '') }),
         chip('RAM', (i.ramHeldMiB ? mib(i.ramHeldMiB) : '—') + ' of ' + mib(i.memoryMiB)),
         chip('Network', [i.network, icon('panel-right')], { onClick: showTab('network'), title: 'Its network — the Network tab', data: { 'data-network-chip': '' } }),
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
@@ -341,7 +342,7 @@ function sandboxParts(name, d, net, accounts) {
         stat('CPUs', String(d.cpus))),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Attach from a terminal'), h('div', { class: 'cmd' }, h('code', null, d.attachCommand), copy)),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Workspace'),
-        h('div', { class: i.workspace ? null : 'muted' }, i.workspace ? [h('code', null, i.workspace), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
+        h('div', { class: i.workspace ? null : 'muted' }, i.workspace ? [h('code', null, tildePath(i.workspace)), ' → /workspace (live)'] : 'Isolated — ' + ISOLATED_NOTE),
         i.workspaceRules ? h('p', { class: 'muted', 'data-workspace-rules-line': '' },
           'Workspace rules: ' + i.workspaceRules + '. Which rule decides a path: doz ignore check ' + name + ' PATH. Not a security boundary.')
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
@@ -384,7 +385,7 @@ function sandboxParts(name, d, net, accounts) {
         fact('Memory', mib(d.memoryMiB)), fact('Root disk', mib(d.rootfsMiB)), fact('State disk', mib(d.stateDiskMiB)),
         fact('Journal', d.journalMiB ? mib(d.journalMiB) : 'none'), fact('Network', d.networkMode + (d.subnet ? ' · ' + d.subnet : '')),
         fact('Account', i.accountApplies ? (i.account || '—') : 'n/a'),
-        fact('Workspace', i.workspace ? i.workspace + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
+        fact('Workspace', i.workspace ? tildePath(i.workspace) + ' → /workspace (live)' : 'isolated — ' + ISOLATED_NOTE),
         fact('Shares', d.shares.length ? d.shares.map((s) => s.hostPath + ' → ' + s.guestPath).join(', ') : 'none'),
         d.project ? fact('Project', d.project) : null,
         fact('Directory', d.directory)))),

@@ -22,6 +22,7 @@ import { rulesStep } from '../components/rules-step.js';
 import { stepperNode } from '../components/stepper.js';
 import { openDefaultTerminal } from '../components/terminal.js';
 import { planBlock } from '../components/plan-view.js';
+import { tildePath } from '../core/paths.js';
 
 // ── 599f: the New Sandbox wizard (owner: "a new wizard process for creating a purposeful sandbox that steps
 // the user through all the choices, capturing the config in a doz_project.yml in the project / working dir").
@@ -100,9 +101,8 @@ function nwPayload() {
 function nwAnswer(id) {
   const nw = state.nw, f = nw.form;
   if (!f) return null;
-  const home = (p) => String(p || '').replace(/^\/Users\/[^/]+/, '~');
   switch (id) {
-    case 'folder': return nw.open ? home(nw.open.folder) : null;
+    case 'folder': return nw.open ? tildePath(nw.open.folder) : null;
     case 'image': return f.name + ' · ' + (f.dockerfile ? 'Dockerfile' : f.image);
     case 'account': { const a = nwAgent(f); return a ? (f.account && f.account !== 'default' ? f.account : 'the store default') : 'none needed'; }
     case 'access': { const g = f.github || setting('defaults.github', 'off'), ssh = f.sshAgent || setting('sandbox.ssh_agent', 'off');
@@ -267,8 +267,8 @@ function nwFolder() {
   };
   const name = h('input', { type: 'text', name: 'nw-new-name', 'data-nw-new-name': '', autocomplete: 'off', spellcheck: 'false', placeholder: 'a-z 0-9 -' });
   name.value = nw.newName;
-  const where = h('div', { class: 'muted mono', 'data-nw-new-path': '' }, nw.projectsDir + '/' + nw.newName);
-  name.addEventListener('input', () => { nw.newName = name.value.trim(); where.textContent = nw.projectsDir + '/' + nw.newName; nw.open = null; nw.form = null; });
+  const where = h('div', { class: 'muted mono', 'data-nw-new-path': '' }, tildePath(nw.projectsDir + '/' + nw.newName));
+  name.addEventListener('input', () => { nw.newName = name.value.trim(); where.textContent = tildePath(nw.projectsDir + '/' + nw.newName); nw.open = null; nw.form = null; });
   const path = h('input', { type: 'text', name: 'nw-path', 'data-nw-path': '', autocomplete: 'off', spellcheck: 'false', placeholder: '~/code/my-app' });
   path.value = nw.path;
   path.addEventListener('input', () => { nw.path = path.value.trim(); nw.open = null; nw.form = null; });

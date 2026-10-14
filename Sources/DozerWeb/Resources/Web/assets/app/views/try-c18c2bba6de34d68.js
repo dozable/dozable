@@ -25,9 +25,9 @@ import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { startWithBootView } from '../components/lifecycle-0540d1744b9a654c.js';
 import { renderModal, wizardCloseRequest } from '../components/modal-c994024a746823eb.js';
 import { renderNavSandboxes } from '../components/nav-4c4539148a8a27c0.js';
-import { prefetchSandbox } from './sandbox-01f62a45888b1cec.js';
+import { prefetchSandbox } from './sandbox-ef1888faedefdfb9.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
-import { planCommand, reachList } from '../components/plan-view-d77c61dcd0ee6e3d.js';
+import { planCommand, reachList } from '../components/plan-view-8993d955c93cc793.js';
 import { prepCard } from '../components/prep-card-be35217ab46f1958.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;

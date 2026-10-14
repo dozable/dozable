@@ -6,13 +6,13 @@ import { bytes, mib } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
-import { hostCard } from '../components/host-7c8a44d23bf28f0c.js';
+import { hostCard } from '../components/host-89780a0e8236f14e.js';
 import { rowLifecycle } from '../components/lifecycle-0540d1744b9a654c.js';
 import { renderNavSandboxes } from '../components/nav-4c4539148a8a27c0.js';
 import { sandboxPill } from '../components/pills-24d9953a9a9b39a1.js';
-import { quickAddButton } from '../components/quick-add-ee3db9271baa994b.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-0e2bcb412d5048c8.js';
-import { newSandboxWizard } from './new-sandbox-7634c08b641b125e.js';
+import { quickAddButton } from '../components/quick-add-db016364f1c6b396.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-54f3bb88d44b13e1.js';
+import { newSandboxWizard } from './new-sandbox-49273e00e729f800.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {

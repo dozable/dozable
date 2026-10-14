@@ -8,7 +8,8 @@ import { lines, splitArgs } from '../core/util-1195caf40612902f.js';
 import { accountChooser } from '../components/accounts-27f14f4df79f023b.js';
 import { dialog } from '../components/dialog-c156b45597794d5a.js';
 import { failureFor, toast } from '../components/notices-0e797679ef46047b.js';
-import { workspaceChooser } from '../components/workspace-chooser-0e2bcb412d5048c8.js';
+import { workspaceChooser } from '../components/workspace-chooser-54f3bb88d44b13e1.js';
+import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 /// 603: a sandbox's terminal in the user's own terminal app (doz attach), from the bar, the strip or a session row.
 export async function openInTerminal(name, session) {
@@ -66,7 +67,7 @@ export function duplicateDialog(name, d, accounts, pointID) {
       { name: 'newName', label: 'New sandbox name', placeholder: 'a-z 0-9 -', required: true },
       // 596 (B1): the base and agent are the source's — shown, not changeable (the disk is a clone of its).
       { name: 'baseShown', type: 'custom', get: () => null, el: h('div', { class: 'field', 'data-duplicate-image': '' }, h('span', null, 'Image'),
-        h('div', null, h('strong', null, i.imageTitle || i.image), ' ', h('span', { class: 'muted' }, '— ' + i.image + (i.dockerfile ? ', Dockerfile ' + i.dockerfile : '') + ' (the source’s; not changeable)'))) },
+        h('div', null, h('strong', null, i.imageTitle || i.image), ' ', h('span', { class: 'muted' }, '— ' + i.image + (i.dockerfile ? ', Dockerfile ' + tildePath(i.dockerfile) : '') + ' (the source’s; not changeable)'))) },
       { name: 'source', label: 'From', type: 'select', options: sources, value: pointID || '' },
       // 594: Shared folder (<projects_dir>/<new name> by default, made when missing) | Isolated.
       { name: 'ws', type: 'custom', el: slot, get: () => chooser.get() },

@@ -4,6 +4,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { btn } from './button-cbb8a60e3220f977.js';
 import { toast } from './notices-0e797679ef46047b.js';
+import { tildeIn } from '../core/paths-074fefdb8b1d48aa.js';
 
 /// The command, copyable (a page served over plain HTTP from another device has no clipboard: the text stays selectable).
 export function planCommand(plan) {
@@ -21,7 +22,7 @@ export function planCommand(plan) {
 /// The reach lines, each with its kind (model, packages, folder, bridge, key, excluded, denied …) as a hook for the style.
 export function reachList(reach, kinds = null) {
   const lines = (reach || []).filter((r) => !kinds || kinds.includes(r.kind));
-  return h('ul', { class: 'reach-list', 'data-plan-reach': '' }, ...lines.map((r) => h('li', { class: 'reach-' + r.kind, 'data-reach-kind': r.kind }, r.text)));
+  return h('ul', { class: 'reach-list', 'data-plan-reach': '' }, ...lines.map((r) => h('li', { class: 'reach-' + r.kind, 'data-reach-kind': r.kind }, tildeIn(r.text))));
 }
 
 /// Both, under their headings — the review's block.
