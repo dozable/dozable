@@ -278,10 +278,13 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     /// folder Dozer made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
     public var trial: Bool?
     public var trialFolder: String?
+    /// 617 (RP-1): its web ports — the header's Open buttons (listening, with a URL) and the details' list.
+    public var ports: [WebPort]?
 
     public init(_ i: SandboxInfo) {
         trial = i.trial
         trialFolder = i.trialFolder
+        ports = i.ports.map { $0.map(WebPort.init) }
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
         agentStatus = i.agentStatus.map(WebAgentStatus.init)
         agentWorking = i.agentWorking
@@ -316,6 +319,31 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
         credentialState = i.credentialState
         credentialPolicy = i.credentialPolicy
         foreignCredentials = i.foreignCredentials
+    }
+}
+
+/// 617 (RP-1): one web port of a sandbox, for the page (field by field; camelCase like every projection). The URL is
+/// only ever this Mac's loopback forward — anything else is dropped, so the page's Open link can never point elsewhere.
+public struct WebPort: Codable, Equatable, Sendable {
+    public var port: Int
+    public var title: String
+    public var path: String
+    public var `protocol`: String
+    public var origin: String
+    public var state: String
+    public var macPort: Int?
+    public var url: String?
+    public var moved: Bool?
+    public var why: String?
+    public var auth: String?
+    /// Where a port that asks for a sign-in gets it (the recipe's words, e.g. "printed in its session") — a hint, never
+    /// a value; named so no API field is secret-shaped.
+    public var askHint: String?
+
+    public init(_ r: PortForwardRow) {
+        port = r.port; title = r.title; path = r.path; `protocol` = r.protocol; origin = r.origin; state = r.state
+        macPort = r.macPort; moved = r.moved; why = r.why; auth = r.auth; askHint = r.tokenHint
+        url = r.url.flatMap { u in u.hasPrefix("http://127.0.0.1:") ? u : nil }
     }
 }
 

@@ -402,6 +402,9 @@ final class WebSecurityTests: XCTestCase {
             // 599g
             WebRulesGuide(),
             WebRuleFile(WorkspaceRulesGuide.FolderFile(name: ".dozignore", patterns: 2, first: ["secrets.env"], skipped: 0)),
+            // 617 (RP-1): a web port (a hint where its sign-in comes from — never a value)
+            WebPort(PortForwardRow(port: 8888, title: "Jupyter", path: "/", protocol: "http", origin: "recipe", state: "listening",
+                                   macPort: 8888, url: "http://127.0.0.1:8888/", auth: "token", tokenHint: "printed in its session")),
         ]
         let forbidden = ["secret", "token", "password", "apikey", "api_key", "bearer", "authorization", "cookie", "csrf", "credentialvalue"]
         for v in values {
@@ -412,6 +415,28 @@ final class WebSecurityTests: XCTestCase {
         }
         // A foreign credential's prefix is cut to 13 characters whatever the library hands over.
         XCTAssertEqual(WebCredential(row).foreign.first?.prefix.count, 13)
+    }
+
+    /// 617 (RP-1): the sandbox projection carries its web ports — the header's Open button needs them (the first build
+    /// left them out of the projection, so the button never showed) — and an Open link only ever points at this Mac's
+    /// loopback forward.
+    func testASandboxsWebPortsReachThePageAndOnlyItsLoopbackURL() throws {
+        var info = SandboxInfo(name: "a", image: "aichat", phase: "running", busy: false, cpus: 1, memoryMiB: 1024, ramHeldMiB: 1024,
+                               memoryReturnedMiB: 0, diskBytes: 1, sessions: 1, network: "locked", deniedConnections: 0, workspace: nil,
+                               createdAt: Date(), diedWithHost: nil, account: "xai", credentialState: "ok", credentialPolicy: "allow",
+                               foreignCredentials: 0)
+        info.ports = [PortForwardRow(port: 8000, title: "AIChat web", path: "/playground", protocol: "http", origin: "recipe", state: "listening",
+                                     macPort: 8001, url: "http://127.0.0.1:8001/playground", moved: true),
+                      PortForwardRow(port: 9000, title: "x", path: "/", protocol: "http", origin: "added", state: "listening",
+                                     macPort: 9000, url: "http://evil.example/")]
+        let rows = try XCTUnwrap(WebSandboxRow(info).ports)
+        XCTAssertEqual(rows.map(\.port), [8000, 9000])
+        XCTAssertEqual(rows[0].url, "http://127.0.0.1:8001/playground")
+        XCTAssertEqual(rows[0].macPort, 8001)
+        XCTAssertEqual(rows[0].moved, true)
+        XCTAssertNil(rows[1].url, "never a link elsewhere")
+        let json = String(decoding: try WebJSON.encoder.encode(WebSandboxRow(info)), as: UTF8.self)
+        XCTAssertTrue(json.contains("\"macPort\""), "the page reads camelCase")
     }
 
     func keys(_ o: Any) -> [String] {

@@ -50,7 +50,7 @@ function portButton(name, p) {
       withIcon('link', p.title + ' (on the Mac)'));
   }
   const tip = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '')
-    + (p.auth === 'token' && p.tokenHint ? ' · it asks for a token: ' + p.tokenHint : '');
+    + (p.auth === 'token' && p.askHint ? ' · it asks for a token: ' + p.askHint : '');
   return h('a', { class: 'btn small', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
     withIcon('link', label));
 }
