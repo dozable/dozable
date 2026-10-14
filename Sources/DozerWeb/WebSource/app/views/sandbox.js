@@ -50,15 +50,26 @@ function portButton(name, p) {
     return h('span', { class: 'tag outline', 'data-port-open': String(p.port), title: p.title + ' is forwarded to the Mac’s 127.0.0.1:' + p.macPort + ' — open it on the Mac (doz open ' + name + ' ' + p.port + ')' },
       withIcon('link', p.title + ' (on the Mac)'));
   }
+  // Nothing listens on it in the sandbox yet: the button is there, disabled, and says how to start it.
+  if (p.serving === false) {
+    return h('button', { type: 'button', class: 'btn small', disabled: true, 'data-port-open': String(p.port), 'data-port-idle': '', title: notServing(p) },
+      withIcon('link', label));
+  }
   const tip = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '')
     + (p.auth === 'token' && p.askHint ? ' · it asks for a token: ' + p.askHint : '');
   return h('a', { class: 'btn small', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
     withIcon('link', label));
 }
+/// What a port nothing serves yet says: start it in a session — the recipe's own command when it has one.
+function notServing(p) {
+  return 'Not serving yet — start it in a session' + (p.serveHint ? ' (' + p.serveHint + ')' : ' (the program that listens on port ' + p.port + ')');
+}
 /// 617 (RP-1): the details' list of web ports (every state), with what to do when one is not listening.
 function portRows(name, i) {
   return (i.ports || []).map((p) => h('div', { class: 'sub2', 'data-port-row': String(p.port) },
-    p.title + ' — port ' + p.port + ' → ' + (p.state === 'listening' ? (p.url || '127.0.0.1:' + p.macPort) : p.state + (p.why ? ': ' + p.why : ''))
+    p.title + ' — port ' + p.port + ' → ' + (p.state === 'listening'
+      ? (p.serving === false ? (p.url || '127.0.0.1:' + p.macPort) + ' — ' + notServing(p).replace(/^N/, 'n') : (p.url || '127.0.0.1:' + p.macPort))
+      : p.state + (p.why ? ': ' + p.why : ''))
       + (p.origin === 'added' ? ' (added)' : '') + (p.moved && p.state === 'listening' ? ' (moved: ' + p.port + ' was taken)' : '')));
 }
 /// 617: a try's exit choice. Delete removes it (asked with a box to tick) — and its folder when the folder is empty

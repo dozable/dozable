@@ -6,6 +6,27 @@ import XCTest
 /// 617 (RP-1): web-port forwards — the Mac port choice, the loopback-only listener, the relay through a guest stream,
 /// a collision moving the port, stop closing it, the recipe format's validation and the wire shapes.
 final class PortForwardTests: XCTestCase {
+    /// Whether a program in the sandbox listens on a port: the guest's /proc/net/tcp and tcp6, LISTEN (0A) rows only —
+    /// an established connection or a port only the Mac forwards is not "serving".
+    func testServingIsReadFromTheGuestsListeningSockets() {
+        let text = """
+          sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+           0: 0100007F:1F40 00000000:0000 0A 00000000:00000000 00:00000000 00000000  1001        0 1 1 0000000000000000 100 0 0 10 0
+           1: 0100007F:1F90 0100007F:D431 01 00000000:00000000 00:00000000 00000000  1001        0 2 1 0000000000000000 20 4 30 10 -1
+          sl  local_address                         remote_address                        st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+           0: 00000000000000000000000000000000:0BB8 00000000000000000000000000000000:0000 0A 00000000:00000000 00:00000000 00000000  1001        0 3 1
+        """
+        XCTAssertEqual(HostCore.listeningPorts(procNetTCP: text), [8000, 3000], "8080 only has an established connection")
+        XCTAssertEqual(HostCore.listeningPorts(procNetTCP: ""), [])
+        // The row says it, and the page's projection carries it with the recipe's command.
+        var row = PortForwardRow(port: 8080, title: "Fabric REST API", path: "/swagger/index.html", protocol: "http", origin: "recipe",
+                                 state: "listening", macPort: 8080, url: "http://127.0.0.1:8080/swagger/index.html")
+        row.serving = false
+        row.serveHint = "fabric --serve"
+        let json = String(decoding: try! JSONEncoder().encode(row), as: UTF8.self)
+        XCTAssertTrue(json.contains("\"serving\":false") && json.contains("\"serve_hint\":\"fabric --serve\""), json)
+    }
+
     func testTheMacPortIsTheOneItHadThenTheGuestsThenAnyFreeOne() {
         XCTAssertEqual(PortForwarding.macPortCandidates(guest: 8080, previous: nil), [8080, 0])
         XCTAssertEqual(PortForwarding.macPortCandidates(guest: 8080, previous: 50123), [50123, 8080, 0])

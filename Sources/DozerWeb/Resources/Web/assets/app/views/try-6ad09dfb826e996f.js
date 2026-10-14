@@ -25,7 +25,7 @@ import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { startWithBootView } from '../components/lifecycle-6c9558b69de40a79.js';
 import { renderModal, wizardCloseRequest } from '../components/modal-3ceda2ab4d2e59c4.js';
 import { renderNavSandboxes } from '../components/nav-77c3260bfac45a32.js';
-import { prefetchSandbox } from './sandbox-930ee3c312846ea5.js';
+import { prefetchSandbox } from './sandbox-7131d2e8db46beaf.js';
 import { pageFailure, toast } from '../components/notices-dfd5edd22e60f3dd.js';
 import { planCommand, reachList } from '../components/plan-view-74a663dd99544e6e.js';
 import { prepCard } from '../components/prep-card-8409517f8025f772.js';

@@ -2063,16 +2063,16 @@ Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_G
 `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch folders — forced,
 whatever the environment says. `TestSafety` (DozerHost) STOPS a guarded process (and any XCTest run) that
 would use the default store, read the Mac's real `~/.codex`, or touch the login keychain's `Claude Code-credentials*`
-items. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`.
+items. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`. A new code path that reads something of the
+Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) —
+`TestSafetyTests` pins the decisions.
 
 **Paths are SHOWN with `~`** (617): `DisplayPath` (DozerHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
 (`tildePath`, `tildeIn`, fed the session info's `homes`) are the ONE way a Mac path is shown — the sidebar's store, the
 try banner, the Guide's facts, the details' workspace, a Dockerfile, the plan's lines, Doctor, and the CLI's human lines
 that name a folder. Display only: stored values, requests and every JSON field stay absolute. Home is the REAL one
 (`TestSafety.realHome`); the seam `DOZ_TEST_HOME=/tmp/…` stands in for it on screen only, and only in a guarded run (the
-release post's screenshots: `probes/617-*/stageE/release-shots.mjs`). Nothing else reads it. A new code path that reads something of the
-Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) —
-`TestSafetyTests` pins the decisions.
+release post's screenshots: `probes/617-*/stageE/release-shots.mjs`). Nothing else reads it.
 
 ### The VM integration tests need an ENTITLED host — how
 

@@ -339,8 +339,12 @@ public struct WebPort: Codable, Equatable, Sendable {
     /// Where a port that asks for a sign-in gets it (the recipe's words, e.g. "printed in its session") — a hint, never
     /// a value; named so no API field is secret-shaped.
     public var askHint: String?
+    /// A program in the sandbox listens on the port (nil: not checked); the recipe's command that serves it.
+    public var serving: Bool?
+    public var serveHint: String?
 
     public init(_ r: PortForwardRow) {
+        serving = r.serving; serveHint = r.serveHint
         port = r.port; title = r.title; path = r.path; `protocol` = r.protocol; origin = r.origin; state = r.state
         macPort = r.macPort; moved = r.moved; why = r.why; auth = r.auth; askHint = r.tokenHint
         url = r.url.flatMap { u in u.hasPrefix("http://127.0.0.1:") ? u : nil }

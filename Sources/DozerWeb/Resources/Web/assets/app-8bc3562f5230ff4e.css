@@ -1293,6 +1293,7 @@ body.resizing iframe { pointer-events: none; }
 .stat .k { font-size: var(--fs-sm); color: var(--ink-2); }
 .stat .v { font-size: 18px; font-weight: var(--fw-strong); font-variant-numeric: tabular-nums; line-height: 1.3; }
 .stat .n { font-size: var(--fs-sm); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat .defaults-list { list-style: none; margin: 2px 0 4px; padding: 0; display: flex; flex-wrap: wrap; gap: 2px 14px; line-height: 1.5; }
 .panel-body { padding: 12px; }
 dl.facts { display: grid; grid-template-columns: minmax(96px, max-content) minmax(0, 1fr); gap: 6px 16px; margin: 0; }
 dl.facts dt { color: var(--ink-2); }

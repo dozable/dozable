@@ -414,11 +414,20 @@ name: todo-app</pre></details>
     <div class="sbx-title" data-sg-chips-plain><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button></span></div>
     <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
     <div class="sbx-title" data-sg-chips-ports><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · AIChat</span><a class="btn small" href="#" title="AIChat web — the sandbox’s port 8000 at http://127.0.0.1:8000/"><i data-i="link"></i>Open AIChat web</a></span></div>
+    <div class="sbx-title" data-sg-chips-ports-idle><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · Fabric</span><button type="button" class="btn small" disabled title="Not serving yet — start it in a session (fabric --serve)"><i data-i="link"></i>Open Fabric REST API</button></span></div>
   </div></div>
   <p>A forwarded web port (<code>doz ports</code>) is an <strong>Open</strong> link among the header’s chips while the sandbox runs: “Open TITLE”, a small button
     with the link glyph, its tooltip the sandbox’s port and the Mac URL (and “was taken” when the Mac port moved). It opens a new tab on this Mac’s
     <code>127.0.0.1</code>. From another device (<code>doz serve</code>) it is a plain outline tag “TITLE (on the Mac)” instead — that device’s 127.0.0.1 is not the Mac.
-    The Overview tab lists every forward with its state (listening, stopped, failed and why).</p>
+    The Overview tab lists every forward with its state (listening, stopped, failed and why). While nothing in the sandbox listens on the port the
+    button is there but DISABLED, its tooltip how to start it — the recipe’s own command when it has one (“Not serving yet — start it in a session
+    (fabric --serve)”); the details’ list says the same.</p>
+  <div class="pair"><div class="scheme"><div class="stats"><div class="stat" data-defaults><div class="k">Defaults</div>
+    <ul class="defaults-list"><li><span class="muted">Anthropic </span><strong>work-anthropic</strong></li><li><span class="muted">OpenAI </span><strong>work-openai</strong></li><li><span class="muted">xAI </span><strong>xai</strong></li></ul>
+    <div class="n">a sandbox that follows the default uses its provider’s</div></div>
+    <div class="stat"><div class="k">Claude Code keep-alive</div><div class="v">off</div></div></div></div></div>
+  <p>Accounts &amp; keys: each provider has its own default, listed together in one <strong>Defaults</strong> stat (the rows keep their “default”
+    badge); the keep-alive is Claude Code’s and says so. A key added without its check says “not checked yet”, never a command-line flag.</p>
 </section>
 
 <section>

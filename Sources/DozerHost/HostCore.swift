@@ -88,6 +88,8 @@ public actor HostCore {
     nonisolated let bridgeState = BridgeState()
     /// 617 (RP-1): the standing web-port forwards (`HostCore+Ports`).
     nonisolated let portTable = PortForwardTable()
+    /// 617 (RP-1): the ports a program in each running sandbox listens on, and when that was read (`refreshServing`).
+    var portServing: [String: (checked: Date, ports: Set<Int>)] = [:]
     /// 609: which viewer set each session's size last (the attach relay re-applies the typist's).
     nonisolated let sizeOwners = SessionSizeOwners()
     /// 612: the programs' status per sandbox and session, the status watchers (keyed sandbox NUL session), the
@@ -444,6 +446,12 @@ public actor HostCore {
         i.trial = m.config.trial
         i.trialFolder = m.config.trialFolder
         i.extraKeys = m.config.extraKeys
+        // 617 (RP-1): whether something serves each port — read in the background, never on this call's path.
+        if phase == .running, !readOnly, !wantedPorts(m).isEmpty,
+           portServing[m.name].map({ Date().timeIntervalSince($0.checked) > 15 }) ?? true {
+            let name = m.name
+            Task { await self.refreshServing(name, maxAge: 15) }
+        }
         let ports = portRows(m, running: phase == .running)                // 617 (RP-1)
         i.ports = ports.isEmpty ? nil : ports
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
@@ -1761,6 +1769,7 @@ public actor HostCore {
     // MARK: inspect
 
     private func detail(_ m: Managed) async throws -> SandboxDetail {
+        await refreshServing(m.name, maxAge: 4)       // 617 (RP-1): a look reads whether its web ports are served
         let i = await info(m, sessions: false)
         var sessions: [SessionRow]?
         var live: [SessionInfo]?

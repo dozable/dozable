@@ -69,9 +69,15 @@ public struct PortForwardRow: Codable, Equatable, Sendable {
     public var why: String?
     public var auth: String?
     public var tokenHint: String?
+    /// Whether a program in the sandbox listens on the port (its own localhost) — the forward can be up with nothing
+    /// behind it. nil: not checked (not running, or the guest did not answer). The host checks on a look, at most
+    /// every few seconds (`HostCore.refreshServing`).
+    public var serving: Bool?
+    /// The recipe's command that serves it (`ports@1 serve`), to start in a session — said while nothing serves.
+    public var serveHint: String?
     enum CodingKeys: String, CodingKey {
-        case port, title, path, `protocol`, origin, state, url, moved, why, auth
-        case macPort = "mac_port", tokenHint = "token_hint"
+        case port, title, path, `protocol`, origin, state, url, moved, why, auth, serving
+        case macPort = "mac_port", tokenHint = "token_hint", serveHint = "serve_hint"
     }
     public init(port: Int, title: String, path: String, protocol: String, origin: String, state: String, macPort: Int? = nil,
                 url: String? = nil, moved: Bool? = nil, why: String? = nil, auth: String? = nil, tokenHint: String? = nil) {

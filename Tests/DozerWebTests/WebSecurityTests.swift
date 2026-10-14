@@ -437,6 +437,12 @@ final class WebSecurityTests: XCTestCase {
         XCTAssertNil(rows[1].url, "never a link elsewhere")
         let json = String(decoding: try WebJSON.encoder.encode(WebSandboxRow(info)), as: UTF8.self)
         XCTAssertTrue(json.contains("\"macPort\""), "the page reads camelCase")
+        // Nothing serving behind a forward: said, with the recipe's command (the page disables its Open button).
+        info.ports![0].serving = false
+        info.ports![0].serveHint = "aichat --serve"
+        let idle = try XCTUnwrap(WebSandboxRow(info).ports?.first)
+        XCTAssertEqual(idle.serving, false)
+        XCTAssertEqual(idle.serveHint, "aichat --serve")
     }
 
     func keys(_ o: Any) -> [String] {

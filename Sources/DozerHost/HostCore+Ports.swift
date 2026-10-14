@@ -95,13 +95,45 @@ extension HostCore {
                 row.why = why
             }
             if let mp = row.macPort, mp != p.port { row.moved = true }
+            if running { row.serving = portServing[m.name].map { $0.ports.contains(p.port) } }
+            if w.origin == "recipe", let serve = recipeServe(m), !serve.isEmpty { row.serveHint = serve.joined(separator: " ") }
             return row
         }
+    }
+
+    func recipeServe(_ m: Managed) -> [String]? {
+        m.config.spec.imageSpec.flatMap { ImageChoice.parse($0.name) }?.agent.recipe?.ports?.serve
+    }
+
+    /// Which ports a program in a RUNNING sandbox listens on: the guest's own /proc/net/tcp and tcp6, read by one
+    /// utility exec, at most every `maxAge` seconds per sandbox (a look — the page's sandbox view, `doz ports` — never
+    /// the overview's poll, which only starts a background read at most every 15 s). Only for a sandbox with web ports.
+    func refreshServing(_ name: String, maxAge: TimeInterval) async {
+        guard !readOnly, let m = managed[name], !wantedPorts(m).isEmpty else { return }
+        if let c = portServing[name], Date().timeIntervalSince(c.checked) < maxAge { return }
+        guard await effectivePhase(m) == .running else { portServing[name] = nil; return }
+        portServing[name] = (Date(), portServing[name]?.ports ?? [])      // one read at a time
+        let out = try? await m.sandbox.exec(["cat", "/proc/net/tcp", "/proc/net/tcp6"], timeoutSeconds: 5)
+        if let text = out?.output { portServing[name] = (Date(), Self.listeningPorts(procNetTCP: text)) }
+        else { portServing[name] = nil }
+    }
+
+    /// /proc/net/tcp(6) → the local ports in state LISTEN (0A). Pure.
+    nonisolated static func listeningPorts(procNetTCP text: String) -> Set<Int> {
+        var out = Set<Int>()
+        for line in text.split(separator: "\n") {
+            let f = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard f.count > 3, f[3] == "0A", let colon = f[1].lastIndex(of: ":"),
+                  let port = Int(f[1][f[1].index(after: colon)...], radix: 16) else { continue }
+            out.insert(port)
+        }
+        return out
     }
 
     /// The `ports` operation: list, add (`portAdd`) or remove (`portRemove`).
     func ports(_ r: HostRequest) async throws -> PortsAnswer {
         let m = try get(r.name)
+        await refreshServing(m.name, maxAge: 2)
         var note: String?
         if let add = r.portAdd {
             guard (1...65_535).contains(add.port) else { throw HostError(.invalid, "a port is 1–65535") }

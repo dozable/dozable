@@ -6,7 +6,7 @@ import { act } from '../core/operations-35be36dc22fb7d83.js';
 import { refresh } from '../core/router-d52f73098f0afa66.js';
 import { secretEntryAllowed } from '../core/settings-e508eb68e0b62892.js';
 import { accountCommandsNode, accountForm } from '../components/accounts-cc9a7e9532218c97.js';
-import { card, panel, table } from '../components/blocks-53c969feeec8fe89.js';
+import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { confirmAction } from '../components/dialog-2985b4b2b4527952.js';
 import { moreMenu } from '../components/menus-b1e7a64fdf6f51f5.js';
@@ -19,12 +19,18 @@ export async function viewAccounts() {
   const sourced = (x) => !!x.sourceLabel;
   const custom = (x) => x.provider === 'custom';
   const kindText = (x) => custom(x) ? 'custom key' : x.kind === 'key' && x.provider ? 'key, ' + x.provider : x.kind;
+  // A key added without its check (doz account add --no-verify) has not been checked yet: said so, never the flag.
+  const verificationText = (v) => !v ? null : /^unverified/.test(v) ? 'not checked yet' : v;
+  // Each provider has its own default (Anthropic for Claude Code and pi, OpenAI for Codex, each key provider's for
+  // its tools): the rows' "default" badges, listed together.
+  const providerTitle = (x) => (a.sourceTitles && a.sourceTitles[x.provider]) || (x.kind === 'mac' || x.kind === 'api-key' || x.kind === 'setup-token' ? 'Anthropic' : x.provider || x.kind);
+  const defaults = a.accounts.filter((x) => x.isDefault);
   const rows = a.accounts.map((x) => h('tr', null,
     h('td', null, x.name, x.isDefault ? h('span', { class: 'tag' }, 'default') : null),
     h('td', null, kindText(x), x.plan ? h('div', { class: 'muted' }, x.plan) : null,
       x.hosts && x.hosts.length ? h('div', { class: 'muted' }, 'only to ' + x.hosts.join(', ')) : null),
     h('td', null, x.identity || '—'),
-    h('td', null, h('span', { class: x.state === 'ok' ? 'st-ok' : 'st-warn' }, x.state), x.verification ? h('div', { class: 'muted' }, x.verification) : null,
+    h('td', null, h('span', { class: x.state === 'ok' ? 'st-ok' : 'st-warn' }, x.state), verificationText(x.verification) ? h('div', { class: 'muted', 'data-verification': x.name }, verificationText(x.verification)) : null,
       x.sourceProblem ? h('div', { class: 'muted' }, x.sourceProblem) : null),
     h('td', null, x.expiresAt ? full(x.expiresAt) : '—', x.expiresAt ? h('div', { class: 'muted' }, when(x.expiresAt)) : null),
     h('td', { class: 'mono' }, x.fingerprint || '—',
@@ -52,18 +58,22 @@ export async function viewAccounts() {
   keep.checked = a.keepalive;
   keep.addEventListener('change', () => act({ action: 'account-keepalive', enabled: keep.checked }));
   return h('div', null, h('h1', null, 'Accounts & keys'),
-    h('p', { class: 'sub' }, 'Anthropic credentials the host holds for sandboxes. Never a secret: states, keychain item names and fingerprints only.'),
+    h('p', { class: 'sub' }, 'Every provider’s keys and sign-ins the host holds for sandboxes — Anthropic, OpenAI, Google, xAI, the gateways and your own. Never a secret: states, keychain item names and fingerprints only.'),
     h('div', { class: 'stats' },
-      card('Default account', a.defaultAccount, a.defaultAccount === 'none' ? 'sandboxes that follow it get none' : ''),
-      h('div', { class: 'stat' }, h('div', { class: 'k' }, 'Keep-alive'), h('label', { class: 'v switch-row' }, keep, a.keepalive ? 'on' : 'off'),
+      h('div', { class: 'stat', 'data-defaults': '' }, h('div', { class: 'k' }, 'Defaults'),
+        defaults.length
+          ? h('ul', { class: 'defaults-list' }, ...defaults.map((x) => h('li', null, h('span', { class: 'muted' }, providerTitle(x) + ' '), h('strong', null, x.name))))
+          : h('div', { class: 'v' }, 'none'),
+        h('div', { class: 'n' }, 'a sandbox that follows the default uses its provider’s')),
+      h('div', { class: 'stat' }, h('div', { class: 'k' }, 'Claude Code keep-alive'), h('label', { class: 'v switch-row' }, keep, a.keepalive ? 'on' : 'off'),
         h('div', { class: 'n' }, 'runs the Mac’s own claude -p near expiry while a sandbox uses the login'))),
-    h('div', { class: 'head' }, h('h2', null, 'Accounts'), btn('Set the default to none', () => act({ action: 'account-default', account: 'none' }), { small: true })),
+    h('div', { class: 'head' }, h('h2', null, 'Accounts'), btn('No Anthropic default', () => act({ action: 'account-default', account: 'none' }), { small: true, title: 'Claude Code and pi sandboxes that follow the default get no account' })),
     panel(table(['Account', 'Kind', 'Identity', 'State', 'Expires', 'Fingerprint', 'Used by', ''], rows)),
     h('h2', null, 'Add an account'),
     secretEntryAllowed()
       ? accountForm({ kind: null, onAdded: (r, name) => {
           const row = r.accounts.find((x) => x.name === name);
-          toast('account ' + name + ' added' + (row && row.verification ? ' (' + row.verification + ')' : ''));
+          toast('account ' + name + ' added' + (row && verificationText(row.verification) ? ' (' + verificationText(row.verification) + ')' : ''));
           refresh(false);
         } })
       : h('div', null, accountCommandsNode('setup-token'), accountCommandsNode('api-key')),
