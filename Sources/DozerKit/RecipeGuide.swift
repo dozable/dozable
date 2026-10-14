@@ -163,7 +163,10 @@ extension AgentRecipe.Install {
 extension AgentRecipe {
     func validateExtras(_ bad: (String) -> SandboxError) throws {
         for e in install.extras ?? [] {
-            guard let u = URL(string: e.url), u.scheme == "https", let h = u.host, AgentRecipes.isExactHost(h), e.url.hasSuffix(".tar.gz") || e.url.contains("/tar.gz/"),
+            // Plain characters only: the url, the folder and what it is go into the bake script.
+            guard e.url.range(of: #"^https://[A-Za-z0-9.-]+/[A-Za-z0-9._/{}~+-]+$"#, options: .regularExpression) != nil,
+                  e.what.range(of: #"^[A-Za-z0-9 ._-]+$"#, options: .regularExpression) != nil,
+                  let u = URL(string: e.url), u.scheme == "https", let h = u.host, AgentRecipes.isExactHost(h), e.url.hasSuffix(".tar.gz") || e.url.contains("/tar.gz/"),
                   e.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil,
                   !e.path.hasPrefix("/"), !e.path.split(separator: "/").contains(".."), e.path.range(of: #"^[A-Za-z0-9._/{}-]+$"#, options: .regularExpression) != nil,
                   e.to.hasPrefix("/opt/\(id)/"), !e.to.split(separator: "/").contains(".."), e.to.range(of: #"^[a-z0-9._/-]+$"#, options: .regularExpression) != nil,

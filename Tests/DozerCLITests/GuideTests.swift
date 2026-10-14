@@ -88,6 +88,21 @@ final class GuideTests: XCTestCase {
         bad = r
         bad.install.extras![0].sha256 = "nope"
         XCTAssertThrowsError(try bad.validate())
+        // Nothing a bake script would run: no quote or $( in the url or in what it is.
+        for u in ["https://codeload.github.com/x'$(touch /tmp/p)'.tar.gz", "https://codeload.github.com/$(id).tar.gz", "https://h/x\".tar.gz"] {
+            bad = r
+            bad.install.extras![0].url = u
+            XCTAssertThrowsError(try bad.validate(), u)
+        }
+        for w in ["patterns $(id)", "pat'terns", "pat\"terns", "a`b`"] {
+            bad = r
+            bad.install.extras![0].what = w
+            XCTAssertThrowsError(try bad.validate(), w)
+        }
+        // And the script quotes every recipe string.
+        let step = AgentImages.extraInstall(r, e, try XCTUnwrap(r.pinnedRelease)).argv.last!
+        XCTAssertTrue(step.contains("label='Fabric'\\''s patterns'"), step)
+        XCTAssertFalse(step.contains("\"checksum mismatch for Fabric"), "no recipe string inside double quotes")
     }
 
     func testTheFactsAreDozersAndTheTextReadsBack() throws {

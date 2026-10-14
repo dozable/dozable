@@ -365,18 +365,21 @@ public enum AgentImages {
         let v = release.version.split(separator: "+").first.map(String.init) ?? release.version
         let url = e.url.replacingOccurrences(of: "{version}", with: v), path = e.path.replacingOccurrences(of: "{version}", with: v)
         let depth = path.split(separator: "/").count
+        // Every recipe string is in single quotes (a quote in it closed and escaped): nothing in it is run.
+        let quoted = { (x: String) in "'" + x.replacingOccurrences(of: "'", with: "'\\''") + "'" }
         return BakeStep.script("install \(r.title)'s \(e.what) (\(v), checksum-verified)", """
+            label=\(quoted(r.title + "'s " + e.what))
             cd "$(mktemp -d)"
-            curl -fsSL --retry 3 -o extra.tar.gz '\(url)'
+            curl -fsSL --retry 3 -o extra.tar.gz \(quoted(url))
             got=$(sha256sum extra.tar.gz | cut -d' ' -f1)
-            [ "$got" = '\(e.sha256)' ] || { echo "checksum mismatch for \(r.title)'s \(e.what): $got" >&2; exit 1; }
+            [ "$got" = \(quoted(e.sha256)) ] || { echo "checksum mismatch for $label: $got" >&2; exit 1; }
             rm -rf '\(e.to)'
             mkdir -p '\(e.to)'
-            tar -xzf extra.tar.gz -C '\(e.to)' --strip-components=\(depth) --no-same-owner '\(path)'
+            tar -xzf extra.tar.gz -C '\(e.to)' --strip-components=\(depth) --no-same-owner \(quoted(path))
             rm -f extra.tar.gz
             chown -R root:root '\(e.to)'
             chmod -R a+rX,go-w '\(e.to)'
-            echo "\(e.what): $(find '\(e.to)' -type f | wc -l) files in \(e.to)"
+            echo "$label: $(find '\(e.to)' -type f | wc -l) files in \(e.to)"
             """)
     }
 
