@@ -174,6 +174,59 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    /// 617 (models@1): the setup's provider/gateway and model — strict on the way in, carried to the create action, and
+    /// the accounts a recipe agent can use are the keys of its sources (a gateway's included), never a subscription.
+    func testTheSetupChoosesAProviderOrGatewayAndAModel() async throws {
+        let q = try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"shell-gpt","source":"openrouter","model":"anthropic/claude-sonnet-4.6"}"#.utf8))
+        XCTAssertEqual(q.request.create.modelSource, "openrouter")
+        XCTAssertEqual(q.request.create.model, "anthropic/claude-sonnet-4.6")
+        for bad in [#"{"purpose":"try","agent":"shell-gpt","source":"mars"}"#, #"{"purpose":"try","agent":"shell-gpt","model":"a b"}"#,
+                    #"{"purpose":"try","agent":"shell-gpt","model":"$(rm -rf /)"}"#, #"{"purpose":"try","agent":"shell-gpt","source":3}"#] {
+            XCTAssertThrowsError(try WebPlanQuery.decode(Data(bad.utf8)), bad)
+        }
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-sgpt","image":"shell-gpt","trial":true,"modelSource":"vercel-ai-gateway","model":"openai/gpt-5.4-mini"}"#.utf8))
+        guard case .create(_, let o) = a else { return XCTFail("not create") }
+        XCTAssertEqual(o.modelSource, "vercel-ai-gateway")
+        XCTAssertEqual(o.model, "openai/gpt-5.4-mini")
+        XCTAssertEqual(a.hostOp, .create, "still one HostOp")
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"x","image":"shell-gpt","modelSource":"nope"}"#.utf8)))
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"x","image":"shell-gpt","model":"x;y"}"#.utf8)))
+        // The plan's projection: the source, the model and every offered source with its default model and key kind.
+        var f = AccountsFile()
+        var or1 = AccountRecord(name: "or1", kind: .key, plan: nil)
+        or1.provider = "openrouter"
+        f.accounts.append(or1)
+        let facts = PlanFacts(settings: DozerSettings(text: ""), accounts: f, taken: [], images: [], store: DozerStore(root: FileManager.default.temporaryDirectory))
+        let p = WebPlan(CreatePlanner.plan(q.request, facts: facts))
+        XCTAssertEqual(p.model?.source, "openrouter")
+        XCTAssertEqual(p.model?.model, "anthropic/claude-sonnet-4.6")
+        XCTAssertEqual(p.model?.offered.map(\.id), ["xai", "openai", "google", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(p.model?.offered.first { $0.id == "openai" }?.accountKind, "openai-key")
+        XCTAssertEqual(p.create?.modelSource, "openrouter")
+        XCTAssertEqual(p.account?.name, "or1")
+        // The usable accounts carry their source; a recipe agent's chooser data (New Sandbox) lists its sources.
+        func acct(_ name: String, _ kind: String, provider: String? = nil, isDefault: Bool = false) -> WebAccount {
+            var w = WebAccount(AccountRow(name: name, kind: kind, isDefault: isDefault, usedBy: [], state: "ok"))
+            w.provider = provider
+            return w
+        }
+        let accounts = [acct("mac", "mac", isDefault: true), acct("anthropic", "api-key"), acct("oai", "openai-key"), acct("cg", "chatgpt"),
+                        acct("xai1", "key", provider: "xai"), acct("or1", "key", provider: "openrouter")]
+        let catalog = await WebTryCatalog.build(plan: { r in WebPlan(CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)) },
+                                                secretEntry: true, accounts: accounts)
+        let sg = try XCTUnwrap(catalog.agents.first { $0.id == "shell-gpt" })
+        XCTAssertEqual(sg.usableAccounts.map(\.name), ["oai", "xai1", "or1"], "keys of its sources — never mac, a ChatGPT sign-in or Anthropic")
+        XCTAssertEqual(sg.usableAccounts.map(\.modelSource), ["openai", "xai", "openrouter"])
+        let w = WebAccounts(accounts: accounts, defaultAccount: "mac", keepalive: false, openaiDefault: "oai", providerDefaults: ["xai": "xai1"])
+        XCTAssertEqual(w.sources["shell-gpt"], ["xai", "openai", "google", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(w.agents["shell-gpt"], ["key", "openai-key"])
+        XCTAssertEqual(w.recipeDefaults["shell-gpt"], "xai1", "its default source's default")
+        XCTAssertEqual(w.agents["grok"], ["key"])
+        XCTAssertEqual(w.sources["grok"], ["xai"])
+        XCTAssertNil(w.sources["claude-code"], "the built-in three keep their own table")
+        XCTAssertEqual(w.sourceTitles["vercel-ai-gateway"], "Vercel AI Gateway")
+    }
+
     /// A start's progress for the terminal area: steps in plain words, the one under way, a short tail — raw build output
     /// never becomes the operation's one-line text (the header strip).
     func testAStartsProgressIsStepsInPlainWordsAndATail() {

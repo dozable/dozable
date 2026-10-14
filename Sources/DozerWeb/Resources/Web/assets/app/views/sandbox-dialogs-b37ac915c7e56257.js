@@ -5,7 +5,7 @@ import { AGENT_NAMES } from '../core/agents-66154a04b9c4696c.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { actOrThrow } from '../core/operations-b157c160346b7775.js';
 import { lines, splitArgs } from '../core/util-1195caf40612902f.js';
-import { accountChooser } from '../components/accounts-8b0a3d1147e42f47.js';
+import { accountChooser } from '../components/accounts-ffe79e0aaac06356.js';
 import { dialog } from '../components/dialog-c156b45597794d5a.js';
 import { failureFor, toast } from '../components/notices-0e797679ef46047b.js';
 import { workspaceChooser } from '../components/workspace-chooser-0e2bcb412d5048c8.js';

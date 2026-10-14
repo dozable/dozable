@@ -1017,6 +1017,24 @@ public struct WebPlan: Codable, Equatable, Sendable {
     public struct Image: Codable, Equatable, Sendable { public var name: String; public var title: String?; public var state: String }
     public struct Account: Codable, Equatable, Sendable { public var name: String?; public var kind: String?; public var provider: String?; public var sourceLabel: String? }
     public struct Problem: Codable, Equatable, Sendable { public var code: String; public var text: String; public var fix: String? }
+    /// 617 (models@1): the model source and model, and every source the agent could use instead (its default first).
+    public struct Model: Codable, Equatable, Sendable {
+        public struct Source: Codable, Equatable, Sendable {
+            public var id: String
+            public var title: String
+            public var gateway: Bool
+            public var defaultModel: String
+            /// `key` (with the provider), `api-key` (Anthropic), `openai-key` — what a pasted key is saved as.
+            public var accountKind: String
+            public var keyHint: String?
+        }
+        public var source: String
+        public var title: String
+        public var gateway: Bool
+        public var model: String
+        public var offered: [Source]
+    }
+    public var model: Model?
 
     public var name: String
     public var image: Image
@@ -1037,6 +1055,8 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var isolated: Bool?
         public var account: String?
         public var trial: Bool?
+        public var modelSource: String?
+        public var model: String?
     }
     public var create: Create?
 
@@ -1053,7 +1073,12 @@ public struct WebPlan: Codable, Equatable, Sendable {
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
         create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
-                        account: p.create.account, trial: p.create.trial)
+                        account: p.create.account, trial: p.create.trial, modelSource: p.create.modelSource, model: p.create.model)
+        model = p.model.map { m in
+            Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,
+                  offered: m.offered.map { Model.Source(id: $0.id, title: $0.title, gateway: $0.gateway, defaultModel: $0.defaultModel,
+                                                        accountKind: $0.accountKind, keyHint: $0.keyHint) })
+        }
     }
 }
 
@@ -1109,6 +1134,8 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
             public var kind: String
             public var source: String?
             public var isDefault: Bool
+            /// 617 (models@1): the model source its key is of (`openai`, `openrouter` …), for a recipe agent's choice.
+            public var modelSource: String? = nil
         }
     }
     public struct Coming: Codable, Equatable, Sendable {
@@ -1132,7 +1159,15 @@ public struct WebAccounts: Codable, Equatable, Sendable {
     /// 599i: the OpenAI account Codex sandboxes follow (nil: none).
     public var openaiDefault: String?
 
-    public init(accounts: [WebAccount], defaultAccount: String, keepalive: Bool, openaiDefault: String? = nil) {
+    /// 617 (models@1): each recipe agent's model sources (its default first) — a key account fits it when its source is
+    /// one of these (`api-key` = anthropic, `openai-key` = openai, `key` = its provider) — and the account it follows by
+    /// default (the first source's default, as the host decides); the sources' names.
+    public var sources: [String: [String]] = [:]
+    public var recipeDefaults: [String: String] = [:]
+    public var sourceTitles: [String: String] = [:]
+
+    public init(accounts: [WebAccount], defaultAccount: String, keepalive: Bool, openaiDefault: String? = nil,
+                providerDefaults: [String: String] = [:]) {
         self.accounts = accounts
         self.defaultAccount = defaultAccount
         self.keepalive = keepalive
@@ -1140,6 +1175,15 @@ public struct WebAccounts: Codable, Equatable, Sendable {
         for image in ["claude-code", "pi", "codex"] {
             if let c = AgentImages.credentials(image) { agents[image] = c.flatMap(\.accountKinds) }
         }
+        let kinds = Dictionary(accounts.compactMap { a in AccountKind(rawValue: a.kind).map { (a.name, $0) } }) { a, _ in a }
+        for kind in AgentKind.allCases {
+            guard let r = kind.recipe, !r.isBuiltin, let s = AgentCredentials.sources(r.id), let k = AgentCredentials.kinds(r.id) else { continue }
+            agents[r.id] = k.map(\.rawValue).sorted()
+            sources[r.id] = s
+            recipeDefaults[r.id] = AgentCredentials.defaultAccount(for: r.id, anthropic: defaultAccount, openai: openaiDefault,
+                                                                   providers: providerDefaults, kinds: kinds)
+        }
+        for id in ModelSources.ids { sourceTitles[id] = ModelSources.title(id) }
     }
 }
 

@@ -265,6 +265,8 @@ name: todo-app</pre></details>
   <h2>Try’s setup, and every destructive confirmation: a box to tick</h2>
   <p><b>Try</b> opens a smaller modal over the Quick try (<code>dialog.dlg.try-setup</code>): every prerequisite — the key (the one it uses, a choice when it can use
     several, or the card: paste, a source kept outside, what is not offered), the image, the plan — and the final <b>Start</b>; Cancel or Esc leaves nothing behind.
+    A tool that speaks several APIs gets a <b>Model</b> section first (<code>.try-model</code>): the provider or gateway (providers, then gateways, each with its default model) and the model
+    (empty: that default); the key part then follows that source — its accounts, or a paste saved as its key.
     <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
     sentence says what happens (“Yes, reset demo”), the button disabled until it is ticked and named by the verb, its icon by the verb (trash for Remove and Delete,
     <code>rotate-ccw</code> for Reset, <code>history</code> for Revert) — never a name to type. Removing or resetting a sandbox, deleting or reverting to a restore point,
@@ -277,6 +279,19 @@ name: todo-app</pre></details>
         <div class="qt-sect"><h3>Image</h3><div class="try-prep">Node.js · pi — ready.</div></div>
         <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
+    </form></dialog>
+    <dialog class="dlg try-setup" open><form method="dialog">
+      <div class="dlg-head"><span data-mark="shell-gpt" class="mark"></span><h2 class="h-title">Try ShellGPT</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">A fresh sandbox, try-sgpt: a new empty folder of its own, the network locked to its model, your key never inside.</p>
+        <div class="qt-sect"><h3>Model</h3><div class="try-model">
+          <label class="field"><span>Provider or gateway</span><select><optgroup label="Providers"><option>xAI — grok-4-1-fast</option><option>OpenAI — gpt-5.4-mini</option></optgroup><optgroup label="Gateways — one key, many models"><option selected>OpenRouter — openai/gpt-5.4-mini</option></optgroup></select></label>
+          <label class="field"><span>Model</span><input type="text" placeholder="openai/gpt-5.4-mini" value="anthropic/claude-sonnet-4.6"></label></div>
+          <p class="muted">A gateway names a model creator/name (anthropic/claude-sonnet-4.6). Empty: openai/gpt-5.4-mini. Its key only ever goes to OpenRouter; the sandbox sees a placeholder.</p></div>
+        <div class="qt-sect"><h3>Key</h3><div class="try-need"><h4>An OpenRouter key</h4>
+          <div class="try-option"><div><strong>Paste an OpenRouter key</strong><div class="muted">Kept in this Mac’s keychain as an account; the sandbox only ever sees a placeholder.</div></div>
+            <div class="try-paste"><input type="password" placeholder="paste the key (sk-or-…)"><button class="btn sm" type="button"><i data-i="key-round"></i>Save the key</button></div></div></div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>anthropic/claude-sonnet-4.6 through OpenRouter</dd><dt>Network</dt><dd>Locked — only its model providers</dd></dl></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why">Add a key first</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>

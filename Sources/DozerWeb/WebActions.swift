@@ -283,7 +283,8 @@ public enum WebAction: Equatable, Sendable {
     /// Fields each action may carry (besides `action`).
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
-            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites", "trial"],
+            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites", "trial",
+                       "modelSource", "model"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
             "point-revert": ["sandbox", "point", "confirm"],
@@ -342,6 +343,13 @@ public enum WebAction: Equatable, Sendable {
             o.rebuild = try f.flag("rebuild")
             // 617: a try (the Quick try page) — marked, so its exit offers sleep/delete and doz ls says so.
             o.trial = try f.flag("trial")
+            // 617 (models@1): the model source (a provider or gateway of this build) and the model — the host checks
+            // that the agent is offered it and picks that source's key.
+            o.modelSource = try f.oneOf("modelSource", ModelSources.ids)
+            o.model = try f.string("model", max: 128).map { m in
+                guard ModelSelection.isModelID(m) else { throw Invalid("model: a model id (letters, digits and . _ : / @ + -)") }
+                return m
+            }
             // 597 (P4): the form's switches — exactly these permissions; its sites on top.
             if d["permissions"] != nil, !(d["permissions"] is NSNull) {
                 let p = try f.permissionWords("permissions")

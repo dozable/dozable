@@ -5,7 +5,7 @@ import { AGENT_NAMES } from '../core/agents-66154a04b9c4696c.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { actOrThrow } from '../core/operations-b157c160346b7775.js';
 import { setting } from '../core/settings-3ae9fe68f586ce42.js';
-import { accountChooser } from './accounts-8b0a3d1147e42f47.js';
+import { accountChooser } from './accounts-ffe79e0aaac06356.js';
 import { callout } from './callout-e7d97c36b36fe970.js';
 import { dialog } from './dialog-c156b45597794d5a.js';
 import { imagePicker, pickerNameHint } from './image-picker-d1b3f55324be0bdc.js';

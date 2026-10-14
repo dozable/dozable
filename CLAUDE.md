@@ -1659,6 +1659,21 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   check is the provider's (`KeyProvider.check`; xAI and Google answer a bad key with 400). The proxy refuses in each
   provider's error shape. Test seam: `DOZ_TEST_PROVIDER_UPSTREAM` + `DOZ_TEST_PROVIDER_CA` (the proxy's leg and the
   key check go to a fake, trusting only its CA; `probes/617-*/stageA/` is the VM proof).
+- **Model sources** (`ModelSources.swift`; RECIPE-FORMAT.md "Model sources"; owner: "add OpenAI and Anthropic AND gateway
+  support"): providers.json lists each provider's endpoints by API shape (openai-chat, openai-responses,
+  anthropic-messages, gemini) with a default model; OpenRouter and Vercel AI Gateway are key providers (`gateway: true`,
+  endpoints from gateways.json). A recipe may declare `models@1` (the shapes it speaks with `${{ dozer.base_url }}` /
+  `${{ dozer.model }}` env and `key_env`, native sources, except, per-source models); it is then offered every source
+  serving one (`AgentRecipe.offeredSources`). The sandbox's ACCOUNT decides the source (`AgentCredentials.source(of:)`:
+  `api-key` = Anthropic, `openai-key` = OpenAI, `key` = its provider — never a subscription); `applyMainAccount` binds
+  that source's key (its hosts only), `HostCore.recipeEnvironment` sets the selection's env at every session open and
+  exec (never over the caller's; nothing baked), `SandboxConfig.models` keeps a chosen model per source. `--provider` /
+  `--gateway` / `--model` (ChoiceOptions → `CreateOptions.modelSource/model`; `AgentCredentials.account(forSource:)` picks
+  that source's key), the plan's `model` (+ every offered source), the Quick try setup's Model section, New Sandbox's
+  chooser (`WebAccounts.sources`). **A recipe agent's sandbox decrypts every model source's hosts**
+  (`EgressProxy.leakGuardHosts`) so a placeholder sent to another source is refused, never tunnelled unseen. Codex keeps
+  its own flow (`AgentCredentials.codexFlow` — never "provider == openai"). `make recipe-check` runs a models@1 recipe
+  once per offered source (`RECIPE_SELECTIONS`), `ModelSourcesTests`, `probes/617-*/recipes/models/browser-try-models.mjs`.
 - **Permissions**: a recipe agent's own `model:<provider>` (Grok's path-conditioned to the API paths it uses — the VM
   proof found `/v1/responses` against the real base) and a hidden `update:<id>` (only beside "Update itself"). D5: a
   sandbox with a recipe agent's own model has NO Anthropic `model` (`normalized` drops it; its Locked is its own model

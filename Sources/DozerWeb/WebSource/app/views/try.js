@@ -228,15 +228,72 @@ function detailNodes() {
 // default again and still found none. The setup now plans WITH the account it uses — the one just saved, one chosen,
 // or (the default being unusable) the first usable one — as `doz try` does ("this try uses it").
 
-const SETUP = { d: null, a: null, plan: null, account: null, busy: false, error: '' };
+// 617 (owner: "add OpenAI and Anthropic AND gateway support"): an agent whose recipe speaks several APIs (models@1) gets
+// a Model section — the provider or gateway (its key only ever goes there) and the model (empty: that source's
+// default) — and the key part follows the source chosen: its accounts, or a paste saved as that source's key.
+const SETUP = { d: null, a: null, plan: null, account: null, source: null, model: '', busy: false, error: '' };
 
-/// The accounts the agent can use, the provider's default first.
-function usable(a) { return [...(a.usableAccounts || [])].sort((x, y) => (y.isDefault ? 1 : 0) - (x.isDefault ? 1 : 0)); }
+/// The accounts the agent can use — of the model source chosen, when it has a choice — the provider's default first.
+function usable(a) {
+  const src = SETUP.plan && SETUP.plan.model ? SETUP.plan.model.source : null;
+  return [...(a.usableAccounts || [])].filter((x) => !src || !x.modelSource || x.modelSource === src)
+    .sort((x, y) => (y.isDefault ? 1 : 0) - (x.isDefault ? 1 : 0));
+}
 
 async function replan(account) {
   const a = SETUP.a;
   SETUP.account = account || null;
-  SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.id, ...(account ? { account } : {}) } });
+  SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.id, ...(account ? { account } : {}),
+    ...(SETUP.source ? { source: SETUP.source } : {}), ...(SETUP.model ? { model: SETUP.model } : {}) } });
+}
+
+/// The source chosen (the plan's): its entry of the offered list.
+function chosenSource(plan) {
+  const m = plan && plan.model;
+  return m ? (m.offered || []).find((x) => x.id === m.source) || null : null;
+}
+
+const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
+
+/// 617 (models@1): the provider or gateway it talks to, and the model — only for an agent that can use more than one.
+function modelNodes(plan) {
+  const m = plan.model;
+  if (!m || !m.offered || m.offered.length < 2) return [];
+  const option = (x) => h('option', { value: x.id }, x.title + ' — ' + x.defaultModel);
+  const providers = m.offered.filter((x) => !x.gateway), gateways = m.offered.filter((x) => x.gateway);
+  const sel = h('select', { 'aria-label': 'Provider or gateway', 'data-try-source': '' },
+    providers.length ? h('optgroup', { label: 'Providers' }, ...providers.map(option)) : null,
+    gateways.length ? h('optgroup', { label: 'Gateways — one key, many models' }, ...gateways.map(option)) : null);
+  sel.value = m.source;
+  sel.addEventListener('change', async () => {
+    SETUP.source = sel.value; SETUP.model = ''; SETUP.error = '';
+    // A key of that source: its default (or only) one, else none — then the key part asks for one.
+    const keys = (SETUP.a.usableAccounts || []).filter((x) => x.modelSource === sel.value);
+    const pick = keys.find((x) => x.isDefault) || keys[0];
+    await replan(pick ? pick.name : null).catch((e) => { SETUP.error = e.message || String(e); });
+    paintSetup();
+  });
+  const cur = chosenSource(plan);
+  const model = h('input', { type: 'text', spellcheck: 'false', autocomplete: 'off', 'data-try-model': '', 'aria-label': 'Model',
+    placeholder: cur ? cur.defaultModel : '' });
+  model.value = SETUP.model || '';
+  const apply = async () => {
+    const v = model.value.trim();
+    if (v === (SETUP.model || '')) return;
+    if (v && !MODEL_ID.test(v)) { SETUP.error = 'That is not a model id — letters, digits and . _ : / @ + -'; paintSetup(); return; }
+    SETUP.model = v; SETUP.error = '';
+    await replan(SETUP.account).catch((e) => { SETUP.error = e.message || String(e); });
+    paintSetup();
+  };
+  model.addEventListener('change', apply);
+  model.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); apply(); } });
+  const note = m.gateway
+    ? 'A gateway names a model creator/name (anthropic/claude-sonnet-4.6). Empty: ' + (cur ? cur.defaultModel : 'its default') + '.'
+    : 'Empty: ' + (cur ? cur.defaultModel : 'its default') + '.';
+  return [h('div', { class: 'try-model', 'data-try-models': '' },
+    h('label', { class: 'field' }, h('span', null, 'Provider or gateway'), sel),
+    h('label', { class: 'field' }, h('span', null, 'Model'), model)),
+    h('p', { class: 'muted' }, note + ' Its key only ever goes to ' + m.title + '; the sandbox sees a placeholder.')];
 }
 
 function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 'key'); }
@@ -244,7 +301,7 @@ function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 
 async function openSetup(a) {
   if (SETUP.d && SETUP.d.open) return;
   if (SETUP.d) { SETUP.d.remove(); SETUP.d = null; }      // closed, its (asynchronous) close event not yet run
-  SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.busy = false; SETUP.error = '';
+  SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.source = null; SETUP.model = ''; SETUP.busy = false; SETUP.error = '';
   const d = h('dialog', { class: 'dlg try-setup', 'aria-labelledby': 'try-setup-title', 'data-try-setup': a.id });
   d.addEventListener('close', () => { d.remove(); if (SETUP.d === d) SETUP.d = null; });
   SETUP.d = d;
@@ -270,6 +327,7 @@ function paintSetup() {
     h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + a.title), close),
     h('div', { class: 'dlg-body' },
       h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, the network locked to its model, your key never inside.'),
+      ...(plan.model && plan.model.offered && plan.model.offered.length > 1 ? [sect('Model', ...modelNodes(plan))] : []),
       sect('Key', ...keyNodes(a, plan, missing)),
       sect('Image', h('div', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes({ ...a, plan }))),
       sect('The plan', planFacts(a, plan)),
@@ -298,6 +356,9 @@ function keyNodes(a, plan, missing) {
     }
     return nodes;
   }
+  // 617 (models@1): another provider or a gateway than the agent's own — a key of THAT source.
+  const src = chosenSource(plan);
+  if (src && src.id !== a.provider) return sourceKeyNodes(src, missing);
   const c = a.card;
   if (!c) return [callout('bad', { compact: true, body: missing.text + (missing.fix ? ' — ' + missing.fix : '') })];
   nodes.push(h('h4', null, c.title));
@@ -326,6 +387,26 @@ function keyNodes(a, plan, missing) {
   return [h('div', { class: 'try-need', 'data-try-need': '' }, ...nodes)];
 }
 
+/// 617 (models@1): no key of the chosen source yet — paste one (saved as that source's account), or the command.
+function sourceKeyNodes(src, missing) {
+  const a1 = /^[AEIOUx]/.test(src.title) ? 'An ' : 'A ';           // an OpenAI, an xAI
+  const nodes = [h('h4', null, a1 + src.title + ' key')];
+  if (secretEntryAllowed()) {
+    const field = h('input', { type: 'password', autocomplete: 'off', spellcheck: 'false', 'data-try-key': '',
+      placeholder: src.keyHint ? 'paste the key (' + src.keyHint + '…)' : 'paste the key', 'aria-label': 'Paste ' + a1.toLowerCase() + src.title + ' key' });
+    const save = btn('Save the key', () => saveKey(field, save), { small: true, icon: 'key-round' });
+    field.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); saveKey(field, save); } });
+    nodes.push(h('div', { class: 'try-option' }, h('div', null, h('strong', null, 'Paste ' + a1.toLowerCase() + src.title + ' key'),
+      h('div', { class: 'muted' }, 'Kept in this Mac\'s keychain as an account; the sandbox only ever sees a placeholder.')),
+    h('div', { class: 'try-paste' }, field, save)));
+  } else {
+    nodes.push(h('div', { class: 'try-option' }, h('div', { class: 'muted' }, 'Pasting keys here is off (ui.allow_secret_entry) — in a terminal on this Mac:'),
+      h('code', null, missing.fix || 'doz account add NAME --provider ' + src.id)));
+  }
+  nodes.push(h('div', null, btn('Check again', () => recheck(), { small: true, quiet: true, icon: 'refresh-cw' })));
+  return [h('div', { class: 'try-need', 'data-try-need': '' }, ...nodes)];
+}
+
 /// A pasted key: saved as an account of the provider (a free name), then THIS try plans with it.
 async function saveKey(field, button) {
   const a = SETUP.a;
@@ -335,14 +416,16 @@ async function saveKey(field, button) {
   button.disabled = true;
   SETUP.error = '';
   try {
-    const p = a.provider;
-    const kind = p === 'anthropic' ? 'api-key' : p === 'openai' ? 'openai-key' : 'key';
+    // 617 (models@1): the chosen source's key when the agent can use several (its kind: api-key, openai-key or key).
+    const src = chosenSource(SETUP.plan);
+    const p = src ? src.id : a.provider;
+    const kind = src ? src.accountKind : p === 'anthropic' ? 'api-key' : p === 'openai' ? 'openai-key' : 'key';
     const taken = new Set(((await api('accounts')).accounts || []).map((x) => x.name));
     const base = p || a.id;
     let name = base;
     for (let n = 2; taken.has(name); n++) name = base + '-' + n;
     await api('accounts', { method: 'POST', json: { name, kind, secret, ...(kind === 'key' ? { provider: p } : {}) } });
-    toast('Key saved — ' + name + ' (' + (a.providerTitle || p) + ')');
+    toast('Key saved — ' + name + ' (' + (src ? src.title : a.providerTitle || p) + ')');
     await replan(name);
     refreshCatalog();
   } catch (e) { SETUP.error = e.message || String(e); }
@@ -357,9 +440,14 @@ async function recheck() {
     state.tr.catalog = catalog;
     const a = catalog.agents.find((x) => x.id === SETUP.a.id) || SETUP.a;
     SETUP.a = a;
-    SETUP.plan = a.plan;
-    const u = usable(a);
-    if (keyProblem(a.plan) && u.length) await replan(u[0].name);
+    if (SETUP.source || SETUP.model) {
+      // A source or model chosen: plan with it again (a key added in a terminal is that source's default now).
+      await replan(null);
+    } else {
+      SETUP.plan = a.plan;
+      const u = usable(a);
+      if (keyProblem(a.plan) && u.length) await replan(u[0].name);
+    }
     paint({});
   } catch (e) { SETUP.error = e.message || String(e); }
   paintSetup();
@@ -375,7 +463,9 @@ function planFacts(a, p) {
   return h('dl', { class: 'qt-plan try-facts' },
     ...fact('Name', p.name),
     ...fact('Base', a.base || '—'),
-    ...fact('Network', 'Locked — only its model (' + (lines('model')[0] || 'its model') + ')'),
+    // 617 (models@1): the model and where its key goes; the network line then names no single host.
+    ...(p.model ? fact('Model', p.model.model + ' through ' + p.model.title) : []),
+    ...fact('Network', p.model ? 'Locked — only its model providers' : 'Locked — only its model (' + (lines('model')[0] || 'its model') + ')'),
     ...fact('Folder', lines('folder')[0] || '—'),
     ...fact('Your Mac', lines('bridge').join(' · ') || '—'));
 }
@@ -391,7 +481,8 @@ async function tryCreate(button) {
   try {
     const op = await actOrThrow({ action: 'create', sandbox: plan.name, image: c.image, trial: true,
       ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
-      ...(c.account ? { account: c.account } : {}) });
+      ...(c.account ? { account: c.account } : {}),
+      ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}) });
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') { SETUP.busy = false; button.disabled = false; return; }
     toast('Made ' + plan.name + ' — a try');

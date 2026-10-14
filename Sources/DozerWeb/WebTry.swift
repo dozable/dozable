@@ -20,13 +20,16 @@ public struct WebPlanQuery: Equatable, Sendable {
     public var isolated = false
     /// 617: the account the try uses (the Quick try's setup: a key just saved, or one chosen) — nil: the default.
     public var account: String?
+    /// 617 (models@1): the model source (a provider or gateway) and the model the setup chose — nil: the defaults.
+    public var source: String?
+    public var model: String?
 
     public static func decode(_ body: Data) throws -> WebPlanQuery {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account"]) else {
-            throw WebAction.Invalid("only purpose, name, agent, base, isolated and account")
+        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account", "source", "model"]) else {
+            throw WebAction.Invalid("only purpose, name, agent, base, isolated, account, source and model")
         }
         var q = WebPlanQuery()
         if let v = d["purpose"], !(v is NSNull) {
@@ -57,6 +60,14 @@ public struct WebPlanQuery: Equatable, Sendable {
             }
             q.account = s
         }
+        if let v = d["source"], !(v is NSNull) {
+            guard let s = v as? String, ModelSources.ids.contains(s) else { throw WebAction.Invalid("source: a provider or gateway") }
+            q.source = s
+        }
+        if let v = d["model"], !(v is NSNull) {
+            guard let s = v as? String, ModelSelection.isModelID(s) else { throw WebAction.Invalid("model: a model id (letters, digits and . _ : / @ + -)") }
+            q.model = s
+        }
         if q.purpose == "try", q.agent == nil || q.agent == "none" { throw WebAction.Invalid("agent: a try is of an agent") }
         return q
     }
@@ -71,6 +82,8 @@ public struct WebPlanQuery: Equatable, Sendable {
         }
         if isolated { o.isolated = true }
         if let account { o.account = account }
+        o.modelSource = source
+        o.model = model
         return PlanRequest(purpose: purpose, name: name, create: o)
     }
 }
@@ -110,7 +123,8 @@ extension WebTryCatalog {
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).
             a.usableAccounts = accounts.filter { w in
                 AccountKind(rawValue: w.kind).map { AgentCredentials.accepts(p.create?.image ?? r.id, $0, provider: w.provider) } ?? false
-            }.map { Agent.Usable(name: $0.name, kind: $0.kind, source: $0.sourceLabel, isDefault: $0.isDefault) }
+            }.map { w in Agent.Usable(name: w.name, kind: w.kind, source: w.sourceLabel, isDefault: w.isDefault,
+                                      modelSource: AccountKind(rawValue: w.kind).flatMap { AgentCredentials.source(of: $0, provider: w.provider) }) }
             agents.append(a)
         }
         // 617: a superseded or retired agent comes after the current ones (still selectable).

@@ -67,6 +67,20 @@ doz create my-app --image claude-code --account work
 A new sandbox follows the store's default account — `mac` out of the box. Sign in to Claude Code on
 your Mac once, and every sandbox can use your subscription with nothing to paste.
 
+Keys of the other providers and of the model gateways are accounts too, each with its provider:
+
+```sh
+doz account add xai --provider xai                # xAI (Grok Build, and the tools that speak xAI)
+doz account add google --provider google          # the Gemini API (Gemini CLI, Antigravity CLI, Fabric …)
+doz account add or --provider openrouter          # OpenRouter: one key, many models (creator/name)
+doz account add vg --provider vercel-ai-gateway   # Vercel AI Gateway: the same idea
+```
+
+Each provider has its own default (`doz account default or` makes `or` OpenRouter's). An agent or tool that can use
+several (the AI tools — see [Other AI tools](28-ai-tools.md)) talks to the provider or gateway of the account it is
+given: `doz try TOOL --gateway openrouter` picks OpenRouter's default key, `--account NAME` a given one. The key goes
+only to that provider's or gateway's own API — a placeholder sent anywhere else is refused.
+
 ## Accounts — in the dashboard
 
 **Accounts & keys** lists your accounts with their state and expiry: **Add account** (a masked field
@@ -125,7 +139,7 @@ A key typed or piped in lasts while the host runs; after the host stops, set it 
 
 ## Keys from 1Password, AWS or a command
 
-An API-key account (`--api-key`, `--openai-key`, `--provider xai|google`, `--custom`) can keep its key
+An API-key account (`--api-key`, `--openai-key`, `--provider xai|google|openrouter|vercel-ai-gateway`, `--custom`) can keep its key
 where you already keep it. Dozer stores only **where** it is — never the key, not even in the keychain —
 and the host reads it on your Mac when a sandbox needs it:
 
