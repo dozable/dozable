@@ -406,6 +406,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
       "lettermark": { "text": "MK", "frame": "square" }
+    },
+    {
+      "id": "omp", "kind": "product", "name": "oh-my-pi",
+      "variants": { "mono": "omp.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/can1357/oh-my-pi",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "OM", "frame": "octagon" }
     }
   ]
 }

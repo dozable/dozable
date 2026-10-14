@@ -38,6 +38,7 @@ perm model:crush locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:mimo-code locked=false hosts=api.x.ai[/v1/responses,/v1/chat/completions]
 perm model:codewhale locked=false hosts=api.x.ai[/v1/chat/completions]
 perm model:maki locked=false hosts=api.x.ai[/v1/models,/v1/chat/completions]
+perm model:omp locked=false hosts=api.x.ai[/v1/models,/v1/responses,/v1/chat/completions]
 perm sign-in locked=false hosts=console.anthropic.com claude.ai platform.claude.com
 perm update locked=false hosts=downloads.claude.ai pi.dev registry.npmjs.org[/@anthropic-ai/claude-code,/@anthropic-ai%2fclaude-code,/@anthropic-ai%2Fclaude-code,/@earendil-works/pi-coding-agent,/@earendil-works%2fpi-coding-agent,/@earendil-works%2Fpi-coding-agent]
 perm install:system locked=false hosts=deb.debian.org security.debian.org *.ubuntu.com dl-cdn.alpinelinux.org
@@ -108,6 +109,7 @@ agentPermissions crush ["model:crush", "vendor:crush"]
 agentPermissions mimo-code ["model:mimo-code"]
 agentPermissions codewhale ["model:codewhale"]
 agentPermissions maki ["model:maki", "vendor:maki"]
+agentPermissions omp ["model:omp"]
 agentPermissions nil []
 preset locked base=nil model name=locked
 preset agent base=nil model,update,install:system,github,error-reports name=agent

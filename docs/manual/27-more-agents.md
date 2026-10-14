@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -29,6 +29,7 @@ doz try crush            # Crush (Charmbracelet), on an xAI key
 doz try mimo-code        # MiMo Code (Xiaomi, alias mimo), on an xAI key
 doz try codewhale        # CodeWhale (formerly DeepSeek TUI), on an xAI key
 doz try maki             # Maki, on an xAI key
+doz try omp              # oh-my-pi (a pi derivative), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -378,6 +379,19 @@ A Rust terminal agent with Lua plugins (`doz try maki`), on an **xAI API key** (
 - **May reach:** xAI's API, and GitHub's API for one read: its latest release, asked when its TUI starts. It also
   fetches the models.dev catalogue then; Dozer keeps that out quietly, and it does without it.
 - **Use:** `maki` (a session; with approvals off, `--yolo`), or `maki -p -m xai/grok-build-0.1 "…"` for one task.
+
+## oh-my-pi
+
+A batteries-included derivative of pi (`doz try omp`), on an **xAI API key** (its built-in xAI provider, model
+`xai/grok-build-0.1`).
+
+- **Installed** from its GitHub release (the linux-arm64 build), checked against the SHA-512 Dozer recorded. Debian
+  and Node bases (not Alpine yet).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), read each run.
+- **May reach:** xAI's API only. When it starts it checks for a newer release and asks several model gateways for
+  their public model lists (Kilo, Venice, ZenMux, Command Code, Charm Hyper, Alibaba Model Studio, a model
+  catalogue); no setting turns that off, so Dozer keeps those requests out quietly, and it does without them.
+- **Use:** `omp` (a session), or `omp -p --model xai/grok-build-0.1 "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 
