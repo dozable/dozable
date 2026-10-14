@@ -1,7 +1,7 @@
 // components/accounts — Accounts (594): adding one from a key or a token, choosing one for an agent, a sandbox's own key.
 import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { h } from '../dom/h-d909ae8eb40113fe.js';
-import { AGENT_NAMES, agentKey, isOpenAIAgent, KIND_LABELS } from '../core/agents-66154a04b9c4696c.js';
+import { AGENT_NAMES, agentKey, isOpenAIAgent, KIND_LABELS } from '../core/agents-b0c34d5ef450e352.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { actOrThrow } from '../core/operations-b157c160346b7775.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-3ae9fe68f586ce42.js';

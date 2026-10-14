@@ -282,8 +282,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "personal-agent"
+        ],
         "default_base" : "debian",
         "icon" : "openclaw",
+        "kind" : "ai-tool",
         "limits" : [
           {
             "musl" : true,

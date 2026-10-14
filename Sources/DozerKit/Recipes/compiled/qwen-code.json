@@ -222,8 +222,12 @@
         "aliases" : [
           "qwen"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "qwen-code",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

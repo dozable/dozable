@@ -215,8 +215,13 @@
           "interpreter",
           "openinterpreter"
         ],
+        "categories" : [
+          "coding-agent",
+          "personal-agent"
+        ],
         "default_base" : "debian",
         "icon" : "open-interpreter",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

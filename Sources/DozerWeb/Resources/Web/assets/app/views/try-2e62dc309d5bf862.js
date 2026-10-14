@@ -25,21 +25,17 @@ import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { startWithBootView } from '../components/lifecycle-0540d1744b9a654c.js';
 import { renderModal, wizardCloseRequest } from '../components/modal-c994024a746823eb.js';
 import { renderNavSandboxes } from '../components/nav-4c4539148a8a27c0.js';
-import { prefetchSandbox } from './sandbox-9a036816a0dc8d79.js';
+import { prefetchSandbox } from './sandbox-aced11cb16f9b17f.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
 import { planCommand, reachList } from '../components/plan-view-d77c61dcd0ee6e3d.js';
 import { prepCard } from '../components/prep-card-be35217ab46f1958.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const VIEW_KEY = 'doz.tryView';
-/// The pills, in order: [id, label, the test].
-const PILLS = [
-  ['ready', 'Ready', (a) => !!a.ready],
-  ['open', 'Open source', (a) => !!a.openSource],
-  ['current', 'Current', (a) => a.current !== false],
-  ['headless', 'Headless', (a) => !!a.headless],
-  ['gateway', 'Through a gateway', (a) => !!a.gateway],
-];
+/// 617 (owner: "split them, also use tags to classify them"): the list is in two sections — coding agents and AI tools
+/// (a segmented control; `tr.kind`) — and the filter pills are the declared CATEGORIES of that section (any of them:
+/// OR), after Ready (its key is here). The capability tags stay searchable (`tag:headless`).
+const READY = ['ready', 'Ready', (a) => !!a.ready];
 
 /// "4 days" → "4 days ago"; "today" stays.
 const ago = (age) => age === 'today' ? 'today' : age + ' ago';
@@ -52,9 +48,11 @@ export async function viewTry() {
   const old = state.tr;
   if (!old || old.asked !== want) {
     const catalog = await api('try');
-    const first = catalog.agents.find((a) => a.id === want) || catalog.agents.find((a) => a.ready) || catalog.agents[0] || null;
-    // The search, the pills, the view and the pane survive a re-read (a key saved, Check again).
-    state.tr = { asked: want, catalog, agent: first ? first.id : null, error: '', creating: false,
+    const named = catalog.agents.find((a) => a.id === want) || catalog.coming.find((a) => a.id === want);
+    const kind = named && named.catalogKind ? named.catalogKind : old ? old.kind : 'coding-agent';
+    const first = named || catalog.agents.find((a) => a.catalogKind === kind && a.ready) || catalog.agents.find((a) => a.catalogKind === kind) || catalog.agents[0] || null;
+    // The search, the section, the pills, the view and the pane survive a re-read (a key saved, Check again).
+    state.tr = { asked: want, catalog, agent: first ? first.id : null, error: '', creating: false, kind,
       q: old ? old.q : '', f: old ? old.f : new Set(), view: old ? old.view : savedView(), detail: old ? old.detail : !!want };
   }
   return tryNode();
@@ -63,18 +61,53 @@ export async function viewTry() {
 /// Agents (and the coming ones) as the search sees them.
 function entries() {
   const c = state.tr.catalog;
-  return [...c.agents.map((a) => ({ ...a, kind: 'agent' })), ...c.coming.map((x) => ({ ...x, kind: 'coming', tags: [], current: true }))];
+  // 617: the declared kind and categories search as tags too (tag:terminal-tool).
+  const words = (x) => [...(x.categories || []), ...(x.catalogKind ? [x.catalogKind] : [])];
+  return [...c.agents.map((a) => ({ ...a, kind: 'agent', tags: [...(a.tags || []), ...words(a)] })),
+    ...c.coming.map((x) => ({ ...x, kind: 'coming', tags: words(x), current: true }))];
 }
 
-/// The results: the search's matches that pass every pill — best match first, superseded and coming last.
-function hits() {
+/// In the section shown (an entry with no kind shows in both).
+function inKind(e, kind = state.tr.kind) { return !e.catalogKind || e.catalogKind === kind; }
+
+/// The category pills of a section: those some entry of it has, in the vocabulary's order (not the section's own name).
+function categoryPills(kind = state.tr.kind) {
+  const have = new Set(entries().filter((e) => inKind(e, kind)).flatMap((e) => e.categories || []));
+  return (state.tr.catalog.categories || []).filter((c) => have.has(c.id) && c.id !== kind);
+}
+
+/// Whether an entry passes the pills: Ready (an agent whose key is here), and ANY of the categories pressed.
+function passes(e) {
   const tr = state.tr;
-  const pills = PILLS.filter(([id]) => tr.f.has(id));
-  const all = entries();
-  return all.map((e, i) => ({ e, i, r: rank(e, tr.q) }))
-    .filter(({ e, r }) => r > 0 && (!pills.length || (e.kind === 'agent' && pills.every(([, , t]) => t(e)))))
+  if (tr.f.has('ready') && !(e.kind === 'agent' && READY[2](e))) return false;
+  const cats = [...tr.f].filter((x) => x !== 'ready');
+  return !cats.length || cats.some((c) => (e.categories || []).includes(c));
+}
+
+/// The results: the section's search matches that pass the pills — best match first, superseded and coming last.
+function hits(kind = state.tr.kind) {
+  const tr = state.tr;
+  return entries().map((e, i) => ({ e, i, r: rank(e, tr.q) }))
+    .filter(({ e, r }) => r > 0 && inKind(e, kind) && (kind !== tr.kind || passes(e)))
     .sort((x, y) => (x.e.kind === 'coming') - (y.e.kind === 'coming') || (x.e.current === false) - (y.e.current === false) || y.r - x.r || x.i - y.i)
     .map(({ e }) => e);
+}
+
+/// The other section's title and how many of its entries the search matches (a hint when the search is in use).
+function otherKind() {
+  const tr = state.tr;
+  const k = (tr.catalog.kinds || []).find((x) => x.id !== tr.kind);
+  return k ? { kind: k, n: tr.q.trim() ? hits(k.id).length : 0 } : null;
+}
+
+function switchKind(kind) {
+  const tr = state.tr;
+  if (tr.kind === kind) return;
+  tr.kind = kind;
+  tr.f = new Set([...tr.f].filter((x) => x === 'ready'));          // a category of the other section means nothing here
+  const list = hits();
+  if (list.length && !list.some((a) => a.id === tr.agent)) tr.agent = list[0].id;
+  paint({});
 }
 
 function current() {
@@ -106,6 +139,8 @@ function prepNodes(a) {
 function select(id, opts = {}) {
   const tr = state.tr;
   if (tr.agent !== id) { tr.error = ''; }
+  const e = entries().find((x) => x.id === id);
+  if (e && e.catalogKind && e.catalogKind !== tr.kind) { tr.kind = e.catalogKind; tr.f = new Set([...tr.f].filter((x) => x === 'ready')); }
   tr.agent = id;
   tr.asked = id; state.tryAgent = id;
   history.replaceState(null, '', '#/try/' + id);
@@ -132,7 +167,9 @@ function resultsNodes() {
     const s = suggest(tr.q, entries());
     return [h('div', { class: 'qt-empty', 'data-try-empty': '' },
       icon('search'),
-      h('p', null, 'No agent matches' + (tr.q.trim() ? ' “' + tr.q.trim() + '”' : '') + (tr.f.size ? ' with these filters' : '') + '.'),
+      h('p', null, 'Nothing here matches' + (tr.q.trim() ? ' “' + tr.q.trim() + '”' : '') + (tr.f.size ? ' with these filters' : '') + '.'),
+      (() => { const o = otherKind(); return o && o.n ? h('p', null, h('button', { type: 'button', class: 'linkish', 'data-try-other-kind': o.kind.id,
+        on: { click: () => switchKind(o.kind.id) } }, o.n + ' in ' + o.kind.title)) : null; })(),
       s ? h('p', null, 'Did you mean ', h('button', { type: 'button', class: 'linkish', on: { click: () => { tr.q = s.id; tr.f.clear(); paint({ keepSearch: false }); } } }, s.title), '?') : null,
       btn('Clear search and filters', () => { tr.q = ''; tr.f.clear(); paint({ keepSearch: false }); }, { small: true, icon: 'x' }),
       h('p', { class: 'muted' }, 'Missing an agent? ', h('code', null, 'doz search NAME'), ' says whether it is coming.'))];
@@ -142,9 +179,32 @@ function resultsNodes() {
 }
 
 function countText() {
-  const n = hits().length, all = entries().filter((e) => e.kind === 'agent').length;
-  const agents = hits().filter((e) => e.kind === 'agent').length;
-  return n === entries().length || (!state.tr.q.trim() && !state.tr.f.size) ? all + ' agents' : agents + ' of ' + all + ' agents' + (n > agents ? ' · ' + (n - agents) + ' coming' : '');
+  const tr = state.tr;
+  const word = tr.kind === 'ai-tool' ? 'tools' : 'agents';
+  const all = entries().filter((e) => e.kind === 'agent' && inKind(e)).length;
+  const list = hits(), agents = list.filter((e) => e.kind === 'agent').length;
+  const base = !tr.q.trim() && !tr.f.size ? all + ' ' + word : agents + ' of ' + all + ' ' + word + (list.length > agents ? ' · ' + (list.length - agents) + ' coming' : '');
+  const o = otherKind();
+  return base + (o && o.n ? ' · ' + o.n + ' in ' + o.kind.title : '');
+}
+
+/// The two sections (a segmented control): each with how many it holds.
+function kindNodes() {
+  const tr = state.tr;
+  return (tr.catalog.kinds || []).map((k) => {
+    const n = entries().filter((e) => e.kind === 'agent' && e.catalogKind === k.id).length;
+    return h('button', { type: 'button', 'aria-pressed': String(tr.kind === k.id), 'data-try-kind': k.id, title: k.meaning,
+      on: { click: () => switchKind(k.id) } }, k.title, h('span', { class: 'n' }, String(n)));
+  });
+}
+
+/// Ready, then the section's categories.
+function pillNodes() {
+  const tr = state.tr;
+  const pill = (id, label, ic, title) => h('button', { type: 'button', class: 'qt-pill', 'aria-pressed': String(tr.f.has(id)), 'data-try-pill': id, title,
+    on: { click: () => { if (tr.f.has(id)) tr.f.delete(id); else tr.f.add(id); paint({}); } } }, ic ? icon(ic) : null, label);
+  return [pill(READY[0], READY[1], 'key-round', 'Its key is here: ready to start'),
+    ...categoryPills().map((c) => pill(c.id, c.title, null, c.meaning))];
 }
 
 function leftPane() {
@@ -158,16 +218,15 @@ function leftPane() {
       if (input.value) { input.value = ''; tr.q = ''; paint({ keepSearch: true }); } else wizardCloseRequest();
     }
   });
-  const pills = PILLS.map(([id, label]) => h('button', { type: 'button', class: 'qt-pill', 'aria-pressed': String(tr.f.has(id)), 'data-try-pill': id,
-    on: { click: () => { if (tr.f.has(id)) tr.f.delete(id); else tr.f.add(id); paint({}); } } }, id === 'ready' ? icon('key-round') : null, label));
   const seg = h('span', { class: 'qt-seg', role: 'group', 'aria-label': 'View' },
     ...[['cards', 'Cards', 'layout-grid'], ['list', 'List', 'list']].map(([v, label, ic]) => h('button', { type: 'button', 'aria-label': label, title: label,
       'aria-pressed': String(tr.view === v), 'data-try-view': v,
       on: { click: () => { tr.view = v; try { localStorage.setItem(VIEW_KEY, v); } catch (_) { /* no storage: this visit only */ } paint({}); } } }, icon(ic))));
   return h('section', { class: 'qt-left', 'aria-label': 'Agents' },
     h('div', { class: 'qt-search' },
+      h('div', { class: 'qt-kinds', role: 'group', 'aria-label': 'Coding agents or AI tools', 'data-try-kinds': '' }, ...kindNodes()),
       h('label', { class: 'qt-box' }, icon('search'), input, h('span', { class: 'qt-kbd', 'aria-hidden': 'true' }, '/')),
-      h('div', { class: 'qt-pills', role: 'group', 'aria-label': 'Filters' }, ...pills),
+      h('div', { class: 'qt-pills', role: 'group', 'aria-label': 'Filters', 'data-try-pills': '' }, ...pillNodes()),
       h('div', { class: 'qt-bar' }, h('span', { 'data-try-count': '' }, countText()), h('span', { class: 'qt-gap' }), seg)),
     h('div', { class: 'qt-results ' + tr.view, role: 'listbox', 'aria-label': 'Agents', 'data-try-results': '' }, ...resultsNodes()));
 }
@@ -512,7 +571,8 @@ function paint(opts) {
   results.className = 'qt-results ' + tr.view;
   results.replaceChildren(...resultsNodes());
   root.querySelector('[data-try-count]').textContent = countText();
-  for (const b of root.querySelectorAll('[data-try-pill]')) b.setAttribute('aria-pressed', String(tr.f.has(b.dataset.tryPill)));
+  root.querySelector('[data-try-pills]').replaceChildren(...pillNodes());
+  root.querySelector('[data-try-kinds]').replaceChildren(...kindNodes());
   for (const b of root.querySelectorAll('[data-try-view]')) b.setAttribute('aria-pressed', String(tr.view === b.dataset.tryView));
   const search = root.querySelector('[data-try-search]');
   if (opts.keepSearch === false) search.value = tr.q;

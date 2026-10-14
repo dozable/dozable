@@ -288,8 +288,12 @@
         "aliases" : [
           "vibe"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "mistral-vibe",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : false

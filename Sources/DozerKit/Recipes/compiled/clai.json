@@ -266,8 +266,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "clai",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

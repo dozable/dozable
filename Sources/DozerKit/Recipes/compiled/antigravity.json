@@ -244,8 +244,12 @@
         "aliases" : [
           "agy"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "antigravity",
+        "kind" : "coding-agent",
         "licence" : "Proprietary (Google Antigravity terms)",
         "limits" : [
           {

@@ -275,8 +275,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "codex",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

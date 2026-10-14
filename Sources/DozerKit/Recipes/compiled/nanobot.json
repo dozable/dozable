@@ -374,8 +374,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "personal-agent"
+        ],
         "default_base" : "debian",
         "icon" : "nanobot",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

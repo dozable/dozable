@@ -108,6 +108,13 @@ func standingLine(_ l: AgentLifecycle) -> String {
     return (l.note ?? l.status) + instead
 }
 
+/// 617 (owner): "AI tool · terminal tool, personal agent".
+func categoryLine(kind: String, categories: [String]?) -> String {
+    let k = Categories.kind(kind).map { String($0.title.dropLast()) } ?? kind          // "Coding agents" → "Coding agent"
+    let c = (categories ?? []).filter { $0 != kind }.compactMap { Categories.category($0)?.title.lowercased() }
+    return k + (c.isEmpty ? "" : " · " + c.joined(separator: ", "))
+}
+
 /// `--details`: the plain-language consent view of one agent.
 func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     var s = "\(e.title)" + (e.publisher.map { " · \($0)" } ?? "") + (e.homepage.map { " · \($0)" } ?? "") + "\n"
@@ -128,6 +135,7 @@ func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     for l in e.limits { s += "  limit: \(l.with.map { "\($0.key) \($0.value)" }.sorted().joined(separator: ", ")) — \(l.reason)\n" }
     if !e.gateways.isEmpty { s += "  model gateways: " + e.gateways.map { "\($0.gateway) \($0.level)" }.joined(separator: " · ") + "\n" }
     let tags = e.tags.filter { ["documented", "verified"].contains($0.level) }.map(\.tag)
+    if let k = e.catalogKind { s += "  what it is: " + categoryLine(kind: k, categories: e.categories) + "\n" }
     if !tags.isEmpty { s += "  tags: \(tags.joined(separator: ", "))\n" }
     if let t = e.terms { s += "  terms: \(t)\n" }
     if let c = e.tryCommand { s += "  try it: \(c)\n" }
@@ -147,7 +155,7 @@ struct SearchCommand: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "An agent, a key provider or a base (an id, an alias, a title or the start of one); tag:TAG terms filter by capability.")
     var terms: [String] = []
-    @Option(name: .long, help: "Only agents with this capability tag (repeatable): \(CapabilityTags.all.map(\.id).joined(separator: ", ")).")
+    @Option(name: .long, help: "Only agents with this tag (repeatable): a kind — coding-agent, ai-tool — a category — \(Categories.all.map(\.id).filter { $0 != "coding-agent" }.joined(separator: ", ")) — or a capability: \(CapabilityTags.all.map(\.id).joined(separator: ", ")).")
     var tag: [String] = []
     @Option(name: .long, help: "The tag levels that count: documented, verified, experimental, no, unknown (comma-separated) or any. Default: documented,verified.")
     var level: String?
@@ -159,7 +167,7 @@ struct SearchCommand: AsyncParsableCommand {
     @Flag(name: .long, help: ArgumentHelp("With --index: replace FILE.", visibility: .hidden)) var force = false
 
     func validate() throws {
-        let known = Set(CapabilityTags.all.map(\.id))
+        let known = Set(CapabilityTags.all.map(\.id) + Categories.kinds.map(\.id) + Categories.all.map(\.id))
         let q = SearchQuery.parse(terms, tags: tag, level: level, base: base)
         for t in q.tags where !known.contains(t) { throw ValidationError("no tag \(t) — the tags: \(known.sorted().joined(separator: ", "))") }
         for l in q.levels where !AgentRecipe.GatewaySupport.levels.contains(l) { throw ValidationError("--level: documented, verified, experimental, no, unknown or any") }
@@ -198,11 +206,16 @@ struct SearchCommand: AsyncParsableCommand {
         } else if details {
             for h in result.hits.prefix(3) { Out.stdout(searchDetails(h.entry)) }
         } else if everything {
+            // 617 (owner: "split them"): the agents by kind — coding agents, then AI tools — then providers and bases.
             for (title, keep) in [("Supported", ["supported"]), ("Coming", ["coming"]), ("Not possible", ["not-possible"])] {
                 let hits = result.hits.filter { keep.contains($0.outcome) }
                 guard !hits.isEmpty else { continue }
-                Out.stdout("\(title):\n")
-                for h in hits { Out.stdout("  " + searchLine(h, local: searchLocal(h.entry, accounts: accounts, images: images), base: q.base) + "\n") }
+                let groups: [(String, [SearchHit])] = Categories.kinds.map { k in (k.title, hits.filter { $0.entry.kind == "agent" && $0.entry.catalogKind == k.id }) }
+                    + [("", hits.filter { $0.entry.kind != "agent" || $0.entry.catalogKind == nil })]
+                for (sub, gh) in groups where !gh.isEmpty {
+                    Out.stdout("\(title)\(sub.isEmpty ? "" : " — " + sub.lowercased()):\n")
+                    for h in gh { Out.stdout("  " + searchLine(h, local: searchLocal(h.entry, accounts: accounts, images: images), base: q.base) + "\n") }
+                }
             }
         } else {
             for h in result.hits { Out.stdout(searchLine(h, local: searchLocal(h.entry, accounts: accounts, images: images), base: q.base) + "\n") }

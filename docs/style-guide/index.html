@@ -163,6 +163,10 @@
       <label class="wiz-choice chosen"><input type="radio" name="g1" checked><span>A new folder in your projects folder</span></label>
       <label class="wiz-choice"><input type="radio" name="g1"><span>A folder you have (your project)</span></label>
     </div>
+    <div class="field image-picker"><span>Agent</span>
+      <div class="segmented" role="group" aria-label="Coding agent, AI tool or none"><button type="button" class="seg" aria-pressed="false"><i data-i="rocket"></i>Coding agents</button><button type="button" class="seg active" aria-pressed="true"><i data-i="layers"></i>AI tools</button><button type="button" class="seg" aria-pressed="false"><i data-i="terminal"></i>No agent</button></div>
+      <div class="segmented agent-chips" role="group" aria-label="Agent"><button type="button" class="seg">Fabric</button><button type="button" class="seg">OpenClaw</button><button type="button" class="seg">nanobot</button><button type="button" class="seg">gptme</button><button type="button" class="seg active" aria-pressed="true">llm</button><button type="button" class="seg">ShellGPT</button><button type="button" class="seg">ZeroClaw</button><button type="button" class="seg">AIChat</button><button type="button" class="seg">tgpt</button><button type="button" class="seg">smolagents</button><button type="button" class="seg">Agent Development Kit</button><button type="button" class="seg">promptfoo</button><button type="button" class="seg">clai (Pydantic AI)</button></div>
+      <small class="muted">New Sandbox's agent: the section (a segmented control), then the section's agents (<code>.segmented.agent-chips</code>, wrapping); a base the agent cannot run on (Alpine for a glibc-only tool) is disabled.</small></div>
     <div class="base-grid">
       <button type="button" class="base-card active"><span class="base-title">Debian</span><span class="base-use">General purpose — Debian 12</span><code class="base-ref">debian:bookworm</code><span class="base-meta">↓ 46 MiB · first prepare ~1 min</span></button>
       <button type="button" class="base-card"><span class="base-title">Python</span><span class="base-use">Python 3.13 with pip</span><code class="base-ref">python:3.13-bookworm</code><span class="base-meta">↓ 356 MiB · ~3 min</span><span class="base-prepared">prepared</span></button>
@@ -212,7 +216,9 @@ name: todo-app</pre></details>
 <section>
   <h2>Quick try — search, pills, cards or a list, marks</h2>
   <p>The wizards' modal over the app, like onboarding (the app stays visible behind the scrim; opened from the nav's TRY section — its one item, or the + on its heading); its header has the title, a line and a labelled <b>Close</b> with its Esc hint.
-    Inside, <code>.qt</code>: the search box (<code>.qt-box</code>, <code>/</code> focuses it), the filter pills (<code>.qt-pill</code>, <code>aria-pressed</code>; they combine),
+    Inside, <code>.qt</code>: the two sections (<code>.qt-kinds</code> — <b>Coding agents</b> and <b>AI tools</b>, a segmented control the pane's width, each with its count),
+    the search box (<code>.qt-box</code>, <code>/</code> focuses it), the filter pills (<code>.qt-pill</code>, <code>aria-pressed</code>: <b>Ready</b>, then the section's declared
+    categories — any of those pressed),
     the count and the cards/list toggle (<code>.qt-seg</code>), the results (<code>.qt-item</code> — a mark, the title and maker, version and age, a ready check;
     superseded and coming ones quieter), and the chosen agent on the right — INFORMATION ONLY (what a published recipe page shows) with a <b>Try</b> button.
     Below 760 px the panes stack, with a back control.</p>
@@ -222,15 +228,16 @@ name: todo-app</pre></details>
     <div class="qt">
       <section class="qt-left" aria-label="Agents">
         <div class="qt-search">
+          <div class="qt-kinds" role="group" aria-label="Coding agents or AI tools"><button type="button" aria-pressed="false">Coding agents<span class="n">26</span></button><button type="button" aria-pressed="true">AI tools<span class="n">13</span></button></div>
           <label class="qt-box"><i data-i="search"></i><input type="search" value="" placeholder="Search agents — name, maker, tag:headless" aria-label="Search agents"><span class="qt-kbd" aria-hidden="true">/</span></label>
           <div class="qt-pills" role="group" aria-label="Filters">
             <button type="button" class="qt-pill" aria-pressed="false"><i data-i="key-round"></i>Ready</button>
-            <button type="button" class="qt-pill" aria-pressed="true">Open source</button>
-            <button type="button" class="qt-pill" aria-pressed="false">Current</button>
-            <button type="button" class="qt-pill" aria-pressed="false">Headless</button>
-            <button type="button" class="qt-pill" aria-pressed="false">Through a gateway</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Personal agent</button>
+            <button type="button" class="qt-pill" aria-pressed="true">Terminal tool</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Framework</button>
+            <button type="button" class="qt-pill" aria-pressed="false">Evaluation</button>
           </div>
-          <div class="qt-bar"><span>4 of 6 agents</span><span class="qt-gap"></span>
+          <div class="qt-bar"><span>7 of 13 tools · 3 coming</span><span class="qt-gap"></span>
             <span class="qt-seg" role="group" aria-label="View"><button type="button" aria-label="Cards" aria-pressed="true"><i data-i="layout-grid"></i></button><button type="button" aria-label="List" aria-pressed="false"><i data-i="list"></i></button></span></div>
         </div>
         <div class="qt-results cards" role="listbox" aria-label="Agents">

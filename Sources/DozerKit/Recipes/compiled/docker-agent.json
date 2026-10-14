@@ -209,8 +209,12 @@
         "aliases" : [
           "cagent"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "docker-agent",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

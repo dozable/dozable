@@ -259,8 +259,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "opencode",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

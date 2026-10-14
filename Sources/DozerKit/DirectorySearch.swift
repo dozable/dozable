@@ -1,7 +1,8 @@
 import Foundation
 
 // 617 (616.07) — `doz search [THING]`: is it supported here? Matching over the directory index (agents, key providers,
-// bases), `tag:` terms and `--tag`, an optional base, and "did you mean" for a name nothing has. Pure (unit-tested).
+// bases), `tag:` terms and `--tag` (a capability tag, or — 617 — a kind or category: coding-agent, ai-tool, terminal-tool …),
+// an optional base, and "did you mean" for a name nothing has. Pure (unit-tested).
 
 public struct SearchQuery: Equatable, Sendable {
     public var terms: [String]
@@ -82,7 +83,12 @@ public enum DirectorySearch {
                 guard all else { continue }
             }
             if !q.tags.isEmpty {
-                guard e.kind == "agent", q.tags.allSatisfy({ t in e.tags.contains { $0.tag == t && q.levels.contains($0.level) } }) else { continue }
+                // 617 (owner): a kind or a category (coding-agent, ai-tool, terminal-tool …) is declared — a coming entry has
+                // them too; any other tag is a capability tag at the levels asked for.
+                guard e.kind == "agent", q.tags.allSatisfy({ t in
+                    Categories.word(t) != nil ? (e.catalogKind == t || (e.categories ?? []).contains(t))
+                        : e.tags.contains { $0.tag == t && q.levels.contains($0.level) }
+                }) else { continue }
             }
             var outcome = e.status
             var limit: String?

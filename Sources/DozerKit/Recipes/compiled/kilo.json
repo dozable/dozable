@@ -237,8 +237,12 @@
         "aliases" : [
           "kilocode"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "kilo",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

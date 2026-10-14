@@ -213,8 +213,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "crush",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

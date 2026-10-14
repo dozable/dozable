@@ -211,8 +211,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "nanocoder",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

@@ -229,7 +229,8 @@ See [Model sources](#model-sources-providers-and-gateways).
 `lifecycle` (`{status: current | superseded | retired | discontinued, by?, note?, source?, checked?}`). How fresh the
 agent's releases are is measured on each Mac, never recorded here.
 
-**`com.dozersandbox/directory@1`** — what the directory index, `doz search` and the Quick try show: `aliases`,
+**`com.dozersandbox/directory@1`** — what the directory index, `doz search` and the Quick try show: `kind` and
+`categories` (see [Kinds and categories](#kinds-and-categories)), `aliases`,
 `icon` (a product in the icon registry), `default_base`, `platforms {glibc, musl}`, `limits` (`{musl?, base?,
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
 `terms`, `licence` (the licence in words, when it is not just the SPDX id).
@@ -255,6 +256,40 @@ no credential crosses it.
     serve: [aichat, --serve]
 ```
 
+
+## Kinds and categories
+
+Every recipe says what it is, in `directory@1` — declared, because nothing else in its data can say it:
+
+```yaml
+- type: com.dozersandbox/directory@1
+  config:
+    kind: ai-tool                # coding-agent | ai-tool: the two sections of New Sandbox, the Quick try and doz try's list
+    categories:                  # one or more, from the vocabulary; the Quick try's filter pills, doz search --tag
+    - terminal-tool
+```
+
+The vocabulary is `Recipes/tags.json` (`kinds`, `categories`, beside the capability tags), each word with a title and
+what it means:
+
+| Category | For | Kind |
+|---|---|---|
+| `coding-agent` | edits and runs code in its folder, turn by turn | coding agents only |
+| `personal-agent` | a general assistant acting with shell, file and web tools | either |
+| `terminal-tool` | a command-line helper: chat REPL, one answer, a shell command | AI tools |
+| `framework` | a library or kit for building agents and LLM apps | AI tools |
+| `browser-agent` | drives a web browser | AI tools |
+| `mcp` | Model Context Protocol servers, gateways, inspectors | AI tools |
+| `research` | searches, reads and reports | AI tools |
+| `evaluation` | tests and red-teams prompts and models | AI tools |
+| `workflow` | builds automations and pipelines | AI tools |
+| `local-models` | runs models inside the sandbox | AI tools |
+| `chat-app` | a chat web app for your models | AI tools |
+
+The loader refuses a recipe without a kind or a category, a word that is not in the vocabulary, a category twice, or a
+category of the other kind. An entry of `Recipes/known.json` (one that is coming) carries `kind` and `categories` too,
+so the directory, `doz search --tag` and the Quick try's sections include it. A new word is a change to tags.json, the
+schema's enum and this table together (`CategoriesTests` holds them to each other).
 
 ## Model sources: providers and gateways
 

@@ -226,8 +226,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "pi",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

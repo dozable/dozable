@@ -30,6 +30,8 @@
   "status": "none",
   "verify": [{ "argv": ["echo-agent", "--version"], "expect": "{version}" }],
   "tags": [{ "tag": "headless", "level": "unknown" }],
+  "catalog_kind": "ai-tool",
+  "categories": ["terminal-tool"],
   "gateways": [
     { "gateway": "openrouter", "level": "unknown" },
     { "gateway": "vercel-ai-gateway", "level": "unknown" }

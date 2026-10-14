@@ -227,6 +227,23 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(w.sourceTitles["vercel-ai-gateway"], "Vercel AI Gateway")
     }
 
+    /// 617 (owner: "split them"): the sections and categories reach the page.
+    func testTheDashboardGetsTheSectionsAndCategories() async throws {
+        let catalog = await WebTryCatalog.build(plan: { r in WebPlan(CreatePlan.sample(name: "try-" + r.create.image, image: r.create.image)) },
+                                                secretEntry: true, accounts: [])
+        XCTAssertEqual(catalog.kinds.map(\.id), ["coding-agent", "ai-tool"])
+        XCTAssertEqual(catalog.categories.map(\.id), Categories.all.map(\.id))
+        XCTAssertEqual(catalog.agents.first { $0.id == "shell-gpt" }?.catalogKind, "ai-tool")
+        XCTAssertEqual(catalog.agents.first { $0.id == "shell-gpt" }?.categories, ["terminal-tool"])
+        XCTAssertEqual(catalog.coming.first { $0.id == "n8n" }?.categories, ["workflow"])
+        XCTAssertTrue(catalog.agents.allSatisfy { $0.catalogKind != nil } && catalog.coming.allSatisfy { $0.catalogKind != nil })
+        // New Sandbox: every agent and tool with its section, its own base and whether it runs on Alpine.
+        let c = WebBases.catalogAgents
+        XCTAssertEqual(c.map(\.id), AgentRecipes.all.map(\.id))
+        XCTAssertEqual(c.first { $0.id == "grok" }.map { [$0.kind, $0.defaultBase] }, ["coding-agent", "debian"])
+        XCTAssertEqual(c.first { $0.id == "llm" }?.musl, false)
+    }
+
     /// A start's progress for the terminal area: steps in plain words, the one under way, a short tail — raw build output
     /// never becomes the operation's one-line text (the header strip).
     func testAStartsProgressIsStepsInPlainWordsAndATail() {

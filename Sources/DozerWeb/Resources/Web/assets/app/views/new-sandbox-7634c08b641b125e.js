@@ -1,7 +1,7 @@
 // views/new-sandbox — The New Sandbox wizard (599f): the same model as doz init.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon } from '../dom/icons-2b30ba761d2d921b.js';
-import { AGENT_NAMES, parseImageName } from '../core/agents-66154a04b9c4696c.js';
+import { AGENT_NAMES, parseImageName } from '../core/agents-b0c34d5ef450e352.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { plural } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitOp } from '../core/operations-b157c160346b7775.js';
@@ -9,15 +9,15 @@ import { setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isRemote } from '../core/session-58420e477c9d4278.js';
 import { renderAccessStep } from '../components/access-step-09afb06a7cf08f27.js';
-import { accountChooser } from '../components/accounts-ffe79e0aaac06356.js';
+import { accountChooser } from '../components/accounts-27f14f4df79f023b.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { createDialog } from '../components/create-dialog-2989de377b346014.js';
+import { createDialog } from '../components/create-dialog-8484aa411d69673e.js';
 import { dialog } from '../components/dialog-c156b45597794d5a.js';
-import { imagePicker } from '../components/image-picker-d1b3f55324be0bdc.js';
+import { imagePicker } from '../components/image-picker-d2725bb4df416a4a.js';
 import { renderModal, wizHead, wizMount } from '../components/modal-c994024a746823eb.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-9d1062439770464b.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-32ce4e99960020cf.js';
 import { rulesStep } from '../components/rules-step-5de53662175cc5bd.js';
 import { stepperNode } from '../components/stepper-61e5dacc702ce715.js';
 import { openDefaultTerminal } from '../components/terminal-3860fb4a366360aa.js';

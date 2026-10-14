@@ -184,8 +184,12 @@
         "aliases" : [
           "dirac-cli"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "dirac",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

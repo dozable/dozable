@@ -216,8 +216,12 @@
           "codebuddy-code",
           "cbc"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "codebuddy",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

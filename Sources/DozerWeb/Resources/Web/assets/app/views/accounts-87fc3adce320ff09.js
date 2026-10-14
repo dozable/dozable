@@ -5,7 +5,7 @@ import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act } from '../core/operations-b157c160346b7775.js';
 import { refresh } from '../core/router-ce5dd6bcbdf7c5fe.js';
 import { secretEntryAllowed } from '../core/settings-3ae9fe68f586ce42.js';
-import { accountCommandsNode, accountForm } from '../components/accounts-ffe79e0aaac06356.js';
+import { accountCommandsNode, accountForm } from '../components/accounts-27f14f4df79f023b.js';
 import { card, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { confirmAction } from '../components/dialog-c156b45597794d5a.js';

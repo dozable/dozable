@@ -119,6 +119,8 @@ extension WebTryCatalog {
             a.version = r.install.pinned.version.split(separator: "+").first.map(String.init)
             a.age = currency[r.id]?.ageDays.map(Self.age)
             a.description = r.description
+            a.catalogKind = r.catalogKind
+            a.categories = r.categories ?? []
             // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).
             a.usableAccounts = accounts.filter { w in
@@ -131,7 +133,7 @@ extension WebTryCatalog {
         agents = agents.filter { $0.standing == nil } + agents.filter { $0.standing != nil }
         let coming = KnownThings.all.filter { $0.status != "supported" }
             .map { Coming(id: $0.id, title: $0.title, publisher: $0.publisher ?? "", reason: $0.reason, aliases: ($0.aliases ?? []).sorted(),
-                          icon: AgentIcons.resolve(icon: nil, publisher: $0.publisher, title: $0.title)) }
+                          icon: AgentIcons.resolve(icon: nil, publisher: $0.publisher, title: $0.title), catalogKind: $0.kind, categories: $0.categories ?? []) }
         return WebTryCatalog(agents: agents, coming: coming, secretEntry: secretEntry)
     }
 

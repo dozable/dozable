@@ -12,7 +12,7 @@ import { pageIndex } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-9d1062439770464b.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-32ce4e99960020cf.js';
 
 const SETTING_SECTIONS = {
   ui: 'This UI', host: 'The host', store: 'The store', claude: 'Claude Code', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',

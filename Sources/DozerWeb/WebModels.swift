@@ -1129,6 +1129,9 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         public var description: String? = nil
         /// 617: the accounts it can use (name, kind, where the key comes from, the provider's default) — never a secret.
         public var usableAccounts: [Usable] = []
+        /// 617 (owner: "split them"): `coding-agent` | `ai-tool`, and its categories (the pills).
+        public var catalogKind: String? = nil
+        public var categories: [String] = []
         public struct Usable: Codable, Equatable, Sendable {
             public var name: String
             public var kind: String
@@ -1142,9 +1145,15 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         public var id: String; public var title: String; public var publisher: String; public var reason: String
         public var aliases: [String] = []
         public var icon: ResolvedIcon? = nil
+        public var catalogKind: String? = nil
+        public var categories: [String] = []
     }
     public var agents: [Agent]
     public var coming: [Coming]
+    /// 617 (owner): the two sections and the categories (the pills), in the vocabulary's order — tags.json's words.
+    public struct Word: Codable, Equatable, Sendable { public var id: String; public var title: String; public var meaning: String }
+    public var kinds: [Word] = Categories.kinds.map { Word(id: $0.id, title: $0.title, meaning: $0.meaning) }
+    public var categories: [Word] = Categories.all.map { Word(id: $0.id, title: $0.title, meaning: $0.meaning) }
     /// `ui.allow_secret_entry` (and a secure enough connection): a key may be pasted here.
     public var secretEntry: Bool
 }

@@ -168,8 +168,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "tgpt",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : true

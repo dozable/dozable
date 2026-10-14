@@ -294,8 +294,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "fabric",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : true

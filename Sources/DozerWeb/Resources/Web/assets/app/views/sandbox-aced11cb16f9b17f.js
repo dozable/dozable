@@ -1,7 +1,7 @@
 // views/sandbox — A sandbox's page (593): the control bar, the terminal area, the inspector.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, setButton, withIcon } from '../dom/icons-2b30ba761d2d921b.js';
-import { DOCKERFILE_POLICY_NOTE } from '../core/agents-66154a04b9c4696c.js';
+import { DOCKERFILE_POLICY_NOTE } from '../core/agents-b0c34d5ef450e352.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { bytes, full, mib, plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, transitionOf } from '../core/operations-b157c160346b7775.js';
@@ -10,7 +10,7 @@ import { saveSetting, setting } from '../core/settings-3ae9fe68f586ce42.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-933851e9be49078e.js';
 import { isRemote } from '../core/session-58420e477c9d4278.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-ffe79e0aaac06356.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-27f14f4df79f023b.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
@@ -23,10 +23,10 @@ import { sandboxPill } from '../components/pills-24d9953a9a9b39a1.js';
 import { agentChip } from '../components/agent-status-1c5452706d34c439.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-3860fb4a366360aa.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-0e2bcb412d5048c8.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-b37ac915c7e56257.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-0bba7a6bcaa008a9.js';
-import { networkPanel } from './sandbox-network-93887ac87c4f52e4.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-58509273d81b8a98.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-8a24b813977ec776.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-47d24bc8daed146c.js';
+import { networkPanel } from './sandbox-network-e11c4d8f8eea379d.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-82daec0e376499e5.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
 // #sbx is persistent: refreshSandbox() re-renders the bar and the details, never #terminals.

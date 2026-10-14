@@ -30,6 +30,8 @@ struct TryCommand: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The agent: an id or an alias (doz search lists them). None: a numbered list to pick from.") var thing: String?
     @OptionGroup var choices: ChoiceOptions
+    @Option(name: .long, help: "With no agent: list only those with this tag (repeatable) — coding-agent, ai-tool, or a category (terminal-tool, personal-agent, framework …; doz search --help lists them).")
+    var tag: [String] = []
     @Flag(name: .long, help: "Delete the try when you leave it, without asking.") var rm = false
     @Flag(name: .long, help: "Keep the try running when you leave it, without asking.") var keep = false
     @Flag(name: [.short, .customLong("detach")], help: "Make and start it, but do not attach (it is kept).") var detach = false
@@ -42,6 +44,11 @@ struct TryCommand: AsyncParsableCommand {
         if rm && keep { throw ValidationError("--rm or --keep, not both") }
         if ui && (rm || keep || detach || dryRun) { throw ValidationError("--ui opens the dashboard's Quick try — it makes the choices there (not with --rm, --keep, -d or --dry-run)") }
         if choices.image != nil { throw ValidationError("a try runs its agent's own image — --base BASE picks another base") }
+        // 617 (owner): the list by kind or category.
+        for t in tag where Categories.word(t.lowercased()) == nil {
+            throw ValidationError("--tag: coding-agent, ai-tool or a category: " + Categories.all.map(\.id).joined(separator: ", "))
+        }
+        if !tag.isEmpty && (thing != nil || choices.agent != nil) { throw ValidationError("--tag lists agents — not with an agent named") }
     }
 
     /// Ask the questions and attach: a terminal on both ends, and neither --json nor -d.
@@ -177,14 +184,29 @@ struct TryCommand: AsyncParsableCommand {
         let index = DirectoryIndex.build(version: DozerCommand.version,
                                          latest: AgentCurrency.all(store: g.dozerStore).compactMapValues(\.indexLatest))
         let (accounts, images) = await searchLocals(g)
-        let agents = index.entries.filter { $0.kind == "agent" && $0.status == "supported" }
-        let coming = index.entries.filter { $0.kind == "agent" && $0.status != "supported" }
+        // 617 (owner: "split them, also use tags"): --tag keeps those of a kind or category; coding agents first, then AI tools.
+        let wanted = tag.map { $0.lowercased() }
+        let fits = { (e: DirectoryIndex.Entry) in wanted.allSatisfy { e.catalogKind == $0 || (e.categories ?? []).contains($0) } }
+        let order = Dictionary(uniqueKeysWithValues: Categories.kinds.enumerated().map { ($1.id, $0) })
+        let byKind = { (a: DirectoryIndex.Entry, b: DirectoryIndex.Entry) in (order[a.catalogKind ?? ""] ?? 9) < (order[b.catalogKind ?? ""] ?? 9) }
+        let agents = index.entries.filter { $0.kind == "agent" && $0.status == "supported" && fits($0) }.enumerated()
+            .sorted { byKind($0.1, $1.1) || (!byKind($1.1, $0.1) && $0.0 < $1.0) }.map(\.1)
+        let coming = index.entries.filter { $0.kind == "agent" && $0.status != "supported" && fits($0) }
+        if agents.isEmpty {
+            Out.stderr("[doz] nothing to try with " + wanted.map { "--tag " + $0 }.joined(separator: " ") + " — doz search --tag \(wanted.first ?? "") lists what is coming\n")
+            throw ExitCode(DozerExit.notFound)
+        }
         if g.json {
             Out.json(agents.map { SearchHitJSON(entry: $0, outcome: "supported", limit: nil, local: searchLocal($0, accounts: accounts, images: images)) })
             throw ExitCode(DozerExit.usage)
         }
         var s = "Try an agent:\n"
+        var section: String?
         for (i, e) in agents.enumerated() {
+            if e.catalogKind != section, let k = e.catalogKind.flatMap(Categories.kind) {
+                section = e.catalogKind
+                s += "  \(k.title):\n"
+            }
             let l = searchLocal(e, accounts: accounts, images: images)
             let key = l?.haveKey.map { "key: \($0)" + (l?.source.map { " (\($0))" } ?? "") } ?? "no key yet — you'll be asked"
             let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"

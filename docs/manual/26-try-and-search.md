@@ -9,7 +9,8 @@ of them would make before anything is made.
 ```sh
 doz try grok                       # Grok Build, from nothing: prepared, made, started and attached
 doz try gemini --base python       # any choice option works (here: Gemini CLI on the Python base)
-doz try                            # a numbered list of the agents, with your keys and whether each is ready
+doz try                            # a numbered list of the agents — coding agents, then AI tools — with your keys and whether each is ready
+doz try --tag terminal-tool        # only those of a kind (coding-agent, ai-tool) or a category
 doz try grok --dry-run             # make nothing: print the plan
 doz try grok --rm                  # delete it when you leave, without asking
 doz try grok --keep                # keep it running when you leave, without asking
@@ -70,11 +71,13 @@ keeps it, and prints how to attach. With no key it stops and says how to add one
 try in the browser, with the same defaults and the same plan. It covers the whole window; **Close** (or Esc) returns
 to where you opened it.
 
-- **Search and filters** on the left: type a name, a maker, an alias or `tag:headless` — the same matching as
-  `doz search`, and forgiving (`agy` finds Antigravity CLI). The pills narrow it — **Ready** (its key is here),
-  **Open source**, **Current**, **Headless**, **Through a gateway** — all of them at once when several are on. The
-  count says how many match; when none do, it says so, suggests a near name, and clears in one click. Superseded
-  agents, then the ones that are coming, come last.
+- **Two sections** at the top of the left pane: **Coding agents** and **AI tools**, each with how many it holds. A
+  search that matches something in the other section says so ("2 in AI tools"), one click away.
+- **Search and filters** below: type a name, a maker, an alias, `tag:headless` or `tag:terminal-tool` — the same
+  matching as `doz search`, and forgiving (`agy` finds Antigravity CLI). The pills narrow the section — **Ready** (its
+  key is here), then the section's categories (a terminal tool, a personal agent, a framework, evaluation, MCP …): any
+  of the categories you press. The count says how many match; when none do, it says so, suggests a near name, and
+  clears in one click. Superseded agents, then the ones that are coming, come last.
 - **Cards or a list**: the toggle beside the count; the dashboard remembers your choice in this browser.
 - **Each agent's mark** is a plain black-and-white sign — a neutral lettermark, not the maker's logo (their brand terms
   do not allow it here).
@@ -136,6 +139,11 @@ bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --
 Google sign-in. Its approval prompts are off (`antigravity.permissions = ask` keeps them), its updater is off, and its
 telemetry setting is off. It reads Google's feature switches at start-up, and sends its usage log to
 `play.googleapis.com` every few seconds (its own setting does not stop it); both are allowed.
+
+**What it is**: every agent, and every one that is coming, is a **coding agent** or an **AI tool**, with one or more
+categories — `personal-agent`, `terminal-tool`, `framework`, `browser-agent`, `mcp`, `research`, `evaluation`,
+`workflow`, `local-models`, `chat-app` (and `coding-agent`). `doz search --tag ai-tool`, `doz search --tag mcp`
+(coming ones included), `doz search NAME --details` ("what it is: AI tool · terminal tool").
 
 **Tags** describe capabilities (`multi-vendor-models`, `api-key`, `vendor-sign-in`, `free-tier`, `resume`, `musl`,
 `open-source`, `headless`, `gateway:openrouter`, …). Each tag has a level per agent: `documented`, `verified`,

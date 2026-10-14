@@ -205,8 +205,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "framework"
+        ],
         "default_base" : "debian",
         "icon" : "adk",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

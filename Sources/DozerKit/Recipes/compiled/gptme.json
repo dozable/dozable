@@ -396,8 +396,13 @@
     },
     {
       "config" : {
+        "categories" : [
+          "personal-agent",
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "gptme",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

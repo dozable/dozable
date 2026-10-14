@@ -24,6 +24,9 @@ public struct KnownThing: Codable, Sendable, Equatable {
     public var checked: String?
     /// 617: where it stands with its maker (superseded by …).
     public var lifecycle: AgentLifecycle?
+    /// 617 (owner): what it is — `coding-agent` | `ai-tool` — and its categories, declared (tags.json's vocabulary).
+    public var kind: String?
+    public var categories: [String]?
 }
 
 public enum KnownThings {
@@ -50,6 +53,7 @@ public enum KnownThings {
                 throw SandboxError.invalidSpec("known \(k.id): a recipe has it now — remove it from known.json")
             }
             if let c = k.checked, !AgentRecipe.isISODate(c) { throw SandboxError.invalidSpec("known \(k.id): checked is an ISO date") }
+            try Categories.validate(kind: k.kind, categories: k.categories, what: "known \(k.id)")     // 617 (owner): what it is
         }
         // 617: every lifecycle well formed, and every "superseded by" names a recipe or a known entry.
         try AgentLifecycle.validate(recipes: recipes, known: known)
@@ -107,10 +111,14 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         /// 617: its mark in the icon registry (an agent: product → vendor → a generated lettermark; a provider: its
         /// vendor's, when there is one). Additive: absent for a base.
         public var icon: IconRef? = nil
+        /// 617 (owner): an agent's section — `coding-agent` | `ai-tool` — and its categories (declared; a coming one's too).
+        public var catalogKind: String? = nil
+        public var categories: [String]? = nil
 
         enum CodingKeys: String, CodingKey {
             case kind, id, title, publisher, aliases, status, reason, checked, since, limits, keys, reach, install, terms, homepage, auth, gateways, tags, agents
-            case lifecycle, latest, icon
+            case lifecycle, latest, icon, categories
+            case catalogKind = "catalog_kind"
             case defaultBase = "default_base", tryCommand = "try"
         }
     }
@@ -210,7 +218,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
             Entry(kind: "agent", id: k.id, title: k.title, publisher: k.publisher, aliases: (k.aliases ?? []).sorted(), status: k.status, reason: k.reason,
                   checked: k.checked, since: nil, limits: [], keys: [], reach: nil, install: nil, defaultBase: nil, terms: nil, tryCommand: nil,
                   homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil, lifecycle: k.lifecycle,
-                  icon: IconRef(AgentIcons.resolve(icon: nil, publisher: k.publisher, title: k.title)))
+                  icon: IconRef(AgentIcons.resolve(icon: nil, publisher: k.publisher, title: k.title)), catalogKind: k.kind, categories: k.categories)
         }
         for p in KeyProviders.all {
             let users = recipes.filter { $0.credentials.contains { $0.provider == p.id } }.map(\.id).sorted()
@@ -254,7 +262,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gateways.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason) },
                      tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
-                     icon: IconRef(AgentIcons.resolve(r)))
+                     icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories)
     }
 
     // MARK: bytes

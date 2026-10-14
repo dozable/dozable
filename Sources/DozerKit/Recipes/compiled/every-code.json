@@ -206,8 +206,12 @@
           "just-every-code",
           "coder"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "every-code",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

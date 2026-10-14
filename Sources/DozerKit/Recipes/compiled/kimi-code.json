@@ -216,8 +216,12 @@
         "aliases" : [
           "kimi"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "kimi-code",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

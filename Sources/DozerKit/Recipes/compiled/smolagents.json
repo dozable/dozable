@@ -307,8 +307,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "framework"
+        ],
         "default_base" : "debian",
         "icon" : "smolagents",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

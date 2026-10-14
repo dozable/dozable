@@ -109,6 +109,11 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// 617 (owner): the capability tags with NO underlying field (`headless`) — declared, one per such tag of the
     /// vocabulary. Every other tag is derived (`capabilityTags`), so it cannot drift from the data.
     public var tags: [RecipeTag]
+    /// 617 (owner: "split them, also use tags to classify them"): what it is, DECLARED (`directory@1` `kind`,
+    /// `categories`; the vocabulary is tags.json's `kinds` and `categories`): `coding-agent` | `ai-tool`, and its
+    /// categories (`terminal-tool`, `personal-agent` …) — the lists' sections and the Quick try's filter pills.
+    public var catalogKind: String? = nil
+    public var categories: [String]? = nil
     /// 617 (models@1): the model sources it can be tried with and how a choice reaches its settings; nil: its one
     /// credential, as before.
     public var models: Models? = nil
@@ -155,7 +160,8 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
-             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, ports
+             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, categories
+        case catalogKind = "catalog_kind", ports
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
 
@@ -1288,6 +1294,8 @@ extension AgentRecipe {
         guard tags.map(\.tag).sorted() == declared.sorted() else {
             throw bad("tags: one entry for each declared tag (\(declared.joined(separator: ", "))) — unknown is allowed, said explicitly")
         }
+        // 617 (owner): what it is — a kind and its categories, declared.
+        try Categories.validate(kind: catalogKind, categories: categories, what: "recipe \(id)")
         // gateways (owner, 617): one entry per catalogue gateway, each with its evidence and machine-applicable how.
         let catalogue = Gateways.all.map(\.id)
         guard gateways.map(\.gateway).sorted() == catalogue.sorted() else {

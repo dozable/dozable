@@ -1,7 +1,7 @@
 // views/onboarding — Onboarding (594): Welcome → Checks → Access → Workspace rules → Images → Preparing → First sandbox →
 // Usage statistics (an official build only) → Stay in touch (the optional sign-up — an official build only) → Done.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
-import { AGENT_NAMES } from '../core/agents-66154a04b9c4696c.js';
+import { AGENT_NAMES } from '../core/agents-b0c34d5ef450e352.js';
 import { api } from '../core/api-2e66c14d90f7f83a.js';
 import { bytes, full } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, loadPreparations, prepRunning } from '../core/operations-b157c160346b7775.js';
@@ -9,11 +9,11 @@ import { loadSettings, saveSetting, secretEntryAllowed, setting } from '../core/
 import { state } from '../core/state-450cb6573a620304.js';
 import { WIZ, WIZ_ORDER, WIZ_STEPS } from '../core/wizards-3abae15180cc8b7c.js';
 import { ACCESS_TITLES, renderAccessStep } from '../components/access-step-09afb06a7cf08f27.js';
-import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-ffe79e0aaac06356.js';
+import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-27f14f4df79f023b.js';
 import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { imagePicker, pickerNameHint } from '../components/image-picker-d1b3f55324be0bdc.js';
+import { imagePicker, pickerNameHint } from '../components/image-picker-d2725bb4df416a4a.js';
 import { wizHead, wizMount } from '../components/modal-c994024a746823eb.js';
 import { refreshNav } from '../components/nav-4c4539148a8a27c0.js';
 import { pageFailure, toast } from '../components/notices-0e797679ef46047b.js';

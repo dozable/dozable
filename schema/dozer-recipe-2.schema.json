@@ -462,8 +462,12 @@
         "type": { "const": "com.dozersandbox/directory@1" },
         "description": { "type": "string" },
         "config": {
-          "type": "object", "additionalProperties": false, "required": ["default_base", "platforms", "tags"],
+          "type": "object", "additionalProperties": false, "required": ["default_base", "platforms", "tags", "kind", "categories"],
           "properties": {
+            "kind": { "enum": ["coding-agent", "ai-tool"], "description": "What it is: the lists' two sections (tags.json kinds)." },
+            "categories": { "type": "array", "minItems": 1, "uniqueItems": true,
+              "items": { "enum": ["coding-agent", "personal-agent", "terminal-tool", "framework", "browser-agent", "mcp", "research", "evaluation", "workflow", "local-models", "chat-app"] },
+              "description": "Its categories (tags.json categories): the Quick try's filter pills, doz search --tag." },
             "aliases": { "type": "array", "items": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" } },
             "icon": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
             "default_base": { "type": "string" },

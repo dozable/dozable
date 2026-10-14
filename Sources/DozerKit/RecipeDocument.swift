@@ -204,8 +204,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var terms: String?
         /// The licence in words, when it is not just the SPDX id (`Proprietary (Google Antigravity terms)`).
         public var licence: String?
+        /// 617 (owner): `coding-agent` | `ai-tool`, and its categories (tags.json's vocabulary) — declared.
+        public var kind: String?
+        public var categories: [String]?
         enum CodingKeys: String, CodingKey {
-            case aliases, icon, platforms, limits, tags, terms, licence
+            case aliases, icon, platforms, limits, tags, terms, licence, kind, categories
             case defaultBase = "default_base"
         }
     }
@@ -519,7 +522,7 @@ extension RecipeDocument {
             network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
             verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
-            gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags,
+            gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags, catalogKind: d.kind, categories: d.categories,
             models: models.map { Self.mapModels($0, Self.toModel) }, ports: ports)
     }
 
@@ -573,7 +576,7 @@ extension RecipeDocument {
         }
         caps.append(RecipeCapability(type: T.directory, config: .directory(Directory(
             aliases: r.aliases, icon: r.icon, defaultBase: r.defaultBase, platforms: r.platforms, limits: r.limits, tags: r.tags, terms: r.terms,
-            licence: licenses == [r.licence] ? nil : r.licence))))
+            licence: licenses == [r.licence] ? nil : r.licence, kind: r.catalogKind, categories: r.categories))))
         if let p = r.ports { caps.append(RecipeCapability(type: T.ports, config: .ports(p))) }
         capabilities = caps
     }

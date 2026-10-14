@@ -279,6 +279,9 @@ capabilities:
     checked: '2026-10-14'
 - type: com.dozersandbox/directory@1
   config:
+    kind: ai-tool
+    categories:
+    - personal-agent
     icon: nanobot
     default_base: debian
     platforms:

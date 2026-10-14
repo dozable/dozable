@@ -287,8 +287,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "grok-build",
+        "kind" : "coding-agent",
         "platforms" : {
           "glibc" : true,
           "musl" : true

@@ -201,6 +201,9 @@ capabilities:
     checked: '2026-10-14'
 - type: com.dozersandbox/directory@1
   config:
+    kind: coding-agent
+    categories:
+    - coding-agent
     aliases:
     - mini
     icon: mini-swe-agent

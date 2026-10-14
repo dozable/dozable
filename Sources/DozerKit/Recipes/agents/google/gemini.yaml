@@ -159,6 +159,9 @@ capabilities:
       by: antigravity
 - type: com.dozersandbox/directory@1
   config:
+    kind: coding-agent
+    categories:
+    - coding-agent
     limits:
     - reason: 'on Alpine (musl), Gemini CLI''s shell tool runs without a terminal: its PTY module has no musl build'
       musl: true

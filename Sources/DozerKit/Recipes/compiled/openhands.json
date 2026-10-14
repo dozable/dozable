@@ -215,8 +215,12 @@
         "aliases" : [
           "openhands-cli"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "openhands",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

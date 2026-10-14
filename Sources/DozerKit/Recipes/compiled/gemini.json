@@ -226,8 +226,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "gemini-cli",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

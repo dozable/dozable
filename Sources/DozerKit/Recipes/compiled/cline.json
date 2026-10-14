@@ -219,8 +219,12 @@
         "aliases" : [
           "cline-cli"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "cline",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

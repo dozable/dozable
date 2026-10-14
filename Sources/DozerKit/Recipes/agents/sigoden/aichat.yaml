@@ -187,6 +187,9 @@ capabilities:
     checked: '2026-10-14'
 - type: com.dozersandbox/directory@1
   config:
+    kind: ai-tool
+    categories:
+    - terminal-tool
     icon: aichat
     default_base: debian
     platforms:

@@ -210,8 +210,12 @@
         "aliases" : [
           "letta"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "letta-code",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

@@ -762,6 +762,10 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .image-picker { gap: 6px; }
 .image-picker .segmented { align-self: flex-start; }
 .image-picker .seg[disabled] { opacity: .45; cursor: not-allowed; }
+/* 617 (owner: "split them"): the section's agents — every one a button, wrapping. */
+.image-picker .segmented.agent-chips { display: flex; flex-wrap: wrap; align-self: stretch; }
+.image-picker .segmented.agent-chips[hidden], .image-picker .agent-chips .seg[hidden] { display: none; }
+.base-card:disabled { opacity: .45; cursor: not-allowed; }
 .base-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-top: 4px; }
 
 
@@ -1499,6 +1503,13 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .qt-seg { display: inline-flex; border: var(--bw) solid var(--line-strong); border-radius: var(--r-sm); overflow: hidden; }
 .qt-seg button { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 26px; border: 0; background: transparent; color: var(--ink-2); cursor: pointer; }
 .qt-seg button[aria-pressed="true"] { background: var(--surface-3); color: var(--ink); }
+/* 617 (owner: "split them"): the Quick try's two sections, a segmented control the width of the pane. */
+.qt-kinds { display: flex; border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); overflow: hidden; }
+.qt-kinds button { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2); min-height: 30px; padding: 0 var(--sp-3);
+  border: 0; background: transparent; color: var(--ink-2); font: inherit; font-weight: 600; cursor: pointer; }
+.qt-kinds button + button { border-left: var(--bw) solid var(--line-strong); }
+.qt-kinds button[aria-pressed="true"] { background: var(--surface-3); color: var(--ink); }
+.qt-kinds .n { font-weight: 400; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .qt-results { overflow: auto; padding: var(--sp-3); flex: 1; min-height: 0; display: grid; align-content: start; }
 .qt-results.cards { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: var(--sp-3); }
 .qt-results.list { gap: 2px; }

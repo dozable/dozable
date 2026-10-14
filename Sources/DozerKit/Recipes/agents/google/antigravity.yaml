@@ -164,6 +164,9 @@ capabilities:
     checked: '2026-10-12'
 - type: com.dozersandbox/directory@1
   config:
+    kind: coding-agent
+    categories:
+    - coding-agent
     limits:
     - reason: Dozer installs Antigravity CLI's glibc build only for now (Google publishes a musl build too; it is not checked yet)
       musl: true

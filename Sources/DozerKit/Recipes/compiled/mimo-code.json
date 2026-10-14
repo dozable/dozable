@@ -210,8 +210,12 @@
           "mimo",
           "mimocode"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "mimo-code",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,

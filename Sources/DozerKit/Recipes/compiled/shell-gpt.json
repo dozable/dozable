@@ -285,8 +285,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "shell-gpt",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

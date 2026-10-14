@@ -241,8 +241,12 @@
     },
     {
       "config" : {
+        "categories" : [
+          "terminal-tool"
+        ],
         "default_base" : "debian",
         "icon" : "llm",
+        "kind" : "ai-tool",
         "platforms" : {
           "glibc" : true,
           "musl" : false

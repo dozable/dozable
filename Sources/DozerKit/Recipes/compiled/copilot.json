@@ -242,8 +242,12 @@
         "aliases" : [
           "copilot-cli"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "copilot",
+        "kind" : "coding-agent",
         "licence" : "Proprietary (GitHub Copilot CLI License)",
         "limits" : [
           {

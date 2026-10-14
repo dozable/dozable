@@ -270,8 +270,12 @@
         "aliases" : [
           "claude"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "node",
         "icon" : "claude-code",
+        "kind" : "coding-agent",
         "licence" : "proprietary",
         "platforms" : {
           "glibc" : true,

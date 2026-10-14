@@ -221,8 +221,12 @@
           "factory",
           "factory-droid"
         ],
+        "categories" : [
+          "coding-agent"
+        ],
         "default_base" : "debian",
         "icon" : "droid",
+        "kind" : "coding-agent",
         "limits" : [
           {
             "musl" : true,
