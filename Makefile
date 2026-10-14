@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozerKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-openfiles test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -303,6 +303,9 @@ test-cli-permissions: cli vmtest-host ## 597: agent permissions — doz net perm
 
 test-cli-clipboard: cli vmtest-host ## 599 (594.B1): OSC 52 → the Mac clipboard (a file, DOZ_TEST_PASTEBOARD) with a notice each time; a read never answered; 1 MiB + rate limits; sandbox.clipboard off (per sandbox, for all)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-clipboard --doz $(CLI_BIN)
+
+test-cli-ports: cli vmtest-host ## 617 (RP-1): web ports in a real VM — doz ports add/ls/rm, doz open (the opener seam), the Mac's 127.0.0.1 only, a taken Mac port moved and kept, closed on sleep/hibernate/host stop/shutdown and back on wake/start
+	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-ports --doz $(CLI_BIN)
 
 test-cli-browser: cli vmtest-host ## 599 (594.B2): xdg-open/$BROWSER → the Mac's browser (a file, DOZ_TEST_OPEN_URL), a fake OAuth sign-in's localhost callback forwarded into the sandbox; refusals, rate, sandbox.browser_bridge off
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-browser --doz $(CLI_BIN)

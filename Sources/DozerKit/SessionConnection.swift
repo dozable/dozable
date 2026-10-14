@@ -297,6 +297,21 @@ public final class GuestStream: @unchecked Sendable {
         lock.lock(); exitCode = code; lock.unlock()
         outputContinuation.finish()
     }
+
+    /// 617 (RP-1): a stream with no guest behind it — the first chunk sent is answered by `answer` (a canned HTTP/1.0
+    /// reply), and then it ends, as such a server closes the connection. For tests of what relays a guest stream (the
+    /// port forwards).
+    public static func inMemory(_ answer: @escaping @Sendable (Data) -> Data) -> GuestStream {
+        let s = GuestStream()
+        Task.detached {
+            for await d in s.input {
+                s.outputContinuation.yield(answer(d))
+                break
+            }
+            s.ended(0)
+        }
+        return s
+    }
 }
 
 /// A guest stream's stdout → its `output`.

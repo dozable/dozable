@@ -86,6 +86,8 @@ public actor HostCore {
     nonisolated let coldStarts = ColdStarts()
     /// 599: the session bridges' limits and recent actions (`HostCore+Bridges`).
     nonisolated let bridgeState = BridgeState()
+    /// 617 (RP-1): the standing web-port forwards (`HostCore+Ports`).
+    nonisolated let portTable = PortForwardTable()
     /// 609: which viewer set each session's size last (the attach relay re-applies the typist's).
     nonisolated let sizeOwners = SessionSizeOwners()
     /// 612: the programs' status per sandbox and session, the status watchers (keyed sandbox NUL session), the
@@ -263,6 +265,9 @@ public actor HostCore {
         if case .phase(let p) = e {
             if p == .running { Task { await self.refreshStatusWatches(name) } }
             if p == .off { clearStatuses(name) }
+            // 617 (RP-1): forwards listen while the sandbox runs, and only then.
+            if p == .running { Task { await self.bindPorts(name, settle: true) } }
+            if [.off, .asleep, .hibernated, .failed].contains(p) { unbindPorts(name, why: PhaseName.label(p)) }
         }
         if let he = HostEvent(e, sandbox: name) {
             managed[name]?.boot?.record(he)
@@ -439,6 +444,8 @@ public actor HostCore {
         i.trial = m.config.trial
         i.trialFolder = m.config.trialFolder
         i.extraKeys = m.config.extraKeys
+        let ports = portRows(m, running: phase == .running)                // 617 (RP-1)
+        i.ports = ports.isEmpty ? nil : ports
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
         i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
         i.workspaceView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
@@ -702,6 +709,8 @@ public actor HostCore {
             return try JSONValue(encoding: images())
         case .copy:
             throw HostError(.invalid, "copy streams on its own connection (doz get / doz put)")
+        case .ports:
+            return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
         case .plan:
             guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
             return try JSONValue(encoding: plan(p))

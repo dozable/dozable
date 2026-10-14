@@ -234,6 +234,28 @@ agent's releases are is measured on each Mac, never recorded here.
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
 `terms`, `licence` (the licence in words, when it is not just the SPDX id).
 
+**`com.dozersandbox/ports@1`** (optional, at most one) — the web ports the program serves inside the sandbox, each
+forwarded to the Mac's loopback (`127.0.0.1`) while the sandbox runs, with an Open button ([Web
+ports](../manual/29-web-ports.md)). `ports`: 1–16 of `{port, title, path?, protocol?, auth?, token_hint?, check?}` —
+`port` the guest port its program listens on (its own localhost), `title` the button's label (1–40 characters),
+`path` what Open opens (default `/`), `protocol` `http` (default) or `ws` (forwarded, no button), `auth` `none`
+(default), `token` (the program prints a token — `token_hint` says where) or `login`, `check` what `make recipe-check`
+GETs (default `path`; any HTTP status line passes). `serve`: the command that serves them when the session's program
+does not (`[aichat, --serve]`) — `make recipe-check` runs it in the background before it GETs each http port through a
+real forward. The forward is inbound only: it is not egress, the network policy and the proxy do not apply to it, and
+no credential crosses it.
+
+```yaml
+- type: com.dozersandbox/ports@1
+  config:
+    ports:
+    - port: 8000
+      title: AIChat web
+      path: /playground
+    serve: [aichat, --serve]
+```
+
+
 ## Model sources: providers and gateways
 
 A **model source** is where a key goes: a provider (`anthropic`, `openai`, `xai`, `google`) or a gateway

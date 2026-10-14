@@ -132,6 +132,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 617 (models@1): the model chosen for a recipe agent, by model source (`--model` with `--provider`/`--gateway`) —
     /// used while the sandbox's account is of that source; the source's default model otherwise. Absent before 617.
     public var models: [String: String]?
+    /// 617 (RP-1): the web ports forwarded beside the recipe's own (`doz ports add`), and the Mac port each guest port
+    /// (recipe or added) had last — preferred again at the next start. Absent before 617.
+    public var ports: [PortForwardEntry]?
+    public var portMacPorts: [String: Int]?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

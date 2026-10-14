@@ -127,7 +127,8 @@
           "--help",
           "-h",
           "--info",
-          "--list-models"
+          "--list-models",
+          "--serve"
         ],
         "state_env" : {
 
@@ -300,9 +301,26 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its --serve playground needs a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its --serve playground opens from the sandbox's Open button (doz open)."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "ports" : [
+          {
+            "check" : "/playground",
+            "path" : "/playground",
+            "port" : 8000,
+            "title" : "AIChat web"
+          }
+        ],
+        "serve" : [
+          "aichat",
+          "--serve"
+        ]
+      },
+      "type" : "com.dozersandbox/ports@1"
     }
   ],
   "description" : "An all-in-one LLM command line: a chat REPL, a shell assistant, roles, sessions and RAG; on an Anthropic, OpenAI, xAI, Google AI or OpenRouter key.",

@@ -87,6 +87,7 @@ capabilities:
     - '-h'
     - '--info'
     - '--list-models'
+    - '--serve'
     env: {}
     state_env: {}
     status: none
@@ -198,4 +199,14 @@ capabilities:
       - aichat PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/aichat)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). Its --serve playground needs a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its --serve playground opens from the sandbox's Open button (doz open).
+- type: com.dozersandbox/ports@1
+  config:
+    ports:
+    - port: 8000
+      title: AIChat web
+      path: /playground
+      check: /playground
+    serve:
+    - aichat
+    - --serve

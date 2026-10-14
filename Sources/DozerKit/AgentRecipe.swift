@@ -113,9 +113,49 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// credential, as before.
     public var models: Models? = nil
 
+    /// 617 (RP-1, owner: "web port forwarding first"): the web ports its program serves in the sandbox, each forwarded
+    /// to the Mac's loopback while the sandbox runs (`com.dozersandbox/ports@1`). nil: none.
+    public var ports: WebPorts? = nil
+
+    /// The web ports a recipe declares, and how its web part is started when the session's program is not it.
+    public struct WebPorts: Codable, Sendable, Equatable {
+        public var ports: [WebPort]
+        /// The command that serves them when the session's program does not (`aichat --serve`): `make recipe-check`
+        /// runs it in the background for its port check, and the manual tells people to run it. nil: the program does.
+        public var serve: [String]?
+        public init(ports: [WebPort], serve: [String]? = nil) { self.ports = ports; self.serve = serve }
+    }
+
+    /// One web port: the guest port its program listens on (its localhost), and what the Open button shows.
+    public struct WebPort: Codable, Sendable, Equatable {
+        public var port: Int
+        public var title: String
+        /// What Open opens (default `/`).
+        public var path: String?
+        /// `http` (the default; an Open button) or `ws` (a WebSocket endpoint: forwarded, no button).
+        public var `protocol`: String?
+        /// `none` (the default), `token` (the program prints a token to sign in with — `tokenHint` says where) or
+        /// `login` (its own account sign-in page).
+        public var auth: String?
+        public var tokenHint: String?
+        /// What `make recipe-check` GETs (default: `path`); any HTTP status line passes.
+        public var check: String?
+        enum CodingKeys: String, CodingKey {
+            case port, title, path, `protocol`, auth, check
+            case tokenHint = "token_hint"
+        }
+        public init(port: Int, title: String, path: String? = nil, protocol: String? = nil, auth: String? = nil,
+                    tokenHint: String? = nil, check: String? = nil) {
+            self.port = port; self.title = title; self.path = path; self.protocol = `protocol`; self.auth = auth
+            self.tokenHint = tokenHint; self.check = check
+        }
+        public var isHTTP: Bool { (`protocol` ?? "http") == "http" }
+        public var openPath: String { path ?? "/" }
+    }
+
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
-             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models
+             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, ports
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
 
@@ -1017,6 +1057,22 @@ extension AgentRecipe {
         guard platforms.glibc || platforms.musl else { throw bad("it runs nowhere (platforms)") }
         if !platforms.musl, BaseCatalogue.base(defaultBase)?.musl == true { throw bad("its default base is musl, which it does not support") }
         guard ["osc7501", "none"].contains(status) else { throw bad("status osc7501 or none") }
+        // 617 (RP-1): web ports
+        if let w = ports {
+            guard !w.ports.isEmpty, w.ports.count <= PortForwarding.maximumPerSandbox else { throw bad("ports@1: 1–\(PortForwarding.maximumPerSandbox) ports") }
+            var seen = Set<Int>()
+            for p in w.ports {
+                guard (1...65_535).contains(p.port), seen.insert(p.port).inserted else { throw bad("ports@1: port \(p.port) (1–65535, once each)") }
+                guard !p.title.isEmpty, p.title.count <= 40 else { throw bad("ports@1 \(p.port): a title of 1–40 characters") }
+                guard ["http", "ws"].contains(p.protocol ?? "http") else { throw bad("ports@1 \(p.port): protocol http or ws") }
+                guard ["none", "token", "login"].contains(p.auth ?? "none") else { throw bad("ports@1 \(p.port): auth none, token or login") }
+                for path in [p.path, p.check].compactMap({ $0 }) where !PortForwarding.isPath(path) {
+                    throw bad("ports@1 \(p.port): \(path) — a path starts with / and has no spaces")
+                }
+                if p.auth == "token", (p.tokenHint ?? "").isEmpty { throw bad("ports@1 \(p.port): auth token says where the token is (token_hint)") }
+            }
+            if let s = w.serve, s.isEmpty || s.contains(where: \.isEmpty) { throw bad("ports@1 serve: a command") }
+        }
         // install
         let release = AgentRelease(version: install.pinned.version, integrity: install.pinned.integrity ?? "sha512-A")
         guard release.isWellFormed else { throw bad("pinned \(install.pinned.version) / its integrity are not well-formed") }

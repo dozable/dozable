@@ -97,7 +97,8 @@ An all-in-one LLM command line: a chat REPL, a shell assistant (`-e`), roles, se
   model is `xai:grok-4-1-fast` (`AICHAT_MODEL`, or `-m`).
 - **Use:** the session is its REPL; one question is `aichat "a question"`, a shell command `aichat -e "list big files"`.
 - **May reach:** xAI's API.
-- **Later:** `aichat --serve` (its playground) needs a forwarded port.
+- **Its playground:** run `aichat --serve` in a session; the sandbox's **Open AIChat web** button (or
+  `doz open NAME`) opens it in your Mac's browser — see [Web ports](29-web-ports.md).
 
 ## tgpt
 

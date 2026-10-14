@@ -40,6 +40,25 @@ function deniedChip(name, denied, suggestions, review) {
   items.push({ label: 'Review in Network', icon: 'shield', desc: 'Allow what it needs, or keep it out', onSelect: review, data: { 'review-network': name } });
   return menuButton(b, items, { label: 'Refused for ' + name, align: 'start' }).el;
 }
+/// 617 (RP-1): a web port's Open button — the forward on this Mac's loopback (127.0.0.1). From another device
+/// (doz serve) 127.0.0.1 is that device's own, so the button says so instead of opening the wrong machine.
+function portButton(name, p) {
+  const label = 'Open ' + p.title;
+  if (isRemote()) {
+    return h('span', { class: 'tag outline', 'data-port-open': String(p.port), title: p.title + ' is forwarded to the Mac’s 127.0.0.1:' + p.macPort + ' — open it on the Mac (doz open ' + name + ' ' + p.port + ')' },
+      withIcon('link', p.title + ' (on the Mac)'));
+  }
+  const tip = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '')
+    + (p.auth === 'token' && p.tokenHint ? ' · it asks for a token: ' + p.tokenHint : '');
+  return h('a', { class: 'btn small', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
+    withIcon('link', label));
+}
+/// 617 (RP-1): the details' list of web ports (every state), with what to do when one is not listening.
+function portRows(name, i) {
+  return (i.ports || []).map((p) => h('div', { class: 'sub2', 'data-port-row': String(p.port) },
+    p.title + ' — port ' + p.port + ' → ' + (p.state === 'listening' ? (p.url || '127.0.0.1:' + p.macPort) : p.state + (p.why ? ': ' + p.why : ''))
+      + (p.origin === 'added' ? ' (added)' : '') + (p.moved && p.state === 'listening' ? ' (moved: ' + p.port + ' was taken)' : '')));
+}
 /// 617: a try's exit choice. Delete removes it (asked with a box to tick) — and its folder when the folder is empty
 /// (the host does it); a folder with the agent's files is kept, and said; Keep hides this for the page. (Sleep and
 /// Hibernate are the action bar's — owner.)
@@ -273,6 +292,8 @@ function sandboxParts(name, d, net, accounts) {
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617: a try (Quick try, doz try).
         i.trial ? h('span', { class: 'tag outline', 'data-try-tag': '', title: 'A try — Sleep, Delete or Keep it when you are done' }, withIcon('play', 'try')) : null,
+        // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
+        ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
         // 599g: the workspace's .dozignore / .dozreadonly (the details say how many patterns and whether in force).
         i.workspaceRules ? h('span', { class: 'tag outline', 'data-workspace-rules': i.workspaceRulesView || '', title: 'Workspace rules: ' + i.workspaceRules + ' — doz ignore show ' + name },
           withIcon('shield', 'rules')) : null)),
@@ -317,6 +338,9 @@ function sandboxParts(name, d, net, accounts) {
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
           : i.workspace ? h('p', { class: 'muted', 'data-workspace-rules-none': '' },
             'Workspace rules: none — the folder is shared as is. A .dozignore or .dozreadonly in it keeps the agent away from some files.') : null),
+      i.ports ? h('div', { 'data-ports': name }, h('div', { class: 'insp-lbl' }, 'Web ports'), portRows(name, i),
+        h('p', { class: 'muted' }, running ? 'Each listens on this Mac’s 127.0.0.1 only. Add another: doz ports add ' + name + ' PORT.'
+          : 'They listen while it runs — on this Mac’s 127.0.0.1 only.')) : null,
       h('div', null, h('div', { class: 'insp-lbl' }, 'Sessions'),
         live.length ? h('div', null, live.map((s) => s.name).join(', '), ' ', h('a', { href: '#/sandbox/' + name, on: { click: (ev) => { ev.preventDefault(); inspShow(name, 'sessions'); } } }, 'All sessions'))
           : h('div', { class: 'muted' }, running ? 'None running.' : 'None running — it is ' + (PHASE_WORD[i.phase] || i.phase) + '.')),

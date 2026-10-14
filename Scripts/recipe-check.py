@@ -28,7 +28,7 @@
 #               --gateway SOURCE`), `${{ dozer.model }}` and `${{ dozer.base_url }}` in its check argv = that source's, the request seen on
 #               that source's host with that key, and the leak guard to another provider AND another gateway. all
 #               (default; also $RECIPE_SELECTIONS), default (its default source only), or a list. The build is once.
-import argparse, datetime, glob, json, os, pty, re, select, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
+import argparse, datetime, glob, json, os, pty, re, select, shlex, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPILED = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
@@ -87,6 +87,21 @@ class Recipe:
         self.volumes = [c["config"]["path"] for c in caps if c["type"] == "com.docker.sandbox/volume@1"]
         # 617 (models@1): the model sources it can be tried with (the plan says which: `doz try ID --dry-run --json`).
         self.models = cfg("com.dozersandbox/models@1")
+        # 617 (RP-1): its web ports, and the command that serves them when the session's program does not.
+        self.ports = cfg("com.dozersandbox/ports@1")
+
+
+def http_status(host, port, path):
+    """The status line of a plain HTTP/1.0 GET (or why there is none)."""
+    import socket
+    try:
+        with socket.create_connection((host, port), timeout=10) as s:
+            s.settimeout(15)
+            s.sendall(("GET %s HTTP/1.0\r\nHost: %s:%d\r\n\r\n" % (path, host, port)).encode())
+            data = s.recv(256)
+        return data.split(b"\r\n", 1)[0].decode("latin-1") if data else "an empty answer"
+    except OSError as e:
+        return "no connection (%s)" % e
 
 
 class Harness:
@@ -398,6 +413,50 @@ class Harness:
         # 6. status (OSC 7501) — the default selection only (the protocol is the agent's, not the source's)
         if r.status == "osc7501" and first:
             step("status", lambda: self.status(r, name, res))
+
+        # 7. web ports (RP-1): each declared http port answers through a real forward on this Mac's 127.0.0.1 — the
+        # default selection only (the port is the program's, not the source's)
+        if r.ports and first:
+            step("ports", lambda: self.web_ports(r, name, res))
+
+    def web_ports(self, r, name, res):
+        fail = res["failures"].append
+        serve = r.ports.get("serve")
+        if serve:
+            # In the background, detached from the exec, its output kept for a failure's message.
+            cmd = " ".join(shlex.quote(a) for a in serve)
+            self.doz("exec", name, "--", "sh", "-c", "setsid nohup %s > /tmp/doz-serve.log 2>&1 < /dev/null & sleep 1" % cmd, timeout=60)
+        code, out = self.doz("ports", name, "--json", timeout=60)
+        try:
+            rows = {p["port"]: p for p in json.loads(out)["ports"]}
+        except (ValueError, KeyError):
+            fail("ports: doz ports %s --json: %s" % (name, out.strip()[-200:]))
+            return
+        got = []
+        for p in r.ports["ports"]:
+            if (p.get("protocol") or "http") != "http":
+                continue
+            row = rows.get(p["port"])
+            if not row or row.get("state") != "listening" or not row.get("mac_port"):
+                fail("ports: %s (port %d) is not listening on this Mac: %s" % (p["title"], p["port"], json.dumps(row)[:200]))
+                continue
+            if not row["mac_port"] or not str(row.get("url", "")).startswith("http://127.0.0.1:"):
+                fail("ports: %s is not on this Mac's loopback: %s" % (p["title"], row.get("url")))
+                continue
+            path = p.get("check") or p.get("path") or "/"
+            line, deadline = "", time.time() + 90
+            while time.time() < deadline:
+                line = http_status("127.0.0.1", row["mac_port"], path)
+                if line.startswith("HTTP/"):
+                    break
+                time.sleep(2)
+            if not line.startswith("HTTP/"):
+                tail = self.doz("exec", name, "--", "sh", "-c", "tail -5 /tmp/doz-serve.log 2>/dev/null; true", timeout=30)[1] if serve else ""
+                fail("ports: GET 127.0.0.1:%d%s (%s, the sandbox's %d) got no HTTP answer: %s %s" % (row["mac_port"], path, p["title"], p["port"], line, tail.strip()[-200:]))
+            else:
+                got.append("%d→%d %s" % (p["port"], row["mac_port"], line))
+        res["ports"] = got
+
 
     def status(self, r, name, res):
         states, stop = [], threading.Event()

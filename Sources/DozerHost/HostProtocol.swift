@@ -140,6 +140,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// sandbox (`fileCopy`: a `CopyRequest`). Answered with `CopyReady`; then the connection carries `CopyFrame`s — a tar
     /// stream over the guest stream (no new guest→host channel) — and ends with `CopyDone`.
     case copy
+    /// 617 (RP-1): a sandbox's web-port forwards — listed, or one added (`portAdd`) or removed (`portRemove`); answered
+    /// with `PortsAnswer`. Listeners live in the host, so this always needs it.
+    case ports
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
@@ -302,6 +305,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// 617: `attach` with no session named — open the image's own session when it is not running (`doz attach`).
     public var openDefault: Bool?
     public var plan: String?
+    /// 617 (RP-1) `ports`: a forward to add (kept in the sandbox's record) or a guest port to stop forwarding.
+    public var portAdd: PortForwardEntry?
+    public var portRemove: Int?
     public var configDir: String?
     public var keychainService: String?
     public var policy: String?
@@ -523,6 +529,18 @@ public enum PhaseName {
 // MARK: results
 
 /// One row of `ls` (and the head of `inspect`).
+/// 617 (RP-1): `ports`' answer — the sandbox's forwards and its phase (listeners exist only while it runs), and a
+/// sentence for what a change did (`added`, a moved port).
+public struct PortsAnswer: Codable, Equatable, Sendable {
+    public var sandbox: String
+    public var phase: String
+    public var ports: [PortForwardRow]
+    public var note: String?
+    public init(sandbox: String, phase: String, ports: [PortForwardRow], note: String? = nil) {
+        self.sandbox = sandbox; self.phase = phase; self.ports = ports; self.note = note
+    }
+}
+
 public struct SandboxInfo: Codable, Equatable, Sendable {
     public var name: String
     /// `lab`, `claude-code`, `pi`, or `custom:<name>`.
@@ -598,6 +616,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var trialFolder: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
+    /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
+    public var ports: [PortForwardRow]? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -620,6 +640,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
         case trial, extraKeys, trialFolder                // 617
+        case ports                                        // 617 (RP-1)
     }
 
     public init(from decoder: Decoder) throws {
@@ -661,6 +682,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         trial = try c.decodeIfPresent(Bool.self, forKey: .trial)
         extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
         trialFolder = try c.decodeIfPresent(String.self, forKey: .trialFolder)
+        ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -702,6 +724,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(trial, forKey: .trial)
         try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
         try c.encodeIfPresent(trialFolder, forKey: .trialFolder)
+        try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
         try c.encodeIfPresent(agentWorking, forKey: .agentWorking)

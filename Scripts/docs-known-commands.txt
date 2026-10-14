@@ -87,6 +87,8 @@ tools
 ignore
 ignore/check
 ignore/show
+ports
+open
 host/start
 host/stop
 host/restart

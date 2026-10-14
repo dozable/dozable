@@ -370,6 +370,21 @@ compared without case or Unicode form on a case-insensitive Mac volume. Served b
 inside the sandbox; no rule file, no view. `doz create`/`up`/`start` warn when a rule locks `.git` or
 git-tracked files. Not a security boundary: root in the sandbox can get around it.
 
+### Web ports
+
+```bash
+doz ports NAME                               # its forwarded ports: guest port, URL on this Mac, listening/stopped/failed
+doz ports add NAME PORT [--title T] [--path P]   # forward another port (a dev server) — kept until removed
+doz ports rm NAME PORT                       # stop forwarding a port you added
+doz open NAME [PORT] [--print]               # open its first web port (or PORT) in this Mac's browser
+```
+
+A forward makes a port a program listens on inside the sandbox reachable on this Mac's `127.0.0.1` (and `::1`), never
+the network, while the sandbox runs; it closes when the sandbox stops, sleeps or hibernates and comes back at the next
+start or wake (and after a host restart). The Mac port is the guest's when free and 1024 or above, otherwise another
+(said, and kept). A recipe's `ports@1` declares the tool's own (AIChat's playground). Inbound only: the network policy
+and the proxy do not apply, and no credential crosses it.
+
 ### The tools layer
 
 ```bash
