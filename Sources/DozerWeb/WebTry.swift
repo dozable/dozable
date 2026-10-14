@@ -91,32 +91,52 @@ public struct WebPlanQuery: Equatable, Sendable {
 extension WebTryCatalog {
     /// The list from each agent's plan (`plan` answers it — the host's op, the same as the CLI's).
     public static func build(plan: (PlanRequest) async throws -> WebPlan, secretEntry: Bool,
-                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = []) async -> WebTryCatalog {
+                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = [],
+                             installs: ([String: String]) -> [String: String] = { _ in [:] }) async -> WebTryCatalog {
         await build(plans: { rs in var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out },
-                    secretEntry: secretEntry, currency: currency, accounts: accounts)
+                    secretEntry: secretEntry, currency: currency, accounts: accounts, installs: installs)
     }
 
     /// 617 (owner: "a blank modal with a considerable delay … should load instantly"): the list alone — what each agent
     /// is, from its recipe and the currency file, no plan (`plan` nil, `ready` false). Milliseconds: the page draws its
     /// cards from it while `build` (the plans: readiness, the key card, what it can reach) is read.
-    public static func list(secretEntry: Bool, currency: [String: AgentCurrency] = [:]) -> WebTryCatalog {
-        assemble(planned: nil, secretEntry: secretEntry, currency: currency, accounts: [])
+    public static func list(secretEntry: Bool, currency: [String: AgentCurrency] = [:], installs: [String: String] = [:]) -> WebTryCatalog {
+        assemble(planned: nil, secretEntry: secretEntry, currency: currency, accounts: [], installs: installs)
+    }
+
+    /// 617 (the 0.34 screenshots: Claude Code's card said "2.1.227 · today" — its frozen fallback pin beside the date of
+    /// 2.1.299, the latest a try installs): the version a try of each agent gets NOW — `AgentVersions.spec(.create)`, the
+    /// same resolution a create makes (the image already prepared, else the setting's version: the latest as last
+    /// resolved, an exact one, else the pin). `images`: agent id → the image its try plan names (default: its own
+    /// default-base image). Only what the store has; never the network.
+    public static func installs(store: DozerStore, settings: DozerSettings, images: [String: String] = [:]) -> [String: String] {
+        var out: [String: String] = [:]
+        for r in recipeAgents() {
+            let image = images[r.id] ?? r.id
+            guard let spec = (try? AgentVersions.spec(image, purpose: .create, store: store, settings: settings)) ?? nil,
+                  let v = spec.agent?.version else { continue }
+            out[r.id] = v.split(separator: "+").first.map(String.init) ?? v
+        }
+        return out
     }
 
     /// The whole list, every agent's try planned on ONE reading of the store (`plans`).
     public static func build(plans: ([PlanRequest]) async -> [WebPlan?], secretEntry: Bool,
-                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = []) async -> WebTryCatalog {
+                             currency: [String: AgentCurrency] = [:], accounts: [WebAccount] = [],
+                             installs: ([String: String]) -> [String: String] = { _ in [:] }) async -> WebTryCatalog {
         let recipes = recipeAgents()
         let ps = await plans(recipes.map { WebPlanQuery(purpose: "try", agent: $0.id).request })
         var planned: [String: WebPlan] = [:]
         for (r, p) in zip(recipes, ps) { if let p { planned[r.id] = p } }
-        return assemble(planned: planned, secretEntry: secretEntry, currency: currency, accounts: accounts)
+        let images = planned.compactMapValues { $0.create?.image }
+        return assemble(planned: planned, secretEntry: secretEntry, currency: currency, accounts: accounts, installs: installs(images))
     }
 
     static func recipeAgents() -> [AgentRecipe] { AgentKind.allCases.filter { $0 != .none }.compactMap(\.recipe) }
 
     /// planned nil: the list only. Else an agent with no plan is left out (it could not be planned).
-    static func assemble(planned: [String: WebPlan]?, secretEntry: Bool, currency: [String: AgentCurrency], accounts: [WebAccount]) -> WebTryCatalog {
+    static func assemble(planned: [String: WebPlan]?, secretEntry: Bool, currency: [String: AgentCurrency], accounts: [WebAccount],
+                         installs: [String: String] = [:]) -> WebTryCatalog {
         var agents: [Agent] = []
         for r in recipeAgents() {
             let p = planned?[r.id]
@@ -141,8 +161,11 @@ extension WebTryCatalog {
             a.gateway = r.gateways.contains { ["documented", "verified"].contains($0.level) }
             a.current = r.lifecycle?.isCurrent ?? true
             a.ready = p.map { card == nil && !$0.problems.contains { $0.code != "key" } } ?? false
-            a.version = r.install.pinned.version.split(separator: "+").first.map(String.init)
-            a.age = currency[r.id]?.ageDays.map(Self.age)
+            // What a try installs (`installs`), else the recipe's pin; its release date only when it IS the latest the
+            // host looked up — the date belongs to that version, never to another.
+            let pin = r.install.pinned.version.split(separator: "+").first.map(String.init)
+            a.version = installs[r.id] ?? pin
+            a.age = currency[r.id].flatMap { c in c.latest != nil && c.latest == a.version ? c.ageDays.map(Self.age) : nil }
             a.description = r.description
             a.catalogKind = r.catalogKind
             a.categories = r.categories ?? []

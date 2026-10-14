@@ -302,6 +302,40 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(WebSessionStore.keptSessions(file: f, port: 4321), 1, "the expired one does not count")
         XCTAssertEqual(WebSessionStore.keptSessions(file: f, port: 9999), 0, "another port's cookie is never presented")
     }
+
+    /// 617 (the 0.34 screenshots): a card says the version a try INSTALLS — Claude Code at the latest the host resolved,
+    /// not its frozen fallback pin — and a release date only when it belongs to that version.
+    func testTheCardSaysWhatATryInstallsAndItsOwnDate() throws {
+        let root = URL(fileURLWithPath: "/private/tmp/webtry-installs-\(UUID().uuidString.prefix(6))")
+        defer { try? FileManager.default.removeItem(at: root) }
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        let store = DozerStore(root: root), now = Date()
+        let integrity = "sha512-" + Data(repeating: 7, count: 64).base64EncodedString()
+        var claude = AgentVersionRecord(latest: AgentRelease(version: "2.1.299", integrity: integrity), checkedAt: now)
+        claude.latestReleased = now
+        claude.infoVersion = "2.1.299"
+        let codex = AgentVersionRecord(latest: AgentRelease(version: "0.162.1", integrity: integrity), checkedAt: now)
+        AgentVersions.save(["claude-code": claude, "codex": codex], store)
+
+        let installs = WebTryCatalog.installs(store: store, settings: DozerSettings(text: nil))
+        XCTAssertEqual(installs["claude-code"], "2.1.299", "latest (the default setting): the version last resolved")
+        XCTAssertEqual(installs["codex"], "0.162.1")
+        XCTAssertEqual(installs["pi"], AgentImages.pinned("pi")?.version, "never looked up: the pin")
+        let exact = WebTryCatalog.installs(store: store, settings: DozerSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n"))
+        XCTAssertEqual(exact["claude-code"], "2.1.227", "an exact setting: that version")
+
+        let currency = AgentCurrency.all(store: store, now: now)
+        let by = Dictionary(uniqueKeysWithValues: WebTryCatalog.list(secretEntry: true, currency: currency, installs: installs).agents.map { ($0.id, $0) })
+        XCTAssertEqual(by["claude-code"]?.version, "2.1.299")
+        XCTAssertEqual(by["claude-code"]?.age, "today", "the latest's date, for the latest")
+        XCTAssertEqual(by["codex"]?.version, "0.162.1")
+        XCTAssertNil(by["codex"]?.age, "no release date looked up for it: none shown")
+
+        let older = Dictionary(uniqueKeysWithValues: WebTryCatalog.list(secretEntry: true, currency: currency, installs: exact).agents.map { ($0.id, $0) })
+        XCTAssertEqual(older["claude-code"]?.version, "2.1.227")
+        XCTAssertNil(older["claude-code"]?.age, "2.1.299's date is never shown beside 2.1.227")
+        XCTAssertTrue(older["claude-code"]?.latest?.contains("2.1.299") == true, "the newest is said on its own line")
+    }
 }
 
 extension CreatePlan {

@@ -977,13 +977,16 @@ public final class DozerWebServer: @unchecked Sendable {
             // 617: read-only — each agent's try plan from the host's read-only op (in-process with no host).
             // Every agent planned on ONE reading of the store (the host's `plans`) — it was one `plan` each, ~0.6 s apiece.
             let d = data
+            let store = DozerStore(root: URL(fileURLWithPath: d.storePath)), current = settings.current
             return json(await WebTryCatalog.build(plans: { await d.plans($0) }, secretEntry: settings.secretEntryAllowed,
-                                                  currency: AgentCurrency.all(store: DozerStore(root: URL(fileURLWithPath: d.storePath))),
-                                                  accounts: (try? await d.accounts().accounts) ?? []))
+                                                  currency: AgentCurrency.all(store: store),
+                                                  accounts: (try? await d.accounts().accounts) ?? [],
+                                                  installs: { WebTryCatalog.installs(store: store, settings: current, images: $0) }))
         case .tryList:
             // 617: the list alone, from the recipes (no host, no plan) — the page draws its cards from it at once.
-            return json(WebTryCatalog.list(secretEntry: settings.secretEntryAllowed,
-                                           currency: AgentCurrency.all(store: DozerStore(root: URL(fileURLWithPath: data.storePath)))))
+            let store = DozerStore(root: URL(fileURLWithPath: data.storePath))
+            return json(WebTryCatalog.list(secretEntry: settings.secretEntryAllowed, currency: AgentCurrency.all(store: store),
+                                           installs: WebTryCatalog.installs(store: store, settings: settings.current)))
         case .plan:
             // 617: changes nothing; POST (CSRF, above) like the quick-add question.
             try Self.requireJSONBody(md)

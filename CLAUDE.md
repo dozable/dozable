@@ -1832,6 +1832,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   redraw IN PLACE (`paint`) so the search box keeps focus; a full `renderModal` only re-reads. The catalog carries each
   agent's mark (`AgentIcons.resolve` → `ResolvedIcon`, drawn by `dom/icons.js mark()` from its path — never fetched,
   no markup parsed) and the pills' facts (`ready`, `openSource`, `headless`, `gateway`, `current`, `version`, `age`).
+  `version` is what a try INSTALLS now (`WebTryCatalog.installs` = `AgentVersions.spec(.create)` — never the built-in
+  three's frozen fallback pin when the host resolved a latest), `age` only when that version is the latest looked up.
   `probes/617-*/stageE/browser-quick-try.mjs` (screenshots 10–16). `GET
   /api/v1/try` (each recipe agent's try plan + `TryCard` when its provider has no key; the coming ones with why) and
   `POST /api/v1/plan` (strict; the host's read-only `plan` — never a second planner). **The modal draws at once**
