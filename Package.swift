@@ -137,6 +137,7 @@ let package = Package(
                 .embedInCode("Recipes/compiled/open-interpreter.json"),
                 .embedInCode("Recipes/compiled/crush.json"),
                 .embedInCode("Recipes/compiled/mimo-code.json"),
+                .embedInCode("Recipes/compiled/codewhale.json"),
                 .embedInCode("Recipes/providers.json"),
                 .embedInCode("Recipes/gateways.json"),
                 .embedInCode("Recipes/tags.json"),
@@ -186,6 +187,7 @@ let package = Package(
                 .embedInCode("Recipes/icons/open-interpreter.svg"),
                 .embedInCode("Recipes/icons/crush.svg"),
                 .embedInCode("Recipes/icons/mimo-code.svg"),
+                .embedInCode("Recipes/icons/codewhale.svg"),
             ]
         ),
         // 599g — the `.dozignore` matcher in C (Docker's patternmatcher + an RE2-subset engine + Unicode

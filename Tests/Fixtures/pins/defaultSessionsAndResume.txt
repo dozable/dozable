@@ -48,4 +48,5 @@ resume mini-swe-agent  check=nil
 resume open-interpreter resume --last check=nil
 resume crush  check=nil
 resume mimo-code --continue check=nil
+resume codewhale --continue check=nil
 resume nil 

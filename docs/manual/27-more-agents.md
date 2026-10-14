@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -27,6 +27,7 @@ doz try mini-swe-agent   # mini-swe-agent (alias mini), on an xAI key
 doz try open-interpreter # Open Interpreter (alias interpreter), on an xAI key
 doz try crush            # Crush (Charmbracelet), on an xAI key
 doz try mimo-code        # MiMo Code (Xiaomi, alias mimo), on an xAI key
+doz try codewhale        # CodeWhale (formerly DeepSeek TUI), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -347,6 +348,22 @@ Xiaomi's terminal agent, an OpenCode derivative (`doz try mimo-code`, or `mimo`)
 - **May reach:** xAI's API only.
 - **Use:** `mimo` (a session; with approvals off, `--dangerously-skip-permissions`), or
   `mimo run -m xai/grok-build-0.1 "…"` for one task.
+
+## CodeWhale
+
+A provider-neutral terminal agent, formerly DeepSeek TUI (`doz try codewhale`), on an **xAI API key** (its built-in xAI
+provider, model `grok-build-0.1`).
+
+- **Installed** from its GitHub release (the static linux-arm64 build), checked against the SHA-512 Dozer recorded.
+  Every base, Alpine included.
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), read each run. Its own account (keys kept on
+  its servers) is not used.
+- **Set up for you:** its usage telemetry and update check off (`CODEWHALE_TELEMETRY=0`, `CODEWHALE_NO_UPDATE_CHECK`),
+  its onboarding skipped. Its TUI refreshes the models.dev catalogue when it starts; Dozer keeps that out quietly, and
+  it uses the catalogue it has.
+- **May reach:** xAI's API only.
+- **Use:** `codewhale` (a session; with approvals off, `--approval-policy never`), or `codewhale exec "…"` for one task
+  (`--auto` lets it use tools).
 
 ## Gemini CLI (Google) — superseded
 

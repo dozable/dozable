@@ -39,6 +39,7 @@ node-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pin
 node-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 node-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 node-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+node-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 python-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 python-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 python credentials=nil agentName=nil package=nil pinned=nil
@@ -79,6 +80,7 @@ python-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil p
 python-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 python-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 python-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+python-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 go-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 go-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 go credentials=nil agentName=nil package=nil pinned=nil
@@ -119,6 +121,7 @@ go-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pinne
 go-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 go-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 go-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+go-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 rust-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 rust-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 rust credentials=nil agentName=nil package=nil pinned=nil
@@ -159,6 +162,7 @@ rust-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pin
 rust-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 rust-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 rust-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+rust-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 java-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 java-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 java credentials=nil agentName=nil package=nil pinned=nil
@@ -199,6 +203,7 @@ java-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pin
 java-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 java-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 java-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+java-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 ruby-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ruby-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ruby credentials=nil agentName=nil package=nil pinned=nil
@@ -239,6 +244,7 @@ ruby-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil pin
 ruby-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 ruby-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 ruby-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+ruby-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 dotnet-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 dotnet-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 dotnet credentials=nil agentName=nil package=nil pinned=nil
@@ -279,6 +285,7 @@ dotnet-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil p
 dotnet-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 dotnet-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 dotnet-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+dotnet-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 debian-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 debian-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 debian credentials=nil agentName=nil package=nil pinned=nil
@@ -319,6 +326,7 @@ mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=mini-swe-age
 open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=0.0.56 sha512-+wUeWOq+twYjtpVk+J5dfAgCXveoIlTyn3zkGCgsAwCkxzPKCq3ZzZWxq//uHBzQfGflqbpi0UEl3EDVPBG6FA==
 crush credentials=xai:key agentName=Crush package=nil pinned=0.98.1 sha512-VbfBLF8cxG8tzN4xTkFwCmzcTYSYAbnMNNKs8y+tQGJzKWnj9QsXFRtD7m+pfvtfe0sqixU6ttLtx1Doc7MFFg==
 mimo-code credentials=xai:key agentName=MiMo Code package=@mimo-ai/cli pinned=0.1.15 sha512-x5x7cRstiRlSuXIPUcXs8UTH5JxbJwrd2XwKlX4Z8bxuXf8kxu7udm0qMuti7QRQ3U2vY/G4uTSZ5B1Vz3S4yw==
+codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=0.10.1 sha512-F/gS+8C4eANXPF15cRvzss7lowLk96a1tlOPZWxdNHveKURQdU9cRQ+RlW4Di0lg4TgXsfRCebR/AS1i0qhpzw==
 ubuntu-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 ubuntu-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 ubuntu credentials=nil agentName=nil package=nil pinned=nil
@@ -359,6 +367,7 @@ ubuntu-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil p
 ubuntu-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 ubuntu-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 ubuntu-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+ubuntu-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 alpine-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 alpine-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 alpine-codex credentials=openai:codex-mac,chatgpt,openai-key agentName=Codex package=nil pinned=nil
@@ -398,6 +407,7 @@ alpine-mini-swe-agent credentials=xai:key agentName=mini-swe-agent package=nil p
 alpine-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 alpine-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 alpine-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+alpine-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil
 df-0123456789ab-claude-code credentials=anthropic:mac,setup-token,api-key agentName=Claude Code package=nil pinned=nil
 df-0123456789ab-pi credentials=anthropic:api-key agentName=pi package=nil pinned=nil
 df-0123456789ab credentials=nil agentName=nil package=nil pinned=nil
@@ -438,3 +448,4 @@ df-0123456789ab-mini-swe-agent credentials=xai:key agentName=mini-swe-agent pack
 df-0123456789ab-open-interpreter credentials=xai:key agentName=Open Interpreter package=nil pinned=nil
 df-0123456789ab-crush credentials=xai:key agentName=Crush package=nil pinned=nil
 df-0123456789ab-mimo-code credentials=xai:key agentName=MiMo Code package=nil pinned=nil
+df-0123456789ab-codewhale credentials=xai:key agentName=CodeWhale package=nil pinned=nil

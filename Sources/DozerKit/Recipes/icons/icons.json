@@ -388,6 +388,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "MIT code; Xiaomi's MiMo logo is its trademark and is not used — a neutral lettermark.",
       "lettermark": { "text": "MI", "frame": "hex" }
+    },
+    {
+      "id": "codewhale", "kind": "product", "name": "CodeWhale",
+      "variants": { "mono": "codewhale.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/Hmbown/CodeWhale",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
+      "lettermark": { "text": "CW", "frame": "diamond" }
     }
   ]
 }
