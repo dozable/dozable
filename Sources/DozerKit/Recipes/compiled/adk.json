@@ -2,7 +2,7 @@
   "args" : {
     "version" : {
       "buildArg" : "ADK_VERSION",
-      "default" : "2.11.0",
+      "default" : "2.12.0",
       "description" : "The Agent Development Kit release Dozer installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
@@ -65,7 +65,7 @@
     {
       "config" : {
         "binary" : "adk",
-        "integrity" : "sha512-DShVMBN0VVb5tBVoYVwIai9msoRYD3NVKsPMu/drat96+OilvfeM4r8Y4CCBjrI9jMXgeQ7ejvkMoVGDL78tWQ==",
+        "integrity" : "sha512-76G+COIXjWA72IGkBmebzttRgvC4sQQrRljMlVD95eL1Af6VeJXYNJMZvGg8hx9fWEI87M5RCNnFrojYvs1wiw==",
         "kind" : "pypi",
         "package" : "google-adk",
         "requirements" : [
@@ -82,7 +82,7 @@
           "cryptography==50.0.2 --hash=sha256:87e9ce85beb6b328ba370cc6e6aea483c92617b4c95b1d33a49297eb662bfb04",
           "distro==1.9.0 --hash=sha256:7bffd925d65168f85027d8da9af6bddab658135b840670a223589bc0c8ef02b2",
           "fastapi==0.141.1 --hash=sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3",
-          "google-adk==2.11.0 --hash=sha256:4774e1fc7bb37727e56142e7d41e9035949ebfc876a2b15d5505969b02798bcd",
+          "google-adk==2.12.0 --hash=sha256:79f89ea94ccd87e4ac8c893e81c44ed2ce5568d05406a95c1d10bcef0ce0ff5d",
           "google-auth==2.62.0 --hash=sha256:4ff4319aeb4ad128409759d397a9fcafad126d0031d241cc0dd6b9a00b43e3f3",
           "google-genai==2.30.1 --hash=sha256:1bb8961c60f7100439a45067a32764a18da0f8d0f95954ffc777d1f8225a2469",
           "graphviz==0.21 --hash=sha256:54f33de9f4f911d7e84e4191749cac8cc5653f815b06738c54db9a15ab8b1e42",

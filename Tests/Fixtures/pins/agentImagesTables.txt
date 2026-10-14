@@ -332,10 +332,10 @@ aichat credentials=xai:key agentName=AIChat package=nil pinned=0.30.0 sha512-j+5
 tgpt credentials=google:key agentName=tgpt package=nil pinned=2.15.0 sha512-EcCxUb8C5DTvpeY7PpRxbOQFOBL6875cweRzAokS4aY0/m3pHKvS2+g6niA4SlqzT8G1Wp7SGGxxUezmH8rv4w==
 opencode credentials=xai:key agentName=OpenCode package=opencode-ai pinned=1.19.0 sha512-XD1qcVN4jEiaYHqtx40p8cEPJxBc1mcB99ksgQ81akZsGGwcNFyG6GH857jVEplbGgdzWiWxDCrSii56sHjmRQ==
 smolagents credentials=xai:key agentName=smolagents package=smolagents pinned=1.26.0 sha512-pILyUgYQX7m3SyYmADBbYmx9ab/aRsJ4vOHdhbSw0DlwOQIDMToq8acWqLfkIK0sv0NlttXNjJqwaQQspljiPg==
-adk credentials=google:key agentName=Agent Development Kit package=google-adk pinned=2.11.0 sha512-DShVMBN0VVb5tBVoYVwIai9msoRYD3NVKsPMu/drat96+OilvfeM4r8Y4CCBjrI9jMXgeQ7ejvkMoVGDL78tWQ==
+adk credentials=google:key agentName=Agent Development Kit package=google-adk pinned=2.12.0 sha512-76G+COIXjWA72IGkBmebzttRgvC4sQQrRljMlVD95eL1Af6VeJXYNJMZvGg8hx9fWEI87M5RCNnFrojYvs1wiw==
 promptfoo credentials=xai:key agentName=promptfoo package=promptfoo pinned=0.124.1 sha512-Y6fq/WGTL7lPvDsirNSmmmcPLhURwRao03iv8fCoLbFq6H1eqg5VVTmXiap5Jl+fiRaQQZXYMHb2N1gQm1tGyQ==
 clai credentials=xai:key agentName=clai (Pydantic AI) package=clai pinned=2.55.0 sha512-nlbupA+j3uyuetCpA2w1XKDiWfbiPmhOUJmkFGzFr9t4VxCrjL9kD4rsQDZgnqf7xw4Nox1gNr4v/cY99mM9mA==
-copilot credentials=xai:key agentName=GitHub Copilot CLI package=@github/copilot pinned=1.0.96 sha512-fwKUr1B47xLk6r3a49BCwrBb3nPbiOyKYaoq/JVPwEFAwOJyu+m+BHx4kDzkYawn98vQt7neKFuuNAnrlHh4cQ==
+copilot credentials=xai:key agentName=GitHub Copilot CLI package=@github/copilot pinned=1.0.97 sha512-iWtoEeG4kN1tz5f1tsHQKdwCQ24Dpx8+rGZ1GBn42U57QU5yjIhIeYR8DXJGFWTtoHwQn0uAlacbhDlqKYddYQ==
 debian-qwen-code credentials=xai:key agentName=Qwen Code package=nil pinned=nil
 goose credentials=xai:key agentName=Goose package=nil pinned=1.54.0 sha512-dopMlnmnYA443NEV1YLTTt5wO5FMSxfHL5e93GjkV97Q2Q9SxyNk7zKnMrdNXrfHYpXS+uLAuR8MbvnnavhutQ==
 kilo credentials=xai:key agentName=Kilo Code CLI package=@kilocode/cli pinned=7.8.8 sha512-JrZu4EsdaajRsafvgXN+dEcscV7VKM6sGp3Xm51EndrTnI7+76tKeyrPs6J5Bvn2yR/BNKhoId4LEjwjQGSHYg==
