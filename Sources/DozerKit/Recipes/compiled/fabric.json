@@ -136,7 +136,8 @@
           "--help",
           "-h",
           "--setup",
-          "-S"
+          "-S",
+          "--serve"
         ],
         "session" : "shell",
         "state_env" : {
@@ -313,6 +314,23 @@
         "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Patterns are downloaded with fabric -U (GitHub)."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "ports" : [
+          {
+            "check" : "/swagger/index.html",
+            "path" : "/swagger/index.html",
+            "port" : 8080,
+            "title" : "Fabric REST API"
+          }
+        ],
+        "serve" : [
+          "fabric",
+          "--serve"
+        ]
+      },
+      "type" : "com.dozersandbox/ports@1"
     }
   ],
   "description" : "A command-line prompt toolkit that applies crowd-sourced patterns to text, on a Google AI, Anthropic, OpenAI, xAI or OpenRouter key.",

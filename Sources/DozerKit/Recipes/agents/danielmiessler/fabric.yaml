@@ -86,6 +86,7 @@ capabilities:
     - -h
     - --setup
     - -S
+    - --serve
     env: {}
     state_env: {}
     first_run:
@@ -205,3 +206,13 @@ capabilities:
       evidence: 'A2 VM proof: echo hello | fabric "say ok" answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/fabric)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (Google AI by default). Patterns are downloaded with fabric -U (GitHub).
+- type: com.dozersandbox/ports@1
+  config:
+    ports:
+    - port: 8080
+      title: Fabric REST API
+      path: /swagger/index.html
+      check: /swagger/index.html
+    serve:
+    - fabric
+    - --serve

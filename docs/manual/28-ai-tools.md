@@ -173,4 +173,5 @@ A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.
 - **Use:** `echo "some text" | fabric "summarise this"`, or `fabric -U` once to download the patterns (from GitHub:
   allow "Use GitHub" in the sandbox's network), then `cat notes.txt | fabric -p summarize`.
 - **May reach:** the Gemini API.
-- **Later:** `fabric --serve` (its REST API and web UI) needs a port forwarded to the Mac, which Dozer does not offer yet.
+- **Its REST API:** run `fabric --serve` in a session; the sandbox's **Open Fabric REST API** button (or `doz open NAME`)
+  opens its API reference in your Mac's browser — see [Web ports](29-web-ports.md).

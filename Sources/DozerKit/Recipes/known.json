@@ -142,7 +142,7 @@
       "aliases": ["openwebui"],
       "homepage": "https://github.com/open-webui/open-webui",
       "status": "coming",
-      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "reason": "its release needs Python 3.12 (the Python Dozer installs tools into is 3.13) and PyTorch on the CPU for its embeddings (sentence-transformers) — its web page itself can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -151,7 +151,7 @@
       "publisher": "Model Context Protocol",
       "homepage": "https://github.com/modelcontextprotocol/inspector",
       "status": "coming",
-      "reason": "talks to MCP servers, not a model: the servers it starts come from npm or PyPI at run time, and its web UI needs a forwarded port",
+      "reason": "talks to MCP servers, not a model — Dozer cannot try a tool with no model key yet — and the servers it starts come from npm or PyPI at run time; its web UI can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -169,7 +169,7 @@
       "publisher": "n8n",
       "homepage": "https://github.com/n8n-io/n8n",
       "status": "coming",
-      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "reason": "its install builds native modules (sqlite3, isolated-vm) with a compiler, which Dozer's npm install does not run; its web page itself can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -178,7 +178,7 @@
       "publisher": "Langflow",
       "homepage": "https://github.com/langflow-ai/langflow",
       "status": "coming",
-      "reason": "a web app: needs its port forwarded to the Mac's browser and a background service",
+      "reason": "its install is some 450 Python packages, more than a sandbox's disk holds beside it; its web page itself can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
