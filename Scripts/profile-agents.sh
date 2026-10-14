@@ -76,6 +76,7 @@ for a in "$@"; do
     codewhale) bin=codewhale; task="codewhale exec --auto \"\$T\"" ;;
     maki) bin=maki; task="maki -p -m xai/grok-build-0.1 --yolo \"\$T\"" ;;
     omp) bin=omp; task="omp -p --model xai/grok-build-0.1 \"\$T\"" ;;
+    tau) bin=tau; task="tau -p --provider xai -m grok-build-0.1 \"\$T\"" ;;
     # 617 (other AI tools): a tool that answers and exits gets the task as its prompt (no tools of its own to run).
     fabric) bin=fabric; task="cat notes.txt | fabric \"\$T\"" ;;
     llm) bin=llm; task="llm -m grok-4-1-fast \"\$T\"" ;;

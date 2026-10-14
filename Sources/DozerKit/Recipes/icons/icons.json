@@ -415,6 +415,15 @@
       "allowed": "lettermark", "checked": "2026-10-14",
       "notes": "Open source (MIT); no logo terms were found — a neutral lettermark.",
       "lettermark": { "text": "OM", "frame": "octagon" }
+    },
+    {
+      "id": "tau", "kind": "product", "name": "Tau",
+      "variants": { "mono": "tau.svg" },
+      "source": "Dozer's lettermark (DozerKit Lettermark)",
+      "terms": "https://github.com/huggingface/tau",
+      "allowed": "lettermark", "checked": "2026-10-14",
+      "notes": "Open source (MIT); Hugging Face's logo is its trademark and is not used — a neutral lettermark.",
+      "lettermark": { "text": "T", "frame": "circle" }
     }
   ]
 }

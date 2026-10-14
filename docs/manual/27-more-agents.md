@@ -1,4 +1,4 @@
-# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Gemini CLI
+# More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Every Code, Cline CLI, OpenHands CLI, CodeBuddy Code, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Tau, Gemini CLI
 
 Beside Claude Code, pi and Codex, Dozer runs agents from other makers. Each uses an **API key** of its
 maker's; the key stays on your Mac and the sandbox only ever gets a placeholder, which Dozer's proxy swaps for the key
@@ -30,6 +30,7 @@ doz try mimo-code        # MiMo Code (Xiaomi, alias mimo), on an xAI key
 doz try codewhale        # CodeWhale (formerly DeepSeek TUI), on an xAI key
 doz try maki             # Maki, on an xAI key
 doz try omp              # oh-my-pi (a pi derivative), on an xAI key
+doz try tau              # Tau (Hugging Face's Python port of pi), on an xAI key
 doz try gemini           # Google's earlier agent (superseded by Antigravity CLI)
 doz search google        # what Dozer runs with a Google key, each with its latest release
 ```
@@ -392,6 +393,17 @@ A batteries-included derivative of pi (`doz try omp`), on an **xAI API key** (it
   their public model lists (Kilo, Venice, ZenMux, Command Code, Charm Hyper, Alibaba Model Studio, a model
   catalogue); no setting turns that off, so Dozer keeps those requests out quietly, and it does without them.
 - **Use:** `omp` (a session), or `omp -p --model xai/grok-build-0.1 "…"` for one task.
+
+## Tau
+
+Hugging Face's Python port of pi (`doz try tau`), on an **xAI API key** (its built-in xAI provider, model
+`grok-build-0.1`).
+
+- **Installed** from PyPI into its own Python environment: Dozer's Python and exactly the packages Dozer locked, each
+  checked against its recorded hash. Debian and Node bases (not Alpine yet).
+- **Key:** an xAI API key (`XAI_API_KEY`, a placeholder in the sandbox), read each run.
+- **May reach:** xAI's API only. Its update check and its model catalogue refresh are turned off.
+- **Use:** `tau` (a session), or `tau -p --provider xai -m grok-build-0.1 "…"` for one task.
 
 ## Gemini CLI (Google) — superseded
 

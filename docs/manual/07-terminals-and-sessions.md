@@ -223,6 +223,7 @@ Which agents say it:
 | CodeWhale | no (checked with 0.10.1) |
 | Maki | no (checked with 0.6.3) |
 | oh-my-pi | partly (18.10.4 reports idle, never working or done; not used yet) |
+| Tau | no (checked with 0.4.7) |
 
 How it works: a program reports its state with a terminal escape sequence (the *program status*
 protocol, OSC 7501) — but only after the terminal answers that it understands it. Dozer's session

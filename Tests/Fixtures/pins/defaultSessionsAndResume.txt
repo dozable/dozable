@@ -51,4 +51,5 @@ resume mimo-code --continue check=nil
 resume codewhale --continue check=nil
 resume maki --continue check=nil
 resume omp --continue check=nil
+resume tau  check=nil
 resume nil 
