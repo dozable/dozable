@@ -100,6 +100,17 @@ final class FamilyVersionsTests: XCTestCase {
         XCTAssertEqual(cfg.image, "opencode2")
     }
 
+    func testTheGuideSaysWhichMajorAndHowToGetTheOther() throws {
+        let o2 = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
+        let g = try XCTUnwrap(SandboxGuide.make(o2, version: "2.0.28", source: nil, model: nil, account: "x", accountKind: .key,
+                                                network: "x", workspace: nil, trial: true))
+        let v = try XCTUnwrap(g.facts.first { $0.id == "version" }?.value)
+        XCTAssertTrue(v.hasPrefix("OpenCode 2 2.0.28"), v)
+        XCTAssertFalse(v.contains("Dozer's pin"), "2.0.28 is not the pin: " + v)
+        XCTAssertTrue(v.contains("OpenCode 1: doz try opencode"), v)
+        XCTAssertFalse(v.lowercased().contains("latest"))
+    }
+
     func testAMajorWithoutAnExactRecordsTheReleaseItGot() async throws {
         let c = await core(.disabled)                  // never asked: the pin
         _ = await c.handle(HostRequest.keyAccountAdd(name: "x", provider: "xai", secret: "xai-FAKE0123456789abcdef"))

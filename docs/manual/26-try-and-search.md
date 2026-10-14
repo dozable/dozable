@@ -178,6 +178,29 @@ categories — `personal-agent`, `terminal-tool`, `framework`, `browser-agent`, 
 | 2 | nothing by that name (it suggests the closest) |
 | 64 | usage |
 
+## A tool's major version
+
+Some tools come in more than one major release line, each a recipe of its own — OpenCode 1 and OpenCode 2. The tool's
+name is the one Dozer recommends; you can always choose another:
+
+```sh
+doz try opencode                   # the major Dozer recommends (a release it checked)
+doz try opencode@1                 # OpenCode 1, kept up to date within 1.x
+doz try opencode@2.0.28            # exactly that release (checked against the registry before anything is made)
+doz create my-app --agent opencode@1      # the same in new, create and up — and in doz_project.yaml: agent: opencode@1
+```
+
+- **Recommended, never "latest"**: the recommended major is one whose recipe passed Dozer's checks; Dozer moves it to a
+  new major only once that one has.
+- **A sandbox keeps its major.** It records what it was made as (`opencode@2.0.29`). Later recommendations never move
+  it, and a reset keeps its major. The other major is a new sandbox.
+- **Where you see them**: a try's first line, `--dry-run` and the sandbox's Guide say which release it is and how to get
+  the other one (`OpenCode 1 1.19.0 (recommended) — OpenCode 2: doz try opencode@2`). `doz search` marks each major
+  (`(recommended; also @2)`), and the `doz try` list shows the tool once. In the dashboard, Quick try has one card per
+  tool, with a **Version** choice in its Try setup; New Sandbox shows the tool once, with its majors under it.
+- An exact release that does not exist, or a major that does not, is refused with the choices there are
+  (`opencode has opencode@1 (recommended) and opencode@2 — not @9`).
+
 ## One set of choices
 
 `doz new`, `doz create`, `doz up` and `doz try` take the same choice options, named after the keys of
@@ -185,7 +208,7 @@ categories — `personal-agent`, `terminal-tool`, `framework`, `browser-agent`, 
 
 | option | what it chooses |
 |---|---|
-| `--agent`, `--base`, `--dockerfile` | the agent and its base (`--image` is the shorthand for both) |
+| `--agent`, `--base`, `--dockerfile` | the agent and its base (`--image` is the shorthand for both); a tool's major or release: `--agent opencode@1` |
 | `--permissions` | what the agent may do: `standard`, `locked`, `open`, `+web`, `-error-reports`, `site:HOST` (`--allow` is the same) |
 | `--network` | `agent`, `locked`, `open`, `bake`, `nat` or `none` |
 | `--account`, `--key` | the account, and custom keys beside it |

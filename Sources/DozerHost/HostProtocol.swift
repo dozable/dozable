@@ -626,6 +626,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var trial: Bool? = nil
     /// 617: the folder Dozer made for this try (nil: none, or one the person chose).
     public var trialFolder: String? = nil
+    /// 618: what it was made as — `opencode@2.0.29` (a family's or tool's name and its release); nil: not recorded.
+    public var agentRef: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
     /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
@@ -652,6 +654,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
         case trial, extraKeys, trialFolder                // 617
+        case agentRef                                     // 618
         case ports                                        // 617 (RP-1)
     }
 
@@ -694,6 +697,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         trial = try c.decodeIfPresent(Bool.self, forKey: .trial)
         extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
         trialFolder = try c.decodeIfPresent(String.self, forKey: .trialFolder)
+        agentRef = try c.decodeIfPresent(String.self, forKey: .agentRef)
         ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
     }
 
@@ -736,6 +740,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(trial, forKey: .trial)
         try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
         try c.encodeIfPresent(trialFolder, forKey: .trialFolder)
+        try c.encodeIfPresent(agentRef, forKey: .agentRef)
         try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)

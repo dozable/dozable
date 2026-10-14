@@ -445,6 +445,7 @@ public actor HostCore {
         i.credentialProblem = credentialProblem(m)
         i.trial = m.config.trial
         i.trialFolder = m.config.trialFolder
+        i.agentRef = m.config.agentRef            // 618
         i.extraKeys = m.config.extraKeys
         // 617 (RP-1): whether something serves each port — read in the background, never on this call's path.
         if phase == .running, !readOnly, !wantedPorts(m).isEmpty,

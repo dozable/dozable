@@ -1763,6 +1763,32 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   refusals under Locked. Its first-run files seed exactly that (an empty `node_modules/.package-lock.json`, the lock's
   root dependency), so it calls nothing but its model; `OPENCODE_DISABLE_MODELS_FETCH` keeps models.dev out (the model
   must then be in its bundled list — `opencode models xai`). No OSC 7501 (recipe-check's status probe saw nothing).
+- **A tool's majors** (618, owner: "go with B and one card … make sure there is a way the user can chose an earlier
+  major version"; 617.B5's first qualified name): each major is a recipe; `com.dozersandbox/family@1` {family, major,
+  title, recommended} ties them (`AgentRecipes.validateFamilies`: one recommended, majors once, the family's name the id
+  of the member that predates it — its sandboxes/image/settings/statistics keep it — no other recipe answers to it, each
+  pin of its own major). **What a person TYPES goes through `AgentRef`** (DozerKit): `NAME` (a family's recommended
+  major), `NAME@MAJOR`, `NAME@VERSION` — `--agent`/`--image`, `doz try`, `doz_project.yaml agent:`, the web plan query,
+  `doz search`; a STORED name never does (an existing sandbox never changes major). Turning a recipe back into a typed
+  name is `AgentRef.typed` (the family's name only for the recommended major — never a member's id alone: it would mean
+  the recommended one). An exact release (`CreateOptions.agentVersion`) is checked like a pin before anything is made
+  (`HostCore.exactVersionProblem`: known, or the registry confirms it with its integrity) — a plan problem `version`,
+  a create refused; its sandbox's boot bakes its own spec (`imageToPrepare` never prepares another release for it).
+  `latest` stays within a member's major (`NpmRegistry.versions`, `newest(in:major:)`). A sandbox records
+  `SandboxConfig.agentRef` (`opencode@2.0.29`, display only); the plan's `version` (`PlanVersion`: release, ref, majors,
+  `familyLine` — "recommended", never "latest") is the try's first line, `--dry-run` and (with the Guide's version fact)
+  how to get the other. Quick try: ONE card per family, a Version choice in its setup that RE-PLANS only (the catalog's
+  `family` + `ref`); New Sandbox: one chip, its majors under it. `AgentRefTests`, `FamilyVersionsTests`,
+  `MajorChoiceTests`, `WebTryTests`; workspace `probes/618-*/browser-try-version.mjs`.
+- **OpenCode 2** (`opencode2`, npm `@opencode/cli` + `@opencode/cli-linux-arm64`, glibc; models@1 native: xAI, OpenAI,
+  Anthropic, OpenRouter, Vercel — the model through `{env:DOZ_MODEL}` in its opencode.json): its first command starts a
+  **background server** (`opencode serve --service`, re-parented to PID 1, 127.0.0.1:49374) that keeps the environment
+  of the run that started it — so `launch.service` (generic, any recipe) makes the launcher restart it when it runs with
+  another `DOZ_MODEL` (never a key's variable: placeholders differ per run), `start` as the fallback (its restart waits
+  for the old server, a zombie the VM's init never reaps). ports@1 49374 "OpenCode web" (auth token: `opencode pair`
+  prints a one-use link; change 49374 in it when this Mac's port moved). Proved: only its model is called (Open, every
+  request decrypted, its own update/models checks on), no plugin or Code Mode download, its first screen is a session.
+  `RecipeServiceTests`; workspace `probes/618-*/` (service-restart.sh, verify-*.sh).
 - **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
   every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
   cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:

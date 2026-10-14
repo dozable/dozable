@@ -300,6 +300,30 @@ the version (the pin), the provider and model with the account's NAME ("your key
 folder (the Mac's path) and where its settings live. `make recipe-check` runs every step after the first that is not
 an edit, in a shell in the try (exit 0).
 
+## Families: a tool's majors
+
+When a tool's new major release line is a different program (OpenCode 2: another npm package, another config, a
+background server), each major is a recipe of its own, and `com.dozersandbox/family@1` ties them together:
+
+```yaml
+- type: com.dozersandbox/family@1
+  config:
+    family: opencode          # what a person types: the recommended major
+    major: 2
+    title: OpenCode 2
+    recommended: true         # exactly one per family
+```
+
+- `NAME` is the family's recommended major, `NAME@MAJOR` a major, `NAME@VERSION` an exact release of the major it
+  belongs to (`AgentRef`). A member named by its own id (`opencode2`) is that major.
+- The family's name is the id of one of its members — the one that predates the family. Its sandboxes, image, settings
+  and statistics keep that id, so an existing sandbox never changes major. No other recipe or alias may use the name.
+- Each member pins a release of its own major. Its `latest` stays within that major: when the package's `latest` tag is
+  another major's, Dozer takes the newest stable release of its own.
+- Each major has its own guide, check, network profile and statistics id.
+- Move `recommended` to a new major only once its recipe passes `make recipe-check`, in a commit of its own. It is
+  "recommended", never "latest".
+
 ## Kinds and categories
 
 Every recipe says what it is, in `directory@1` — declared, because nothing else in its data can say it:
