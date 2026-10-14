@@ -106,7 +106,8 @@ extension WebTryCatalog {
             var a = Agent(id: r.id, title: r.title, publisher: r.publisher, provider: r.provider,
                           providerTitle: r.provider.flatMap { KeyProviders.provider($0)?.title },
                           base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card)
-            a.latest = currency[r.id]?.line
+            // A pinned-only tool is never looked up: no "Its newest" line ("Dozer installs" already says its pin).
+            a.latest = AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) && currency[r.id]?.latest == nil ? nil : currency[r.id]?.line
             if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
             a.icon = AgentIcons.resolve(r)
             a.aliases = (r.aliases ?? []).sorted()

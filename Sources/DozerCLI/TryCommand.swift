@@ -227,7 +227,7 @@ struct TryCommand: AsyncParsableCommand {
             let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"
             s += String(format: "  %2d. %@ — %@ · %@ · %@\n", i + 1, e.title, e.publisher ?? "", key, image)
             // 617: its latest release (and how old), and its standing with its maker.
-            s += "      " + latestLine(e.latest) + "\n"
+            s += "      " + latestLine(e.latest, agent: e.id) + "\n"
             if let l = e.lifecycle, !l.isCurrent { s += "      " + standingLine(l) + "\n" }
         }
         if !coming.isEmpty { s += "  coming: " + coming.map(\.title).joined(separator: ", ") + "\n" }

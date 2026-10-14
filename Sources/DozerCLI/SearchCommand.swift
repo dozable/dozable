@@ -75,7 +75,7 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
         if !limits.isEmpty { s += " · not on " + limits.compactMap { $0.with["base"] }.joined(separator: ", ") }
         s += e.tryCommand.map { " · try it: \($0)" } ?? ""
         // 617: its latest release as this Mac last saw it, and its standing with its maker.
-        s += "\n    " + latestLine(e.latest)
+        s += "\n    " + latestLine(e.latest, agent: e.id)
         if let l = e.lifecycle, !l.isCurrent { s += "\n    " + standingLine(l) }
         return s
     case "limited":
@@ -85,8 +85,13 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
     }
 }
 
-/// 617: the measured line (`latest 1.3.3 · released 10 Oct 2026 (2 days ago) · active`).
-func latestLine(_ l: DirectoryIndex.Latest?) -> String {
+/// 617: the measured line (`latest 1.3.3 · released 10 Oct 2026 (2 days ago) · active`). A tool installed from a pinned
+/// release download or a hash-locked PyPI set is never looked up (`AgentRecipe.pinnedOnlyKinds`): its line says the pin,
+/// never "not checked yet" — no check is coming.
+func latestLine(_ l: DirectoryIndex.Latest?, agent: String? = nil) -> String {
+    if l == nil, let id = agent, let r = AgentRecipes.recipe(id), AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) {
+        return "pinned \(r.install.pinned.version) — Dozer installs exactly this release; a newer one comes with a Dozer update"
+    }
     guard let l else { return "latest: not checked yet (the host checks hourly while it runs)" }
     var s = "latest \(l.version)"
     if let r = l.released, let d = ISO8601DateFormatter().date(from: r + "T00:00:00Z") {
@@ -119,7 +124,7 @@ func categoryLine(kind: String, categories: [String]?) -> String {
 func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     var s = "\(e.title)" + (e.publisher.map { " · \($0)" } ?? "") + (e.homepage.map { " · \($0)" } ?? "") + "\n"
     if e.status != "supported" { return s + "  \(e.status): \(e.reason ?? "")\n" + (e.lifecycle.map { "  standing: \(standingLine($0))\n" } ?? "") }
-    s += "  \(latestLine(e.latest))\n"
+    s += "  \(latestLine(e.latest, agent: e.id))\n"
     if let l = e.lifecycle, !l.isCurrent { s += "  standing: \(standingLine(l))\n" }
     if let i = e.install { s += "  installs: \(i.kind) \(i.source ?? "") \(i.version) (checksum-verified; its default base: \(e.defaultBase ?? "?"))\n" }
     if let r = e.reach {

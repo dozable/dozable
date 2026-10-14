@@ -144,6 +144,9 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
 - The Dozer host looks up each agent's latest release about once an hour while it runs (the same check that keeps
   images up to date). Looking — `doz search`, `doz try`, the Quick try — never asks the internet; before the first
   check it says *not checked yet*.
+- A tool Dozer installs from one pinned release download or a hash-locked set of Python packages (Fabric, AIChat,
+  Goose, Crush, Tau, …) is not looked up: its line says the pin — *pinned 1.4.518 — Dozer installs exactly this
+  release* — and a newer one comes with a Dozer update.
 - **Superseded** agents still work and stay selectable; they are listed after the current ones, and `doz search` of
   one lists what replaces it too. `doz try` of one says so first. Today: **Antigravity CLI** (`doz try antigravity`,
   alias `agy`) is Google's lead agent; **Gemini CLI** is superseded by it.
