@@ -318,7 +318,6 @@
       "config" : {
         "family" : "opencode",
         "major" : 1,
-        "recommended" : true,
         "title" : "OpenCode 1"
       },
       "type" : "com.dozersandbox/family@1"

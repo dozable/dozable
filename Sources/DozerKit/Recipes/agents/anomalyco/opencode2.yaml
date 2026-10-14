@@ -258,3 +258,4 @@ capabilities:
     family: opencode
     major: 2
     title: OpenCode 2
+    recommended: true

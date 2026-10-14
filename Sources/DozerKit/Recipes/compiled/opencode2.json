@@ -395,6 +395,7 @@
       "config" : {
         "family" : "opencode",
         "major" : 2,
+        "recommended" : true,
         "title" : "OpenCode 2"
       },
       "type" : "com.dozersandbox/family@1"

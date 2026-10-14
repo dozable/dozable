@@ -117,6 +117,10 @@ class Recipe:
         # 617: `shell` — the default session is a login shell (a tool that answers and exits): no first screen of its own.
         self.session = launch.get("session")
         self.screen = (self.check or {}).get("screen") or {}
+        # 618: a family's major is tried by the name that means IT — the family's name only for the recommended major
+        # (`doz try opencode` is OpenCode 2 once 2 is recommended; OpenCode 1 is `opencode@1`). AgentRef.typed's twin.
+        fam = cfg("com.dozersandbox/family@1")
+        self.typed = self.product if not fam else (fam["family"] if fam.get("recommended") else "%s@%d" % (fam["family"], fam["major"]))
 
 
 def http_status(host, port, path):
@@ -245,7 +249,7 @@ class Harness:
         default), only its default (`default`), or those named that it is offered. Without models@1: its provider."""
         if not r.models:
             return [(r.provider, None)]
-        code, out = self.doz("try", r.product, "--dry-run", "--json", timeout=120)
+        code, out = self.doz("try", r.typed, "--dry-run", "--json", timeout=120)
         try:
             plan = json.loads(out[out.index("{"):])
             offered = [(o["id"], o["defaultModel"]) for o in (plan.get("model") or {}).get("offered") or []]
@@ -342,7 +346,7 @@ class Harness:
             extra = []
             if r.models:
                 extra = ["--gateway" if source in GATEWAYS else "--provider", source, "--account", "rc-" + source]
-            code, out = self.doz("try", r.product, *extra, "-d", "-q", timeout=1500)
+            code, out = self.doz("try", r.typed, *extra, "-d", "-q", timeout=1500)
             names = [s["name"] for s in self.sandboxes() if s.get("trial") and s["name"] not in before]
             if code != 0 or not names:
                 fail("try: doz try %s %s -d exited %d: %s" % (r.product, " ".join(extra), code, out.strip()[-600:]))
