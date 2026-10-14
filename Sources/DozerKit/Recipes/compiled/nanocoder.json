@@ -133,6 +133,14 @@
                 }
               ]
             }
+          },
+          {
+            "file" : "~/.config/nanocoder/nanocoder-preferences.json",
+            "set" : {
+              "trustedDirectories" : [
+                "/workspace"
+              ]
+            }
           }
         ],
         "no_prompts_args" : [

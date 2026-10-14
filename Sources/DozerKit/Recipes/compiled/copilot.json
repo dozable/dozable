@@ -117,6 +117,16 @@
           "COPILOT_PROVIDER_BASE_URL" : "https://api.x.ai/v1",
           "COPILOT_PROVIDER_TYPE" : "openai"
         },
+        "first_run" : [
+          {
+            "file" : "~/.copilot/config.json",
+            "set" : {
+              "trustedFolders" : [
+                "/workspace"
+              ]
+            }
+          }
+        ],
         "no_prompts_args" : [
           "--allow-all"
         ],

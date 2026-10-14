@@ -99,7 +99,15 @@
             "xai/grok-build-0.1",
             "say ok"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "allow" : [
+              "Tip .*(/login|sign in)"
+            ],
+            "expect" : [
+              "Type your message"
+            ]
+          }
         },
         "command" : [
           "mimo"
@@ -119,11 +127,23 @@
               "model" : "xai/grok-build-0.1",
               "share" : "disabled"
             }
+          },
+          {
+            "file" : "~/.local/share/mimocode/trusted-workspaces.json",
+            "set" : {
+              "trustedPaths" : [
+                "/workspace"
+              ],
+              "version" : 1
+            }
           }
         ],
         "no_prompts_args" : [
-          "--dangerously-skip-permissions"
+
         ],
+        "no_prompts_env" : {
+          "MIMOCODE_DANGEROUSLY_SKIP_PERMISSIONS" : "1"
+        },
         "passthrough" : [
           "--version",
           "-v",

@@ -108,6 +108,12 @@ capabilities:
     - toks
     env: {}
     state_env: {}
+    # Its first start runs a five-step setup (sign in to providers, default model, glyphs, composer, theme) until
+    # ~/.omp/agent/config.yml records it done (what skipping every step writes): Dozer gives it its model and key.
+    first_run:
+    - file: ~/.omp/agent/config.yml
+      set:
+        setupVersion: 2
     status: none
     resume:
     - --continue

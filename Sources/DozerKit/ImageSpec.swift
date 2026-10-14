@@ -585,6 +585,9 @@ public enum AgentImages {
         if !r.launch.noPromptsArgs.isEmpty {
             sh += "[ \"$mode\" = skip ] && set -- \(r.launch.noPromptsArgs.map(shellQuoted).joined(separator: " ")) \"$@\"\n"
         }
+        for (k, v) in (r.launch.noPromptsEnv ?? [:]).sorted(by: { $0.key < $1.key }) {
+            sh += "[ \"$mode\" = skip ] && export \(k)=\(shellQuoted(v))\n"
+        }
         sh += """
             if [ "${\(echoVar):-}" = 1 ]; then printf '%s\\n' /usr/local/bin/\(bin) "$@"; exit 0; fi
             exec /usr/local/bin/\(bin) "$@"
@@ -639,6 +642,52 @@ public enum AgentImages {
             have = set(l.lstrip('#').strip().split(':', 1)[0].strip() for l in lines if ':' in l and not l.startswith((' ', '\t', '-')))
             add = [k + ': ' + json.dumps(v) for k, v in sorted(keys.items()) if k not in have]
             if add or text is None: put(f, '\n'.join(lines + add) + '\n')
+
+        """#
+
+    /// 617: a TOML key with a segment in double quotes (Open Interpreter's `projects."/workspace".trust_level`) — the
+    /// quoted-key merge is emitted only into such a recipe's helper (the other launchers and bake keys are unchanged).
+    static func hasQuotedTOML(_ merges: [AgentRecipe.FirstRun]) -> Bool {
+        merges.contains { $0.file.hasSuffix(".toml") && $0.set.keys.contains { $0.contains("\"") } }
+    }
+
+    /// merge_toml again, its keys split into segments where a segment in double quotes is one key: the header keeps the
+    /// quotes (`[projects."/workspace"]`), the parsed file is looked up without them.
+    static let tomlQuotedPython = #"""
+        def toml_parts(k):
+            return __import__('re').findall(r'"[^"]*"|[^.]+', k)
+        def merge_toml(f, keys):
+            try:
+                with open(f, encoding='utf-8') as h: text = h.read()
+            except FileNotFoundError:
+                text = ''
+            try:
+                cfg = __import__('tomllib').loads(text)
+            except Exception:
+                return
+            lines = text.split('\n') if text else []
+            while lines and lines[-1] == '': lines.pop()
+            changed = False
+            for k, v in sorted(keys.items()):
+                parts = toml_parts(k)
+                table, key = parts[:-1], parts[-1]
+                d = cfg
+                for p in table:
+                    d = d.get(p.strip('"')) if isinstance(d, dict) else None
+                if isinstance(d, dict) and key.strip('"') in d: continue
+                header = '[' + '.'.join(table) + ']'
+                at = next((i for i, l in enumerate(lines) if l.strip() == header), None)
+                if at is None:
+                    if d is not None: continue
+                    if lines: lines.append('')
+                    lines += [header, key + ' = ' + toml_value(v)]
+                else:
+                    lines.insert(at + 1, key + ' = ' + toml_value(v))
+                t = cfg
+                for p in table: t = t.setdefault(p.strip('"'), {})
+                t[key.strip('"')] = v
+                changed = True
+            if changed: put(f, '\n'.join(lines) + '\n')
 
         """#
 
@@ -740,10 +789,10 @@ public enum AgentImages {
                     t[key] = v
                     changed = True
                 if changed: put(f, '\n'.join(lines) + '\n')
-            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")\#(Self.hasYAML(merges) ? yamlTopPython : "")\#(Self.hasTopLevelTOML(merges) ? tomlTopPython : "")for m in MERGES:
+            \#(merges.contains { $0.file.hasSuffix("/.env") } ? dotenvPython : "")\#(Self.hasYAML(merges) ? yamlTopPython : "")\#(Self.hasQuotedTOML(merges) ? tomlQuotedPython : "")\#(Self.hasTopLevelTOML(merges) ? tomlTopPython : "")for m in MERGES:
                 f = m['file']
                 f = os.path.join(home, f[2:]) if f.startswith('~/') else f
-                (merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")\#(Self.hasYAML(merges) ? "merge_yaml if f.endswith(('.yaml', '.yml')) else " : "")merge_json)(f, m['set'])
+                (\#(merges.contains { $0.format != nil } ? "merge_json if m.get('format') == 'json' else " : "")merge_toml if f.endswith('.toml') else \#(merges.contains { $0.file.hasSuffix("/.env") } ? "merge_env if f.endswith('/.env') else " : "")\#(Self.hasYAML(merges) ? "merge_yaml if f.endswith(('.yaml', '.yml')) else " : "")merge_json)(f, m['set'])
             """#
     }
 

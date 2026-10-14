@@ -103,6 +103,14 @@ capabilities:
         models.grok-build.provider: xai
         models.grok-build.model: grok-build-0.1
         models.grok-build.max_context_size: 256000
+    # /workspace is trusted at the first start, as Claude Code's and Codex's are (the VM is the boundary), so the
+    # session opens on the agent, not on its trust question.
+    # Kimi Code keeps each folder's trust as a JSON record named for the folder (2.1.1: wd_<slug>_<sha256[:12]>).
+    - file: ~/.kimi-code/workspace-trust/wd_workspace_c52ddf65534b
+      format: json
+      set:
+        root: /workspace
+        trustedAt: 1791936000000
     status: none
     resume:
     - --continue
@@ -117,6 +125,12 @@ capabilities:
       - -p
       - say ok
       expect: DOZ_FAKE_OK
+      screen:
+        # Its ready screen greets ("Welcome to Kimi Code!") above the prompt.
+        allow:
+        - Welcome to Kimi Code
+        expect:
+        - context
 - type: com.dozersandbox/auth@1
   config:
     methods:

@@ -245,6 +245,10 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var command: [String]
         /// What the launcher puts first unless `DOZ_<ID>_PERMISSIONS=ask` or root.
         public var noPromptsArgs: [String]
+        /// 617: environment the launcher sets only when it puts `noPromptsArgs` first (same rule) — for an agent whose
+        /// approval switch is a variable rather than a flag (MiMo Code's flag asks again on a terminal; its variable
+        /// does not).
+        public var noPromptsEnv: [String: String]? = nil
         /// First arguments that run the program as it is (no flags, no first-run settings).
         public var passthrough: [String]
         /// Non-credential environment of every run.
@@ -260,15 +264,19 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
         enum CodingKeys: String, CodingKey {
             case command, passthrough, env, session
-            case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env"
+            case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env", noPromptsEnv = "no_prompts_env"
         }
     }
 
     public struct FirstRun: Codable, Sendable, Equatable {
-        /// `~/…json` or `~/…toml`.
+        /// `~/…json`, `~/…toml`, `~/….yaml` or `~/…/.env`.
         public var file: String
-        /// Dotted key → value (`general.enableAutoUpdate` → false; TOML: `[general] enableAutoUpdate = false`).
+        /// Dotted key → value (`general.enableAutoUpdate` → false; TOML: `[general] enableAutoUpdate = false`; a TOML
+        /// segment in double quotes is one key: `projects."/workspace".trust_level`).
         public var set: [String: RecipeValue]
+        /// 617: `json` — a JSON file whose name has no extension (Kimi Code's `workspace-trust/wd_workspace_…` record);
+        /// nil: the kind of file follows from its name.
+        public var format: String? = nil
     }
 
     public struct State: Codable, Sendable, Equatable {
@@ -543,7 +551,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// The settings key of its prompts (`gemini.permissions`); nil for an agent with none to skip.
     public var permissionsSettingKey: String? {
         if let p = settings?.permissions { return p }
-        return isBuiltin || launch.noPromptsArgs.isEmpty ? nil : "\(id).permissions"
+        return isBuiltin || (launch.noPromptsArgs.isEmpty && (launch.noPromptsEnv ?? [:]).isEmpty) ? nil : "\(id).permissions"
     }
 
     /// The key provider the agent uses (its first credential's).
@@ -1186,7 +1194,7 @@ extension AgentRecipe {
         for a in launch.command + launch.noPromptsArgs + launch.passthrough + (resume ?? []) where !scriptSafe(a) || a.isEmpty {
             throw bad("an argument holds a quote, a backslash or a newline: \(a)")
         }
-        var everyEnv = launch.env.merging(state.env, uniquingKeysWith: { a, _ in a })
+        var everyEnv = launch.env.merging(state.env, uniquingKeysWith: { a, _ in a }).merging(launch.noPromptsEnv ?? [:], uniquingKeysWith: { a, _ in a })
         for (k, v) in (launch.sessionEnv ?? [:]).merging((network.offWithout ?? []).flatMap(\.env), uniquingKeysWith: { a, _ in a }) { everyEnv[k] = everyEnv[k] ?? v }
         for (k, v) in everyEnv {
             guard k.range(of: "^[A-Z_][A-Z0-9_]*$", options: .regularExpression) != nil, !BakeEnvironment.isCredential(k), scriptSafe(v) else {
@@ -1195,9 +1203,10 @@ extension AgentRecipe {
         }
         for f in launch.firstRun ?? [] {
             let yaml = f.file.hasSuffix(".yaml") || f.file.hasSuffix(".yml")
-            guard f.file.hasPrefix("~/"), f.file.hasSuffix(".json") || f.file.hasSuffix(".toml") || f.file.hasSuffix("/.env") || yaml,
-                  !f.file.contains(".."), scriptSafe(f.file) else {
-                throw bad("first_run file \(f.file): ~/….json, ~/….toml, ~/….yaml or ~/…/.env")
+            if let fmt = f.format, fmt != "json" { throw bad("first_run format \(fmt): only json") }
+            guard f.file.hasPrefix("~/"), f.format == "json" || f.file.hasSuffix(".json") || f.file.hasSuffix(".toml") || f.file.hasSuffix("/.env") || yaml,
+                  !f.file.contains(".."), !f.file.contains("\""), scriptSafe(f.file) else {
+                throw bad("first_run file \(f.file): ~/….json, ~/….toml, ~/….yaml or ~/…/.env (or format: json)")
             }
             for (k, v) in f.set {
                 // 617: a dotenv file (Fabric's ~/.config/fabric/.env): KEY=value lines, never a credential's name.
@@ -1208,7 +1217,9 @@ extension AgentRecipe {
                     guard case .string(let s) = v, scriptSafe(s), !s.contains("\""), !s.contains("$") else { throw bad("first_run .env value of \(k) is a plain string") }
                     continue
                 }
-                guard k.range(of: "^[A-Za-z0-9_-]+(\\.[A-Za-z0-9_-]+)*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
+                // A TOML key may hold a segment in double quotes (a path: `projects."/workspace".trust_level`).
+                let segment = f.file.hasSuffix(".toml") ? "([A-Za-z0-9_-]+|\"[A-Za-z0-9_./-]+\")" : "[A-Za-z0-9_-]+"
+                guard k.range(of: "^\(segment)(\\.\(segment))*$", options: .regularExpression) != nil else { throw bad("first_run key \(k)") }
                 if yaml {
                     // 617 (Goose's ~/.config/goose/config.yaml): top-level keys only, each a string, a number or a bool.
                     guard !k.contains(".") else { throw bad("first_run YAML key \(k) is a top-level key (no dots)") }

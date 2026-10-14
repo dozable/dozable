@@ -106,7 +106,12 @@
             "-p",
             "say ok"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "allow" : [
+              "/login +sign in with Letta"
+            ]
+          }
         },
         "command" : [
           "letta",
