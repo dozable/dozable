@@ -135,6 +135,11 @@ struct TryCommand: AsyncParsableCommand {
             }
             return
         }
+        // 617.11 (owner: "i tried fabric and it just gave me a terminal"): a tool whose session is a shell gets its
+        // "Start here" first — the guide's steps (doz guide NAME has it all).
+        if recipe.launch.session == "shell", let guide = recipe.guide, !g.quiet {
+            Out.stderr("\n" + Self.startHere(recipe.title, guide, sandbox: planned.name) + "\n")
+        }
         let key = try parseDetachKey("ctrl-]")
         if !g.quiet {
             Out.stderr("[doz] \(planned.name) started — attaching to \(opened.session)\(key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "")\n")
@@ -177,6 +182,16 @@ struct TryCommand: AsyncParsableCommand {
         let hint = found.suggestion ?? DirectorySearch.suggest(t.lowercased(), in: index)
         Out.stderr("[doz] nothing called '\(t)'" + (hint.map { " — did you mean \($0)? (doz try \($0))" } ?? " — doz search lists the agents") + "\n")
         throw ExitCode(DozerExit.notFound)
+    }
+
+    /// 617.11: "Start here" — the guide's steps, numbered, each command indented (the first is its checked turn).
+    static func startHere(_ title: String, _ g: AgentRecipe.Guide, sandbox: String) -> String {
+        var lines = ["\(title): \(g.intro)", "Start here (doz guide \(sandbox) has it all):"]
+        for (i, st) in g.steps.enumerated() {
+            lines.append("  \(i + 1). \(st.text)")
+            if let c = st.command { lines.append("       \(c)" + (st.edit == true ? "    (change it first)" : "")) }
+        }
+        return lines.joined(separator: "\n") + "\n"
     }
 
     /// `doz try` alone: the numbered list (a terminal), else the list and exit 64.

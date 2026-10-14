@@ -208,3 +208,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/zeroclaw)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "ZeroClaw is a personal-agent runtime with shell, file and web tools; its session on the left is its agent, main, at full autonomy."
+    steps:
+    - text: "Check it answers."
+      command: "zeroclaw agent -a main -m \"say ok\""
+    - text: "Talk to it in its session on the left."
+    - text: "One message without the session."
+      command: "zeroclaw agent -a main -m \"what can you do?\""
+    tips:
+    - "Its settings are `~/.zeroclaw/config.toml` (kept on the sandbox's state disk)."
+    docs: https://github.com/zeroclaw-labs/zeroclaw

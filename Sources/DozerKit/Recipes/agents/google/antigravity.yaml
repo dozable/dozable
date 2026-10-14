@@ -186,3 +186,16 @@ capabilities:
       checked: '2026-10-12'
     terms: Closed source, installed from Google's own release (checksum-verified); a Gemini API key only.
     licence: Proprietary (Google Antigravity terms)
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "Antigravity CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "agy -p \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "agy -p \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://antigravity.google

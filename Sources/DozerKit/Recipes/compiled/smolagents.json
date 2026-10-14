@@ -331,6 +331,27 @@
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://huggingface.co/docs/smolagents",
+        "intro" : "smolagents is Hugging Face's library for agents that write and run Python; `smolagent` runs one task from your shell.",
+        "steps" : [
+          {
+            "command" : "smolagent \"say ok\" --model-type OpenAIModel --model-id \"$DOZ_MODEL\" --api-base \"$OPENAI_BASE_URL\"",
+            "text" : "Check it answers."
+          },
+          {
+            "command" : "smolagent \"what is 17 times 23?\" --model-type OpenAIModel --model-id \"$DOZ_MODEL\" --api-base \"$OPENAI_BASE_URL\"",
+            "text" : "Give it a task it solves with code."
+          }
+        ],
+        "tips" : [
+          "`DOZ_MODEL` and `OPENAI_BASE_URL` are set for the key you chose.",
+          "Its web-search tools reach the open web only when you allow it."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "Hugging Face's library and CLI for agents that write and run Python code (smolagent), on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",

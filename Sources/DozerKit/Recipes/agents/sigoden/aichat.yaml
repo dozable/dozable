@@ -213,3 +213,19 @@ capabilities:
     serve:
     - aichat
     - --serve
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "AIChat is a chat REPL — its session is the screen on the left — and a command that answers in your shell and exits."
+    steps:
+    - text: "Check it answers."
+      command: "aichat \"say ok\""
+    - text: "Chat in its REPL: the session on the left (`.help` lists its commands)."
+    - text: "Pipe text in."
+      command: "echo \"Dozer runs each agent in its own VM\" | aichat \"summarise this in five words\""
+    - text: "See the models of its client."
+      command: "aichat --list-models"
+    tips:
+    - "`aichat -c \"…\"` prints code only."
+    - "`aichat -s NAME` starts or joins a session that is kept."
+    - "The model is `AICHAT_MODEL`, set for the key you chose; `-m` picks another."
+    docs: https://github.com/sigoden/aichat

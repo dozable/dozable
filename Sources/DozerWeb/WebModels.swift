@@ -576,6 +576,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var agentPrompt: WebAgentPrompt?
     /// 594: the doz_project.yaml it was made from.
     public var project: String?
+    /// 617.11: a recipe agent's guide (the Guide tab) — nil: none.
+    public var guide: WebGuide?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -598,6 +600,35 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         self.attachCommand = attachCommand
         agentPrompt = d.agentPrompt.map(WebAgentPrompt.init)
         project = d.project
+        guide = d.guide.map(WebGuide.init)
+    }
+}
+
+/// 617.11: a recipe agent's guide, field by field (the recipe's text and Dozer's facts — never a secret).
+public struct WebGuide: Codable, Equatable, Sendable {
+    public struct Fact: Codable, Equatable, Sendable { public var id: String; public var label: String; public var value: String }
+    public struct Step: Codable, Equatable, Sendable { public var text: String; public var command: String?; public var edit: Bool }
+    public var agent: String
+    public var title: String
+    public var what: String
+    /// shell (steps run in its own session) | screen (its session is its own screen: steps run in a shell beside it).
+    public var session: String
+    public var agentSession: String
+    public var howTo: String
+    public var intro: String
+    public var trial: Bool
+    public var facts: [Fact]
+    public var steps: [Step]
+    public var tips: [String]
+    public var docs: String?
+    public var checked: String?
+
+    public init(_ g: SandboxGuide) {
+        agent = g.agent; title = g.title; what = g.what; session = g.session; agentSession = g.agentSession; howTo = g.howTo; intro = g.intro
+        trial = g.trial
+        facts = g.facts.map { Fact(id: $0.id, label: $0.label, value: $0.value) }
+        steps = g.steps.map { Step(text: $0.text, command: $0.command, edit: $0.edit == true) }
+        tips = g.tips; docs = g.docs; checked = g.checked
     }
 }
 

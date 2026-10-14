@@ -775,6 +775,8 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     public var agentPrompt: AgentPromptReport?
     /// 594: the project file it was made from (`doz_project.yaml`), when it was.
     public var project: String?
+    /// 617.11: a recipe agent's guide — the recipe's steps and Dozer's facts of this sandbox (nil: none).
+    public var guide: SandboxGuide? = nil
 }
 
 /// One guest session (`deckhold ls`).

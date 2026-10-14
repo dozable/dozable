@@ -214,3 +214,20 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/shell-gpt)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "ShellGPT (`sgpt`) answers questions and turns a request into a shell command. It answers in your shell and exits."
+    steps:
+    - text: "Check it answers."
+      command: "sgpt \"say ok\""
+    - text: "Ask for code only."
+      command: "sgpt --code \"a python function that adds two numbers\""
+    - text: "A conversation that remembers — say something, then ask about it."
+      command: "sgpt --chat demo \"my name is Ada\""
+    - text: "Ask about it."
+      command: "sgpt --chat demo \"what is my name?\""
+    tips:
+    - "`sgpt --shell \"find the five largest files here\"` suggests a command and asks before it runs it."
+    - "`sgpt --repl temp` opens a chat in the terminal."
+    - "The model is `DEFAULT_MODEL`, set for the key you chose."
+    docs: https://github.com/TheR1D/shell_gpt

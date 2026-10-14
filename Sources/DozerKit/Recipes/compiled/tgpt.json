@@ -192,6 +192,29 @@
         "terms" : "Your Gemini API key — a key from aistudio.google.com."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/aandrew-me/tgpt",
+        "intro" : "tgpt is a small terminal chat: its session on the left is its interactive mode, and `tgpt -q` answers one question.",
+        "steps" : [
+          {
+            "command" : "tgpt -q \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "text" : "Chat in its session on the left."
+          },
+          {
+            "command" : "tgpt -q \"what is a sandbox, in one line?\"",
+            "text" : "One question, quietly."
+          }
+        ],
+        "tips" : [
+          "Its key-less free providers are other companies' services, which Dozer does not allow by default."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A small terminal chat client for many AI providers, set up on a Gemini API key.",

@@ -265,6 +265,36 @@
         "terms" : "Your xAI or OpenAI API key (xAI by default). llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://llm.datasette.io",
+        "intro" : "llm prompts a model from the command line and logs every prompt and answer to SQLite. It answers in your shell and exits; `llm chat` is its chat.",
+        "steps" : [
+          {
+            "command" : "llm \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "command" : "echo \"Dozer runs each agent in its own VM\" | llm -s \"summarise this in five words\"",
+            "text" : "Pipe text in with a system prompt."
+          },
+          {
+            "command" : "llm models",
+            "text" : "See the models it knows."
+          },
+          {
+            "command" : "llm logs -n 1",
+            "text" : "See your last prompt and answer."
+          }
+        ],
+        "tips" : [
+          "`llm -c \"and now?\"` continues the last conversation.",
+          "`llm chat` keeps a conversation going until you type `exit`.",
+          "The model is `LLM_MODEL`, set for the key you chose; `-m MODEL` picks another."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "Simon Willison's command-line tool for prompting models, logging to SQLite, embeddings and tools; on an xAI or OpenAI key.",

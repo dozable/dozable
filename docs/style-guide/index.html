@@ -316,6 +316,32 @@ name: todo-app</pre></details>
 </section>
 
 <section>
+  <h2>The Guide tab</h2>
+  <p>A recipe agent's sandbox has a <b>Guide</b> tab in the inspector (<code>components/try-guide.js</code>): first and chosen on a try (the details open on its first visit), last elsewhere.
+    Dozer's preamble and facts (<code>.guide-facts</code>; Network links to its tab), the recipe's steps (<code>.guide-steps</code> — each command in <code>.guide-cmd</code> with
+    <b>Copy</b> and <b>Run</b>, or <b>Type</b> for one to change first; a ran step says <code>✓ ran</code>), tips and the footer. Text only: <code>code</code> comes from backquotes, never markup.
+    Run is disabled, with why, until a live session it can type into is open.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sbx-details-inner" style="max-width:420px">
+      <div class="itabs" role="tablist"><button type="button" role="tab" class="itab" aria-selected="true"><i data-i="list-checks"></i><span class="itab-l">Guide</span></button><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="info"></i><span class="itab-l">Overview</span></button></div>
+      <section class="ipanel"><div class="head"><h2>Guide</h2></div>
+        <div class="guide">
+          <div class="guide-head"><div class="guide-title"><strong>Fabric</strong><span class="muted"> · by Daniel Miessler · MIT · a command-line tool</span></div>
+            <p>Fabric applies ready-made prompts — patterns — to text you pipe into it. It is not a chat: it answers in your shell and exits.</p>
+            <p class="muted">It answers in your shell and exits: type its commands in the terminal, or press Run below.</p></div>
+          <div class="guide-sect"><h3>This try</h3><dl class="facts guide-facts"><dt>Version</dt><dd>Fabric 1.4.518 (Dozer's pin)</dd><dt>Model</dt><dd>Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder</dd><dt>Reaches</dt><dd>its model only (Locked)<button type="button" class="linkish"> · Network</button></dd></dl></div>
+          <div class="guide-sect"><h3>Start here</h3><ol class="guide-steps">
+            <li><p>Check it answers.<span class="guide-ran"> ✓ ran</span></p><div class="guide-cmd"><code>echo hello | fabric "say ok"</code><button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button><button class="btn sm" type="button"><i data-i="play"></i>Run</button></div></li>
+            <li><p>Use a file from your folder — put it there first, then change the name:</p><div class="guide-cmd"><code>fabric -p extract_wisdom &lt; notes.md</code><button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button><button class="btn sm" type="button"><i data-i="square-terminal"></i>Type</button></div></li>
+          </ol></div>
+          <div class="guide-sect"><h3>Good to know</h3><ul class="guide-tips"><li><code>fabric -s</code> streams the answer as it comes.</li></ul></div>
+          <p class="muted guide-foot"><span>Docs: <code>https://github.com/danielmiessler/Fabric</code></span><span> · Recipe checked 2026-10-14</span></p>
+        </div></section>
+    </div>
+  </div></div>
+</section>
+
+<section>
   <h2>The terminal strip</h2>
   <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).
     Tab zero, <strong>Console</strong> (<code>.tab-console</code>), is the system console: first, its own icon (<code>cpu</code>), no number, no close box, there exactly while the VM is powered on.

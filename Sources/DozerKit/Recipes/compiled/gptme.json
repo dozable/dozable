@@ -421,6 +421,30 @@
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://gptme.org/docs/",
+        "intro" : "gptme is a terminal agent with shell, Python and file tools: its session on the left is a chat that acts in the sandbox.",
+        "steps" : [
+          {
+            "command" : "gptme --non-interactive \"say ok\"",
+            "text" : "Check it answers, without its chat."
+          },
+          {
+            "text" : "Ask it something in its session on the left."
+          },
+          {
+            "command" : "gptme --non-interactive \"list the files in this folder\"",
+            "text" : "One task without the chat."
+          }
+        ],
+        "tips" : [
+          "Its confirmation prompts are off: it runs the shell and Python it writes (the sandbox is the boundary).",
+          "The model is `MODEL`, set for the key you chose; `--model provider/name` picks another."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A terminal agent with shell, Python, file and browser tools, on an Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway key.",

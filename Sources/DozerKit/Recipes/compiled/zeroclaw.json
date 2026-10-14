@@ -307,6 +307,29 @@
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/zeroclaw-labs/zeroclaw",
+        "intro" : "ZeroClaw is a personal-agent runtime with shell, file and web tools; its session on the left is its agent, main, at full autonomy.",
+        "steps" : [
+          {
+            "command" : "zeroclaw agent -a main -m \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "text" : "Talk to it in its session on the left."
+          },
+          {
+            "command" : "zeroclaw agent -a main -m \"what can you do?\"",
+            "text" : "One message without the session."
+          }
+        ],
+        "tips" : [
+          "Its settings are `~/.zeroclaw/config.toml` (kept on the sandbox's state disk)."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A Rust personal-agent runtime with shell, file and web tools; its terminal agent on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",

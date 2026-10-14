@@ -230,3 +230,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/clai)'
       checked: '2026-10-14'
     terms: Your xAI API key — a key from console.x.ai.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "clai is Pydantic AI's command line: its session on the left is a chat, and `clai` with a prompt answers once."
+    steps:
+    - text: "Check it answers."
+      command: "clai -m openai:grok-4-1-fast --no-stream \"say ok\""
+    - text: "Chat in its session on the left."
+    - text: "One question."
+      command: "clai -m openai:grok-4-1-fast --no-stream \"what is a sandbox, in one line?\""
+    tips:
+    - "Its model is fixed in the session's command (`-m openai:grok-4-1-fast`)."
+    docs: https://ai.pydantic.dev/cli/

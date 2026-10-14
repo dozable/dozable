@@ -130,3 +130,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/tgpt)'
       checked: '2026-10-14'
     terms: Your Gemini API key — a key from aistudio.google.com.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "tgpt is a small terminal chat: its session on the left is its interactive mode, and `tgpt -q` answers one question."
+    steps:
+    - text: "Check it answers."
+      command: "tgpt -q \"say ok\""
+    - text: "Chat in its session on the left."
+    - text: "One question, quietly."
+      command: "tgpt -q \"what is a sandbox, in one line?\""
+    tips:
+    - "Its key-less free providers are other companies' services, which Dozer does not allow by default."
+    docs: https://github.com/aandrew-me/tgpt

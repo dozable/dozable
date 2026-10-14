@@ -102,7 +102,7 @@ capabilities:
       argv:
       - sh
       - '-c'
-      - 'printf ''prompts: ["say {{word}}"]\nproviders: ["openai:chat:${{ dozer.model }}"]\ntests: [{vars: {word: ok}}]\n'' > /tmp/pf-check.yaml && promptfoo eval -c /tmp/pf-check.yaml --no-cache -o /tmp/pf-check.json > /dev/null && grep -o DOZ_FAKE_OK /tmp/pf-check.json | head -n 1'
+      - 'echo "say ok" > /tmp/prompt.txt && promptfoo eval -p /tmp/prompt.txt -r "openai:chat:$DOZ_MODEL" --no-cache'
       expect: DOZ_FAKE_OK
       timeout: 300
 - type: com.dozersandbox/auth@1
@@ -197,3 +197,16 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/promptfoo)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "promptfoo evaluates and red-teams prompts and LLM apps from a config of prompts, providers and tests. It runs in your shell and exits."
+    steps:
+    - text: "Check it answers: one prompt against your model."
+      command: "echo \"say ok\" > /tmp/prompt.txt && promptfoo eval -p /tmp/prompt.txt -r \"openai:chat:$DOZ_MODEL\" --no-cache"
+    - text: "See its commands."
+      command: "promptfoo --help"
+    tips:
+    - "`promptfoo init` writes an example `promptfooconfig.yaml` in your folder."
+    - "`DOZ_MODEL` is the model for the key you chose: `openai:chat:$DOZ_MODEL`."
+    - "Its telemetry and update check are off."
+    docs: https://www.promptfoo.dev/docs/intro/

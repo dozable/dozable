@@ -312,6 +312,27 @@
         "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/openclaw/openclaw",
+        "intro" : "OpenClaw is a self-hosted personal agent with shell and file tools. Here it runs one turn at a time from your shell.",
+        "steps" : [
+          {
+            "command" : "openclaw agent exec \"say ok\" --auth-env-only --model \"$DOZ_MODEL\" --timeout 120",
+            "text" : "Check it answers."
+          },
+          {
+            "command" : "openclaw agent exec \"list the files in /workspace\" --auth-env-only --model \"$DOZ_MODEL\" --timeout 120",
+            "text" : "Give it a task."
+          }
+        ],
+        "tips" : [
+          "`DOZ_MODEL` is the model for the key you chose (provider/name).",
+          "Its Gateway and chat channels are not offered yet."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A self-hosted personal agent with shell and file tools; its headless agent turn on a Google AI, Anthropic, OpenAI, xAI or OpenRouter key (its Gateway, TUI and chat channels later).",

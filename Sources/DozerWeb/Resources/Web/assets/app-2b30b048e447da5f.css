@@ -1594,6 +1594,20 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 /* 617 (models@1): the provider or gateway and the model, side by side; stacked when narrow. */
 .try-model { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
 .try-model select, .try-model input { width: 100%; }
+/* 617.11: the Guide tab — preamble, this try's facts, the steps (each command with Copy and Run), tips. */
+.guide { display: flex; flex-direction: column; gap: var(--sp-4); }
+.guide-head p { margin: var(--sp-2) 0 0; }
+.guide-title strong { font-size: var(--fs-lg); }
+.guide-sect h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-sm); text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); }
+.guide-steps { margin: 0; padding-left: 1.4em; display: flex; flex-direction: column; gap: var(--sp-3); }
+.guide-steps p { margin: 0 0 var(--sp-1); }
+.guide-cmd { display: flex; align-items: center; gap: var(--sp-2); }
+.guide-cmd code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-family: var(--mono); font-size: var(--fs-mono); padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm); background: var(--surface-2); }
+.guide-ran { color: var(--ok); font-weight: 600; }
+.guide-tips { margin: 0; padding-left: 1.2em; display: flex; flex-direction: column; gap: var(--sp-1); }
+.guide code, .guide-tips code { font-family: var(--mono); font-size: var(--fs-mono); }
+.guide-foot { font-size: var(--fs-sm); }
 .try-key { margin: 0; color: var(--ink-2); }
 .try-facts dd { overflow-wrap: anywhere; }
 }

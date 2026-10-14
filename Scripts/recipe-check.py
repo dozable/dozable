@@ -87,6 +87,8 @@ class Recipe:
         self.volumes = [c["config"]["path"] for c in caps if c["type"] == "com.docker.sandbox/volume@1"]
         # 617 (models@1): the model sources it can be tried with (the plan says which: `doz try ID --dry-run --json`).
         self.models = cfg("com.dozersandbox/models@1")
+        # 617.11: its guide (the steps after the first are run too).
+        self.guide = cfg("com.dozersandbox/guide@1")
         # 617 (RP-1): its web ports, and the command that serves them when the session's program does not.
         self.ports = cfg("com.dozersandbox/ports@1")
 
@@ -373,6 +375,20 @@ class Harness:
             if r.models and LEAK_TARGET[source][0] not in hosts:
                 fail("smoke: no request reached %s (the chosen source) — it went to %s" % (LEAK_TARGET[source][0], ", ".join(sorted(hosts)) or "nothing"))
         step("smoke", smoke)
+
+        # 4b. the guide (617.11): its first step IS the check turn (the loader holds them equal); every later step with a
+        # command that is not an edit runs as a person would type it, in a shell — exit 0 — the first selection only.
+        def guide():
+            for i, s in enumerate((r.guide or {}).get("steps") or []):
+                cmd = s.get("command")
+                if i == 0 or not cmd or s.get("edit"):
+                    continue
+                code, out = self.doz("exec", name, "--", "sh", "-c", cmd, timeout=int(r.check.get("timeout") or 240) + 30)
+                res.setdefault("guide_steps", []).append({"step": i + 1, "exit": code})
+                if code != 0:
+                    fail("guide step %d: %s exited %d: %s" % (i + 1, cmd, code, out.strip()[-300:]))
+        if first and r.guide:
+            step("guide", guide)
         if first:
             verify(" after the turn")
 

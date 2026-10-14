@@ -1632,6 +1632,7 @@ public actor HostCore {
                 argv += ["--append-system-prompt", AgentPrompt.guestPromptPath]
             }
         }
+        if argv == m.config.defaultSession.argv { await deliverGuideNote(m) }    // 617.11: a shell tool's first steps, once
         argv += extraArguments
         // 599i: Codex's credentials for this session — its auth.json with placeholders only (or none).
         await deliverCodexAuth(m)
@@ -1771,7 +1772,7 @@ public actor HostCore {
                              directory: m.sandbox.layout.sandboxDirectory.path, bootLog: m.sandbox.bootLogURL.path,
                              snapshotBytes: Int64(status.snapshotBytes > 0 ? status.snapshotBytes : fileSize(m.sandbox.layout.snapshot)),
                              hasRootDisk: m.sandbox.hasRootDisk, defaultSession: m.config.defaultSession.name,
-                             agentPrompt: agentPromptReport(m), project: m.config.project)
+                             agentPrompt: agentPromptReport(m), project: m.config.project, guide: guide(m))
     }
 
     func credentials(_ m: Managed) -> [CredentialRow] {

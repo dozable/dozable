@@ -233,6 +233,30 @@
         "terms" : "Your xAI API key — a key from console.x.ai. It runs as a program in the sandbox; Docker Desktop is not used."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/docker/docker-agent",
+        "intro" : "Docker Agent is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "docker-agent run coder --model xai/grok-build-0.1 --exec \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "docker-agent run coder --model xai/grok-build-0.1 --exec \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "Docker's YAML-defined agent runner (formerly cagent), its built-in coding agent on an xAI API key.",

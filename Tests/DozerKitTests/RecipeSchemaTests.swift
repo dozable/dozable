@@ -84,7 +84,7 @@ final class RecipeSchemaTests: XCTestCase {
         let accepted: [(String, (inout [String: Any]) -> Void)] = [
             ("another description", { $0["description"] = "Words." }),
             ("a capability's description", { editCap(&$0, T.install) { $0["description"] = "How it is installed." } }),
-            ("a check with its exit and timeout", { editConfig(&$0, T.launch) { $0["check"] = ["argv": ["grok", "-p", "x"], "expect": "x", "exit": 0, "timeout": 300] } }),
+            ("a check with its exit and timeout", { editConfig(&$0, T.launch) { var c = $0["check"] as? [String: Any] ?? [:]; c["exit"] = 0; c["timeout"] = 300; $0["check"] = c } }),
         ]
         var v = JSONSchemaValidator()
         for (f, original) in try Self.trees() where f == "claude-code.json" || f == "grok.json" {

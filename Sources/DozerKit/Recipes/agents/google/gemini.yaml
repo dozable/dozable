@@ -178,3 +178,16 @@ capabilities:
       evidence: '617 step 0: gemini -p "say ok" --approval-mode=yolo answered and exited in a sandbox (617.01 §2.2–2.3)'
       checked: '2026-10-12'
     terms: API key only — Google's terms forbid third-party tools from using the Google sign-in behind Gemini CLI.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "Gemini CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "gemini -p \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "gemini -p \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://github.com/google-gemini/gemini-cli

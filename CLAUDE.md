@@ -1674,6 +1674,19 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`EgressProxy.leakGuardHosts`) so a placeholder sent to another source is refused, never tunnelled unseen. Codex keeps
   its own flow (`AgentCredentials.codexFlow` — never "provider == openai"). `make recipe-check` runs a models@1 recipe
   once per offered source (`RECIPE_SELECTIONS`), `ModelSourcesTests`, `probes/617-*/recipes/models/browser-try-models.mjs`.
+- **The guide** (617.11, owner: "i tried fabric and it just gave me a terminal … our companion guide"; `RecipeGuide.swift`,
+  `SandboxGuide.swift`, `components/try-guide.js`, RECIPE-FORMAT.md "The guide"): `guide@1` = intro, ≤ 8 steps
+  `{text, command?, edit?}`, ≤ 6 tips, docs. The FIRST step's command is the check turn as a person types it
+  (`guideMatchesCheck`: `sh -c X` = X, a `${{ dozer.* }}` = the models@1 variable set to it); every command starts with
+  the tool's program/command/short name or a plain shell builtin (validated). Every recipe has one (`GuideTests`);
+  `make recipe-check` runs every later non-edit step (exit 0). Dozer writes the preamble and facts (`SandboxGuide.make`:
+  version, source · model · the account's NAME, network, folder, persist dirs) — `SandboxDetail.guide` → `WebGuide` →
+  the inspector's Guide tab (first and chosen on a try, the details open on its first visit; Run = `sendInput` +
+  Enter into a live pane — the tool's own session for `launch.session: shell`, a shell beside an agent's screen; Type
+  without Enter); `doz guide NAME`; `doz try` prints "Start here" for a shell tool; `deliverGuideNote` writes
+  `/etc/profile.d/doz-guide.sh` (a shell tool's default session only) — the steps once per user (a stamp in
+  `~/.local/state/dozer`). `install.extras` bakes pinned file sets (Fabric's patterns at `/opt/fabric/patterns`,
+  sha256-checked; `CUSTOM_PATTERNS_DIRECTORY`). `probes/617-*/stageE/browser-try-guide.mjs`.
 - **Permissions**: a recipe agent's own `model:<provider>` (Grok's path-conditioned to the API paths it uses — the VM
   proof found `/v1/responses` against the real base) and a hidden `update:<id>` (only beside "Update itself"). D5: a
   sandbox with a recipe agent's own model has NO Anthropic `model` (`normalized` drops it; its Locked is its own model

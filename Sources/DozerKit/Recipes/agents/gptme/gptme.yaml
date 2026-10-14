@@ -299,3 +299,16 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/gptme)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "gptme is a terminal agent with shell, Python and file tools: its session on the left is a chat that acts in the sandbox."
+    steps:
+    - text: "Check it answers, without its chat."
+      command: "gptme --non-interactive \"say ok\""
+    - text: "Ask it something in its session on the left."
+    - text: "One task without the chat."
+      command: "gptme --non-interactive \"list the files in this folder\""
+    tips:
+    - "Its confirmation prompts are off: it runs the shell and Python it writes (the sandbox is the boundary)."
+    - "The model is `MODEL`, set for the key you chose; `--model provider/name` picks another."
+    docs: https://gptme.org/docs/

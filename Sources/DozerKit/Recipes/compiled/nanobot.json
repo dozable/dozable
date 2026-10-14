@@ -398,6 +398,29 @@
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/HKUDS/nanobot",
+        "intro" : "nanobot is a small personal agent: its session on the left is its terminal UI, and `nanobot agent -m` answers one message.",
+        "steps" : [
+          {
+            "command" : "nanobot agent -m \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "text" : "Talk to it in its session on the left."
+          },
+          {
+            "command" : "nanobot agent -m \"what can you do?\"",
+            "text" : "One message without the UI."
+          }
+        ],
+        "tips" : [
+          "Its settings are `~/.nanobot/config.json` (kept on the sandbox's state disk)."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A small, auditable personal agent (an OpenClaw-style assistant) in the terminal, on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",

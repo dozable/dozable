@@ -295,3 +295,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/nanobot)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "nanobot is a small personal agent: its session on the left is its terminal UI, and `nanobot agent -m` answers one message."
+    steps:
+    - text: "Check it answers."
+      command: "nanobot agent -m \"say ok\""
+    - text: "Talk to it in its session on the left."
+    - text: "One message without the UI."
+      command: "nanobot agent -m \"what can you do?\""
+    tips:
+    - "Its settings are `~/.nanobot/config.json` (kept on the sandbox's state disk)."
+    docs: https://github.com/HKUDS/nanobot

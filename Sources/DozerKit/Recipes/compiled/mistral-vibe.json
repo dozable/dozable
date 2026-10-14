@@ -312,6 +312,30 @@
         "terms" : "Your xAI API key — a key from console.x.ai. Vibe runs on Mistral's models with a Mistral key, which Dozer does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/mistralai/mistral-vibe",
+        "intro" : "Mistral Vibe is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "vibe --trust --auto-approve -p \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "vibe --trust --auto-approve -p \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "Mistral AI's coding agent for the terminal, here on an xAI API key (Vibe's own OpenAI-compatible provider setting).",

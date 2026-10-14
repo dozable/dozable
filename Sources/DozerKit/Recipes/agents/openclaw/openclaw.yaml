@@ -207,3 +207,15 @@ capabilities:
       evidence: 'A2 VM proof: one agent exec turn answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/openclaw)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "OpenClaw is a self-hosted personal agent with shell and file tools. Here it runs one turn at a time from your shell."
+    steps:
+    - text: "Check it answers."
+      command: "openclaw agent exec \"say ok\" --auth-env-only --model \"$DOZ_MODEL\" --timeout 120"
+    - text: "Give it a task."
+      command: "openclaw agent exec \"list the files in /workspace\" --auth-env-only --model \"$DOZ_MODEL\" --timeout 120"
+    tips:
+    - "`DOZ_MODEL` is the model for the key you chose (provider/name)."
+    - "Its Gateway and chat channels are not offered yet."
+    docs: https://github.com/openclaw/openclaw

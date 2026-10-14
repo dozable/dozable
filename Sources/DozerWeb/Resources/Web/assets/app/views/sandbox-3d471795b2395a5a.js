@@ -18,6 +18,7 @@ import { confirmAction, confirmWithCheck, dialog } from '../components/dialog-c1
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-0540d1744b9a654c.js';
 import { menuButton, moreMenu } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { sessionMenuItems } from '../components/session-actions-84b2628c0c4894bf.js';
+import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-dbbdeb4ac1c75e4e.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-0e797679ef46047b.js';
 import { sandboxPill } from '../components/pills-24d9953a9a9b39a1.js';
 import { agentChip } from '../components/agent-status-1c5452706d34c439.js';
@@ -147,11 +148,15 @@ export async function refreshSandbox() {
   }
 }
 function drawParts(name, d, net, accounts) {
+  // 617.11: a try's first visit opens the details on its Guide, whatever ui.details_open says (until Details is pressed).
+  if (d.guide && d.info.trial && sview(name).guideShown === undefined) { sview(name).guideShown = true; if (!sview(name).inspTab) sview(name).inspTab = 'guide'; }
   const parts = sandboxParts(name, d, net, accounts);
   $('sbx-bar').replaceChildren(parts.bar);
   $('sbx-details').replaceChildren(parts.details);
-  $('sbx-body').classList.toggle('details-closed', !setting('ui.details_open', true));
+  $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
 }
+/// The details panel is open: the setting, or a try's first visit (its Guide).
+function detailsShown(name) { return setting('ui.details_open', true) || sview(name).guideShown === true; }
 /// 617: read a sandbox's page detail BEFORE showing it (a try's Start), so its first frame is the whole page.
 export async function prefetchSandbox(name) {
   try {
@@ -255,7 +260,7 @@ function sandboxParts(name, d, net, accounts) {
     h('td', null, f.header, h('div', { class: 'sub2' }, plural(f.requests, 'request', 'requests') + ' · ' + when(f.lastSeen)))));
   const proxied = net.proxied;
   const busy = i.busy || i.phase === 'booting' || opRunningFor(name) || !!transitionOf(name);
-  const detailsOpen = setting('ui.details_open', true);
+  const detailsOpen = detailsShown(name);
   const noDisk = !d.hasRootDisk;
   const holdWhy = busy ? 'Wait until it settles' : noDisk ? 'It has no disk yet — start it once' : null;
   const showTab = (tab) => () => {
@@ -273,7 +278,8 @@ function sandboxParts(name, d, net, accounts) {
   ], { data: { sbxMore: name }, onClose: sbxMenuClosed });
   more.button.dataset.lifecycleMore = name;
   const detailsBtn = btn(detailsOpen ? 'Hide details' : 'Details', () => {
-    const open = !setting('ui.details_open', true);
+    const open = !detailsShown(name);
+    sview(name).guideShown = false;                       // the person decides from now on
     $('sbx-body').classList.toggle('details-closed', !open);
     saveSetting('ui.details_open', open).then(() => refreshSandbox()).catch((e) => pageFailure('ui.details_open was not saved: ' + (e.message || e)));
   }, { quiet: true, iconOnly: true, icon: 'panel-right', title: (detailsOpen ? 'Hide' : 'Show') + ' the details: sessions, restore points, network, keys (remembered: ui.details_open)' });
@@ -315,16 +321,19 @@ function sandboxParts(name, d, net, accounts) {
         [], 'Rebuild', async () => { await actOrThrow({ action: 'image-bake', image: i.image }); }, { icon: 'flame' }), { small: true, icon: 'flame' })] }) : null,
     null);
   // ── the inspector: six tabs instead of nine stacked sections ──
-  const tab = sview(name).inspTab || 'overview';
+  // 617.11: a recipe agent's Guide — first (and chosen) on a try, last elsewhere.
+  const tabList = d.guide ? (i.trial ? [GUIDE_TAB, ...INSP_TABS] : [...INSP_TABS, GUIDE_TAB]) : INSP_TABS;
+  const tab = tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : (d.guide && i.trial ? 'guide' : 'overview');
   const counts = { sessions: live.length ? h('span', { class: 'count' }, String(live.length)) : null,
                    network: i.deniedConnections ? h('span', { class: 'count warn' }, String(i.deniedConnections)) : null };
   const tabs = h('div', { class: 'itabs', role: 'tablist', 'aria-label': 'Details of ' + name },
-    INSP_TABS.map(([id, label, title, ic]) => h('button', { type: 'button', role: 'tab', class: 'itab', id: 'itab-' + id, 'data-insp-tab': id, 'aria-controls': 'ipanel-' + id,
+    tabList.map(([id, label, title, ic]) => h('button', { type: 'button', role: 'tab', class: 'itab', id: 'itab-' + id, 'data-insp-tab': id, 'aria-controls': 'ipanel-' + id,
       'aria-selected': id === tab ? 'true' : 'false', title, on: { click: () => inspShow(name, id) } }, icon(ic), h('span', { class: 'itab-l' }, label), counts[id] || null)));
   const panel_ = (id, ...kids) => h('section', { class: 'ipanel', role: 'tabpanel', id: 'ipanel-' + id, 'data-insp': id, 'aria-labelledby': 'itab-' + id, hidden: id !== tab }, ...kids);
   const head = (title, ...acts) => h('div', { class: 'head' }, h('h2', null, title), acts.length ? h('div', { class: 'actions' }, acts) : null);
   const last = d.restorePoints.length ? d.restorePoints[d.restorePoints.length - 1] : null;
   const details = h('div', { class: 'sbx-details-inner' }, tabs,
+    d.guide ? panel_('guide', guideHead(), guidePanel(name, d.guide, (t) => inspShow(name, t))) : null,
     panel_('overview',
       h('div', { class: 'stats' },
         stat('RAM held', mib(i.ramHeldMiB), 'of ' + mib(i.memoryMiB) + (i.memoryReturnedMiB ? ' · balloon returned ' + mib(i.memoryReturnedMiB) : '')),

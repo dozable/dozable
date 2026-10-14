@@ -290,6 +290,29 @@
         "terms" : "Your xAI API key — a key from console.x.ai."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://ai.pydantic.dev/cli/",
+        "intro" : "clai is Pydantic AI's command line: its session on the left is a chat, and `clai` with a prompt answers once.",
+        "steps" : [
+          {
+            "command" : "clai -m openai:grok-4-1-fast --no-stream \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "text" : "Chat in its session on the left."
+          },
+          {
+            "command" : "clai -m openai:grok-4-1-fast --no-stream \"what is a sandbox, in one line?\"",
+            "text" : "One question."
+          }
+        ],
+        "tips" : [
+          "Its model is fixed in the session's command (`-m openai:grok-4-1-fast`)."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "Pydantic AI's command line for chatting with models, on an xAI API key.",

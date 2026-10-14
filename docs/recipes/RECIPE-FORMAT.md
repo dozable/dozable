@@ -178,6 +178,7 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 | `bake_hosts` | Hosts the image preparation reaches beyond the base's registries. |
 | `integrity` | The pinned release's sha512 (`sha512-…`). |
 | `requirements` | `pypi` only: every distribution the tool's venv holds, one string each, `name==version --hash=sha256:<64 hex>` — the package itself and all its dependencies. |
+| `extras` | Files the tool needs beside its program, from a pinned archive: `{url, sha256, path, to, what}` — an https `.tar.gz` (`${{ kit.args.version }}` in `url` and `path`), its sha256 (checked in the bake), the folder `path` inside it, unpacked to `to` (under `/opt/PRODUCT/`, root's, read-only to the agent). Fabric's patterns: `to: /opt/fabric/patterns`, and `launch.env` points the tool at them. Its host joins the bake's. |
 
 **`pypi`** installs a Python tool from PyPI. The image gets Dozer's own Python (python-build-standalone CPython 3.13 for
 aarch64 glibc, checksum-pinned, under `/opt/python` — the base's python3 is left alone, so the same wheels fit every
@@ -235,6 +236,9 @@ agent's releases are is measured on each Mac, never recorded here.
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
 `terms`, `licence` (the licence in words, when it is not just the SPDX id).
 
+**`com.dozersandbox/guide@1`** (optional, at most one; every shipped recipe has one) — its companion guide: intro, first
+steps (the first is its check turn), tips, docs. See [The guide](#the-guide).
+
 **`com.dozersandbox/ports@1`** (optional, at most one) — the web ports the program serves inside the sandbox, each
 forwarded to the Mac's loopback (`127.0.0.1`) while the sandbox runs, with an Open button ([Web
 ports](../manual/29-web-ports.md)). `ports`: 1–16 of `{port, title, path?, protocol?, auth?, token_hint?, check?}` —
@@ -256,6 +260,43 @@ no credential crosses it.
     serve: [aichat, --serve]
 ```
 
+
+## The guide
+
+`com.dozersandbox/guide@1` is the recipe's companion guide: the Guide tab of the sandbox page (first, and chosen, on a
+try), `doz guide NAME`, the "Start here" `doz try` prints before it attaches a tool whose session is a shell, and a
+one-time note in that shell's first login.
+
+```yaml
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "Fabric applies ready-made prompts — patterns — to text you pipe into it. It is not a chat: it answers in your shell and exits."
+    steps:
+    - text: "Check it answers."
+      command: 'echo hello | fabric "say ok"'       # the check turn, as a person types it
+    - text: "See the patterns it has."
+      command: "fabric -l"
+    - text: "Use a file from your folder — put it there first, then change the name:"
+      command: "fabric -p extract_wisdom < notes.md"
+      edit: true                                     # typed, never run: the person changes it first
+    tips:
+    - "`fabric -s` streams the answer as it comes."
+    docs: https://github.com/danielmiessler/Fabric
+```
+
+- **`intro`** — one or two sentences: what it is, and whether it is a chat, an agent with its own screen, or a tool
+  that answers in the shell and exits (≤ 400 characters).
+- **`steps`** — 1 to 8 `{text, command?, edit?}`. The FIRST step's command is the recipe's `launch@1.check` turn as a
+  person types it (`sh -c X` is X; `${{ dozer.model }}` is the variable models@1 sets to it, `"$DOZ_MODEL"`), so the
+  first thing a person runs is known to work. Every command starts with the tool's program, its session's command, its
+  short name, or a plain shell builtin (`echo`, `printf`, `cat`, `ls`, `cd`, `mkdir`, `head`, `tail`, `export`), is one
+  line, its quotes closed. `edit: true`: the page types it and never presses Enter.
+- **`tips`** — at most 6, `code` in backquotes (the page draws it as code, never as markup); **`docs`** — https.
+
+Dozer adds the rest, never the recipe: the preamble (what kind of thing it is, how to use it here) and "This try" —
+the version (the pin), the provider and model with the account's NAME ("your key stays on the Mac"), the network, the
+folder (the Mac's path) and where its settings live. `make recipe-check` runs every step after the first that is not
+an edit, in a shell in the try (exit 0).
 
 ## Kinds and categories
 

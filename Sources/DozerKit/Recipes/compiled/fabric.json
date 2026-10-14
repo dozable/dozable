@@ -96,6 +96,15 @@
           "release-assets.githubusercontent.com"
         ],
         "binary" : "fabric",
+        "extras" : [
+          {
+            "path" : "Fabric-${{ kit.args.version }}/data/patterns",
+            "sha256" : "2cef4d13f3dc884ccd7474b4b66e66248bffb7ccd23e3f05d5ee27aa19b743ae",
+            "to" : "/opt/fabric/patterns",
+            "url" : "https://codeload.github.com/danielmiessler/fabric/tar.gz/refs/tags/v${{ kit.args.version }}",
+            "what" : "patterns"
+          }
+        ],
         "integrity" : "sha512-qTS9O3ps0FqHLqmgi1sV4U3u8LdRvJNV7Y5WYOQ48agmaIJoEVBKD9ghZ6LoakoFFQxc1wBr1LXKszCSCeH6kQ==",
         "kind" : "release-binary",
         "payload" : "fabric",
@@ -117,7 +126,7 @@
           "fabric"
         ],
         "env" : {
-
+          "CUSTOM_PATTERNS_DIRECTORY" : "/opt/fabric/patterns"
         },
         "first_run" : [
           {
@@ -315,7 +324,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Patterns are downloaded with fabric -U (GitHub)."
+        "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its patterns come with it (baked at the pin)."
       },
       "type" : "com.dozersandbox/directory@1"
     },
@@ -335,6 +344,38 @@
         ]
       },
       "type" : "com.dozersandbox/ports@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/danielmiessler/Fabric",
+        "intro" : "Fabric applies ready-made prompts — patterns — to text you pipe into it: summaries, wisdom extraction, code review and some 260 more. It is not a chat: it answers in your shell and exits.",
+        "steps" : [
+          {
+            "command" : "echo hello | fabric \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "command" : "fabric -l",
+            "text" : "See the patterns it has."
+          },
+          {
+            "command" : "echo \"Dozer runs each agent in its own VM\" | fabric -p summarize",
+            "text" : "Summarise some text with one."
+          },
+          {
+            "command" : "fabric -p extract_wisdom < notes.md",
+            "edit" : true,
+            "text" : "Use a file from your folder — put it there first, then change the name:"
+          }
+        ],
+        "tips" : [
+          "`fabric -s` streams the answer as it comes.",
+          "Another model: `fabric -m MODEL -p summarize`.",
+          "`fabric --readpattern summarize` shows what a pattern asks the model.",
+          "Web pages (`-u`) and YouTube (`-y`) need the open web: refused while the network is Locked."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A command-line prompt toolkit that applies crowd-sourced patterns to text, on a Google AI, Anthropic, OpenAI, xAI or OpenRouter key.",

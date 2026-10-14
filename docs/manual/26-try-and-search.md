@@ -98,6 +98,22 @@ to where you opened it.
 page already open, that page goes to the Quick try (no new tab, as `ui.open_browser` says); otherwise a new one opens
 there.
 
+## The guide
+
+Every agent and tool comes with a **guide**: what it is, the facts of your sandbox, the first steps and some tips.
+
+- **In the dashboard**, the sandbox page's details have a **Guide** tab — first, and open, on a try; last elsewhere. It
+  says what kind of thing it is and how to use it here; **This try**: its version (Dozer's pin), the provider and model
+  with the account it uses (your key stays on the Mac), what the network lets it reach (with a link to Network), the
+  folder and where its settings live; **Start here**: the first steps, each command with **Copy** and **Run** — Run
+  types it into the sandbox's session and presses Enter (for an agent with its own screen, into a shell beside it: open
+  one with New shell), **Type** types a command you change first; **Good to know**: tips, its docs, and when Dozer last
+  checked the recipe. The first step is always the one Dozer checks the recipe with, so it is known to work.
+- **In a terminal**, `doz guide NAME` prints the same (`--json` as data). `doz try` prints "Start here" before it
+  attaches to a tool whose session is a shell, and the first login shell in such a sandbox shows the steps once.
+- **Fabric** comes with its patterns (some 260, from its own release, checksum-verified when the image is prepared):
+  `fabric -l` lists them, `fabric -p summarize` uses one — nothing to download first.
+
 ## Is it supported? `doz search`
 
 ```sh

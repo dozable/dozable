@@ -167,3 +167,16 @@ capabilities:
       evidence: 'make recipe-check: mimo run "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your xAI API key — a key from console.x.ai. MiMo Code comes with Xiaomi's use restrictions beside its MIT licence; its usage analytics are off.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "MiMo Code is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "mimo run -m xai/grok-build-0.1 \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "mimo run -m xai/grok-build-0.1 \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://mimo.xiaomi.com

@@ -309,6 +309,36 @@
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
       "type" : "com.dozersandbox/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/TheR1D/shell_gpt",
+        "intro" : "ShellGPT (`sgpt`) answers questions and turns a request into a shell command. It answers in your shell and exits.",
+        "steps" : [
+          {
+            "command" : "sgpt \"say ok\"",
+            "text" : "Check it answers."
+          },
+          {
+            "command" : "sgpt --code \"a python function that adds two numbers\"",
+            "text" : "Ask for code only."
+          },
+          {
+            "command" : "sgpt --chat demo \"my name is Ada\"",
+            "text" : "A conversation that remembers — say something, then ask about it."
+          },
+          {
+            "command" : "sgpt --chat demo \"what is my name?\"",
+            "text" : "Ask about it."
+          }
+        ],
+        "tips" : [
+          "`sgpt --shell \"find the five largest files here\"` suggests a command and asks before it runs it.",
+          "`sgpt --repl temp` opens a chat in the terminal.",
+          "The model is `DEFAULT_MODEL`, set for the key you chose."
+        ]
+      },
+      "type" : "com.dozersandbox/guide@1"
     }
   ],
   "description" : "A command-line assistant that answers questions and turns requests into shell commands (sgpt), on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",

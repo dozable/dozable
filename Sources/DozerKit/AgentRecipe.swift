@@ -114,6 +114,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// categories (`terminal-tool`, `personal-agent` …) — the lists' sections and the Quick try's filter pills.
     public var catalogKind: String? = nil
     public var categories: [String]? = nil
+    /// 617.11 (owner: "our companion guide"): its guide — intro, first steps (the first is its check turn), tips, docs
+    /// (`com.dozersandbox/guide@1`; RecipeGuide.swift). nil: none.
+    public var guide: Guide? = nil
     /// 617 (models@1): the model sources it can be tried with and how a choice reaches its settings; nil: its one
     /// credential, as before.
     public var models: Models? = nil
@@ -160,7 +163,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
-             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, categories
+             network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, categories, guide
         case catalogKind = "catalog_kind", ports
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
@@ -206,9 +209,11 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// 617 (pypi): every distribution the install puts in its venv, each `name==version --hash=sha256:<hex>` — the
         /// package itself and all its dependencies, resolved once in a scratch VM; pip installs exactly these, hash-checked.
         public var requirements: [String]? = nil
+        /// 617.11: file sets beside the program (Fabric's patterns), each from a sha256-pinned archive, in the bake.
+        public var extras: [Extra]? = nil
 
         enum CodingKeys: String, CodingKey {
-            case kind, package, payload, compression, binary, pinned, manifest, url, requirements
+            case kind, package, payload, compression, binary, pinned, manifest, url, requirements, extras
             case platformPackage = "platform_package", needsNode = "needs_node", npmArgs = "npm_args", bakeHosts = "bake_hosts"
         }
 
@@ -1263,6 +1268,8 @@ extension AgentRecipe {
             } }
         }
         try validateModels(bad)
+        try validateGuide(bad)              // 617.11
+        try validateExtras(bad)
         // prompt, resume, verify
         if let p = prompt {
             switch p.kind {

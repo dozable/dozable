@@ -195,3 +195,16 @@ capabilities:
       checked: '2026-10-14'
     terms: Your xAI API key — a key from console.x.ai. GitHub Copilot CLI is GitHub's software under its own licence; Dozer installs it from the npm registry.
     licence: Proprietary (GitHub Copilot CLI License)
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "GitHub Copilot CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "copilot -p \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "copilot -p \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://github.com/github/copilot-cli

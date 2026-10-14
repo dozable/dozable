@@ -13,6 +13,7 @@ final class ToolRecipeKindsTests: XCTestCase {
                 platforms: [String: Any]? = nil) throws -> AgentRecipe {
         var o = try AgentRecipeTests.json("fabric")
         var i = try XCTUnwrap(o["install"] as? [String: Any])
+        i.removeValue(forKey: "extras")          // 617.11: Fabric's patterns are Fabric's own
         edit(&i)
         o["install"] = i
         if let launch {

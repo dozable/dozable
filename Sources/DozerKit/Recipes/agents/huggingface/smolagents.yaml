@@ -237,3 +237,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/smolagents)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "smolagents is Hugging Face's library for agents that write and run Python; `smolagent` runs one task from your shell."
+    steps:
+    - text: "Check it answers."
+      command: "smolagent \"say ok\" --model-type OpenAIModel --model-id \"$DOZ_MODEL\" --api-base \"$OPENAI_BASE_URL\""
+    - text: "Give it a task it solves with code."
+      command: "smolagent \"what is 17 times 23?\" --model-type OpenAIModel --model-id \"$DOZ_MODEL\" --api-base \"$OPENAI_BASE_URL\""
+    tips:
+    - "`DOZ_MODEL` and `OPENAI_BASE_URL` are set for the key you chose."
+    - "Its web-search tools reach the open web only when you allow it."
+    docs: https://huggingface.co/docs/smolagents

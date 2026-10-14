@@ -200,8 +200,9 @@ A prompt toolkit: crowd-sourced "patterns" applied to text you pipe in.
 - **Key:** Google AI (default: `doz account add google --provider google`; get one at https://aistudio.google.com/apikey),
   Anthropic, OpenAI, xAI or OpenRouter — its own vendors. Dozer sets `DEFAULT_VENDOR` and `DEFAULT_MODEL` for the choice
   (over the ones in `~/.config/fabric/.env`, written only when not there yet).
-- **Use:** `echo "some text" | fabric "summarise this"`, or `fabric -U` once to download the patterns (from GitHub:
-  allow "Use GitHub" in the sandbox's network), then `cat notes.txt | fabric -p summarize`.
+- **Patterns** come with it: its release's some 260 patterns, checksum-verified when the image is prepared, in
+  `/opt/fabric/patterns` (`CUSTOM_PATTERNS_DIRECTORY`) — `fabric -l` lists them; `fabric -U` (from GitHub) is not needed.
+- **Use:** `echo "some text" | fabric "summarise this"`, `cat notes.txt | fabric -p summarize` — or the sandbox page's Guide.
 - **May reach:** those providers' APIs.
 - **Its REST API:** run `fabric --serve` in a session; the sandbox's **Open Fabric REST API** button (or `doz open NAME`)
   opens its API reference in your Mac's browser — see [Web ports](29-web-ports.md).

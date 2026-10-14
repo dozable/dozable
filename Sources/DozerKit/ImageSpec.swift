@@ -351,7 +351,33 @@ public enum AgentImages {
         default:            // npm-platform-binary (validated)
             steps.append(platformBinaryInstall(r, release, base: base))
         }
+        // 617.11: the file sets it needs beside its program (Fabric's patterns), each sha256-checked here.
+        for e in r.install.extras ?? [] {
+            steps.append(extraInstall(r, e, release))
+            if let h = URL(string: e.url)?.host, !hosts.contains(h) { hosts.append(h) }
+        }
         return (steps, hosts)
+    }
+
+    /// 617.11: one folder of a pinned archive (`{version}` = the release), unpacked to `to` (under /opt/<id>), root's,
+    /// read-only to the agent. A recipe without extras never reaches this (its bake key is unchanged).
+    static func extraInstall(_ r: AgentRecipe, _ e: AgentRecipe.Install.Extra, _ release: AgentRelease) -> BakeStep {
+        let v = release.version.split(separator: "+").first.map(String.init) ?? release.version
+        let url = e.url.replacingOccurrences(of: "{version}", with: v), path = e.path.replacingOccurrences(of: "{version}", with: v)
+        let depth = path.split(separator: "/").count
+        return BakeStep.script("install \(r.title)'s \(e.what) (\(v), checksum-verified)", """
+            cd "$(mktemp -d)"
+            curl -fsSL --retry 3 -o extra.tar.gz '\(url)'
+            got=$(sha256sum extra.tar.gz | cut -d' ' -f1)
+            [ "$got" = '\(e.sha256)' ] || { echo "checksum mismatch for \(r.title)'s \(e.what): $got" >&2; exit 1; }
+            rm -rf '\(e.to)'
+            mkdir -p '\(e.to)'
+            tar -xzf extra.tar.gz -C '\(e.to)' --strip-components=\(depth) --no-same-owner '\(path)'
+            rm -f extra.tar.gz
+            chown -R root:root '\(e.to)'
+            chmod -R a+rX,go-w '\(e.to)'
+            echo "\(e.what): $(find '\(e.to)' -type f | wc -l) files in \(e.to)"
+            """)
     }
 
     /// 617: the archive a manifest-binary release is (its url with `{build}` = `<version>-<build>`).

@@ -126,7 +126,7 @@ capabilities:
       argv:
       - sh
       - '-c'
-      - d=$(mktemp -d) && mkdir $d/hello && echo 'from . import agent' > $d/hello/__init__.py && printf 'from google.adk.agents import Agent\nroot_agent = Agent(name="hello", model="gemini-2.5-flash", instruction="Answer briefly.")\n' > $d/hello/agent.py && printf 'say ok\nexit\n' | adk run $d/hello
+      - cd "$(mktemp -d)" && mkdir hello && echo 'from . import agent' > hello/__init__.py && printf 'from google.adk.agents import Agent\nroot_agent = Agent(name="hello", model="gemini-2.5-flash", instruction="Answer briefly.")\n' > hello/agent.py && printf 'say ok\nexit\n' | adk run hello
       expect: DOZ_FAKE_OK
 - type: com.dozersandbox/auth@1
   config:
@@ -170,3 +170,15 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/adk)'
       checked: '2026-10-14'
     terms: Your Gemini API key — a key from aistudio.google.com. adk web (its dev UI) and adk api_server need a forwarded port, which Dozer does not offer yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "Google's Agent Development Kit builds agents in Python; `adk run FOLDER` talks to one in the terminal."
+    steps:
+    - text: "Check it answers: a one-file agent in a temporary folder."
+      command: "cd \"$(mktemp -d)\" && mkdir hello && echo 'from . import agent' > hello/__init__.py && printf 'from google.adk.agents import Agent\\nroot_agent = Agent(name=\"hello\", model=\"gemini-2.5-flash\", instruction=\"Answer briefly.\")\\n' > hello/agent.py && printf 'say ok\\nexit\\n' | adk run hello"
+    - text: "See its commands."
+      command: "adk --help"
+    tips:
+    - "An agent is a Python package folder whose agent module defines `root_agent`."
+    - "`adk web` (its dev UI) needs a forwarded port."
+    docs: https://google.github.io/adk-docs/

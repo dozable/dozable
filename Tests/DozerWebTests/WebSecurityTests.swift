@@ -384,6 +384,9 @@ final class WebSecurityTests: XCTestCase {
             WebAccounts(accounts: [], defaultAccount: "mac", keepalive: false),
             WebMetrics(available: false, runs: 0, rows: 0, sessions: 0, networkMinutes: 0, summary: []),
             WebActivity(seq: 1, kind: "host", text: "x"),
+            // 617.11: the guide (facts are words: an account's name, a source's title — never a key)
+            WebGuide(SandboxGuide.make(AgentRecipes.recipe("fabric")!, version: nil, source: "google", model: "gemini-2.5-flash", account: "google",
+                                       accountKind: .key, network: "its model only (Locked)", workspace: "/Users/x/try-fabric", trial: true)!),
             // 593 §9
             WebSavedScreen(SessionScreen(name: "a", SavedScreen(info: SavedScreenInfo(session: "s", savedAt: now, reason: "sleep"), vt: Data(), text: ""))),
             WebTerminalLayout(TerminalLayout(panes: [.init(tabs: [.init(session: "s")], selected: 0)])),

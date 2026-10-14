@@ -187,3 +187,20 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/llm)'
       checked: '2026-10-14'
     terms: Your xAI or OpenAI API key (xAI by default). llm install (more plugins) needs PyPI, which Dozer does not offer at run time yet.
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "llm prompts a model from the command line and logs every prompt and answer to SQLite. It answers in your shell and exits; `llm chat` is its chat."
+    steps:
+    - text: "Check it answers."
+      command: "llm \"say ok\""
+    - text: "Pipe text in with a system prompt."
+      command: "echo \"Dozer runs each agent in its own VM\" | llm -s \"summarise this in five words\""
+    - text: "See the models it knows."
+      command: "llm models"
+    - text: "See your last prompt and answer."
+      command: "llm logs -n 1"
+    tips:
+    - "`llm -c \"and now?\"` continues the last conversation."
+    - "`llm chat` keeps a conversation going until you type `exit`."
+    - "The model is `LLM_MODEL`, set for the key you chose; `-m MODEL` picks another."
+    docs: https://llm.datasette.io

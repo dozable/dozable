@@ -202,3 +202,16 @@ capabilities:
       - codex exec
       source: https://learn.chatgpt.com/codex/non-interactive-mode
       checked: '2026-10-12'
+- type: com.dozersandbox/guide@1
+  config:
+    intro: "Codex is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "codex exec --skip-git-repo-check \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "codex exec --skip-git-repo-check \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://github.com/openai/codex
