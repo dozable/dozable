@@ -71,13 +71,15 @@ export async function viewAccounts() {
     panel(table(['Account', 'Kind', 'Identity', 'State', 'Expires', 'Fingerprint', 'Used by', ''], rows)),
     h('h2', null, 'Add an account'),
     secretEntryAllowed()
-      ? accountForm({ kind: null, onAdded: (r, name) => {
+      ? accountForm({ kind: null,
+          keyProviders: Object.entries(a.sourceTitles || {}).filter(([id]) => !['anthropic', 'openai', 'custom'].includes(id)).map(([id, title]) => ({ id, title })),
+          onAdded: (r, name) => {
           const row = r.accounts.find((x) => x.name === name);
           toast('account ' + name + ' added' + (row && verificationText(row.verification) ? ' (' + verificationText(row.verification) + ')' : ''));
           refresh(false);
         } })
       : h('div', null, accountCommandsNode('setup-token'), accountCommandsNode('api-key')),
-    h('p', { class: 'muted' }, 'Stored exactly as doz account add stores it: the login keychain (doz-claude:NAME, doz-anthropic:NAME), after one tiny check request. ',
+    h('p', { class: 'muted' }, 'Stored exactly as doz account add stores it: the login keychain (doz-anthropic:NAME, doz-openrouter:NAME, …), after one tiny check request. ',
       'This page keeps no copy. ui.allow_secret_entry (Settings) turns the field off.'),
     h('p', { class: 'muted' }, 'A key kept in 1Password, AWS Secrets Manager or read by a command, and a custom key for another service, are added with the doz command: ',
       h('code', null, 'doz account add NAME --provider xai --from op://VAULT/ITEM/FIELD'), ' · ', h('code', null, 'doz account add NAME --custom --host HOST --env-var VAR --bearer'), '.'));

@@ -10,7 +10,7 @@ import { saveSetting, setting } from '../core/settings-e508eb68e0b62892.js';
 import { state } from '../core/state-450cb6573a620304.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-933851e9be49078e.js';
 import { isRemote } from '../core/session-a11b36fbe5b8e637.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-cc9a7e9532218c97.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-ad395128b5759799.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
@@ -24,10 +24,10 @@ import { sandboxPill } from '../components/pills-ff933ee08d67afed.js';
 import { agentChip } from '../components/agent-status-6a5189fe7c08b42f.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-e2af219cba0d340e.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-9e92b5edc7706aba.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-50368296f25633d8.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-eb6b0b63b05c95e4.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-b3aae248b39da3ec.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-0521351993f380ce.js';
 import { networkPanel } from './sandbox-network-aa309e17c7fe2304.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-558eaf4257af8da1.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-253d91389866b706.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

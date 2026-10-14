@@ -5,7 +5,7 @@ import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act } from '../core/operations-35be36dc22fb7d83.js';
 import { refresh } from '../core/router-d52f73098f0afa66.js';
 import { secretEntryAllowed } from '../core/settings-e508eb68e0b62892.js';
-import { accountCommandsNode, accountForm } from '../components/accounts-cc9a7e9532218c97.js';
+import { accountCommandsNode, accountForm } from '../components/accounts-ad395128b5759799.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { confirmAction } from '../components/dialog-2985b4b2b4527952.js';
@@ -71,13 +71,15 @@ export async function viewAccounts() {
     panel(table(['Account', 'Kind', 'Identity', 'State', 'Expires', 'Fingerprint', 'Used by', ''], rows)),
     h('h2', null, 'Add an account'),
     secretEntryAllowed()
-      ? accountForm({ kind: null, onAdded: (r, name) => {
+      ? accountForm({ kind: null,
+          keyProviders: Object.entries(a.sourceTitles || {}).filter(([id]) => !['anthropic', 'openai', 'custom'].includes(id)).map(([id, title]) => ({ id, title })),
+          onAdded: (r, name) => {
           const row = r.accounts.find((x) => x.name === name);
           toast('account ' + name + ' added' + (row && verificationText(row.verification) ? ' (' + verificationText(row.verification) + ')' : ''));
           refresh(false);
         } })
       : h('div', null, accountCommandsNode('setup-token'), accountCommandsNode('api-key')),
-    h('p', { class: 'muted' }, 'Stored exactly as doz account add stores it: the login keychain (doz-claude:NAME, doz-anthropic:NAME), after one tiny check request. ',
+    h('p', { class: 'muted' }, 'Stored exactly as doz account add stores it: the login keychain (doz-anthropic:NAME, doz-openrouter:NAME, …), after one tiny check request. ',
       'This page keeps no copy. ui.allow_secret_entry (Settings) turns the field off.'),
     h('p', { class: 'muted' }, 'A key kept in 1Password, AWS Secrets Manager or read by a command, and a custom key for another service, are added with the doz command: ',
       h('code', null, 'doz account add NAME --provider xai --from op://VAULT/ITEM/FIELD'), ' · ', h('code', null, 'doz account add NAME --custom --host HOST --env-var VAR --bearer'), '.'));
