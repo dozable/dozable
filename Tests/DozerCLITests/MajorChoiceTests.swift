@@ -4,6 +4,7 @@ import Foundation
 import XCTest
 @testable import DozerCLI
 @testable import DozerHost
+import DozerWeb
 
 /// 618: an earlier major (or an exact release) can be chosen everywhere a tool is chosen in the CLI — try, new, create,
 /// up (`--agent`, `--image`), a project file's `agent:` — and the plan says which release and how to get the other.
@@ -94,6 +95,55 @@ final class MajorChoiceTests: XCTestCase {
         XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: opencode@9\n"))
         // The file round-trips.
         XCTAssertEqual(try DozerProject.parse(p.render()).agent, "opencode@1")
+    }
+
+    /// A project file outlives the try that wrote it: when the recommended major later moves, a file Dozer wrote must
+    /// not move with it — so a family's name is written with the major it resolved to. A file written by hand with the
+    /// bare name keeps meaning "recommended", and `doz up` says what that resolved to.
+    func testAFileWrittenForLaterKeepsItsMajor() throws {
+        let pinned = "opencode@\(recommended.family!.major)"
+        func agentLine(_ yaml: String) -> String? {
+            yaml.split(separator: "\n").first { $0.hasPrefix("agent: ") }.map { String($0.split(separator: "#")[0]).trimmingCharacters(in: .whitespaces) }
+        }
+        // The plan's doz_project.yaml (doz try / create / up --dry-run, and the dashboard's plan).
+        XCTAssertEqual(agentLine(try plan("try", ["--agent", "opencode"]).yaml), "agent: \(pinned)")
+        XCTAssertEqual(agentLine(try plan("create", ["--agent", "opencode", "--base", "python"]).yaml), "agent: \(pinned)")
+        // An image named by a member's id: that image (its name is one major's, so it never moves either).
+        let byImage = try plan("try", ["--image", recommended.id]).yaml
+        XCTAssertTrue(agentLine(byImage) == nil && byImage.contains("image: \(recommended.id) "), byImage)
+        XCTAssertEqual(agentLine(try plan("try", ["--agent", "opencode@1"]).yaml), "agent: opencode@1")
+        XCTAssertEqual(agentLine(try plan("try", ["--agent", "opencode@2.0.28"]).yaml), "agent: opencode@2.0.28")
+        // The one rule all three writers share.
+        XCTAssertEqual(DozerProject.fileAgent("opencode"), pinned)
+        XCTAssertEqual(DozerProject.fileAgent("opencode2"), "opencode@2")
+        XCTAssertEqual(DozerProject.fileAgent("opencode@1"), "opencode@1")
+        XCTAssertEqual(DozerProject.fileAgent("grok"), "grok")
+        XCTAssertEqual(DozerProject.fileAgent("none"), "none")
+        // doz init --agent opencode.
+        let i = try XCTUnwrap(try DozerCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode"]) as? Init)
+        let made = try i.ask(folder: root, existing: nil, asker: Asker(yes: true, json: false))
+        XCTAssertEqual(made.agent, pinned)
+        XCTAssertEqual(made.image, recommended.id)
+        XCTAssertEqual(agentLine(made.render()), "agent: \(pinned)")
+        // The dashboard's New Sandbox.
+        var form = WebProjectForm(made)
+        form.agent = "opencode"
+        XCTAssertEqual(try form.project().agent, pinned)
+        // By hand: the bare name stays the recommended major, and doz up says which, once, when it is made.
+        let hand = try DozerProject.parse("version: 1\nname: p\nagent: opencode\n")
+        XCTAssertEqual(hand.agent, "opencode")
+        XCTAssertEqual(hand.chosenImage, recommended.id)
+        XCTAssertEqual(try DozerProject.parse(hand.render()).agent, "opencode", "rewriting a file keeps what it says")
+        let note = try XCTUnwrap(DozerProject.familyNote("opencode"))
+        XCTAssertTrue(note.contains("is \(pinned)") && note.contains("write agent: \(pinned)"), note)
+        XCTAssertNil(DozerProject.familyNote("opencode@1"))
+        XCTAssertNil(DozerProject.familyNote("opencode2"))
+        XCTAssertNil(DozerProject.familyNote("grok"))
+        XCTAssertNil(DozerProject.familyNote(nil))
+        // The agent: comment (and every "--agent: …" message) names families, not members' ids.
+        XCTAssertTrue(DozerProject.agentWords.contains("opencode"))
+        XCTAssertFalse(DozerProject.agentWords.contains("opencode2"), DozerProject.agentWords)
+        XCTAssertFalse(made.render().contains("opencode2"), made.render())
     }
 
     func testTheListShowsAFamilyOnceAndSearchFindsAMajor() throws {

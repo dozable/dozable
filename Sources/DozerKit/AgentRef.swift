@@ -24,6 +24,13 @@ public struct AgentRef: Equatable, Sendable {
     public var family: AgentRecipe.Family? { recipe.family }
     /// "opencode", "opencode@1", "opencode@2.0.28".
     public var text: String { qualifier.map { "\(name)@\($0)" } ?? name }
+    /// What a file written for later records (a plan's doz_project.yaml, `doz init`, New Sandbox): a family's name keeps
+    /// the major it resolved to (`opencode` → `opencode@2`), so the file never changes major when the recommendation
+    /// moves; a member's own id becomes the family's name (`opencode2` → `opencode@2`). Anything else: `text`.
+    public var pinned: String {
+        guard let f = family else { return text }
+        return "\(name)@\(qualifier ?? String(f.major))"
+    }
 
     /// A reference that cannot be served — said with the choices there are.
     public struct Problem: Error, Equatable, CustomStringConvertible {

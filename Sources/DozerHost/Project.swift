@@ -175,8 +175,29 @@ public struct DozerProject: Equatable, Sendable {
         }
     }
 
+    /// 618: the names a person types — a family's name once (`opencode`), never its members' ids (`opencode2`).
     public static var agentWords: String {
-        AgentKind.allCases.filter { $0 != .none }.map(\.rawValue).joined(separator: ", ") + " or none"
+        var seen: [String] = []
+        for k in AgentKind.allCases where k != .none {
+            let n = k.recipe?.family?.family ?? k.rawValue
+            if !seen.contains(n) { seen.append(n) }
+        }
+        return seen.joined(separator: ", ") + " or none"
+    }
+
+    /// 618: `agent:` as a file written for later records it — a family's major pinned (`opencode` → `opencode@2`,
+    /// `opencode2` → `opencode@2`), so a project made today never changes major when the recommendation moves.
+    public static func fileAgent(_ s: String) -> String {
+        if s == "none" { return s }
+        if let ref = try? AgentRef.resolve(s) { return ref.pinned }
+        return AgentRecipes.matching(s)?.id ?? s
+    }
+
+    /// 618: a hand-written bare family name (`agent: opencode`) keeps meaning "the recommended major" — what it
+    /// resolved to, said once when the sandbox is made (nil: anything else).
+    public static func familyNote(_ s: String?) -> String? {
+        guard let s, let ref = try? AgentRef.resolve(s), ref.family != nil, ref.qualifier == nil else { return nil }
+        return "agent: \(s) in \(fileName) is \(ref.pinned), the recommended major — write agent: \(ref.pinned) to keep it when the recommendation moves"
     }
 
     /// 596: the image agent + base name (a Dockerfile's: the agent's, the host swaps in its base). 617: with no

@@ -694,6 +694,8 @@ struct Up: AsyncParsableCommand {
             let info = try decode(try call(r, g), SandboxInfo.self, g)
             if !g.json && !g.quiet {
                 Out.stderr("[doz] created \(name)" + (projectFile.map { " from \($0.path)" } ?? "") + (info.workspace.map { " — /workspace = \($0)" } ?? "") + "\n")
+                // 618: a hand-written `agent: opencode` meant the recommended major — said once, when it is made.
+                if create.image == nil, (try? create.chosenImage()) ?? nil == nil, let n = DozerProject.familyNote(project?.agent) { Out.stderr("[doz] \(n)\n") }
             }
             noteWorkspace(info, isolatedAsked: create.isolated, g)
         } else {

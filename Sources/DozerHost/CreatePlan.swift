@@ -458,11 +458,12 @@ public enum CreatePlanner {
 
     static func yaml(name: String, options o: CreateOptions, choice: ImageChoice?, isolated: Bool) -> (String, String?) {
         var p = DozerProject(name: WebNameCheck.isSandboxName(name) ? name : "sandbox", image: o.image)
-        if let d = o.dockerfile { p.agent = choice?.agent.rawValue; p.dockerfile = d }
-        // 618: a tool's major or release as typed (`agent: opencode@1`) — the file then says it the same way.
+        if let d = o.dockerfile { p.agent = choice.map { DozerProject.fileAgent($0.agent.rawValue) }; p.dockerfile = d }
+        // 618: a tool's major or release as typed (`agent: opencode@1`) — and a family's bare name with the major it
+        // resolved to (`opencode` → `opencode@2`): the file outlives this plan and must never change major by itself.
         if let ref = o.agentRef {
             if o.dockerfile == nil, let c = choice, c.base != c.agent.recipe?.defaultBase { p.base = c.base }
-            p.agent = ref
+            p.agent = DozerProject.fileAgent(ref)
         }
         p.cpus = o.cpus
         p.memoryMiB = o.memoryMiB

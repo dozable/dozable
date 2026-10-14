@@ -194,6 +194,10 @@ doz create my-app --agent opencode@1      # the same in new, create and up — a
   new major only once that one has.
 - **A sandbox keeps its major.** It records what it was made as (`opencode@2.0.29`). Later recommendations never move
   it, and a reset keeps its major. The other major is a new sandbox.
+- **A project file keeps its major too.** What Dozer writes for later — a plan's `doz_project.yaml`, `doz init`, New
+  Sandbox — records the major the name resolved to (`agent: opencode@2`), so `doz up` on it next year makes the same
+  major. A file you write by hand with the bare name (`agent: opencode`) keeps meaning the recommended major; `doz up`
+  says which one when it makes the sandbox.
 - **Where you see them**: a try's first line, `--dry-run` and the sandbox's Guide say which release it is and how to get
   the other one (`OpenCode 1 1.19.0 (recommended) — OpenCode 2: doz try opencode@2`). `doz search` marks each major
   (`(recommended; also @2)`), and the `doz try` list shows the tool once. In the dashboard, Quick try has one card per

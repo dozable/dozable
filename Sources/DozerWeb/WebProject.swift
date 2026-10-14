@@ -115,7 +115,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         func invalid(_ m: String) -> WebAction.Invalid { WebAction.Invalid(m) }
         var p = DozerProject(name: name, image: image)
         if agent != nil || base != nil || dockerfile != nil {
-            p.agent = agent
+            p.agent = agent.map(DozerProject.fileAgent)          // 618: a family's major pinned (opencode → opencode@2)
             p.base = base
             p.dockerfile = dockerfile
             p.image = p.chosenImage

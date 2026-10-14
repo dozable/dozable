@@ -158,7 +158,8 @@ struct Init: AsyncParsableCommand {
             if let b = base { args += ["--base", b] }
             do { _ = try ChoiceOptions.from(args).planChoices() } catch { throw invalid(DozerCommand.message(for: error)) }
             p = existing ?? DozerProject(name: sandbox, image: "")
-            p.agent = agent.flatMap { $0 == "shell" ? "none" : AgentRecipes.matching($0)?.id ?? $0 } ?? p.agent ?? "claude-code"
+            // 618: a family's major pinned (`--agent opencode` writes `agent: opencode@2`).
+            p.agent = agent.flatMap { $0 == "shell" ? "none" : DozerProject.fileAgent($0) } ?? p.agent ?? "claude-code"
             p.base = base
             p.dockerfile = dockerfile
             p.name = sandbox
