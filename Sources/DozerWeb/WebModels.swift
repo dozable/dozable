@@ -1196,6 +1196,10 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         /// 617 (owner: "split them"): `coding-agent` | `ai-tool`, and its categories (the pills).
         public var catalogKind: String? = nil
         public var categories: [String] = []
+        /// 618: the major it is of a family (OpenCode 1 / OpenCode 2), and the name that means exactly it (`opencode@1`)
+        /// — the plan's `agent`. One card per family (its recommended major); the setup's Version choice re-plans by `ref`.
+        public var family: FamilyInfo? = nil
+        public var ref: String? = nil
         public struct Usable: Codable, Equatable, Sendable {
             public var name: String
             public var kind: String
@@ -1204,6 +1208,14 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
             /// 617 (models@1): the model source its key is of (`openai`, `openrouter` …), for a recipe agent's choice.
             public var modelSource: String? = nil
         }
+    }
+    /// 618: a recipe's family@1 as the page needs it.
+    public struct FamilyInfo: Codable, Equatable, Sendable {
+        public var name: String
+        public var major: Int
+        public var title: String
+        public var recommended: Bool
+        public init(_ f: AgentRecipe.Family) { name = f.family; major = f.major; title = f.title; recommended = f.isRecommended }
     }
     public struct Coming: Codable, Equatable, Sendable {
         public var id: String; public var title: String; public var publisher: String; public var reason: String

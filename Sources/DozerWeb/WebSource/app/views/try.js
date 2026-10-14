@@ -75,11 +75,18 @@ export async function viewTry() {
 /// section's first ready one, else its first.
 function choose(tr, want) {
   const c = tr.catalog;
-  const named = c.agents.find((a) => a.id === want) || c.coming.find((a) => a.id === want);
+  // 618: a family's card is its recommended major — another major asked for (#/try/opencode2) is that card, with its
+  // Version chosen in the setup.
+  const cards = c.agents.filter((a) => !a.family || a.family.recommended);
+  let named = c.agents.find((a) => a.id === want) || c.coming.find((a) => a.id === want);
+  if (named && named.family && !named.family.recommended) {
+    tr.version = named.id;
+    named = cards.find((a) => a.family && a.family.name === named.family.name) || named;
+  }
   if (named && named.catalogKind) tr.kind = named.catalogKind;
   if (named) { tr.agent = named.id; return; }
-  if (tr.agent && (c.agents.some((a) => a.id === tr.agent) || c.coming.some((a) => a.id === tr.agent))) return;
-  const first = c.agents.find((a) => a.catalogKind === tr.kind && a.ready) || c.agents.find((a) => a.catalogKind === tr.kind) || c.agents[0] || null;
+  if (tr.agent && (cards.some((a) => a.id === tr.agent) || c.coming.some((a) => a.id === tr.agent))) return;
+  const first = cards.find((a) => a.catalogKind === tr.kind && a.ready) || cards.find((a) => a.catalogKind === tr.kind) || cards[0] || null;
   tr.agent = first ? first.id : null;
 }
 
@@ -120,14 +127,30 @@ function take(tr, catalog, stage) {
 
 function retryLoad() { const tr = state.tr; if (tr) { tr.loadError = ''; paint({}); load(tr, true); } }
 
-/// Agents (and the coming ones) as the search sees them.
+/// Agents (and the coming ones) as the search sees them — a family once (618: its recommended major's card; the
+/// setup's Version choice reaches the others).
 function entries() {
   const c = state.tr.catalog;
   // 617: the declared kind and categories search as tags too (tag:terminal-tool).
   const words = (x) => [...(x.categories || []), ...(x.catalogKind ? [x.catalogKind] : [])];
-  return [...c.agents.map((a) => ({ ...a, kind: 'agent', tags: [...(a.tags || []), ...words(a)] })),
+  return [...c.agents.filter((a) => !a.family || a.family.recommended).map((a) => ({ ...a, kind: 'agent', tags: [...(a.tags || []), ...words(a)] })),
     ...c.coming.map((x) => ({ ...x, kind: 'coming', tags: words(x), current: true }))];
 }
+
+/// 618: the majors of `a`'s family in the catalog, oldest first (empty: not a family).
+function familyOf(a) {
+  if (!a || !a.family || !state.tr) return [];
+  return state.tr.catalog.agents.filter((x) => x.family && x.family.name === a.family.name).sort((x, y) => x.family.major - y.family.major);
+}
+
+/// 618: "also @1" — the other majors, for a card.
+function alsoWords(a) {
+  const others = familyOf(a).filter((x) => x.id !== a.id);
+  return others.length ? 'also ' + others.map((x) => '@' + x.family.major).join(', ') : null;
+}
+
+/// 618: a catalog agent by id — a family's other majors included (they have no card of their own).
+function anyAgent(id) { return state.tr ? state.tr.catalog.agents.find((x) => x.id === id) : null; }
 
 /// In the section shown (an entry with no kind shows in both).
 function inKind(e, kind = state.tr.kind) { return !e.catalogKind || e.catalogKind === kind; }
@@ -200,7 +223,7 @@ function prepNodes(a) {
 
 function select(id, opts = {}) {
   const tr = state.tr;
-  if (tr.agent !== id) { tr.error = ''; }
+  if (tr.agent !== id) { tr.error = ''; tr.version = null; }
   const e = entries().find((x) => x.id === id);
   if (e && e.catalogKind && e.catalogKind !== tr.kind) { tr.kind = e.catalogKind; tr.f = new Set([...tr.f].filter((x) => x === 'ready')); }
   tr.agent = id;
@@ -212,7 +235,9 @@ function select(id, opts = {}) {
 
 function resultItem(a) {
   const tr = state.tr, sel = a.id === tr.agent;
-  const sub = a.kind === 'coming' ? 'coming' : [a.version, a.age ? ago(a.age) : null, a.current === false ? 'superseded' : null].filter(Boolean).join(' · ');
+  const sub = a.kind === 'coming' ? 'coming' : [a.version, a.age ? ago(a.age) : null, a.current === false ? 'superseded' : null,
+    // 618: a family's card — the recommended major (never "latest"), and the others its setup offers.
+    a.family ? 'recommended' : null, alsoWords(a)].filter(Boolean).join(' · ');
   const b = h('button', { type: 'button', role: 'option', class: 'qt-item' + (a.current === false ? ' superseded' : '') + (a.kind === 'coming' ? ' coming' : ''),
     'aria-selected': String(sel), tabindex: sel ? '0' : '-1', 'data-try-agent': a.id, ...(a.kind === 'coming' ? { 'data-try-coming': a.id } : {}) },
     mark(a.icon),
@@ -350,7 +375,11 @@ function detailNodes() {
   const versions = h('dl', { class: 'qt-plan' },
     h('dt', null, 'Dozer installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
     a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
-    h('dt', null, 'Base'), h('dd', null, a.base || '—'));
+    h('dt', null, 'Base'), h('dd', null, a.base || '—'),
+    // 618: a family's majors — each one Dozer checked; Try's Version picks one.
+    ...(familyOf(a).length > 1 ? [h('dt', null, 'Majors'), h('dd', { 'data-try-majors': '' },
+      familyOf(a).map((x) => x.family.title + (x.version ? ' ' + x.version : '') + (x.family.recommended ? ' (recommended)' : '')).join(' · ')
+        + ' — Try lets you choose')] : []));
   const tryBtn = btn('Try ' + a.title + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
   tryBtn.dataset.tryOpen = '';
   // The list alone (no plan yet): what it can reach and its command follow with the plans; Try waits for them.
@@ -390,7 +419,7 @@ function usable(a) {
 async function replan(account) {
   const a = SETUP.a;
   SETUP.account = account || null;
-  SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.id, ...(account ? { account } : {}),
+  SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.ref || a.id, ...(account ? { account } : {}),
     ...(SETUP.source ? { source: SETUP.source } : {}), ...(SETUP.model ? { model: SETUP.model } : {}) } });
 }
 
@@ -403,6 +432,30 @@ function chosenSource(plan) {
 const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
 
 /// 617 (models@1): the provider or gateway it talks to, and the model — only for an agent that can use more than one.
+/// 618 (owner: "make sure there is a way the user can chose an earlier major version"): a family's majors, the
+/// recommended one first chosen. Choosing one RE-PLANS only (POST plan with its ref) — the catalog is never read again.
+function versionNodes(a) {
+  const fam = familyOf(a);
+  if (fam.length < 2) return [];
+  const seg = h('div', { class: 'segmented try-versions', role: 'group', 'aria-label': 'Version', 'data-try-version': a.id },
+    ...fam.map((x) => h('button', { type: 'button', class: 'seg', 'aria-pressed': String(x.id === a.id), 'data-try-version-choice': x.id,
+      title: x.family.recommended ? 'The major Dozer recommends' : 'An earlier (or other) major',
+      on: { click: () => chooseVersion(x) } }, x.family.title + (x.version ? ' · ' + x.version : '') + (x.family.recommended ? ' (recommended)' : ''))));
+  return [seg, h('p', { class: 'muted' }, 'A sandbox keeps the major it is made with — the other one is a new try.')];
+}
+
+async function chooseVersion(x) {
+  if (!SETUP.a || SETUP.a.id === x.id || SETUP.busy) return;
+  SETUP.a = x; SETUP.source = null; SETUP.model = ''; SETUP.error = '';
+  try {
+    // Its own plan, with a key it can use (another major may take other keys).
+    const u = usable(x);
+    SETUP.plan = x.plan || SETUP.plan;
+    await replan(x.plan && keyProblem(x.plan) && u.length ? u[0].name : null);
+  } catch (e) { SETUP.error = e.message || String(e); }
+  paintSetup();
+}
+
 function modelNodes(plan) {
   const m = plan.model;
   if (!m || !m.offered || m.offered.length < 2) return [];
@@ -445,12 +498,15 @@ function modelNodes(plan) {
 
 function keyProblem(plan) { return (plan.problems || []).find((p) => p.code === 'key'); }
 
-async function openSetup(a) {
+async function openSetup(card) {
+  // 618: another major asked for by its link (#/try/opencode2): the setup opens on it (its Version chosen).
+  const asked = state.tr && state.tr.version ? anyAgent(state.tr.version) : null;
+  const a = asked && familyOf(card).some((x) => x.id === asked.id) && asked.plan ? asked : card;
   if (!a.plan) return;                                            // the list alone: its plan is still being read
   if (SETUP.d && SETUP.d.open) return;
   if (SETUP.d) { SETUP.d.remove(); SETUP.d = null; }      // closed, its (asynchronous) close event not yet run
   SETUP.a = a; SETUP.plan = a.plan; SETUP.account = null; SETUP.source = null; SETUP.model = ''; SETUP.busy = false; SETUP.error = '';
-  const d = h('dialog', { class: 'dlg try-setup', 'aria-labelledby': 'try-setup-title', 'data-try-setup': a.id });
+  const d = h('dialog', { class: 'dlg try-setup', 'aria-labelledby': 'try-setup-title', 'data-try-setup': card.id });
   d.addEventListener('close', () => { d.remove(); if (SETUP.d === d) SETUP.d = null; });
   SETUP.d = d;
   document.body.append(d);
@@ -475,6 +531,7 @@ function paintSetup() {
     h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + a.title), close),
     h('div', { class: 'dlg-body' },
       h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, the network locked to its model, your key never inside.'),
+      ...(familyOf(a).length > 1 ? [sect('Version', ...versionNodes(a))] : []),
       ...(plan.model && plan.model.offered && plan.model.offered.length > 1 ? [sect('Model', ...modelNodes(plan))] : []),
       sect('Key', ...keyNodes(a, plan, missing)),
       sect('Image', h('div', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes({ ...a, plan }))),

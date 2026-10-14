@@ -765,6 +765,9 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 /* 617 (owner: "split them"): the section's agents — every one a button, wrapping. */
 .image-picker .segmented.agent-chips { display: flex; flex-wrap: wrap; align-self: stretch; }
 .image-picker .segmented.agent-chips[hidden], .image-picker .agent-chips .seg[hidden] { display: none; }
+/* 618: a family's majors under its chip (OpenCode 1 and 2) */
+.image-picker .segmented.agent-versions { display: flex; flex-wrap: wrap; align-self: start; }
+.image-picker .segmented.agent-versions[hidden] { display: none; }
 .base-card:disabled { opacity: .45; cursor: not-allowed; }
 .base-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 8px; margin-top: 4px; }
 
@@ -1606,6 +1609,8 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 /* 617 (models@1): the provider or gateway and the model, side by side; stacked when narrow. */
 .try-model { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: var(--sp-3); }
 .try-model select, .try-model input { width: 100%; }
+/* 618: the try setup's Version choice (a family's majors) */
+.try-versions { display: flex; flex-wrap: wrap; }
 /* 617.11: the Guide tab — preamble, this try's facts, the steps (each command with Copy and Run), tips. */
 .guide { display: flex; flex-direction: column; gap: var(--sp-4); }
 .guide-head p { margin: var(--sp-2) 0 0; }

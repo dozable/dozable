@@ -13,7 +13,7 @@ import { accountChooser, accountCommandsNode, accountForm } from '../components/
 import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { imagePicker, pickerNameHint } from '../components/image-picker-dc0e6db672769eed.js';
+import { imagePicker, pickerNameHint } from '../components/image-picker-0b61d7ace2412ec7.js';
 import { wizHead, wizMount } from '../components/modal-3ceda2ab4d2e59c4.js';
 import { refreshNav } from '../components/nav-77c3260bfac45a32.js';
 import { pageFailure, toast } from '../components/notices-dfd5edd22e60f3dd.js';
