@@ -322,8 +322,17 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var verification: String?
     public var isDefault: Bool
     public var usedBy: [String]
-    /// `ok`, `expires-soon`, `expired`, `signed-out`, `missing`, `locked`…
+    /// `ok`, `expires-soon`, `expired`, `signed-out`, `missing`, `locked`, `rejected` (its provider refused it at the
+    /// last check), `unavailable` (its source could not be read), `unchecked` (read on use, not read yet)…
     public var state: String
+
+    /// 617: a key's state once its last check is known — a key the provider REFUSED (`verification` "rejected: …") is
+    /// `rejected`, never `ok`. A state that already says the key cannot be used (missing, locked, expired, unavailable)
+    /// is kept: that is the first thing to fix. Never checked stays as it is (`ok` from the keychain, `unchecked`).
+    public static func keyState(_ state: String, verification: String?) -> String {
+        guard verification?.hasPrefix("rejected") == true, ["ok", "expires-soon", "unchecked"].contains(state) else { return state }
+        return "rejected"
+    }
     public var keychainService: String?
     public var fingerprint: String?
     /// 617: whose key it is (`anthropic`, `openai`, `xai`, `google`, `custom`).

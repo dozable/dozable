@@ -452,7 +452,9 @@ name: todo-app</pre></details>
     <div class="n">a sandbox that follows the default uses its provider’s</div></div>
     <div class="stat"><div class="k">Claude Code keep-alive</div><div class="v">off</div></div></div></div></div>
   <p>Accounts &amp; keys: each provider has its own default, listed together in one <strong>Defaults</strong> stat (the rows keep their “default”
-    badge); the keep-alive is Claude Code’s and says so. A key added without its check says “not checked yet”, never a command-line flag.</p>
+    badge); the keep-alive is Claude Code’s and says so. A key added without its check says “not checked yet”, never a command-line flag.
+    A row’s state is <span class="st-ok">ok</span> in <code>.st-ok</code>; a key its provider refused (<span class="st-fail">rejected</span>), one whose
+    source cannot be read (<span class="st-fail">unavailable</span>) or a missing item in <code>.st-fail</code>; anything else (signed out, expires soon) in <code>.st-warn</code>.</p>
 </section>
 
 <section>

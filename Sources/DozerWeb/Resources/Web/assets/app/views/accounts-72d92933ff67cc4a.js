@@ -12,6 +12,9 @@ import { confirmAction } from '../components/dialog-6e2b5c41ab058a33.js';
 import { moreMenu } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { toast } from '../components/notices-0eac624a71d00e4f.js';
 
+// A key its provider refused, or one that cannot be read, is a failure (red); signed out, expiring, not checked: a warning.
+const stateClass = (s) => s === 'ok' ? 'st-ok' : s === 'rejected' || s === 'unavailable' || s === 'missing' ? 'st-fail' : 'st-warn';
+
 export async function viewAccounts() {
   const a = await api('accounts');
   // A key read on use (1Password, AWS, a command): where it comes from and the last read; Refresh reads it again.
@@ -30,7 +33,7 @@ export async function viewAccounts() {
     h('td', null, kindText(x), x.plan ? h('div', { class: 'muted' }, x.plan) : null,
       x.hosts && x.hosts.length ? h('div', { class: 'muted' }, 'only to ' + x.hosts.join(', ')) : null),
     h('td', null, x.identity || '—'),
-    h('td', null, h('span', { class: x.state === 'ok' ? 'st-ok' : 'st-warn' }, x.state), verificationText(x.verification) ? h('div', { class: 'muted', 'data-verification': x.name }, verificationText(x.verification)) : null,
+    h('td', null, h('span', { class: stateClass(x.state), 'data-account-state': x.name }, x.state), verificationText(x.verification) ? h('div', { class: 'muted', 'data-verification': x.name }, verificationText(x.verification)) : null,
       x.sourceProblem ? h('div', { class: 'muted' }, x.sourceProblem) : null),
     h('td', null, x.expiresAt ? full(x.expiresAt) : '—', x.expiresAt ? h('div', { class: 'muted' }, when(x.expiresAt)) : null),
     h('td', { class: 'mono' }, x.fingerprint || '—',
