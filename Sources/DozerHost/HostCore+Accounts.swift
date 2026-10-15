@@ -555,11 +555,14 @@ extension HostCore {
                 if a.readsOnUse {
                     // 617: read on use — the last read's outcome (none yet: unchecked).
                     state = sourceRowFields(a).state.map { $0 == "failed" ? "unavailable" : $0 } ?? "unchecked"
+                    state = AccountRow.keyState(state, verification: a.verification)
                     break
                 }
                 let read = services.keychain.read(service: a.keychainService ?? "", account: a.adopted == true ? nil : Keychain.user)
                 if read.value == nil { state = read == .locked ? "locked" : "missing" }
                 else if let e = a.expiresAt { state = e <= now ? "expired" : (e.timeIntervalSince(now) < 30 * 86_400 ? "expires-soon" : "ok") }
+                // 617: refused at its last check → `rejected`, never `ok` (the owner's page showed a refused key green).
+                state = AccountRow.keyState(state, verification: a.verification)
             case .codexMac:
                 break                                   // never in accounts.json — its row is added below
             case .chatgpt:
@@ -882,7 +885,8 @@ extension HostCore {
                 let read = await Task.detached { SecretSources.read(s, account: name, sourceEnv: env, knownFingerprint: known) }.value
                 secretSourceState.record(name, read)
                 guard let v = read.secret else {
-                    file.accounts[i].verification = "rejected: \(read.notice ?? "its source answered nothing")"
+                    // Not the provider's refusal: the key could not be READ (the row's state says `unavailable`).
+                    file.accounts[i].verification = "unverified: its source could not be read — \(read.notice ?? "it answered nothing")"
                     try accountStore.save(file)
                     return await accountRows()
                 }

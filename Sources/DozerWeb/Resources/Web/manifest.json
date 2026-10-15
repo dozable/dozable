@@ -6,15 +6,7 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "a847a6a743e15ab51dff0c4ab71f2f51ccba43d56445ccd5f8bd6152264dc1b3"
-    },
-    {
-      "cachePolicy" : "public, max-age=31536000, immutable",
-      "class" : "page",
-      "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app-332650ac0fbabd26.js",
-      "resourcePath" : "assets/app-332650ac0fbabd26.js",
-      "sha256" : "332650ac0fbabd26c9c2d5bd6220d291e228fb08a2568379fc7effd630c203b8"
+      "sha256" : "f2eac86ec3afe68a5766dac402c43ec1b43f31fee9901c3e6e02e9fe26c87b1b"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -23,6 +15,14 @@
       "publicPath" : "/assets/app-6ffe72642ff9c76d.webmanifest",
       "resourcePath" : "assets/app-6ffe72642ff9c76d.webmanifest",
       "sha256" : "6ffe72642ff9c76dcba774a4ac8d3113bd3bfd55e7d127d875491248c89bdc4f"
+    },
+    {
+      "cachePolicy" : "public, max-age=31536000, immutable",
+      "class" : "page",
+      "mimeType" : "application/javascript; charset=utf-8",
+      "publicPath" : "/assets/app-841e4d24eb4d9195.js",
+      "resourcePath" : "assets/app-841e4d24eb4d9195.js",
+      "sha256" : "841e4d24eb4d9195f0dfa2601059cac4e9600abc0180df98ac14fd07c0e89a57"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -444,9 +444,9 @@
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
       "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app/views/accounts-283741b3c8bc35fd.js",
-      "resourcePath" : "assets/app/views/accounts-283741b3c8bc35fd.js",
-      "sha256" : "283741b3c8bc35fd847faccb186724f07854882270ccebfb6be71b41e4f7fc42"
+      "publicPath" : "/assets/app/views/accounts-72d92933ff67cc4a.js",
+      "resourcePath" : "assets/app/views/accounts-72d92933ff67cc4a.js",
+      "sha256" : "72d92933ff67cc4acab5aeaefe13acdcff85a8daba46612b1747d630f61b2d81"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",

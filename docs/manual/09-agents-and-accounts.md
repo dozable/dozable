@@ -54,6 +54,7 @@ Inside a sandbox Claude Code never updates itself; the image decides its version
 
 ```sh
 doz account ls                                    # accounts, state, expiry, which sandboxes use them — never a secret
+                                                  # (state rejected: its provider refused the key at its last check)
 doz account add work --setup-token --plan max     # paste the token (no echo), or pipe it in
 doz account add ci --api-key                      # an API key (prompt or stdin), or --keychain SERVICE
 doz account default work                          # every sandbox that follows the default moves to work
