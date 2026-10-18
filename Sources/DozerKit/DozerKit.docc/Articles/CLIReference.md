@@ -9,7 +9,7 @@ in about a third of a second, with the programs inside them still running where 
 the command-line face of `DozerKit`.
 
 ```bash
-brew install dozer-sandbox/tap/doz   # the prebuilt, signed release: seconds, no compiler (Apple silicon, macOS 26+)
+brew install dozable/tap/doz   # the prebuilt, signed release: seconds, no compiler (Apple silicon, macOS 26+)
 doz onboard                       # once: checks, the Claude account, settings, images (in the background)
 ```
 
@@ -786,7 +786,7 @@ JSON documents only ever gain fields.
 | First start is slow | It is preparing the image, once per store — `doz onboard` (or `doz image bake …`) does it ahead of time; `-v` shows the steps. |
 | A start or wake failed, or its boot flew past | `doz console NAME --list`, then `doz console NAME --steps [--boot N]` — each kept boot's steps (✗ with why) and its kernel console; **Boot log** in the web UI. |
 | An agent's sessions do not start: "the agent prompt does not render" | A `{{variable}}` that is not on the list in `agent-prompt.md` or the sandbox's own prompt — `doz inspect NAME --prompt` names it. |
-| Start over from nothing | `doz uninstall` (it lists what goes; a Homebrew `doz` is left to `brew uninstall doz`), then `brew install dozer-sandbox/tap/doz` and `doz onboard`. |
+| Start over from nothing | `doz uninstall` (it lists what goes; a Homebrew `doz` is left to `brew uninstall doz`), then `brew install dozable/tap/doz` and `doz onboard`. |
 | An agent says it has no key / 401 | `doz key ls NAME` — a stdin key is gone after the host stopped; set it again or use `--keychain`. |
 | A package install fails | `doz net NAME` names what was refused and the permission that allows it (`doz net allow NAME install:python`, or `site:HOST`); the raw log is `doz net log NAME --denied`. |
 | A sandbox shows as died | The host crashed while it ran — `doz start NAME` checks the disk and cold-boots it. |

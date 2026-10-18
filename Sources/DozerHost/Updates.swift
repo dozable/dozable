@@ -28,7 +28,11 @@ public enum Distribution {
     /// The feed (frozen forever — see above).
     public static let feedURL = "https://updates.dozersandbox.com/v1/feed.json"
     /// The Homebrew tap: `brew install <tap>/doz` (the repository `<org>/homebrew-<name>`).
-    public static let tap = "dozer-sandbox/tap"
+    public static let tap = "dozable/tap"
+    /// Earlier names of the same tap. GitHub redirects a moved repository, so a Mac that tapped one keeps it under
+    /// that name and keeps getting updates: `doz upgrade` refreshes and installs from whichever is tapped
+    /// (`UpdateInstaller.installedTap`).
+    public static let previousTaps = ["dozer-sandbox/tap"]
     /// The public source repository; its GitHub releases carry the tarballs.
     public static let repository = "dozer-sandbox/dozer-sandbox"
     /// The PUBLIC half of Dozer's update-signing key (base64, 32 bytes) — `make doz-update-keys` prints it, once.

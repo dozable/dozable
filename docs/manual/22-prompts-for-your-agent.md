@@ -20,8 +20,8 @@ Paste:
 What it will run:
 
 ```sh
-brew trust --tap dozer-sandbox/tap
-brew install dozer-sandbox/tap/doz
+brew trust --tap dozable/tap
+brew install dozable/tap/doz
 doz --version
 doz doctor --json
 ```

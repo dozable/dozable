@@ -191,7 +191,7 @@ check "  … after fast-forwarding Dozer's tap" [ "$(git -C "$R/brew-tap-clone" 
 check "  … and Homebrew is never left asking [y/n]" bash -c "! grep -qv '^no-ask=1\$' '$R/brew-env.log'"
 : > "$R/brew.log"
 "$DOZ" upgrade --channel canary --yes --store "$R/store" >/dev/null 2>&1 || true
-check "homebrew: --channel canary = uninstall doz, install the tap's doz-canary" bash -c "[ \"\$(cat '$R/brew.log')\" = \$'uninstall doz\ninstall dozer-sandbox/tap/doz-canary' ]"
+check "homebrew: --channel canary = uninstall doz, install the tap's doz-canary" bash -c "[ \"\$(cat '$R/brew.log')\" = \$'uninstall doz\ninstall dozable/tap/doz-canary' ]"
 check "  … the setting follows" grep -q '^channel = "canary"' "$R/xdg/dozer-sandbox/doz.toml"
 : > "$R/brew.log"
 export DOZ_TEST_UPDATE_EXECUTABLE="$R/Cellar/doz-canary/$Z/libexec/doz/doz"
