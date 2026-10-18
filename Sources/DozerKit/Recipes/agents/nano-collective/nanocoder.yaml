@@ -144,6 +144,11 @@ capabilities:
       - --trust-directory
       - --plain
       expect: DOZ_FAKE_OK
+      screen:
+        # Its ready screen is a banner (version, folder, menu) headed "Welcome to Nanocoder" — the agent, not a setup
+        # step. Seen once its release check is allowed: the refused one used to print an error over it.
+        allow:
+        - Welcome to Nanocoder
 - type: com.dozersandbox/auth@1
   config:
     methods:

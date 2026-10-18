@@ -145,7 +145,12 @@
             "--trust-directory",
             "--plain"
           ],
-          "expect" : "DOZ_FAKE_OK"
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "allow" : [
+              "Welcome to Nanocoder"
+            ]
+          }
         },
         "command" : [
           "nanocoder"
