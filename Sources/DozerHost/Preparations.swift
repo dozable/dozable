@@ -549,7 +549,7 @@ extension HostCore {
         }
         let f = await AgentVersions.refresh(r.id, store: s, settings: DozerSettings.load(), registry: agentRegistry, version: v)
         if AgentVersions.known(r.id, version: v, store: s) != nil { return nil }
-        return "\(r.title) has no release \(v) Dozer could check" + (f.error.map { " (\($0))" } ?? "")
+        return "\(r.title) has no release \(v) Dozable could check" + (f.error.map { " (\($0))" } ?? "")
     }
 
     func freshen(_ image: String, update: Bool) async -> AgentVersions.Freshness? {
@@ -785,7 +785,7 @@ extension HostCore {
             try Task.checkCancellation()
         }
         let previous = rec
-        let r = try await timed("imported the built image into Dozer's store") {
+        let r = try await timed("imported the built image into Dozable's store") {
             try await DockerfileImport.importArchive(archive, base: base, store: store, previous: previous)
         }
         emit(HostEvent(kind: .note, sandbox: image, text: r.unchanged

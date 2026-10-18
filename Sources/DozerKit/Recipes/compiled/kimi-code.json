@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "KIMI_CODE_VERSION",
       "default" : "2.1.1",
-      "description" : "The Kimi Code release Dozer installs (its pin).",
+      "description" : "The Kimi Code release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -214,7 +214,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Kimi Code's model from the environment (KIMI_MODEL_NAME, KIMI_MODEL_PROVIDER_TYPE, KIMI_MODEL_BASE_URL; the key's placeholder under KIMI_MODEL_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. Moonshot's own sign-in and keys Dozer does not offer yet.",
+            "note" : "Kimi Code's model from the environment (KIMI_MODEL_NAME, KIMI_MODEL_PROVIDER_TYPE, KIMI_MODEL_BASE_URL; the key's placeholder under KIMI_MODEL_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. Moonshot's own sign-in and keys Dozable does not offer yet.",
             "provider" : "xai"
           },
           {

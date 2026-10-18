@@ -244,14 +244,14 @@ func basesDockerfilePart(_ binary: String) async {
     let d1 = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)
     check(r.code == 0 && d1?.image == base && d1?.workspace == app.resolvingSymlinksInPath().path && d1?.dockerfile == df.resolvingSymlinksInPath().path,
           "create --dockerfile: image \(d1?.image ?? "?") (its base id), the workspace is its folder (B6)")
-    check(r.err.contains("OUTSIDE Dozer's network policy"), "the CLI says the build runs outside Dozer's network policy (B9)")
+    check(r.err.contains("OUTSIDE Dozable's network policy"), "the CLI says the build runs outside Dozable's network policy (B9)")
     let t0 = Date()
     r = h.run(["start", "d1", "-v"], timeout: 1500)
     let firstSeconds = Date().timeIntervalSince(t0)
     let said = r.out + r.err
-    check(r.code == 0 && said.contains("built the Dockerfile with Apple's container build") && said.contains("imported the built image into Dozer's store"),
+    check(r.code == 0 && said.contains("built the Dockerfile with Apple's container build") && said.contains("imported the built image into Dozable's store"),
           "start d1: built + imported (\(Int(firstSeconds)) s)")
-    check(said.contains("OUTSIDE Dozer's network policy"), "the preparation says it too (the Operations log records it)")
+    check(said.contains("OUTSIDE Dozable's network policy"), "the preparation says it too (the Operations log records it)")
     let calls = (try? String(contentsOf: fake.appendingPathComponent("calls.log"), encoding: .utf8)) ?? ""
     check(calls.contains("build --platform linux/arm64 --progress plain -f \(df.resolvingSymlinksInPath().path) -t dozer/\(base):latest \(app.resolvingSymlinksInPath().path)")
           && calls.contains("image save --platform linux/arm64 -o ") && calls.contains(" dozer/\(base):latest"),
@@ -359,7 +359,7 @@ func basesRealBuildPart(_ binary: String) async {
     check(r.code == 0 && (r.out + r.err).contains("built the Dockerfile with Apple's container build"), "the real build ran, was imported and baked (\(Int(first)) s)")
     check(h.run(["exec", "rb", "--", "/usr/games/cowsay", "moo"]).out.contains("moo"), "the Dockerfile's RUN is in the sandbox (/usr/games/cowsay)")
     check(h.run(["exec", "rb", "--", "sh", "-c", "echo $APP_GREETING"]).out == "hello-from-dockerfile\n", "its ENV reaches sessions")
-    check(h.run(["exec", "rb", "--", "claude", "--version"]).out.contains("Claude Code"), "Claude Code was added by Dozer")
+    check(h.run(["exec", "rb", "--", "claude", "--version"]).out.contains("Claude Code"), "Claude Code was added by Dozable")
     h.run(["run", "rb", "--detach", "--session", "s1", "--", "sleep", "60"])
     let facts = h.run(["exec", "rb", "--", "cat", "/run/dozer/agent-prompt.md"]).out
     check(facts.contains("the user's Dockerfile") && facts.contains("adds the account's credential (fk)"), "the facts block and the credential")

@@ -21,7 +21,7 @@ import { phasePill } from '../components/pills.js';
 // previewed (POST resources/preview — changes nothing), confirmed once (no typed names: the owner's
 // ruling), and runs as ONE operation (`resources-rm` with exactly the ids shown).
 const RES_GROUPS = [['sandboxes', 'Sandboxes'], ['images', 'Images & templates'], ['caches', 'Caches'], ['logs', 'Logs & metrics'],
-                    ['stray', 'Stray files'], ['store', 'Dozer’s own'], ['outside', 'Outside the store']];
+                    ['stray', 'Stray files'], ['store', 'Dozable’s own'], ['outside', 'Outside the store']];
 state.resSel = new Set();
 state.resToggled = new Set();
 function resOpen(it) { return (it.group === 'sandboxes') !== state.resToggled.has(it.id); }
@@ -127,7 +127,7 @@ function resTotalBar(r) {
         seg('res-seg-shared', shared, 'Shared blocks du counts again')),
       h('span', { class: 'res-free', 'data-res-free': '' }, r.volumeFreeBytes != null ? bytes(r.volumeFreeBytes) + ' free on the volume' : '')),
     h('div', { class: 'res-legend' },
-      h('span', null, 'Dozer ', h('strong', { 'data-total': '' }, bytes(r.totalBytes)), h('span', { class: 'muted' }, ' as du counts it')),
+      h('span', null, 'Dozable ', h('strong', { 'data-total': '' }, bytes(r.totalBytes)), h('span', { class: 'muted' }, ' as du counts it')),
       h('span', null, h('span', { class: 'sw res-sw-used', 'aria-hidden': 'true' }), 'Kept ', h('strong', null, bytes(keep))),
       h('span', null, h('span', { class: 'sw res-sw-clean', 'aria-hidden': 'true' }), 'Clean up frees ', h('strong', { 'data-cleanable': '' }, bytes(r.cleanableBytes))),
       h('span', null, h('span', { class: 'sw res-sw-shared', 'aria-hidden': 'true' }), 'Shared (APFS clones, counted again by du) ', h('strong', null, bytes(shared)))));
@@ -197,7 +197,7 @@ function resourcesNode(r) {
       h('div', { class: 'actions' }, btn('Refresh', () => { remeasure(); refresh(false); }, { small: true, title: 'Measure again' }),
         btn('Clean up…', () => resDelete([], true), { primary: true, icon: 'badge-check',
           title: 'Re-creatable AND unused: the download cache, base disks, old kernels, images no sandbox was created from in ' + r.unusedDays + ' days, leftovers. Never templates, sandboxes, restore points, settings or keys.' }))),
-    h('p', { class: 'sub' }, 'Everything Dozer uses. Images are managed on ', h('a', { href: '#/images' }, 'Images'), ', a sandbox on its page, accounts on ',
+    h('p', { class: 'sub' }, 'Everything Dozable uses. Images are managed on ', h('a', { href: '#/images' }, 'Images'), ', a sandbox on its page, accounts on ',
       h('a', { href: '#/accounts' }, 'Accounts & keys'), ' — the rows link there. Deleting here is for what has no other home. Measured in ' + Math.round(r.milliseconds) + ' ms.'),
     resTotalBar(r),
     pageIndex([...RES_GROUPS.filter(([g]) => r.items.some((i) => i.group === g)).map(([g, t]) => ['res-' + g, t,

@@ -87,8 +87,8 @@ One click in the dashboard, or one command, makes a sandbox with every default a
 - the name is the image's — `claude-sandbox`, `pi-sandbox`, `lab-sandbox` — or the next free one
   (`claude-sandbox-2`, …) when a sandbox has that name, or its folder already has something in it;
 - its workspace is a folder of its own in your **projects folder**, the setting
-  `defaults.projects_dir` (`~/dozer-sandbox-workspaces` unless you change it):
-  `~/dozer-sandbox-workspaces/claude-sandbox`, made for it;
+  `defaults.projects_dir` (`~/doz-workspaces` unless you change it):
+  `~/doz-workspaces/claude-sandbox`, made for it;
 - the account and what the agent can do are the defaults.
 
 **In the dashboard**, **Sandboxes** › **Quick add** (or the **+** beside **Sandboxes** in the
@@ -103,7 +103,7 @@ then becomes the sandbox's own session. A note says what it chose.
 doz new
 ```
 
-It prints what it chose — `claude-sandbox-2 · claude-code · ~/dozer-sandbox-workspaces/claude-sandbox-2`
+It prints what it chose — `claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2`
 — then creates it, starts it and attaches you to its session (**Ctrl-]** twice detaches; it keeps
 running). Each option changes just that one thing:
 
@@ -191,7 +191,7 @@ running, these commands read the store directly.
 
 ## Saved screens
 
-Before a sandbox pauses, sleeps or hibernates, Dozer saves the screen of each of its sessions — and
+Before a sandbox pauses, sleeps or hibernates, Dozable saves the screen of each of its sessions — and
 every `host.screen_capture_minutes` (5) while it runs, for sessions that printed something since. So
 you can see what a sleeping sandbox was doing without waking it:
 
@@ -208,7 +208,7 @@ the sandbox: shutdown, reset and remove delete them.
 
 ## Boot logs
 
-Every boot of a sandbox — each start, each wake, a recovery after a crash — is kept: Dozer's timed
+Every boot of a sandbox — each start, each wake, a recovery after a crash — is kept: Dozable's timed
 steps as the boot view showed them, and the Linux kernel's own messages.
 
 ```sh
@@ -246,7 +246,7 @@ A sandbox follows your Mac's time zone, read again at every start and wake — s
 while you travelled wakes in your new zone. The agent is told its time zone too. To pin one:
 `doz config set sandbox.timezone Australia/Sydney`.
 
-The rest of Dozer's set-up inside the sandbox is put back at every start and wake too: apt never
+The rest of Dozable's set-up inside the sandbox is put back at every start and wake too: apt never
 stops to ask a question, the sandbox's own name resolves, the agent's sudo follows its setting, and
 links open on your Mac. So a sandbox that only ever sleeps or hibernates and wakes still gets what a
 newer doz fixes, without a restart.
@@ -257,7 +257,7 @@ newer doz fixes, without a restart.
 |---|---|---|
 | `defaults.cpus` | `2` | CPUs of a new sandbox (`--cpus`). |
 | `images.lab.memory_mib` · `images.claude-code.memory_mib` · `images.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image (`--memory`); other images follow the one they're based on. |
-| `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
+| `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
 | `sandbox.timezone` | `mac` | `mac` (follow this Mac) or a zone like `Australia/Sydney`. Applies at each start or wake. |
 | `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits; `0` = never (`$DOZ_HOST_IDLE`). |
 | `host.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |

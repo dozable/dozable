@@ -85,7 +85,7 @@ and on Tailscale — never on a sandbox's network. A sandbox can never reach `do
 sandbox's network is dropped before anything is read, and the proxy that carries a proxied sandbox's traffic
 refuses the Mac's own addresses on the dashboards' ports, whatever the sandbox's network policy says.
 
-`doz serve` also announces itself with Bonjour as "Dozer on <this Mac>" (`serve.advertise`), so Safari's Bonjour
+`doz serve` also announces itself with Bonjour as "Dozable on <this Mac>" (`serve.advertise`), so Safari's Bonjour
 list and other devices can find it.
 
 The port is `serve.port` (7443). It never moves by itself — an installed app and a bookmark belong to it: when
@@ -201,7 +201,7 @@ ingress:
 `cloudflared` runs on this Mac, so `serve.trusted_proxies` is `127.0.0.1,::1` and `serve.public_origins` is
 `https://doz.example.com`. A tunnel puts the dashboard on the Internet: put Cloudflare Access in front of it too.
 
-The Caddy and Traefik configurations above are the ones Dozer's own tests run in front of `doz serve` (terminals,
+The Caddy and Traefik configurations above are the ones Dozable's own tests run in front of `doz serve` (terminals,
 live updates, the installable app, keys over https, `doz doctor`); the nginx and Cloudflare ones follow the same
 rules.
 

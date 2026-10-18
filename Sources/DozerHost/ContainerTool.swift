@@ -54,9 +54,9 @@ public enum ContainerTool {
         bytes: 118_045_087)
 
     public static let startNote =
-        "Starting it runs Apple's `container system start --enable-kernel-install`: it registers Apple's container services with launchd (they run in the background, for your user, until `container system stop`) and, the first time, installs Apple's default Linux kernel for its builder. Dozer does not use sudo."
+        "Starting it runs Apple's `container system start --enable-kernel-install`: it registers Apple's container services with launchd (they run in the background, for your user, until `container system stop`) and, the first time, installs Apple's default Linux kernel for its builder. Dozable does not use sudo."
     public static var installNote: String {
-        "Dockerfiles are built with Apple's container tool (free, from Apple, \(package.bytes / 1_000_000) MB). Installing downloads Apple's signed installer package (container \(package.version), checked against its published sha256) and opens it in macOS Installer, where you approve it with your password — Dozer never uses sudo. It adds a background service once started."
+        "Dockerfiles are built with Apple's container tool (free, from Apple, \(package.bytes / 1_000_000) MB). Installing downloads Apple's signed installer package (container \(package.version), checked against its published sha256) and opens it in macOS Installer, where you approve it with your password — Dozable never uses sudo. It adds a background service once started."
     }
 
     /// The `container` to run: the test seam, else /usr/local/bin/container (Apple's installer's), else PATH.
@@ -93,7 +93,7 @@ public enum ContainerTool {
             return s("unsupported", nil, exe, "\(exe) --version did not say its version (\(out.output.prefix(120))) — reinstall Apple's container tool.")
         }
         guard isSupported(v) else {
-            return s("unsupported", v, exe, "Apple's container \(v) is installed; Dozer builds with \(range) — update it (Install offers \(package.version)).")
+            return s("unsupported", v, exe, "Apple's container \(v) is installed; Dozable builds with \(range) — update it (Install offers \(package.version)).")
         }
         let st = run(exe, ["system", "status"], env: env, timeout: 20)
         if st.status != 0 {

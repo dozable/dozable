@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Mistral Vibe — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/mistral-vibe.json, which Dozer embeds).
+# Mistral Vibe — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/mistral-vibe.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: mistralai/mistral-vibe
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Mistral Vibe release Dozer installs (its pin).
+    description: The Mistral Vibe release Dozable installs (its pin).
     default: 2.26.1
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: MISTRAL_VIBE_VERSION
@@ -218,7 +218,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Mistral Vibe''s own provider settings (VIBE_PROVIDERS, VIBE_MODELS), pointed at the chosen provider or gateway: an OpenAI-compatible base URL, or Anthropic''s Messages API. On xAI (the default) the model is grok-build-0.1. Mistral''s own keys Dozer does not offer yet.'
+      note: 'Mistral Vibe''s own provider settings (VIBE_PROVIDERS, VIBE_MODELS), pointed at the chosen provider or gateway: an OpenAI-compatible base URL, or Anthropic''s Messages API. On xAI (the default) the model is grok-build-0.1. Mistral''s own keys Dozable does not offer yet.'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

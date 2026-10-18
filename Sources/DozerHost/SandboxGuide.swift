@@ -55,7 +55,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
             : "Its session is its own screen (the terminal): talk to it there. The commands below run in a shell beside it — open one with New shell."
         var facts: [Fact] = []
         let v = (version ?? r.install.pinned.version).split(separator: "+").first.map(String.init) ?? r.install.pinned.version
-        var versionLine = "\(r.title) \(v)" + (r.isBuiltin || v != r.install.pinned.version ? "" : " (Dozer's pin)")
+        var versionLine = "\(r.title) \(v)" + (r.isBuiltin || v != r.install.pinned.version ? "" : " (Dozable's pin)")
         // 618: a family's major — which one, and how to get the others (a sandbox never changes major).
         if let f = r.family {
             if f.isRecommended { versionLine += " · recommended" }

@@ -757,7 +757,7 @@ struct Console: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
     @Flag(name: [.short, .long], help: "Keep printing new lines (across a restart) until Ctrl-C.") var follow = false
-    @Flag(name: .long, help: "Show the boot's steps (Dozer's, as the boot view drew them) before its console.") var steps = false
+    @Flag(name: .long, help: "Show the boot's steps (Dozable's, as the boot view drew them) before its console.") var steps = false
     @Option(name: .long, help: "Which kept boot: 1 = the latest (default), 2 = the one before, …") var boot: Int?
     @Flag(name: .long, help: "List the kept boots: when, what (cold boot, wake, restore after crash), how long, how it went.") var list = false
 

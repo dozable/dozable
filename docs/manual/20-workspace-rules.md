@@ -145,7 +145,7 @@ nothing.
 ## How it works
 
 When the folder holds a rule file, the share is mounted privately inside the sandbox and `/workspace` is a
-small filtering view of it, served by Dozer's own program in the sandbox. That view decides each name as
+small filtering view of it, served by Dozable's own program in the sandbox. That view decides each name as
 it is looked up — so a file created later, on either side, is covered at once. It costs a little on
 metadata-heavy work: walking a tree of 2,000 files for the first time takes about 0.1 s more, reading
 everything about 1.8× as long as without rules; once looked at, it is close to the plain share — and

@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "CODEWHALE_VERSION",
       "default" : "0.10.1",
-      "description" : "The CodeWhale release Dozer installs (its pin).",
+      "description" : "The CodeWhale release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },

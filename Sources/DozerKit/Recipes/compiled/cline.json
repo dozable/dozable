@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "CLINE_VERSION",
       "default" : "3.0.71",
-      "description" : "The Cline CLI release Dozer installs (its pin).",
+      "description" : "The Cline CLI release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -199,7 +199,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Cline's own providers, each reading its key from the environment; Dozer puts the provider and model on its command line (-P xai -m grok-build-0.1 on xAI, the default). Cline saves only the provider and model.",
+            "note" : "Cline's own providers, each reading its key from the environment; Dozable puts the provider and model on its command line (-P xai -m grok-build-0.1 on xAI, the default). Cline saves only the provider and model.",
             "provider" : "xai"
           },
           {
@@ -257,7 +257,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Cline's own account and its models need its servers; Dozer does not offer them yet."
+            "note" : "Cline's own account and its models need its servers; Dozable does not offer them yet."
           }
         ]
       },
@@ -357,7 +357,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs Cline's glibc linux-arm64 build"
+            "reason" : "Dozable installs Cline's glibc linux-arm64 build"
           }
         ],
         "platforms" : {

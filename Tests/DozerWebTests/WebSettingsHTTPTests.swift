@@ -90,7 +90,9 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(rep.path, file.path)
         XCTAssertFalse(rep.exists)
         XCTAssertEqual(rep.settings.map(\.key), DozerSettings.schema.map(\.key))
-        XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && $0.value == $0.defaultValue })
+        XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
+        // The projects folder reports the effective default (the old folder when this Mac has it).
+        XCTAssertEqual(try row(rep, SettingKey.projectsDir).value, .string(Workspace.unsetProjectsDir()))
         XCTAssertEqual(try row(rep, "ui.boot_view_on_start").value, .bool(false))
         XCTAssertFalse(try row(rep, "store.path").editable, "a host path is read-only in the UI")
         XCTAssertTrue(try row(rep, "ui.boot_view_on_start").editable)
@@ -353,12 +355,13 @@ final class WebSettingsHTTPTests: XCTestCase {
         }
         XCTAssertFalse(server.folderPicker.isOpen)
 
-        // Unset, the projects folder is ~/dozer-sandbox-workspaces (whatever this Mac has in it).
+        // Unset, the projects folder is ~/doz-workspaces, or ~/dozer-sandbox-workspaces on a Mac that already has it.
+        let unsetProjects = home + String(Workspace.unsetProjectsDir().dropFirst(1))
         var r = try post("/api/v1/workspace/check", #"{"image":"claude-code","name":"my-box"}"#, csrf: csrf)
         XCTAssertEqual(r.status, 200, r.text)
         var o = object(r)
-        XCTAssertEqual(o["defaultPath"] as? String, home + "/dozer-sandbox-workspaces/my-box", "the path follows the name")
-        XCTAssertEqual(o["projectsDir"] as? String, home + "/dozer-sandbox-workspaces")
+        XCTAssertEqual(o["defaultPath"] as? String, unsetProjects + "/my-box", "the path follows the name")
+        XCTAssertEqual(o["projectsDir"] as? String, unsetProjects)
         // defaults.projects_dir moves it (a path: doz config set, not the browser — like kernel.path).
         XCTAssertEqual(try change(#"{"key":"defaults.projects_dir","value":"\#(scratch)/projects"}"#, cookie, csrf).status, 400)
         try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true)

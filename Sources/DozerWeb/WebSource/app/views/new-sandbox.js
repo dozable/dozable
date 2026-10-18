@@ -48,7 +48,7 @@ export function newSandboxWizard(start = {}) {
 export async function viewNew() {
   if (!state.nw) {
     const [images, accounts, bases] = await Promise.all([api('images').catch(() => []), api('accounts').catch(() => ({ accounts: [] })), api('bases').catch(() => null)]);
-    let newName = 'my-project', projectsDir = setting('defaults.projects_dir', '~/dozer-sandbox-workspaces');
+    let newName = 'my-project', projectsDir = setting('defaults.projects_dir', '~/doz-workspaces');
     try { const qa = await api('quick-add', { method: 'POST', json: {} }); newName = qa.name; projectsDir = qa.projectsDir; } catch (_) { /* the defaults */ }
     const start = state.nwStart || {};
     // The steps are the host's (the list doz init walks); asking about the default folder changes nothing.
@@ -183,7 +183,7 @@ function nwToolsNode(nw) {
     ? [btn('Retry', () => nwRetryTools(nw), { icon: 'refresh-cw', title: 'Set the tools up again now' }), btn('Continue anyway', open, { primary: true, icon: 'arrow-right' })]
     : [btn('Open the sandbox', open, { primary: true, icon: 'box' })];
   const node = h('div', { class: 'wizard nw', 'data-nw': 'tools' },
-    wizHead('New sandbox', t.name + ' is made. Now it starts, and Dozer sets up the tools its settings call for — the tools layer, on any base, without rebuilding an image.',
+    wizHead('New sandbox', t.name + ' is made. Now it starts, and Dozable sets up the tools its settings call for — the tools layer, on any base, without rebuilding an image.',
       [], { list: stepper, compact }),
       h('section', { class: 'wiz-card', 'data-nw-tools': t.phase },
         h('div', { class: 'w-body' },

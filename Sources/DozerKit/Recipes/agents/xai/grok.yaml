@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Grok Build — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/grok.json, which Dozer embeds).
+# Grok Build — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/grok.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: xai/grok
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Grok Build release Dozer installs (its pin).
+    description: The Grok Build release Dozable installs (its pin).
     default: 1.0.52
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: GROK_VERSION
@@ -148,7 +148,7 @@ capabilities:
     - kind: vendor-sign-in
       account: an x.ai or X account
       in_sandbox: false
-      note: Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozer does not offer it yet.
+      note: Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozable does not offer it yet.
       checked: '2026-10-12'
 - type: com.dozersandbox/gateways@1
   config:
@@ -174,9 +174,9 @@ capabilities:
         unmapped:
         - /v1/api-key
       limits:
-      - 'not offered in a Dozer try: Grok Build checks its key with xAI''s own API when it starts (api.x.ai/v1/api-key) and refuses to run ("Not signed in") unless an xAI key or sign-in passes it — with another source''s key that check is refused (the key goes only to its own source), so Dozer offers Grok Build on xAI only (make recipe-check, 2026-10-16)'
+      - 'not offered in a Dozable try: Grok Build checks its key with xAI''s own API when it starts (api.x.ai/v1/api-key) and refuses to run ("Not signed in") unless an xAI key or sign-in passes it — with another source''s key that check is refused (the key goes only to its own source), so Dozable offers Grok Build on xAI only (make recipe-check, 2026-10-16)'
       - 'not supported by xAI or OpenRouter for this pair: an opt-in only'
-      evidence: xAI's custom-models guide says any OpenAI Chat Completions or Responses server works through GROK_MODELS_BASE_URL (+ XAI_API_KEY); Dozer's step-0 run (617.01 §1.3) saw Grok Build 1.0.50 honour GROK_XAI_API_BASE_URL / GROK_MODELS_BASE_URL against a local OpenAI-compatible fake — evidence the variables are read, not a run against OpenRouter
+      evidence: xAI's custom-models guide says any OpenAI Chat Completions or Responses server works through GROK_MODELS_BASE_URL (+ XAI_API_KEY); Dozable's step-0 run (617.01 §1.3) saw Grok Build 1.0.50 honour GROK_XAI_API_BASE_URL / GROK_MODELS_BASE_URL against a local OpenAI-compatible fake — evidence the variables are read, not a run against OpenRouter
       source: https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-pager/docs/user-guide/11-custom-models.md
       checked: '2026-10-12'
     - gateway: vercel-ai-gateway
@@ -192,7 +192,7 @@ capabilities:
           GROK_CODE_XAI_API_KEY: ${{ dozer.placeholder }}
           GROK_MODELS_BASE_URL: ${{ dozer.gateway.endpoint.coding-agent }}
       limits:
-      - 'not offered in a Dozer try: Grok Build checks its key with xAI''s own API when it starts (api.x.ai/v1/api-key) and refuses to run ("Not signed in") unless an xAI key or sign-in passes it — with another source''s key that check is refused (the key goes only to its own source), so Dozer offers Grok Build on xAI only (make recipe-check, 2026-10-16)'
+      - 'not offered in a Dozable try: Grok Build checks its key with xAI''s own API when it starts (api.x.ai/v1/api-key) and refuses to run ("Not signed in") unless an xAI key or sign-in passes it — with another source''s key that check is refused (the key goes only to its own source), so Dozable offers Grok Build on xAI only (make recipe-check, 2026-10-16)'
       - 'a grok login session takes precedence over the key: grok logout first'
       - web search needs a second, Responses-backed model entry
       notes:
@@ -219,7 +219,7 @@ capabilities:
       - grok -p / --single
       evidence: '617 step 0: grok -p "say ok" printed the fake''s answer and exited in a sandbox (617.01 §1.3)'
       checked: '2026-10-12'
-    terms: Your xAI API key — a key from console.x.ai. When Dozer has no key for it, Grok Build says "Not signed in".
+    terms: Your xAI API key — a key from console.x.ai. When Dozable has no key for it, Grok Build says "Not signed in".
 - type: com.dozersandbox/guide@1
   config:
     intro: "Grok Build is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."

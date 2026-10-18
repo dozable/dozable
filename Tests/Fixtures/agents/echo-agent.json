@@ -2,7 +2,7 @@
   "schema": 1,
   "id": "echo-agent",
   "title": "Echo Agent",
-  "publisher": "Dozer tests",
+  "publisher": "Dozable tests",
   "licence": "MIT",
   "homepage": "https://example.invalid/echo-agent",
   "default_base": "debian",

@@ -1,12 +1,12 @@
 # Resources and disk space
 
-Dozer keeps everything in one folder, the **store**. `doz resources` — and the dashboard's
+Dozable keeps everything in one folder, the **store**. `doz resources` — and the dashboard's
 **Resources** page — accounts for every byte of it, shows the memory, CPUs and network your sandboxes
 use, and deletes what can safely go.
 
 ## Concepts
 
-- **Sizes are real disk use.** Dozer's disks are APFS clones: a sandbox shares most of its blocks with
+- **Sizes are real disk use.** Dozable's disks are APFS clones: a sandbox shares most of its blocks with
   its image, and a restore point with its sandbox. So each row shows three numbers:
   - **size** — the disk space it occupies, counted in full;
   - **freed if deleted** — what deleting it would actually give back (only the blocks nobody else
@@ -28,7 +28,7 @@ doz resources --json
 The groups: **Sandboxes** (each one's system disk, state disk, sleep snapshot, restore points, saved
 screens and boot logs), **Images & templates**, **Caches** (the download cache, base disks, the boot
 disk, kernels, preparation leftovers, and the **tools layer** — `gh`, downloaded once for sandboxes with
-GitHub as you; see [The tools layer](19-the-tools-layer.md)), **Logs & metrics**, **Stray files**, Dozer's own records — and
+GitHub as you; see [The tools layer](19-the-tools-layer.md)), **Logs & metrics**, **Stray files**, Dozable's own records — and
 **Outside the store**: your settings file, keychain entries by name, the `doz` program, project
 folders and Apple's `container` storage. Those outside rows are shown, never deleted here.
 
@@ -55,7 +55,7 @@ doz resources rm point:web/3           # by id, as doz resources lists them
 
 ## In the dashboard
 
-**Resources** in the sidebar (its total is shown beside it). The bar on top splits Dozer's total into
+**Resources** in the sidebar (its total is shown beside it). The bar on top splits Dozable's total into
 what it keeps, what **Clean up** would free and the blocks clones share, with the disk's free space
 beside it; under it, a strip that jumps to each group (with its size) — a group's heading folds it, and
 the dashboard remembers which you folded. Then the rows, each linking to where it's managed: an image to **Images**, a
@@ -78,9 +78,9 @@ this version's own) picks the kernel **new** sandboxes boot; existing ones keep 
 
 ## Apple's `container` storage
 
-If you build Dockerfile bases, Apple's `container` tool keeps its own images and data outside Dozer's
+If you build Dockerfile bases, Apple's `container` tool keeps its own images and data outside Dozable's
 store. The Resources page shows it as an **Outside** row — its data folder by part, the program, and
-the images Dozer built with it — so you know where the space went. Dozer never deletes it; manage it
+the images Dozable built with it — so you know where the space went. Dozable never deletes it; manage it
 with Apple's `container` command.
 
 ## Settings

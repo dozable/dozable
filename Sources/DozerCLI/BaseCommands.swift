@@ -33,7 +33,7 @@ struct BaseList: AsyncParsableCommand {
                       r.registries.isEmpty ? "(the agent preset's)" : r.registries.joined(separator: ", ")])
         }
         Out.stdout(Out.table(t))
-        Out.stdout("\nA sandbox: doz create NAME --base BASE --agent claude-code|pi|codex|none — or --dockerfile PATH (your own; built with Apple's container build, outside Dozer's network policy).\n")
+        Out.stdout("\nA sandbox: doz create NAME --base BASE --agent claude-code|pi|codex|none — or --dockerfile PATH (your own; built with Apple's container build, outside Dozable's network policy).\n")
     }
 }
 

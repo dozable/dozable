@@ -22,7 +22,7 @@
 <body>
 <div class="sg">
 <header>
-  <p class="sg-label">Dozer Sandbox · the dashboard (doz ui)</p>
+  <p class="sg-label">Dozable · the dashboard (doz ui)</p>
   <h1>Style guide — a living specimen</h1>
   <p>Every sample on this page is drawn by the dashboard’s <b>real</b> stylesheet, <code>Sources/DozerWeb/WebSource/app.css</code>,
     loaded in place, with the icons the dashboard vendors and the marks of its icon registry. The markup is what the components in
@@ -253,7 +253,7 @@ name: todo-app</pre></details>
         <div class="qt-head"><span data-mark="codex" class="mark lg"></span><div><h2>Codex</h2><div class="p">OpenAI · open source</div></div></div>
         <div class="qt-facts"><span class="tag ok">current</span><span class="tag outline">headless</span><span class="tag outline">through a gateway</span><span class="tag outline">resumes a conversation</span></div>
         <p class="qt-desc">OpenAI's open-source coding agent.</p>
-        <div class="qt-sect"><h3>Versions</h3><dl class="qt-plan"><dt>Dozer installs</dt><dd>0.160.1 · released 3 days ago</dd><dt>Base</dt><dd>Node.js</dd></dl></div>
+        <div class="qt-sect"><h3>Versions</h3><dl class="qt-plan"><dt>Dozable installs</dt><dd>0.160.1 · released 3 days ago</dd><dt>Base</dt><dd>Node.js</dd></dl></div>
         <div class="qt-sect"><h3>What it can reach</h3><ul class="reach-list"><li class="reach-model">Talk to OpenAI (chatgpt.com, api.openai.com)</li><li class="reach-folder">A new empty folder, at /workspace</li></ul></div>
         <div class="qt-foot"><span class="qt-gap"></span><span class="qt-note">Enter</span><button class="btn lg primary" type="button"><i data-i="rocket"></i>Try Codex…</button></div>
       </section>
@@ -292,7 +292,7 @@ name: todo-app</pre></details>
     so Start is ready at once); the chosen row (<code>.on</code>) holds what it needs under it (<code>.ms-need</code>): the key it uses (a choice when there are several,
     “Add another key”), or the paste field, where to get a key and the 1Password/AWS/program fold. Then <b>Model</b>: the picker (<code>.ms-picker</code>) — the source's own
     list (a gateway's public list, read on this Mac once a day), searchable, name · maker · context · price per million tokens, the default tagged; a key-less source's models carry their data terms as its docs state
-    them (<code>.ms-note</code>, “Data: …”, never Dozer's own judgement); an id that looks like
+    them (<code>.ms-note</code>, “Data: …”, never Dozable's own judgement); an id that looks like
     one may be used as typed. What is truly not offered is one quiet line (<code>.ms-notoffer</code>); a tool with one source shows one line (<code>.ms-one</code> — Grok Build: its xAI key, no choice of model). The plan
     shows the model and “Same in Terminal”. A tool with no choice of model (Claude Code, Codex: their own sign-ins) keeps its <b>Key</b> section.
     <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
@@ -357,7 +357,7 @@ name: todo-app</pre></details>
 <section>
   <h2>The Guide tab</h2>
   <p>A recipe agent's sandbox has a <b>Guide</b> tab in the inspector (<code>components/try-guide.js</code>): first and chosen on a try (the details open on its first visit), last elsewhere.
-    Dozer's preamble and facts (<code>.guide-facts</code>; Network links to its tab), the recipe's steps (<code>.guide-steps</code> — each command in <code>.guide-cmd</code> with
+    Dozable's preamble and facts (<code>.guide-facts</code>; Network links to its tab), the recipe's steps (<code>.guide-steps</code> — each command in <code>.guide-cmd</code> with
     <b>Copy</b> and <b>Run</b>, or <b>Type</b> for one to change first; a ran step says <code>✓ ran</code>), tips and the footer. Text only: <code>code</code> comes from backquotes, never markup.
     Run is disabled, with why, until a live session it can type into is open.</p>
   <div class="pair"><div class="scheme">
@@ -368,7 +368,7 @@ name: todo-app</pre></details>
           <div class="guide-head"><div class="guide-title"><strong>Fabric</strong><span class="muted"> · by Daniel Miessler · MIT · a command-line tool</span></div>
             <p>Fabric applies ready-made prompts — patterns — to text you pipe into it. It is not a chat: it answers in your shell and exits.</p>
             <p class="muted">It answers in your shell and exits: type its commands in the terminal, or press Run below.</p></div>
-          <div class="guide-sect"><h3>This try</h3><dl class="facts guide-facts"><dt>Version</dt><dd>Fabric 1.4.518 (Dozer's pin)</dd><dt>Model</dt><dd>Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder</dd><dt>Reaches</dt><dd>its model only (Locked)<button type="button" class="linkish"> · Network</button></dd></dl></div>
+          <div class="guide-sect"><h3>This try</h3><dl class="facts guide-facts"><dt>Version</dt><dd>Fabric 1.4.518 (Dozable's pin)</dd><dt>Model</dt><dd>Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder</dd><dt>Reaches</dt><dd>its model only (Locked)<button type="button" class="linkish"> · Network</button></dd></dl></div>
           <div class="guide-sect"><h3>Start here</h3><ol class="guide-steps">
             <li><p>Check it answers.<span class="guide-ran"> ✓ ran</span></p><div class="guide-cmd"><code>echo hello | fabric "say ok"</code><button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button><button class="btn sm" type="button"><i data-i="play"></i>Run</button></div></li>
             <li><p>Use a file from your folder — put it there first, then change the name:</p><div class="guide-cmd"><code>fabric -p extract_wisdom &lt; notes.md</code><button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button><button class="btn sm" type="button"><i data-i="square-terminal"></i>Type</button></div></li>
@@ -501,7 +501,7 @@ name: todo-app</pre></details>
           <div class="ak-state"><span class="pill st-fail"><i data-i="circle-x"></i>Can’t read</span><span class="muted">its source did not answer</span></div>
           <div class="ak-used"><span>no sandbox</span></div>
           <div class="ak-acts"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Read again</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis"></i></button></div>
-          <dl class="ak-details"><dt>Source</dt><dd>1Password: op://Dev/xai/credential</dd><dt>Fingerprint</dt><dd>3f9a01c2 (a sha256 prefix — never the key)</dd><dt>Remove</dt><dd>only Dozer’s record — the source is not touched</dd></dl></div>
+          <dl class="ak-details"><dt>Source</dt><dd>1Password: op://Dev/xai/credential</dd><dt>Fingerprint</dt><dd>3f9a01c2 (a sha256 prefix — never the key)</dd><dt>Remove</dt><dd>only Dozable’s record — the source is not touched</dd></dl></div>
         <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak"></label>
           <div class="ak-keycell"><div class="ak-name">xai-old</div><div class="ak-where"><i data-i="key-round"></i><span>Keychain</span></div></div>
           <div class="ak-state"><span class="pill st-off"><i data-i="info"></i>Not checked</span><span class="muted">added without its check</span></div>
@@ -567,7 +567,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
 <section>
   <h2>Marks — the icon registry</h2>
   <p>Vendor and product marks from <code>Sources/DozerKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.
-    Each says whether it is the maker’s own mark (<i>official</i>, as its brand terms allow) or Dozer’s neutral <i>lettermark</i>. Colour variants come later.</p>
+    Each says whether it is the maker’s own mark (<i>official</i>, as its brand terms allow) or Dozable’s neutral <i>lettermark</i>. Colour variants come later.</p>
   <div class="pair"><div class="scheme"><div class="marks"></div></div></div>
 </section>
 

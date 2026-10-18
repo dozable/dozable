@@ -368,7 +368,7 @@ function detailNodes() {
     h('div', null, h('h2', { 'data-try-title': '' }, a.title), h('div', { class: 'p' }, a.publisher + (a.kind === 'agent' ? ' · ' + (a.openSource ? 'open source' : 'closed source') : ''))));
   if (a.kind === 'coming') {
     return [back, head, callout('info', { body: 'Coming — ' + a.reason }),
-      h('p', { class: 'muted' }, 'Dozer cannot run it yet. ', h('code', null, 'doz search ' + a.id), ' says when that changes.')];
+      h('p', { class: 'muted' }, 'Dozable cannot run it yet. ', h('code', null, 'doz search ' + a.id), ' says when that changes.')];
   }
   const facts = h('div', { class: 'qt-facts' },
     h('span', { class: 'tag ' + (a.current === false ? 'warn' : 'ok') }, a.current === false ? 'superseded' : 'current'),
@@ -381,7 +381,7 @@ function detailNodes() {
       body: h('span', null, (a.standing || '').replace(/^Superseded by [^—]*—\s*/, '') + ' ', by ? h('button', { type: 'button', class: 'linkish', on: { click: () => select(by.id, { detail: true }) } }, 'See ' + by.title) : null) })
     : null;
   const versions = h('dl', { class: 'qt-plan' },
-    h('dt', null, 'Dozer installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
+    h('dt', null, 'Dozable installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
     a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
     h('dt', null, 'Base'), h('dd', null, a.base || '—'),
     // 618: a family's majors — each one Dozer checked; Try's Version picks one.
@@ -448,7 +448,7 @@ function versionNodes(a) {
   const order = [...fam].sort((x, y) => (y.family.recommended ? 1 : 0) - (x.family.recommended ? 1 : 0) || y.family.major - x.family.major);
   const seg = h('div', { class: 'segmented try-versions', role: 'group', 'aria-label': 'Version', 'data-try-version': a.id },
     ...order.map((x) => h('button', { type: 'button', class: 'seg' + (x.id === a.id ? ' active' : ''), 'aria-pressed': String(x.id === a.id), 'data-try-version-choice': x.id,
-      title: x.family.recommended ? 'The major Dozer recommends' : 'An earlier (or other) major',
+      title: x.family.recommended ? 'The major Dozable recommends' : 'An earlier (or other) major',
       on: { click: () => chooseVersion(x) } }, x.id === a.id ? icon('check') : null,
       x.family.title + (x.version ? ' · ' + x.version : '') + (x.family.recommended ? ' (recommended)' : ''))));
   return [seg, h('p', { class: 'muted' }, 'A sandbox keeps the major it is made with — the other one is a new try.')];
@@ -901,7 +901,7 @@ function tryNode() {
       h('p', { class: 'sub' }, 'Pick an agent and try it in a fresh sandbox: its own folder, the network locked to its model, your key never inside. Nothing is prepared until you press Start.')),
     close);
   if (tr.stage !== 'loading' && !tr.catalog.agents.length && !tr.catalog.coming.length) {
-    return h('div', { class: 'wizard try qt-page' }, head, callout('info', { body: 'No agent this Dozer can try.' }));
+    return h('div', { class: 'wizard try qt-page' }, head, callout('info', { body: 'No agent this Dozable can try.' }));
   }
   const root = h('div', { class: 'qt', 'data-qt': '', 'data-detail': tr.detail ? '1' : '', 'data-try-state': tr.stage },
     leftPane(),

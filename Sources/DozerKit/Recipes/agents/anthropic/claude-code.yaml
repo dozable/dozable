@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Claude Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/claude-code.json, which Dozer embeds).
+# Claude Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/claude-code.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: anthropic/claude-code
@@ -12,7 +12,7 @@ licenses:
 - LicenseRef-proprietary
 args:
   version:
-    description: The Claude Code release Dozer installs (its pin).
+    description: The Claude Code release Dozable installs (its pin).
     default: 2.1.227
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CLAUDE_CODE_VERSION
@@ -155,7 +155,7 @@ capabilities:
         - --model
         - ${{ dozer.model }}
       limits:
-      - 'not offered in a Dozer try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozer''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
+      - 'not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozable''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
       - only guaranteed with Anthropic's own models, Anthropic first in the provider order
       - 'never with a Claude subscription (mac / setup-token): the gateway key replaces it'
       notes:
@@ -176,7 +176,7 @@ capabilities:
         - --model
         - ${{ dozer.model }}
       limits:
-      - 'not offered in a Dozer try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozer''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
+      - 'not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozable''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
       - 'never with a Claude subscription (mac / setup-token): the gateway key replaces it'
       notes:
       - /claude-code is Claude Code's own compatibility endpoint; discovery puts every gateway model in /model

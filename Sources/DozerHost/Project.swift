@@ -95,7 +95,7 @@ public struct DozerProject: Equatable, Sendable {
         ("image", "claude-code, pi, codex, lab, a base × agent image (python-claude-code, …), or a template (doz image ls) — or agent + base/dockerfile"),
         ("agent", "claude-code, pi, codex or none (default claude-code); a tool's major or release: opencode@1, opencode@2.0.28"),
         ("base", "a recommended base: node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine (doz base ls)"),
-        ("dockerfile", "your Dockerfile (./Dockerfile): built with Apple's container build — its RUN steps run OUTSIDE Dozer's network policy"),
+        ("dockerfile", "your Dockerfile (./Dockerfile): built with Apple's container build — its RUN steps run OUTSIDE Dozable's network policy"),
         ("cpus", "virtual CPUs, 1–64 (default: the settings' defaults.cpus)"),
         ("memory", "guest RAM: 2G, 512M or MiB (default: per image, in the settings)"),
         ("network", "agent, bake, locked, open (proxied), nat or none (default: per image)"),
@@ -240,7 +240,7 @@ public struct DozerProject: Equatable, Sendable {
             s.range(of: "^[A-Za-z0-9._/-]+$", options: .regularExpression) != nil ? s : "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         }
         var out = """
-        # doz_project.yaml — a Dozer Sandbox project (written by doz init or the dashboard's New sandbox).
+        # doz_project.yaml — a Dozable project (written by doz init or the dashboard's New sandbox).
         # `doz up` in this folder creates, starts or wakes the sandbox below and attaches to its first
         # session. This folder is shared at /workspace. Unknown keys are errors; a commented key takes
         # its default (doz config show).
@@ -259,7 +259,7 @@ public struct DozerProject: Equatable, Sendable {
         if agent != nil || base != nil || dockerfile != nil {
             out += "agent: \(agent ?? "claude-code")               # \(Self.agentWords) — when made\n"
             out += base.map { "base: \($0)                   # doz base ls — when made\n" } ?? "# base: node                 # doz base ls — or dockerfile — when made\n"
-            out += dockerfile.map { "dockerfile: \(quoted($0))     # built with Apple's container build, OUTSIDE Dozer's network policy — when made\n" } ?? ""
+            out += dockerfile.map { "dockerfile: \(quoted($0))     # built with Apple's container build, OUTSIDE Dozable's network policy — when made\n" } ?? ""
         } else {
             out += "image: \(image)                  # when made\n"
             out += "# (or: agent: claude-code|pi|codex|none with base: python … or dockerfile: ./Dockerfile — doz base ls)\n"

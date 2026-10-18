@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "ZEROCLAW_VERSION",
       "default" : "0.8.5",
-      "description" : "The ZeroClaw release Dozer installs (its pin).",
+      "description" : "The ZeroClaw release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -175,7 +175,7 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "ZeroClaw is set up with one OpenAI-shaped provider and one agent, main, at full autonomy (the sandbox is the boundary); Dozer points the provider at the chosen source (its uri, model and key through ZeroClaw's own environment overrides).",
+            "note" : "ZeroClaw is set up with one OpenAI-shaped provider and one agent, main, at full autonomy (the sandbox is the boundary); Dozable points the provider at the chosen source (its uri, model and key through ZeroClaw's own environment overrides).",
             "provider" : "xai"
           },
           {
@@ -304,7 +304,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

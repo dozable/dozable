@@ -128,7 +128,7 @@ func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
         bringBrowserForward(ui.origin)
         if !g.quiet {
             Out.stdout("the Quick try is open in doz ui (\(ui.origin)) — \(n == 1 ? "its open page" : "its \(n) open pages") went there"
-                       + " (an installed Dozer app's window shows it too: look for \"Quick try\" in its title)\n")
+                       + " (an installed Dozable app's window shows it too: look for \"Quick try\" in its title)\n")
         }
         return
     }

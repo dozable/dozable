@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "COPILOT_VERSION",
       "default" : "1.0.97",
-      "description" : "The GitHub Copilot CLI release Dozer installs (its pin).",
+      "description" : "The GitHub Copilot CLI release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -260,7 +260,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozer does not offer it yet."
+            "note" : "Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozable does not offer it yet."
           }
         ]
       },
@@ -341,7 +341,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs Copilot CLI's glibc build; its musl build is a separate package, not used yet"
+            "reason" : "Dozable installs Copilot CLI's glibc build; its musl build is a separate package, not used yet"
           }
         ],
         "platforms" : {
@@ -359,7 +359,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozer installs it from the npm registry."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozable installs it from the npm registry."
       },
       "type" : "com.dozersandbox/directory@1"
     },

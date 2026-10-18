@@ -138,8 +138,8 @@ function attention(a, rows) {
       : 'Fix it where the key lives (run the same in Terminal to see), then Read again.';
     // The host's sourceProblem is the whole story — what the source said and the fix — so it is said as it is.
     const body = x.sourceProblem ? [h('p', null, x.sourceProblem)]
-      : x.sourceLabel ? [h('p', null, 'Dozer reads it from ', h('code', null, x.sourceLabel), ', which did not answer.'), h('p', null, fix)]
-      : [h('p', null, 'Dozer cannot read it: ', why, '.'), h('p', null, fix)];
+      : x.sourceLabel ? [h('p', null, 'Dozable reads it from ', h('code', null, x.sourceLabel), ', which did not answer.'), h('p', null, fix)]
+      : [h('p', null, 'Dozable cannot read it: ', why, '.'), h('p', null, fix)];
     return callout('bad', { attrs: { 'data-ak-failing': x.name }, title: 'Can’t read: ' + x.name + ' (' + t + ')',
       body: [...body.filter(Boolean), affects],
       actions: [x.sourceLabel ? btn('Read again', () => act({ action: 'account-refresh', account: x.name }), { small: true, icon: 'refresh-cw' })
@@ -213,9 +213,9 @@ function keyRow(a, rows, x, p) {
     !isLogin(x) && !isFailing(x) && !(p === 'custom' || (a.uncheckedProviders || []).includes(p)) && (x.sourceLabel || checked(x))
       ? { label: 'Check again', icon: 'badge-check', desc: 'One tiny request to ' + title(a, p) + ' with it', onSelect: () => act({ action: 'account-verify', account: x.name }) } : null,
     isLogin(x) ? null : { label: 'Remove…', icon: 'trash-2', danger: true,
-      desc: x.sourceLabel ? 'Only Dozer’s record — where you keep the key is not touched' : 'Its keychain item is deleted',
+      desc: x.sourceLabel ? 'Only Dozable’s record — where you keep the key is not touched' : 'Its keychain item is deleted',
       onSelect: () => confirmAction('Remove account ' + x.name,
-        (x.sourceLabel ? 'Only Dozer’s record goes' : 'Its keychain item is deleted') + ((x.usedBy || []).length ? '; sandboxes that use it (' + x.usedBy.join(', ') + ') must move to another key first' : '') + '.',
+        (x.sourceLabel ? 'Only Dozable’s record goes' : 'Its keychain item is deleted') + ((x.usedBy || []).length ? '; sandboxes that use it (' + x.usedBy.join(', ') + ') must move to another key first' : '') + '.',
         x.name, { action: 'account-rm', account: x.name }) },
   ].filter(Boolean);
   const row = h('div', { class: 'ak-row', 'data-ak-key': x.name, 'data-ak-kind': x.kind },
@@ -241,7 +241,7 @@ function keyRow(a, rows, x, p) {
     add('Only to', x.hosts && x.hosts.length ? x.hosts.join(', ') : null);
     add('Last check', x.verification);
     add('Kind', x.kind);
-    add('Remove', isLogin(x) ? 'not removable — it is this Mac’s own login' : x.sourceLabel ? 'only Dozer’s record — the source is not touched' : 'deletes its keychain item');
+    add('Remove', isLogin(x) ? 'not removable — it is this Mac’s own login' : x.sourceLabel ? 'only Dozable’s record — the source is not touched' : 'deletes its keychain item');
     row.append(d);
   }
   return row;
@@ -263,7 +263,7 @@ function keepAlive(a) {
   sw.checked = !!a.keepalive;
   sw.addEventListener('change', () => act({ action: 'account-keepalive', enabled: sw.checked }));
   return h('div', { class: 'ak-keep' }, sw, h('div', null, h('b', null, 'Keep this login fresh while a sandbox uses it'),
-    h('div', null, 'Shortly before it expires, Dozer runs Claude Code on this Mac once, so the login renews. Off: it renews when you next use claude here.')));
+    h('div', null, 'Shortly before it expires, Dozable runs Claude Code on this Mac once, so the login renews. Off: it renews when you next use claude here.')));
 }
 
 /// Every sandbox, the key its tool uses now and how it got it; Change… is account-use (from its next session).
@@ -294,7 +294,7 @@ function bySandbox(a, rows, sandboxes, ov) {
 function emptyPage(a) {
   return h('div', { class: 'ak-empty', 'data-ak-empty': '' },
     h('h2', null, 'No keys yet'),
-    h('p', { class: 'muted' }, 'A sandbox’s tool needs a key or a sign-in to reach its model. Dozer keeps it on this Mac and gives the sandbox only a placeholder.'),
+    h('p', { class: 'muted' }, 'A sandbox’s tool needs a key or a sign-in to reach its model. Dozable keeps it on this Mac and gives the sandbox only a placeholder.'),
     h('div', { class: 'ak-cards' },
       h('div', { class: 'ak-card' }, h('b', null, icon('user-round'), 'Use this Mac’s Claude login'),
         h('span', { class: 'muted' }, 'For Claude Code. Sign in with claude on this Mac and it shows up here by itself.'), h('code', null, 'claude   (then /login)')),
@@ -302,7 +302,7 @@ function emptyPage(a) {
         h('span', { class: 'muted' }, (a.providers || []).map((p) => title(a, p)).join(', ') + '.'),
         h('div', null, btn('Add a key', () => openAddKey(a, null), { primary: true, icon: 'plus' }))),
       h('div', { class: 'ak-card' }, h('b', null, icon('shield'), 'Keep it in 1Password or AWS'),
-        h('span', { class: 'muted' }, 'Dozer reads it when a sandbox needs it and keeps it in memory only.'),
+        h('span', { class: 'muted' }, 'Dozable reads it when a sandbox needs it and keeps it in memory only.'),
         h('div', null, btn('Show me how', () => openAddKey(a, null, '1password'), { small: true, icon: 'info' })))),
     h('p', { class: 'muted ak-empty-foot' }, 'Setting up a particular tool? Quick try asks for exactly the key it needs.'));
 }
@@ -430,7 +430,7 @@ function paintFlow() {
       }
     } else if (f.source === 'chatgpt') {
       cmdLine = () => 'doz account add ' + (f.name || 'NAME') + ' --chatgpt';
-      body.append(h('p', { class: 'muted' }, 'Codex on your ChatGPT plan. Your browser opens on OpenAI’s sign-in — Dozer’s own sign-in; your Mac’s Codex login is not touched. It runs from Terminal:'), cmdBox);
+      body.append(h('p', { class: 'muted' }, 'Codex on your ChatGPT plan. Your browser opens on OpenAI’s sign-in — Dozable’s own sign-in; your Mac’s Codex login is not touched. It runs from Terminal:'), cmdBox);
     } else if (f.source === 'custom') {
       const host = h('input', { class: 'ak-in', spellcheck: 'false', 'aria-label': 'Host it may go to' }); host.value = f.host;
       const env = h('input', { class: 'ak-in', spellcheck: 'false', 'aria-label': 'Variable in the sandbox' }); env.value = f.envVar;
@@ -452,7 +452,7 @@ function paintFlow() {
       cmdLine = () => 'doz account add ' + (f.name || 'NAME') + provFlag(p) + (f.source === 'command' ? ' --from-command ' + shq(f.ref || ex) : ' --from ' + shq(f.ref || ex));
       body.append(h('label', { class: 'field' }, h('span', null, f.source === '1password' ? '1Password reference' : f.source === 'aws' ? 'Secret ARN (optionally #jsonKey)' : 'The program and its arguments (never a shell)'), ref,
         h('small', null, f.source === '1password' ? 'In 1Password: the field’s … menu › Copy Secret Reference.' : f.source === 'aws' ? 'The AWS CLI on this Mac reads it, with your AWS_PROFILE.' : 'Its output is the key.')),
-        h('p', { class: 'muted' }, 'Dozer reads the key on this Mac each time a sandbox needs it (kept in memory, never stored). Because that runs '
+        h('p', { class: 'muted' }, 'Dozable reads the key on this Mac each time a sandbox needs it (kept in memory, never stored). Because that runs '
           + (f.source === '1password' ? 'op' : f.source === 'aws' ? 'aws' : 'a program') + ' as you, it is added in Terminal; this page then shows it and can read it again:'), cmdBox);
     }
     paintCmd();

@@ -37,7 +37,7 @@ public enum ChatGPTSignIn {
         let (verifier, challenge) = OpenAIAccess.pkce()
         let state = OpenAIAccess.randomState()
         let url = OpenAIAccess.authorizeURL(port: port, challenge: challenge, state: state)
-        say("Signing Dozer in to ChatGPT — your browser opens OpenAI's sign-in page (this is Dozer's own sign-in; your Mac's Codex login is not touched).")
+        say("Signing Dozable in to ChatGPT — your browser opens OpenAI's sign-in page (this is Dozable's own sign-in; your Mac's Codex login is not touched).")
         say("If the browser does not open, visit:\n  \(url.absoluteString)")
         guard BrowserBridge.open(url, callback: (host: "127.0.0.1", port: Int(port), path: OpenAIAccess.callbackPath), environment: env) else {
             throw Failure("could not open the browser — visit the address above")
@@ -111,7 +111,7 @@ public enum ChatGPTSignIn {
                 respond(c, 400, page("Sign-in not completed", "No code came back. You can close this tab and try again."))
                 throw Failure("the browser came back without a code — try again")
             }
-            respond(c, 200, page("Signed in to ChatGPT for Dozer Sandbox", "You can close this tab and go back to Terminal."))
+            respond(c, 200, page("Signed in to ChatGPT for Dozable", "You can close this tab and go back to Terminal."))
             return code
         }
         throw Failure("no answer from the browser within \(Int(timeout / 60)) minutes — run the command again")

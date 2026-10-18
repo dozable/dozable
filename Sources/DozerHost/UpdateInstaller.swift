@@ -146,7 +146,7 @@ public enum UpdateInstaller {
         guard run("/usr/bin/codesign", ["--verify", "--strict", newDoz.path]).status == 0 else { throw Failure("the new doz's signature does not verify — not installed") }
         if !allowAdhoc {
             let info = run("/usr/bin/codesign", ["-dv", "--verbose=2", newDoz.path]).output
-            guard info.contains("TeamIdentifier=\(Distribution.teamID)\n") else { throw Failure("the new doz is not signed by Dozer's Developer ID (team \(Distribution.teamID)) — not installed") }
+            guard info.contains("TeamIdentifier=\(Distribution.teamID)\n") else { throw Failure("the new doz is not signed by Dozable's Developer ID (team \(Distribution.teamID)) — not installed") }
         }
         let said = run(newDoz.path, ["--version"]).output.trimmingCharacters(in: .whitespacesAndNewlines)
         guard said == entry.version else { throw Failure("the new doz says \(said), not \(entry.version) — not installed") }

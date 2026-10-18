@@ -138,7 +138,7 @@ struct TelemetryCommand: AsyncParsableCommand {
         abstract: "Anonymous usage statistics: whether this doz sends them, and exactly what it would send.",
         discussion: """
         Official builds (Homebrew, the release download) send anonymous usage statistics: at most once a day, counts \
-        and ranges about how Dozer itself is used, with a random install id — never a name, path, host, command \
+        and ranges about how Dozable itself is used, with a random install id — never a name, path, host, command \
         argument, file or anything from inside a sandbox. Builds from the open-source repository send nothing. \
         Turn them off with any one of: doz config set telemetry.send_anonymous_usage_stats false · DO_NOT_TRACK=1 · \
         --no-send-anonymous-usage-stats on one command.
@@ -250,7 +250,7 @@ struct TelemetryReset: AsyncParsableCommand {
 
 struct SignupCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "signup",
-        abstract: "Sign up for news from Dozer — release news, early access, tips and tricks (optional; an email, confirmed before anything is sent).",
+        abstract: "Sign up for news from Dozable — release news, early access, tips and tricks (optional; an email, confirmed before anything is sent).",
         discussion: """
         Asks for your email and what you want on a terminal (or --email and --interest). A confirmation email comes \
         first; nothing else is sent until you confirm, and every email has a one-click unsubscribe. Your email is \
@@ -262,7 +262,7 @@ struct SignupCommand: AsyncParsableCommand {
     @Option(name: .customLong("interest"), help: "release-news, tool-news, early-access or tips (repeat it for more than one).") var interests: [String] = []
     @Flag(name: [.short, .long], help: "Do not ask (needs --email and at least one --interest).") var yes = false
 
-    static let labels = ["release news", "tool news: new and updated tools you can try in Dozer", "early access to new features", "tips and tricks"]
+    static let labels = ["release news", "tool news: new and updated tools you can try in Dozable", "early access to new features", "tips and tricks"]
 
     func validate() throws {
         for i in interests where !SignupRequest.interestValues.contains(i) {

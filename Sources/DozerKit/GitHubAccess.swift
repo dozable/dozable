@@ -46,7 +46,7 @@ public enum GitHubAccess {
 
     /// The refusal's text, for a sandbox (`name`): what is off, and how to turn it on.
     public static func pushOff(_ name: String, _ what: String) -> String {
-        "Dozer: \(what) — pushing to GitHub is off for \(name) (read-only). Turn on \"Push to GitHub\": doz net allow \(name) github:push"
+        "Dozable: \(what) — pushing to GitHub is off for \(name) (read-only). Turn on \"Push to GitHub\": doz net allow \(name) github:push"
     }
 
     /// One request carrying the user's GitHub login, in `mode`.
@@ -82,7 +82,7 @@ public enum GitHubAccess {
     /// A held request's body decides it (read mode).
     public static func classify(body: [UInt8], kind: BodyKind, sandbox: String) -> Verdict {
         guard let obj = try? JSONSerialization.jsonObject(with: Data(body)) as? [String: Any] else {
-            return .refuse(pushOff(sandbox, "a request Dozer could not read was refused"))
+            return .refuse(pushOff(sandbox, "a request Dozable could not read was refused"))
         }
         switch kind {
         case .lfsBatch:
@@ -92,7 +92,7 @@ public enum GitHubAccess {
             switch graphQLIsQuery(q) {
             case true?: return .allow
             case false?: return .refuse(pushOff(sandbox, "a GraphQL mutation refused"))
-            case nil: return .refuse(pushOff(sandbox, "a GraphQL request Dozer could not tell was read-only refused"))
+            case nil: return .refuse(pushOff(sandbox, "a GraphQL request Dozable could not tell was read-only refused"))
             }
         }
     }

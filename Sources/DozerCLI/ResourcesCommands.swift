@@ -9,7 +9,7 @@ import DozerHost
 struct ResourcesCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "resources",
-        abstract: "Everything Dozer uses (disk to the byte, memory, CPUs, network) and deleting what can go.",
+        abstract: "Everything Dozable uses (disk to the byte, memory, CPUs, network) and deleting what can go.",
         subcommands: [ResourcesList.self, ResourcesRemove.self, ResourcesClean.self, ResourcesKernel.self],
         defaultSubcommand: ResourcesList.self)
 }
@@ -104,7 +104,7 @@ func renderResourcePlan(_ p: ResourcePlan) -> String {
 func renderResources(_ r: ResourceReport) -> String {
     let fmt = DozerImages.formatBytes
     var s = "\(r.store)\n"
-    s += "Dozer uses \(fmt(r.totalBytes)) of disk (as du counts it; \(fmt(r.occupiedBytes)) with APFS-shared blocks counted once)"
+    s += "Dozable uses \(fmt(r.totalBytes)) of disk (as du counts it; \(fmt(r.occupiedBytes)) with APFS-shared blocks counted once)"
     s += " · Clean up frees \(fmt(r.cleanableBytes))"
     if let free = r.volumeFreeBytes { s += " · \(fmt(free)) free on the volume" }
     s += "\n\n"

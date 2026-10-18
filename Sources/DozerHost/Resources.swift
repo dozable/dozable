@@ -593,8 +593,8 @@ public enum Resources {
         }
         if byLeaf["store"] != nil {
             let l = leaf("store")
-            add(ResourceItem(id: "store", group: "store", name: "Dozer's own records", detail: "accounts (names only), onboarding, preparations, the host's lock and socket",
-                             sizeBytes: l.size, freedBytes: l.freed, link: "accounts", refusal: "Dozer's own state — not deleted here"))
+            add(ResourceItem(id: "store", group: "store", name: "Dozable's own records", detail: "accounts (names only), onboarding, preparations, the host's lock and socket",
+                             sizeBytes: l.size, freedBytes: l.freed, link: "accounts", refusal: "Dozable's own state — not deleted here"))
         }
         // Stray files: anything else in the store.
         for id in byLeaf.keys.filter({ $0.hasPrefix("stray:") }).sorted() {
@@ -602,10 +602,10 @@ public enum Resources {
             let path = root.appendingPathComponent(String(id.dropFirst(6))).standardizedFileURL.path
             let users = f.sandboxes.filter { s in ([s.workspace].compactMap { $0 } + s.shares).map { URL(fileURLWithPath: $0).standardizedFileURL.path }
                 .contains { $0 == path || $0.hasPrefix(path + "/") } }.map(\.name)
-            add(ResourceItem(id: id, group: "stray", name: String(id.dropFirst(6)), detail: "not something Dozer made — found in the store",
+            add(ResourceItem(id: id, group: "stray", name: String(id.dropFirst(6)), detail: "not something Dozable made — found in the store",
                              sizeBytes: l.size, freedBytes: l.freed, usedBy: users, deletable: true,
                              refusal: users.isEmpty ? nil : "the workspace (or a share) of \(users.joined(separator: ", "))",
-                             later: "gone for good", warning: "Dozer did not make it: check what it is first", path: rel(id)))
+                             later: "gone for good", warning: "Dozable did not make it: check what it is first", path: rel(id)))
         }
 
         // Outside the store (shown, never deleted here).
@@ -633,7 +633,7 @@ public enum Resources {
         let attributed = byLeaf.filter { shown.contains($0.key) }.values.flatMap { $0 }.reduce(Int64(0)) { $0 + $1.allocated }
         let unattributed = total - attributed
         items.append(ResourceItem(id: "unattributed", group: "store", name: "unattributed",
-                                  detail: unattributed == 0 ? "every byte of the store is on a row above" : "bytes no row accounts for — a leak or a file Dozer does not know",
+                                  detail: unattributed == 0 ? "every byte of the store is on a row above" : "bytes no row accounts for — a leak or a file Dozable does not know",
                                   sizeBytes: unattributed, freedBytes: nil, refusal: "nothing to delete"))
         let nonDiskAll = entries.filter { !$0.isDisk }.reduce(Int64(0)) { $0 + $1.allocated }
         let cleanSet = cleanIDs(items)

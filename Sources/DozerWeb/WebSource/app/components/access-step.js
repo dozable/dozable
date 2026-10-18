@@ -179,7 +179,7 @@ export function renderAccessStep(container, opts = {}) {
       if (c.github !== 'off') {
         parts.push(h('fieldset', { class: 'wiz-choices', 'data-access-choice': 'source' }, h('legend', null, 'Where the token comes from'),
           radios('source', c.githubSource, [['gh', 'This Mac’s gh login', 'gh auth token — read when used, never stored; gh auth logout ends it'],
-                                            ['key', 'A token you give Dozer', 'kept in the login keychain; a fine-grained token can be limited to some repositories']],
+                                            ['key', 'A token you give Dozable', 'kept in the login keychain; a fine-grained token can be limited to some repositories']],
                  (v) => { c.githubSource = v; changed('github'); })));
         if (c.githubSource === 'key') parts.push(keyNode());
       }

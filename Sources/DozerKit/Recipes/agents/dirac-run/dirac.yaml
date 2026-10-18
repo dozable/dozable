@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Dirac — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/dirac.json, which Dozer embeds).
+# Dirac — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/dirac.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: dirac-run/dirac
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Dirac release Dozer installs (its pin).
+    description: The Dirac release Dozable installs (its pin).
     default: 0.5.20
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: DIRAC_VERSION

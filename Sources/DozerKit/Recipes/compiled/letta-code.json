@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "LETTA_CODE_VERSION",
       "default" : "0.34.13",
-      "description" : "The Letta Code release Dozer installs (its pin).",
+      "description" : "The Letta Code release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -197,7 +197,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Letta Code's local backend (--backend local, no Letta account) with its own providers, each reading its key from the environment; Dozer puts the model on its command line (-m xai/grok-4.3 on xAI, the default — grok-build-0.1 is not in its catalogue).",
+            "note" : "Letta Code's local backend (--backend local, no Letta account) with its own providers, each reading its key from the environment; Dozable puts the model on its command line (-m xai/grok-4.3 on xAI, the default — grok-build-0.1 is not in its catalogue).",
             "provider" : "xai"
           },
           {
@@ -255,7 +255,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Letta Cloud's agents and memory sync need its sign-in; Dozer does not offer it yet."
+            "note" : "Letta Cloud's agents and memory sync need its sign-in; Dozable does not offer it yet."
           }
         ]
       },

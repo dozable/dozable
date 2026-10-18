@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "GPTME_VERSION",
       "default" : "0.34.0",
-      "description" : "The gptme release Dozer installs (its pin).",
+      "description" : "The gptme release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -246,7 +246,7 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Dozer sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.",
+            "note" : "Dozable sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.",
             "provider" : "xai"
           },
           {
@@ -418,7 +418,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

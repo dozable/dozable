@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Crush — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/crush.json, which Dozer embeds).
+# Crush — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/crush.json, which Dozable embeds).
 # Licence: FSL-1.1-MIT (each release becomes MIT two years on). The owner's reading (2026-10-14): installing it for a
-# user in their own sandbox is not a Competing Use — Dozer does not offer a competing product — so it is a recipe.
+# user in their own sandbox is not a Competing Use — Dozable does not offer a competing product — so it is a recipe.
 schema: 2
 kind: workload
 id: charmbracelet/crush
@@ -14,7 +14,7 @@ licenses:
 - FSL-1.1-MIT
 args:
   version:
-    description: The Crush release Dozer installs (its pin).
+    description: The Crush release Dozable installs (its pin).
     default: 0.98.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CRUSH_VERSION
@@ -126,12 +126,12 @@ capabilities:
         options.disable_metrics: true
         options.disable_provider_auto_update: true
     # The model source chosen, at every run (Crush takes its model only from this file): one provider, doz, at the
-    # source's base URL; its key read from the variable Dozer puts the placeholder in ($OPENAI_API_KEY or
+    # source's base URL; its key read from the variable Dozable puts the placeholder in ($OPENAI_API_KEY or
     # $ANTHROPIC_API_KEY — Crush expands it, so the key is never written here).
     - file: ~/.config/crush/crush.json
       each_run: true
       set:
-        providers.doz.name: Dozer
+        providers.doz.name: Dozable
         providers.doz.type: $DOZ_CRUSH_TYPE
         providers.doz.base_url: $DOZ_BASE_URL
         providers.doz.api_key: $DOZ_KEY_REF

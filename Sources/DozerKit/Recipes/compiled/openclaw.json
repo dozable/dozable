@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "OPENCLAW_VERSION",
       "default" : "2026.10.3",
-      "description" : "The OpenClaw release Dozer installs (its pin).",
+      "description" : "The OpenClaw release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -291,7 +291,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "OpenClaw needs Node 24, which Dozer installs on Debian-based bases only (Node publishes no musl arm64 build)"
+            "reason" : "OpenClaw needs Node 24, which Dozable installs on Debian-based bases only (Node publishes no musl arm64 build)"
           }
         ],
         "platforms" : {
@@ -309,7 +309,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

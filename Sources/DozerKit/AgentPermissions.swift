@@ -150,7 +150,7 @@ public enum AgentPermissions {
             AgentPermission(id: openAIModel, title: "Talk to OpenAI", summary: "Codex's model and its usage limits (OpenAI) — needed for Codex to work.",
                             phrase: "talk to your AI model (OpenAI)",
                             hosts: [PermissionHost("chatgpt.com"), PermissionHost("api.openai.com"), PermissionHost("ab.chatgpt.com")], locked: false),
-            AgentPermission(id: "sign-in", title: "Sign in", summary: "Only for signing in inside the sandbox — Dozer's proxy already supplies the credential.",
+            AgentPermission(id: "sign-in", title: "Sign in", summary: "Only for signing in inside the sandbox — Dozable's proxy already supplies the credential.",
                             phrase: "sign in to Claude inside the sandbox",
                             hosts: [PermissionHost("console.anthropic.com", ports: nil), PermissionHost("claude.ai", ports: nil), PermissionHost("platform.claude.com", ports: nil)],
                             locked: false),

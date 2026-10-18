@@ -115,7 +115,7 @@ final class CodexMacLoginTests: XCTestCase {
         XCTAssertNotEqual(snapshot(), before, "(the fake Mac Codex rewrote its file)")
         let after = snapshot()
         _ = s.read(); _ = s.current(); _ = s.problem()
-        XCTAssertEqual(snapshot(), after, "Dozer never writes the Mac's Codex home")
+        XCTAssertEqual(snapshot(), after, "Dozable never writes the Mac's Codex home")
     }
 
     // MARK: keep-alive

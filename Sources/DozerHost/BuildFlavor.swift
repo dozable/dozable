@@ -44,7 +44,7 @@ public struct BuildFlavor: Sendable, Equatable {
 
     /// Why a ChatGPT sign-in cannot be made with this build.
     public static let chatgptSignInMissing =
-        "this doz does not include Dozer's own ChatGPT sign-in. For Codex, use this Mac's own Codex login (the account mac: "
+        "this doz does not include Dozable's own ChatGPT sign-in. For Codex, use this Mac's own Codex login (the account mac: "
         + "sign in with codex on this Mac) or an OpenAI API key (doz account add NAME --openai-key)"
 
     /// Why an existing ChatGPT account (made by an earlier, pre-release doz) is not used.

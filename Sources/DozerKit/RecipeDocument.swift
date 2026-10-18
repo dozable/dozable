@@ -563,7 +563,7 @@ extension RecipeDocument {
         self.licenses = licenses
         args = Args(version: KitArg(default: r.install.pinned.version, pattern: versionPattern,
                                     buildArg: r.id.uppercased().replacingOccurrences(of: "-", with: "_") + "_VERSION",
-                                    description: "The \(r.title) release Dozer installs (its pin)."))
+                                    description: "The \(r.title) release Dozable installs (its pin)."))
         provides = ["com.dozersandbox/\(r.id)@${{ kit.args.version }}"]
         typealias T = Types
         var caps: [RecipeCapability] = [

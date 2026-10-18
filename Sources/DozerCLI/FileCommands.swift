@@ -235,7 +235,7 @@ enum FileTransfer {
         let (dest, problem) = LocalCopy.destination(name: itemName, local: local, cwd: cwd)
         if let problem { throw fail(HostError(.notFound, problem), g) }
         if LocalCopy.inStore(dest, store: g.dozerStore.root) {
-            throw fail(HostError(.failed, "\(dest) is inside Dozer's store — never written there"), g)
+            throw fail(HostError(.failed, "\(dest) is inside Dozable's store — never written there"), g)
         }
         let exists = FileManager.default.fileExists(atPath: dest) || (try? FileManager.default.destinationOfSymbolicLink(atPath: dest)) != nil
         if exists, !flags.force { throw fail(HostError(.exists, "\(shown(dest)) is there already — --force replaces it"), g) }
@@ -313,7 +313,7 @@ enum FileTransfer {
         let type = (try? FileManager.default.attributesOfItem(atPath: source)[.type] as? FileAttributeType)
         guard isDir.boolValue || type == .typeRegular else { throw fail(HostError(.failed, "\(localGiven) is not a file or a folder — not copied"), g) }
         if LocalCopy.inStore(source, store: g.dozerStore.root) {
-            throw fail(HostError(.failed, "\(localGiven) is inside Dozer's store — never copied"), g)
+            throw fail(HostError(.failed, "\(localGiven) is inside Dozable's store — never copied"), g)
         }
         let kind: CopyKind = isDir.boolValue ? .folder : .file
         if kind == .folder {

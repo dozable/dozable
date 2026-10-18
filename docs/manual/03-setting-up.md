@@ -88,7 +88,7 @@ When every chosen image is ready, the store is marked as set up — even if you'
 
 Then, in an official build, two last questions:
 
-- **Usage statistics** — what is sent (counts and ranges about how Dozer is used, never names, paths,
+- **Usage statistics** — what is sent (counts and ranges about how Dozable is used, never names, paths,
   contents or anything inside a sandbox), `doz telemetry show` to see it exactly, and the privacy
   policy; then *Send anonymous usage statistics? [Y/n]*. **Enter** keeps them on and changes nothing;
   **n** sets `telemetry.send_anonymous_usage_stats = false`. When `DO_NOT_TRACK` or
@@ -153,14 +153,14 @@ across the top; **✕** or **Escape** closes it, asking first once you have chos
    the dashboard meanwhile (the preparation shows under **Operations**); **Cancel preparation** stops
    it.
 7. **First sandbox** (optional) — pick the agent; it suggests a name (`claude-sandbox`) and a project
-   folder (`~/dozer-sandbox-workspaces/claude-sandbox`, made if it doesn't exist).
+   folder (`~/doz-workspaces/claude-sandbox`, made if it doesn't exist).
    **Choose…** opens the Mac's own folder picker. Or pick **Isolated** to share no folder.
 8. **Usage statistics** (official builds) — the same text as in the terminal and one switch, **Send
    anonymous usage statistics**, on. **Next** saves it only if you changed it. When `DO_NOT_TRACK` or
    the environment decides, the switch is shown read-only with the reason.
 9. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
 10. **Done** — what was written where, and your **projects folder**
-    (`~/dozer-sandbox-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
+    (`~/doz-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
     `doz new` gets its own folder there. **Settings** › **Choose…** moves it.
 
 ![The wizard's checks](images/wizard-checks.png)
@@ -197,7 +197,7 @@ again**; the choices themselves are the settings `defaults.github`, `github.cred
 | key | default | what it does |
 |---|---|---|
 | `defaults.image` | `lab` | The image `doz up NAME`, `doz init` and the dashboard's New sandbox use when you don't name one. Onboarding sets it to the image you chose. |
-| `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | Your projects folder: Quick add, `doz new` and New sandbox make each new sandbox's folder in it. `doz onboard` says where it is; the dashboard's **Settings** › **Choose…** or `doz config set defaults.projects_dir DIR` moves it. |
+| `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: Quick add, `doz new` and New sandbox make each new sandbox's folder in it. `doz onboard` says where it is; the dashboard's **Settings** › **Choose…** or `doz config set defaults.projects_dir DIR` moves it. |
 | `defaults.account` | `mac` | The account of a store that hasn't chosen one. `doz account default` decides for a store once it has. |
 | `defaults.github` | `off` | "GitHub as you" for new sandboxes: `off`, `read` or `push`. The Access step's choice. |
 | `github.credentials` | `gh` | Where the GitHub token comes from: `gh` (this Mac's login), `key` (a token you gave), `off`. |

@@ -1271,7 +1271,7 @@ extension AgentRecipe {
             guard reqs.contains(where: { Install.wheelName(String($0.split(separator: "=")[0])) == Install.wheelName(p) && $0.contains("==" + install.pinned.version + " ") }) else {
                 throw bad("the requirements pin \(p) at \(install.pinned.version) (the recipe's version)")
             }
-            guard !platforms.musl else { throw bad("a pypi install runs on Dozer's glibc Python (platforms.musl false)") }
+            guard !platforms.musl else { throw bad("a pypi install runs on Dozable's glibc Python (platforms.musl false)") }
         case "release-binary":
             guard !isBuiltin, install.package == nil, install.platformPackage == nil, install.manifest == nil, install.requirements == nil,
                   install.pinned.integrity != nil, install.compression == nil,

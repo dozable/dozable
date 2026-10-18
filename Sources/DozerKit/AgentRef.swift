@@ -114,7 +114,7 @@ public struct AgentRef: Equatable, Sendable {
             r = x
         } else {
             guard major(of: base.install.pinned.version) == m else {
-                throw Problem(description: "\(base.title) \(q) is not a release Dozer installs — its recipe is for \(name)@\(major(of: base.install.pinned.version) ?? 0)")
+                throw Problem(description: "\(base.title) \(q) is not a release Dozable installs — its recipe is for \(name)@\(major(of: base.install.pinned.version) ?? 0)")
             }
             r = base
         }

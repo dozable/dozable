@@ -154,7 +154,7 @@ func cliToolsSuite(binary: String) async {
         .write(toFile: ws + "/leaf.ext", atomically: true, encoding: .utf8)
     let m0 = onMac(["/bin/sh", "-c", """
         set -e
-        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test GitHub CA' 2>&1
+        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test GitHub CA' 2>&1
         /usr/bin/openssl x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>&1
         /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=api.github.com' 2>&1
         /usr/bin/openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>&1
@@ -230,7 +230,7 @@ func cliToolsSuite(binary: String) async {
     r = t.run(["wake", "t1", "--verbose"], timeout: 120)
     check(r.code == 0 && !(r.out + r.err).contains("tools: gh"), "wake t1: the layer re-checked QUIETLY (no tools step lines)")
     r = t.run(["exec", "t1", "--", "sh", "-c", "[ -e \(ToolsLayer.guestGhPath) ] && echo HAS-GH || echo NO-GH"])
-    check(r.out.contains("NO-GH"), "…and Dozer's gh is REMOVED (its setting is off)")
+    check(r.out.contains("NO-GH"), "…and Dozable's gh is REMOVED (its setting is off)")
     check(hostLog(t).contains("tools layer re-checked"), "the host log notes the quiet re-check")
     check(t.run(["hibernate", "t1"], timeout: 120).code == 0, "hibernate t1 again")
     check(t.run(["net", "allow", "t1", "github:as-you", "--yes"]).code == 0, "GitHub as you ON while it sleeps")

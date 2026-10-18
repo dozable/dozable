@@ -210,7 +210,7 @@ final class RecipeHostTests: XCTestCase {
             XCTAssertFalse(s.contains("/workspace"), "never the workspace")
             let off = AgentPromptReport(enabled: false, agent: agent, text: nil, error: nil, layers: [], skill: nil, promptPath: AgentPrompt.guestPromptPath, skillPath: path)
             let o = AgentPrompt.deliveryScript(off, user: "agent")
-            XCTAssertFalse(o.contains("rm -rf"), "off removes only Dozer's own files: \(o)")
+            XCTAssertFalse(o.contains("rm -rf"), "off removes only Dozable's own files: \(o)")
             XCTAssertTrue(o.contains("'\(path)'"))
         }
         let g = AgentPrompt.deliveryScript(AgentPromptReport(enabled: true, agent: "gemini", text: "F", error: nil, layers: [], skill: nil,

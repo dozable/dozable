@@ -211,7 +211,7 @@ public struct UsageStatsStep: Equatable, Sendable {
 
     public static let title = "Usage statistics"
     /// The step's text — the same words in the terminal and in the wizard.
-    public static let summary = "Dozer sends anonymous usage statistics, at most once a day: counts and ranges about how Dozer is used — never names, paths, contents or anything inside a sandbox."
+    public static let summary = "Dozable sends anonymous usage statistics, at most once a day: counts and ranges about how Dozable is used — never names, paths, contents or anything inside a sandbox."
     public static let showCommand = "doz telemetry show"
     public static let question = "Send anonymous usage statistics?"
 

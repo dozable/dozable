@@ -1,6 +1,6 @@
 # Getting started
 
-Dozer Sandbox runs AI coding agents, such as Claude Code, in small Linux virtual machines on your
+Dozable runs AI coding agents, such as Claude Code, in small Linux virtual machines on your
 Mac. Each agent gets its own **sandbox**: its own disk, a network that only reaches what you allow,
 and (if you want) one project folder shared in. A sandbox pauses in about a millisecond, sleeps or
 hibernates to disk, and wakes in about a third of a second with the agent still where you left it.
@@ -54,15 +54,15 @@ At each question the recommended answer is already selected: press **Enter** to 
 1. **Checks.** Apple silicon, macOS, the virtualization permission, disk space. A required check
    that fails stops setup and says why; an optional one (Claude Code not installed, for example) is
    a warning.
-2. **Your Claude account.** If Claude Code is signed in on this Mac, Dozer offers to use that login.
+2. **Your Claude account.** If Claude Code is signed in on this Mac, Dozable offers to use that login.
    Otherwise paste an API key or a `claude setup-token` token (it is never echoed), or choose
    *Decide later*.
 3. **Images.** **Claude Code** is ticked; **pi** and the plain **lab** shell are optional. Anything
    you leave out is prepared the first time you use it.
-4. **Preparing.** Dozer downloads the base system and installs the agent and its tools inside a VM.
+4. **Preparing.** Dozable downloads the base system and installs the agent and its tools inside a VM.
    It takes a few minutes. **You don't have to wait:** press **Ctrl-C** and it carries on in the
    background; `doz onboard --status` shows it again.
-5. **Usage statistics.** What an official build sends — counts and ranges about how Dozer is used,
+5. **Usage statistics.** What an official build sends — counts and ranges about how Dozable is used,
    never names, paths, contents or anything inside a sandbox — and where to see it exactly
    (`doz telemetry show`). **Enter** keeps them on; answer **n** to turn them off. A build from the
    open-source repository sends nothing and skips this step.
@@ -88,7 +88,7 @@ Details: [Setting up](03-setting-up.md).
 
 - **Each sandbox is a small Linux virtual machine,** not a container, with its own kernel and disk.
   It can't see your Mac's files, apart from the one project folder you share at `/workspace`.
-- **The Dozer host runs the sandboxes.** It's a background program that starts when you need it and
+- **The Dozable host runs the sandboxes.** It's a background program that starts when you need it and
   exits when nothing is running. `doz` and the dashboard are remote controls for it.
 - **Sandboxes sit behind a network proxy on your Mac.** They have no network card of their own:
   every connection goes through the proxy, which allows only what you permit, and logs it.
@@ -100,7 +100,7 @@ Details: [Setting up](03-setting-up.md).
 ## Usage statistics and sign-up
 
 **Official builds** (Homebrew, the release download) **send anonymous usage statistics**, so we can see
-what to fix and improve: at most once a day, counts and ranges about how Dozer itself is used — which
+what to fix and improve: at most once a day, counts and ranges about how Dozable itself is used — which
 commands ran and how often they failed (by exit code), which agents, bases and network presets new
 sandboxes use, the size of your setup as ranges, typical start and wake times rounded to 50 ms, how long
 sandboxes ran and slept and how long agents worked (as ranges), which features you used (the dashboard,
@@ -164,7 +164,7 @@ what it was when you detach. Details: [Projects](04-projects.md) and
 
 > **No project yet?** `doz new` — or **Quick add** in the dashboard — makes a sandbox with every
 > default and puts you in it: a free name like `claude-sandbox`, and its own folder in your projects
-> folder (`~/dozer-sandbox-workspaces/claude-sandbox`). See
+> folder (`~/doz-workspaces/claude-sandbox`). See
 > [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new).
 
 ## Talk to your agent
@@ -177,9 +177,9 @@ Claude also knows where it runs. Ask it:
 
 > where are you running, and where is /workspace on my Mac?
 
-It should tell you it is in a Dozer sandbox (a Linux VM on your Mac), that `/workspace` is your
+It should tell you it is in a Dozable sandbox (a Linux VM on your Mac), that `/workspace` is your
 `~/code/my-app`, that its network only reaches what you allow, and that your credentials are added
-by your Mac and never stored in the sandbox. It learns this from a short note Dozer gives it at every
+by your Mac and never stored in the sandbox. It learns this from a short note Dozable gives it at every
 start. See [Agents and accounts](09-agents-and-accounts.md).
 
 A few things work as you'd hope:
@@ -245,6 +245,6 @@ Details: [Restore points, duplicates and templates](12-restore-points-duplicates
 ## Next steps
 
 - Something not working? `doz doctor`, then [Troubleshooting and FAQ](17-troubleshooting-and-faq.md).
-- Let the agent you already use on your Mac drive Dozer: [Letting another agent drive Dozer](14-letting-another-agent-drive.md).
+- Let the agent you already use on your Mac drive Dozable: [Letting another agent drive Dozable](14-letting-another-agent-drive.md).
 - How your Mac is kept safe: [Security model](16-security-model.md).
 - Everything else: the [manual's index](README.md).

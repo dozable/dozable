@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "CODEX_VERSION",
       "default" : "0.160.1",
-      "description" : "The Codex release Dozer installs (its pin).",
+      "description" : "The Codex release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -184,7 +184,7 @@
             ],
             "checked" : "2026-10-12",
             "kind" : "vendor-sign-in",
-            "note" : "This Mac's own Codex login (the account mac, read-only), or Dozer's own ChatGPT sign-in on this Mac (doz account add NAME --chatgpt). The sign-in stays on the Mac — the sandbox's auth.json holds placeholders."
+            "note" : "This Mac's own Codex login (the account mac, read-only), or Dozable's own ChatGPT sign-in on this Mac (doz account add NAME --chatgpt). The sign-in stays on the Mac — the sandbox's auth.json holds placeholders."
           },
           {
             "accounts" : [
@@ -229,7 +229,7 @@
             },
             "level" : "documented",
             "limits" : [
-              "not offered in a Dozer try: Codex takes a provider's base URL only from its config.toml (or -c), and its launcher is Dozer's own (baked into its image); its ChatGPT and OpenAI accounts stay its path",
+              "not offered in a Dozable try: Codex takes a provider's base URL only from its config.toml (or -c), and its launcher is Dozable's own (baked into its image); its ChatGPT and OpenAI accounts stay its path",
               "with env_key Codex does not fetch OpenRouter's model catalogue: other makers' models show an \"Unknown model\" warning (OpenRouter recommends an auth command instead)"
             ],
             "notes" : [
@@ -265,7 +265,7 @@
             },
             "level" : "documented",
             "limits" : [
-              "not offered in a Dozer try: Codex takes a provider's base URL only from its config.toml (or -c), and its launcher is Dozer's own (baked into its image); its ChatGPT and OpenAI accounts stay its path"
+              "not offered in a Dozable try: Codex takes a provider's base URL only from its config.toml (or -c), and its launcher is Dozable's own (baked into its image); its ChatGPT and OpenAI accounts stay its path"
             ],
             "notes" : [
               "/codex/v1 is Codex's own compatibility endpoint; /model lists the gateway's catalogue"

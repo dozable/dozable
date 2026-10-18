@@ -4,7 +4,7 @@ Instant, persistent and resumable Linux sandboxes for your agents, on your own M
 
 ## Overview
 
-Each *Dozer sandbox* is a full Linux computer with its own VM, its own kernel and a real disk. It
+Each *Dozable sandbox* is a full Linux computer with its own VM, its own kernel and a real disk. It
 pauses in about a millisecond. It sleeps, or hibernates and gives your RAM back, then wakes, with
 Claude Code back in well under a second: the same process, the same conversation, the same screen,
 even after your app crashes. It has no network card, only a proxy you control, and your API keys

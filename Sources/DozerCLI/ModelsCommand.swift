@@ -12,10 +12,10 @@ struct ModelsCommand: AsyncParsableCommand {
         commandName: "models",
         abstract: "The models a provider or gateway offers (a gateway's own list; a provider's checked default).",
         discussion: """
-        A gateway (OpenRouter, Vercel AI Gateway) publishes its list: Dozer reads it on this Mac at most once a day and \
+        A gateway (OpenRouter, Vercel AI Gateway) publishes its list: Dozable reads it on this Mac at most once a day and \
         keeps the last one (offline: the last list). A provider (Anthropic, OpenAI, xAI, Google) lists its models only \
-        with a key, so only the model Dozer checked is shown — any model id may still be given with --model. A source \
-        that takes no key (opencode-zen: OpenCode Zen's free models) shows the models Dozer lists for it, each with its \
+        with a key, so only the model Dozable checked is shown — any model id may still be given with --model. A source \
+        that takes no key (opencode-zen: OpenCode Zen's free models) shows the models Dozable lists for it, each with its \
         data terms as the source's docs state them. SEARCH narrows the list by id, name or maker.
         """)
 
@@ -64,7 +64,7 @@ func renderModelLists(_ lists: [ModelList], searched: Bool, now: Date = Date()) 
             s += "\(l.title): \(l.models.count) model\(l.models.count == 1 ? "" : "s")\(searched ? " match" : ""), no key needed"
                 + " — its docs, checked \(l.checked ?? "—"): \(l.docs ?? "")\n"
         default:
-            s += "\(l.title): the model Dozer checked — any other id with --model\n"
+            s += "\(l.title): the model Dozable checked — any other id with --model\n"
         }
         guard !l.models.isEmpty else { continue }
         // 618: a key-less source's models carry their data terms (the docs' words) — a column of their own.

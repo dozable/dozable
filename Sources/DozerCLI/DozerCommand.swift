@@ -32,7 +32,7 @@ public struct DozerCommand: AsyncParsableCommand {
 
     public static let configuration = CommandConfiguration(
         commandName: "doz",
-        abstract: "Dozer Sandbox — fast, suspendable micro-VMs for your Mac: pause in a millisecond, hibernate to disk, wake in a third of a second.",
+        abstract: "Dozable — fast, suspendable micro-VMs for your Mac: pause in a millisecond, hibernate to disk, wake in a third of a second.",
         discussion: """
         Lifecycle (aliases in brackets): start [cold-boot] · pause [suspend] · resume · sleep · \
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \

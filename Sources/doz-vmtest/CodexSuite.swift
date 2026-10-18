@@ -28,7 +28,7 @@ ACCOUNT = "acct-fake-599i"
 def b64u(b): return base64.urlsafe_b64encode(b).rstrip(b"=").decode()
 
 SIG = "RkFLRS1PUEVOQUktU0lHTkFUVVJF" + "s" * 314           # an RS256 signature's length (342 base64url chars)
-REFRESH_LEN = int(os.environ.get("FAKE_REFRESH_LEN", "2100"))  # long enough that Dozer must keep it in parts
+REFRESH_LEN = int(os.environ.get("FAKE_REFRESH_LEN", "2100"))  # long enough that Dozable must keep it in parts
 
 def jwt(payload, sig=SIG):
     # Realistic sizes (a real sign-in is ~4 KB: ~2 KB access token, ~1 KB id token).
@@ -200,7 +200,7 @@ func cliCodexSuite(binary: String) async {
         if !keep { try? fm.removeItem(at: t.store) }
         try? fm.removeItem(at: w)
     }
-    print("cli: Codex — Dozer's own ChatGPT sign-in, the proxy's swap and renewal, an API key, no token in the VM (599i)")
+    print("cli: Codex — Dozable's own ChatGPT sign-in, the proxy's swap and renewal, an API key, no token in the VM (599i)")
     /// `doz ARGS… --store STORE` (before any `--`): the scratch store on every command line too.
     func d(_ args: [String], stdin: Data? = nil, timeout: Double = 180) -> CLIRun {
         var a = args
@@ -215,7 +215,7 @@ func cliCodexSuite(binary: String) async {
         .write(toFile: ws + "/leaf.ext", atomically: true, encoding: .utf8)
     let m0 = onMac(["/bin/sh", "-c", """
         set -e
-        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test OpenAI CA' 2>&1
+        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test OpenAI CA' 2>&1
         /usr/bin/openssl x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>&1
         /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=chatgpt.com' 2>&1
         /usr/bin/openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>&1
@@ -277,8 +277,8 @@ func cliCodexSuite(binary: String) async {
     let opened = (try? String(contentsOfFile: ws + "/opened", encoding: .utf8)) ?? ""
     check(opened.contains("open https://auth.openai.com/oauth/authorize?") && opened.contains("client_id=app_EMoamEEZ73f0CkXaXp7hrann")
           && opened.contains("code_challenge_method=S256"), "the browser was sent to OpenAI's sign-in with Codex's client and PKCE")
-    check(opened.contains("callback ") && opened.contains("200 OK"), "the browser's callback reached Dozer's loopback listener (\(opened.split(separator: "\n").last ?? ""))")
-    check(r.err.contains("your Mac's Codex login is not touched"), "the sign-in says it is Dozer's own")
+    check(opened.contains("callback ") && opened.contains("200 OK"), "the browser's callback reached Dozable's loopback listener (\(opened.split(separator: "\n").last ?? ""))")
+    check(r.err.contains("your Mac's Codex login is not touched"), "the sign-in says it is Dozable's own")
     check(requests().contains { $0["grant"] as? String == "authorization_code" }, "the code was exchanged with auth.openai.com from the Mac")
     let rows = t.json(["account", "ls", "--store", t.store.path], [AccountRow].self) ?? []
     check(rows.first { $0.name == "plan" }.map { $0.kind == "chatgpt" && $0.plan == "plus" && $0.identity == "person@example.invalid" } == true,
@@ -286,7 +286,7 @@ func cliCodexSuite(binary: String) async {
     let accountsFile = (try? String(contentsOf: t.store.appendingPathComponent("accounts.json"), encoding: .utf8)) ?? ""
     check(!realTokens().isEmpty && !realTokens().contains { accountsFile.contains($0) }, "accounts.json holds no token")
     let firstThree = realTokens().prefix(3).map(\.utf8.count)
-    check(firstThree.reduce(0, +) > 4000, "the fake's sign-in is real-sized: id \(firstThree.first ?? 0) B, access \(firstThree.dropFirst().first ?? 0) B, refresh \(firstThree.last ?? 0) B (kept in parts by Dozer)")
+    check(firstThree.reduce(0, +) > 4000, "the fake's sign-in is real-sized: id \(firstThree.first ?? 0) B, access \(firstThree.dropFirst().first ?? 0) B, refresh \(firstThree.last ?? 0) B (kept in parts by Dozable)")
     check(d(["account", "default", "plan"]).out.contains("the default OpenAI account (Codex) is plan"), "doz account default plan → the OpenAI default")
 
     // ── 2. A Codex sandbox — the real Codex answers through the proxy ────────────────────────────────
@@ -358,7 +358,7 @@ func cliCodexSuite(binary: String) async {
     // ── 5. No silent fallback ─────────────────────────────────────────────────────────────────────────
     check(d(["account", "use", "cx", "none"]).code == 0, "doz account use cx none")
     r = ask("Hello?", timeout: 180)
-    check(r.code != 0 && (r.out + r.err).contains("no OpenAI account now"), "with no account, Codex gets Dozer's reason — never another credential (\((r.out + r.err).suffix(200).debugDescription))")
+    check(r.code != 0 && (r.out + r.err).contains("no OpenAI account now"), "with no account, Codex gets Dozable's reason — never another credential (\((r.out + r.err).suffix(200).debugDescription))")
     check(d(["account", "use", "cx", "plan"]).code == 0, "doz account use cx plan")
     r = ask("Back?")
     check(r.code == 0 && (r.out + r.err).contains("PONG-CHATGPT-"), "back on the sign-in: answered again")
@@ -407,8 +407,8 @@ func cliCodexSuite(binary: String) async {
     check(d(["account", "use", "cx", "mac"]).code == 0, "doz account use cx mac (this Mac's Codex login)")
     var snap = homeSnapshot()
     r = ask("Mac login, expired?", timeout: 180)
-    check(r.code != 0 && (r.out + r.err).contains("your Mac's Codex login has expired"), "an expired Mac login: Dozer's message, never another account (\((r.out + r.err).suffix(200).debugDescription))")
-    check(homeSnapshot() == snap, "Dozer did not write the Mac's Codex home")
+    check(r.code != 0 && (r.out + r.err).contains("your Mac's Codex login has expired"), "an expired Mac login: Dozable's message, never another account (\((r.out + r.err).suffix(200).debugDescription))")
+    check(homeSnapshot() == snap, "Dozable did not write the Mac's Codex home")
     check(macSignsIn(), "the Mac's Codex refreshes (the fake home gets fresh tokens)")
     snap = homeSnapshot()
     let macToken = ((try? JSONSerialization.jsonObject(with: Data(contentsOf: codexHome.appendingPathComponent("auth.json")))) as? [String: Any])
@@ -417,8 +417,8 @@ func cliCodexSuite(binary: String) async {
     check(r.code == 0 && (r.out + r.err).contains("PONG-CHATGPT-"), "after the Mac's refresh, Codex is answered at once — no account change, no host restart (\((r.out + r.err).suffix(160).debugDescription))")
     check(requests().contains { $0["auth"] as? String == "Bearer " + macToken }, "chatgpt.com got the Mac's access token, swapped in by the proxy")
     check(!requests().contains { $0["refresh_token"] as? String == "rt_mac_expired" } && requests().filter({ $0["grant"] as? String == "refresh_token" }).count == rotated,
-          "Dozer never refreshed the Mac's login (no refresh grant since)")
-    check(homeSnapshot() == snap, "Dozer did not write the Mac's Codex home")
+          "Dozable never refreshed the Mac's login (no refresh grant since)")
+    check(homeSnapshot() == snap, "Dozable did not write the Mac's Codex home")
     noTokenInGuest("on the Mac's Codex login")
     // The keep-alive: the login expires again; with codex.keep_alive on, the Mac's own (fake) codex doctor runs.
     macLoginExpires()

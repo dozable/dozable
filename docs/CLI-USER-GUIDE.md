@@ -276,7 +276,7 @@ doz new [--image I] [--name N] [--isolated] [-d]
 - **`doz new` — the quickest way in (599c).** Every default: the image `defaults.image`, the image's
   name (`claude-sandbox`; `-2`, `-3` when a sandbox has it or its folder is not empty), its workspace
   `<defaults.projects_dir>/<name>` (made), the default account and permissions. It prints what it
-  chose (`claude-sandbox-2 · claude-code · ~/dozer-sandbox-workspaces/claude-sandbox-2`),
+  chose (`claude-sandbox-2 · claude-code · ~/doz-workspaces/claude-sandbox-2`),
   starts it and attaches. `--image`, `--name`, `--isolated` and `-d` change just that one thing;
   `--json` answers `{name, image, workspace, phase, session, milliseconds}` without attaching. The
   prerequisites are `doz create`'s: pi's API-key account (on a terminal: chosen or added; off one: the
@@ -288,7 +288,7 @@ doz new [--image I] [--name N] [--isolated] [-d]
   claude-code`, `pi`, or `none` for a shell only) and the base — a recommended one (`--base node`,
   `python`, `go`, `rust`, `java`, `ruby`, `dotnet`, `debian`, `ubuntu`, `alpine`; `doz base ls` shows
   each image, its download and its first-prepare time) or **your own Dockerfile** (`--dockerfile
-  PATH`). Dozer adds its developer baseline and the agent on top — Claude Code as its standalone
+  PATH`). Dozable adds its developer baseline and the agent on top — Claude Code as its standalone
   native build on a base without Node (no Node is added for it), pi with Node under `/opt/node`. The
   image is named `<base>-<agent>` (`python-claude-code`; `debian` for no agent); `claude-code`, `pi`
   and `lab` are Node · Claude Code, Node · pi and Alpine · none, as before.
@@ -296,7 +296,7 @@ doz new [--image I] [--name N] [--isolated] [-d]
   installed and running; `doz builder install` opens Apple's signed installer package in macOS
   Installer (you approve it; doz never uses sudo); `doz builder start` starts its services (they
   register with launchd and run in the background). The Dockerfile's folder is the build context and
-  the workspace unless you give one. **Its `RUN` steps run in Apple's builder, outside Dozer's
+  the workspace unless you give one. **Its `RUN` steps run in Apple's builder, outside Dozable's
   network policy** — they reach the internet directly; the sandbox made from the image is under the
   policy as usual. An unchanged Dockerfile re-prepares in seconds and bakes nothing; a changed one is
   said ("Dockerfile changed — rebuild available"): `doz image bake df-…` rebuilds, `doz reset NAME`
@@ -322,7 +322,7 @@ doz new [--image I] [--name N] [--isolated] [-d]
   `isolated` (`--json`: `"workspace": null, "isolated": true`), and the agent is told.
   `--isolated` asks for it on purpose (no note; not together with `--workspace`). The web UI's New
   sandbox, Duplicate and the wizard default to a **Shared folder** instead —
-  `<defaults.projects_dir>/<name>`, `~/dozer-sandbox-workspaces/<name>` unless you set
+  `<defaults.projects_dir>/<name>`, `~/doz-workspaces/<name>` unless you set
   `defaults.projects_dir` (`doz config set defaults.projects_dir PATH`, or Settings › **Choose…** in
   the web UI — the Mac's folder picker, whose answer the server writes) — with **Isolated** one
   click away; `doz new` uses the same folder; `doz create` has no default folder, and `doz init`
@@ -474,7 +474,7 @@ doz-open --app Typora notes.md       # a named app — only one listed in bridge
 
 ### The tools layer
 
-`doz tools NAME` lists the tools Dozer manages in a sandbox because of its settings — `gh` (GitHub as you;
+`doz tools NAME` lists the tools Dozable manages in a sandbox because of its settings — `gh` (GitHub as you;
 pinned, downloaded once to the store's `tools/` with its sha256 checked, copied in over the host→guest
 path, removed when off), an ssh client + github.com's published host keys (SSH agent forwarding), tmux
 (`sessions.tmux`), and always git, curl and ca-certificates (apt/apk through the proxy when missing) — each
@@ -556,7 +556,7 @@ to find out — it was told nothing about where it runs. Now, **at every session
 renders from the sandbox's current facts (so it stays true after a duplicate, a policy edit or a
 new workspace) and writes into the guest:
 
-- a short **facts block**, appended to the agent's system prompt: that it is in a Dozer Sandbox (a
+- a short **facts block**, appended to the agent's system prompt: that it is in a Dozable sandbox (a
   Linux VM on the user's Mac, not a container) — name, image, CPUs, memory; `/workspace` shared from
   the Mac folder *X* (live) or **isolated** (no folder is shared with the Mac); the network (no interface; deny by default through
   the Mac's proxy; a refused host needs the user's rule — do not retry around it); credentials
@@ -568,7 +568,7 @@ new workspace) and writes into the guest:
   and how the user changes it, credentials, sleep and hibernate, the workspace, and what the agent
   cannot do from inside (take a restore point, change the policy, add a key — it asks the user).
 
-Dozer owns only those two; the agent's own memory files (`CLAUDE.md`, `AGENTS.md`,
+Dozable owns only those two; the agent's own memory files (`CLAUDE.md`, `AGENTS.md`,
 `APPEND_SYSTEM.md`) are never touched.
 
 ```bash
@@ -649,7 +649,7 @@ Codex sandboxes (`--agent codex`, image `codex` or `<base>-codex`) use OpenAI ac
 Anthropic one, and no Claude agent ever gets an OpenAI one:
 
 ```sh
-doz account add chatgpt --chatgpt       # Dozer's OWN ChatGPT sign-in: your browser opens (your Mac's ~/.codex is never touched)
+doz account add chatgpt --chatgpt       # Dozable's OWN ChatGPT sign-in: your browser opens (your Mac's ~/.codex is never touched)
 doz account add openai --openai-key     # an OpenAI API key (prompt or stdin)
 doz account default chatgpt             # the store's OpenAI default — what Codex sandboxes follow
 doz create cx --agent codex --base python
@@ -662,7 +662,7 @@ manual's [Codex](manual/24-codex.md) page has the details.
 
 ### The Mac's login: how renewal works
 
-Dozer reads only the **access token** of the Mac's Claude Code login, never the refresh token.
+Dozable reads only the **access token** of the Mac's Claude Code login, never the refresh token.
 The Mac's Claude Code is the one program that renews the login, so the two can never fork it. The
 access token lives about 8 hours. Claude Code renews it when a `claude` process runs on the Mac
 within 5 minutes of expiry; `claude auth status` does not renew it.
@@ -704,7 +704,7 @@ doz key policy NAME auto     # the default: strict for a setup-token or api-key 
 - **allow:** the request goes through. The net log says `own credential (oauth sk-ant-oat01…, fp
   ab12cd34ef56)`, `ls` marks the sandbox `own key`, `key ls` lists the fingerprints, and an event is
   recorded once per credential. A fingerprint is the first 12 hex of the credential's sha256,
-  never the value. Dozer's own credential is never added to a request that carries the guest's.
+  never the value. Dozable's own credential is never added to a request that carries the guest's.
 - **strict:** refused with 403 and an explanation that Claude Code shows. The Claude sign-in hosts
   are denied too, so a `/login` in the sandbox can't finish. This pins a sandbox to its account,
   for billing and multi-account setups.
@@ -749,7 +749,7 @@ connection against a policy and logs it.
 | `none` | no network at all | |
 
 Since 597 the proxied presets (`agent` = Standard, `locked`, `open`) are sets of **permissions**,
-below, stored by name — a Dozer update that adds a host to a permission reaches every sandbox that
+below, stored by name — a Dozable update that adds a host to a permission reaches every sandbox that
 has it. A sandbox made before 597 keeps its rules: `doz net NAME` shows them as the permissions they
 amount to, and its first permission change stores them as permissions (anything no permission covers
 stays as your own site rules).
@@ -762,7 +762,7 @@ permissions, each a switch:
 | permission | id | Standard |
 |---|---|---|
 | Talk to its AI model | `model` | always on |
-| Sign in | `sign-in` | off (Dozer's proxy supplies the credential) |
+| Sign in | `sign-in` | off (Dozable's proxy supplies the credential) |
 | Update itself | `update` | on |
 | Install software — system packages, Node, Python, Go, Rust, Java, Ruby, .NET | `install:system`, `install:node`, … (`install` = all) | system packages + your base's language |
 | Use GitHub | `github` | on |
@@ -785,7 +785,7 @@ doz create NAME --allow install:rust,site:api.example.com
 
 When the agent is refused something a permission would allow, `doz net NAME` (and the sandbox page
 in `doz ui`) says so — "the agent tried to install Python packages (PyPI), 3 times" — with the
-command (or button) that allows it. A sandbox stores its permissions by name, so a Dozer update that
+command (or button) that allows it. A sandbox stores its permissions by name, so a Dozable update that
 adds a host to "Update itself" fixes every sandbox that has it.
 
 The raw rules are still there:
@@ -961,7 +961,7 @@ host's progress, a card per image: Step N of M, the step under way, a download b
 output, estimates from this store's last run, the finished steps with their times;
 **Continue in the background** leaves it running, **Cancel preparation** stops it) **→ First
 sandbox** (optional: a name from the image — `claude-sandbox`, `pi-sandbox`, `lab-sandbox`, `-2`
-when taken — and its workspace: **Shared folder** `~/dozer-sandbox-workspaces/<name>` by
+when taken — and its workspace: **Shared folder** `~/doz-workspaces/<name>` by
 default, made when it does not exist, typed, pasted or picked with **Choose…** (the Mac's own folder
 picker) — or **Isolated**) **→ Done**. The settings file
 and your prompt template are written only when missing. The wizard is always reachable again from
@@ -990,7 +990,7 @@ What you can do from it:
 | **A sandbox** | The lifecycle; browser terminals; Open in Terminal; run a command in a new detached session; take a restore point, and revert, fork, save as a template, duplicate or delete one; **Duplicate…** and **Save as template…** (below); edit the network policy, with a preview of exactly what changes; set the key policy and the account; remove a key. |
 | **All sessions** | A live, read-only view of every session of every running sandbox (below). |
 | **Images** | Bake a built-in image; remove an image or a template. **Version** says an agent image's version (and a newer one available, and being prepared). **Own / Shared**: each image's own blocks and the blocks it reuses from the disk it was made from, as a size and a % of its size, in a two-colour bar. **Lineage** shows the tree. |
-| **Resources** | Everything Dozer uses, and deleting what has no other home (below). Its total size is beside it in the navigation. |
+| **Resources** | Everything Dozable uses, and deleting what has no other home (below). Its total size is beside it in the navigation. |
 | **Onboarding** | The setup wizard again (a dot beside it until this store is onboarded) — the same as Doctor › Run onboarding again. |
 | **Operations** | Every action this UI started, newest first, with its live progress, how long it took and its result; filter by sandbox. |
 | **Accounts & keys** | Make an account the default; verify one; remove one; keep-alive on or off. |
@@ -1042,13 +1042,13 @@ open it (Refresh measures again).
 **Resources** is `doz resources` as a page (595). It is an account first: every byte of the store
 on a row, grouped — Sandboxes (each one's root disk, state disk, snapshot, restore points, saved
 screens and boot logs), Images & templates, Caches (the download cache, base disks, the guest init,
-kernels, preparation leftovers), Logs & metrics, Stray files, Dozer's own records — and Outside the
+kernels, preparation leftovers), Logs & metrics, Stray files, Dozable's own records — and Outside the
 store (the settings file, the keychain entries by name, the CLI, project folders: shown, never
 deleted here). Each row has its size on disk, what deleting it would free (a clone frees only what
 it does not share) and what uses it, and links to where it is managed: an image to **Images**, a
 sandbox's parts to **its page**, accounts to **Accounts & keys**. The rows add up to the total
 (what `du` counts); a last row, **unattributed**, is what no row explains — it should be 0 and is
-red when it is not. The bar on top is Dozer's own total split into what it keeps, what **Clean up**
+red when it is not. The bar on top is Dozable's own total split into what it keeps, what **Clean up**
 would free and the blocks APFS clones share (which `du` counts again); the volume's free space is
 written beside it. Below: the memory each sandbox with a VM holds, the host's and this UI's, the
 CPUs given to sandboxes, each sandbox's proxy traffic (today and in all) and the kernels — with
@@ -1136,7 +1136,7 @@ permission prompt.
 |---|---|
 | **Where** | `http://127.0.0.1:<port>`: the port this store's last UI had when it is free, else one the system picks. Only this Mac can reach it. |
 | **Signing in** | The link it opens (or prints) works **once**, for **five minutes**. It signs that browser in until you sign out or leave it unused for 14 days (each visit renews it) — also across a restart of `doz ui` on the same port. Another browser or tab needs another link: `doz ui link`, or run `doz ui` again. A page that must sign in again says why and takes a pasted link (`doz ui link --print-url`) inside the page, keeping what it showed. Treat a printed link like a password — anyone with it signs in to your UI. |
-| **An installable app** | The page has a web app manifest: Chrome installs it (*Install Dozer Sandbox*), Safari adds it to the Dock. While `doz ui` is not running the app (or a reload) shows "Dozer isn't running on this Mac" — a service worker that keeps only that page; it never stores an answer of the dashboard — and comes back by itself. An app belongs to one port: set `ui.port` (a fixed port, 127.0.0.1 only; `0` = the last one when free). |
+| **An installable app** | The page has a web app manifest: Chrome installs it (*Install Dozable*), Safari adds it to the Dock. While `doz ui` is not running the app (or a reload) shows "Dozable isn't running on this Mac" — a service worker that keeps only that page; it never stores an answer of the dashboard — and comes back by itself. An app belongs to one port: set `ui.port` (a fixed port, 127.0.0.1 only; `0` = the last one when free). |
 | **Stopping** | Ctrl-C in the terminal that runs it. Signing out ends that browser's session; `doz ui --new-link` ends every one. Stopping `doz ui` keeps them for the next `doz ui` on the same port (below). |
 | **One per store** | Each store has at most one UI. `--store` (or `$DOZ_STORE`) picks the store, as for every command. |
 | **The host** | The UI is a client of the host, like the CLI. Looking never starts a host: with none running, the UI reads the store (nothing is live). It follows the host's events only while a sandbox is live, so an open UI never keeps an idle host from exiting. |

@@ -159,7 +159,7 @@ public struct CustomKey: Codable, Equatable, Sendable {
             throw HostError(.invalid, "--host \(h): an exact host name like api.example.com")
         }
         for h in hosts where KeyProviders.owning(host: h) != nil || GitHubAccess.credentialHosts.contains(h) || OpenAIAccess.isOpenAIHost(h) {
-            throw HostError(.invalid, "--host \(h) is a host Dozer already holds keys for — use that account kind instead")
+            throw HostError(.invalid, "--host \(h) is a host Dozable already holds keys for — use that account kind instead")
         }
         guard env.range(of: "^[A-Z][A-Z0-9_]{1,63}$", options: .regularExpression) != nil, !env.hasPrefix("DOZ_") else {
             throw HostError(.invalid, "--env-var: an upper-case variable name like EXAMPLE_API_KEY")

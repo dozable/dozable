@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "SMOLAGENTS_VERSION",
       "default" : "1.26.0",
-      "description" : "The smolagents release Dozer installs (its pin).",
+      "description" : "The smolagents release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -328,7 +328,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

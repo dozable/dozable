@@ -11,7 +11,7 @@
 // The image a pair makes is named as the host names it: claude-code / pi / lab keep their names.
 export const AGENTS = [['claude-code', 'Claude Code'], ['pi', 'pi'], ['codex', 'Codex'], ['none', 'none']];
 /// B9, the same words as the server's (`Dockerfiles.outsidePolicyNote`).
-export const DOCKERFILE_POLICY_NOTE = 'Dockerfile builds run in Apple’s builder (container build), OUTSIDE Dozer’s network policy: its RUN steps reach the internet directly, without Dozer’s proxy or allow list. The sandbox made from the image is under the policy as usual.';
+export const DOCKERFILE_POLICY_NOTE = 'Dockerfile builds run in Apple’s builder (container build), OUTSIDE Dozable’s network policy: its RUN steps reach the internet directly, without Dozable’s proxy or allow list. The sandbox made from the image is under the policy as usual.';
 /// 617 (owner: "split them"): every agent and tool a sandbox can be made of (the server's `bases.catalog`: id, title,
 /// kind, categories, its own base, musl) — known once a picker has read it. An agent on its own base is named by its id
 /// (`grok` = Debian · Grok Build), as the host names it.

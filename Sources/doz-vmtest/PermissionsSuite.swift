@@ -69,7 +69,7 @@ func cliPermissionsSuite(binary: String) async {
     }
     check(!reach("https://pypi.org/simple/"), "Standard on the node base: PyPI refused")
     check(!reach("https://example.com/"), "Standard: the web refused")
-    check(!reach("https://claude.ai/"), "Standard: sign-in hosts refused (Dozer's proxy supplies the credential)")
+    check(!reach("https://claude.ai/"), "Standard: sign-in hosts refused (Dozable's proxy supplies the credential)")
     rep = t.json(["net", "show", "qs"], PermissionReport.self)
     let py = rep?.suggestions.first { $0.grant == "install:python" }
     check(py != nil && py?.hosts.contains("pypi.org") == true, "the refusal is a suggestion: install:python (pypi.org, \(py?.count ?? 0) time(s))")

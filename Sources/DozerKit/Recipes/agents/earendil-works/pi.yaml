@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# pi — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/pi.json, which Dozer embeds).
+# pi — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/pi.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: earendil-works/pi
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The pi release Dozer installs (its pin).
+    description: The pi release Dozable installs (its pin).
     default: 0.84.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: PI_VERSION
@@ -144,7 +144,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://openrouter.ai/keys
-      note: 'pi''s own OpenRouter provider reads OPENROUTER_API_KEY (its docs/providers.md); Dozer gives its session --model openrouter/MODEL.'
+      note: 'pi''s own OpenRouter provider reads OPENROUTER_API_KEY (its docs/providers.md); Dozable gives its session --model openrouter/MODEL.'
       checked: '2026-10-16'
     - kind: api-key
       provider: vercel-ai-gateway

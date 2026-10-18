@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozer-recipe-2.schema.json",
-  "title": "Dozer Sandbox agent recipe (schema 2)",
-  "description": "One agent recipe: how Dozer Sandbox installs, launches and confines a coding agent. Laid out like a Docker Sandbox Kit v3 workload descriptor (its top-level fields and a capabilities list, Kit's own capability types where Kit has them, Dozer's additions under `dozer` keys and in com.dozersandbox/* types) so that exporting a Kit descriptor is mechanical. Strict: an unknown key anywhere is an error. The spec: docs/recipes/RECIPE-FORMAT.md.",
+  "title": "Dozable agent recipe (schema 2)",
+  "description": "One agent recipe: how Dozable installs, launches and confines a coding agent. Laid out like a Docker Sandbox Kit v3 workload descriptor (its top-level fields and a capabilities list, Kit's own capability types where Kit has them, Dozable's additions under `dozer` keys and in com.dozersandbox/* types) so that exporting a Kit descriptor is mechanical. Strict: an unknown key anywhere is an error. The spec: docs/recipes/RECIPE-FORMAT.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "kind", "id", "displayName", "description", "author", "sourceUrl", "licenses", "args", "provides", "capabilities"],
@@ -90,7 +90,7 @@
 
     "modelsCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/models@1: the model sources (providers and gateways) it can be tried with, and how a choice reaches its own settings. Dozer, never the recipe, owns the key's destination hosts.",
+      "description": "com.dozersandbox/models@1: the model sources (providers and gateways) it can be tried with, and how a choice reaches its own settings. Dozable, never the recipe, owns the key's destination hosts.",
       "properties": {
         "type": { "const": "com.dozersandbox/models@1" },
         "description": { "type": "string" },
@@ -126,7 +126,7 @@
 
     "networkPolicyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "Kit's network-policy@1. runtime.allow/deny are DERIVED (host:443 for the model's and vendor's hosts; for the excluded and quiet ones) and must equal what Dozer derives; Dozer's network is under dozer.",
+      "description": "Kit's network-policy@1. runtime.allow/deny are DERIVED (host:443 for the model's and vendor's hosts; for the excluded and quiet ones) and must equal what Dozable derives; Dozable's network is under dozer.",
       "properties": {
         "type": { "const": "com.docker.sandbox/network-policy@1" },
         "description": { "type": "string" },
@@ -180,7 +180,7 @@
 
     "credentialCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "Kit's credential@1. service is the key provider; apiKey is DERIVED from it (providers.json) and must equal what Dozer derives.",
+      "description": "Kit's credential@1. service is the key provider; apiKey is DERIVED from it (providers.json) and must equal what Dozable derives.",
       "properties": {
         "type": { "const": "com.docker.sandbox/credential@1" },
         "description": { "type": "string" },
@@ -228,7 +228,7 @@
 
     "agentContextCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "Kit's agent-context@1: where Dozer writes the facts the agent reads; how, under dozer.",
+      "description": "Kit's agent-context@1: where Dozable writes the facts the agent reads; how, under dozer.",
       "properties": {
         "type": { "const": "com.docker.sandbox/agent-context@1" },
         "description": { "type": "string" },
@@ -255,7 +255,7 @@
 
     "installCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/install@1: how Dozer installs the agent (the version is args.version).",
+      "description": "com.dozersandbox/install@1: how Dozable installs the agent (the version is args.version).",
       "properties": {
         "type": { "const": "com.dozersandbox/install@1" },
         "description": { "type": "string" },
@@ -301,7 +301,7 @@
 
     "launchCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/launch@1: how Dozer runs the agent.",
+      "description": "com.dozersandbox/launch@1: how Dozable runs the agent.",
       "properties": {
         "type": { "const": "com.dozersandbox/launch@1" },
         "description": { "type": "string" },
@@ -450,7 +450,7 @@
 
     "guideCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/guide@1: the companion guide — what it is, the first steps (the first with a command is the check turn), tips, docs, a notice. Dozer adds the sandbox's facts.",
+      "description": "com.dozersandbox/guide@1: the companion guide — what it is, the first steps (the first with a command is the check turn), tips, docs, a notice. Dozable adds the sandbox's facts.",
       "properties": {
         "type": { "const": "com.dozersandbox/guide@1" },
         "description": { "type": "string" },
@@ -467,7 +467,7 @@
               } } },
             "tips": { "type": "array", "maxItems": 6, "items": { "type": "string", "minLength": 1, "maxLength": 240 } },
             "docs": { "type": "string", "pattern": "^https://" },
-            "notice": { "type": "string", "minLength": 1, "maxLength": 200, "description": "One short line doz try says first: what the person meets at the first start that Dozer leaves to them." }
+            "notice": { "type": "string", "minLength": 1, "maxLength": 200, "description": "One short line doz try says first: what the person meets at the first start that Dozable leaves to them." }
           }
         }
       }
@@ -515,7 +515,7 @@
             "family": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,39}$" },
             "major": { "type": "integer", "minimum": 0, "maximum": 9999 },
             "title": { "type": "string", "minLength": 1, "maxLength": 40 },
-            "recommended": { "type": "boolean", "description": "The major NAME means: exactly one per family, moved across majors only by Dozer once the new major passes make recipe-check." }
+            "recommended": { "type": "boolean", "description": "The major NAME means: exactly one per family, moved across majors only by Dozable once the new major passes make recipe-check." }
           }
         }
       }

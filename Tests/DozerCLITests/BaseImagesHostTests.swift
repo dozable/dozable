@@ -203,7 +203,7 @@ final class BaseImagesHostTests: XCTestCase {
         let plan = try String(contentsOfFile: log, encoding: .utf8)
         XCTAssertTrue(plan.contains(ContainerTool.package.url) && plan.contains(ContainerTool.package.sha256) && plan.contains("com.apple.installer"))
         XCTAssertTrue(ContainerTool.installNote.contains("never uses sudo"))
-        XCTAssertTrue(Dockerfiles.outsidePolicyNote.contains("OUTSIDE Dozer's network policy"))
+        XCTAssertTrue(Dockerfiles.outsidePolicyNote.contains("OUTSIDE Dozable's network policy"))
     }
 
     /// 596 addendum: Apple's container storage is a row OUTSIDE the store — measured, broken down,
@@ -232,7 +232,7 @@ final class BaseImagesHostTests: XCTestCase {
         let top = try XCTUnwrap(items.first { $0.id == "outside:apple-container" })
         XCTAssertEqual(top.group, "outside")
         XCTAssertFalse(top.deletable)
-        XCTAssertTrue(top.refusal!.contains("container image prune") && top.refusal!.contains("Never deleted by Dozer"))
+        XCTAssertTrue(top.refusal!.contains("container image prune") && top.refusal!.contains("Never deleted by Dozable"))
         XCTAssertTrue(top.detail!.contains("container 1.2.2") && top.detail!.contains("services not running"))
         let parts = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         XCTAssertGreaterThan(parts["outside:apple-container/data/snapshots"]!.sizeBytes!, 64 << 10)
@@ -254,6 +254,6 @@ final class BaseImagesHostTests: XCTestCase {
         let report = Resources.inventory(store: store, facts: facts)
         XCTAssertNotNil(report.items.first { $0.id == "outside:apple-container" })
         XCTAssertEqual(report.unattributedBytes, 0)
-        XCTAssertLessThan(report.totalBytes, 64 << 10, "Apple's bytes are not Dozer's")
+        XCTAssertLessThan(report.totalBytes, 64 << 10, "Apple's bytes are not Dozable's")
     }
 }

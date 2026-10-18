@@ -12,7 +12,7 @@ import DozerWeb
 /// (items `doz account add` made are listed, with how to remove them) nor anything of Claude Code's.
 struct Uninstall: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Remove Dozer Sandbox from this Mac: the store, the settings and the installed doz — listed first, asked once.",
+        abstract: "Remove Dozable from this Mac: the store, the settings and the installed doz — listed first, asked once.",
         discussion: "Never the keychain and never Claude Code's own files. --keep-store and --keep-config leave those. A running doz ui for the store must be stopped first; a running host is stopped first (its sandboxes hibernate, then the store goes).")
 
     @OptionGroup var g: GlobalOptions
@@ -84,7 +84,7 @@ struct Uninstall: AsyncParsableCommand {
         } else if fm.fileExists(atPath: store.root.path) {
             guard store.root.path != "/", store.root.path != home else { throw fail(HostError(.invalid, "refusing to remove \(store.root.path)"), g) }
             guard Self.looksLikeStore(store.root) else {
-                throw fail(HostError(.invalid, "\(store.root.path) does not look like a Dozer store — not removing it (check --store / $DOZ_STORE)"), g)
+                throw fail(HostError(.invalid, "\(store.root.path) does not look like a Dozable store — not removing it (check --store / $DOZ_STORE)"), g)
             }
             let n = store.sandboxNames().count
             items.append(Item(path: store.root.path, what: "the store: \(n) sandbox\(n == 1 ? "" : "es"), every image, kernel and restore point, the host's log and metrics"))
@@ -163,9 +163,9 @@ struct Uninstall: AsyncParsableCommand {
         if g.json { Out.json(Report(removed: items, kept: kept, keychain: accounts)) }
         else if !failed {
             if let keg {
-                Out.stdout("Dozer Sandbox's store and settings are removed. Finish with: brew uninstall \(Self.formula(keg))   (then, if you like: brew untap \(Distribution.tap))\n")
+                Out.stdout("Dozable's store and settings are removed. Finish with: brew uninstall \(Self.formula(keg))   (then, if you like: brew untap \(Distribution.tap))\n")
             } else {
-                Out.stdout("Dozer Sandbox is removed from this Mac. (To install again: brew install \(Distribution.tap)/doz — or make install-cli in a source checkout — then doz onboard.)\n")
+                Out.stdout("Dozable is removed from this Mac. (To install again: brew install \(Distribution.tap)/doz — or make install-cli in a source checkout — then doz onboard.)\n")
             }
         }
         if failed { throw ExitCode(DozerExit.failed) }

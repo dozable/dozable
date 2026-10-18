@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Qwen Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/qwen-code.json, which Dozer embeds).
+# Qwen Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/qwen-code.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: qwenlm/qwen-code
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Qwen Code release Dozer installs (its pin).
+    description: The Qwen Code release Dozable installs (its pin).
     default: 0.25.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: QWEN_CODE_VERSION

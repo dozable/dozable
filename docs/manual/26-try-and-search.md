@@ -1,6 +1,6 @@
-# Trying agents, and what Dozer supports
+# Trying agents, and what Dozable supports
 
-`doz try` takes you from nothing to talking to an agent in one command. `doz search` tells you whether Dozer runs
+`doz try` takes you from nothing to talking to an agent in one command. `doz search` tells you whether Dozable runs
 something, and how. Both use the same choices as `doz new`, `doz create` and `doz up`, and `--dry-run` shows what any
 of them would make before anything is made.
 
@@ -19,8 +19,8 @@ doz try grok -d                    # make and start it, but don't attach (it is 
 
 A try is a throwaway sandbox with safe defaults:
 
-- **A new empty folder of its own** — Dozer makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
-  `~/dozer-sandbox-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
+- **A new empty folder of its own** — Dozable makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
+  `~/doz-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
   your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
   `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-grok /workspace/FILE` copies a file out —
   see [Terminals and sessions](07-terminals-and-sessions.md)); `--workspace DIR` uses a folder you choose.
@@ -29,7 +29,7 @@ A try is a throwaway sandbox with safe defaults:
   The try's first line says so:
 
   ```
-  try-grok · Debian · Grok Build · a new empty folder ~/dozer-sandbox-workspaces/try-grok (not one of yours), at
+  try-grok · Debian · Grok Build · a new empty folder ~/doz-workspaces/try-grok (not one of yours), at
   /workspace · copy to your Mac's clipboard: on · open files on your Mac: on · open links in your Mac's browser: on
   ```
 - **Locked, plus the agent's own model** — it can talk to its AI model and nothing else. `--permissions standard`
@@ -45,7 +45,7 @@ recipe:
 2. **A key you keep in 1Password, AWS Secrets Manager or a program** — `op://…`, `aws:arn:…`, or a command; read on
    your Mac when needed, never stored (see [Agents and accounts](09-agents-and-accounts.md)).
 3. **Signing in inside the agent** — offered only where that sign-in can work in a sandbox, and labelled: the sign-in
-   lives in that sandbox, and deleting the try deletes it. (Grok Build's own sign-in uses hosts Dozer keeps out, so
+   lives in that sandbox, and deleting the try deletes it. (Grok Build's own sign-in uses hosts Dozable keeps out, so
    it is shown, not offered.)
 
 It also says where to get a key. While you deal with the key, the image is already being prepared.
@@ -92,7 +92,7 @@ to where you opened it.
   models from many makers), each with its key status. Its own provider is chosen; choose any other the same way. The
   chosen one shows its key (a choice when you have several, or "Add another key"), or a field to paste one, where to get
   a key and the command for a key kept in 1Password, AWS or a program. Then **Model**: the source's own list —
-  a gateway's public list, read by Dozer on this Mac once a day — to search by name, maker or id, with each model's
+  a gateway's public list, read by Dozable on this Mac once a day — to search by name, maker or id, with each model's
   context and price per million tokens and the default marked; an id it does not list can still be typed. The plan
   names the model, and **Same in Terminal** is the command (`doz try pi --gateway openrouter --model …`). New Sandbox
   asks the same in its Account step, and writes the choice to `doz_project.yaml` (`model_source:`, `model:`).
@@ -115,12 +115,12 @@ there.
 Every agent and tool comes with a **guide**: what it is, the facts of your sandbox, the first steps and some tips.
 
 - **In the dashboard**, the sandbox page's details have a **Guide** tab — first, and open, on a try; last elsewhere. It
-  says what kind of thing it is and how to use it here; **This try**: its version (Dozer's pin), the provider and model
+  says what kind of thing it is and how to use it here; **This try**: its version (Dozable's pin), the provider and model
   with the account it uses (your key stays on the Mac), what the network lets it reach (with a link to Network), the
   folder and where its settings live; **Start here**: the first steps, each command with **Copy** and **Run** — Run
   types it into the sandbox's session and presses Enter (for an agent with its own screen, into a shell beside it: open
-  one with New shell), **Type** types a command you change first; **Good to know**: tips, its docs, and when Dozer last
-  checked the recipe. The first step is always the one Dozer checks the recipe with, so it is known to work.
+  one with New shell), **Type** types a command you change first; **Good to know**: tips, its docs, and when Dozable last
+  checked the recipe. The first step is always the one Dozable checks the recipe with, so it is known to work.
 - **In a terminal**, `doz guide NAME` prints the same (`--json` as data). `doz try` prints "Start here" before it
   attaches to a tool whose session is a shell, and the first login shell in such a sandbox shows the steps once.
 - **Fabric** comes with its patterns (some 260, from its own release, checksum-verified when the image is prepared):
@@ -153,12 +153,12 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
 
 - **active**: a release in the last 3 months; **quiet**: none for 3 months; **stale**: none for 6 months;
   **deprecated**: its maker marked that release deprecated (that wins).
-- The Dozer host looks up each agent's latest release about once an hour while it runs (the same check that keeps
+- The Dozable host looks up each agent's latest release about once an hour while it runs (the same check that keeps
   images up to date). Looking — `doz search`, `doz try`, the Quick try — never asks the internet; before the first
   check it says *not checked yet*.
-- A tool Dozer installs from one pinned release download or a hash-locked set of Python packages (Fabric, AIChat,
-  Goose, Crush, Tau, …) is not looked up: its line says the pin — *pinned 1.4.518 — Dozer installs exactly this
-  release* — and a newer one comes with a Dozer update.
+- A tool Dozable installs from one pinned release download or a hash-locked set of Python packages (Fabric, AIChat,
+  Goose, Crush, Tau, …) is not looked up: its line says the pin — *pinned 1.4.518 — Dozable installs exactly this
+  release* — and a newer one comes with a Dozable update.
 - **Superseded** agents still work and stay selectable; they are listed after the current ones, and `doz search` of
   one lists what replaces it too. `doz try` of one says so first. Today: **Antigravity CLI** (`doz try antigravity`,
   alias `agy`) is Google's lead agent; **Gemini CLI** is superseded by it.
@@ -166,7 +166,7 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
 ### Antigravity CLI
 
 Google's terminal agent, installed from Google's own release (checked against its published SHA-512), on Debian-based
-bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --provider google`); Dozer never offers the
+bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --provider google`); Dozable never offers the
 Google sign-in. Its approval prompts are off (`antigravity.permissions = ask` keeps them), its updater is off, and its
 telemetry setting is off. It reads Google's feature switches at start-up, and sends its usage log to
 `play.googleapis.com` every few seconds (its own setting does not stop it); both are allowed.
@@ -186,27 +186,27 @@ categories — `personal-agent`, `terminal-tool`, `framework`, `browser-agent`, 
 |---|---|
 | 0 | supported (or a plain `doz search`) |
 | 8 | supported, but not with what you asked (a base it does not run on) |
-| 6 | known, but not in this Dozer: coming, or not possible |
+| 6 | known, but not in this Dozable: coming, or not possible |
 | 2 | nothing by that name (it suggests the closest) |
 | 64 | usage |
 
 ## A tool's major version
 
 Some tools come in more than one major release line, each a recipe of its own — OpenCode 1 and OpenCode 2. The tool's
-name is the one Dozer recommends; you can always choose another:
+name is the one Dozable recommends; you can always choose another:
 
 ```sh
-doz try opencode                   # the major Dozer recommends (a release it checked)
+doz try opencode                   # the major Dozable recommends (a release it checked)
 doz try opencode@1                 # OpenCode 1, kept up to date within 1.x
 doz try opencode@2.0.28            # exactly that release (checked against the registry before anything is made)
 doz create my-app --agent opencode@1      # the same in new, create and up — and in doz_project.yaml: agent: opencode@1
 ```
 
-- **Recommended, never "latest"**: the recommended major is one whose recipe passed Dozer's checks; Dozer moves it to a
+- **Recommended, never "latest"**: the recommended major is one whose recipe passed Dozable's checks; Dozable moves it to a
   new major only once that one has.
 - **A sandbox keeps its major.** It records what it was made as (`opencode@2.0.29`). Later recommendations never move
   it, and a reset keeps its major. The other major is a new sandbox.
-- **A project file keeps its major too.** What Dozer writes for later — a plan's `doz_project.yaml`, `doz init`, New
+- **A project file keeps its major too.** What Dozable writes for later — a plan's `doz_project.yaml`, `doz init`, New
   Sandbox — records the major the name resolved to (`agent: opencode@2`), so `doz up` on it next year makes the same
   major. A file you write by hand with the bare name (`agent: opencode`) keeps meaning the recommended major; `doz up`
   says which one when it makes the sandbox.

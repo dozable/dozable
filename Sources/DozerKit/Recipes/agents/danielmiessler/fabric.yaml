@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Fabric — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/fabric.json, which Dozer embeds).
+# Fabric — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/fabric.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: danielmiessler/fabric
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The Fabric release Dozer installs (its pin).
+    description: The Fabric release Dozable installs (its pin).
     default: 1.4.518
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: FABRIC_VERSION
@@ -122,7 +122,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://aistudio.google.com/apikey
-      note: 'Fabric''s vendor and model come from DEFAULT_VENDOR and DEFAULT_MODEL, which Dozer sets for the chosen source (Gemini by default; GrokAI reads GROKAI_API_KEY too).'
+      note: 'Fabric''s vendor and model come from DEFAULT_VENDOR and DEFAULT_MODEL, which Dozable sets for the chosen source (Gemini by default; GrokAI reads GROKAI_API_KEY too).'
       checked: '2026-10-14'
     - kind: api-key
       provider: anthropic
@@ -235,7 +235,7 @@ capabilities:
     - text: "See the patterns it has."
       command: "fabric -l"
     - text: "Summarise some text with one."
-      command: "echo \"Dozer runs each agent in its own VM\" | fabric -p summarize"
+      command: "echo \"Dozable runs each agent in its own VM\" | fabric -p summarize"
     - text: "Use a file from your folder — put it there first, then change the name:"
       command: "fabric -p extract_wisdom < notes.md"
       edit: true

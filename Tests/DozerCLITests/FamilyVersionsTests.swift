@@ -121,7 +121,7 @@ final class FamilyVersionsTests: XCTestCase {
                                                 network: "x", workspace: nil, trial: true))
         let v = try XCTUnwrap(g.facts.first { $0.id == "version" }?.value)
         XCTAssertTrue(v.hasPrefix("OpenCode 2 2.0.28"), v)
-        XCTAssertFalse(v.contains("Dozer's pin"), "2.0.28 is not the pin: " + v)
+        XCTAssertFalse(v.contains("Dozable's pin"), "2.0.28 is not the pin: " + v)
         XCTAssertTrue(v.contains("OpenCode 1: doz try opencode"), v)
         XCTAssertFalse(v.lowercased().contains("latest"))
     }

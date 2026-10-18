@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "OMP_VERSION",
       "default" : "18.10.4",
-      "description" : "The oh-my-pi release Dozer installs (its pin).",
+      "description" : "The oh-my-pi release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -67,7 +67,7 @@
             },
             {
               "host" : "build.stencil.so",
-              "reason" : "oh-my-pi's release check when it starts (Dozer installs the pinned release); it carries on without it"
+              "reason" : "oh-my-pi's release check when it starts (Dozable installs the pinned release); it carries on without it"
             },
             {
               "host" : "catalog.stencil.so",
@@ -225,7 +225,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "oh-my-pi's built-in providers, each reading its key from the environment; Dozer puts the model on its command line (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).",
+            "note" : "oh-my-pi's built-in providers, each reading its key from the environment; Dozable puts the model on its command line (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).",
             "provider" : "xai"
           },
           {
@@ -370,7 +370,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs oh-my-pi's glibc build; its musl build is a separate download, not used yet"
+            "reason" : "Dozable installs oh-my-pi's glibc build; its musl build is a separate download, not used yet"
           }
         ],
         "platforms" : {

@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "DROID_VERSION",
       "default" : "0.240.1",
-      "description" : "The Factory Droid release Dozer installs (its pin).",
+      "description" : "The Factory Droid release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -286,7 +286,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Factory's own models and account need its servers, which airgap mode keeps out; Dozer does not offer them yet."
+            "note" : "Factory's own models and account need its servers, which airgap mode keeps out; Dozable does not offer them yet."
           }
         ]
       },

@@ -1,4 +1,4 @@
-# Dozer Sandbox settings (doz.toml)
+# Dozable settings (doz.toml)
 #
 # Every setting is listed with its default, commented out: `# key = default`. Uncomment a line
 # to set it. An agent or tool's own settings appear once one of them is set (see [images]).
@@ -122,7 +122,7 @@
 # (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz serve starts again)
 # trusted_proxies = ""
 
-# Announce doz serve on your network with Bonjour ("Dozer on <this Mac>", http://<this
+# Announce doz serve on your network with Bonjour ("Dozable on <this Mac>", http://<this
 # Mac>.local:<port>), so other Macs and phones can find it.
 # (boolean; applies when doz serve starts again)
 # advertise = true
@@ -197,7 +197,7 @@
 # is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings ›
 # Choose… sets it with the Mac's folder picker.
 # (path ("" = automatic); applies to sandboxes created from now on (the host reads it at create))
-# projects_dir = "~/dozer-sandbox-workspaces"
+# projects_dir = "~/doz-workspaces"
 
 # The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or
 # none. doz account default decides for a store once it has.
@@ -207,7 +207,7 @@
 # What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard
 # (talk to its AI model, update itself, install system packages and its base's language packages,
 # use GitHub, send error reports), locked (its AI model only), open (everything, the web
-# included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update
+# included), or standard with changes like +web,-error-reports. Stored by name: a Dozable update
 # that adds a host to a permission reaches every sandbox that has it.
 # (standard | locked | open, or permissions like +web,-error-reports (doz net permissions); flag doz create --allow / --network; applies to sandboxes created from now on (the host reads it at create))
 # permissions = "standard"
@@ -246,7 +246,7 @@
 [telemetry]
 
 # Official builds send anonymous usage statistics: at most once a day, counts and ranges about how
-# Dozer itself is used (commands by name, failures by exit code, which agents, bases and network
+# Dozable itself is used (commands by name, failures by exit code, which agents, bases and network
 # presets new sandboxes use, setup sizes as ranges, start and wake times rounded to 50 ms, how
 # long sandboxes ran and slept as ranges, which features were used, this Mac's macOS version, chip
 # family, memory and cores as ranges) with a random install id — never a name, path, host, command
@@ -320,13 +320,13 @@
 
 [sessions]
 
-# Run each new session inside tmux (within Dozer's own session holder, so saved screens, sleep and
-# wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy mode,
-# its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard protocol
-# and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's. Needs tmux
-# in the image (the built-in images this doz prepares have it; on an image an older doz prepared
-# the session runs without it, and says so). A sandbox's own choice (doz create --tmux, tmux: true
-# in doz_project.yaml, doz config set --sandbox) wins over this.
+# Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep
+# and wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy
+# mode, its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard
+# protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's.
+# Needs tmux in the image (the built-in images this doz prepares have it; on an image an older doz
+# prepared the session runs without it, and says so). A sandbox's own choice (doz create --tmux,
+# tmux: true in doz_project.yaml, doz config set --sandbox) wins over this.
 # (boolean; flag doz create --tmux / --no-tmux; applies to sessions opened from now on)
 # tmux = false
 
@@ -352,7 +352,7 @@
 # (lock | hide; flag doz create --ignore-mode lock|hide; applies at each sandbox's next start or wake)
 # ignore_mode = "lock"
 
-# How a sandbox's workspace folder reaches it. on: through Dozer's live view of the folder, so a
+# How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a
 # program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from
 # hibernation or after a host restart. The view costs a little: the first scan of a big folder
 # after a start or a wake is slower (e.g. git status on a large repository, or find), later ones
@@ -370,8 +370,8 @@
 # gh login, read when used — gh auth token — and kept in memory a few minutes, never written
 # anywhere; gh auth logout revokes it), key (only a token you give a sandbox with doz key set NAME
 # --github — a fine-grained token limited to some repositories is best), or off (never, even with
-# the permission on). The sandbox only ever sees a placeholder; Dozer's proxy puts the real token
-# in on the way to GitHub.
+# the permission on). The sandbox only ever sees a placeholder; Dozable's proxy puts the real
+# token in on the way to GitHub.
 # (gh | key | off; applies at once (the UI re-reads it))
 # credentials = "gh"
 

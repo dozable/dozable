@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Tau — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/tau.json, which Dozer embeds).
+# Tau — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/tau.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: huggingface/tau
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The Tau release Dozer installs (its pin).
+    description: The Tau release Dozable installs (its pin).
     default: 0.4.7
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: TAU_VERSION
@@ -144,7 +144,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Tau''s own providers (its catalogue), each reading its key from the environment; Dozer puts the provider and model on its command line (--provider xai -m grok-build-0.1 on xAI, the default).'
+      note: 'Tau''s own providers (its catalogue), each reading its key from the environment; Dozable puts the provider and model on its command line (--provider xai -m grok-build-0.1 on xAI, the default).'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

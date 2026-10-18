@@ -134,7 +134,7 @@ extension HostCore {
         case .command(let p, let args):
             guard p.hasPrefix("/"), FileManager.default.isExecutableFile(atPath: p) else { throw HostError(.invalid, "--from-command: \(p) is not an executable file") }
             let real = URL(fileURLWithPath: p).resolvingSymlinksInPath().path, storeRoot = store.root.resolvingSymlinksInPath().path
-            guard !(real == storeRoot || real.hasPrefix(storeRoot + "/")) else { throw HostError(.invalid, "--from-command: a program inside Dozer's store is refused") }
+            guard !(real == storeRoot || real.hasPrefix(storeRoot + "/")) else { throw HostError(.invalid, "--from-command: a program inside Dozable's store is refused") }
             for a in args where a.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) || a.count > 1024 {
                 throw HostError(.invalid, "--from-command: an argument holds a control character")
             }

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# promptfoo — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/promptfoo.json, which Dozer embeds).
+# promptfoo — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/promptfoo.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: promptfoo/promptfoo
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The promptfoo release Dozer installs (its pin).
+    description: The promptfoo release Dozable installs (its pin).
     default: '0.124.1'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: PROMPTFOO_VERSION
@@ -196,7 +196,7 @@ capabilities:
       - promptfoo eval -c CONFIG
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/promptfoo)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "promptfoo evaluates and red-teams prompts and LLM apps from a config of prompts, providers and tests. It runs in your shell and exits."

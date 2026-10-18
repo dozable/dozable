@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# smolagents — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/smolagents.json, which Dozer embeds).
+# smolagents — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/smolagents.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: huggingface/smolagents
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The smolagents release Dozer installs (its pin).
+    description: The smolagents release Dozable installs (its pin).
     default: '1.26.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: SMOLAGENTS_VERSION
@@ -236,7 +236,7 @@ capabilities:
       - smolagent PROMPT --model-type OpenAIModel --model-id MODEL --api-base URL
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/smolagents)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "smolagents is Hugging Face's library for agents that write and run Python; `smolagent` runs one task from your shell."

@@ -122,7 +122,7 @@ public enum Access {
             return (nil, "no GitHub key is set — doz access set --github-key (or the Access step)")
         default:
             let r = GitHubLogin.ghToken(environment: environment)
-            return (r.secret, r.notice.map { $0.replacingOccurrences(of: "Dozer: \"Use GitHub as you\" is on, but ", with: "") })
+            return (r.secret, r.notice.map { $0.replacingOccurrences(of: "Dozable: \"Use GitHub as you\" is on, but ", with: "") })
         }
     }
 }

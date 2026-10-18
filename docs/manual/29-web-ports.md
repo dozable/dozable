@@ -26,11 +26,11 @@ Overview tab lists every forward with its state.
 ## When it listens
 
 A forward listens **while the sandbox runs**. When the sandbox stops, sleeps or hibernates, its listeners close at
-once; when it starts or wakes again — and after Dozer itself restarts — they come back by themselves. `doz ports`
+once; when it starts or wakes again — and after Dozable itself restarts — they come back by themselves. `doz ports`
 says `stopped` until then.
 
 The port on your Mac is the sandbox's own when it is free. When another program on your Mac already uses it (or it is
-below 1024), Dozer picks a free one, says so (`moved`), and keeps it for next time.
+below 1024), Dozable picks a free one, says so (`moved`), and keeps it for next time.
 
 ## What a forward can and cannot do
 
@@ -38,10 +38,10 @@ below 1024), Dozer picks a free one, says so (`moved`), and keeps it for next ti
   it, as they can any local server — a tool with its own sign-in still asks for it.
 - **Inbound only.** It carries your browser's requests to the program in the sandbox. It does not let the sandbox
   reach anything: what the program itself may reach is still decided by the sandbox's [network](10-permissions-and-network.md).
-- **No key crosses it.** Your keys are swapped in by Dozer's proxy only on the sandbox's own outbound requests; a
+- **No key crosses it.** Your keys are swapped in by Dozable's proxy only on the sandbox's own outbound requests; a
   forward never touches them. A page that shows its environment shows a placeholder, which is useless anywhere else.
 - **From another device** (the dashboard through [`doz serve`](25-doz-serve.md)), `127.0.0.1` is that device, not your
   Mac: the button says the port is on the Mac instead of opening it there.
 
-How it works: each connection your browser makes is relayed into the sandbox by Dozer's small helper there, to the
+How it works: each connection your browser makes is relayed into the sandbox by Dozable's small helper there, to the
 program's own `localhost`. A program that listens on `127.0.0.1` or `0.0.0.0` inside the sandbox both work.

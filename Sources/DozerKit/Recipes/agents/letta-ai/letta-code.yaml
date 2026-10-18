@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Letta Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/letta-code.json, which Dozer embeds).
+# Letta Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/letta-code.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: letta-ai/letta-code
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Letta Code release Dozer installs (its pin).
+    description: The Letta Code release Dozable installs (its pin).
     default: 0.34.13
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: LETTA_CODE_VERSION
@@ -142,7 +142,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Letta Code''s local backend (--backend local, no Letta account) with its own providers, each reading its key from the environment; Dozer puts the model on its command line (-m xai/grok-4.3 on xAI, the default — grok-build-0.1 is not in its catalogue).'
+      note: 'Letta Code''s local backend (--backend local, no Letta account) with its own providers, each reading its key from the environment; Dozable puts the model on its command line (-m xai/grok-4.3 on xAI, the default — grok-build-0.1 is not in its catalogue).'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic
@@ -182,7 +182,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a Letta Cloud account
       in_sandbox: false
-      note: Letta Cloud's agents and memory sync need its sign-in; Dozer does not offer it yet.
+      note: Letta Cloud's agents and memory sync need its sign-in; Dozable does not offer it yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:

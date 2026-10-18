@@ -16,7 +16,7 @@ struct TryCommand: AsyncParsableCommand {
         abstract: "Try an agent now: a throwaway sandbox with safe defaults — made, started and attached in one command.",
         discussion: """
         doz try grok · doz try gemini --base python · doz try (a numbered list of the agents, with your keys). \
-        A try works in a NEW EMPTY folder Dozer makes under your projects folder (try-AGENT — never one of yours), shared \
+        A try works in a NEW EMPTY folder Dozable makes under your projects folder (try-AGENT — never one of yours), shared \
         at /workspace, so what the agent makes is on your Mac; copying to your Mac's clipboard and opening files and links \
         on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
         installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \

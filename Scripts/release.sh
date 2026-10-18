@@ -213,7 +213,7 @@ if [[ -z "$DRY_RUN" ]]; then
     if [[ "$PUBLIC" == 1 ]]; then
         said="$(env -u DOZ_TEST_PUBLIC_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$STAGE/bin/doz" account add x --chatgpt --store "$chk/store" 2>&1 </dev/null || true)"
         rm -rf "$chk"
-        grep -q "does not include Dozer's own ChatGPT sign-in" <<<"$said" || fail "the packed doz is not the public flavor (doz account add --chatgpt did not refuse: $said)"
+        grep -q "does not include Dozable's own ChatGPT sign-in" <<<"$said" || fail "the packed doz is not the public flavor (doz account add --chatgpt did not refuse: $said)"
         [[ ! -e "$STAGE/libexec/doz/kernels" ]] || fail "a public build carries no sound kernel"
         say "  flavor: public (no ChatGPT sign-in of its own, no sound kernel)"
     else

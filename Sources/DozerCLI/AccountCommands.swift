@@ -18,7 +18,7 @@ struct AccountCommand: AsyncParsableCommand {
         mac (built in) is this Mac's own Claude Code login: nothing to add, renewed while Claude Code runs on the Mac. \
         A `claude setup-token` token lasts a year and needs no Mac: doz account add work --setup-token (paste it). \
         Codex uses OpenAI accounts only: mac — this Mac's own Codex login, read-only, nothing to add (the default when Codex is signed in \
-        on this Mac) — or \(BuildFlavor.current.chatgptSignIn ? "doz account add NAME --chatgpt (Dozer's own sign-in, in your browser) or --openai-key" : "an OpenAI API key: doz account add NAME --openai-key"). A sandbox follows the store's default account (mac out of the box; for Codex the default OpenAI account) \
+        on this Mac) — or \(BuildFlavor.current.chatgptSignIn ? "doz account add NAME --chatgpt (Dozable's own sign-in, in your browser) or --openai-key" : "an OpenAI API key: doz account add NAME --openai-key"). A sandbox follows the store's default account (mac out of the box; for Codex the default OpenAI account) \
         unless it pins one: doz account use NAME ACCOUNT.
         """,
         subcommands: [AccountList.self, AccountShow.self, AccountAdd.self, AccountVerify.self, AccountRefresh.self, AccountRemove.self,
@@ -63,7 +63,7 @@ struct AccountAdd: AsyncParsableCommand {
         discussion: """
         claude setup-token  then  doz account add work --setup-token --plan max  (paste the token). The token is checked with one tiny request and kept in the login keychain as doz-claude:NAME.
         """ + " " + (BuildFlavor.current.chatgptSignIn ? """
-        doz account add chatgpt --chatgpt  opens your browser on OpenAI's sign-in: Dozer's OWN sign-in for Codex sandboxes (kept in the keychain as doz-chatgpt:NAME and renewed by Dozer; \
+        doz account add chatgpt --chatgpt  opens your browser on OpenAI's sign-in: Dozable's OWN sign-in for Codex sandboxes (kept in the keychain as doz-chatgpt:NAME and renewed by Dozable; \
         the sandbox only ever sees placeholders). Your Mac's own Codex login (~/.codex) is never read or changed.
         """ : """
         doz account add openai --openai-key  (paste the key) for Codex sandboxes; or use this Mac's own Codex login, the built-in account mac (read-only — ~/.codex is never changed).
@@ -74,7 +74,7 @@ struct AccountAdd: AsyncParsableCommand {
     @Flag(name: .long, help: "An Anthropic API key.") var apiKey = false
     @Flag(name: .long, help: "The Mac's Claude login of another config dir (--config-dir).") var claudeLogin = false
     @Flag(name: .long, help: "An OpenAI API key (Codex).") var openaiKey = false
-    @Flag(name: .long, help: ArgumentHelp("Sign in with ChatGPT in your browser (Codex on your ChatGPT plan) — Dozer's own sign-in, not your Mac's Codex login.",
+    @Flag(name: .long, help: ArgumentHelp("Sign in with ChatGPT in your browser (Codex on your ChatGPT plan) — Dozable's own sign-in, not your Mac's Codex login.",
                                           visibility: BuildFlavor.current.chatgptSignIn ? .default : .hidden)) var chatgpt = false
     @Option(name: .long, help: "An API key of this provider or gateway: xai, google, google-stitch, openrouter, vercel-ai-gateway; anthropic = --api-key, openai = --openai-key.") var provider: String?
     @Option(name: .long, help: "With --claude-login: the CLAUDE_CONFIG_DIR it uses.") var configDir: String?

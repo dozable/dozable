@@ -43,7 +43,7 @@ public struct WebPlanQuery: Equatable, Sendable {
         if let v = d["agent"], !(v is NSNull) {
             // 618: NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28) — refused with a fixed message.
             guard let s = v as? String, s.count <= 60, s == "none" || ((try? AgentRef.resolve(s)) ?? nil) != nil else {
-                throw WebAction.Invalid("agent: an agent this Dozer has (doz search lists them), or NAME@MAJOR / NAME@VERSION")
+                throw WebAction.Invalid("agent: an agent this Dozable has (doz search lists them), or NAME@MAJOR / NAME@VERSION")
             }
             q.agent = s
         }

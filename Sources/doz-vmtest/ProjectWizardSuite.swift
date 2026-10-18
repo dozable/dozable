@@ -118,7 +118,7 @@ func cliProjectWizardSuite(binary: String) async {
         for i in 1...10 { check(text.contains("Step \(i) of 10") || (i == 10 && text.contains("— Review")), "it said Step \(i) of 10") }
         check(text.contains("Workspace rules") && text.contains("not a security boundary") && text.contains("This folder's rules: none — the folder is shared as is"),
               "the rules step: what they do, what they are not, and that this folder has none")
-        check(text.contains("# doz_project.yaml — a Dozer Sandbox project"), "it showed the file before writing it")
+        check(text.contains("# doz_project.yaml — a Dozable project"), "it showed the file before writing it")
     } catch {
         check(false, "a pseudo-terminal for doz init: \(error)")
     }

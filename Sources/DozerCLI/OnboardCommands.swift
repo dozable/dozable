@@ -107,7 +107,7 @@ struct OnboardingFlow {
 
     func run() async throws -> OnboardReport {
         let store = g.dozerStore
-        say("Dozer Sandbox — setting up this Mac (once). Store: \(store.root.path)\n")
+        say("Dozable — setting up this Mac (once). Store: \(store.root.path)\n")
 
         // 1. Checks (D5): the doctor's, hard ones stop here.
         let rows = try decode(try await query(HostRequest(.imageList), g), [ImageRow].self, g)
@@ -416,7 +416,7 @@ func followingCall(_ r: HostRequest, _ g: GlobalOptions,
 
 struct Onboard: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Set up this Mac for Dozer Sandbox (once): check it, choose and confirm Access (the Claude account, GitHub, the SSH agent), choose what workspace rules do, write the settings, prepare images in the background.",
+        abstract: "Set up this Mac for Dozable (once): check it, choose and confirm Access (the Claude account, GitHub, the SSH agent), choose what workspace rules do, write the settings, prepare images in the background.",
         discussion: """
         Re-running is safe: it checks again, leaves existing settings alone and prepares only what is \
         missing. The images are prepared by the host: Ctrl-C detaches (the preparation goes on), \
@@ -440,7 +440,7 @@ struct Onboard: AsyncParsableCommand {
     @Flag(name: .long, help: "Read a GitHub token from stdin as the default key (implies --github-source key).") var githubKeyStdin = false
     @Option(name: .long, help: "The Access step's SSH choice without asking: on or off (forward this Mac's ssh-agent, github.com only).") var sshAgent: String?
     @Option(name: .long, help: "The Workspace rules step without asking: lock or hide — what a .dozignore in a sandbox's folder does to the paths it lists, by default (the setting workspace.ignore_mode). Lock: listed but unreadable; hide: not there.") var ignoreMode: String?
-    @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozer's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
+    @Option(name: .long, help: "Codex's OpenAI account without asking: mac (this Mac's own Codex login, read-only), chatgpt (sign in with ChatGPT in your browser — Dozable's own sign-in), openai-key (pasted at a no-echo prompt) or later.") var openaiAccount: String?
     @Option(name: .long, help: "The Usage statistics step without asking (official builds): on or off — off sets telemetry.send_anonymous_usage_stats = false. Without it, --yes and no terminal leave the setting as it is.") var usageStats: String?
     @Flag(name: [.short, .long], help: "Accept every default; ask nothing. A credential that cannot be confirmed is skipped with a note (exit 0).") var yes = false
 

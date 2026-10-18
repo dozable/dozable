@@ -97,7 +97,7 @@ function wizardNode() {
   const foot = last && last.classList && last.classList.contains('wiz-buttons') ? body.pop() : null;
   if (foot) foot.classList.add('w-foot');
   return h('div', { class: 'wizard', 'data-step': String(w.step) },
-    wizHead('Set up Dozer Sandbox', ['Once for this Mac (store ', h('code', null, $('store-path').textContent), '). The same as ', h('code', null, 'doz onboard'), ' in a terminal.'],
+    wizHead('Set up Dozable', ['Once for this Mac (store ', h('code', null, $('store-path').textContent), '). The same as ', h('code', null, 'doz onboard'), ' in a terminal.'],
       [], { list: stepper, compact }),
     h('section', { class: 'wiz-card wiz-body' }, h('div', { class: 'w-body' }, body,
       w.error ? callout('bad', { compact: true, body: w.error, attrs: { 'data-wiz-error': '' }, dismiss: () => { w.error = null; renderWizard(true); } }) : null), foot));
@@ -126,7 +126,7 @@ function wizStep0(d) {
   }
   return [
     h('h2', null, 'Welcome'),
-    h('p', null, 'Dozer Sandbox runs each project in its own small Linux virtual machine on this Mac — an agent like Claude Code works there, not on your Mac. A sandbox pauses in a millisecond, hibernates to disk and wakes in a third of a second.'),
+    h('p', null, 'Dozable runs each project in its own small Linux virtual machine on this Mac — an agent like Claude Code works there, not on your Mac. A sandbox pauses in a millisecond, hibernates to disk and wakes in a third of a second.'),
     h('p', null, 'Setting up takes a few minutes, once: this Mac is checked, you choose how sandboxes reach Claude, the settings file is written, and the images you pick are downloaded and prepared — in the background, so the first sandbox starts in seconds instead of minutes.'),
     wizButtons(btn('Get started', () => wizGo(1), { primary: true })),
   ];
@@ -270,14 +270,14 @@ function wizCodexAccount(w) {
     if (w.codexMac) {
       // rc.3: Codex is signed in on this Mac — the least setup: nothing to add.
       box.replaceChildren(callout('ok', { cls: 'notice', attrs: { 'data-codex-mac': '' }, title: 'Codex is signed in on this Mac',
-        body: [h('span', null, 'Codex sandboxes use that login (the account mac) — nothing is copied: Dozer reads only its short-lived access token, and the Mac’s Codex renews it. '
+        body: [h('span', null, 'Codex sandboxes use that login (the account mac) — nothing is copied: Dozable reads only its short-lived access token, and the Mac’s Codex renews it. '
           + 'Keep Codex running on this Mac, or turn on Settings › codex.keep_alive, so it stays fresh. Another account can still be chosen per sandbox.')] }));
       return;
     }
     box.replaceChildren(...[h('h3', null, 'Codex account (OpenAI)'),
       h('p', { class: 'muted' }, state.chatgptSignIn
-        ? 'Codex uses your ChatGPT plan (Dozer signs in on this Mac — your Mac’s own Codex login is not touched) or an OpenAI API key. Either can be added later; a codex sandbox says what it needs.'
-        : 'Codex uses this Mac’s own Codex login (sign in with codex on this Mac — Dozer only reads it) or an OpenAI API key. Either can be added later; a codex sandbox says what it needs.'),
+        ? 'Codex uses your ChatGPT plan (Dozable signs in on this Mac — your Mac’s own Codex login is not touched) or an OpenAI API key. Either can be added later; a codex sandbox says what it needs.'
+        : 'Codex uses this Mac’s own Codex login (sign in with codex on this Mac — Dozable only reads it) or an OpenAI API key. Either can be added later; a codex sandbox says what it needs.'),
       state.chatgptSignIn ? accountCommandsNode('chatgpt') : null,
       secretEntryAllowed() ? accountForm({ kind: 'openai-key', name: 'openai', onAdded: async (r, name) => {
         try { await actOrThrow({ action: 'account-default', account: name }); } catch (e) { w.error = e.message || String(e); }
@@ -363,7 +363,7 @@ function wizStep5(d, w) {
   } else create.disabled = true;
   return [
     h('h2', null, 'First sandbox (optional)'),
-    h('p', { class: 'sub' }, 'A sandbox for one project. Its workspace is a folder on this Mac, shared live at /workspace — Dozer makes it when it does not exist yet. Or Isolated: nothing is shared. It is created off; Start boots it.'),
+    h('p', { class: 'sub' }, 'A sandbox for one project. Its workspace is a folder on this Mac, shared live at /workspace — Dozable makes it when it does not exist yet. Or Isolated: nothing is shared. It is created off; Start boots it.'),
     h('label', { class: 'field' }, h('span', null, 'Name'), name),
     picker.el,
     acct ? acct.el : null,
@@ -411,9 +411,9 @@ function wizStepUsage(d, w) {
 /// official build's package sends it; a confirmation email comes first. Nothing is pre-filled or pre-ticked; Skip
 /// moves on. The address is never kept in the page after the request.
 const SIGNUP_INTERESTS = [['release-news', 'Release news', 'A short email when a new version is out.'],
-  ['tool-news', 'Tool news', 'New and updated tools you can try in Dozer.'],
+  ['tool-news', 'Tool news', 'New and updated tools you can try in Dozable.'],
   ['early-access', 'Early access', 'Try new features before they are released.'],
-  ['tips', 'Tips and tricks', 'Ways to get more out of Dozer, now and then.']];
+  ['tips', 'Tips and tricks', 'Ways to get more out of Dozable, now and then.']];
 function wizStepSignup(d, w) {
   if (w.signedUp) {
     return [
@@ -447,7 +447,7 @@ function wizStepSignup(d, w) {
   }, { primary: true });
   return [
     h('h2', null, 'Stay in touch (optional)'),
-    h('p', { class: 'sub' }, 'Release news, early access and tips and tricks from the people who make Dozer — by email, only what you tick. A confirmation email comes first; every email has a one-click unsubscribe. Your address is never linked to the usage statistics.'),
+    h('p', { class: 'sub' }, 'Release news, early access and tips and tricks from the people who make Dozable — by email, only what you tick. A confirmation email comes first; every email has a one-click unsubscribe. Your address is never linked to the usage statistics.'),
     h('label', { class: 'field' }, h('span', null, 'Email'), email),
     h('fieldset', { class: 'wiz-choices' }, h('legend', null, 'What would you like?'), boxes.map((x) => x.el)),
     error,
@@ -477,7 +477,7 @@ function wizStep6(d, w) {
       c ? fileLine('Settings', c.settings, c.settingsPath) : null,
       c ? fileLine('Your environment prompt template', c.promptTemplate, c.promptTemplatePath) : null,
       // 599c: where Quick add, New sandbox and doz new put each sandbox's workspace folder.
-      h('li', { 'data-wiz-projects': '' }, 'Workspace folders of new sandboxes: ', h('code', null, setting('defaults.projects_dir', '~/dozer-sandbox-workspaces') + '/<name>'),
+      h('li', { 'data-wiz-projects': '' }, 'Workspace folders of new sandboxes: ', h('code', null, setting('defaults.projects_dir', '~/doz-workspaces') + '/<name>'),
         ' — Quick add and doz new use it; Settings › Choose… moves it'),
       h('li', null, 'Images: ' + (wizChosenImages().join(', ') || 'none now (each is prepared by its first start)')),
       w.created ? h('li', null, 'First sandbox: ', h('a', { href: '#/sandbox/' + w.created }, w.created)) : null),

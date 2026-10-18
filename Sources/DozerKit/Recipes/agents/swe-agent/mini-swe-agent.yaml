@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# mini-swe-agent — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/mini-swe-agent.json, which Dozer embeds).
+# mini-swe-agent — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/mini-swe-agent.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: swe-agent/mini-swe-agent
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The mini-swe-agent release Dozer installs (its pin).
+    description: The mini-swe-agent release Dozable installs (its pin).
     default: 2.4.6
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: MINI_SWE_AGENT_VERSION

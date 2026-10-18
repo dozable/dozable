@@ -84,7 +84,7 @@ final class ToolRecipeKindsTests: XCTestCase {
         let ok = ["llm==0.36 --hash=sha256:\(Self.sha)"]
         let glibc: [String: Any] = ["glibc": true, "musl": false]
         XCTAssertNoThrow(try recipe(pypi(ok), platforms: glibc))
-        XCTAssertThrowsError(try recipe(pypi(ok)), "musl: Dozer's Python is glibc")
+        XCTAssertThrowsError(try recipe(pypi(ok)), "musl: Dozable's Python is glibc")
         XCTAssertThrowsError(try recipe(pypi([]), platforms: glibc), "no requirements")
         XCTAssertThrowsError(try recipe(pypi(["llm==0.36"]), platforms: glibc), "a requirement without its hash")
         XCTAssertThrowsError(try recipe(pypi(["llm>=0.36 --hash=sha256:\(Self.sha)"]), platforms: glibc), "not pinned exactly")

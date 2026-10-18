@@ -5,7 +5,7 @@ macOS — one Linux container in its own VM, built on Apple's
 [Containerization](https://github.com/apple/containerization) framework — that pauses in about a millisecond,
 sleeps to disk to give its RAM back, wakes in about a third of a second, and restores into a new process after
 the host app crashes, with terminal sessions that survive every one of those. This page is for people who want
-to use the library directly or understand how `doz` drives it. Using Dozer itself: the [user manual](manual/README.md).
+to use the library directly or understand how `doz` drives it. Using Dozable itself: the [user manual](manual/README.md).
 
 ## Using it
 
@@ -302,7 +302,7 @@ ONE registry of vendor and product marks, beside the recipes (owner: "b&w only i
   stroke-width stroke-linecap=round stroke-linejoin=round`) or filled (`fill="currentColor"`) — and nothing else: no
   colour, no script, no reference, no text, no second element (`MonoSVG.check`, byte-exact).
 - **`allowed`:** `official` is the maker's own mark, used only as its brand terms allow and never altered beyond making it
-  monochrome (its `source` and `terms` URLs required); `lettermark` is Dozer's neutral mark — letters drawn as strokes
+  monochrome (its `source` and `terms` URLs required); `lettermark` is Dozable's neutral mark — letters drawn as strokes
   by `Lettermark` (a small built-in stroke alphabet, five frames), and the file must be exactly what it draws. Every
   entry records the brand terms checked and the date. As of 2026-10-13 every mark is a lettermark: Anthropic, Google
   and OpenAI require approval for their marks and forbid altering them (colour included); xAI publishes no licence for

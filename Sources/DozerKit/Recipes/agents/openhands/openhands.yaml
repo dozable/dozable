@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# OpenHands CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/openhands.json, which Dozer embeds).
+# OpenHands CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/openhands.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: openhands/openhands
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The OpenHands CLI release Dozer installs (its pin).
+    description: The OpenHands CLI release Dozable installs (its pin).
     default: 1.16.0
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: OPENHANDS_VERSION
@@ -136,7 +136,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'OpenHands'' LLM settings from the environment (--override-with-envs: LLM_MODEL, LLM_BASE_URL; the key''s placeholder under LLM_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. OpenHands Cloud Dozer does not offer.'
+      note: 'OpenHands'' LLM settings from the environment (--override-with-envs: LLM_MODEL, LLM_BASE_URL; the key''s placeholder under LLM_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. OpenHands Cloud Dozable does not offer.'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

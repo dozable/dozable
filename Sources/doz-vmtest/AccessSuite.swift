@@ -108,7 +108,7 @@ func cliAccessSuite(binary: String) async {
     let ssl = "/usr/bin/openssl"
     let m0 = onMac(["/bin/sh", "-c", """
         set -e
-        \(ssl) req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test GitHub CA' 2>&1
+        \(ssl) req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test GitHub CA' 2>&1
         \(ssl) x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>&1
         \(ssl) req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=api.github.com' 2>&1
         \(ssl) x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>&1

@@ -297,7 +297,7 @@ final class SecretSourcesTests: XCTestCase {
         XCTAssertEqual(noForce.error?.code, .exists)
         let m = await addSourced(c, "work", cmd, provider: nil, kind: .apiKey, force: true)
         XCTAssertNil(m.error, m.error?.message ?? "")
-        XCTAssertNil(keychain.get("doz-anthropic:work"), "the old key's item Dozer made is gone")
+        XCTAssertNil(keychain.get("doz-anthropic:work"), "the old key's item Dozable made is gone")
         let a = try XCTUnwrap(AccountStore(store: DozerStore(root: storeRoot)).load().accounts.first { $0.name == "work" })
         XCTAssertEqual(a.kind, .apiKey)
         XCTAssertEqual(a.binding, .anthropic)

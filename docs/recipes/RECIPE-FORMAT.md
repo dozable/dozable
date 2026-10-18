@@ -1,6 +1,6 @@
 # The recipe format (schema 2)
 
-A **recipe** tells Dozer Sandbox how to install a coding agent, launch it, keep its state, give it its key without
+A **recipe** tells Dozable how to install a coding agent, launch it, keep its state, give it its key without
 the key ever entering the sandbox, and decide what it may reach. Each agent is one YAML file:
 
 ```
@@ -10,7 +10,7 @@ schema/dozer-recipe-2.schema.json                         ← the contract (JSON
 ```
 
 The layout follows **Docker Sandbox Kit v3** (its `workload` descriptor): Kit's top-level fields, a `capabilities:`
-list, Kit's own capability types where Kit has one, and Dozer's additions kept apart (under `dozer:` keys and in
+list, Kit's own capability types where Kit has one, and Dozable's additions kept apart (under `dozer:` keys and in
 `com.dozersandbox/*` types). A Kit-shaped descriptor can therefore be produced from a recipe mechanically — see
 [Kit v3, and exporting to it](#kit-v3-and-exporting-to-it).
 
@@ -111,8 +111,8 @@ Every key is required. Kit's own names, with Kit's meaning:
 | `author` | Kit's `author`: the publisher's name. | `Anthropic` |
 | `sourceUrl` | Its source or documentation (https). | `https://code.claude.com` |
 | `licenses` | SPDX identifiers. A licence SPDX has no id for is `LicenseRef-…` (SPDX's own form), with its words in `directory@1`'s `licence`. | `[Apache-2.0]`, `[LicenseRef-proprietary]` |
-| `args.version` | Kit's arg for the version Dozer installs: `default` (the pinned release), `pattern` (the shape of a release), `buildArg` (its build-argument name in an exported Dockerfile), `description`. | `default: 2.1.227` |
-| `provides` | Kit's `provides`, one entry, in Dozer's namespace: `com.dozersandbox/PRODUCT@${{ kit.args.version }}`. | |
+| `args.version` | Kit's arg for the version Dozable installs: `default` (the pinned release), `pattern` (the shape of a release), `buildArg` (its build-argument name in an exported Dockerfile), `description`. | `default: 2.1.227` |
+| `provides` | Kit's `provides`, one entry, in Dozable's namespace: `com.dozersandbox/PRODUCT@${{ kit.args.version }}`. | |
 | `capabilities` | The list below. | |
 
 ## Capabilities
@@ -123,7 +123,7 @@ one credential entry per key it uses, and one volume entry per state folder (in 
 
 ### Kit's own types
 
-Their `config` is Kit's shape exactly. Dozer's additions sit only under `config.dozer`, which an export removes.
+Their `config` is Kit's shape exactly. Dozable's additions sit only under `config.dozer`, which an export removes.
 
 **`com.docker.sandbox/network-policy@1`** — what the sandbox may reach.
 
@@ -133,15 +133,15 @@ Their `config` is Kit's shape exactly. Dozer's additions sit only under `config.
 | `runtime.deny` | **Derived.** `host:443` for each `dozer.excluded` and `dozer.quiet` host. |
 | `dozer.model` | Its model permission: `id` (`model` — Anthropic's, shared — or `model:NAME`), `shared`, `title`, `summary`, `phrase`, `hosts`. |
 | `dozer.update` | The hosts "Update itself" opens in its sandbox only. |
-| `dozer.excluded` | Hosts kept out whatever is chosen (a sign-in Dozer does not offer, a host it must not use). |
+| `dozer.excluded` | Hosts kept out whatever is chosen (a sign-in Dozable does not offer, a host it must not use). |
 | `dozer.vendor` | Hosts on its own maker's sites it calls at a normal start, each with its `reason`; allowed in its sandbox only. |
-| `dozer.quiet` | Hosts it calls that no setting of its own turns off and that Dozer keeps out without counting a refusal (promptfoo's telemetry event; start-up requests of Kimi Code, Cline, Letta Code, Docker Agent, Nanocoder, CodeWhale, Maki and oh-my-pi). |
+| `dozer.quiet` | Hosts it calls that no setting of its own turns off and that Dozable keeps out without counting a refusal (promptfoo's telemetry event; start-up requests of Kimi Code, Cline, Letta Code, Docker Agent, Nanocoder, CodeWhale, Maki and oh-my-pi). |
 | `dozer.off_without` | Its own switches, set when a permission is off: `permission`, `env`, `says`. |
 
 A host entry is `{host, paths?, exact_paths?, reason?}`: `paths` are prefixes (the proxy decrypts the connection to
 judge them), `exact_paths` match exactly.
 
-There is no `install` phase: Dozer's image preparation is not Kit's install hook. The bake reaches the base image's
+There is no `install` phase: Dozable's image preparation is not Kit's install hook. The bake reaches the base image's
 registries and the recipe's `bake_hosts`.
 
 **`com.docker.sandbox/credential@1`** — one per key the agent uses.
@@ -150,18 +150,18 @@ registries and the recipe's `bake_hosts`.
 |---|---|
 | `service` | The key provider (`providers.json`): `anthropic`, `openai`, `xai`, `google`. |
 | `phase` | `runtime`. |
-| `apiKey` | **Derived** from the provider: `name` (the variable holding Dozer's placeholder), `proxyManaged: true` (the proxy swaps the placeholder for the key, so the key never enters the sandbox), `inject` (one `{domain, header, format}` per provider host). |
-| `dozer.accounts` | The Dozer account kinds that serve it (`mac`, `setup-token`, `api-key`, `codex-mac`, `chatgpt`, `openai-key`, `key`). |
+| `apiKey` | **Derived** from the provider: `name` (the variable holding Dozable's placeholder), `proxyManaged: true` (the proxy swaps the placeholder for the key, so the key never enters the sandbox), `inject` (one `{domain, header, format}` per provider host). |
+| `dozer.accounts` | The Dozable account kinds that serve it (`mac`, `setup-token`, `api-key`, `codex-mac`, `chatgpt`, `openai-key`, `key`). |
 | `dozer.env_aliases` | A recipe agent's: more guest variables that hold the same placeholder, for a tool that reads its key under another name (`OPENAI_API_KEY` beside an OpenAI-compatible base URL that points at the provider, `LLM_GEMINI_KEY`). Credential-shaped names, never the provider's own, never one the recipe sets. The placeholder works only on the provider's hosts, whatever the name it rides in. |
 
 **`com.docker.sandbox/volume@1`** — one state folder kept with the sandbox: `path`, absolute (`/home/agent/…`).
 
-**`com.docker.sandbox/agent-context@1`** — where Dozer writes the facts the agent reads about its sandbox:
+**`com.docker.sandbox/agent-context@1`** — where Dozable writes the facts the agent reads about its sandbox:
 `directory` and `filename` (`SKILL.md` for a skill); `dozer.kind` (`skill` or `context-file`), `dozer.manifest` (a
 file written beside it: `{file, json}`), `dozer.launcher_arg` (the flag that also passes the facts on the command
 line).
 
-### Dozer's types
+### Dozable's types
 
 Kit has no type for these. An export keeps them as `optional: true` entries, which a Kit host skips.
 
@@ -169,24 +169,24 @@ Kit has no type for these. An export keeps them as `optional: true` entries, whi
 
 | Field | Meaning |
 |---|---|
-| `kind` | `builtin` (Dozer's own installer: Claude Code, pi, Codex), `npm`, `npm-platform-binary` (the linux-arm64 program from a platform package), `manifest-binary` (the maker's release manifest), `pypi` (a Python tool and every dependency, hash-pinned — below), `release-binary` (one program from a release download — below). |
-| `builtin` | `true` for the three agents Dozer's own code installs and launches. |
+| `kind` | `builtin` (Dozable's own installer: Claude Code, pi, Codex), `npm`, `npm-platform-binary` (the linux-arm64 program from a platform package), `manifest-binary` (the maker's release manifest), `pypi` (a Python tool and every dependency, hash-pinned — below), `release-binary` (one program from a release download — below). |
+| `builtin` | `true` for the three agents Dozable's own code installs and launches. |
 | `package`, `platform_package`, `payload`, `compression` | The npm package(s), the program inside, and `brotli` when it is compressed. |
 | `manifest`, `url` | `manifest-binary`: the manifest's URL; the archive URL, a template with `${{ dozer.build }}`. |
 | `binary` | The program, at `/usr/local/bin/BINARY`. |
-| `needs_node`, `npm_args` | The Node major an npm install needs; extra `npm install` flags. Above 22 (the bases' Node), `24`: Dozer installs Node 24 under `/opt/node` for it on every glibc base, the Node base included, and runs the program on it (`platforms.musl: false`). |
+| `needs_node`, `npm_args` | The Node major an npm install needs; extra `npm install` flags. Above 22 (the bases' Node), `24`: Dozable installs Node 24 under `/opt/node` for it on every glibc base, the Node base included, and runs the program on it (`platforms.musl: false`). |
 | `bake_hosts` | Hosts the image preparation reaches beyond the base's registries. |
 | `integrity` | The pinned release's sha512 (`sha512-…`). |
 | `requirements` | `pypi` only: every distribution the tool's venv holds, one string each, `name==version --hash=sha256:<64 hex>` — the package itself and all its dependencies. |
 | `extras` | Files the tool needs beside its program, from a pinned archive: `{url, sha256, path, to, what}` — an https `.tar.gz` (`${{ kit.args.version }}` in `url` and `path`), its sha256 (checked in the bake), the folder `path` inside it, unpacked to `to` (under `/opt/PRODUCT/`, root's, read-only to the agent). Fabric's patterns: `to: /opt/fabric/patterns`, and `launch.env` points the tool at them. Its host joins the bake's. |
 
-**`pypi`** installs a Python tool from PyPI. The image gets Dozer's own Python (python-build-standalone CPython 3.13 for
+**`pypi`** installs a Python tool from PyPI. The image gets Dozable's own Python (python-build-standalone CPython 3.13 for
 aarch64 glibc, checksum-pinned, under `/opt/python` — the base's python3 is left alone, so the same wheels fit every
 glibc base), a venv at `/opt/PRODUCT/venv`, and in it exactly the `requirements`: pip with `--require-hashes --no-deps`
 downloads each one, checks its sha256, and installs nothing else; the package's own file is also checked against
 `integrity` (its sha512, computed from the download when the recipe is written). `binary` is linked as
 `/usr/local/bin/BINARY`. The lock is written once, in a scratch VM, from pip's own resolver (`pip install --dry-run
---report` against Dozer's Python, which lists each file and its PyPI sha256). The bake reaches PyPI
+--report` against Dozable's Python, which lists each file and its PyPI sha256). The bake reaches PyPI
 (`pypi.org`, `files.pythonhosted.org`) and GitHub's release hosts for the Python download. glibc only
 (`platforms.musl: false`). A `pypi` recipe is prepared at its pin only: the lock belongs to that release, so nothing is
 looked up and `latest` means the pin.
@@ -209,10 +209,10 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `passthrough` | First arguments that run it as it is (`--version`, `login`). |
 | `env`, `state_env` | Environment of every run; of its state folders (both baked). |
 | `first_run` | An entry with `each_run: true` is written at EVERY run instead (a JSON file; its keys set, each `$DOZ_…` in a value the run's own, from `models@1`; skipped when the run has no source chosen; never a key — name the variable the placeholder is in, `$OPENAI_API_KEY`, for the tool to expand) — for a tool that takes its model only from its settings file (Crush). Otherwise: settings written into its config files, only the keys not there yet: `{file: ~/….json or ~/….toml, set: {dotted.key: value}}`; in a TOML file a key with no table (`schema_version`) is a top-level key, written above the first table; or a dotenv file, `{file: ~/…/.env, set: {KEY: value}}` (`KEY=value` lines — a key the file already has, even commented out, is kept; the file is made when missing; never a credential's name); a TOML key segment in double quotes is one key (`'projects."/workspace".trust_level': trusted` → `[projects."/workspace"]`); `format: json` for a JSON file whose name has no extension (Kimi Code's per-folder trust record); or a YAML file, `{file: ~/….yaml, set: {KEY: value}}` (top-level `KEY: value` lines only, each a string, number or bool — a key the file already has at the top level, even commented out, is kept; the file is made when missing). |
-| `session_env` | Environment Dozer gives each session when it opens (never baked). |
+| `session_env` | Environment Dozable gives each session when it opens (never baked). |
 | `session` | `shell` for a command-line tool that answers and exits (Fabric, llm): the default session is a login shell (`bash -l`) with the program on its PATH, named for the program. Absent: the session runs `command`. A shell session has no `resume`. |
 | `service` | A background service the program starts and keeps, which holds the environment of the run that started it (OpenCode 2's `opencode serve --service`): `{args, restart, start?, env}` — its arguments after the program, what restarts it, what starts it when the restart fails (a stopped server the VM's init leaves as a zombie), and the variables compared (`[DOZ_MODEL]`; never a key's: placeholders differ per run). Before every run, the launcher restarts a service of the same user running with another value of one of `env` than the run sets, so a model or source chosen since applies. Plain words only (it is written into the launcher). |
-| `status` | `osc7501` (it reports its state to Dozer) or `none`. |
+| `status` | `osc7501` (it reports its state to Dozable) or `none`. |
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |
 | `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). `screen` (optional, `{expect?, refuse?, allow?, wait?}`): what the default session's first screen must show (`expect`, regular expressions) and must not (`refuse`, on top of the generic setup/sign-in/consent list), the lines the generic list excuses (`allow` — a ready screen's own banner), how long it settles (`wait`, default 15 s), and keys typed first (`keys`: `enter`, `esc`, `up`, `down`, `tab`, `space` — only for a choice nothing skips that is not the person's decision, to reach the screen checked: Antigravity CLI's colour scheme before its terms). See "Checking a recipe" below. |
@@ -222,7 +222,7 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 `{kind, provider?, account?, accounts?, keys_page?, free_tier?, free_tier_note?, in_sandbox?, gateways?, note?,
 checked?}`; `kind` is `api-key`, `vendor-sign-in`, `none` or `gateway`.
 
-**`com.dozersandbox/gateways@1`** — `entries`: how it works through each model gateway in Dozer's catalogue: `{gateway,
+**`com.dozersandbox/gateways@1`** — `entries`: how it works through each model gateway in Dozable's catalogue: `{gateway,
 level (documented | verified | experimental | no | unknown), shape?, endpoint?, how?, proxy_route?, limits?, notes?,
 evidence?, source?, checked?, reason?}`. `how` is `{env?, config?, args?, model_args?}`, whose values may hold
 `${{ dozer.placeholder }}`, `${{ dozer.model }}` and `${{ dozer.gateway.endpoint.ID }}`. A gateway that `models@1` offers
@@ -299,11 +299,11 @@ one-time note in that shell's first login.
   first thing a person runs is known to work. Every command starts with the tool's program, its session's command, its
   short name, or a plain shell builtin (`echo`, `printf`, `cat`, `ls`, `cd`, `mkdir`, `head`, `tail`, `export`), is one
   line, its quotes closed. `edit: true`: the page types it and never presses Enter. A step without a command may come
-  before it — what the person meets at the first start that Dozer leaves to them (Antigravity CLI: Google's terms).
+  before it — what the person meets at the first start that Dozable leaves to them (Antigravity CLI: Google's terms).
 - **`notice`** — optional, one line (≤ 200 characters) `doz try` says first: that same thing, in short.
 - **`tips`** — at most 6, `code` in backquotes (the page draws it as code, never as markup); **`docs`** — https.
 
-Dozer adds the rest, never the recipe: the preamble (what kind of thing it is, how to use it here) and "This try" —
+Dozable adds the rest, never the recipe: the preamble (what kind of thing it is, how to use it here) and "This try" —
 the version (the pin), the provider and model with the account's NAME ("your key stays on the Mac"), the network, the
 folder (the Mac's path) and where its settings live. `make recipe-check` runs every step with a command after the check
 turn's that is not an edit, in a shell in the try (exit 0).
@@ -327,7 +327,7 @@ background server), each major is a recipe of its own, and `com.dozersandbox/fam
 - The family's name is the id of one of its members — the one that predates the family. Its sandboxes, image, settings
   and statistics keep that id, so an existing sandbox never changes major. No other recipe or alias may use the name.
 - Each member pins a release of its own major. Its `latest` stays within that major: when the package's `latest` tag is
-  another major's, Dozer takes the newest stable release of its own.
+  another major's, Dozable takes the newest stable release of its own.
 - Each major has its own guide, check, network profile and statistics id.
 - Move `recommended` to a new major only once its recipe passes `make recipe-check`, in a commit of its own. It is
   "recommended", never "latest".
@@ -402,11 +402,11 @@ recipe is offered (in a fresh try with that source's fake key) and puts that sou
   (see `gateways@1`), and so do `--gateway`, the plan, the Quick try's "Through a gateway" and `doz search`. `except` (a list of source ids) leaves sources out a shape would
   offer. The try setup, New Sandbox, `doz try --provider SOURCE` (`--gateway` is the same flag) and `doz create` offer
   exactly these.
-- **What a choice does:** at every session open and every `doz exec`, Dozer sets the chosen entry's `env` (never over a
+- **What a choice does:** at every session open and every `doz exec`, Dozable sets the chosen entry's `env` (never over a
   value the caller gave), with `${{ dozer.base_url }}` = the source endpoint's base URL and `${{ dozer.model }}` = the
   sandbox's model (`--model`, else `models.<source>` here, else the source endpoint's default). Nothing is baked: one
   image serves every source.
-- **The key is Dozer's, never the recipe's.** The sandbox's account decides the source (its kind and provider); the
+- **The key is Dozable's, never the recipe's.** The sandbox's account decides the source (its kind and provider); the
   proxy holds that source's key and swaps it ONLY into requests to that source's own hosts (providers.json /
   gateways.json — a recipe cannot add one). The placeholder is put in the source's own variable
   (`OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `AI_GATEWAY_API_KEY` …) and in the chosen entry's `key_env` names
@@ -420,7 +420,7 @@ recipe is offered (in a fresh try with that source's fake key) and puts that sou
 - A recipe without `models@1` keeps its one credential exactly as before (the built-in three; Claude Code's and Codex's
   own account flows are untouched).
 - **A source that takes no key** (`opencode-zen`: OpenCode Zen's free models) is listed under `keyless` in
-  `Recipes/providers.json` — its hosts, its endpoints, and the models Dozer lists for it, each with its data terms as the
+  `Recipes/providers.json` — its hosts, its endpoints, and the models Dozable lists for it, each with its data terms as the
   source's docs state them (its own model list has no prices, so a free model cannot be told from a paid one): the
   free models the docs list that the tool's pinned release can use without a key; `checked` is when the list and terms
   were last compared with the docs and that release. It is never a key provider: no binding, no placeholder,
@@ -449,11 +449,11 @@ Any other name is an error, and so is the old `{name}` form.
 
 As in Kit: **an unknown key anywhere is an error**. That covers the top level, every capability entry, every Kit
 config and every `dozer:` block. A capability type this build does not know is an error, and so is a second copy of
-a single one. The **derived** parts (`runtime.allow`, `runtime.deny`, a credential's `apiKey`) must equal what Dozer
+a single one. The **derived** parts (`runtime.allow`, `runtime.deny`, a credential's `apiKey`) must equal what Dozable
 derives, so they can never drift from the data they describe; the error says the expected value.
 
 The JSON Schema states the shape. The loader (`RecipeDocument` in DozerKit) refuses whatever the schema refuses, and
-also checks what only Dozer can: the derived parts, the templates, and the agent's own rules (exact host names, no
+also checks what only Dozable can: the derived parts, the templates, and the agent's own rules (exact host names, no
 credential in an environment variable, a pinned release that is well formed). The tests hold the two together.
 
 The YAML is read with YAML 1.2's core schema: `true` and `false` are the only booleans (`no` and `on` are words),
@@ -463,8 +463,8 @@ and a date stays a string. Anchors, aliases and merge keys are refused, so a rec
 
 `schema: 2` promises the shape `schema/dozer-recipe-2.schema.json` describes. Within schema 2:
 
-- A new **optional** field, or a new capability type, may be added. An older Dozer refuses a recipe that uses it,
-  because unknown keys are errors. Dozer's own recipes ship with Dozer, so they always match.
+- A new **optional** field, or a new capability type, may be added. An older Dozable refuses a recipe that uses it,
+  because unknown keys are errors. Dozable's own recipes ship with Dozable, so they always match.
 - A field is never renamed, removed or given a new meaning. That needs `schema: 3`, with a new schema file beside
   this one.
 - Kit's capability versions (`network-policy@1`, …) are Kit's. When Kit moves one (`network-policy@2` exists), a
@@ -472,7 +472,7 @@ and a date stays a string. Anchors, aliases and merge keys are refused, so a rec
 
 ## Kit v3, and exporting to it
 
-| Dozer recipe | Kit v3 descriptor |
+| Dozable recipe | Kit v3 descriptor |
 |---|---|
 | `schema: 2` | `schemaVersion: "3"` |
 | `id` (`VENDOR/PRODUCT`) | the image reference the kit is published under |
@@ -519,11 +519,11 @@ final.
 3. **A fresh try** with fake keys held in the host's memory; the model's hosts (xAI, Google, Anthropic, OpenAI) go to
    a stand-in on this Mac (`Scripts/fake-provider.py`, TLS with its own throwaway CA) that answers `DOZ_FAKE_OK`.
 4. **The smoke turn** — `check.argv` as the agent; its output must contain `check.expect`, its exit status be
-   `check.exit`. The stand-in must have seen the fake key, swapped in by Dozer's proxy, while the guest holds only a
+   `check.exit`. The stand-in must have seen the fake key, swapped in by Dozable's proxy, while the guest holds only a
    placeholder.
 5. **No key in the guest** (its processes' environments, home folders, `/tmp`, `/run`, `/etc`), and **the leak
    guard**: the placeholder sent to another provider's host is refused and never reaches it.
-6. **Its status** — for `status: osc7501`, an interactive turn in its default session: Dozer must see it report at
+6. **Its status** — for `status: osc7501`, an interactive turn in its default session: Dozable must see it report at
    least `idle`, `working` and `done`.
 
 Before any of the try's commands run (step 3 onwards), **its first screen**: every recipe whose default session is the

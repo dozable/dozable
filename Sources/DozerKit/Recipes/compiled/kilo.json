@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "KILO_VERSION",
       "default" : "7.8.8",
-      "description" : "The Kilo Code CLI release Dozer installs (its pin).",
+      "description" : "The Kilo Code CLI release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -165,7 +165,7 @@
                   "name" : "{env:DOZ_MODEL_ID}"
                 }
               },
-              "provider.doz.name" : "Dozer (OpenAI-compatible)",
+              "provider.doz.name" : "Dozable (OpenAI-compatible)",
               "provider.doz.npm" : "@ai-sdk/openai-compatible",
               "provider.doz.options.apiKey" : "{env:OPENAI_API_KEY}",
               "provider.doz.options.baseURL" : "{env:DOZ_BASE_URL}",
@@ -174,7 +174,7 @@
                   "name" : "{env:DOZ_MODEL_ID}"
                 }
               },
-              "provider.dozanthropic.name" : "Dozer (Anthropic)",
+              "provider.dozanthropic.name" : "Dozable (Anthropic)",
               "provider.dozanthropic.npm" : "@ai-sdk/anthropic",
               "provider.dozanthropic.options.apiKey" : "{env:ANTHROPIC_API_KEY}",
               "provider.dozanthropic.options.baseURL" : "{env:DOZ_BASE_URL}"
@@ -230,7 +230,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Kilo Code CLI' own xai provider on xAI (the default, model xai/grok-build-0.1); for the others, a provider of Dozer's in its config (KILO_CONFIG): OpenAI-compatible at the chosen source's base URL, or Anthropic, the key read from the variable its placeholder is in.",
+            "note" : "Kilo Code CLI' own xai provider on xAI (the default, model xai/grok-build-0.1); for the others, a provider of Dozable's in its config (KILO_CONFIG): OpenAI-compatible at the chosen source's base URL, or Anthropic, the key read from the variable its placeholder is in.",
             "provider" : "xai"
           },
           {
@@ -288,7 +288,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Kilo's own sign-in would live in the sandbox's state; Dozer does not offer it yet."
+            "note" : "Kilo's own sign-in would live in the sandbox's state; Dozable does not offer it yet."
           }
         ]
       },
@@ -381,7 +381,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs Kilo's glibc build; its musl build is a separate package, not used yet"
+            "reason" : "Dozable installs Kilo's glibc build; its musl build is a separate package, not used yet"
           }
         ],
         "platforms" : {

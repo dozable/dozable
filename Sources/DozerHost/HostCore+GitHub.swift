@@ -20,12 +20,12 @@ public enum GitHubLogin {
     /// The Mac's `gh` login for github.com — `gh auth token`. Never logged, never stored.
     public static func ghToken(environment env: [String: String] = ProcessInfo.processInfo.environment) -> CredentialVault.SecretRead {
         guard let gh = ghProgram(env) else {
-            return (nil, "Dozer: \"Use GitHub as you\" is on, but gh is not installed on this Mac — install it and run gh auth login, or give the sandbox a token: doz key set NAME --github")
+            return (nil, "Dozable: \"Use GitHub as you\" is on, but gh is not installed on this Mac — install it and run gh auth login, or give the sandbox a token: doz key set NAME --github")
         }
         let (code, out) = run(gh, ["auth", "token", "-h", "github.com"], environment: env)
         let token = out.trimmingCharacters(in: .whitespacesAndNewlines)
         guard code == 0, !token.isEmpty, !token.contains(where: { $0.isWhitespace }) else {
-            return (nil, "Dozer: \"Use GitHub as you\" is on, but this Mac's gh is not logged in to github.com — run gh auth login on the Mac")
+            return (nil, "Dozable: \"Use GitHub as you\" is on, but this Mac's gh is not logged in to github.com — run gh auth login on the Mac")
         }
         return (token, nil)
     }
@@ -105,17 +105,17 @@ extension HostCore {
                 // The source is read EACH time (the setting can change while the sandbox runs).
                 let source = DozerSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh"
                 if source == "off" {
-                    return (nil, "Dozer: \"Use GitHub as you\" is on for \(name), but github.credentials is off on this Mac")
+                    return (nil, "Dozable: \"Use GitHub as you\" is on for \(name), but github.credentials is off on this Mac")
                 }
                 if let own {
                     if own.hasPrefix("keychain:"), let s = Keychain.read(service: String(own.dropFirst(9))) { return (s, nil) }
                     if let memoryKey { return (memoryKey, nil) }
-                    return (nil, "Dozer: the GitHub token of \(name) is gone (it was held in memory by a host that stopped) — give it again: doz key set \(name) --github")
+                    return (nil, "Dozable: the GitHub token of \(name) is gone (it was held in memory by a host that stopped) — give it again: doz key set \(name) --github")
                 }
                 if source == "key" {
                     // 599e: the default key (the Access step's), when the sandbox has none of its own.
                     if let s = keychain.read(service: Access.githubKeyService, account: Keychain.user).value { return (s, nil) }
-                    return (nil, "Dozer: \(name) has no GitHub token (github.credentials is key) — doz key set \(name) --github, or a default: doz access set --github-key")
+                    return (nil, "Dozable: \(name) has no GitHub token (github.credentials is key) — doz key set \(name) --github, or a default: doz access set --github-key")
                 }
                 return GitHubLogin.ghToken(environment: env)
             }
