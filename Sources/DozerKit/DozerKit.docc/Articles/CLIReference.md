@@ -43,6 +43,8 @@ doz init [DIR] [--name N] [--image I] [--cpus N] [--memory M] [--network …] [-
          [--open-files …] [--[no-]tmux] [--[no-]agent-sudo] [--yes] [--force]   # 599f: on a terminal, the wizard's 10 steps
 doz up                      # in a folder with doz_project.yaml (or .yml): that project's sandbox
 doz uninstall [--keep-store] [--keep-config] [--yes]
+doz inventory               # everything Dozable keeps on this Mac: where and how big (changes nothing)
+doz nuke [--dry-run] [--yes]   # back to a fresh install, doz stays installed: lists each item and its size, asks once
 ```
 
 - **`onboard`** sets up this Mac, once: the doctor's checks (a *required* one that fails —
