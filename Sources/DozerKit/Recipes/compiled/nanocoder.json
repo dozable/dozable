@@ -58,6 +58,15 @@
           ],
           "update" : [
 
+          ],
+          "vendor" : [
+            {
+              "host" : "registry.npmjs.org",
+              "paths" : [
+                "/@nanocollective/nanocoder/latest"
+              ],
+              "reason" : "Nanocoder asks npm for its latest release after it starts (read-only, that one path; no setting turns it off) and only shows a notice"
+            }
           ]
         },
         "runtime" : {
@@ -67,7 +76,8 @@
             "api.x.ai:443",
             "generativelanguage.googleapis.com:443",
             "openrouter.ai:443",
-            "ai-gateway.vercel.sh:443"
+            "ai-gateway.vercel.sh:443",
+            "registry.npmjs.org:443"
           ],
           "deny" : [
             "models.dev:443"

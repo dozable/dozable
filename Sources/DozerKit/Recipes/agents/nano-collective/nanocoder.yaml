@@ -29,6 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
+      - registry.npmjs.org:443
       deny:
       - models.dev:443
     dozer:
@@ -54,6 +55,11 @@ capabilities:
           reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
       update: []
       excluded: []
+      vendor:
+      - host: registry.npmjs.org
+        paths:
+        - /@nanocollective/nanocoder/latest
+        reason: Nanocoder asks npm for its latest release after it starts (read-only, that one path; no setting turns it off) and only shows a notice
       quiet:
       - host: models.dev
         reason: Nanocoder reads the public models.dev catalogue for a model's context size and prices (no setting turns it off); it does without it when refused
