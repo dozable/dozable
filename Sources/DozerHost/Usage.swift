@@ -96,8 +96,8 @@ public enum Usage {
     public typealias Signup = @Sendable (SignupRequest) async throws -> SignupResult
 
     /// Where anyone can sign up, and the policy — said by builds that have no sign-up of their own.
-    public static let signupPage = "https://dozersandbox.com/signup"
-    public static let privacyPage = "https://dozersandbox.com/privacy"
+    public static let signupPage = "https://dozable.com/signup"
+    public static let privacyPage = "https://dozable.com/privacy"
     /// The longest `flush` is given after a command.
     public static let flushTimeout: TimeInterval = 1
 

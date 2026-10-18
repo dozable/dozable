@@ -33,7 +33,7 @@ doz uninstall                      # read the list, answer y
 ## 1. Install and onboard (seconds to install; 5–8 min of preparation, once)
 
 ```bash
-brew install dozer-sandbox/tap/doz   # the prebuilt release, signed and notarised, with the virtualization entitlement
+brew install dozable/tap/doz   # the prebuilt release, signed and notarised, with the virtualization entitlement
 doz onboard
 ```
 

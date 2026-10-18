@@ -71,13 +71,10 @@ public enum UpdateInstaller {
     /// date" while the signed feed already names a newer doz (owner, on 0.32.0-rc.1). The tap is an ordinary git
     /// clone (`brew --repository TAP`); a fast-forward pull is what `brew update` does for it, without walking every
     /// other tap. Best effort: a failure is said and the upgrade still runs.
-    public static func refreshTap(_ tap: String = Distribution.tap, brew: String,
+    public static func refreshTap(_ tap: String? = nil, brew: String,
                                   output: @escaping @Sendable (String) -> Void) {
-        let collected = Collected()
-        guard runBrew(brew, ["--repository", tap], output: { collected.append($0) }) == 0 else { return }
-        let path = collected.text.trimmingCharacters(in: .whitespacesAndNewlines)
-        var isDir: ObjCBool = false
-        guard path.hasPrefix("/"), FileManager.default.fileExists(atPath: path + "/.git", isDirectory: &isDir) else { return }
+        let tap = tap ?? installedTap(brew: brew)
+        guard let path = tapClone(tap, brew: brew) else { return }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/git")
         p.arguments = ["-C", path, "pull", "--ff-only", "-q"]
@@ -91,6 +88,24 @@ public enum UpdateInstaller {
         if p.terminationStatus != 0 { output("could not refresh the \(tap) tap — upgrading with what Homebrew has\n") }
     }
 
+    /// The tap's clone on this Mac (`brew --repository TAP` names the place whether or not it is tapped), or nil.
+    static func tapClone(_ tap: String, brew: String) -> String? {
+        let collected = Collected()
+        guard runBrew(brew, ["--repository", tap], output: { collected.append($0) }) == 0 else { return nil }
+        let path = collected.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        var isDir: ObjCBool = false
+        guard path.hasPrefix("/"), FileManager.default.fileExists(atPath: path + "/.git", isDirectory: &isDir) else { return nil }
+        return path
+    }
+
+    /// The name this Mac tapped Dozer's tap under: `Distribution.tap`, else an earlier name that is tapped (it was
+    /// moved, and GitHub's redirect keeps it working), else `Distribution.tap`. Installing from the other name would
+    /// tap the same formulas a second time.
+    public static func installedTap(brew: String) -> String {
+        if tapClone(Distribution.tap, brew: brew) != nil { return Distribution.tap }
+        return Distribution.previousTaps.first { tapClone($0, brew: brew) != nil } ?? Distribution.tap
+    }
+
     private final class Collected: @unchecked Sendable {
         private let lock = NSLock(); private var data = ""
         func append(_ s: String) { lock.lock(); data += s; lock.unlock() }
@@ -100,8 +115,9 @@ public enum UpdateInstaller {
     /// Switch Homebrew formulas (`doz` → `doz-beta` …): they conflict (one `doz` command), so the current one is
     /// uninstalled first — the store and the settings are not Homebrew's and stay — then the new one installed; if
     /// that fails, the previous one is installed again.
-    public static func switchFormula(from: String, to: String, tap: String = Distribution.tap, brew: String,
+    public static func switchFormula(from: String, to: String, tap: String? = nil, brew: String,
                                      output: @escaping @Sendable (String) -> Void) throws {
+        let tap = tap ?? installedTap(brew: brew)
         refreshTap(tap, brew: brew, output: output)
         guard runBrew(brew, ["uninstall", from], output: output) == 0 else { throw Failure("brew uninstall \(from) failed — nothing changed") }
         if runBrew(brew, ["install", "\(tap)/\(to)"], output: output) != 0 {

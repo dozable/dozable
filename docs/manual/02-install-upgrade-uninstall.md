@@ -22,8 +22,8 @@ machines. You install it with Homebrew.
 You need a Mac with Apple silicon and macOS 26 or later.
 
 ```sh
-brew trust --tap dozer-sandbox/tap   # once per Mac: Homebrew loads a third-party tap's formulas only once trusted
-brew install dozer-sandbox/tap/doz
+brew trust --tap dozable/tap   # once per Mac: Homebrew loads a third-party tap's formulas only once trusted
+brew install dozable/tap/doz
 doz --version
 ```
 
@@ -31,15 +31,18 @@ Recent Homebrew loads formulas from a third-party tap only after you trust it �
 once per Mac (without it `brew install` refuses the formula). Homebrew then adds Dozable's tap and installs
 a prebuilt, signed and notarised `doz` in seconds — no compiler is needed. It ends with a hint: run `doz onboard` ([Setting up](03-setting-up.md)).
 
+The tap used to be called `dozer-sandbox/tap`. If you installed from it, nothing changes: it still gets every
+update, and `doz upgrade` uses it.
+
 ### Release channels
 
 There is one formula per release channel; they install the same `doz` command, so you have one at a time:
 
 | formula | channel | what you get |
 |---|---|---|
-| `dozer-sandbox/tap/doz` | stable | releases |
-| `dozer-sandbox/tap/doz-beta` | beta | beta builds first, and every release |
-| `dozer-sandbox/tap/doz-canary` | canary | every build, first |
+| `dozable/tap/doz` | stable | releases |
+| `dozable/tap/doz-beta` | beta | beta builds first, and every release |
+| `dozable/tap/doz-canary` | canary | every build, first |
 
 `doz upgrade --channel beta` switches: it asks, then Homebrew uninstalls one formula and installs the other.
 Your store, sandboxes and settings are not Homebrew's and stay. doz never installs an older build — switching
@@ -174,4 +177,4 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
 | "this host's program … is gone — an upgrade removed it" | `doz host stop`, then run your command again. |
 | "cannot boot a VM" or a message about the entitlement | `doz doctor`. Reinstall: `brew reinstall doz`. |
-| Start over from nothing | `doz uninstall`, `brew uninstall doz`, then `brew trust --tap dozer-sandbox/tap`, `brew install dozer-sandbox/tap/doz` and `doz onboard`. |
+| Start over from nothing | `doz uninstall`, `brew uninstall doz`, then `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and `doz onboard`. |

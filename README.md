@@ -1,7 +1,7 @@
 # Dozable
 
 **Fast, resumable, secure Linux sandboxes for AI coding agents on your Mac — your API keys never go inside.**
-[dozersandbox.com](https://dozersandbox.com)
+[dozable.com](https://dozable.com)
 
 Each sandbox is a small Linux virtual machine with your
 project folder inside it. It starts in about a third of a second, pauses in a millisecond, and hibernates to
@@ -10,8 +10,8 @@ disk to give its memory back — then wakes with every program still running whe
 policy you can read, and your keys never enter the sandbox.
 
 ```sh
-brew trust --tap dozer-sandbox/tap             # once per Mac: Homebrew loads a third-party tap only once trusted
-brew install dozer-sandbox/tap/doz             # stable; doz-beta and doz-canary are the other channels
+brew trust --tap dozable/tap             # once per Mac: Homebrew loads a third-party tap only once trusted
+brew install dozable/tap/doz             # stable; doz-beta and doz-canary are the other channels
 doz ui                                         # opens the dashboard — a new install starts on its setup wizard
 ```
 
@@ -72,9 +72,9 @@ dashboard) from a feed signed with the project's own key, and never installs any
 
 | | |
 |---|---|
-| `brew install dozer-sandbox/tap/doz` | stable |
-| `brew install dozer-sandbox/tap/doz-beta` | beta (and stable) |
-| `brew install dozer-sandbox/tap/doz-canary` | every build, first |
+| `brew install dozable/tap/doz` | stable |
+| `brew install dozable/tap/doz-beta` | beta (and stable) |
+| `brew install dozable/tap/doz-canary` | every build, first |
 
 `doz upgrade --channel beta` switches; your store, sandboxes and settings stay. See
 [Installing, upgrading and uninstalling](docs/manual/02-install-upgrade-uninstall.md).
@@ -88,7 +88,7 @@ it off with `doz config set telemetry.send_anonymous_usage_stats false`, `DO_NOT
 `--no-send-anonymous-usage-stats` on one command. Builds from this repository send nothing; the statistics and
 sign-up code is not open source (what may be sent, and every switch, is: `Sources/DozerHost/Usage.swift`). See
 [Usage statistics and sign-up](docs/manual/01-getting-started.md#usage-statistics-and-sign-up) and
-[dozersandbox.com/privacy](https://dozersandbox.com/privacy).
+[dozable.com/privacy](https://dozable.com/privacy).
 
 ## Documentation
 

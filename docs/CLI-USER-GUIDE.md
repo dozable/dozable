@@ -22,7 +22,7 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 With Homebrew (Apple silicon, macOS 26 or later) — seconds, no compiler:
 
 ```bash
-brew install dozer-sandbox/tap/doz
+brew install dozable/tap/doz
 doz onboard                       # once: set up this Mac
 ```
 
