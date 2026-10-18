@@ -153,6 +153,29 @@ It **never** touches:
   `doz account rm NAME` (it deletes the item `doz account add` made). `doz uninstall` names any left;
 - Claude Code's own files and login.
 
+## Start over: doz nuke
+
+```sh
+doz inventory        # what Dozable keeps on this Mac, where, and how big — changes nothing
+doz nuke --dry-run   # what doz nuke would remove
+doz nuke             # remove it all (asks first)
+```
+
+`doz nuke` puts this Mac back to a fresh install of Dozable and keeps `doz` installed. It lists each item with
+its place and size, then asks once:
+
+- **the store**: every sandbox, image, kernel, restore point and template, and the host's log and metrics;
+- **the settings folder**: `doz.toml`, `agent-prompt.md`, and the update and usage records;
+- **the download cache** (`~/Library/Caches/dozer-sandbox`);
+- **the keychain items Dozable made**: your accounts' keys and the default GitHub key.
+
+`--dry-run` lists and removes nothing; `--yes` skips the question. A running host is stopped first; a running
+`doz ui` or `doz serve` must be stopped by you (`doz ui stop`, `doz serve stop`). Your next `doz` command starts
+from the beginning: `doz onboard` or `doz ui`.
+
+It **never** touches your workspace folders, the Mac's own Claude Code and Codex logins, or Apple's `container`
+data. `doz inventory` prints the same list and changes nothing.
+
 ## Build from source (contributors)
 
 The source is on GitHub (`dozer-sandbox/dozer-sandbox`). `make install-cli` builds and signs `doz` into
@@ -177,4 +200,5 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
 | "this host's program … is gone — an upgrade removed it" | `doz host stop`, then run your command again. |
 | "cannot boot a VM" or a message about the entitlement | `doz doctor`. Reinstall: `brew reinstall doz`. |
+| Start over, keeping doz installed | `doz nuke`, then `doz onboard`. |
 | Start over from nothing | `doz uninstall`, `brew uninstall doz`, then `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and `doz onboard`. |

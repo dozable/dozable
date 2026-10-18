@@ -5,6 +5,8 @@
 onboard
 init
 uninstall
+inventory
+nuke
 upgrade
 new
 try

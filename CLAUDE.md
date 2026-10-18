@@ -878,6 +878,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **`doz uninstall`** removes a store only if it looks like one, the settings dir only if named
   `dozer-sandbox`, and the installed doz only when THIS executable is `<prefix>/libexec/doz/doz` (the
   `bin/doz` link only if it resolves to it). Never the keychain; a running `doz ui` refuses it.
+- **`doz nuke` / `doz inventory`** (`NukeCommand.swift`, `Nuke.plan` — pure, `NukeTests`): back to a fresh install with
+  doz kept — uninstall's store and settings rules, plus `~/Library/Caches/dozer-sandbox` and the keychain items Dozable
+  made (`AccountStore.isDozItem`, `doz-github`; never another `doz-*` item, never Claude Code's). Each item with its
+  place and allocated size; asks once (`--yes`, `--dry-run`); a running `doz ui` or `doz serve` refuses it.
+  `inventory` prints the same list and changes nothing. **A guarded test run never sees this Mac's keychain or cache**:
+  an in-memory keychain, and the cache only from `DOZ_TEST_CACHE_DIR` (else none).
 - **Tests on throwaway paths only**: `make test-cli`'s onboarding part uses `/tmp/dzo-<pid>-*` stores (a
   socket path under 104 bytes) seeded from the vmtest store, each with its own XDG_CONFIG_HOME; the
   wizard probe (`probes/594-*/run-wizard-probe.sh`) a fresh `/tmp/dzw-*` store.
