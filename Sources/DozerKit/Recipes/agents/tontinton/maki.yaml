@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Maki — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/maki.json, which Dozer embeds).
+# Maki — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/maki.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: tontinton/maki
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The Maki release Dozer installs (its pin).
+    description: The Maki release Dozable installs (its pin).
     default: 0.6.3
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: MAKI_VERSION
@@ -136,7 +136,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Maki''s own providers, each reading its key from the environment; Dozer puts the model on its command line (-m xai/grok-build-0.1 on xAI, the default; -m PROVIDER/MODEL for the others).'
+      note: 'Maki''s own providers, each reading its key from the environment; Dozable puts the model on its command line (-m xai/grok-build-0.1 on xAI, the default; -m PROVIDER/MODEL for the others).'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

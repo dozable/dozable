@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# OpenClaw — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/openclaw.json, which Dozer embeds).
+# OpenClaw — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/openclaw.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: openclaw/openclaw
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The OpenClaw release Dozer installs (its pin).
+    description: The OpenClaw release Dozable installs (its pin).
     default: 2026.10.3
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: OPENCLAW_VERSION
@@ -197,7 +197,7 @@ capabilities:
       glibc: true
       musl: false
     limits:
-    - reason: OpenClaw needs Node 24, which Dozer installs on Debian-based bases only (Node publishes no musl arm64 build)
+    - reason: OpenClaw needs Node 24, which Dozable installs on Debian-based bases only (Node publishes no musl arm64 build)
       musl: true
     tags:
     - tag: headless
@@ -206,7 +206,7 @@ capabilities:
       - openclaw agent exec "PROMPT" --auth-env-only --model google/gemini-2.5-flash
       evidence: 'A2 VM proof: one agent exec turn answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/openclaw)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "OpenClaw is a self-hosted personal agent with shell and file tools. Here it runs one turn at a time from your shell."

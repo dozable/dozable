@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Google Stitch CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/stitch.json, which Dozer embeds).
+# Google Stitch CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/stitch.json, which Dozable embeds).
 # A client of Google's hosted Stitch service (UI design with Gemini): every command is a call to stitch.googleapis.com,
 # with a Stitch API key (AQ…, made in Stitch's settings) in x-goog-api-key. Its Google sign-in (`stitch login`, OAuth
 # with tokens kept in the sandbox) is not offered.
@@ -15,7 +15,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Google Stitch CLI release Dozer installs (its pin).
+    description: The Google Stitch CLI release Dozable installs (its pin).
     default: 0.11.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: STITCH_VERSION
@@ -110,7 +110,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a Google account (stitch login)
       in_sandbox: false
-      note: Stitch's Google sign-in keeps OAuth tokens in the sandbox; Dozer does not offer it. A Stitch API key covers projects, screens and design systems.
+      note: Stitch's Google sign-in keeps OAuth tokens in the sandbox; Dozable does not offer it. A Stitch API key covers projects, screens and design systems.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# GitHub Copilot CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/copilot.json, which Dozer embeds).
+# GitHub Copilot CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/copilot.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: github/copilot
@@ -12,7 +12,7 @@ licenses:
 - LicenseRef-GitHub-Copilot-CLI
 args:
   version:
-    description: The GitHub Copilot CLI release Dozer installs (its pin).
+    description: The GitHub Copilot CLI release Dozable installs (its pin).
     default: 1.0.97
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: COPILOT_VERSION
@@ -188,7 +188,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a GitHub account with a Copilot plan
       in_sandbox: false
-      note: Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozer does not offer it yet.
+      note: Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozable does not offer it yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
@@ -240,7 +240,7 @@ capabilities:
       musl: false
     limits:
     - musl: true
-      reason: Dozer installs Copilot CLI's glibc build; its musl build is a separate package, not used yet
+      reason: Dozable installs Copilot CLI's glibc build; its musl build is a separate package, not used yet
     tags:
     - tag: headless
       level: documented
@@ -248,7 +248,7 @@ capabilities:
       - copilot -p "…"
       source: https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozer installs it from the npm registry.
+    terms: Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozable installs it from the npm registry.
     licence: Proprietary (GitHub Copilot CLI License)
 - type: com.dozersandbox/guide@1
   config:

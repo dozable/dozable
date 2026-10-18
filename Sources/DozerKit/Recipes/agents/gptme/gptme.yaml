@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# gptme — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/gptme.json, which Dozer embeds).
+# gptme — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/gptme.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: gptme/gptme
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The gptme release Dozer installs (its pin).
+    description: The gptme release Dozable installs (its pin).
     default: '0.34.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: GPTME_VERSION
@@ -191,7 +191,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Dozer sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.'
+      note: 'Dozable sets MODEL to provider/model for the chosen source (xai/grok-4-1-fast by default; markdown tools on xAI and Google AI); Vercel AI Gateway through its OpenAI-compatible local provider (OPENAI_BASE_URL). Its ChatGPT/SuperGrok subscription sign-ins are not offered.'
       checked: '2026-10-14'
     - kind: api-key
       provider: anthropic
@@ -298,7 +298,7 @@ capabilities:
       - gptme --non-interactive PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/gptme)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its browser tool needs Chromium in the image, and gptme-server's web UI a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "gptme is a terminal agent with shell, Python and file tools: its session on the left is a chat that acts in the sandbox."

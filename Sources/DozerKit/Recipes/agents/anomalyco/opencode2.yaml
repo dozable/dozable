@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# OpenCode 2 — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/opencode2.json, which Dozer embeds).
+# OpenCode 2 — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/opencode2.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: anomalyco/opencode2
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The OpenCode 2 release Dozer installs (its pin).
+    description: The OpenCode 2 release Dozable installs (its pin).
     default: 2.0.29
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: OPENCODE2_VERSION
@@ -155,12 +155,12 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: OpenCode 2 works with many providers; Dozer offers it on an xAI key (XAI_API_KEY, model xai/grok-build-0.1) for now.
+      note: OpenCode 2 works with many providers; Dozable offers it on an xAI key (XAI_API_KEY, model xai/grok-build-0.1) for now.
       checked: '2026-10-14'
     - kind: vendor-sign-in
       account: an OpenCode Zen, Anthropic, OpenAI or GitHub Copilot account
       in_sandbox: false
-      note: OpenCode can sign in itself (opencode auth login); that sign-in would live in the sandbox's own state, not on the Mac — Dozer does not offer it yet.
+      note: OpenCode can sign in itself (opencode auth login); that sign-in would live in the sandbox's own state, not on the Mac — Dozable does not offer it yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
@@ -231,7 +231,7 @@ capabilities:
       musl: false
     limits:
     - musl: true
-      reason: Dozer installs OpenCode 2's glibc build; its musl build is a separate package, not used yet
+      reason: Dozable installs OpenCode 2's glibc build; its musl build is a separate package, not used yet
     tags:
     - tag: headless
       level: documented
@@ -264,7 +264,7 @@ capabilities:
     tips:
     - "Files it makes are in /workspace — your folder on the Mac."
     - "Restart its session from the session's ⋯ menu; End stops it."
-    - "A key added with OpenCode's /connect is stored inside this sandbox; a key added in Dozer stays on your Mac."
+    - "A key added with OpenCode's /connect is stored inside this sandbox; a key added in Dozable stays on your Mac."
     docs: https://opencode.ai/v2/docs/
 - type: com.dozersandbox/family@1
   config:

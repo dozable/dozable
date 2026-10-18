@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Factory Droid — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/droid.json, which Dozer embeds).
+# Factory Droid — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/droid.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: factory-ai/droid
@@ -12,7 +12,7 @@ licenses:
 - LicenseRef-Factory-Droid
 args:
   version:
-    description: The Factory Droid release Dozer installs (its pin).
+    description: The Factory Droid release Dozable installs (its pin).
     default: 0.240.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: DROID_VERSION
@@ -123,7 +123,7 @@ capabilities:
           /workspace:
             trustedAt: '2026-10-14T00:00:00.000Z'
     # The model source chosen, at every run: Droid takes a model's base URL only from its settings (customModels), so
-    # that list is this one custom model — at the source's base URL, its key printed from the variable Dozer puts the
+    # that list is this one custom model — at the source's base URL, its key printed from the variable Dozable puts the
     # placeholder in (never written here).
     - file: ~/.factory/settings.json
       each_run: true
@@ -204,7 +204,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a Factory account (FACTORY_API_KEY or its sign-in)
       in_sandbox: false
-      note: Factory's own models and account need its servers, which airgap mode keeps out; Dozer does not offer them yet.
+      note: Factory's own models and account need its servers, which airgap mode keeps out; Dozable does not offer them yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:

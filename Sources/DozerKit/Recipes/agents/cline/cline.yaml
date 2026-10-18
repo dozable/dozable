@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Cline CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/cline.json, which Dozer embeds).
+# Cline CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/cline.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: cline/cline
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Cline CLI release Dozer installs (its pin).
+    description: The Cline CLI release Dozable installs (its pin).
     default: 3.0.71
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CLINE_VERSION
@@ -138,7 +138,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Cline''s own providers, each reading its key from the environment; Dozer puts the provider and model on its command line (-P xai -m grok-build-0.1 on xAI, the default). Cline saves only the provider and model.'
+      note: 'Cline''s own providers, each reading its key from the environment; Dozable puts the provider and model on its command line (-P xai -m grok-build-0.1 on xAI, the default). Cline saves only the provider and model.'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic
@@ -178,7 +178,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a Cline account (ClinePass)
       in_sandbox: false
-      note: Cline's own account and its models need its servers; Dozer does not offer them yet.
+      note: Cline's own account and its models need its servers; Dozable does not offer them yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
@@ -240,7 +240,7 @@ capabilities:
       musl: false
     limits:
     - musl: true
-      reason: Dozer installs Cline's glibc linux-arm64 build
+      reason: Dozable installs Cline's glibc linux-arm64 build
     tags:
     - tag: headless
       level: verified

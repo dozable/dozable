@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# ZeroClaw — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/zeroclaw.json, which Dozer embeds).
+# ZeroClaw — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/zeroclaw.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: zeroclaw-labs/zeroclaw
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The ZeroClaw release Dozer installs (its pin).
+    description: The ZeroClaw release Dozable installs (its pin).
     default: '0.8.5'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: ZEROCLAW_VERSION
@@ -124,7 +124,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'ZeroClaw is set up with one OpenAI-shaped provider and one agent, main, at full autonomy (the sandbox is the boundary); Dozer points the provider at the chosen source (its uri, model and key through ZeroClaw''s own environment overrides).'
+      note: 'ZeroClaw is set up with one OpenAI-shaped provider and one agent, main, at full autonomy (the sandbox is the boundary); Dozable points the provider at the chosen source (its uri, model and key through ZeroClaw''s own environment overrides).'
       checked: '2026-10-14'
     - kind: api-key
       provider: openai
@@ -207,7 +207,7 @@ capabilities:
       - zeroclaw agent -a main -m PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/zeroclaw)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "ZeroClaw is a personal-agent runtime with shell, file and web tools; its session on the left is its agent, main, at full autonomy."

@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "GROK_VERSION",
       "default" : "1.0.52",
-      "description" : "The Grok Build release Dozer installs (its pin).",
+      "description" : "The Grok Build release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -200,7 +200,7 @@
             "checked" : "2026-10-12",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozer does not offer it yet."
+            "note" : "Grok Build signs in itself (grok login, or grok login --device-code without a browser). That sign-in would live in the sandbox's own state (~/.grok), not on the Mac — Dozable does not offer it yet."
           }
         ]
       },
@@ -212,7 +212,7 @@
           {
             "checked" : "2026-10-12",
             "endpoint" : "v1",
-            "evidence" : "xAI's custom-models guide says any OpenAI Chat Completions or Responses server works through GROK_MODELS_BASE_URL (+ XAI_API_KEY); Dozer's step-0 run (617.01 §1.3) saw Grok Build 1.0.50 honour GROK_XAI_API_BASE_URL / GROK_MODELS_BASE_URL against a local OpenAI-compatible fake — evidence the variables are read, not a run against OpenRouter",
+            "evidence" : "xAI's custom-models guide says any OpenAI Chat Completions or Responses server works through GROK_MODELS_BASE_URL (+ XAI_API_KEY); Dozable's step-0 run (617.01 §1.3) saw Grok Build 1.0.50 honour GROK_XAI_API_BASE_URL / GROK_MODELS_BASE_URL against a local OpenAI-compatible fake — evidence the variables are read, not a run against OpenRouter",
             "gateway" : "openrouter",
             "how" : {
               "config" : [
@@ -230,7 +230,7 @@
             },
             "level" : "experimental",
             "limits" : [
-              "not offered in a Dozer try: Grok Build checks its key with xAI's own API when it starts (api.x.ai/v1/api-key) and refuses to run (\"Not signed in\") unless an xAI key or sign-in passes it — with another source's key that check is refused (the key goes only to its own source), so Dozer offers Grok Build on xAI only (make recipe-check, 2026-10-16)",
+              "not offered in a Dozable try: Grok Build checks its key with xAI's own API when it starts (api.x.ai/v1/api-key) and refuses to run (\"Not signed in\") unless an xAI key or sign-in passes it — with another source's key that check is refused (the key goes only to its own source), so Dozable offers Grok Build on xAI only (make recipe-check, 2026-10-16)",
               "not supported by xAI or OpenRouter for this pair: an opt-in only"
             ],
             "proxy_route" : {
@@ -267,7 +267,7 @@
             },
             "level" : "documented",
             "limits" : [
-              "not offered in a Dozer try: Grok Build checks its key with xAI's own API when it starts (api.x.ai/v1/api-key) and refuses to run (\"Not signed in\") unless an xAI key or sign-in passes it — with another source's key that check is refused (the key goes only to its own source), so Dozer offers Grok Build on xAI only (make recipe-check, 2026-10-16)",
+              "not offered in a Dozable try: Grok Build checks its key with xAI's own API when it starts (api.x.ai/v1/api-key) and refuses to run (\"Not signed in\") unless an xAI key or sign-in passes it — with another source's key that check is refused (the key goes only to its own source), so Dozable offers Grok Build on xAI only (make recipe-check, 2026-10-16)",
               "a grok login session takes precedence over the key: grok logout first",
               "web search needs a second, Responses-backed model entry"
             ],
@@ -310,7 +310,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your xAI API key — a key from console.x.ai. When Dozer has no key for it, Grok Build says \"Not signed in\"."
+        "terms" : "Your xAI API key — a key from console.x.ai. When Dozable has no key for it, Grok Build says \"Not signed in\"."
       },
       "type" : "com.dozersandbox/directory@1"
     },

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Open Interpreter — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/open-interpreter.json, which Dozer embeds).
+# Open Interpreter — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/open-interpreter.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: openinterpreter/open-interpreter
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Open Interpreter release Dozer installs (its pin).
+    description: The Open Interpreter release Dozable installs (its pin).
     default: 0.0.56
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: OPEN_INTERPRETER_VERSION
@@ -93,7 +93,7 @@ capabilities:
     - '-c'
     - 'model_provider=doz'
     - '-c'
-    - 'model_providers.doz.name=Dozer'
+    - 'model_providers.doz.name=Dozable'
     - '-c'
     - 'model_providers.doz.base_url=$DOZ_BASE_URL'
     - '-c'

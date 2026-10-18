@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "PROMPTFOO_VERSION",
       "default" : "0.124.1",
-      "description" : "The promptfoo release Dozer installs (its pin).",
+      "description" : "The promptfoo release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -291,7 +291,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). promptfoo view (its web viewer) needs a forwarded port, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

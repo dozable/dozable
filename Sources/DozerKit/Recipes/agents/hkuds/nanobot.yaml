@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# nanobot — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/nanobot.json, which Dozer embeds).
+# nanobot — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/nanobot.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: hkuds/nanobot
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The nanobot release Dozer installs (its pin).
+    description: The nanobot release Dozable installs (its pin).
     default: '0.3.5'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: NANOBOT_VERSION
@@ -294,7 +294,7 @@ capabilities:
       - nanobot agent -m PROMPT
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/nanobot)'
       checked: '2026-10-14'
-    terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozer does not offer yet.
+    terms: Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "nanobot is a small personal agent: its session on the left is its terminal UI, and `nanobot agent -m` answers one message."

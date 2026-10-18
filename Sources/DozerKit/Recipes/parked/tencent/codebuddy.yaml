@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
 # PARKED (owner, 2026-10-15): "coming" in Recipes/known.json — its interactive start asks to log in to a CodeBuddy
-# account even with Dozer's model set. Kept here, not compiled, so it can come back when a skip appears: move it back
+# account even with Dozable's model set. Kept here, not compiled, so it can come back when a skip appears: move it back
 # to Recipes/agents/, run make recipes, add the embed line, drop the known entry.
-# CodeBuddy Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/codebuddy.json, which Dozer embeds).
+# CodeBuddy Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/codebuddy.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: tencent/codebuddy
@@ -15,7 +15,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The CodeBuddy Code release Dozer installs (its pin).
+    description: The CodeBuddy Code release Dozable installs (its pin).
     default: 2.164.0
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CODEBUDDY_VERSION
@@ -139,7 +139,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a CodeBuddy account (Tencent Cloud)
       in_sandbox: false
-      note: CodeBuddy's own models need its sign-in; Dozer does not offer it yet. Its TUI offers that sign-in at start (Esc skips it).
+      note: CodeBuddy's own models need its sign-in; Dozable does not offer it yet. Its TUI offers that sign-in at start (Esc skips it).
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:

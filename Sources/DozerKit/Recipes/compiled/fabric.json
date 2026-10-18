@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "FABRIC_VERSION",
       "default" : "1.4.518",
-      "description" : "The Fabric release Dozer installs (its pin).",
+      "description" : "The Fabric release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -175,7 +175,7 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://aistudio.google.com/apikey",
             "kind" : "api-key",
-            "note" : "Fabric's vendor and model come from DEFAULT_VENDOR and DEFAULT_MODEL, which Dozer sets for the chosen source (Gemini by default; GrokAI reads GROKAI_API_KEY too).",
+            "note" : "Fabric's vendor and model come from DEFAULT_VENDOR and DEFAULT_MODEL, which Dozable sets for the chosen source (Gemini by default; GrokAI reads GROKAI_API_KEY too).",
             "provider" : "google"
           },
           {
@@ -359,7 +359,7 @@
             "text" : "See the patterns it has."
           },
           {
-            "command" : "echo \"Dozer runs each agent in its own VM\" | fabric -p summarize",
+            "command" : "echo \"Dozable runs each agent in its own VM\" | fabric -p summarize",
             "text" : "Summarise some text with one."
           },
           {

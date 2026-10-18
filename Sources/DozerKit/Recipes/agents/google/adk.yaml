@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Agent Development Kit — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/adk.json, which Dozer embeds).
+# Agent Development Kit — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/adk.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: google/adk
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Agent Development Kit release Dozer installs (its pin).
+    description: The Agent Development Kit release Dozable installs (its pin).
     default: '2.12.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: ADK_VERSION
@@ -169,7 +169,7 @@ capabilities:
       - echo PROMPT | adk run AGENT_DIR
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/adk)'
       checked: '2026-10-14'
-    terms: Your Gemini API key — a key from aistudio.google.com. adk web (its dev UI) and adk api_server need a forwarded port, which Dozer does not offer yet.
+    terms: Your Gemini API key — a key from aistudio.google.com. adk web (its dev UI) and adk api_server need a forwarded port, which Dozable does not offer yet.
 - type: com.dozersandbox/guide@1
   config:
     intro: "Google's Agent Development Kit builds agents in Python; `adk run FOLDER` talks to one in the terminal."

@@ -10,7 +10,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it signs in with a Cursor account, which Dozer cannot hold on the Mac for it yet",
+      "reason": "it signs in with a Cursor account, which Dozable cannot hold on the Mac for it yet",
       "checked": "2026-10-12"
     },
     {
@@ -22,7 +22,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "a Java application in a 340 MB release folder: Dozer installs one program file, and its bundled Java runtime does not trust the sandbox's certificate authority yet; its own-key mode (an xAI key, no JetBrains account) reached xAI in a sandbox once both were done by hand",
+      "reason": "a Java application in a 340 MB release folder: Dozable installs one program file, and its bundled Java runtime does not trust the sandbox's certificate authority yet; its own-key mode (an xAI key, no JetBrains account) reached xAI in a sandbox once both were done by hand",
       "checked": "2026-10-14"
     },
     {
@@ -34,7 +34,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it no longer reads an API key from the environment: it copies the key into its own credentials file, where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
+      "reason": "it no longer reads an API key from the environment: it copies the key into its own credentials file, where the placeholder Dozable gives each session would go stale — Dozable has no per-session way to write it there yet",
       "checked": "2026-10-14"
     },
     {
@@ -45,7 +45,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "its linux-arm64 build needs glibc 2.38 or later (Ubuntu 24.04); Dozer's agent images are on Debian 12 (glibc 2.36), and an agent on the Ubuntu base is not set up yet",
+      "reason": "its linux-arm64 build needs glibc 2.38 or later (Ubuntu 24.04); Dozable's agent images are on Debian 12 (glibc 2.36), and an agent on the Ubuntu base is not set up yet",
       "checked": "2026-10-14"
     },
     {
@@ -57,7 +57,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "its models run only through Amp's own service, with an Amp API key (sgamp_…), which Dozer cannot hold for you yet",
+      "reason": "its models run only through Amp's own service, with an Amp API key (sgamp_…), which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -69,7 +69,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on Kiro's own models, with a Kiro API key from a paid plan (Pro and above) or an AWS sign-in, which Dozer cannot hold for you yet",
+      "reason": "it runs only on Kiro's own models, with a Kiro API key from a paid plan (Pro and above) or an AWS sign-in, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -81,7 +81,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it signs in with a Qoder personal access token, which Dozer cannot hold for you yet; its own-model mode is set inside its interface and may need a paid plan",
+      "reason": "it signs in with a Qoder personal access token, which Dozable cannot hold for you yet; its own-model mode is set inside its interface and may need a paid plan",
       "checked": "2026-10-14"
     },
     {
@@ -105,7 +105,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "its current release (0.86.2) needs Python 3.10 to 3.12; the Python Dozer installs tools into is 3.13",
+      "reason": "its current release (0.86.2) needs Python 3.10 to 3.12; the Python Dozable installs tools into is 3.13",
       "checked": "2026-10-14"
     },
     {
@@ -116,7 +116,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it keeps the model's API key in its own settings file (~/.kode.json; an imported fromEnv key is copied in as text), where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
+      "reason": "it keeps the model's API key in its own settings file (~/.kode.json; an imported fromEnv key is copied in as text), where the placeholder Dozable gives each session would go stale — Dozable has no per-session way to write it there yet",
       "checked": "2026-10-14"
     },
     {
@@ -127,7 +127,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it has no releases: it runs from a git checkout set up with uv, which Dozer cannot pin and install yet",
+      "reason": "it has no releases: it runs from a git checkout set up with uv, which Dozable cannot pin and install yet",
       "checked": "2026-10-14"
     },
     {
@@ -138,7 +138,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs on CAST AI's own model service with a Kimchi key, which Dozer cannot hold for you yet",
+      "reason": "it runs on CAST AI's own model service with a Kimchi key, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -149,7 +149,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "its source is Apache-2.0 but the binary it installs comes under preview terms, which need a reading before Dozer installs it for you",
+      "reason": "its source is Apache-2.0 but the binary it installs comes under preview terms, which need a reading before Dozable installs it for you",
       "checked": "2026-10-14"
     },
     {
@@ -160,7 +160,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it reads provider keys only from its own ~/.reasonix/.env file, never the environment, where the placeholder Dozer gives each session would go stale — Dozer has no per-session way to write it there yet",
+      "reason": "it reads provider keys only from its own ~/.reasonix/.env file, never the environment, where the placeholder Dozable gives each session would go stale — Dozable has no per-session way to write it there yet",
       "checked": "2026-10-14"
     },
     {
@@ -172,7 +172,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "an early preview (0.0.13) that talks to Vercel AI Gateway (or a Grok or ChatGPT sign-in) only over the gateway's own AI SDK protocol, not the OpenAI or Anthropic shapes Dozer checks a gateway key with; Dozer will add it when it can check that protocol",
+      "reason": "an early preview (0.0.13) that talks to Vercel AI Gateway (or a Grok or ChatGPT sign-in) only over the gateway's own AI SDK protocol, not the OpenAI or Anthropic shapes Dozable checks a gateway key with; Dozable will add it when it can check that protocol",
       "checked": "2026-10-14"
     },
     {
@@ -184,7 +184,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it is set up through a Continue Hub sign-in; a key-only setup with Dozer's placeholder is not checked yet",
+      "reason": "it is set up through a Continue Hub sign-in; a key-only setup with Dozable's placeholder is not checked yet",
       "checked": "2026-10-14"
     },
     {
@@ -196,7 +196,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on Augment's own models, signed in with an Augment session (not an API key), which Dozer cannot hold for you yet",
+      "reason": "it runs only on Augment's own models, signed in with an Augment session (not an API key), which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -208,7 +208,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on Devin's own service, with a token from the Devin web app, which Dozer cannot hold for you yet",
+      "reason": "it runs only on Devin's own service, with a token from the Devin web app, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -220,7 +220,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on Atlassian's service, with an Atlassian API token and Rovo credits, which Dozer cannot hold for you yet",
+      "reason": "it runs only on Atlassian's service, with an Atlassian API token and Rovo credits, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -232,7 +232,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on GitLab's own model service (GitLab 19.2 or later, Premium or Ultimate), signed in to GitLab, which Dozer cannot hold for you yet",
+      "reason": "it runs only on GitLab's own model service (GitLab 19.2 or later, Premium or Ultimate), signed in to GitLab, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -244,7 +244,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs on Snowflake's own models through a Snowflake account connection, which Dozer cannot hold for you yet",
+      "reason": "it runs on Snowflake's own models through a Snowflake account connection, which Dozable cannot hold for you yet",
       "checked": "2026-10-14"
     },
     {
@@ -255,7 +255,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it runs only on StepFun's models with a StepFun key — a provider Dozer does not offer yet",
+      "reason": "it runs only on StepFun's models with a StepFun key — a provider Dozable does not offer yet",
       "checked": "2026-10-14"
     },
     {
@@ -278,7 +278,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["chat-app", "local-models"],
-      "reason": "its release needs Python 3.12 (the Python Dozer installs tools into is 3.13) and PyTorch on the CPU for its embeddings (sentence-transformers) — its web page itself can now open on the Mac (doz open)",
+      "reason": "its release needs Python 3.12 (the Python Dozable installs tools into is 3.13) and PyTorch on the CPU for its embeddings (sentence-transformers) — its web page itself can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -289,7 +289,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["mcp"],
-      "reason": "talks to MCP servers, not a model — Dozer cannot try a tool with no model key yet — and the servers it starts come from npm or PyPI at run time; its web UI can now open on the Mac (doz open)",
+      "reason": "talks to MCP servers, not a model — Dozable cannot try a tool with no model key yet — and the servers it starts come from npm or PyPI at run time; its web UI can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -311,7 +311,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["workflow"],
-      "reason": "its install builds native modules (sqlite3, isolated-vm) with a compiler, which Dozer's npm install does not run; its web page itself can now open on the Mac (doz open)",
+      "reason": "its install builds native modules (sqlite3, isolated-vm) with a compiler, which Dozable's npm install does not run; its web page itself can now open on the Mac (doz open)",
       "checked": "2026-10-14"
     },
     {
@@ -333,7 +333,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["personal-agent"],
-      "reason": "it reads its model keys only from its own key file, where Dozer cannot put a key's placeholder yet; its gateway needs a background service",
+      "reason": "it reads its model keys only from its own key file, where Dozable cannot put a key's placeholder yet; its gateway needs a background service",
       "checked": "2026-10-14"
     },
     {
@@ -545,7 +545,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["research"],
-      "reason": "its web research needs a Tavily key (a provider Dozer does not offer yet), and its UI a forwarded port",
+      "reason": "its web research needs a Tavily key (a provider Dozable does not offer yet), and its UI a forwarded port",
       "checked": "2026-10-14"
     },
     {
@@ -590,7 +590,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["personal-agent"],
-      "reason": "Nous distributes it only through its own installer (a source checkout it sets up with uv), Docker or Nix — its build refuses to make an installable package — so Dozer cannot pin it yet; its gateway, dashboard and browser tools also need a background service, a forwarded port and a headless Chromium",
+      "reason": "Nous distributes it only through its own installer (a source checkout it sets up with uv), Docker or Nix — its build refuses to make an installable package — so Dozable cannot pin it yet; its gateway, dashboard and browser tools also need a background service, a forwarded port and a headless Chromium",
       "checked": "2026-10-14"
     },
     {
@@ -612,7 +612,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["personal-agent"],
-      "reason": "it keeps its model key in its own encrypted store, typed at a prompt, where Dozer cannot put a key's placeholder yet; its service and web UI need a background service and a forwarded port",
+      "reason": "it keeps its model key in its own encrypted store, typed at a prompt, where Dozable cannot put a key's placeholder yet; its service and web UI need a background service and a forwarded port",
       "checked": "2026-10-14"
     },
     {
@@ -724,7 +724,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["terminal-tool"],
-      "reason": "it reads its key only from its own config file, where Dozer cannot put a key's placeholder yet",
+      "reason": "it reads its key only from its own config file, where Dozable cannot put a key's placeholder yet",
       "checked": "2026-10-14"
     },
     {
@@ -912,7 +912,7 @@
       "status": "coming",
       "kind": "ai-tool",
       "categories": ["local-models"],
-      "reason": "it runs a speech model inside the sandbox, with no API key: Dozer's tools all talk to a model provider today, and its models are downloads",
+      "reason": "it runs a speech model inside the sandbox, with no API key: Dozable's tools all talk to a model provider today, and its models are downloads",
       "checked": "2026-10-14"
     },
     {
@@ -924,7 +924,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "its first screen asks you to sign in to a CodeBuddy account, even with Dozer's model set, and Dozer cannot offer that sign-in",
+      "reason": "its first screen asks you to sign in to a CodeBuddy account, even with Dozable's model set, and Dozable cannot offer that sign-in",
       "checked": "2026-10-15"
     },
     {
@@ -936,7 +936,7 @@
       "status": "coming",
       "kind": "coding-agent",
       "categories": ["coding-agent"],
-      "reason": "it shows a ChatGPT sign-in whenever it has no login file, whatever provider is set; Dozer will add it when it honours the configured provider",
+      "reason": "it shows a ChatGPT sign-in whenever it has no login file, whatever provider is set; Dozable will add it when it honours the configured provider",
       "checked": "2026-10-15"
     }
   ]

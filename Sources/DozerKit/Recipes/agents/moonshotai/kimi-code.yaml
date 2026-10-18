@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Kimi Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/kimi-code.json, which Dozer embeds).
+# Kimi Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/kimi-code.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: moonshotai/kimi-code
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The Kimi Code release Dozer installs (its pin).
+    description: The Kimi Code release Dozable installs (its pin).
     default: 2.1.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: KIMI_CODE_VERSION
@@ -155,7 +155,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Kimi Code''s model from the environment (KIMI_MODEL_NAME, KIMI_MODEL_PROVIDER_TYPE, KIMI_MODEL_BASE_URL; the key''s placeholder under KIMI_MODEL_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. Moonshot''s own sign-in and keys Dozer does not offer yet.'
+      note: 'Kimi Code''s model from the environment (KIMI_MODEL_NAME, KIMI_MODEL_PROVIDER_TYPE, KIMI_MODEL_BASE_URL; the key''s placeholder under KIMI_MODEL_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. Moonshot''s own sign-in and keys Dozable does not offer yet.'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

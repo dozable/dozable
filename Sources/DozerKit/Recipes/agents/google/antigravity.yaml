@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Antigravity CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/antigravity.json, which Dozer embeds).
+# Antigravity CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/antigravity.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: google/antigravity
@@ -12,7 +12,7 @@ licenses:
 - LicenseRef-Google-Antigravity-Terms
 args:
   version:
-    description: The Antigravity CLI release Dozer installs (its pin).
+    description: The Antigravity CLI release Dozable installs (its pin).
     default: 1.3.4+5524158944247808
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: ANTIGRAVITY_VERSION
@@ -161,7 +161,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://aistudio.google.com/apikey
-      note: 'A Gemini API key (modelProvider gemini, GEMINI_API_KEY): Dozer never offers the Google sign-in, which keeps its token in a keyring on the machine.'
+      note: 'A Gemini API key (modelProvider gemini, GEMINI_API_KEY): Dozable never offers the Google sign-in, which keeps its token in a keyring on the machine.'
       checked: '2026-10-12'
 - type: com.dozersandbox/gateways@1
   config:
@@ -183,7 +183,7 @@ capabilities:
     categories:
     - coding-agent
     limits:
-    - reason: Dozer installs Antigravity CLI's glibc build only for now (Google publishes a musl build too; it is not checked yet)
+    - reason: Dozable installs Antigravity CLI's glibc build only for now (Google publishes a musl build too; it is not checked yet)
       musl: true
     aliases:
     - agy

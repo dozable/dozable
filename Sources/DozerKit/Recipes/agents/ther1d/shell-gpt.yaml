@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# ShellGPT — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/shell-gpt.json, which Dozer embeds).
+# ShellGPT — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/shell-gpt.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: ther1d/shell-gpt
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The ShellGPT release Dozer installs (its pin).
+    description: The ShellGPT release Dozable installs (its pin).
     default: '1.5.1'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: SHELL_GPT_VERSION
@@ -130,7 +130,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: ShellGPT speaks OpenAI's API; Dozer points it at the chosen provider's or gateway's (API_BASE_URL) and puts the key's placeholder under OPENAI_API_KEY too. On xAI (the default) the model is grok-4-1-fast (DEFAULT_MODEL; doz try --model, or sgpt --model).
+      note: ShellGPT speaks OpenAI's API; Dozable points it at the chosen provider's or gateway's (API_BASE_URL) and puts the key's placeholder under OPENAI_API_KEY too. On xAI (the default) the model is grok-4-1-fast (DEFAULT_MODEL; doz try --model, or sgpt --model).
       checked: '2026-10-14'
     - kind: api-key
       provider: openai

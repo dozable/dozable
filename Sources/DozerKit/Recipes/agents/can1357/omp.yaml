@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# oh-my-pi — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/omp.json, which Dozer embeds).
+# oh-my-pi — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/omp.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: can1357/omp
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The oh-my-pi release Dozer installs (its pin).
+    description: The oh-my-pi release Dozable installs (its pin).
     default: 18.10.4
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: OMP_VERSION
@@ -71,7 +71,7 @@ capabilities:
       - host: api.venice.ai
         reason: the same start-up model-list discovery (Venice)
       - host: build.stencil.so
-        reason: oh-my-pi's release check when it starts (Dozer installs the pinned release); it carries on without it
+        reason: oh-my-pi's release check when it starts (Dozable installs the pinned release); it carries on without it
       - host: catalog.stencil.so
         reason: the same start-up model-list discovery (a public model catalogue)
       - host: coding-intl.dashscope.aliyuncs.com
@@ -126,7 +126,7 @@ capabilities:
     env: {}
     state_env: {}
     # Its first start runs a five-step setup (sign in to providers, default model, glyphs, composer, theme) until
-    # ~/.omp/agent/config.yml records it done (what skipping every step writes): Dozer gives it its model and key.
+    # ~/.omp/agent/config.yml records it done (what skipping every step writes): Dozable gives it its model and key.
     first_run:
     - file: ~/.omp/agent/config.yml
       set:
@@ -153,7 +153,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'oh-my-pi''s built-in providers, each reading its key from the environment; Dozer puts the model on its command line (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).'
+      note: 'oh-my-pi''s built-in providers, each reading its key from the environment; Dozable puts the model on its command line (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic
@@ -244,7 +244,7 @@ capabilities:
       musl: false
     limits:
     - musl: true
-      reason: Dozer installs oh-my-pi's glibc build; its musl build is a separate download, not used yet
+      reason: Dozable installs oh-my-pi's glibc build; its musl build is a separate download, not used yet
     tags:
     - tag: headless
       level: verified

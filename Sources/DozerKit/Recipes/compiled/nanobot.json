@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "NANOBOT_VERSION",
       "default" : "0.3.5",
-      "description" : "The nanobot release Dozer installs (its pin).",
+      "description" : "The nanobot release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -395,7 +395,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozer does not offer yet."
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozable does not offer yet."
       },
       "type" : "com.dozersandbox/directory@1"
     },

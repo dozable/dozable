@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# CodeWhale — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/codewhale.json, which Dozer embeds).
+# CodeWhale — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/codewhale.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: hmbown/codewhale
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The CodeWhale release Dozer installs (its pin).
+    description: The CodeWhale release Dozable installs (its pin).
     default: 0.10.1
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CODEWHALE_VERSION

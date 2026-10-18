@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Docker Agent — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/docker-agent.json, which Dozer embeds).
+# Docker Agent — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/docker-agent.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: docker/docker-agent
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Docker Agent release Dozer installs (its pin).
+    description: The Docker Agent release Dozable installs (its pin).
     default: 1.150.0
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: DOCKER_AGENT_VERSION
@@ -144,7 +144,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://console.x.ai/
-      note: 'Docker Agent''s own providers, each reading its key from the environment; Dozer puts the model on its run command (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).'
+      note: 'Docker Agent''s own providers, each reading its key from the environment; Dozable puts the model on its run command (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).'
       checked: '2026-10-16'
     - kind: api-key
       provider: anthropic

@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# clai (Pydantic AI) — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/clai.json, which Dozer embeds).
+# clai (Pydantic AI) — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/clai.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: pydantic/clai
@@ -12,7 +12,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The clai (Pydantic AI) release Dozer installs (its pin).
+    description: The clai (Pydantic AI) release Dozable installs (its pin).
     default: '2.55.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: CLAI_VERSION

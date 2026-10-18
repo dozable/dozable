@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# AIChat — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/aichat.json, which Dozer embeds).
+# AIChat — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/aichat.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: sigoden/aichat
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The AIChat release Dozer installs (its pin).
+    description: The AIChat release Dozable installs (its pin).
     default: '0.30.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: AICHAT_VERSION
@@ -221,7 +221,7 @@ capabilities:
       command: "aichat \"say ok\""
     - text: "Chat in its REPL: the session on the left (`.help` lists its commands)."
     - text: "Pipe text in."
-      command: "echo \"Dozer runs each agent in its own VM\" | aichat \"summarise this in five words\""
+      command: "echo \"Dozable runs each agent in its own VM\" | aichat \"summarise this in five words\""
     - text: "See the models of its client."
       command: "aichat --list-models"
     tips:

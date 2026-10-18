@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# Gemini CLI — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/gemini.json, which Dozer embeds).
+# Gemini CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/gemini.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: google/gemini
@@ -12,7 +12,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Gemini CLI release Dozer installs (its pin).
+    description: The Gemini CLI release Dozable installs (its pin).
     default: 0.63.0
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: GEMINI_VERSION
@@ -133,7 +133,7 @@ capabilities:
       accounts:
       - key
       keys_page: https://aistudio.google.com/apikey
-      note: 'API key only: Google''s terms forbid third-party tools from using the Google sign-in behind Gemini CLI, so Dozer never offers it.'
+      note: 'API key only: Google''s terms forbid third-party tools from using the Google sign-in behind Gemini CLI, so Dozable never offers it.'
       checked: '2026-10-12'
 - type: com.dozersandbox/gateways@1
   config:

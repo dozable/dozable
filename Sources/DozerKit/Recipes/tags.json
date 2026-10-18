@@ -8,7 +8,7 @@
     { "id": "vendor-sign-in", "title": "Its maker's sign-in", "meaning": "It can sign in with its maker's own account (a subscription, a ChatGPT plan, an x.ai account).", "derived": true },
     { "id": "no-account", "title": "No account needed", "meaning": "It works with no key and no sign-in.", "derived": true },
     { "id": "free-tier", "title": "Free tier", "meaning": "Its model has a free tier (cited, with the date it was checked).", "derived": true },
-    { "id": "status", "title": "Says what it is doing", "meaning": "It reports its state to Dozer (OSC 7501): working, waiting for you, done.", "derived": true },
+    { "id": "status", "title": "Says what it is doing", "meaning": "It reports its state to Dozable (OSC 7501): working, waiting for you, done.", "derived": true },
     { "id": "resume", "title": "Resumes after a restart", "meaning": "Its default session continues the last conversation when it is restarted.", "derived": true },
     { "id": "musl", "title": "Runs on Alpine", "meaning": "It runs on a musl base (Alpine).", "derived": true },
     { "id": "open-source", "title": "Open source", "meaning": "Its source is published under an open-source licence.", "derived": true },

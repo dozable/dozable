@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "AICHAT_VERSION",
       "default" : "0.30.0",
-      "description" : "The AIChat release Dozer installs (its pin).",
+      "description" : "The AIChat release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -339,7 +339,7 @@
             "text" : "Chat in its REPL: the session on the left (`.help` lists its commands)."
           },
           {
-            "command" : "echo \"Dozer runs each agent in its own VM\" | aichat \"summarise this in five words\"",
+            "command" : "echo \"Dozable runs each agent in its own VM\" | aichat \"summarise this in five words\"",
             "text" : "Pipe text in."
           },
           {

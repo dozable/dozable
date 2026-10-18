@@ -2,8 +2,8 @@
 # PARKED (owner, 2026-10-15): "coming" in Recipes/known.json — it shows a ChatGPT sign-in whenever ~/.code has no
 # login file, whatever provider is set. Kept here, not compiled, so it can come back when that changes: move it back
 # to Recipes/agents/, run make recipes, add the embed line, drop the known entry.
-# Every Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/every-code.json, which Dozer embeds).
+# Every Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/every-code.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: just-every/every-code
@@ -15,7 +15,7 @@ licenses:
 - Apache-2.0
 args:
   version:
-    description: The Every Code release Dozer installs (its pin).
+    description: The Every Code release Dozable installs (its pin).
     default: 0.6.196
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: EVERY_CODE_VERSION

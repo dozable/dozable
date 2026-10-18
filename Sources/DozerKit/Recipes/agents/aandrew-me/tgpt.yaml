@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# tgpt — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/tgpt.json, which Dozer embeds).
+# tgpt — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/tgpt.json, which Dozable embeds).
 schema: 2
 kind: workload
 id: aandrew-me/tgpt
@@ -12,7 +12,7 @@ licenses:
 - GPL-3.0-only
 args:
   version:
-    description: The tgpt release Dozer installs (its pin).
+    description: The tgpt release Dozable installs (its pin).
     default: '2.15.0'
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: TGPT_VERSION
@@ -196,5 +196,5 @@ capabilities:
     - text: "One question, quietly."
       command: "tgpt -q \"what is a sandbox, in one line?\""
     tips:
-    - "Its key-less free providers are other companies' services, which Dozer does not allow by default."
+    - "Its key-less free providers are other companies' services, which Dozable does not allow by default."
     docs: https://github.com/aandrew-me/tgpt

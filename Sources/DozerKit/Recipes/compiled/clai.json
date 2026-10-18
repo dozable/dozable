@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "CLAI_VERSION",
       "default" : "2.55.0",
-      "description" : "The clai (Pydantic AI) release Dozer installs (its pin).",
+      "description" : "The clai (Pydantic AI) release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },

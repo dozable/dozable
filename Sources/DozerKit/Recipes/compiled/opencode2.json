@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "OPENCODE2_VERSION",
       "default" : "2.0.29",
-      "description" : "The OpenCode 2 release Dozer installs (its pin).",
+      "description" : "The OpenCode 2 release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -220,7 +220,7 @@
             "checked" : "2026-10-14",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "OpenCode 2 works with many providers; Dozer offers it on an xAI key (XAI_API_KEY, model xai/grok-build-0.1) for now.",
+            "note" : "OpenCode 2 works with many providers; Dozable offers it on an xAI key (XAI_API_KEY, model xai/grok-build-0.1) for now.",
             "provider" : "xai"
           },
           {
@@ -228,7 +228,7 @@
             "checked" : "2026-10-14",
             "in_sandbox" : false,
             "kind" : "vendor-sign-in",
-            "note" : "OpenCode can sign in itself (opencode auth login); that sign-in would live in the sandbox's own state, not on the Mac — Dozer does not offer it yet."
+            "note" : "OpenCode can sign in itself (opencode auth login); that sign-in would live in the sandbox's own state, not on the Mac — Dozable does not offer it yet."
           }
         ]
       },
@@ -344,7 +344,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs OpenCode 2's glibc build; its musl build is a separate package, not used yet"
+            "reason" : "Dozable installs OpenCode 2's glibc build; its musl build is a separate package, not used yet"
           }
         ],
         "platforms" : {
@@ -405,7 +405,7 @@
         "tips" : [
           "Files it makes are in /workspace — your folder on the Mac.",
           "Restart its session from the session's ⋯ menu; End stops it.",
-          "A key added with OpenCode's /connect is stored inside this sandbox; a key added in Dozer stays on your Mac."
+          "A key added with OpenCode's /connect is stored inside this sandbox; a key added in Dozable stays on your Mac."
         ]
       },
       "type" : "com.dozersandbox/guide@1"

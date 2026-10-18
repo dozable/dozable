@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
-# MiMo Code — Dozer's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
-# Edit this file, then run make recipes (it writes Recipes/compiled/mimo-code.json, which Dozer embeds).
+# MiMo Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/mimo-code.json, which Dozable embeds).
 # Licence: MIT for the code, plus Xiaomi's "Use Restrictions". The owner's reading (2026-10-14): installing it for a
 # user in their own sandbox is not a competing or restricted use — so it is a recipe. Its usage analytics stay off.
 schema: 2
@@ -14,7 +14,7 @@ licenses:
 - MIT
 args:
   version:
-    description: The MiMo Code release Dozer installs (its pin).
+    description: The MiMo Code release Dozable installs (its pin).
     default: 0.1.15
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: MIMO_CODE_VERSION
@@ -191,7 +191,7 @@ capabilities:
     - kind: vendor-sign-in
       account: a MiMo Platform account (Xiaomi)
       in_sandbox: false
-      note: MiMo's own models need its sign-in; Dozer does not offer it yet.
+      note: MiMo's own models need its sign-in; Dozable does not offer it yet.
       checked: '2026-10-14'
 - type: com.dozersandbox/gateways@1
   config:
@@ -250,7 +250,7 @@ capabilities:
       musl: false
     limits:
     - musl: true
-      reason: Dozer installs MiMo Code's glibc build; its musl build is a separate package, not used yet
+      reason: Dozable installs MiMo Code's glibc build; its musl build is a separate package, not used yet
     tags:
     - tag: headless
       level: verified

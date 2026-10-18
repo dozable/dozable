@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "ANTIGRAVITY_VERSION",
       "default" : "1.3.4+5524158944247808",
-      "description" : "The Antigravity CLI release Dozer installs (its pin).",
+      "description" : "The Antigravity CLI release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -222,7 +222,7 @@
             "checked" : "2026-10-12",
             "keys_page" : "https://aistudio.google.com/apikey",
             "kind" : "api-key",
-            "note" : "A Gemini API key (modelProvider gemini, GEMINI_API_KEY): Dozer never offers the Google sign-in, which keeps its token in a keyring on the machine.",
+            "note" : "A Gemini API key (modelProvider gemini, GEMINI_API_KEY): Dozable never offers the Google sign-in, which keeps its token in a keyring on the machine.",
             "provider" : "google"
           }
         ]
@@ -269,7 +269,7 @@
         "limits" : [
           {
             "musl" : true,
-            "reason" : "Dozer installs Antigravity CLI's glibc build only for now (Google publishes a musl build too; it is not checked yet)"
+            "reason" : "Dozable installs Antigravity CLI's glibc build only for now (Google publishes a musl build too; it is not checked yet)"
           }
         ],
         "platforms" : {

@@ -3,7 +3,7 @@
     "version" : {
       "buildArg" : "MISTRAL_VIBE_VERSION",
       "default" : "2.26.1",
-      "description" : "The Mistral Vibe release Dozer installs (its pin).",
+      "description" : "The Mistral Vibe release Dozable installs (its pin).",
       "pattern" : "[0-9]+\\.[0-9]+(\\.[0-9]+)?([-+][0-9A-Za-z.-]+)?"
     }
   },
@@ -267,7 +267,7 @@
             "checked" : "2026-10-16",
             "keys_page" : "https://console.x.ai/",
             "kind" : "api-key",
-            "note" : "Mistral Vibe's own provider settings (VIBE_PROVIDERS, VIBE_MODELS), pointed at the chosen provider or gateway: an OpenAI-compatible base URL, or Anthropic's Messages API. On xAI (the default) the model is grok-build-0.1. Mistral's own keys Dozer does not offer yet.",
+            "note" : "Mistral Vibe's own provider settings (VIBE_PROVIDERS, VIBE_MODELS), pointed at the chosen provider or gateway: an OpenAI-compatible base URL, or Anthropic's Messages API. On xAI (the default) the model is grok-build-0.1. Mistral's own keys Dozable does not offer yet.",
             "provider" : "xai"
           },
           {
