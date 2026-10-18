@@ -10,9 +10,9 @@ import { hostCard } from '../components/host-66353a40390d0143.js';
 import { rowLifecycle } from '../components/lifecycle-4e83056d968bdf48.js';
 import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
 import { sandboxPill } from '../components/pills-fa26febb3646542c.js';
-import { quickAddButton } from '../components/quick-add-29c13543870ca5ac.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-fa5961eab2e1c027.js';
-import { newSandboxWizard } from './new-sandbox-b35fc479ea0fc72e.js';
+import { quickAddButton } from '../components/quick-add-c44f19f985584c75.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
+import { newSandboxWizard } from './new-sandbox-50d9981dc6558252.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {

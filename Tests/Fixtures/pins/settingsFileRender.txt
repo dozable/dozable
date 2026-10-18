@@ -197,7 +197,7 @@
 # is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings ›
 # Choose… sets it with the Mac's folder picker.
 # (path ("" = automatic); applies to sandboxes created from now on (the host reads it at create))
-# projects_dir = "~/dozer-sandbox-workspaces"
+# projects_dir = "~/doz-workspaces"
 
 # The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or
 # none. doz account default decides for a store once it has.

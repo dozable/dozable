@@ -23,11 +23,11 @@ import { failureFor, pageFailure, paintRowOps } from '../components/notices-00fc
 import { sandboxPill } from '../components/pills-fa26febb3646542c.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-d47cf44bc7dd9f56.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-fa5961eab2e1c027.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-3be2b4911d60ee62.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-71f56c467feed47f.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-5032aa12e5c0ad39.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-1a84afa436ab345e.js';
 import { networkPanel } from './sandbox-network-b2421766be265b11.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-babe6a237151a56c.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-ec810332e6abb121.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

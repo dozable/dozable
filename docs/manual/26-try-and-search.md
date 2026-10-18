@@ -20,7 +20,7 @@ doz try grok -d                    # make and start it, but don't attach (it is 
 A try is a throwaway sandbox with safe defaults:
 
 - **A new empty folder of its own** — Dozable makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
-  `~/dozer-sandbox-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
+  `~/doz-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
   your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
   `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-grok /workspace/FILE` copies a file out —
   see [Terminals and sessions](07-terminals-and-sessions.md)); `--workspace DIR` uses a folder you choose.
@@ -29,7 +29,7 @@ A try is a throwaway sandbox with safe defaults:
   The try's first line says so:
 
   ```
-  try-grok · Debian · Grok Build · a new empty folder ~/dozer-sandbox-workspaces/try-grok (not one of yours), at
+  try-grok · Debian · Grok Build · a new empty folder ~/doz-workspaces/try-grok (not one of yours), at
   /workspace · copy to your Mac's clipboard: on · open files on your Mac: on · open links in your Mac's browser: on
   ```
 - **Locked, plus the agent's own model** — it can talk to its AI model and nothing else. `--permissions standard`

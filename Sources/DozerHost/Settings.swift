@@ -545,7 +545,7 @@ public struct DozerSettings: Sendable {
             .init("defaults", "image", .choice(["lab", "claude-code", "pi", "codex"] + recipeAgents.map(\.id)), .string("lab"),
                   "The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose.",
                   flag: "doz create --image", applies: .nextCreate),
-            .init("defaults", "projects_dir", .path, .string("~/dozer-sandbox-workspaces"),
+            .init("defaults", "projects_dir", .path, .string(Workspace.projectsDirDefault),
                   "The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker.",
                   applies: .nextCreate, ui: false),
             .init("defaults", "account", .choice(["mac", "none"]), .string("mac"),
@@ -698,6 +698,9 @@ public struct DozerSettings: Sendable {
     /// The file did not parse: none of it applies, and it is not overwritten.
     public let fileError: String?
     public let fileExists: Bool
+    /// What `defaults.projects_dir` means while unset on this Mac: `~/dozer-sandbox-workspaces` when that
+    /// folder already exists, else `~/doz-workspaces` (`Workspace.unsetProjectsDir`).
+    public let unsetProjectsDir: String
 
     /// Read the file named by `environment` (defaults only when there is none).
     public static func load(environment: [String: String] = ProcessInfo.processInfo.environment) -> DozerSettings {
@@ -718,7 +721,9 @@ public struct DozerSettings: Sendable {
     }
 
     /// From a file's text (nil: no file).
-    public init(text: String?, url: URL? = nil, environment: [String: String] = [:], readError: String? = nil) {
+    public init(text: String?, url: URL? = nil, environment: [String: String] = [:], readError: String? = nil,
+                unsetProjectsDir: String = Workspace.unsetProjectsDir()) {
+        self.unsetProjectsDir = unsetProjectsDir
         self.url = url
         self.environment = environment
         var values: [String: TOMLValue] = [:]
@@ -771,6 +776,9 @@ public struct DozerSettings: Sendable {
             }
         }
         if let file { return ResolvedSetting(definition: d, value: file, source: .file, fileValue: file) }
+        if key == SettingKey.projectsDir {
+            return ResolvedSetting(definition: d, value: .string(unsetProjectsDir), source: .default, fileValue: nil)
+        }
         return ResolvedSetting(definition: d, value: d.defaultValue, source: .default, fileValue: nil)
     }
 

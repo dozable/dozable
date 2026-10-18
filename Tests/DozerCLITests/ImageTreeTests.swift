@@ -162,8 +162,8 @@ final class ImageTreeTests: XCTestCase {
         try Data().write(to: URL(fileURLWithPath: projects + "/lab-sandbox/README"))
         XCTAssertEqual(Workspace.suggestedName(image: "lab", taken: [], projects: projects), "lab-sandbox-2")
 
-        XCTAssertEqual(Workspace.defaultPath(name: "claude-sandbox", settings: DozerSettings(text: nil)),
-                       FileManager.default.homeDirectoryForCurrentUser.path + "/dozer-sandbox-workspaces/claude-sandbox")
+        XCTAssertEqual(Workspace.defaultPath(name: "claude-sandbox", settings: DozerSettings(text: nil, unsetProjectsDir: "~/doz-workspaces")),
+                       FileManager.default.homeDirectoryForCurrentUser.path + "/doz-workspaces/claude-sandbox")
         let set = DozerSettings(text: "[defaults]\nprojects_dir = \"/private/tmp/p\"\n")
         XCTAssertEqual(set.warnings, [])
         XCTAssertEqual(Workspace.defaultPath(name: "x", settings: set), "/private/tmp/p/x")

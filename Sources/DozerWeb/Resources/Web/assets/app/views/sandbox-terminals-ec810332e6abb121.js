@@ -19,7 +19,7 @@ import { menuButton } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { failureFor, pageFailure } from '../components/notices-00fcfa992069168b.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal-d47cf44bc7dd9f56.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-3be2b4911d60ee62.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-5032aa12e5c0ad39.js';
 import { sessionMenuItems } from '../components/session-actions-e641083830e84984.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const openSavedTerminal = upcall('openSavedTerminal'), persistLayout = upcall('persistLayout');
