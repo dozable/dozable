@@ -92,7 +92,7 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
 /// never "not checked yet" — no check is coming.
 func latestLine(_ l: DirectoryIndex.Latest?, agent: String? = nil) -> String {
     if l == nil, let id = agent, let r = AgentRecipes.recipe(id), AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) {
-        return "pinned \(r.install.pinned.version) — Dozer installs exactly this release; a newer one comes with a Dozer update"
+        return "pinned \(r.install.pinned.version) — Dozable installs exactly this release; a newer one comes with a Dozable update"
     }
     guard let l else { return "latest: not checked yet (the host checks hourly while it runs)" }
     var s = "latest \(l.version)"
@@ -154,12 +154,12 @@ func searchDetails(_ e: DirectoryIndex.Entry) -> String {
 
 struct SearchCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "search",
-        abstract: "Is it supported here? The agents, key providers and bases this Dozer knows — with your key, and the command to try it.",
+        abstract: "Is it supported here? The agents, key providers and bases this Dozable knows — with your key, and the command to try it.",
         discussion: """
         doz search grok · doz search tag:multi-vendor-models · doz search --tag api-key --level any · doz search gemini --base alpine. \
         With nothing to look for it lists everything: supported, then coming. \
         Exit codes: 0 supported · 8 supported, but not with what you asked (a base it does not run on) · \
-        6 known, but not in this Dozer (coming, or not possible) · 2 nothing by that name (did you mean …?) · 64 usage.
+        6 known, but not in this Dozable (coming, or not possible) · 2 nothing by that name (did you mean …?) · 64 usage.
         """)
 
     @OptionGroup var g: GlobalOptions
@@ -245,7 +245,7 @@ struct SearchCommand: AsyncParsableCommand {
 
 /// `doz agent ls` / `doz agent show ID` — the earlier verbs, kept as hidden aliases of `doz search`.
 struct AgentCommand: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "agent", abstract: "The agents this Dozer can run (doz search).",
+    static let configuration = CommandConfiguration(commandName: "agent", abstract: "The agents this Dozable can run (doz search).",
         shouldDisplay: false, subcommands: [AgentList.self, AgentShow.self], defaultSubcommand: AgentList.self)
 }
 

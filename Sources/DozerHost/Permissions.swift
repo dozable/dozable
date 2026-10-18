@@ -110,7 +110,7 @@ public enum PermissionPolicy {
                 let host = try site(g)
                 // 617: a host the sandbox's agent is known to call and Dozer keeps out — whatever is chosen.
                 if AgentPermissions.excludedHosts((p.permissions ?? []) + AgentPermissions.agentPermissions(agent)).contains(host) {
-                    throw HostError(.invalid, "\(host) is kept out of a \(agent?.title ?? "this agent's") sandbox (Dozer never lets the agent reach it) — it cannot be allowed")
+                    throw HostError(.invalid, "\(host) is kept out of a \(agent?.title ?? "this agent's") sandbox (Dozable never lets the agent reach it) — it cannot be allowed")
                 }
                 p.rules.removeAll { $0.host == host && $0.action == .deny && !$0.hasHTTPConditions }
                 if !p.rules.contains(where: { $0.host == host && $0.action == .allow && $0.ports == nil && !$0.hasHTTPConditions }) {

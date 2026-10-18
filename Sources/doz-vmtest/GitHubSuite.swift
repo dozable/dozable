@@ -141,7 +141,7 @@ func cliGitHubSuite(binary: String) async {
     let ssl = "/usr/bin/openssl"
     var m0 = mac(["/bin/sh", "-c", """
         set -e
-        \(ssl) req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test GitHub CA' 2>&1
+        \(ssl) req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test GitHub CA' 2>&1
         \(ssl) x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>&1
         \(ssl) req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=github.com' 2>&1
         \(ssl) x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>&1
@@ -205,7 +205,7 @@ func cliGitHubSuite(binary: String) async {
     check(phs.count == 2 && phs[0].hasPrefix("doz_cred_") && phs[0] == phs[1], "GH_TOKEN = GITHUB_TOKEN = a doz placeholder (\(r.out.prefix(24))…)")
     let ph1 = phs.first ?? ""
     r = t.run(["exec", "gh1", "--", "sh", "-c", "git config --get user.name; git config --get user.email; git config --get-all credential.https://github.com.helper"])
-    check(r.out.contains("Test Person\ntest@example.invalid\n/usr/local/lib/doz/bin/git-credential-doz"), "the Mac's identity and Dozer's helper, in the system git config (\(r.out.debugDescription))")
+    check(r.out.contains("Test Person\ntest@example.invalid\n/usr/local/lib/doz/bin/git-credential-doz"), "the Mac's identity and Dozable's helper, in the system git config (\(r.out.debugDescription))")
     do {
         let c = try PTYClient(t, ["run", "gh1", "--session", "g", "--", "bash", "--norc", "-i"])
         defer { c.close() }
@@ -240,7 +240,7 @@ func cliGitHubSuite(binary: String) async {
     // 3. git push is refused while read-only.
     r = t.run(["exec", "gh1", "--", "sh", "-c", "cd /tmp/r1 && echo one > one.txt && git add one.txt && git commit -q -m 'from the sandbox' && git push origin HEAD:main 2>&1; echo \"EXIT=$?\""], timeout: 120)
     check(!r.out.contains("EXIT=0"), "git push fails while read-only (\(r.out.suffix(300).debugDescription))")
-    check(r.out.contains("pushing to GitHub is off for gh1"), "…and git shows Dozer's reason (remote: …)")
+    check(r.out.contains("pushing to GitHub is off for gh1"), "…and git shows Dozable's reason (remote: …)")
     check(!requests().contains("\"path\": \"/o/r.git/git-receive-pack\""), "no push reached GitHub")
     r = t.run(["exec", "gh1", "--", "git", "-C", "/tmp/r1", "log", "-1", "--format=%an <%ae>"])
     check(r.out.trimmingCharacters(in: .whitespacesAndNewlines) == "Test Person <test@example.invalid>", "a new commit carries the Mac's identity (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines)))")

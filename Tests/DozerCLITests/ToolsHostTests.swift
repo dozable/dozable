@@ -17,7 +17,7 @@ final class ToolsHostTests: XCTestCase {
     func testTheFactsLineSaysWhatIsInstalled() {
         let ok = ToolsReport(results: [result("gh", "installed"), result("ssh", "ok"), result("github-known-hosts", "installed")], first: true)
         var f = facts(.read, ssh: true, tools: ok)
-        XCTAssertTrue(f.contains("`git` and `gh` (installed by Dozer) are signed in as the user on github.com, read-only"), f)
+        XCTAssertTrue(f.contains("`git` and `gh` (installed by Dozable) are signed in as the user on github.com, read-only"), f)
         XCTAssertTrue(f.contains("the ssh client and github.com's host keys are installed"), f)
         XCTAssertEqual(f.components(separatedBy: "GitHub:").count, 2, "ONE line")
         // gh not there: said, with why — git still works.

@@ -181,9 +181,9 @@ public final class CodexMacSession: @unchecked Sendable {
         case .ok: return nil
         case .expired: return "your Mac's Codex login has expired — run codex on the Mac (any command that talks to OpenAI), or turn on the keep-alive: doz config set codex.keep_alive true"
         case .signedOut: return "this Mac's Codex is not signed in — run codex login on the Mac, or choose another account: doz account use NAME ACCOUNT"
-        case .keyring: return "this Mac's Codex keeps its login in the keyring (cli_auth_credentials_store), which Dozer cannot read yet — use doz account add NAME --chatgpt instead"
+        case .keyring: return "this Mac's Codex keeps its login in the keyring (cli_auth_credentials_store), which Dozable cannot read yet — use doz account add NAME --chatgpt instead"
         case .apiKey: return "this Mac's Codex uses an API key, not a ChatGPT sign-in — add the key as an account: doz account add NAME --openai-key"
-        case .unreadable(let why): return "Dozer could not read this Mac's Codex login (\(why))"
+        case .unreadable(let why): return "Dozable could not read this Mac's Codex login (\(why))"
         }
     }
 
@@ -192,7 +192,7 @@ public final class CodexMacSession: @unchecked Sendable {
         lock.withLock { _lastUse = now }
         if current(now: now).state == .expired { keepaliveIfDue(now: now) }
         let c = current(now: Date())
-        guard c.state == .ok, let t = c.token else { return (nil, "Dozer: " + (problem() ?? "no Codex login on this Mac")) }
+        guard c.state == .ok, let t = c.token else { return (nil, "Dozable: " + (problem() ?? "no Codex login on this Mac")) }
         return (t.accessToken, nil)
     }
 

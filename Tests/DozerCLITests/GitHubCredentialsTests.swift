@@ -100,7 +100,7 @@ final class GitHubCredentialsTests: XCTestCase {
         guard case .reject = v.rewrite(head: req, host: "api.github.com") else { return XCTFail("revoked") }
         XCTAssertFalse(v.boundHosts.contains("github.com"))
         // No login on the Mac: the request with a placeholder gets the reason.
-        let (w, ph2) = vault(notice: "Dozer: this Mac's gh is not logged in")
+        let (w, ph2) = vault(notice: "Dozable: this Mac's gh is not logged in")
         guard case .refuse(401, let why) = w.rewrite(head: head("GET /user HTTP/1.1\r\nAuthorization: token \(ph2)\r\n\r\n"), host: "api.github.com") else {
             return XCTFail("no login")
         }

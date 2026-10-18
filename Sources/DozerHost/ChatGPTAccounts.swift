@@ -205,16 +205,16 @@ public final class ChatGPTSession: @unchecked Sendable {
             lock.withLock { _state = .unavailable(why); lastFailure = now }
             onNote?("could not renew the ChatGPT sign-in of account \(account) (\(why)) — retrying on the next request")
             if let exp = accessExpiry, exp > now { return nil }
-            return "the ChatGPT sign-in of account \(account) could not be renewed (\(why)) — check this Mac's network; Dozer tries again on the next request"
+            return "the ChatGPT sign-in of account \(account) could not be renewed (\(why)) — check this Mac's network; Dozable tries again on the next request"
         }
     }
 
     /// The access token for a request now (the vault's provider read): renewed first when needed.
     public func read(now: Date = Date()) -> CredentialVault.SecretRead {
-        if let p = ensureFresh(now: now) { return (nil, "Dozer: " + p) }
-        guard let a = lock.withLock({ access }) else { return (nil, "Dozer: " + (problem() ?? "no ChatGPT sign-in")) }
+        if let p = ensureFresh(now: now) { return (nil, "Dozable: " + p) }
+        guard let a = lock.withLock({ access }) else { return (nil, "Dozable: " + (problem() ?? "no ChatGPT sign-in")) }
         if let exp = OpenAIAccess.expiry(a), exp <= now {
-            return (nil, "Dozer: the ChatGPT sign-in of account \(account) expired and could not be renewed — check this Mac's network")
+            return (nil, "Dozable: the ChatGPT sign-in of account \(account) expired and could not be renewed — check this Mac's network")
         }
         return (a, nil)
     }
@@ -275,7 +275,7 @@ extension HostCore {
             let s = codexMacSession()
             let vault = egress.vault
             vault.setProvider(.chatgpt, ttl: 30, version: { [weak s] in s?.version ?? "" }, read: { [weak s] in
-                s?.read() ?? (nil, "Dozer: this Mac's Codex login is not loaded")
+                s?.read() ?? (nil, "Dozable: this Mac's Codex login is not loaded")
             })
             vault.onStale = { _ in }
             egress.chatgptRenewal = EgressProxy.ChatGPTRenewal { [weak s, weak vault] body in
@@ -294,7 +294,7 @@ extension HostCore {
                 let s = chatgptSession(a)
                 let vault = egress.vault
                 vault.setProvider(.chatgpt, ttl: 60, version: { [weak s] in "\(s?.generation ?? -1)" }, read: { [weak s] in
-                    s?.read() ?? (nil, "Dozer: the ChatGPT sign-in is not loaded")
+                    s?.read() ?? (nil, "Dozable: the ChatGPT sign-in is not loaded")
                 })
                 vault.onStale = { [weak s] id in
                     guard id == CredentialBinding.chatgpt.id else { return }

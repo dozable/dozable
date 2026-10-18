@@ -202,7 +202,7 @@ final class ModelListTests: XCTestCase {
         XCTAssertTrue(text.contains("openai/gpt-5.4-mini (default)"), text)
         XCTAssertTrue(text.contains("400K"), text)
         let p = renderModelLists([ModelLists.list("anthropic", record: nil)], searched: false)
-        XCTAssertTrue(p.contains("the model Dozer checked — any other id with --model"), p)
+        XCTAssertTrue(p.contains("the model Dozable checked — any other id with --model"), p)
         let never = renderModelLists([ModelLists.list("vercel-ai-gateway", record: nil)], searched: false)
         XCTAssertTrue(never.contains("doz models --gateway vercel-ai-gateway --refresh"), never)
     }

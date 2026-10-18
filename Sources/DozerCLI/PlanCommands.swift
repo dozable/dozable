@@ -24,7 +24,7 @@ func printPlan(_ p: CreatePlan, _ g: GlobalOptions) {
 func renderPlan(_ p: CreatePlan) -> String {
     var s = "\(p.command)\n"
     let image = (p.imageState.title ?? p.imageState.name) + " — " + [
-        "prepared": "ready now", "older": "made by an older Dozer (used as it is)", "unprepared": "prepared on first use (a few minutes, once)",
+        "prepared": "ready now", "older": "made by an older Dozable (used as it is)", "unprepared": "prepared on first use (a few minutes, once)",
     ][p.imageState.state, default: p.imageState.state]
     s += "  makes \(p.name)\(p.trial == true ? " (a try)" : ""): \(image)\n"
     // 618: the release it installs; a family's major and how to get the other.

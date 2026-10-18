@@ -54,7 +54,7 @@ final class BuildFlavorTests: XCTestCase {
     func testAccountAddChatGPTIsRefusedBeforeAnythingRunsInAPublicBuild() throws {
         setenv("DOZ_TEST_PUBLIC_BUILD", "1", 1)
         XCTAssertThrowsError(try DozerCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path])) { e in
-            XCTAssertTrue(DozerCommand.message(for: e).contains("does not include Dozer's own ChatGPT sign-in"), DozerCommand.message(for: e))
+            XCTAssertTrue(DozerCommand.message(for: e).contains("does not include Dozable's own ChatGPT sign-in"), DozerCommand.message(for: e))
             XCTAssertTrue(DozerCommand.message(for: e).contains("--openai-key"), "it says what to use instead")
         }
         XCTAssertThrowsError(try DozerCommand.parseAsRoot(["onboard", "--openai-account", "chatgpt", "--store", root.path]))
@@ -76,7 +76,7 @@ final class BuildFlavorTests: XCTestCase {
         // … a public build keeps it, never uses it, and says why.
         let c = await core(.publicBuild)
         let m1 = await c.handle(HostRequest.accountAdd(name: "plan2", kind: .chatgpt, plan: nil, secret: t.json))
-        XCTAssertTrue(m1.error?.message.contains("does not include Dozer's own ChatGPT sign-in") == true, m1.error?.message ?? "")
+        XCTAssertTrue(m1.error?.message.contains("does not include Dozable's own ChatGPT sign-in") == true, m1.error?.message ?? "")
         let listed = await c.handle(HostRequest(.accountList))
         let rows = try XCTUnwrap(listed.result).decode([AccountRow].self)
         XCTAssertEqual(rows.first { $0.name == "plan" }?.state, "unsupported")

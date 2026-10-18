@@ -138,7 +138,7 @@ public struct NpmRegistry: Sendable {
         guard let o = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let v = o["version"] as? String,
               let url = o["url"] as? String, let hex = o["sha512"] as? String,
               hex.range(of: "^[0-9a-f]{128}$", options: .regularExpression) != nil else {
-            throw HostError(.failed, "\(r.title)'s release manifest is not one Dozer can read")
+            throw HostError(.failed, "\(r.title)'s release manifest is not one Dozable can read")
         }
         // The build part: the path segment `<version>-<build>` in the url.
         let segment = url.split(separator: "/").first { $0.hasPrefix(v + "-") }.map(String.init) ?? ""
@@ -146,7 +146,7 @@ public struct NpmRegistry: Sendable {
         let release = AgentRelease(version: v + "+" + build, integrity: "sha512-" + Data(hexBytes(hex)).base64EncodedString())
         guard !build.isEmpty, build.range(of: "^[0-9A-Za-z.]+$", options: .regularExpression) != nil, release.isWellFormed,
               AgentImages.manifestArchiveURL(r, release) == url else {
-            throw HostError(.failed, "\(r.title)'s release manifest names an archive Dozer does not expect (\(url.prefix(120)))")
+            throw HostError(.failed, "\(r.title)'s release manifest names an archive Dozable does not expect (\(url.prefix(120)))")
         }
         return release
     }
@@ -476,7 +476,7 @@ public enum AgentVersions {
             if purpose == .create, let p = usable(image, store: store, settings: settings).first(where: { $0.agent?.version == want }) { return p }
             guard let r = known(agent, version: want, store: store) else {
                 if version != nil {
-                    throw HostError(.unavailable, "\(agent)@\(want) is not a release Dozer has checked — it checks one against the npm registry before anything is made")
+                    throw HostError(.unavailable, "\(agent)@\(want) is not a release Dozable has checked — it checks one against the npm registry before anything is made")
                 }
                 throw HostError(.unavailable, "\(agent) \(want) (\(key)) is not known here yet and the npm registry could not be asked — "
                                 + "try again online, or set \(key) to a version this store has (\(pin.version) is built in)")

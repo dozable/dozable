@@ -139,7 +139,7 @@ public enum Dockerfiles {
         let size = (try? FileManager.default.attributesOfItem(atPath: url.path)[.size] as? Int) ?? 0
         guard size <= 1 << 20 else { throw HostError(.invalid, "\(url.path) is over 1 MiB — not a Dockerfile") }
         let storePath = store.root.resolvingSymlinksInPath().path
-        guard !(url.path + "/").hasPrefix(storePath + "/") else { throw HostError(.invalid, "a Dockerfile inside Dozer's store is not used") }
+        guard !(url.path + "/").hasPrefix(storePath + "/") else { throw HostError(.invalid, "a Dockerfile inside Dozable's store is not used") }
         return (url.path, url.deletingLastPathComponent().path)
     }
 
@@ -157,7 +157,7 @@ public enum Dockerfiles {
 
     /// B9, said plainly wherever a Dockerfile is chosen and whenever one is built.
     public static let outsidePolicyNote =
-        "Dockerfile builds run in Apple's builder (container build), OUTSIDE Dozer's network policy: its RUN steps reach the internet directly, without Dozer's proxy or allow list. The sandbox made from the image is under the policy as usual."
+        "Dockerfile builds run in Apple's builder (container build), OUTSIDE Dozable's network policy: its RUN steps reach the internet directly, without Dozable's proxy or allow list. The sandbox made from the image is under the policy as usual."
 
     /// A reference no build has made yet (a sandbox created before its Dockerfile was first built —
     /// its first start builds it and takes the result).

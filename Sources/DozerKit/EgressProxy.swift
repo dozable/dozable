@@ -118,7 +118,7 @@ public final class EgressProxy: @unchecked Sendable {
         // reached (decrypted) even when the policy does not allow it — every OTHER request there is still judged.
         if port == 443, host.lowercased() == OpenAIAccess.authHost, chatgptRenewal != nil,
            policy.evaluateConnection(host: host, port: port).kind == .deny {
-            return NetworkPolicy.ConnectionVerdict(kind: .inspect, rule: "ChatGPT sign-in renewal (answered by Dozer on the Mac)", ruleIndex: nil)
+            return NetworkPolicy.ConnectionVerdict(kind: .inspect, rule: "ChatGPT sign-in renewal (answered by Dozable on the Mac)", ruleIndex: nil)
         }
         let v = policy.evaluateConnection(host: host, port: port)
         // 617 PROFILING SEAM: every allowed HTTPS connection is decrypted so each request (host, method, path, which
@@ -398,7 +398,7 @@ public final class EgressProxy: @unchecked Sendable {
     }
 
     /// 606: what a sandbox is told when it tries to reach one of Dozer's own dashboards on this Mac.
-    static let dashboardRefusal = "Dozer's own dashboard on this Mac is never reachable from a sandbox"
+    static let dashboardRefusal = "Dozable's own dashboard on this Mac is never reachable from a sandbox"
 
     /// A tunnel to host:port — through CONNECT (`connectReply`) or a redirected connection.
     func tunnel(_ fd: Int32, host: String, port: UInt16, kind: ConnectionRecord.Kind, leftover: [UInt8], connectReply: Bool,
@@ -651,7 +651,7 @@ public final class EgressProxy: @unchecked Sendable {
             case .refuse(let why):
                 refuseGitHub(hd.record, why)
             case .needsBody:
-                refuseGitHub(hd.record, GitHubAccess.pushOff(gate?.sandbox ?? "this sandbox", "a request Dozer could not decide was refused"))
+                refuseGitHub(hd.record, GitHubAccess.pushOff(gate?.sandbox ?? "this sandbox", "a request Dozable could not decide was refused"))
             }
         }
         // 599i: Codex's renewal of a ChatGPT sign-in — held whole, then answered here (or, when it carries no
@@ -699,13 +699,13 @@ public final class EgressProxy: @unchecked Sendable {
                     let path = h.pathOnly
                     if isChatGPTRenewal(host: host, method: h.method, path: path) {
                         let r = ConnectionRecord(kind: .http, host: host, port: port, method: h.method, path: path,
-                                                 verdict: .allowed, rule: "ChatGPT sign-in renewal (answered by Dozer on the Mac)", decrypted: true, open: true)
+                                                 verdict: .allowed, rule: "ChatGPT sign-in renewal (answered by Dozable on the Mac)", decrypted: true, open: true)
                         let length = Int(h.value("content-length") ?? "") ?? -1
                         guard h.value("transfer-encoding") == nil, length >= 0, length <= Self.maximumRenewalBody else {
-                            var d = r; d.verdict = .denied; d.open = false; d.credential = "refused: a renewal Dozer could not read"
+                            var d = r; d.verdict = .denied; d.open = false; d.credential = "refused: a renewal Dozable could not read"
                             log.upsert(d)
                             current = nil
-                            reject(OpenAIAccess.refreshAnswer(placeholder: "", guestIDToken: nil, problem: "a sign-in renewal Dozer could not read was refused"))
+                            reject(OpenAIAccess.refreshAnswer(placeholder: "", guestIDToken: nil, problem: "a sign-in renewal Dozable could not read was refused"))
                             return
                         }
                         renewal = (raw, r, length, [])
@@ -764,7 +764,7 @@ public final class EgressProxy: @unchecked Sendable {
                         case .needsBody(let kind):
                             r.credential = "swapped github (read — body checked)"
                             if h.value("transfer-encoding") != nil {
-                                refuseGitHub(r, GitHubAccess.pushOff(gate.sandbox, "a request Dozer could not check (chunked) was refused"))
+                                refuseGitHub(r, GitHubAccess.pushOff(gate.sandbox, "a request Dozable could not check (chunked) was refused"))
                                 return
                             }
                             let length = Int(h.value("content-length") ?? "0") ?? -1

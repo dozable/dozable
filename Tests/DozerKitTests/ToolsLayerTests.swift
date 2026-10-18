@@ -12,7 +12,7 @@ final class ToolsLayerTests: XCTestCase {
     func testThePlanFollowsTheSettings() {
         let none = ToolsLayer.plan(ToolInputs())
         XCTAssertEqual(ids(none), ["git", "curl", "ca-certificates"], "always the basics")
-        XCTAssertEqual(none.removals, ["gh", "github-known-hosts"], "Dozer's own tools go when their setting is off")
+        XCTAssertEqual(none.removals, ["gh", "github-known-hosts"], "Dozable's own tools go when their setting is off")
         let all = ToolsLayer.plan(ToolInputs(github: true, ssh: true, tmux: true))
         XCTAssertEqual(ids(all), ["gh", "ssh", "github-known-hosts", "tmux", "git", "curl", "ca-certificates"])
         XCTAssertEqual(all.removals, [])
@@ -76,7 +76,7 @@ final class ToolsLayerTests: XCTestCase {
 
     func testTheResults() {
         let plan = ToolsLayer.plan(ToolInputs(github: true))
-        let out = "doz-tool gh installed gh \(ToolsLayer.ghVersion), from Dozer's cache on the Mac\ndoz-tool git ok already in the image\ndoz-tool curl failed apk could not install curl\nnoise\n"
+        let out = "doz-tool gh installed gh \(ToolsLayer.ghVersion), from Dozable's cache on the Mac\ndoz-tool git ok already in the image\ndoz-tool curl failed apk could not install curl\nnoise\n"
         let rs = ToolsLayer.results(out, plan: plan)
         XCTAssertEqual(rs.map(\.id), ["gh", "git", "curl", "ca-certificates"])
         XCTAssertEqual(rs.map(\.state), ["installed", "ok", "failed", "failed"])

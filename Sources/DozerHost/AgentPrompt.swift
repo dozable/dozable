@@ -84,8 +84,8 @@ public enum AgentPrompt {
     /// The built-in facts block (D15a): only what changes per sandbox and what the agent needs
     /// before it knows to ask. ~10 lines.
     public static let builtInTemplate = """
-    # Where you are running: a Dozer Sandbox
-    - You are in `{{sandbox.name}}`, a Dozer Sandbox: a Linux virtual machine (not a container) on the user's Mac ({{mac.hostname}}), run by Apple's Virtualization framework — image {{sandbox.image}} (base: {{sandbox.base}}), {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
+    # Where you are running: a Dozable sandbox
+    - You are in `{{sandbox.name}}`, a Dozable sandbox: a Linux virtual machine (not a container) on the user's Mac ({{mac.hostname}}), run by Apple's Virtualization framework — image {{sandbox.image}} (base: {{sandbox.base}}), {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
     - {{workspace.description}}
     - {{workspace.rules}}
     - Network: {{network.description}}
@@ -103,12 +103,12 @@ public enum AgentPrompt {
     public static let skillTemplate = """
     ---
     name: dozer
-    description: The Dozer Sandbox this agent runs in (sandbox {{sandbox.name}}) — what persists (root disk, state disk, restore points), the /workspace share with the user's Mac, the network policy and how the user changes it, injected credentials, sleep and hibernation, and what cannot be done from inside. Use it for any question about this machine, where files live, the network, logins or keys.
+    description: The Dozable sandbox this agent runs in (sandbox {{sandbox.name}}) — what persists (root disk, state disk, restore points), the /workspace share with the user's Mac, the network policy and how the user changes it, injected credentials, sleep and hibernation, and what cannot be done from inside. Use it for any question about this machine, where files live, the network, logins or keys.
     ---
 
-    # Dozer Sandbox — the machine you run in
+    # Dozable — the machine you run in
 
-    You run in **{{sandbox.name}}**, a Dozer Sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozer Sandbox {{dozer.version}}) on Apple's Virtualization framework. It is a real VM with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
+    You run in **{{sandbox.name}}**, a Dozable sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozable {{dozer.version}}) on Apple's Virtualization framework. It is a real VM with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
 
     ## Your files and the user's Mac
 
@@ -166,7 +166,7 @@ public enum AgentPrompt {
     public static var userTemplateStarter: String {
         var s = """
         <!--
-        Dozer Sandbox — your own environment prompt (agent-prompt.md)
+        Dozable — your own environment prompt (agent-prompt.md)
 
         Everything inside an HTML comment (like this one) is ignored, so this file changes nothing
         yet: the built-in template (below, for reference) is used. Write your own text OUTSIDE a comment and
@@ -231,7 +231,7 @@ public enum AgentPrompt {
         if let r = tool("gh"), !r.ok {
             gh = "`git` is signed in as the user on github.com (`gh` is not installed: \(r.detail))"
         } else {
-            gh = "`git` and `gh`" + (tool("gh")?.ok == true ? " (installed by Dozer)" : "") + " are signed in as the user on github.com"
+            gh = "`git` and `gh`" + (tool("gh")?.ok == true ? " (installed by Dozable)" : "") + " are signed in as the user on github.com"
         }
         switch github {
         case .read?:
@@ -246,7 +246,7 @@ public enum AgentPrompt {
         case nil:
             gd = "You are not signed in to GitHub as the user. Public repositories work anonymously over HTTPS when the network allows GitHub. For their private repositories, a push or `gh`, ask the user to turn on \"Use GitHub as you\" (`doz net allow \(name) github:as-you`; push: `github:push`)."
         case let mode?:
-            gd = "The user's GitHub login reaches GitHub from here without ever entering this VM: `GH_TOKEN`/`GITHUB_TOKEN` and git's credential helper hold a doz placeholder (`doz_cred_…`), and Dozer's proxy on the Mac swaps in the user's real token on the way to github.com and api.github.com — only there. Do not set a token of your own or put one in a URL; keep HTTPS remotes (`https://github.com/OWNER/REPO.git`). The user sees a notice when you first use it."
+            gd = "The user's GitHub login reaches GitHub from here without ever entering this VM: `GH_TOKEN`/`GITHUB_TOKEN` and git's credential helper hold a doz placeholder (`doz_cred_…`), and Dozable's proxy on the Mac swaps in the user's real token on the way to github.com and api.github.com — only there. Do not set a token of your own or put one in a URL; keep HTTPS remotes (`https://github.com/OWNER/REPO.git`). The user sees a notice when you first use it."
             gd += mode == .read
                 ? " It is READ-ONLY: clone, fetch, `gh repo view`, reading issues and pull requests work; `git push` and anything that changes GitHub (creating issues or pull requests, comments, GraphQL mutations) is refused with a 403 that says so — tell the user, who can turn on \"Push to GitHub\" (`doz net allow \(name) github:push`)."
                 : " Push is ON: you can push and change things on GitHub as the user, within what their token may do — do it only when the user asked for it; every such request is in the sandbox's network log."
@@ -327,7 +327,7 @@ public enum AgentPrompt {
         case .nat:
             v["network.permissions"] = "You may reach any host (a NAT network: nothing is filtered)."
             v["network.allowed_hosts"] = "every host (not filtered)"
-            v["network.description"] = "a NAT network interface (vmnet) on the Mac; outbound connections are not filtered or logged by Dozer."
+            v["network.description"] = "a NAT network interface (vmnet) on the Mac; outbound connections are not filtered or logged by Dozable."
         case .none:
             v["network.permissions"] = "You may reach nothing (no network)."
             v["network.allowed_hosts"] = "none"
@@ -338,13 +338,13 @@ public enum AgentPrompt {
             // 594: only a credential this agent can use is "added for you".
             v["account.name"] = "none usable (\(account ?? "none"))"
             v["credentials.description"] = "no credential you can use is attached (\(problem)), so your requests to the model will fail. "
-                + "Do not log in or ask for a key inside the sandbox — tell the user to choose an account in Dozer: `doz account use \(name) ACCOUNT` on the Mac, or the sandbox's page in `doz ui`."
+                + "Do not log in or ask for a key inside the sandbox — tell the user to choose an account in Dozable: `doz account use \(name) ACCOUNT` on the Mac, or the sandbox's page in `doz ui`."
         } else if network.policy != nil, let account, let r = keyAgent, let p = r.provider.flatMap(KeyProviders.provider) {
             v["credentials.description"] = "the Mac's proxy puts the account's key (\(account)) into your requests to \(p.title) on the way out; the value in \(p.env) is a placeholder — that is expected; never log in, and never ask the user for a key."
         } else if network.policy != nil, account == "mac", codex {
             v["credentials.description"] = "the Mac's proxy puts the user's own Codex login on their Mac (the account mac) into your requests to OpenAI on the way out; the Mac's Codex renews it. The tokens in ~/.codex/auth.json and the key-like values in your environment are placeholders — that is expected; never run `codex login` or `codex logout`, and never ask the user for a key. If a request says the Mac's Codex login has expired, tell the user to run codex on their Mac."
         } else if network.policy != nil, let account, codex {
-            v["credentials.description"] = "the Mac's proxy puts the account's credential (\(account)) into your requests to OpenAI on the way out (Dozer signed in on the Mac and renews it there). The tokens in ~/.codex/auth.json and the key-like values in your environment are placeholders — that is expected; never run `codex login` or `codex logout`, and never ask the user for a key."
+            v["credentials.description"] = "the Mac's proxy puts the account's credential (\(account)) into your requests to OpenAI on the way out (Dozable signed in on the Mac and renews it there). The tokens in ~/.codex/auth.json and the key-like values in your environment are placeholders — that is expected; never run `codex login` or `codex logout`, and never ask the user for a key."
         } else if network.policy != nil, let account {
             v["credentials.description"] = "the Mac's proxy adds the account's credential (\(account)) to your requests to Anthropic on the way out. The key-like values in your environment are placeholders — that is expected; never log in, and never ask the user for a key."
         } else if network.policy != nil {

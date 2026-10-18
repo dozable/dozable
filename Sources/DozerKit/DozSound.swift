@@ -28,7 +28,7 @@ public enum DozSound {
         else P=$(aplay -l 2>/dev/null | sed -n '\(card)' | head -1); R=$(arecord -l 2>/dev/null | sed -n '\(card)' | head -1); \
         if [ -z "$P" ]; then \(say("asound-conf", "failed", "no sound card in the guest — is it booted with the sound kernel?"))\
         else C=${P%,*}; [ -f '\(asoundPath)' ] && mv -f '\(asoundPath)' '\(asoundPath).doz-backup'; \
-        { echo '# \(asoundStamp) — written by Dozer (EXPERIMENTAL audio). The virtio card has separate playback and capture'; \
+        { echo '# \(asoundStamp) — written by Dozable (EXPERIMENTAL audio). The virtio card has separate playback and capture'; \
         echo '# devices; default joins them (one program at a time on each — dmix stalls on this card).'; \
         if [ -n "$R" ]; then echo "pcm.!default { type asym playback.pcm \\"plughw:$P\\" capture.pcm \\"plughw:$R\\" }"; \
         else echo "pcm.!default { type asym playback.pcm \\"plughw:$P\\" }"; fi; \
@@ -53,8 +53,8 @@ public enum DozSound {
     /// The TEMPORARY script itself.
     public static let script = #"""
     #!/bin/sh
-    # doz:doz-sound:v1 — TEMPORARY. Dozer's EXPERIMENTAL audio sandboxes: record and play through the Mac's
-    # microphone and speakers (virtio-snd → ALSA). Written by Dozer's tools layer; it goes when the experiment does.
+    # doz:doz-sound:v1 — TEMPORARY. Dozable's EXPERIMENTAL audio sandboxes: record and play through the Mac's
+    # microphone and speakers (virtio-snd → ALSA). Written by Dozable's tools layer; it goes when the experiment does.
     #   doz-sound info                card, devices, the default
     #   doz-sound test                a quiet 0.8 s tone, then 3 s from the microphone (its level), played back
     #   doz-sound rec FILE [SECONDS]  record a WAV (default 5 s)

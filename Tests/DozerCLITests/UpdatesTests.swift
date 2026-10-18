@@ -230,7 +230,7 @@ final class UpdatesTests: XCTestCase {
                        "another channel's formula: the switch, not brew upgrade")
         XCTAssertEqual(UpdateChecker.noticeLine(entry("0.32.0", build: 9, channel: "stable"), ctx(method: .homebrew(formula: "doz"))),
                        "doz 0.32.0 is available — upgrade: doz upgrade -y (notes: https://updates.dozersandbox.com/v1/notes/0.32.0.html)",
-                       "doz upgrade -y, which refreshes Dozer's tap first — a bare brew upgrade can miss the release")
+                       "doz upgrade -y, which refreshes Dozable's tap first — a bare brew upgrade can miss the release")
         XCTAssertEqual(UpdateChecker.installedLine("0.32.0"), "Updated to 0.32.0 — restart to apply: doz host restart")
     }
 
@@ -247,7 +247,7 @@ final class UpdatesTests: XCTestCase {
         try "public\n".write(to: lib.appendingPathComponent(UpdateInstaller.releaseMarker), atomically: true, encoding: .utf8)
         guard case .tarball(let p) = InstallMethod.detect(executable: lib.appendingPathComponent("doz").path) else { return XCTFail("a tarball install") }
         XCTAssertEqual(p.standardizedFileURL.path, prefix.resolvingSymlinksInPath().standardizedFileURL.path)
-        XCTAssertEqual(InstallMethod.homebrew(formula: "doz-canary").upgradeCommand, "doz upgrade -y", "it refreshes Dozer's tap first")
+        XCTAssertEqual(InstallMethod.homebrew(formula: "doz-canary").upgradeCommand, "doz upgrade -y", "it refreshes Dozable's tap first")
     }
 
     func testTheNotifyLineIsSaidOncePerVersionADayAndTheBannerReadsNoNetwork() async {

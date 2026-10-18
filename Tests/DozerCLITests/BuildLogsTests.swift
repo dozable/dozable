@@ -40,7 +40,7 @@ final class BuildLogsTests: XCTestCase {
         let u = try XCTUnwrap(BuildLogs.url("node-codex", store: store))
         XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: u.path)[.posixPermissions] as? Int, 0o600)
         XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: u.deletingLastPathComponent().path)[.posixPermissions] as? Int, 0o700)
-        XCTAssertEqual(Resources.classify(["build-logs", "node-codex.json"], currentLabKey: nil), "store", "Dozer's own records")
+        XCTAssertEqual(Resources.classify(["build-logs", "node-codex.json"], currentLabKey: nil), "store", "Dozable's own records")
         XCTAssertNil(BuildLogs.read("pi", store: store))
         for bad in ["../x", "a/b", "", ".hidden", "UPPER", String(repeating: "a", count: 65)] {
             XCTAssertNil(BuildLogs.url(bad, store: store), bad)

@@ -16,7 +16,7 @@ struct GuideCommand: AsyncParsableCommand {
     func run() async throws {
         let d = try decode(try await query(HostRequest(.inspect, name: name), g), SandboxDetail.self, g)
         guard let guide = d.guide else {
-            throw fail(HostError(.notFound, "\(name) has no guide — its image runs no agent or tool Dozer has a recipe for"), g)
+            throw fail(HostError(.notFound, "\(name) has no guide — its image runs no agent or tool Dozable has a recipe for"), g)
         }
         if g.json { Out.json(guide); return }
         Out.stdout(guide.plainText())

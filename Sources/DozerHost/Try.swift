@@ -42,7 +42,7 @@ public struct TryCard: Equatable, Sendable {
                     getKey = "Get a key: \(page)" + (m.freeTier == true ? " — \(m.freeTierNote ?? "it has a free tier")" : "")
                 }
             case "vendor-sign-in":
-                if m.accounts != nil { continue }               // a sign-in Dozer holds on the Mac (Claude Code's mac): the account step
+                if m.accounts != nil { continue }               // a sign-in Dozable holds on the Mac (Claude Code's mac): the account step
                 if m.inSandbox == true {
                     options.append(TryCardOption(kind: "sign-in", label: "Sign in inside \(recipe.title)" + (m.account.map { " (\($0))" } ?? ""),
                                                  consequence: "the sign-in lives in this sandbox, not on the Mac — deleting the try deletes it"))

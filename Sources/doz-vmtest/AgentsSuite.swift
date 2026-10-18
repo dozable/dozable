@@ -65,7 +65,7 @@ func cliAgentsSuite(binary: String) async {
         .write(toFile: ws + "/leaf.ext", atomically: true, encoding: .utf8)
     let m0 = onMac(["/bin/sh", "-c", """
         set -e
-        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test provider CA' 2>&1
+        /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test provider CA' 2>&1
         /usr/bin/openssl x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>&1
         /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=api.x.ai' 2>&1
         /usr/bin/openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>&1

@@ -13,7 +13,7 @@ struct UpdateCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "upgrade",
         abstract: "Look for a newer doz on your channel and install it (Homebrew: brew upgrade; a tarball install: the signed download) — asks first; -y does not. --check only looks; --channel switches channel.",
         discussion: """
-        The feed is signed with Dozer's own key, and doz installs only what verifies — never an older build. \
+        The feed is signed with Dozable's own key, and doz installs only what verifies — never an older build. \
         Channels: stable, beta (beta and stable releases), canary (every build first). A Homebrew install has one \
         formula per channel (doz, doz-beta, doz-canary): --channel switches formulas — Homebrew uninstalls one and \
         installs the other; your store, sandboxes and settings stay. A running host keeps its build until \

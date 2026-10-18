@@ -109,7 +109,7 @@ final class ImageTreeTests: XCTestCase {
         // Nothing half-made: undo removes only what it made, and only while empty.
         Workspace.undo(made)
         XCTAssertFalse(FileManager.default.fileExists(atPath: root.path + "/new"))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: root.path), "a folder Dozer did not make stays")
+        XCTAssertTrue(FileManager.default.fileExists(atPath: root.path), "a folder Dozable did not make stays")
         let kept = try Workspace.prepare(root.path + "/k/a", store: store)
         try Data("x".utf8).write(to: URL(fileURLWithPath: kept.path + "/f"))
         Workspace.undo(kept)

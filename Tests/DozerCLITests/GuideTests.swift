@@ -36,7 +36,7 @@ final class GuideTests: XCTestCase {
         r.guide?.steps = [.init(text: "Only words.")]
         XCTAssertThrowsError(try r.validate())
         let fabric = try XCTUnwrap(AgentRecipes.recipe("fabric")?.guide)
-        XCTAssertEqual(fabric.steps.map(\.command), [#"echo hello | fabric "say ok""#, "fabric -l", #"echo "Dozer runs each agent in its own VM" | fabric -p summarize"#,
+        XCTAssertEqual(fabric.steps.map(\.command), [#"echo hello | fabric "say ok""#, "fabric -l", #"echo "Dozable runs each agent in its own VM" | fabric -p summarize"#,
                                                      "fabric -p extract_wisdom < notes.md"])
         XCTAssertEqual(fabric.steps.last?.edit, true)
     }
@@ -122,7 +122,7 @@ final class GuideTests: XCTestCase {
                                                 network: "its model only (Locked)", workspace: "/Users/me/try-fabric", trial: true))
         XCTAssertEqual(g.session, "shell")
         XCTAssertEqual(g.facts.map(\.id), ["version", "model", "network", "folder", "settings"])
-        XCTAssertEqual(g.facts[0].value, "Fabric 1.4.518 (Dozer's pin)")
+        XCTAssertEqual(g.facts[0].value, "Fabric 1.4.518 (Dozable's pin)")
         XCTAssertEqual(g.facts[1].value, "Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder")
         XCTAssertEqual(g.facts[3].value, "/workspace = /Users/me/try-fabric")
         XCTAssertTrue(g.what.contains("a command-line tool"))

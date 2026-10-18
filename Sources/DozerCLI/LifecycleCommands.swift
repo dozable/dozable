@@ -18,7 +18,7 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "A recommended base (doz base ls): node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine. Default node.")
     var base: String?
 
-    @Option(name: .long, help: "Your own Dockerfile as the base, built with Apple's container build (installed on demand; its RUN steps run OUTSIDE Dozer's network policy). The workspace defaults to its folder.")
+    @Option(name: .long, help: "Your own Dockerfile as the base, built with Apple's container build (installed on demand; its RUN steps run OUTSIDE Dozable's network policy). The workspace defaults to its folder.")
     var dockerfile: String?
 
     @Option(name: .long, help: "Virtual CPUs (default 2).")
@@ -71,7 +71,7 @@ struct ChoiceOptions: ParsableArguments {
 
     @Option(name: .long, help: "lock or hide: what a .dozignore in the workspace folder does to the paths it lists — lock (listed, every access refused) or hide (not there). Not a security boundary (default: the setting workspace.ignore_mode, lock).")
     var ignoreMode: String?
-    @Option(name: .long, help: "on or off: /workspace through Dozer's live view of the folder, so programs working there keep their folder across a wake from hibernation or a host restart (on, the default: the setting workspace.view), or shared directly — a little faster, but such a wake cuts them off.")
+    @Option(name: .long, help: "on or off: /workspace through Dozable's live view of the folder, so programs working there keep their folder across a wake from hibernation or a host restart (on, the default: the setting workspace.view), or shared directly — a little faster, but such a wake cuts them off.")
     var workspaceView: String?
 
     @Flag(name: .long, help: "When the image is out of date (an older doz's recipe, or a newer agent release): rebuild it first (~2 min, needs network; existing sandboxes are not affected).")

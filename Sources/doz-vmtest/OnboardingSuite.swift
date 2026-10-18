@@ -215,10 +215,10 @@ func cliOnboardingSuite(binary: String) async {
     check(c.row("pp")?.credentialProblem == "pi has no credential — pi needs an Anthropic API key; choose an API-key account",
           "ls: pp says pi has no credential (\(c.row("pp")?.credentialProblem ?? "nil"))")
     let facts = c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out
-    check(facts.contains("You are in `pp`, a Dozer Sandbox") && facts.contains("user's Mac folder \(cws.path), shared live"),
+    check(facts.contains("You are in `pp`, a Dozable") && facts.contains("user's Mac folder \(cws.path), shared live"),
           "the facts block is in the guest: the sandbox and its workspace")
     check(facts.contains("no credential you can use is attached") && !facts.contains("adds the account's credential"),
-          "pi with no account: the facts say no credential is attached — choose one in Dozer, never log in")
+          "pi with no account: the facts say no credential is attached — choose one in Dozable, never log in")
     check(facts.hasSuffix("\n\nProject rule: pp runs the tests with make test.\n"), "the sandbox's own prompt is appended")
     check(c.run(["exec", "pp", "--", "cat", "/home/agent/.pi/agent/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
           "the dozer skill: ~/.pi/agent/skills/dozer/SKILL.md")
@@ -250,7 +250,7 @@ func cliOnboardingSuite(binary: String) async {
     // script's own argv does not match it.
     let argv = c.run(["exec", "cc", "--", "sh", "-c",
                       "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); case \"$c\" in *permissions\\ --append-system-prompt*) printf '%s\\n' \"$c\";; esac; done"]).out
-    check(argv.contains("/usr/local/bin/claude --dangerously-skip-permissions --append-system-prompt # Where you are running: a Dozer Sandbox")
+    check(argv.contains("/usr/local/bin/claude --dangerously-skip-permissions --append-system-prompt # Where you are running: a Dozable")
           && argv.contains("shared live"), "Claude Code runs with the facts block appended: \(argv.prefix(110))…")
     check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
           "the dozer skill: ~/.claude/skills/dozer/SKILL.md")

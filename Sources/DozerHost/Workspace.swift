@@ -69,10 +69,10 @@ public enum Workspace {
         // Never MADE: inside the store, or under a system location.
         if let store {
             let root = (try? normalize(store.root.path)) ?? store.root.standardizedFileURL.path
-            if path == root || path.hasPrefix(root + "/") { return "\(path) is inside the store — Dozer does not make a workspace there" }
+            if path == root || path.hasPrefix(root + "/") { return "\(path) is inside the store — Dozable does not make a workspace there" }
         }
         for p in systemPrefixes where path == p || path.hasPrefix(p + "/") {
-            return "\(path) is under \(p), a system location — Dozer does not make a workspace there"
+            return "\(path) is under \(p), a system location — Dozable does not make a workspace there"
         }
         return nil
     }

@@ -35,7 +35,7 @@ public enum OCIImport {
         let arm = Platform(arch: "arm64", os: "linux")
         let manifest: Manifest
         do { manifest = try await image.manifest(for: arm) } catch {
-            throw SandboxError.invalidSpec("the image has no linux/arm64 variant — Dozer's sandboxes are arm64")
+            throw SandboxError.invalidSpec("the image has no linux/arm64 variant — Dozable's sandboxes are arm64")
         }
         let layers = SHA256.hash(data: Data(manifest.layers.map(\.digest).joined(separator: "\n").utf8)).map { String(format: "%02x", $0) }.joined()
         let config = try await image.config(for: arm)

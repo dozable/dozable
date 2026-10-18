@@ -11,7 +11,7 @@ import DozerHost
 /// and a yes). `--yes` (or `--json`, or no terminal) asks nothing and takes every default.
 struct Init: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "Make a folder a Dozer Sandbox project: write doz_project.yaml there (onboarding this Mac first if it never was). Then: doz up.",
+        abstract: "Make a folder a Dozable project: write doz_project.yaml there (onboarding this Mac first if it never was). Then: doz up.",
         discussion: """
         The folder is shared at /workspace. On a terminal it walks the steps of the dashboard's New sandbox wizard — folder and \
         name, agent and base, account, access (GitHub, SSH agent), workspace rules (.dozignore, .dozreadonly), permissions and \

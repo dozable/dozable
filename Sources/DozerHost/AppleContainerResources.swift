@@ -47,9 +47,9 @@ public struct AppleContainerFacts: Sendable {
 
 extension Resources {
     /// The notes column: it is Apple's, and how to inspect and prune it with its own commands.
-    static let appleContainerRefusal = "Apple's container tool — managed with its own commands: `container image ls` / `container image prune`, `container system df` (what it uses), `container builder delete` (the builder and its cache), `container system stop` (its services). Never deleted by Dozer."
+    static let appleContainerRefusal = "Apple's container tool — managed with its own commands: `container image ls` / `container image prune`, `container system df` (what it uses), `container builder delete` (the builder and its cache), `container system stop` (its services). Never deleted by Dozable."
 
-    static let appleContainerPart = "Apple's — never deleted by Dozer (its commands are on the row above)"
+    static let appleContainerPart = "Apple's — never deleted by Dozable (its commands are on the row above)"
 
     /// The rows (group `outside`): sizes by allocated blocks, as the rest of Resources measures.
     public static func appleContainerItems(_ f: AppleContainerFacts) -> [ResourceItem] {
@@ -80,10 +80,10 @@ extension Resources {
             }
             if let dozer = dozerShare(root) {
                 dataRows.append(ResourceItem(id: "outside:apple-container/dozer", group: "outside", parent: "outside:apple-container",
-                                             name: "of which Dozer's builds", detail: dozer.images == 0
-                                                ? "no image tagged dozer/… in it (Dozer's builds are exported to its own store)"
+                                             name: "of which Dozable's builds", detail: dozer.images == 0
+                                                ? "no image tagged dozer/… in it (Dozable's builds are exported to its own store)"
                                                 : "\(dozer.images) image\(dozer.images == 1 ? "" : "s") tagged dozer/… (their snapshots and layers)",
-                                             sizeBytes: dozer.bytes, refusal: "`container image ls` lists them (dozer/…); `container image delete NAME` removes one — Dozer keeps its own copy in its store"))
+                                             sizeBytes: dozer.bytes, refusal: "`container image ls` lists them (dozer/…); `container image delete NAME` removes one — Dozable keeps its own copy in its store"))
             }
         }
         var programBytes: Int64 = 0
@@ -97,14 +97,14 @@ extension Resources {
         }
         rows.append(ResourceItem(id: "outside:apple-container", group: "outside", name: "Apple container",
                                  detail: [st.version.map { "container \($0)" }, state].compactMap { $0 }.joined(separator: " · ")
-                                    + " — used by Dockerfile images (outside Dozer's store and total)",
+                                    + " — used by Dockerfile images (outside Dozable's store and total)",
                                  sizeBytes: total, refusal: appleContainerRefusal))
         rows += dataRows
         if !f.program.isEmpty {
             rows.append(ResourceItem(id: "outside:apple-container/program", group: "outside", parent: "outside:apple-container",
                                      name: "the installed program" + (st.version.map { " (container \($0))" } ?? ""),
                                      detail: f.program.map(\.path).joined(separator: " + "), sizeBytes: programBytes,
-                                     refusal: "Apple's program — its own uninstaller, /usr/local/bin/uninstall-container.sh, removes it; never Dozer",
+                                     refusal: "Apple's program — its own uninstaller, /usr/local/bin/uninstall-container.sh, removes it; never Dozable",
                                      path: f.program.first?.path))
         }
         return rows

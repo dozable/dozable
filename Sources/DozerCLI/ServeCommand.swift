@@ -157,7 +157,7 @@ struct ServeStart: AsyncParsableCommand {
         audit.record(WebAuditEntry(kind: "start", outcome: "\(state.origins.first ?? "") \(DozerCommand.version)"))
         var bonjour: WebBonjour?
         if config.advertise && config.bind != .loopback {
-            let name = "Dozer on \(names.localHostName ?? "this Mac")"
+            let name = "Dozable on \(names.localHostName ?? "this Mac")"
             let json = g.json
             bonjour = WebBonjour.advertise(name: name, port: state.port) { error, registered in
                 if error == 0 {

@@ -18,7 +18,7 @@ func cliTrySuite(binary: String) async {
     let pid = getpid()
     let t = onboardingHarness(binary, "try", seed: ["kernels", "content", "state.json", "initfs.ext4", "golden"])
     let fm = FileManager.default
-    let projects = "/tmp/dzo-\(pid)-tryp"         // beside the store: Dozer never makes a workspace inside one
+    let projects = "/tmp/dzo-\(pid)-tryp"         // beside the store: Dozable never makes a workspace inside one
     try? fm.removeItem(atPath: projects)
     let xdg = t.store.appendingPathComponent("xdg/dozer-sandbox")
     try? fm.createDirectory(at: xdg, withIntermediateDirectories: true)

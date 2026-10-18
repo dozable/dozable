@@ -126,7 +126,7 @@ public enum ToolsLayer {
     /// The layer's state in the guest: its existence marks the first apply done; `gh.version` is the copy's.
     public static let guestStateDirectory = "/var/lib/doz/tools"
     public static let knownHostsPath = "/etc/ssh/ssh_known_hosts"
-    static let knownHostsBegin = "# doz:github-known-hosts:v1 begin (Dozer: the keys GitHub publishes, for SSH agent forwarding)"
+    static let knownHostsBegin = "# doz:github-known-hosts:v1 begin (Dozable: the keys GitHub publishes, for SSH agent forwarding)"
     static let knownHostsEnd = "# doz:github-known-hosts:v1 end"
     public static let guestLog = "/var/log/doz-tools.log"
     /// The CA bundle every distro keeps (Debian, Ubuntu, Alpine).
@@ -140,7 +140,7 @@ public enum ToolsLayer {
         var removals: [String] = []
         if inputs.github {
             items.append(ToolItem(id: "gh", title: "gh \(ghVersion)", reason: "for GitHub as you", kind: "binary", version: ghVersion,
-                                  source: "Dozer's cache on this Mac (\(ghTarball), sha256 checked), copied in"))
+                                  source: "Dozable's cache on this Mac (\(ghTarball), sha256 checked), copied in"))
         } else {
             removals.append("gh")
         }
@@ -148,7 +148,7 @@ public enum ToolsLayer {
             items.append(ToolItem(id: "ssh", title: "ssh client", reason: "for SSH agent forwarding", kind: "package",
                                   source: "apt/apk through the proxy, when missing", package: "openssh-client", command: "ssh"))
             items.append(ToolItem(id: "github-known-hosts", title: "github.com host keys", reason: "for SSH agent forwarding", kind: "file",
-                                  source: "pinned in Dozer (GitHub's published keys), in \(knownHostsPath)"))
+                                  source: "pinned in Dozable (GitHub's published keys), in \(knownHostsPath)"))
         } else {
             removals.append("github-known-hosts")
         }
@@ -160,9 +160,9 @@ public enum ToolsLayer {
             items.append(ToolItem(id: "alsa-utils", title: "alsa-utils", reason: "for audio (experimental)", kind: "package",
                                   source: "apt/apk through the proxy, when missing", package: "alsa-utils", command: "aplay"))
             items.append(ToolItem(id: "asound-conf", title: "the sound card as ALSA's default", reason: "for audio (experimental)", kind: "file",
-                                  source: "written by Dozer in \(DozSound.asoundPath)"))
+                                  source: "written by Dozable in \(DozSound.asoundPath)"))
             items.append(ToolItem(id: "doz-sound", title: "doz-sound (temporary)", reason: "for audio (experimental)", kind: "file",
-                                  source: "written by Dozer in \(DozSound.path)"))
+                                  source: "written by Dozable in \(DozSound.path)"))
         }
         for (id, cmd) in [("git", "git"), ("curl", "curl"), ("ca-certificates", caBundle)] {
             items.append(ToolItem(id: id, title: id, reason: "always", kind: "package", source: "apt/apk through the proxy, when missing",
@@ -248,7 +248,7 @@ public enum ToolsLayer {
         if plan.items.contains(where: { $0.id == "gh" }) {
             if ghCopied {
                 s += "if mv -f '\(guestGhPath).tmp' '\(guestGhPath)' && chmod 0755 '\(guestGhPath)' && '\(guestGhPath)' --version >/dev/null 2>&1; then "
-                    + "printf '%s' '\(ghVersion)' > '\(guestStateDirectory)/gh.version'; mkdir -p /usr/local/bin; \(link)\(say("gh", "installed", "gh \(ghVersion), from Dozer's cache on the Mac"))"
+                    + "printf '%s' '\(ghVersion)' > '\(guestStateDirectory)/gh.version'; mkdir -p /usr/local/bin; \(link)\(say("gh", "installed", "gh \(ghVersion), from Dozable's cache on the Mac"))"
                     + "else rm -f '\(guestGhPath)' '\(guestGhPath).tmp'; \(say("gh", "failed", "the copied gh does not run here"))fi; "
             } else if state.gh == ghVersion {
                 s += "mkdir -p /usr/local/bin; \(link)" + say("gh", "ok", "gh \(ghVersion)")

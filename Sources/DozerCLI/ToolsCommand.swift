@@ -9,9 +9,9 @@ import DozerHost
 
 struct ToolsCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "tools",
-        abstract: "A sandbox's tools layer: the tools Dozer manages from its settings, why, and their state (--apply: set them up again now).",
+        abstract: "A sandbox's tools layer: the tools Dozable manages from its settings, why, and their state (--apply: set them up again now).",
         discussion: """
-        Dozer puts tools into a sandbox because of its settings — gh for "Use GitHub as you", an ssh client and \
+        Dozable puts tools into a sandbox because of its settings — gh for "Use GitHub as you", an ssh client and \
         github.com's host keys for SSH agent forwarding, tmux for sessions.tmux, and always git, curl and \
         ca-certificates — at every start and wake, on every base, without rebuilding an image. gh is \
         downloaded once to this Mac (pinned, sha256 checked) and copied in; packages come from apt or apk \

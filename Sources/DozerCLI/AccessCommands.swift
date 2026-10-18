@@ -57,7 +57,7 @@ struct AccessStep {
         if c.github != "off", sourceFlag == nil, askSource {
             let i = asker.choose("  Where the GitHub token comes from:",
                                  ["This Mac's gh login (gh auth token — gh auth logout ends it)",
-                                  "A token you give Dozer (best: a fine-grained token limited to some repositories)"],
+                                  "A token you give Dozable (best: a fine-grained token limited to some repositories)"],
                                  preferred: c.githubSource == "key" ? 1 : 0)
             c.githubSource = i == 1 ? "key" : "gh"
         }

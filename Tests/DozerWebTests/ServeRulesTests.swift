@@ -54,7 +54,7 @@ final class ServeRulesTests: XCTestCase {
         let nets = WebServeRules.sandboxNetworks(mac)
         XCTAssertTrue(nets.contains { $0.contains(ip("192.168.112.2")) }, "the running bridge's subnet")
         XCTAssertTrue(nets.contains { $0.contains(ip("fd9c:1:2:3::9")) }, "the bridge's IPv6 network")
-        XCTAssertTrue(nets.contains { $0.contains(ip("192.168.150.7")) }, "Dozer's automatic NAT range, even with no VM running")
+        XCTAssertTrue(nets.contains { $0.contains(ip("192.168.150.7")) }, "Dozable's automatic NAT range, even with no VM running")
         XCTAssertFalse(nets.contains { $0.contains(ip("192.168.86.48")) }, "the LAN is not a sandbox network")
         // A home LAN inside 192.168.100–199 stays a LAN.
         let home = [iface("en0", "192.168.150.10", 24)]
