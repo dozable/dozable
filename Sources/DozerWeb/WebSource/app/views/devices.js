@@ -61,7 +61,7 @@ export async function viewDevices() {
   const node = h('div', { 'data-devices': '' },
     h('div', { class: 'head' }, h('h1', null, 'Devices'), add),
     h('p', { class: 'sub' }, isRemote()
-      ? 'The browsers let in to Dozer on this Mac’s network (doz serve) — this one among them. Each stays in until it is removed.'
+      ? 'The browsers let in to Dozable on this Mac’s network (doz serve) — this one among them. Each stays in until it is removed.'
       : 'The browsers of your other computers, tablets and phones let in to doz serve — this Mac’s dashboard on your network. Each stays in until it is removed.'),
     status,
     panel(rows.length ? table(['Browser', 'Let in', 'Last seen', 'From', 'User agent', 'How', ''], rows) : null,

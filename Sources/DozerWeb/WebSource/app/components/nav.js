@@ -62,6 +62,6 @@ export function paintResTotal(r) {
   if (!el || !r) return;
   el.hidden = false;
   el.textContent = bytes(r.totalBytes);
-  el.title = 'Dozer uses ' + bytes(r.totalBytes) + ' of disk' + (r.unattributedBytes ? ' — ' + bytes(r.unattributedBytes) + ' unattributed' : '');
+  el.title = 'Dozable uses ' + bytes(r.totalBytes) + ' of disk' + (r.unattributedBytes ? ' — ' + bytes(r.unattributedBytes) + ' unattributed' : '');
   el.classList.toggle('bad', r.unattributedBytes !== 0);
 }

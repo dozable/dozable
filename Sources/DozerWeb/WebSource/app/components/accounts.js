@@ -17,7 +17,7 @@ const ACCOUNT_COMMANDS = {
   'api-key': ['doz account add work --api-key       (it asks for the key, not echoed)', 'doz account default work'],
   // 599i: Codex — an OpenAI key, or Dozer's own ChatGPT sign-in (the browser opens on this Mac).
   'openai-key': ['doz account add openai --openai-key   (it asks for the key, not echoed)', 'doz account default openai'],
-  chatgpt: ['doz account add chatgpt --chatgpt     (your browser opens: sign in with ChatGPT — Dozer’s own sign-in;',
+  chatgpt: ['doz account add chatgpt --chatgpt     (your browser opens: sign in with ChatGPT — Dozable’s own sign-in;',
     '                                       your Mac’s Codex login is not touched)', 'doz account default chatgpt'],
   'setup-token': ['claude setup-token                    (on this Mac: prints a 1-year token)',
     'doz account add work --setup-token   (paste it; not echoed)', 'doz account default work'],

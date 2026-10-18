@@ -87,7 +87,7 @@ $('nav-try-add').replaceChildren(icon('plus'));
 $('nav-try-add').addEventListener('click', (ev) => { ev.preventDefault(); location.hash = '#/try'; });
 $('sign-out').addEventListener('click', async () => {
   try { await api('session', { method: 'DELETE' }); } catch (_) { /* already gone */ }
-  signedOut('This browser is signed out of Dozer.', 'signed-out');
+  signedOut('This browser is signed out of Dozable.', 'signed-out');
 });
 
 // ── start ───────────────────────────────────────────────────────────────────

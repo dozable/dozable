@@ -140,7 +140,7 @@ function uiStoppedBanner() {
   const key = calm ? 'calm' : 'stopped';
   const have = $('banners').querySelector('[data-banner="ui-stopped"]');
   if (have && have.dataset.tone === key) return;
-  const el = calm ? banner('ui-stopped', 'info', [state.uiRestarting ? 'doz ui is restarting — reconnecting…' : 'Reconnecting to Dozer…'])
+  const el = calm ? banner('ui-stopped', 'info', [state.uiRestarting ? 'doz ui is restarting — reconnecting…' : 'Reconnecting to Dozable…'])
     : banner('ui-stopped', 'bad', [(state.uiSaid ? 'The doz ui process stopped' : 'This page lost its doz ui server') +
       ' (last connected ' + clock(state.lastConnected) + ').']);
   el.dataset.tone = key;
@@ -153,7 +153,7 @@ function paintUiOverlayTone() {
   $('ui-overlay').dataset.tone = calm ? 'calm' : 'stopped';
   setLive(calm ? '' : 'bad', state.uiRestarting && calm ? 'restarting…' : state.uiSaid ? 'stopped — retrying' : 'reconnecting…');
   if (calm) {
-    t.textContent = 'Reconnecting to Dozer…';
+    t.textContent = 'Reconnecting to Dozable…';
     what.replaceChildren(state.uiRestarting ? 'doz ui is restarting — this page resumes by itself, still signed in, and its terminals reattach.'
       : 'This page resumes by itself as soon as doz ui answers again — still signed in, its terminals reattach.');
   } else {
@@ -197,7 +197,7 @@ export function checkBuild(hello) {
   const mine = (script && script.getAttribute('src')) + '|' + (style && style.getAttribute('href'));
   if (mine === hello.script + '|' + hello.style) return;
   state.updateTo = hello.version || 'a new build';
-  banner('ui-updated', 'info', ['Dozer was updated to ' + state.updateTo + ' — reload this page to use it.'],
+  banner('ui-updated', 'info', ['Dozable was updated to ' + state.updateTo + ' — reload this page to use it.'],
     [btn('Reload', () => location.reload(), { small: true, primary: true, icon: 'refresh-cw' })]);
   // It reloads by itself once nothing would be lost; until then the banner waits for the click.
   clearInterval(state.reloadTimer);
@@ -238,10 +238,10 @@ export function movedAway(to) {
     navigator.clipboard.writeText(to).then(() => toast('Copied ' + to, false), () => toast('Copy it by hand: ' + to, true));
   });
   o.replaceChildren(h('div', { class: 'ui-ov-card' },
-    h('div', { class: 'ui-ov-head' }, h('h2', { id: 'ui-ov-title' }, 'Dozer moved to ' + addr)),
+    h('div', { class: 'ui-ov-head' }, h('h2', { id: 'ui-ov-title' }, 'Dozable moved to ' + addr)),
     h('div', { id: 'ui-ov-desc' },
       h('p', null, 'doz ui now listens on another port (the setting ui.port), and opened the dashboard there in a new tab — this one can be closed.'),
-      h('p', { class: 'muted' }, 'An installed Dozer app belongs to its port: install it again from the new page. In a terminal, ', h('code', null, 'doz ui link'),
+      h('p', { class: 'muted' }, 'An installed Dozable app belongs to its port: install it again from the new page. In a terminal, ', h('code', null, 'doz ui link'),
         ' opens a page on the new port.')),
     h('div', { class: 'ui-ov-acts' }, copy)));
   for (const el of pausedParts()) el.inert = true;

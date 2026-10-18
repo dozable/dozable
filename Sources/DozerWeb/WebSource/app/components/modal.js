@@ -66,7 +66,7 @@ export async function renderModal(first) {
   if (!v) return;
   let node;
   try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : await viewOnboarding(); } catch (e) {
-    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozer Sandbox', null, [], null),
+    node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozable', null, [], null),
       h('div', { class: 'wiz-card' }, h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) }))));
   }
   if (state.modal !== v || state.signedOut) return;

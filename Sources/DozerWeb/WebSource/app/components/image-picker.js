@@ -84,7 +84,7 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
   const dfFail = (e) => { dfError.textContent = e ? e.message || String(e) : ''; };
   const dfPanel = h('div', { class: 'df-panel' },
     h('div', { class: 'ws-row' }, dfPath, isRemote() ? null : dfChoose),
-    h('small', { class: 'muted' }, 'Dozer builds it with Apple’s container build, then adds the developer baseline and the agent — your Dockerfile need not install Claude Code. Its folder is the build context, and the workspace unless you set one.'),
+    h('small', { class: 'muted' }, 'Dozable builds it with Apple’s container build, then adds the developer baseline and the agent — your Dockerfile need not install Claude Code. Its folder is the build context, and the workspace unless you set one.'),
     policyNote, builderBox, dfError);
   const dfTell = () => { onDockerfile(dfPath.value.trim() ? dfPath.value.trim().replace(/\/[^/]*$/, '') || '/' : ''); };
   dfPath.addEventListener('input', () => { onChange(); });

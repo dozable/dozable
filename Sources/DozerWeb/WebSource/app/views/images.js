@@ -100,7 +100,7 @@ export async function viewImages() {
   });
   return h('div', null, h('div', { class: 'head' }, h('h1', null, 'Images'),
       h('div', { class: 'actions' }, btn('Refresh', () => { remeasure(); refresh(false); }, { small: true, title: 'Measure again' }), imagesToggle())),
-    h('p', { class: 'sub' }, 'Built-in images, and templates saved from sandboxes (a sandbox’s root disk — never its state disk). Own is what only this image holds (what removing it frees); shared is what it reuses from the disk it was made from. Progress of a bake shows under Operations. Everything Dozer uses: ',
+    h('p', { class: 'sub' }, 'Built-in images, and templates saved from sandboxes (a sandbox’s root disk — never its state disk). Own is what only this image holds (what removing it frees); shared is what it reuses from the disk it was made from. Progress of a bake shows under Operations. Everything Dozable uses: ',
       h('a', { href: '#/resources' }, 'Resources'), '.'),
     panel(((t) => { if (t) t.classList.add('images-t'); return t; })(table(['Image', 'Base · Agent', 'Status', 'Baked', 'Size', 'Own', 'Shared', barLegend(), 'Version', 'Note', h('span', { class: 'sr-only' }, 'Actions')], rows, [4, 5, 6]))));
 }

@@ -132,8 +132,8 @@ export function modelPicker({ source, title, gateway, current, onPick }) {
     if (!data) return '';
     if (data.kind === 'fetched') return title + '’s public model list, read on this Mac' + (data.fetchedAt ? ' ' + ago(data.fetchedAt) : '') + ' · prices per million tokens';
     if (data.kind === 'listed') return title + '’s free models as its docs list them (checked ' + (data.checked || '—') + '), with their data terms — type any other free model id it names';
-    if (data.kind === 'none') return title + '’s list has not been read yet (Dozer reads it on this Mac once a day) — type any model id it names';
-    return 'The model Dozer checked for ' + title + ' — type any other id it names';
+    if (data.kind === 'none') return title + '’s list has not been read yet (Dozable reads it on this Mac once a day) — type any model id it names';
+    return 'The model Dozable checked for ' + title + ' — type any other id it names';
   };
   search.addEventListener('input', draw);
   search.addEventListener('keydown', (ev) => {

@@ -11,7 +11,7 @@
 // Everything else gets no respondWith() at all: the network, exactly as without a worker.
 'use strict';
 
-const CACHE = "doz-offline-a3fb39e35ba34da2";
+const CACHE = "doz-offline-f23655500e7b03ea";
 const OFFLINE = "/offline";
 const PRECACHE = ["/offline", "/assets/offline-b644b14e85e11a1b.css", "/assets/offline-acff4dde968d4be2.js", "/assets/icon-d1299237fa178c3d.svg"];
 

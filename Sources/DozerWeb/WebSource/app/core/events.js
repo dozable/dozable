@@ -89,7 +89,7 @@ export function connect() {
     try { reason = JSON.parse(ev.data).reason; } catch (_) { /* */ }
     if (reason === 'session-ended') { signedOut('This browser’s session ended.', 'signed-out'); return; }
     // 606: doz serve — this browser was removed from the devices (Devices, or doz serve revoke).
-    if (reason === 'revoked') { signedOut('This browser was removed from Dozer’s devices — to come back, open a new invite link or type a new code.', 'device-revoked'); return; }
+    if (reason === 'revoked') { signedOut('This browser was removed from Dozable’s devices — to come back, open a new invite link or type a new code.', 'device-revoked'); return; }
     if (reason === 'shutdown') { uiLost(true); return; }
     // 605: `doz ui restart` — calm; the same port and session.
     if (reason === 'restarting') { uiLost(false, 'restarting'); return; }

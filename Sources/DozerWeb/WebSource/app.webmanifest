@@ -1,7 +1,7 @@
 {
   "id": "/?app=dozer",
-  "name": "Dozer Sandbox",
-  "short_name": "Dozer",
+  "name": "Dozable",
+  "short_name": "Dozable",
   "description": "Your sandboxes, sessions and images.",
   "start_url": "/#/overview",
   "scope": "/",

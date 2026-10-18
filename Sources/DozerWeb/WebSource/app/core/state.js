@@ -28,5 +28,5 @@ export const state = {
   signup: false,           // this build has the sign-up (an official build): the setup wizard's Stay in touch step
   signupPage: '',          // else: the website's form (from the server — the page names no external URL itself)
   usageStats: null,        // an official build: the setup wizard's Usage statistics step {on, fixed, key, summary, showCommand, privacyPage}
-  chatgptSignIn: true,     // this build has Dozer's own ChatGPT sign-in (a public build: false — never offered)
+  chatgptSignIn: true,     // this build has Dozable's own ChatGPT sign-in (a public build: false — never offered)
 };

@@ -580,7 +580,7 @@ export async function bootLogDialog(name) {
   const why = h('div', { class: 'bootlog-error', role: 'status' });
   const close = h('button', { type: 'button', class: 'btn quiet' }, withIcon('x', 'Close'));
   d.append(h('div', { class: 'bootlog-head' }, h('h2', null, 'Boot log — ' + name), picker, close),
-    h('p', { class: 'sub' }, 'Each start and wake of ' + name + ': Dozer’s steps as the boot view showed them, then the kernel console. The last '
+    h('p', { class: 'sub' }, 'Each start and wake of ' + name + ': Dozable’s steps as the boot view showed them, then the kernel console. The last '
       + setting('host.boot_logs_kept', 5) + ' are kept (Settings › host.boot_logs_kept); doz console ' + name + ' --list shows them too.'),
     why, area);
   let term = null;

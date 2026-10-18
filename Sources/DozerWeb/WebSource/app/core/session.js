@@ -60,7 +60,7 @@ export function adopt(info) {
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
   $('version').textContent = 'doz ' + info.version;
-  document.title = (mac ? 'Dozer on ' + mac : 'Dozer') + ' — ' + info.store.split('/').pop();
+  document.title = (mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');
   if (k) k.textContent = state.serve ? 'doz serve' : 'doz ui';
   $('sign-out').hidden = false;
@@ -121,7 +121,7 @@ export const isRemote = () => !!state.serve;
 function showSignIn(message, code) {
   if (SERVE_CODES.has(code) || state.serveSignIn || state.serve) { showServeSignIn(message, code); return; }
   const o = $('ui-overlay');
-  const title = SIGN_IN_TITLE[code] || (state.everSignedIn ? 'This page was signed out' : 'Sign in to Dozer');
+  const title = SIGN_IN_TITLE[code] || (state.everSignedIn ? 'This page was signed out' : 'Sign in to Dozable');
   const field = h('input', { type: 'password', id: 'signin-link', name: 'link', autocomplete: 'off', spellcheck: 'false',
     placeholder: 'http://127.0.0.1:…/#cap=…', 'aria-describedby': 'signin-help' });
   const err = h('p', { class: 'signin-err', id: 'signin-err', role: 'alert', hidden: true });
@@ -172,7 +172,7 @@ function showServeSignIn(message, code) {
   o.replaceChildren(h('div', { class: 'ui-ov-card signin-card', 'data-serve-signin': code || '' },
     h('div', { class: 'ui-ov-head' }, h('h2', { id: 'ui-ov-title' }, title)),
     h('div', { id: 'ui-ov-desc' },
-      h('p', null, message || 'This browser is not let in to Dozer on this Mac yet.'),
+      h('p', null, message || 'This browser is not let in to Dozable on this Mac yet.'),
       form,
       h('p', { class: 'muted', id: 'signin-help' }, 'An invite comes from a browser that is already in (Devices › ', h('strong', null, 'Add another browser'),
         ') or from the Mac: ', h('code', null, 'doz serve share'), '. Scan its QR code, type its code here, or open its link — each lets ONE browser in, within five minutes.'),
