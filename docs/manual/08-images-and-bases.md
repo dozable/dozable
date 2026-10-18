@@ -1,7 +1,7 @@
 # Images and bases
 
 Every sandbox starts from an **image**: a prepared disk with a Linux system, a developer toolkit and,
-usually, an AI agent. You choose an image when you create a sandbox; Dozer prepares it the first time
+usually, an AI agent. You choose an image when you create a sandbox; Dozable prepares it the first time
 it's needed and then makes each sandbox an instant copy of it.
 
 ## Concepts
@@ -20,7 +20,7 @@ it's needed and then makes each sandbox an instant copy of it.
   | `codex` | Node.js | Codex (new — on other bases `<base>-codex`) |
   | `lab` | Alpine | none (bash and a few tools) |
 
-- **The developer baseline.** On every base, Dozer adds the tools agents expect: git, curl, jq,
+- **The developer baseline.** On every base, Dozable adds the tools agents expect: git, curl, jq,
   ripgrep (`rg`), fd, python3, less, vim, ssh, sudo, tmux and the package lists, so the agent can
   install more with `sudo apt-get install` (or `apk add` on Alpine). Claude Code on a base without
   Node is its standalone build; pi on a base without Node gets its own Node; Codex is its official
@@ -77,7 +77,7 @@ Dockerfile…** opens the Mac's file picker) or **Template**. The line under the
 ## Your own Dockerfile
 
 Use a Dockerfile when a recommended base isn't close enough — your company's image, extra system
-libraries, a pinned toolchain. Dozer builds it with **Apple's `container` tool**, then adds its
+libraries, a pinned toolchain. Dozable builds it with **Apple's `container` tool**, then adds its
 baseline and the agent on top as usual.
 
 - **Apple's tool is optional**, installed and started only when you ask:
@@ -89,21 +89,21 @@ baseline and the agent on top as usual.
   ```
 
   In the dashboard, choosing **Dockerfile** shows the same state, with **Install Apple's container
-  tool…** or **Start its services** when needed. Dozer never uses `sudo` for it.
-- **The build runs outside Dozer's network policy.** The Dockerfile's `RUN` steps run in Apple's
-  builder and reach the internet directly, without Dozer's proxy or permissions. Only build
+  tool…** or **Start its services** when needed. Dozable never uses `sudo` for it.
+- **The build runs outside Dozable's network policy.** The Dockerfile's `RUN` steps run in Apple's
+  builder and reach the internet directly, without Dozable's proxy or permissions. Only build
   Dockerfiles you trust. The sandbox made from the image is under your permissions as usual.
 - The Dockerfile's folder is the build context, and the sandbox's workspace unless you give one.
-- An unchanged Dockerfile prepares again in seconds. When it changes, Dozer says "Dockerfile changed —
+- An unchanged Dockerfile prepares again in seconds. When it changes, Dozable says "Dockerfile changed —
   rebuild available"; `doz image bake df-…` rebuilds (the image's name is shown in `doz image ls`),
   and `doz reset NAME` moves a sandbox onto it.
-- Apple's tool keeps its own storage, shown on the Resources page (never deleted by Dozer). See
+- Apple's tool keeps its own storage, shown on the Resources page (never deleted by Dozable). See
   [Resources and disk space](13-resources-and-disk-space.md).
 
 ## See and manage images
 
 Each image's **STATUS** (also on the Images page, and `status` in `--json`) is one of: **up to date**,
-**update available** (a newer agent release), **older recipe** (an older Dozer prepared it), **not
+**update available** (a newer agent release), **older recipe** (an older Dozable prepared it), **not
 prepared** (it's prepared the first time it's needed) or **preparing**.
 
 ```sh
@@ -122,8 +122,8 @@ own and shared disk space as a bar, and **Lineage**, the tree.
 ## Out-of-date images
 
 An image can fall behind in two ways: a **newer agent release** exists, or it was prepared by an
-**older version of Dozer** whose recipe lacked something (a tool the baseline gained, for example).
-Either way, **Dozer never rebuilds an image without you.** It says so:
+**older version of Dozable** whose recipe lacked something (a tool the baseline gained, for example).
+Either way, **Dozable never rebuilds an image without you.** It says so:
 
 - `doz image ls` — a STATUS column (`update available`, `older recipe`) and a line such as
   `pi: prepared by an older doz — this doz's image adds: sudo, apt-utils, tmux, package lists`;

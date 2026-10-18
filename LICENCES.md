@@ -1,6 +1,6 @@
 # Licences
 
-Dozer Sandbox (`doz`) itself is **MIT** — see [`LICENSE`](LICENSE). [`NOTICE`](NOTICE) carries the
+Dozable (`doz`) itself is **MIT** — see [`LICENSE`](LICENSE). [`NOTICE`](NOTICE) carries the
 attributions its Apache-2.0 dependencies require.
 
 Every release ships, in `libexec/doz/licences/`, `LICENSE`, `NOTICE` and `THIRD-PARTY-LICENSES.txt` — the

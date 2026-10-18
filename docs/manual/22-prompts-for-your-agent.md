@@ -1,8 +1,8 @@
 # Prompts for your agent
 
-Your Mac's own coding agent — Claude Code, Codex, Cursor — can install Dozer, set it up and run
+Your Mac's own coding agent — Claude Code, Codex, Cursor — can install Dozable, set it up and run
 sandboxes for you. This page gives you prompts to paste, in order: install, set up, brief it once, then
-three things worth using sandboxes for. [Letting another agent drive Dozer](14-letting-another-agent-drive.md)
+three things worth using sandboxes for. [Letting another agent drive Dozable](14-letting-another-agent-drive.md)
 explains the rules underneath (`--json`, exit codes, why destructive commands need `--yes`).
 
 **Keep the decisions yours.** Every prompt below tells the agent to stop and ask before it chooses an
@@ -13,7 +13,7 @@ permissions — treat it as you would at the keyboard.
 
 Paste:
 
-> Install Dozer Sandbox (the `doz` command) on this Mac with Homebrew, following
+> Install Dozable (the `doz` command) on this Mac with Homebrew, following
 > https://github.com/dozer-sandbox/dozer-sandbox/blob/main/docs/manual/02-install-upgrade-uninstall.md.
 > When it is installed, run `doz --version` and `doz doctor --json` and tell me what they say.
 
@@ -31,7 +31,7 @@ doz doctor --json
 Onboarding checks the Mac, chooses how sandboxes sign in to Claude, writes the settings and prepares images.
 The account is your choice, so the prompt makes the agent ask:
 
-> Set up Dozer with `doz onboard`. Before you run it, ask me which Claude account the sandboxes should use
+> Set up Dozable with `doz onboard`. Before you run it, ask me which Claude account the sandboxes should use
 > (this Mac's login, an API key, a setup token, or later) and which images to prepare (claude-code is the
 > default; lab is small and quick; pi is the other agent). Then run it without questions, using my answers,
 > and show me `doz onboard --status` when the images are ready. Do not change any other setting.
@@ -47,7 +47,7 @@ Preparing claude-code the first time takes several minutes (a download and a bak
 
 ## 3. Brief it once
 
-Paste the briefing from [Letting another agent drive Dozer](14-letting-another-agent-drive.md#the-briefing)
+Paste the briefing from [Letting another agent drive Dozable](14-letting-another-agent-drive.md#the-briefing)
 into your project's `CLAUDE.md` (or `AGENTS.md`). From then on, every session in that project knows how to
 use `doz` safely, and the prompts below can stay short.
 
@@ -58,7 +58,7 @@ use `doz` safely, and the prompts below can stay short.
 A dependency upgrade, a big refactor, a migration: let a sandboxed agent do the work on your project folder
 while your Mac's agent watches, with a restore point to fall back to.
 
-> In a Dozer sandbox called `upgrade`, upgrade this project to the latest major version of our test
+> In a Dozable sandbox called `upgrade`, upgrade this project to the latest major version of our test
 > framework and get the test suite passing. Take a restore point before you start. Let a Claude inside the
 > sandbox do the work (run it detached) and check on it every few minutes. When the tests pass, show me
 > the diff on my Mac and a summary of what changed. If the sandboxed agent is refused a website, tell me
@@ -84,7 +84,7 @@ An agent you don't trust yet — a new agent CLI, an unfamiliar model, a tool so
 runs on its own: run it in a sandbox that shares none of your folders, holds none of your logins, can't
 reach the Mac's clipboard, browser or files, and reaches the internet only where you allow it.
 
-> I want to try the agent <AGENT> but I don't trust it. Jail it in a Dozer sandbox called `jail`:
+> I want to try the agent <AGENT> but I don't trust it. Jail it in a Dozable sandbox called `jail`:
 > **isolated** (no folder of mine shared), the lab image, network **locked**, no Claude account, no GitHub,
 > no SSH agent, and the clipboard, browser and file bridges off. Take a restore point, then install the
 > agent inside and start it detached on this task: <task>. Check on it every few minutes and tell me what
@@ -157,5 +157,5 @@ sandboxed agent is told so). The rules are a guard against accidents, not a secu
 | a site is refused | "Show me `doz net NAME --json` and the suggestion; I'll decide." |
 | the sandbox is in a state you didn't expect | "Show me `doz ls --json` and `doz inspect NAME --json`." |
 
-See also: [Letting another agent drive Dozer](14-letting-another-agent-drive.md) ·
+See also: [Letting another agent drive Dozable](14-letting-another-agent-drive.md) ·
 [Getting started](01-getting-started.md) · [Troubleshooting and FAQ](17-troubleshooting-and-faq.md).

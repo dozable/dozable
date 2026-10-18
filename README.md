@@ -1,4 +1,4 @@
-# Dozer Sandbox
+# Dozable
 
 **Fast, resumable, secure Linux sandboxes for AI coding agents on your Mac — your API keys never go inside.**
 [dozersandbox.com](https://dozersandbox.com)
@@ -33,7 +33,7 @@ Just want to see an agent work? One command, from nothing — it asks for the ke
 a new empty folder, and starts the agent:
 
 ```sh
-doz try grok                # or: doz try antigravity · doz try (the list) · doz search (what this Dozer runs)
+doz try grok                # or: doz try antigravity · doz try (the list) · doz search (what this Dozable runs)
 ```
 
 ## Requirements
@@ -82,7 +82,7 @@ dashboard) from a feed signed with the project's own key, and never installs any
 ## Usage statistics
 
 Official builds (Homebrew, the release download) send anonymous usage statistics — at most once a day, counts
-and ranges about how Dozer itself is used, never a name, path, host, command argument or anything from inside a
+and ranges about how Dozable itself is used, never a name, path, host, command argument or anything from inside a
 sandbox — and include an optional sign-up for news. `doz telemetry show` prints exactly what would be sent; turn
 it off with `doz config set telemetry.send_anonymous_usage_stats false`, `DO_NOT_TRACK=1`, or
 `--no-send-anonymous-usage-stats` on one command. Builds from this repository send nothing; the statistics and

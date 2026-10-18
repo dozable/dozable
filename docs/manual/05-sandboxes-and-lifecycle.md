@@ -191,7 +191,7 @@ running, these commands read the store directly.
 
 ## Saved screens
 
-Before a sandbox pauses, sleeps or hibernates, Dozer saves the screen of each of its sessions — and
+Before a sandbox pauses, sleeps or hibernates, Dozable saves the screen of each of its sessions — and
 every `host.screen_capture_minutes` (5) while it runs, for sessions that printed something since. So
 you can see what a sleeping sandbox was doing without waking it:
 
@@ -208,7 +208,7 @@ the sandbox: shutdown, reset and remove delete them.
 
 ## Boot logs
 
-Every boot of a sandbox — each start, each wake, a recovery after a crash — is kept: Dozer's timed
+Every boot of a sandbox — each start, each wake, a recovery after a crash — is kept: Dozable's timed
 steps as the boot view showed them, and the Linux kernel's own messages.
 
 ```sh
@@ -246,7 +246,7 @@ A sandbox follows your Mac's time zone, read again at every start and wake — s
 while you travelled wakes in your new zone. The agent is told its time zone too. To pin one:
 `doz config set sandbox.timezone Australia/Sydney`.
 
-The rest of Dozer's set-up inside the sandbox is put back at every start and wake too: apt never
+The rest of Dozable's set-up inside the sandbox is put back at every start and wake too: apt never
 stops to ask a question, the sandbox's own name resolves, the agent's sudo follows its setting, and
 links open on your Mac. So a sandbox that only ever sleeps or hibernates and wakes still gets what a
 newer doz fixes, without a restart.

@@ -88,7 +88,7 @@ When every chosen image is ready, the store is marked as set up — even if you'
 
 Then, in an official build, two last questions:
 
-- **Usage statistics** — what is sent (counts and ranges about how Dozer is used, never names, paths,
+- **Usage statistics** — what is sent (counts and ranges about how Dozable is used, never names, paths,
   contents or anything inside a sandbox), `doz telemetry show` to see it exactly, and the privacy
   policy; then *Send anonymous usage statistics? [Y/n]*. **Enter** keeps them on and changes nothing;
   **n** sets `telemetry.send_anonymous_usage_stats = false`. When `DO_NOT_TRACK` or

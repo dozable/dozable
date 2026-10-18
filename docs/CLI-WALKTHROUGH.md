@@ -21,7 +21,7 @@ Claude Code signed in on this Mac (or an Anthropic API key) for part 4.
 
 ## 0. From a clean slate (optional)
 
-If Dozer Sandbox was on this Mac before, start from nothing: `doz uninstall` lists exactly what it
+If Dozable was on this Mac before, start from nothing: `doz uninstall` lists exactly what it
 removes — the store (every sandbox and image), the settings (`~/.config/dozer-sandbox`) and a
 `make install-cli` `doz` — and asks once. A `doz` Homebrew installed is Homebrew's: it tells you to
 finish with `brew uninstall doz`. It never touches the keychain or Claude Code's own files.
@@ -206,7 +206,7 @@ doz inspect doz-try --prompt
 
 Ask Claude: *"What is the host path of /workspace?"* — it answers `~/doz-try` (the full path) from
 the facts block, without looking around. Ask *"Where are you running — what is this machine?"* — a
-Dozer Sandbox VM on your Mac, how its disks persist, that the network goes through your Mac's proxy.
+Dozable VM on your Mac, how its disks persist, that the network goes through your Mac's proxy.
 (A sandbox made without a workspace is **isolated**: its agent is told no folder is shared with the
 Mac, and `doz ls` says `isolated`. A `--workspace` folder that does not exist yet is made for you.)
 

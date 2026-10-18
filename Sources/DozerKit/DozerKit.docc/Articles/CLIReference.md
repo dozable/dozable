@@ -150,9 +150,9 @@ doz up NAME [same options] [--session S] [-d] [-- CMD …]
   image is prepared (hourly after; the catalogue's pin offline) and `image ls` says when the tag has
   moved on — never rebuilt by itself.
 - **`--dockerfile PATH`**: your Dockerfile is the base, built with Apple's `container build`
-  (installed on demand — `doz builder`), and Dozer still adds the baseline and the agent (you need
+  (installed on demand — `doz builder`), and Dozable still adds the baseline and the agent (you need
   not install Claude Code in it). Its folder is the build context and, unless `--workspace` says
-  otherwise, the workspace. **The build runs in Apple's builder, OUTSIDE Dozer's network policy:**
+  otherwise, the workspace. **The build runs in Apple's builder, OUTSIDE Dozable's network policy:**
   its `RUN` steps reach the internet directly. Every preparation builds it again (Apple's cache
   makes an unchanged one take seconds) and re-bakes only when the built image's layers changed; a
   sandbox says "Dockerfile changed — rebuild available" and keeps its disk until `doz reset`.
@@ -188,7 +188,7 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `attach NAME [SESSION] [--no-wake]` | Your terminal becomes that session; with no SESSION, the image's own session — opened first when it is not running (said). Before the session's screen is drawn both of the terminal's screens are cleared (no flash of an earlier program's). **Ctrl-]** opens a one-line menu over the bottom row (`d detach · n next · p prev · s sessions · Esc back`; n/p/s move this terminal to another session of the sandbox; removed by a clean redraw from the session's snapshot); a second Ctrl-] (quickly, or at the menu) detaches — in every keyboard encoding (`--detach-key ctrl-x\|none`; a pipe on stdin detaches at once). The terminal's title is `ui.terminal_title` (`{sandbox} · {session} · {time}`; `{image}` `{phase}` too), refreshed each minute, the terminal's own pushed and popped (CSI 22/23 t); the session's own title is kept out meanwhile (`""`: leave it to the session). A paused or sleeping sandbox wakes first unless `--no-wake`. Hibernated while attached: the client waits and reattaches by itself on wake. |
 | `run NAME [--session S] [-d] -- CMD …` | A **new** session running `CMD`, attached; exits with `CMD`'s exit code. No shell in front — write `bash -lc '…'` for one. |
 | `exec NAME [--user U] [--workdir D] [-e K=V] [--timeout S] -- CMD …` | One-shot, no terminal: stdout, stderr and the exit code pass straight through (default timeout 120 s). Agent images run as the agent's user in `/workspace`; `--user root` for root. A sleeping sandbox is woken and an off one started first (594; `--no-wake`, `--no-start`; `--json` has `started`, `woke`, `bootMilliseconds`) — `run` starts one too. |
-| `get NAME PATH [LOCAL] [--force]` | Copy a file or folder out of the sandbox (PATH relative = under `/workspace`; LOCAL default the current folder — into an existing folder it keeps its name, else it is the new name). Folders whole; modes kept; owned by you on the Mac. Unpacked in a temporary folder beside LOCAL, checked, then moved into place — never into Dozer's store; a link that points outside the folder stops it. An existing LOCAL needs `--force` (a file replaced, a folder merged). Woken/started as `exec` (`--no-wake`, `--no-start`). Isolated sandboxes too. `--json`. |
+| `get NAME PATH [LOCAL] [--force]` | Copy a file or folder out of the sandbox (PATH relative = under `/workspace`; LOCAL default the current folder — into an existing folder it keeps its name, else it is the new name). Folders whole; modes kept; owned by you on the Mac. Unpacked in a temporary folder beside LOCAL, checked, then moved into place — never into Dozable's store; a link that points outside the folder stops it. An existing LOCAL needs `--force` (a file replaced, a folder merged). Woken/started as `exec` (`--no-wake`, `--no-start`). Isolated sandboxes too. `--json`. |
 | `put NAME LOCAL [PATH] [--force]` | Copy a file or folder from this Mac in (PATH default `/workspace`). Owned by the image's user — by root only where that user cannot write (said). The same rules as `get`. |
 | `cp SRC DST` | The Docker spelling of both: `cp NAME:PATH LOCAL` = `get`, `cp LOCAL NAME:PATH` = `put` (`NAME:` alone = `/workspace`). |
 | `sessions NAME` | The sandbox's terminal sessions. |
@@ -243,7 +243,7 @@ run as root always keeps them.
 ### The agent's environment prompt
 
 At every session start the host tells the agent where it runs, from the sandbox's **current**
-facts: a short **facts block** — a Dozer Sandbox VM (not a container) on the user's Mac, its name
+facts: a short **facts block** — a Dozable VM (not a container) on the user's Mac, its name
 and size, `/workspace` shared from the Mac folder *X* or **isolated** (no folder is shared with the Mac), the network (deny by
 default through the Mac's proxy; a refused host needs the user's rule), credentials (injected; never
 log in) — appended to the agent's system prompt (Claude Code's launcher passes
@@ -251,7 +251,7 @@ log in) — appended to the agent's system prompt (Claude Code's launcher passes
 `--append-system-prompt /run/dozer/agent-prompt.md`), and the **`dozer` skill**
 (`~/.claude/skills/dozer/SKILL.md`, pi: `~/.pi/agent/skills/dozer/`) with the details: what persists,
 restore points, the network policy, sleep and hibernation, and what the agent cannot do from
-inside. Dozer writes only those; the agent's own `CLAUDE.md` / `AGENTS.md` are never touched.
+inside. Dozable writes only those; the agent's own `CLAUDE.md` / `AGENTS.md` are never touched.
 
 ```bash
 doz inspect NAME --prompt                           # what the next session gets (or why it does not render)
@@ -391,7 +391,7 @@ and the proxy do not apply, and no credential crosses it.
 ### The tools layer
 
 ```bash
-doz tools NAME             # the tools Dozer manages in NAME from its settings: each one, why, its state
+doz tools NAME             # the tools Dozable manages in NAME from its settings: each one, why, its state
 doz tools NAME --apply     # set them up again now (NAME must be running), shown as steps
 ```
 
@@ -537,7 +537,7 @@ account; its state disk starts fresh unless `--copy-state`. Keys are not copied.
 ### Resources
 
 ```bash
-doz resources [ls] [--json]                        # everything Dozer uses: disk to the byte, memory, CPUs, traffic, kernels
+doz resources [ls] [--json]                        # everything Dozable uses: disk to the byte, memory, CPUs, traffic, kernels
 doz resources rm ID… [--dry-run] [--yes] [--json]  # delete what can go (ids as doz resources lists them)
 doz resources clean [--dry-run] [--yes] [--json]   # the safe set: re-creatable AND unused
 doz resources kernel kernel:VERSION|pinned          # the kernel NEW sandboxes boot
@@ -546,7 +546,7 @@ doz resources kernel kernel:VERSION|pinned          # the kernel NEW sandboxes b
 `doz resources` is an **account**: every byte of the store is on a row — sandboxes (root disk, state
 disk, snapshot, restore points, saved screens, boot logs), images and templates, caches (the download
 cache, base disks, the guest init, kernels, preparation leftovers), logs and metrics, stray files,
-Dozer's own records — and the total is what `du` counts; a last row, **unattributed**, is what no
+Dozable's own records — and the total is what `du` counts; a last row, **unattributed**, is what no
 row explains and should be 0. Each row has three numbers: its **size** (allocated, as `du` counts
 it — an APFS clone in full each time), what deleting it **frees** (the blocks only it holds —
 a clone frees only what it does not share) and what **uses** it. Outside the store it shows the
@@ -559,7 +559,7 @@ digest, size, current, and the snapshots that need each).
 ("re-prepared when next needed (about 3 min, needs network)") and what is refused and why — and ask
 once (`--yes` skips it; `--dry-run` deletes nothing). The deletion runs in the host as one operation,
 waiting until nothing that uses the store's disks is under way. What is refused: a sandbox and its
-disks (remove it with `doz rm`), anything outside the store, Dozer's own records; the current kernel
+disks (remove it with `doz rm`), anything outside the store, Dozable's own records; the current kernel
 and the guest init while any sandbox is paused, asleep or hibernated (their snapshots need them —
 allowed once all are off); an image while it is being prepared (and the download cache and base
 disks while any is); a stray folder that is a sandbox's workspace. Restore points, saved screens and
@@ -603,7 +603,7 @@ doz upgrade -y                                       # install it: brew upgrade 
 doz upgrade --channel beta                        # switch channel (stable, beta, canary) — for Homebrew, the formula
 ```
 
-doz looks for a newer release at most once a day (and when `doz ui` starts) in a feed signed with Dozer's own
+doz looks for a newer release at most once a day (and when `doz ui` starts) in a feed signed with Dozable's own
 key, and installs only what verifies — never an older build. The setting `updates.mode` decides what happens:
 `notify` (the default — one line on your terminal and a banner on the dashboard, with the command to run), `auto`
 (it also installs the update, only while no sandbox runs and no session is attached; then: restart to apply,
@@ -720,12 +720,12 @@ doz telemetry [show] [--json]   # whether this doz sends anonymous usage statist
                                 # and exactly what it would send (after the next command, and today so far)
 doz telemetry reset             # a new random install id; the day's counts forgotten
 doz signup [--email ADDRESS] [--interest release-news|tool-news|early-access|tips …] [-y]
-                                # optional: news from Dozer by email (asked on a terminal); confirmed first
+                                # optional: news from Dozable by email (asked on a terminal); confirmed first
 ```
 
 Official builds (Homebrew, the release download) send anonymous usage statistics — said, with a
 choice, in the setup (`doz onboard`, the dashboard's wizard): at most once a
-day, counts and ranges about how Dozer itself is used, with a random install id — never a name,
+day, counts and ranges about how Dozable itself is used, with a random install id — never a name,
 path, host, command argument, file or anything from inside a sandbox. Any one of these turns them
 off: `doz config set telemetry.send_anonymous_usage_stats false` (or `$DOZ_SEND_ANONYMOUS_USAGE_STATS`),
 `DO_NOT_TRACK=1` (always wins), or `--no-send-anonymous-usage-stats` on one command

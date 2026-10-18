@@ -28,7 +28,7 @@ doz --version
 ```
 
 Recent Homebrew loads formulas from a third-party tap only after you trust it — `brew trust` is needed
-once per Mac (without it `brew install` refuses the formula). Homebrew then adds Dozer's tap and installs
+once per Mac (without it `brew install` refuses the formula). Homebrew then adds Dozable's tap and installs
 a prebuilt, signed and notarised `doz` in seconds — no compiler is needed. It ends with a hint: run `doz onboard` ([Setting up](03-setting-up.md)).
 
 ### Release channels
@@ -65,14 +65,14 @@ doz upgrade -y            # or doz upgrade: it shows the version and the notes, 
 doz host restart
 ```
 
-`doz upgrade` refreshes Dozer's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
+`doz upgrade` refreshes Dozable's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
 feed itself (past any cached copy), so a release is there the minute it is published. Its first name, `doz update`,
 still works. Homebrew refreshes
 its taps only now and then, so a plain `brew upgrade doz` can say there is nothing new for up to a day; with brew
 directly, run `brew update` first.
 
 - **How it knows.** At most once a day (and when `doz ui` starts), doz reads one small file,
-  `https://updates.dozersandbox.com/v1/feed.json`, signed with Dozer's own key; anything that doesn't verify
+  `https://updates.dozersandbox.com/v1/feed.json`, signed with Dozable's own key; anything that doesn't verify
   is ignored. Nothing about you or your sandboxes is sent — only the request, with doz's version and channel
   in its user agent. Offline, it says nothing. Never with `--json` or `-q`, or when not on a terminal.
 - **The setting `updates.mode`**: `notify` (the default), `auto` — doz also installs the update itself (through
@@ -107,8 +107,8 @@ nobody is attached, the old host exits by itself.
 
 ### Your images after an upgrade
 
-A new version of Dozer may prepare its images differently (it may add a tool, for example). Your
-existing images are **never rebuilt without you**: Dozer says an image is out of date — in
+A new version of Dozable may prepare its images differently (it may add a tool, for example). Your
+existing images are **never rebuilt without you**: Dozable says an image is out of date — in
 `doz image ls`, `doz doctor`, when you create a sandbox, and on the dashboard's Images page — and
 you rebuild it when it suits you. See [Images and bases](08-images-and-bases.md#out-of-date-images).
 

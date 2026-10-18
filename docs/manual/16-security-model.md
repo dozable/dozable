@@ -1,6 +1,6 @@
 # Security model
 
-Dozer's job is to let an AI agent work freely — install things, run code, make a mess — without
+Dozable's job is to let an AI agent work freely — install things, run code, make a mess — without
 putting your Mac, your credentials or your data at risk. This page explains what protects you, what
 each boundary does and doesn't cover, and the few ways a sandbox can reach your Mac by design.
 
@@ -18,7 +18,7 @@ folder you chose to share at `/workspace`. An isolated sandbox shares nothing at
 
 ### 2. No network card: everything goes through the proxy
 
-A proxied sandbox (the default for every image) has no network interface. Its only way out is Dozer's
+A proxied sandbox (the default for every image) has no network interface. Its only way out is Dozable's
 proxy, in the host on your Mac, which checks every connection — DNS included — against the sandbox's
 [permissions](10-permissions-and-network.md), and logs it (host, verdict, bytes; never contents).
 
@@ -40,7 +40,7 @@ out. Inside the sandbox the agent sees a placeholder (`doz_cred_…`), so there'
 - a credential the agent brings itself is flagged or refused (the [key policy](09-agents-and-accounts.md#a-credential-the-agent-brings-itself));
 - accounts are stored in your login keychain, and the dashboard never shows a secret.
 
-**Codex's ChatGPT plan** works the same way ([Codex](24-codex.md)): Dozer's own ChatGPT sign-in is kept in
+**Codex's ChatGPT plan** works the same way ([Codex](24-codex.md)): Dozable's own ChatGPT sign-in is kept in
 your login keychain; the sandbox's `~/.codex/auth.json` holds placeholders (and the sign-in's details
 without their signature); the proxy puts the access token into requests to `chatgpt.com` only, and
 renews it on your Mac — Codex's own renewal request is answered by the proxy, never sent on. Your
@@ -56,7 +56,7 @@ Access step, or for one sandbox ([GitHub as you](18-github.md)):
   re-encoded there, and nowhere else);
 - **read-only is enforced by the proxy**, request by request: `git-receive-pack` (a push) is refused,
   and so is every request to the API that isn't a read — except a GraphQL request whose document holds
-  only queries. Dozer reads that document conservatively: anything it can't tell is read-only is refused;
+  only queries. Dozable reads that document conservatively: anything it can't tell is read-only is refused;
 - turning the permission off (or `gh auth logout` on the Mac) ends it at once: every placeholder already
   issued is refused;
 - with **Push to GitHub** on, the agent can push and act on GitHub as you, within what your token may
@@ -114,7 +114,7 @@ the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you pr
 A session's terminal lets a program in the sandbox do three things on your Mac, because agents need
 them. Each is announced every time it's used, rate-limited, works only while a terminal is attached,
 and can be turned off per sandbox or for all. All three travel the same way — a private escape
-sequence in the session's output, which Dozer's host takes out and decides on; the sandbox has no other
+sequence in the session's output, which Dozable's host takes out and decides on; the sandbox has no other
 channel to your Mac.
 
 | bridge | what the sandbox can do | what it can't | the risk | turn it off |
@@ -136,7 +136,7 @@ fully resolved path.
 
 ## Things that run outside a sandbox
 
-- **Dockerfile builds** run in Apple's `container` builder, **outside Dozer's network policy**: their
+- **Dockerfile builds** run in Apple's `container` builder, **outside Dozable's network policy**: their
   `RUN` steps reach the internet directly. Only build Dockerfiles you trust. See
   [Images and bases](08-images-and-bases.md#your-own-dockerfile).
 - **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
@@ -145,17 +145,17 @@ fully resolved path.
 
 ## What leaves your Mac
 
-- **Anonymous usage statistics**, in official builds only: counts and ranges about how Dozer is used,
+- **Anonymous usage statistics**, in official builds only: counts and ranges about how Dozable is used,
   at most once a day, with a random install id — never anything from inside a sandbox, a name, path,
   host, command argument, account or key. Off with `doz config set telemetry.send_anonymous_usage_stats
   false`, `DO_NOT_TRACK=1`, or `--no-send-anonymous-usage-stats`; `doz telemetry show` prints exactly what
   would be sent. Builds from the open-source repository send nothing. See
   [Usage statistics and sign-up](01-getting-started.md#usage-statistics-and-sign-up).
 - **The sign-up**, only if you sign up: your email and what you ticked.
-- **The update check**: Dozer's version and channel, at most once a day (`updates.mode off` stops it).
+- **The update check**: Dozable's version and channel, at most once a day (`updates.mode off` stops it).
 - **Your agent's own traffic**, through the proxy, to what you allow.
 
-## What Dozer can't protect
+## What Dozable can't protect
 
 - **Your shared folder.** It's the agent's to change. Commit often. [Workspace rules](20-workspace-rules.md)
   (`.dozignore`, `.dozreadonly`) keep an agent from stumbling into files there, but they are a convenience,
@@ -165,7 +165,7 @@ fully resolved path.
 - **What you paste or open.** Read clipboard, browser and file notices, and don't run what an agent put
   on your clipboard without looking.
 - **Another agent driving `doz` on your Mac** has your permissions: brief it to leave permissions and
-  deletion to you ([Letting another agent drive Dozer](14-letting-another-agent-drive.md)).
+  deletion to you ([Letting another agent drive Dozable](14-letting-another-agent-drive.md)).
 - **Secrets you put on a sandbox's disk yourself** travel with its restore points and templates.
 
 ## Settings

@@ -1,10 +1,10 @@
 # Settings reference
 
-Every setting Dozer has is in one file, **`~/.config/dozer-sandbox/doz.toml`** (under
+Every setting Dozable has is in one file, **`~/.config/dozer-sandbox/doz.toml`** (under
 `$XDG_CONFIG_HOME` when that is set). The file lists every setting with a description and its
 default, commented out; only the values you set are uncommented. An agent or tool's own settings
 (`images.ID_version`, `ID.permissions`, `[images.ID]`) are written there only once one of them is set —
-then its whole block, defaults commented as usual — so the file stays small however many agents Dozer
+then its whole block, defaults commented as usual — so the file stays small however many agents Dozable
 offers; `doz config show --agent ID` lists them. The dashboard's **Settings** page shows and edits the
 same file.
 
@@ -60,9 +60,9 @@ or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `s
 
 ## About the file
 
-- **The file is Dozer's.** `set`, `unset`, `init` and the Settings page rewrite it whole, atomically,
+- **The file is Dozable's.** `set`, `unset`, `init` and the Settings page rewrite it whole, atomically,
   readable only by you. Comments you add aren't kept.
-- **A mistake never breaks Dozer.** An unknown key or a value of the wrong type is a warning (that line
+- **A mistake never breaks Dozable.** An unknown key or a value of the wrong type is a warning (that line
   is ignored, the default applies). A file that doesn't parse at all is ignored — with the line that's
   wrong — and never overwritten until you fix it.
 - **When a change applies** is part of each setting: at once, for the next command, the next sandbox
@@ -106,7 +106,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `serve.bind` | `lan` | lan \| loopback \| the Mac's addresses, comma-separated | serve-restart | `$DOZ_SERVE_BIND`, `doz serve --bind lan\|loopback\|ADDRESSES` | Where doz serve listens: lan (every network interface of this Mac and Tailscale — never a sandbox's network), loopback (127.0.0.1 and ::1 only: for a reverse proxy on this Mac), or this Mac's own addresses separated by commas (for a reverse proxy elsewhere on your network). |
 | `serve.public_origins` | `""` | origins like https://doz.home.example, comma-separated ("" = none) | serve-restart | — | The addresses your reverse proxy serves the dashboard at, like https://doz.home.example (comma-separated). A browser may use one only through a proxy listed in serve.trusted_proxies. Over https, keys and tokens may be typed in the dashboard; over plain http they never are. |
 | `serve.trusted_proxies` | `""` | addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none) | serve-restart | — | The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For doz serve believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored. |
-| `serve.advertise` | `true` | boolean | serve-restart | — | Announce doz serve on your network with Bonjour ("Dozer on <this Mac>", http://<this Mac>.local:<port>), so other Macs and phones can find it. |
+| `serve.advertise` | `true` | boolean | serve-restart | — | Announce doz serve on your network with Bonjour ("Dozable on <this Mac>", http://<this Mac>.local:<port>), so other Macs and phones can find it. |
 
 ### `[host]`
 
@@ -259,7 +259,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `defaults.image` | `lab` | lab \| claude-code \| pi \| codex, or an agent or tool's id (doz try lists them) | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.projects_dir` | `~/dozer-sandbox-workspaces` | path ("" = automatic) | new sandboxes | — | The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker. |
 | `defaults.account` | `mac` | mac \| none | a store that hasn't chosen | — | The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has. |
-| `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozer update that adds a host to a permission reaches every sandbox that has it. |
+| `defaults.permissions` | `standard` | standard \| locked \| open, or permissions like +web,-error-reports (doz net permissions) | new sandboxes | `doz create --allow / --network` | What a new sandbox's agent may do (its network, as permissions — doz net permissions): standard (talk to its AI model, update itself, install system packages and its base's language packages, use GitHub, send error reports), locked (its AI model only), open (everything, the web included), or standard with changes like +web,-error-reports. Stored by name: a Dozable update that adds a host to a permission reaches every sandbox that has it. |
 | `defaults.github` | `off` | off \| read \| push | new sandboxes | `doz create --github off\|read\|push` | "Use GitHub as you" for new sandboxes: off, read (git and gh signed in as you on GitHub, read-only) or push (also push and make changes) — the Access step's choice (doz access set --github). A sandbox can differ: doz create --github, github: in doz_project.yaml, or its permissions later (doz net allow\|deny NAME github:as-you). Proxied sandboxes only. |
 
 ### `[agent]`
@@ -279,7 +279,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `telemetry.send_anonymous_usage_stats` | `true` | boolean | next command | `$DOZ_SEND_ANONYMOUS_USAGE_STATS`, `--no-send-anonymous-usage-stats / --send-anonymous-usage-stats` | Official builds send anonymous usage statistics: at most once a day, counts and ranges about how Dozer itself is used (commands by name, failures by exit code, which agents, bases and network presets new sandboxes use, setup sizes as ranges, start and wake times rounded to 50 ms, how long sandboxes ran and slept as ranges, which features were used, this Mac's macOS version, chip family, memory and cores as ranges) with a random install id — never a name, path, host, command argument, file or anything from inside a sandbox. false (or DO_NOT_TRACK=1, or --no-send-anonymous-usage-stats on one command) sends nothing and records nothing. doz telemetry show prints exactly what would be sent. Builds from the open-source repository send nothing whatever this says. |
+| `telemetry.send_anonymous_usage_stats` | `true` | boolean | next command | `$DOZ_SEND_ANONYMOUS_USAGE_STATS`, `--no-send-anonymous-usage-stats / --send-anonymous-usage-stats` | Official builds send anonymous usage statistics: at most once a day, counts and ranges about how Dozable itself is used (commands by name, failures by exit code, which agents, bases and network presets new sandboxes use, setup sizes as ranges, start and wake times rounded to 50 ms, how long sandboxes ran and slept as ranges, which features were used, this Mac's macOS version, chip family, memory and cores as ranges) with a random install id — never a name, path, host, command argument, file or anything from inside a sandbox. false (or DO_NOT_TRACK=1, or --no-send-anonymous-usage-stats on one command) sends nothing and records nothing. doz telemetry show prints exactly what would be sent. Builds from the open-source repository send nothing whatever this says. |
 
 ### `[resources]`
 
@@ -302,7 +302,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `sessions.tmux` | `false` | boolean | next session | `doz create --tmux / --no-tmux` | Run each new session inside tmux (within Dozer's own session holder, so saved screens, sleep and wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy mode, its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's. Needs tmux in the image (the built-in images this doz prepares have it; on an image an older doz prepared the session runs without it, and says so). A sandbox's own choice (doz create --tmux, tmux: true in doz_project.yaml, doz config set --sandbox) wins over this. |
+| `sessions.tmux` | `false` | boolean | next session | `doz create --tmux / --no-tmux` | Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep and wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy mode, its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's. Needs tmux in the image (the built-in images this doz prepares have it; on an image an older doz prepared the session runs without it, and says so). A sandbox's own choice (doz create --tmux, tmux: true in doz_project.yaml, doz config set --sandbox) wins over this. |
 
 ### `[bridges]`
 
@@ -315,13 +315,13 @@ This table is generated from `doz config show` and checked against it on every b
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `workspace.ignore_mode` | `lock` | lock \| hide | next start or wake | `doz create --ignore-mode lock\|hide` | What a .dozignore at the root of a sandbox's workspace folder does to the paths it lists (Docker's .dockerignore syntax): lock (they stay listed, shown with no permissions, and every read, write, rename or delete of them is refused — so a program that bumps into one by name sees why) or hide (they are not there at all). A .dozreadonly beside it (same syntax) makes paths visible but read-only; doz_project.yaml, .git/hooks and the two rule files are read-only too. Without either file the folder is shared as it is. A convenience mask, not a security boundary: root in the sandbox can get around it. A sandbox's own choice (doz create --ignore-mode, ignore_mode in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
-| `workspace.view` | `on` | on \| off | next-start | `doz create --workspace-view on\|off` | How a sandbox's workspace folder reaches it. on: through Dozer's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a host restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says "invalid cwd"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
+| `workspace.view` | `on` | on \| off | next-start | `doz create --workspace-view on\|off` | How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a host restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says "invalid cwd"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
 
 ### `[github]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `github.credentials` | `gh` | gh \| key \| off | at once | — | Where "Use GitHub as you" (a permission, off by default) gets your GitHub login: gh (this Mac's gh login, read when used — gh auth token — and kept in memory a few minutes, never written anywhere; gh auth logout revokes it), key (only a token you give a sandbox with doz key set NAME --github — a fine-grained token limited to some repositories is best), or off (never, even with the permission on). The sandbox only ever sees a placeholder; Dozer's proxy puts the real token in on the way to GitHub. |
+| `github.credentials` | `gh` | gh \| key \| off | at once | — | Where "Use GitHub as you" (a permission, off by default) gets your GitHub login: gh (this Mac's gh login, read when used — gh auth token — and kept in memory a few minutes, never written anywhere; gh auth logout revokes it), key (only a token you give a sandbox with doz key set NAME --github — a fine-grained token limited to some repositories is best), or off (never, even with the permission on). The sandbox only ever sees a placeholder; Dozable's proxy puts the real token in on the way to GitHub. |
 
 ### `[images]`
 

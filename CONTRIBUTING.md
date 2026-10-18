@@ -1,6 +1,6 @@
-# Contributing to Dozer Sandbox
+# Contributing to Dozable
 
-**How this project is built.** Dozer is developed in a private workspace alongside other projects, and
+**How this project is built.** Dozable is developed in a private workspace alongside other projects, and
 features arrive here already proven — designed, built and exercised there (by the VM suites and by a person
 at the screen), then released from this repository. So please do not open a pull request for a large new
 feature: it would likely land beside a version of itself already being built. Do open an issue to ask for
@@ -26,7 +26,7 @@ this repository — so please make sure `make build`, `make test` and `make audi
 never uses `pull_request_target`, and `make audit` fails if a self-hosted job loses its fork guard.
 
 Every test target runs on scratch folders with the test seams on by default — no test touches your own
-Dozer store, settings, keychain, `~/.codex` or `~/.claude` (CLAUDE.md, "Test safety is the default").
+Dozable store, settings, keychain, `~/.codex` or `~/.claude` (CLAUDE.md, "Test safety is the default").
 
 `make audit` failing is not a style nitpick: it keeps the dependency list short and exact, the guest
 binaries reproducible, and the dashboard's security rules (loopback only, typed routes, no inline script)

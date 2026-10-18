@@ -2,24 +2,24 @@
 
 Many command-line tools sign you in through a web browser: they open a sign-in page, you sign in,
 and the provider sends your browser back to the tool on `http://localhost:PORT`. A sandbox has no
-browser and its `localhost` isn't your Mac's — so Dozer bridges both: the page opens in **your Mac's
+browser and its `localhost` isn't your Mac's — so Dozable bridges both: the page opens in **your Mac's
 browser**, and the redirect at the end finds its way back **into the sandbox**.
 
-You rarely need this for Claude itself — Dozer supplies Claude's credential already (see
+You rarely need this for Claude itself — Dozable supplies Claude's credential already (see
 [Agents and accounts](09-agents-and-accounts.md)). It's for everything else an agent may sign in to:
 a cloud CLI, a SaaS tool's CLI, an MCP server's OAuth.
 
 ## Concepts
 
 - **The browser bridge.** Inside every sandbox, `xdg-open` — and `$BROWSER`, `open`,
-  `sensible-browser`, `www-browser` — is Dozer's own small program. It hands an **http or https**
+  `sensible-browser`, `www-browser` — is Dozable's own small program. It hands an **http or https**
   address to your Mac, which opens it in your default browser. You're told every time:
   `my-app opened https://example.com/docs in your browser`. Nothing is printed into the session itself
   — the agent's screen stays exactly as it drew it; when an address is refused, the program that asked
   hears why (its error output and exit status). (Given a document in `/workspace` instead of an address, the same program opens that file
   on your Mac — see [Opening workspace files on your Mac](07-terminals-and-sessions.md#opening-workspace-files-on-your-mac).)
 - **The sign-in callback.** When the address asks the provider to send the browser back to the
-  sandbox's `localhost:PORT` (its `redirect_uri`), Dozer first opens your Mac's `localhost:PORT` and
+  sandbox's `localhost:PORT` (its `redirect_uri`), Dozable first opens your Mac's `localhost:PORT` and
   forwards it into the sandbox, then opens the page. The notice says
   `sign-in callback localhost:PORT forwarded (10 min)`. When your browser lands on the callback, the
   tool in the sandbox receives it and the sign-in completes.
@@ -89,7 +89,7 @@ and [Agents and accounts](09-agents-and-accounts.md#a-credential-the-agent-bring
 - **The forward is narrow:** one port, on your Mac's loopback, for one sign-in, at most 10 minutes.
   The address's query (which carries the sign-in's secret state) never appears in notices or logs —
   only the scheme, host and path.
-- The bridge arrives with a sandbox's next start; a sandbox woken from an older version of Dozer gets
+- The bridge arrives with a sandbox's next start; a sandbox woken from an older version of Dozable gets
   it at its next session.
 
 ## Troubleshooting

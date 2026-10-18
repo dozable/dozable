@@ -23,7 +23,7 @@ An audio sandbox boots its own Linux kernel: the same one every sandbox uses, wi
 with doz (never downloaded), and `doz doctor` says whether this doz carries it. It is kata-containers' kernel
 6.18.15-186 (kata 3.28.0: its config and patch, unchanged) with four options added — `CONFIG_SOUND`,
 `CONFIG_SND`, `CONFIG_SND_VIRTIO`, `CONFIG_SND_PROC_FS` — and nothing else; its source is kata 3.28.0's kernel
-build plus that list, kept with Dozer's source.
+build plus that list, kept with Dozable's source.
 
 ## Inside the sandbox
 
