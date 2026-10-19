@@ -792,10 +792,12 @@ func cliConfigChecks(_ h: CLIHarness) {
     check(r.code == 0 && r.out == file.path + "\n", "config path: \(r.out.trimmingCharacters(in: .newlines))")
     r = h.run(["config", "init"])
     let template = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
-    let notAtDefault = DozableSettings.schema.filter { !template.contains("\n# \($0.name) = \(TOML.render($0.defaultValue))\n") }
+    // An agent's or tool's own settings are listed once one of them is set (Settings.render) — a fresh file has the rest.
+    let listed = DozableSettings.schema.filter { $0.agent == nil }
+    let notAtDefault = listed.filter { !template.contains("\n# \($0.name) = \(TOML.render($0.defaultValue))\n") }
         .map { "\($0.key) = \(TOML.render($0.defaultValue))" }
     check(r.code == 0 && notAtDefault.isEmpty,
-          "config init: doz.toml lists all \(DozableSettings.schema.count) settings, each commented at its default\(notAtDefault.isEmpty ? "" : " (not: \(notAtDefault.joined(separator: ", ")))")")
+          "config init: doz.toml lists all \(listed.count) settings (no agent's own), each commented at its default\(notAtDefault.isEmpty ? "" : " (not: \(notAtDefault.joined(separator: ", ")))")")
     var st = stat()
     check(stat(file.path, &st) == 0 && st.st_mode & 0o777 == 0o600, "the file is 0600")
     r = h.run(["config", "set", "ui.boot_view_on_start", "true"])

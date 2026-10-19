@@ -313,6 +313,7 @@ func cliGitHubSuite(binary: String) async {
     // THIS key's own bytes (its body's second line), not the generic header: Claude Code's own plugins ship test files
     // that hold an "OPENSSH PRIVATE KEY" header (claude-plugins-official/security-guidance), which is no leak.
     let keyLine = ((try? String(contentsOfFile: ws + "/id_test", encoding: .utf8)) ?? "").split(separator: "\n").dropFirst(2).first.map(String.init) ?? "MISSING-KEY-LINE"
+    check(keyLine != "MISSING-KEY-LINE" && keyLine.count >= 40, "the throwaway key's body line was read from id_test (\(keyLine.count) chars) — the leak check needs it")
     r = t.run(["exec", "gh1", "--", "sudo", "-n", "sh", "-c", "grep -rIlF -- '\(keyLine)' /etc /home /root /tmp /run 2>/dev/null | head -3; echo END"])
     check(r.out == "END\n", "the private key is nowhere in the guest (\(r.out.debugDescription))")
     // The guest may list and sign — never add, remove or lock: those are refused before the Mac's agent.
