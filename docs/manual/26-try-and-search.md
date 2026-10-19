@@ -7,22 +7,27 @@ of them would make before anything is made.
 ## Try an agent: `doz try`
 
 ```sh
-doz try grok                       # Grok Build, from nothing: prepared, made, started and attached
-doz try gemini --base python       # any choice option works (here: Gemini CLI on the Python base)
+doz try opencode                   # OpenCode, from nothing: prepared, made, started and attached
+doz try pi --base python           # any choice option works (here: pi on the Python base)
 doz try                            # a numbered list of the agents — coding agents, then AI tools — with your keys and whether each is ready
 doz try --tag terminal-tool        # only those of a kind (coding-agent, ai-tool) or a category
-doz try grok --dry-run             # make nothing: print the plan
-doz try grok --rm                  # delete it when you leave, without asking
-doz try grok --keep                # keep it running when you leave, without asking
-doz try grok -d                    # make and start it, but don't attach (it is kept)
+doz try opencode --dry-run         # make nothing: print the plan
+doz try opencode --rm              # delete it when you leave, without asking
+doz try opencode --keep            # keep it running when you leave, without asking
+doz try opencode -d                # make and start it, but don't attach (it is kept)
 ```
+
+**Offered now:** Claude Code, pi, Codex and OpenCode (OpenCode 1 and 2), with OpenRouter as the gateway. The other
+agents and AI tools in this manual are **unpublished** in this version of Dozable: they are in no list, and
+`doz try`, `doz new` or `doz create` of one says so. A sandbox you already made with one keeps working — its image,
+its key and its settings — and so does a Vercel AI Gateway key you already added.
 
 A try is a throwaway sandbox with safe defaults:
 
 - **A new empty folder of its own** — Dozable makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
   `~/doz-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
   your Mac. It is never one of your folders: a folder of that name that holds anything is skipped (the try is named
-  `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-grok /workspace/FILE` copies a file out —
+  `try-<agent>-2`). `--isolated` shares no folder at all (`doz get try-opencode /workspace/FILE` copies a file out —
   see [Terminals and sessions](07-terminals-and-sessions.md)); `--workspace DIR` uses a folder you choose.
 - **Your Mac's clipboard and its apps**, as in any sandbox: what the agent copies reaches your Mac's clipboard (also
   from agents that copy with `xclip`, `xsel` or `wl-copy`), and it can open a file it made, or a link, on your Mac.
@@ -85,10 +90,10 @@ to where you opened it.
   superseded one says what replaced it, with a link to try that instead), **What you need** — its key, or, when there
   is none: paste one in a masked field (kept in your Mac's keychain; turned off with `ui.allow_secret_entry = false`),
   or the command to run for a key you keep in 1Password, AWS or a program. Then **the plan** (its name, base, network,
-  its new empty folder — not one of yours — and what reaches your Mac), the same as a command to copy (`doz try grok`),
+  its new empty folder — not one of yours — and what reaches your Mac), the same as a command to copy (`doz try opencode`),
   and what it can reach.
 - **Where it gets its model** — **Try…** opens its setup. A tool that can use more than one provider (pi, OpenCode, and
-  most of the recipe tools) shows ONE list: its providers, then the gateways (OpenRouter, Vercel AI Gateway — one key,
+  most of the recipe tools) shows ONE list: its providers, then the gateway (OpenRouter — one key,
   models from many makers), each with its key status. Its own provider is chosen; choose any other the same way. The
   chosen one shows its key (a choice when you have several, or "Add another key"), or a field to paste one, where to get
   a key and the command for a key kept in 1Password, AWS or a program. Then **Model**: the source's own list —
@@ -106,7 +111,7 @@ to where you opened it.
 - **Keyboard:** `/` searches, ↑ and ↓ move through the results, Enter starts. On a phone the list comes first and an
   agent opens its details, with a back control.
 
-`doz try --ui grok` opens it from a terminal: it starts `doz ui` in the background when none runs; with a dashboard
+`doz try --ui opencode` opens it from a terminal: it starts `doz ui` in the background when none runs; with a dashboard
 page already open, that page goes to the Quick try (no new tab, as `ui.open_browser` says); otherwise a new one opens
 there.
 
@@ -129,15 +134,16 @@ Every agent and tool comes with a **guide**: what it is, the facts of your sandb
 ## Is it supported? `doz search`
 
 ```sh
-doz search grok                          # Grok Build — supported · key: xAI (you have work-xai) · try it: doz try grok
-doz search grokk                         # nothing called 'grokk' — did you mean grok?
+doz search opencode                      # OpenCode — supported · key: xAI (you have work-xai) · try it: doz try opencode
+doz search opencod                       # nothing called 'opencod' — did you mean opencode?
+doz search grok                          # Grok Build is unpublished in this version of Dozable
 doz search cursor-cli                    # Cursor CLI — coming: …
 doz search                               # everything: supported, then coming
 doz search tag:multi-vendor-models       # agents with a capability
 doz search --tag api-key --level any     # every agent, with that tag at any level
-doz search grok --base alpine            # is it supported on that base?
-doz search grok --details                # what it installs, the hosts it may reach, its keys, what is kept out, tags
-doz search grok --json                   # the directory entry, and your key and image state beside it
+doz search opencode --base alpine        # is it supported on that base?
+doz search opencode --details            # what it installs, the hosts it may reach, its keys, what is kept out, tags
+doz search opencode --json               # the directory entry, and your key and image state beside it
 ```
 
 It matches agents (by id, alias, title or publisher), key providers (`xai`, `google`, …) and bases (`alpine`, …).
@@ -160,10 +166,12 @@ Gemini CLI — supported · key: Google AI (Gemini API) (you have google) · try
   Goose, Crush, Tau, …) is not looked up: its line says the pin — *pinned 1.4.518 — Dozable installs exactly this
   release* — and a newer one comes with a Dozable update.
 - **Superseded** agents still work and stay selectable; they are listed after the current ones, and `doz search` of
-  one lists what replaces it too. `doz try` of one says so first. Today: **Antigravity CLI** (`doz try antigravity`,
-  alias `agy`) is Google's lead agent; **Gemini CLI** is superseded by it.
+  one lists what replaces it too. `doz try` of one says so first. **Antigravity CLI** (alias `agy`) is Google's lead
+  agent; **Gemini CLI** is superseded by it (both are unpublished for now).
 
 ### Antigravity CLI
+
+Unpublished for now (see above).
 
 Google's terminal agent, installed from Google's own release (checked against its published SHA-512), on Debian-based
 bases (not Alpine yet). It uses a **Gemini API key** (`doz account add google --provider google`); Dozable never offers the
@@ -239,10 +247,10 @@ and writes them as the file's own keys.
 ## See it first: `--dry-run`
 
 ```sh
-doz new --agent grok --dry-run
-doz create my-app --agent gemini --base python --permissions +web --dry-run
+doz new --agent opencode --dry-run
+doz create my-app --agent pi --base python --permissions +web --dry-run
 doz up my-app --dry-run
-doz try grok --dry-run --json
+doz try opencode --dry-run --json
 ```
 
 The plan has three parts:

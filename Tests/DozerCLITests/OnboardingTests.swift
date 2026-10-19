@@ -71,8 +71,8 @@ final class OnboardingTests: XCTestCase {
         fails("name: a\nimage: lab\nagent: pi\n", "not both")
         fails("name: a\nbase: python\ndockerfile: ./Dockerfile\n", "base or dockerfile")
         fails("name: a\nbase: cobol\n", "base: node, python")
-        // 617: gemini is an agent now — an unknown one is still refused, naming every agent.
-        XCTAssertTrue(DozerProject.agentWords.hasPrefix("claude-code, pi, codex, antigravity, gemini, grok"))
+        // 617: an unknown agent is refused, naming every agent offered (629: the published ones).
+        XCTAssertEqual(DozerProject.agentWords, "claude-code, pi, codex, opencode or none")
         fails("name: a\nagent: cobol-agent\nbase: go\n", "agent: " + DozerProject.agentWords)
         fails("name: a\nimage: lab\ncpus: 100\n", "cpus")
         fails("name: a\nimage: lab\ncpus: two\n", "cpus")

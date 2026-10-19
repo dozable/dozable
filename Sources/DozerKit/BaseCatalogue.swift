@@ -186,6 +186,9 @@ public struct AgentKind: RawRepresentable, Sendable, Codable, Hashable, CaseIter
         [.claudeCode, .pi, .none, .codex] + AgentRecipes.all.filter { !$0.isBuiltin }.map { AgentKind(known: $0.id) }
     }
 
+    /// 629: `allCases` without the unpublished recipes — what a person is offered (`none` included).
+    public static var published: [AgentKind] { allCases.filter { $0.recipe?.isPublished ?? true } }
+
     /// The recipe behind it (nil: `none`).
     public var recipe: AgentRecipe? { self == .none ? nil : AgentRecipes.recipe(rawValue) }
 

@@ -49,7 +49,7 @@ final class CategoriesTests: XCTestCase {
     }
 
     func testSearchFiltersByKindAndCategoryComingIncluded() {
-        let index = DirectoryIndex.build(version: "test")
+        let index = DirectoryIndex.build(version: "test", recipes: AgentRecipes.all)   // the filter, over every recipe (most are unpublished)
         func ids(_ tags: [String]) -> Set<String> { Set(DirectorySearch.search(SearchQuery.parse([], tags: tags), in: index).hits.map(\.entry.id)) }
         let tools = ids(["terminal-tool"])
         XCTAssertTrue(tools.isSuperset(of: ["llm", "shell-gpt", "aichat", "ai-shell"]), "shipped and coming")

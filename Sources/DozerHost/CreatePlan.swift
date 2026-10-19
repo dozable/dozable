@@ -323,11 +323,12 @@ public enum CreatePlanner {
         // 617 (models@1): which source and model — the account's source (the chosen one's when it has no key yet).
         var planModel: PlanModel?
         if let r = choice?.agent.recipe, r.models != nil {
-            var source = modelSource ?? r.offeredSources.first ?? ""
+            var source = modelSource ?? r.publishedSources.first ?? r.offeredSources.first ?? ""
             if modelSource == nil, let n = account?.name, let rec = f.accounts.accounts.first(where: { $0.name == n }),
                AgentCredentials.accepts(image, rec), let s = AgentCredentials.source(of: rec) { source = s }
             if let sel = r.selection(source: source, model: o.model.flatMap { ModelSelection.isModelID($0) ? $0 : nil }) {
-                let offered = r.offeredSources.compactMap { id -> PlanSource? in
+                // 629: an unpublished gateway is not offered (a sandbox already on one keeps it: `selection` is complete).
+                let offered = r.publishedSources.compactMap { id -> PlanSource? in
                     guard let d = r.selection(source: id) else { return nil }
                     return PlanSource(id: id, title: ModelSources.title(id), gateway: ModelSources.isGateway(id), defaultModel: d.model,
                                       accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint, baseURL: d.baseURL)

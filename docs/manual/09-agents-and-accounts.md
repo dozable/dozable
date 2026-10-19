@@ -33,7 +33,7 @@ agent is told about where it runs.
   | agent | accounts it can use |
   |---|---|
   | Claude Code | `mac`, a setup token, an API key |
-  | pi | an API key only (a Claude subscription is never given to it): Anthropic's (the default), or an OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway key (`doz try pi --gateway openrouter`); off Anthropic, Dozable puts the model on its session's command line (`--model PROVIDER/MODEL`) |
+  | pi | an API key only (a Claude subscription is never given to it): Anthropic's (the default), or an OpenAI, xAI, Google AI or OpenRouter key (`doz try pi --gateway openrouter`); off Anthropic, Dozable puts the model on its session's command line (`--model PROVIDER/MODEL`) |
   | Codex | `mac` (this Mac's Codex login), a ChatGPT sign-in or an OpenAI API key — never an Anthropic account (and no Claude agent ever gets an OpenAI one) |
 
   This is checked **before** a sandbox is made. With no account pi can use, Dozable stops and tells you
@@ -74,7 +74,7 @@ Keys of the other providers and of the model gateways are accounts too, each wit
 doz account add xai --provider xai                # xAI (Grok Build, and the tools that speak xAI)
 doz account add google --provider google          # the Gemini API (Gemini CLI, Antigravity CLI, Fabric …)
 doz account add or --provider openrouter          # OpenRouter: one key, many models (creator/name)
-doz account add vg --provider vercel-ai-gateway   # Vercel AI Gateway: the same idea
+doz account add vg --provider vercel-ai-gateway   # Vercel AI Gateway: the same idea (unpublished for now — a key already added keeps working)
 ```
 
 Each provider has its own default (`doz account default or` makes `or` OpenRouter's). An agent or tool that can use

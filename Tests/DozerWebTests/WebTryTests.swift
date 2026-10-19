@@ -7,6 +7,10 @@ import DozerKit
 /// 617 stage D: the Quick try page's server half — `POST /api/v1/plan` (strict), `GET /api/v1/try`, the create action's
 /// `trial`, a provider's key on `POST /api/v1/accounts`, and the review's plan.
 final class WebTryTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     func q(_ json: String) throws -> WebPlanQuery { try WebPlanQuery.decode(Data(json.utf8)) }
 
     func testThePlanQuestionIsStrict() throws {

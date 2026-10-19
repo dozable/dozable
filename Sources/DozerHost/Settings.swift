@@ -838,14 +838,25 @@ public struct DozerSettings: Sendable {
 
     /// Every setting with its value, default, source and description. `flags`: the values this
     /// process was given on its command line (only `store.path` can be: `--store`).
-    public func report(flags: [String: TOMLValue] = [:]) -> SettingsReport {
-        let rows = Self.schema.map { d -> SettingRow in
+    /// 629: `offered` (the dashboard's Settings page): an unpublished agent's own settings are listed only once one of
+    /// them is set here, and defaults.image offers the published agents — every key stays accepted. `doz config show`
+    /// lists the whole schema.
+    public func report(flags: [String: TOMLValue] = [:], offered: Bool = false) -> SettingsReport {
+        let held = Set(Self.schema.compactMap { d in d.agent.flatMap { fileValues[d.key] != nil ? $0 : nil } })
+        let listed = !offered ? Self.schema : Self.schema.filter { d in d.agent.map { AgentRecipes.isPublished($0) || held.contains($0) } ?? true }
+        let rows = listed.map { d -> SettingRow in
             let r = resolve(d.key, flag: flags[d.key])
             var kind = "string", choices: [String]?, lo: Int?, hi: Int?
             switch d.type {
             case .bool: kind = "bool"
             case .int(let range): kind = "int"; lo = range.lowerBound; hi = range.upperBound
-            case .choice(let c): kind = "choice"; choices = c
+            case .choice(let c):
+                kind = "choice"; choices = c
+                // 629: defaults.image offers the published agents (and keeps showing the value it has).
+                if offered, d.key == SettingKey.defaultImage {
+                    let have: String? = { if case .string(let v) = r.value { return v }; return nil }()
+                    choices = c.filter { AgentRecipes.isPublished($0) || $0 == have }
+                }
             case .path: kind = "path"
             case .subnet: kind = "subnet"
             case .version: kind = "version"

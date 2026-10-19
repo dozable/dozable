@@ -9,6 +9,10 @@ import DozerWeb
 /// 618: an earlier major (or an exact release) can be chosen everywhere a tool is chosen in the CLI — try, new, create,
 /// up (`--agent`, `--image`), a project file's `agent:` — and the plan says which release and how to get the other.
 final class MajorChoiceTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     private var root: URL!
 
     override func setUpWithError() throws {

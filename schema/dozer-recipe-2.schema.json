@@ -554,6 +554,7 @@
           "type": "object", "additionalProperties": false, "required": ["default_base", "platforms", "tags", "kind", "categories"],
           "properties": {
             "kind": { "enum": ["coding-agent", "ai-tool"], "description": "What it is: the lists' two sections (tags.json kinds)." },
+            "published": { "type": "boolean", "description": "false: unpublished — kept and valid (an existing sandbox, its image and its settings keep working), offered in no list and refused for a new sandbox by name. Absent: published." },
             "categories": { "type": "array", "minItems": 1, "uniqueItems": true,
               "items": { "enum": ["coding-agent", "personal-agent", "terminal-tool", "framework", "browser-agent", "mcp", "research", "evaluation", "workflow", "local-models", "chat-app"] },
               "description": "Its categories (tags.json categories): the Quick try's filter pills, doz search --tag." },

@@ -200,6 +200,7 @@ capabilities:
     checked: '2026-10-14'
 - type: com.dozersandbox/directory@1
   config:
+    published: false
     kind: ai-tool
     categories:
     - terminal-tool

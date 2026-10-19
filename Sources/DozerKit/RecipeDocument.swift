@@ -220,8 +220,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         /// 617 (owner): `coding-agent` | `ai-tool`, and its categories (tags.json's vocabulary) — declared.
         public var kind: String?
         public var categories: [String]?
+        /// 629 (owner: "withdraw most of the recipes"): false — unpublished: kept and valid (an existing sandbox, its
+        /// image and its settings keep working), but offered nowhere a person picks a tool. Absent: published.
+        public var published: Bool?
         enum CodingKeys: String, CodingKey {
-            case aliases, icon, platforms, limits, tags, terms, licence, kind, categories
+            case aliases, icon, platforms, limits, tags, terms, licence, kind, categories, published
             case defaultBase = "default_base"
         }
     }
@@ -546,7 +549,7 @@ extension RecipeDocument {
             verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
             gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags, catalogKind: d.kind, categories: d.categories, guide: guide,
-            models: models.map { Self.mapModels($0, Self.toModel) }, ports: ports, family: family)
+            models: models.map { Self.mapModels($0, Self.toModel) }, ports: ports, family: family, published: d.published)
     }
 
     /// The file a model would be written as (the inverse of `recipe()`): what the recipe says, plus what only the file
@@ -600,7 +603,7 @@ extension RecipeDocument {
         }
         caps.append(RecipeCapability(type: T.directory, config: .directory(Directory(
             aliases: r.aliases, icon: r.icon, defaultBase: r.defaultBase, platforms: r.platforms, limits: r.limits, tags: r.tags, terms: r.terms,
-            licence: licenses == [r.licence] ? nil : r.licence, kind: r.catalogKind, categories: r.categories))))
+            licence: licenses == [r.licence] ? nil : r.licence, kind: r.catalogKind, categories: r.categories, published: r.published))))
         if let p = r.ports { caps.append(RecipeCapability(type: T.ports, config: .ports(p))) }
         if let g = r.guide { caps.append(RecipeCapability(type: T.guide, config: .guide(g))) }
         if let f = r.family { caps.append(RecipeCapability(type: T.family, config: .family(f))) }

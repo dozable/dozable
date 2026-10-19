@@ -6,6 +6,8 @@
 #   pull_request / push to main   the recipes a change touches (all of them when the harness or shared data changed)
 #   schedule (nightly, 17:00 UTC) all of them, then `make agent-currency` and `make profile-agents DIFF=1` (a new network
 #                                 endpoint fails the run; the difference is in the job summary)
+#   "all" and "changed" mean the PUBLISHED recipes (a recipe whose directory@1 says `published: false` is checked only
+#   when named in a dispatch); Scripts/recipes_published.py reads the flag from the compiled recipes.
 #   workflow_dispatch             recipes: changed (default) | all | a list ("grok gemini")
 #
 # Runs only on a Mac labelled doz-recipes (it boots VMs). The store is a PERSISTENT cache on that Mac
@@ -25,6 +27,7 @@ on:
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'
+      - 'Scripts/recipes_published.py'
       - '.github/workflows/recipes.yml'
   push:
     branches: [main]
@@ -35,6 +38,7 @@ on:
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'
+      - 'Scripts/recipes_published.py'
       - '.github/workflows/recipes.yml'
   schedule:
     - cron: '0 17 * * *'
@@ -116,8 +120,8 @@ jobs:
           { echo "### Agent currency"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           make agent-currency 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || rc=1
           { echo '```'; echo "### Network profiles (new endpoints fail)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-          AGENTS=""
-          for f in Sources/DozerKit/Recipes/compiled/*.json; do b=${f##*/}; AGENTS="$AGENTS ${b%.json}"; done
+          # The published recipes only (an unpublished one is profiled when named: make profile-agents AGENTS=…).
+          AGENTS=$(/usr/bin/python3 Scripts/recipes_published.py)
           export PROFILE_WORK="$HOME/Library/Caches/DozerKit-ci/profile-store" DOZ_KERNEL_CACHE="$HOME/Library/Caches/DozerKit-ci/kernels"
           RUN="make profile-agents DIFF=1 AGENTS=\"$AGENTS\" KERNEL_CACHE=\"$DOZ_KERNEL_CACHE\""
           LOCK="$HOME/Developer/bin/ci-build-lock"

@@ -87,8 +87,12 @@ extension AgentRecipe {
     /// True when a try can go through `gateway` (models@1 offers it).
     public func offersGateway(_ gateway: String) -> Bool { models != nil && offeredSources.contains(gateway) }
 
-    /// A try through some gateway is possible — the Quick try's "Through a gateway".
-    public var throughGateway: Bool { Gateways.all.contains { offersGateway($0.id) } }
+    /// A try through some gateway is possible — the Quick try's "Through a gateway". 629: a published gateway.
+    public var throughGateway: Bool { Gateways.published.contains { offersGateway($0.id) } }
+
+    /// 629: `offeredSources` without an unpublished gateway — what a person is offered for a new sandbox (an existing
+    /// sandbox's source, and validation, keep `offeredSources`).
+    public var publishedSources: [String] { offeredSources.filter(ModelSources.isPublished) }
 
     /// The entry models@1 implies for an offered gateway (nil: not offered, or no source to cite).
     func derivedGateway(_ gateway: String) -> GatewaySupport? {
@@ -217,6 +221,23 @@ public enum ModelSources {
     public static var keyed: [String] { KeyProviders.all.map(\.id) }
 
     public static func isGateway(_ id: String) -> Bool { KeyProviders.provider(id)?.gateway == true }
+
+    /// 629: false only for an unpublished gateway (gateways.json `published: false`) — kept for what is stored (an
+    /// account, a sandbox's source), offered nowhere new.
+    public static func isPublished(_ id: String) -> Bool { !isGateway(id) || (Gateways.gateway(id)?.isPublished ?? true) }
+
+    /// 629: the sources a person is offered (`ids` stays every source this build knows).
+    public static var publishedIds: [String] { ids.filter(isPublished) }
+
+    /// 629: the gateways a person is offered, by id ("openrouter").
+    public static var publishedGateways: [String] { publishedIds.filter(isGateway) }
+
+    /// 629: why a NEW use of `id` is refused (nil: it is offered).
+    public static func unpublishedProblem(_ id: String) -> String? {
+        guard !isPublished(id) else { return nil }
+        let offered = publishedGateways
+        return "\(title(id)) is unpublished in this version of Dozable — " + (offered.isEmpty ? "no gateway is offered now" : "the gateway offered now: " + offered.joined(separator: ", "))
+    }
 
     /// 618: a source that takes no key (nothing to add; a try with it has no account).
     public static func isKeyless(_ id: String) -> Bool { keyless(id) != nil }

@@ -14,6 +14,10 @@
 import datetime, glob, json, os, re, sys, urllib.request
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# 629: only the PUBLISHED recipes are looked up (the ONE helper reads the flag from the compiled recipes); an unpublished
+# one's last row is kept as it was.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import recipes_published  # noqa: E402
 # The compiled recipes (Recipes/compiled/*.json — each Recipes/agents/VENDOR/PRODUCT.yaml as JSON, schema 2).
 RECIPES = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
 
@@ -104,8 +108,13 @@ def main():
         old = {}
     rows, todo = [], []
     for f in sorted(glob.glob(os.path.join(RECIPES, "*.json"))):
-        r = flat(json.load(open(f)))
+        doc = json.load(open(f))
+        r = flat(doc)
         aid = r["id"]
+        if not recipes_published.is_published(doc):
+            if aid in old:
+                rows.append(old[aid])
+            continue
         try:
             if r["install"]["kind"] == "manifest-binary":
                 v, released, dep, repo = manifest(r)

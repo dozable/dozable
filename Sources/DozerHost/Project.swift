@@ -107,7 +107,7 @@ public struct DozerProject: Equatable, Sendable {
         ("agent_sudo", "true or false: the agent's passwordless sudo in the sandbox (default: the setting sandbox.agent_sudo, true)"),
         ("github", "off, read or push: git and gh signed in as you on GitHub — the permissions \"Use GitHub as you\" / \"Push to GitHub\" (default off; when the sandbox is made — later: doz net allow NAME github:as-you)"),
         ("keys", "custom keys attached beside the account (doz account add NAME --custom …), each of its hosts allowed — when the sandbox is made"),
-        ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter, vercel-ai-gateway — doz models); default: its own — when the sandbox is made"),
+        ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
     ] + settingKeys.map { k in
         (k.key, "\(DozerSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
@@ -202,7 +202,8 @@ public struct DozerProject: Equatable, Sendable {
 
     public static var agentWords: String {
         var seen: [String] = []
-        for k in AgentKind.allCases where k != .none {
+        // 629: the published ones (an unpublished agent is accepted where stored, offered nowhere).
+        for k in AgentKind.published where k != .none {
             let n = k.recipe?.family?.family ?? k.rawValue
             if !seen.contains(n) { seen.append(n) }
         }

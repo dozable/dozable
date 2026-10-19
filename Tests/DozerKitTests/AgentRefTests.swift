@@ -3,6 +3,10 @@ import XCTest
 
 /// 618: NAME, NAME@MAJOR, NAME@VERSION — what a person types to name a tool (AgentRef.swift), and the family rules.
 final class AgentRefTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     func ref(_ s: String) throws -> AgentRef { try XCTUnwrap(try AgentRef.resolve(s)) }
 
     func testAFamilysNameIsItsRecommendedMajor() throws {

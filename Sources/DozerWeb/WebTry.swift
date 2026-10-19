@@ -42,7 +42,12 @@ public struct WebPlanQuery: Equatable, Sendable {
         }
         if let v = d["agent"], !(v is NSNull) {
             // 618: NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28) — refused with a fixed message.
-            guard let s = v as? String, s.count <= 60, s == "none" || ((try? AgentRef.resolve(s)) ?? nil) != nil else {
+            guard let s = v as? String, s.count <= 60 else { throw WebAction.Invalid("agent: an agent this Dozable has (doz search lists them), or NAME@MAJOR / NAME@VERSION") }
+            // 629: an unpublished tool is refused in its own words (it is a NEW sandbox's).
+            if s != "none", let r = (try? AgentRef.resolveAny(s, in: AgentRecipes.all)) ?? nil, let p = AgentRecipes.unpublishedProblem(r.recipe) {
+                throw WebAction.Invalid("agent: " + p)
+            }
+            guard s == "none" || ((try? AgentRef.resolve(s)) ?? nil) != nil else {
                 throw WebAction.Invalid("agent: an agent this Dozable has (doz search lists them), or NAME@MAJOR / NAME@VERSION")
             }
             q.agent = s
@@ -63,6 +68,7 @@ public struct WebPlanQuery: Equatable, Sendable {
         }
         if let v = d["source"], !(v is NSNull) {
             guard let s = v as? String, ModelSources.ids.contains(s) else { throw WebAction.Invalid("source: a provider or gateway") }
+            if let p = ModelSources.unpublishedProblem(s) { throw WebAction.Invalid("source: " + p) }
             q.source = s
         }
         if let v = d["model"], !(v is NSNull) {
@@ -138,7 +144,8 @@ extension WebTryCatalog {
         return assemble(planned: planned, secretEntry: secretEntry, currency: currency, accounts: accounts, installs: installs(images))
     }
 
-    static func recipeAgents() -> [AgentRecipe] { AgentKind.allCases.filter { $0 != .none }.compactMap(\.recipe) }
+    /// 629: the published recipes only (an unpublished one is offered nowhere).
+    static func recipeAgents() -> [AgentRecipe] { AgentKind.published.filter { $0 != .none }.compactMap(\.recipe) }
 
     /// planned nil: the list only. Else an agent with no plan is left out (it could not be planned).
     static func assemble(planned: [String: WebPlan]?, secretEntry: Bool, currency: [String: AgentCurrency], accounts: [WebAccount],
@@ -161,7 +168,7 @@ extension WebTryCatalog {
             if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
             a.icon = AgentIcons.resolve(r)
             a.aliases = (r.aliases ?? []).sorted()
-            a.tags = r.capabilityTags.filter { ["documented", "verified"].contains($0.level) }.map(\.tag)
+            a.tags = r.shownTags.filter { ["documented", "verified"].contains($0.level) }.map(\.tag)
             a.openSource = r.hasTag("open-source")
             a.headless = r.hasTag("headless")
             a.gateway = r.throughGateway          // 618: a try can go through one (models@1 offers it)

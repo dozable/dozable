@@ -212,8 +212,9 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
 
     // MARK: building
 
-    /// The whole index from the compiled-in data (and, in tests, registered recipes).
-    public static func build(version: String, recipes: [AgentRecipe] = AgentRecipes.all, known: [KnownThing] = KnownThings.all,
+    /// The whole index from the compiled-in data (and, in tests, registered recipes). 629: the PUBLISHED recipes by
+    /// default — an unpublished one, and an unpublished gateway, is in no list a person reads.
+    public static func build(version: String, recipes: [AgentRecipe] = AgentRecipes.published, known: [KnownThing] = KnownThings.all,
                              latest: [String: Latest] = [:]) -> DirectoryIndex {
         var entries = recipes.map { r -> Entry in var e = entry(for: r); e.latest = latest[r.id]; return e }
         entries += known.map { k in
@@ -222,7 +223,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                   homepage: k.homepage, auth: [], gateways: [], tags: [], agents: nil, lifecycle: k.lifecycle,
                   icon: IconRef(AgentIcons.resolve(icon: nil, publisher: k.publisher, title: k.title)), catalogKind: k.kind, categories: k.categories)
         }
-        for p in KeyProviders.all {
+        for p in KeyProviders.all where ModelSources.isPublished(p.id) {
             let users = recipes.filter { $0.credentials.contains { $0.provider == p.id } }.map(\.id).sorted()
             let page = recipes.flatMap(\.auth.methods).first { $0.provider == p.id && $0.keysPage != nil }?.keysPage
             entries.append(Entry(kind: "provider", id: p.id, title: p.title, publisher: nil, aliases: [], status: "supported", reason: nil, checked: nil,
@@ -262,8 +263,8 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                      defaultBase: r.defaultBase, terms: r.terms, tryCommand: "doz try \(AgentRef.typed(r))", homepage: r.homepage,
                      auth: r.auth.methods.map { AuthFact(kind: $0.kind, provider: $0.provider, keysPage: $0.keysPage, freeTier: $0.freeTier,
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
-                     gateways: r.gatewaySupport.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason, offered: r.offersGateway($0.gateway)) },
-                     tags: r.capabilityTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
+                     gateways: r.gatewaySupport.filter { ModelSources.isPublished($0.gateway) }.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason, offered: r.offersGateway($0.gateway)) },
+                     tags: r.shownTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
                      icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories)
     }
 

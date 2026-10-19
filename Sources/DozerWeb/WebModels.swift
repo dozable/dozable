@@ -1292,8 +1292,9 @@ public struct WebAccounts: Codable, Equatable, Sendable {
             if let c = AgentImages.credentials(image) { agents[image] = c.flatMap(\.accountKinds) }
         }
         let kinds = Dictionary(accounts.compactMap { a in AccountKind(rawValue: a.kind).map { (a.name, $0) } }) { a, _ in a }
-        for kind in AgentKind.allCases {
-            guard let r = kind.recipe, let s = AgentCredentials.sources(r.id), let k = AgentCredentials.kinds(r.id) else { continue }
+        // 629: the published agents and sources only — what New Sandbox and the key forms offer.
+        for kind in AgentKind.published {
+            guard let r = kind.recipe, let s = AgentCredentials.sources(r.id)?.filter(ModelSources.isPublished), let k = AgentCredentials.kinds(r.id) else { continue }
             agents[r.id] = k.map(\.rawValue).sorted()
             sources[r.id] = s
             recipeDefaults[r.id] = AgentCredentials.defaultAccount(for: r.id, anthropic: defaultAccount, openai: openaiDefault,
@@ -1301,17 +1302,22 @@ public struct WebAccounts: Codable, Equatable, Sendable {
         }
         for id in ModelSources.ids {
             sourceTitles[id] = ModelSources.title(id)
-            if ModelSources.isGateway(id) { gatewaySources.append(id) }
+            if ModelSources.isGateway(id), ModelSources.isPublished(id) { gatewaySources.append(id) }
             if ModelSources.isKeyless(id) { keylessSources.append(id) }
             if let m = ModelSources.endpoints(id).first?.defaultModel { sourceModels[id] = m }
         }
-        providers = ["anthropic", "openai"] + ModelSources.keyed.filter { $0 != "anthropic" && $0 != "openai" }
-        for kind in AgentKind.allCases where kind != .none {
+        for kind in AgentKind.published where kind != .none {
             guard let r = kind.recipe else { continue }
             agentTitles[r.id] = r.title
             // The built-in three: Claude Code and pi take Anthropic accounts, Codex OpenAI's; a recipe agent its sources.
-            let srcs = AgentCredentials.sources(r.id) ?? (r.id == "codex" ? ["openai"] : ["anthropic"])
+            let srcs = (AgentCredentials.sources(r.id) ?? (r.id == "codex" ? ["openai"] : ["anthropic"])).filter(ModelSources.isPublished)
             for s in srcs where !ModelSources.isKeyless(s) { providerTools[s, default: []].append(r.id) }
+        }
+        // 629: a provider is listed when a published tool uses it or a key of it is already here (an unpublished
+        // gateway's existing key keeps its card; a new one is not offered).
+        let held = Set(accounts.compactMap(\.provider))
+        providers = ["anthropic", "openai"] + ModelSources.keyed.filter {
+            $0 != "anthropic" && $0 != "openai" && ((ModelSources.isPublished($0) && providerTools[$0] != nil) || held.contains($0))
         }
         // Anthropic's and OpenAI's keys are checked by Dozer itself; another provider's only when providers.json says how.
         uncheckedProviders = ModelSources.keyed.filter { $0 != "anthropic" && $0 != "openai" && KeyProviders.provider($0)?.check == nil }

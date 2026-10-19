@@ -8,6 +8,10 @@ import XCTest
 /// offers every provider and gateway that serves one, maps the choice onto the tool's own settings, and keeps the key's
 /// destination its own — without a VM, a real keychain or the network. ShellGPT (OpenAI's chat shape) is the example.
 final class ModelSourcesTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     private var root: URL!
     let keychain = FakeKeychain()
 
