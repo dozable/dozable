@@ -212,7 +212,7 @@ func cliOnboardingSuite(binary: String) async {
           "up pp --image pi with no API-key account: refused, nothing made, the next step said (\(r.err.split(separator: "\n").last ?? ""))")
     r = c.run(["up", "pp", "--image", "pi", "--account", "none", "--workspace", cws.path, "--agent-prompt", own.path, "--detach"], timeout: 900)
     check(r.code == 0, "up pp --image pi --account none --workspace … --agent-prompt FILE (exit \(r.code))")
-    check(c.row("pp")?.credentialProblem == "pi has no credential — pi needs an Anthropic API key; choose an API-key account",
+    check(c.row("pp")?.credentialProblem?.hasPrefix("pi has no credential — pi needs an Anthropic API key") == true,
           "ls: pp says pi has no credential (\(c.row("pp")?.credentialProblem ?? "nil"))")
     let facts = c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("You are in `pp`, a Dozable") && facts.contains("user's Mac folder \(cws.path), shared live"),

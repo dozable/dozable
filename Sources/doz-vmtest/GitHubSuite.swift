@@ -310,7 +310,10 @@ func cliGitHubSuite(binary: String) async {
     let v = mac(["/usr/bin/ssh-keygen", "-Y", "verify", "-f", ws + "/allowed", "-I", "doz-test@example.invalid", "-n", "file", "-s", ws + "/m.sig"],
                 stdin: "signed in the sandbox\n")
     check(sig.contains("BEGIN SSH SIGNATURE") && v.code == 0, "a signature made in the sandbox by the Mac's agent verifies on the Mac (\(v.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
-    r = t.run(["exec", "gh1", "--", "sudo", "-n", "sh", "-c", "grep -rIl 'OPENSSH PRIVATE KEY' /etc /home /root /tmp /run 2>/dev/null | head -3; echo END"])
+    // THIS key's own bytes (its body's second line), not the generic header: Claude Code's own plugins ship test files
+    // that hold an "OPENSSH PRIVATE KEY" header (claude-plugins-official/security-guidance), which is no leak.
+    let keyLine = ((try? String(contentsOfFile: ws + "/id_test", encoding: .utf8)) ?? "").split(separator: "\n").dropFirst(2).first.map(String.init) ?? "MISSING-KEY-LINE"
+    r = t.run(["exec", "gh1", "--", "sudo", "-n", "sh", "-c", "grep -rIlF -- '\(keyLine)' /etc /home /root /tmp /run 2>/dev/null | head -3; echo END"])
     check(r.out == "END\n", "the private key is nowhere in the guest (\(r.out.debugDescription))")
     // The guest may list and sign — never add, remove or lock: those are refused before the Mac's agent.
     r = t.run(["exec", "gh1", "--", "sh", "-c", "ssh-add -D 2>&1; echo \"D=$?\"; printf 'x\\nx\\n' | ssh-add -x 2>&1; echo \"X=$?\""], timeout: 60)
