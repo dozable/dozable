@@ -33,7 +33,7 @@ Just want to see an agent work? One command, from nothing — it asks for the ke
 a new empty folder, and starts the agent:
 
 ```sh
-doz try grok                # or: doz try antigravity · doz try (the list) · doz search (what this Dozable runs)
+doz try opencode            # or: doz try codex · doz try (the list) · doz search (what this Dozable runs)
 ```
 
 ## Requirements

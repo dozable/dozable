@@ -1,5 +1,10 @@
 # More agents: Antigravity CLI, Grok Build, OpenCode, GitHub Copilot CLI, Qwen Code, Goose, Kilo Code CLI, Mistral Vibe, Factory Droid, Dirac, Kimi Code, Cline CLI, OpenHands CLI, Letta Code, Docker Agent, Nanocoder, mini-swe-agent, Open Interpreter, Crush, MiMo Code, CodeWhale, Maki, oh-my-pi, Tau, Gemini CLI
 
+> **Unpublished for now.** Of the agents on this page only **OpenCode** (`doz try opencode`, OpenCode 1 and 2) is
+> offered in this version of Dozable; the others are unpublished — in no list, and `doz try grok` (or `doz new`,
+> `doz create`) says so. A sandbox you already made with one keeps working: its image, its key and its settings. The
+> rest of this page describes them as they work when published.
+
 Beside Claude Code, pi and Codex, Dozable runs agents from other makers. Each uses an **API key** — most of them of the
 provider or gateway you choose (`--provider` / `--gateway`, or the Quick try's “Where it gets its model”; `--model` picks the
 model; see [Other AI tools](28-ai-tools.md#providers-and-gateways)). The key stays on your Mac and the sandbox only ever

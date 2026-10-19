@@ -1,5 +1,10 @@
 # Other AI tools
 
+> **Unpublished for now.** Every tool on this page is unpublished in this version of Dozable: in no list, and
+> `doz try fabric` (or `doz new`, `doz create`) says so. So is the **Vercel AI Gateway**: OpenRouter is the gateway
+> offered now (`--gateway openrouter`). A sandbox you already made with one, and a Vercel key you already added, keep
+> working. The rest of this page describes them as they work when published.
+
 Beside the coding agents, Dozable runs AI tools that are not coding agents: command-line tools that answer a prompt,
 prompt toolkits, agent frameworks. Each is tried like an agent (`doz try TOOL`) and uses an **API key** of a provider
 or a **gateway** Dozable offers. The key stays on your Mac; the sandbox only gets a placeholder, which Dozable's proxy swaps

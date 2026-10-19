@@ -1650,6 +1650,14 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   built-in recipe is a test failure. `AgentKind` is a recipe-backed struct (the same raw strings); `allCases` is the
   four that were the enum, then the recipe agents in file order. `AgentRecipes.registerForTests` is the only way to
   add one at run time — no environment variable loads a recipe.
+- **Published or not** (629, owner: "withdraw most of the recipes … set to 'unpublished'"): `directory@1` `published: false`
+  (gateways.json's too) — `AgentRecipes.published` / `Gateways.published` / `ModelSources.isPublished` feed EVERY list a
+  person picks from and the per-recipe work (recipe-check `all`/`--changed`, profiles, agent-currency via
+  `Scripts/recipes_published.py`, the hourly look-up); `AgentRef.resolve` (typed input only) and `--gateway` refuse a new
+  sandbox of one. The FULL set (`AgentRecipes.all`, `AgentKind.allCases`, `ImageChoice.parse`, `recipe(id)`, `Gateways.all`,
+  `ModelSources.ids`, `offeredSources`, the settings schema) stays the validator and the resolver of every STORED name — an
+  existing sandbox, image, account and setting keep working. Tests of an unpublished tool's mechanics use
+  `AgentRecipes.publishEverythingForTests` (a seam, like `registerForTests`); `UnpublishedRecipesTests` pins the set.
 - **The built-in three (Claude Code, pi, Codex) keep every byte**: their recipes are `builtin` and only DESCRIBE them
   (credentials, sessions, resume, settings keys, prompt); their install steps and launchers stay `AgentImages`' Swift.
   `RecipePinTests` (Codex included) must stay green; `RecipeAgentsTests.test_builtinRecipesDescribeTheirImages` proves

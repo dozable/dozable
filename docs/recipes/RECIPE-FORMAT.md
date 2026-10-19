@@ -242,7 +242,18 @@ agent's releases are is measured on each Mac, never recorded here.
 `categories` (see [Kinds and categories](#kinds-and-categories)), `aliases`,
 `icon` (a product in the icon registry), `default_base`, `platforms {glibc, musl}`, `limits` (`{musl?, base?,
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
-`terms`, `licence` (the licence in words, when it is not just the SPDX id).
+`terms`, `licence` (the licence in words, when it is not just the SPDX id), `published` (absent: published).
+
+**`published: false`** unpublishes a recipe: it stays in the build and valid (its YAML is checked like any other), and
+everything STORED of it keeps working — a sandbox, its image (a rebuild included), its settings, its account — but it
+is in no list a person picks from (the Quick try, New Sandbox, `doz try`, `doz search`, the directory index,
+onboarding's image choice, the settings listed), a NEW sandbox of it by name is refused ("… is unpublished in this
+version of Dozable"), and the per-recipe work skips it: `make recipe-check RECIPES=all` and `--changed`, the nightly
+profiles, `make agent-currency` and the host's hourly look-up of its latest release (unless an image or sandbox of it is
+in the store). Naming it still runs it (`make recipe-check RECIPES=grok`). `Scripts/recipes_published.py` is the one
+reader of the flag for the scripts. Publishing it again is deleting the line. A gateway is unpublished the same way:
+`"published": false` on its entry in `Recipes/gateways.json` (every recipe still describes it; an existing key of it
+keeps working; `--gateway` refuses it for a new sandbox).
 
 **`com.dozersandbox/guide@1`** (optional, at most one; every shipped recipe has one) — its companion guide: intro, first
 steps (the first with a command is its check turn), tips, docs, a notice. See [The guide](#the-guide).
