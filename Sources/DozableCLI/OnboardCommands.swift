@@ -60,7 +60,7 @@ struct OnboardingFlow {
     /// first-run notice is not printed as well. Returns on/off (nil: not shown).
     private func usageStatistics() -> String? {
         let env = ProcessInfo.processInfo.environment
-        let step = UsageStatsStep.make(official: Usage.isOfficial, settings: DozerSettings.load(environment: env), env: env)
+        let step = UsageStatsStep.make(official: Usage.isOfficial, settings: DozableSettings.load(environment: env), env: env)
         guard step != nil else { return nil }
         if talk {
             say("\n\(UsageStatsStep.title)")
@@ -106,7 +106,7 @@ struct OnboardingFlow {
     func say(_ s: String) { if talk { Out.stdout(s + "\n") } }
 
     func run() async throws -> OnboardReport {
-        let store = g.dozerStore
+        let store = g.dozableStore
         say("Dozable — setting up this Mac (once). Store: \(store.root.path)\n")
 
         // 1. Checks (D5): the doctor's, hard ones stop here.
@@ -167,12 +167,12 @@ struct OnboardingFlow {
         //    only when CHOSEN (a flag or an answer), as the Access choices are.
         say("\n3. \(WorkspaceRulesGuide.title) — .dozignore and .dozreadonly")
         let ignoreMode = RulesStep(asker: asker, talk: talk, flag: ignoreModeFlag,
-                                   current: DozerSettings.load().string(SettingKey.ignoreMode) ?? "lock", folder: nil).run()
+                                   current: DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock", folder: nil).run()
 
         // 4. Images (D2): claude-code ticked; lab and pi opt-in.
         say("\n4. Images")
         if imagesFlag == nil {
-            let settings = DozerSettings.load()
+            let settings = DozableSettings.load()
             let versions = Dictionary(uniqueKeysWithValues: ["claude-code", "pi", "codex"].compactMap { i in
                 Onboarding.agentVersionText(i, store: store, settings: settings).map { (i, $0) } })
             let opts = Onboarding.imageOptions(rows, versions: versions)
@@ -401,7 +401,7 @@ func followingCall(_ r: HostRequest, _ g: GlobalOptions,
     }
     let m: HostMessage
     do {
-        m = try HostClient.request(r, store: g.dozerStore, autostart: true) { progress.handle($0) }
+        m = try HostClient.request(r, store: g.dozableStore, autostart: true) { progress.handle($0) }
     } catch let e as HostError {
         progress.finish()
         throw fail(e, g)
@@ -459,7 +459,7 @@ struct Onboard: AsyncParsableCommand {
         }
         if [images != nil, allImages, noImages].filter({ $0 }).count > 1 { throw ValidationError("one of --images, --all-images, --no-images") }
         if let i = images {
-            for n in i.split(separator: ",") where !DozerImages.builtIn.contains(n.trimmingCharacters(in: .whitespaces)) {
+            for n in i.split(separator: ",") where !DozableImages.builtIn.contains(n.trimmingCharacters(in: .whitespaces)) {
                 throw ValidationError("--images: claude-code, pi, codex, lab (not \(n))")
             }
         }
@@ -536,7 +536,7 @@ struct Onboard: AsyncParsableCommand {
     }
 
     func cancelPreparations() throws {
-        guard g.dozerStore.hostIsRunning() else {
+        guard g.dozableStore.hostIsRunning() else {
             if g.json { Out.json([PreparationInfo]()) } else { Out.stdout("nothing is being prepared (no host is running)\n") }
             return
         }

@@ -100,11 +100,11 @@ public enum Access {
     @discardableResult
     public static func write(github: String?, githubSource: String?, ssh: String?,
                              environment: [String: String] = ProcessInfo.processInfo.environment) throws -> [String] {
-        var settings = DozerSettings.load(environment: environment)
+        var settings = DozableSettings.load(environment: environment)
         var done: [String] = []
         for (key, value) in [(SettingKey.defaultGithub, github), (SettingKey.githubCredentials, githubSource), (SettingKey.sshAgent, ssh)] {
             guard let value else { continue }
-            guard let d = DozerSettings.definition(key) else { continue }
+            guard let d = DozableSettings.definition(key) else { continue }
             let v = try d.parse(value)
             if settings.resolve(key).value == v, settings.fileValues[key] != nil { continue }
             settings = try settings.writing(key, v)
@@ -132,7 +132,7 @@ extension HostCore {
 
     /// `access`: the report (from the record), after a live check of `items` (nil: all) when `check`.
     func access(_ r: HostRequest, environment env: [String: String] = ProcessInfo.processInfo.environment) async throws -> AccessReport {
-        let settings = DozerSettings.load(environment: env)
+        let settings = DozableSettings.load(environment: env)
         let file = accountStore.load()
         // The choices, as they are now.
         let claudeChoice = file.defaultAccount

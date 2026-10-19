@@ -47,7 +47,7 @@ See <doc:Concepts> for the full vocabulary (images, sessions, network, keys and 
 
 ### Where to start
 
-- New to the CLI? <doc:DozerWalkthrough> is a first run, end to end.
+- New to the CLI? <doc:DozableWalkthrough> is a first run, end to end.
 - Building on the Swift API? <doc:LibraryGuide> has the ``Sandbox`` actor and its lifecycle.
 - Driving it from a terminal? <doc:CLIReference> is every `doz` command.
 - Curious what is actually running? <doc:HowItWorks>.
@@ -57,7 +57,7 @@ See <doc:Concepts> for the full vocabulary (images, sessions, network, keys and 
 
 ### Guides
 
-- <doc:DozerWalkthrough>
+- <doc:DozableWalkthrough>
 - <doc:Concepts>
 - <doc:CLIReference>
 - <doc:LibraryGuide>

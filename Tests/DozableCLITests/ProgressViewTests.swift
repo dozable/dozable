@@ -121,14 +121,14 @@ final class ProgressViewTests: XCTestCase {
     }
 
     func testTheSettingFlagEnvFileDefault() throws {
-        XCTAssertEqual(DozerSettings(text: nil).progressMode(), .animated, "the default")
-        XCTAssertEqual(DozerSettings(text: "[ui]\nprogress = \"plain\"\n").progressMode(), .plain, "the file")
-        XCTAssertEqual(DozerSettings(text: "[ui]\nprogress = \"plain\"\n", environment: ["DOZ_PROGRESS": "animated"]).progressMode(), .animated, "the environment over the file")
-        XCTAssertEqual(DozerSettings(text: nil, environment: ["DOZ_PROGRESS": "plain"]).progressMode(), .plain)
-        XCTAssertEqual(DozerSettings(text: nil, environment: ["DOZ_PROGRESS": "plain"]).progressMode(flag: "auto"), .animated, "the flag over all")
-        XCTAssertEqual(DozerSettings(text: nil).progressMode(flag: "plain"), .plain)
-        XCTAssertEqual(DozerSettings.definition("ui.progress")?.environment, "DOZ_PROGRESS")
-        XCTAssertThrowsError(try DozerSettings.definition("ui.progress")!.parse("fancy"))
+        XCTAssertEqual(DozableSettings(text: nil).progressMode(), .animated, "the default")
+        XCTAssertEqual(DozableSettings(text: "[ui]\nprogress = \"plain\"\n").progressMode(), .plain, "the file")
+        XCTAssertEqual(DozableSettings(text: "[ui]\nprogress = \"plain\"\n", environment: ["DOZ_PROGRESS": "animated"]).progressMode(), .animated, "the environment over the file")
+        XCTAssertEqual(DozableSettings(text: nil, environment: ["DOZ_PROGRESS": "plain"]).progressMode(), .plain)
+        XCTAssertEqual(DozableSettings(text: nil, environment: ["DOZ_PROGRESS": "plain"]).progressMode(flag: "auto"), .animated, "the flag over all")
+        XCTAssertEqual(DozableSettings(text: nil).progressMode(flag: "plain"), .plain)
+        XCTAssertEqual(DozableSettings.definition("ui.progress")?.environment, "DOZ_PROGRESS")
+        XCTAssertThrowsError(try DozableSettings.definition("ui.progress")!.parse("fancy"))
     }
 
     /// 594 W8: a verify step is ONE line — started as "verify: X", ended as "verify: X → result".

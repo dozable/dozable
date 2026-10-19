@@ -7,7 +7,7 @@ import XCTest
 /// never taken unverified, and the host can name the app macOS asks about the microphone for.
 final class AudioHostTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root.appendingPathComponent("store")) }
+    var store: DozableStore { DozableStore(root: root.appendingPathComponent("store")) }
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("audiohost-\(UUID().uuidString)")
@@ -17,10 +17,10 @@ final class AudioHostTests: XCTestCase {
     override func tearDown() { try? FileManager.default.removeItem(at: root) }
 
     func testAudioReachesTheSpecAndNothingElseChanges() throws {
-        let (plain, _) = try DozerImages.spec(name: "p1", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let (plain, _) = try DozableImages.spec(name: "p1", options: CreateOptions(image: "lab"), store: store, environment: [:])
         var o = CreateOptions(image: "lab")
         o.audio = true
-        let (audio, _) = try DozerImages.spec(name: "p1", options: o, store: store, environment: [:])
+        let (audio, _) = try DozableImages.spec(name: "p1", options: o, store: store, environment: [:])
         XCTAssertNil(plain.audio)
         XCTAssertEqual(audio.audio, true)
         var same = audio

@@ -91,7 +91,7 @@ final class ModelListTests: XCTestCase {
     func testTheHostReadsAGatewaysListOnceADayAndKeepsItOffline() async throws {
         let data = try fixture("openrouter")
         let reads = Reads()
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: .forHost())
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: .forHost())
         await c.setModelListFetcher(ModelListFetcher { s in
             let (_, fail) = reads.next()
             XCTAssertEqual(s, "openrouter")
@@ -119,14 +119,14 @@ final class ModelListTests: XCTestCase {
         XCTAssertEqual(reads.count, 2)
         _ = await c.handle(r)
         XCTAssertEqual(reads.count, 2, "the back-off")
-        let rec = try XCTUnwrap(ModelLists.all(DozerStore(root: root))["openrouter"])
+        let rec = try XCTUnwrap(ModelLists.all(DozableStore(root: root))["openrouter"])
         XCTAssertNotNil(rec.failedAt)
         XCTAssertTrue(rec.lastError?.contains("offline") == true)
         // The store holds the list, not the raw document.
-        let raw = try String(contentsOf: ModelLists.fileURL(DozerStore(root: root)), encoding: .utf8)
+        let raw = try String(contentsOf: ModelLists.fileURL(DozableStore(root: root)), encoding: .utf8)
         XCTAssertFalse(raw.contains("supported_parameters"))
         // In-process (no host): the cache only, never a read.
-        let looker = HostCore(store: DozerStore(root: root), readOnly: true, version: "test", services: .forHost())
+        let looker = HostCore(store: DozableStore(root: root), readOnly: true, version: "test", services: .forHost())
         var q = HostRequest(.models)
         q.modelsSource = "openrouter"
         q.modelsRefresh = true
@@ -137,7 +137,7 @@ final class ModelListTests: XCTestCase {
     }
 
     func testAProviderOffersItsCheckedDefaultAndAGatewayNeverReadSaysSo() async throws {
-        let c = HostCore(store: DozerStore(root: root), readOnly: true, version: "test", services: .forHost())
+        let c = HostCore(store: DozableStore(root: root), readOnly: true, version: "test", services: .forHost())
         let m = await c.handle(HostRequest(.models))
         let all = try XCTUnwrap(m.result).decode([ModelList].self)
         XCTAssertEqual(all.map(\.source), ModelSources.publishedIds, "629: every published source")
@@ -191,10 +191,10 @@ final class ModelListTests: XCTestCase {
     }
 
     func testDozModels() throws {
-        let c = try XCTUnwrap(try DozerCommand.parseAsRoot(["models", "--gateway", "openrouter", "gpt", "mini"]) as? ModelsCommand)
+        let c = try XCTUnwrap(try DozableCommand.parseAsRoot(["models", "--gateway", "openrouter", "gpt", "mini"]) as? ModelsCommand)
         XCTAssertEqual(c.gateway, "openrouter")
         XCTAssertEqual(c.search, ["gpt", "mini"])
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["models", "--provider", "xai"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["models", "--provider", "xai"]))
         let l = ModelList(source: "openrouter", title: "OpenRouter", gateway: true, kind: "fetched", fetchedAt: Date().addingTimeInterval(-7200),
                           defaultModel: "openai/gpt-5.4-mini", models: try ModelLists.parse(try fixture("openrouter"), source: "openrouter"))
         let text = renderModelLists([l], searched: false)

@@ -25,7 +25,7 @@ final class CLIParityPinTests: XCTestCase {
         try? FileManager.default.removeItem(at: root)
     }
 
-    private func parse(_ args: [String]) throws -> ParsableCommand { try DozerCommand.parseAsRoot(args) }
+    private func parse(_ args: [String]) throws -> ParsableCommand { try DozableCommand.parseAsRoot(args) }
 
     /// The choice flags `CreateArguments` gives create and up today, each with a value that parses.
     static let createArgumentsFlags: [[String]] = [
@@ -54,7 +54,7 @@ final class CLIParityPinTests: XCTestCase {
             for f in flags {
                 let argv = command + f
                 let ok: String
-                do { _ = try parse(argv); ok = "ok" } catch { ok = "REFUSED: \(DozerCommand.message(for: error))" }
+                do { _ = try parse(argv); ok = "ok" } catch { ok = "REFUSED: \(DozableCommand.message(for: error))" }
                 lines.append("\(argv.joined(separator: " ")) → \(ok)")
             }
             XCTAssertNoThrow(try parse(command + ["--json", "--store", "/tmp/s"]), command.joined(separator: " "))
@@ -185,7 +185,7 @@ final class CLIParityPinTests: XCTestCase {
             do {
                 let cmd = try XCTUnwrap(try parse(["init", "--yes", "--store", root.appendingPathComponent("store").path] + l) as? Init)
                 let p = try cmd.ask(folder: root, existing: nil, asker: Asker(yes: true, json: false))
-                // The keys it SETS (the commented template around them is DozerProject's own, pinned by its tests).
+                // The keys it SETS (the commented template around them is DozableProject's own, pinned by its tests).
                 let set = p.render().split(separator: "\n").filter { !$0.hasPrefix("#") && !$0.trimmingCharacters(in: .whitespaces).isEmpty }
                 out.append(set.map { "  | " + $0 }.joined(separator: "\n"))
             } catch {

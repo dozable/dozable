@@ -12,7 +12,7 @@ import XCTest
 /// and nothing here reaches the network.
 final class AccessTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root.appendingPathComponent("store")) }
+    var store: DozableStore { DozableStore(root: root.appendingPathComponent("store")) }
     var xdg: URL { root.appendingPathComponent("xdg") }
     /// The environment a check sees: scratch everything, no SSH_AUTH_SOCK, no network seam.
     var env: [String: String] {
@@ -208,33 +208,33 @@ final class AccessTests: XCTestCase {
     func testTheChoicesAreTheDefaultsForNewSandboxes() throws {
         XCTAssertEqual(try Access.write(github: "push", githubSource: "key", ssh: "on", environment: env).count, 3)
         XCTAssertEqual(try Access.write(github: "push", githubSource: "key", ssh: "on", environment: env), [], "the same again: nothing to write")
-        let s = DozerSettings.load(environment: env)
+        let s = DozableSettings.load(environment: env)
         XCTAssertEqual(s.string(SettingKey.defaultGithub), "push")
         XCTAssertEqual(s.string(SettingKey.githubCredentials), "key")
         XCTAssertEqual(s.string(SettingKey.sshAgent), "on")
         XCTAssertThrowsError(try Access.write(github: "admin", githubSource: nil, ssh: nil, environment: env))
         // New sandboxes: "Use GitHub as you" + "Push to GitHub" from the setting…
-        let (p, _) = try DozerImages.spec(name: "g1", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
+        let (p, _) = try DozableImages.spec(name: "g1", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
         XCTAssertEqual(AgentPermissions.gitHubMode(p.network.policy?.permissions), .push)
         // …read only…
         try Access.write(github: "read", githubSource: nil, ssh: nil, environment: env)
-        let (r, _) = try DozerImages.spec(name: "g2", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
+        let (r, _) = try DozableImages.spec(name: "g2", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
         XCTAssertEqual(AgentPermissions.gitHubMode(r.network.policy?.permissions), .read)
         // …a sandbox can differ (--allow -github:as-you; the form's exact list)…
         var o = CreateOptions(image: "python-claude-code")
         o.allow = ["-github:as-you"]
-        let (d, _) = try DozerImages.spec(name: "g3", options: o, store: store, environment: env)
+        let (d, _) = try DozableImages.spec(name: "g3", options: o, store: store, environment: env)
         XCTAssertNil(AgentPermissions.gitHubMode(d.network.policy?.permissions))
         var f = CreateOptions(image: "python-claude-code")
         f.permissions = ["github"]
-        let (fm, _) = try DozerImages.spec(name: "g4", options: f, store: store, environment: env)
+        let (fm, _) = try DozableImages.spec(name: "g4", options: f, store: store, environment: env)
         XCTAssertNil(AgentPermissions.gitHubMode(fm.network.policy?.permissions), "the form's exact permissions win")
-        let (lk, _) = try DozerImages.spec(name: "g6", options: CreateOptions(image: "python-claude-code", network: "locked"), store: store, environment: env)
+        let (lk, _) = try DozableImages.spec(name: "g6", options: CreateOptions(image: "python-claude-code", network: "locked"), store: store, environment: env)
         XCTAssertEqual(lk.network.policy?.permissions, ["model", "vendor:claude-code"], "a named network is exactly its preset (+ the agent's own sites)")
         // …and off (the default) adds nothing.
         try Access.write(github: "off", githubSource: nil, ssh: nil, environment: env)
-        let (n, _) = try DozerImages.spec(name: "g5", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
+        let (n, _) = try DozableImages.spec(name: "g5", options: CreateOptions(image: "python-claude-code"), store: store, environment: env)
         XCTAssertNil(AgentPermissions.gitHubMode(n.network.policy?.permissions))
-        XCTAssertEqual(DozerSettings.definition(SettingKey.defaultGithub)?.defaultValue, .string("off"), "nothing on silently")
+        XCTAssertEqual(DozableSettings.definition(SettingKey.defaultGithub)?.defaultValue, .string("off"), "nothing on silently")
     }
 }

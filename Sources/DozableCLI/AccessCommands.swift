@@ -41,7 +41,7 @@ struct AccessStep {
 
     /// The choices: the flags, else the questions (on a terminal), else the settings as they are.
     func choose() -> AccessChoices {
-        let s = DozerSettings.load()
+        let s = DozableSettings.load()
         var c = AccessChoices(github: githubFlag ?? start?.github ?? s.string(SettingKey.defaultGithub) ?? "off",
                               githubSource: sourceFlag ?? start?.githubSource ?? s.string(SettingKey.githubCredentials).flatMap { $0 == "off" ? "gh" : $0 } ?? "gh",
                               ssh: sshFlag ?? start?.ssh ?? s.string(SettingKey.sshAgent) ?? "off")
@@ -219,7 +219,7 @@ struct AccessSet: AsyncParsableCommand {
             }
             return
         }
-        let s = DozerSettings.load()
+        let s = DozableSettings.load()
         let (_, report) = try step.confirm(AccessChoices(github: s.string(SettingKey.defaultGithub) ?? "off",
                                                          githubSource: s.string(SettingKey.githubCredentials) ?? "gh",
                                                          ssh: s.string(SettingKey.sshAgent) ?? "off"))

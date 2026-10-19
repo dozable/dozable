@@ -47,7 +47,7 @@ final class CodexMacLoginTests: XCTestCase {
     }
 
     func core(_ s: CredentialServices? = nil) async -> HostCore {
-        let c = HostCore(store: DozerStore(root: root.appendingPathComponent("store")), readOnly: false, version: "test", services: s ?? services())
+        let c = HostCore(store: DozableStore(root: root.appendingPathComponent("store")), readOnly: false, version: "test", services: s ?? services())
         await c.load()
         return c
     }
@@ -93,7 +93,7 @@ final class CodexMacLoginTests: XCTestCase {
 
     // MARK: the proxy's read: on use, re-read when the Mac refreshed, never another account
 
-    func testARefreshTheMacDidIsPickedUpAtOnceAndStaleIsDozersMessage() throws {
+    func testARefreshTheMacDidIsPickedUpAtOnceAndStaleIsDozablesMessage() throws {
         macCodexSignsIn(access: "ACCESS-MAC-1", expiresIn: -10)
         let before = snapshot()
         let s = CodexMacSession(codexHome: codexHome, keepaliveEnabled: { false })
@@ -216,19 +216,19 @@ final class CodexMacLoginTests: XCTestCase {
         d.account = "okey"
         d.accountKind = "codex"
         do { let e = await c.handle(d).error; XCTAssertNil(e, e?.message ?? "") }
-        XCTAssertEqual(AccountStore(store: DozerStore(root: root.appendingPathComponent("store"))).load().openaiDefault, "okey")
+        XCTAssertEqual(AccountStore(store: DozableStore(root: root.appendingPathComponent("store"))).load().openaiDefault, "okey")
         d.account = "mac"
         do { let e = await c.handle(d).error; XCTAssertNil(e, e?.message ?? "") }
-        XCTAssertEqual(AccountStore(store: DozerStore(root: root.appendingPathComponent("store"))).load().defaultAccount, "mac", "Claude's default untouched")
+        XCTAssertEqual(AccountStore(store: DozableStore(root: root.appendingPathComponent("store"))).load().defaultAccount, "mac", "Claude's default untouched")
     }
 
     func testDoctorSaysHowTheMacsCodexLoginStands() {
-        XCTAssertTrue(Doctor.codexLoginCheck(home: codexHome, settings: DozerSettings(text: "")).detail.contains("not signed in"))
+        XCTAssertTrue(Doctor.codexLoginCheck(home: codexHome, settings: DozableSettings(text: "")).detail.contains("not signed in"))
         macCodexSignsIn()
-        let ok = Doctor.codexLoginCheck(home: codexHome, settings: DozerSettings(text: "[codex]\nkeep_alive = true\n"))
+        let ok = Doctor.codexLoginCheck(home: codexHome, settings: DozableSettings(text: "[codex]\nkeep_alive = true\n"))
         XCTAssertEqual(ok.status, .ok)
         XCTAssertTrue(ok.detail.contains("signed in") && ok.detail.contains("keep-alive on"), ok.detail)
         macCodexSignsIn(expiresIn: -5)
-        XCTAssertEqual(Doctor.codexLoginCheck(home: codexHome, settings: DozerSettings(text: "")).status, .warn)
+        XCTAssertEqual(Doctor.codexLoginCheck(home: codexHome, settings: DozableSettings(text: "")).status, .warn)
     }
 }

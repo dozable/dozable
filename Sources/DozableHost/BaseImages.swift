@@ -24,14 +24,14 @@ public struct BaseDigestRecord: Codable, Equatable, Sendable {
 }
 
 public enum BaseDigests {
-    public static func fileURL(_ store: DozerStore) -> URL { store.root.appendingPathComponent("base-digests.json") }
+    public static func fileURL(_ store: DozableStore) -> URL { store.root.appendingPathComponent("base-digests.json") }
 
-    public static func all(_ store: DozerStore) -> [String: BaseDigestRecord] {
+    public static func all(_ store: DozableStore) -> [String: BaseDigestRecord] {
         guard let d = try? Data(contentsOf: fileURL(store)) else { return [:] }
         return (try? HostWire.decoder.decode([String: BaseDigestRecord].self, from: d)) ?? [:]
     }
 
-    static func update(_ base: String, _ store: DozerStore, _ f: (inout BaseDigestRecord) -> Void) {
+    static func update(_ base: String, _ store: DozableStore, _ f: (inout BaseDigestRecord) -> Void) {
         var a = all(store)
         var r = a[base] ?? BaseDigestRecord()
         f(&r)
@@ -41,7 +41,7 @@ public enum BaseDigests {
     }
 
     /// The digest a preparation of `base` uses: the one resolved last, else the catalogue's pin.
-    public static func digest(_ base: String, _ store: DozerStore) -> String? {
+    public static func digest(_ base: String, _ store: DozableStore) -> String? {
         guard let c = BaseCatalogue.base(base) else { return nil }
         return all(store)[base]?.digest ?? c.pinnedDigest
     }
@@ -49,7 +49,7 @@ public enum BaseDigests {
     /// Ask the tag's registry for its digest (at most hourly — `force` asks now); never throws: a
     /// failure is recorded and the last digest (or the pin) is used.
     @discardableResult
-    public static func refresh(_ base: String, store: DozerStore, registry: NpmRegistry, now: Date = Date(), force: Bool = false) async -> String? {
+    public static func refresh(_ base: String, store: DozableStore, registry: NpmRegistry, now: Date = Date(), force: Bool = false) async -> String? {
         guard let c = BaseCatalogue.base(base), let lookup = registry.digest else { return nil }
         let rec = all(store)[base]
         if !force {
@@ -105,16 +105,16 @@ public struct DockerfileRecord: Codable, Equatable, Sendable {
 }
 
 public enum Dockerfiles {
-    public static func fileURL(_ store: DozerStore) -> URL { store.root.appendingPathComponent("dockerfiles.json") }
+    public static func fileURL(_ store: DozableStore) -> URL { store.root.appendingPathComponent("dockerfiles.json") }
 
-    public static func all(_ store: DozerStore) -> [String: DockerfileRecord] {
+    public static func all(_ store: DozableStore) -> [String: DockerfileRecord] {
         guard let d = try? Data(contentsOf: fileURL(store)) else { return [:] }
         return (try? HostWire.decoder.decode([String: DockerfileRecord].self, from: d)) ?? [:]
     }
 
-    public static func record(_ base: String, _ store: DozerStore) -> DockerfileRecord? { all(store)[base] }
+    public static func record(_ base: String, _ store: DozableStore) -> DockerfileRecord? { all(store)[base] }
 
-    static func save(_ r: DockerfileRecord, _ store: DozerStore) throws {
+    static func save(_ r: DockerfileRecord, _ store: DozableStore) throws {
         var a = all(store)
         a[r.base] = r
         try store.ensureDirectory()
@@ -128,7 +128,7 @@ public enum Dockerfiles {
 
     /// A Dockerfile a person names (`--dockerfile`, doz_project.yaml, the UI): absolute or `~/`, an
     /// existing regular file at most 1 MiB, never inside the store. → (the file, its folder).
-    public static func validate(_ path: String, store: DozerStore) throws -> (dockerfile: String, context: String) {
+    public static func validate(_ path: String, store: DozableStore) throws -> (dockerfile: String, context: String) {
         let expanded = (path as NSString).expandingTildeInPath
         guard expanded.hasPrefix("/") else { throw HostError(.invalid, "the Dockerfile must be an absolute path (or ~/…): \(path)") }
         let url = URL(fileURLWithPath: expanded).standardizedFileURL.resolvingSymlinksInPath()
@@ -146,7 +146,7 @@ public enum Dockerfiles {
     /// Register (or re-read) the Dockerfile at `path`: its base id, recorded once (a known one keeps
     /// its build).
     @discardableResult
-    public static func register(_ path: String, store: DozerStore) throws -> DockerfileRecord {
+    public static func register(_ path: String, store: DozableStore) throws -> DockerfileRecord {
         let (file, context) = try validate(path, store: store)
         let base = ImageChoice.dockerfileBase(path: file)
         if let r = record(base, store) { return r }
@@ -165,11 +165,11 @@ public enum Dockerfiles {
     public static func isPlaceholder(_ reference: String) -> Bool { reference.hasSuffix("@sha256:" + String(repeating: "0", count: 64)) }
 }
 
-extension DozerImages {
+extension DozableImages {
     /// 596: a base × agent pair's spec at `release` (nil for no agent): the base as the store resolved
     /// it (a catalogue tag's digest, else its pin; a Dockerfile's last build, else a placeholder the
     /// first start replaces), Claude Code's native build on a base without Node.
-    public static func compose(_ choice: ImageChoice, release: AgentRelease?, store: DozerStore,
+    public static func compose(_ choice: ImageChoice, release: AgentRelease?, store: DozableStore,
                                purpose: AgentVersions.Purpose = .prepare) throws -> ImageSpec {
         let src = try baseSource(choice.base, store: store)
         var native: NativeClaudeBuild?
@@ -188,7 +188,7 @@ extension DozerImages {
     }
 
     /// What a base contributes, as the store knows it now.
-    public static func baseSource(_ base: String, store: DozerStore) throws -> BaseSource {
+    public static func baseSource(_ base: String, store: DozableStore) throws -> BaseSource {
         if let c = BaseCatalogue.base(base) { return c.source(digest: BaseDigests.digest(base, store)) }
         guard ImageChoice.isDockerfileBase(base) else { throw HostError(.notFound, "no base \(base) — doz base ls") }
         guard let r = Dockerfiles.record(base, store) else {
@@ -204,14 +204,14 @@ extension DozerImages {
     }
 
     /// Images a preparation makes: every catalogue base × agent, and a known Dockerfile's.
-    public static func isPreparable(_ image: String, store: DozerStore) -> Bool {
+    public static func isPreparable(_ image: String, store: DozableStore) -> Bool {
         guard let c = ImageChoice.parse(image), c.name == image else { return false }
         return !c.isDockerfile || Dockerfiles.record(c.base, store) != nil
     }
 
     /// The images this store has anything of (bakes under images/), with the two Node agent images
     /// always — for `image ls`.
-    public static func composedImagesInStore(_ store: DozerStore) -> [String] {
+    public static func composedImagesInStore(_ store: DozableStore) -> [String] {
         let dir = store.root.appendingPathComponent("images")
         let names = (try? FileManager.default.contentsOfDirectory(atPath: dir.path)) ?? []
         var out = ["claude-code", "pi", "codex"]
@@ -240,9 +240,9 @@ public struct BaseRow: Codable, Equatable, Sendable {
     /// A prepared image of this base was made from an older digest than the tag's now.
     public var updateAvailable: Bool?
 
-    public static func rows(_ store: DozerStore, prepared check: (String) -> Bool) -> [BaseRow] {
+    public static func rows(_ store: DozableStore, prepared check: (String) -> Bool) -> [BaseRow] {
         let digests = BaseDigests.all(store)
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         return BaseCatalogue.all.map { b in
             let rec = digests[b.id]
             let digest = rec?.digest ?? b.pinnedDigest

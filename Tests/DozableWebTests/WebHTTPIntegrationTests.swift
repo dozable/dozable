@@ -145,7 +145,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
     func testANewLinkFromTheControlSocketWorksOnce() async throws {
         try await start()
         let dir = URL(fileURLWithPath: "/tmp/doz-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         defer { try? FileManager.default.removeItem(at: dir) }
         let lock = try XCTUnwrap(try WebControl.takeLock(store))
         XCTAssertNil(try WebControl.takeLock(store), "one UI per store")
@@ -172,7 +172,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
     func testTheControlSocketSaysWhereTheUIRunsAndRotates() async throws {
         try await start()
         let dir = URL(fileURLWithPath: "/tmp/doz-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         defer { try? FileManager.default.removeItem(at: dir) }
         XCTAssertNil(WebControl.requestStatus(store), "no UI: nothing answers")
         let lock = try XCTUnwrap(try WebControl.takeLock(store))
@@ -496,7 +496,7 @@ final class WebHTTPIntegrationTests: XCTestCase {
     /// never starts a host (no host.sock, no lock held afterwards).
     func testTheHostSourceReadsAStoreWithoutStartingAHost() async throws {
         let dir = URL(fileURLWithPath: "/tmp/doz-data-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let data = HostWebData(store: store, version: "test") { [] }
@@ -853,7 +853,7 @@ final class FakeData: DozableWebData, @unchecked Sendable {
 
     func openTerminal(_ name: String, session: String?) async throws -> String {
         guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
-        let c = TerminalHandoff.command(executable: "/opt/doz/bin/doz", store: DozerStore(root: URL(fileURLWithPath: storePath)),
+        let c = TerminalHandoff.command(executable: "/opt/doz/bin/doz", store: DozableStore(root: URL(fileURLWithPath: storePath)),
                                         sandbox: name, session: session)
         lock.withLock { terminalCommands.append(c) }
         return "Terminal opened"

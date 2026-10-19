@@ -10,18 +10,18 @@ import DozableHost
 //     its project file (doz_project.yaml or .yml — both is an error) read into the wizard's form, or the
 //     defaults; the steps (`ProjectWizard.steps`, the same list `doz init` walks); 599g: its rule files.
 //   · `POST /api/v1/project/preview` {folder, form, explicit} — changes nothing: the EXACT file the wizard
-//     will write (`DozerProject.render`, read back by the CLI's own parser — one validator), the file there
+//     will write (`DozableProject.render`, read back by the CLI's own parser — one validator), the file there
 //     now and the line diff, and the digest a write must name to replace it.
 //   · `POST /api/v1/project/write` {folder, form, explicit, replace?} — makes the folder (as a workspace
 //     is made) and writes the file; an existing file only when `replace` is its digest (the page showed the
 //     diff and the person confirmed) — anything else is 409.
 //   · the action `project-create` {folder} — the sandbox the folder's project file describes, made with
-//     the options `doz up` would give it (`DozerProject.createOptions`).
+//     the options `doz up` would give it (`DozableProject.createOptions`).
 //
 // The YAML is READ by the CLI's parser (Yams stays in the CLI's commands): `doz ui` installs it here.
 
 /// Reads a project file's text (`DozableCLI`'s parser): the text and the file's name (for its messages).
-public typealias WebProjectParser = @Sendable (_ text: String, _ file: String) throws -> DozerProject
+public typealias WebProjectParser = @Sendable (_ text: String, _ file: String) throws -> DozableProject
 
 public enum WebProjectFiles {
     private static let lock = NSLock()
@@ -30,15 +30,15 @@ public enum WebProjectFiles {
     /// `doz ui` (and tests) install the parser before serving.
     public static func install(_ p: @escaping WebProjectParser) { lock.withLock { installed = p } }
 
-    static func parse(_ text: String, file: String) throws -> DozerProject {
+    static func parse(_ text: String, file: String) throws -> DozableProject {
         guard let p = lock.withLock({ installed }) else { throw HostError(.unavailable, "this doz ui cannot read project files") }
         return try p(text, file)
     }
 
     /// The folder's project file and its text (nil: none). Both spellings → Invalid.
     static func existing(_ folder: String) throws -> (url: URL, text: String)? {
-        guard let u = try DozerProject.find(in: URL(fileURLWithPath: folder)) else { return nil }
-        guard let d = FileManager.default.contents(atPath: u.path), d.count <= DozerProject.maximumBytes,
+        guard let u = try DozableProject.find(in: URL(fileURLWithPath: folder)) else { return nil }
+        guard let d = FileManager.default.contents(atPath: u.path), d.count <= DozableProject.maximumBytes,
               let t = String(data: d, encoding: .utf8) else { throw HostError(.invalid, "\(u.path) cannot be read (UTF-8, at most 64 KiB)") }
         return (u, t)
     }
@@ -88,7 +88,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         ("workspaceView", SettingKey.workspaceView),
     ]
 
-    public init(_ p: DozerProject) {
+    public init(_ p: DozableProject) {
         name = p.name
         image = p.image
         agent = p.agent
@@ -116,11 +116,11 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     }
 
     /// The project these choices make (each value checked by its own rule; the whole by the parser).
-    public func project() throws -> DozerProject {
+    public func project() throws -> DozableProject {
         func invalid(_ m: String) -> WebAction.Invalid { WebAction.Invalid(m) }
-        var p = DozerProject(name: name, image: image)
+        var p = DozableProject(name: name, image: image)
         if agent != nil || base != nil || dockerfile != nil {
-            p.agent = agent.map(DozerProject.fileAgent)          // 618: a family's major pinned (opencode → opencode@2)
+            p.agent = agent.map(DozableProject.fileAgent)          // 618: a family's major pinned (opencode → opencode@2)
             p.base = base
             p.dockerfile = dockerfile
             p.image = p.chosenImage
@@ -134,19 +134,19 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         }
         p.cpus = cpus
         if let m = memory {
-            guard let v = DozerImages.parseMemory(m) else { throw invalid("memory: a size like 2G or 512M") }
+            guard let v = DozableImages.parseMemory(m) else { throw invalid("memory: a size like 2G or 512M") }
             p.memoryMiB = v
         }
         for (field, key) in [("sshAgent", sshAgent), ("clipboard", clipboard), ("browserBridge", browserBridge), ("openFiles", openFiles),
                              ("ignoreMode", ignoreMode), ("workspaceView", workspaceView)] {
-            guard let v = key, let s = Self.settingFields.first(where: { $0.field == field }), let d = DozerSettings.definition(s.setting) else { continue }
+            guard let v = key, let s = Self.settingFields.first(where: { $0.field == field }), let d = DozableSettings.definition(s.setting) else { continue }
             do { p.settings[s.setting] = try d.parse(v) } catch let e as SettingsError { throw invalid("\(field): \(e.message)") }
         }
         if let t = tmux { p.settings[SettingKey.tmux] = .bool(t) }
         p.agentSudo = agentSudo
         p.agentPrompt = agentPrompt
         p.agentPromptMode = agentPromptMode
-        p.sessions = (sessions ?? []).map { DozerProject.Session(name: $0.name, command: $0.command) }
+        p.sessions = (sessions ?? []).map { DozableProject.Session(name: $0.name, command: $0.command) }
         if let s = modelSource, !ModelSources.ids.contains(s) { throw invalid("modelSource: a provider or gateway (doz models)") }
         if let m = model, !ModelSelection.isModelID(m) { throw invalid("model: a model id — letters, digits and . _ : / @ + -") }
         p.modelSource = modelSource
@@ -203,7 +203,7 @@ struct WebProjectRequest {
 
     static let explicitKeys: Set<String> = Set<String>(["cpus", "memory", "network", "permissions", "account", "github", "agent_sudo", "image",
                                                                          "model_source", "model"])
-        .union(DozerProject.settingKeys.map(\.key))
+        .union(DozableProject.settingKeys.map(\.key))
 
     static func decode(_ body: Data, allowed: Set<String>) throws -> WebProjectRequest {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
@@ -241,18 +241,18 @@ struct WebProjectRequest {
 }
 
 enum WebProject {
-    static func open(_ q: WebProjectRequest, settings: DozerSettings, store: String) -> WebProjectOpen {
+    static func open(_ q: WebProjectRequest, settings: DozableSettings, store: String) -> WebProjectOpen {
         let projects = (Workspace.defaultPath(name: "x", settings: settings) as NSString).deletingLastPathComponent
         let steps = ProjectWizard.steps.map { WebProjectOpen.Step(id: $0.id, title: $0.title) }
         let image = settings.string(SettingKey.defaultImage) ?? "lab"
         var out = WebProjectOpen(folder: q.folder, exists: false, file: nil, text: nil,
-                                 form: WebProjectForm(DozerProject(name: "project", image: image)), explicit: [], error: nil, steps: steps,
+                                 form: WebProjectForm(DozableProject(name: "project", image: image)), explicit: [], error: nil, steps: steps,
                                  projectsDir: projects)
         let folder: String
         do { folder = try q.normalizedFolder() } catch { out.error = HostError.from(error).message; return out }
         out.folder = folder
-        out.form = WebProjectForm(DozerProject(name: DozerProject.suggestedName(for: URL(fileURLWithPath: folder)), image: image))
-        if let why = Workspace.refusal(folder, store: DozerStore(root: URL(fileURLWithPath: store))) { out.error = why; return out }
+        out.form = WebProjectForm(DozableProject(name: DozableProject.suggestedName(for: URL(fileURLWithPath: folder)), image: image))
+        if let why = Workspace.refusal(folder, store: DozableStore(root: URL(fileURLWithPath: store))) { out.error = why; return out }
         var isDir: ObjCBool = false
         out.exists = FileManager.default.fileExists(atPath: folder, isDirectory: &isDir) && isDir.boolValue
         if out.exists { out.rules = WorkspaceRulesGuide.folderFiles(URL(fileURLWithPath: folder)).map(WebRuleFile.init) }
@@ -270,25 +270,25 @@ enum WebProject {
             if p.account != nil { e.append("account") }
             if p.github != nil { e.append("github") }
             if p.agentSudo != nil { e.append("agent_sudo") }
-            for k in DozerProject.settingKeys where p.settings[k.setting] != nil { e.append(k.key) }
+            for k in DozableProject.settingKeys where p.settings[k.setting] != nil { e.append(k.key) }
             out.explicit = e
         } catch {
-            out.error = (error as? DozerProject.Invalid)?.message ?? HostError.from(error).message
+            out.error = (error as? DozableProject.Invalid)?.message ?? HostError.from(error).message
         }
         return out
     }
 
     /// The file the form makes, checked as `doz init` checks it, and what is there now.
     /// 617: what the planner is asked for the review — `up` in the folder, with the file as it was read back.
-    static func planRequest(_ back: DozerProject, folder: String, path: String, settings: DozerSettings) -> PlanRequest {
+    static func planRequest(_ back: DozableProject, folder: String, path: String, settings: DozableSettings) -> PlanRequest {
         PlanRequest(purpose: "up", name: back.name,
                     create: back.createOptions(folder: URL(fileURLWithPath: folder), file: URL(fileURLWithPath: path), settings: settings))
     }
 
-    static func preview(_ q: WebProjectRequest, settings: DozerSettings, store: String, taken: Set<String>) throws -> (WebProjectPreview, DozerProject) {
+    static func preview(_ q: WebProjectRequest, settings: DozableSettings, store: String, taken: Set<String>) throws -> (WebProjectPreview, DozableProject) {
         guard let form = q.form else { throw WebAction.Invalid("form: required") }
         let folder = try q.normalizedFolder()
-        if let why = Workspace.refusal(folder, store: DozerStore(root: URL(fileURLWithPath: store))) { throw HostError(.invalid, why) }
+        if let why = Workspace.refusal(folder, store: DozableStore(root: URL(fileURLWithPath: store))) { throw HostError(.invalid, why) }
         var p = try form.project()
         p.dropDefaults(settings: settings, explicit: q.explicit)
         if let why = p.problem(effectiveNetwork: p.effectiveNetwork(settings: settings)) { throw HostError(.invalid, why) }
@@ -298,27 +298,27 @@ enum WebProject {
         }
         let text = p.render()
         // The CLI's own parser reads it back: what the review shows is what `doz up` will read.
-        let back: DozerProject
-        do { back = try WebProjectFiles.parse(text, file: existing?.url.lastPathComponent ?? DozerProject.fileName) } catch let e as DozerProject.Invalid {
+        let back: DozableProject
+        do { back = try WebProjectFiles.parse(text, file: existing?.url.lastPathComponent ?? DozableProject.fileName) } catch let e as DozableProject.Invalid {
             throw HostError(.invalid, e.message)
         }
-        let path = existing?.url.path ?? (folder as NSString).appendingPathComponent(DozerProject.fileName)
+        let path = existing?.url.path ?? (folder as NSString).appendingPathComponent(DozableProject.fileName)
         var out = WebProjectPreview(folder: folder, path: path, text: text)
         if let e = existing {
             out.existing = e.text
-            out.diff = DozerProject.lineDiff(old: e.text, new: text)
+            out.diff = DozableProject.lineDiff(old: e.text, new: text)
             out.replace = WebProjectFiles.digest(e.text)
         }
         return (out, back)
     }
 
-    static func write(_ q: WebProjectRequest, settings: DozerSettings, store: String, taken: Set<String>) throws -> WebProjectPreview {
+    static func write(_ q: WebProjectRequest, settings: DozableSettings, store: String, taken: Set<String>) throws -> WebProjectPreview {
         var (out, _) = try preview(q, settings: settings, store: store, taken: taken)
         if let have = out.replace, have != q.replace {
             throw HostError(.exists, "\(out.path) exists — confirm replacing it (the page shows what changes)")
         }
         if out.existing == out.text { out.written = false; return out }
-        let prepared = try Workspace.prepare(out.folder, store: DozerStore(root: URL(fileURLWithPath: store)))
+        let prepared = try Workspace.prepare(out.folder, store: DozableStore(root: URL(fileURLWithPath: store)))
         do { try Data(out.text.utf8).write(to: URL(fileURLWithPath: out.path), options: .atomic) } catch {
             Workspace.undo(prepared)
             throw HostError(.failed, "could not write \(out.path): \(error.localizedDescription)")
@@ -328,11 +328,11 @@ enum WebProject {
     }
 
     /// The action `project-create`: the sandbox the folder's file describes, as `doz up` makes it.
-    static func createAction(folder raw: String, settings: DozerSettings? = nil) throws -> WebAction {
+    static func createAction(folder raw: String, settings: DozableSettings? = nil) throws -> WebAction {
         let folder = try Workspace.normalize(raw)
-        guard let (url, text) = try WebProjectFiles.existing(folder) else { throw HostError(.notFound, "\(folder) has no \(DozerProject.fileName)") }
-        let p: DozerProject
-        do { p = try WebProjectFiles.parse(text, file: url.lastPathComponent) } catch let e as DozerProject.Invalid { throw HostError(.invalid, e.message) }
+        guard let (url, text) = try WebProjectFiles.existing(folder) else { throw HostError(.notFound, "\(folder) has no \(DozableProject.fileName)") }
+        let p: DozableProject
+        do { p = try WebProjectFiles.parse(text, file: url.lastPathComponent) } catch let e as DozableProject.Invalid { throw HostError(.invalid, e.message) }
         return .create(name: p.name, options: p.createOptions(folder: URL(fileURLWithPath: folder), file: url, settings: settings))
     }
 }

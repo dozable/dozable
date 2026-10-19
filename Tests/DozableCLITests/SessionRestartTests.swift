@@ -19,36 +19,36 @@ final class SessionRestartTests: XCTestCase {
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
 
     private func config(image: String = "lab") throws -> SandboxConfig {
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: image), store: DozerStore(root: root), environment: [:])
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: image), store: DozableStore(root: root), environment: [:])
         return SandboxConfig(name: "x", image: n, spec: s, workspace: nil)
     }
 
     // MARK: workspace.view
 
     func testWorkspaceViewIsOnByDefaultAndPerSandbox() throws {
-        let d = try XCTUnwrap(DozerSettings.definition(SettingKey.workspaceView))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.workspaceView))
         XCTAssertEqual(d.type, .choice(["on", "off"]))
         XCTAssertEqual(d.defaultValue, .string("on"))
         XCTAssertEqual(d.applies, .nextStart)
         XCTAssertEqual(d.flag, "doz create --workspace-view on|off")
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.workspaceView))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.workspaceView))
         XCTAssertTrue(d.summary.contains("git status"), "the cost is said in plain words")
         XCTAssertTrue(d.summary.contains("invalid cwd"), "and what off costs")
         var cfg = try config()
-        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozerSettings(text: "")))
-        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozerSettings(text: "[workspace]\nview = \"off\"\n")))
+        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "")))
+        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[workspace]\nview = \"off\"\n")))
         cfg.settings = [SettingKey.workspaceView: .string("on")]
-        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozerSettings(text: "[workspace]\nview = \"off\"\n")), "the sandbox's own choice wins")
+        XCTAssertTrue(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "[workspace]\nview = \"off\"\n")), "the sandbox's own choice wins")
         cfg.settings = [SettingKey.workspaceView: .string("off")]
-        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozerSettings(text: "")))
+        XCTAssertFalse(HostCore.workspaceViewOn(cfg, settings: DozableSettings(text: "")))
     }
 
     func testTheProjectFileAndTheCLICarryWorkspaceView() throws {
-        XCTAssertTrue(DozerProject.settingKeys.contains { $0.key == "workspace_view" && $0.setting == SettingKey.workspaceView })
-        let p = try DozerProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: off\n")
+        XCTAssertTrue(DozableProject.settingKeys.contains { $0.key == "workspace_view" && $0.setting == SettingKey.workspaceView })
+        let p = try DozableProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: off\n")
         XCTAssertEqual(p.settings[SettingKey.workspaceView], .string("off"))
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: sometimes\n"))
-        XCTAssertEqual(try DozerProject.parse(p.render()).settings[SettingKey.workspaceView], .string("off"), "rendered and read back")
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: demo\nimage: lab\nworkspace_view: sometimes\n"))
+        XCTAssertEqual(try DozableProject.parse(p.render()).settings[SettingKey.workspaceView], .string("off"), "rendered and read back")
         let form = WebProjectForm(p)
         XCTAssertEqual(form.workspaceView, "off")
         XCTAssertEqual(try form.project().settings[SettingKey.workspaceView], .string("off"), "the dashboard keeps it")
@@ -96,7 +96,7 @@ final class SessionRestartTests: XCTestCase {
     // MARK: restarting
 
     func testTheRecordKeepsTheProgramNeverAVariablesValue() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         try config().write(store.configFile("x"))
         XCTAssertTrue(SessionRecords.read(store, "x").sessions.isEmpty)
         let rec = SessionRecord(argv: ["bash", "-lc", "make test"], workdir: "/workspace/app", user: "agent", environmentKeys: ["TOKEN", "A"])
@@ -146,13 +146,13 @@ final class SessionRestartTests: XCTestCase {
 
     func testTheSessionsCommandsShape() throws {
         // `doz sessions NAME` still lists (the default subcommand); end/restart take NAME SESSION.
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["sessions", "box"]))
-        let end = try DozerCommand.parseAsRoot(["sessions", "end", "box", "codex", "--yes"])
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["sessions", "box"]))
+        let end = try DozableCommand.parseAsRoot(["sessions", "end", "box", "codex", "--yes"])
         XCTAssertTrue(end is SessionsEnd)
-        let restart = try XCTUnwrap(DozerCommand.parseAsRoot(["sessions", "restart", "box", "codex", "--fresh", "-d"]) as? SessionsRestart)
+        let restart = try XCTUnwrap(DozableCommand.parseAsRoot(["sessions", "restart", "box", "codex", "--fresh", "-d"]) as? SessionsRestart)
         XCTAssertTrue(restart.fresh)
         XCTAssertTrue(restart.detach)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["sessions", "end", "box"]), "the session is required")
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["sessions", "end", "box"]), "the session is required")
         XCTAssertEqual(SessionsEnd.howText("terminate"), "it did not hang up — terminated")
     }
 
@@ -169,9 +169,9 @@ final class SessionRestartTests: XCTestCase {
         XCTAssertFalse(a(json: true, stdin: true, stdout: true), "--json answers and returns, even on a terminal")
         XCTAssertFalse(a(true, stdin: true, stdout: true), "-d returns")
         XCTAssertTrue(a(false, true, stdin: false, stdout: false), "--attach attaches without a terminal")
-        let r = try XCTUnwrap(DozerCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach"]) as? SessionsRestart)
+        let r = try XCTUnwrap(DozableCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach"]) as? SessionsRestart)
         XCTAssertTrue(r.attach)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach", "-d"]), "--attach with -d")
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach", "--json"]), "--attach with --json")
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach", "-d"]), "--attach with -d")
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["sessions", "restart", "box", "s", "--attach", "--json"]), "--attach with --json")
     }
 }

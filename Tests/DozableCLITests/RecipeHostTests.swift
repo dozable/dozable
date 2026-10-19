@@ -25,7 +25,7 @@ final class RecipeHostTests: XCTestCase {
     func core() async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         return c
     }
@@ -44,20 +44,20 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(ImageChoice.parse("debian-grok")?.name, "grok", "the long form of the default pair")
         XCTAssertEqual(Workspace.baseName(image: "grok"), "grok-sandbox")
         XCTAssertEqual(Workspace.baseName(image: "python-gemini"), "python-gemini-sandbox")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "python-grok"), "grok")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "python-grok"), "grok")
         XCTAssertEqual(SettingKey.agentVersion("gemini"), "images.gemini_version")
         for k in ["images.gemini_version", "images.grok_version", "gemini.permissions", "grok.permissions", "images.grok.memory_mib", "images.gemini.network"] {
-            XCTAssertNotNil(DozerSettings.definition(k), k)
+            XCTAssertNotNil(DozableSettings.definition(k), k)
         }
-        let ask = DozerSettings(text: "[gemini]\npermissions = \"ask\"\n")
+        let ask = DozableSettings(text: "[gemini]\npermissions = \"ask\"\n")
         XCTAssertEqual(HostCore.withClaudePermissions([:], imageSpec: "python-gemini", settings: ask), ["DOZ_GEMINI_PERMISSIONS": "ask"])
         XCTAssertEqual(HostCore.withClaudePermissions(["DOZ_GEMINI_PERMISSIONS": "skip"], imageSpec: "gemini", settings: ask), ["DOZ_GEMINI_PERMISSIONS": "skip"],
                        "never over the caller's own")
         XCTAssertEqual(HostCore.withClaudePermissions([:], imageSpec: "grok", settings: ask), [:])
         XCTAssertEqual(SessionResume.arguments(for: AgentKind(rawValue: "gemini")), ["--resume", "latest"])
         XCTAssertEqual(SessionResume.arguments(for: AgentKind(rawValue: "grok")), [])
-        func project(_ agent: String, base: String? = nil) -> DozerProject {
-            var p = DozerProject(name: "x", image: "lab")
+        func project(_ agent: String, base: String? = nil) -> DozableProject {
+            var p = DozableProject(name: "x", image: "lab")
             p.agent = agent
             p.base = base
             return p
@@ -65,8 +65,8 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(project("grok").chosenImage, "grok", "the agent's own default base")
         XCTAssertEqual(project("gemini", base: "python").chosenImage, "python-gemini")
         XCTAssertNil(project("grok").problem())
-        XCTAssertEqual(project("nope").problem(), "agent: " + DozerProject.agentWords)
-        XCTAssertTrue(DozerProject.agentWords.hasPrefix("claude-code, pi, codex, antigravity, gemini, grok"))
+        XCTAssertEqual(project("nope").problem(), "agent: " + DozableProject.agentWords)
+        XCTAssertTrue(DozableProject.agentWords.hasPrefix("claude-code, pi, codex, antigravity, gemini, grok"))
     }
 
     func testCreateArgumentsTakeTheNewAgentsAndTheirDefaultBase() throws {
@@ -96,7 +96,7 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(keychain.read(service: "doz-google:g", account: Keychain.user).value, "AIzaFAKE0123456789abcdef")
         let file = try String(contentsOf: root.appendingPathComponent("accounts.json"), encoding: .utf8)
         XCTAssertFalse(file.contains("FAKE"), "accounts.json holds no secret")
-        let accounts = AccountStore(store: DozerStore(root: root)).load()
+        let accounts = AccountStore(store: DozableStore(root: root)).load()
         XCTAssertEqual(accounts.providerDefaults, ["xai": "work-xai", "google": "g"], "the first key of a provider is its default")
         let rows = try XCTUnwrap(m.result).decode([AccountRow].self)
         XCTAssertEqual(rows.first { $0.name == "work-xai" }?.provider, "xai")
@@ -111,13 +111,13 @@ final class RecipeHostTests: XCTestCase {
         m = await c.handle(rm)
         XCTAssertNil(m.error)
         XCTAssertNil(keychain.read(service: "doz-google:g", account: Keychain.user).value)
-        XCTAssertNil(AccountStore(store: DozerStore(root: root)).load().providerDefaults?["google"])
+        XCTAssertNil(AccountStore(store: DozableStore(root: root)).load().providerDefaults?["google"])
     }
 
     func testAnOldAccountsFileDecodesUnchanged() throws {
         let old = #"{"version":1,"defaultAccount":"work","keepalive":false,"accounts":[{"name":"work","kind":"api-key","keychainService":"doz-anthropic:work","addedAt":"2026-09-01T00:00:00Z"}]}"#
         try Data(old.utf8).write(to: root.appendingPathComponent("accounts.json"))
-        let f = AccountStore(store: DozerStore(root: root)).load()
+        let f = AccountStore(store: DozableStore(root: root)).load()
         XCTAssertEqual(f.defaultAccount, "work")
         XCTAssertNil(f.providerDefaults)
         XCTAssertNil(f.accounts.first { $0.name == "work" }?.provider)
@@ -232,7 +232,7 @@ final class RecipeHostTests: XCTestCase {
     // MARK: versions
 
     func testGrokResolvesItsVersionFromTheMainPackage() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let asked = Box()
         let registry = NpmRegistry(lookup: { p, tag in
             asked.append("\(p)@\(tag)")
@@ -240,11 +240,11 @@ final class RecipeHostTests: XCTestCase {
             if p == "@xai-official/grok-linux-arm64" && tag == "1.0.60" { return AgentRelease(version: "1.0.60", integrity: "sha512-UExBVA==") }
             throw HostError(.notFound, "unexpected \(p)@\(tag)")
         })
-        let f = await AgentVersions.refresh("grok", store: store, settings: DozerSettings(text: ""), registry: registry, force: true)
+        let f = await AgentVersions.refresh("grok", store: store, settings: DozableSettings(text: ""), registry: registry, force: true)
         XCTAssertNil(f.error, f.error ?? "")
         XCTAssertEqual(asked.items, ["@xai-official/grok@latest", "@xai-official/grok-linux-arm64@1.0.60"], "never the platform package's own (stale) latest")
         XCTAssertEqual(AgentVersions.all(store)["grok"]?.latest, AgentRelease(version: "1.0.60", integrity: "sha512-UExBVA=="))
-        let spec = try XCTUnwrap(try AgentVersions.spec("grok", purpose: .prepare, store: store, settings: DozerSettings(text: "")))
+        let spec = try XCTUnwrap(try AgentVersions.spec("grok", purpose: .prepare, store: store, settings: DozableSettings(text: "")))
         XCTAssertEqual(spec.agent, AgentPackage(package: "@xai-official/grok", version: "1.0.60", integrity: "sha512-UExBVA=="))
         XCTAssertEqual(AgentVersions.known("grok", version: "1.0.52", store: store), AgentRecipes.recipe("grok")?.pinnedRelease, "the pin is known")
     }
@@ -267,17 +267,17 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(AgentCredentials.keyProvider("echo-agent")?.id, "xai")
         XCTAssertEqual(AgentPermissions.agentPermissions(a), ["model:echo"])
         XCTAssertNotNil(AgentPermissions.permission("model:echo"))
-        XCTAssertNotNil(DozerSettings.definition("images.echo-agent.memory_mib"))
-        XCTAssertNotNil(DozerSettings.definition("images.echo_agent_version"))
-        XCTAssertNotNil(DozerSettings.definition("echo-agent.permissions"))
-        let (s, _) = try DozerImages.spec(name: "e", options: CreateOptions(image: "echo-agent", network: "locked"), store: DozerStore(root: root), environment: [:])
+        XCTAssertNotNil(DozableSettings.definition("images.echo-agent.memory_mib"))
+        XCTAssertNotNil(DozableSettings.definition("images.echo_agent_version"))
+        XCTAssertNotNil(DozableSettings.definition("echo-agent.permissions"))
+        let (s, _) = try DozableImages.spec(name: "e", options: CreateOptions(image: "echo-agent", network: "locked"), store: DozableStore(root: root), environment: [:])
         XCTAssertEqual(SandboxConfig(name: "e", image: "echo-agent", spec: s, workspace: nil).defaultSession.argv, ["echo-agent"])
         XCTAssertEqual(s.network.policy?.permissions, ["model:echo"])
         XCTAssertEqual(r.capabilityTags.first { $0.tag == "multi-vendor-models" }?.level, "unknown")
         // Gone when unregistered.
         AgentRecipes.unregisterForTests("echo-agent")
         XCTAssertNil(AgentKind(rawValue: "echo-agent"))
-        XCTAssertNil(DozerSettings.definition("echo-agent.permissions"))
+        XCTAssertNil(DozableSettings.definition("echo-agent.permissions"))
     }
 }
 

@@ -7,7 +7,7 @@ import XCTest
 /// the default for new sandboxes, `--allow`, a pre-597 policy shown as permissions, the facts block.
 final class PermissionsHostTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root.appendingPathComponent("store")) }
+    var store: DozableStore { DozableStore(root: root.appendingPathComponent("store")) }
 
     override func setUpWithError() throws {
         root = URL(fileURLWithPath: "/private/tmp/dzpm-\(UUID().uuidString.prefix(8))")
@@ -139,41 +139,41 @@ final class PermissionsHostTests: XCTestCase {
 
     func testNewSandboxesGetPermissionsFromTheFlagTheSettingOrTheForm() throws {
         // The default: Standard for the base.
-        let (py, _) = try DozerImages.spec(name: "a1", options: CreateOptions(image: "python-claude-code"), store: store, environment: [:])
+        let (py, _) = try DozableImages.spec(name: "a1", options: CreateOptions(image: "python-claude-code"), store: store, environment: [:])
         // 617: and the agent's own vendor sites (hidden), added at create.
         XCTAssertEqual(py.network.policy?.permissions, standardPy + ["vendor:claude-code"])
         XCTAssertEqual(py.network.policy?.preset, "agent")
         // --network locked.
-        let (lk, _) = try DozerImages.spec(name: "a2", options: CreateOptions(image: "go-claude-code", network: "locked"), store: store, environment: [:])
+        let (lk, _) = try DozableImages.spec(name: "a2", options: CreateOptions(image: "go-claude-code", network: "locked"), store: store, environment: [:])
         XCTAssertEqual(lk.network.policy?.permissions, ["model", "vendor:claude-code"])
         // --allow words on top, and a site.
         var o = CreateOptions(image: "python-claude-code")
         o.allow = ["web", "-error-reports", "site:api.example.com"]
-        let (al, _) = try DozerImages.spec(name: "a3", options: o, store: store, environment: [:])
+        let (al, _) = try DozableImages.spec(name: "a3", options: o, store: store, environment: [:])
         let alp = try XCTUnwrap(al.network.policy)
         XCTAssertTrue(alp.permissions!.contains("web"))
         XCTAssertFalse(alp.permissions!.contains("error-reports"))
         XCTAssertEqual(alp.sites, ["api.example.com"])
         XCTAssertNil(alp.preset)
         o.allow = ["telepathy"]
-        XCTAssertThrowsError(try DozerImages.spec(name: "a4", options: o, store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "a4", options: o, store: store, environment: [:]))
         // The form: exactly these.
         var f = CreateOptions(image: "go-pi")
         f.permissions = ["github"]
-        let (fm, _) = try DozerImages.spec(name: "a5", options: f, store: store, environment: [:])
+        let (fm, _) = try DozableImages.spec(name: "a5", options: f, store: store, environment: [:])
         XCTAssertEqual(fm.network.policy?.permissions, ["model", "github", "vendor:pi", "sources:pi"], "model forced on")
         // The setting.
         let xdg = root.appendingPathComponent("xdg")
         try FileManager.default.createDirectory(at: xdg.appendingPathComponent("dozer-sandbox"), withIntermediateDirectories: true)
         try "[defaults]\npermissions = \"+web,-github\"\n".write(to: xdg.appendingPathComponent("dozer-sandbox/doz.toml"), atomically: true, encoding: .utf8)
-        let (st, _) = try DozerImages.spec(name: "a6", options: CreateOptions(image: "python-claude-code"), store: store,
+        let (st, _) = try DozableImages.spec(name: "a6", options: CreateOptions(image: "python-claude-code"), store: store,
                                             environment: ["XDG_CONFIG_HOME": xdg.path])
         let stp = try XCTUnwrap(st.network.policy?.permissions)
         XCTAssertTrue(stp.contains("web"))
         XCTAssertFalse(stp.contains("github"))
         XCTAssertTrue(stp.contains("install:python"))
         // The lab and a bake policy stay rules (596's registries).
-        let (bk, _) = try DozerImages.spec(name: "a7", options: CreateOptions(image: "go", network: "bake"), store: store, environment: [:])
+        let (bk, _) = try DozableImages.spec(name: "a7", options: CreateOptions(image: "go", network: "bake"), store: store, environment: [:])
         XCTAssertNil(bk.network.policy?.permissions)
     }
 
@@ -184,7 +184,7 @@ final class PermissionsHostTests: XCTestCase {
         XCTAssertEqual(SettingType.permissionWords("install:python"), ["install:python"])
         XCTAssertNil(SettingType.permissionWords("+telepathy"))
         XCTAssertNil(SettingType.permissionWords(""))
-        let s = DozerSettings(text: nil)
+        let s = DozableSettings(text: nil)
         XCTAssertEqual(s.string(SettingKey.permissions), "standard")
         XCTAssertEqual(PermissionPolicy.names(from: ["locked", "+github"], base: "go"), ["model", "github"])
         XCTAssertEqual(PermissionPolicy.names(from: ["standard"], base: nil), AgentPermissions.preset("agent", base: nil))

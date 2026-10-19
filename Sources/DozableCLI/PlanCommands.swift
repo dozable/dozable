@@ -49,7 +49,7 @@ func renderPlan(_ p: CreatePlan) -> String {
         let mark = r.text.hasPrefix("No ") ? "✗" : ["denied": "✗", "excluded": "✗", "folder": "·", "key": "·"][r.kind] ?? "✓"
         s += "  \(mark) \(r.text)\n"
     }
-    s += "\(DozerProject.fileName) with the same choices (doz init writes it; commented keys take their defaults):\n"
+    s += "\(DozableProject.fileName) with the same choices (doz init writes it; commented keys take their defaults):\n"
     for l in p.yaml.split(separator: "\n", omittingEmptySubsequences: false) where !l.hasPrefix("#") && !l.trimmingCharacters(in: .whitespaces).isEmpty {
         s += "  | \(l)\n"
     }

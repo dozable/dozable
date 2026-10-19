@@ -25,7 +25,7 @@ final class ModelSourcesTests: XCTestCase {
     func core() async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         return c
     }
@@ -142,7 +142,7 @@ final class ModelSourcesTests: XCTestCase {
         var or1 = AccountRecord(name: "or1", kind: .key, plan: nil)
         or1.provider = "openrouter"
         f.accounts.append(or1)
-        let facts = PlanFacts(settings: DozerSettings(text: ""), accounts: f, taken: [], images: [], store: DozerStore(root: root),
+        let facts = PlanFacts(settings: DozableSettings(text: ""), accounts: f, taken: [], images: [], store: DozableStore(root: root),
                               projectsDir: "/tmp/617-pin-projects")
         let choices = try ChoiceOptions.from(["--agent", "shell-gpt", "--gateway", "openrouter", "--model", "anthropic/claude-sonnet-4.6"]).planChoices()
         let p = CreatePlanner.plan(PlanRequest(purpose: "try", create: choices), facts: facts)
@@ -346,7 +346,7 @@ final class ModelSourcesTests: XCTestCase {
         XCTAssertEqual(AgentCredentials.account(forSource: "opencode-zen", image: "opencode2", account: "x", file: f).problem?.fix, "leave out --account")
         XCTAssertFalse(AgentCredentials.requirement("opencode2").contains("OpenCode Zen"), AgentCredentials.requirement("opencode2"))
         XCTAssertNotNil(AgentCredentials.account(forSource: "opencode-zen", image: "shell-gpt", account: nil, file: f).problem, "offered to OpenCode 2 only")
-        let facts = PlanFacts(settings: DozerSettings(text: ""), accounts: AccountsFile(), taken: [], images: [], store: DozerStore(root: root),
+        let facts = PlanFacts(settings: DozableSettings(text: ""), accounts: AccountsFile(), taken: [], images: [], store: DozableStore(root: root),
                               projectsDir: "/tmp/618-zen-projects")
         let p = CreatePlanner.plan(PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "opencode2", "--provider", "opencode-zen"]).planChoices()),
                                    facts: facts)

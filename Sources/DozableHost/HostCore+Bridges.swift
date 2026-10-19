@@ -33,8 +33,8 @@ extension HostCore {
     static func checkedSandboxSettings(_ s: [String: TOMLValue]) throws -> [String: TOMLValue] {
         var out: [String: TOMLValue] = [:]
         for (k, v) in s {
-            guard k != SettingKey.agentSudo, DozerSettings.perSandbox.contains(k), let d = DozerSettings.definition(k) else {
-                throw HostError(.invalid, "\(k) is not a per-sandbox setting (they are: \(DozerSettings.perSandbox.joined(separator: ", ")))")
+            guard k != SettingKey.agentSudo, DozableSettings.perSandbox.contains(k), let d = DozableSettings.definition(k) else {
+                throw HostError(.invalid, "\(k) is not a per-sandbox setting (they are: \(DozableSettings.perSandbox.joined(separator: ", ")))")
             }
             do { out[k] = try d.validate(v) } catch { throw HostError(.invalid, "\(error)") }
         }
@@ -42,7 +42,7 @@ extension HostCore {
     }
 
     /// A per-sandbox setting's value for this sandbox: its own, else the setting's.
-    static func sandboxValue(_ cfg: SandboxConfig, _ key: String, settings: @autoclosure () -> DozerSettings = .load()) -> TOMLValue {
+    static func sandboxValue(_ cfg: SandboxConfig, _ key: String, settings: @autoclosure () -> DozableSettings = .load()) -> TOMLValue {
         if key == SettingKey.agentSudo, let own = cfg.agentSudo { return .bool(own) }
         if let own = cfg.settings?[key] { return own }
         return settings().resolve(key).value
@@ -52,8 +52,8 @@ extension HostCore {
         let m = try get(r.name)
         var changed: String?
         if let key = r.setting {
-            guard DozerSettings.perSandbox.contains(key), let d = DozerSettings.definition(key) else {
-                throw HostError(.invalid, "\(key) is not a per-sandbox setting (they are: \(DozerSettings.perSandbox.joined(separator: ", ")))")
+            guard DozableSettings.perSandbox.contains(key), let d = DozableSettings.definition(key) else {
+                throw HostError(.invalid, "\(key) is not a per-sandbox setting (they are: \(DozableSettings.perSandbox.joined(separator: ", ")))")
             }
             if r.clearSetting == true {
                 if key == SettingKey.agentSudo { m.config.agentSudo = nil } else { m.config.settings?[key] = nil }
@@ -77,9 +77,9 @@ extension HostCore {
                 note(m.name, "\(changed ?? key) — \(d.applies.note)")
             }
         }
-        let settings = DozerSettings.load()
-        let rows = DozerSettings.perSandbox.compactMap { key -> SandboxSettingRow? in
-            guard let d = DozerSettings.definition(key) else { return nil }
+        let settings = DozableSettings.load()
+        let rows = DozableSettings.perSandbox.compactMap { key -> SandboxSettingRow? in
+            guard let d = DozableSettings.definition(key) else { return nil }
             let s = settings.resolve(key)
             let own: TOMLValue? = key == SettingKey.agentSudo ? m.config.agentSudo.map { .bool($0) } : m.config.settings?[key]
             return SandboxSettingRow(key: key, value: own ?? s.value, source: own != nil ? "sandbox" : s.source.rawValue,
@@ -143,7 +143,7 @@ extension HostCore {
     nonisolated func openFile(_ guestPath: String, app: String?, reveal: Bool = false, sandbox: String, session: String) async -> BridgeNotice {
         let enabled = await sandboxValue(named: sandbox, SettingKey.openFiles) != .string("off")
         let workspace = await workspaceHostPath(of: sandbox)
-        let allowed = WorkspaceFiles.appNames(DozerSettings.load().string(SettingKey.openApps) ?? "") ?? []
+        let allowed = WorkspaceFiles.appNames(DozableSettings.load().string(SettingKey.openApps) ?? "") ?? []
         let asked = WorkspaceFiles.shownRequest(guestPath)
         let inApp = app.map { " in " + String($0.unicodeScalars.filter { $0.value >= 0x20 && $0.value != 0x7F }.prefix(64)) } ?? ""
         let verb = reveal ? "show" : "open"
@@ -177,7 +177,7 @@ extension HostCore {
 
     /// 599b: the Mac folder actually shared at /workspace (from the sandbox's spec — never a guest's word).
     func workspaceHostPath(of name: String) -> String? {
-        managed[name]?.config.spec.shares.first { $0.guestPath == DozerImages.workspaceGuestPath }?.hostPath
+        managed[name]?.config.spec.shares.first { $0.guestPath == DozableImages.workspaceGuestPath }?.hostPath
     }
 
     /// 599 (594.B2): the guest's xdg-open → the Mac's default browser, and a sign-in's localhost callback

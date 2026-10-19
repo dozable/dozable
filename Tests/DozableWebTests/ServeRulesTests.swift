@@ -200,16 +200,16 @@ final class ServeRulesTests: XCTestCase {
         }
         // The schema: serve.* exist, are read-only in the web UI, and refuse bad values.
         for k in [SettingKey.servePort, SettingKey.serveBind, SettingKey.servePublicOrigins, SettingKey.serveTrustedProxies, SettingKey.serveAdvertise] {
-            let d = DozerSettings.definition(k)
+            let d = DozableSettings.definition(k)
             XCTAssertNotNil(d, k)
             XCTAssertEqual(d?.editableInUI, false, k)
         }
-        XCTAssertEqual(DozerSettings.definition(SettingKey.servePort)?.defaultValue, .int(7443))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.servePort)!.parse("80"))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.serveBind)!.parse("0.0.0.0"))
-        XCTAssertNoThrow(try DozerSettings.definition(SettingKey.serveBind)!.parse("loopback"))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.servePublicOrigins)!.parse("https://x.example/path"))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.serveTrustedProxies)!.parse("everyone"))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.servePort)?.defaultValue, .int(7443))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.servePort)!.parse("80"))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.serveBind)!.parse("0.0.0.0"))
+        XCTAssertNoThrow(try DozableSettings.definition(SettingKey.serveBind)!.parse("loopback"))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.servePublicOrigins)!.parse("https://x.example/path"))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.serveTrustedProxies)!.parse("everyone"))
     }
 
     func testTheWebUIRefusesServeSettings() throws {

@@ -135,7 +135,7 @@ final class RecipeSchemaTests: XCTestCase {
     }
 
     /// Why export removes the `dozer:` keys: Kit's capability configs are strict too.
-    func testKitRefusesADozerKeyLeftInItsOwnCapability() throws {
+    func testKitRefusesADozableKeyLeftInItsOwnCapability() throws {
         var v = JSONSchemaValidator()
         let (_, t) = try XCTUnwrap(try Self.trees().first)
         var kit = try RecipeDocument.decode(JSONSerialization.data(withJSONObject: t)).kitDescriptor()

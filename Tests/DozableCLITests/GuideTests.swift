@@ -116,7 +116,7 @@ final class GuideTests: XCTestCase {
         XCTAssertFalse(step.contains("\"checksum mismatch for Fabric"), "no recipe string inside double quotes")
     }
 
-    func testTheFactsAreDozersAndTheTextReadsBack() throws {
+    func testTheFactsAreDozablesAndTheTextReadsBack() throws {
         let r = try XCTUnwrap(AgentRecipes.recipe("fabric"))
         let g = try XCTUnwrap(SandboxGuide.make(r, version: nil, source: "google", model: "gemini-2.5-flash", account: "google", accountKind: .key,
                                                 network: "its model only (Locked)", workspace: "/Users/me/try-fabric", trial: true))
@@ -140,7 +140,7 @@ final class GuideTests: XCTestCase {
     func core() async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         return c
     }
@@ -174,6 +174,6 @@ final class GuideTests: XCTestCase {
         let s = TryCommand.startHere(r.title, try XCTUnwrap(r.guide), sandbox: "try-fabric")
         XCTAssertTrue(s.contains("Start here (doz guide try-fabric has it all):\n  1. Check it answers.\n       echo hello | fabric \"say ok\"\n"))
         XCTAssertTrue(s.contains("fabric -p extract_wisdom < notes.md    (change it first)"))
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["guide", "try-fabric", "--json"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["guide", "try-fabric", "--json"]))
     }
 }

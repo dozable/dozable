@@ -14,7 +14,7 @@ import DozableKit
 // An unknown key or a value of the wrong type is a WARNING (that line is ignored, the default applies),
 // never a crash; a file that does not parse is ignored whole, with its error, and is not overwritten.
 //
-// What is deliberately NOT a setting (`DozerSettings.notSettable`): the web UI's security limits
+// What is deliberately NOT a setting (`DozableSettings.notSettable`): the web UI's security limits
 // (session and link lifetimes, body and connection caps, the Host/Origin/CSRF checks, the CSP), the
 // terminal's (one-use tickets, the paste cap and confirmation), the guest-binary overrides, and any
 // credential. `ui.terminals` can only take something away (browser terminals off).
@@ -425,7 +425,7 @@ public enum SettingKey {
     }
 }
 
-public struct DozerSettings: Sendable {
+public struct DozableSettings: Sendable {
     public static let directoryName = "dozer-sandbox"
     public static let fileName = "doz.toml"
 
@@ -703,21 +703,21 @@ public struct DozerSettings: Sendable {
     public let unsetProjectsDir: String
 
     /// Read the file named by `environment` (defaults only when there is none).
-    public static func load(environment: [String: String] = ProcessInfo.processInfo.environment) -> DozerSettings {
+    public static func load(environment: [String: String] = ProcessInfo.processInfo.environment) -> DozableSettings {
         let url = fileURL(environment: environment)
-        guard let url else { return DozerSettings(text: nil, url: nil, environment: environment) }
+        guard let url else { return DozableSettings(text: nil, url: nil, environment: environment) }
         var st = stat()
-        guard lstat(url.path, &st) == 0 else { return DozerSettings(text: nil, url: url, environment: environment) }
+        guard lstat(url.path, &st) == 0 else { return DozableSettings(text: nil, url: url, environment: environment) }
         guard (st.st_mode & S_IFMT) == S_IFREG || (st.st_mode & S_IFMT) == S_IFLNK else {
-            return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not a file")
+            return DozableSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not a file")
         }
         guard st.st_size <= off_t(TOML.maximumBytes), let data = FileManager.default.contents(atPath: url.path) else {
-            return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) could not be read (or is over \(TOML.maximumBytes / 1024) KiB)")
+            return DozableSettings(text: nil, url: url, environment: environment, readError: "\(url.path) could not be read (or is over \(TOML.maximumBytes / 1024) KiB)")
         }
         guard let text = String(data: data, encoding: .utf8) else {
-            return DozerSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not UTF-8")
+            return DozableSettings(text: nil, url: url, environment: environment, readError: "\(url.path) is not UTF-8")
         }
-        return DozerSettings(text: text, url: url, environment: environment)
+        return DozableSettings(text: text, url: url, environment: environment)
     }
 
     /// From a file's text (nil: no file).
@@ -897,7 +897,7 @@ public struct DozerSettings: Sendable {
     /// Set (`value`) or clear (nil) one key and write the file. Refuses an unknown key, a bad value,
     /// or a file that does not parse (it is the person's, and would be lost).
     @discardableResult
-    public func writing(_ key: String, _ value: TOMLValue?) throws -> DozerSettings {
+    public func writing(_ key: String, _ value: TOMLValue?) throws -> DozableSettings {
         guard let d = Self.definition(key) else { throw SettingsError("unknown setting \(key) — doz config show lists them") }
         var values = fileValues
         if let value { values[key] = try d.validate(value) } else { values[key] = nil }
@@ -906,7 +906,7 @@ public struct DozerSettings: Sendable {
 
     /// Write the file as the schema generates it, with these values (and the unknown keys kept).
     @discardableResult
-    public func writingAll(_ values: [String: TOMLValue]) throws -> DozerSettings {
+    public func writingAll(_ values: [String: TOMLValue]) throws -> DozableSettings {
         guard let url else { throw SettingsError("no settings file: neither XDG_CONFIG_HOME nor HOME is set") }
         if let fileError { throw SettingsError("\(fileError) — fix it or remove it first; it was not changed") }
         try Self.writeAtomically(Self.render(values: values, unknown: unknown), to: url)

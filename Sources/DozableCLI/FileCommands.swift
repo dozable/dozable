@@ -73,13 +73,13 @@ struct CpCommand: AsyncParsableCommand {
         switch (s.sandbox, d.sandbox) {
         case (let n?, nil): try await FileTransfer.get(n, s.path.isEmpty ? CopyPaths.workspace : s.path, d.path, flags, g)
         case (nil, let n?): try await FileTransfer.put(n, s.path, d.path.isEmpty ? nil : d.path, flags, g)
-        case (_?, _?): throw fail(HostError(.invalid, "both sides are in a sandbox — one side is a path on this Mac"), g, code: DozerExit.usage)
+        case (_?, _?): throw fail(HostError(.invalid, "both sides are in a sandbox — one side is a path on this Mac"), g, code: DozableExit.usage)
         case (nil, nil):
             let rows = await CopyHint.sandboxes(g)
             let hint = CopyHint.neitherSide(source: source, destination: destination, sandboxes: rows,
                                             existsOnMac: { FileManager.default.fileExists(atPath: $0) },
                                             cwd: FileManager.default.currentDirectoryPath, shown: FileTransfer.shown)
-            throw fail(HostError(.invalid, "neither side is in a sandbox — write one as NAME:PATH" + (hint.map { "\n" + $0 } ?? "")), g, code: DozerExit.usage)
+            throw fail(HostError(.invalid, "neither side is in a sandbox — write one as NAME:PATH" + (hint.map { "\n" + $0 } ?? "")), g, code: DozableExit.usage)
         }
     }
 }
@@ -92,12 +92,12 @@ enum CopyHint {
     static func sandboxes(_ g: GlobalOptions) async -> [Row] {
         var r = HostRequest(.ls)
         r.withSessions = false
-        let store = g.dozerStore
+        let store = g.dozableStore
         let value: JSONValue?
         if store.hostIsRunning() {
             value = try? call(r, g, autostart: false)
         } else {
-            let core = HostCore(store: store, readOnly: true, version: DozerCommand.version)
+            let core = HostCore(store: store, readOnly: true, version: DozableCommand.version)
             await core.load()
             let m = await core.handle(r)
             value = m.ok == true ? m.result : nil
@@ -145,7 +145,7 @@ enum FileTransfer {
         r.wake = !flags.noWake
         r.start = !flags.noStart
         let client: HostClient
-        do { client = try HostClient.connect(store: g.dozerStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
+        do { client = try HostClient.connect(store: g.dozableStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
         let progress = Progress(g)
         defer { progress.finish() }
         do {
@@ -228,13 +228,13 @@ enum FileTransfer {
 
     static func get(_ name: String, _ given: String, _ local: String?, _ flags: CopyFlags, _ g: GlobalOptions) async throws {
         signal(SIGPIPE, SIG_IGN)
-        guard let path = CopyPaths.guestPath(given) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(given.debugDescription)"), g, code: DozerExit.usage) }
+        guard let path = CopyPaths.guestPath(given) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(given.debugDescription)"), g, code: DozableExit.usage) }
         let itemName = (path as NSString).lastPathComponent
-        guard CopyPaths.isItemName(itemName) else { throw fail(HostError(.invalid, "not the whole of \(name) (/) — name a folder"), g, code: DozerExit.usage) }
+        guard CopyPaths.isItemName(itemName) else { throw fail(HostError(.invalid, "not the whole of \(name) (/) — name a folder"), g, code: DozableExit.usage) }
         let cwd = FileManager.default.currentDirectoryPath
         let (dest, problem) = LocalCopy.destination(name: itemName, local: local, cwd: cwd)
         if let problem { throw fail(HostError(.notFound, problem), g) }
-        if LocalCopy.inStore(dest, store: g.dozerStore.root) {
+        if LocalCopy.inStore(dest, store: g.dozableStore.root) {
             throw fail(HostError(.failed, "\(dest) is inside Dozable's store — never written there"), g)
         }
         let exists = FileManager.default.fileExists(atPath: dest) || (try? FileManager.default.destinationOfSymbolicLink(atPath: dest)) != nil
@@ -312,7 +312,7 @@ enum FileTransfer {
         }
         let type = (try? FileManager.default.attributesOfItem(atPath: source)[.type] as? FileAttributeType)
         guard isDir.boolValue || type == .typeRegular else { throw fail(HostError(.failed, "\(localGiven) is not a file or a folder — not copied"), g) }
-        if LocalCopy.inStore(source, store: g.dozerStore.root) {
+        if LocalCopy.inStore(source, store: g.dozableStore.root) {
             throw fail(HostError(.failed, "\(localGiven) is inside Dozable's store — never copied"), g)
         }
         let kind: CopyKind = isDir.boolValue ? .folder : .file
@@ -323,7 +323,7 @@ enum FileTransfer {
         let base = (source as NSString).lastPathComponent
         guard CopyPaths.isItemName(base) else { throw fail(HostError(.invalid, "not a name to copy: \(base)"), g) }
         let dest = given ?? CopyPaths.workspace
-        guard let path = CopyPaths.guestPath(dest) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(dest.debugDescription)"), g, code: DozerExit.usage) }
+        guard let path = CopyPaths.guestPath(dest) else { throw fail(HostError(.invalid, "not a path in a sandbox: \(dest.debugDescription)"), g, code: DozableExit.usage) }
 
         let (client, ready) = try open(name, CopyRequest(direction: .put, path: dest.hasSuffix("/") ? path + "/" : path, kind: kind, name: base, force: flags.force), flags, g)
         let target = (ready.path as NSString).lastPathComponent

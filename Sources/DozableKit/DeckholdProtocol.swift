@@ -715,10 +715,10 @@ public enum GuestCommand {
 
     /// Dozer's own git config, included from the system's (/etc/gitconfig) — the user's identity and the
     /// helper while "Use GitHub as you" is on; EMPTY otherwise (nothing of the user's stays).
-    public static let dozerGitConfigPath = "/etc/dozer/gitconfig"
+    public static let dozableGitConfigPath = "/etc/dozer/gitconfig"
 
     /// The file's text for `setup`.
-    public static func dozerGitConfig(_ setup: GitGuestSetup) -> String {
+    public static func dozableGitConfig(_ setup: GitGuestSetup) -> String {
         guard setup.on else { return "# Dozer: \"Use GitHub as you\" is off for this sandbox.\n" }
         func value(_ s: String) -> String {
             "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
@@ -734,10 +734,10 @@ public enum GuestCommand {
 
     /// Root shell: write the file and include it from /etc/gitconfig (once). Idempotent, never fails the caller.
     public static func gitConfigScript(_ setup: GitGuestSetup) -> String {
-        let quoted = "'" + dozerGitConfig(setup).replacingOccurrences(of: "'", with: "'\\''") + "'"
-        return "{ mkdir -p /etc/dozer && printf '%s' \(quoted) > '\(dozerGitConfigPath).tmp' && chmod 0644 '\(dozerGitConfigPath).tmp'"
-            + " && mv -f '\(dozerGitConfigPath).tmp' '\(dozerGitConfigPath)'"
-            + " && { grep -qs 'path = \(dozerGitConfigPath)' /etc/gitconfig || printf '[include]\\n\\tpath = \(dozerGitConfigPath)\\n' >> /etc/gitconfig; }; } || true"
+        let quoted = "'" + dozableGitConfig(setup).replacingOccurrences(of: "'", with: "'\\''") + "'"
+        return "{ mkdir -p /etc/dozer && printf '%s' \(quoted) > '\(dozableGitConfigPath).tmp' && chmod 0644 '\(dozableGitConfigPath).tmp'"
+            + " && mv -f '\(dozableGitConfigPath).tmp' '\(dozableGitConfigPath)'"
+            + " && { grep -qs 'path = \(dozableGitConfigPath)' /etc/gitconfig || printf '[include]\\n\\tpath = \(dozableGitConfigPath)\\n' >> /etc/gitconfig; }; } || true"
     }
 
     /// 599d (G4): where the forwarded SSH agent listens in the guest (sessions get `SSH_AUTH_SOCK` = it).

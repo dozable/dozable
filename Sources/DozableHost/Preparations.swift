@@ -165,14 +165,14 @@ public struct PreparationRecord: Codable, Equatable, Sendable {
         return left
     }
 
-    public static func url(_ store: DozerStore) -> URL { store.root.appendingPathComponent("preparations.json") }
+    public static func url(_ store: DozableStore) -> URL { store.root.appendingPathComponent("preparations.json") }
 
-    public static func all(_ store: DozerStore) -> [String: PreparationRecord] {
+    public static func all(_ store: DozableStore) -> [String: PreparationRecord] {
         guard let d = try? Data(contentsOf: url(store)) else { return [:] }
         return (try? HostWire.decoder.decode([String: PreparationRecord].self, from: d)) ?? [:]
     }
 
-    public static func save(_ r: PreparationRecord, store: DozerStore) {
+    public static func save(_ r: PreparationRecord, store: DozableStore) {
         var all = all(store)
         all[r.image] = r
         try? HostWire.prettyEncoder.encode(all).write(to: url(store), options: .atomic)
@@ -196,16 +196,16 @@ public struct OnboardingRecord: Codable, Equatable, Sendable {
         self.images = images
     }
 
-    public static func url(_ store: DozerStore) -> URL { store.root.appendingPathComponent("onboarded.json") }
+    public static func url(_ store: DozableStore) -> URL { store.root.appendingPathComponent("onboarded.json") }
 
-    public static func read(_ store: DozerStore) -> OnboardingRecord? {
+    public static func read(_ store: DozableStore) -> OnboardingRecord? {
         guard let d = try? Data(contentsOf: url(store)) else { return nil }
         return try? HostWire.decoder.decode(OnboardingRecord.self, from: d)
     }
 
     /// Record (or extend) the store's onboarding.
     @discardableResult
-    public static func record(_ store: DozerStore, version: String, images: [String], now: Date = Date()) throws -> OnboardingRecord {
+    public static func record(_ store: DozableStore, version: String, images: [String], now: Date = Date()) throws -> OnboardingRecord {
         var r = read(store) ?? OnboardingRecord(dozVersion: version, date: now, images: [])
         r.dozVersion = version
         r.date = now
@@ -466,19 +466,19 @@ extension HostCore {
     /// Whether `image` is ready for this build: the guest init disk is there and so is a bake with
     /// the key this build makes (the kernel cached and hashed — an older build's bake does not count).
     /// The lab: its prepared disk for the default lab spec.
-    @Sendable nonisolated static func isPrepared(_ image: String, _ store: DozerStore) -> Bool {
+    @Sendable nonisolated static func isPrepared(_ image: String, _ store: DozableStore) -> Bool {
         isUsable(image, store, currentRecipeOnly: true)
     }
 
     /// 594 W28: a start can use `image` without preparing anything — also an image an older doz's
     /// recipe made (it is used, and said to be stale; never rebuilt without asking).
-    @Sendable nonisolated static func isUsable(_ image: String, _ store: DozerStore) -> Bool {
+    @Sendable nonisolated static func isUsable(_ image: String, _ store: DozableStore) -> Bool {
         isUsable(image, store, currentRecipeOnly: false)
     }
 
-    nonisolated static func isUsable(_ image: String, _ store: DozerStore, currentRecipeOnly: Bool) -> Bool {
+    nonisolated static func isUsable(_ image: String, _ store: DozableStore, currentRecipeOnly: Bool) -> Bool {
         guard FileManager.default.fileExists(atPath: store.layout("_").initfs.path),
-              let spec = try? DozerImages.spec(name: "doz-prepare-\(image)", options: CreateOptions(image: image), store: store).0 else { return false }
+              let spec = try? DozableImages.spec(name: "doz-prepare-\(image)", options: CreateOptions(image: image), store: store).0 else { return false }
         guard let imageSpec = spec.imageSpec else {
             return FileManager.default.fileExists(atPath: StoreLayout(spec: spec).golden(for: spec).path)
         }
@@ -500,11 +500,11 @@ extension HostCore {
         let image: String
         if let imageSpec = spec.imageSpec {
             // 596: any base × agent image (a Dockerfile's: its build, then its bake).
-            guard DozerImages.isPreparable(imageSpec.name, store: store) else { return nil }
+            guard DozableImages.isPreparable(imageSpec.name, store: store) else { return nil }
             image = imageSpec.name
         } else {
             // The lab: only when this sandbox's prepared disk is the one a lab preparation makes.
-            guard let lab = try? DozerImages.spec(name: "doz-prepare-lab", options: CreateOptions(image: "lab"), store: store).0,
+            guard let lab = try? DozableImages.spec(name: "doz-prepare-lab", options: CreateOptions(image: "lab"), store: store).0,
                   StoreLayout.goldenKey(for: lab) == StoreLayout.goldenKey(for: spec) else { return nil }
             image = "lab"
         }
@@ -512,7 +512,7 @@ extension HostCore {
         // 618: a sandbox made at an exact release (NAME@VERSION) other than the one a preparation of the image makes — its
         // own boot bakes its own spec (ensureImage), never a preparation of another release.
         if let imageSpec = spec.imageSpec, let v = imageSpec.agent?.version,
-           let p = try? AgentVersions.spec(image, purpose: .prepare, store: store, settings: DozerSettings.load()), p.agent?.version != v {
+           let p = try? AgentVersions.spec(image, purpose: .prepare, store: store, settings: DozableSettings.load()), p.agent?.version != v {
             return nil
         }
         await freshen(image, update: false)
@@ -536,7 +536,7 @@ extension HostCore {
     /// that cannot ask the registry (in-process) says nothing — the create checks it.
     func exactVersionProblem(_ o: CreateOptions, mustCheck: Bool) async -> String? {
         guard let v = o.agentVersion else { return nil }
-        guard let r = ImageChoice.parse(DozerImages.canonicalName(o.image))?.agent.recipe else {
+        guard let r = ImageChoice.parse(DozableImages.canonicalName(o.image))?.agent.recipe else {
             return "\(o.image) has no agent to install at \(v)"
         }
         let s = store
@@ -547,7 +547,7 @@ extension HostCore {
         guard agentRegistry.lookup != nil || agentRegistry.manifest != nil else {
             return mustCheck ? "\(r.title) \(v) cannot be checked here (no registry) — try again with the host running, online" : nil
         }
-        let f = await AgentVersions.refresh(r.id, store: s, settings: DozerSettings.load(), registry: agentRegistry, version: v)
+        let f = await AgentVersions.refresh(r.id, store: s, settings: DozableSettings.load(), registry: agentRegistry, version: v)
         if AgentVersions.known(r.id, version: v, store: s) != nil { return nil }
         return "\(r.title) has no release \(v) Dozable could check" + (f.error.map { " (\($0))" } ?? "")
     }
@@ -562,7 +562,7 @@ extension HostCore {
         }
         guard choice.agent != .none else { return nil }
         let agent = choice.agent.rawValue
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         let f = await AgentVersions.refresh(agent, store: store, settings: settings, registry: agentRegistry)
         if let e = f.error, f.looked {
             HostLog.line("\(agent): the npm registry could not be asked (\(e)) — the image already prepared is used")
@@ -576,7 +576,7 @@ extension HostCore {
     /// 617: every agent's latest version (and when it came out) — the registry at most hourly per agent, never a rebuild.
     /// 629: the published recipes, and an unpublished one only while an image or a sandbox of it is in this store.
     func refreshAgentVersions() async {
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         for r in Self.agentsToLookUp(store: store, sandboxAgents: managed.values.compactMap { $0.config.imageChoice?.agent.rawValue }) {
             _ = await AgentVersions.refresh(r.id, store: store, settings: settings, registry: agentRegistry)
         }
@@ -584,8 +584,8 @@ extension HostCore {
 
     /// 629: whose latest release the hourly look-up asks for — every published recipe, then an unpublished one in use here
     /// (an image of it under images/, or a sandbox of it).
-    static func agentsToLookUp(store: DozerStore, sandboxAgents: [String]) -> [AgentRecipe] {
-        let used = Set(DozerImages.composedImagesInStore(store).compactMap { ImageChoice.parse($0)?.agent.rawValue } + sandboxAgents)
+    static func agentsToLookUp(store: DozableStore, sandboxAgents: [String]) -> [AgentRecipe] {
+        let used = Set(DozableImages.composedImagesInStore(store).compactMap { ImageChoice.parse($0)?.agent.rawValue } + sandboxAgents)
         return AgentRecipes.all.filter { $0.isPublished || used.contains($0.id) }
     }
 
@@ -598,7 +598,7 @@ extension HostCore {
 
     /// The preparation of `image`: the one running (joined), or a new one.
     func preparation(for image: String, requestedBy who: String) throws -> Preparation {
-        guard DozerImages.builtIn.contains(image) || DozerImages.isPreparable(image, store: store) else {
+        guard DozableImages.builtIn.contains(image) || DozableImages.isPreparable(image, store: store) else {
             throw HostError(.invalid, "only a base × agent image is prepared (lab, claude-code, pi, python-claude-code, … — doz base ls) — not \(image)")
         }
         if let p = runningPreparation(image) {
@@ -662,12 +662,12 @@ extension HostCore {
     /// kernel + guest init, then — an image spec — base image, base disk, clone, bake VM boot, bake
     /// network, each of its steps and verify checks, trim and stop; the lab — its first boot
     /// (measured: 594.02-RESULTS.md).
-    static func plannedSteps(_ image: String, store: DozerStore? = nil) -> Int? {
+    static func plannedSteps(_ image: String, store: DozableStore? = nil) -> Int? {
         if image == "lab" { return 2 + labBootSteps }
         // 596: any base × agent image, at the version a preparation would make (the pins without a store);
         // a Dockerfile's adds its build and its import.
-        let spec = DozerImages.imageSpec(image)
-            ?? store.flatMap { try? AgentVersions.spec(image, purpose: .prepare, store: $0, settings: DozerSettings.load()) }
+        let spec = DozableImages.imageSpec(image)
+            ?? store.flatMap { try? AgentVersions.spec(image, purpose: .prepare, store: $0, settings: DozableSettings.load()) }
         guard let spec else { return nil }
         let build = ImageChoice.parse(image)?.isDockerfile == true ? 2 : 0
         return 2 + build + 7 + spec.steps.count + spec.verify.count
@@ -679,7 +679,7 @@ extension HostCore {
 
     /// The work itself, off the actor: the kernel and guest init disk, then the image's bake (the lab:
     /// its prepared disk, made by booting a throwaway sandbox once).
-    @Sendable static func runPreparation(_ image: String, _ store: DozerStore, _ emit: @escaping @Sendable (HostEvent) -> Void) async throws {
+    @Sendable static func runPreparation(_ image: String, _ store: DozableStore, _ emit: @escaping @Sendable (HostEvent) -> Void) async throws {
         let tmpName = "doz-prepare-\(image)"
         // A throwaway sandbox a crashed preparation left behind would cold-boot its kept disk
         // instead of baking: it goes first.
@@ -691,7 +691,7 @@ extension HostCore {
         }
         // 594: the version the settings name — latest as resolved (the host asked the registry first),
         // or the exact one.
-        let spec = try DozerImages.spec(name: tmpName, options: CreateOptions(image: image), store: store, purpose: .prepare).0
+        let spec = try DozableImages.spec(name: tmpName, options: CreateOptions(image: image), store: store, purpose: .prepare).0
         let sb = try Sandbox(spec: spec)
         let stream = sb.events()
         let relabel = installLabel(image, spec: spec)
@@ -737,7 +737,7 @@ extension HostCore {
     /// (latest, resolved now)" when the setting is latest; the pinned label otherwise. 596: the native
     /// build's step too ("install Claude Code 2.1.285 (native build, latest, resolved now)").
     static func installLabel(_ image: String, spec: SandboxSpec) -> @Sendable (HostEvent) -> HostEvent {
-        guard let a = spec.imageSpec?.agent, AgentVersions.setting(AgentVersions.agentOf(image), DozerSettings.load()) == "latest" else { return { $0 } }
+        guard let a = spec.imageSpec?.agent, AgentVersions.setting(AgentVersions.agentOf(image), DozableSettings.load()) == "latest" else { return { $0 } }
         let pairs = [("npm install \(a.package)@\(a.version) (integrity-pinned)", "npm install \(a.package)@\(a.version) (latest, resolved now)"),
                      ("install Claude Code \(a.version) (native build, checksum-verified)", "install Claude Code \(a.version) (native build, latest, resolved now)")]
         return { e in
@@ -750,7 +750,7 @@ extension HostCore {
 
     /// 596 (B7–B9): build a Dockerfile's base with Apple's `container build` and import it — two timed
     /// steps, the build's output as the live tail, the network-policy note said first.
-    static func buildDockerfile(_ base: String, image: String, store: DozerStore, emit: @escaping @Sendable (HostEvent) -> Void) async throws {
+    static func buildDockerfile(_ base: String, image: String, store: DozableStore, emit: @escaping @Sendable (HostEvent) -> Void) async throws {
         guard var rec = Dockerfiles.record(base, store) else { throw HostError(.notFound, "no Dockerfile is known for \(base)") }
         let env = ProcessInfo.processInfo.environment
         let status = ContainerTool.status(env)
@@ -845,12 +845,12 @@ extension HostCore {
     }
 
     /// Validated image names, in the order given, without repeats.
-    static func preparableImages(_ names: [String], store: DozerStore? = nil) throws -> [String] {
+    static func preparableImages(_ names: [String], store: DozableStore? = nil) throws -> [String] {
         var out: [String] = []
         for raw in names {
             // 596: any base × agent image, by any of its names.
-            let n = DozerImages.canonicalName(raw)
-            guard DozerImages.builtIn.contains(n) || store.map({ DozerImages.isPreparable(n, store: $0) }) == true else {
+            let n = DozableImages.canonicalName(raw)
+            guard DozableImages.builtIn.contains(n) || store.map({ DozableImages.isPreparable(n, store: $0) }) == true else {
                 throw HostError(.invalid, "unknown image \(raw) — lab, claude-code, pi, or a base × agent image (doz base ls)")
             }
             if !out.contains(n) { out.append(n) }

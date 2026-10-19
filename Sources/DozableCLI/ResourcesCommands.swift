@@ -67,22 +67,22 @@ func runResourcesPlan(ids: [String], clean: Bool, dryRun: Bool, yes: Bool, _ g: 
     }
     if plan.items.isEmpty {
         if g.json { Out.json(plan) } else { Out.stdout(renderResourcePlan(plan)) }
-        if !plan.refused.isEmpty { throw ExitCode(DozerExit.failed) }
+        if !plan.refused.isEmpty { throw ExitCode(DozableExit.failed) }
         return
     }
     if !g.json { Out.stderr(renderResourcePlan(plan)) }
-    try confirm("Delete \(plan.items.count) item\(plan.items.count == 1 ? "" : "s") (frees \(DozerImages.formatBytes(plan.freedBytes)))?", yes: yes, g)
+    try confirm("Delete \(plan.items.count) item\(plan.items.count == 1 ? "" : "s") (frees \(DozableImages.formatBytes(plan.freedBytes)))?", yes: yes, g)
     r.dryRun = false
     // Delete exactly what was shown (clean included): a change since is refused, not widened.
     r.op = .resourcesRemove
     r.ids = plan.items.map(\.id)
     let done = try decode(try call(r, g), ResourcePlan.self, g)
     if g.json { Out.json(done) } else {
-        Out.stdout("deleted \(done.deleted.count) item\(done.deleted.count == 1 ? "" : "s") — freed \(DozerImages.formatBytes(done.freedBytes))\n")
+        Out.stdout("deleted \(done.deleted.count) item\(done.deleted.count == 1 ? "" : "s") — freed \(DozableImages.formatBytes(done.freedBytes))\n")
         for x in done.refused { Out.stdout("  refused \(x.id): \(x.reason)\n") }
         for x in done.failed { Out.stdout("  failed \(x.id): \(x.reason)\n") }
     }
-    if !done.failed.isEmpty || !done.refused.isEmpty { throw ExitCode(DozerExit.failed) }
+    if !done.failed.isEmpty || !done.refused.isEmpty { throw ExitCode(DozableExit.failed) }
 }
 
 func renderResourcePlan(_ p: ResourcePlan) -> String {
@@ -91,10 +91,10 @@ func renderResourcePlan(_ p: ResourcePlan) -> String {
     else {
         var t = [["DELETE", "FREES", "LATER"]]
         for e in p.items {
-            t.append([e.id, DozerImages.formatBytes(e.freedBytes), [e.later, e.warning.map { "⚠ " + $0 }].compactMap { $0 }.joined(separator: " · ")])
+            t.append([e.id, DozableImages.formatBytes(e.freedBytes), [e.later, e.warning.map { "⚠ " + $0 }].compactMap { $0 }.joined(separator: " · ")])
         }
         s += Out.table(t)
-        s += "frees \(DozerImages.formatBytes(p.freedBytes)) in all (blocks shared between them counted once)\(p.dryRun ? " — a dry run: nothing was deleted" : "")\n"
+        s += "frees \(DozableImages.formatBytes(p.freedBytes)) in all (blocks shared between them counted once)\(p.dryRun ? " — a dry run: nothing was deleted" : "")\n"
     }
     for x in p.refused { s += "refused \(x.id): \(x.reason)\n" }
     if p.clean { s += "logs and metrics are kept — name them to clear (doz resources rm logs metrics)\n" }
@@ -102,7 +102,7 @@ func renderResourcePlan(_ p: ResourcePlan) -> String {
 }
 
 func renderResources(_ r: ResourceReport) -> String {
-    let fmt = DozerImages.formatBytes
+    let fmt = DozableImages.formatBytes
     var s = "\(r.store)\n"
     s += "Dozable uses \(fmt(r.totalBytes)) of disk (as du counts it; \(fmt(r.occupiedBytes)) with APFS-shared blocks counted once)"
     s += " · Clean up frees \(fmt(r.cleanableBytes))"

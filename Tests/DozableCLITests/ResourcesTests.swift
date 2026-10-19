@@ -9,7 +9,7 @@ import XCTest
 /// (APFS, so the clones share blocks as real images and sandboxes do).
 final class ResourcesTests: XCTestCase {
     private var root: URL!
-    private var store: DozerStore!
+    private var store: DozableStore!
     private let labKey = "alpine-3.20-aaaaaaaaaaaa"
     private let ccKey = "abcdefabcdef"
     private let ccOld = "111111111111"
@@ -19,7 +19,7 @@ final class ResourcesTests: XCTestCase {
 
     override func setUpWithError() throws {
         root = URL(fileURLWithPath: "/tmp/d595u-\(UUID().uuidString.prefix(8))")
-        store = DozerStore(root: root)
+        store = DozableStore(root: root)
         try build()
     }
 

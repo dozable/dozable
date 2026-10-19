@@ -14,21 +14,21 @@ import DozableHost
 /// credential (for the UI only, for a few minutes, once): the only other place it goes is a
 /// browser (LaunchServices, never a process argument) or the TTY the user asked it be printed on.
 public enum WebControl {
-    public static func lockFile(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.lock") }
-    public static func socket(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.sock") }
+    public static func lockFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.lock") }
+    public static func socket(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.sock") }
     /// 594 W18: the port the store's last UI listened on (0600) — the next `doz ui` asks for it again,
     /// so a page left open reconnects to the same origin. Not a secret; a page there still needs a
     /// new link to sign in.
-    public static func portFile(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.port") }
+    public static func portFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.port") }
 
     /// The address a new UI binds: the last port when nothing listens there, else the OS's pick.
-    public static func address(_ store: DozerStore) -> WebLoopbackAddress {
+    public static func address(_ store: DozableStore) -> WebLoopbackAddress {
         guard let port = rememberedPort(store), let a = WebLoopbackAddress(reusing: port) else { return WebLoopbackAddress() }
         return a
     }
 
     /// 605: the port the store's last UI listened on, if any.
-    public static func rememberedPort(_ store: DozerStore) -> Int? {
+    public static func rememberedPort(_ store: DozableStore) -> Int? {
         guard let s = try? String(contentsOf: portFile(store), encoding: .utf8),
               let port = Int(s.trimmingCharacters(in: .whitespacesAndNewlines)), (1024...65_535).contains(port) else { return nil }
         return port
@@ -36,24 +36,24 @@ public enum WebControl {
 
     /// 605: where the next UI of this store will listen — `ui.port` when set (a fixed port), else the
     /// remembered one (nil: the OS will pick). What `doz ui restart` compares with the running port.
-    public static func nextPort(_ store: DozerStore, configured: Int) -> Int? {
+    public static func nextPort(_ store: DozableStore, configured: Int) -> Int? {
         configured != 0 ? configured : rememberedPort(store)
     }
 
     /// 605: why a cookie no longer signs in (`WebSessionStore`: digests and reasons, 0600).
-    public static func revokedFile(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.revoked") }
+    public static func revokedFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.revoked") }
     /// 605: the UI's operations ring, kept across a restart (`WebOperations`, 0600).
-    public static func operationsFile(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.operations.json") }
+    public static func operationsFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.operations.json") }
 
     /// Remember the port this UI listens on.
-    public static func rememberPort(_ store: DozerStore, _ port: Int) {
+    public static func rememberPort(_ store: DozableStore, _ port: Int) {
         let url = portFile(store)
         guard (try? "\(port)\n".write(to: url, atomically: true, encoding: .utf8)) != nil else { return }
         chmod(url.path, 0o600)
     }
 
     /// Take the store's UI lock for the life of the process; nil when another UI holds it.
-    public static func takeLock(_ store: DozerStore) throws -> Int32? {
+    public static func takeLock(_ store: DozableStore) throws -> Int32? {
         try store.ensureDirectory()
         let fd = open(lockFile(store).path, O_RDWR | O_CREAT | O_CLOEXEC, 0o600)
         guard fd >= 0 else { throw HostError(.failed, "cannot open \(lockFile(store).path): \(String(cString: strerror(errno)))") }
@@ -75,7 +75,7 @@ public enum WebControl {
     /// When the store's UI lock is HELD but ui.sock gave no answer: one line naming the holder and what to do —
     /// nil when no UI holds the lock (then "no doz ui is running" is the truth). A process stopped with Ctrl-Z
     /// still has its socket accepted by the kernel, so only a timeout tells it apart from a live one.
-    public static func holderNote(_ store: DozerStore) -> String? {
+    public static func holderNote(_ store: DozableStore) -> String? {
         let fd = open(lockFile(store).path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
@@ -91,7 +91,7 @@ public enum WebControl {
     }
 
     /// The pid of the process holding the store's UI lock; nil when nobody holds it (or no pid was recorded).
-    public static func lockHolder(_ store: DozerStore) -> pid_t? {
+    public static func lockHolder(_ store: DozableStore) -> pid_t? {
         let fd = open(lockFile(store).path, O_RDONLY | O_CLOEXEC)
         guard fd >= 0 else { return nil }
         defer { close(fd) }
@@ -124,7 +124,7 @@ public enum WebControl {
 
     /// Serve `link` requests for `server` on a background thread. Returns the listening fd.
     @discardableResult
-    public static func serve(_ store: DozerStore, server: DozableWebServer, restarter: Restarter? = nil) throws -> Int32 {
+    public static func serve(_ store: DozableStore, server: DozableWebServer, restarter: Restarter? = nil) throws -> Int32 {
         let lfd = try UnixSocket.listen(socket(store).path, backlog: 8)
         Thread.detachNewThread {
             while true {
@@ -183,7 +183,7 @@ public enum WebControl {
         _ = UnixSocket.writeAll(fd, Data((url.absoluteString + "\n").utf8))
     }
 
-    private static func ask(_ store: DozerStore, _ command: String) -> String? {
+    private static func ask(_ store: DozableStore, _ command: String) -> String? {
         guard let fd = UnixSocket.connect(socket(store).path) else { return nil }
         defer { close(fd) }
         // Never wait forever: a suspended UI's socket is still accepted by the kernel, and nothing ever answers.
@@ -209,21 +209,21 @@ public enum WebControl {
 
     /// 617: point the running UI's open pages at `page` (`try` or `try/AGENT`); the number of pages told, or nil when no
     /// UI runs (or it is an older one that does not know the line).
-    public static func requestShow(_ store: DozerStore, page: String) -> Int? {
+    public static func requestShow(_ store: DozableStore, page: String) -> Int? {
         guard showPage("show " + page) != nil, let line = ask(store, "show " + page), line.hasPrefix("shown ") else { return nil }
         return Int(line.dropFirst(6))
     }
 
     /// Ask the store's running UI for a new link; nil when no UI runs for this store.
-    public static func requestLink(_ store: DozerStore) -> URL? { launchURL(ask(store, "link")) }
+    public static func requestLink(_ store: DozableStore) -> URL? { launchURL(ask(store, "link")) }
 
     /// 594 W19: end every session of the running UI (each open page is told to use a new link) and
     /// get that new link; nil when no UI runs.
-    public static func requestRotate(_ store: DozerStore) -> URL? { launchURL(ask(store, "rotate")) }
+    public static func requestRotate(_ store: DozableStore) -> URL? { launchURL(ask(store, "rotate")) }
 
     /// 605: ask the running UI to restart itself: `.success(origin)` (it is restarting), `.failure` with
     /// why not; nil when no UI runs for this store.
-    public static func requestRestart(_ store: DozerStore) -> Result<String, HostError>? {
+    public static func requestRestart(_ store: DozableStore) -> Result<String, HostError>? {
         guard let line = ask(store, "restart") else { return nil }
         if line.hasPrefix("restarting ") { return .success(String(line.dropFirst("restarting ".count))) }
         if line.hasPrefix("refused ") { return .failure(HostError(.failed, String(line.dropFirst("refused ".count)))) }
@@ -231,17 +231,17 @@ public enum WebControl {
     }
 
     /// 594 W19: the running UI's origin and its open pages; nil when no UI runs for this store.
-    public static func requestStatus(_ store: DozerStore) -> (origin: String, pages: Int)? {
+    public static func requestStatus(_ store: DozableStore) -> (origin: String, pages: Int)? {
         guard let parts = ask(store, "status")?.split(separator: " "), parts.count == 2, let n = Int(parts[1]),
               parts[0].hasPrefix("http://\(WebLoopbackAddress.host):") else { return nil }
         return (String(parts[0]), n)
     }
 
     /// 594 W19: the sessions a restarted UI keeps (`WebSessionStore`: cookie digests, 0600).
-    public static func sessionsFile(_ store: DozerStore) -> URL { store.root.appendingPathComponent("ui.sessions") }
+    public static func sessionsFile(_ store: DozableStore) -> URL { store.root.appendingPathComponent("ui.sessions") }
 
     /// Remove the socket when the UI stops.
-    public static func cleanUp(_ store: DozerStore, listenFD: Int32, lockFD: Int32) {
+    public static func cleanUp(_ store: DozableStore, listenFD: Int32, lockFD: Int32) {
         unlink(socket(store).path)
         close(listenFD)
         flock(lockFD, LOCK_UN)

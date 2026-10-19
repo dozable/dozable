@@ -23,7 +23,7 @@ final class MajorChoiceTests: XCTestCase {
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
 
     func facts() -> PlanFacts {
-        PlanFacts(settings: DozerSettings(text: ""), accounts: AccountsFile(), taken: [], images: [], store: DozerStore(root: root),
+        PlanFacts(settings: DozableSettings(text: ""), accounts: AccountsFile(), taken: [], images: [], store: DozableStore(root: root),
                   projectsDir: "/tmp/618-pin-projects")
     }
 
@@ -84,32 +84,32 @@ final class MajorChoiceTests: XCTestCase {
     /// offered, carried into the create; the plan's yaml says them (no more "not project keys" note).
     func testAProjectFileTakesItsModelSourceAndModel() throws {
         let yaml = "version: 1\nname: p\nagent: opencode@2\nmodel_source: openrouter\nmodel: anthropic/claude-sonnet-4.6\n"
-        let p = try DozerProject.parse(yaml)
+        let p = try DozableProject.parse(yaml)
         XCTAssertEqual(p.modelSource, "openrouter")
         XCTAssertEqual(p.model, "anthropic/claude-sonnet-4.6")
-        let o = p.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozerSettings(text: ""))
+        let o = p.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozableSettings(text: ""))
         XCTAssertEqual(o.modelSource, "openrouter")
         XCTAssertEqual(o.model, "anthropic/claude-sonnet-4.6")
-        let back = try DozerProject.parse(p.render())
+        let back = try DozableProject.parse(p.render())
         XCTAssertEqual(back.modelSource, "openrouter")
         XCTAssertEqual(back.model, "anthropic/claude-sonnet-4.6")
         // Refused with the fix: a source that is no source, one the agent is not offered, a model that is no id, an agent
         // with no choice of model.
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel_source: nosuch\n")) {
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel_source: nosuch\n")) {
             XCTAssertTrue("\($0)".contains("line 4") && "\($0)".contains("model_source:"), "\($0)")
         }
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel_source: google\n")) {
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel_source: google\n")) {
             XCTAssertTrue("\($0)".contains("openrouter") && "\($0)".contains("doz models"), "\($0)")
         }
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel: 'a b'\n"))
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: anthropic\n")) {
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel: 'a b'\n"))
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: anthropic\n")) {
             XCTAssertTrue("\($0)".contains("no choice of model"), "\($0)")
         }
         // An agent with a choice gets the keys as comments; one without does not.
-        var plain = DozerProject(name: "p", image: "opencode2")
+        var plain = DozableProject(name: "p", image: "opencode2")
         plain.agent = "opencode@2"
         XCTAssertTrue(plain.render().contains("# model_source:"), plain.render())
-        var cc = DozerProject(name: "p", image: "claude-code")
+        var cc = DozableProject(name: "p", image: "claude-code")
         cc.agent = "claude-code"
         XCTAssertFalse(cc.render().contains("model_source"))
         // The plan's file says them.
@@ -118,12 +118,12 @@ final class MajorChoiceTests: XCTestCase {
         XCTAssertTrue(planned.yaml.contains("model: anthropic/claude-sonnet-4.6"), planned.yaml)
         XCTAssertNil(planned.yamlNote)
         // doz init writes them.
-        let i = try XCTUnwrap(try DozerCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode@2", "--gateway", "openrouter",
+        let i = try XCTUnwrap(try DozableCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode@2", "--gateway", "openrouter",
                                                           "--model", "x-ai/grok-build-0.1"]) as? Init)
         let made = try i.ask(folder: root, existing: nil, asker: Asker(yes: true, json: false))
         XCTAssertEqual(made.modelSource, "openrouter")
         XCTAssertEqual(made.model, "x-ai/grok-build-0.1")
-        XCTAssertThrowsError(try (try XCTUnwrap(try DozerCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode@2", "--provider", "openrouter"]) as? Init))
+        XCTAssertThrowsError(try (try XCTUnwrap(try DozableCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode@2", "--provider", "openrouter"]) as? Init))
             .ask(folder: root, existing: nil, asker: Asker(yes: true, json: false)))
         // New Sandbox's form.
         var form = WebProjectForm(made)
@@ -136,7 +136,7 @@ final class MajorChoiceTests: XCTestCase {
     /// plan the SAME release — also on a store whose host failed to reach the registry (it refused to plan then, while
     /// the CLI with no host planned the pin).
     func testTheWebTryPlanIsTheCLIPlan() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         for agent in ["opencode", "opencode2", "pi", "grok"] {
             AgentVersions.update(agent, store) { $0.failedAt = Date(); $0.lastError = "offline" }
         }
@@ -162,24 +162,24 @@ final class MajorChoiceTests: XCTestCase {
     }
 
     func testAProjectFileTakesAMajor() throws {
-        XCTAssertNil(DozerProject.agentProblem("opencode@1"))
-        XCTAssertNil(DozerProject.agentProblem("opencode@2.0.28"))
-        XCTAssertNil(DozerProject.agentProblem("none"))
-        XCTAssertNotNil(DozerProject.agentProblem("opencode@9"))
-        XCTAssertNotNil(DozerProject.agentProblem("nosuch"))
+        XCTAssertNil(DozableProject.agentProblem("opencode@1"))
+        XCTAssertNil(DozableProject.agentProblem("opencode@2.0.28"))
+        XCTAssertNil(DozableProject.agentProblem("none"))
+        XCTAssertNotNil(DozableProject.agentProblem("opencode@9"))
+        XCTAssertNotNil(DozableProject.agentProblem("nosuch"))
         let yaml = "version: 1\nname: p\nagent: opencode@1\n"
-        let p = try DozerProject.parse(yaml)
+        let p = try DozableProject.parse(yaml)
         XCTAssertEqual(p.agent, "opencode@1")
         XCTAssertEqual(p.chosenImage, "opencode")
-        let o = p.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozerSettings(text: ""))
+        let o = p.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozableSettings(text: ""))
         XCTAssertEqual(o.agentRef, "opencode@1")
-        let exact = try DozerProject.parse("version: 1\nname: p\nagent: opencode@2.0.28\n")
-        let e = exact.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozerSettings(text: ""))
+        let exact = try DozableProject.parse("version: 1\nname: p\nagent: opencode@2.0.28\n")
+        let e = exact.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml"), settings: DozableSettings(text: ""))
         XCTAssertEqual(e.image, "opencode2")
         XCTAssertEqual(e.agentVersion, "2.0.28")
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nagent: opencode@9\n"))
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: opencode@9\n"))
         // The file round-trips.
-        XCTAssertEqual(try DozerProject.parse(p.render()).agent, "opencode@1")
+        XCTAssertEqual(try DozableProject.parse(p.render()).agent, "opencode@1")
     }
 
     /// A project file outlives the try that wrote it: when the recommended major later moves, a file Dozer wrote must
@@ -199,13 +199,13 @@ final class MajorChoiceTests: XCTestCase {
         XCTAssertEqual(agentLine(try plan("try", ["--agent", "opencode@1"]).yaml), "agent: opencode@1")
         XCTAssertEqual(agentLine(try plan("try", ["--agent", "opencode@2.0.28"]).yaml), "agent: opencode@2.0.28")
         // The one rule all three writers share.
-        XCTAssertEqual(DozerProject.fileAgent("opencode"), pinned)
-        XCTAssertEqual(DozerProject.fileAgent("opencode2"), "opencode@2")
-        XCTAssertEqual(DozerProject.fileAgent("opencode@1"), "opencode@1")
-        XCTAssertEqual(DozerProject.fileAgent("grok"), "grok")
-        XCTAssertEqual(DozerProject.fileAgent("none"), "none")
+        XCTAssertEqual(DozableProject.fileAgent("opencode"), pinned)
+        XCTAssertEqual(DozableProject.fileAgent("opencode2"), "opencode@2")
+        XCTAssertEqual(DozableProject.fileAgent("opencode@1"), "opencode@1")
+        XCTAssertEqual(DozableProject.fileAgent("grok"), "grok")
+        XCTAssertEqual(DozableProject.fileAgent("none"), "none")
         // doz init --agent opencode.
-        let i = try XCTUnwrap(try DozerCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode"]) as? Init)
+        let i = try XCTUnwrap(try DozableCommand.parseAsRoot(["init", "--yes", "--name", "p", "--agent", "opencode"]) as? Init)
         let made = try i.ask(folder: root, existing: nil, asker: Asker(yes: true, json: false))
         XCTAssertEqual(made.agent, pinned)
         XCTAssertEqual(made.image, recommended.id)
@@ -215,19 +215,19 @@ final class MajorChoiceTests: XCTestCase {
         form.agent = "opencode"
         XCTAssertEqual(try form.project().agent, pinned)
         // By hand: the bare name stays the recommended major, and doz up says which, once, when it is made.
-        let hand = try DozerProject.parse("version: 1\nname: p\nagent: opencode\n")
+        let hand = try DozableProject.parse("version: 1\nname: p\nagent: opencode\n")
         XCTAssertEqual(hand.agent, "opencode")
         XCTAssertEqual(hand.chosenImage, recommended.id)
-        XCTAssertEqual(try DozerProject.parse(hand.render()).agent, "opencode", "rewriting a file keeps what it says")
-        let note = try XCTUnwrap(DozerProject.familyNote("opencode"))
+        XCTAssertEqual(try DozableProject.parse(hand.render()).agent, "opencode", "rewriting a file keeps what it says")
+        let note = try XCTUnwrap(DozableProject.familyNote("opencode"))
         XCTAssertTrue(note.contains("is \(pinned)") && note.contains("write agent: \(pinned)"), note)
-        XCTAssertNil(DozerProject.familyNote("opencode@1"))
-        XCTAssertNil(DozerProject.familyNote("opencode2"))
-        XCTAssertNil(DozerProject.familyNote("grok"))
-        XCTAssertNil(DozerProject.familyNote(nil))
+        XCTAssertNil(DozableProject.familyNote("opencode@1"))
+        XCTAssertNil(DozableProject.familyNote("opencode2"))
+        XCTAssertNil(DozableProject.familyNote("grok"))
+        XCTAssertNil(DozableProject.familyNote(nil))
         // The agent: comment (and every "--agent: …" message) names families, not members' ids.
-        XCTAssertTrue(DozerProject.agentWords.contains("opencode"))
-        XCTAssertFalse(DozerProject.agentWords.contains("opencode2"), DozerProject.agentWords)
+        XCTAssertTrue(DozableProject.agentWords.contains("opencode"))
+        XCTAssertFalse(DozableProject.agentWords.contains("opencode2"), DozableProject.agentWords)
         XCTAssertFalse(made.render().contains("opencode2"), made.render())
     }
 
@@ -241,7 +241,7 @@ final class MajorChoiceTests: XCTestCase {
         let o = searchLine(SearchHit(outcome: "supported", limit: nil, entry: try XCTUnwrap(DirectoryIndex.build(version: "t").entries.first { $0.id == other.id })),
                            local: nil, base: nil)
         XCTAssertTrue(o.contains("try it: doz try opencode@\(other.family!.major)"), o)
-        let s = try XCTUnwrap(try DozerCommand.parseAsRoot(["search", "opencode@1"]) as? SearchCommand)
+        let s = try XCTUnwrap(try DozableCommand.parseAsRoot(["search", "opencode@1"]) as? SearchCommand)
         XCTAssertEqual(s.resolvedTerms, ["opencode"])
     }
 }

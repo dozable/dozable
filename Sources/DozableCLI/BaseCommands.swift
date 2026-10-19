@@ -28,7 +28,7 @@ struct BaseList: AsyncParsableCommand {
         var t = [["BASE", "IMAGE", "DOWNLOAD", "FIRST PREPARE", "PREPARED", "REGISTRIES"]]
         for r in rows {
             let digest = String(r.digest.dropFirst(7).prefix(12)) + (r.pinned ? " (pin)" : "") + (r.updateAvailable == true ? " — update available" : "")
-            t.append(["\(r.id) — \(r.title)", "\(r.reference) @ \(digest)", DozerImages.formatBytes(r.downloadBytes),
+            t.append(["\(r.id) — \(r.title)", "\(r.reference) @ \(digest)", DozableImages.formatBytes(r.downloadBytes),
                       "~\(max(1, r.prepareSeconds / 60)) min", r.prepared.isEmpty ? "—" : r.prepared.joined(separator: ", "),
                       r.registries.isEmpty ? "(the agent preset's)" : r.registries.joined(separator: ", ")])
         }

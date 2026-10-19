@@ -56,7 +56,7 @@ public enum Workspace {
 
     /// Why `path` (normalized) may not be a workspace, or — when it does not exist — may not be made.
     /// nil: it may.
-    public static func refusal(_ path: String, store: DozerStore?) -> String? {
+    public static func refusal(_ path: String, store: DozableStore?) -> String? {
         let home = home()
         if path == "/" { return "the workspace cannot be / (the whole Mac)" }
         if path == home { return "the workspace cannot be your home folder itself — pick a folder in it" }
@@ -78,7 +78,7 @@ public enum Workspace {
     }
 
     /// The workspace as it will be shared: normalized, checked, and made (`mkdir -p`) when missing.
-    public static func prepare(_ raw: String, store: DozerStore?) throws -> Prepared {
+    public static func prepare(_ raw: String, store: DozableStore?) throws -> Prepared {
         let path = try normalize(raw)
         if let why = refusal(path, store: store) { throw HostError(.invalid, why) }
         var missing: [String] = []
@@ -177,7 +177,7 @@ public enum Workspace {
     }
 
     /// `<projects_dir>/<name>` (the setting, `~` expanded).
-    public static func defaultPath(name: String, settings: DozerSettings = .load()) -> String {
+    public static func defaultPath(name: String, settings: DozableSettings = .load()) -> String {
         let dir = settings.string(SettingKey.projectsDir) ?? settings.unsetProjectsDir
         return URL(fileURLWithPath: (dir as NSString).expandingTildeInPath).appendingPathComponent(name).standardizedFileURL.path
     }

@@ -64,7 +64,7 @@ public struct TerminalLayout: Codable, Equatable, Sendable {
     // MARK: the file
 
     /// The stored layout (nil: none, or one that no longer validates).
-    public static func read(_ store: DozerStore, _ name: String) -> TerminalLayout? {
+    public static func read(_ store: DozableStore, _ name: String) -> TerminalLayout? {
         guard let d = try? Data(contentsOf: store.terminalLayoutFile(name)),
               let l = try? HostWire.decoder.decode(TerminalLayout.self, from: d), (try? l.validate()) != nil else { return nil }
         return l
@@ -72,7 +72,7 @@ public struct TerminalLayout: Codable, Equatable, Sendable {
 
     /// Write it (nil: remove it) — atomically, 0600, and only into a sandbox `doz create` made: a layout
     /// never re-creates the directory of a removed sandbox.
-    public static func write(_ layout: TerminalLayout?, _ store: DozerStore, _ name: String) throws {
+    public static func write(_ layout: TerminalLayout?, _ store: DozableStore, _ name: String) throws {
         let url = store.terminalLayoutFile(name)
         guard FileManager.default.fileExists(atPath: store.configFile(name).path) else {
             throw HostError(.notFound, "no sandbox \(name) (doz ls)")

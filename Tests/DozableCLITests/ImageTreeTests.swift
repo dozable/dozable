@@ -68,7 +68,7 @@ final class ImageTreeTests: XCTestCase {
     }
 
     func testAnEmptyStoreIsAnEmptyTree() throws {
-        let store = DozerStore(root: FileManager.default.temporaryDirectory.appendingPathComponent("doz-tree-\(UUID().uuidString)"))
+        let store = DozableStore(root: FileManager.default.temporaryDirectory.appendingPathComponent("doz-tree-\(UUID().uuidString)"))
         XCTAssertEqual(try ImageTree.measure(store: store).nodes, [])
         XCTAssertEqual(ImageTree(disks: []).nodes, [])
     }
@@ -92,7 +92,7 @@ final class ImageTreeTests: XCTestCase {
         let root = URL(fileURLWithPath: "/private/tmp/dzws-\(UUID().uuidString.prefix(8))")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { chmod(root.appendingPathComponent("locked").path, 0o700); try? FileManager.default.removeItem(at: root) }
-        let store = DozerStore(root: root.appendingPathComponent("store"))
+        let store = DozableStore(root: root.appendingPathComponent("store"))
         try FileManager.default.createDirectory(at: store.root, withIntermediateDirectories: true)
 
         // An existing folder: shared as it is, nothing made.
@@ -162,9 +162,9 @@ final class ImageTreeTests: XCTestCase {
         try Data().write(to: URL(fileURLWithPath: projects + "/lab-sandbox/README"))
         XCTAssertEqual(Workspace.suggestedName(image: "lab", taken: [], projects: projects), "lab-sandbox-2")
 
-        XCTAssertEqual(Workspace.defaultPath(name: "claude-sandbox", settings: DozerSettings(text: nil, unsetProjectsDir: "~/doz-workspaces")),
+        XCTAssertEqual(Workspace.defaultPath(name: "claude-sandbox", settings: DozableSettings(text: nil, unsetProjectsDir: "~/doz-workspaces")),
                        FileManager.default.homeDirectoryForCurrentUser.path + "/doz-workspaces/claude-sandbox")
-        let set = DozerSettings(text: "[defaults]\nprojects_dir = \"/private/tmp/p\"\n")
+        let set = DozableSettings(text: "[defaults]\nprojects_dir = \"/private/tmp/p\"\n")
         XCTAssertEqual(set.warnings, [])
         XCTAssertEqual(Workspace.defaultPath(name: "x", settings: set), "/private/tmp/p/x")
     }

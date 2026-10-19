@@ -44,7 +44,7 @@ final class CodexHostTests: XCTestCase {
     }
 
     func core() async -> HostCore {
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: services())
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: services())
         await c.load()
         return c
     }
@@ -70,12 +70,12 @@ final class CodexHostTests: XCTestCase {
         XCTAssertEqual(ImageChoice.parse("alpine-codex")?.name, "alpine-codex")
         XCTAssertEqual(AgentImages.agentName("go-codex"), "Codex")
         XCTAssertEqual(AgentImages.package("codex"), "@openai/codex")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "python-codex"), "codex")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "python-pi"), "pi", "unchanged")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "go"), "claude-code", "unchanged")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "python-codex"), "codex")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "python-pi"), "pi", "unchanged")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "go"), "claude-code", "unchanged")
         XCTAssertEqual(SettingKey.agentVersion("codex"), "images.codex_version")
-        XCTAssertNotNil(DozerSettings.definition("images.codex.memory_mib"))
-        XCTAssertNotNil(DozerSettings.definition("codex.permissions"))
+        XCTAssertNotNil(DozableSettings.definition("images.codex.memory_mib"))
+        XCTAssertNotNil(DozableSettings.definition("codex.permissions"))
         XCTAssertEqual(Workspace.baseName(image: "codex"), "codex-sandbox")
         XCTAssertEqual(Workspace.baseName(image: "rust-codex"), "rust-codex-sandbox")
     }
@@ -148,7 +148,7 @@ final class CodexHostTests: XCTestCase {
         d.account = "plan"
         m = await c.handle(d)
         XCTAssertNil(m.error)
-        let f = AccountStore(store: DozerStore(root: root)).load()
+        let f = AccountStore(store: DozableStore(root: root)).load()
         XCTAssertEqual(f.openaiDefault, "plan")
         XCTAssertEqual(f.defaultAccount, "mac")
         let rows = try XCTUnwrap(m.result).decode([AccountRow].self)
@@ -167,7 +167,7 @@ final class CodexHostTests: XCTestCase {
         m = await c.handle(rm)
         XCTAssertNil(m.error, m.error?.message ?? "")
         XCTAssertNil(keychain.get("doz-chatgpt:plan"))
-        XCTAssertNil(AccountStore(store: DozerStore(root: root)).load().openaiDefault)
+        XCTAssertNil(AccountStore(store: DozableStore(root: root)).load().openaiDefault)
     }
 
     /// The vault swaps the sign-in's access token on chatgpt.com; the guest's auth.json holds placeholders only.
@@ -243,7 +243,7 @@ final class CodexHostTests: XCTestCase {
         let perms = PermissionPolicy.report(name: "cc", policy: pol, base: "node", log: [])
         XCTAssertNil(perms.permissions.first { $0.id == "model:openai" })
         XCTAssertFalse(PermissionPolicy.facts(pol, sandbox: "cc").contains("OpenAI"))
-        XCTAssertNil(HostCore.withClaudePermissions([:], imageSpec: "claude-code", settings: DozerSettings(text: ""))["DOZ_CODEX_PERMISSIONS"])
+        XCTAssertNil(HostCore.withClaudePermissions([:], imageSpec: "claude-code", settings: DozableSettings(text: ""))["DOZ_CODEX_PERMISSIONS"])
     }
 
     func testCodexsPromptAndSkill() async throws {
@@ -259,7 +259,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertTrue(report.skill?.contains("(`~/.codex`: logins, history, settings)") == true)
         XCTAssertTrue(report.text?.contains("talk to your AI model (OpenAI)") == true, report.text ?? "")
         XCTAssertFalse(report.text?.contains("Anthropic") == true, report.text ?? "")
-        let env = HostCore.withClaudePermissions([:], imageSpec: "codex", settings: DozerSettings(text: ""))
+        let env = HostCore.withClaudePermissions([:], imageSpec: "codex", settings: DozableSettings(text: ""))
         XCTAssertNil(env["DOZ_CODEX_PERMISSIONS"], "skip is the default — nothing set")
     }
 
@@ -377,7 +377,7 @@ final class CodexHostTests: XCTestCase {
         let m = await add(c, "plan", .chatgpt, fakeChatGPTTokens().json)
         XCTAssertEqual(m.error?.code, .failed, "\(String(describing: m.error))")
         XCTAssertNil(keychain.get("doz-chatgpt:plan"))
-        XCTAssertFalse(AccountStore(store: DozerStore(root: root)).load().accounts.contains { $0.name == "plan" }, "not registered")
+        XCTAssertFalse(AccountStore(store: DozableStore(root: root)).load().accounts.contains { $0.name == "plan" }, "not registered")
     }
 
     func testARotationThatCannotBeKeptLeavesNoSpentToken() throws {
@@ -422,14 +422,14 @@ final class CodexHostTests: XCTestCase {
     // MARK: versions
 
     func testCodexsReleaseIsTheVersionAndThePlatformTarballsIntegrity() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let asked = Locked<[String]>([])
         let registry = NpmRegistry(lookup: { p, tag in
             asked.mutate { $0.append("\(p)@\(tag)") }
             if tag == "latest" { return AgentRelease(version: "0.161.0", integrity: "sha512-MAIN") }
             return AgentRelease(version: tag, integrity: "sha512-PLATFORM")
         })
-        let settings = DozerSettings(text: "")
+        let settings = DozableSettings(text: "")
         let f = await AgentVersions.refresh("codex", store: store, settings: settings, registry: registry)
         XCTAssertEqual(f.latest, "0.161.0")
         XCTAssertEqual(asked.value, ["@openai/codex@latest", "@openai/codex@0.161.0-linux-arm64"])
@@ -439,7 +439,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertTrue(script.contains("codex-0.161.0-linux-arm64.tgz") && script.contains("'sha512-PLATFORM'"))
         XCTAssertEqual(AgentVersions.currentRecipe(for: spec), spec, "W28: this doz's recipe")
         // Never asked: the pin.
-        XCTAssertEqual(try AgentVersions.spec("codex", purpose: .prepare, store: DozerStore(root: root.appendingPathComponent("x")), settings: settings)?.agent?.version,
+        XCTAssertEqual(try AgentVersions.spec("codex", purpose: .prepare, store: DozableStore(root: root.appendingPathComponent("x")), settings: settings)?.agent?.version,
                        AgentImages.codexPinned.version)
     }
 
@@ -461,7 +461,7 @@ final class CodexHostTests: XCTestCase {
     }
 
     /// Dozer never reads or writes the Mac's own Codex home: no Mac-side source names ~/.codex.
-    func testDozerNeverTouchesTheMacsCodexHome() throws {
+    func testDozableNeverTouchesTheMacsCodexHome() throws {
         let src = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources")
         for dir in ["DozableHost", "DozableCLI", "DozableWeb"] {

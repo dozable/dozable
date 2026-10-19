@@ -46,7 +46,7 @@ struct LinkDelivery: ParsableArguments {
 
     /// 594 W19: when a tab opens — `--open` always, `--no-open` never, else the setting
     /// `ui.open_browser` (auto: only when no page of this UI is open).
-    func openMode(_ settings: DozerSettings) -> String {
+    func openMode(_ settings: DozableSettings) -> String {
         if open { return "always" }
         if noOpen { return "never" }
         return settings.string(SettingKey.openBrowser) ?? "auto"
@@ -102,7 +102,7 @@ func bringBrowserForward(_ origin: String) {
 /// background when none runs for this store; an open page of it is pointed there (`show`, the control socket) — per
 /// `ui.open_browser` (auto: a page already open is reused, no new tab); else a new link opens straight on that page.
 func showDashboardPage(_ page: String, _ g: GlobalOptions) async throws {
-    let store = g.dozerStore
+    let store = g.dozableStore
     guard store.socketPathFits else { throw fail(HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription), g) }
     let mode = WebSettingsStore(environment: ProcessInfo.processInfo.environment, flags: configFlags(g)).current.string(SettingKey.openBrowser) ?? "auto"
     var running = WebControl.requestStatus(store)
@@ -208,7 +208,7 @@ struct UIRestart: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         guard let r = WebControl.requestRestart(store) else {
             throw fail(HostError(.unavailable, WebControl.holderNote(store) ?? "no doz ui is running for \(store.root.path) — start one: doz ui"), g)
         }
@@ -246,7 +246,7 @@ struct UIStop: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         guard let pid = WebControl.lockHolder(store) else {
             if !g.quiet { Out.stdout("no doz ui is running for \(store.root.path)\n") }
             return
@@ -269,7 +269,7 @@ struct UIRunner {
     var delivery: LinkDelivery { o.delivery }
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         guard store.socketPathFits else {
             throw fail(HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription), g)
         }
@@ -366,7 +366,7 @@ struct UIRunner {
         // 605: `doz ui restart` onto another port (ui.port changed): the open pages cannot follow.
         let server: DozableWebServer
         do {
-            server = try await DozableWebServer.bind(data: data, assets: assets, version: DozerCommand.version, settings: settings,
+            server = try await DozableWebServer.bind(data: data, assets: assets, version: DozableCommand.version, settings: settings,
                                                    address: address, fixedPort: configured != 0, sessionsFile: WebControl.sessionsFile(store),
                                                    revokedFile: WebControl.revokedFile(store), operationsFile: WebControl.operationsFile(store))
         } catch {
@@ -437,7 +437,7 @@ struct UIRunner {
         Task.detached {
             var force = true
             while true {
-                let ctx = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath)
+                let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
                 if ctx.disabledReason(manual: false) == nil { _ = await UpdateChecker.check(ctx, force: force) }
                 force = false
                 try? await Task.sleep(nanoseconds: UInt64(UpdateChecker.interval * 1_000_000_000))
@@ -457,7 +457,7 @@ struct UIRunner {
             }
         } else if o.restarted {
             if await server.waitForPage(seconds: 6) {
-                server.tellPages("doz ui restarted — \(DozerCommand.version)")
+                server.tellPages("doz ui restarted — \(DozableCommand.version)")
                 if !g.json { Out.stdout("restarted — the open pages reconnected\n") }
             }
         } else if delivery.printURL {
@@ -467,7 +467,7 @@ struct UIRunner {
         } else if mode == "never" {
             if !g.json { Out.stdout("Not opening a browser (ui.open_browser = never, or --no-open): doz ui link opens a page.\n") }
         } else if await server.hasSessions(), await server.waitForPage(seconds: 2.5) {
-            server.tellPages("doz ui restarted — \(DozerCommand.version)")
+            server.tellPages("doz ui restarted — \(DozableCommand.version)")
             if !g.json { Out.stdout("reconnected to the open page — no new tab (doz ui --open opens one)\n") }
         } else {
             try delivery.deliver(server.launchURL, g)
@@ -485,18 +485,18 @@ struct UIRunner {
     }
 
     /// The dashboard's data source (shared by doz ui and doz serve).
-    static func webData(_ store: DozerStore, _ env: [String: String]) -> HostWebData {
+    static func webData(_ store: DozableStore, _ env: [String: String]) -> HostWebData {
         // 594: a TEST seam (the headless-browser probes): the UI then never looks at the Mac's Claude
         // Code login (no keychain read, no `claude --version`) — the wizard shows "not signed in".
         let probeClaude = env["DOZ_TEST_NO_MAC_LOGIN"] != "1"
-        let data = HostWebData(store: store, version: DozerCommand.version, macLogin: {
+        let data = HostWebData(store: store, version: DozableCommand.version, macLogin: {
             // 594: the onboarding wizard's account step — is Claude Code signed in on this Mac (read-only).
             probeClaude && ClaudeLoginStatus.check(configDir: nil, keychain: SystemKeychain(), probeBinary: false).state == .signedIn
         }) {
             Doctor.checks(store: store, claude: probeClaude).map { WebDoctorCheck(check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
         }
         // 599f: the New Sandbox wizard reads project files with the CLI's own parser (Yams stays here).
-        WebProjectFiles.install { text, file in try DozerProject.parse(text, file: file) }
+        WebProjectFiles.install { text, file in try DozableProject.parse(text, file: file) }
         return data
     }
 
@@ -567,8 +567,8 @@ struct UILink: AsyncParsableCommand {
     }
 
     func run() async throws {
-        guard let url = rotate ? WebControl.requestRotate(g.dozerStore) : WebControl.requestLink(g.dozerStore) else {
-            throw fail(HostError(.unavailable, WebControl.holderNote(g.dozerStore) ?? "no doz ui is running for \(g.dozerStore.root.path) — start one: doz ui"), g)
+        guard let url = rotate ? WebControl.requestRotate(g.dozableStore) : WebControl.requestLink(g.dozableStore) else {
+            throw fail(HostError(.unavailable, WebControl.holderNote(g.dozableStore) ?? "no doz ui is running for \(g.dozableStore.root.path) — start one: doz ui"), g)
         }
         try delivery.deliver(url, g)
     }

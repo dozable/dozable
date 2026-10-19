@@ -115,7 +115,7 @@ extension HostWebData {
         var b = WebBases(bases: rows.map(WebBase.init), builder: WebBuilder(builder), outsidePolicy: Dockerfiles.outsidePolicyNote,
                          agents: WebBases.agentChoices)
         // 597: what defaults.permissions gives a new sandbox of each base.
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         let words = SettingType.permissionWords(settings.string(SettingKey.permissions) ?? "standard") ?? ["standard"]
         b.defaults[""] = PermissionPolicy.names(from: words, base: nil)
         for id in BaseCatalogue.ids { b.defaults[id] = PermissionPolicy.names(from: words, base: id) }

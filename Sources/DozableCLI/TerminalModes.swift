@@ -168,7 +168,7 @@ enum MenuKey: Equatable, Sendable {
 /// `doz attach NAME` for the sandbox's default session; else `doz attach NAME SESSION`.
 func reattachCommand(sandbox: String, session: String, defaultSession: String?,
                      folder: URL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)) -> String {
-    if let f = try? DozerProject.find(in: folder), let p = try? DozerProject.load(f), p.name == sandbox,
+    if let f = try? DozableProject.find(in: folder), let p = try? DozableProject.load(f), p.name == sandbox,
        (p.sessions.first?.name ?? defaultSession) == session {
         return "doz up"
     }

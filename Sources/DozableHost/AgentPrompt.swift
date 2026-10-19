@@ -301,13 +301,13 @@ public enum AgentPrompt {
         v["sandbox.image"] = image.hasPrefix("custom:") ? String(image.dropFirst(7)) + " (a template)" : image
         v["sandbox.cpus"] = String(cpus)
         v["sandbox.memory"] = memoryMiB % 1024 == 0 ? "\(memoryMiB / 1024) GiB" : "\(memoryMiB) MiB"
-        v["workspace.guest_path"] = DozerImages.workspaceGuestPath
+        v["workspace.guest_path"] = DozableImages.workspaceGuestPath
         v["workspace.shared"] = workspace == nil ? "no" : "yes"
         v["workspace.host_path"] = workspace ?? "(none)"
         v["workspace.description"] = workspace.map {
             "/workspace is the user's Mac folder \($0), shared live: what you write there is on the Mac at once, and the other way round."
         } ?? "This sandbox is isolated (no folder is shared with the Mac): /workspace is a directory on this VM's own disk, and files there exist only inside this VM."
-        v["network.mode"] = DozerImages.networkName(network)
+        v["network.mode"] = DozableImages.networkName(network)
         switch network {
         case .proxied(let p):
             // 597 (P7): what the agent may do, in plain words — and the permission to ask for.
@@ -399,7 +399,7 @@ public enum AgentPrompt {
 
     /// The user's template file (beside doz.toml).
     public static func userTemplateURL(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
-        DozerSettings.fileURL(environment: environment)?.deletingLastPathComponent().appendingPathComponent(userTemplateName)
+        DozableSettings.fileURL(environment: environment)?.deletingLastPathComponent().appendingPathComponent(userTemplateName)
     }
 
     /// The agent a sandbox runs, by its image spec (a template follows the image it was saved from).
@@ -446,7 +446,7 @@ public enum AgentPrompt {
 
     /// The prompt and skill a sandbox gets at its next session. nil: its image runs no agent.
     public static func report(config: SandboxConfig, policy: NetworkPolicy?, account: String?, version: String,
-                              settings: DozerSettings = .load(), hostname: String = macHostname(),
+                              settings: DozableSettings = .load(), hostname: String = macHostname(),
                               credentialProblem: String? = nil, sudoInstalled: Bool? = nil, tools: ToolsReport? = nil,
                               workspaceRules: WorkspaceRuleMode? = nil) -> AgentPromptReport? {
         guard let agent = agent(of: config.spec), let imageSpec = config.spec.imageSpec else { return nil }

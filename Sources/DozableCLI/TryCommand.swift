@@ -154,7 +154,7 @@ struct TryCommand: AsyncParsableCommand {
         if !g.quiet {
             Out.stderr("[doz] \(planned.name) started — attaching to \(opened.session)\(key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "")\n")
         }
-        let end = AttachClient.attach(store: g.dozerStore, sandbox: planned.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
+        let end = AttachClient.attach(store: g.dozableStore, sandbox: planned.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
         try await finish(planned.name, end: end)
     }
 
@@ -186,16 +186,16 @@ struct TryCommand: AsyncParsableCommand {
         } catch let p as AgentRef.Problem {
             throw fail(HostError(.invalid, p.description), g)
         }
-        let index = DirectoryIndex.build(version: DozerCommand.version)
+        let index = DirectoryIndex.build(version: DozableCommand.version)
         let found = DirectorySearch.search(SearchQuery.parse([t]), in: index)
         if let h = found.hits.first(where: { $0.entry.kind == "agent" }) {
             if h.outcome == "supported", let r = AgentRecipes.recipe(h.entry.id) { return r }
             Out.stderr("[doz] \(searchLine(h, local: nil, base: nil))\n")
-            throw ExitCode(DozerExit.unavailable)
+            throw ExitCode(DozableExit.unavailable)
         }
         let hint = found.suggestion ?? DirectorySearch.suggest(t.lowercased(), in: index)
         Out.stderr("[doz] nothing called '\(t)'" + (hint.map { " — did you mean \($0)? (doz try \($0))" } ?? " — doz search lists the agents") + "\n")
-        throw ExitCode(DozerExit.notFound)
+        throw ExitCode(DozableExit.notFound)
     }
 
     /// 617.11: "Start here" — the guide's steps, numbered, each command indented (the first is its checked turn).
@@ -210,8 +210,8 @@ struct TryCommand: AsyncParsableCommand {
 
     /// `doz try` alone: the numbered list (a terminal), else the list and exit 64.
     func pickFromList() async throws -> AgentRecipe {
-        let index = DirectoryIndex.build(version: DozerCommand.version,
-                                         latest: AgentCurrency.all(store: g.dozerStore).compactMapValues(\.indexLatest))
+        let index = DirectoryIndex.build(version: DozableCommand.version,
+                                         latest: AgentCurrency.all(store: g.dozableStore).compactMapValues(\.indexLatest))
         let (accounts, images) = await searchLocals(g)
         // 617 (owner: "split them, also use tags"): --tag keeps those of a kind or category; coding agents first, then AI tools.
         let wanted = tag.map { $0.lowercased() }
@@ -225,11 +225,11 @@ struct TryCommand: AsyncParsableCommand {
         let coming = index.entries.filter { $0.kind == "agent" && $0.status != "supported" && fits($0) }
         if agents.isEmpty {
             Out.stderr("[doz] nothing to try with " + wanted.map { "--tag " + $0 }.joined(separator: " ") + " — doz search --tag \(wanted.first ?? "") lists what is coming\n")
-            throw ExitCode(DozerExit.notFound)
+            throw ExitCode(DozableExit.notFound)
         }
         if g.json {
             Out.json(agents.map { SearchHitJSON(entry: $0, outcome: "supported", limit: nil, local: searchLocal($0, accounts: accounts, images: images)) })
-            throw ExitCode(DozerExit.usage)
+            throw ExitCode(DozableExit.usage)
         }
         var s = "Try an agent:\n"
         var section: String?
@@ -252,7 +252,7 @@ struct TryCommand: AsyncParsableCommand {
         let asker = Asker(yes: false, json: g.json)
         guard interactive, asker.interactive else {
             Out.stderr("[doz] pick one: doz try AGENT (e.g. doz try \(agents.first?.id ?? "grok"))\n")
-            throw ExitCode(DozerExit.usage)
+            throw ExitCode(DozableExit.usage)
         }
         let answer = asker.text("Pick a number or a name", default: "1") { a in
             if let n = Int(a), (1...agents.count).contains(n) { return nil }
@@ -301,7 +301,7 @@ struct TryCommand: AsyncParsableCommand {
                         let shown = ([p] + a).map { $0.contains(" ") ? "'\($0)'" : $0 }.joined(separator: " ")
                         guard asker.yesNo("The key will be read on this Mac by running: \(shown) (no shell; its output is the key). Save it?", default: true) else {
                             Out.stderr("[doz] nothing saved\n")
-                            throw ExitCode(DozerExit.declined)
+                            throw ExitCode(DozableExit.declined)
                         }
                     }
                     add.secretSource = src

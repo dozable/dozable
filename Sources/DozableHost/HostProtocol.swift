@@ -108,7 +108,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 596 (B7): install Apple's container tool on demand: its signed package (pinned, sha256-checked)
     /// downloaded and opened in macOS Installer — the person approves it there. Never sudo.
     case builderInstall = "builder-install"
-    /// 599: a sandbox's own choices of the per-sandbox settings (`DozerSettings.perSandbox`: the clipboard
+    /// 599: a sandbox's own choices of the per-sandbox settings (`DozableSettings.perSandbox`: the clipboard
     /// and browser bridges, tmux, the agent's sudo) — read (no `setting`), set (`setting` + `settingValue`)
     /// or cleared back to the setting (`setting` + `clearSetting`). `doz config set --sandbox NAME`.
     case sandboxSettings = "sandbox-settings"
@@ -196,7 +196,7 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// words on top of the default (`doz create --allow web,site:api.example.com`, `-error-reports`).
     public var permissions: [String]?
     public var allow: [String]?
-    /// 599: this sandbox's own values of per-sandbox settings (`DozerSettings.perSandbox` keys only).
+    /// 599: this sandbox's own values of per-sandbox settings (`DozableSettings.perSandbox` keys only).
     public var settings: [String: TOMLValue]?
     /// `doz create --prepare`: prepare the image the sandbox's first start would wait for, now (started
     /// or joined, its progress on the request's stream) — without booting the sandbox.

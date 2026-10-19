@@ -8,8 +8,8 @@ import XCTest
 /// through its seams (never the real one), its storage shown outside the store.
 final class BaseImagesHostTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root.appendingPathComponent("store")) }
-    let settings = DozerSettings(text: nil)
+    var store: DozableStore { DozableStore(root: root.appendingPathComponent("store")) }
+    let settings = DozableSettings(text: nil)
 
     override func setUpWithError() throws {
         root = URL(fileURLWithPath: "/private/tmp/dzbi-\(UUID().uuidString.prefix(8))")
@@ -32,7 +32,7 @@ final class BaseImagesHostTests: XCTestCase {
         XCTAssertNil(go.agent)
         XCTAssertNil(try AgentVersions.spec("lab", purpose: .prepare, store: store, settings: settings), "the lab keeps its own path")
         // Claude Code at a version whose native checksums are unknown: a clear error, not a guess.
-        let s = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.300\"\n")
+        let s = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.300\"\n")
         var rec = AgentVersionRecord()
         rec.remember(AgentRelease(version: "2.1.300", integrity: "sha512-" + String(repeating: "C", count: 86) + "=="))
         AgentVersions.save(["claude-code": rec], store)
@@ -44,7 +44,7 @@ final class BaseImagesHostTests: XCTestCase {
     }
 
     func testTheSandboxSpecCarriesTheBaseAndItsRegistries() throws {
-        let (spec, image) = try DozerImages.spec(name: "g1", options: CreateOptions(image: "go-claude-code"), store: store, environment: [:])
+        let (spec, image) = try DozableImages.spec(name: "g1", options: CreateOptions(image: "go-claude-code"), store: store, environment: [:])
         XCTAssertEqual(image, "go-claude-code")
         let p = try XCTUnwrap(spec.network.policy)
         XCTAssertEqual(p.preset, "agent")
@@ -52,16 +52,16 @@ final class BaseImagesHostTests: XCTestCase {
         XCTAssertEqual(p.evaluateConnection(host: "api.anthropic.com", port: 443).kind, .allow)
         XCTAssertTrue(spec.bakePackages.isEmpty)
         // Aliases: the long form of an old name is the old image.
-        XCTAssertEqual(try DozerImages.spec(name: "n1", options: CreateOptions(image: "node-claude-code"), store: store, environment: [:]).1, "claude-code")
-        XCTAssertEqual(try DozerImages.spec(name: "a1", options: CreateOptions(image: "alpine"), store: store, environment: [:]).1, "lab")
+        XCTAssertEqual(try DozableImages.spec(name: "n1", options: CreateOptions(image: "node-claude-code"), store: store, environment: [:]).1, "claude-code")
+        XCTAssertEqual(try DozableImages.spec(name: "a1", options: CreateOptions(image: "alpine"), store: store, environment: [:]).1, "lab")
         // No agent: the claude-code section's memory (a toolchain wants 2 GiB), a shell session.
-        let (deb, _) = try DozerImages.spec(name: "d1", options: CreateOptions(image: "debian"), store: store, environment: [:])
+        let (deb, _) = try DozableImages.spec(name: "d1", options: CreateOptions(image: "debian"), store: store, environment: [:])
         XCTAssertEqual(deb.memoryMiB, 2048)
         XCTAssertEqual(SandboxConfig(name: "d1", image: "debian", spec: deb, workspace: nil).defaultSession.argv, ["bash", "-l"])
-        let (pgo, _) = try DozerImages.spec(name: "p1", options: CreateOptions(image: "go-pi"), store: store, environment: [:])
+        let (pgo, _) = try DozableImages.spec(name: "p1", options: CreateOptions(image: "go-pi"), store: store, environment: [:])
         XCTAssertEqual(SandboxConfig(name: "p1", image: "go-pi", spec: pgo, workspace: nil).defaultSession.name, "pi")
         XCTAssertEqual(AgentImages.credentials("go-pi"), AgentImages.credentials("pi"))
-        XCTAssertThrowsError(try DozerImages.spec(name: "x1", options: CreateOptions(image: "cobol-pi"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "x1", options: CreateOptions(image: "cobol-pi"), store: store, environment: [:]))
     }
 
     func testBaseDigestsAreAskedHourlyAndAFailureIsTolerated() async throws {
@@ -137,8 +137,8 @@ final class BaseImagesHostTests: XCTestCase {
         let rec = try Dockerfiles.register(df.path, store: store)
         XCTAssertEqual(rec.base, ImageChoice.dockerfileBase(path: df.resolvingSymlinksInPath().path))
         XCTAssertEqual(rec.context, dir.resolvingSymlinksInPath().path)
-        XCTAssertTrue(DozerImages.isPreparable(rec.base + "-claude-code", store: store))
-        XCTAssertFalse(DozerImages.isPreparable("df-000000000000-pi", store: store), "an unknown Dockerfile is not")
+        XCTAssertTrue(DozableImages.isPreparable(rec.base + "-claude-code", store: store))
+        XCTAssertFalse(DozableImages.isPreparable("df-000000000000-pi", store: store), "an unknown Dockerfile is not")
         let spec = try XCTUnwrap(try AgentVersions.spec(rec.base + "-claude-code", purpose: .create, store: store, settings: settings))
         XCTAssertTrue(Dockerfiles.isPlaceholder(spec.base))
         XCTAssertTrue(spec.steps.contains { $0.argv.last?.contains("command -v apt-get") == true }, "the package manager is looked for")

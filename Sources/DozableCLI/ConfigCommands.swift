@@ -4,7 +4,7 @@ import DozableKit
 import DozableHost
 
 // 591 settings — `doz config`: the settings file (`${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml`),
-// its effective values and where each came from. One closed schema (`DozerSettings.schema`); the
+// its effective values and where each came from. One closed schema (`DozableSettings.schema`); the
 // file is regenerated from it on every write, atomically, 0600.
 
 struct ConfigCommand: AsyncParsableCommand {
@@ -16,7 +16,7 @@ struct ConfigCommand: AsyncParsableCommand {
         every setting with its default commented out; set writes one value, unset puts the default back. \
         The UI's Settings page edits the same file. \
         --sandbox NAME (show, get, set, unset): that sandbox's own value of a per-sandbox setting \
-        (\(DozerSettings.perSandbox.joined(separator: ", "))), which wins over the file's.
+        (\(DozableSettings.perSandbox.joined(separator: ", "))), which wins over the file's.
         """,
         subcommands: [ConfigShow.self, ConfigGet.self, ConfigSet.self, ConfigUnset.self, ConfigInit.self, ConfigPath.self],
         defaultSubcommand: ConfigShow.self)
@@ -27,13 +27,13 @@ func configFlags(_ g: GlobalOptions) -> [String: TOMLValue] {
     g.store.map { [SettingKey.storePath: .string($0)] } ?? [:]
 }
 
-func settingsWarnings(_ s: DozerSettings, _ g: GlobalOptions) {
+func settingsWarnings(_ s: DozableSettings, _ g: GlobalOptions) {
     guard !g.json, !g.quiet else { return }
-    for w in s.warnings { Out.stderr("doz: \(s.url?.lastPathComponent ?? DozerSettings.fileName): \(w)\n") }
+    for w in s.warnings { Out.stderr("doz: \(s.url?.lastPathComponent ?? DozableSettings.fileName): \(w)\n") }
 }
 
 func settingDefinition(_ key: String, _ g: GlobalOptions) throws -> SettingDefinition {
-    guard let d = DozerSettings.definition(key) else {
+    guard let d = DozableSettings.definition(key) else {
         throw fail(HostError(.invalid, "unknown setting \(key) — doz config show lists them (section.name, e.g. ui.boot_view_on_start)"), g)
     }
     return d
@@ -45,8 +45,8 @@ func settingDefinition(_ key: String, _ g: GlobalOptions) throws -> SettingDefin
 func sandboxSettingsCall(_ sandbox: String, change: (key: String, value: String?)?, _ g: GlobalOptions) async throws -> SandboxSettingsReport {
     var r = HostRequest(.sandboxSettings, name: sandbox)
     if let change {
-        guard DozerSettings.perSandbox.contains(change.key) else {
-            throw fail(HostError(.invalid, "\(change.key) is not a per-sandbox setting — they are: \(DozerSettings.perSandbox.joined(separator: ", "))"), g)
+        guard DozableSettings.perSandbox.contains(change.key) else {
+            throw fail(HostError(.invalid, "\(change.key) is not a per-sandbox setting — they are: \(DozableSettings.perSandbox.joined(separator: ", "))"), g)
         }
         r.setting = change.key
         if let v = change.value { r.settingValue = .string(v) } else { r.clearSetting = true }
@@ -73,13 +73,13 @@ struct ConfigShow: AsyncParsableCommand {
             if g.json { Out.json(rep) } else { printSandboxSettings(rep) }
             return
         }
-        let s = DozerSettings.load()
+        let s = DozableSettings.load()
         var report = s.report(flags: configFlags(g))
         if let agent {
-            guard let id = AgentRecipes.recipe(agent.lowercased()).map(\.id), DozerSettings.schema.contains(where: { $0.agent == id }) else {
-                throw ValidationError("--agent: an agent or tool with its own settings (\(DozerSettings.schema.compactMap(\.agent).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", "))) — not \(agent)")
+            guard let id = AgentRecipes.recipe(agent.lowercased()).map(\.id), DozableSettings.schema.contains(where: { $0.agent == id }) else {
+                throw ValidationError("--agent: an agent or tool with its own settings (\(DozableSettings.schema.compactMap(\.agent).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }.joined(separator: ", "))) — not \(agent)")
             }
-            let keys = Set(DozerSettings.schema.filter { $0.agent == id }.map(\.key))
+            let keys = Set(DozableSettings.schema.filter { $0.agent == id }.map(\.key))
             report.settings = report.settings.filter { keys.contains($0.key) }
         }
         if g.json { Out.json(report); return }
@@ -109,12 +109,12 @@ struct ConfigGet: AsyncParsableCommand {
         _ = try settingDefinition(key, g)
         if let sandbox {
             guard let row = try await sandboxSettingsCall(sandbox, change: nil, g).settings.first(where: { $0.key == key }) else {
-                throw fail(HostError(.invalid, "\(key) is not a per-sandbox setting — they are: \(DozerSettings.perSandbox.joined(separator: ", "))"), g)
+                throw fail(HostError(.invalid, "\(key) is not a per-sandbox setting — they are: \(DozableSettings.perSandbox.joined(separator: ", "))"), g)
             }
             if g.json { Out.json(row) } else { Out.stdout(row.value.plain + "\n") }
             return
         }
-        let s = DozerSettings.load()
+        let s = DozableSettings.load()
         let row = s.report(flags: configFlags(g)).settings.first { $0.key == key }!
         if g.json { Out.json(row); return }
         settingsWarnings(s, g)
@@ -139,8 +139,8 @@ struct ConfigSet: AsyncParsableCommand {
             Out.stdout("\(key) = \(v.plain) for \(rep.sandbox) — \(d.applies.note)\n")
             return
         }
-        let now: DozerSettings
-        do { now = try DozerSettings.load().writing(key, v) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
+        let now: DozableSettings
+        do { now = try DozableSettings.load().writing(key, v) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         let r = now.resolve(key, flag: configFlags(g)[key])
         if g.json { Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) = \(TOML.render(v)) in \(now.url?.path ?? "?") — \(d.applies.note)\n")
@@ -165,8 +165,8 @@ struct ConfigUnset: AsyncParsableCommand {
             Out.stdout("\(key) for \(rep.sandbox) follows the setting again (\(now?.value.plain ?? "?")) — \(d.applies.note)\n")
             return
         }
-        let now: DozerSettings
-        do { now = try DozerSettings.load().writing(key, nil) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
+        let now: DozableSettings
+        do { now = try DozableSettings.load().writing(key, nil) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         if g.json { Out.json(now.report(flags: configFlags(g)).settings.first { $0.key == key }!); return }
         Out.stdout("\(key) is the default (\(d.defaultValue.plain)) in \(now.url?.path ?? "?")\n")
     }
@@ -178,12 +178,12 @@ struct ConfigInit: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let s = DozerSettings.load()
-        let now: DozerSettings
+        let s = DozableSettings.load()
+        let now: DozableSettings
         do { now = try s.writingAll(s.fileValues) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         if g.json { Out.json(now.report(flags: configFlags(g))); return }
         settingsWarnings(now, g)
-        Out.stdout("\(s.fileExists ? "rewrote" : "wrote") \(now.url?.path ?? "?") — \(DozerSettings.schema.count) settings, \(now.fileValues.count) set\n")
+        Out.stdout("\(s.fileExists ? "rewrote" : "wrote") \(now.url?.path ?? "?") — \(DozableSettings.schema.count) settings, \(now.fileValues.count) set\n")
     }
 }
 
@@ -192,7 +192,7 @@ struct ConfigPath: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        guard let url = DozerSettings.fileURL() else {
+        guard let url = DozableSettings.fileURL() else {
             throw fail(HostError(.unavailable, "no settings file: neither XDG_CONFIG_HOME nor HOME is set"), g)
         }
         if g.json { Out.json(["path": url.path, "exists": FileManager.default.fileExists(atPath: url.path) ? "true" : "false"]) }

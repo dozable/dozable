@@ -34,7 +34,7 @@ struct ImageList: AsyncParsableCommand {
             t.append([r.name, r.kind == "custom" ? "template" : (r.title ?? r.kind),
                       // W32: in words — an older host's answer has no status; this doz works it out.
                       r.status ?? r.computedStatus ?? "up to date", baked,
-                      r.allocatedBytes.map(DozerImages.formatBytes) ?? "—",
+                      r.allocatedBytes.map(DozableImages.formatBytes) ?? "—",
                       [r.versionLine ?? r.note, r.fromSandbox.map { "from \($0)" }, r.dockerfile.map { "Dockerfile \(tildePath($0))" }, r.baseUpdate]
                         .compactMap { $0 }.joined(separator: " · ")])
         }
@@ -60,11 +60,11 @@ func renderImageTree(_ tree: ImageTree) -> String {
         }
         if n.parent != nil { prefix += lastChild.contains(n.id) ? "└─ " : "├─ " }
         let kind = n.kind == "restorePoint" ? "point" : n.kind
-        let extra = [n.detail, n.stateAllocatedBytes.map { "+ state \(DozerImages.formatBytes($0))" }].compactMap { $0 }.joined(separator: " · ")
-        t.append([prefix + n.name, kind, DozerImages.formatBytes(n.allocatedBytes),
-                  n.sharedWithParentBytes.map(DozerImages.formatBytes) ?? "—", DozerImages.formatBytes(n.uniqueBytes), extra])
+        let extra = [n.detail, n.stateAllocatedBytes.map { "+ state \(DozableImages.formatBytes($0))" }].compactMap { $0 }.joined(separator: " · ")
+        t.append([prefix + n.name, kind, DozableImages.formatBytes(n.allocatedBytes),
+                  n.sharedWithParentBytes.map(DozableImages.formatBytes) ?? "—", DozableImages.formatBytes(n.uniqueBytes), extra])
     }
-    return Out.table(t) + "\nall disks together: \(DozerImages.formatBytes(tree.unionBytes)) (shared blocks counted once) · measured in \(Int(tree.milliseconds)) ms\n"
+    return Out.table(t) + "\nall disks together: \(DozableImages.formatBytes(tree.unionBytes)) (shared blocks counted once) · measured in \(Int(tree.milliseconds)) ms\n"
 }
 
 struct ImageBake: AsyncParsableCommand {
@@ -80,7 +80,7 @@ struct ImageBake: AsyncParsableCommand {
                 + "new sandboxes, and `doz reset NAME`, use the new image (a reset keeps the agent's own state and /workspace, and drops other system changes)."
             let asker = Asker(yes: yes, json: g.json)
             if asker.interactive {
-                guard asker.yesNo(what, default: true) else { throw fail(HostError(.failed, "not rebuilt — nothing done"), g, code: DozerExit.declined) }
+                guard asker.yesNo(what, default: true) else { throw fail(HostError(.failed, "not rebuilt — nothing done"), g, code: DozableExit.declined) }
             } else if !g.json && !g.quiet {
                 Out.stderr("[doz] rebuilding the \(image) image: existing sandboxes keep their disks; new sandboxes and `doz reset NAME` use the new one\n")
             }
@@ -88,7 +88,7 @@ struct ImageBake: AsyncParsableCommand {
         var r = HostRequest(.imageBake)
         r.image = image
         let row = try decode(try call(r, g), ImageRow.self, g)
-        if g.json { Out.json(row) } else { Out.stdout("\(row.name) baked\(row.allocatedBytes.map { " (\(DozerImages.formatBytes($0)))" } ?? "")\n") }
+        if g.json { Out.json(row) } else { Out.stdout("\(row.name) baked\(row.allocatedBytes.map { " (\(DozableImages.formatBytes($0)))" } ?? "")\n") }
     }
 }
 
@@ -333,7 +333,7 @@ struct NetLog: AsyncParsableCommand {
         }
         r.follow = true
         let client: HostClient
-        do { client = try HostClient.connect(store: g.dozerStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
+        do { client = try HostClient.connect(store: g.dozableStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
         try client.send(r)
         while let m = try client.next() {
             if let e = m.error { throw fail(e, g) }
@@ -508,7 +508,7 @@ struct MetricsCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Leave out the library steps inside each action.") var noSteps = false
 
     func run() async throws {
-        let url = g.dozerStore.metrics
+        let url = g.dozableStore.metrics
         guard FileManager.default.fileExists(atPath: url.path) else {
             if g.json { Out.json([MetricsSummaryRow]()); return }
             Out.stdout("no metrics yet at \(url.path)\n")
@@ -543,7 +543,7 @@ struct HostCommand: AsyncParsableCommand {
 
 /// The idle timeout: --idle-timeout, else $DOZ_HOST_IDLE, else the settings' `host.idle_timeout_minutes`, else 5.
 func idleTimeout(_ option: Double?) -> Double {
-    DozerSettings.load().idleTimeoutMinutes(flag: option)
+    DozableSettings.load().idleTimeoutMinutes(flag: option)
 }
 
 struct HostRun: AsyncParsableCommand {
@@ -558,7 +558,7 @@ struct HostRun: AsyncParsableCommand {
     @Flag(name: .long, help: .hidden) var launched = false
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         let timeout = DozableCLI.idleTimeout(idleTimeout)
         if launchDetached {
             let pid = try HostLauncher.spawnHostProcess(store: store, extra: idleTimeout.map { ["--idle-timeout", String($0)] } ?? [])
@@ -566,7 +566,7 @@ struct HostRun: AsyncParsableCommand {
             return
         }
         if foreground {
-            do { try await HostServer.run(store: store, idleTimeoutMinutes: timeout, version: DozerCommand.version, launched: launched) } catch {
+            do { try await HostServer.run(store: store, idleTimeoutMinutes: timeout, version: DozableCommand.version, launched: launched) } catch {
                 throw fail(HostError(.unavailable, error.localizedDescription), g)
             }
         }
@@ -599,7 +599,7 @@ struct HostStop: AsyncParsableCommand {
         abstract: "Hibernate every running sandbox and stop the host (the next command starts a new one; wake brings each back).")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         guard store.hostIsRunning() else {
             if g.json { Out.json(["stopped": false]) } else { Out.stdout("no host is running\n") }
             return
@@ -628,7 +628,7 @@ enum HostStopOutcome {
 /// view: animated on a terminal, plain lines elsewhere), then the host's answer. Waits for the host
 /// to let go of its lock (it answers just before it exits). Never hangs on a host that dies mid-stop:
 /// the connection ends, and what it said so far is returned.
-func stopHostShowingProgress(_ store: DozerStore, _ g: GlobalOptions) throws -> HostStopOutcome {
+func stopHostShowingProgress(_ store: DozableStore, _ g: GlobalOptions) throws -> HostStopOutcome {
     let progress = Progress(g, immediate: true)
     let seen = LockedEvents()
     let m: HostMessage
@@ -663,7 +663,7 @@ struct HostStatusCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "status", abstract: "Is a host running, and what does it hold? (Never starts one.)")
     @OptionGroup var g: GlobalOptions
     func run() async throws {
-        guard g.dozerStore.hostIsRunning() else {
+        guard g.dozableStore.hostIsRunning() else {
             if g.json { Out.json(["running": false]) } else { Out.stdout("no host is running (nothing is running)\n") }
             return
         }
@@ -695,9 +695,9 @@ struct HostUpgradeCheck: AsyncParsableCommand {
     }
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         let mine = HostLauncher.executablePath
-        var a = Answer(running: store.hostIsRunning(), thisVersion: DozerCommand.version, thisExecutable: mine)
+        var a = Answer(running: store.hostIsRunning(), thisVersion: DozableCommand.version, thisExecutable: mine)
         if a.running {
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
                let st = try? (m.result ?? .null).decode(HostStatus.self) {
@@ -707,17 +707,17 @@ struct HostUpgradeCheck: AsyncParsableCommand {
                 a.hostExecutable = Self.executablePath(of: pid)
             }
             let exe = a.hostExecutable.map { URL(fileURLWithPath: $0).resolvingSymlinksInPath().path }
-            let same = (exe == nil || exe == mine) && (a.hostVersion == nil || a.hostVersion == DozerCommand.version)
+            let same = (exe == nil || exe == mine) && (a.hostVersion == nil || a.hostVersion == DozableCommand.version)
             a.sameBuild = exe == nil && a.hostVersion == nil ? nil : same
             if a.sameBuild == false {
                 a.note = "a doz host from \(a.hostVersion.map { "doz \($0)" } ?? "an older build") is running for \(store.root.path) — it keeps "
-                    + "working; `doz host stop` switches to doz \(DozerCommand.version) (running sandboxes hibernate, and wake on the new build)"
+                    + "working; `doz host stop` switches to doz \(DozableCommand.version) (running sandboxes hibernate, and wake on the new build)"
             }
         }
         // 594 W28: an upgrade can change what this doz's agent images contain; name the images an older
         // doz prepared — never rebuilt here (owner: "better to warn / nag the user about out-of-date images").
         if store.root.path.isEmpty == false, FileManager.default.fileExists(atPath: store.root.path) {
-            let settings = DozerSettings.load()
+            let settings = DozableSettings.load()
             let older = ["claude-code", "pi", "codex"].compactMap { image in
                 AgentVersions.standing(image, store: store, settings: settings).olderRecipeLine.map { "\(image): \($0)" }
             }
@@ -770,7 +770,7 @@ struct Console: AsyncParsableCommand {
 
     func run() async throws {
         if list || steps || boot != nil {
-            guard !follow else { throw fail(HostError(.invalid, "--follow shows the console as it is written: not with --list, --steps or --boot"), g, code: DozerExit.usage) }
+            guard !follow else { throw fail(HostError(.invalid, "--follow shows the console as it is written: not with --list, --steps or --boot"), g, code: DozableExit.usage) }
             try await showBoots()
             return
         }
@@ -782,7 +782,7 @@ struct Console: AsyncParsableCommand {
             return
         }
         let client: HostClient
-        do { client = try HostClient.connect(store: g.dozerStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
+        do { client = try HostClient.connect(store: g.dozableStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
         var r = HostRequest(.console, name: name)
         r.follow = true
         try client.send(r)
@@ -826,7 +826,7 @@ struct Events: AsyncParsableCommand {
     @Argument(help: "Only this sandbox.") var name: String?
     func run() async throws {
         let client: HostClient
-        do { client = try HostClient.connect(store: g.dozerStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
+        do { client = try HostClient.connect(store: g.dozableStore, autostart: true) } catch let e as HostError { throw fail(e, g) }
         var r = HostRequest(.events)
         r.name = name
         r.sessionStatus = true

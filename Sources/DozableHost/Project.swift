@@ -11,7 +11,7 @@ import DozableKit
 /// place Yams is imported), and the web UI is handed that parser by `doz ui`. The schema is CLOSED, as
 /// doz.toml's is: an unknown key, a value of the wrong type or outside its rule is an error naming its
 /// line. No anchors or aliases, no multiple documents, 64 KiB at most.
-public struct DozerProject: Equatable, Sendable {
+public struct DozableProject: Equatable, Sendable {
     public static let fileName = "doz_project.yaml"
     /// 599f: the other spelling, read as well (never both in one folder).
     public static let otherFileName = "doz_project.yml"
@@ -110,7 +110,7 @@ public struct DozerProject: Equatable, Sendable {
         ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
     ] + settingKeys.map { k in
-        (k.key, "\(DozerSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
+        (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
     }
 
     public struct Invalid: Error, LocalizedError, Equatable {
@@ -336,7 +336,7 @@ public struct DozerProject: Equatable, Sendable {
     /// The create options this project gives a new sandbox (the folder is its workspace).
     /// `settings`: a file that sets `permissions` but not `github` keeps the Access step's GitHub default
     /// (`defaults.github`, 599e) — the permissions are given on Standard, which would otherwise drop it.
-    public func createOptions(folder: URL, file: URL, settings given: DozerSettings? = nil) -> CreateOptions {
+    public func createOptions(folder: URL, file: URL, settings given: DozableSettings? = nil) -> CreateOptions {
         var o = CreateOptions(image: image, cpus: cpus, memoryMiB: memoryMiB, workspace: folder.path, network: network, account: account)
         o.agentPrompt = agentPrompt
         o.agentPromptMode = agentPromptMode
@@ -383,17 +383,17 @@ public struct DozerProject: Equatable, Sendable {
 
     /// 599f: the network a new sandbox of this project gets when the file names none — the image's
     /// network setting, else the image's own default (an agent image: agent; lab: bake).
-    public func effectiveNetwork(settings: DozerSettings) -> String {
+    public func effectiveNetwork(settings: DozableSettings) -> String {
         if let n = network { return n }
-        let section = DozerSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
+        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
         return settings.string(SettingKey.network(section)) ?? (section == "lab" ? "bake" : "agent")
     }
 
     /// 599f: what the file sets differently from the settings' defaults is kept; a value EQUAL to its
     /// default (as the wizard and `doz init` pre-fill it) is left out, so the file follows the settings.
     /// `explicit` names the keys the person set on purpose (or the existing file set): those are kept.
-    public mutating func dropDefaults(settings: DozerSettings, explicit: Set<String>) {
-        let section = DozerSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
+    public mutating func dropDefaults(settings: DozableSettings, explicit: Set<String>) {
+        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
         if !explicit.contains("cpus"), cpus == settings.int(SettingKey.cpus) { cpus = nil }
         if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(SettingKey.memory(section))) { memoryMiB = nil }
         if !explicit.contains("network"), network == settings.string(SettingKey.network(section)) { network = nil }

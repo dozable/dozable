@@ -28,16 +28,16 @@ final class KitchenTests: XCTestCase {
     func core() async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         return c
     }
 
-    private func parse(_ args: [String]) throws -> ParsableCommand { try DozerCommand.parseAsRoot(args) }
+    private func parse(_ args: [String]) throws -> ParsableCommand { try DozableCommand.parseAsRoot(args) }
 
     /// The facts a golden plan is made with: no accounts but mac, nothing prepared, a fixed projects folder.
     func facts(_ accounts: AccountsFile = AccountsFile(), taken: Set<String> = []) -> PlanFacts {
-        PlanFacts(settings: DozerSettings(text: ""), accounts: accounts, taken: taken, images: [], store: DozerStore(root: root),
+        PlanFacts(settings: DozableSettings(text: ""), accounts: accounts, taken: taken, images: [], store: DozableStore(root: root),
                   projectsDir: "/tmp/617-pin-projects")
     }
 
@@ -104,8 +104,8 @@ final class KitchenTests: XCTestCase {
         ex.provider = "custom"
         ex.custom = CustomKey(hosts: ["api.example.test"], header: "authorization", format: "Bearer %s", env: "EX_KEY")
         accounts.accounts.append(ex)
-        let withKey = PlanFacts(settings: DozerSettings(text: ""), accounts: accounts, taken: ["try-grok"], images: [], sourceLabels: ["work-xai": "1Password: op://Dev/xAI/credential"],
-                                store: DozerStore(root: root), projectsDir: "/tmp/617-pin-projects")
+        let withKey = PlanFacts(settings: DozableSettings(text: ""), accounts: accounts, taken: ["try-grok"], images: [], sourceLabels: ["work-xai": "1Password: op://Dev/xAI/credential"],
+                                store: DozableStore(root: root), projectsDir: "/tmp/617-pin-projects")
         let cases: [(String, String, [String], String?, PlanFacts)] = [
             ("try grok, no key", "try", ["--agent", "grok"], nil, facts()),
             ("try grok, a key, try-grok taken", "try", ["--agent", "grok"], nil, withKey),
@@ -160,7 +160,7 @@ final class KitchenTests: XCTestCase {
             let again = CreatePlanner.plan(PlanRequest(purpose: purpose, name: purpose == "try" ? nil : "x1", create: back), facts: facts())
             XCTAssertEqual(again.create, p.create, p.command)
             XCTAssertEqual(again.command, p.command)
-            let file = try DozerProject.parse(p.yaml)
+            let file = try DozableProject.parse(p.yaml)
             XCTAssertEqual(file.image, p.image, p.command)
             XCTAssertEqual(file.network, p.create.network)
             XCTAssertEqual(file.cpus, p.create.cpus)
@@ -172,7 +172,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertTrue(HostOp.plan.isReadOnly)
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: true, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: true, version: "test", services: s)
         await c.load()
         var r = HostRequest(.plan)
         r.planRequest = PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "grok"]).planChoices())
@@ -387,9 +387,9 @@ final class KitchenTests: XCTestCase {
         let a = await code(["grok"])
         XCTAssertEqual(a, 0)
         let b = await code(["cursor-cli"])
-        XCTAssertEqual(b, DozerExit.unavailable)
+        XCTAssertEqual(b, DozableExit.unavailable)
         let c = await code(["grokk"])
-        XCTAssertEqual(c, DozerExit.notFound)
+        XCTAssertEqual(c, DozableExit.notFound)
         let d = await code([])
         XCTAssertEqual(d, 0, "everything")
         XCTAssertThrowsError(try parse(["search", "--tag", "nonsense"]))

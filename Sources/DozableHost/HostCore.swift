@@ -28,7 +28,7 @@ final class HostEventHub: @unchecked Sendable {
 /// read-only command with no host running builds one with `readOnly: true` in-process (no VM is
 /// started, no metrics are written, nothing on disk changes).
 public actor HostCore {
-    public nonisolated let store: DozerStore
+    public nonisolated let store: DozableStore
     public nonisolated let readOnly: Bool
     public nonisolated let version: String
     let metrics: MetricsStore?
@@ -109,9 +109,9 @@ public actor HostCore {
     var recentPreparations: [Preparation] = []
     /// The work of a preparation (tests substitute one that needs no VM or network).
     var preparationRunner: PreparationRunner = HostCore.runPreparation
-    public typealias PreparationRunner = @Sendable (String, DozerStore, @escaping @Sendable (HostEvent) -> Void) async throws -> Void
+    public typealias PreparationRunner = @Sendable (String, DozableStore, @escaping @Sendable (HostEvent) -> Void) async throws -> Void
     /// Whether an image is already prepared for this build (tests substitute one).
-    var preparedCheck: @Sendable (String, DozerStore) -> Bool = HostCore.isPrepared
+    var preparedCheck: @Sendable (String, DozableStore) -> Bool = HostCore.isPrepared
 
     /// 594: where `latest` agent versions are asked — the real host asks the npm registry; an
     /// in-process host (and a unit test, unless it sets a stub) asks nothing.
@@ -124,12 +124,12 @@ public actor HostCore {
     var modelListReads: [String: Task<Void, Never>] = [:]
 
     /// Tests: the preparation work and the "already prepared" check.
-    public func setPreparationRunner(_ r: @escaping PreparationRunner, prepared: @escaping @Sendable (String, DozerStore) -> Bool) {
+    public func setPreparationRunner(_ r: @escaping PreparationRunner, prepared: @escaping @Sendable (String, DozableStore) -> Bool) {
         preparationRunner = r
         preparedCheck = prepared
     }
 
-    public init(store: DozerStore, readOnly: Bool, version: String, services: CredentialServices = .forHost(),
+    public init(store: DozableStore, readOnly: Bool, version: String, services: CredentialServices = .forHost(),
                 newStoreKeepalive: Bool = false, newStoreDefaultAccount: String? = nil, agentRegistry: NpmRegistry = .disabled,
                 modelLists: ModelListFetcher = .disabled) {
         TestSafety.checkStore(store.root)          // 611: a guarded test never runs on the default store
@@ -140,7 +140,7 @@ public actor HostCore {
         self.version = version
         self.services = services
         // 594: a store with no accounts.json follows the settings' `defaults.account`.
-        let defaultAccount = newStoreDefaultAccount ?? DozerSettings.load().string(SettingKey.defaultAccount) ?? "mac"
+        let defaultAccount = newStoreDefaultAccount ?? DozableSettings.load().string(SettingKey.defaultAccount) ?? "mac"
         self.accountStore = AccountStore(store: store, newStoreKeepalive: newStoreKeepalive, newStoreDefault: defaultAccount)
         if readOnly {
             metrics = nil
@@ -336,7 +336,7 @@ public actor HostCore {
         m.boot = nil
         let console = rec.console(m.sandbox.bootLogURL)
         let info = rec.info(result: error == nil ? "ok" : "failed", error: error.map { explain($0).message }, console: console.count)
-        let keep = DozerSettings.load().int(SettingKey.bootLogsKept)
+        let keep = DozableSettings.load().int(SettingKey.bootLogsKept)
         do { try BootLogs.write(m.sandbox.layout, info: info, events: rec.snapshot, console: console, keep: keep) } catch {
             note(m.name, "could not keep the boot log: \(error.localizedDescription)")
         }
@@ -608,14 +608,14 @@ public actor HostCore {
 
     /// 594 W23: the agent's passwordless sudo for a sandbox — its own choice, else the setting
     /// `sandbox.agent_sudo` (read now: a changed setting applies at the next boot or session).
-    static func agentSudo(_ cfg: SandboxConfig, settings: @autoclosure () -> DozerSettings = .load()) -> Bool {
+    static func agentSudo(_ cfg: SandboxConfig, settings: @autoclosure () -> DozableSettings = .load()) -> Bool {
         cfg.agentSudo ?? settings().bool(SettingKey.agentSudo)
     }
 
     /// 594 W10: the guest's time zone — `sandbox.timezone`: `mac` (this Mac's zone, read NOW, so a
     /// wake after the Mac changed zone follows it) or a zone name. `DOZ_TEST_MAC_TIMEZONE` (a TEST
     /// seam: a zone name, or a file holding one) stands in for the Mac's.
-    static func guestTimeZone(settings: DozerSettings = .load(),
+    static func guestTimeZone(settings: DozableSettings = .load(),
                               environment: [String: String] = ProcessInfo.processInfo.environment) -> GuestTimeZone? {
         let v = settings.string(SettingKey.timeZone) ?? "mac"
         guard v == "mac" else { return GuestTimeZone(named: v) }
@@ -899,13 +899,13 @@ public actor HostCore {
         await freshen(o.image, update: false)
         // 618: an exact release asked for this sandbox (NAME@VERSION) is checked like a pin before anything is made.
         if let e = await exactVersionProblem(o, mustCheck: true) { throw HostError(.invalid, e) }
-        if o.rebuild == true, DozerImages.builtIn.contains(DozerImages.canonicalName(o.image))
-            || DozerImages.isPreparable(DozerImages.canonicalName(o.image), store: store) {
-            let img = DozerImages.canonicalName(o.image)
+        if o.rebuild == true, DozableImages.builtIn.contains(DozableImages.canonicalName(o.image))
+            || DozableImages.isPreparable(DozableImages.canonicalName(o.image), store: store) {
+            let img = DozableImages.canonicalName(o.image)
             emit(HostEvent(kind: .note, sandbox: name, text: "rebuilding the \(img) image first (as asked) — existing sandboxes keep theirs"))
             try await follow(try preparation(for: img, requestedBy: "create \(name) --rebuild"), emit: emit)
         }
-        let (spec, image) = try DozerImages.spec(name: name, options: o, store: store)
+        let (spec, image) = try DozableImages.spec(name: name, options: o, store: store)
         // EXPERIMENTAL (604): an audio sandbox's VM boots the sound kernel — verified into the kernel cache now.
         if spec.audio == true {
             guard !buildFlavor.isPublic else { throw HostError(.invalid, BuildFlavor.audioMissing) }   // 611
@@ -1029,7 +1029,7 @@ public actor HostCore {
     private func rebindDockerfileImage(_ m: Managed, emit: @escaping @Sendable (HostEvent) -> Void) throws -> Managed {
         guard let current = m.config.spec.imageSpec, let c = ImageChoice.parse(current.name), c.isDockerfile,
               m.config.spec.customImage == nil, !m.sandbox.hasRootDisk,
-              let fresh = try? DozerImages.spec(name: m.name, options: CreateOptions(image: c.name), store: store).0.imageSpec,
+              let fresh = try? DozableImages.spec(name: m.name, options: CreateOptions(image: c.name), store: store).0.imageSpec,
               !Dockerfiles.isPlaceholder(fresh.base), fresh != current else { return m }
         var cfg = m.config
         cfg.spec.imageSpec = fresh
@@ -1483,7 +1483,7 @@ public actor HostCore {
     static func execContext(config: SandboxConfig, environment: [String: String], workdir: String?,
                             user: String?) -> (environment: [String: String], workdir: String, user: String?) {
         guard let r = config.spec.imageSpec else {
-            return (environment, workdir ?? (config.workspace != nil ? DozerImages.workspaceGuestPath : "/root"), user)
+            return (environment, workdir ?? (config.workspace != nil ? DozableImages.workspaceGuestPath : "/root"), user)
         }
         let runAs = user ?? r.user
         var env = r.sessionEnvironment
@@ -1497,7 +1497,7 @@ public actor HostCore {
     /// `DOZ_CLAUDE_PERMISSIONS` — only in a claude-code sandbox, only when it is not the default
     /// (`skip`), and never over the caller's own `-e DOZ_CLAUDE_PERMISSIONS=…`.
     static func withClaudePermissions(_ env: [String: String], imageSpec: String?,
-                                      settings: @autoclosure () -> DozerSettings = .load()) -> [String: String] {
+                                      settings: @autoclosure () -> DozableSettings = .load()) -> [String: String] {
         // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way. 617: every
         // agent whose recipe has a permissions setting — its launcher's DOZ_<SHORT>_PERMISSIONS (gemini.permissions →
         // DOZ_GEMINI_PERMISSIONS); pi has none.
@@ -1653,7 +1653,7 @@ public actor HostCore {
             session = s
             argv = r.argv ?? (s == m.config.defaultSession.name ? m.config.defaultSession.argv : ["bash", "-l"])
         } else if let a = r.argv, !a.isEmpty {
-            let base = DozerImages.sessionName(for: a)
+            let base = DozableImages.sessionName(for: a)
             var name = base, n = 2
             while all.contains(name) { name = "\(base)-\(n)"; n += 1 }
             session = name
@@ -1707,7 +1707,7 @@ public actor HostCore {
             Task.detached { for id in ids { vault.prefetch(id) } }
         }
         let size = TermSize(cols: r.cols ?? 120, rows: r.rows ?? 36)
-        let workdir: String? = m.config.spec.imageSpec == nil && m.config.workspace != nil ? DozerImages.workspaceGuestPath : nil
+        let workdir: String? = m.config.spec.imageSpec == nil && m.config.workspace != nil ? DozableImages.workspaceGuestPath : nil
         // A command the caller named (doz run NAME -- CMD, the dashboard's "run a command"): a program the
         // guest does not have is said plainly, before a session that could only end at once with 127.
         if let a = r.argv, let program = a.first, !program.isEmpty,
@@ -1968,7 +1968,7 @@ public actor HostCore {
         guard (1...40).contains(name.count), name.allSatisfy({ ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "-" }), name.first != "-" else {
             throw HostError(.invalid, "a template's name is 1–40 characters of [a-z0-9-]")
         }
-        guard !DozerImages.builtIn.contains(name), ImageChoice.parse(name) == nil else { throw HostError(.invalid, "\(name) is a built-in image's name") }
+        guard !DozableImages.builtIn.contains(name), ImageChoice.parse(name) == nil else { throw HostError(.invalid, "\(name) is a built-in image's name") }
         guard !store.layout("_").customImages().contains(where: { $0.name == name }) else {
             throw HostError(.exists, "a template named \(name) already exists (doz template ls)")
         }
@@ -2023,12 +2023,12 @@ public actor HostCore {
         if let ws = o.workspace {
             prepared = try Workspace.prepare(ws, store: store)
             let path = prepared!.path
-            spec.shares = spec.shares.filter { $0.guestPath != DozerImages.workspaceGuestPath } + [Share(hostPath: path, guestPath: DozerImages.workspaceGuestPath)]
+            spec.shares = spec.shares.filter { $0.guestPath != DozableImages.workspaceGuestPath } + [Share(hostPath: path, guestPath: DozableImages.workspaceGuestPath)]
         } else if o.isolated == true {
-            spec.shares = spec.shares.filter { $0.guestPath != DozerImages.workspaceGuestPath }
+            spec.shares = spec.shares.filter { $0.guestPath != DozableImages.workspaceGuestPath }
         }
         if let net = o.network {
-            var mode = try DozerImages.networkMode(net)
+            var mode = try DozableImages.networkMode(net)
             // 597: locked / agent / open are permissions (for the source's base); nothing given = copied.
             if case .proxied(let p) = mode, let preset = p.preset, let names = AgentPermissions.preset(preset, base: PermissionPolicy.base(of: m.config)) {
                 mode = .proxied(.permissions(names + AgentPermissions.agentPermissions(m.config.imageChoice?.agent), preset: preset))
@@ -2041,7 +2041,7 @@ public actor HostCore {
         var cfg = m.config
         cfg.name = newName
         cfg.spec = spec
-        cfg.workspace = spec.shares.first { $0.guestPath == DozerImages.workspaceGuestPath }?.hostPath
+        cfg.workspace = spec.shares.first { $0.guestPath == DozableImages.workspaceGuestPath }?.hostPath
         cfg.createdAt = Date()
         cfg.credentialSources = [:]
         cfg.diedWithHostAt = nil
@@ -2106,7 +2106,7 @@ public actor HostCore {
 
     /// The lab's prepared disk key (bash + ncurses on Alpine, 1 GiB).
     private func labSpec(_ name: String = "doz-image-bake") throws -> SandboxSpec {
-        try DozerImages.spec(name: name, options: CreateOptions(image: "lab"), store: store).0
+        try DozableImages.spec(name: name, options: CreateOptions(image: "lab"), store: store).0
     }
 
     func images() throws -> [ImageRow] {
@@ -2116,13 +2116,13 @@ public actor HostCore {
         let labBaked = FileManager.default.fileExists(atPath: golden.path)
         rows.append(ImageRow(name: "lab", kind: "builtin", baked: labBaked, key: labBaked ? StoreLayout.goldenKey(for: lab) : nil,
                              bakedAt: labBaked ? (try? FileManager.default.attributesOfItem(atPath: golden.path)[.modificationDate] as? Date) ?? nil : nil,
-                             allocatedBytes: labBaked ? allocatedBytes(golden) : nil, note: "Alpine 3.20 + " + DozerImages.labPackages.joined(separator: ", "), fromSandbox: nil))
-        let settings = DozerSettings.load()
+                             allocatedBytes: labBaked ? allocatedBytes(golden) : nil, note: "Alpine 3.20 + " + DozableImages.labPackages.joined(separator: ", "), fromSandbox: nil))
+        let settings = DozableSettings.load()
         let versions = AgentVersions.all(store)
         rows[0].base = "alpine"
         rows[0].title = ImageChoice(base: "alpine", agent: .none).title
         // 596: every base × agent image the store has anything of (the two Node agent images always).
-        for name in DozerImages.composedImagesInStore(store) {
+        for name in DozableImages.composedImagesInStore(store) {
             guard let choice = ImageChoice.parse(name) else { continue }
             let agent = choice.agent == .none ? nil : choice.agent.rawValue
             let proto = ImageSpec(name: name, base: "", steps: [], verify: [], user: "", home: "", persistDirs: [])
@@ -2188,8 +2188,8 @@ public actor HostCore {
     /// `image bake` (594: a preparation — the one running for this image is joined, not repeated).
     private func bake(_ raw: String?, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> ImageRow {
         guard let raw else { throw HostError(.invalid, "which image? lab, claude-code, pi, or a base × agent image (doz base ls)") }
-        let image = DozerImages.canonicalName(raw)
-        guard DozerImages.builtIn.contains(image) || DozerImages.isPreparable(image, store: store) else {
+        let image = DozableImages.canonicalName(raw)
+        guard DozableImages.builtIn.contains(image) || DozableImages.isPreparable(image, store: store) else {
             throw HostError(.invalid, "only a base × agent image bakes (lab, claude-code, pi, python-claude-code, … — doz base ls); a template is saved from a restore point")
         }
         // 594: latest asked of the registry first — the bake makes the version the settings name.

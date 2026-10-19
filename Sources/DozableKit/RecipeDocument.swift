@@ -91,7 +91,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var service: String
         public var phase: String
         public var apiKey: ApiKey
-        public var dozer: CredentialDozer
+        public var dozer: CredentialDozable
         public struct ApiKey: Codable, Sendable, Equatable {
             public var name: String
             public var proxyManaged: Bool
@@ -102,7 +102,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
             public var header: String
             public var format: String
         }
-        public struct CredentialDozer: Codable, Sendable, Equatable {
+        public struct CredentialDozable: Codable, Sendable, Equatable {
             /// The Dozer account kinds that serve it (`mac`, `setup-token`, `api-key`, `key`, …).
             public var accounts: [String]
             /// 617: more guest variables that hold the same placeholder (a tool that reads its key under another name:
@@ -121,8 +121,8 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
     public struct AgentContext: Codable, Sendable, Equatable {
         public var directory: String
         public var filename: String
-        public var dozer: AgentContextDozer
-        public struct AgentContextDozer: Codable, Sendable, Equatable {
+        public var dozer: AgentContextDozable
+        public struct AgentContextDozable: Codable, Sendable, Equatable {
             /// `skill` (a SKILL.md) | `context-file`.
             public var kind: String
             public var manifest: AgentRecipe.Manifest?
@@ -576,13 +576,13 @@ extension RecipeDocument {
             caps.append(RecipeCapability(type: T.credential, description: (KeyProviders.provider(c.provider)?.title ?? c.provider) + " API access",
                                          config: .credential(Credential(service: c.provider, phase: "runtime",
                                                                         apiKey: Self.apiKey(c.provider) ?? Credential.ApiKey(name: "", proxyManaged: true, inject: []),
-                                                                        dozer: Credential.CredentialDozer(accounts: c.accounts, envAliases: c.envAliases)))))
+                                                                        dozer: Credential.CredentialDozable(accounts: c.accounts, envAliases: c.envAliases)))))
         }
         for p in r.state.persist { caps.append(RecipeCapability(type: T.volume, config: .volume(Volume(path: Self.toGuest(p))))) }
         if let p = r.prompt {
             caps.append(RecipeCapability(type: T.agentContext, config: .agentContext(AgentContext(
                 directory: Self.toGuest(p.dir ?? ""), filename: p.file ?? "SKILL.md",
-                dozer: AgentContext.AgentContextDozer(kind: p.kind, manifest: p.manifest, launcherArg: p.launcherArg)))))
+                dozer: AgentContext.AgentContextDozable(kind: p.kind, manifest: p.manifest, launcherArg: p.launcherArg)))))
         }
         let i = r.install
         caps.append(RecipeCapability(type: T.install, config: .install(Install(

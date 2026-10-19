@@ -163,7 +163,7 @@ final class WebHostWatchTests: XCTestCase {
 
     func testTheProbeNeverStartsAHostAndSeesAStalePID() throws {
         let dir = URL(fileURLWithPath: "/tmp/doz-hw-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let data = HostWebData(store: store, version: "test") { [] }
@@ -227,7 +227,7 @@ final class WebHostWatchTests: XCTestCase {
     /// with the same cookie; a rotation ends it with `rotated`.
     func testARestartedUIKeepsThePageSignedInAndARotationEndsIt() async throws {
         let dir = URL(fileURLWithPath: "/tmp/doz-hr-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let fake = FakeData()
@@ -268,7 +268,7 @@ final class WebHostWatchTests: XCTestCase {
 
     func testTheNextUIAsksForTheLastPortAndFallsBackWhenTaken() async throws {
         let dir = URL(fileURLWithPath: "/tmp/doz-hp-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         XCTAssertEqual(WebControl.address(store).port, 0, "no port file: the OS picks")

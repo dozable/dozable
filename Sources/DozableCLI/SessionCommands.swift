@@ -23,7 +23,7 @@ struct List: AsyncParsableCommand {
             if r.credentialPolicy == "strict" { account += " · strict" }
             // 594 (D17): no workspace is said, not left blank.
             let ws = r.workspace.map { DisplayPath.tilde($0) } ?? "isolated"
-            t.append([r.name + (r.trial == true ? " (try)" : ""), r.image, phase, Out.mib(r.ramHeldMiB), DozerImages.formatBytes(r.diskBytes),
+            t.append([r.name + (r.trial == true ? " (try)" : ""), r.image, phase, Out.mib(r.ramHeldMiB), DozableImages.formatBytes(r.diskBytes),
                       r.sessions.map(String.init) ?? "—", r.agentStatus?.label ?? "—", net, account, ws])
         }
         Out.stdout(Out.table(t, rightAligned: [3, 4, 5]))
@@ -43,7 +43,7 @@ struct Inspect: AsyncParsableCommand {
             let r = try decode(try await query(HostRequest(.agentPrompt, name: name), g), AgentPromptReport.self, g)
             if g.json { Out.json(r); return }
             Out.stdout(Self.render(r, name: name))
-            if r.enabled, r.error != nil { throw ExitCode(DozerExit.failed) }
+            if r.enabled, r.error != nil { throw ExitCode(DozableExit.failed) }
             return
         }
         let v = try await query(HostRequest(.inspect, name: name), g)
@@ -146,7 +146,7 @@ struct SessionsRestart: AsyncParsableCommand {
         Out.stdout("restarted session \(session) in \(name)" + (s.resumed ? " — its conversation continues" : "") + "\n")
         guard Self.attaches(detach: detach, attach: attach, json: g.json,
                             stdinTTY: isatty(STDIN_FILENO) != 0, stdoutTTY: isatty(STDOUT_FILENO) != 0) else { return }
-        AttachClient.run(store: g.dozerStore, sandbox: name, session: session, wake: false, detachKey: key, quiet: g.quiet)
+        AttachClient.run(store: g.dozableStore, sandbox: name, session: session, wake: false, detachKey: key, quiet: g.quiet)
     }
 }
 
@@ -167,7 +167,7 @@ struct SessionsList: AsyncParsableCommand {
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
-        if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozerExit.usage) }
+        if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
         let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
         if g.json { Out.json(rows); return }
         if rows.isEmpty {
@@ -205,7 +205,7 @@ struct SessionsList: AsyncParsableCommand {
         let s = try decode(try await query(r, g), SessionScreen.self, g)
         if vt {
             guard isatty(STDOUT_FILENO) == 0 else {
-                throw fail(HostError(.invalid, "--vt writes the guest's terminal bytes: send them to a file or a pipe, not a terminal"), g, code: DozerExit.usage)
+                throw fail(HostError(.invalid, "--vt writes the guest's terminal bytes: send them to a file or a pipe, not a terminal"), g, code: DozableExit.usage)
             }
             FileHandle.standardOutput.write(s.vt)
             return
@@ -230,7 +230,7 @@ struct Attach: AsyncParsableCommand {
     func run() async throws {
         let key = try parseDetachKey(detachKey)
         noteHostBuild(g)                // W33: before the terminal is taken over
-        AttachClient.run(store: g.dozerStore, sandbox: name, session: session, wake: !noWake, detachKey: key, quiet: g.quiet)
+        AttachClient.run(store: g.dozableStore, sandbox: name, session: session, wake: !noWake, detachKey: key, quiet: g.quiet)
     }
 }
 
@@ -269,7 +269,7 @@ struct Run: AsyncParsableCommand {
         let m = try rawCall(r, g)
         guard m.ok == true else {
             let e = m.error ?? HostError(.failed, "the host gave no reason")
-            throw fail(e, g, code: e.code == .notFound && r.argv != nil ? DozerExit.dozerFailed : nil)
+            throw fail(e, g, code: e.code == .notFound && r.argv != nil ? DozableExit.dozableFailed : nil)
         }
         let opened = try decode(m.result ?? .null, SessionOpened.self, g)
         if !g.json, let n = opened.notice { Out.stderr("[doz] \(n)\n") }
@@ -279,7 +279,7 @@ struct Run: AsyncParsableCommand {
             }
             return
         }
-        AttachClient.run(store: g.dozerStore, sandbox: name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
+        AttachClient.run(store: g.dozableStore, sandbox: name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
     }
 }
 
@@ -322,7 +322,7 @@ struct Exec: AsyncParsableCommand {
         r.start = !noStart      // 594 W27: an off sandbox boots first (its progress on stderr)
         let m = try rawCall(r, g)
         guard m.ok == true, let v = m.result else {
-            throw fail(m.error ?? HostError(.failed, "exec failed"), g, code: DozerExit.dozerFailed)
+            throw fail(m.error ?? HostError(.failed, "exec failed"), g, code: DozableExit.dozableFailed)
         }
         let out = try decode(v, ExecOutput.self, g)
         if g.json {

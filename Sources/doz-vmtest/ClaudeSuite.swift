@@ -81,7 +81,7 @@ func claudeSuite() async throws {
         h.run(["host", "stop"])
     }
     if h.hostRunning { h.run(["host", "stop"]) }
-    for n in [name, "cly"] where FileManager.default.fileExists(atPath: DozerStore(root: storeRoot).configFile(n).path) { h.run(["rm", n, "--yes"]) }
+    for n in [name, "cly"] where FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).configFile(n).path) { h.run(["rm", n, "--yes"]) }
 
     func probe(_ only: String? = nil, env: [String] = []) -> [String: ProbeLine] {
         var argv = ["exec", name]
@@ -186,7 +186,7 @@ func claudeSuite() async throws {
             .compactMap { try? JSONDecoder().decode(ProbeLine.self, from: Data($0.utf8)) }
         check(!lines.isEmpty && lines.allSatisfy { $0.status == 401 && !$0.body.contains("sandbox proxy") && !$0.body.contains("doz:") },
               "after the restart the old placeholder is still swapped (upstream 401 for the fake key, not the proxy's 403): \(lines.map { "\($0.status)" }.joined(separator: " "))")
-        let cfg = SandboxConfig.read(DozerStore(root: storeRoot).configFile(name))
+        let cfg = SandboxConfig.read(DozableStore(root: storeRoot).configFile(name))
         check((cfg?.placeholderHashes?.count ?? 0) > 0, "doz.json holds placeholder hashes (\(cfg?.placeholderHashes?.count ?? 0))")
         // The same session, its credential taken away and given back: it recovers without a restart.
         func loopTail() -> [ProbeLine] {
@@ -224,7 +224,7 @@ func claudeSuite() async throws {
         print("claude: shutdown revokes; nothing secret on disk")
         r = h.run(["shutdown", name, "--yes"])
         check(r.code == 0, "shutdown")
-        let after = SandboxConfig.read(DozerStore(root: storeRoot).configFile(name))
+        let after = SandboxConfig.read(DozableStore(root: storeRoot).configFile(name))
         check(after?.placeholderHashes == nil, "shutdown revoked the placeholders (no hashes left)")
         let leaks = scanForTokens(storeRoot)
         check(leaks.isEmpty, "no token in the store's files, logs or metrics beyond a 13-char prefix\(leaks.isEmpty ? "" : ": \(leaks.prefix(3))")")

@@ -142,7 +142,7 @@ final class WebActionTests: XCTestCase {
         XCTAssertNil(WebOperations.finishedLine(HostStopView.started("w1")))
         // A store with no host: nothing to restart (and nothing is started).
         let dir = URL(fileURLWithPath: "/tmp/doz-hr-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        let store = DozerStore(root: dir)
+        let store = DozableStore(root: dir)
         try store.ensureDirectory()
         defer { try? FileManager.default.removeItem(at: dir) }
         let data = HostWebData(store: store, version: "0.12.0") { [] }
@@ -395,10 +395,10 @@ final class WebActionTests: XCTestCase {
     // MARK: Terminal
 
     func testTheTerminalCommandIsFixedAndQuoted() {
-        let c = TerminalHandoff.command(executable: "/Users/me/.local/libexec/doz/doz", store: DozerStore(root: URL(fileURLWithPath: "/Users/me/My Store")),
+        let c = TerminalHandoff.command(executable: "/Users/me/.local/libexec/doz/doz", store: DozableStore(root: URL(fileURLWithPath: "/Users/me/My Store")),
                                         sandbox: "demo", session: "worker")
         XCTAssertEqual(c, "exec /Users/me/.local/libexec/doz/doz attach demo worker --store '/Users/me/My Store'")
-        let q = TerminalHandoff.command(executable: "/tmp/it's/doz", store: DozerStore(root: URL(fileURLWithPath: "/s;rm -rf ~")), sandbox: "d", session: nil)
+        let q = TerminalHandoff.command(executable: "/tmp/it's/doz", store: DozableStore(root: URL(fileURLWithPath: "/s;rm -rf ~")), sandbox: "d", session: nil)
         XCTAssertEqual(q, "exec '/tmp/it'\\''s/doz' attach d --store '/s;rm -rf ~'")
         // The one-shot .command file deletes itself first, then runs exactly the command.
         let f = TerminalHandoff.commandFile(q)

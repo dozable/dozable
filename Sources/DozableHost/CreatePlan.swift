@@ -6,7 +6,7 @@ import DozableKit
 // person chose into what will be made:
 //   · the command that makes it — only what differs from their defaults;
 //   · the `doz_project.yaml` text of the same choices;
-//   · what it can reach, in plain words, from the SAME policy the proxy will judge with (`DozerImages.spec`);
+//   · what it can reach, in plain words, from the SAME policy the proxy will judge with (`DozableImages.spec`);
 //   · whether its image is ready; the account and its key's source (never a value); the problems in the way.
 // The planner is pure given its facts (`PlanFacts`), so it is unit-tested without a host.
 
@@ -154,22 +154,22 @@ public struct PlanVersion: Codable, Equatable, Sendable {
 
 /// What the planner reads (the host fills it; tests make it).
 public struct PlanFacts: Sendable {
-    public var settings: DozerSettings
+    public var settings: DozableSettings
     public var accounts: AccountsFile
     /// The store's sandbox names.
     public var taken: Set<String>
     public var images: [ImageRow]
     /// account name → its source's label, for accounts that read their key on use.
     public var sourceLabels: [String: String]
-    public var store: DozerStore
+    public var store: DozableStore
     /// The OpenAI default that applies (the Mac's Codex login when signed in), and whether the Mac's Codex is signed in.
     public var openaiDefault: String?
     public var codexMac: Bool
     /// `defaults.projects_dir`, expanded; nil: from the settings.
     public var projectsDir: String?
 
-    public init(settings: DozerSettings, accounts: AccountsFile, taken: Set<String>, images: [ImageRow], sourceLabels: [String: String] = [:],
-                store: DozerStore, openaiDefault: String? = nil, codexMac: Bool = false, projectsDir: String? = nil) {
+    public init(settings: DozableSettings, accounts: AccountsFile, taken: Set<String>, images: [ImageRow], sourceLabels: [String: String] = [:],
+                store: DozableStore, openaiDefault: String? = nil, codexMac: Bool = false, projectsDir: String? = nil) {
         self.settings = settings
         self.accounts = accounts
         self.taken = taken
@@ -184,7 +184,7 @@ public struct PlanFacts: Sendable {
 
 public enum CreatePlanner {
     /// The image a request gets: the chosen one, else `defaults.image` (lab when none).
-    public static func image(_ r: PlanRequest, settings: DozerSettings) -> String {
+    public static func image(_ r: PlanRequest, settings: DozableSettings) -> String {
         r.create.image.isEmpty ? (settings.string(SettingKey.defaultImage) ?? "lab") : r.create.image
     }
 
@@ -261,7 +261,7 @@ public enum CreatePlanner {
         var specVersion: String?        // 618: the release the create installs
         var networkMode: NetworkMode?
         do {
-            let (spec, _) = try DozerImages.spec(name: WebNameCheck.isSandboxName(name) ? name : "plan", options: specOptions, store: f.store)
+            let (spec, _) = try DozableImages.spec(name: WebNameCheck.isSandboxName(name) ? name : "plan", options: specOptions, store: f.store)
             networkMode = spec.network
             specVersion = spec.imageSpec?.agent?.version
             policy = spec.network.policy
@@ -407,7 +407,7 @@ public enum CreatePlanner {
     // MARK: the command
 
     /// `doz <purpose> [NAME] --flag …`: only what differs from the defaults (a try: from the try's own).
-    static func argv(purpose: String, name: String?, options o: CreateOptions, given: CreateOptions, choice: ImageChoice?, settings: DozerSettings) -> [String] {
+    static func argv(purpose: String, name: String?, options o: CreateOptions, given: CreateOptions, choice: ImageChoice?, settings: DozableSettings) -> [String] {
         var a = ["doz", purpose]
         let isTry = purpose == "try"
         if isTry {
@@ -478,13 +478,13 @@ public enum CreatePlanner {
     // MARK: doz_project.yaml
 
     static func yaml(name: String, options o: CreateOptions, choice: ImageChoice?, isolated: Bool) -> (String, String?) {
-        var p = DozerProject(name: WebNameCheck.isSandboxName(name) ? name : "sandbox", image: o.image)
-        if let d = o.dockerfile { p.agent = choice.map { DozerProject.fileAgent($0.agent.rawValue) }; p.dockerfile = d }
+        var p = DozableProject(name: WebNameCheck.isSandboxName(name) ? name : "sandbox", image: o.image)
+        if let d = o.dockerfile { p.agent = choice.map { DozableProject.fileAgent($0.agent.rawValue) }; p.dockerfile = d }
         // 618: a tool's major or release as typed (`agent: opencode@1`) — and a family's bare name with the major it
         // resolved to (`opencode` → `opencode@2`): the file outlives this plan and must never change major by itself.
         if let ref = o.agentRef {
             if o.dockerfile == nil, let c = choice, c.base != c.agent.recipe?.defaultBase { p.base = c.base }
-            p.agent = DozerProject.fileAgent(ref)
+            p.agent = DozableProject.fileAgent(ref)
         }
         p.cpus = o.cpus
         p.memoryMiB = o.memoryMiB
@@ -514,7 +514,7 @@ public enum CreatePlanner {
     // MARK: what it can reach
 
     static func reach(_ mode: NetworkMode?, policy: NetworkPolicy?, workspace: String?, account: PlanAccount?, keys: [String],
-                      accounts: AccountsFile, newFolder: Bool = false, settings: DozerSettings? = nil,
+                      accounts: AccountsFile, newFolder: Bool = false, settings: DozableSettings? = nil,
                       bridgeSettings: [String: TOMLValue]? = nil, agent: AgentKind? = nil) -> [ReachLine] {
         var out: [ReachLine] = []
         switch mode {

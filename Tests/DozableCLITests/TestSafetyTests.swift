@@ -30,7 +30,7 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertNil(TestSafety.codexHomeViolation(URL(fileURLWithPath: "/tmp/codex-home"), home: home))
     }
 
-    func testClaudeCodesKeychainItemsAreRefusedAndDozersOwnAreNot() {
+    func testClaudeCodesKeychainItemsAreRefusedAndDozablesOwnAreNot() {
         XCTAssertNotNil(TestSafety.keychainViolation(service: "Claude Code-credentials"))
         XCTAssertNotNil(TestSafety.keychainViolation(service: ClaudeLogin.service(configDir: "/tmp/x")))
         XCTAssertNil(TestSafety.keychainViolation(service: "doz-anthropic:work"))
@@ -58,7 +58,7 @@ final class TestSafetyTests: XCTestCase {
         XCTAssertEqual(env["DOZ_TEST_CREDENTIALS"], "memory")
         XCTAssertEqual(env["DOZ_TEST_NO_MAC_LOGIN"], "1")
         XCTAssertNotNil(env["DOZ_TEST_CODEX_HOME"])
-        let s = DozerSettings.load()
+        let s = DozableSettings.load()
         let store = s.fileValues[SettingKey.storePath]
         let projects = s.fileValues[SettingKey.projectsDir]
         guard case .string(let sp)? = store, case .string(let pp)? = projects else { return XCTFail("the scratch doz.toml sets store.path and projects_dir") }

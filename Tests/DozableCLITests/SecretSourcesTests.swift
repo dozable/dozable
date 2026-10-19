@@ -65,7 +65,7 @@ final class SecretSourcesTests: XCTestCase {
     func core() async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: storeRoot), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: storeRoot), readOnly: false, version: "test", services: s)
         await c.load()
         return c
     }
@@ -260,7 +260,7 @@ final class SecretSourcesTests: XCTestCase {
         let file = try String(contentsOf: storeRoot.appendingPathComponent("accounts.json"), encoding: .utf8)
         XCTAssertTrue(file.contains("op://Dev/xai/credential"))
         XCTAssertFalse(file.contains(Self.value))
-        let a = try XCTUnwrap(AccountStore(store: DozerStore(root: storeRoot)).load().accounts.first { $0.name == "grok-op" })
+        let a = try XCTUnwrap(AccountStore(store: DozableStore(root: storeRoot)).load().accounts.first { $0.name == "grok-op" })
         XCTAssertEqual(a.source, .onePassword(reference: "op://Dev/xai/credential"))
         XCTAssertEqual(a.sourceEnv, ["OP_ACCOUNT": "my"])
         XCTAssertNil(a.keychainService)
@@ -298,7 +298,7 @@ final class SecretSourcesTests: XCTestCase {
         let m = await addSourced(c, "work", cmd, provider: nil, kind: .apiKey, force: true)
         XCTAssertNil(m.error, m.error?.message ?? "")
         XCTAssertNil(keychain.get("doz-anthropic:work"), "the old key's item Dozable made is gone")
-        let a = try XCTUnwrap(AccountStore(store: DozerStore(root: storeRoot)).load().accounts.first { $0.name == "work" })
+        let a = try XCTUnwrap(AccountStore(store: DozableStore(root: storeRoot)).load().accounts.first { $0.name == "work" })
         XCTAssertEqual(a.kind, .apiKey)
         XCTAssertEqual(a.binding, .anthropic)
         XCTAssertTrue(a.readsOnUse)
@@ -402,7 +402,7 @@ final class SecretSourcesTests: XCTestCase {
         let added = await custom(c, "ex")
         XCTAssertNil(added.error, added.error?.message ?? "")
         XCTAssertEqual(keychain.get("doz-custom:ex"), "EXAMPLE-CUSTOM-0123456789")
-        XCTAssertNil(AccountStore(store: DozerStore(root: storeRoot)).load().providerDefaults?["custom"], "a custom key is never a default")
+        XCTAssertNil(AccountStore(store: DozableStore(root: storeRoot)).load().providerDefaults?["custom"], "a custom key is never a default")
         // Refused unless each host is allowed on purpose.
         var cr = HostRequest(.create, name: "cc")
         cr.create = CreateOptions(image: "claude-code", account: "none")

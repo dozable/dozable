@@ -32,7 +32,7 @@ import DozableKit
 
 public enum WorkspaceFiles {
     /// Where the workspace is in the guest.
-    public static let guestRoot = DozerImages.workspaceGuestPath
+    public static let guestRoot = DozableImages.workspaceGuestPath
     /// The longest path the host takes.
     public static let maximumPathBytes = 1024
     /// How many file opens a sandbox may ask for in `rateWindow` seconds.

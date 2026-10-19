@@ -271,7 +271,7 @@ public enum DockerfileImport {
     public static func tag(_ base: String) -> String { "dozer.local/\(base):latest" }
 
     /// Import `archive` (an OCI image-layout tar, as `container build -o type=oci` writes it).
-    public static func importArchive(_ archive: URL, base: String, store: DozerStore, previous: DockerfileRecord?) async throws -> Result {
+    public static func importArchive(_ archive: URL, base: String, store: DozableStore, previous: DockerfileRecord?) async throws -> Result {
         let fm = FileManager.default
         let dir = store.root.appendingPathComponent(".dockerfile-import-\(UUID().uuidString.prefix(8))")
         try fm.createDirectory(at: dir, withIntermediateDirectories: true)

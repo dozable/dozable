@@ -48,7 +48,7 @@ final class HostTerminalAttachment: WebTerminalAttachment, @unchecked Sendable {
 
     /// Attach (blocking — call off the cooperative pool). Starts a host when none runs, as
     /// `doz attach` does: opening a terminal is an explicit attach (591 T3).
-    static func open(store: DozerStore, sandbox: String, session: String?, size: TermSize) throws -> HostTerminalAttachment {
+    static func open(store: DozableStore, sandbox: String, session: String?, size: TermSize) throws -> HostTerminalAttachment {
         let client = try HostClient.connect(store: store, autostart: true)
         var req = HostRequest(.attach, name: sandbox)
         req.session = session

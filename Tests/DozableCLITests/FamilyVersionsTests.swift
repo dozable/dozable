@@ -8,7 +8,7 @@ import XCTest
 /// A stubbed registry: never the network.
 final class FamilyVersionsTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root) }
+    var store: DozableStore { DozableStore(root: root) }
     let keychain = FakeKeychain()
 
     override func setUpWithError() throws {
@@ -44,14 +44,14 @@ final class FamilyVersionsTests: XCTestCase {
     func testLatestStaysWithinTheMembersMajor() async throws {
         let stub = Stub()
         stub.latest = "2.0.29"                         // the package's latest left major 1
-        let f = await AgentVersions.refresh("opencode", store: store, settings: DozerSettings(text: nil), registry: stub.registry, force: true)
+        let f = await AgentVersions.refresh("opencode", store: store, settings: DozableSettings(text: nil), registry: stub.registry, force: true)
         XCTAssertNil(f.error)
         XCTAssertEqual(AgentVersions.all(store)["opencode"]?.latest?.version, "1.20.1", "the newest stable 1.x — never 2, never a beta")
         XCTAssertEqual(NpmRegistry.newest(in: stub.versions, major: 2), "2.0.29")
         XCTAssertNil(NpmRegistry.newest(in: stub.versions, major: 3))
         // Its latest within major: as it is.
         stub.latest = "1.19.0"
-        _ = await AgentVersions.refresh("opencode", store: store, settings: DozerSettings(text: nil), registry: stub.registry, force: true)
+        _ = await AgentVersions.refresh("opencode", store: store, settings: DozableSettings(text: nil), registry: stub.registry, force: true)
         XCTAssertEqual(AgentVersions.all(store)["opencode"]?.latest?.version, "1.19.0")
     }
 
@@ -104,11 +104,11 @@ final class FamilyVersionsTests: XCTestCase {
     /// a stored name is never resolved as a family — whatever the family recommends now.
     func testAStoredImageNameKeepsItsMajor() throws {
         XCTAssertEqual(ImageChoice.parse("opencode")?.agent.rawValue, "opencode")
-        let (spec, _) = try DozerImages.spec(name: "oc1", options: CreateOptions(image: "opencode", network: "locked"), store: store,
+        let (spec, _) = try DozableImages.spec(name: "oc1", options: CreateOptions(image: "opencode", network: "locked"), store: store,
                                              environment: ["XDG_CONFIG_HOME": root.path])
         XCTAssertEqual(spec.imageSpec?.agent?.package, "opencode-ai", "OpenCode 1's package")
         XCTAssertEqual(AgentRef.major(of: spec.imageSpec?.agent?.version ?? ""), 1)
-        let (spec2, _) = try DozerImages.spec(name: "oc2", options: CreateOptions(image: "opencode2", network: "locked"), store: store,
+        let (spec2, _) = try DozableImages.spec(name: "oc2", options: CreateOptions(image: "opencode2", network: "locked"), store: store,
                                               environment: ["XDG_CONFIG_HOME": root.path])
         XCTAssertEqual(AgentRef.major(of: spec2.imageSpec?.agent?.version ?? ""), 2)
         // What a person types does resolve: the family's name is its recommended major.

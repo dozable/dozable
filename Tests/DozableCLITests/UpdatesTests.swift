@@ -211,18 +211,18 @@ final class UpdatesTests: XCTestCase {
         XCTAssertEqual(server.requests.count, 0, "a guarded test run never asks the real feed")
         // From this process (make test: DOZ_TEST_GUARD=1, no feed of its own).
         let here = UpdateContext.current(version: "0.31.0", executable: "/x/Cellar/doz/0.31.0/libexec/doz/doz",
-                                         settings: DozerSettings.load(environment: [:]), env: ["DOZ_TEST_GUARD": "1"])
+                                         settings: DozableSettings.load(environment: [:]), env: ["DOZ_TEST_GUARD": "1"])
         XCTAssertTrue(here.testWithoutFeed)
     }
 
     func testTheChannelFollowsTheFormulaUntilTheSettingIsSet() throws {
         let cellar = "/opt/homebrew/Cellar/doz-beta/0.32.0-rc.1/libexec/doz/doz"
         XCTAssertEqual(InstallMethod.detect(executable: cellar), .homebrew(formula: "doz-beta"))
-        let none = UpdateContext.current(version: "0.32.0-rc.1", executable: cellar, settings: DozerSettings.load(environment: [:]), env: [:])
+        let none = UpdateContext.current(version: "0.32.0-rc.1", executable: cellar, settings: DozableSettings.load(environment: [:]), env: [:])
         XCTAssertEqual(none.channel, .beta)
         XCTAssertEqual(none.mode, .notify, "notify is the default")
         let xdg = dir.appendingPathComponent("xdg")
-        let s = try DozerSettings.load(environment: ["XDG_CONFIG_HOME": xdg.path]).writing(SettingKey.updatesChannel, .string("stable"))
+        let s = try DozableSettings.load(environment: ["XDG_CONFIG_HOME": xdg.path]).writing(SettingKey.updatesChannel, .string("stable"))
         let set = UpdateContext.current(version: "0.32.0-rc.1", executable: cellar, settings: s, env: [:])
         XCTAssertEqual(set.channel, .stable)
         XCTAssertEqual(UpdateChecker.noticeLine(entry("0.32.0", build: 9, channel: "stable"), set),
@@ -281,17 +281,17 @@ final class UpdatesTests: XCTestCase {
     }
 
     func testTheUpdateSettingsAreInTheClosedSchema() {
-        XCTAssertEqual(DozerSettings.definition(SettingKey.updatesMode)?.defaultValue, .string("notify"))
-        XCTAssertEqual(DozerSettings.definition(SettingKey.updatesChannel)?.defaultValue, .string("stable"))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.updatesMode)!.parse("sometimes"))
-        XCTAssertEqual(DozerSettings.definition(SettingKey.updatesMode)?.environment, "DOZ_UPDATES")
+        XCTAssertEqual(DozableSettings.definition(SettingKey.updatesMode)?.defaultValue, .string("notify"))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.updatesChannel)?.defaultValue, .string("stable"))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.updatesMode)!.parse("sometimes"))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.updatesMode)?.environment, "DOZ_UPDATES")
     }
 
     func testUpdateCommandParses() throws {
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["update", "--check"]))
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["update", "--channel", "beta", "--yes"]))
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["update", "--channel", "nightly"]))
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["update", "--check", "--channel", "beta"]))
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["host", "restart"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["update", "--check"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["update", "--channel", "beta", "--yes"]))
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["update", "--channel", "nightly"]))
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["update", "--check", "--channel", "beta"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["host", "restart"]))
     }
 }

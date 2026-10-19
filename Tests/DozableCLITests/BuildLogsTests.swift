@@ -30,7 +30,7 @@ final class BuildLogsTests: XCTestCase {
     }
 
     func testTheLogIsKeptPerImageRoundTripsAndIsPrivate() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let log = BuildLog(image: "node-codex", state: "done", startedAt: Date(timeIntervalSince1970: 1_800_000_000),
                            finishedAt: Date(timeIntervalSince1970: 1_800_000_090), seconds: 90, error: nil,
                            steps: [PreparationStep(label: "step: install codex", kind: "step", seconds: 42)],
@@ -78,7 +78,7 @@ final class BuildLogsTests: XCTestCase {
     /// The whole flow without a VM: a preparation's runner hands each step's output to the sink; the log is kept when
     /// it ends — and the output is never an event a client sees.
     func testAPreparationKeepsItsBuildLogWhenItEnds() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let c = HostCore(store: store, readOnly: false, version: "t", newStoreDefaultAccount: "mac")
         await c.setPreparationRunner({ image, _, emit in
             emit(HostEvent(kind: .started, sandbox: image, text: "step: install"))
@@ -115,7 +115,7 @@ final class BuildLogsTests: XCTestCase {
 
     /// The owner's rule: the build log shows every command and script exactly as it ran — taken from the spec, verbatim.
     func testARecordedBuildLogHoldsEveryStepsScriptVerbatim() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let (spec, plan) = try geminiPlan()
         XCTAssertEqual(plan.steps.map(\.argv), spec.steps.map(\.argv), "the plan is the spec's argv, unchanged")
         XCTAssertEqual(plan.checks.map(\.argv), spec.verify.map(\.argv))
@@ -153,7 +153,7 @@ final class BuildLogsTests: XCTestCase {
 
     /// Nothing secret-shaped is ever kept in a build log — not in a command, an environment or the output.
     func testNothingSecretShapedReachesTheLog() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         var (_, plan) = try geminiPlan()
         let secrets = ["sk-ant-api03-SECRETSECRETSECRET", "AIzaSyD-FAKEFAKEFAKEFAKEFAKE12", "xai-SECRETSECRETSECRET12",
                        "ghp_0123456789abcdefghijABCDEFGHIJ", "doz_cred_abcdef123456", "eyJhbGciOiJIUzI1.eyJzdWIiOiIxMjM0.SflKxwRJSMeKKF2QT4",
@@ -177,7 +177,7 @@ final class BuildLogsTests: XCTestCase {
     }
 
     func testTheHostReadsALogByImageForTheCLI() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let (_, plan) = try geminiPlan()
         BuildLogs.save(BuildLog(image: "debian-gemini", state: "done", startedAt: Date(), finishedAt: Date(), seconds: 1, error: nil,
                                 steps: [], sections: [], plan: plan), store: store)

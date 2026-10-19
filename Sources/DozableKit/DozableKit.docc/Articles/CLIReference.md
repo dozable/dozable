@@ -1,6 +1,6 @@
 # CLI reference
 
-Every `doz` command, by task. New to it? <doc:DozerWalkthrough> is a first run, end to end.
+Every `doz` command, by task. New to it? <doc:DozableWalkthrough> is a first run, end to end.
 
 ## Overview
 

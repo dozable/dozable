@@ -19,8 +19,8 @@ final class QuickAddTests: XCTestCase {
         try? FileManager.default.removeItem(atPath: projects)
     }
 
-    func settings(image: String? = nil, extra: String = "") -> DozerSettings {
-        DozerSettings(text: "[defaults]\nprojects_dir = \"\(projects!)\"\n" + (image.map { "image = \"\($0)\"\n" } ?? "") + extra)
+    func settings(image: String? = nil, extra: String = "") -> DozableSettings {
+        DozableSettings(text: "[defaults]\nprojects_dir = \"\(projects!)\"\n" + (image.map { "image = \"\($0)\"\n" } ?? "") + extra)
     }
 
     func testTheDefaults_nameAndFolder() throws {
@@ -113,9 +113,9 @@ final class QuickAddTests: XCTestCase {
 
     /// `doz new` is a top-level command that clashes with nothing.
     func testDozNewIsACommand() throws {
-        let names = DozerCommand.configuration.subcommands.map { $0._commandName }
+        let names = DozableCommand.configuration.subcommands.map { $0._commandName }
         XCTAssertEqual(names.filter { $0 == "new" }.count, 1)
-        let aliases = DozerCommand.configuration.subcommands.flatMap { $0.configuration.aliases }
+        let aliases = DozableCommand.configuration.subcommands.flatMap { $0.configuration.aliases }
         XCTAssertFalse(aliases.contains("new"))
         let n = try New.parse(["--image", "pi", "--name", "x1", "--isolated", "-d"])
         XCTAssertEqual(n.image, "pi")

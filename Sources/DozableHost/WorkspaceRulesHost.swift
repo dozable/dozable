@@ -56,7 +56,7 @@ public struct WorkspaceRulesReport: Codable, Equatable, Sendable {
 
 extension HostCore {
     /// 608: `workspace.view` for a sandbox (its own value wins) — on unless it says off.
-    static func workspaceViewOn(_ cfg: SandboxConfig, settings: @autoclosure () -> DozerSettings = .load()) -> Bool {
+    static func workspaceViewOn(_ cfg: SandboxConfig, settings: @autoclosure () -> DozableSettings = .load()) -> Bool {
         sandboxValue(cfg, SettingKey.workspaceView, settings: settings()) != .string("off")
     }
 
@@ -69,7 +69,7 @@ extension HostCore {
     }
 
     /// The mode for a sandbox and where it comes from.
-    static func ruleMode(_ cfg: SandboxConfig, settings: DozerSettings = .load()) -> (mode: WorkspaceRuleMode, source: String) {
+    static func ruleMode(_ cfg: SandboxConfig, settings: DozableSettings = .load()) -> (mode: WorkspaceRuleMode, source: String) {
         if case .string(let s)? = cfg.settings?[SettingKey.ignoreMode], let m = WorkspaceRuleMode(rawValue: s) { return (m, "sandbox") }
         let r = settings.resolve(SettingKey.ignoreMode)
         if case .string(let s) = r.value, let m = WorkspaceRuleMode(rawValue: s) { return (m, r.source.rawValue) }
@@ -96,7 +96,7 @@ extension HostCore {
     func workspaceRulesReport(_ r: HostRequest) async throws -> WorkspaceRulesReport {
         let m = try get(r.name)
         let (mode, source) = Self.ruleMode(m.config)
-        let guestPath = DozerImages.workspaceGuestPath
+        let guestPath = DozableImages.workspaceGuestPath
         var rep = WorkspaceRulesReport(sandbox: m.name, workspace: m.config.workspace, guestPath: guestPath, active: false,
                                        mode: mode.rawValue, modeSource: source, caseInsensitive: true, ignore: [], readOnly: [],
                                        problems: [], view: "stopped")

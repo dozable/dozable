@@ -7,8 +7,8 @@ import XCTest
 /// resolved at preparation time — a stubbed registry, never the network.
 final class AgentVersionsTests: XCTestCase {
     var root: URL!
-    var store: DozerStore { DozerStore(root: root) }
-    let latest = DozerSettings(text: nil)
+    var store: DozableStore { DozableStore(root: root) }
+    let latest = DozableSettings(text: nil)
     let newer = AgentRelease(version: "2.1.230", integrity: "sha512-" + String(repeating: "A", count: 86) + "==")
     let newest = AgentRelease(version: "2.1.231", integrity: "sha512-" + String(repeating: "B", count: 86) + "==")
 
@@ -78,7 +78,7 @@ final class AgentVersionsTests: XCTestCase {
             XCTAssertTrue(baseline.contains("fd-find") && baseline.contains("ripgrep") && baseline.contains("ln -sf /usr/bin/fdfind /usr/local/bin/fd"))
             XCTAssertTrue(img.verify.contains { $0.argv.last!.contains(" rg fd ") })
         }
-        XCTAssertTrue(DozerImages.labPackages.contains("fd"))
+        XCTAssertTrue(DozableImages.labPackages.contains("fd"))
         // Claude Code never updates itself in a sandbox.
         XCTAssertEqual(a.sessionEnvironment["DISABLE_AUTOUPDATER"], "1")
         XCTAssertEqual(a.sessionEnvironment["DISABLE_UPDATES"], "1")
@@ -87,14 +87,14 @@ final class AgentVersionsTests: XCTestCase {
     func testTheSettingsAreLatestByDefaultOrAnExactVersion() throws {
         XCTAssertEqual(AgentVersions.setting("claude-code", latest), "latest")
         XCTAssertEqual(AgentVersions.setting("pi", latest), "latest")
-        let d = try XCTUnwrap(DozerSettings.definition(SettingKey.claudeCodeVersion))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.claudeCodeVersion))
         for ok in ["latest", "2.1.227", "3.0.0-beta.2"] { XCTAssertNoThrow(try d.parse(ok), ok) }
         for bad in ["2.1", "^2.1.0", "next", "2.1.227 ; x", "~1.0.0", ""] { XCTAssertThrowsError(try d.parse(bad), bad) }
         // 617: a pinned-only recipe's own two-part pin is a version of its setting (llm 0.36), and only that one.
-        let llm = try XCTUnwrap(DozerSettings.definition("images.llm_version"))
+        let llm = try XCTUnwrap(DozableSettings.definition("images.llm_version"))
         XCTAssertNoThrow(try llm.parse("0.36"))
         XCTAssertThrowsError(try llm.parse("0.35"))
-        let pinned = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\npi_version = \"latest\"\n")
+        let pinned = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\npi_version = \"latest\"\n")
         XCTAssertEqual(pinned.warnings, [])
         XCTAssertEqual(AgentVersions.setting("claude-code", pinned), "2.1.227")
     }
@@ -145,12 +145,12 @@ final class AgentVersionsTests: XCTestCase {
         await AgentVersions.refresh("claude-code", store: store, settings: latest, registry: stub.registry)
         XCTAssertEqual(try AgentVersions.spec("claude-code", purpose: .prepare, store: store, settings: latest)?.agent?.version, "2.1.230")
         XCTAssertEqual(try AgentVersions.spec("claude-code", purpose: .create, store: store, settings: latest)?.agent?.version, "2.1.230")
-        XCTAssertEqual(try DozerImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:], purpose: .prepare).0.imageSpec?.agent?.version,
+        XCTAssertEqual(try DozableImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:], purpose: .prepare).0.imageSpec?.agent?.version,
                        "2.1.230")
         // An exact setting: the pin, or a version this store knows; one it does not know says so.
-        let exact = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.230\"\n")
+        let exact = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.230\"\n")
         XCTAssertEqual(try AgentVersions.spec("claude-code", purpose: .prepare, store: store, settings: exact)?.agent?.version, "2.1.230", "known from the lookup")
-        let unknown = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.200\"\n")
+        let unknown = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.200\"\n")
         XCTAssertThrowsError(try AgentVersions.spec("claude-code", purpose: .prepare, store: store, settings: unknown)) {
             XCTAssertTrue(("\($0)" + ((($0 as? HostError)?.message) ?? "")).contains("2.1.227 is built in"), "\($0)")
         }
@@ -170,7 +170,7 @@ final class AgentVersionsTests: XCTestCase {
         XCTAssertEqual(try AgentVersions.spec("claude-code", purpose: .create, store: store, settings: latest)?.agent?.version, "2.1.227")
         XCTAssertEqual(neverAsked, "2.1.227")
         // An exact pin always works from what the store has.
-        let pinned = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
+        let pinned = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
         XCTAssertEqual(try AgentVersions.spec("claude-code", purpose: .create, store: store, settings: pinned)?.agent?.version, "2.1.227")
     }
 

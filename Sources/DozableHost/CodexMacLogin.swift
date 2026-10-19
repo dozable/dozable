@@ -252,7 +252,7 @@ extension HostCore {
         if let s = codexMacReader { return s }
         let env = ProcessInfo.processInfo.environment
         let s = CodexMacSession(codexHome: services.codexHome(), runner: services.codexRunner, binary: services.codexBinary,
-                                keepaliveEnabled: { DozerSettings.load(environment: env).bool(SettingKey.codexKeepAlive) })
+                                keepaliveEnabled: { DozableSettings.load(environment: env).bool(SettingKey.codexKeepAlive) })
         s.onNote = { [weak self] t in Task { await self?.note(nil, t) } }
         codexMacReader = s
         return s

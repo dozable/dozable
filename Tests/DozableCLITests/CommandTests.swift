@@ -9,7 +9,7 @@ import DozableWeb
 /// The command surface: the owner's vocabulary and its aliases, the arguments, `--json`, and the
 /// shapes of what `--json` prints. No host, no VM.
 final class CommandTests: XCTestCase {
-    private func parse(_ args: [String]) throws -> ParsableCommand { try DozerCommand.parseAsRoot(args) }
+    private func parse(_ args: [String]) throws -> ParsableCommand { try DozableCommand.parseAsRoot(args) }
 
     func testTheOwnersAliases() throws {
         XCTAssertTrue(try parse(["hibernate", "box"]) is Hibernate)
@@ -99,12 +99,12 @@ final class CommandTests: XCTestCase {
     }
 
     func testExitCodes() {
-        XCTAssertEqual(DozerExit.code(for: HostError(.notFound, "")), 2)
-        XCTAssertEqual(DozerExit.code(for: HostError(.invalidPhase, "")), 3)
-        XCTAssertEqual(DozerExit.code(for: HostError(.exists, "")), 4)
-        XCTAssertEqual(DozerExit.code(for: HostError(.unavailable, "")), 6)
-        XCTAssertEqual(DozerExit.code(for: HostError(.notImplemented, "")), 7)
-        XCTAssertEqual(DozerExit.code(for: HostError(.invalid, "")), 64)
+        XCTAssertEqual(DozableExit.code(for: HostError(.notFound, "")), 2)
+        XCTAssertEqual(DozableExit.code(for: HostError(.invalidPhase, "")), 3)
+        XCTAssertEqual(DozableExit.code(for: HostError(.exists, "")), 4)
+        XCTAssertEqual(DozableExit.code(for: HostError(.unavailable, "")), 6)
+        XCTAssertEqual(DozableExit.code(for: HostError(.notImplemented, "")), 7)
+        XCTAssertEqual(DozableExit.code(for: HostError(.invalid, "")), 64)
     }
 
     // MARK: --json shapes (what scripts rely on: add fields, never rename)
@@ -160,7 +160,7 @@ final class CommandTests: XCTestCase {
     func testWhenDozUIOpensATab() throws {
         func mode(_ args: [String], _ file: String? = nil) throws -> String {
             let c = try XCTUnwrap(try parse(["ui"] + args) as? UIStart)
-            return c.o.delivery.openMode(DozerSettings(text: file))
+            return c.o.delivery.openMode(DozableSettings(text: file))
         }
         XCTAssertEqual(try mode([]), "auto")
         XCTAssertEqual(try mode([], "[ui]\nopen_browser = \"never\"\n"), "never")
@@ -181,7 +181,7 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(try parse(["ui", "start", "--no-open"]) is UIStart)
         let alias = try XCTUnwrap(try parse(["ui", "serve", "--new-link", "--no-open"]) as? UIServe)
         XCTAssertTrue(alias.o.newLink)
-        XCTAssertEqual(alias.o.delivery.openMode(DozerSettings(text: nil)), "never")
+        XCTAssertEqual(alias.o.delivery.openMode(DozableSettings(text: nil)), "never")
         XCTAssertTrue(try parse(["ui", "restart"]) is UIRestart)
         let listed = UICommand.helpMessage().components(separatedBy: "SUBCOMMANDS:").last ?? ""
         XCTAssertFalse(listed.contains("  serve"), "the alias is not listed: \(listed)")
@@ -199,11 +199,11 @@ final class CommandTests: XCTestCase {
 
     /// 594 W18: the probes' version seam takes a plain version string only.
     func testTheTestVersionSeamTakesAPlainVersionOnly() {
-        XCTAssertEqual(DozerCommand.testVersion("0.12.0-rc.4"), "0.12.0-rc.4")
-        XCTAssertNil(DozerCommand.testVersion(nil))
-        XCTAssertNil(DozerCommand.testVersion(""))
-        XCTAssertNil(DozerCommand.testVersion("1.0 && rm"))
-        XCTAssertNil(DozerCommand.testVersion("\u{1b}[31m1.0"))
-        XCTAssertNil(DozerCommand.testVersion(String(repeating: "1", count: 41)))
+        XCTAssertEqual(DozableCommand.testVersion("0.12.0-rc.4"), "0.12.0-rc.4")
+        XCTAssertNil(DozableCommand.testVersion(nil))
+        XCTAssertNil(DozableCommand.testVersion(""))
+        XCTAssertNil(DozableCommand.testVersion("1.0 && rm"))
+        XCTAssertNil(DozableCommand.testVersion("\u{1b}[31m1.0"))
+        XCTAssertNil(DozableCommand.testVersion(String(repeating: "1", count: 41)))
     }
 }

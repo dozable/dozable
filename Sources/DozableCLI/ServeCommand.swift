@@ -39,7 +39,7 @@ struct ServeCommand: AsyncParsableCommand {
 }
 
 /// The store's root as a URL.
-private func root(_ g: GlobalOptions) -> URL { g.dozerStore.root }
+private func root(_ g: GlobalOptions) -> URL { g.dozableStore.root }
 
 struct ServeStart: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "start", abstract: "Start serving (the default) — or, when doz serve runs for this store, say where.")
@@ -67,7 +67,7 @@ struct ServeStart: AsyncParsableCommand {
     }
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         let rootURL = store.root
         guard store.socketPathFits else {
             throw fail(HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription), g)
@@ -122,7 +122,7 @@ struct ServeStart: AsyncParsableCommand {
         state.responsibleApp = HostCore.responsibleAppDescription
         let server: DozableWebServer
         do {
-            server = try await DozableWebServer.bindServe(data: data, assets: assets, version: DozerCommand.version,
+            server = try await DozableWebServer.bindServe(data: data, assets: assets, version: DozableCommand.version,
                                                         limits: try WebLimits(maximumConnections: 256), settings: settings, serve: state)
         } catch {
             WebServeControl.releaseLock(lockFD)
@@ -154,7 +154,7 @@ struct ServeStart: AsyncParsableCommand {
             src.resume()
             sources.append(src)
         }
-        audit.record(WebAuditEntry(kind: "start", outcome: "\(state.origins.first ?? "") \(DozerCommand.version)"))
+        audit.record(WebAuditEntry(kind: "start", outcome: "\(state.origins.first ?? "") \(DozableCommand.version)"))
         var bonjour: WebBonjour?
         if config.advertise && config.bind != .loopback {
             let name = "Dozable on \(names.localHostName ?? "this Mac")"
@@ -168,7 +168,7 @@ struct ServeStart: AsyncParsableCommand {
             }
         }
         if launched {
-            Out.stdout("doz serve \(DozerCommand.version) (pid \(getpid()), detached: parent \(getppid())) — \(state.origins.joined(separator: "  ")) — store \(rootURL.path)\n")
+            Out.stdout("doz serve \(DozableCommand.version) (pid \(getpid()), detached: parent \(getppid())) — \(state.origins.joined(separator: "  ")) — store \(rootURL.path)\n")
             Out.stdout("responsible app (Local Network privacy, Bonjour): \(state.responsibleApp ?? "unknown")\n")
         } else if g.json {
             Out.jsonLine(ServeStarted(origins: state.origins, publicOrigins: config.publicOrigins.map(\.description), store: rootURL.path,
@@ -494,7 +494,7 @@ struct ServeStop: AsyncParsableCommand {
 /// comes back to THIS doz serve — over https, through a trusted proxy. The proof is a one-use token doz serve
 /// issues over serve.sock and answers on `GET /api/v1/serve/probe` only once.
 enum ServeDoctor {
-    static func checks(store: DozerStore, settings: DozerSettings) -> [DoctorCheck] {
+    static func checks(store: DozableStore, settings: DozableSettings) -> [DoctorCheck] {
         let root = store.root
         let configured = (settings.string(SettingKey.servePublicOrigins) ?? "").split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty }
         guard case .success(let st)? = WebServeControl.request(root, "status", as: WebServeStatus.self) else {

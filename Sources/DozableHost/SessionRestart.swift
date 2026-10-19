@@ -35,17 +35,17 @@ public struct SessionRecords: Codable, Equatable, Sendable {
     public var sessions: [String: SessionRecord] = [:]
     public init() {}
 
-    public static func url(_ store: DozerStore, _ name: String) -> URL {
+    public static func url(_ store: DozableStore, _ name: String) -> URL {
         store.layout(name).sandboxDirectory.appendingPathComponent("sessions.json")
     }
 
-    public static func read(_ store: DozerStore, _ name: String) -> SessionRecords {
+    public static func read(_ store: DozableStore, _ name: String) -> SessionRecords {
         guard let d = try? Data(contentsOf: url(store, name)), let r = try? HostWire.decoder.decode(SessionRecords.self, from: d) else { return SessionRecords() }
         return r
     }
 
     /// Write atomically (0600), and only into a sandbox `doz create` made. nil / empty removes the file.
-    public static func write(_ records: SessionRecords?, _ store: DozerStore, _ name: String) {
+    public static func write(_ records: SessionRecords?, _ store: DozableStore, _ name: String) {
         let url = url(store, name)
         guard FileManager.default.fileExists(atPath: store.configFile(name).path) else { return }
         guard let r = records, !r.sessions.isEmpty, let data = try? HostWire.encoder.encode(r) else {
@@ -61,7 +61,7 @@ public struct SessionRecords: Codable, Equatable, Sendable {
     }
 
     /// Record one session (the most sessions a sandbox keeps a record of: 64, the oldest dropped first).
-    public static func record(_ session: String, _ rec: SessionRecord, _ store: DozerStore, _ name: String) {
+    public static func record(_ session: String, _ rec: SessionRecord, _ store: DozableStore, _ name: String) {
         var r = read(store, name)
         r.sessions[session] = rec
         while r.sessions.count > 64, let oldest = r.sessions.min(by: { $0.value.openedAt < $1.value.openedAt })?.key { r.sessions[oldest] = nil }

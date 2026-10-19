@@ -32,7 +32,7 @@ final class NukeTests: XCTestCase {
         try k.write(service: Access.githubKeyService, account: Keychain.user, secret: "x")
         try k.write(service: "doz-something-else", account: Keychain.user, secret: "x")   // not one Dozable makes
 
-        let p = try Nuke.plan(store: DozerStore(root: store), configDir: config, cacheDir: cache, keychain: k)
+        let p = try Nuke.plan(store: DozableStore(root: store), configDir: config, cacheDir: cache, keychain: k)
         XCTAssertEqual(p.items.filter { $0.kind == .folder }.map(\.location), [store.path, config.path, cache.path].map { URL(fileURLWithPath: $0).standardizedFileURL.path })
         XCTAssertGreaterThanOrEqual(p.items[0].bytes ?? 0, 100_000, "the store's size is what its files take")
         XCTAssertEqual(Set(p.items.filter { $0.kind == .keychain }.map(\.location)),
@@ -43,17 +43,17 @@ final class NukeTests: XCTestCase {
 
     func testItNeverListsAFolderThatIsNotDozables() throws {
         let notAStore = try dir("thesis", file: "thesis.pdf", bytes: 10)
-        XCTAssertThrowsError(try Nuke.plan(store: DozerStore(root: notAStore), configDir: nil, cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain()))
+        XCTAssertThrowsError(try Nuke.plan(store: DozableStore(root: notAStore), configDir: nil, cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain()))
         let wrongConfig = try dir("config/something", file: "a")
-        XCTAssertThrowsError(try Nuke.plan(store: DozerStore(root: root.appendingPathComponent("absent")), configDir: wrongConfig,
+        XCTAssertThrowsError(try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: wrongConfig,
                                            cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain()))
         let otherCache = try dir("caches/other", file: "a")
-        let p = try Nuke.plan(store: DozerStore(root: root.appendingPathComponent("absent")), configDir: nil, cacheDir: otherCache, keychain: MemoryKeychain())
+        let p = try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: nil, cacheDir: otherCache, keychain: MemoryKeychain())
         XCTAssertTrue(p.items.isEmpty, "a cache folder not named dozer-sandbox is never Dozable's")
     }
 
     func testAFreshMacHasNothingToRemove() throws {
-        let p = try Nuke.plan(store: DozerStore(root: root.appendingPathComponent("absent")), configDir: root.appendingPathComponent("nope/dozer-sandbox"),
+        let p = try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: root.appendingPathComponent("nope/dozer-sandbox"),
                               cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain())
         XCTAssertTrue(p.items.isEmpty)
     }

@@ -22,7 +22,7 @@ public enum TerminalHandoff {
         "#!/bin/sh\n# doz: open a session in this terminal (this file deletes itself)\nrm -f -- \"$0\"\n\(command)\n"
     }
 
-    public static func command(executable: String, store: DozerStore, sandbox: String, session: String?) -> String {
+    public static func command(executable: String, store: DozableStore, sandbox: String, session: String?) -> String {
         var c = "exec \(shellQuote(executable)) attach \(sandbox)"
         if let session { c += " \(session)" }
         return c + " --store \(shellQuote(store.root.path))"

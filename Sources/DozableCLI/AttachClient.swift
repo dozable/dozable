@@ -128,7 +128,7 @@ private func closeMenu(repaint: Bool = true) {
 }
 
 /// The live sessions of `sandbox`, in the guest's order (empty when they cannot be read).
-private func liveSessions(store: DozerStore, sandbox: String) -> [String] {
+private func liveSessions(store: DozableStore, sandbox: String) -> [String] {
     guard let m = try? HostClient.request(HostRequest(.sessions, name: sandbox), store: store, autostart: false),
           m.ok == true, let rows = try? m.result?.decode([SessionRow].self) else { return [] }
     return rows.filter { !$0.ended && $0.saved != true }.map(\.name)
@@ -149,7 +149,7 @@ private func takeSwitch() -> String? {
 }
 
 /// A key at the menu. True: detach.
-private func menuKey(_ bytes: [UInt8], store: DozerStore, sandbox: String) -> Bool {
+private func menuKey(_ bytes: [UInt8], store: DozableStore, sandbox: String) -> Bool {
     let listed: [String]? = outputLock.withLock { menuSessions }
     switch MenuKey.decode(bytes) {
     case .release:
@@ -351,14 +351,14 @@ func describeKey(_ k: UInt8) -> String {
 
 enum AttachClient {
     /// Attach to `session` in `sandbox` and relay until it ends or the user detaches. Never returns.
-    static func run(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> Never {
+    static func run(store: DozableStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> Never {
         let e = relay(store: store, sandbox: sandbox, session: session, wake: wake, detachKey: detachKey, quiet: quiet)
         finish(e.exitCode)
     }
 
     /// 617: the same attach, RETURNING how it ended — with the terminal put back, the signal handlers and timers
     /// gone and the keyboard thread stopped, so the caller can ask its next question (`doz try`).
-    static func attach(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> AttachEnd {
+    static func attach(store: DozableStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool = false) -> AttachEnd {
         returning = true
         endLock.withLock { recordedEnd = nil }
         var p: [Int32] = [-1, -1]
@@ -384,7 +384,7 @@ enum AttachClient {
     private static let keyboardDone = DispatchSemaphore(value: 0)
     nonisolated(unsafe) private static var retainedWinch: DispatchSourceSignal?
 
-    private static func relay(store: DozerStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool) -> AttachEnd {
+    private static func relay(store: DozableStore, sandbox: String, session: String?, wake: Bool, detachKey: UInt8?, quiet: Bool) -> AttachEnd {
         signal(SIGPIPE, SIG_IGN)
         if isatty(STDIN_FILENO) != 0 {
             tcgetattr(STDIN_FILENO, &savedTermios)
@@ -412,7 +412,7 @@ enum AttachClient {
         }
 
         // 599 (594.B4): the terminal's title, while attached (a terminal on stdout, a template set).
-        if isatty(STDOUT_FILENO) != 0, case .string(let t) = DozerSettings.load().resolve(SettingKey.terminalTitle).value, !t.isEmpty {
+        if isatty(STDOUT_FILENO) != 0, case .string(let t) = DozableSettings.load().resolve(SettingKey.terminalTitle).value, !t.isEmpty {
             outputLock.withLock {
                 titleTemplate = t
                 titleFilter = TitleFilter()
@@ -497,7 +497,7 @@ enum AttachClient {
             if let e = takeEnd() { return e }
             let client: HostClient
             do { client = try HostClient.connect(store: store, autostart: true) } catch {
-                if first { sayLast(error.localizedDescription); endAttach(.lost(DozerExit.dozerFailed)); return takeEnd() ?? .lost(DozerExit.dozerFailed) }
+                if first { sayLast(error.localizedDescription); endAttach(.lost(DozableExit.dozableFailed)); return takeEnd() ?? .lost(DozableExit.dozableFailed) }
                 sleep(1)
                 continue
             }
@@ -516,14 +516,14 @@ enum AttachClient {
                 reply = nil
             }
             guard let reply, reply.ok != nil else {
-                if first { sayLast("the host closed the connection"); endAttach(.lost(DozerExit.dozerFailed)); return takeEnd() ?? .lost(DozerExit.dozerFailed) }
+                if first { sayLast("the host closed the connection"); endAttach(.lost(DozableExit.dozableFailed)); return takeEnd() ?? .lost(DozableExit.dozableFailed) }
                 usleep(500_000)
                 continue
             }
             if reply.ok == false {
                 let e = reply.error ?? HostError(.failed, "attach failed")
                 sayLast(e.message)
-                let code = first ? DozerExit.code(for: e) == DozerExit.failed ? DozerExit.dozerFailed : DozerExit.code(for: e) : DozerExit.failed
+                let code = first ? DozableExit.code(for: e) == DozableExit.failed ? DozableExit.dozableFailed : DozableExit.code(for: e) : DozableExit.failed
                 endAttach(.lost(code))
                 return takeEnd() ?? .lost(code)
             }
@@ -591,8 +591,8 @@ enum AttachClient {
                 let e: AttachEnd
                 switch ending {
                 case .exited(let c): e = .ended(c)
-                case .noSession: e = .lost(DozerExit.notFound)
-                case .stopped: e = .lost(DozerExit.failed)
+                case .noSession: e = .lost(DozableExit.notFound)
+                case .stopped: e = .lost(DozableExit.failed)
                 }
                 endAttach(e)
                 return takeEnd() ?? e

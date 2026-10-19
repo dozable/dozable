@@ -50,9 +50,9 @@ func templatesSuite() async throws {
     // The template, while tpa RUNS.
     r = h.run(["template", "create", "tpa", "--as", "tpl-pi", "--note", "templates suite"])
     check(r.code == 0, "template create tpa --as tpl-pi (running)")
-    let tpl = DozerStore(root: storeRoot).layout("_").customImages().first { $0.name == "tpl-pi" }
+    let tpl = DozableStore(root: storeRoot).layout("_").customImages().first { $0.name == "tpl-pi" }
     if let tpl {
-        let files = (try? FileManager.default.contentsOfDirectory(atPath: DozerStore(root: storeRoot).layout("_").customImageDirectory(tpl.key).path).sorted()) ?? []
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: DozableStore(root: storeRoot).layout("_").customImageDirectory(tpl.key).path).sorted()) ?? []
         check(files == ["image.json", "root.ext4"], "the template holds no state disk (\(files.joined(separator: ", ")))")
         check(tpl.imageSpec?.name == "pi", "it keeps the image spec (user, persist dirs) of pi")
     } else { check(false, "tpl-pi is in the store") }
@@ -68,7 +68,7 @@ func templatesSuite() async throws {
     // Duplicate the running tpa with a new workspace: the state disk fresh…
     r = h.run(["duplicate", "tpa", "tpc", "--workspace", ws2.path, "--cpus", "1"])
     check(r.code == 0 && h.row("tpc")?.phase == "off", "duplicate tpa tpc --workspace ws-two (tpa running): tpc is off")
-    check(!FileManager.default.fileExists(atPath: DozerStore(root: storeRoot).layout("tpc").stateDisk.path), "tpc has no state disk yet (made empty on its first boot)")
+    check(!FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).layout("tpc").stateDisk.path), "tpc has no state disk yet (made empty on its first boot)")
     check(h.run(["start", "tpc"], timeout: 600).code == 0, "start tpc")
     r = sh("tpc", "cat /workspace/which /home/agent/rootmark; cat \(state)/statemark 2>/dev/null || echo none")
     check(r.out == "two\nrootmark\nnone\n", "tpc: ws-two at /workspace, the root disk's file, a FRESH state disk (\(r.out.replacingOccurrences(of: "\n", with: " ")))")

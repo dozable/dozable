@@ -173,7 +173,7 @@ final class UsageTests: XCTestCase {
     }
 
     func testTheStoreFactsAreReadForThatDayOnly() throws {
-        let store = DozerStore(root: dir.appendingPathComponent("store"))
+        let store = DozableStore(root: dir.appendingPathComponent("store"))
         try store.ensureDirectory()
         let m = try MetricsStore(url: store.metrics)
         let run = m.beginRun(.current(kind: "test", version: "0"))
@@ -194,7 +194,7 @@ final class UsageTests: XCTestCase {
         XCTAssertEqual(f.sandboxes, 2)
         XCTAssertEqual(f.points, 2)
         // A store without a metrics database is not given one.
-        let empty = DozerStore(root: dir.appendingPathComponent("empty"))
+        let empty = DozableStore(root: dir.appendingPathComponent("empty"))
         _ = UsageStoreFacts.read(empty, day: "2026-10-09", calendar: utc)
         XCTAssertFalse(FileManager.default.fileExists(atPath: empty.metrics.path))
     }
@@ -203,8 +203,8 @@ final class UsageTests: XCTestCase {
 
     func testTheSwitches() throws {
         let dev = InstallMethod.development, brew = InstallMethod.homebrew(formula: "doz")
-        let none = DozerSettings(text: nil)
-        func on(official: Bool = true, method: InstallMethod = brew, settings: DozerSettings = DozerSettings(text: nil),
+        let none = DozableSettings(text: nil)
+        func on(official: Bool = true, method: InstallMethod = brew, settings: DozableSettings = DozableSettings(text: nil),
                 env: [String: String] = [:], flag: Bool? = nil, guarded: Bool = false) -> UsageSwitch {
             UsageSwitches.decide(official: official, method: method, settings: settings, env: env, flag: flag, guarded: guarded)
         }
@@ -217,17 +217,17 @@ final class UsageTests: XCTestCase {
         for v in ["1", "true", "yes"] { XCTAssertFalse(on(env: ["DO_NOT_TRACK": v]).on, "DO_NOT_TRACK=\(v)") }
         for v in ["", "0", "false"] { XCTAssertTrue(on(env: ["DO_NOT_TRACK": v]).on, "DO_NOT_TRACK=\(v)") }
         XCTAssertFalse(on(env: ["DO_NOT_TRACK": "1"], flag: true).on, "DO_NOT_TRACK wins over the flag")
-        let off = DozerSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
+        let off = DozableSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
         XCTAssertFalse(on(settings: off).on)
         XCTAssertEqual(on(settings: off).settingSource, .file)
         XCTAssertTrue(on(settings: off, flag: true).on, "--send-anonymous-usage-stats for one command")
         XCTAssertFalse(on(settings: none, flag: false).on)
         XCTAssertEqual(on(settings: none, flag: false).settingSource, .flag)
-        let envOff = DozerSettings(text: nil, environment: ["DOZ_SEND_ANONYMOUS_USAGE_STATS": "false"])
+        let envOff = DozableSettings(text: nil, environment: ["DOZ_SEND_ANONYMOUS_USAGE_STATS": "false"])
         XCTAssertFalse(on(settings: envOff).on)
         XCTAssertEqual(on(settings: envOff).settingSource, .env)
         // The setting is one of the closed schema's.
-        let d = try XCTUnwrap(DozerSettings.definition("telemetry.send_anonymous_usage_stats"))
+        let d = try XCTUnwrap(DozableSettings.definition("telemetry.send_anonymous_usage_stats"))
         XCTAssertEqual(d.defaultValue, .bool(true))
         XCTAssertEqual(d.environment, "DOZ_SEND_ANONYMOUS_USAGE_STATS")
         XCTAssertTrue(d.editableInUI)
@@ -237,7 +237,7 @@ final class UsageTests: XCTestCase {
     func testATestRunIsAlwaysOff() {
         Usage.install(send: { _ in XCTFail("sent in a test run") }, flush: { _ in }, signup: { _ in SignupResult(status: "confirmation-sent") })
         XCTAssertTrue(Usage.isOfficial)
-        let d = UsageRuntime.decide(env: [:], settings: DozerSettings(text: nil), flag: true)
+        let d = UsageRuntime.decide(env: [:], settings: DozableSettings(text: nil), flag: true)
         XCTAssertFalse(d.on)
         XCTAssertTrue(d.testRun)
     }
@@ -404,12 +404,12 @@ final class UsageTests: XCTestCase {
                        ["ls", "--no-send-anonymous-usage-stats"], "taken out only before the command")
         XCTAssertEqual(UsageHook.parserArguments(["--store", "--no-send-anonymous-usage-stats", "ls"]),
                        ["--store", "--no-send-anonymous-usage-stats", "ls"], "an option's value is left alone")
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(UsageHook.parserArguments(["--no-send-anonymous-usage-stats", "ls", "--send-anonymous-usage-stats"])))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(UsageHook.parserArguments(["--no-send-anonymous-usage-stats", "ls", "--send-anonymous-usage-stats"])))
     }
 
     /// `doz telemetry show` in a build from the repository: it says so, sends nothing, and its preview fits the list.
     func testTelemetryShowInAnOpenBuild() throws {
-        let store = DozerStore(root: dir.appendingPathComponent("store"))
+        let store = DozableStore(root: dir.appendingPathComponent("store"))
         let env = ["XDG_CONFIG_HOME": dir.appendingPathComponent("xdg").path, "HOME": dir.path]
         let r = TelemetryShow.report(store: store, flag: nil, env: env)
         XCTAssertFalse(r.official)
@@ -574,16 +574,16 @@ final class UsageTests: XCTestCase {
     // MARK: the onboarding's Usage statistics step
 
     func testTheStepIsShownOnlyByAnOfficialBuildAndSaysWhatDecides() {
-        let none = DozerSettings(text: nil)
+        let none = DozableSettings(text: nil)
         XCTAssertNil(UsageStatsStep.make(official: false, settings: none, env: [:]), "an open build sends nothing and says nothing")
         XCTAssertEqual(UsageStatsStep.make(official: true, settings: none, env: [:]), UsageStatsStep(on: true, stored: true, fixed: nil))
-        let off = DozerSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
+        let off = DozableSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
         XCTAssertEqual(UsageStatsStep.make(official: true, settings: off, env: [:]), UsageStatsStep(on: false, stored: false, fixed: nil),
                        "the file's own choice is the person's: asked again, Enter keeps it")
         let dnt = UsageStatsStep.make(official: true, settings: none, env: ["DO_NOT_TRACK": "1"])
         XCTAssertEqual(dnt?.on, false)
         XCTAssertTrue(dnt?.fixed?.contains("DO_NOT_TRACK") ?? false)
-        let envOff = DozerSettings(text: nil, environment: ["DOZ_SEND_ANONYMOUS_USAGE_STATS": "false"])
+        let envOff = DozableSettings(text: nil, environment: ["DOZ_SEND_ANONYMOUS_USAGE_STATS": "false"])
         let viaEnv = UsageStatsStep.make(official: true, settings: envOff, env: [:])
         XCTAssertEqual(viaEnv?.on, false)
         XCTAssertEqual(viaEnv?.stored, true)
@@ -656,7 +656,7 @@ final class UsageTests: XCTestCase {
         XCTAssertEqual(try step.save(true, environment: env), [], "Yes on a default install writes nothing")
         XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("dozer-sandbox/doz.toml").path))
         XCTAssertEqual(try step.save(false, environment: env), ["telemetry.send_anonymous_usage_stats = false"])
-        XCTAssertEqual(DozerSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
+        XCTAssertEqual(DozableSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
         let again = try XCTUnwrap(UsageStatsStep.make(official: true, settings: .load(environment: env), env: env))
         XCTAssertEqual(again.on, false)
         XCTAssertEqual(try again.save(false, environment: env), [], "the settings already say so")

@@ -8,7 +8,7 @@ import DozableWeb
 /// `doz` — Dozer Sandbox's command-line tool: pausable Linux sandboxes on a Mac (585). Every command is a thin client of the store's
 /// host (`doz host`), which the first command that needs it starts and which exits when nothing
 /// has run for a while; read-only commands answer from the store when no host is running.
-public struct DozerCommand: AsyncParsableCommand {
+public struct DozableCommand: AsyncParsableCommand {
     /// The release this build ships as — the package's semver tag. 598: a release build (`make
     /// release`, what Homebrew installs) carries it as `libexec/doz/VERSION` beside the executable,
     /// written from the tag it is built for, so it can never drift from the tag again (this constant
@@ -98,7 +98,7 @@ public struct GlobalOptions: ParsableArguments {
     public var progress: ProgressFlag?
 
     /// dbt's spelling: this command only (the setting telemetry.send_anonymous_usage_stats is the lasting switch). Read
-    /// by `DozerEntry` from the command line itself — before the command runs — and also accepted before the command.
+    /// by `DozableEntry` from the command line itself — before the command runs — and also accepted before the command.
     @Flag(name: .customLong("send-anonymous-usage-stats"), inversion: .prefixedNo,
           help: "Official builds: send anonymous usage statistics for this command, or not (--no-…). The lasting switch: the setting telemetry.send_anonymous_usage_stats; DO_NOT_TRACK=1 always turns them off. Builds from the open-source repository send nothing.")
     public var sendAnonymousUsageStats: Bool?
@@ -108,18 +108,18 @@ public struct GlobalOptions: ParsableArguments {
     /// The progress rendering this command uses on stderr.
     public var progressMode: ProgressMode {
         guard isatty(STDERR_FILENO) == 1, !json, ProcessInfo.processInfo.environment["NO_COLOR"] == nil else { return .plain }
-        return DozerSettings.load().progressMode(flag: progress?.rawValue)
+        return DozableSettings.load().progressMode(flag: progress?.rawValue)
     }
 
-    public var dozerStore: DozerStore {
-        let s = DozerStore.resolve(store)
+    public var dozableStore: DozableStore {
+        let s = DozableStore.resolve(store)
         TestSafety.checkStore(s.root)              // 611: a guarded test run never reaches the default store
         return s
     }
 }
 
 /// The CLI's exit codes (README "Exit codes").
-public enum DozerExit {
+public enum DozableExit {
     public static let failed: Int32 = 1
     public static let notFound: Int32 = 2
     public static let invalidPhase: Int32 = 3
@@ -131,7 +131,7 @@ public enum DozerExit {
     public static let limited: Int32 = 8
     public static let usage: Int32 = 64
     /// exec / run / attach: doz itself failed (the program's own codes pass through).
-    public static let dozerFailed: Int32 = 125
+    public static let dozableFailed: Int32 = 125
 
     public static func code(for e: HostError) -> Int32 {
         switch e.code {
@@ -200,7 +200,7 @@ func fail(_ e: HostError, _ g: GlobalOptions, code: Int32? = nil) -> ExitCode {
     } else {
         Out.stderr("doz: \(e.message)\n")
     }
-    return ExitCode(code ?? DozerExit.code(for: e))
+    return ExitCode(code ?? DozableExit.code(for: e))
 }
 
 /// Progress lines on stderr: held back for the first second, so a quick operation prints nothing
@@ -391,10 +391,10 @@ nonisolated(unsafe) private var hostBuildNoted = false
 func noteHostBuild(_ g: GlobalOptions) {
     guard !hostBuildNoted, !g.quiet else { return }
     hostBuildNoted = true
-    let store = g.dozerStore
+    let store = g.dozableStore
     guard store.hostIsRunning(),
           let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
-          let st = try? (m.result ?? .null).decode(HostStatus.self), let line = hostBuildNote(host: st.version, this: DozerCommand.version)
+          let st = try? (m.result ?? .null).decode(HostStatus.self), let line = hostBuildNote(host: st.version, this: DozableCommand.version)
     else { return }
     FileHandle.standardError.write(Data("note: \(line)\n".utf8))
 }
@@ -416,7 +416,7 @@ func rawCall(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throw
     let progress = Progress(g)
     defer { progress.finish() }
     do {
-        return try HostClient.request(r, store: g.dozerStore, autostart: autostart) { progress.handle($0) }
+        return try HostClient.request(r, store: g.dozableStore, autostart: autostart) { progress.handle($0) }
     } catch let e as HostError {
         throw fail(e, g)
     } catch {
@@ -427,11 +427,11 @@ func rawCall(_ r: HostRequest, _ g: GlobalOptions, autostart: Bool = true) throw
 /// A read-only request: through the host when one runs (or when the store needs the recovery only
 /// a host does), else answered from the store in this process — so looking never starts a daemon.
 func query(_ r: HostRequest, _ g: GlobalOptions) async throws -> JSONValue {
-    let store = g.dozerStore
+    let store = g.dozableStore
     if store.hostIsRunning() || !store.needsRecovery().isEmpty {
         return try call(r, g)
     }
-    let core = HostCore(store: store, readOnly: true, version: DozerCommand.version)
+    let core = HostCore(store: store, readOnly: true, version: DozableCommand.version)
     await core.load()
     let m = await core.handle(r)
     if m.ok == true { return m.result ?? .null }
@@ -449,7 +449,7 @@ func confirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
     if yes { return }
     let fd = open("/dev/tty", O_RDWR)
     guard fd >= 0 else {
-        throw fail(HostError(.failed, "\(question) — there is no terminal to ask; pass --yes"), g, code: DozerExit.declined)
+        throw fail(HostError(.failed, "\(question) — there is no terminal to ask; pass --yes"), g, code: DozableExit.declined)
     }
     defer { close(fd) }
     let prompt = "\(question) [y/N] "
@@ -458,7 +458,7 @@ func confirm(_ question: String, yes: Bool, _ g: GlobalOptions) throws {
     let n = read(fd, &buf, buf.count)
     let answer = n > 0 ? String(decoding: buf[0..<n], as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines).lowercased() : ""
     guard answer == "y" || answer == "yes" else {
-        throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozerExit.declined)
+        throw fail(HostError(.failed, "not confirmed — nothing done"), g, code: DozableExit.declined)
     }
 }
 

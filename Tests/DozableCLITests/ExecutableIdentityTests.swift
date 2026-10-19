@@ -70,7 +70,7 @@ final class ExecutableIdentityTests: XCTestCase {
     }
 
     func testTheHostExplainsAVMFailureOnlyWhenItsProgramWasOverwritten() async throws {
-        let store = DozerStore(root: dir.appendingPathComponent("store"))
+        let store = DozableStore(root: dir.appendingPathComponent("store"))
         let core = HostCore(store: store, readOnly: true, version: "test")
         let vz = NSError(domain: "VZErrorDomain", code: 1, userInfo: [NSLocalizedDescriptionKey: "Internal Virtualization error."])
         let p = try program("doz")

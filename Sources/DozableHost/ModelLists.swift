@@ -129,16 +129,16 @@ public enum ModelLists {
     /// The sources whose list is fetched (a gateway with a published list).
     public static func fetched(_ source: String) -> Bool { ModelListFetcher.urls[source] != nil }
 
-    public static func fileURL(_ store: DozerStore) -> URL { store.root.appendingPathComponent("model-lists.json") }
+    public static func fileURL(_ store: DozableStore) -> URL { store.root.appendingPathComponent("model-lists.json") }
 
-    public static func all(_ store: DozerStore) -> [String: ModelListRecord] {
+    public static func all(_ store: DozableStore) -> [String: ModelListRecord] {
         guard let d = try? Data(contentsOf: fileURL(store)) else { return [:] }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         return (try? dec.decode([String: ModelListRecord].self, from: d)) ?? [:]
     }
 
-    static func save(_ all: [String: ModelListRecord], _ store: DozerStore) {
+    static func save(_ all: [String: ModelListRecord], _ store: DozableStore) {
         let enc = JSONEncoder()
         enc.outputFormatting = [.sortedKeys]
         enc.dateEncodingStrategy = .iso8601

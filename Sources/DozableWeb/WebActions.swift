@@ -381,7 +381,7 @@ public enum WebAction: Equatable, Sendable {
             a = .pointSaveImage(name: try f.sandbox("sandbox"), point: try f.pointRef("point"), image: try f.customImage("image"), note: try f.note("note"))
         case "template-create":
             let image = try f.customImage("image")
-            guard !DozerImages.builtIn.contains(image) else { throw Invalid("image: a built-in image's name is taken") }
+            guard !DozableImages.builtIn.contains(image) else { throw Invalid("image: a built-in image's name is taken") }
             a = .templateCreate(name: try f.sandbox("sandbox"), point: try f.pointRef("point"), image: image, note: try f.note("note"))
         case "duplicate":
             var copy: Bool?
@@ -554,7 +554,7 @@ public enum WebAction: Equatable, Sendable {
             guard let a = v as? [Any], a.count <= 3 else { throw Invalid("\(key): a list of lab, claude-code, pi") }
             var out: [String] = []
             for x in a {
-                guard let s = x as? String, DozerImages.builtIn.contains(s), !out.contains(s) else { throw Invalid("\(key): lab, claude-code, pi — each once") }
+                guard let s = x as? String, DozableImages.builtIn.contains(s), !out.contains(s) else { throw Invalid("\(key): lab, claude-code, pi — each once") }
                 out.append(s)
             }
             return out

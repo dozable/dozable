@@ -53,14 +53,14 @@ public enum BuildLogs {
         image.range(of: #"^[a-z0-9][a-z0-9._-]{0,63}$"#, options: .regularExpression) != nil && !image.contains("..")
     }
 
-    static func folder(_ store: DozerStore) -> URL { store.root.appendingPathComponent("build-logs", isDirectory: true) }
+    static func folder(_ store: DozableStore) -> URL { store.root.appendingPathComponent("build-logs", isDirectory: true) }
 
-    public static func url(_ image: String, store: DozerStore) -> URL? {
+    public static func url(_ image: String, store: DozableStore) -> URL? {
         isValidImage(image) ? folder(store).appendingPathComponent(image + ".json") : nil
     }
 
     /// Never fails a preparation: a log that cannot be written is only missing.
-    public static func save(_ log: BuildLog, store: DozerStore) {
+    public static func save(_ log: BuildLog, store: DozableStore) {
         guard let u = url(log.image, store: store) else { return }
         let fm = FileManager.default
         do {
@@ -74,7 +74,7 @@ public enum BuildLogs {
         } catch {}
     }
 
-    public static func read(_ image: String, store: DozerStore) -> BuildLog? {
+    public static func read(_ image: String, store: DozableStore) -> BuildLog? {
         guard let u = url(image, store: store), let d = try? Data(contentsOf: u) else { return nil }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601

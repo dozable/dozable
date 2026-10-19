@@ -114,11 +114,11 @@ final class WebUsageStatsTests: XCTestCase {
         let headers = ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"]
         XCTAssertEqual(try request("/api/v1/settings", headers, method: "POST", body: #"{"key":"telemetry.send_anonymous_usage_stats","value":false}"#).status,
                        403, "CSRF as every unsafe route")
-        XCTAssertNil(DozerSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], "nothing written yet")
+        XCTAssertNil(DozableSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], "nothing written yet")
         let r = try request("/api/v1/settings", headers.merging(["X-Doz-CSRF": csrf]) { $1 }, method: "POST",
                             body: #"{"key":"telemetry.send_anonymous_usage_stats","value":false}"#)
         XCTAssertEqual(r.status, 200, r.text)
-        XCTAssertEqual(DozerSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
+        XCTAssertEqual(DozableSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
         let (_, _, info) = try signIn()
         XCTAssertEqual(usage(info)?["on"] as? Bool, false)
         XCTAssertNil(usage(info)?["fixed"] as? String)

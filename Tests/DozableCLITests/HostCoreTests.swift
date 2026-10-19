@@ -16,18 +16,18 @@ final class HostCoreTests: XCTestCase {
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: root) }
 
     func testStoreResolution() {
-        XCTAssertEqual(DozerStore.resolve("/x/y", environment: ["DOZ_STORE": "/z"]).root.path, "/x/y")
-        XCTAssertEqual(DozerStore.resolve(nil, environment: ["DOZ_STORE": "/z"]).root.path, "/z")
-        XCTAssertTrue(DozerStore.resolve(nil, environment: [:]).root.path.hasSuffix("Library/Application Support/dozer-sandbox"))
-        let s = DozerStore(root: root)
+        XCTAssertEqual(DozableStore.resolve("/x/y", environment: ["DOZ_STORE": "/z"]).root.path, "/x/y")
+        XCTAssertEqual(DozableStore.resolve(nil, environment: ["DOZ_STORE": "/z"]).root.path, "/z")
+        XCTAssertTrue(DozableStore.resolve(nil, environment: [:]).root.path.hasSuffix("Library/Application Support/dozer-sandbox"))
+        let s = DozableStore(root: root)
         XCTAssertEqual(s.socket.lastPathComponent, "host.sock")
         XCTAssertTrue(s.socketPathFits)
-        XCTAssertFalse(DozerStore(root: URL(fileURLWithPath: "/" + String(repeating: "d", count: 120))).socketPathFits)
+        XCTAssertFalse(DozableStore(root: URL(fileURLWithPath: "/" + String(repeating: "d", count: 120))).socketPathFits)
         XCTAssertFalse(s.hostIsRunning(), "no lock holder")
     }
 
     func testTheLockSaysWhetherAHostRuns() throws {
-        let s = DozerStore(root: root)
+        let s = DozableStore(root: root)
         let fd = open(s.lockFile.path, O_RDWR | O_CREAT, 0o600)
         defer { close(fd) }
         XCTAssertEqual(flock(fd, LOCK_EX | LOCK_NB), 0)
@@ -38,34 +38,34 @@ final class HostCoreTests: XCTestCase {
     }
 
     func testMemorySizes() {
-        XCTAssertEqual(DozerImages.parseMemory("2G"), 2048)
-        XCTAssertEqual(DozerImages.parseMemory("1.5g"), 1536)
-        XCTAssertEqual(DozerImages.parseMemory("512M"), 512)
-        XCTAssertEqual(DozerImages.parseMemory("512mib"), 512)
-        XCTAssertEqual(DozerImages.parseMemory("2048"), 2048)
-        XCTAssertNil(DozerImages.parseMemory("lots"))
-        XCTAssertNil(DozerImages.parseMemory("-1G"))
-        XCTAssertNil(DozerImages.parseMemory(""))
+        XCTAssertEqual(DozableImages.parseMemory("2G"), 2048)
+        XCTAssertEqual(DozableImages.parseMemory("1.5g"), 1536)
+        XCTAssertEqual(DozableImages.parseMemory("512M"), 512)
+        XCTAssertEqual(DozableImages.parseMemory("512mib"), 512)
+        XCTAssertEqual(DozableImages.parseMemory("2048"), 2048)
+        XCTAssertNil(DozableImages.parseMemory("lots"))
+        XCTAssertNil(DozableImages.parseMemory("-1G"))
+        XCTAssertNil(DozableImages.parseMemory(""))
     }
 
     func testSessionNames() {
-        XCTAssertEqual(DozerImages.sessionName(for: ["/usr/bin/top", "-b"]), "top")
-        XCTAssertEqual(DozerImages.sessionName(for: ["claude"]), "claude")
-        XCTAssertEqual(DozerImages.sessionName(for: ["weird name!"]), "weirdname")
-        XCTAssertEqual(DozerImages.sessionName(for: [".hidden"]), "cmd")
-        XCTAssertEqual(DozerImages.sessionName(for: []), "cmd")
+        XCTAssertEqual(DozableImages.sessionName(for: ["/usr/bin/top", "-b"]), "top")
+        XCTAssertEqual(DozableImages.sessionName(for: ["claude"]), "claude")
+        XCTAssertEqual(DozableImages.sessionName(for: ["weird name!"]), "weirdname")
+        XCTAssertEqual(DozableImages.sessionName(for: [".hidden"]), "cmd")
+        XCTAssertEqual(DozableImages.sessionName(for: []), "cmd")
     }
 
     func testSpecsFromImages() throws {
-        let store = DozerStore(root: root)
-        let (lab, labName) = try DozerImages.spec(name: "box", options: CreateOptions(image: "lab", workspace: root.path), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (lab, labName) = try DozableImages.spec(name: "box", options: CreateOptions(image: "lab", workspace: root.path), store: store, environment: [:])
         XCTAssertEqual(labName, "lab")
         XCTAssertEqual(lab.network, .proxied(.bake), "the lab defaults to proxied, registries only")
         XCTAssertEqual(lab.bakePackages, ["bash", "ncurses", "fd", "tmux"], "599: tmux (sessions.tmux)")
         XCTAssertEqual(lab.memoryMiB, 1024)
         XCTAssertEqual(lab.shares, [Share(hostPath: root.standardizedFileURL.path, guestPath: "/workspace")])
         XCTAssertEqual(lab.storeRoot, store.root)
-        let (cc, _) = try DozerImages.spec(name: "cc", options: CreateOptions(image: "claude-code", memoryMiB: 4096), store: store,
+        let (cc, _) = try DozableImages.spec(name: "cc", options: CreateOptions(image: "claude-code", memoryMiB: 4096), store: store,
                                             environment: ["DOZ_KERNEL_CACHE": "/k"])
         XCTAssertEqual(cc.imageSpec?.name, "claude-code")
         // 597 (P5): Standard is stored as its permissions (by name), the hosts coming from this build.
@@ -73,20 +73,20 @@ final class HostCoreTests: XCTestCase {
         XCTAssertEqual(AgentPermissions.preset("agent", base: "node"), ["model", "update", "install:system", "install:node", "github", "error-reports"])
         XCTAssertEqual(cc.memoryMiB, 4096)
         XCTAssertEqual(cc.kernelCacheDirectory?.path, "/k")
-        let (nat, _) = try DozerImages.spec(name: "n", options: CreateOptions(image: "pi", network: "nat"), store: store,
+        let (nat, _) = try DozableImages.spec(name: "n", options: CreateOptions(image: "pi", network: "nat"), store: store,
                                              environment: ["DOZ_SUBNET": "192.168.231.0/24"])
         XCTAssertEqual(nat.network, .nat)
         XCTAssertEqual(nat.subnet, "192.168.231.0/24")
-        XCTAssertThrowsError(try DozerImages.spec(name: "x", options: CreateOptions(image: "nope"), store: store, environment: [:]))
-        XCTAssertThrowsError(try DozerImages.spec(name: "x", options: CreateOptions(image: "lab", network: "wide-open"), store: store, environment: [:]))
-        XCTAssertThrowsError(try DozerImages.spec(name: "Bad_Name", options: CreateOptions(image: "lab"), store: store, environment: [:]))
-        XCTAssertThrowsError(try DozerImages.spec(name: "x", options: CreateOptions(image: "lab", workspace: "/does/not/exist"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "nope"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "lab", network: "wide-open"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "Bad_Name", options: CreateOptions(image: "lab"), store: store, environment: [:]))
+        XCTAssertThrowsError(try DozableImages.spec(name: "x", options: CreateOptions(image: "lab", workspace: "/does/not/exist"), store: store, environment: [:]))
     }
 
     func testDefaultSessions() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         func cfg(_ image: String) throws -> SandboxConfig {
-            let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: image), store: store, environment: [:])
+            let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: image), store: store, environment: [:])
             return SandboxConfig(name: "x", image: n, spec: s, workspace: nil)
         }
         XCTAssertEqual(try cfg("lab").defaultSession.name, "shell")
@@ -96,8 +96,8 @@ final class HostCoreTests: XCTestCase {
     }
 
     func testConfigRoundTripsAndNeverHoldsASecret() throws {
-        let store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:])
         let c = SandboxConfig(name: "x", image: n, spec: s, workspace: nil, credentialSources: ["anthropic": "keychain:svc"])
         try c.write(store.configFile("x"))
         let back = try XCTUnwrap(SandboxConfig.read(store.configFile("x")))
@@ -110,8 +110,8 @@ final class HostCoreTests: XCTestCase {
     }
 
     func testRecoveryIsNeededOnlyForALiveVMsRecord() throws {
-        let store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
         try SandboxConfig(name: "x", image: n, spec: s, workspace: nil).write(store.configFile("x"))
         XCTAssertEqual(store.needsRecovery(), [])
         for (phase, needs) in [(Phase.off, false), (.hibernated, false), (.running, true), (.asleep, true)] {
@@ -122,8 +122,8 @@ final class HostCoreTests: XCTestCase {
     }
 
     func testReadOnlyCoreAnswersFromTheStore() async throws {
-        let store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
         try SandboxConfig(name: "x", image: n, spec: s, workspace: nil).write(store.configFile("x"))
         let core = HostCore(store: store, readOnly: true, version: "test")
         await core.load()
@@ -157,8 +157,8 @@ final class HostCoreTests: XCTestCase {
     /// 593 §9 (S5): a sandbox that is not running lists its sessions from their SAVED screens, and
     /// `session-screen` gives one back — in-process, with no host and nothing in a guest asked.
     func testSessionsOfASandboxThatIsNotRunningComeFromItsSavedScreens() async throws {
-        let store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
         try SandboxConfig(name: "x", image: n, spec: s, workspace: nil).write(store.configFile("x"))
         let core = HostCore(store: store, readOnly: true, version: "test")
         await core.load()
@@ -213,8 +213,8 @@ final class HostCoreTests: XCTestCase {
     /// 593 §9 (S1): the terminal layout is the host's (beside doz.json, 0600), validated, and written
     /// in-process when no host runs — never into a sandbox that does not exist.
     func testTheTerminalLayoutIsKeptBesideTheSandbox() async throws {
-        let store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
         try SandboxConfig(name: "x", image: n, spec: s, workspace: nil).write(store.configFile("x"))
         let core = HostCore(store: store, readOnly: true, version: "test")
         await core.load()
@@ -273,8 +273,8 @@ final class HostCoreTests: XCTestCase {
     }
 
     func testExecRunsLikeASession() throws {
-        let store = DozerStore(root: root)
-        let (cc, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:])
+        let store = DozableStore(root: root)
+        let (cc, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "claude-code"), store: store, environment: [:])
         let agent = SandboxConfig(name: "x", image: n, spec: cc, workspace: nil)
         let ctx = HostCore.execContext(config: agent, environment: ["A": "1"], workdir: nil, user: nil)
         XCTAssertEqual(ctx.user, "agent")
@@ -282,7 +282,7 @@ final class HostCoreTests: XCTestCase {
         XCTAssertEqual(ctx.environment["HOME"], "/home/agent")
         XCTAssertEqual(ctx.environment["A"], "1")
         XCTAssertNil(HostCore.execContext(config: agent, environment: [:], workdir: nil, user: "root").user)
-        let (lab, ln) = try DozerImages.spec(name: "y", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        let (lab, ln) = try DozableImages.spec(name: "y", options: CreateOptions(image: "lab"), store: store, environment: [:])
         XCTAssertEqual(HostCore.execContext(config: SandboxConfig(name: "y", image: ln, spec: lab, workspace: nil), environment: [:], workdir: nil, user: nil).workdir, "/root")
         XCTAssertEqual(HostCore.execContext(config: SandboxConfig(name: "y", image: ln, spec: lab, workspace: "/w"), environment: [:], workdir: nil, user: nil).workdir, "/workspace")
     }

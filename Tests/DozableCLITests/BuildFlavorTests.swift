@@ -24,7 +24,7 @@ final class BuildFlavorTests: XCTestCase {
     func core(_ flavor: BuildFlavor) async -> HostCore {
         let s = CredentialServices(keychain: keychain, verifier: FakeVerifier(answer: .verified), claudeBinary: { nil }, home: root,
                                    keepaliveRunner: FakeRunner(), isClaudeRunning: { false }, watchInterval: .seconds(3600))
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s)
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s)
         await c.load()
         await c.setBuildFlavor(flavor)
         return c
@@ -53,18 +53,18 @@ final class BuildFlavorTests: XCTestCase {
 
     func testAccountAddChatGPTIsRefusedBeforeAnythingRunsInAPublicBuild() throws {
         setenv("DOZ_TEST_PUBLIC_BUILD", "1", 1)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path])) { e in
-            XCTAssertTrue(DozerCommand.message(for: e).contains("does not include Dozable's own ChatGPT sign-in"), DozerCommand.message(for: e))
-            XCTAssertTrue(DozerCommand.message(for: e).contains("--openai-key"), "it says what to use instead")
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path])) { e in
+            XCTAssertTrue(DozableCommand.message(for: e).contains("does not include Dozable's own ChatGPT sign-in"), DozableCommand.message(for: e))
+            XCTAssertTrue(DozableCommand.message(for: e).contains("--openai-key"), "it says what to use instead")
         }
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["onboard", "--openai-account", "chatgpt", "--store", root.path]))
-        let create = try XCTUnwrap(try DozerCommand.parseAsRoot(["create", "a", "--image", "lab", "--audio", "--store", root.path]) as? Create)
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["onboard", "--openai-account", "chatgpt", "--store", root.path]))
+        let create = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "a", "--image", "lab", "--audio", "--store", root.path]) as? Create)
         XCTAssertThrowsError(try create.create.options()) { e in
             XCTAssertTrue("\(e)".contains("does not include the experimental audio"), "\(e)")
         }
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["account", "add", "x", "--openai-key", "--store", root.path]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["account", "add", "x", "--openai-key", "--store", root.path]))
         setenv("DOZ_TEST_PUBLIC_BUILD", "0", 1)
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path]), "the private build keeps it")
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path]), "the private build keeps it")
     }
 
     func testTheHostTakesNoChatGPTSignInAndKeepsAnExistingOneUnused() async throws {

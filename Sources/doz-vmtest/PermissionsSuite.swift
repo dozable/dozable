@@ -47,7 +47,7 @@ func cliPermissionsSuite(binary: String) async {
     check(r.code != 0 && r.err.contains("no permission telepathy"), "--allow telepathy: refused, named")
     r = t.run(["net", "deny", "qa", "model"])
     check(r.code != 0 && r.err.contains("cannot be switched off"), "net deny model: refused (the agent needs it)")
-    let stored = (try? String(contentsOf: DozerStore(root: t.store).configFile("qa"), encoding: .utf8)) ?? ""
+    let stored = (try? String(contentsOf: DozableStore(root: t.store).configFile("qa"), encoding: .utf8)) ?? ""
     check(stored.contains("install:python") && !stored.contains("pypi.org") && !stored.contains("downloads.claude.ai"),
           "stored BY NAME: the sandbox's file names the permissions, no permission hosts (P5)")
     check(t.run(["rm", "qa", "--yes"], timeout: 120).code == 0, "rm qa")

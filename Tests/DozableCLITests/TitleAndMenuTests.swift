@@ -24,7 +24,7 @@ final class TitleAndMenuTests: XCTestCase {
     }
 
     func testTheTemplateSettingIsChecked() throws {
-        let d = try XCTUnwrap(DozerSettings.definition(SettingKey.terminalTitle))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.terminalTitle))
         XCTAssertEqual(d.defaultValue, .string("{sandbox} · {session} · {time}"))
         XCTAssertEqual(try d.parse("{sandbox} — {time} "), .string("{sandbox} — {time} "), "its spaces are kept")
         XCTAssertEqual(try d.parse(""), .string(""))

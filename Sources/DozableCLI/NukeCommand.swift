@@ -37,7 +37,7 @@ struct Nuke: AsyncParsableCommand {
     }
 
     /// Everything a fresh install does not have — computed, never removed here (tests call it on scratch paths).
-    static func plan(store: DozerStore, configDir: URL?, cacheDir: URL?, keychain: any KeychainAccess) throws -> (items: [Item], kept: [String]) {
+    static func plan(store: DozableStore, configDir: URL?, cacheDir: URL?, keychain: any KeychainAccess) throws -> (items: [Item], kept: [String]) {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.standardizedFileURL.path
         var items: [Item] = []
@@ -53,11 +53,11 @@ struct Nuke: AsyncParsableCommand {
                               bytes: allocatedBytes(store.root)))
         }
         if let dir = configDir, fm.fileExists(atPath: dir.path) {
-            guard dir.lastPathComponent == DozerSettings.directoryName else { throw HostError(.invalid, "refusing to remove \(dir.path)") }
+            guard dir.lastPathComponent == DozableSettings.directoryName else { throw HostError(.invalid, "refusing to remove \(dir.path)") }
             items.append(Item(kind: .folder, location: dir.path, what: "the settings: doz.toml, agent-prompt.md, the update and usage records",
                               bytes: allocatedBytes(dir)))
         }
-        if let cacheDir, fm.fileExists(atPath: cacheDir.path), cacheDir.lastPathComponent == DozerSettings.directoryName {
+        if let cacheDir, fm.fileExists(atPath: cacheDir.path), cacheDir.lastPathComponent == DozableSettings.directoryName {
             items.append(Item(kind: .folder, location: cacheDir.path, what: "the download cache (Apple's container installer)",
                               bytes: allocatedBytes(cacheDir)))
         }
@@ -66,7 +66,7 @@ struct Nuke: AsyncParsableCommand {
             items.append(Item(kind: .keychain, location: "login keychain: \(i.service)", what: keychainWhat(i.service), bytes: nil))
         }
         kept.append("doz itself (\(HostLauncher.executablePath)) — `doz uninstall` removes it")
-        kept.append("your workspace folders (\(DozerSettings.load().string(SettingKey.projectsDir).map { DisplayPath.tilde($0) } ?? "the projects folder") and any sandbox's folder)")
+        kept.append("your workspace folders (\(DozableSettings.load().string(SettingKey.projectsDir).map { DisplayPath.tilde($0) } ?? "the projects folder") and any sandbox's folder)")
         kept.append("the Mac's own Claude Code and Codex logins")
         kept.append("Apple's container data (Dockerfile bases' builds) — `doz resources` shows it")
         return (items, kept)
@@ -104,17 +104,17 @@ struct Nuke: AsyncParsableCommand {
         for k in kept { Out.stdout("  \(k)\n") }
     }
 
-    static func currentPlan(_ g: GlobalOptions) throws -> (store: DozerStore, keychain: any KeychainAccess, items: [Item], kept: [String]) {
-        let store = g.dozerStore
+    static func currentPlan(_ g: GlobalOptions) throws -> (store: DozableStore, keychain: any KeychainAccess, items: [Item], kept: [String]) {
+        let store = g.dozableStore
         // A guarded test run never sees this Mac's own keychain or cache: an in-memory keychain, and the cache only
         // from the seam DOZ_TEST_CACHE_DIR (else none) — a `nuke --yes` in a test must not reach either.
         let env = ProcessInfo.processInfo.environment
         let guarded = TestSafety.guarded(env)
         let keychain = guarded ? MemoryKeychain() : CredentialServices.forHost().keychain
         let cacheDir: URL? = env["DOZ_TEST_CACHE_DIR"].map { URL(fileURLWithPath: $0) }
-            ?? (guarded ? nil : TestSafety.realHome.appendingPathComponent("Library/Caches/\(DozerSettings.directoryName)"))
+            ?? (guarded ? nil : TestSafety.realHome.appendingPathComponent("Library/Caches/\(DozableSettings.directoryName)"))
         do {
-            let p = try plan(store: store, configDir: DozerSettings.fileURL()?.deletingLastPathComponent(), cacheDir: cacheDir, keychain: keychain)
+            let p = try plan(store: store, configDir: DozableSettings.fileURL()?.deletingLastPathComponent(), cacheDir: cacheDir, keychain: keychain)
             return (store, keychain, p.items, p.kept)
         } catch let e as HostError { throw fail(e, g) }
     }
@@ -172,7 +172,7 @@ struct Nuke: AsyncParsableCommand {
         }
         if g.json { Out.json(Report(dryRun: false, items: items, kept: kept)) }
         else if !failed { Out.stdout("This Mac is back to a fresh install of Dozable. Start again with: doz onboard (or doz ui)\n") }
-        if failed { throw ExitCode(DozerExit.failed) }
+        if failed { throw ExitCode(DozableExit.failed) }
     }
 }
 

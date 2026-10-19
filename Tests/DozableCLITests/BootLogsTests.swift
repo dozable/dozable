@@ -7,13 +7,13 @@ import XCTest
 /// 593 (owner, 2026-09-30): the boot log — each boot's events and console, the last N kept — without a VM.
 final class BootLogsTests: XCTestCase {
     private var root: URL!
-    private var store: DozerStore!
+    private var store: DozableStore!
     private var layout: StoreLayout!
 
     override func setUpWithError() throws {
         root = FileManager.default.temporaryDirectory.appendingPathComponent("doz-boot-\(UUID().uuidString.prefix(8))")
-        store = DozerStore(root: root)
-        let (s, n) = try DozerImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
+        store = DozableStore(root: root)
+        let (s, n) = try DozableImages.spec(name: "x", options: CreateOptions(image: "lab"), store: store, environment: [:])
         try FileManager.default.createDirectory(at: store.layout("x").sandboxDirectory, withIntermediateDirectories: true)
         try SandboxConfig(name: "x", image: n, spec: s, workspace: nil).write(store.configFile("x"))
         layout = store.layout("x")
@@ -129,6 +129,6 @@ final class BootLogsTests: XCTestCase {
         let missing = await core.handle(r)
         XCTAssertEqual(missing.error?.code, .notFound)
         XCTAssertTrue(HostOp.bootLog.isReadOnly)
-        XCTAssertEqual(DozerSettings.definition(SettingKey.bootLogsKept)?.defaultValue, .int(5))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.bootLogsKept)?.defaultValue, .int(5))
     }
 }

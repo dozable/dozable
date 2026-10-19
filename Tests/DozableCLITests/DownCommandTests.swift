@@ -8,7 +8,7 @@ import ArgumentParser
 /// choice among the existing lifecycle requests (no new host op), placed next to `up` in --help.
 final class DownCommandTests: XCTestCase {
     func parse(_ a: [String]) throws -> Down {
-        guard let d = try DozerCommand.parseAsRoot(["down"] + a) as? Down else { throw ValidationError("not down") }
+        guard let d = try DozableCommand.parseAsRoot(["down"] + a) as? Down else { throw ValidationError("not down") }
         return d
     }
 
@@ -22,7 +22,7 @@ final class DownCommandTests: XCTestCase {
     }
 
     func testItSitsNextToUp() {
-        let names = DozerCommand.configuration.subcommands.map { $0._commandName }
+        let names = DozableCommand.configuration.subcommands.map { $0._commandName }
         let up = names.firstIndex(of: "up"), down = names.firstIndex(of: "down")
         XCTAssertNotNil(down)
         XCTAssertEqual(down, up.map { $0 + 1 }, "after up in --help")

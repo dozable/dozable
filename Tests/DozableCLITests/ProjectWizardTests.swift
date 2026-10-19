@@ -15,13 +15,13 @@ final class ProjectWizardTests: XCTestCase {
     override func setUpWithError() throws {
         dir = URL(fileURLWithPath: "/private/tmp/dzpw-\(UUID().uuidString.prefix(8))")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        WebProjectFiles.install { text, file in try DozerProject.parse(text, file: file) }
+        WebProjectFiles.install { text, file in try DozableProject.parse(text, file: file) }
     }
 
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: dir) }
 
-    func everything() -> DozerProject {
-        var p = DozerProject(name: "shop", image: "python-claude-code")
+    func everything() -> DozableProject {
+        var p = DozableProject(name: "shop", image: "python-claude-code")
         p.cpus = 4
         p.memoryMiB = 3072
         p.network = "agent"
@@ -40,63 +40,63 @@ final class ProjectWizardTests: XCTestCase {
     /// Everything the wizard sets is in the file and reads back the same — the CLI's parser and the page's form.
     func testEveryChoiceRoundTripsThroughTheFile() throws {
         let p = everything()
-        let back = try DozerProject.parse(p.render())
+        let back = try DozableProject.parse(p.render())
         XCTAssertEqual(back, p)
         XCTAssertTrue(p.render().contains("permissions: \"+web,-error-reports\""))
         XCTAssertEqual(try WebProjectForm(p).project(), p, "the page's form carries the same choices")
         // An agent + base project stays agent + base.
-        var q = DozerProject(name: "go1", image: "")
+        var q = DozableProject(name: "go1", image: "")
         q.agent = "pi"; q.base = "go"; q.image = q.chosenImage
-        XCTAssertEqual(try DozerProject.parse(q.render()), q)
+        XCTAssertEqual(try DozableProject.parse(q.render()), q)
         // A list of permission words reads too; a preset alone too.
-        XCTAssertEqual(try DozerProject.parse("name: a\nimage: claude-code\npermissions: [+web, -github]\n").permissions, ["+web", "-github"])
-        XCTAssertEqual(try DozerProject.parse("name: a\nimage: claude-code\npermissions: locked\n").permissions, ["locked"])
-        XCTAssertThrowsError(try DozerProject.parse("name: a\nimage: claude-code\npermissions: +teleport\n"))
+        XCTAssertEqual(try DozableProject.parse("name: a\nimage: claude-code\npermissions: [+web, -github]\n").permissions, ["+web", "-github"])
+        XCTAssertEqual(try DozableProject.parse("name: a\nimage: claude-code\npermissions: locked\n").permissions, ["locked"])
+        XCTAssertThrowsError(try DozableProject.parse("name: a\nimage: claude-code\npermissions: +teleport\n"))
     }
 
     /// doz_project.yml is read; both spellings in one folder is an error that says so.
     func testTheYmlSpellingAndBothFiles() throws {
-        XCTAssertNil(try DozerProject.find(in: dir))
+        XCTAssertNil(try DozableProject.find(in: dir))
         try "name: viayml\nimage: lab\n".write(to: dir.appendingPathComponent("doz_project.yml"), atomically: true, encoding: .utf8)
-        let u = try XCTUnwrap(try DozerProject.find(in: dir))
+        let u = try XCTUnwrap(try DozableProject.find(in: dir))
         XCTAssertEqual(u.lastPathComponent, "doz_project.yml")
-        XCTAssertEqual(try DozerProject.load(u).name, "viayml")
+        XCTAssertEqual(try DozableProject.load(u).name, "viayml")
         try "name: viayaml\nimage: lab\n".write(to: dir.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
-        XCTAssertThrowsError(try DozerProject.find(in: dir)) { e in
-            let m = (e as? DozerProject.Invalid)?.message ?? ""
+        XCTAssertThrowsError(try DozableProject.find(in: dir)) { e in
+            let m = (e as? DozableProject.Invalid)?.message ?? ""
             XCTAssertTrue(m.contains("both doz_project.yaml and doz_project.yml"), m)
         }
         // The dashboard says the same, and opens nothing.
-        let o = WebProject.open(WebProjectRequest(folder: dir.path), settings: DozerSettings(text: ""), store: "/tmp/fake-store")
+        let o = WebProject.open(WebProjectRequest(folder: dir.path), settings: DozableSettings(text: ""), store: "/tmp/fake-store")
         XCTAssertTrue(o.error?.contains("both doz_project.yaml and doz_project.yml") == true, o.error ?? "")
     }
 
     /// The one whole-project check (the parser, doz init and the wizard): permissions and GitHub need a network with permissions.
     func testTheSharedCheck() {
-        var p = DozerProject(name: "x", image: "claude-code")
+        var p = DozableProject(name: "x", image: "claude-code")
         XCTAssertNil(p.problem())
         p.permissions = ["+web"]
         XCTAssertNil(p.problem(effectiveNetwork: "agent"))
         XCTAssertTrue(p.problem(effectiveNetwork: "bake")?.contains("not bake") == true)
         p.network = "nat"
         XCTAssertTrue(p.problem()?.contains("not nat") == true, "the file's own network decides")
-        p = DozerProject(name: "x", image: "lab")
+        p = DozableProject(name: "x", image: "lab")
         p.github = "read"
         XCTAssertTrue(p.problem(effectiveNetwork: "bake")?.contains("github: read needs a network with permissions") == true)
         p.github = "off"
         XCTAssertNil(p.problem(effectiveNetwork: "bake"))
         p.permissions = ["github:as-you"]
         XCTAssertNotNil(p.problem(effectiveNetwork: "agent"), "GitHub is the github key")
-        XCTAssertThrowsError(try DozerProject.parse("name: a\nimage: lab\nnetwork: none\npermissions: standard\n"))
+        XCTAssertThrowsError(try DozableProject.parse("name: a\nimage: lab\nnetwork: none\npermissions: standard\n"))
         // The network a project gets without one: the image's setting.
-        XCTAssertEqual(DozerProject(name: "a", image: "lab").effectiveNetwork(settings: DozerSettings(text: "")), "bake")
-        XCTAssertEqual(DozerProject(name: "a", image: "python-pi").effectiveNetwork(settings: DozerSettings(text: "")), "agent")
+        XCTAssertEqual(DozableProject(name: "a", image: "lab").effectiveNetwork(settings: DozableSettings(text: "")), "bake")
+        XCTAssertEqual(DozableProject(name: "a", image: "python-pi").effectiveNetwork(settings: DozableSettings(text: "")), "agent")
     }
 
     /// Pre-filled defaults are left to the settings (commented in the file); what was set on purpose stays.
     func testDefaultsStayWithTheSettings() {
-        let s = DozerSettings(text: "")
-        var p = DozerProject(name: "x", image: "claude-code")
+        let s = DozableSettings(text: "")
+        var p = DozableProject(name: "x", image: "claude-code")
         p.cpus = s.int(SettingKey.cpus)
         p.memoryMiB = UInt64(s.int(SettingKey.memory("claude-code")))
         p.network = "agent"
@@ -107,43 +107,43 @@ final class ProjectWizardTests: XCTestCase {
         p.settings = [SettingKey.clipboard: .string("write"), SettingKey.tmux: .bool(false)]
         var q = p
         q.dropDefaults(settings: s, explicit: [])
-        XCTAssertEqual(q, DozerProject(name: "x", image: "claude-code"), "every pre-filled default left out")
+        XCTAssertEqual(q, DozableProject(name: "x", image: "claude-code"), "every pre-filled default left out")
         q = p
         q.dropDefaults(settings: s, explicit: ["cpus", "clipboard"])
         XCTAssertEqual(q.cpus, p.cpus)
         XCTAssertEqual(q.settings, [SettingKey.clipboard: .string("write")])
-        XCTAssertTrue(DozerProject(name: "x", image: "claude-code").render().contains("# cpus: 2"), "a default is commented")
+        XCTAssertTrue(DozableProject(name: "x", image: "claude-code").render().contains("# cpus: 2"), "a default is commented")
     }
 
     /// `doz up` gives the project's permissions on Standard (a preset alone replaces it) and its GitHub.
     func testCreateOptions() {
         var p = everything()
-        var o = p.createOptions(folder: dir, file: dir.appendingPathComponent(DozerProject.fileName))
+        var o = p.createOptions(folder: dir, file: dir.appendingPathComponent(DozableProject.fileName))
         XCTAssertEqual(o.allow, ["standard", "+web", "-error-reports", "+github:as-you", "+github:push"])
         XCTAssertEqual(o.settings?[SettingKey.sshAgent], .string("on"))
         XCTAssertEqual(o.workspace, dir.path)
         p.permissions = ["locked"]
         p.github = nil
-        o = p.createOptions(folder: dir, file: dir, settings: DozerSettings(text: ""))
+        o = p.createOptions(folder: dir, file: dir, settings: DozableSettings(text: ""))
         XCTAssertEqual(o.allow, ["locked"])
         // 599e: permissions without a github key keep the Access step's default (defaults.github).
-        o = p.createOptions(folder: dir, file: dir, settings: DozerSettings(text: "[defaults]\ngithub = \"read\"\n"))
+        o = p.createOptions(folder: dir, file: dir, settings: DozableSettings(text: "[defaults]\ngithub = \"read\"\n"))
         XCTAssertEqual(o.allow, ["locked", "+github:as-you", "-github:push"])
-        var q = DozerProject(name: "x", image: "claude-code")
+        var q = DozableProject(name: "x", image: "claude-code")
         q.github = "read"
-        q.dropDefaults(settings: DozerSettings(text: "[defaults]\ngithub = \"read\"\n"), explicit: [])
+        q.dropDefaults(settings: DozableSettings(text: "[defaults]\ngithub = \"read\"\n"), explicit: [])
         XCTAssertNil(q.github, "the Access step's default is left to the setting")
     }
 
     func testTheDiff() {
-        XCTAssertEqual(DozerProject.lineDiff(old: "a\nb\nc", new: "a\nB\nc\nd"), ["  a", "- b", "+ B", "  c", "+ d"])
-        XCTAssertEqual(DozerProject.lineDiff(old: "same", new: "same"), ["  same"])
+        XCTAssertEqual(DozableProject.lineDiff(old: "a\nb\nc", new: "a\nB\nc\nd"), ["  a", "- b", "+ B", "  c", "+ d"])
+        XCTAssertEqual(DozableProject.lineDiff(old: "same", new: "same"), ["  same"])
     }
 
     /// The dashboard: open (defaults, or the file's choices), preview (the exact file, read back), write (an
     /// existing file only by its digest), and the action that makes the sandbox as `doz up` would.
     func testOpenPreviewWrite() throws {
-        let settings = DozerSettings(text: "[defaults]\nimage = \"claude-code\"\n")
+        let settings = DozableSettings(text: "[defaults]\nimage = \"claude-code\"\n")
         let folder = dir.appendingPathComponent("my-app").path
         var o = WebProject.open(WebProjectRequest(folder: folder), settings: settings, store: "/tmp/fake-store")
         XCTAssertNil(o.error)

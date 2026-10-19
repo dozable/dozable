@@ -51,12 +51,12 @@ func registryLatest(_ package: String) async -> String? {
 
 /// The host's preparations, asked in-process (never starting a host).
 func preparations(_ h: CLIHarness) -> [PreparationInfo] {
-    guard let m = try? HostClient.request(HostRequest(.prepareStatus), store: DozerStore(root: h.store), autostart: false),
+    guard let m = try? HostClient.request(HostRequest(.prepareStatus), store: DozableStore(root: h.store), autostart: false),
           let st = try? m.result?.decode(PrepareStatus.self) else { return [] }
     return st.preparations
 }
 
-func hostLog(_ h: CLIHarness) -> String { (try? String(contentsOf: DozerStore(root: h.store).logFile, encoding: .utf8)) ?? "" }
+func hostLog(_ h: CLIHarness) -> String { (try? String(contentsOf: DozableStore(root: h.store).logFile, encoding: .utf8)) ?? "" }
 
 func occurrences(_ s: String, _ of: String) -> Int { s.components(separatedBy: of).count - 1 }
 
@@ -93,7 +93,7 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 0 && r.out.contains("Done — this Mac is onboarded"), "onboard --no-images --account skip, no terminal, no --yes: completes without asking (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nimage = \"claude-code\"\n") == true, "doz.toml written, with defaults.image set")
     check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("dozer-sandbox/agent-prompt.md").path), "agent-prompt.md written beside it")
-    check(OnboardingRecord.read(DozerStore(root: a.store)) != nil, "onboarded.json recorded")
+    check(OnboardingRecord.read(DozableStore(root: a.store)) != nil, "onboarded.json recorded")
     check(r.out.contains("3. Workspace rules") && r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "workspace.ignore_mode NOT written (only when chosen)")
     r = a.run(["onboard", "--no-images", "--account", "later", "--ignore-mode", "hide", "--yes"], timeout: 120)
@@ -150,7 +150,7 @@ func cliOnboardingSuite(binary: String) async {
     let lab = preparations(a).first { $0.image == "lab" }
     check(lab?.state == "done" && lab?.requestedBy.contains("start j1") == true && lab?.requestedBy.first == "doz onboard",
           "the preparation: done, asked by \(lab?.requestedBy.joined(separator: ", ") ?? "?")")
-    check(OnboardingRecord.read(DozerStore(root: a.store))?.images.contains("lab") == true, "onboarded.json records the lab")
+    check(OnboardingRecord.read(DozableStore(root: a.store))?.images.contains("lab") == true, "onboarded.json records the lab")
     r = a.run(["onboard", "--images", "lab", "--account", "later", "--yes"], timeout: 120)
     check(r.code == 0 && r.out.contains("already prepared") && r.out.contains("left exactly as it is"),
           "re-running: prepares nothing, leaves doz.toml alone (exit \(r.code))")
@@ -260,7 +260,7 @@ func cliOnboardingSuite(binary: String) async {
     // is latest by default — the host asked the registry, the bake installed that exact version, and
     // the image and the store record it.
     print("cli: latest Claude Code — resolved when the image was prepared, installed at that exact version")
-    let recorded = AgentVersions.all(DozerStore(root: c.store))["claude-code"]?.latest?.version
+    let recorded = AgentVersions.all(DozableStore(root: c.store))["claude-code"]?.latest?.version
     let npmNow = await registryLatest(AgentImages.claudeCodePackage)
     print("  the host resolved \(recorded ?? "nothing"); the registry says \(npmNow ?? "?") now")
     check(recorded != nil && (npmNow == nil || recorded == npmNow), "the host asked the registry: latest = \(recorded ?? "—") (<store>/agent-versions.json)")
@@ -351,7 +351,7 @@ func cliOnboardingSuite(binary: String) async {
     check(c.waitFor(300) { preparations(c).first { $0.image == "pi" }.map { !$0.running } ?? false }, "it stopped")
     let p = preparations(c).first { $0.image == "pi" }
     check(p?.state == "cancelled", "state: \(p?.state ?? "?")")
-    check(!(OnboardingRecord.read(DozerStore(root: c.store))?.images.contains("pi") ?? false), "no onboarding recorded for pi")
+    check(!(OnboardingRecord.read(DozableStore(root: c.store))?.images.contains("pi") ?? false), "no onboarding recorded for pi")
     check(c.run(["onboard", "--cancel"]).out.contains("nothing is being prepared"), "--cancel again: nothing to cancel")
     c.run(["host", "stop"])
 

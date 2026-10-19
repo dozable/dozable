@@ -25,7 +25,7 @@ struct Init: AsyncParsableCommand {
     @Option(name: .long, help: "The sandbox's name (default: from the folder's name).") var name: String?
     @Option(name: .long, help: "claude-code, pi, codex, lab, a base × agent image or a template (default: the settings' defaults.image). Shorthand for --agent/--base.") var image: String?
     // 617 (D13): the agent and the base, as the file names them (`agent:`, `base:`, `dockerfile:`).
-    @Option(name: .long, help: "The agent: \(DozerProject.agentWords) (the file's agent:).") var agent: String?
+    @Option(name: .long, help: "The agent: \(DozableProject.agentWords) (the file's agent:).") var agent: String?
     @Option(name: .long, help: "A recommended base (doz base ls; the file's base:). Default: the agent's own.") var base: String?
     @Option(name: .long, help: "Your own Dockerfile as the base (the file's dockerfile:, relative to the folder).") var dockerfile: String?
     @Option(name: .long, help: "Virtual CPUs.") var cpus: Int?
@@ -65,21 +65,21 @@ struct Init: AsyncParsableCommand {
         let asker = Asker(yes: yes, json: g.json)
         // 599f: an existing project file (either spelling — both is an error) pre-fills the questions.
         let existingURL: URL?
-        do { existingURL = try DozerProject.find(in: folder) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
-        var existing: DozerProject?
+        do { existingURL = try DozableProject.find(in: folder) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
+        var existing: DozableProject?
         var existingText: String?
         if let u = existingURL {
             guard force || asker.interactive else {
                 throw fail(HostError(.exists, "\(u.path) exists — doz up there uses it (--force rewrites it; on a terminal doz init starts from it)"), g)
             }
             existingText = try? String(contentsOf: u, encoding: .utf8)
-            existing = try? DozerProject.load(u)
+            existing = try? DozableProject.load(u)
             if existing == nil, !force { throw fail(HostError(.invalid, "\(u.path) does not read — fix it, or --force replaces it"), g) }
         }
-        let file = existingURL ?? folder.appendingPathComponent(DozerProject.fileName)
+        let file = existingURL ?? folder.appendingPathComponent(DozableProject.fileName)
         // D1: a project needs an onboarded Mac.
         var onboarded: OnboardReport?
-        if OnboardingRecord.read(g.dozerStore) == nil {
+        if OnboardingRecord.read(g.dozableStore) == nil {
             if !g.json { Out.stdout("this Mac has not been onboarded yet — onboarding first\n\n") }
             onboarded = try await OnboardingFlow(g: g, asker: asker, imagesFlag: nil, accountFlag: nil, talk: !g.json).run()
             if !g.json { Out.stdout("\n") }
@@ -94,12 +94,12 @@ struct Init: AsyncParsableCommand {
             }
         }
         let text = p.render()
-        do { _ = try DozerProject.parse(text) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }   // our own file must read back
+        do { _ = try DozableProject.parse(text) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }   // our own file must read back
         if asker.interactive {
             Out.stdout("\n— \(ProjectWizard.steps.last!.title): \(file.path)\n\n" + text + "\n")
             if let old = existingText, old != text {
                 Out.stdout("Compared with the file there now (- there now, + to be written):\n")
-                for l in DozerProject.lineDiff(old: old, new: text) where !l.hasPrefix("  ") { Out.stdout("  " + l + "\n") }
+                for l in DozableProject.lineDiff(old: old, new: text) where !l.hasPrefix("  ") { Out.stdout("  " + l + "\n") }
                 guard asker.yesNo("Replace \(file.lastPathComponent) with this?", default: false) else {
                     Out.stdout("nothing written\n")
                     return
@@ -119,7 +119,7 @@ struct Init: AsyncParsableCommand {
         let standing = rows.first(where: { $0.name == p.image && $0.baked })?.standing
         if g.json {
             var j: [String: JSONValue] = ["project": .string(file.path), "name": .string(p.name), "image": .string(p.image), "workspace": .string(folder.path),
-                                          "onboarded": .bool(onboarded != nil || OnboardingRecord.read(g.dozerStore) != nil)]
+                                          "onboarded": .bool(onboarded != nil || OnboardingRecord.read(g.dozableStore) != nil)]
             if let s = standing { j["imageNotice"] = .string(s) }
             Out.json(j)
         } else {
@@ -132,8 +132,8 @@ struct Init: AsyncParsableCommand {
 
     /// The steps, in `ProjectWizard.steps`' order: a flag answers its question; on a terminal the rest are
     /// asked (Enter keeps the default — the existing file's value, else the setting's); else defaults.
-    func ask(folder: URL, existing: DozerProject?, asker: Asker) throws -> DozerProject {
-        let settings = DozerSettings.load()
+    func ask(folder: URL, existing: DozableProject?, asker: Asker) throws -> DozableProject {
+        let settings = DozableSettings.load()
         var explicit = Set<String>()
         func step(_ id: String) {
             guard asker.interactive, let i = ProjectWizard.steps.firstIndex(where: { $0.id == id }) else { return }
@@ -144,7 +144,7 @@ struct Init: AsyncParsableCommand {
         // 1. Folder and name.
         step("folder")
         if asker.interactive { Out.stdout("  folder: \(folder.path) — shared at /workspace\n") }
-        let sandbox = name ?? asker.text("Sandbox name", default: existing?.name ?? DozerProject.suggestedName(for: folder)) {
+        let sandbox = name ?? asker.text("Sandbox name", default: existing?.name ?? DozableProject.suggestedName(for: folder)) {
             WebNameRule.isSandboxName($0) ? nil : "1–40 of a-z 0-9 - (not starting with -)"
         }
         guard WebNameRule.isSandboxName(sandbox) else { throw invalid("--name: 1–40 of a-z 0-9 -") }
@@ -152,7 +152,7 @@ struct Init: AsyncParsableCommand {
         // 2. Agent and base.
         step("image")
         let img: String
-        var p: DozerProject
+        var p: DozableProject
         if agent != nil || base != nil || dockerfile != nil {
             // 617: the file's own keys — checked as `doz create --agent/--base` checks them.
             guard image == nil else { throw invalid("--image, or --agent/--base/--dockerfile — not both") }
@@ -160,10 +160,10 @@ struct Init: AsyncParsableCommand {
             var args: [String] = []
             if let a = agent { args += ["--agent", a] }
             if let b = base { args += ["--base", b] }
-            do { _ = try ChoiceOptions.from(args).planChoices() } catch { throw invalid(DozerCommand.message(for: error)) }
-            p = existing ?? DozerProject(name: sandbox, image: "")
+            do { _ = try ChoiceOptions.from(args).planChoices() } catch { throw invalid(DozableCommand.message(for: error)) }
+            p = existing ?? DozableProject(name: sandbox, image: "")
             // 618: a family's major pinned (`--agent opencode` writes `agent: opencode@2`).
-            p.agent = agent.flatMap { $0 == "shell" ? "none" : DozerProject.fileAgent($0) } ?? p.agent ?? "claude-code"
+            p.agent = agent.flatMap { $0 == "shell" ? "none" : DozableProject.fileAgent($0) } ?? p.agent ?? "claude-code"
             p.base = base
             p.dockerfile = dockerfile
             p.name = sandbox
@@ -171,7 +171,7 @@ struct Init: AsyncParsableCommand {
             img = p.image
         } else if let image {
             img = image
-            p = existing ?? DozerProject(name: sandbox, image: img)
+            p = existing ?? DozableProject(name: sandbox, image: img)
             p.agent = nil; p.base = nil; p.dockerfile = nil
             p.name = sandbox
             p.image = img
@@ -184,7 +184,7 @@ struct Init: AsyncParsableCommand {
             img = asker.text("Image — claude-code, pi, codex, lab, a base × agent image (python-claude-code, go-codex, …; doz base ls) or a template", default: def) {
                 $0.range(of: "^(custom:)?[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil ? nil : "an image name"
             }
-            p = existing ?? DozerProject(name: sandbox, image: img)
+            p = existing ?? DozableProject(name: sandbox, image: img)
             if existing != nil { p.agent = nil; p.base = nil; p.dockerfile = nil }
             p.name = sandbox
             p.image = img
@@ -205,9 +205,9 @@ struct Init: AsyncParsableCommand {
             if e.account != nil { explicit.insert("account") }
             if e.github != nil { explicit.insert("github") }
             if e.agentSudo != nil { explicit.insert("agent_sudo") }
-            for k in DozerProject.settingKeys where e.settings[k.setting] != nil { explicit.insert(k.key) }
+            for k in DozableProject.settingKeys where e.settings[k.setting] != nil { explicit.insert(k.key) }
         }
-        let section = DozerSettings.imageSection(imageSpecName: img == "lab" ? nil : img)
+        let section = DozableSettings.imageSection(imageSpecName: img == "lab" ? nil : img)
 
         // 3. Account (the agent's credential prerequisite is checked after the questions).
         step("account")
@@ -272,7 +272,7 @@ struct Init: AsyncParsableCommand {
                                  preferred: nets.firstIndex(of: current) ?? 0)
             p.network = nets[i]
         }
-        if DozerProject.permissionNetworks.contains(p.effectiveNetwork(settings: settings)) {
+        if DozableProject.permissionNetworks.contains(p.effectiveNetwork(settings: settings)) {
             if let w = permissions {
                 guard let words = SettingType.permissionWords(w) else { throw invalid("--permissions: standard, locked, open, or changes like +web,-error-reports") }
                 p.permissions = words
@@ -297,14 +297,14 @@ struct Init: AsyncParsableCommand {
         }
         let memDefault = p.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section)))
         if let m = memory {
-            guard let v = DozerImages.parseMemory(m) else { throw invalid("--memory: \(m) is not a size (2G, 512M, 2048)") }
+            guard let v = DozableImages.parseMemory(m) else { throw invalid("--memory: \(m) is not a size (2G, 512M, 2048)") }
             p.memoryMiB = v
             explicit.insert("memory")
         } else if asker.interactive {
             let m = asker.text("Memory (2G, 512M, 2048 MiB)", default: memDefault % 1024 == 0 ? "\(memDefault / 1024)G" : "\(memDefault)M") {
-                DozerImages.parseMemory($0).map { (256...262_144).contains($0) } == true ? nil : "a size like 2G or 512M (256 MiB – 256 GiB)"
+                DozableImages.parseMemory($0).map { (256...262_144).contains($0) } == true ? nil : "a size like 2G or 512M (256 MiB – 256 GiB)"
             }
-            p.memoryMiB = DozerImages.parseMemory(m)
+            p.memoryMiB = DozableImages.parseMemory(m)
         }
         if asker.interactive { Out.stdout("  disk: the image's own (it is not set per sandbox)\n") }
 
@@ -333,9 +333,9 @@ struct Init: AsyncParsableCommand {
     }
 
     /// One per-sandbox setting: the flag, else the question (the default: the file's value, else the setting's).
-    func setting(_ p: inout DozerProject, _ key: String, _ projectKey: String, flag: String?, explicit: inout Set<String>, asker: Asker,
-                 settings: DozerSettings, question: String, options: [String]) throws {
-        guard let d = DozerSettings.definition(key) else { return }
+    func setting(_ p: inout DozableProject, _ key: String, _ projectKey: String, flag: String?, explicit: inout Set<String>, asker: Asker,
+                 settings: DozableSettings, question: String, options: [String]) throws {
+        guard let d = DozableSettings.definition(key) else { return }
         if let f = flag {
             do { p.settings[key] = try d.parse(f) } catch let e as SettingsError { throw fail(HostError(.invalid, "--\(projectKey.replacingOccurrences(of: "_", with: "-")): \(e.message)"), g) }
             explicit.insert(projectKey)

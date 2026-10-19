@@ -14,8 +14,8 @@ import DozableHost
 /// template's agent is checked by the host alone (the same message, without the offer).
 func preflightAgentAccount(_ o: inout CreateOptions, _ g: GlobalOptions) throws {
     guard AgentImages.credentials(o.image) != nil else { return }
-    let section = DozerSettings.imageSection(imageSpecName: o.image)
-    let network = o.network ?? DozerSettings.load().string(SettingKey.network(section))
+    let section = DozableSettings.imageSection(imageSpecName: o.image)
+    let network = o.network ?? DozableSettings.load().string(SettingKey.network(section))
     // 617 (models@1): a model source chosen — a key of THAT source (the one given, its default, or added here).
     if let source = o.modelSource ?? (o.model != nil ? AgentCredentials.sources(o.image)?.first : nil) {
         if let n = network, n == "nat" || n == "none" { return }          // the host refuses it, with why

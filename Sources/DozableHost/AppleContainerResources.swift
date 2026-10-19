@@ -78,7 +78,7 @@ extension Resources {
                 dataRows.append(ResourceItem(id: "outside:apple-container/data/\(key)", group: "outside", parent: "outside:apple-container",
                                              name: label, sizeBytes: parts[key] ?? 0, refusal: appleContainerPart))
             }
-            if let dozer = dozerShare(root) {
+            if let dozer = dozableShare(root) {
                 dataRows.append(ResourceItem(id: "outside:apple-container/dozer", group: "outside", parent: "outside:apple-container",
                                              name: "of which Dozable's builds", detail: dozer.images == 0
                                                 ? "no image tagged dozer/… in it (Dozable's builds are exported to its own store)"
@@ -112,7 +112,7 @@ extension Resources {
 
     /// What images tagged `dozer/…` in its store account for: their snapshots (named by each
     /// manifest's digest) and their blobs. nil: its store index cannot be read.
-    static func dozerShare(_ root: URL) -> (images: Int, bytes: Int64)? {
+    static func dozableShare(_ root: URL) -> (images: Int, bytes: Int64)? {
         guard let d = try? Data(contentsOf: root.appendingPathComponent("state.json")),
               let index = (try? JSONSerialization.jsonObject(with: d)) as? [String: Any] else { return nil }
         let blobs = root.appendingPathComponent("content/blobs/sha256")

@@ -106,7 +106,7 @@ func upgradeSuite() async throws {
     // The layout this build records, on its own next wake.
     for b in boxes {
         check(new.run(["hibernate", b.name], timeout: 120).code == 0, "\(newVersion): hibernate \(b.name)")
-        let rec = PersistedSandbox.read(from: DozerStore(root: storeRoot).layout(b.name).persistedState)
+        let rec = PersistedSandbox.read(from: DozableStore(root: storeRoot).layout(b.name).persistedState)
         check(rec?.vmLayout != nil && rec?.vmLayout?.recordedBy == "doz \(newVersion)",
               "\(b.name): the snapshot's VM layout is recorded (\(rec?.vmLayout?.recordedBy ?? "none"), \(rec?.vmLayout?.disks.count ?? 0) disks)")
     }
@@ -167,7 +167,7 @@ func upgradeSuite() async throws {
     let stop = new.run(["host", "stop"], timeout: 120)
     _ = new.waitFor(60) { !new.hostRunning }
     check(stop.code == 0 || !new.hostRunning, "host stop")
-    let layoutL = DozerStore(root: storeRoot).layout("upl")
+    let layoutL = DozableStore(root: storeRoot).layout("upl")
     if w.code != 0 {
         check(FileManager.default.fileExists(atPath: layoutL.snapshot.path), "upl's snapshot is kept after the failed wake and the stop")
     }

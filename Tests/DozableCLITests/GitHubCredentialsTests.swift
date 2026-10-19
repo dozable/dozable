@@ -206,35 +206,35 @@ final class GitHubCredentialsTests: XCTestCase {
     }
 
     func testTheSettingsAndFlags() throws {
-        XCTAssertEqual(DozerSettings.definition(SettingKey.githubCredentials)?.defaultValue, .string("gh"))
-        XCTAssertThrowsError(try DozerSettings.definition(SettingKey.githubCredentials)!.parse("maybe"))
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.sshAgent))
-        XCTAssertFalse(DozerSettings.perSandbox.contains(SettingKey.githubCredentials))
-        XCTAssertEqual(DozerSettings.definition(SettingKey.sshAgent)?.defaultValue, .string("off"))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.githubCredentials)?.defaultValue, .string("gh"))
+        XCTAssertThrowsError(try DozableSettings.definition(SettingKey.githubCredentials)!.parse("maybe"))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.sshAgent))
+        XCTAssertFalse(DozableSettings.perSandbox.contains(SettingKey.githubCredentials))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.sshAgent)?.defaultValue, .string("off"))
         XCTAssertEqual(try CreateArguments.githubWords("read", flag: "--github"), ["+github:as-you", "-github:push"])
         XCTAssertEqual(try CreateArguments.githubWords("push", flag: "--github"), ["+github:as-you", "+github:push"])
         XCTAssertEqual(try CreateArguments.githubWords(nil, flag: "--github"), [])
         XCTAssertThrowsError(try CreateArguments.githubWords("write", flag: "--github"))
         let c = try Create.parse(["x", "--github", "push", "--ssh-agent", "on"])
         XCTAssertEqual(try c.create.sandboxSettings()?[SettingKey.sshAgent], .string("on"))
-        let p = try DozerProject.parse("version: 1\nname: p\nimage: claude-code\ngithub: read\nssh_agent: on\n")
+        let p = try DozableProject.parse("version: 1\nname: p\nimage: claude-code\ngithub: read\nssh_agent: on\n")
         XCTAssertEqual(p.github, "read")
         XCTAssertEqual(p.settings[SettingKey.sshAgent], .string("on"))
         XCTAssertEqual(p.createOptions(folder: URL(fileURLWithPath: "/tmp/p"), file: URL(fileURLWithPath: "/tmp/p/doz_project.yaml")).allow,
                        ["+github:as-you", "-github:push"])
-        XCTAssertEqual(try DozerProject.parse("version: 1\nname: p\nimage: lab\ngithub: off\n").github, "off")
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nimage: lab\ngithub: write\n"))
-        XCTAssertTrue(DozerProject(name: "p", image: "lab").render().contains("# github: off"))
+        XCTAssertEqual(try DozableProject.parse("version: 1\nname: p\nimage: lab\ngithub: off\n").github, "off")
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nimage: lab\ngithub: write\n"))
+        XCTAssertTrue(DozableProject(name: "p", image: "lab").render().contains("# github: off"))
     }
 
     // MARK: the guest
 
     func testTheGuestsGitSetupAndHelper() throws {
         let on = GitGuestSetup(on: true, name: "Ada \"the\" Lovelace", email: "ada@example.com")
-        let text = GuestCommand.dozerGitConfig(on)
+        let text = GuestCommand.dozableGitConfig(on)
         XCTAssertTrue(text.contains("[credential \"https://github.com\"]\n\thelper = \"\(GuestCommand.gitCredentialHelperPath)\""))
         XCTAssertTrue(text.contains("\tname = \"Ada \\\"the\\\" Lovelace\"\n\temail = \"ada@example.com\""))
-        XCTAssertFalse(GuestCommand.dozerGitConfig(.off).contains("[user]"), "off: nothing of the user's")
+        XCTAssertFalse(GuestCommand.dozableGitConfig(.off).contains("[user]"), "off: nothing of the user's")
         XCTAssertNil(GitGuestSetup(on: true, name: "a\nb", email: nil).name, "one line of plain text")
         XCTAssertNil(GitGuestSetup(on: false, name: "x", email: "y").name)
         let fixes = GuestCommand.guestFixes(imageSpec: nil, git: on, sshAgent: true)

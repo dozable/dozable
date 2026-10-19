@@ -23,7 +23,7 @@ public struct WebSettingChange: Equatable, Sendable {
         }
         let extra = Set(d.keys).subtracting(["key", "value", "reset"])
         guard extra.isEmpty else { throw WebAction.Invalid("unexpected field(s): \(extra.sorted().joined(separator: ", ").prefix(120))") }
-        guard let key = d["key"] as? String, key.utf8.count <= 64, let def = DozerSettings.definition(key) else {
+        guard let key = d["key"] as? String, key.utf8.count <= 64, let def = DozableSettings.definition(key) else {
             throw WebAction.Invalid("unknown setting")
         }
         switch (d["value"], d["reset"]) {
@@ -67,7 +67,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         self.flags = flags
     }
 
-    public var current: DozerSettings { DozerSettings.load(environment: environment) }
+    public var current: DozableSettings { DozableSettings.load(environment: environment) }
 
     /// 605: an integer setting as this process sees it — its flag first (`doz ui --port`), then the
     /// environment, the file, the default.
@@ -90,7 +90,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         let s = current
-        guard let d = DozerSettings.definition(change.key) else { throw WebAction.Invalid("unknown setting") }
+        guard let d = DozableSettings.definition(change.key) else { throw WebAction.Invalid("unknown setting") }
         guard d.editableInUI else {
             // 606: who may reach the dashboard is decided on the Mac, never from a browser.
             if d.section == "serve" { throw HostError(.invalid, "\(d.key) decides who reaches the dashboard — set it on the Mac: doz config set \(d.key) VALUE") }
@@ -117,7 +117,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         let s = current
-        guard let d = DozerSettings.definition(key), d.type == .path else { throw WebAction.Invalid("unknown setting") }
+        guard let d = DozableSettings.definition(key), d.type == .path else { throw WebAction.Invalid("unknown setting") }
         let r = s.resolve(d.key, flag: flags[d.key])
         if r.source == .env { throw HostError(.invalidPhase, "\(d.key) is set by $\(d.environment ?? "?") in the environment of this doz ui — change it there") }
         if r.source == .flag { throw HostError(.invalidPhase, "\(d.key) is set on the command line of this doz ui") }
@@ -164,7 +164,7 @@ public final class WebSettingsStore: @unchecked Sendable {
     /// Where the settings file and the prompt template are, and whether they exist (the wizard says).
     public func onboardingFiles() -> (settings: String?, settingsExists: Bool, template: String?, templateExists: Bool) {
         let fm = FileManager.default
-        let s = DozerSettings.fileURL(environment: environment)
+        let s = DozableSettings.fileURL(environment: environment)
         let t = AgentPrompt.userTemplateURL(environment: environment)
         return (s?.path, s.map { fm.fileExists(atPath: $0.path) } ?? false, t?.path, t.map { fm.fileExists(atPath: $0.path) } ?? false)
     }

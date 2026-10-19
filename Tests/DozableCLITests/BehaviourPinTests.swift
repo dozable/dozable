@@ -65,10 +65,10 @@ final class BehaviourPinTests: XCTestCase {
 
     /// The default session of a sandbox of every image (by its agent), and what a restart appends.
     func test_defaultSessionsAndResume() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         var lines: [String] = []
         for n in ["lab", "claude-code", "pi", "codex", "python-claude-code", "go-pi", "alpine-codex", "debian", "ubuntu-pi", "rust-codex"] {
-            let (s, image) = try DozerImages.spec(name: "x", options: CreateOptions(image: n), store: store, environment: [:])
+            let (s, image) = try DozableImages.spec(name: "x", options: CreateOptions(image: n), store: store, environment: [:])
             let d = SandboxConfig(name: "x", image: image, spec: s, workspace: nil).defaultSession
             lines.append("\(n) → image \(image) session \(d.name) argv \(d.argv.joined(separator: " "))")
         }
@@ -82,7 +82,7 @@ final class BehaviourPinTests: XCTestCase {
 
     /// `claude.permissions` / `codex.permissions` → the launcher's variable, per image.
     func test_permissionsSettingsReachTheirLauncherOnly() {
-        let ask = DozerSettings(text: "[claude]\npermissions = \"ask\"\n\n[codex]\npermissions = \"ask\"\n")
+        let ask = DozableSettings(text: "[claude]\npermissions = \"ask\"\n\n[codex]\npermissions = \"ask\"\n")
         var lines: [String] = []
         for n in ["lab", "claude-code", "pi", "codex", "python-claude-code", "alpine-codex", "go-pi", "debian"] {
             let env = HostCore.withClaudePermissions([:], imageSpec: n, settings: ask)
@@ -116,17 +116,17 @@ final class BehaviourPinTests: XCTestCase {
     /// The policy a NEW sandbox of each image gets (default settings): network, preset, permissions in order —
     /// and with each preset named, so `agentPermissions` and the base's registries show.
     func test_newSandboxPolicies() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let enc = JSONEncoder()
         enc.outputFormatting = [.sortedKeys]
         var lines: [String] = []
         for n in ["lab", "claude-code", "pi", "codex", "python-codex", "alpine-pi", "go-claude-code", "debian"] {
             for net in [nil, "agent", "locked", "open", "bake"] as [String?] {
-                let (s, _) = try DozerImages.spec(name: "x", options: CreateOptions(image: n, network: net), store: store, environment: [:])
+                let (s, _) = try DozableImages.spec(name: "x", options: CreateOptions(image: n, network: net), store: store, environment: [:])
                 // A rule's id is minted per rule — not behaviour; everything else is.
                 let policy = s.network.policy.map { String(decoding: (try? enc.encode($0)) ?? Data(), as: UTF8.self) }?
                     .replacingOccurrences(of: #""id":"[0-9A-Fa-f-]+","#, with: "", options: .regularExpression) ?? "nil"
-                lines.append("\(n) net=\(net ?? "default") \(DozerImages.networkName(s.network)) \(policy)")
+                lines.append("\(n) net=\(net ?? "default") \(DozableImages.networkName(s.network)) \(policy)")
             }
         }
         let text = lines.joined(separator: "\n")
@@ -137,7 +137,7 @@ final class BehaviourPinTests: XCTestCase {
 
     /// The generated `doz.toml` with nothing set (every key, its default and description).
     func test_settingsFileRender() {
-        let text = DozerSettings.render(values: [:])
+        let text = DozableSettings.render(values: [:])
         Pins.check(#function, text)
     }
 

@@ -73,15 +73,15 @@ final class SettingsTests: XCTestCase {
     /// 617 (owner: the generated file grew ~1.5 KiB per recipe and crossed the reader's limit at 44): with nothing set,
     /// doz.toml lists Dozer's own settings and no recipe agent's — it does not grow with the recipes.
     func testTheGeneratedFileDoesNotGrowWithTheRecipes() throws {
-        let before = DozerSettings.render(values: [:])
+        let before = DozableSettings.render(values: [:])
         let data = try Data(contentsOf: Pins.packageRoot.appendingPathComponent("Tests/Fixtures/agents/echo-agent.json"))
         try AgentRecipes.registerForTests(try AgentRecipes.decode(data))
         defer { AgentRecipes.unregisterForTests("echo-agent") }
-        XCTAssertNotNil(DozerSettings.definition("echo-agent.permissions"), "the recipe's settings exist")
-        XCTAssertEqual(DozerSettings.render(values: [:]), before, "one more recipe adds nothing to the file")
+        XCTAssertNotNil(DozableSettings.definition("echo-agent.permissions"), "the recipe's settings exist")
+        XCTAssertEqual(DozableSettings.render(values: [:]), before, "one more recipe adds nothing to the file")
         XCTAssertLessThan(before.utf8.count, 32 * 1024)
         XCTAssertLessThan(before.utf8.count * 20, TOML.maximumBytes)
-        for d in DozerSettings.schema where d.agent != nil {
+        for d in DozableSettings.schema where d.agent != nil {
             if d.section == "images" {
                 XCTAssertFalse(before.contains("\n# \(d.name) = "), "\(d.key) is not listed")
             } else {
@@ -94,9 +94,9 @@ final class SettingsTests: XCTestCase {
     /// Setting an agent's value brings its whole block into the file; unsetting its last one takes the block out again.
     /// A value set by hand for any agent is read as before.
     func testAnAgentsBlockAppearsWhenOneOfItsSettingsIsSetAndGoesWithTheLast() throws {
-        let grok = DozerSettings.schema.filter { $0.agent == "grok" }.map(\.key)
+        let grok = DozableSettings.schema.filter { $0.agent == "grok" }.map(\.key)
         XCTAssertEqual(Set(grok), ["images.grok_version", "grok.permissions", "images.grok.memory_mib", "images.grok.network"])
-        var s = DozerSettings.load(environment: env)
+        var s = DozableSettings.load(environment: env)
         s = try s.writing("grok.permissions", .string("ask"))
         var text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\n[grok]\n"))
@@ -104,7 +104,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(text.contains("[images.grok]\n"), "its whole block: memory and network too")
         XCTAssertTrue(text.contains("\n# grok_version = \"latest\"\n"))
         XCTAssertFalse(text.contains("[gemini]"), "another agent stays out")
-        XCTAssertEqual(DozerSettings.load(environment: env).fileValues["grok.permissions"], .string("ask"))
+        XCTAssertEqual(DozableSettings.load(environment: env).fileValues["grok.permissions"], .string("ask"))
         s = try s.writing("images.grok.memory_mib", .int(4096))
         s = try s.writing("grok.permissions", nil)
         text = try String(contentsOf: file, encoding: .utf8)
@@ -115,7 +115,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(text.contains("[grok]") || text.contains("[images.grok]") || text.contains("grok_version"), "the last one unset: the block is gone")
         // By hand: a value for an agent not in the file is read and applies.
         try write("[gemini]\npermissions = \"ask\"\n")
-        let hand = DozerSettings.load(environment: env)
+        let hand = DozableSettings.load(environment: env)
         XCTAssertEqual(hand.fileValues["gemini.permissions"], .string("ask"))
         XCTAssertTrue(hand.warnings.isEmpty)
     }
@@ -132,16 +132,16 @@ final class SettingsTests: XCTestCase {
     // MARK: the schema and the file
 
     func testSchemaIsClosedAndCoversWhatTheOwnerAskedFor() {
-        let keys = DozerSettings.schema.map(\.key)
+        let keys = DozableSettings.schema.map(\.key)
         XCTAssertEqual(Set(keys).count, keys.count, "no duplicate key")
         for k in ["ui.boot_view_on_start", "ui.confirm_shutdown", "ui.split_default", "ui.terminals", "ui.terminal_font_size", "ui.theme",
                   "host.idle_timeout_minutes", "host.keepalive", "store.path", "claude.permissions", "defaults.cpus", "defaults.nat_subnet",
                   "images.lab.memory_mib", "images.lab.network", "images.claude-code.memory_mib", "images.claude-code.network",
                   "images.pi.memory_mib", "images.pi.network", "kernel.path", "kernel.cache"] {
-            XCTAssertNotNil(DozerSettings.definition(k), k)
+            XCTAssertNotNil(DozableSettings.definition(k), k)
         }
-        XCTAssertEqual(DozerSettings.definition("ui.boot_view_on_start")?.defaultValue, .bool(false), "617, the owner's default: off (switch to the agent's tab)")
-        for d in DozerSettings.schema {
+        XCTAssertEqual(DozableSettings.definition("ui.boot_view_on_start")?.defaultValue, .bool(false), "617, the owner's default: off (switch to the agent's tab)")
+        for d in DozableSettings.schema {
             XCTAssertNoThrow(try d.validate(d.defaultValue), "\(d.key)'s default is valid")
             XCTAssertTrue(TOML.isBareKey(d.name), d.key)
             if case .path = d.type { XCTAssertFalse(d.editableInUI, "\(d.key): the UI never names a host path") }
@@ -149,13 +149,13 @@ final class SettingsTests: XCTestCase {
     }
 
     func testTheTemplateListsEverySettingCommentedOutAndParses() throws {
-        let text = DozerSettings.render(values: [:])
-        for d in DozerSettings.schema where d.agent == nil {
+        let text = DozableSettings.render(values: [:])
+        for d in DozableSettings.schema where d.agent == nil {
             XCTAssertTrue(text.contains("\n# \(d.name) = \(TOML.render(d.defaultValue))\n"), "\(d.key) is listed at its default")
         }
         XCTAssertTrue(text.contains("[images.claude-code]"))
         XCTAssertTrue(text.contains("Not settable"))
-        let s = DozerSettings(text: text)
+        let s = DozableSettings(text: text)
         XCTAssertNil(s.fileError)
         XCTAssertTrue(s.fileValues.isEmpty, "every line is commented: nothing is set")
         XCTAssertTrue(s.warnings.isEmpty, s.warnings.joined(separator: "\n"))
@@ -164,15 +164,15 @@ final class SettingsTests: XCTestCase {
     func testOnlySetValuesAreUncommentedAndTheyRoundTrip() throws {
         let values: [String: TOMLValue] = ["ui.boot_view_on_start": .bool(false), "defaults.cpus": .int(4),
                                            "images.pi.network": .string("locked"), "store.path": .string("~/stores/a \"b\"")]
-        let text = DozerSettings.render(values: values)
+        let text = DozableSettings.render(values: values)
         XCTAssertTrue(text.contains("\nboot_view_on_start = false\n"))
         XCTAssertFalse(text.contains("# boot_view_on_start ="))
         XCTAssertTrue(text.contains("\n# confirm_shutdown = true\n"))
-        XCTAssertEqual(DozerSettings(text: text).fileValues, values)
+        XCTAssertEqual(DozableSettings(text: text).fileValues, values)
     }
 
     func testUnknownKeysAndBadValuesAreWarningsNeverACrash() throws {
-        let s = DozerSettings(text: """
+        let s = DozableSettings(text: """
         [ui]
         boot_view_on_start = "yes"
         terminal_font_size = 200
@@ -191,14 +191,14 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .default)
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").value, .bool(false))
         // A rewrite keeps the unknown keys, as they were.
-        let again = DozerSettings(text: DozerSettings.render(values: s.fileValues, unknown: s.unknown))
+        let again = DozableSettings(text: DozableSettings.render(values: s.fileValues, unknown: s.unknown))
         XCTAssertEqual(again.unknown.map(\.path), ["ui.colour", "future.thing"])
         XCTAssertEqual(again.fileValues, s.fileValues)
     }
 
     func testAFileThatDoesNotParseIsIgnoredWholeAndNeverOverwritten() throws {
         try write("[ui]\nboot_view_on_start = false\ntheme = [\"x\"]\n")
-        let s = DozerSettings.load(environment: env)
+        let s = DozableSettings.load(environment: env)
         XCTAssertNotNil(s.fileError)
         XCTAssertTrue(s.fileValues.isEmpty, "none of it applies")
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .default)
@@ -212,24 +212,24 @@ final class SettingsTests: XCTestCase {
     func testPrecedenceFlagEnvFileDefaultEachWithItsSource() throws {
         try write("[host]\nidle_timeout_minutes = 30\n[store]\npath = \"/from/file\"\n")
         var e = env
-        var s = DozerSettings.load(environment: e)
+        var s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").value, .int(30))
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .file)
         XCTAssertEqual(s.resolve("ui.theme").source, .default)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 30)
         e["DOZ_HOST_IDLE"] = "7"
-        s = DozerSettings.load(environment: e)
+        s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").value, .int(7))
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").fileValue, .int(30), "the file's value is still known")
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 7)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: 0.05), 0.05, "the flag wins")
         e["DOZ_HOST_IDLE"] = "0.5"
-        s = DozerSettings.load(environment: e)
+        s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 0.5, "a fractional environment value works as it always did")
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
         e["DOZ_HOST_IDLE"] = "soon"
-        s = DozerSettings.load(environment: e)
+        s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .file, "an environment value that does not parse is skipped")
         let flagged = s.resolve("store.path", flag: .string("/from/flag"))
         XCTAssertEqual(flagged.source, .flag)
@@ -242,10 +242,10 @@ final class SettingsTests: XCTestCase {
     func testTheStoreFollowsFlagEnvFileDefault() throws {
         try write("[store]\npath = \"~/from-file\"\n")
         let home = FileManager.default.homeDirectoryForCurrentUser.path
-        XCTAssertEqual(DozerStore.resolve("/flag", environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/flag")
-        XCTAssertEqual(DozerStore.resolve(nil, environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/env")
-        XCTAssertEqual(DozerStore.resolve(nil, environment: env).root.path, home + "/from-file")
-        XCTAssertEqual(DozerStore.resolve(nil, environment: [:]).root.path, home + "/Library/Application Support/dozer-sandbox")
+        XCTAssertEqual(DozableStore.resolve("/flag", environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/flag")
+        XCTAssertEqual(DozableStore.resolve(nil, environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/env")
+        XCTAssertEqual(DozableStore.resolve(nil, environment: env).root.path, home + "/from-file")
+        XCTAssertEqual(DozableStore.resolve(nil, environment: [:]).root.path, home + "/Library/Application Support/dozer-sandbox")
     }
 
     func testNewSandboxDefaultsComeFromTheSettings() throws {
@@ -261,29 +261,29 @@ final class SettingsTests: XCTestCase {
         [kernel]
         cache = "/kernels"
         """)
-        let store = DozerStore(root: xdg.appendingPathComponent("store"))
-        let (lab, _) = try DozerImages.spec(name: "a", options: CreateOptions(image: "lab"), store: store, environment: env)
+        let store = DozableStore(root: xdg.appendingPathComponent("store"))
+        let (lab, _) = try DozableImages.spec(name: "a", options: CreateOptions(image: "lab"), store: store, environment: env)
         XCTAssertEqual(lab.cpus, 6)
         XCTAssertEqual(lab.memoryMiB, 3072)
         XCTAssertEqual(lab.network, .nat)
         XCTAssertEqual(lab.subnet, "192.168.77.0/24")
         XCTAssertEqual(lab.kernelCacheDirectory?.path, "/kernels")
-        let (pi, _) = try DozerImages.spec(name: "b", options: CreateOptions(image: "pi"), store: store, environment: env)
+        let (pi, _) = try DozableImages.spec(name: "b", options: CreateOptions(image: "pi"), store: store, environment: env)
         XCTAssertEqual(pi.network, .proxied(.permissions(["model", "vendor:pi", "sources:pi"], preset: "locked")), "597: Locked = the model only, by name (617: + its own site; 618: + its other model sources)")
         XCTAssertEqual(pi.memoryMiB, 2048, "unset: the default")
-        let (flags, _) = try DozerImages.spec(name: "c", options: CreateOptions(image: "lab", cpus: 1, memoryMiB: 512, network: "bake"),
+        let (flags, _) = try DozableImages.spec(name: "c", options: CreateOptions(image: "lab", cpus: 1, memoryMiB: 512, network: "bake"),
                                                store: store, environment: env.merging(["DOZ_SUBNET": "10.9.0.0/24", "DOZ_KERNEL_CACHE": "/env-k"]) { a, _ in a })
         XCTAssertEqual(flags.cpus, 1, "the flag wins")
         XCTAssertEqual(flags.memoryMiB, 512)
         XCTAssertEqual(flags.network, .proxied(.bake))
         XCTAssertEqual(flags.kernelCacheDirectory?.path, "/env-k", "the environment wins over the file")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: nil), "lab")
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "pi"), "pi")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: nil), "lab")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "pi"), "pi")
     }
 
     func testClaudePermissionsReachOnlyAClaudeCodeSessionAndNeverOverTheCallers() throws {
-        let ask = DozerSettings(text: "[claude]\npermissions = \"ask\"\n")
-        let skip = DozerSettings(text: nil)
+        let ask = DozableSettings(text: "[claude]\npermissions = \"ask\"\n")
+        let skip = DozableSettings(text: nil)
         XCTAssertEqual(HostCore.withClaudePermissions(["A": "1"], imageSpec: "claude-code", settings: ask), ["A": "1", "DOZ_CLAUDE_PERMISSIONS": "ask"])
         XCTAssertEqual(HostCore.withClaudePermissions([:], imageSpec: "pi", settings: ask), [:])
         XCTAssertEqual(HostCore.withClaudePermissions([:], imageSpec: nil, settings: ask), [:])
@@ -293,20 +293,20 @@ final class SettingsTests: XCTestCase {
     }
 
     func testKeepaliveIsTheChoiceOfAStoreThatHasNotMadeOne() throws {
-        let store = DozerStore(root: xdg.appendingPathComponent("store"))
-        let on = AccountStore(store: store, settings: DozerSettings(text: "[host]\nkeepalive = true\n"))
+        let store = DozableStore(root: xdg.appendingPathComponent("store"))
+        let on = AccountStore(store: store, settings: DozableSettings(text: "[host]\nkeepalive = true\n"))
         XCTAssertTrue(on.load().keepalive, "a new store: the setting")
         var f = on.load()
         f.keepalive = false
         try on.save(f)
         XCTAssertFalse(on.load().keepalive, "the store's own choice wins")
-        XCTAssertFalse(AccountStore(store: DozerStore(root: xdg.appendingPathComponent("other"))).load().keepalive)
+        XCTAssertFalse(AccountStore(store: DozableStore(root: xdg.appendingPathComponent("other"))).load().keepalive)
     }
 
     // MARK: validation
 
     func testValuesAreCheckedAgainstTheirTypeAndRange() throws {
-        func parse(_ k: String, _ t: String) throws -> TOMLValue { try XCTUnwrap(DozerSettings.definition(k)).parse(t) }
+        func parse(_ k: String, _ t: String) throws -> TOMLValue { try XCTUnwrap(DozableSettings.definition(k)).parse(t) }
         XCTAssertEqual(try parse("ui.boot_view_on_start", "off"), .bool(false))
         XCTAssertEqual(try parse("ui.terminal_font_size", "16"), .int(16))
         XCTAssertEqual(try parse("ui.split_default", "watch"), .string("watch"))
@@ -319,14 +319,14 @@ final class SettingsTests: XCTestCase {
                        ("kernel.path", "relative/k"), ("store.path", "/a\nb"), ("claude.permissions", "yolo")] {
             XCTAssertThrowsError(try parse(k, t), "\(k) = \(t)")
         }
-        XCTAssertThrowsError(try DozerSettings.definition("ui.theme")!.validate(.int(1)))
-        XCTAssertThrowsError(try DozerSettings(text: nil, url: file).writing("ui.nope", .bool(true)))
+        XCTAssertThrowsError(try DozableSettings.definition("ui.theme")!.validate(.int(1)))
+        XCTAssertThrowsError(try DozableSettings(text: nil, url: file).writing("ui.nope", .bool(true)))
     }
 
     // MARK: writing
 
     func testWritingIsAtomicPrivateAndRegeneratesTheWholeFile() throws {
-        var s = DozerSettings.load(environment: env)
+        var s = DozableSettings.load(environment: env)
         XCTAssertEqual(s.url, file)
         XCTAssertFalse(s.fileExists)
         s = try s.writing("ui.boot_view_on_start", .bool(true))
@@ -340,7 +340,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(st.st_mode & 0o777, 0o700)
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\nboot_view_on_start = true\n"))
-        for d in DozerSettings.schema where d.key != "ui.boot_view_on_start" && d.agent == nil {
+        for d in DozableSettings.schema where d.key != "ui.boot_view_on_start" && d.agent == nil {
             XCTAssertTrue(text.contains("\n# \(d.name) = "), "\(d.key) still listed")
         }
         s = try s.writing("defaults.cpus", .int(8))
@@ -352,11 +352,11 @@ final class SettingsTests: XCTestCase {
     }
 
     func testTheFileIsFoundTheXDGWay() {
-        XCTAssertEqual(DozerSettings.fileURL(environment: ["XDG_CONFIG_HOME": "/x", "HOME": "/h"])?.path, "/x/dozer-sandbox/doz.toml")
-        XCTAssertEqual(DozerSettings.fileURL(environment: ["XDG_CONFIG_HOME": "relative", "HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml",
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "/x", "HOME": "/h"])?.path, "/x/dozer-sandbox/doz.toml")
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "relative", "HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml",
                        "a relative XDG_CONFIG_HOME is ignored (the XDG rule)")
-        XCTAssertEqual(DozerSettings.fileURL(environment: ["HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml")
-        XCTAssertNil(DozerSettings.fileURL(environment: [:]))
-        XCTAssertEqual(DozerSettings.load(environment: [:]).resolve("ui.theme").source, .default)
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml")
+        XCTAssertNil(DozableSettings.fileURL(environment: [:]))
+        XCTAssertEqual(DozableSettings.load(environment: [:]).resolve("ui.theme").source, .default)
     }
 }

@@ -44,7 +44,7 @@ public struct QuickAddPlan: Codable, Equatable, Sendable {
 public enum QuickAdd {
     /// The name, image and workspace. `name` given: used as it is (refused when taken or not a name);
     /// else the image's, free. Throws only for a given name.
-    public static func plan(image: String?, name: String?, isolated: Bool, taken: Set<String>, settings: DozerSettings) throws -> QuickAddPlan {
+    public static func plan(image: String?, name: String?, isolated: Bool, taken: Set<String>, settings: DozableSettings) throws -> QuickAddPlan {
         let img = image ?? settings.string(SettingKey.defaultImage) ?? "lab"
         let projects = (Workspace.defaultPath(name: "x", settings: settings) as NSString).deletingLastPathComponent
         let chosen: String
@@ -79,8 +79,8 @@ public enum QuickAdd {
     }
 
     /// The image's network setting, for `requirement` (nil for an image without an agent).
-    public static func network(image: String, settings: DozerSettings) -> String? {
+    public static func network(image: String, settings: DozableSettings) -> String? {
         guard AgentCredentials.kinds(image) != nil else { return nil }
-        return settings.string(SettingKey.network(DozerSettings.imageSection(imageSpecName: image)))
+        return settings.string(SettingKey.network(DozableSettings.imageSection(imageSpecName: image)))
     }
 }

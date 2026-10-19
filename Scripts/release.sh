@@ -9,7 +9,7 @@
 #
 #   doz-<version>/bin/doz                    → ../libexec/doz/doz   (a relative link)
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
-#   doz-<version>/libexec/doz/VERSION        the version it was built for (DozerCommand.version reads it)
+#   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound   PRIVATE builds only: the audio sandboxes' kernel
 #

@@ -41,7 +41,7 @@ public struct WebQuickAddQuery: Equatable, Sendable {
 
     /// The plan, with the requirement one click cannot decide (from the images and accounts the page
     /// would show).
-    public func plan(taken: Set<String>, settings: DozerSettings, images: [WebImage], accounts: WebAccounts) throws -> QuickAddPlan {
+    public func plan(taken: Set<String>, settings: DozableSettings, images: [WebImage], accounts: WebAccounts) throws -> QuickAddPlan {
         var p = try QuickAdd.plan(image: image, name: nil, isolated: isolated, taken: taken, settings: settings)
         var kinds: [String: AccountKind] = ["mac": .mac]
         for a in accounts.accounts where a.kind != AccountKind.codexMac.rawValue { if let k = AccountKind(rawValue: a.kind) { kinds[a.name] = k } }

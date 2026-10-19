@@ -344,7 +344,7 @@ public enum Resources {
 
     // MARK: the inventory
 
-    public static func inventory(store: DozerStore, facts f: ResourceFacts) -> ResourceReport {
+    public static func inventory(store: DozableStore, facts f: ResourceFacts) -> ResourceReport {
         let t0 = ContinuousClock.now
         let root = store.root.standardizedFileURL
         let labKey = f.currentImageKeys["lab"]
@@ -699,7 +699,7 @@ public enum Resources {
 
     /// A plan for `ids` (or the safe set when `clean`) against a fresh inventory: what goes, what it frees
     /// (exact for the whole selection), what each costs later, and what is refused and why.
-    public static func plan(store: DozerStore, facts: ResourceFacts, ids requested: [String], clean: Bool) -> ResourcePlan {
+    public static func plan(store: DozableStore, facts: ResourceFacts, ids requested: [String], clean: Bool) -> ResourcePlan {
         let report = inventory(store: store, facts: facts)
         let ids = clean ? cleanIDs(report.items) : requested
         var entries: [ResourcePlan.Entry] = []
@@ -733,7 +733,7 @@ public enum Resources {
 
     /// Delete a plan's items (the host calls this with nothing else running — `HostCore.resourcesRemove`).
     /// Paths come from the ids, never from a request. `clearMetrics` clears the metrics database.
-    static func execute(_ plan: ResourcePlan, store: DozerStore, clearMetrics: () throws -> Void) -> ResourcePlan {
+    static func execute(_ plan: ResourcePlan, store: DozableStore, clearMetrics: () throws -> Void) -> ResourcePlan {
         var p = plan
         p.dryRun = false
         let root = store.root.standardizedFileURL

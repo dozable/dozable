@@ -35,7 +35,7 @@ struct TemplateCreate: AsyncParsableCommand {
         r.note = note
         let img = try decode(try call(r, g), CustomImage.self, g)
         if g.json { Out.json(img); return }
-        Out.stdout("saved \(name)'s root disk\(point.map { " (restore point \($0))" } ?? "") as the template \(img.name) (\(DozerImages.formatBytes(img.allocatedBytes)); no state disk) — doz create NEW --image \(img.name)\n")
+        Out.stdout("saved \(name)'s root disk\(point.map { " (restore point \($0))" } ?? "") as the template \(img.name) (\(DozableImages.formatBytes(img.allocatedBytes)); no state disk) — doz create NEW --image \(img.name)\n")
     }
 }
 
@@ -49,7 +49,7 @@ struct TemplateList: AsyncParsableCommand {
         var t = [["TEMPLATE", "SAVED", "SIZE", "FROM", "NOTE"]]
         for r in rows {
             t.append([r.name, r.bakedAt.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "—",
-                      r.allocatedBytes.map(DozerImages.formatBytes) ?? "—", r.fromSandbox ?? "—", r.note ?? ""])
+                      r.allocatedBytes.map(DozableImages.formatBytes) ?? "—", r.fromSandbox ?? "—", r.note ?? ""])
         }
         Out.stdout(Out.table(t))
     }
@@ -101,7 +101,7 @@ struct Duplicate: AsyncParsableCommand {
         var o = DuplicateOptions(workspace: ws, cpus: cpus, network: network, account: account, copyState: copyState ? true : nil)
         o.isolated = isolated ? true : nil
         if let m = memory {
-            guard let mib = DozerImages.parseMemory(m) else { throw fail(HostError(.invalid, "--memory: say e.g. 2G or 1536M"), g) }
+            guard let mib = DozableImages.parseMemory(m) else { throw fail(HostError(.invalid, "--memory: say e.g. 2G or 1536M"), g) }
             o.memoryMiB = mib
         }
         var r = HostRequest(.duplicate, name: name)

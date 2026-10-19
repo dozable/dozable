@@ -163,7 +163,7 @@ public enum UsageSwitches {
 
     /// The decision. `flag`: `--send-anonymous-usage-stats` (true) / `--no-send-anonymous-usage-stats` (false) on this
     /// command line. DO_NOT_TRACK wins over everything — even the flag that turns them on.
-    public static func decide(official: Bool, method: InstallMethod, settings: DozerSettings, env: [String: String],
+    public static func decide(official: Bool, method: InstallMethod, settings: DozableSettings, env: [String: String],
                               flag: Bool?, guarded: Bool) -> UsageSwitch {
         let r = settings.resolve(SettingKey.sendUsageStats, flag: flag.map(TOMLValue.bool))
         let setting: Bool = if case .bool(let b) = r.value { b } else { true }
@@ -217,10 +217,10 @@ public struct UsageStatsStep: Equatable, Sendable {
 
     /// The step for this process (nil: not an official build — the step is not shown). `flag`: a value a command line
     /// gives the setting for the whole process (`doz ui`'s), which the settings route would refuse to change.
-    public static func make(official: Bool, settings: DozerSettings, env: [String: String], flag: TOMLValue? = nil) -> UsageStatsStep? {
+    public static func make(official: Bool, settings: DozableSettings, env: [String: String], flag: TOMLValue? = nil) -> UsageStatsStep? {
         guard official else { return nil }
         let key = SettingKey.sendUsageStats
-        let fileValue = settings.fileValues[key] ?? DozerSettings.definition(key)?.defaultValue
+        let fileValue = settings.fileValues[key] ?? DozableSettings.definition(key)?.defaultValue
         let stored: Bool = if case .bool(let b)? = fileValue { b } else { true }
         let r = settings.resolve(key, flag: flag)
         let resolved: Bool = if case .bool(let b) = r.value { b } else { stored }
@@ -230,7 +230,7 @@ public struct UsageStatsStep: Equatable, Sendable {
         switch r.source {
         case .env:
             return UsageStatsStep(on: resolved, stored: stored,
-                                  fixed: "$\(DozerSettings.definition(key)?.environment ?? "DOZ_SEND_ANONYMOUS_USAGE_STATS") decides it here")
+                                  fixed: "$\(DozableSettings.definition(key)?.environment ?? "DOZ_SEND_ANONYMOUS_USAGE_STATS") decides it here")
         case .flag:
             return UsageStatsStep(on: resolved, stored: stored, fixed: "the command line of this doz ui decides it")
         case .file, .default:
@@ -245,7 +245,7 @@ public struct UsageStatsStep: Equatable, Sendable {
     @discardableResult
     public func save(_ answer: Bool, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> [String] {
         guard let v = change(for: answer) else { return [] }
-        try DozerSettings.load(environment: environment).writing(SettingKey.sendUsageStats, .bool(v))
+        try DozableSettings.load(environment: environment).writing(SettingKey.sendUsageStats, .bool(v))
         return ["\(SettingKey.sendUsageStats) = \(v)"]
     }
 }
@@ -680,7 +680,7 @@ public struct UsageFiles: Sendable {
 
     /// Beside doz.toml (nil: no settings directory — then nothing is kept and nothing sent).
     public static func current(_ env: [String: String] = ProcessInfo.processInfo.environment) -> UsageFiles? {
-        DozerSettings.fileURL(environment: env).map { UsageFiles(directory: $0.deletingLastPathComponent()) }
+        DozableSettings.fileURL(environment: env).map { UsageFiles(directory: $0.deletingLastPathComponent()) }
     }
 
     public var idFile: URL { directory.appendingPathComponent("usage-id") }
@@ -790,7 +790,7 @@ public struct UsageStoreFacts: Equatable, Sendable {
     }
 
     /// Read from `store` for the local day `day` (yyyy-MM-dd). Never creates anything in the store.
-    public static func read(_ store: DozerStore, day: String, now: Date = Date(), calendar: Calendar = .current) -> UsageStoreFacts {
+    public static func read(_ store: DozableStore, day: String, now: Date = Date(), calendar: Calendar = .current) -> UsageStoreFacts {
         var f = UsageStoreFacts()
         guard let (start, end) = UsageClock.range(of: day, calendar: calendar) else { return f }
         f.until = min(end, now)
@@ -1255,7 +1255,7 @@ public enum UsageRuntime {
     public static var flag: Bool? { lock.withLock { commandLineFlag } }
 
     public static func decide(env: [String: String] = ProcessInfo.processInfo.environment,
-                              settings: DozerSettings? = nil, flag: Bool? = nil) -> UsageSwitch {
+                              settings: DozableSettings? = nil, flag: Bool? = nil) -> UsageSwitch {
         let official = Usage.isOfficial
         // An open build decides without looking at anything (it has nothing to send).
         let method: InstallMethod = official ? InstallMethod.detect(executable: HostLauncher.executablePath) : .development

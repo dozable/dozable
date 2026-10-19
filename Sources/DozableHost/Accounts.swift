@@ -207,7 +207,7 @@ public struct AccountStore: Sendable {
     public let newStoreKeepalive: Bool
     /// 594: the default account of a store with no accounts.json yet (the settings' `defaults.account`).
     public let newStoreDefault: String
-    public init(store: DozerStore, newStoreKeepalive: Bool = false, newStoreDefault: String = "mac") {
+    public init(store: DozableStore, newStoreKeepalive: Bool = false, newStoreDefault: String = "mac") {
         url = store.root.appendingPathComponent("accounts.json")
         self.newStoreKeepalive = newStoreKeepalive
         self.newStoreDefault = newStoreDefault
@@ -215,7 +215,7 @@ public struct AccountStore: Sendable {
 
     /// The store's accounts, with the settings' `host.keepalive` and `defaults.account` for a store
     /// that has not chosen.
-    public init(store: DozerStore, settings: DozerSettings) {
+    public init(store: DozableStore, settings: DozableSettings) {
         self.init(store: store, newStoreKeepalive: settings.bool(SettingKey.keepalive),
                   newStoreDefault: settings.string(SettingKey.defaultAccount) ?? "mac")
     }

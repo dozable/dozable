@@ -196,7 +196,7 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	codesign --force --sign - --entitlements Scripts/doz.entitlements $(CLI_BIN)
 	@# 602: stamp the repo's VERSION beside the binary, exactly as a release carries it
 	@# (`ReleaseStamp` reads `VERSION` beside the resolved executable) — otherwise this build reports
-	@# `DozerCommand.builtVersion`, which no feature remembers to bump (0.11.0 at 0.23.0).
+	@# `DozableCommand.builtVersion`, which no feature remembers to bump (0.11.0 at 0.23.0).
 	cp VERSION "$(dir $(CLI_BIN))VERSION"
 
 install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.local): bin/doz → libexec/doz/

@@ -21,7 +21,7 @@ final class OnboardingTests: XCTestCase {
     // MARK: D9 — doz_project.yaml
 
     func testAProjectFileParses() throws {
-        let p = try DozerProject.parse("""
+        let p = try DozableProject.parse("""
         version: 1
         name: webapp
         image: claude-code
@@ -49,15 +49,15 @@ final class OnboardingTests: XCTestCase {
                                     .init(name: "tests", command: ["make", "test"])])
         XCTAssertEqual(p.agentPrompt, "The tests run with make test.\n")
         XCTAssertEqual(p.agentPromptMode, "replace")
-        let o = p.createOptions(folder: root, file: root.appendingPathComponent(DozerProject.fileName))
+        let o = p.createOptions(folder: root, file: root.appendingPathComponent(DozableProject.fileName))
         XCTAssertEqual(o.workspace, root.path, "the folder is the workspace")
-        XCTAssertEqual(o.project, root.appendingPathComponent(DozerProject.fileName).path)
+        XCTAssertEqual(o.project, root.appendingPathComponent(DozableProject.fileName).path)
         XCTAssertEqual(o.agentPromptMode, "replace")
     }
 
     func testTheSchemaIsClosedAndErrorsNameTheLine() {
         func fails(_ text: String, _ contains: String, file: StaticString = #filePath, line: UInt = #line) {
-            XCTAssertThrowsError(try DozerProject.parse(text), file: file, line: line) { e in
+            XCTAssertThrowsError(try DozableProject.parse(text), file: file, line: line) { e in
                 XCTAssertTrue(e.localizedDescription.contains(contains), "\(e.localizedDescription) — wanted \(contains)", file: file, line: line)
             }
         }
@@ -72,8 +72,8 @@ final class OnboardingTests: XCTestCase {
         fails("name: a\nbase: python\ndockerfile: ./Dockerfile\n", "base or dockerfile")
         fails("name: a\nbase: cobol\n", "base: node, python")
         // 617: an unknown agent is refused, naming every agent offered (629: the published ones).
-        XCTAssertEqual(DozerProject.agentWords, "claude-code, pi, codex, opencode or none")
-        fails("name: a\nagent: cobol-agent\nbase: go\n", "agent: " + DozerProject.agentWords)
+        XCTAssertEqual(DozableProject.agentWords, "claude-code, pi, codex, opencode or none")
+        fails("name: a\nagent: cobol-agent\nbase: go\n", "agent: " + DozableProject.agentWords)
         fails("name: a\nimage: lab\ncpus: 100\n", "cpus")
         fails("name: a\nimage: lab\ncpus: two\n", "cpus")
         fails("name: a\nimage: lab\nmemory: lots\n", "memory")
@@ -90,8 +90,8 @@ final class OnboardingTests: XCTestCase {
     }
 
     func testWhatInitWritesReadsBack() throws {
-        var p = DozerProject(name: "my-proj", image: "pi")
-        let bare = try DozerProject.parse(p.render())
+        var p = DozableProject(name: "my-proj", image: "pi")
+        let bare = try DozableProject.parse(p.render())
         XCTAssertEqual(bare, p, "every optional key commented out = its default")
         p.cpus = 3
         p.memoryMiB = 1536
@@ -100,21 +100,21 @@ final class OnboardingTests: XCTestCase {
         p.sessions = [.init(name: "pi", command: nil), .init(name: "srv", command: ["python3", "-m", "http.server"])]
         p.agentPrompt = "line one\nline two"
         p.agentPromptMode = "append"
-        let back = try DozerProject.parse(p.render())
+        let back = try DozableProject.parse(p.render())
         XCTAssertEqual(back.cpus, 3)
         XCTAssertEqual(back.memoryMiB, 1536)
         XCTAssertEqual(back.sessions, p.sessions)
         XCTAssertEqual(back.agentPrompt, "line one\nline two", "599f: exactly as written (`|-`)")
-        XCTAssertEqual(DozerProject.suggestedName(for: URL(fileURLWithPath: "/x/My Project_2")), "my-project-2")
-        XCTAssertEqual(DozerProject.suggestedName(for: URL(fileURLWithPath: "/x/___")), "project")
+        XCTAssertEqual(DozableProject.suggestedName(for: URL(fileURLWithPath: "/x/My Project_2")), "my-project-2")
+        XCTAssertEqual(DozableProject.suggestedName(for: URL(fileURLWithPath: "/x/___")), "project")
     }
 
     // MARK: D15/D16 — the environment prompt
 
     func config(workspace: String?, network: NetworkMode = .proxied(.agent), image: String = "claude-code") throws -> SandboxConfig {
         var o = CreateOptions(image: image, workspace: workspace)
-        o.network = DozerImages.networkName(network)
-        let (spec, img) = try DozerImages.spec(name: "p1", options: o, store: DozerStore(root: root), environment: [:])
+        o.network = DozableImages.networkName(network)
+        let (spec, img) = try DozableImages.spec(name: "p1", options: o, store: DozableStore(root: root), environment: [:])
         return SandboxConfig(name: "p1", image: img, spec: spec, workspace: workspace)
     }
 
@@ -124,7 +124,7 @@ final class OnboardingTests: XCTestCase {
 
     func testTheFactsSayWhereTheWorkspaceIsOrThatItIsNotShared() throws {
         let shared = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: root.path), policy: .agent, account: "mac", version: "9.9",
-                                                      settings: DozerSettings.load(environment: env()), hostname: "Mac-1"))
+                                                      settings: DozableSettings.load(environment: env()), hostname: "Mac-1"))
         XCTAssertEqual(shared.agent, "claude-code")
         XCTAssertNil(shared.error)
         let text = try XCTUnwrap(shared.text)
@@ -139,15 +139,15 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(shared.layers, ["built-in"])
 
         let private_ = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil), policy: .agent, account: nil, version: "9.9",
-                                                        settings: DozerSettings.load(environment: env()), hostname: "Mac-1"))
+                                                        settings: DozableSettings.load(environment: env()), hostname: "Mac-1"))
         XCTAssertTrue(private_.text!.contains("This sandbox is isolated (no folder is shared with the Mac)"), private_.text!)
         XCTAssertTrue(private_.text!.contains("no account is attached"))
 
         let pi = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil, image: "pi"), policy: .agent, account: nil, version: "9.9",
-                                                  settings: DozerSettings.load(environment: env()), hostname: "m"))
+                                                  settings: DozableSettings.load(environment: env()), hostname: "m"))
         XCTAssertEqual(pi.skillPath, "/home/agent/.pi/agent/skills/dozer/SKILL.md")
         XCTAssertNil(AgentPrompt.report(config: try config(workspace: nil, network: .nat, image: "lab"), policy: nil, account: nil, version: "1",
-                                        settings: DozerSettings.load(environment: env())), "the lab runs no agent")
+                                        settings: DozableSettings.load(environment: env())), "the lab runs no agent")
     }
 
     func testUnknownVariablesAreAnErrorNeverBlank() {
@@ -172,29 +172,29 @@ final class OnboardingTests: XCTestCase {
         try AgentPrompt.userTemplateStarter.write(to: tpl, atomically: true, encoding: .utf8)
         XCTAssertNil(AgentPrompt.stripComments(AgentPrompt.userTemplateStarter))
         var cfg = try config(workspace: root.path)
-        var r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        var r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.layers, ["built-in"])
         // A template of the user's own replaces the built-in one.
         try "<!-- mine -->\nYou are in {{sandbox.name}}; the Mac's folder is {{workspace.host_path}}.".write(to: tpl, atomically: true, encoding: .utf8)
-        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.text, "You are in p1; the Mac's folder is \(root.path).")
         XCTAssertEqual(r.layers, ["user template \(tpl.path)"])
         // The sandbox's own: appended, or replacing.
         cfg.agentPrompt = "Tests: make test."
-        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.text, "You are in p1; the Mac's folder is \(root.path).\n\nTests: make test.")
         cfg.agentPromptMode = "replace"
-        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertEqual(r.text, "Tests: make test.")
         XCTAssertEqual(r.layers.last, "sandbox (replace)")
         // An unknown variable in the sandbox's layer: an error that names it.
         cfg.agentPrompt = "{{nope}}"
-        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertNil(r.text)
         XCTAssertTrue(r.error?.contains("p1's own prompt: {{nope}} is not a variable") == true, r.error ?? "")
         // agent.prompt = false: off (and the guest's files are removed).
         try "[agent]\nprompt = false\n".write(to: dir.appendingPathComponent("doz.toml"), atomically: true, encoding: .utf8)
-        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozerSettings.load(environment: env())))
+        r = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: .agent, account: "mac", version: "1", settings: DozableSettings.load(environment: env())))
         XCTAssertFalse(r.enabled)
         XCTAssertNil(r.text)
         let script = AgentPrompt.deliveryScript(r, user: "agent")
@@ -202,9 +202,9 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(script.contains("rm -rf '/home/agent/.claude/skills/dozer'"), script)
     }
 
-    func testTheDeliveryWritesOnlyDozersFiles() throws {
+    func testTheDeliveryWritesOnlyDozablesFiles() throws {
         let r = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil), policy: .agent, account: nil, version: "1",
-                                                 settings: DozerSettings.load(environment: env())))
+                                                 settings: DozableSettings.load(environment: env())))
         let s = AgentPrompt.deliveryScript(r, user: "agent")
         XCTAssertTrue(s.contains("> '/run/dozer/agent-prompt.md.tmp'"))
         XCTAssertTrue(s.contains("'/home/agent/.claude/skills/dozer/SKILL.md'"))
@@ -221,7 +221,7 @@ final class OnboardingTests: XCTestCase {
             ("macOS", "ok", "27"), ("chip", "fail", "x86_64"), ("claude", "warn", "not installed"), ("vmnet", "ok", ""),
             ("claude login", "warn", "signed out"), ("store", "warn", "ignored here"),
         ]
-        let checks = Onboarding.checks(doctor: doctor, store: DozerStore(root: root), chosen: ["claude-code"], prepared: [])
+        let checks = Onboarding.checks(doctor: doctor, store: DozableStore(root: root), chosen: ["claude-code"], prepared: [])
         XCTAssertEqual(checks.filter(\.blocks).map(\.check), ["chip"])
         XCTAssertFalse(checks.first { $0.check == "claude" }!.hard)
         XCTAssertFalse(checks.first { $0.check == "claude login" }!.hard)
@@ -248,7 +248,7 @@ final class OnboardingTests: XCTestCase {
     /// 594: a sandbox's own key — `doz key set NAME --anthropic`'s request, which the web UI builds too:
     /// held in the host's vault (memory), a placeholder for the guest, never on disk.
     func testASandboxKeyGoesTheKeySetWay() async throws {
-        let core = HostCore(store: DozerStore(root: root), readOnly: false, version: "t",
+        let core = HostCore(store: DozableStore(root: root), readOnly: false, version: "t",
                             services: .forHost(environment: ["DOZ_TEST_CREDENTIALS": "memory"]), newStoreDefaultAccount: "mac")
         var c = HostRequest(.create, name: "kb")
         c.create = CreateOptions(image: "lab", network: "agent", account: "none")
@@ -265,7 +265,7 @@ final class OnboardingTests: XCTestCase {
         let row = try XCTUnwrap(rows.first { $0.binding == CredentialBinding.anthropic.id })
         XCTAssertTrue(row.set)
         XCTAssertEqual(row.source, "browser")
-        let cfg = try String(contentsOf: DozerStore(root: root).configFile("kb"), encoding: .utf8)
+        let cfg = try String(contentsOf: DozableStore(root: root).configFile("kb"), encoding: .utf8)
         XCTAssertFalse(cfg.contains(key), "doz.json holds the source, never the key")
         XCTAssertTrue(cfg.contains("\"browser\""))
     }
@@ -276,7 +276,7 @@ final class OnboardingTests: XCTestCase {
         let services = CredentialServices.forHost(environment: ["DOZ_TEST_CREDENTIALS": "memory"])
         XCTAssertTrue(services.keychain is MemoryKeychain)
         XCTAssertTrue(CredentialServices.forHost(environment: [:]).keychain is SystemKeychain)
-        let core = HostCore(store: DozerStore(root: root), readOnly: false, version: "t", services: services, newStoreDefaultAccount: "mac")
+        let core = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", services: services, newStoreDefaultAccount: "mac")
         let key = "sk-ant-api03-" + String(repeating: "Z", count: 40)
         let r = HostRequest.accountAdd(name: "work", kind: .apiKey, plan: nil, secret: key)
         XCTAssertEqual(r.op, .accountAdd)
@@ -300,7 +300,7 @@ final class OnboardingTests: XCTestCase {
         let e = env()
         let (first, path) = try Onboarding.writeSettingsIfMissing(defaultImage: "pi", account: "none", environment: e)
         XCTAssertEqual(first, .written)
-        let s = DozerSettings.load(environment: e)
+        let s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.string(SettingKey.defaultImage), "pi")
         XCTAssertEqual(s.string(SettingKey.defaultAccount), "none")
         XCTAssertEqual(s.fileValues.count, 2, "the onboarding's answers are the only values set")
@@ -314,7 +314,7 @@ final class OnboardingTests: XCTestCase {
     }
 
     func testAStoreWithoutAccountsFollowsTheSettingsDefaultAccount() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         XCTAssertEqual(AccountStore(store: store, newStoreDefault: "none").load().defaultAccount, "none")
         var f = AccountStore(store: store).load()
         f.defaultAccount = "mac"
@@ -323,7 +323,7 @@ final class OnboardingTests: XCTestCase {
     }
 
     func testTheOnboardingRecordAddsImages() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         XCTAssertNil(OnboardingRecord.read(store))
         try OnboardingRecord.record(store, version: "1", images: ["claude-code"])
         let r = try OnboardingRecord.record(store, version: "2", images: ["lab", "claude-code"])
@@ -345,7 +345,7 @@ final class OnboardingTests: XCTestCase {
     }
 
     func core(_ gate: Gate) async -> HostCore {
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
         await c.setPreparationRunner({ image, _, emit in
             gate.add(image)
             emit(HostEvent(kind: .started, sandbox: image, text: "pulled the base image node"))
@@ -396,7 +396,7 @@ final class OnboardingTests: XCTestCase {
         _ = await bake.value
         XCTAssertEqual(gate.runs, ["claude-code"], "one download, one bake")
         try await Task.sleep(for: .milliseconds(200))
-        XCTAssertEqual(OnboardingRecord.read(DozerStore(root: root))?.images, ["claude-code"], "the host records the onboarding when it is ready")
+        XCTAssertEqual(OnboardingRecord.read(DozableStore(root: root))?.images, ["claude-code"], "the host records the onboarding when it is ready")
         let after = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
         XCTAssertEqual(after.preparations.first?.state, "done")
         XCTAssertTrue(after.preparations.first?.lines.contains { $0.contains("Downloaded the Node.js base image") } == true)
@@ -412,7 +412,7 @@ final class OnboardingTests: XCTestCase {
         _ = await c.handle(r)
         gate.lock.withLock { gate.released = true }
         try await Task.sleep(for: .milliseconds(300))
-        XCTAssertNil(OnboardingRecord.read(DozerStore(root: root)))
+        XCTAssertNil(OnboardingRecord.read(DozableStore(root: root)))
         let failed = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
         XCTAssertEqual(failed.preparations.first?.state, "failed")
         XCTAssertEqual(failed.preparations.first?.error, "no network")
@@ -437,7 +437,7 @@ final class OnboardingTests: XCTestCase {
 
     func testAnImageAlreadyPreparedIsNotPreparedAgainAndNoImagesOnboardsAtOnce() async throws {
         let gate = Gate()
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
         await c.setPreparationRunner({ i, _, _ in gate.add(i) }, prepared: { i, _ in i == "claude-code" })
         let events = Events()
         var r = HostRequest(.onboard)
@@ -455,7 +455,7 @@ final class OnboardingTests: XCTestCase {
         bad.images = ["cobol"]            // 596: ubuntu is a base now — cobol is not
         let badResult = await c.handle(bad)
         XCTAssertEqual(badResult.error?.code, .invalid)
-        let ro = HostCore(store: DozerStore(root: root), readOnly: true, version: "t")
+        let ro = HostCore(store: DozableStore(root: root), readOnly: true, version: "t")
         let roOnboard = await ro.handle(r)
         XCTAssertEqual(roOnboard.error?.code, .unavailable, "preparing needs the host")
         let roStatus = await ro.handle(HostRequest(.prepareStatus))
@@ -467,7 +467,7 @@ final class OnboardingTests: XCTestCase {
     /// its last output.
     func testAPreparationSaysStepNOfMItsTailAndLastRunsEstimates() async throws {
         let gate = Gate()
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
         await c.setPreparationRunner({ image, _, emit in
             func ev(_ k: HostEvent.Kind, _ t: String, ms: Double? = nil) { emit(HostEvent(kind: k, sandbox: image, text: t, milliseconds: ms)) }
             ev(.started, "kernel ready (vmlinux, cached)"); ev(.step, "kernel ready (vmlinux, cached)", ms: 2000)
@@ -499,7 +499,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(p.estimateBasis, "first time: no estimate yet")
         gate.lock.withLock { gate.released = true }
         try await Task.sleep(for: .milliseconds(300))
-        let rec = try XCTUnwrap(PreparationRecord.all(DozerStore(root: root))["lab"])
+        let rec = try XCTUnwrap(PreparationRecord.all(DozableStore(root: root))["lab"])
         XCTAssertEqual(rec.steps.map(\.key), ["kernel", "step: install things"])
         XCTAssertEqual(rec.steps.map(\.seconds), [2, 30])
         // The second run: M from the last run, estimates from its times.
@@ -522,7 +522,7 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(failed.kind, "failed")
         XCTAssertEqual(failed.output?.count, 6)
         XCTAssertEqual(failed.output?.last, "line 8")
-        XCTAssertEqual(PreparationRecord.all(DozerStore(root: root))["lab"]?.steps.count, 2, "a failed run does not replace the record")
+        XCTAssertEqual(PreparationRecord.all(DozableStore(root: root))["lab"]?.steps.count, 2, "a failed run does not replace the record")
         XCTAssertEqual(PreparationRecord.key("base image node (cached)"), PreparationRecord.key("pulled the base image node"))
     }
 
@@ -555,37 +555,37 @@ final class OnboardingTests: XCTestCase {
         var spec = SandboxSpec(name: "s", storeRoot: root)
         spec.imageSpec = AgentImages.claudeCode
         let cfg = SandboxConfig(name: "s", image: "claude-code", spec: spec, workspace: nil)
-        let on = DozerSettings(text: nil)
+        let on = DozableSettings(text: nil)
         let has = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: nil, account: nil, version: "1", settings: on, hostname: "h", sudoInstalled: true)?.text)
         XCTAssertTrue(has.contains("- System: you have passwordless sudo"))
         let lacks = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: nil, account: nil, version: "1", settings: on, hostname: "h", sudoInstalled: false)?.text)
         XCTAssertTrue(lacks.contains("- System: no sudo: this sandbox's system disk was made from an older claude-code image that has no sudo"), lacks)
         XCTAssertTrue(lacks.contains("doz image bake claude-code") && lacks.contains("doz reset s"))
         XCTAssertFalse(lacks.contains("passwordless sudo in this sandbox"))
-        let off = DozerSettings(text: "[sandbox]\nagent_sudo = false\n")
+        let off = DozableSettings(text: "[sandbox]\nagent_sudo = false\n")
         let no = try XCTUnwrap(AgentPrompt.report(config: cfg, policy: nil, account: nil, version: "1", settings: off, hostname: "h", sudoInstalled: true)?.text)
         XCTAssertTrue(no.contains("- System: no sudo: you run as an unprivileged user"))
     }
 
     /// 594 W12: doz_project.yaml says when each key applies and what each network means, and still parses.
     func testTheProjectFileSaysWhenEachKeyApplies() throws {
-        let p = DozerProject(name: "web", image: "claude-code", cpus: 4, memoryMiB: 4096, network: "agent")
+        let p = DozableProject(name: "web", image: "claude-code", cpus: 4, memoryMiB: 4096, network: "agent")
         let text = p.render()
         for s in ["image (agent, base, dockerfile), cpus, memory, network nat/none: when the sandbox is MADE", "network agent/bake/locked/open: at the next doz up, live",
                   "account: doz account use NAME ACCOUNT", "sessions: every doz up", "#   locked — proxied: nothing leaves the sandbox",
                   "#   nat    — a real network interface", "cpus: 4                     # when made"] {
             XCTAssertTrue(text.contains(s), s)
         }
-        let back = try DozerProject.parse(text)
+        let back = try DozableProject.parse(text)
         XCTAssertEqual(back.cpus, 4)
         XCTAssertEqual(back.memoryMiB, 4096)
         XCTAssertEqual(back.image, "claude-code")
-        XCTAssertEqual(try DozerProject.parse(DozerProject(name: "a", image: "lab").render()).image, "lab")
+        XCTAssertEqual(try DozableProject.parse(DozableProject(name: "a", image: "lab").render()).image, "lab")
     }
 
     /// 594 W10: the sandboxes' time zone — the Mac's (read now) or the setting's; the facts say it.
     func testTheTimeZoneFollowsTheMacOrTheSetting() throws {
-        let none = DozerSettings(text: nil)
+        let none = DozableSettings(text: nil)
         XCTAssertEqual(HostCore.guestTimeZone(settings: none, environment: ["DOZ_TEST_MAC_TIMEZONE": "Australia/Sydney"])?.name, "Australia/Sydney")
         let file = root.appendingPathComponent("tz")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -593,11 +593,11 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(HostCore.guestTimeZone(settings: none, environment: ["DOZ_TEST_MAC_TIMEZONE": file.path])?.name, "America/New_York",
                        "the seam's file is read at each look (a wake after the Mac changed zone)")
         XCTAssertEqual(HostCore.guestTimeZone(settings: none, environment: [:])?.name, NSTimeZone.system.identifier, "mac: this Mac's")
-        let tokyo = DozerSettings(text: "[sandbox]\ntimezone = \"Asia/Tokyo\"\n")
+        let tokyo = DozableSettings(text: "[sandbox]\ntimezone = \"Asia/Tokyo\"\n")
         XCTAssertEqual(HostCore.guestTimeZone(settings: tokyo, environment: ["DOZ_TEST_MAC_TIMEZONE": "Australia/Sydney"])?.name, "Asia/Tokyo")
-        XCTAssertThrowsError(try DozerSettings.definition("sandbox.timezone")!.parse("Mars/Olympus"))
-        XCTAssertThrowsError(try DozerSettings.definition("sandbox.timezone")!.parse("../x"))
-        XCTAssertNoThrow(try DozerSettings.definition("sandbox.timezone")!.parse("mac"))
+        XCTAssertThrowsError(try DozableSettings.definition("sandbox.timezone")!.parse("Mars/Olympus"))
+        XCTAssertThrowsError(try DozableSettings.definition("sandbox.timezone")!.parse("../x"))
+        XCTAssertNoThrow(try DozableSettings.definition("sandbox.timezone")!.parse("mac"))
         let v = AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: nil, network: .none, account: nil, version: "1",
                                    hostname: "h", timeZone: "Australia/Sydney")
         XCTAssertTrue(try AgentPrompt.render(AgentPrompt.builtInTemplate, v, source: "b").contains("- Time zone: Australia/Sydney (the Mac's"))
@@ -605,14 +605,14 @@ final class OnboardingTests: XCTestCase {
 
     /// 594 W6: the Images list says what WILL be installed — never a stale pin.
     func testTheImagesListSaysWhatWillBeInstalled() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         try store.ensureDirectory()
-        let none = DozerSettings(text: nil)
+        let none = DozableSettings(text: nil)
         XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest", "never asked: latest")
         XCTAssertNil(Onboarding.agentVersionText("lab", store: store, settings: none))
         AgentVersions.update("claude-code", store) { $0.latest = AgentRelease(version: "2.1.285", integrity: "sha512-x") }
         XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest (2.1.285)")
-        let exact = DozerSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
+        let exact = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
         XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: exact), "2.1.227")
         let opts = Onboarding.imageOptions([], versions: ["claude-code": "latest (2.1.285)"])
         XCTAssertEqual(opts.first?.summary, "Claude Code — latest (2.1.285) — on Debian (node), with git, ripgrep, python3 and the usual tools")
@@ -623,16 +623,16 @@ final class OnboardingTests: XCTestCase {
     /// 594 W23: the agent's passwordless sudo — the setting (default on), a sandbox's own choice over
     /// it, the facts text both ways, doz_project.yaml's agent_sudo, and create's flags.
     func testAgentSudoSettingFactsProjectAndFlags() throws {
-        XCTAssertTrue(DozerSettings(text: nil).bool(SettingKey.agentSudo), "on by default (owner ruling)")
-        let off = DozerSettings(text: "[sandbox]\nagent_sudo = false\n")
+        XCTAssertTrue(DozableSettings(text: nil).bool(SettingKey.agentSudo), "on by default (owner ruling)")
+        let off = DozableSettings(text: "[sandbox]\nagent_sudo = false\n")
         XCTAssertFalse(off.bool(SettingKey.agentSudo))
         var cfg = SandboxConfig(name: "a", image: "pi", spec: SandboxSpec(name: "a", storeRoot: root), workspace: nil)
-        XCTAssertTrue(HostCore.agentSudo(cfg, settings: DozerSettings(text: nil)))
+        XCTAssertTrue(HostCore.agentSudo(cfg, settings: DozableSettings(text: nil)))
         XCTAssertFalse(HostCore.agentSudo(cfg, settings: off), "nil follows the setting")
         cfg.agentSudo = true
         XCTAssertTrue(HostCore.agentSudo(cfg, settings: off), "the sandbox's own choice wins")
         cfg.agentSudo = false
-        XCTAssertFalse(HostCore.agentSudo(cfg, settings: DozerSettings(text: nil)))
+        XCTAssertFalse(HostCore.agentSudo(cfg, settings: DozableSettings(text: nil)))
 
         let yes = AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: nil, network: .proxied(.agent), account: nil, version: "1", hostname: "h")
         XCTAssertEqual(yes["sandbox.sudo"], "yes")
@@ -647,18 +647,18 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(no["sudo.description"]!.hasPrefix("no sudo:"))
         XCTAssertTrue(try AgentPrompt.render(AgentPrompt.skillTemplate, no, source: "s").contains("Sudo: no — no sudo:"))
 
-        let p = try DozerProject.parse("version: 1\nname: a\nimage: pi\nagent_sudo: false\n")
+        let p = try DozableProject.parse("version: 1\nname: a\nimage: pi\nagent_sudo: false\n")
         XCTAssertEqual(p.agentSudo, false)
         XCTAssertEqual(p.createOptions(folder: root, file: root.appendingPathComponent("doz_project.yaml")).agentSudo, false)
-        XCTAssertNil(try DozerProject.parse("version: 1\nname: a\nimage: pi\n").agentSudo)
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: a\nimage: pi\nagent_sudo: maybe\n"))
+        XCTAssertNil(try DozableProject.parse("version: 1\nname: a\nimage: pi\n").agentSudo)
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: a\nimage: pi\nagent_sudo: maybe\n"))
         XCTAssertTrue(p.render().contains("agent_sudo: false\n"))
-        XCTAssertTrue(DozerProject(name: "a", image: "pi").render().contains("# agent_sudo: true"))
-        XCTAssertEqual(try DozerProject.parse(p.render()).agentSudo, false, "render → parse round-trips")
+        XCTAssertTrue(DozableProject(name: "a", image: "pi").render().contains("# agent_sudo: true"))
+        XCTAssertEqual(try DozableProject.parse(p.render()).agentSudo, false, "render → parse round-trips")
 
-        let c = try XCTUnwrap(try DozerCommand.parseAsRoot(["create", "b", "--image", "pi", "--no-agent-sudo"]) as? Create)
+        let c = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "b", "--image", "pi", "--no-agent-sudo"]) as? Create)
         XCTAssertEqual(try c.create.options().agentSudo, false)
-        let d = try XCTUnwrap(try DozerCommand.parseAsRoot(["create", "b", "--image", "pi"]) as? Create)
+        let d = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "b", "--image", "pi"]) as? Create)
         XCTAssertNil(try d.create.options().agentSudo, "no flag: the setting decides")
     }
 }

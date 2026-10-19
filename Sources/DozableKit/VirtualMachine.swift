@@ -124,7 +124,7 @@ final class AdoptionFlag: @unchecked Sendable {
 /// The VMM every sandbox VM is created through. Normal mode: the package's own VZ manager plus
 /// `PinnedIdentity`. Adopt mode (restore after a crash): the created instance is wrapped so that
 /// "starting" it RESTORES the snapshot instead of booting.
-struct DozerVMM: VirtualMachineManager {
+struct DozableVMM: VirtualMachineManager {
     let inner: VZVirtualMachineManager
     let identity: PinnedIdentity
     /// Non-nil in adopt mode: the snapshot to restore, and the flag the agent wrapper reads.

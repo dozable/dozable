@@ -16,7 +16,7 @@ import DozableKit
 ///   · after a crash (kill -9): the next CLI call starts a new host, which restores what was asleep
 ///     and reports what died (`HostCore.recoverAfterStart`). Hibernated sandboxes wake on demand.
 public final class HostServer: @unchecked Sendable {
-    public let store: DozerStore
+    public let store: DozableStore
     public let idleTimeoutMinutes: Double
     public let version: String
     let core: HostCore
@@ -30,12 +30,12 @@ public final class HostServer: @unchecked Sendable {
     private var stopping = false
     private var signalSources: [DispatchSourceSignal] = []
 
-    init(store: DozerStore, idleTimeoutMinutes: Double, version: String) {
+    init(store: DozableStore, idleTimeoutMinutes: Double, version: String) {
         self.store = store
         self.idleTimeoutMinutes = idleTimeoutMinutes
         self.version = version
         // 591: the settings' keep-alive for a store that has not chosen (read once, at start).
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         core = HostCore(store: store, readOnly: false, version: version, services: .forHost(),
                         newStoreKeepalive: settings.bool(SettingKey.keepalive),
                         newStoreDefaultAccount: settings.string(SettingKey.defaultAccount) ?? "mac",
@@ -61,7 +61,7 @@ public final class HostServer: @unchecked Sendable {
 
     /// Run the host in this process until it exits (never returns). `launched`: started by
     /// `HostLauncher` (its parent is launchd); false: a person ran `doz host start --foreground`.
-    public static func run(store: DozerStore, idleTimeoutMinutes: Double, version: String, launched: Bool = false) async throws -> Never {
+    public static func run(store: DozableStore, idleTimeoutMinutes: Double, version: String, launched: Bool = false) async throws -> Never {
         TestSafety.checkStore(store.root)          // 611
         launchedDetached = launched
         setvbuf(stdout, nil, _IOLBF, 0)
@@ -105,7 +105,7 @@ public final class HostServer: @unchecked Sendable {
         Task.detached { await server.core.recoverAfterStart() }
         Task.detached { await server.idleLoop() }
         // 593 §9 (S2): the periodic screen capture (read once, at start — like the idle timeout).
-        let captureMinutes = DozerSettings.load().int(SettingKey.screenCapture)
+        let captureMinutes = DozableSettings.load().int(SettingKey.screenCapture)
         HostLog.line(captureMinutes > 0 ? "saving session screens every \(captureMinutes) min while a sandbox runs (host.screen_capture_minutes)"
                                         : "periodic screen capture off (host.screen_capture_minutes = 0)")
         if captureMinutes > 0 {
@@ -668,10 +668,10 @@ final class ByteCount: @unchecked Sendable {
 /// 606: the ports Dozer's dashboards listen on — `doz ui`'s (`<store>/ui.port`), `doz serve`'s (`<store>/serve/port`
 /// while it runs) and the setting `serve.port` (another store's doz serve) — re-read at most every 5 s.
 final class DashboardPorts: @unchecked Sendable {
-    let store: DozerStore
+    let store: DozableStore
     private let lock = NSLock()
     private var cached: (at: Date, ports: Set<UInt16>) = (.distantPast, [])
-    init(store: DozerStore) { self.store = store }
+    init(store: DozableStore) { self.store = store }
 
     @Sendable func current() -> Set<UInt16> {
         lock.lock(); defer { lock.unlock() }
@@ -680,7 +680,7 @@ final class DashboardPorts: @unchecked Sendable {
         for f in [store.root.appendingPathComponent("ui.port"), store.root.appendingPathComponent("serve/port")] {
             if let s = try? String(contentsOf: f, encoding: .utf8), let n = UInt16(s.trimmingCharacters(in: .whitespacesAndNewlines)), n > 0 { p.insert(n) }
         }
-        let sp = DozerSettings.load().int(SettingKey.servePort)
+        let sp = DozableSettings.load().int(SettingKey.servePort)
         if (1...65_535).contains(sp) { p.insert(UInt16(sp)) }
         cached = (Date(), p)
         return p

@@ -230,7 +230,7 @@ final class WebOperations: @unchecked Sendable {
         case .pointSaveImage(_, _, let image, _):
             return "saved image \(image)"
         case .templateCreate(let name, _, let image, _):
-            return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the template \(image) (\(DozerImages.formatBytes($0.allocatedBytes)); no state disk)" }
+            return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the template \(image) (\(DozableImages.formatBytes($0.allocatedBytes)); no state disk)" }
                 ?? "saved the template \(image)"
         case .duplicate(let name, let new, _, let o):
             return "duplicated \(name) as \(new) (state disk \(o.copyState == true ? "copied" : "fresh")) — start it to boot"
@@ -294,7 +294,7 @@ final class WebOperations: @unchecked Sendable {
             return ps.isEmpty ? "nothing was being prepared" : "cancelling the preparation of \(ps.map(\.image).joined(separator: ", "))"
         case .resourcesRemove, .resourcesClean:
             guard let p = try? v.decode(ResourcePlan.self) else { return "deleted" }
-            var s = p.deleted.isEmpty ? "nothing deleted" : "deleted \(p.deleted.count) item\(p.deleted.count == 1 ? "" : "s") — freed \(DozerImages.formatBytes(p.freedBytes))"
+            var s = p.deleted.isEmpty ? "nothing deleted" : "deleted \(p.deleted.count) item\(p.deleted.count == 1 ? "" : "s") — freed \(DozableImages.formatBytes(p.freedBytes))"
             if !p.refused.isEmpty { s += "; refused \(p.refused.count) (\(p.refused[0].reason))" }
             if !p.failed.isEmpty { s += "; \(p.failed.count) failed (\(p.failed[0].reason))" }
             return s

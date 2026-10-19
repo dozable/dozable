@@ -160,10 +160,10 @@ final class FileCopyTests: XCTestCase {
     }
 
     func testTheCommandsParse() throws {
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["get", "try-grok", "/workspace/x", "out", "--force"]))
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["put", "try-grok", "x"]))
-        XCTAssertNoThrow(try DozerCommand.parseAsRoot(["cp", "try-grok:/workspace/x", "."]))
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["get", "try-grok"]), "a PATH is needed")
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["get", "try-grok", "/workspace/x", "out", "--force"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["put", "try-grok", "x"]))
+        XCTAssertNoThrow(try DozableCommand.parseAsRoot(["cp", "try-grok:/workspace/x", "."]))
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["get", "try-grok"]), "a PATH is needed")
         XCTAssertEqual(FileTransfer.bre("a.b[1]*"), "a\\.b\\[1\\]\\*")
         XCTAssertEqual(FileTransfer.breReplacement("x~y/z&"), "x\\~y\\/z&", "~ is the match in bsdtar -s; & is not special")
     }

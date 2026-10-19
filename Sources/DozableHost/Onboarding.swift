@@ -71,7 +71,7 @@ public enum Onboarding {
     /// 594 W6: the agent version a preparation of `image` installs, for people: an exact setting as
     /// it is; `latest` with the registry's answer from the hourly cache ("latest (2.1.285)"); plain
     /// "latest" when it was never asked or is unreachable. nil: not an agent image.
-    public static func agentVersionText(_ image: String, store: DozerStore, settings: DozerSettings) -> String? {
+    public static func agentVersionText(_ image: String, store: DozableStore, settings: DozableSettings) -> String? {
         guard AgentImages.package(image) != nil else { return nil }
         let want = AgentVersions.setting(image, settings)
         guard want == "latest" else { return want }
@@ -96,7 +96,7 @@ public enum Onboarding {
     }
 
     /// The volume a store is (or will be) on: its nearest existing directory's format and free space.
-    public static func volume(of store: DozerStore) -> (apfs: Bool, free: Int64, format: String)? {
+    public static func volume(of store: DozableStore) -> (apfs: Bool, free: Int64, format: String)? {
         var url = store.root
         let fm = FileManager.default
         while !fm.fileExists(atPath: url.path), url.path != "/" { url = url.deletingLastPathComponent() }
@@ -107,7 +107,7 @@ public enum Onboarding {
 
     /// The doctor's findings (`check`, `status`, `detail`) as onboarding checks: the store's own
     /// finding is replaced by the two that matter here — APFS, and room for the chosen images.
-    public static func checks(doctor: [(check: String, status: String, detail: String)], store: DozerStore,
+    public static func checks(doctor: [(check: String, status: String, detail: String)], store: DozableStore,
                               chosen: [String], prepared: Set<String>) -> [OnboardingCheck] {
         var out: [OnboardingCheck] = []
         for d in doctor where d.check != "store" {
@@ -119,8 +119,8 @@ public enum Onboarding {
                                        hard: true))
             let need = requiredBytes(chosen, prepared: prepared)
             out.append(OnboardingCheck(check: "disk", status: v.free >= need ? "ok" : "fail",
-                                       detail: "\(DozerImages.formatBytes(v.free)) free"
-                                       + (need == 0 ? "" : ", the chosen images need about \(DozerImages.formatBytes(need)) (with room for a first sandbox)")
+                                       detail: "\(DozableImages.formatBytes(v.free)) free"
+                                       + (need == 0 ? "" : ", the chosen images need about \(DozableImages.formatBytes(need)) (with room for a first sandbox)")
                                        + (v.free >= need ? "" : " — free some space, or choose fewer images"),
                                        hard: true))
         }
@@ -188,13 +188,13 @@ public enum Onboarding {
     /// `defaults.account` set — only when there is no file. An existing one is never touched.
     public static func writeSettingsIfMissing(defaultImage: String?, account: String?,
                                               environment: [String: String] = ProcessInfo.processInfo.environment) throws -> (ConfigOutcome, String?) {
-        guard let url = DozerSettings.fileURL(environment: environment) else { return (.unavailable, nil) }
+        guard let url = DozableSettings.fileURL(environment: environment) else { return (.unavailable, nil) }
         var st = stat()
         if lstat(url.path, &st) == 0 { return (.kept, url.path) }
         var values: [String: TOMLValue] = [:]
-        if let defaultImage, let d = DozerSettings.definition(SettingKey.defaultImage) { values[d.key] = try d.validate(.string(defaultImage)) }
-        if let account, let d = DozerSettings.definition(SettingKey.defaultAccount) { values[d.key] = try d.validate(.string(account)) }
-        try DozerSettings.writeAtomically(DozerSettings.render(values: values), to: url)
+        if let defaultImage, let d = DozableSettings.definition(SettingKey.defaultImage) { values[d.key] = try d.validate(.string(defaultImage)) }
+        if let account, let d = DozableSettings.definition(SettingKey.defaultAccount) { values[d.key] = try d.validate(.string(account)) }
+        try DozableSettings.writeAtomically(DozableSettings.render(values: values), to: url)
         return (.written, url.path)
     }
 
@@ -204,7 +204,7 @@ public enum Onboarding {
         guard let url = AgentPrompt.userTemplateURL(environment: environment) else { return (.unavailable, nil) }
         var st = stat()
         if lstat(url.path, &st) == 0 { return (.kept, url.path) }
-        try DozerSettings.writeAtomically(AgentPrompt.userTemplateStarter, to: url)
+        try DozableSettings.writeAtomically(AgentPrompt.userTemplateStarter, to: url)
         return (.written, url.path)
     }
 }

@@ -312,16 +312,16 @@ public enum AgentVersions {
     /// After a failed lookup, how long before trying again (a create never waits on a dead network twice).
     public static let retryAfterFailure: TimeInterval = 300
 
-    public static func fileURL(_ store: DozerStore) -> URL { store.root.appendingPathComponent("agent-versions.json") }
+    public static func fileURL(_ store: DozableStore) -> URL { store.root.appendingPathComponent("agent-versions.json") }
 
-    public static func all(_ store: DozerStore) -> [String: AgentVersionRecord] {
+    public static func all(_ store: DozableStore) -> [String: AgentVersionRecord] {
         guard let d = try? Data(contentsOf: fileURL(store)) else { return [:] }
         let dec = JSONDecoder()
         dec.dateDecodingStrategy = .iso8601
         return (try? dec.decode([String: AgentVersionRecord].self, from: d)) ?? [:]
     }
 
-    static func save(_ all: [String: AgentVersionRecord], _ store: DozerStore) {
+    static func save(_ all: [String: AgentVersionRecord], _ store: DozableStore) {
         let enc = JSONEncoder()
         enc.outputFormatting = [.prettyPrinted, .sortedKeys]
         enc.dateEncodingStrategy = .iso8601
@@ -329,7 +329,7 @@ public enum AgentVersions {
         try? d.write(to: fileURL(store), options: .atomic)
     }
 
-    static func update(_ image: String, _ store: DozerStore, _ f: (inout AgentVersionRecord) -> Void) {
+    static func update(_ image: String, _ store: DozableStore, _ f: (inout AgentVersionRecord) -> Void) {
         var a = all(store)
         var r = a[image] ?? AgentVersionRecord()
         f(&r)
@@ -338,7 +338,7 @@ public enum AgentVersions {
     }
 
     /// `latest` or an exact version (a malformed one is the setting's own error, reported by it).
-    public static func setting(_ image: String, _ settings: DozerSettings) -> String {
+    public static func setting(_ image: String, _ settings: DozableSettings) -> String {
         guard let k = SettingKey.agentVersion(image), let v = settings.string(k),
               v == "latest" || SettingType.isExactVersion(v) else { return "latest" }
         return v
@@ -359,7 +359,7 @@ public enum AgentVersions {
 
     /// An exact version this store can install without asking: the built-in pin, a version resolved
     /// before, or one a bake in the store recorded.
-    public static func known(_ image: String, version: String, store: DozerStore) -> AgentRelease? {
+    public static func known(_ image: String, version: String, store: DozableStore) -> AgentRelease? {
         if let p = AgentImages.pinned(image), p.version == version { return p }
         if let r = all(store)[image]?.known.last(where: { $0.version == version }) { return r }
         if let r = all(store)[image]?.latest, r.version == version { return r }
@@ -371,7 +371,7 @@ public enum AgentVersions {
     }
 
     /// The kernel's and deckhold's sha256 this build bakes with (nil: the kernel is not cached yet).
-    public static func buildHashes(_ store: DozerStore, _ settings: DozerSettings) -> (kernel: String, deckhold: String)? {
+    public static func buildHashes(_ store: DozableStore, _ settings: DozableSettings) -> (kernel: String, deckhold: String)? {
         let kernel = settings.string(SettingKey.kernelPath).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? KernelProvider(cacheDirectory: settings.string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
                               ?? store.layout("_").kernels).cachedKernel
@@ -383,14 +383,14 @@ public enum AgentVersions {
     /// The images of `image` prepared for THIS build — baked by THIS doz's recipe for their agent
     /// version (594 W28: an image baked by an older doz's recipe is not; it is `usable`), with this
     /// build's kernel and deckhold — newest version first.
-    public static func prepared(_ image: String, store: DozerStore, settings: DozerSettings) -> [ImageSpec] {
+    public static func prepared(_ image: String, store: DozableStore, settings: DozableSettings) -> [ImageSpec] {
         usable(image, store: store, settings: settings).filter(isCurrentRecipe)
     }
 
     /// 594 W28: every bake of `image` a sandbox can start from (its key is its own recipe's with this
     /// build's kernel and deckhold) — whichever doz's recipe made it — newest version first, then newest bake.
     /// 596: any base × agent image (its bakes live in images/<name>/; no agent: newest bake first).
-    public static func usable(_ image: String, store: DozerStore, settings: DozerSettings) -> [ImageSpec] {
+    public static func usable(_ image: String, store: DozableStore, settings: DozableSettings) -> [ImageSpec] {
         guard let choice = ImageChoice.parse(image), choice.name == image, image != "lab",
               let (k, d) = buildHashes(store, settings) else { return [] }
         let proto = ImageSpec(name: image, base: "", steps: [], verify: [], user: "", home: "", persistDirs: [])
@@ -435,7 +435,7 @@ public enum AgentVersions {
         }
     }
 
-    public static func standing(_ image: String, store: DozerStore, settings: DozerSettings) -> Standing {
+    public static func standing(_ image: String, store: DozableStore, settings: DozableSettings) -> Standing {
         // 596: any base × agent image (no agent: only its recipe can be older).
         guard let choice = ImageChoice.parse(image), choice.name == image, image != "lab" else { return Standing() }
         let chosen = (try? spec(image, purpose: .create, store: store, settings: settings)) ?? nil
@@ -459,17 +459,17 @@ public enum AgentVersions {
     /// 596: any base × agent image — the agent's version as before (the settings are per AGENT), the
     /// base as resolved (`BaseDigests`, else the catalogue's pin; a Dockerfile: its last build).
     /// 618: `version` — an exact release asked for this sandbox only (`NAME@VERSION`), over the setting.
-    public static func spec(_ image: String, purpose: Purpose, store: DozerStore, settings: DozerSettings, version: String? = nil) throws -> ImageSpec? {
+    public static func spec(_ image: String, purpose: Purpose, store: DozableStore, settings: DozableSettings, version: String? = nil) throws -> ImageSpec? {
         guard let choice = ImageChoice.parse(image), choice.name == image, image != "lab" else { return nil }
         guard choice.agent != .none else {
             if purpose == .create, let p = prepared(image, store: store, settings: settings).first { return p }
-            return try DozerImages.compose(choice, release: nil, store: store, purpose: purpose)
+            return try DozableImages.compose(choice, release: nil, store: store, purpose: purpose)
         }
         let agent = choice.agent.rawValue
         let pin = AgentImages.pinned(agent)!
         let want = version ?? setting(agent, settings)
         let key = SettingKey.agentVersion(agent)!
-        func make(_ r: AgentRelease) throws -> ImageSpec { try DozerImages.compose(choice, release: r, store: store, purpose: purpose) }
+        func make(_ r: AgentRelease) throws -> ImageSpec { try DozableImages.compose(choice, release: r, store: store, purpose: purpose) }
         if want != "latest" {
             if purpose == .create, let p = prepared(image, store: store, settings: settings).first(where: { $0.agent?.version == want }) { return p }
             // 594 W28: an older doz's image of that version is USED (never rebuilt without asking) — said as stale.
@@ -496,7 +496,7 @@ public enum AgentVersions {
 
     /// 596: Claude Code's native build at `version`, as far as this store knows it (the pin, or one
     /// resolved before).
-    public static func knownNative(_ version: String, store: DozerStore) -> NativeClaudeBuild? {
+    public static func knownNative(_ version: String, store: DozableStore) -> NativeClaudeBuild? {
         if NativeClaudeBuild.pinned.version == version { return NativeClaudeBuild.pinned }
         return all(store)["claude-code"]?.native?.last { $0.version == version }
     }
@@ -522,7 +522,7 @@ public enum AgentVersions {
     /// than an hour (or `force`); for an exact version not known here, ask for that version. Never
     /// throws: a failure is recorded (and returned) and the store's images are used.
     @discardableResult
-    public static func refresh(_ image: String, store: DozerStore, settings: DozerSettings, registry: NpmRegistry, version: String? = nil,
+    public static func refresh(_ image: String, store: DozableStore, settings: DozableSettings, registry: NpmRegistry, version: String? = nil,
                                now: Date = Date(), force: Bool = false) async -> Freshness {
         var f = await refreshPackage(image, store: store, settings: settings, registry: registry, now: now, force: force, version: version)
         // 596 (B2): Claude Code's native build at the version a preparation would make — its checksums,
@@ -542,7 +542,7 @@ public enum AgentVersions {
         return f
     }
 
-    static func refreshPackage(_ image: String, store: DozerStore, settings: DozerSettings, registry: NpmRegistry,
+    static func refreshPackage(_ image: String, store: DozableStore, settings: DozableSettings, registry: NpmRegistry,
                                now: Date, force: Bool, version: String? = nil) async -> Freshness {
         let want = version ?? setting(image, settings)
         let rec = all(store)[image]
@@ -653,7 +653,7 @@ public enum AgentVersions {
     }
 
     /// 617: when `release` came out and whether it is deprecated — asked once per new latest (the npm document is large).
-    static func rememberReleaseInfo(_ image: String, _ recipe: AgentRecipe, _ release: AgentRelease, registry: NpmRegistry, store: DozerStore) async {
+    static func rememberReleaseInfo(_ image: String, _ recipe: AgentRecipe, _ release: AgentRelease, registry: NpmRegistry, store: DozableStore) async {
         guard all(store)[image]?.infoVersion != release.version, let look = registry.releaseInfo else { return }
         do {
             let info = try await look(recipe, release)
@@ -665,7 +665,7 @@ public enum AgentVersions {
 
     /// The prepared version that a create uses now, and the version a preparation would make — the
     /// image is BEHIND when both are known and differ (a preparation brings it up to date).
-    public static func behind(_ image: String, store: DozerStore, settings: DozerSettings) -> (current: String, target: String)? {
+    public static func behind(_ image: String, store: DozableStore, settings: DozableSettings) -> (current: String, target: String)? {
         guard let current = (prepared(image, store: store, settings: settings).first ?? usable(image, store: store, settings: settings).first)?.agent?.version,
               let target = (try? spec(image, purpose: .prepare, store: store, settings: settings))??.agent?.version,
               target != current else { return nil }

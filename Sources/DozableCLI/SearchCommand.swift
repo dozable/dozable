@@ -189,8 +189,8 @@ struct SearchCommand: AsyncParsableCommand {
 
     func run() async throws {
         // 617: the measured latest of each agent (the host's hourly check; a look never asks the registry).
-        let built = DirectoryIndex.build(version: DozerCommand.version,
-                                         latest: AgentCurrency.all(store: g.dozerStore).compactMapValues(\.indexLatest))
+        let built = DirectoryIndex.build(version: DozableCommand.version,
+                                         latest: AgentCurrency.all(store: g.dozableStore).compactMapValues(\.indexLatest))
         if let path = index {
             let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)
             if FileManager.default.fileExists(atPath: url.path), !force { throw fail(HostError(.exists, "\(url.path) exists — --force replaces it"), g) }
@@ -239,9 +239,9 @@ struct SearchCommand: AsyncParsableCommand {
         guard !everything else { return }
         switch result.verdict {
         case "supported": return
-        case "limited": throw ExitCode(DozerExit.limited)
-        case "coming": throw ExitCode(DozerExit.unavailable)
-        default: throw ExitCode(DozerExit.notFound)
+        case "limited": throw ExitCode(DozableExit.limited)
+        case "coming": throw ExitCode(DozableExit.unavailable)
+        default: throw ExitCode(DozableExit.notFound)
         }
     }
 }

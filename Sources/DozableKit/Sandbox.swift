@@ -1144,7 +1144,7 @@ public actor Sandbox {
         let flag = AdoptionFlag(persisted != nil)
         let initfs = Containerization.Mount.block(format: "ext4", source: layout.initfs.path, destination: "/", options: ["ro"])
         let recorder = VMLayoutRecorder()
-        let vmm = DozerVMM(
+        let vmm = DozableVMM(
             inner: VZVirtualMachineManager(kernel: vmKernel, initialFilesystem: initfs, group: SharedEventLoop.group),
             identity: PinnedIdentity(machineIdentifier: identity.machineIdentifier, macAddress: identity.macAddress,
                                      memoryBalloon: identity.memoryBalloon == true, audio: spec.audio == true, kernelSHA256: vmKernelSHA,

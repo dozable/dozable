@@ -368,7 +368,7 @@ final class WebInstallableTests: XCTestCase {
     }
 
     func testUIPortIsAutomaticOrAnUnprivilegedLoopbackPort() throws {
-        let d = try XCTUnwrap(DozerSettings.definition(SettingKey.uiPort))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.uiPort))
         XCTAssertEqual(d.defaultValue, .int(0))
         XCTAssertEqual(d.environment, "DOZ_UI_PORT")
         XCTAssertEqual(d.applies, .uiRestart)
@@ -378,9 +378,9 @@ final class WebInstallableTests: XCTestCase {
         XCTAssertThrowsError(try d.validate(.int(80)))
         XCTAssertThrowsError(try d.validate(.int(1023)))
         XCTAssertThrowsError(try d.validate(.int(65_536)))
-        XCTAssertEqual(DozerSettings(text: "[ui]\nport = 7443\n").int(SettingKey.uiPort), 7443)
-        XCTAssertEqual(DozerSettings(text: "[ui]\nport = 443\n").int(SettingKey.uiPort), 0, "a privileged port: the default applies")
-        XCTAssertEqual(DozerSettings(text: nil, environment: ["DOZ_UI_PORT": "7444"]).int(SettingKey.uiPort), 7444)
+        XCTAssertEqual(DozableSettings(text: "[ui]\nport = 7443\n").int(SettingKey.uiPort), 7443)
+        XCTAssertEqual(DozableSettings(text: "[ui]\nport = 443\n").int(SettingKey.uiPort), 0, "a privileged port: the default applies")
+        XCTAssertEqual(DozableSettings(text: nil, environment: ["DOZ_UI_PORT": "7444"]).int(SettingKey.uiPort), 7444)
         // Still loopback only: the address type holds 127.0.0.1 and a port, nothing else.
         let a = try XCTUnwrap(WebLoopbackAddress(reusing: 54_321))
         XCTAssertEqual(a.host, "127.0.0.1")

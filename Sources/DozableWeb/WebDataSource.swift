@@ -160,7 +160,7 @@ public struct WebMetricsQuery: Equatable, Sendable {
 /// starts the host, except when a crashed host left a sandbox that only a host can recover (the
 /// CLI's rule too).
 public final class HostWebData: DozableWebData, @unchecked Sendable {
-    public let store: DozerStore
+    public let store: DozableStore
     public let version: String
     let doctorChecks: @Sendable () -> [WebDoctorCheck]
     /// Records beyond this are left out of the network view (the log lives in the host's memory).
@@ -176,7 +176,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     let macLogin: @Sendable () -> Bool
     private var macLoginCache: (Date, Bool)?
 
-    public init(store: DozerStore, version: String, executable: String = HostLauncher.executablePath,
+    public init(store: DozableStore, version: String, executable: String = HostLauncher.executablePath,
                 terminal: @escaping @Sendable (String) throws -> Void = TerminalHandoff.openInTerminalApp,
                 macLogin: @escaping @Sendable () -> Bool = { false },
                 doctor: @escaping @Sendable () -> [WebDoctorCheck]) {
@@ -206,7 +206,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         }
         let file = AccountStore(store: store, settings: .load()).load()
         // 594 W6: what each agent image WILL install (the hourly cache; "latest" when never asked).
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         let versions = Dictionary(uniqueKeysWithValues: ["claude-code", "pi", "codex"].compactMap { i in
             Onboarding.agentVersionText(i, store: store, settings: settings).map { (i, $0) } })
         return WebOnboarding(status: status, checks: checks, freeBytes: Onboarding.volume(of: store)?.free, macSignedIn: signedIn,
@@ -592,7 +592,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     /// `doz attach NAME`, with `--store` when this is not the default store (shell-quoted). The UI
     /// shows it to copy; it carries no authority (host.sock is the user's own).
     func attachCommand(_ name: String) -> String {
-        let def = DozerStore.resolve(nil, environment: [:])
+        let def = DozableStore.resolve(nil, environment: [:])
         guard store != def else { return "doz attach \(name)" }
         return "doz attach \(name) --store \(shellQuote(store.root.path))"
     }

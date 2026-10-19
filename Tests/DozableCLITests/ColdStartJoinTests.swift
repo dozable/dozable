@@ -60,7 +60,7 @@ final class ColdStartJoinTests: XCTestCase {
     }
 
     func testAnOpenDuringAFirstStartsPreparationJoinsItAndFailsWithItsReason() async throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let core = HostCore(store: store, readOnly: false, version: "test")
         let gate = Gate()
         await core.setPreparationRunner({ _, _, _ in

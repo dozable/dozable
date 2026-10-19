@@ -25,27 +25,27 @@ final class WorkspaceRulesHostTests: XCTestCase {
     // MARK: the setting and the project key
 
     func testTheSettingIsOneClosedPerSandboxChoice() throws {
-        let d = try XCTUnwrap(DozerSettings.definition("workspace.ignore_mode"))
+        let d = try XCTUnwrap(DozableSettings.definition("workspace.ignore_mode"))
         XCTAssertEqual(d.type, .choice(["lock", "hide"]))
         XCTAssertEqual(d.defaultValue, .string("lock"))
         XCTAssertEqual(d.flag, "doz create --ignore-mode lock|hide")
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.ignoreMode))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.ignoreMode))
         XCTAssertThrowsError(try d.parse("open"))
         XCTAssertTrue(d.summary.contains("not a security boundary"), "said where a person reads it")
         // its source: the sandbox's own choice wins over the file
         var cfg = try sandboxConfig(workspace: nil)
-        XCTAssertEqual(HostCore.ruleMode(cfg, settings: DozerSettings(text: "")).mode, .lock)
+        XCTAssertEqual(HostCore.ruleMode(cfg, settings: DozableSettings(text: "")).mode, .lock)
         cfg.settings = [SettingKey.ignoreMode: .string("hide")]
         XCTAssertEqual(HostCore.ruleMode(cfg).mode, .hide)
         XCTAssertEqual(HostCore.ruleMode(cfg).source, "sandbox")
     }
 
     func testTheProjectFileCarriesIgnoreMode() throws {
-        XCTAssertTrue(DozerProject.settingKeys.contains { $0.key == "ignore_mode" && $0.setting == SettingKey.ignoreMode })
-        let p = try DozerProject.parse("version: 1\nname: demo\nimage: lab\nignore_mode: hide\n")
+        XCTAssertTrue(DozableProject.settingKeys.contains { $0.key == "ignore_mode" && $0.setting == SettingKey.ignoreMode })
+        let p = try DozableProject.parse("version: 1\nname: demo\nimage: lab\nignore_mode: hide\n")
         XCTAssertEqual(p.settings[SettingKey.ignoreMode], .string("hide"))
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: demo\nimage: lab\nignore_mode: maybe\n"))
-        let back = try DozerProject.parse(p.render())
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: demo\nimage: lab\nignore_mode: maybe\n"))
+        let back = try DozableProject.parse(p.render())
         XCTAssertEqual(back.settings[SettingKey.ignoreMode], .string("hide"), "rendered and read back")
         // the dashboard's wizard model round-trips it too
         let form = WebProjectForm(p)
@@ -101,10 +101,10 @@ final class WorkspaceRulesHostTests: XCTestCase {
     // MARK: the host op, in-process
 
     private func sandboxConfig(workspace: URL?) throws -> SandboxConfig {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         var o = CreateOptions(image: "lab")
         o.workspace = workspace?.path
-        let (s, n) = try DozerImages.spec(name: "x", options: o, store: store, environment: [:])
+        let (s, n) = try DozableImages.spec(name: "x", options: o, store: store, environment: [:])
         return SandboxConfig(name: "x", image: n, spec: s, workspace: workspace?.path)
     }
 
@@ -113,7 +113,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
         try write("secret.env", "S\n", in: dir)
         try write("config/app.yaml", "c\n", in: dir)
         try write("logs/keep.txt", "k\n", in: dir)
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         try sandboxConfig(workspace: dir).write(store.configFile("x"))
         let core = HostCore(store: store, readOnly: true, version: "test")
         await core.load()
@@ -224,7 +224,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
         let env = ["XDG_CONFIG_HOME": root.appendingPathComponent("xdg").path]
         let file = root.appendingPathComponent("xdg/dozer-sandbox/doz.toml")
         XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), ["workspace.ignore_mode = hide"])
-        XCTAssertEqual(DozerSettings.load(environment: env).string(SettingKey.ignoreMode), "hide")
+        XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.ignoreMode), "hide")
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), [], "the file already says so: untouched")
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), text)

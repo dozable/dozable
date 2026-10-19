@@ -22,7 +22,7 @@ public enum UpdateInstaller {
 
     /// Nothing would be disturbed: no host runs for `store`, or it runs with no sandbox live (booting, running, paused,
     /// asleep) and no client but the one asking. nil = idle; else why not.
-    public static func busyReason(store: DozerStore) -> String? {
+    public static func busyReason(store: DozableStore) -> String? {
         guard store.hostIsRunning() else { return nil }
         guard let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false), m.ok == true,
               let st = try? (m.result ?? .null).decode(HostStatus.self) else { return "the doz host is busy" }

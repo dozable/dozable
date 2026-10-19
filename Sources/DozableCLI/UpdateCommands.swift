@@ -56,7 +56,7 @@ struct UpdateCommand: AsyncParsableCommand {
 
     func run() async throws {
         if let c = channel.flatMap(UpdateChannel.init(rawValue:)) { return try await switchChannel(c) }
-        let ctx = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath)
+        let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
         let r = await UpdateChecker.check(ctx, manual: true)
         var a = Answer(current: ctx.current, channel: ctx.channel.rawValue, mode: ctx.mode.rawValue, install: UpdateHook.describe(ctx.method),
                        available: r.available, upToDate: r.available == nil && r.disabled == nil && !r.offline, disabled: r.disabled, problem: r.problem)
@@ -82,7 +82,7 @@ struct UpdateCommand: AsyncParsableCommand {
         try confirm("Upgrade doz \(ctx.current) → \(e.version) (\(ctx.channel.rawValue))? Notes: \(e.notes ?? "on the release page")",
                     yes: yes || asUpdate, g)
         do {
-            let line = try await UpdateHook.install(e, ctx, store: g.dozerStore, quiet: g.json, verbose: verbose)
+            let line = try await UpdateHook.install(e, ctx, store: g.dozableStore, quiet: g.json, verbose: verbose)
             a.installed = e.version
             if g.json { Out.json(a) } else { Out.stdout(line + "\n") }
         } catch {
@@ -93,9 +93,9 @@ struct UpdateCommand: AsyncParsableCommand {
 
     /// `--channel X`: the setting, and for a Homebrew install the formula of that channel — never an older build.
     func switchChannel(_ c: UpdateChannel) async throws {
-        let before = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath)
+        let before = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
         try confirm("Switch doz to the \(c.rawValue) channel?", yes: yes, g)
-        do { try DozerSettings.load().writing(SettingKey.updatesChannel, .string(c.rawValue)) } catch {
+        do { try DozableSettings.load().writing(SettingKey.updatesChannel, .string(c.rawValue)) } catch {
             throw fail(HostError(.failed, "could not save updates.channel: \(error)"), g)
         }
         var ctx = before
@@ -116,7 +116,7 @@ struct UpdateCommand: AsyncParsableCommand {
             return
         }
         guard let brew = UpdateInstaller.brew() else { throw fail(HostError(.failed, "Homebrew's brew was not found"), g) }
-        if let busy = UpdateInstaller.busyReason(store: g.dozerStore) {
+        if let busy = UpdateInstaller.busyReason(store: g.dozableStore) {
             Out.stderr("note: \(busy) — they keep running on doz \(before.current) until doz host restart\n")
         }
         Out.stderr("switching Homebrew formulas: \(formula) → \(c.formula) (\(Distribution.tap)/\(c.formula)); your store and settings stay…\n")
@@ -129,7 +129,7 @@ struct UpdateCommand: AsyncParsableCommand {
             throw fail(HostError(.failed, "\(error)" + (log?.failureNote() ?? "")), g)
         }
         UpdateHook.recordInstalled(newest!, ctx)
-        Out.stdout("doz is now \(c.formula) (\(c.rawValue)) — \(UpdateHook.afterInstallLine(newest!, store: g.dozerStore))\n")
+        Out.stdout("doz is now \(c.formula) (\(c.rawValue)) — \(UpdateHook.afterInstallLine(newest!, store: g.dozableStore))\n")
         offerHostRestart(newest!)
     }
 
@@ -138,7 +138,7 @@ struct UpdateCommand: AsyncParsableCommand {
     /// have removed its keg): `<Homebrew's bin>/doz host restart`. No (the default), or nothing to run: the line
     /// already said how.
     func offerHostRestart(_ version: String) {
-        let store = g.dozerStore
+        let store = g.dozableStore
         guard !yes, !asUpdate, !g.json, !g.quiet, store.hostIsRunning(),
               isatty(STDIN_FILENO) == 1, isatty(STDOUT_FILENO) == 1,
               let brew = UpdateInstaller.brew() else { return }
@@ -171,7 +171,7 @@ enum UpdateHook {
     }
 
     /// Install `e` the way this doz was installed. Returns the line to show.
-    static func install(_ e: UpdateEntry, _ ctx: UpdateContext, store: DozerStore, quiet: Bool, verbose: Bool = false) async throws -> String {
+    static func install(_ e: UpdateEntry, _ ctx: UpdateContext, store: DozableStore, quiet: Bool, verbose: Bool = false) async throws -> String {
         let say: @Sendable (String) -> Void = { text in if !quiet { Out.stderr(text) } }
         switch ctx.method {
         case .development:
@@ -206,7 +206,7 @@ enum UpdateHook {
     }
 
     /// "Updated to X — restart to apply: doz host restart" while a host (of the previous build) runs; else just done.
-    static func afterInstallLine(_ version: String, store: DozerStore) -> String {
+    static func afterInstallLine(_ version: String, store: DozableStore) -> String {
         store.hostIsRunning() ? UpdateChecker.installedLine(version) : "Updated to \(version) — the next doz command runs it"
     }
 
@@ -237,7 +237,7 @@ enum UpdateHook {
     /// nothing would be disturbed (auto; else the line, with why). Never fails the command; offline is silent.
     static func afterCommand(_ args: [String]) async {
         guard applies(args) else { return }
-        let ctx = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath)
+        let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
         guard ctx.disabledReason(manual: false) == nil else { return }
         let r = await UpdateChecker.check(ctx)
         if let p = r.problem, r.reportNow { Out.stderr("doz: \(p)\n") }
@@ -259,13 +259,13 @@ enum UpdateHook {
     }
 
     /// The store a command used (`--store S`, else the environment and settings).
-    static func storeOf(_ args: [String]) -> DozerStore {
+    static func storeOf(_ args: [String]) -> DozableStore {
         var prev = ""
         for a in args {
-            if prev == "--store" { return DozerStore.resolve(a) }
+            if prev == "--store" { return DozableStore.resolve(a) }
             prev = a
         }
-        return DozerStore.resolve(nil)
+        return DozableStore.resolve(nil)
     }
 }
 
@@ -275,7 +275,7 @@ struct HostRestart: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let store = g.dozerStore
+        let store = g.dozableStore
         if store.hostIsRunning() {
             switch try stopHostShowingProgress(store, g) {
             case .done(let r): if !g.json { Out.stdout(HostStopView.summary(r) + "\n") }
@@ -296,20 +296,20 @@ struct HostRestart: AsyncParsableCommand {
 /// finished normally. Around it, the usage statistics' hook (`UsageHook` — an official build only; a build from
 /// the repository records and sends nothing): the command counted before it runs, a failure's exit code and
 /// whatever is due handed over after it.
-public enum DozerEntry {
+public enum DozableEntry {
     public static func main() async -> Never {
         let args = Array(CommandLine.arguments.dropFirst())
         let usage = UsageHook(args)
         usage.before()
         do {
-            var command = try DozerCommand.parseAsRoot(UsageHook.parserArguments(args))
+            var command = try DozableCommand.parseAsRoot(UsageHook.parserArguments(args))
             if var a = command as? AsyncParsableCommand { try await a.run() } else { try command.run() }
             await UpdateHook.afterCommand(args)
             usage.after(exitCode: 0)
-            DozerCommand.exit()
+            DozableCommand.exit()
         } catch {
-            usage.after(exitCode: DozerCommand.exitCode(for: error).rawValue)
-            DozerCommand.exit(withError: error)
+            usage.after(exitCode: DozableCommand.exitCode(for: error).rawValue)
+            DozableCommand.exit(withError: error)
         }
     }
 }

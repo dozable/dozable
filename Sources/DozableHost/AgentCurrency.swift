@@ -22,7 +22,7 @@ public struct AgentCurrency: Codable, Sendable, Equatable {
     public static let staleAfterDays = 180
 
     /// What the store's cache says for `agent` now.
-    public static func of(_ agent: String, store: DozerStore, now: Date = Date()) -> AgentCurrency {
+    public static func of(_ agent: String, store: DozableStore, now: Date = Date()) -> AgentCurrency {
         let rec = AgentVersions.all(store)[agent]
         let lifecycle = AgentRecipes.recipe(agent)?.lifecycle ?? .current
         return make(agent: agent, record: rec, lifecycle: lifecycle, now: now)
@@ -93,7 +93,7 @@ public struct AgentCurrency: Codable, Sendable, Equatable {
     }
 
     /// Every agent's, for the index and the lists.
-    public static func all(store: DozerStore, now: Date = Date()) -> [String: AgentCurrency] {
+    public static func all(store: DozableStore, now: Date = Date()) -> [String: AgentCurrency] {
         Dictionary(uniqueKeysWithValues: AgentRecipes.all.map { ($0.id, of($0.id, store: store, now: now)) })
     }
 }

@@ -94,7 +94,7 @@ final class AccountTests: XCTestCase {
     }
 
     func core(_ s: CredentialServices? = nil) async -> HostCore {
-        let c = HostCore(store: DozerStore(root: root), readOnly: false, version: "test", services: s ?? services())
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "test", services: s ?? services())
         await c.load()
         return c
     }
@@ -191,7 +191,7 @@ final class AccountTests: XCTestCase {
     }
 
     func testDoctorLines() {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         var lines = Doctor.claudeChecks(store: store, keychain: keychain, binary: { nil }, home: home, listItems: true)
         XCTAssertEqual(lines.first { $0.check == "claude" }?.status, .warn)
         XCTAssertTrue(lines.first { $0.check == "claude login" }!.detail.contains("isn't installed"))
@@ -305,7 +305,7 @@ final class AccountTests: XCTestCase {
         XCTAssertEqual(w.state, .ok)
         guard case .swapped(let out, _) = v.rewrite(head: req, host: "api.anthropic.com") else { return XCTFail() }
         XCTAssertTrue(String(decoding: out, as: UTF8.self).contains("OTHER"))
-        let file = AccountStore(store: DozerStore(root: root)).load()
+        let file = AccountStore(store: DozableStore(root: root)).load()
         XCTAssertEqual(file.accounts.first { $0.name == "mac" }?.identity?.accountUuid, "acct-2")
     }
 
@@ -557,7 +557,7 @@ final class AccountTests: XCTestCase {
         let cfg = await c.config(of: "a")
         XCTAssertNil(cfg?.account)
         // A 0aab331 config (credentialSources claude-oauth = claude-login) loads as the mac account.
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         var old = try XCTUnwrap(SandboxConfig.read(store.configFile("a")))
         old.account = nil
         old.credentialSources = ["claude-oauth": "claude-login"]
@@ -574,7 +574,7 @@ final class AccountTests: XCTestCase {
         try await create(c, "a")
         let v = try await XCTUnwrapAsync(await c.vault(of: "a"))
         let t = try XCTUnwrap(v.mint("claude-oauth"))
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         let deadline = Date().addingTimeInterval(5)
         while SandboxConfig.read(store.configFile("a"))?.placeholderHashes == nil, Date() < deadline { try await Task.sleep(for: .milliseconds(20)) }
         let text = try String(contentsOf: store.configFile("a"), encoding: .utf8)
@@ -588,15 +588,15 @@ final class AccountTests: XCTestCase {
     }
 
     func testAccountCommandsParse() throws {
-        XCTAssertTrue(try DozerCommand.parseAsRoot(["account", "add", "work", "--setup-token", "--plan", "max"]) is AccountAdd)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["account", "add", "work"]))
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["account", "add", "work", "--setup-token", "--plan", "gold"]))
-        XCTAssertTrue(try DozerCommand.parseAsRoot(["account", "use", "a", "work"]) is AccountUse)
-        XCTAssertTrue(try DozerCommand.parseAsRoot(["account", "keepalive", "on"]) is AccountKeepalive)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["account", "keepalive", "maybe"]))
-        XCTAssertTrue(try DozerCommand.parseAsRoot(["key", "policy", "a", "strict"]) is KeyPolicy)
-        XCTAssertThrowsError(try DozerCommand.parseAsRoot(["key", "policy", "a", "loose"]))
-        let create = try XCTUnwrap(try DozerCommand.parseAsRoot(["create", "a", "--image", "claude-code", "--account", "work"]) as? Create)
+        XCTAssertTrue(try DozableCommand.parseAsRoot(["account", "add", "work", "--setup-token", "--plan", "max"]) is AccountAdd)
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["account", "add", "work"]))
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["account", "add", "work", "--setup-token", "--plan", "gold"]))
+        XCTAssertTrue(try DozableCommand.parseAsRoot(["account", "use", "a", "work"]) is AccountUse)
+        XCTAssertTrue(try DozableCommand.parseAsRoot(["account", "keepalive", "on"]) is AccountKeepalive)
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["account", "keepalive", "maybe"]))
+        XCTAssertTrue(try DozableCommand.parseAsRoot(["key", "policy", "a", "strict"]) is KeyPolicy)
+        XCTAssertThrowsError(try DozableCommand.parseAsRoot(["key", "policy", "a", "loose"]))
+        let create = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "a", "--image", "claude-code", "--account", "work"]) as? Create)
         XCTAssertEqual(try create.create.options().account, "work")
         let text = KeyList.render([CredentialRow(binding: "claude-oauth", hosts: ["api.anthropic.com"], set: true, source: "account:mac", account: "mac",
                                                  state: "ok", expiresAt: nil, policy: "allow",
@@ -658,7 +658,7 @@ final class AccountTests: XCTestCase {
             XCTAssertEqual(e.code, .invalid)
             XCTAssertTrue(e.message.contains("the store has no default key") && e.message.contains("doz account add NAME --api-key"), e.message)
         }
-        XCTAssertFalse(FileManager.default.fileExists(atPath: DozerStore(root: root).layout("p1").sandboxDirectory.path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: DozableStore(root: root).layout("p1").sandboxDirectory.path))
         // An explicit none is a choice: made, and it says what is missing.
         let none = try await create(c, "p2", account: "none", image: "pi")
         XCTAssertEqual(none.agent, "pi")

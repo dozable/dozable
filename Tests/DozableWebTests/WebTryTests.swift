@@ -261,7 +261,7 @@ final class WebTryTests: XCTestCase {
         var or1 = AccountRecord(name: "or1", kind: .key, plan: nil)
         or1.provider = "openrouter"
         f.accounts.append(or1)
-        let facts = PlanFacts(settings: DozerSettings(text: ""), accounts: f, taken: [], images: [], store: DozerStore(root: FileManager.default.temporaryDirectory))
+        let facts = PlanFacts(settings: DozableSettings(text: ""), accounts: f, taken: [], images: [], store: DozableStore(root: FileManager.default.temporaryDirectory))
         let p = WebPlan(CreatePlanner.plan(q.request, facts: facts))
         XCTAssertEqual(p.model?.source, "openrouter")
         XCTAssertEqual(p.model?.model, "anthropic/claude-sonnet-4.6")
@@ -341,7 +341,7 @@ final class WebTryTests: XCTestCase {
         let root = URL(fileURLWithPath: "/private/tmp/webtry-installs-\(UUID().uuidString.prefix(6))")
         defer { try? FileManager.default.removeItem(at: root) }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        let store = DozerStore(root: root), now = Date()
+        let store = DozableStore(root: root), now = Date()
         let integrity = "sha512-" + Data(repeating: 7, count: 64).base64EncodedString()
         var claude = AgentVersionRecord(latest: AgentRelease(version: "2.1.299", integrity: integrity), checkedAt: now)
         claude.latestReleased = now
@@ -349,11 +349,11 @@ final class WebTryTests: XCTestCase {
         let codex = AgentVersionRecord(latest: AgentRelease(version: "0.162.1", integrity: integrity), checkedAt: now)
         AgentVersions.save(["claude-code": claude, "codex": codex], store)
 
-        let installs = WebTryCatalog.installs(store: store, settings: DozerSettings(text: nil))
+        let installs = WebTryCatalog.installs(store: store, settings: DozableSettings(text: nil))
         XCTAssertEqual(installs["claude-code"], "2.1.299", "latest (the default setting): the version last resolved")
         XCTAssertEqual(installs["codex"], "0.162.1")
         XCTAssertEqual(installs["pi"], AgentImages.pinned("pi")?.version, "never looked up: the pin")
-        let exact = WebTryCatalog.installs(store: store, settings: DozerSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n"))
+        let exact = WebTryCatalog.installs(store: store, settings: DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n"))
         XCTAssertEqual(exact["claude-code"], "2.1.227", "an exact setting: that version")
 
         let currency = AgentCurrency.all(store: store, now: now)
@@ -375,7 +375,7 @@ extension CreatePlan {
     static func sample(name: String, image: String) -> CreatePlan {
         let r = PlanRequest(purpose: "try", name: name, create: CreateOptions(image: image))
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("webtry-\(UUID().uuidString.prefix(6))")
-        return CreatePlanner.plan(r, facts: PlanFacts(settings: DozerSettings(text: ""), accounts: AccountsFile(), taken: [], images: [],
-                                                     store: DozerStore(root: root), projectsDir: "/tmp/617-webtry"))
+        return CreatePlanner.plan(r, facts: PlanFacts(settings: DozableSettings(text: ""), accounts: AccountsFile(), taken: [], images: [],
+                                                     store: DozableStore(root: root), projectsDir: "/tmp/617-webtry"))
     }
 }

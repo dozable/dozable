@@ -102,8 +102,8 @@ extension Onboarding {
     /// ONLY when chosen (a flag or an answer), as the Access step's are: into the settings file even when it was
     /// kept, and not at all when the file already says so. Returns what it set (`key = value`).
     public static func writeIgnoreMode(_ mode: String, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> [String] {
-        let settings = DozerSettings.load(environment: environment)
-        guard let d = DozerSettings.definition(SettingKey.ignoreMode) else { return [] }
+        let settings = DozableSettings.load(environment: environment)
+        guard let d = DozableSettings.definition(SettingKey.ignoreMode) else { return [] }
         let v = try d.parse(mode)
         if settings.resolve(SettingKey.ignoreMode).value == v, settings.fileValues[SettingKey.ignoreMode] != nil { return [] }
         try settings.writing(SettingKey.ignoreMode, v)

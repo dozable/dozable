@@ -179,13 +179,13 @@ final class OpenFilesTests: XCTestCase {
     // MARK: settings
 
     func testTheSettings() throws {
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.openFiles))
-        let of = try XCTUnwrap(DozerSettings.definition(SettingKey.openFiles))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.openFiles))
+        let of = try XCTUnwrap(DozableSettings.definition(SettingKey.openFiles))
         XCTAssertEqual(of.defaultValue, .string("on"))
         XCTAssertThrowsError(try of.parse("maybe"))
         XCTAssertEqual(try HostCore.checkedSandboxSettings([SettingKey.openFiles: .string("off")]), [SettingKey.openFiles: .string("off")])
-        XCTAssertFalse(DozerSettings.perSandbox.contains(SettingKey.openApps), "the app list is the user's, for every sandbox")
-        let apps = try XCTUnwrap(DozerSettings.definition(SettingKey.openApps))
+        XCTAssertFalse(DozableSettings.perSandbox.contains(SettingKey.openApps), "the app list is the user's, for every sandbox")
+        let apps = try XCTUnwrap(DozableSettings.definition(SettingKey.openApps))
         XCTAssertEqual(apps.defaultValue, .string(""))
         XCTAssertEqual(try apps.parse("Typora, Visual Studio Code"), .string("Typora, Visual Studio Code"))
         XCTAssertEqual(WorkspaceFiles.appNames("Typora, Visual Studio Code,"), ["Typora", "Visual Studio Code"])
@@ -194,17 +194,17 @@ final class OpenFilesTests: XCTestCase {
                     (1...17).map { "a\($0)" }.joined(separator: ",")] {
             XCTAssertThrowsError(try apps.parse(bad), bad)
         }
-        let row = try XCTUnwrap(DozerSettings(text: "").report().settings.first { $0.key == SettingKey.openApps })
+        let row = try XCTUnwrap(DozableSettings(text: "").report().settings.first { $0.key == SettingKey.openApps })
         XCTAssertEqual(row.type, "apps")
         XCTAssertTrue(row.editable)
-        XCTAssertTrue(DozerSettings.render(values: [SettingKey.openApps: .string("Typora")]).contains("[bridges]\n"))
+        XCTAssertTrue(DozableSettings.render(values: [SettingKey.openApps: .string("Typora")]).contains("[bridges]\n"))
     }
 
     func testTheProjectFileAndTheCreateFlag() throws {
-        let p = try DozerProject.parse("version: 1\nname: p\nimage: lab\nopen_files: off\n")
+        let p = try DozableProject.parse("version: 1\nname: p\nimage: lab\nopen_files: off\n")
         XCTAssertEqual(p.settings[SettingKey.openFiles], .string("off"))
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nimage: lab\nopen_files: maybe\n"))
-        XCTAssertTrue(DozerProject(name: "p", image: "lab").render().contains("# open_files: on"))
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nimage: lab\nopen_files: maybe\n"))
+        XCTAssertTrue(DozableProject(name: "p", image: "lab").render().contains("# open_files: on"))
         let c = try Create.parse(["x", "--open-files", "off"])
         XCTAssertEqual(try c.create.sandboxSettings(), [SettingKey.openFiles: .string("off")])
         XCTAssertThrowsError(try Create.parse(["x", "--open-files", "maybe"]).create.sandboxSettings())

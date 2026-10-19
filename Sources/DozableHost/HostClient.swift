@@ -30,7 +30,7 @@ public enum HostLauncher {
     /// then waits for its socket, as before. `doz host start --foreground` is the only host that lives in
     /// a caller's tree, and only when a person asks for it.
     @discardableResult
-    public static func spawn(store: DozerStore, executable: String = executablePath, extra: [String] = []) throws -> pid_t {
+    public static func spawn(store: DozableStore, executable: String = executablePath, extra: [String] = []) throws -> pid_t {
         try store.ensureDirectory()
         var fds: [Int32] = [0, 0]
         guard pipe(&fds) == 0 else { throw HostError(.unavailable, "could not start the host: \(String(cString: strerror(errno)))") }
@@ -81,7 +81,7 @@ public enum HostLauncher {
     /// stdout+stderr appended to `<store>/host.log`, no other descriptor; returns its pid. The
     /// intermediate then exits, and the host's parent becomes launchd.
     @discardableResult
-    public static func spawnHostProcess(store: DozerStore, executable: String = executablePath, extra: [String] = []) throws -> pid_t {
+    public static func spawnHostProcess(store: DozableStore, executable: String = executablePath, extra: [String] = []) throws -> pid_t {
         try store.ensureDirectory()
         var attr: posix_spawnattr_t?
         posix_spawnattr_init(&attr)
@@ -111,11 +111,11 @@ public enum HostLauncher {
 
 /// One connection to the host.
 public final class HostClient {
-    public let store: DozerStore
+    public let store: DozableStore
     public let fd: Int32
     public let reader: LineReader
 
-    init(store: DozerStore, fd: Int32) {
+    init(store: DozableStore, fd: Int32) {
         self.store = store
         self.fd = fd
         reader = LineReader(fd: fd)
@@ -124,7 +124,7 @@ public final class HostClient {
     deinit { close(fd) }
 
     /// Connect to the store's host, starting one when `autostart` and none answers.
-    public static func connect(store: DozerStore, autostart: Bool, waitSeconds: Double = 90) throws -> HostClient {
+    public static func connect(store: DozableStore, autostart: Bool, waitSeconds: Double = 90) throws -> HostClient {
         guard store.socketPathFits else { throw HostError(.unavailable, UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
         if let fd = UnixSocket.connect(store.socket.path) { return HostClient(store: store, fd: fd) }
         guard autostart else { throw HostError(.unavailable, "no host is running for \(store.root.path)") }
@@ -148,7 +148,7 @@ public final class HostClient {
     }
 
     /// Wait for a host that is starting to answer its socket.
-    public static func waitForHost(store: DozerStore, seconds: Double = 90) -> Bool {
+    public static func waitForHost(store: DozableStore, seconds: Double = 90) -> Bool {
         let deadline = Date().addingTimeInterval(seconds)
         while Date() < deadline {
             if let fd = UnixSocket.connect(store.socket.path) { close(fd); return true }
@@ -157,7 +157,7 @@ public final class HostClient {
         return false
     }
 
-    static func lastLogLines(_ store: DozerStore, _ n: Int = 3) -> String {
+    static func lastLogLines(_ store: DozableStore, _ n: Int = 3) -> String {
         guard let s = try? String(contentsOf: store.logFile, encoding: .utf8) else { return "see \(store.logFile.path)" }
         return s.split(separator: "\n").suffix(n).joined(separator: " | ")
     }
@@ -188,7 +188,7 @@ public final class HostClient {
 
     /// One request on a fresh connection. A connection the host dropped before answering at all
     /// (it was exiting as the request arrived) is retried once, starting a new host.
-    public static func request(_ r: HostRequest, store: DozerStore, autostart: Bool = true,
+    public static func request(_ r: HostRequest, store: DozableStore, autostart: Bool = true,
                                onEvent: (HostEvent) -> Void = { _ in }) throws -> HostMessage {
         TestSafety.checkStore(store.root)          // 611
         var attempt = 0

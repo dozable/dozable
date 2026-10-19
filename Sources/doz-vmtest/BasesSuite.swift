@@ -64,7 +64,7 @@ func basesCLIPart(_ binary: String) async {
     r = h.run(["create", "x1", "--image", "lab", "--agent", "pi"])
     check(r.code != 0 && r.err.contains("not both"), "--image with --agent: refused")
     r = h.run(["create", "x1", "--agent", "cobol-agent"])      // codex is an agent since 599i, gemini since 617
-    check(r.code != 0 && r.err.contains("--agent: \(DozerProject.agentWords)"), "an unknown agent is refused, every agent named")
+    check(r.code != 0 && r.err.contains("--agent: \(DozableProject.agentWords)"), "an unknown agent is refused, every agent named")
     r = h.run(["create", "g1", "--base", "go", "--agent", "none", "--isolated", "--json"])
     let g1 = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)
     check(r.code == 0 && g1?.image == "go" && g1?.imageTitle == "Go · none" && g1?.base == "go", "create --base go --agent none: image go, Go · none")
@@ -259,7 +259,7 @@ func basesDockerfilePart(_ binary: String) async {
     check(h.run(["exec", "d1", "--", "cat", "/etc/os-release"]).out.contains("Debian"), "d1 boots the Dockerfile's base (Debian)")
     check(h.run(["exec", "d1", "--", "sh", "-c", "id -un; sudo -n true && echo sudo-ok"]).out == "agent\nsudo-ok\n", "the agent user and its sudo are added (the baseline)")
     check(h.run(["exec", "d1", "--", "cat", "/workspace/Dockerfile"]).out.contains("FROM debian"), "/workspace is the Dockerfile's folder")
-    let rec = Dockerfiles.record(base, DozerStore(root: h.store))
+    let rec = Dockerfiles.record(base, DozableStore(root: h.store))
     check(rec?.reference?.hasPrefix("dozer.local/\(base)@sha256:") == true && rec?.builds == 1, "dockerfiles.json: the build's reference (\(rec?.reference?.suffix(20) ?? "none"))")
 
     // Unchanged (same layers, a new config): nothing re-baked — seconds (B8).
@@ -270,7 +270,7 @@ func basesDockerfilePart(_ binary: String) async {
     let again = Date().timeIntervalSince(t1)
     check(r.code == 0 && (r.out + r.err).contains("unchanged (same layers)") && !(r.out + r.err).contains("baking image"),
           "an unchanged Dockerfile re-prepares without a bake (\(String(format: "%.1f", again)) s vs \(Int(firstSeconds)) s)")
-    check(Dockerfiles.record(base, DozerStore(root: h.store))?.reference == rec?.reference, "the same reference is kept")
+    check(Dockerfiles.record(base, DozableStore(root: h.store))?.reference == rec?.reference, "the same reference is kept")
     check(h.row("d1")?.rebuildAvailable == nil, "d1: nothing to rebuild")
 
     // The Dockerfile changes: said on the sandbox and the image — never rebuilt by itself.
@@ -280,7 +280,7 @@ func basesDockerfilePart(_ binary: String) async {
     try? FileManager.default.removeItem(at: fake.appendingPathComponent("next.tar"))
     try? FileManager.default.copyItem(at: b, to: fake.appendingPathComponent("next.tar"))
     r = h.run(["image", "bake", base], timeout: 900)
-    check(r.code == 0 && Dockerfiles.record(base, DozerStore(root: h.store))?.reference != rec?.reference, "a rebuild with new layers: a new base, baked")
+    check(r.code == 0 && Dockerfiles.record(base, DozableStore(root: h.store))?.reference != rec?.reference, "a rebuild with new layers: a new base, baked")
     check((h.row("d1")?.rebuildAvailable ?? "").contains("reset the sandbox to take it"), "d1 keeps its disk until reset: \(h.row("d1")?.rebuildAvailable ?? "nil")")
     check(h.run(["reset", "d1", "--yes"]).code == 0 && h.run(["start", "d1"], timeout: 600).code == 0, "reset d1, start it")
     check(h.run(["exec", "d1", "--", "cat", "/etc/os-release"]).out.contains("Alpine"), "d1 now boots the new build (Alpine)")
@@ -412,7 +412,7 @@ func basesMatrixPart(_ binary: String) async {
             let out = h.run(["exec", name, "--"] + t.argv).out + h.run(["exec", name, "--", "sh", "-c", t.argv.joined(separator: " ") + " 2>&1"]).out
             check(t.expect.map(out.contains) ?? true, "\(name): the toolchain answers (\(t.argv.joined(separator: " ")) → \(out.split(separator: "\n").first ?? ""))")
         }
-        let digest = BaseDigests.all(DozerStore(root: h.store))[b]?.digest
+        let digest = BaseDigests.all(DozableStore(root: h.store))[b]?.digest
         check(digest != nil, "\(name): \(base.shortReference) resolved to a digest at preparation (\(digest?.dropFirst(7).prefix(12) ?? "none"))")
         switch a {
         case .claudeCode:
@@ -450,5 +450,5 @@ func basesMatrixPart(_ binary: String) async {
         info("\(name): removed")
     }
     let rows = h.json(["image", "ls"], [ImageRow].self) ?? []
-    info("images: " + rows.map { "\($0.name) \($0.allocatedBytes.map(DozerImages.formatBytes) ?? "—")" }.joined(separator: ", "))
+    info("images: " + rows.map { "\($0.name) \($0.allocatedBytes.map(DozableImages.formatBytes) ?? "—")" }.joined(separator: ", "))
 }

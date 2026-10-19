@@ -60,7 +60,7 @@ public struct WebWorkspaceCheck: Codable, Equatable, Sendable {
     /// Why it cannot be the workspace (nothing is made).
     public var error: String?
 
-    public static func check(_ q: WebWorkspaceQuery, taken: Set<String>, settings: DozerSettings, store: String) -> WebWorkspaceCheck {
+    public static func check(_ q: WebWorkspaceQuery, taken: Set<String>, settings: DozableSettings, store: String) -> WebWorkspaceCheck {
         let projects = Workspace.defaultPath(name: "x", settings: settings)
         let projectsDir = (projects as NSString).deletingLastPathComponent
         let suggested = Workspace.suggestedName(image: q.image ?? settings.string(SettingKey.defaultImage) ?? "claude-code",
@@ -75,7 +75,7 @@ public struct WebWorkspaceCheck: Codable, Equatable, Sendable {
         do {
             let p = try Workspace.normalize(raw)
             r.path = p
-            if let why = Workspace.refusal(p, store: DozerStore(root: URL(fileURLWithPath: store))) { r.error = why; return r }
+            if let why = Workspace.refusal(p, store: DozableStore(root: URL(fileURLWithPath: store))) { r.error = why; return r }
             var isDir: ObjCBool = false
             let exists = FileManager.default.fileExists(atPath: p, isDirectory: &isDir)
             r.exists = exists

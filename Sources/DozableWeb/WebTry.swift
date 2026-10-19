@@ -121,7 +121,7 @@ extension WebTryCatalog {
     /// same resolution a create makes (the image already prepared, else the setting's version: the latest as last
     /// resolved, an exact one, else the pin). `images`: agent id → the image its try plan names (default: its own
     /// default-base image). Only what the store has; never the network.
-    public static func installs(store: DozerStore, settings: DozerSettings, images: [String: String] = [:]) -> [String: String] {
+    public static func installs(store: DozableStore, settings: DozableSettings, images: [String: String] = [:]) -> [String: String] {
         var out: [String: String] = [:]
         for r in recipeAgents() {
             let image = images[r.id] ?? r.id

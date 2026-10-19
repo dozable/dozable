@@ -46,7 +46,7 @@ final class UnpublishedRecipesTests: XCTestCase {
     func testEveryListShowsOnlyThePublished() throws {
         XCTAssertEqual(WebTryCatalog.list(secretEntry: true).agents.map(\.id).sorted(), Self.offered.sorted())
         XCTAssertEqual(WebBases.catalogAgents.map(\.id), Self.offered)
-        XCTAssertEqual(DozerProject.agentWords, "claude-code, pi, codex, opencode or none")
+        XCTAssertEqual(DozableProject.agentWords, "claude-code, pi, codex, opencode or none")
         let index = DirectoryIndex.build(version: "t")
         XCTAssertEqual(index.entries.filter { $0.kind == "agent" && $0.status == "supported" }.map(\.id).sorted(), Self.offered.sorted())
         XCTAssertFalse(index.entries.contains { $0.id == "vercel-ai-gateway" })
@@ -62,8 +62,8 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertFalse(oc2.publishedSources.contains("vercel-ai-gateway"))
         XCTAssertTrue(oc2.throughGateway)
         let p = CreatePlanner.plan(PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "opencode@2"]).planChoices()),
-                                   facts: PlanFacts(settings: DozerSettings(text: ""), accounts: AccountsFile(), taken: [], images: [],
-                                                    store: DozerStore(root: root), projectsDir: root.path))
+                                   facts: PlanFacts(settings: DozableSettings(text: ""), accounts: AccountsFile(), taken: [], images: [],
+                                                    store: DozableStore(root: root), projectsDir: root.path))
         let offered = try XCTUnwrap(p.model?.offered.map(\.id))
         XCTAssertTrue(offered.contains("openrouter"))
         XCTAssertFalse(offered.contains("vercel-ai-gateway"))
@@ -85,22 +85,22 @@ final class UnpublishedRecipesTests: XCTestCase {
     }
 
     func testSettingsListThePublishedAndAcceptEveryAgent() throws {
-        let plain = DozerSettings(text: "")
-        XCTAssertEqual(plain.report().settings.map(\.key), DozerSettings.schema.map(\.key), "doz config show: the whole schema")
+        let plain = DozableSettings(text: "")
+        XCTAssertEqual(plain.report().settings.map(\.key), DozableSettings.schema.map(\.key), "doz config show: the whole schema")
         let rep = plain.report(offered: true)
         XCTAssertFalse(rep.settings.contains { $0.key == "images.grok_version" })
         XCTAssertTrue(rep.settings.contains { $0.key == "images.opencode_version" })
         let choices = try XCTUnwrap(rep.settings.first { $0.key == SettingKey.defaultImage }?.choices)
         XCTAssertEqual(choices, ["lab", "claude-code", "pi", "codex", "opencode", "opencode2"])
         // Stored: an unpublished agent's key and defaults.image still parse, apply and are listed — no warning.
-        let held = DozerSettings(text: "[defaults]\nimage = \"grok\"\n\n[images]\ngrok_version = \"1.0.52\"\n")
+        let held = DozableSettings(text: "[defaults]\nimage = \"grok\"\n\n[images]\ngrok_version = \"1.0.52\"\n")
         XCTAssertEqual(held.warnings, [])
         XCTAssertEqual(held.string(SettingKey.defaultImage), "grok")
         XCTAssertEqual(held.string("images.grok_version"), "1.0.52")
         let r2 = held.report(offered: true)
         XCTAssertTrue(r2.settings.contains { $0.key == "images.grok_version" }, "a set agent's settings are listed")
         XCTAssertTrue(r2.settings.first { $0.key == SettingKey.defaultImage }?.choices?.contains("grok") == true, "and the value it has")
-        XCTAssertNotNil(DozerSettings.definition("images.gemini_version"), "the schema stays complete")
+        XCTAssertNotNil(DozableSettings.definition("images.gemini_version"), "the schema stays complete")
         // Onboarding: offered the published, a stored value still accepted.
         XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"grok","account":"later"}"#.utf8)).defaultImage, "grok")
         XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"nope","account":"later"}"#.utf8))) { e in
@@ -145,7 +145,7 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertEqual(ImageChoice.parse("python-gemini")?.agent.rawValue, "gemini")
         XCTAssertNotNil(AgentRecipes.recipe("grok"))
         XCTAssertNotNil(AgentRecipes.matching("agy"))
-        XCTAssertEqual(DozerSettings.imageSection(imageSpecName: "debian-grok"), "grok")
+        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "debian-grok"), "grok")
         // An existing sandbox's sources (a Vercel key included), its account and selection.
         XCTAssertTrue(AgentCredentials.sources("opencode2")?.contains("vercel-ai-gateway") == true)
         XCTAssertNotNil(AgentRecipes.recipe("opencode2")?.selection(source: "vercel-ai-gateway"))
@@ -153,14 +153,14 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertTrue(ModelSources.ids.contains("vercel-ai-gateway"))
         XCTAssertTrue(UsageSchema.agents.contains("grok"), "a sandbox of it still reports its id")
         // A project file written for it still names its image (it is a record of a sandbox).
-        var p = DozerProject(name: "old", image: "")
+        var p = DozableProject(name: "old", image: "")
         p.agent = "grok"
         XCTAssertEqual(p.chosenImage, "grok")
-        XCTAssertNil(DozerProject.agentProblem("grok"))
+        XCTAssertNil(DozableProject.agentProblem("grok"))
     }
 
     func testTheHourlyLookUpIsThePublishedAndWhatIsInUse() throws {
-        let store = DozerStore(root: root)
+        let store = DozableStore(root: root)
         XCTAssertEqual(HostCore.agentsToLookUp(store: store, sandboxAgents: []).map(\.id), Self.offered)
         try FileManager.default.createDirectory(at: root.appendingPathComponent("images/python-grok"), withIntermediateDirectories: true)
         XCTAssertEqual(Set(HostCore.agentsToLookUp(store: store, sandboxAgents: ["gemini"]).map(\.id)), Set(Self.offered + ["grok", "gemini"]))

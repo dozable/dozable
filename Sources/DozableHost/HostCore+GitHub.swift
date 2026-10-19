@@ -103,7 +103,7 @@ extension HostCore {
             let keychain = services.keychain
             let read: @Sendable () -> CredentialVault.SecretRead = {
                 // The source is read EACH time (the setting can change while the sandbox runs).
-                let source = DozerSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh"
+                let source = DozableSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh"
                 if source == "off" {
                     return (nil, "Dozable: \"Use GitHub as you\" is on for \(name), but github.credentials is off on this Mac")
                 }
@@ -120,7 +120,7 @@ extension HostCore {
                 return GitHubLogin.ghToken(environment: env)
             }
             // The source setting is the read's "version": choosing another source (or off) applies at the next request.
-            let version: @Sendable () -> String = { DozerSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh" }
+            let version: @Sendable () -> String = { DozableSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh" }
             egress.vault.setProvider(.github, ttl: GitHubLogin.cacheSeconds, version: version, read: read)
             egress.github = GitHubGate(mode: mode, sandbox: name)
             egress.githubUpstreamForTests = GitHubLogin.testUpstream(environment: env)

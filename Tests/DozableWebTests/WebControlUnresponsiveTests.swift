@@ -9,9 +9,9 @@ import XCTest
 /// Ctrl-Z the day before made every later `doz ui` wait forever) — the client gives up after a few seconds and says
 /// who holds the store.
 final class WebControlUnresponsiveTests: XCTestCase {
-    private func scratchStore() -> (DozerStore, URL) {
+    private func scratchStore() -> (DozableStore, URL) {
         let dir = URL(fileURLWithPath: "/tmp/doz-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
-        return (DozerStore(root: dir), dir)
+        return (DozableStore(root: dir), dir)
     }
 
     func testASilentUIIsGivenUpOnAndNamed() throws {

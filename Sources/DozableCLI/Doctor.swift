@@ -19,23 +19,23 @@ struct Doctor: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let checks = Self.checks(store: g.dozerStore)
+        let checks = Self.checks(store: g.dozableStore)
         if g.json { Out.json(checks) } else {
             for c in checks {
                 let mark = switch c.status { case .ok: "ok  "; case .warn: "warn"; case .fail: "FAIL" }
                 Out.stdout("\(mark)  \(c.check.padding(toLength: 15, withPad: " ", startingAt: 0)) \(c.detail)\n")
             }
         }
-        if checks.contains(where: { $0.status == .fail }) { throw ExitCode(DozerExit.failed) }
+        if checks.contains(where: { $0.status == .fail }) { throw ExitCode(DozableExit.failed) }
         // 594: a store never onboarded says how to start.
-        if !g.json, OnboardingRecord.read(g.dozerStore) == nil {
+        if !g.json, OnboardingRecord.read(g.dozableStore) == nil {
             Out.stdout("\nthis store has not been onboarded — doz onboard sets up this Mac (checks, account, settings, images)\n")
         }
     }
 
     /// `claude: false` (594: `doz onboard --account …`) leaves out the Claude Code checks — the ones
     /// that run `claude --version` and read the Mac login's keychain item.
-    static func checks(store: DozerStore, claude: Bool = true) -> [DoctorCheck] {
+    static func checks(store: DozableStore, claude: Bool = true) -> [DoctorCheck] {
         var out: [DoctorCheck] = []
         let v = ProcessInfo.processInfo.operatingSystemVersion
         var uts = utsname()
@@ -66,7 +66,7 @@ struct Doctor: AsyncParsableCommand {
             let format = vals?.volumeLocalizedFormatDescription ?? "?"
             let apfs = format.contains("APFS")
             out.append(DoctorCheck(check: "store", status: writable && free > 10 << 30 && apfs ? .ok : (writable ? .warn : .fail),
-                                   detail: "\(store.root.path) — \(format), \(DozerImages.formatBytes(free)) free, \(store.sandboxNames().count) sandbox(es)"
+                                   detail: "\(store.root.path) — \(format), \(DozableImages.formatBytes(free)) free, \(store.sandboxNames().count) sandbox(es)"
                                    + (apfs ? "" : " — not APFS: disks are copied instead of cloned") + (free > 10 << 30 ? "" : " — under 10 GiB free")))
         } else {
             out.append(DoctorCheck(check: "store", status: .ok, detail: "\(store.root.path) — not created yet (the first create makes it)"))
@@ -74,7 +74,7 @@ struct Doctor: AsyncParsableCommand {
         if !store.socketPathFits {
             out.append(DoctorCheck(check: "socket", status: .fail, detail: "\(store.socket.path) is over 103 bytes — use a shorter --store"))
         }
-        let kernelDir = DozerSettings.load().string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
+        let kernelDir = DozableSettings.load().string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
             ?? store.layout("_").kernels
         let provider = KernelProvider(cacheDirectory: kernelDir)
         let kernel = provider.cachedKernel
@@ -108,7 +108,7 @@ struct Doctor: AsyncParsableCommand {
                                        + "; a host started from here asks macOS for the microphone as \(who)"))
         }
         // 594 W28: an agent image an older doz made, or a newer agent release — said, never rebuilt by itself.
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         for image in ["claude-code", "pi", "codex"] {
             let s = AgentVersions.standing(image, store: store, settings: settings)
             guard s.version != nil else { continue }
@@ -128,7 +128,7 @@ struct Doctor: AsyncParsableCommand {
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, idle timeout \(st.idleTimeoutMinutes.formatted()) min"
-                if st.version != DozerCommand.version { status = .warn; detail += " — this CLI is \(DozerCommand.version): doz host stop" }
+                if st.version != DozableCommand.version { status = .warn; detail += " — this CLI is \(DozableCommand.version): doz host stop" }
                 // 593: a host never lives in a client's process tree (stopping that tree killed one mid-save).
                 if let pp = st.parentPid {
                     if pp == 1 {
@@ -178,7 +178,7 @@ struct Doctor: AsyncParsableCommand {
     }
 
     /// 599i rc.3: this Mac's Codex login (`mac` for Codex) — read-only: its state and expiry, never a token.
-    static func codexLoginCheck(home: URL?, settings: DozerSettings, now: Date = Date()) -> DoctorCheck {
+    static func codexLoginCheck(home: URL?, settings: DozableSettings, now: Date = Date()) -> DoctorCheck {
         let r = CodexMacLogin.read(home, now: now)
         let keep = settings.bool(SettingKey.codexKeepAlive)
         switch r.state {
@@ -197,7 +197,7 @@ struct Doctor: AsyncParsableCommand {
 
     /// 588: the Mac's Claude Code, its login(s), and the store's accounts. Reads only: `claude
     /// --version`, the keychain item (parsed in memory, never printed), attributes of the others.
-    static func claudeChecks(store: DozerStore, keychain: KeychainAccess, now: Date = Date(),
+    static func claudeChecks(store: DozableStore, keychain: KeychainAccess, now: Date = Date(),
                              binary: (() -> String?)? = nil, home: URL = FileManager.default.homeDirectoryForCurrentUser,
                              listItems: Bool = true) -> [DoctorCheck] {
         var out: [DoctorCheck] = []

@@ -54,7 +54,7 @@ final class RecipeSourceTests: XCTestCase {
     }
 
     /// Each YAML compiles to exactly the recipe Dozer runs (the model every other test checks).
-    func testEachYAMLIsTheRecipeDozerRuns() throws {
+    func testEachYAMLIsTheRecipeDozableRuns() throws {
         for rel in try Self.yamlFiles() {
             let yaml = try String(contentsOf: Self.recipes.appendingPathComponent("agents/" + rel), encoding: .utf8)
             let r = try RecipeDocument.decode(try RecipeSource.compile(yaml: yaml)).recipe()

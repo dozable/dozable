@@ -152,7 +152,7 @@ extension HostCore {
     /// shown before anything is made.
     func plans(_ rs: [PlanRequest], versionProblems: [Int: String] = [:]) -> [CreatePlan] {
         guard !rs.isEmpty else { return [] }
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         let file = accountStore.load()
         var labels: [String: String] = [:]
         for a in file.accounts where a.readsOnUse { labels[a.name] = a.source?.label }

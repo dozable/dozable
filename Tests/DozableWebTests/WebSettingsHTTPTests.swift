@@ -90,7 +90,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(rep.path, file.path)
         XCTAssertFalse(rep.exists)
         // 629: an unpublished agent's own settings are listed only once one of them is set.
-        XCTAssertEqual(rep.settings.map(\.key), DozerSettings.schema.filter { $0.agent.map(AgentRecipes.isPublished) ?? true }.map(\.key))
+        XCTAssertEqual(rep.settings.map(\.key), DozableSettings.schema.filter { $0.agent.map(AgentRecipes.isPublished) ?? true }.map(\.key))
         XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
         // The projects folder reports the effective default (the old folder when this Mac has it).
         XCTAssertEqual(try row(rep, SettingKey.projectsDir).value, .string(Workspace.unsetProjectsDir()))
@@ -122,7 +122,7 @@ final class WebSettingsHTTPTests: XCTestCase {
             r = try change(body, cookie, csrf)
             XCTAssertEqual(r.status, 200, body + " " + r.text)
         }
-        XCTAssertEqual(DozerSettings.load(environment: ["XDG_CONFIG_HOME": xdg.path]).fileValues.count, 5)
+        XCTAssertEqual(DozableSettings.load(environment: ["XDG_CONFIG_HOME": xdg.path]).fileValues.count, 5)
         // Reset.
         r = try change(#"{"key":"ui.boot_view_on_start","reset":true}"#, cookie, csrf)
         XCTAssertEqual(r.status, 200, r.text)

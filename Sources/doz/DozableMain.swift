@@ -1,5 +1,5 @@
 // doz — the DozableKit command-line tool (585). Everything lives in the DozableCLI target (so the unit tests can reach
-// it); this only runs it. 611: through `DozerEntry` — ArgumentParser's parse-and-run, then the update check.
+// it); this only runs it. 611: through `DozableEntry` — ArgumentParser's parse-and-run, then the update check.
 import DozableCLI
 import DozableHost
 #if DOZ_CLOUD
@@ -21,6 +21,6 @@ struct DozableMain {
                           return SignupResult(status: answer.status)
                       })
         #endif
-        await DozerEntry.main()
+        await DozableEntry.main()
     }
 }

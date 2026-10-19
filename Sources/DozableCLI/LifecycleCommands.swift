@@ -126,7 +126,7 @@ struct ChoiceOptions: ParsableArguments {
         // 617: any agent this build has a recipe for, by id or alias (`claude`). 618: NAME@MAJOR / NAME@VERSION too.
         case let x:
             guard let r = try Self.resolveAgent(x)?.recipe, let k = AgentKind(rawValue: r.id) else {
-                throw ValidationError("--agent: \(DozerProject.agentWords) — not \(x)")
+                throw ValidationError("--agent: \(DozableProject.agentWords) — not \(x)")
             }
             a = k
         }
@@ -197,7 +197,7 @@ struct ChoiceOptions: ParsableArguments {
         }
         var mem: UInt64?
         if let m = memory {
-            guard let v = DozerImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
+            guard let v = DozableImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
             mem = v
         }
         if let c = cpus, c < 1 { throw ValidationError("--cpus must be at least 1") }
@@ -232,7 +232,7 @@ struct ChoiceOptions: ParsableArguments {
 
     /// 599d: `off` / `read` / `push` → permission words for `--allow` (and `github:` in doz_project.yaml).
     static func githubWords(_ v: String?, flag: String) throws -> [String] {
-        guard let w = DozerProject.gitHubWords(v) else { throw ValidationError("\(flag): off, read or push") }
+        guard let w = DozableProject.gitHubWords(v) else { throw ValidationError("\(flag): off, read or push") }
         return w
     }
 
@@ -240,7 +240,7 @@ struct ChoiceOptions: ParsableArguments {
     func sandboxSettings() throws -> [String: TOMLValue]? {
         var s: [String: TOMLValue] = [:]
         func take(_ key: String, _ text: String?, _ flag: String) throws {
-            guard let text, let d = DozerSettings.definition(key) else { return }
+            guard let text, let d = DozableSettings.definition(key) else { return }
             do { s[key] = try d.parse(text) } catch let e as SettingsError { throw ValidationError("\(flag): \(e.message)") }
         }
         try take(SettingKey.clipboard, clipboard, "--clipboard")
@@ -294,7 +294,7 @@ struct ChoiceOptions: ParsableArguments {
 /// (out-of-date) image is used.
 func chooseImage(_ o: inout CreateOptions, rebuild: Bool, useCurrent: Bool, _ g: GlobalOptions) async throws -> String? {
     // 596: any base × agent image (a Dockerfile's is rebuilt when its Dockerfile changes — said on its page).
-    guard DozerImages.builtIn.contains(o.image) || ImageChoice.parse(o.image) != nil, o.dockerfile == nil else { return nil }
+    guard DozableImages.builtIn.contains(o.image) || ImageChoice.parse(o.image) != nil, o.dockerfile == nil else { return nil }
     if rebuild { o.rebuild = true; return nil }
     let rows = (try? decode(try await query(HostRequest(.imageList), g), [ImageRow].self, g)) ?? []
     guard let row = rows.first(where: { $0.name == o.image }), row.baked, let standing = row.standing else { return nil }
@@ -448,7 +448,7 @@ struct New: AsyncParsableCommand {
             Out.stderr(String(format: "[doz] %@ started in %.0f ms — attaching to %@", plan.name, started.milliseconds, opened.session)
                        + (key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "") + "\n")
         }
-        AttachClient.run(store: g.dozerStore, sandbox: plan.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
+        AttachClient.run(store: g.dozableStore, sandbox: plan.name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
     }
 }
 
@@ -646,16 +646,16 @@ struct Up: AsyncParsableCommand {
     func run() async throws {
         let key = try parseDetachKey(detachKey)
         // 594 (D9): no name — the project in this folder.
-        var project: DozerProject?
+        var project: DozableProject?
         var projectFile: URL?
         let folder = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).standardizedFileURL
         if name == nil {
             let found: URL?
-            do { found = try DozerProject.find(in: folder) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
+            do { found = try DozableProject.find(in: folder) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
             guard let f = found else {
-                throw fail(HostError(.invalid, "which sandbox? doz up NAME — or run it in a folder with \(DozerProject.fileName) (doz init makes one)"), g)
+                throw fail(HostError(.invalid, "which sandbox? doz up NAME — or run it in a folder with \(DozableProject.fileName) (doz init makes one)"), g)
             }
-            do { project = try DozerProject.load(f) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
+            do { project = try DozableProject.load(f) } catch { throw fail(HostError(.invalid, error.localizedDescription), g) }
             projectFile = f
         }
         let name = self.name ?? project!.name
@@ -673,7 +673,7 @@ struct Up: AsyncParsableCommand {
                 if let i = try create.chosenImage() { o.image = i; o.dockerfile = create.absoluteDockerfile }
                 if let c = create.cpus { o.cpus = c }
                 if let m = create.memory {
-                    guard let v = DozerImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
+                    guard let v = DozableImages.parseMemory(m) else { throw ValidationError("--memory: \(m) is not a size (2G, 512M, 2048)") }
                     o.memoryMiB = v
                 }
                 if let n = create.network { o.network = n }
@@ -698,7 +698,7 @@ struct Up: AsyncParsableCommand {
                 _ = try await chooseImage(&o, rebuild: create.rebuild, useCurrent: create.useCurrent, g)
                 r.create = o
             } else {
-                var o = try create.options(defaultImage: DozerSettings.load().string(SettingKey.defaultImage) ?? "lab")
+                var o = try create.options(defaultImage: DozableSettings.load().string(SettingKey.defaultImage) ?? "lab")
                 if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 try preflightAgentAccount(&o, g)
                 _ = try await chooseImage(&o, rebuild: create.rebuild, useCurrent: create.useCurrent, g)
@@ -710,7 +710,7 @@ struct Up: AsyncParsableCommand {
             if !g.json && !g.quiet {
                 Out.stderr("[doz] created \(name)" + (projectFile.map { " from \($0.path)" } ?? "") + (info.workspace.map { " — /workspace = \($0)" } ?? "") + "\n")
                 // 618: a hand-written `agent: opencode` meant the recommended major — said once, when it is made.
-                if create.image == nil, (try? create.chosenImage()) ?? nil == nil, let n = DozerProject.familyNote(project?.agent) { Out.stderr("[doz] \(n)\n") }
+                if create.image == nil, (try? create.chosenImage()) ?? nil == nil, let n = DozableProject.familyNote(project?.agent) { Out.stderr("[doz] \(n)\n") }
             }
             noteWorkspace(info, isolatedAsked: create.isolated, g)
         } else {
@@ -758,7 +758,7 @@ struct Up: AsyncParsableCommand {
             let how = started.changed ? String(format: "%@ in %.0f ms", started.phaseBefore == "off" ? "started" : "woke", started.milliseconds) : "running"
             Out.stderr("[doz] \(name) \(how) — attaching to \(opened.session)\(key.map { " (\(describeKey($0)): the menu · twice: detach)" } ?? "")\n")
         }
-        AttachClient.run(store: g.dozerStore, sandbox: name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
+        AttachClient.run(store: g.dozableStore, sandbox: name, session: opened.session, wake: true, detachKey: key, quiet: g.quiet)
     }
 
     /// An existing project sandbox: its project's own prompt is kept in step with the file (it applies
@@ -767,14 +767,14 @@ struct Up: AsyncParsableCommand {
     /// applies. cpus, memory and image are the VM's make-up: only a new sandbox gets them. A proxied
     /// network's preset is applied now (live) unless the policy was edited since; nat/none are the VM's
     /// network device (a new sandbox). The account applies from the next session (`doz account use`).
-    func projectDifferences(_ project: DozerProject, cfg: SandboxConfig, name: String) throws -> [String] {
+    func projectDifferences(_ project: DozableProject, cfg: SandboxConfig, name: String) throws -> [String] {
         var out: [String] = []
         let remake = "applies only when the sandbox is made — doz rm \(name) && doz up recreates it (this folder, its /workspace, is kept)"
-        if let c = project.cpus, c != cfg.spec.cpus { out.append("cpus \(cfg.spec.cpus) → \(c) in \(DozerProject.fileName): \(remake)") }
+        if let c = project.cpus, c != cfg.spec.cpus { out.append("cpus \(cfg.spec.cpus) → \(c) in \(DozableProject.fileName): \(remake)") }
         if let m = project.memoryMiB, m != cfg.spec.memoryMiB {
-            out.append("memory \(Out.mib(cfg.spec.memoryMiB)) → \(Out.mib(m)) in \(DozerProject.fileName): \(remake)")
+            out.append("memory \(Out.mib(cfg.spec.memoryMiB)) → \(Out.mib(m)) in \(DozableProject.fileName): \(remake)")
         }
-        if project.image != cfg.image { out.append("image \(cfg.image) → \(project.image) in \(DozerProject.fileName): \(remake)") }
+        if project.image != cfg.image { out.append("image \(cfg.image) → \(project.image) in \(DozableProject.fileName): \(remake)") }
         if let want = project.network, want != cfg.networkName {
             let presets = ["agent", "bake", "locked", "open"]
             if presets.contains(want), cfg.spec.network.policy != nil {
@@ -783,24 +783,24 @@ struct Up: AsyncParsableCommand {
                 if let now = live?.preset, now != want {
                     q.preset = want
                     _ = try call(q, g)
-                    out.append("network \(now) → \(want) in \(DozerProject.fileName): applied now (live — the next connection is judged by it)")
+                    out.append("network \(now) → \(want) in \(DozableProject.fileName): applied now (live — the next connection is judged by it)")
                 } else if live?.preset == nil {
-                    out.append("network: \(DozerProject.fileName) says \(want), but \(name)'s policy was edited — kept; doz net policy \(name) --preset \(want) replaces it")
+                    out.append("network: \(DozableProject.fileName) says \(want), but \(name)'s policy was edited — kept; doz net policy \(name) --preset \(want) replaces it")
                 }
             } else {
-                out.append("network \(cfg.networkName) → \(want) in \(DozerProject.fileName): nat and none are the VM's network device — \(remake)")
+                out.append("network \(cfg.networkName) → \(want) in \(DozableProject.fileName): nat and none are the VM's network device — \(remake)")
             }
         }
         if let a = project.account, a != (cfg.account ?? "none") {
-            out.append("account \(cfg.account ?? "none") → \(a) in \(DozerProject.fileName): doz account use \(name) \(a) applies it (from the next session)")
+            out.append("account \(cfg.account ?? "none") → \(a) in \(DozableProject.fileName): doz account use \(name) \(a) applies it (from the next session)")
         }
         return out
     }
 
-    func syncProject(_ project: DozerProject, file: URL, name: String) throws {
-        guard let cfg = SandboxConfig.read(g.dozerStore.configFile(name)) else { return }
+    func syncProject(_ project: DozableProject, file: URL, name: String) throws {
+        guard let cfg = SandboxConfig.read(g.dozableStore.configFile(name)) else { return }
         if let made = cfg.project, made != file.path, !g.quiet {
-            Out.stderr("[doz] \(name) was made from \(made), not this folder's \(DozerProject.fileName) — using it anyway\n")
+            Out.stderr("[doz] \(name) was made from \(made), not this folder's \(DozableProject.fileName) — using it anyway\n")
         }
         // 594 W12: what the file says differently from the sandbox, and WHEN that applies — said, and
         // applied where it can be now (a proxied network's preset, live).
@@ -813,18 +813,18 @@ struct Up: AsyncParsableCommand {
             if let v = project.agentSudo { s.agentSudo = v } else { s.clearAgentSudo = true }
             _ = try call(s, g)
             if !g.quiet && !g.json {
-                Out.stderr("[doz] agent_sudo \(project.agentSudo.map { $0 ? "true" : "false" } ?? "removed (the setting sandbox.agent_sudo decides)") in \(DozerProject.fileName) — it applies from the next session\n")
+                Out.stderr("[doz] agent_sudo \(project.agentSudo.map { $0 ? "true" : "false" } ?? "removed (the setting sandbox.agent_sudo decides)") in \(DozableProject.fileName) — it applies from the next session\n")
             }
         }
         // 599: a per-sandbox setting changed in the file → the sandbox's own value follows it.
-        for k in DozerProject.settingKeys where cfg.settings?[k.setting] != project.settings[k.setting] {
+        for k in DozableProject.settingKeys where cfg.settings?[k.setting] != project.settings[k.setting] {
             var s = HostRequest(.sandboxSettings, name: name)
             s.setting = k.setting
             if let v = project.settings[k.setting] { s.settingValue = v } else { s.clearSetting = true }
             _ = try call(s, g)
             if !g.quiet && !g.json {
-                let applies = DozerSettings.definition(k.setting)?.applies.note ?? ""
-                Out.stderr("[doz] \(k.key) \(project.settings[k.setting].map(\.plain) ?? "removed (the setting \(k.setting) decides)") in \(DozerProject.fileName) — \(applies)\n")
+                let applies = DozableSettings.definition(k.setting)?.applies.note ?? ""
+                Out.stderr("[doz] \(k.key) \(project.settings[k.setting].map(\.plain) ?? "removed (the setting \(k.setting) decides)") in \(DozableProject.fileName) — \(applies)\n")
             }
         }
         let mode = project.agentPrompt == nil ? nil : (project.agentPromptMode ?? "append")
@@ -837,6 +837,6 @@ struct Up: AsyncParsableCommand {
             r.clearPrompt = true
         }
         _ = try call(r, g)
-        if !g.quiet && !g.json { Out.stderr("[doz] agent_prompt changed in \(DozerProject.fileName) — it applies from the next session\n") }
+        if !g.quiet && !g.json { Out.stderr("[doz] agent_prompt changed in \(DozableProject.fileName) — it applies from the next session\n") }
     }
 }

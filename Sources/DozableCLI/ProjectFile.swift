@@ -4,13 +4,13 @@ import DozableKit
 import DozableHost
 
 /// 594 (D9) — READING `doz_project.yaml` (or, 599f, `doz_project.yml`). The model, the renderer and the
-/// whole-project check are `DozableHost.DozerProject` (shared with the dashboard's wizard, which `doz ui`
+/// whole-project check are `DozableHost.DozableProject` (shared with the dashboard's wizard, which `doz ui`
 /// hands this parser); Yams stays in the CLI's commands. The schema is CLOSED: an unknown key, a value of
 /// the wrong type or outside its rule is an error naming its line. No anchors or aliases, no multiple
 /// documents, 64 KiB at most.
-extension DozerProject {
+extension DozableProject {
     /// The project file in `directory`, if there is one (`find(in:)`; both spellings at once → Invalid).
-    static func load(_ url: URL) throws -> DozerProject {
+    static func load(_ url: URL) throws -> DozableProject {
         guard let data = FileManager.default.contents(atPath: url.path) else { throw Invalid(message: "\(url.path) cannot be read") }
         guard data.count <= maximumBytes else { throw Invalid(message: "\(url.path) is over 64 KiB") }
         guard let text = String(data: data, encoding: .utf8) else { throw Invalid(message: "\(url.path) is not UTF-8") }
@@ -18,7 +18,7 @@ extension DozerProject {
     }
 
     /// Parse and check a project file's text.
-    static func parse(_ text: String, file: String = fileName) throws -> DozerProject {
+    static func parse(_ text: String, file: String = fileName) throws -> DozableProject {
         func bad(_ node: Node?, _ what: String) -> Invalid {
             Invalid(message: "\(file)" + (node?.mark.map { " line \($0.line)" } ?? "") + ": " + what)
         }
@@ -65,7 +65,7 @@ extension DozerProject {
 
         var seen: Set<String> = []
         var name: String?, image: String?
-        var p = DozerProject(name: "", image: "")
+        var p = DozableProject(name: "", image: "")
         for (k, v) in map {
             guard case .scalar(let ks) = k else { throw bad(k, "a key is a plain name") }
             let key = ks.string
@@ -90,7 +90,7 @@ extension DozerProject {
             case "agent":
                 let s = try scalarString(v, key)
                 // 618: a tool's major or release too (opencode@1, opencode@2.0.28).
-                if let why = DozerProject.agentProblem(s) { throw bad(v, why) }
+                if let why = DozableProject.agentProblem(s) { throw bad(v, why) }
                 p.agent = s
             case "base":
                 let s = try scalarString(v, key)
@@ -105,7 +105,7 @@ extension DozerProject {
                 p.cpus = n
             case "memory":
                 let s = try scalarString(v, key)
-                guard let m = DozerImages.parseMemory(s), (256...262_144).contains(m) else { throw bad(v, "memory: a size like 2G, 512M or 2048 (MiB), 256 MiB – 256 GiB") }
+                guard let m = DozableImages.parseMemory(s), (256...262_144).contains(m) else { throw bad(v, "memory: a size like 2G, 512M or 2048 (MiB), 256 MiB – 256 GiB") }
                 p.memoryMiB = m
             case "network":
                 let s = try scalarString(v, key)
@@ -201,7 +201,7 @@ extension DozerProject {
                 p.keys = names
             default:
                 // 599: a per-sandbox setting, checked against the setting's own type.
-                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozerSettings.definition(sk.setting) {
+                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozableSettings.definition(sk.setting) {
                     let text: String
                     // YAML reads `off` as a boolean: only a boolean setting takes it as one (`clipboard: off` is the choice).
                     if d.type == .bool, let b = v.bool { text = b ? "true" : "false" } else { text = try scalarString(v, key) }

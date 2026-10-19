@@ -5,14 +5,14 @@ import DozableKit
 import Foundation
 
 // Anonymous usage statistics (`doz telemetry`), the optional sign-up (`doz signup`), and the hook every command
-// passes through (`UsageHook`, called by `DozerEntry`). What may be sent, and the switches, are in
+// passes through (`UsageHook`, called by `DozableEntry`). What may be sent, and the switches, are in
 // Sources/DozableHost/Usage.swift; a build from this repository sends nothing (`Usage.isOfficial` is false).
 
 /// The command a person ran, as doz names it — words of doz's own command tree only (aliases to their canonical
 /// name), never an argument: `doz start mybox` → `start`, `doz ui start --port 9` → `ui start`.
 enum UsageCommandName {
     static func resolve(_ args: [String]) -> String? {
-        var type: ParsableCommand.Type = DozerCommand.self
+        var type: ParsableCommand.Type = DozableCommand.self
         var path: [String] = []
         for w in UpdateHook.words(args) {
             guard let next = type.configuration.subcommands.first(where: { $0._commandName == w || $0.configuration.aliases.contains(w) }) else { break }
@@ -32,7 +32,7 @@ enum UsageCommandName {
                 walk(s, p)
             }
         }
-        walk(DozerCommand.self, [])
+        walk(DozableCommand.self, [])
         return out
     }
 }
@@ -107,12 +107,12 @@ struct UsageHook {
         let r = UsageRecorder(files: files)
         if exitCode != 0 { try? r.recordFailure(name, exitCode: exitCode) }
         if name == "onboard" && exitCode == 0 { try? r.recordOnboarding(via: "cli", step: "done", completed: true) }
-        let settings = DozerSettings.load(environment: env)
-        let ctx = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath, settings: settings, env: env)
+        let settings = DozableSettings.load(environment: env)
+        let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath, settings: settings, env: env)
         let store = UpdateHook.storeOf(args)
         if Self.noticeApplies(args), r.takeNotice() { Out.stderr(UsageRecorder.notice + "\n") }
         guard let id = try? files.id(),
-              let due = try? r.due(version: DozerCommand.version, channel: ctx.channel.rawValue, install: Self.install(ctx.method), id: id,
+              let due = try? r.due(version: DozableCommand.version, channel: ctx.channel.rawValue, install: Self.install(ctx.method), id: id,
                                    facts: { UsageStoreFacts.read(store, day: $0) }, machine: .current(),
                                    upgradeMode: settings.string(SettingKey.updatesMode) ?? "notify")
         else { return }
@@ -174,7 +174,7 @@ struct TelemetryShow: AsyncParsableCommand {
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {
-        let r = Self.report(store: g.dozerStore, flag: g.sendAnonymousUsageStats)
+        let r = Self.report(store: g.dozableStore, flag: g.sendAnonymousUsageStats)
         if g.json { Out.json(r); return }
         var out = "Usage statistics: \(r.on ? "on" : "off") — \(r.why)\n"
         out += "  official build:  \(r.official ? "yes" : "no — built from the open-source repository; it sends nothing")\n"
@@ -200,15 +200,15 @@ struct TelemetryShow: AsyncParsableCommand {
     }
 
     /// The report for this process (pure apart from reading the files and the store; it never sends, never records).
-    static func report(store: DozerStore, flag: Bool?, env: [String: String] = ProcessInfo.processInfo.environment,
+    static func report(store: DozableStore, flag: Bool?, env: [String: String] = ProcessInfo.processInfo.environment,
                        now: Date = Date()) -> TelemetryReport {
-        let settings = DozerSettings.load(environment: env)
+        let settings = DozableSettings.load(environment: env)
         let d = UsageRuntime.decide(env: env, settings: settings, flag: flag)
         let files = UsageFiles.current(env)
-        let ctx = UpdateContext.current(version: DozerCommand.version, executable: HostLauncher.executablePath, settings: settings, env: env)
+        let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath, settings: settings, env: env)
         let existing = files?.readID()
         let id = d.on ? ((try? files?.id()) ?? existing) : existing
-        let common = UsageCommon(id: id ?? "00000000-0000-0000-0000-000000000000", v: DozerCommand.version,
+        let common = UsageCommon(id: id ?? "00000000-0000-0000-0000-000000000000", v: DozableCommand.version,
                                  channel: ctx.channel.rawValue, install: UsageHook.install(ctx.method))
         let upgradeMode = settings.string(SettingKey.updatesMode) ?? "notify"
         let machine = UsageMachine.current()

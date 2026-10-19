@@ -46,7 +46,7 @@ final class ReleaseTests: XCTestCase {
         }
         XCTAssertEqual(ReleaseStamp.parse(" 0.12.0-rc.1\n"), "0.12.0-rc.1")
         // This test binary has no stamp beside it: the constant.
-        XCTAssertEqual(DozerCommand.version, DozerCommand.builtVersion)
+        XCTAssertEqual(DozableCommand.version, DozableCommand.builtVersion)
     }
 
     func testAHomebrewKegIsRecognisedAndNeverTakenForAMakeInstall() throws {
@@ -85,14 +85,14 @@ final class ReleaseTests: XCTestCase {
 
     func testUpgradeCheckWithNoHostSaysSoAndExitsZero() throws {
         let store = dir.appendingPathComponent("store")
-        let cmd = try DozerCommand.parseAsRoot(["host", "upgrade-check", "--store", store.path, "--json"])
+        let cmd = try DozableCommand.parseAsRoot(["host", "upgrade-check", "--store", store.path, "--json"])
         XCTAssertTrue(cmd is HostUpgradeCheck)
         XCTAssertFalse(FileManager.default.fileExists(atPath: store.path), "parsing makes nothing")
     }
 
     /// A host whose program an upgrade removed refuses to boot, plainly, and says so in its status.
     func testAHostWhoseProgramIsGoneRefusesBootsPlainly() async throws {
-        let store = DozerStore(root: dir.appendingPathComponent("store"))
+        let store = DozableStore(root: dir.appendingPathComponent("store"))
         let core = HostCore(store: store, readOnly: false, version: "test",
                             services: .forHost(environment: ["DOZ_TEST_CREDENTIALS": "memory"]))
         await core.load()

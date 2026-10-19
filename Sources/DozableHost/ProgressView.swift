@@ -374,7 +374,7 @@ public final class ProgressTerminal {
     public var hasBlock: Bool { blockHeight > 0 }
 }
 
-extension DozerSettings {
+extension DozableSettings {
     /// 593: `ui.progress` for this process — `flag` (the CLI's --progress: auto → animated), else
     /// $DOZ_PROGRESS, else the file, else animated.
     public func progressMode(flag: String? = nil) -> ProgressMode {

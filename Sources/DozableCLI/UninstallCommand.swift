@@ -74,7 +74,7 @@ struct Uninstall: AsyncParsableCommand {
 
     func run() async throws {
         let fm = FileManager.default
-        let store = g.dozerStore
+        let store = g.dozableStore
         var items: [Item] = []
         var kept: [String] = []
         let home = fm.homeDirectoryForCurrentUser.standardizedFileURL.path
@@ -90,11 +90,11 @@ struct Uninstall: AsyncParsableCommand {
             items.append(Item(path: store.root.path, what: "the store: \(n) sandbox\(n == 1 ? "" : "es"), every image, kernel and restore point, the host's log and metrics"))
         }
         // The settings.
-        let configDir = DozerSettings.fileURL()?.deletingLastPathComponent()
+        let configDir = DozableSettings.fileURL()?.deletingLastPathComponent()
         if keepConfig {
             kept.append("the settings \(configDir?.path ?? "(none)") (--keep-config)")
         } else if let dir = configDir, fm.fileExists(atPath: dir.path) {
-            guard dir.lastPathComponent == DozerSettings.directoryName else { throw fail(HostError(.invalid, "refusing to remove \(dir.path)"), g) }
+            guard dir.lastPathComponent == DozableSettings.directoryName else { throw fail(HostError(.invalid, "refusing to remove \(dir.path)"), g) }
             items.append(Item(path: dir.path, what: "the settings: doz.toml, agent-prompt.md"))
         }
         // The installed doz — unless Homebrew installed it (then brew removes it, and says so below).
@@ -168,6 +168,6 @@ struct Uninstall: AsyncParsableCommand {
                 Out.stdout("Dozable is removed from this Mac. (To install again: brew install \(Distribution.tap)/doz — or make install-cli in a source checkout — then doz onboard.)\n")
             }
         }
-        if failed { throw ExitCode(DozerExit.failed) }
+        if failed { throw ExitCode(DozableExit.failed) }
     }
 }

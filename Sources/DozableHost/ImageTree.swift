@@ -170,7 +170,7 @@ public struct ImageTree: Codable, Equatable, Sendable {
     }
 
     /// Measure the store (every disk's extent map — milliseconds to about a second).
-    public static func measure(store: DozerStore) throws -> ImageTree {
+    public static func measure(store: DozableStore) throws -> ImageTree {
         guard FileManager.default.fileExists(atPath: store.root.path) else { return ImageTree(disks: []) }
         let report = try DiskAccounting.measure(store: store.root)
         let customs = store.layout("_").customImages()

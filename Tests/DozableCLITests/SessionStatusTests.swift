@@ -57,7 +57,7 @@ final class SessionStatusTests: XCTestCase {
     }
 
     func testChangesAreToldOnceAndKept() async throws {
-        let core = HostCore(store: DozerStore(root: root), readOnly: true, version: "t")
+        let core = HostCore(store: DozableStore(root: root), readOnly: true, version: "t")
         let events = core.subscribe()
         let collected = Task { () -> [HostEvent] in
             var out: [HostEvent] = []
@@ -95,7 +95,7 @@ final class SessionStatusTests: XCTestCase {
     }
 
     func testSessionRowsTakeTheGuestsWordForLiveSessionsAndTheHostsForTheRest() async {
-        let core = HostCore(store: DozerStore(root: root), readOnly: true, version: "t")
+        let core = HostCore(store: DozableStore(root: root), readOnly: true, version: "t")
         await core.setStatus("box", session: "gone", status("gone", .done, at: 5))
         await core.setStatus("box", session: "main", status("main", .working, at: 5))
         let live = SessionInfo.parseList("main\tpid=1\tsize=80x24\tclients=0\tscreen=primary\thistory=0\tbytes=0\tstatus=state=working:app=claude-code\tstatus_age=3\tclaude\n"

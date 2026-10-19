@@ -12,7 +12,7 @@ extension HostCore {
 
     /// What the files do not say: phases, what new sandboxes get, what is being prepared, the kernels, …
     func resourceFacts() async -> ResourceFacts {
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         var sbx: [ResourceFacts.SandboxFact] = []
         for m in managed.values {
             let phase = await effectivePhase(m)
@@ -43,7 +43,7 @@ extension HostCore {
                                   unusedDays: settings.int(SettingKey.resourcesUnusedDays),
                                   preparationSeconds: PreparationRecord.all(store).mapValues(\.seconds),
                                   hostFootprintBytes: readOnly ? nil : Resources.footprint(), network: network,
-                                  settingsFile: DozerSettings.fileURL(), accounts: accountStore.load().accounts.map(\.name).sorted(),
+                                  settingsFile: DozableSettings.fileURL(), accounts: accountStore.load().accounts.map(\.name).sorted(),
                                   executable: HostLauncher.executablePath)
         // 596: Apple's container tool, measured off the actor (its data folder can be gigabytes).
         facts.appleContainer = await Task.detached { AppleContainerFacts.current() }.value
@@ -106,7 +106,7 @@ extension HostCore {
             note(nil, "resources: deleted \(done.deleted.joined(separator: ", "))"
                  + (done.refused.isEmpty ? "" : "; refused \(done.refused.map(\.id).joined(separator: ", "))")
                  + (done.failed.isEmpty ? "" : "; failed \(done.failed.map(\.id).joined(separator: ", "))")
-                 + " — freed \(DozerImages.formatBytes(done.freedBytes))")
+                 + " — freed \(DozableImages.formatBytes(done.freedBytes))")
             return done
         }
     }
@@ -118,7 +118,7 @@ extension HostCore {
         guard let k = r.kernel, k == "pinned" || (k.hasPrefix("kernel:") && Resources.isValidID(k)) else {
             throw HostError(.invalid, "which kernel? (kernel:<version> as doz resources lists it, or pinned)")
         }
-        let settings = DozerSettings.load()
+        let settings = DozableSettings.load()
         guard settings.resolve(SettingKey.kernelPath).source != .env else {
             throw HostError(.invalid, "DOZ_KERNEL sets the kernel in this host's environment — change it there")
         }

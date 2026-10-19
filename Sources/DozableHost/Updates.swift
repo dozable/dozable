@@ -225,7 +225,7 @@ public struct UpdateState: Codable, Equatable, Sendable {
     public init() {}
 
     public static func url(_ env: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
-        DozerSettings.fileURL(environment: env)?.deletingLastPathComponent().appendingPathComponent("updates.json")
+        DozableSettings.fileURL(environment: env)?.deletingLastPathComponent().appendingPathComponent("updates.json")
     }
 
     public static func load(_ url: URL?) -> UpdateState {
@@ -286,7 +286,7 @@ public struct UpdateContext: Sendable {
     /// From this process: settings (`updates.mode`, `updates.channel` — a Homebrew install's formula decides the channel
     /// while the setting is not set), the executable (`DOZ_TEST_UPDATE_EXECUTABLE` pretends another path), the feed
     /// (`DOZ_TEST_UPDATE_FEED`), the key (`DOZ_TEST_UPDATE_KEY`).
-    public static func current(version: String, executable: String, settings: DozerSettings = .load(),
+    public static func current(version: String, executable: String, settings: DozableSettings = .load(),
                                env: [String: String] = ProcessInfo.processInfo.environment) -> UpdateContext {
         let mode = settings.string(SettingKey.updatesMode).flatMap(UpdateMode.init(rawValue:)) ?? .notify
         let exe = env["DOZ_TEST_UPDATE_EXECUTABLE"].flatMap { $0.isEmpty ? nil : $0 } ?? executable

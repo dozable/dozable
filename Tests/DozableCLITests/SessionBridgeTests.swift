@@ -174,10 +174,10 @@ final class SessionBridgeTests: XCTestCase {
             XCTAssertTrue(GuestCommand.tmuxConf.contains(line), line)
         }
         XCTAssertTrue(GuestCommand.tmuxPrepare.hasSuffix("then echo tmux=yes; else echo tmux=no; fi"))
-        XCTAssertTrue(AgentImages.devBaselinePackages.contains("tmux") && DozerImages.labPackages.contains("tmux"))
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.tmux))
-        XCTAssertEqual(DozerSettings.definition(SettingKey.tmux)?.defaultValue, .bool(false), "off by default")
-        let p = try DozerProject.parse("version: 1\nname: p\nimage: lab\ntmux: true\n")
+        XCTAssertTrue(AgentImages.devBaselinePackages.contains("tmux") && DozableImages.labPackages.contains("tmux"))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.tmux))
+        XCTAssertEqual(DozableSettings.definition(SettingKey.tmux)?.defaultValue, .bool(false), "off by default")
+        let p = try DozableProject.parse("version: 1\nname: p\nimage: lab\ntmux: true\n")
         XCTAssertEqual(p.settings[SettingKey.tmux], .bool(true))
         XCTAssertTrue(GuestCommand.openShim.contains("[ -n \"${TMUX:-}\" ]"), "inside tmux the marker goes to the session's own terminal")
     }
@@ -185,8 +185,8 @@ final class SessionBridgeTests: XCTestCase {
     // MARK: settings
 
     func testTheClipboardIsAPerSandboxSetting() throws {
-        XCTAssertTrue(DozerSettings.perSandbox.contains(SettingKey.clipboard))
-        let d = try XCTUnwrap(DozerSettings.definition(SettingKey.clipboard))
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.clipboard))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.clipboard))
         XCTAssertEqual(d.defaultValue, .string("write"))
         XCTAssertThrowsError(try d.parse("maybe"))
         XCTAssertThrowsError(try HostCore.checkedSandboxSettings([SettingKey.theme: .string("dark")]))
@@ -195,18 +195,18 @@ final class SessionBridgeTests: XCTestCase {
 
     func testTheSandboxValueWinsOverTheSetting() throws {
         var cfg = SandboxConfig(name: "s", image: "lab", spec: SandboxSpec(name: "s", storeRoot: URL(fileURLWithPath: "/tmp/dzb")), workspace: nil)
-        let empty = DozerSettings(text: "")
+        let empty = DozableSettings(text: "")
         XCTAssertEqual(HostCore.sandboxValue(cfg, SettingKey.clipboard, settings: empty), .string("write"))
         cfg.settings = [SettingKey.clipboard: .string("off")]
         XCTAssertEqual(HostCore.sandboxValue(cfg, SettingKey.clipboard, settings: empty), .string("off"))
     }
 
     func testTheProjectFileTakesClipboard() throws {
-        let p = try DozerProject.parse("version: 1\nname: p\nimage: lab\nclipboard: off\n")
+        let p = try DozableProject.parse("version: 1\nname: p\nimage: lab\nclipboard: off\n")
         XCTAssertEqual(p.settings[SettingKey.clipboard], .string("off"))
         XCTAssertEqual(p.createOptions(folder: URL(fileURLWithPath: "/tmp/p"), file: URL(fileURLWithPath: "/tmp/p/doz_project.yaml")).settings,
                        [SettingKey.clipboard: .string("off")])
-        XCTAssertThrowsError(try DozerProject.parse("version: 1\nname: p\nimage: lab\nclipboard: maybe\n"))
-        XCTAssertTrue(DozerProject(name: "p", image: "lab").render().contains("# clipboard: write"))
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nimage: lab\nclipboard: maybe\n"))
+        XCTAssertTrue(DozableProject(name: "p", image: "lab").render().contains("# clipboard: write"))
     }
 }

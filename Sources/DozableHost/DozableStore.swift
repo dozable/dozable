@@ -13,20 +13,20 @@ import DozableKit
 ///     <store>/sandboxes/<name>/doz.json   what `doz create` said (SandboxConfig)
 ///     <store>/sandboxes/<name>/terminal-layout.json   593: the web UI's panes (TerminalLayout)
 ///     …and everything `StoreLayout` documents.
-public struct DozerStore: Sendable, Equatable {
+public struct DozableStore: Sendable, Equatable {
     public let root: URL
 
     public init(root: URL) { self.root = root.standardizedFileURL }
 
     /// `--store`, else `$DOZ_STORE`, else the settings file's `store.path`, else
     /// `~/Library/Application Support/dozer-sandbox`.
-    public static func resolve(_ option: String?, environment: [String: String] = ProcessInfo.processInfo.environment) -> DozerStore {
-        if let o = option, !o.isEmpty { return DozerStore(root: URL(fileURLWithPath: (o as NSString).expandingTildeInPath)) }
-        if let e = environment["DOZ_STORE"], !e.isEmpty { return DozerStore(root: URL(fileURLWithPath: (e as NSString).expandingTildeInPath)) }
-        if let f = DozerSettings.load(environment: environment).fileValues[SettingKey.storePath], case .string(let p) = f, !p.isEmpty {
-            return DozerStore(root: URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
+    public static func resolve(_ option: String?, environment: [String: String] = ProcessInfo.processInfo.environment) -> DozableStore {
+        if let o = option, !o.isEmpty { return DozableStore(root: URL(fileURLWithPath: (o as NSString).expandingTildeInPath)) }
+        if let e = environment["DOZ_STORE"], !e.isEmpty { return DozableStore(root: URL(fileURLWithPath: (e as NSString).expandingTildeInPath)) }
+        if let f = DozableSettings.load(environment: environment).fileValues[SettingKey.storePath], case .string(let p) = f, !p.isEmpty {
+            return DozableStore(root: URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
         }
-        return DozerStore(root: FileManager.default.homeDirectoryForCurrentUser
+        return DozableStore(root: FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/dozer-sandbox"))
     }
 
@@ -118,7 +118,7 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     public var agentSudo: Bool?
     /// 596: the Dockerfile its image's base was built from (absolute), when it has one.
     public var dockerfile: String?
-    /// 599: this sandbox's own values of the per-sandbox settings (`DozerSettings.perSandbox`: the
+    /// 599: this sandbox's own values of the per-sandbox settings (`DozableSettings.perSandbox`: the
     /// clipboard and browser bridges, tmux) — a key absent follows the setting. (`sandbox.agent_sudo`
     /// keeps its own field above.)
     public var settings: [String: TOMLValue]?
@@ -181,11 +181,11 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     public var imageChoice: ImageChoice? { spec.imageSpec.flatMap { ImageChoice.parse($0.name) } ?? ImageChoice.parse(image) }
 
     /// The network, as the CLI names it.
-    public var networkName: String { DozerImages.networkName(spec.network) }
+    public var networkName: String { DozableImages.networkName(spec.network) }
 }
 
 /// The images a sandbox can be created from, and the specs they make.
-public enum DozerImages {
+public enum DozableImages {
     public static let builtIn = ["lab", "claude-code", "pi", "codex"]
     /// The lab's apk packages (Alpine 3.20).
     /// 599 (594.B3): tmux too (sessions.tmux).
@@ -234,10 +234,10 @@ public enum DozerImages {
     /// (`defaults.cpus`, `images.<image>.memory_mib` / `.network`, …), then the defaults.
     /// 594: `purpose` — an agent image's version: a create gets the image already prepared (the newest
     /// for this build), a preparation the version the settings name (`AgentVersions.spec`).
-    public static func spec(name: String, options o: CreateOptions, store: DozerStore,
+    public static func spec(name: String, options o: CreateOptions, store: DozableStore,
                             environment env: [String: String] = ProcessInfo.processInfo.environment,
                             purpose: AgentVersions.Purpose = .create) throws -> (SandboxSpec, String) {
-        let settings = DozerSettings.load(environment: env)
+        let settings = DozableSettings.load(environment: env)
         let kernelPath = settings.string(SettingKey.kernelPath).map { ($0 as NSString).expandingTildeInPath }
         let kernelCache = settings.string(SettingKey.kernelCache).map { URL(fileURLWithPath: ($0 as NSString).expandingTildeInPath) }
         var shares: [Share] = []
@@ -263,7 +263,7 @@ public enum DozerImages {
             imageSpec = c.imageSpec
             imageName = "custom:\(c.name)"
         }
-        let section = DozerSettings.imageSection(imageSpecName: imageSpec?.name)
+        let section = DozableSettings.imageSection(imageSpecName: imageSpec?.name)
         var network = try networkMode(o.network ?? settings.string(SettingKey.network(section)) ?? defaultNetwork(image, imageSpec: imageSpec))
         let catalogueBase = imageSpec.flatMap({ ImageChoice.parse($0.name) }).flatMap({ BaseCatalogue.base($0.base) })
         if case .proxied(let p) = network, let preset = p.preset, ["locked", "agent", "open"].contains(preset) {
@@ -312,7 +312,7 @@ public enum DozerImages {
                                cpus: o.cpus ?? settings.int(SettingKey.cpus),
                                memoryMiB: o.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section))), rootfsMiB: 1024,
                                // 594: fd, as in the agent images (tools an agent looks for).
-                               bakePackages: imageSpec == nil && customKey == nil ? DozerImages.labPackages : [],
+                               bakePackages: imageSpec == nil && customKey == nil ? DozableImages.labPackages : [],
                                shares: shares, subnet: network == .nat ? subnet : nil,
                                imageSpec: imageSpec, customImage: customKey)
         spec.network = network
