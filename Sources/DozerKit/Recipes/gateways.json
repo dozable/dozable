@@ -32,7 +32,8 @@
       "keys_page": "https://vercel.com/d?to=%2F%5Bteam%5D%2F%7E%2Fai-gateway%2Fapi-keys&title=AI+Gateway+API+Keys",
       "model_id": "{creator}/{name}",
       "source": "https://vercel.com/docs/ai-gateway/sdks-and-apis",
-      "checked": "2026-10-12"
+      "checked": "2026-10-12",
+      "published": false
     }
   ]
 }

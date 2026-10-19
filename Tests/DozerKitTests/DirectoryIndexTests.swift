@@ -18,14 +18,25 @@ final class DirectoryIndexTests: XCTestCase {
         XCTAssertEqual(a.entries.map(key), a.entries.map(key).sorted())
     }
 
-    func testEveryRecipeKnownProviderAndBaseIsThere() {
+    func testEveryPublishedRecipeKnownProviderAndBaseIsThere() {
         let a = DirectoryIndex.build(version: "0.34.0")
-        for r in AgentRecipes.all {
+        // 629: the published recipes, every tag but an unpublished gateway's, the published gateways.
+        let unpublishedGatewayTags = Gateways.all.filter { !$0.isPublished }.count
+        for r in AgentRecipes.published {
             let e = a.entries.first { $0.kind == "agent" && $0.id == r.id }
             XCTAssertEqual(e?.status, "supported", r.id)
             XCTAssertEqual(e?.tryCommand, "doz try \(AgentRef.typed(r))", "618: a family member by the name that means it")
-            XCTAssertEqual(e?.tags.count, CapabilityTags.all.count, "every tag, at its level — a no is a fact too")
-            XCTAssertEqual(e?.gateways.count, Gateways.all.count)
+            XCTAssertEqual(e?.tags.count, CapabilityTags.all.count - unpublishedGatewayTags, "every tag, at its level — a no is a fact too")
+            XCTAssertEqual(e?.gateways.count, Gateways.published.count)
+        }
+        for r in AgentRecipes.all where !r.isPublished {
+            XCTAssertFalse(a.entries.contains { $0.kind == "agent" && $0.id == r.id }, "629: \(r.id) is unpublished")
+        }
+        XCTAssertFalse(a.entries.contains { $0.kind == "provider" && $0.id == "vercel-ai-gateway" }, "629: an unpublished gateway")
+        // Every recipe, when asked for (the index of everything this build knows — what the rest of this test reads).
+        let every = DirectoryIndex.build(version: "0.34.0", recipes: AgentRecipes.all)
+        for r in AgentRecipes.all {
+            XCTAssertEqual(every.entries.first { $0.kind == "agent" && $0.id == r.id }?.status, "supported", r.id)
         }
         for k in KnownThings.all {
             let e = a.entries.first { $0.id == k.id }
@@ -33,9 +44,9 @@ final class DirectoryIndexTests: XCTestCase {
             XCTAssertNotNil(e?.reason)
             XCTAssertNil(e?.tryCommand)
         }
-        for p in KeyProviders.all { XCTAssertTrue(a.entries.contains { $0.kind == "provider" && $0.id == p.id }, p.id) }
+        for p in KeyProviders.all where ModelSources.isPublished(p.id) { XCTAssertTrue(a.entries.contains { $0.kind == "provider" && $0.id == p.id }, p.id) }
         for b in BaseCatalogue.all { XCTAssertTrue(a.entries.contains { $0.kind == "base" && $0.id == b.id }, b.id) }
-        let grok = a.entries.first { $0.id == "grok" }!
+        let grok = every.entries.first { $0.id == "grok" }!
         XCTAssertEqual(grok.reach?.excluded.contains("auth.x.ai"), true)
         XCTAssertEqual(grok.keys, [DirectoryIndex.KeyRef(provider: "xai", accounts: ["key"])])
         XCTAssertEqual(grok.auth.first?.keysPage, "https://console.x.ai/")
@@ -80,7 +91,7 @@ final class DirectoryIndexTests: XCTestCase {
     /// 617: every agent carries its mark (a website draws it from `d`, or fetches `mono` beside the index); providers
     /// with a vendor carry the vendor's; a base none.
     func testEveryAgentCarriesItsMark() throws {
-        let i = DirectoryIndex.build(version: "0.0.0")
+        let i = DirectoryIndex.build(version: "0.0.0", recipes: AgentRecipes.all)
         for e in i.entries where e.kind == "agent" {
             let m = try XCTUnwrap(e.icon, e.id)
             XCTAssertFalse(m.d.isEmpty, e.id)

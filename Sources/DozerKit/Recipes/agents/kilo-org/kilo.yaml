@@ -254,6 +254,7 @@ capabilities:
     checked: '2026-10-14'
 - type: com.dozersandbox/directory@1
   config:
+    published: false
     kind: coding-agent
     categories:
     - coding-agent

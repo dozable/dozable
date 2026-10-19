@@ -11,6 +11,10 @@ import XCTest
 /// op's three outputs, `doz try`'s defaults, naming, card and exit choice, the stoppable keyboard thread, `doz search`
 /// and the directory index — without a VM, a real keychain or the network.
 final class KitchenTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     private var root: URL!
     let keychain = FakeKeychain()
 
@@ -355,6 +359,7 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(Set(ids([], tags: ["api-key"])), Set(AgentRecipes.all.filter { $0.hasTag("api-key") }.map { "agent:\($0.id)" }))
         XCTAssertEqual(Set(ids([], tags: ["multi-vendor-models"], level: "any")), Set(AgentRecipes.all.map { "agent:\($0.id)" }),
                        "every recipe has every tag at some level")
+
         // Limited: a recipe with no musl build, asked for Alpine.
         var r = try XCTUnwrap(AgentRecipes.recipe("grok"))
         r.id = "noglibc-agent"

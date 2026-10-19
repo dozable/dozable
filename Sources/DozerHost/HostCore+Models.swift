@@ -11,7 +11,8 @@ extension HostCore {
             guard ModelSources.ids.contains(s) else { throw HostError(.invalid, "models: \(s) is not a provider or gateway (\(ModelSources.ids.joined(separator: ", ")))") }
             sources = [s]
         } else {
-            sources = ModelSources.ids
+            // 629: every PUBLISHED source (an unpublished gateway's list is read only when asked for by name).
+            sources = ModelSources.publishedIds
         }
         if modelListFetcher.read != nil {
             let records = ModelLists.all(store)

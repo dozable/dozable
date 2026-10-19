@@ -82,7 +82,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         return current.string(key)
     }
 
-    public func report() -> SettingsReport { current.report(flags: flags) }
+    public func report() -> SettingsReport { current.report(flags: flags, offered: true) }   // 629: the published agents' settings
 
     /// Apply one change: refused when the UI may not set that key, or the environment or a flag sets
     /// it here, or the file does not parse (it is the person's — never overwritten).
@@ -105,7 +105,7 @@ public final class WebSettingsStore: @unchecked Sendable {
             throw HostError(.invalid, "\(d.key) can be turned on only from a terminal: doz config set \(d.key) true")
         }
         do {
-            return try s.writing(d.key, change.value).report(flags: flags)
+            return try s.writing(d.key, change.value).report(flags: flags, offered: true)
         } catch let e as SettingsError {
             throw HostError(.failed, e.message)
         }
@@ -123,7 +123,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         if r.source == .flag { throw HostError(.invalidPhase, "\(d.key) is set on the command line of this doz ui") }
         if let e = s.fileError { throw HostError(.invalidPhase, "\(e) — fix it (or remove it) first; the UI does not overwrite it") }
         do {
-            return try s.writing(d.key, .string(path)).report(flags: flags)
+            return try s.writing(d.key, .string(path)).report(flags: flags, offered: true)
         } catch let e as SettingsError {
             throw HostError(.failed, e.message)
         }
@@ -372,10 +372,11 @@ public struct WebOnboardingConfig: Equatable, Sendable {
         guard Set(d.keys).isSuperset(of: ["defaultImage", "account"]), Set(d.keys).isSubset(of: ["defaultImage", "account", "access", "ignoreMode"]) else {
             throw WebAction.Invalid("exactly defaultImage and account (and access, ignoreMode)")
         }
-        // 617: every agent this build has a recipe for (its own default image: `grok` is Debian · Grok Build).
+        // 617: every agent this build has a recipe for (its own default image: `grok` is Debian · Grok Build). 629: an
+        // unpublished one is still ACCEPTED (a stored value comes back here); only the published ones are offered.
         let images = ["lab"] + AgentKind.allCases.filter { $0 != .none }.map(\.rawValue)
         guard let i = d["defaultImage"] as? String, images.contains(i) else {
-            throw WebAction.Invalid("defaultImage: " + images.joined(separator: ", "))
+            throw WebAction.Invalid("defaultImage: " + (["lab"] + AgentKind.published.filter { $0 != .none }.map(\.rawValue)).joined(separator: ", "))
         }
         guard let a = d["account"] as? String, Onboarding.Account(rawValue: a) != nil else {
             throw WebAction.Invalid("account: \(Onboarding.Account.allCases.map(\.rawValue).joined(separator: ", "))")

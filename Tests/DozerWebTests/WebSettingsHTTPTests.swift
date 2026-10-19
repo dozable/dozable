@@ -89,7 +89,8 @@ final class WebSettingsHTTPTests: XCTestCase {
         let rep = try report(r)
         XCTAssertEqual(rep.path, file.path)
         XCTAssertFalse(rep.exists)
-        XCTAssertEqual(rep.settings.map(\.key), DozerSettings.schema.map(\.key))
+        // 629: an unpublished agent's own settings are listed only once one of them is set.
+        XCTAssertEqual(rep.settings.map(\.key), DozerSettings.schema.filter { $0.agent.map(AgentRecipes.isPublished) ?? true }.map(\.key))
         XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
         // The projects folder reports the effective default (the old folder when this Mac has it).
         XCTAssertEqual(try row(rep, SettingKey.projectsDir).value, .string(Workspace.unsetProjectsDir()))

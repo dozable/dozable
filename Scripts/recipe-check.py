@@ -22,7 +22,9 @@
 # each step's duration, the states seen and the failures; --summary FILE appends a markdown table.
 #
 # Usage: recipe-check.py [--store DIR] [--report FILE] [--summary FILE] [--doz BIN] [--versions pin|latest]
-#                        [--selections all|default|SOURCE…] ID…|all
+#                        [--selections all|default|SOURCE…] [--list] ID…|all
+#   all         the PUBLISHED recipes (629: a recipe whose directory@1 says `published: false` runs only when named;
+#               Scripts/recipes_published.py reads the flag). --list prints what the names select and exits.
 #   --store     the scratch root (default /tmp/doz-recipe-check; keep it short — the host's socket path must fit in 104
 #               bytes). Prepared images are kept there between runs; sandboxes never are.
 #   --versions  pin (default): each recipe agent at its pinned release; the built-in three (Claude Code, pi, Codex)
@@ -40,6 +42,9 @@ import argparse, datetime, glob, json, os, pty, re, select, shlex, shutil, signa
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 COMPILED = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+# 629: which recipes are published — read from the compiled recipes by the ONE helper (never a list kept here).
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import recipes_published  # noqa: E402
 # The fake keys (never real ones) and how each provider's account is added.
 KEYS = {
     "xai": "xai-FAKE-RECIPECHECK-0123456789abcdef",
@@ -756,14 +761,15 @@ def summary_markdown(report):
 
 
 # What makes every recipe's check stale: the harness, the stand-in, the shared recipe data, the format.
-SHARED = ("Scripts/recipe-check.py", "Scripts/fake-provider.py", "Scripts/fake-provider-up.sh", ".github/workflows/recipes.yml",
+SHARED = ("Scripts/recipe-check.py", "Scripts/recipes_published.py", "Scripts/fake-provider.py", "Scripts/fake-provider-up.sh", ".github/workflows/recipes.yml",
           "Sources/DozerKit/Recipes/providers.json", "Sources/DozerKit/Recipes/gateways.json", "Sources/DozerKit/Recipes/tags.json",
           "schema/dozer-recipe-2.schema.json")
 
 
 def changed_recipes(base, known):
     """The recipes a change since BASE touches: `all` when something they share changed, else each recipe whose
-    YAML, compiled JSON or network profile changed (a new recipe included; a removed one left out)."""
+    YAML, compiled JSON or network profile changed (a new recipe included; a removed one left out). 629: KNOWN is the
+    published recipes, so an unpublished one's change checks nothing (`all` means the published ones)."""
     p = subprocess.run(["git", "-C", REPO, "diff", "--name-only", base + "...HEAD"], capture_output=True, text=True)
     if p.returncode != 0:
         p = subprocess.run(["git", "-C", REPO, "diff", "--name-only", base, "HEAD"], capture_output=True, text=True)
@@ -829,21 +835,27 @@ def main():
                     help="a models@1 recipe: all (default) | default | a list of sources (\"openai openrouter\")")
     ap.add_argument("--changed", metavar="BASE", help="print the recipes a change since BASE touches (all, or ids, or nothing) and exit")
     ap.add_argument("--prune-days", type=int, metavar="N", help="remove prepared images baked more than N days ago from the store, then exit")
+    ap.add_argument("--list", action="store_true", help="print the recipes the names select (all = the published ones) and exit")
     ap.add_argument("recipes", nargs="*")
     a = ap.parse_args()
     known = sorted(os.path.basename(p)[:-5] for p in glob.glob(os.path.join(COMPILED, "*.json")))
+    # 629: `all` and --changed are the PUBLISHED recipes; an unpublished one runs only when named (RECIPES=grok).
+    published = recipes_published.published(COMPILED)
     if a.changed:
-        print(" ".join(changed_recipes(a.changed, known)))
+        print(" ".join(changed_recipes(a.changed, published)))
         return 0
     if a.prune_days is not None:
         return prune(Harness(a), a.prune_days)
     wanted = [w for x in a.recipes for w in x.replace(",", " ").split()]
     if not wanted:
         ap.error("name the recipes (or all): " + " ".join(known))
-    ids = known if wanted == ["all"] else wanted
+    ids = published if wanted == ["all"] else wanted
     unknown = [i for i in ids if i not in known]
     if unknown:
         ap.error("no such recipe: %s (known: %s)" % (", ".join(unknown), " ".join(known)))
+    if a.list:
+        print(" ".join(ids))
+        return 0
     if not os.path.exists(a.doz):
         ap.error("no doz at %s (make cli)" % a.doz)
     recipes = [Recipe(os.path.join(COMPILED, i + ".json")) for i in ids]

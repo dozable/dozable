@@ -127,6 +127,11 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// 618 (owner: "make sure there is a way the user can chose an earlier major version"): the major release line this
     /// recipe is of a family whose majors are separate recipes (`com.dozersandbox/family@1`; AgentRef.swift). nil: none.
     public var family: Family? = nil
+    /// 629 (owner: "withdraw most of the recipes … set to 'unpublished'"; `directory@1` `published`): false — kept and
+    /// valid, every stored name of it still served (a sandbox, its image, a rebuild, its settings), but offered nowhere a
+    /// person picks a tool and refused for a NEW sandbox by name (`AgentRef.resolve`). nil: published.
+    public var published: Bool? = nil
+    public var isPublished: Bool { published != false || AgentRecipes.everythingPublishedForTests }
 
     public struct Family: Codable, Sendable, Equatable {
         /// What a person types (`opencode`): the recommended major's recipe.
@@ -179,7 +184,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case lifecycle, icon, description, schema, id, title, publisher, licence, homepage, aliases, builtin, platforms, limits, install, launch, state, credentials,
              network, status, prompt, resume, verify, smoke, terms, checked, settings, auth, gateways, tags, models, categories, guide
-        case catalogKind = "catalog_kind", ports
+        case catalogKind = "catalog_kind", ports, published
         case defaultBase = "default_base", resumeCheck = "resume_check"
     }
 
@@ -903,6 +908,11 @@ public enum CapabilityTags {
 }
 
 extension AgentRecipe {
+    /// 629: `capabilityTags` without an unpublished gateway's (`gateway:vercel-ai-gateway`) — what a person is shown.
+    public var shownTags: [RecipeTag] {
+        capabilityTags.filter { t in !t.tag.hasPrefix("gateway:") || ModelSources.isPublished(String(t.tag.dropFirst("gateway:".count))) }
+    }
+
     /// Every tag of the vocabulary for this recipe, in the vocabulary's order — derived from its data, or declared.
     public var capabilityTags: [RecipeTag] {
         let rank = ["documented": 0, "verified": 1, "experimental": 2, "no": 3, "unknown": 4]
@@ -960,9 +970,13 @@ public struct Gateway: Codable, Sendable, Equatable {
     public var modelId: String
     public var source: String
     public var checked: String
+    /// 629: false — unpublished: still the catalogue (every recipe's gateways@1 entry, an existing account and sandbox of
+    /// it), but offered nowhere a person chooses a gateway, and refused for a new use. nil: published.
+    public var published: Bool? = nil
+    public var isPublished: Bool { published != false || AgentRecipes.everythingPublishedForTests }
 
     enum CodingKeys: String, CodingKey {
-        case id, title, homepage, hosts, endpoints, source, checked
+        case id, title, homepage, hosts, endpoints, source, checked, published
         case keyEnv = "key_env", keysPage = "keys_page", modelId = "model_id"
     }
 
@@ -992,6 +1006,9 @@ public enum Gateways {
     }()
 
     public static func gateway(_ id: String) -> Gateway? { all.first { $0.id == id } }
+
+    /// 629: the gateways a person is offered (`all` stays the catalogue every recipe describes).
+    public static var published: [Gateway] { all.filter(\.isPublished) }
 
     public static func validate(_ gateways: [Gateway]) throws {
         var ids = Set<String>()
@@ -1077,6 +1094,19 @@ public enum AgentRecipes {
 
     public static func recipe(_ id: String) -> AgentRecipe? { all.first { $0.id == id } }
 
+    /// 629: the recipes offered to a person — every list where one is picked (Quick try, New Sandbox, `doz try`,
+    /// `doz search`, onboarding, the settings listed) and the per-recipe work (recipe-check, currency, the hourly look-up).
+    /// `all` stays the validator and the resolver of every STORED name.
+    public static var published: [AgentRecipe] { all.filter(\.isPublished) }
+
+    /// 629: false only for a recipe this build has and does not offer (an unknown id is not "unpublished").
+    public static func isPublished(_ id: String) -> Bool { recipe(id)?.isPublished ?? true }
+
+    /// 629: why a NEW sandbox of this recipe is refused (nil: it is offered) — said plainly, with where to look.
+    public static func unpublishedProblem(_ r: AgentRecipe) -> String? {
+        r.isPublished ? nil : "\(r.title) is unpublished in this version of Dozable — see doz search for the tools offered now"
+    }
+
     /// By id or alias.
     public static func matching(_ s: String) -> AgentRecipe? {
         let k = s.lowercased()
@@ -1092,6 +1122,23 @@ public enum AgentRecipes {
         registered.append(r)
         _generation += 1
         lock.unlock()
+    }
+
+    nonisolated(unsafe) private static var _everythingPublished = false
+
+    /// TEST SEAM (629), like `registerForTests`: every recipe and gateway counts as published — for the tests of what a
+    /// typed name, a plan or a list does with a tool that happens to be unpublished now (Grok Build's xAI key, Gemini
+    /// CLI's Google one). No environment variable reaches it; a shipped build never calls it.
+    public static func publishEverythingForTests(_ on: Bool) {
+        lock.lock()
+        _everythingPublished = on
+        _generation += 1
+        lock.unlock()
+    }
+
+    static var everythingPublishedForTests: Bool {
+        lock.lock(); defer { lock.unlock() }
+        return _everythingPublished
     }
 
     public static func unregisterForTests(_ id: String) {

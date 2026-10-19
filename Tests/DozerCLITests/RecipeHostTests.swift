@@ -8,6 +8,10 @@ import XCTest
 /// sessions, `key` accounts per provider, the vault of a new sandbox (never an Anthropic binding), D5's policy, the
 /// environment prompt's context file, versions — and acceptance 9: a test-only recipe gets all of it with no Swift.
 final class RecipeHostTests: XCTestCase {
+    // 629: these tests use tools that are unpublished now (Grok Build, Gemini CLI …) for what a typed name, a plan or a
+    // list does; publishing is UnpublishedRecipesTests'.
+    override func setUp() { super.setUp(); AgentRecipes.publishEverythingForTests(true) }
+    override func tearDown() { AgentRecipes.publishEverythingForTests(false); super.tearDown() }
     private var root: URL!
     let keychain = FakeKeychain()
 

@@ -213,6 +213,9 @@ struct SearchCommand: AsyncParsableCommand {
                                 hits: result.hits.map { SearchHitJSON(entry: $0.entry, outcome: $0.outcome, limit: $0.limit,
                                                                       local: searchLocal($0.entry, accounts: accounts, images: images)) },
                                 suggestion: result.suggestion))
+        } else if result.hits.isEmpty, let r = q.terms.count == 1 ? AgentRecipes.matching(q.terms[0]) : nil, let p = AgentRecipes.unpublishedProblem(r) {
+            // 629: a tool this build has but does not offer now — said plainly (the exit is "not found").
+            Out.stdout(p.replacingOccurrences(of: " — see doz search for the tools offered now", with: " — doz search lists the tools offered now") + "\n")
         } else if result.hits.isEmpty {
             let what = q.terms.isEmpty ? "with " + q.tags.map { "tag:\($0)" }.joined(separator: " ") : "called '\(q.terms.joined(separator: " "))'"
             Out.stdout("nothing \(what)" + (result.suggestion.map { " — did you mean \($0)? (doz search \($0))" } ?? " — doz search lists everything") + "\n")

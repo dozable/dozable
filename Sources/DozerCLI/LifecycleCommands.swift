@@ -91,7 +91,7 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default. opencode-zen (OpenCode 2): OpenCode Zen's free models, no key and no account.")
     var provider: String?
 
-    @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter or vercel-ai-gateway (one key, many models). Its account is then a key of that gateway.")
+    @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter (one key, many models). Its account is then a key of that gateway.")
     var gateway: String?
 
     @Option(name: .long, help: "The model it uses (a gateway's are creator/name: anthropic/claude-sonnet-4.6). Default: the provider's or gateway's default model.")
@@ -101,8 +101,10 @@ struct ChoiceOptions: ParsableArguments {
     func applyModelSource(to o: inout CreateOptions) throws {
         if provider != nil && gateway != nil { throw ValidationError("--provider or --gateway, not both") }
         if let g = gateway, !ModelSources.isGateway(g) {
-            throw ValidationError("\(g) is not a gateway — " + ModelSources.ids.filter(ModelSources.isGateway).joined(separator: ", "))
+            throw ValidationError("\(g) is not a gateway — " + ModelSources.publishedGateways.joined(separator: ", "))
         }
+        // 629: an unpublished gateway is refused for a new use (a sandbox already on it keeps it).
+        if let g = gateway, let p = ModelSources.unpublishedProblem(g) { throw ValidationError(p) }
         if let p = provider, ModelSources.isGateway(p) { throw ValidationError("\(p) is a gateway: --gateway \(p)") }
         if let s = provider ?? gateway { o.modelSource = s }
         if let m = model { o.model = m }
@@ -162,7 +164,15 @@ struct ChoiceOptions: ParsableArguments {
         return URL(fileURLWithPath: expanded, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).standardizedFileURL.path
     }
 
+    /// 629: `--image NAME` naming an unpublished tool's image is refused for a new sandbox, like `--agent` (a stored
+    /// default — defaults.image — is not typed here, and still serves).
+    func refuseUnpublishedImage() throws {
+        guard let i = image, let r = ImageChoice.parse(i)?.agent.recipe, let p = AgentRecipes.unpublishedProblem(r) else { return }
+        throw ValidationError(p)
+    }
+
     func options(defaultImage: String? = nil) throws -> CreateOptions {
+        try refuseUnpublishedImage()
         guard let img = try chosenImage() ?? image ?? defaultImage else {
             throw ValidationError("--image (or --agent/--base/--dockerfile) is required: lab, claude-code, pi, codex, a base × agent image or a template")
         }
@@ -170,7 +180,10 @@ struct ChoiceOptions: ParsableArguments {
     }
 
     /// 617: the choices as `CreateOptions` for the planner — `image` empty when none was chosen (the defaults decide).
-    func planChoices() throws -> CreateOptions { try choices(image: try chosenImage() ?? image ?? "") }
+    func planChoices() throws -> CreateOptions {
+        try refuseUnpublishedImage()
+        return try choices(image: try chosenImage() ?? image ?? "")
+    }
 
     /// 617: `ChoiceOptions` itself, from argv (a plan's, a probe's) — the round trip's other half.
     static func from(_ argv: [String]) throws -> ChoiceOptions { try parse(argv) }

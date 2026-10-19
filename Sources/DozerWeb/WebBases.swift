@@ -98,8 +98,9 @@ public struct WebBases: Codable, Equatable, Sendable {
     public var catalog: [CatalogAgent] = WebBases.catalogAgents
     public var kinds: [WebTryCatalog.Word] = Categories.kinds.map { WebTryCatalog.Word(id: $0.id, title: $0.title, meaning: $0.meaning) }
 
+    /// 629: the published recipes only.
     public static var catalogAgents: [CatalogAgent] {
-        AgentKind.allCases.compactMap { k in
+        AgentKind.published.compactMap { k in
             guard let r = k.recipe else { return nil }
             return CatalogAgent(id: r.id, title: r.title, kind: r.catalogKind ?? "coding-agent", categories: r.categories ?? [],
                                 defaultBase: r.defaultBase, musl: r.platforms.musl, family: r.family.map(WebTryCatalog.FamilyInfo.init))

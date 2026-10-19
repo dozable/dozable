@@ -345,7 +345,7 @@ public enum WebAction: Equatable, Sendable {
             o.trial = try f.flag("trial")
             // 617 (models@1): the model source (a provider or gateway of this build) and the model — the host checks
             // that the agent is offered it and picks that source's key.
-            o.modelSource = try f.oneOf("modelSource", ModelSources.ids)
+            o.modelSource = try f.oneOf("modelSource", ModelSources.publishedIds)   // 629: a NEW sandbox — published only
             o.model = try f.string("model", max: 128).map { m in
                 guard ModelSelection.isModelID(m) else { throw Invalid("model: a model id (letters, digits and . _ : / @ + -)") }
                 return m

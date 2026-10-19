@@ -44,7 +44,7 @@ struct Init: AsyncParsableCommand {
     @Flag(inversion: .prefixedNo, help: "The agent's passwordless sudo.") var agentSudo: Bool?
     // 618: where the model comes from and which model (the file's model_source: / model:).
     @Option(name: .long, help: "A provider the agent is offered (the file's model_source:): anthropic, openai, xai, google; opencode-zen (no key).") var provider: String?
-    @Option(name: .long, help: "A gateway the agent is offered (the file's model_source:): openrouter, vercel-ai-gateway.") var gateway: String?
+    @Option(name: .long, help: "A gateway the agent is offered (the file's model_source:): openrouter.") var gateway: String?
     @Option(name: .long, help: "A model id of that source (the file's model:; doz models).") var model: String?
     @Flag(name: [.short, .long], help: "Accept every default; ask nothing.") var yes = false
     @Flag(name: .long, help: "Replace an existing project file without asking.") var force = false
@@ -191,7 +191,8 @@ struct Init: AsyncParsableCommand {
         }
         // 618: --provider/--gateway/--model write model_source:/model: (an existing file's stay unless given).
         if provider != nil && gateway != nil { throw invalid("--provider or --gateway, not both") }
-        if let x = gateway, !ModelSources.isGateway(x) { throw invalid("--gateway: \(ModelSources.ids.filter(ModelSources.isGateway).joined(separator: ", "))") }
+        if let x = gateway, !ModelSources.isGateway(x) { throw invalid("--gateway: \(ModelSources.publishedGateways.joined(separator: ", "))") }
+        if let x = gateway, let p = ModelSources.unpublishedProblem(x) { throw invalid(p) }   // 629: a new use
         if let x = provider, ModelSources.isGateway(x) { throw invalid("\(x) is a gateway: --gateway \(x)") }
         if let s = provider ?? gateway { p.modelSource = s }
         if let m = model { p.model = m }

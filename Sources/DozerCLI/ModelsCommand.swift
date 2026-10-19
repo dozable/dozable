@@ -12,7 +12,7 @@ struct ModelsCommand: AsyncParsableCommand {
         commandName: "models",
         abstract: "The models a provider or gateway offers (a gateway's own list; a provider's checked default).",
         discussion: """
-        A gateway (OpenRouter, Vercel AI Gateway) publishes its list: Dozable reads it on this Mac at most once a day and \
+        A gateway (OpenRouter) publishes its list: Dozable reads it on this Mac at most once a day and \
         keeps the last one (offline: the last list). A provider (Anthropic, OpenAI, xAI, Google) lists its models only \
         with a key, so only the model Dozable checked is shown — any model id may still be given with --model. A source \
         that takes no key (opencode-zen: OpenCode Zen's free models) shows the models Dozable lists for it, each with its \
@@ -20,7 +20,7 @@ struct ModelsCommand: AsyncParsableCommand {
         """)
 
     @OptionGroup var g: GlobalOptions
-    @Option(name: .long, help: "A gateway: openrouter, vercel-ai-gateway.") var gateway: String?
+    @Option(name: .long, help: "A gateway: openrouter.") var gateway: String?
     @Option(name: .long, help: "A provider: anthropic, openai, xai, google; or opencode-zen (free models, no key).") var provider: String?
     @Flag(name: .long, help: "Read a gateway's list now (starts the host when none runs).") var refresh = false
     @Argument(help: "Words to look for in a model's id, name or maker.") var search: [String] = []
@@ -28,8 +28,9 @@ struct ModelsCommand: AsyncParsableCommand {
     func run() async throws {
         if provider != nil && gateway != nil { throw ValidationError("--provider or --gateway, not both") }
         if let x = gateway, !ModelSources.isGateway(x) {
-            throw ValidationError("\(x) is not a gateway — " + ModelSources.ids.filter(ModelSources.isGateway).joined(separator: ", "))
+            throw ValidationError("\(x) is not a gateway — " + ModelSources.publishedGateways.joined(separator: ", "))
         }
+        if let x = gateway, let p = ModelSources.unpublishedProblem(x) { throw ValidationError(p) }   // 629
         if let x = provider {
             if ModelSources.isGateway(x) { throw ValidationError("\(x) is a gateway: --gateway \(x)") }
             guard ModelSources.ids.contains(x) else { throw ValidationError("--provider: " + ModelSources.ids.filter { !ModelSources.isGateway($0) }.joined(separator: ", ")) }

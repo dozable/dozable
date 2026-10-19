@@ -574,11 +574,19 @@ extension HostCore {
     }
 
     /// 617: every agent's latest version (and when it came out) — the registry at most hourly per agent, never a rebuild.
+    /// 629: the published recipes, and an unpublished one only while an image or a sandbox of it is in this store.
     func refreshAgentVersions() async {
         let settings = DozerSettings.load()
-        for r in AgentRecipes.all {
+        for r in Self.agentsToLookUp(store: store, sandboxAgents: managed.values.compactMap { $0.config.imageChoice?.agent.rawValue }) {
             _ = await AgentVersions.refresh(r.id, store: store, settings: settings, registry: agentRegistry)
         }
+    }
+
+    /// 629: whose latest release the hourly look-up asks for — every published recipe, then an unpublished one in use here
+    /// (an image of it under images/, or a sandbox of it).
+    static func agentsToLookUp(store: DozerStore, sandboxAgents: [String]) -> [AgentRecipe] {
+        let used = Set(DozerImages.composedImagesInStore(store).compactMap { ImageChoice.parse($0)?.agent.rawValue } + sandboxAgents)
+        return AgentRecipes.all.filter { $0.isPublished || used.contains($0.id) }
     }
 
     /// 617: where a preparation's bake steps' whole output goes (set around the runner; nil: nowhere).

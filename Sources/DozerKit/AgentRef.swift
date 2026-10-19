@@ -69,8 +69,16 @@ public struct AgentRef: Equatable, Sendable {
     }
 
     /// What `s` names — nil when it names no tool at all (a base, a template, `none`: the caller's), a Problem when it
-    /// names one that cannot be served as asked.
+    /// names one that cannot be served as asked. 629: an unpublished recipe is a Problem — only typed input comes here
+    /// (a NEW sandbox's tool), never a stored name, so an existing sandbox of it keeps working.
     public static func resolve(_ s: String, in recipes: [AgentRecipe] = AgentRecipes.all) throws -> AgentRef? {
+        guard let ref = try resolveAny(s, in: recipes) else { return nil }
+        if let p = AgentRecipes.unpublishedProblem(ref.recipe) { throw Problem(description: p) }
+        return ref
+    }
+
+    /// `resolve` without the 629 refusal — only to say WHY a typed name is refused, never to serve one.
+    public static func resolveAny(_ s: String, in recipes: [AgentRecipe]) throws -> AgentRef? {
         guard let (name, q) = split(s) else {
             if s.contains("@") { throw Problem(description: "\(s) is not a tool's name — NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28)") }
             return nil

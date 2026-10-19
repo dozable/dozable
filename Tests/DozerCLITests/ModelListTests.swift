@@ -140,7 +140,7 @@ final class ModelListTests: XCTestCase {
         let c = HostCore(store: DozerStore(root: root), readOnly: true, version: "test", services: .forHost())
         let m = await c.handle(HostRequest(.models))
         let all = try XCTUnwrap(m.result).decode([ModelList].self)
-        XCTAssertEqual(all.map(\.source), ModelSources.ids)
+        XCTAssertEqual(all.map(\.source), ModelSources.publishedIds, "629: every published source")
         let x = try XCTUnwrap(all.first { $0.source == "xai" })
         XCTAssertEqual(x.kind, "default")
         XCTAssertEqual(x.models.map(\.id), [x.defaultModel!])

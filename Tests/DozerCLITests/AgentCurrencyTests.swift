@@ -70,8 +70,9 @@ final class AgentCurrencyTests: XCTestCase {
         XCTAssertThrowsError(try AgentLifecycle.validate(recipes: [bad], known: []), "retired says why")
         bad.lifecycle = AgentLifecycle(status: "sleeping", note: "x")
         XCTAssertThrowsError(try AgentLifecycle.validate(recipes: [bad], known: []))
-        // The index carries it, and a superseded agent comes after the current ones.
-        let index = DirectoryIndex.build(version: "0.34.0")
+        // The index carries it, and a superseded agent comes after the current ones (every recipe: Gemini CLI and
+        // Antigravity CLI are unpublished, and the order is the index's rule whatever it lists).
+        let index = DirectoryIndex.build(version: "0.34.0", recipes: AgentRecipes.all)
         let agents = index.entries.filter { $0.kind == "agent" && $0.status == "supported" }.map(\.id)
         XCTAssertEqual(agents.last, "gemini")
         XCTAssertLessThan(agents.firstIndex(of: "antigravity")!, agents.firstIndex(of: "gemini")!)

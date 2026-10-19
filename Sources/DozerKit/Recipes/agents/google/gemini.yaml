@@ -159,6 +159,7 @@ capabilities:
       by: antigravity
 - type: com.dozersandbox/directory@1
   config:
+    published: false
     kind: coding-agent
     categories:
     - coding-agent
