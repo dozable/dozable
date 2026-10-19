@@ -97,7 +97,7 @@ final class ToolRecipeKindsTests: XCTestCase {
 
     // MARK: Node 24
 
-    /// An npm recipe that needs a newer Node than the bases' gets Dozer's Node 24 under /opt/node on every glibc base —
+    /// An npm recipe that needs a newer Node than the bases' gets Dozable's Node 24 under /opt/node on every glibc base —
     /// the Node base included — and a wrapper; never on musl.
     func test_aNewerNodeIsInstalledForTheRecipeThatNeedsIt() throws {
         let r = try XCTUnwrap(AgentRecipes.recipe("openclaw"))

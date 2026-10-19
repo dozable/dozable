@@ -3,15 +3,15 @@ import Foundation
 import DozableKit
 
 // 596 addendum (owner, 2026-10-01: "yes, have Resources show Apple's container storage as an
-// 'outside Dozer' row"). Dockerfile images make Dozer a user of Apple's `container` tool, so its
-// storage is accounted for — OUTSIDE the store: never in Dozer's total or the unattributed check,
-// never deleted by Dozer (no checkbox; the commands to inspect and prune it are named instead).
+// 'outside Dozable' row"). Dockerfile images make Dozable a user of Apple's `container` tool, so its
+// storage is accounted for — OUTSIDE the store: never in Dozable's total or the unattributed check,
+// never deleted by Dozable (no checkbox; the commands to inspect and prune it are named instead).
 //
 //   outside:apple-container                the tool (version, services running or not)
 //     outside:apple-container/data         ~/Library/Application Support/com.apple.container
 //       …/snapshots · …/content · …/kernels · …/other
 //     outside:apple-container/program      /usr/local/bin/container + /usr/local/libexec/container
-//     outside:apple-container/doz        what Dozer's own builds (images tagged doz/…) account for
+//     outside:apple-container/doz        what Dozable's own builds (images tagged doz/…) account for
 
 /// What the Resources inventory needs to know of Apple's container tool.
 public struct AppleContainerFacts: Sendable {

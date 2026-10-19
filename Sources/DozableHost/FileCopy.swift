@@ -6,7 +6,7 @@ import DozableKit
 // spelling) over the same code. The bytes are a tar stream over the host's guest stream (`Sandbox.openGuestStream`,
 // the browser bridge's path) — no new guest→host channel. Works in an isolated sandbox (no share needed).
 //
-// The rules: never write into Dozer's store or anywhere but what the person named (a temporary folder BESIDE the
+// The rules: never write into Dozable's store or anywhere but what the person named (a temporary folder BESIDE the
 // destination, checked, then moved into place); a symlink that points outside the copied folder is refused (in the
 // guest before anything moves, on the Mac again after unpacking); an existing destination is refused unless --force
 // (which says what it replaces); files land owned by the Mac user on the Mac, and by the image's user in the guest
@@ -253,7 +253,7 @@ public enum LocalCopy {
         return ((abs as NSString).standardizingPath, nil)
     }
 
-    /// Never into (or out of) Dozer's store: the path, its existing part resolved, compared with the store's real path.
+    /// Never into (or out of) Dozable's store: the path, its existing part resolved, compared with the store's real path.
     public static func inStore(_ path: String, store: URL) -> Bool {
         let s = store.resolvingSymlinksInPath().standardizedFileURL.path
         var p = (path as NSString).standardizingPath

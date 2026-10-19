@@ -235,7 +235,7 @@ final class EgressProxyTests: XCTestCase {
         let reply = try g.receiveAll()
         XCTAssertTrue(reply.hasPrefix("HTTP/1.1 401"), reply)
         XCTAssertTrue(reply.contains("not this sandbox's sign-in"))
-        // A renewal that carries no Dozer placeholder (a login made inside the sandbox): the policy, which denies it.
+        // A renewal that carries no Dozable placeholder (a login made inside the sandbox): the policy, which denies it.
         let g2 = try tunnel(proxy, host: "auth.openai.com")
         defer { close(g2.fd) }
         let own = #"{"grant_type":"refresh_token","refresh_token":"rt_their_own"}"#

@@ -1,7 +1,7 @@
 import Foundation
 import dnssd
 
-// 606 — `doz serve` announced with Bonjour (owner ruling; `serve.advertise`): `_http._tcp` "Dozer on <Mac>" at
+// 606 — `doz serve` announced with Bonjour (owner ruling; `serve.advertise`): `_http._tcp` "Dozable on <Mac>" at
 // the serve port, TXT `path=/` — so Safari's Bonjour list, a phone's browser or `dns-sd -B _http._tcp` find
 // `http://<mac>.local:<port>`. dns_sd (the system's mDNSResponder client — `import dnssd`, no dependency; the
 // audit keeps it in this file). Registering can be refused (Local Network privacy: `kDNSServiceErr_PolicyDenied`)

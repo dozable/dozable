@@ -5,7 +5,7 @@ import XCTest
 @testable import DozableWeb
 
 /// 599i: Codex in the dashboard's server side — the accounts table by agent, the OpenAI default, the typed
-/// key route (an OpenAI key yes, a ChatGPT sign-in never — it is Dozer's own browser sign-in, from the CLI).
+/// key route (an OpenAI key yes, a ChatGPT sign-in never — it is Dozable's own browser sign-in, from the CLI).
 final class CodexWebTests: XCTestCase {
     func testTheAccountsProjectionKnowsCodex() throws {
         let row = AccountRow(name: "plan", kind: "chatgpt", plan: "plus", identity: "person@example.invalid", expiresAt: nil, verification: "verified",
@@ -21,7 +21,7 @@ final class CodexWebTests: XCTestCase {
         XCTAssertTrue(json.contains("\"openaiDefault\":\"plan\""))
     }
 
-    /// The Accounts & keys page: a card per provider in Dozer's order, the tools each one's key serves (named), the
+    /// The Accounts & keys page: a card per provider in Dozable's order, the tools each one's key serves (named), the
     /// providers with no key check, and when a key last worked — and still never a secret-shaped field.
     func testTheAccountsProjectionGroupsByProvider() throws {
         var row = AccountRow(name: "grok1", kind: "key", plan: nil, identity: nil, expiresAt: nil, verification: "verified",

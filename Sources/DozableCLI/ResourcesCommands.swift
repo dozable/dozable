@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 595 (R6): everything Dozer uses — disk to the byte, memory, CPUs, proxy traffic — and deleting what
+// 595 (R6): everything Dozable uses — disk to the byte, memory, CPUs, proxy traffic — and deleting what
 // has no other home. `doz image rm`, `doz point rm`, `doz rm` stay where they are.
 
 struct ResourcesCommand: AsyncParsableCommand {
@@ -109,7 +109,7 @@ func renderResources(_ r: ResourceReport) -> String {
     if let free = r.volumeFreeBytes { s += " · \(fmt(free)) free on the volume" }
     s += "\n\n"
     let groups: [(String, String)] = [("sandboxes", "SANDBOXES"), ("images", "IMAGES & TEMPLATES"), ("caches", "CACHES"),
-                                      ("logs", "LOGS & METRICS"), ("stray", "STRAY FILES"), ("store", "DOZER'S OWN"), ("outside", "OUTSIDE THE STORE")]
+                                      ("logs", "LOGS & METRICS"), ("stray", "STRAY FILES"), ("store", "DOZABLE'S OWN"), ("outside", "OUTSIDE THE STORE")]
     for (g, title) in groups {
         let rows = r.items.filter { $0.group == g }
         if rows.isEmpty { continue }

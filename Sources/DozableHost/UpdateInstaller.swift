@@ -71,7 +71,7 @@ public enum UpdateInstaller {
         return p.terminationStatus
     }
 
-    /// Bring Dozer's tap up to date — ONLY that tap — before `brew upgrade`/`install`: Homebrew refreshes its taps
+    /// Bring Dozable's tap up to date — ONLY that tap — before `brew upgrade`/`install`: Homebrew refreshes its taps
     /// only now and then (an auto-update at most once a day), so a plain `brew upgrade doz` says "already up to
     /// date" while the signed feed already names a newer doz (owner, on 0.32.0-rc.1). The tap is an ordinary git
     /// clone (`brew --repository TAP`); a fast-forward pull is what `brew update` does for it, without walking every
@@ -103,7 +103,7 @@ public enum UpdateInstaller {
         return path
     }
 
-    /// The name this Mac tapped Dozer's tap under: `Distribution.tap`, else an earlier name that is tapped (it was
+    /// The name this Mac tapped Dozable's tap under: `Distribution.tap`, else an earlier name that is tapped (it was
     /// moved, and GitHub's redirect keeps it working), else `Distribution.tap`. Installing from the other name would
     /// tap the same formulas a second time.
     public static func installedTap(brew: String) -> String {
@@ -182,7 +182,7 @@ public enum UpdateInstaller {
 
     /// Download `entry`'s tarball (`download` puts it at the URL given), check it against the signed entry, unpack it,
     /// check the doz in it, and swap it in for `<prefix>/libexec/doz` atomically. Returns the previous one's place.
-    /// `allowAdhoc`: tests (their doz is signed ad hoc) — a real update needs Dozer's Developer ID team.
+    /// `allowAdhoc`: tests (their doz is signed ad hoc) — a real update needs Dozable's Developer ID team.
     public static func installTarball(_ entry: UpdateEntry, prefix: URL, allowAdhoc: Bool = false,
                                       download: @Sendable (URL, URL) async throws -> Void) async throws -> URL {
         let fm = FileManager.default
@@ -210,7 +210,7 @@ public enum UpdateInstaller {
         let newDoz = newDir.appendingPathComponent("doz")
         guard fm.isExecutableFile(atPath: newDoz.path) else { throw Failure("the download has no libexec/doz/doz") }
 
-        // The doz in it: a valid signature (strict), Dozer's team (unless a test), and the version it says.
+        // The doz in it: a valid signature (strict), Dozable's team (unless a test), and the version it says.
         guard run("/usr/bin/codesign", ["--verify", "--strict", newDoz.path]).status == 0 else { throw Failure("the new doz's signature does not verify — not installed") }
         if !allowAdhoc {
             let info = run("/usr/bin/codesign", ["-dv", "--verbose=2", newDoz.path]).output

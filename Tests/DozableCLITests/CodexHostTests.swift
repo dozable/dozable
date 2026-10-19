@@ -460,7 +460,7 @@ final class CodexHostTests: XCTestCase {
         XCTAssertTrue(s.contains("login|logout|mcp"))
     }
 
-    /// Dozer never reads or writes the Mac's own Codex home: no Mac-side source names ~/.codex.
+    /// Dozable never reads or writes the Mac's own Codex home: no Mac-side source names ~/.codex.
     func testDozableNeverTouchesTheMacsCodexHome() throws {
         let src = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             .appendingPathComponent("Sources")

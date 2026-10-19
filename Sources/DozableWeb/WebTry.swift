@@ -163,7 +163,7 @@ extension WebTryCatalog {
             var a = Agent(id: r.id, title: r.title, publisher: r.publisher, provider: r.provider,
                           providerTitle: r.provider.flatMap { KeyProviders.provider($0)?.title },
                           base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card)
-            // A pinned-only tool is never looked up: no "Its newest" line ("Dozer installs" already says its pin).
+            // A pinned-only tool is never looked up: no "Its newest" line ("Dozable installs" already says its pin).
             a.latest = AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) && currency[r.id]?.latest == nil ? nil : currency[r.id]?.line
             if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
             a.icon = AgentIcons.resolve(r)
@@ -214,7 +214,7 @@ extension WebTryCatalog {
 
 /// 618: the models a source offers, for the Try setup's picker — field by field (the host's list is someone else's
 /// data, checked and capped there; nothing here is a secret). `kind`: fetched (a gateway's own list), none (a gateway
-/// whose list was never read), default (a provider: only the model Dozer checked — any other id may be typed).
+/// whose list was never read), default (a provider: only the model Dozable checked — any other id may be typed).
 public struct WebModelList: Codable, Equatable, Sendable {
     public struct Model: Codable, Equatable, Sendable {
         public var id: String

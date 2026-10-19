@@ -7,7 +7,7 @@ import Foundation
 // runs on the Alpine lab and the Debian/Ubuntu-based images alike (no sox).
 public enum DozSound {
     public static let path = "/usr/local/bin/doz-sound"
-    public static let stamp = "doz:doz-sound:v1"
+    public static let stamp = "doz:doz-sound:v2"
     public static let confPath = "/etc/doz/doz-sound.conf"
     public static let asoundPath = "/etc/asound.conf"
     public static let asoundStamp = "doz:asound:v2"
@@ -53,7 +53,7 @@ public enum DozSound {
     /// The TEMPORARY script itself.
     public static let script = #"""
     #!/bin/sh
-    # doz:doz-sound:v1 — TEMPORARY. Dozable's EXPERIMENTAL audio sandboxes: record and play through the Mac's
+    # doz:doz-sound:v2 — TEMPORARY. Dozable's EXPERIMENTAL audio sandboxes: record and play through the Mac's
     # microphone and speakers (virtio-snd → ALSA). Written by Dozable's tools layer; it goes when the experiment does.
     #   doz-sound info                card, devices, the default
     #   doz-sound test                a quiet 0.8 s tone, then 3 s from the microphone (its level), played back

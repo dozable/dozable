@@ -3,16 +3,16 @@ import Foundation
 import DozableKit
 
 // 596 (B7) — Dockerfiles are built with Apple's `container` tool (`container build`), installed on
-// demand. Dozer never runs sudo and never starts Apple's services without being asked:
+// demand. Dozable never runs sudo and never starts Apple's services without being asked:
 //
 //   · missing        → "Install it?" → Apple's SIGNED installer package, a pinned version checked by
 //                      its sha256, opened in macOS Installer (the user approves it there).
 //   · too old/new    → the same prompt ("update it").
 //   · services off   → "Start them?" → `container system start --enable-kernel-install` (it registers
 //                      Apple's launchd services and installs its default kernel once).
-//   · ready          → `container build … -o type=oci,dest=…`, the archive imported into Dozer's store.
+//   · ready          → `container build … -o type=oci,dest=…`, the archive imported into Dozable's store.
 //
-// B9: the build runs in Apple's builder VM with its own network — OUTSIDE Dozer's policy — and is
+// B9: the build runs in Apple's builder VM with its own network — OUTSIDE Dozable's policy — and is
 // said so wherever a Dockerfile is chosen or built.
 //
 // Test seams: DOZ_TEST_CONTAINER (a fake `container` executable, or a path that does not exist =
@@ -27,7 +27,7 @@ public struct ContainerToolStatus: Codable, Equatable, Sendable {
     public var path: String?
     /// What to tell a person, plainly.
     public var note: String
-    /// The versions Dozer builds with.
+    /// The versions Dozable builds with.
     public var supported: String
     /// What starting the services does (said before asking).
     public var startNote: String
@@ -36,7 +36,7 @@ public struct ContainerToolStatus: Codable, Equatable, Sendable {
 }
 
 public enum ContainerTool {
-    /// The versions Dozer builds with: `container build -o type=oci,dest=` (1.2.0+); 2.x unknown.
+    /// The versions Dozable builds with: `container build -o type=oci,dest=` (1.2.0+); 2.x unknown.
     public static let minimumVersion = "1.2.0"
     public static let belowVersion = "2.0.0"
 
@@ -163,7 +163,7 @@ public enum ContainerTool {
     /// linux/arm64 image as an OCI archive at `output`. Output lines go to `onLine` as they come.
     /// (596: `build -o type=oci,dest=…` of container 1.2.2 fails after exporting — "The file … doesn't
     /// exist" — so the image is saved from Apple's store instead; it stays there under `tag`, which
-    /// Resources counts as Dozer's share of Apple's storage.)
+    /// Resources counts as Dozable's share of Apple's storage.)
     public static func build(dockerfile: String, context: String, tag: String, output: URL,
                              env: [String: String] = ProcessInfo.processInfo.environment,
                              isCancelled: @escaping @Sendable () -> Bool = { false },
@@ -256,7 +256,7 @@ final class CancelFlag: @unchecked Sendable {
     func set() { lock.withLock { _value = true } }
 }
 
-/// 596 (B7, B8): a built OCI archive → Dozer's image store, and the base a Dockerfile's image uses.
+/// 596 (B7, B8): a built OCI archive → Dozable's image store, and the base a Dockerfile's image uses.
 public enum DockerfileImport {
     public struct Result: Sendable, Equatable {
         public var reference: String
@@ -267,7 +267,7 @@ public enum DockerfileImport {
         public var unchanged: Bool
     }
 
-    /// The tag an import gives the image in Dozer's store (the digest-pinned reference is added beside it).
+    /// The tag an import gives the image in Dozable's store (the digest-pinned reference is added beside it).
     public static func tag(_ base: String) -> String { "doz.local/\(base):latest" }
 
     /// Import `archive` (an OCI image-layout tar, as `container build -o type=oci` writes it).
@@ -278,7 +278,7 @@ public enum DockerfileImport {
         defer { try? fm.removeItem(at: dir) }
         let tar = ContainerTool.run("/usr/bin/tar", ["-xf", archive.path, "-C", dir.path], env: [:], timeout: 600)
         guard tar.status == 0 else { throw HostError(.failed, "the build's archive could not be unpacked: \(tar.output.prefix(200))") }
-        // The image's name in Dozer's store is our tag (a build's own annotation names Apple's store).
+        // The image's name in Dozable's store is our tag (a build's own annotation names Apple's store).
         let imported: OCIImport.Imported
         do { imported = try await OCIImport.load(layoutDirectory: dir, tag: tag(base), storeRoot: store.root) } catch let e as SandboxError {
             throw HostError.from(e)

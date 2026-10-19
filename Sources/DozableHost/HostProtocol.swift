@@ -87,7 +87,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 617: the build log of a sandbox's image (`BuildLogs`: its last preparation in this store — steps and every
     /// step's whole output). Read-only; from the store.
     case buildLog = "build-log"
-    /// 595: everything Dozer uses (`ResourceReport`: every byte of the store attributed, memory, CPUs,
+    /// 595: everything Dozable uses (`ResourceReport`: every byte of the store attributed, memory, CPUs,
     /// traffic, kernels). Read-only; answered in-process when no host runs.
     case resources
     /// 595: delete resources by id (`ids`), or the safe set (`resources-clean`); `dryRun` plans only.
@@ -99,7 +99,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 596 (B3): the recommended bases (`BaseRow`: the catalogue, each tag's digest as resolved, which
     /// agents' images are prepared). Read-only.
     case bases
-    /// 596 (B7): Apple's `container` tool as Dozer sees it (`ContainerToolStatus`) — read-only, never
+    /// 596 (B7): Apple's `container` tool as Dozable sees it (`ContainerToolStatus`) — read-only, never
     /// starts anything.
     case builderStatus = "builder-status"
     /// 596 (B7): start Apple's container services (`container system start --enable-kernel-install`)
@@ -631,7 +631,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var agentWorking: Bool? = nil
     /// 617 (D14): made by `doz try`.
     public var trial: Bool? = nil
-    /// 617: the folder Dozer made for this try (nil: none, or one the person chose).
+    /// 617: the folder Dozable made for this try (nil: none, or one the person chose).
     public var trialFolder: String? = nil
     /// 618: what it was made as — `opencode@2.0.29` (a family's or tool's name and its release); nil: not recorded.
     public var agentRef: String? = nil
@@ -799,7 +799,7 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     public var agentPrompt: AgentPromptReport?
     /// 594: the project file it was made from (`doz_project.yaml`), when it was.
     public var project: String?
-    /// 617.11: a recipe agent's guide — the recipe's steps and Dozer's facts of this sandbox (nil: none).
+    /// 617.11: a recipe agent's guide — the recipe's steps and Dozable's facts of this sandbox (nil: none).
     public var guide: SandboxGuide? = nil
 }
 

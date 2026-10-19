@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {
@@ -59,7 +59,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "OpenHands' release check on PyPI when it starts (read-only, a notice only; Dozer installs the pinned release)",
+      "reason": "OpenHands' release check on PyPI when it starts (read-only, a notice only; Dozable installs the pinned release)",
       "seen": true
     }
   ]

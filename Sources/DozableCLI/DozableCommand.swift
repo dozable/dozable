@@ -5,7 +5,7 @@ import DozableKit
 import DozableHost
 import DozableWeb
 
-/// `doz` — Dozer Sandbox's command-line tool: pausable Linux sandboxes on a Mac (585). Every command is a thin client of the store's
+/// `doz` — Dozable's command-line tool: pausable Linux sandboxes on a Mac (585). Every command is a thin client of the store's
 /// host (`doz host`), which the first command that needs it starts and which exits when nothing
 /// has run for a while; read-only commands answer from the store when no host is running.
 public struct DozableCommand: AsyncParsableCommand {

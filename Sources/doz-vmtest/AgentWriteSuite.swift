@@ -4,12 +4,12 @@
 // The bug it pins (0.30.0–0.33.0): Apple's virtio-fs server reports the Mac user's files as owned by WHICHEVER
 // guest uid asks. The view's daemon (dozview, root) asked as root, saw 0:0 for everything and passed it on;
 // the view is mounted with default_permissions, so the guest kernel refused every write by the agent on a
-// 755/644 folder — a folder Dozer made, a project under ~, anything — and git refused the repository
+// 755/644 folder — a folder Dozable made, a project under ~, anything — and git refused the repository
 // ("dubious ownership"). Root could write, so every earlier suite (which wrote as root) passed. dozview ≥ 1.2.0
 // reports the conf's `owner=` (the image user's uid/gid, resolved in the guest) for what it sees as its own.
 //
 //   ONE sandbox of a small image (Alpine + bash + git + the `agent` user, uid 1001 — baked once per store),
-//   four shares, all through the view: /workspace (a folder Dozer made: Workspace.prepare), /w/pre (made by
+//   four shares, all through the view: /workspace (a folder Dozable made: Workspace.prepare), /w/pre (made by
 //   the Mac user, 755/644), /w/priv (700/600, nested), /w/rules (.dozignore + .dozreadonly — the rules view).
 //   As the agent, in each: ownership shown as the agent, create, append, mkdir, a file in a subfolder,
 //   git init + git status — and on the Mac the files exist, owned by the Mac user. In the rules view, as the
@@ -44,8 +44,8 @@ func agentWriteSuite() async throws {
         try s.write(to: p, atomically: false, encoding: .utf8)
         try fm.setAttributes([.posixPermissions: mode], ofItemAtPath: p.path)
     }
-    // 1. a folder Dozer makes (the default for a new sandbox) — under /tmp: the store's $TMPDIR is under
-    // /private/var, where Dozer refuses to make one.
+    // 1. a folder Dozable makes (the default for a new sandbox) — under /tmp: the store's $TMPDIR is under
+    // /private/var, where Dozable refuses to make one.
     let madeRoot = URL(fileURLWithPath: "/tmp/doz-agentw-\(getpid())")
     try? fm.removeItem(at: madeRoot)
     defer { try? fm.removeItem(at: madeRoot) }

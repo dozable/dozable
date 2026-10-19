@@ -71,7 +71,7 @@ final class SettingsTests: XCTestCase {
     }
 
     /// 617 (owner: the generated file grew ~1.5 KiB per recipe and crossed the reader's limit at 44): with nothing set,
-    /// doz.toml lists Dozer's own settings and no recipe agent's — it does not grow with the recipes.
+    /// doz.toml lists Dozable's own settings and no recipe agent's — it does not grow with the recipes.
     func testTheGeneratedFileDoesNotGrowWithTheRecipes() throws {
         let before = DozableSettings.render(values: [:])
         let data = try Data(contentsOf: Pins.packageRoot.appendingPathComponent("Tests/Fixtures/agents/echo-agent.json"))

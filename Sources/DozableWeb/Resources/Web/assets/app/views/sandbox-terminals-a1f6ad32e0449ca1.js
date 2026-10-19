@@ -3,7 +3,7 @@ import { paintStartProgress } from '../components/start-progress-f2138033d14554b
 import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, setButton } from '../dom/icons-2b30ba761d2d921b.js';
-import { AGENT_NAMES } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { when } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, TRANSITION_LABEL, transitionOf, waitForOp } from '../core/operations-aeb47e4b98173dcf.js';
@@ -12,7 +12,7 @@ import { bootViewOnStart, saveSetting, setting, terminalsAllowed } from '../core
 import { state } from '../core/state-1378d79c750c8380.js';
 import { isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals-933851e9be49078e.js';
 import { splitArgs } from '../core/util-1195caf40612902f.js';
-import { isRemote } from '../core/session-8f515cab20663e44.js';
+import { isRemote } from '../core/session-43467681e3880ff9.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { dialog } from '../components/dialog-3079696fba2b7682.js';
 import { lifecycle, sessionsWhyNot } from '../components/lifecycle-4e83056d968bdf48.js';
@@ -20,7 +20,7 @@ import { menuButton } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { failureFor, pageFailure } from '../components/notices-00fcfa992069168b.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal-d47cf44bc7dd9f56.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-5032aa12e5c0ad39.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-637096fbbc9706a4.js';
 import { sessionMenuItems } from '../components/session-actions-e641083830e84984.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const openSavedTerminal = upcall('openSavedTerminal'), persistLayout = upcall('persistLayout');

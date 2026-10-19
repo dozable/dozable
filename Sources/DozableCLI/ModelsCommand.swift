@@ -5,7 +5,7 @@ import DozableHost
 
 // 618 (owner: "… its also missing the step to choose a model") — `doz models [--gateway X | --provider X] [SEARCH]`: the
 // models a gateway publishes (read by the host on this Mac at most once a day; `--refresh` reads it now) and, for a
-// provider, the model Dozer checked. And the note when `--model` names an id a gateway does not list.
+// provider, the model Dozable checked. And the note when `--model` names an id a gateway does not list.
 
 struct ModelsCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(

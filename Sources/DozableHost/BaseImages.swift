@@ -2,7 +2,7 @@ import CryptoKit
 import Foundation
 import DozableKit
 
-// 596 — Dozer Base Images, the host's half: what the store knows of each base (a catalogue tag's
+// 596 — Dozable Base Images, the host's half: what the store knows of each base (a catalogue tag's
 // digest as last resolved; a Dockerfile's last build), and the image spec a base × agent pair makes.
 //
 //   <store>/base-digests.json   catalogue id → the tag's digest when last asked (hourly, like 594's latest)

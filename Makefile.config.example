@@ -9,10 +9,10 @@
 # SIGN_IDENTITY = Developer ID Application: Your Name (XXXXXXXXXX)
 
 # A notarytool keychain profile (the password lives in the keychain, never here). Create it once:
-#   xcrun notarytool store-credentials "Dozer" --apple-id you@example.com --team-id XXXXXXXXXX
+#   xcrun notarytool store-credentials "Dozable" --apple-id you@example.com --team-id XXXXXXXXXX
 #   (it asks for an app-specific password from account.apple.com — never your Apple ID password)
 # An existing profile of the same team works as well (any app of the team notarises through it).
-# NOTARY_PROFILE = Dozer
+# NOTARY_PROFILE = Dozable
 
 # The official builds' closed package — anonymous usage statistics and the optional sign-up (private; not open source).
 # `make release` builds with it (Package.swift adds it, `doz`'s main installs it) and a PUBLIC release refuses to build

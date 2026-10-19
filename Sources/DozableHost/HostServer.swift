@@ -71,7 +71,7 @@ public final class HostServer: @unchecked Sendable {
         guard store.socketPathFits else { throw StartError.socket(UnixSocket.Failure.pathTooLong(store.socket.path).localizedDescription) }
         let server = HostServer(store: store, idleTimeoutMinutes: idleTimeoutMinutes, version: version)
         try server.takeLock(waitSeconds: 60)
-        // 606: the proxy never connects a sandbox to one of Dozer's own dashboards on this Mac.
+        // 606: the proxy never connects a sandbox to one of Dozable's own dashboards on this Mac.
         LocalDashboards.protect(DashboardPorts(store: store).current)
         HostLog.enabled = true
         HostLog.line("doz host \(version) (pid \(getpid())) — store \(store.root.path), idle timeout \(idleTimeoutMinutes) min")
@@ -665,7 +665,7 @@ final class ByteCount: @unchecked Sendable {
     var value: Int64 { lock.lock(); defer { lock.unlock() }; return n }
 }
 
-/// 606: the ports Dozer's dashboards listen on — `doz ui`'s (`<store>/ui.port`), `doz serve`'s (`<store>/serve/port`
+/// 606: the ports Dozable's dashboards listen on — `doz ui`'s (`<store>/ui.port`), `doz serve`'s (`<store>/serve/port`
 /// while it runs) and the setting `serve.port` (another store's doz serve) — re-read at most every 5 s.
 final class DashboardPorts: @unchecked Sendable {
     let store: DozableStore

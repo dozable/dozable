@@ -875,7 +875,7 @@ public actor HostCore {
         creating.insert(name)
         defer { creating.remove(name) }
         // 594: a workspace that does not exist is made now (mkdir -p), before the VM is configured —
-        // and unmade (only what Dozer made, only while empty) if the create fails.
+        // and unmade (only what Dozable made, only while empty) if the create fails.
         var prepared: Workspace.Prepared?
         if let ws = o.workspace {
             prepared = try Workspace.prepare(ws, store: store)
@@ -985,7 +985,7 @@ public actor HostCore {
         }
         if o.trial == true {                           // 617 (D14)
             cfg.trial = true
-            // The try's own folder — made now by Dozer, so its delete may offer to remove it (never one of yours).
+            // The try's own folder — made now by Dozable, so its delete may offer to remove it (never one of yours).
             if let p = prepared, p.created { cfg.trialFolder = p.path }
         }
         try cfg.write(store.configFile(name))
@@ -1174,7 +1174,7 @@ public actor HostCore {
         case .reset:
             action = ("reset to image", { try await sb.resetToImage() })
         case .rm:
-            // 617: a try's own folder (Dozer made it) goes with it while it is EMPTY — the dashboard's Delete and `doz rm`
+            // 617: a try's own folder (Dozable made it) goes with it while it is EMPTY — the dashboard's Delete and `doz rm`
             // alike; one that holds the agent's files is the person's to keep or delete (the CLI asks; the page says where).
             let folder = m.config.trial == true ? m.config.trialFolder : nil
             action = ("delete sandbox", {
@@ -1510,14 +1510,14 @@ public actor HostCore {
 
     /// 617 (owner: "I couldn't use its clipboard" in a Grok try): a session's terminal IS an OSC 52 sink while the
     /// clipboard bridge is on (the attach relay takes the copy to the Mac). Grok Build decides its copy route from its
-    /// surroundings: a Dozer VM has no DISPLAY, no SSH and no container marker, so it took its desktop routes (X11, then
+    /// surroundings: a Dozable VM has no DISPLAY, no SSH and no container marker, so it took its desktop routes (X11, then
     /// xclip/xsel/wl-copy), which have nothing to reach, and never sent OSC 52 — no copy and no read reached the host.
     /// `grok wrap` tells the Grok it runs that its OSC 52 is intercepted with `GROK_OSC52_SINK=1` (its pty_wrap; read in
     /// its clipboard code), which is exactly what the relay does. Never over the caller's own value.
     public static let clipboardSinkVariables = ["GROK_OSC52_SINK"]
 
     /// 617 (owner: Gemini CLI warned "True color (24-bit) support not detected"): every session's terminal is 24-bit —
-    /// Dozer needs macOS 26, whose Terminal.app, Ghostty, iTerm2 and the dashboard's ghostty-web all draw it, and
+    /// Dozable needs macOS 26, whose Terminal.app, Ghostty, iTerm2 and the dashboard's ghostty-web all draw it, and
     /// deckhold's emulator keeps it. Set at session open (never baked: no bake key changes); never over the caller's.
     static func withTrueColour(_ env: [String: String]) -> [String: String] {
         var e = env

@@ -7,7 +7,7 @@ import XCTest
 /// pi / none composes to exactly the spec (and so the bake key) it did before 599i — the digest below was
 /// computed from the tree at 0a02301 (before any 599i change) with the same inputs.
 /// 0.37 (the Dozable rename, no migration — owner ruling) re-pinned every value here on purpose: the guest paths moved
-/// (/run/dozer → /run/doz, /usr/local/lib/dozer → /usr/local/lib/doz, `dozer.local` → `doz.local`), so every Claude
+/// (to /run/doz, /usr/local/lib/doz and `doz.local`), so every Claude
 /// Code and Codex image is baked anew. pi's and the agent-less images keep their keys.
 final class RecipePinTests: XCTestCase {
     static func sha(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }
@@ -36,7 +36,7 @@ final class RecipePinTests: XCTestCase {
     }
 
     func test_everyPre599iImageIsUnchanged() throws {
-        XCTAssertEqual(Self.sha(try Self.pre599iRecipes()), "481f37b61467b5750532e241484afc69d6e6367631bf0a8006cea220ec1d52f2")
+        XCTAssertEqual(Self.sha(try Self.pre599iRecipes()), "2b5c2be7799b4835f46e7a5b1c4e761f19af770a30063d55169e8638ad6c2550")
     }
 
     /// 617 step 0: Codex's images, pinned BEFORE the agent-recipe refactor (computed at 4b5e9ac + the 617 claim,
@@ -75,10 +75,10 @@ final class RecipePinTests: XCTestCase {
             debian-codex 311d17d1aa05f99325de23a4f986ea33c641f87601e2b7b55810dce76ed55e65 024a87cafc63b62df09840a4214fe03c7d618e06d65a9832aa8c722d9ed641ff true
             ubuntu-codex 1f43c497a6f0f6abfdce52705ed74742633645d17ebf285afca3e3f4800f23c2 ad01fc99066f6c6f35b2f5a456d2215a575448d461ebea579b3c021f61c00590 true
             alpine-codex 52e6e2d40e268e220398d2f40568a02c8614fea2f7ffc02a6b3bb2a9e71d0733 37dbdefcd7f8599c77ba072a74ef937ac1600c51b1fe9affa173caa78e2f8418 true
-            df-0123456789ab-codex 77be5e791d085dab2af1cf96a084253e3366ef8aebaf582681dcd91f516d1a83 4697834559ffaa71534d43c2b5ba3654503f68f5fd860de00a7fe1967f663414 true
+            df-0123456789ab-codex 2abc387e59cd2497a4e9bf59cb77ed41ec1aa0d43928e51ab3803b6eb60c6c2e 6811ed32196f071f5fe98893680ca568f062a132194b9bfff4536c52529b0839 true
             AgentImages.spec(codex) 675e491c941e36ab03e4df7cfa9adcc4f7e8f08723fd98ca04c42249b51df694
             """)
-        XCTAssertEqual(Self.sha(try Self.codexRecipes()), "658950cb4fe4775bb9b4ec497b9dbc80de5fda270e93d9b690e2eb9e17157e67")
+        XCTAssertEqual(Self.sha(try Self.codexRecipes()), "a8a0ebb6ac77a0d1f9b1766c4ebae1822f36c775c9ce139e9c2f5545a5d979c9")
     }
 
     /// The two Node agent images at their pins, and their bake keys.

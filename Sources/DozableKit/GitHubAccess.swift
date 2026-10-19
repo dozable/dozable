@@ -237,7 +237,7 @@ extension GitHubAccess {
                 return .failure("could not connect to api.github.com from this Mac")
             }
             defer { u.close() }
-            u.send(Array("GET \(path) HTTP/1.1\r\nHost: api.github.com\r\nAuthorization: token \(token)\r\nUser-Agent: Dozer-Sandbox\r\nAccept: application/vnd.github+json\r\nConnection: close\r\n\r\n".utf8))
+            u.send(Array("GET \(path) HTTP/1.1\r\nHost: api.github.com\r\nAuthorization: token \(token)\r\nUser-Agent: Dozable\r\nAccept: application/vnd.github+json\r\nConnection: close\r\n\r\n".utf8))
             var raw: [UInt8] = []
             let deadline = Date().addingTimeInterval(20)
             loop: while Date() < deadline, raw.count < 4 << 20 {

@@ -270,7 +270,7 @@ func cliCodexSuite(binary: String) async {
     check(d(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-xp"]).code == 0, "defaults.projects_dir is a scratch path")
     check(d(["config", "set", "images.codex_version", AgentImages.codexPinned.version]).code == 0, "the pinned Codex (no registry)")
 
-    // ── 1. Dozer's own ChatGPT sign-in (the browser seam plays the callback) ───────────────────────
+    // ── 1. Dozable's own ChatGPT sign-in (the browser seam plays the callback) ───────────────────────
     var r = d(["account", "add", "plan", "--chatgpt", "--force"], timeout: 120)
     check(r.code == 0 && r.out.contains("account plan added (chatgpt: person@example.invalid, plus"),
           "doz account add plan --chatgpt → signed in (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines))) \(r.code == 0 ? "" : r.err.suffix(300).description)")

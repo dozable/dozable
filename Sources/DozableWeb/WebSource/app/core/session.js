@@ -30,7 +30,7 @@ export async function bootstrap() {
   try {
     adopt(await api('session'));
     // 605 (remember this browser): every page load renews the sign-in (14 days from now).
-    // The installed dashboard app says so (one word) — Dozer's usage statistics count the app as used.
+    // The installed dashboard app says so (one word) — Dozable's usage statistics count the app as used.
     const display = window.matchMedia && window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser';
     try { adopt(await api('session/renew', { method: 'POST', display })); } catch (_) { /* the session stands */ }
     return true;

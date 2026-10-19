@@ -1,11 +1,11 @@
 // components/image-picker — The image of a new sandbox — Agent × Base (596).
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, withIcon } from '../dom/icons-2b30ba761d2d921b.js';
-import { AGENT_NAMES, AGENTS, CATALOG, imageNameOf, parseImageName, registerCatalog } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES, AGENTS, CATALOG, imageNameOf, parseImageName, registerCatalog } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitOps } from '../core/operations-aeb47e4b98173dcf.js';
-import { isRemote } from '../core/session-8f515cab20663e44.js';
+import { isRemote } from '../core/session-43467681e3880ff9.js';
 import { btn } from './button-cbb8a60e3220f977.js';
 import { callout } from './callout-e7d97c36b36fe970.js';
 

@@ -1,7 +1,7 @@
 // components/accounts — Accounts (594): adding one from a key or a token, choosing one for an agent, a sandbox's own key.
 import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { h } from '../dom/h-d909ae8eb40113fe.js';
-import { AGENT_NAMES, agentKey, isOpenAIAgent, KIND_LABELS } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES, agentKey, isOpenAIAgent, KIND_LABELS } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { actOrThrow } from '../core/operations-aeb47e4b98173dcf.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-704be829834babad.js';
@@ -15,7 +15,7 @@ const refreshSandbox = upcall('refreshSandbox');
 
 const ACCOUNT_COMMANDS = {
   'api-key': ['doz account add work --api-key       (it asks for the key, not echoed)', 'doz account default work'],
-  // 599i: Codex — an OpenAI key, or Dozer's own ChatGPT sign-in (the browser opens on this Mac).
+  // 599i: Codex — an OpenAI key, or Dozable's own ChatGPT sign-in (the browser opens on this Mac).
   'openai-key': ['doz account add openai --openai-key   (it asks for the key, not echoed)', 'doz account default openai'],
   chatgpt: ['doz account add chatgpt --chatgpt     (your browser opens: sign in with ChatGPT — Dozable’s own sign-in;',
     '                                       your Mac’s Codex login is not touched)', 'doz account default chatgpt'],
@@ -153,7 +153,7 @@ export function accountChooser({ accounts, agent, same = null, defaultValue = ''
             : h('div', { class: 'panel wiz-cmds' }, h('pre', { class: 'mono' }, 'doz account add NAME --provider ' + first)),
           btn('Check again', async () => { try { acc = await api('accounts'); } catch (_) { /* keep */ } render(); onChange(); }, { small: true, icon: 'refresh-cw' })].filter(Boolean) }));
     } else if (missing && isOpenAIAgent(s.kinds)) {
-      // 599i: Codex — Dozer's own ChatGPT sign-in runs in a terminal (the browser opens on this Mac); a key can be typed here.
+      // 599i: Codex — Dozable's own ChatGPT sign-in runs in a terminal (the browser opens on this Mac); a key can be typed here.
       parts.push(callout('warn', { cls: 'acct-need', icon: 'key-round', attrs: { 'data-acct-need': current }, title: name + ' needs an OpenAI account',
         body: [h('small', null, (state.chatgptSignIn ? 'Sign in with ChatGPT (your plan) in a terminal, or add an OpenAI API key' : 'Sign in with Codex on this Mac (the account mac), or add an OpenAI API key')
             + ' — stored as `doz account add` stores it (the login keychain); the sandbox only ever sees a placeholder.'),

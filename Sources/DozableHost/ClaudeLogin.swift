@@ -6,7 +6,7 @@ import DozableKit
 // 588 — the Mac's own Claude Code login, read-only, and the keychain doz uses for its own
 // accounts. Every keychain access goes through `/usr/bin/security` (the tool Claude Code itself
 // writes its items with, so no keychain dialog), and every secret written travels on that tool's
-// STDIN (`security -i`), never in an argument a `ps` could show. Dozer never holds, reads for
+// STDIN (`security -i`), never in an argument a `ps` could show. Dozable never holds, reads for
 // use, or writes Claude Code's refresh token, and never writes a `Claude Code-credentials*` item.
 
 /// The outcome of one keychain read. `security` exits 44 for "no such item" and 36 when the
@@ -226,7 +226,7 @@ public struct ClaudeLoginToken: Sendable, Equatable {
 ///
 /// Claude Code keeps its subscription OAuth credentials in the login keychain, one item per config
 /// directory, and renews the ACCESS token itself (it lives ~8 h; Claude Code refreshes it when a
-/// `claude` process runs within 5 minutes of expiry). Dozer reads only the access token: its
+/// `claude` process runs within 5 minutes of expiry). Dozable reads only the access token: its
 /// refresh token has ONE writer, the Mac's Claude Code — a second holder would fork that token
 /// family (the reason a copied `.credentials.json` was rejected in an earlier project).
 public enum ClaudeLogin {

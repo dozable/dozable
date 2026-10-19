@@ -18,7 +18,7 @@ public struct TryCardOption: Equatable, Sendable {
 public struct TryCard: Equatable, Sendable {
     public var title: String
     public var options: [TryCardOption]
-    /// Methods there are but Dozer does not offer here — each with why.
+    /// Methods there are but Dozable does not offer here — each with why.
     public var notOffered: [String]
     /// "Get a key: https://console.x.ai/ (…)".
     public var getKey: String?

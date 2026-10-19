@@ -266,7 +266,7 @@ public enum AgentImages {
         integrity: "sha512-ncAqFrG+iybuPGOhMiZoEHkEzTpJgz3guYD32pD+M7ucc0WeHmauP6wa7qwP8V/KWvsZDVNa5XGsdZ7fkC7w7A==")
 
     /// 594 (owner: "creating a Pi sandbox should have pre-requisites for things like API key"): the
-    /// credentials each agent can use, per provider — the kinds of Dozer account (`mac` = this Mac's
+    /// credentials each agent can use, per provider — the kinds of Dozable account (`mac` = this Mac's
     /// Claude login, `setup-token`, `api-key`). Claude Code: any Anthropic account. pi: an Anthropic
     /// API key only (it reads ANTHROPIC_API_KEY — the proxy's placeholder); a Claude subscription is
     /// never given to it. Other providers can be added per agent later. nil: no agent (the lab).
@@ -325,7 +325,7 @@ public enum AgentImages {
         case "npm":
             var install = npmInstall(r.install.package!, version: release.version, integrity: release.integrity, extraArgs: r.install.npmArgs ?? [])
             if let n = r.install.needsNode.flatMap(Int.init), n > NodeRuntime.major {
-                // 617: a newer Node than the bases' (OpenClaw: ≥ 24) — Dozer's Node 24 under /opt/node, on any glibc base.
+                // 617: a newer Node than the bases' (OpenClaw: ≥ 24) — Dozable's Node 24 under /opt/node, on any glibc base.
                 steps.append(ImageComposer.node24Runtime(for: r.title))
                 install.environment["PATH"] = "/opt/node/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
                 steps.append(install)
@@ -422,7 +422,7 @@ public enum AgentImages {
         """
     }
 
-    /// 617: Dozer's pinned Python (`PythonRuntime`) under /opt/python, for a pypi recipe's venv.
+    /// 617: Dozable's pinned Python (`PythonRuntime`) under /opt/python, for a pypi recipe's venv.
     static func pythonRuntime(for agent: String) -> BakeStep {
         BakeStep.script("install Python \(PythonRuntime.version) for \(agent) (/opt/python, checksum-verified)", """
             cd "$(mktemp -d)"
@@ -439,7 +439,7 @@ public enum AgentImages {
 
     /// 617: a Python tool from PyPI — every distribution in the recipe's requirements, hash-checked by pip
     /// (`--require-hashes`, nothing else installed: `--no-deps`), the package's own file also against the sha512
-    /// integrity; in its own venv (/opt/<id>/venv) on Dozer's Python, the program linked as /usr/local/bin/<binary>.
+    /// integrity; in its own venv (/opt/<id>/venv) on Dozable's Python, the program linked as /usr/local/bin/<binary>.
     static func pypiInstall(_ r: AgentRecipe, _ release: AgentRelease) -> BakeStep {
         let venv = "/opt/\(r.id)/venv", bin = r.install.binary
         let main = AgentRecipe.Install.wheelName(r.install.package ?? r.id) + "-" + release.version
@@ -905,7 +905,7 @@ public enum AgentImages {
     // MARK: 599i — Codex
 
     /// 599i: the OpenAI Codex CLI. Its npm package is a Node wrapper; the program is the linux-arm64
-    /// platform package (a static musl binary), which Dozer installs directly on every base.
+    /// platform package (a static musl binary), which Dozable installs directly on every base.
     public static let codexPackage = "@openai/codex"
     /// 599i: Codex 0.160.1 — the version installed on the owner's Mac at the probe (2026-10-06). The
     /// integrity is the LINUX-ARM64 platform tarball's (`@openai/codex@0.160.1-linux-arm64`), the one
@@ -1002,7 +1002,7 @@ public enum AgentImages {
         """
 
     /// 599i: the launcher's helper (python3 — every base's baseline has it): `trust` marks the working
-    /// folder trusted in `$CODEX_HOME/config.toml` when it has no entry there (appended; a config Dozer cannot
+    /// folder trusted in `$CODEX_HOME/config.toml` when it has no entry there (appended; a config Dozable cannot
     /// read is left alone); `prompt FILE` prints the file as a TOML basic string for `-c developer_instructions=`.
     static let codexSetupPython = #"""
         json, os, sys = __import__('json'), __import__('os'), __import__('sys')   # (no line starts with an import: the audit reads Swift's)

@@ -48,7 +48,7 @@ public enum BuildLogs {
     /// Kept in all, across sections (the oldest sections' lines go first).
     public static let maximumLines = 8000
 
-    /// An image name that can be a file name — the names Dozer gives images (`node-codex`, `df-1a2b…`).
+    /// An image name that can be a file name — the names Dozable gives images (`node-codex`, `df-1a2b…`).
     public static func isValidImage(_ image: String) -> Bool {
         image.range(of: #"^[a-z0-9][a-z0-9._-]{0,63}$"#, options: .regularExpression) != nil && !image.contains("..")
     }

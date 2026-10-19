@@ -1,4 +1,4 @@
-// 596 — Dozer Base Images end to end, from separate processes of the REAL signed doz
+// 596 — Dozable Base Images end to end, from separate processes of the REAL signed doz
 // (`make test-cli-bases`; its cli, dockerfile and real parts are in `make test-cli` too):
 //
 //   · cli        — `doz base ls`; --agent/--base/--dockerfile and their refusals; a pair's name and
@@ -12,7 +12,7 @@
 //                  suite made from a real image): missing → the install flow recorded
 //                  (`DOZ_TEST_CONTAINER_INSTALL`, never a download, never Installer); services stopped →
 //                  said plainly, `doz builder start`; a Dockerfile sandbox: its folder is the workspace, the
-//                  build + import + bake, "OUTSIDE Dozer's network policy" said; an unchanged rebuild
+//                  build + import + bake, "OUTSIDE Dozable's network policy" said; an unchanged rebuild
 //                  bakes nothing; a changed Dockerfile → "rebuild available"; a new build → reset takes it;
 //                  Claude Code added on top, the facts block and a credential through the proxy.
 //   · real       — the REAL `container build` (owner-approved 2026-10-01): needs Apple's services running
@@ -203,7 +203,7 @@ func basesDockerfilePart(_ binary: String) async {
         return
     }
     try? FileManager.default.removeItem(at: scratch)
-    // Beside the store (a Dockerfile inside Dozer's store is refused).
+    // Beside the store (a Dockerfile inside Dozable's store is refused).
     let app = URL(fileURLWithPath: h.store.path + "-app")
     try? FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: app) }

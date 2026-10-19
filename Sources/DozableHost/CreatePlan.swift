@@ -138,12 +138,12 @@ public struct PlanVersion: Codable, Equatable, Sendable {
         public var recommended: Bool
         /// The one this plan is of.
         public var chosen: Bool
-        /// Its pinned release (what Dozer checked).
+        /// Its pinned release (what Dozable checked).
         public var pinned: String
     }
 
     /// "OpenCode 2 2.0.29 (recommended) — OpenCode 1: doz try opencode@1" — a try's first line and its Guide (nil: not a
-    /// family). Never "latest": the recommended major is a pin Dozer checked.
+    /// family). Never "latest": the recommended major is a pin Dozable checked.
     public func familyLine(command: String = "doz try") -> String? {
         guard let c = majors.first(where: \.chosen) else { return nil }
         let head = "\(c.title)" + (version.map { " \($0)" } ?? "") + (c.recommended ? " (recommended)" : "")
@@ -247,7 +247,7 @@ public enum CreatePlanner {
                 }
             }
         }
-        // A folder Dozer would refuse to make or share (inside the store, a system location, a file): said by the plan,
+        // A folder Dozable would refuse to make or share (inside the store, a system location, a file): said by the plan,
         // before a try asks for a key — never after.
         if let w = o.workspace, let path = try? Workspace.normalize(w), let why = Workspace.refusal(path, store: f.store) {
             problems.append(PlanProblem(code: "invalid", text: why, fix: isTry || r.purpose == "new" ? "--isolated, or --workspace DIR" : nil))

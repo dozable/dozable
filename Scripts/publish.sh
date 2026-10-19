@@ -11,8 +11,8 @@
 #
 #   1. the exact tarball dist/doz-V-macos-arm64.tar.gz: its .sha256 matches, it unpacks to a doz that says V,
 #      carries the RELEASE marker, verifies (codesign --strict) and — unless TEST_PUBLISH=1 — is the public flavor,
-#      signed by Dozer's Developer ID team and notarised (its ticket published — Scripts/notary-ticket.sh);
-#   2. the entry is signed with Dozer's update key (the login keychain; a test passes UPDATE_KEY_FILE) and the
+#      signed by Dozable's Developer ID team and notarised (its ticket published — Scripts/notary-ticket.sh);
+#   2. the entry is signed with Dozable's update key (the login keychain; a test passes UPDATE_KEY_FILE) and the
 #      signature is checked against the public key doz carries (Distribution.updatePublicKey; a test:
 #      UPDATE_PUBLIC_KEY) — a key that does not match what doz trusts is refused before anything is written;
 #   3. UPDATES_DIR (the Pages repo's checkout): v1/items/build-N.json, v1/notes/V.html, v1/feed.json, CNAME;

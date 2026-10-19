@@ -1,7 +1,7 @@
 import Foundation
 import DozableKit
 
-// 597 — Dozer Agent Permissions in the host: what a sandbox's agent may do, as a checklist (P1), its
+// 597 — Dozable Agent Permissions in the host: what a sandbox's agent may do, as a checklist (P1), its
 // presets (P2), suggestions from denied connections (P3), edits by permission or site (P6), the
 // default for new sandboxes (P4), and the plain words of the facts block (P7). The definitions live
 // in the library (`AgentPermissions`); a policy stores their NAMES (P5).
@@ -108,7 +108,7 @@ public enum PermissionPolicy {
         for g in grant {
             if g.hasPrefix("site:") {
                 let host = try site(g)
-                // 617: a host the sandbox's agent is known to call and Dozer keeps out — whatever is chosen.
+                // 617: a host the sandbox's agent is known to call and Dozable keeps out — whatever is chosen.
                 if AgentPermissions.excludedHosts((p.permissions ?? []) + AgentPermissions.agentPermissions(agent)).contains(host) {
                     throw HostError(.invalid, "\(host) is kept out of a \(agent?.title ?? "this agent's") sandbox (Dozable never lets the agent reach it) — it cannot be allowed")
                 }

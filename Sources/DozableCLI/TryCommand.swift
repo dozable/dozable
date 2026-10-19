@@ -90,7 +90,7 @@ struct TryCommand: AsyncParsableCommand {
         var o = planned.create
         // --rebuild: an out-of-date image is rebuilt first (a try asks nothing, so without it the current image is used).
         if choices.rebuild { o.rebuild = true }
-        // 617 (owner, 2026-10-15): what the person meets at the first start that Dozer leaves to them — said first.
+        // 617 (owner, 2026-10-15): what the person meets at the first start that Dozable leaves to them — said first.
         if !g.json, let n = recipe.guide?.notice { Out.stdout("\(recipe.title): \(n)\n") }
         if !g.json {
             // Said plainly (owner), first: where its files go and what reaches the Mac.
@@ -166,7 +166,7 @@ struct TryCommand: AsyncParsableCommand {
             choice = TryExitChoice.parse(asker.text(TryExitChoice.question, default: "S"))
         }
         switch choice! {
-        // "Sleep" as a person means it (D14: "it then holds no memory"): Dozer's hibernate — a snapshot on disk, the
+        // "Sleep" as a person means it (D14: "it then holds no memory"): Dozable's hibernate — a snapshot on disk, the
         // RAM returned; `doz wake` or `doz attach` brings it back where it was.
         case .sleep: _ = try lifecycle(.hibernate, name, g)
         case .delete:

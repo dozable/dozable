@@ -2,10 +2,10 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 596 — Dozer Base Images in the web UI (596.01-DESIGN.md B1–B11):
+// 596 — Dozable Base Images in the web UI (596.01-DESIGN.md B1–B11):
 //
 //   · `GET /api/v1/bases` — the New Sandbox form's facts: the recommended bases (the host's `bases`,
-//     field by field), Apple's container tool as Dozer sees it (`builder-status`: never starts
+//     field by field), Apple's container tool as Dozable sees it (`builder-status`: never starts
 //     anything), and the sentence the Dockerfile card must say (B9).
 //   · `POST /api/v1/dockerfile/choose` {start?} — the MAC's file picker for a Dockerfile (a fixed
 //     AppleScript run by /usr/bin/osascript, `choose file`, one at a time — 409), answered with the

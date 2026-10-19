@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 596 — Dozer Base Images in the CLI: `doz base ls` (the recommended bases), `doz builder
+// 596 — Dozable Base Images in the CLI: `doz base ls` (the recommended bases), `doz builder
 // status|start|install` (Apple's container tool, for Dockerfile bases), and the question a Dockerfile
 // sandbox asks before its first build.
 

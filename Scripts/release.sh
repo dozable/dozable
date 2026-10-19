@@ -15,7 +15,7 @@
 #
 # PUBLIC=1 (the default — every real release from 0.31.0 on) builds the PUBLIC flavor (`-DDOZ_PUBLIC_BUILD`,
 # Sources/DozableHost/BuildFlavor.swift): no experimental sound kernel in the tarball (doz create --audio says this
-# build does not include it) and no Dozer-own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex
+# build does not include it) and no Dozable's own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex
 # login and OpenAI API keys stay). It checks both in the packed tarball.
 #
 # PUBLIC=0 (a private rc only) builds the full flavor. Its EXPERIMENTAL sound kernel (kata 6.18.15-186 + a

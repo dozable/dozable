@@ -1,6 +1,6 @@
 import Foundation
 
-/// Test safety by default (611). Tests and probes must never reach the person's real Dozer: the default store,
+/// Test safety by default (611). Tests and probes must never reach the person's real Dozable: the default store,
 /// the Mac's own `~/.codex`, or the login keychain's Claude Code item. Three agents leaked into a real login in
 /// one month, each through a test that forgot ONE seam — so the seams are the Makefile's DEFAULT for every test
 /// target (`DOZ_TEST_GUARD=1` and the scratch values beside it), and this guard turns a forgotten one into a
@@ -25,7 +25,7 @@ public enum TestSafety {
         return FileManager.default.homeDirectoryForCurrentUser
     }
 
-    /// The default store a person's Dozer uses.
+    /// The default store a person's Dozable uses.
     public static func defaultStore(home: URL = realHome) -> URL {
         home.appendingPathComponent("Library/Application Support/doz").standardizedFileURL
     }

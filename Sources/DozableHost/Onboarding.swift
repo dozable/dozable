@@ -52,7 +52,7 @@ public enum Onboarding {
          "~80 MB base image + Claude Code + Debian packages", "~4–6 min the first time", 900 << 20),
         ("pi", "the pi coding agent — {version} — on the same Debian base (shared with claude-code)",
          "~80 MB base image (shared) + npm packages", "~10–15 min the first time", 700 << 20),
-        // 599i: OpenAI's Codex CLI — the same Debian base; it signs in with your ChatGPT plan (Dozer's own sign-in) or an OpenAI key.
+        // 599i: OpenAI's Codex CLI — the same Debian base; it signs in with your ChatGPT plan (Dozable's own sign-in) or an OpenAI key.
         ("codex", "OpenAI Codex — {version} — on the same Debian base (shared with claude-code); uses your ChatGPT plan or an OpenAI key",
          "~80 MB base image (shared) + Codex (~160 MB)", "~4–6 min the first time", 900 << 20),
         ("lab", "Alpine 3.20 with bash — a plain Linux shell, no agent",

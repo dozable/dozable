@@ -71,7 +71,7 @@ final class RecipeModelArgsTests: XCTestCase {
         var builtin = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
         builtin.launch.modelArgs = ["-m", "$DOZ_MODEL"]
         XCTAssertThrowsError(try builtin.validate(), "an agent with models@1")
-        // 618: pi's are the host's to put on its session (its launcher is Dozer's own, unchanged).
+        // 618: pi's are the host's to put on its session (its launcher is Dozable's own, unchanged).
         XCTAssertEqual(AgentRecipes.recipe("pi")?.launch.modelArgs, ["--model", "$DOZ_MODEL"])
     }
 

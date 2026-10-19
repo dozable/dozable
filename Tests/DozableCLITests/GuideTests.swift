@@ -5,7 +5,7 @@ import XCTest
 @testable import DozableHost
 
 /// 617.11 (owner: "i tried fabric and it just gave me a terminal … our companion guide"): guide@1 — every recipe has one,
-/// its first step IS the check turn, its commands start with the tool (or a shell builtin); Dozer's facts of a sandbox
+/// its first step IS the check turn, its commands start with the tool (or a shell builtin); Dozable's facts of a sandbox
 /// (`SandboxGuide`); Fabric's patterns baked at the pin.
 final class GuideTests: XCTestCase {
     private var root: URL!

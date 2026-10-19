@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
 
-/// 606: Dozer's own dashboards (`doz ui`, `doz serve`) are never reachable from a sandbox. A PROXIED sandbox has
+/// 606: Dozable's own dashboards (`doz ui`, `doz serve`) are never reachable from a sandbox. A PROXIED sandbox has
 /// no network interface — its traffic leaves from the host process itself, through the egress proxy — so a
 /// policy that allows everything (`open`) would otherwise let the agent connect to the Mac's own addresses on a
 /// dashboard's port. `Wire.connectTCP` refuses that, whatever the policy says: a destination that is THIS Mac

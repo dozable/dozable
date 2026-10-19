@@ -2,7 +2,7 @@ import Darwin
 import XCTest
 @testable import DozableKit
 
-/// 606 — the egress proxy never connects a sandbox to one of Dozer's own dashboards on this Mac (a proxied sandbox's
+/// 606 — the egress proxy never connects a sandbox to one of Dozable's own dashboards on this Mac (a proxied sandbox's
 /// traffic leaves from the host process itself), whatever the policy says.
 final class LocalDashboardsTests: XCTestCase {
     override func tearDown() { LocalDashboards.protect(nil) }

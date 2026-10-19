@@ -90,8 +90,8 @@ final class CopyShimTests: XCTestCase {
     func testNoTerminalIsRefusedAndAStampMovesWithTheScript() throws {
         let r = try run("wl-copy", [], input: "x", env: ["DOZ_TTY=/nonexistent/tty"])
         XCTAssertEqual(r.code, 1)
-        XCTAssertTrue(r.err.contains("no terminal of a Dozer session"), r.err)
-        XCTAssertTrue(GuestCommand.copyShim.contains("# doz:clipboard-shim:v1"), "a change to the shim bumps its stamp (a wake re-installs it)")
+        XCTAssertTrue(r.err.contains("no terminal of a Dozable session"), r.err)
+        XCTAssertTrue(GuestCommand.copyShim.contains("# doz:clipboard-shim:v2"), "a change to the shim bumps its stamp (a wake re-installs it)")
         XCTAssertTrue(GuestCommand.openShimInstall.contains(GuestCommand.copyShimInstall), "installed wherever the open shim is: boot, wake, session")
         for n in GuestCommand.copyShimAliases { XCTAssertTrue(GuestCommand.copyShimInstall.contains("'\(GuestCommand.openShimDirectory)/\(n)'")) }
     }

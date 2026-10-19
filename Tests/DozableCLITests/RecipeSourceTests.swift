@@ -4,7 +4,7 @@ import XCTest
 @testable import DozableKit
 
 /// 617: the YAML recipes are the source; `Recipes/compiled/PRODUCT.json` is exactly what each compiles to (`make
-/// recipes` writes them: DOZ_WRITE_RECIPES=1), and each compiles to the model Dozer runs.
+/// recipes` writes them: DOZ_WRITE_RECIPES=1), and each compiles to the model Dozable runs.
 final class RecipeSourceTests: XCTestCase {
     static let recipes = Pins.packageRoot.appendingPathComponent("Sources/DozableKit/Recipes")
 
@@ -53,7 +53,7 @@ final class RecipeSourceTests: XCTestCase {
         XCTAssertEqual(present, compiledNames, "every compiled file has its YAML, and no other")
     }
 
-    /// Each YAML compiles to exactly the recipe Dozer runs (the model every other test checks).
+    /// Each YAML compiles to exactly the recipe Dozable runs (the model every other test checks).
     func testEachYAMLIsTheRecipeDozableRuns() throws {
         for rel in try Self.yamlFiles() {
             let yaml = try String(contentsOf: Self.recipes.appendingPathComponent("agents/" + rel), encoding: .utf8)

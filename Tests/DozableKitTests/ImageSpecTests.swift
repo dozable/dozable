@@ -199,7 +199,7 @@ final class ImageSpecTests: XCTestCase {
                        // 599g: the last boot's view records go (/run is on the root disk)
                        + "rm -rf '/run/doz/view'; for d in '/run/doz/raw'/*; do [ -d \"$d\" ] && ! mountpoint -q \"$d\" && rmdir \"$d\" 2>/dev/null; done; true; "
                        + GuestCommand.ownHostnameScript + "; " + GuestCommand.debconfNoninteractiveScript + "; " + GuestCommand.openShimInstall
-                       // 599d: git's helper, the (empty) Dozer git config, no SSH agent.
+                       // 599d: git's helper, the (empty) Dozable git config, no SSH agent.
                        + "; " + GuestCommand.gitCredentialInstall + "; " + GuestCommand.gitConfigScript(.off) + "; " + GuestCommand.sshAgentScript(on: false),
                        "a kept root disk must not carry the last boot's sessions")
         let layout = StoreLayout(root: URL(fileURLWithPath: "/tmp/s"), name: "lab")

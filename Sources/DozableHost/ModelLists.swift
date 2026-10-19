@@ -7,7 +7,7 @@ import DozableKit
 ///   · A GATEWAY (OpenRouter, Vercel AI Gateway) publishes its list without a key. The HOST fetches it on the Mac — never
 ///     a sandbox — at most once a day (`maxAge`), with a short back-off after a failure (`retryAfterFailure`); offline it
 ///     says nothing and keeps the last list. `<store>/model-lists.json` (a cache: public data, never a key).
-///   · A PROVIDER (Anthropic, OpenAI, xAI, Google) lists its models only with a key, so Dozer offers the model it
+///   · A PROVIDER (Anthropic, OpenAI, xAI, Google) lists its models only with a key, so Dozable offers the model it
 ///     checked (`ModelSources.endpoints`' default) and any id a person types — a list built in would go stale.
 ///
 /// Each entry keeps id, name, maker, context, the price per million tokens in and out, and whether it takes tools —
@@ -22,7 +22,7 @@ public struct ModelInfo: Codable, Equatable, Sendable {
     public var pricePerMillionIn: Double?
     public var pricePerMillionOut: Double?
     public var tools: Bool?
-    /// 618: a key-less source's model — its data terms as the source's docs state them (Dozer's own list, never fetched).
+    /// 618: a key-less source's model — its data terms as the source's docs state them (Dozable's own list, never fetched).
     public var note: String?
 
     public init(id: String, name: String, maker: String? = nil, context: Int? = nil, pricePerMillionIn: Double? = nil,
@@ -38,7 +38,7 @@ public struct ModelList: Codable, Equatable, Sendable {
     public var title: String
     public var gateway: Bool
     /// `fetched` (a gateway's own list), `none` (a gateway whose list was never read — offline, or no host yet),
-    /// `default` (a provider: the model Dozer checked only), 618: `listed` (a key-less source: the models Dozer lists,
+    /// `default` (a provider: the model Dozable checked only), 618: `listed` (a key-less source: the models Dozable lists,
     /// checked against its docs on `checked`).
     public var kind: String
     /// 618: when a `listed` list was checked against the source's docs (YYYY-MM-DD), and where they are.
@@ -154,7 +154,7 @@ public enum ModelLists {
         return now.timeIntervalSince(at) >= maxAge
     }
 
-    /// A list as a source publishes it → the entries Dozer keeps (text models only, each checked; a malformed entry is
+    /// A list as a source publishes it → the entries Dozable keeps (text models only, each checked; a malformed entry is
     /// dropped, a document that is not a list is an error). Sorted by name.
     public static func parse(_ data: Data, source: String) throws -> [ModelInfo] {
         let dec = JSONDecoder()
@@ -216,7 +216,7 @@ public enum ModelLists {
         return t.count <= max ? t : String(t.prefix(max - 1)) + "…"
     }
 
-    /// A provider's (or a gateway's never-read) list: the model Dozer checked, nothing else.
+    /// A provider's (or a gateway's never-read) list: the model Dozable checked, nothing else.
     public static func defaultsOnly(_ source: String) -> [ModelInfo] {
         var seen = Set<String>()
         return ModelSources.endpoints(source).compactMap(\.defaultModel).filter { seen.insert($0).inserted }.map {

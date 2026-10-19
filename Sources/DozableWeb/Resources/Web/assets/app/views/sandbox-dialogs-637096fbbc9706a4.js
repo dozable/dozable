@@ -1,14 +1,14 @@
 // views/sandbox-dialogs — A sandbox page's dialogs: run detached, restore point, template, duplicate, policy, Open in Terminal.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { setButton } from '../dom/icons-2b30ba761d2d921b.js';
-import { AGENT_NAMES } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { actOrThrow } from '../core/operations-aeb47e4b98173dcf.js';
 import { lines, splitArgs } from '../core/util-1195caf40612902f.js';
-import { accountChooser } from '../components/accounts-8e711f4db445a594.js';
+import { accountChooser } from '../components/accounts-cb924813bb51f73d.js';
 import { dialog } from '../components/dialog-3079696fba2b7682.js';
 import { failureFor, toast } from '../components/notices-00fcfa992069168b.js';
-import { workspaceChooser } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
+import { workspaceChooser } from '../components/workspace-chooser-57debba5c27b107d.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 /// 603: a sandbox's terminal in the user's own terminal app (doz attach), from the bar, the strip or a session row.

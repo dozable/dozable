@@ -588,7 +588,7 @@ struct Remove: AsyncParsableCommand {
     }
 }
 
-/// 617: the folder Dozer made for a try (nil: not a try, or a folder the person chose).
+/// 617: the folder Dozable made for a try (nil: not a try, or a folder the person chose).
 struct TryFolder { var path: String; var wasEmpty: Bool }
 func tryFolder(_ name: String, _ g: GlobalOptions) async -> TryFolder? {
     var r = HostRequest(.ls)

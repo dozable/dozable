@@ -2,9 +2,9 @@ import ContainerizationOCI
 import CryptoKit
 import Foundation
 
-// 596 — Dozer Base Images (owner ruling 2026-09-30, B1–B11 as recommended). A sandbox's image is
+// 596 — Dozable Base Images (owner ruling 2026-09-30, B1–B11 as recommended). A sandbox's image is
 // two independent choices: the AGENT (Claude Code · pi · none) and the BASE (a recommended catalogue
-// entry, or the user's Dockerfile). The image Dozer prepares is base + the dev baseline + the agent,
+// entry, or the user's Dockerfile). The image Dozable prepares is base + the dev baseline + the agent,
 // named `<base>-<agent>` (`python-claude-code`, `go-pi`, `debian` for no agent) — except the three
 // images that existed before, whose names and specs are unchanged: `claude-code` (Node · Claude
 // Code), `pi` (Node · pi) and `lab` (Alpine · none).
@@ -589,7 +589,7 @@ public enum ImageComposer {
                 elif command -v apk >/dev/null 2>&1; then
                 \(apkBaselineScript)
                 else
-                  echo "doz: this base has neither apt-get nor apk — Dozer's baseline needs one of them" >&2; exit 1
+                  echo "doz: this base has neither apt-get nor apk — Dozable's baseline needs one of them" >&2; exit 1
                 fi
                 """)
         }

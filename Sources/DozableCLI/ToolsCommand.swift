@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 599h — `doz tools NAME`: the sandbox's tools layer — the tools Dozer manages from its settings (gh for GitHub
+// 599h — `doz tools NAME`: the sandbox's tools layer — the tools Dozable manages from its settings (gh for GitHub
 // as you, the ssh client and github.com's host keys for SSH agent forwarding, tmux, and always git, curl and
 // ca-certificates): why each is there, where it comes from, and what the last start or wake did.
 

@@ -94,7 +94,7 @@ public struct CredentialBinding: Sendable, Codable, Equatable, Identifiable {
     public static let openai = CredentialBinding(id: "openai", hosts: OpenAIAccess.apiHosts, header: .bearer,
                                                  environmentVariable: "OPENAI_API_KEY")
 
-    /// 599i: a ChatGPT plan through Dozer's own sign-in: the ACCESS token, `Authorization: Bearer` on
+    /// 599i: a ChatGPT plan through Dozable's own sign-in: the ACCESS token, `Authorization: Bearer` on
     /// chatgpt.com — swap-only (only ever in place of the placeholder Codex's auth.json holds; no
     /// variable). auth.openai.com is covered so the proxy decrypts it: Codex's own refresh request is
     /// answered there by the proxy and never forwarded (`EgressProxy.chatgptRenewal`).

@@ -15,8 +15,8 @@ final class BaseImagesTests: XCTestCase {
     /// fe9e746, before any 596 change) — so every prepared image in every store keeps its key.
     /// 599 changed them ON PURPOSE (tmux joined the dev baseline; W28's warning names it — "adds: tmux"):
     /// before 599 they were 7dc167ad…, 39946455…, 04976cf1…. Change these only with a recipe change.
-    /// 0.37 (the Dozable rename, no migration) re-pinned Claude Code's: its launcher reads /run/doz/agent-prompt.md
-    /// (was /run/dozer/…) — every Claude Code and Codex image is baked anew; pi's is unchanged.
+    /// 0.37 (the Dozable rename, no migration) re-pinned Claude Code's: its launcher reads the agent prompt from
+    /// /run/doz now — every Claude Code and Codex image is baked anew; pi's is unchanged.
     func test_nodeImagesAreByteIdentical() throws {
         XCTAssertEqual(Self.sha(AgentImages.claudeCode.canonicalJSON), "720daf2ec7cbb5d7ec7009e61e3fa859346e017fa43f521b9c19ab3a5563d4d0")
         XCTAssertEqual(Self.sha(AgentImages.pi.canonicalJSON), "33c6ed411162d35ebd8bc6594d0727f119e34071e55e43351f5bd4ebc47d3e47")

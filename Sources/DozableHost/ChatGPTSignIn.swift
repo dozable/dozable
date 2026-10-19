@@ -2,7 +2,7 @@ import Darwin
 import Foundation
 import DozableKit
 
-// 599i — Dozer's OWN ChatGPT sign-in, on this Mac (`doz account add NAME --chatgpt`). The same browser
+// 599i — Dozable's OWN ChatGPT sign-in, on this Mac (`doz account add NAME --chatgpt`). The same browser
 // flow Codex's `codex login` runs (0.160.1 `login/src/server.rs`): PKCE S256, Codex's public client, its
 // scopes, a loopback callback on 127.0.0.1:1455 (else 1457) — then the code is exchanged with
 // auth.openai.com from this Mac. The tokens go to the host as an `account-add` request (the one path a

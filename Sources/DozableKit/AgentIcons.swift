@@ -9,7 +9,7 @@ import Foundation
 //   reference, no text (`MonoSVG.check`, byte-exact shape). The page and a website colour it with CSS.
 // · `variants` has room for `color` and `color-dark` (the schema accepts them; nothing draws them yet).
 // · `allowed`: `official` (the maker's own mark, used as its brand terms allow, only made monochrome) | `lettermark`
-//   (a neutral mark Dozer draws — `Lettermark`, deterministic; the file must be exactly what it draws). Each entry
+//   (a neutral mark Dozable draws — `Lettermark`, deterministic; the file must be exactly what it draws). Each entry
 //   records where its mark came from, the brand terms it was checked against, and when.
 
 public struct IconEntry: Codable, Sendable, Equatable {
@@ -28,7 +28,7 @@ public struct IconEntry: Codable, Sendable, Equatable {
     /// A product's maker (a vendor id); nil for one with no company (pi).
     public var vendor: String?
     public var variants: Variants
-    /// Where the mark came from: the maker's page for an official mark; for a lettermark, Dozer's generator.
+    /// Where the mark came from: the maker's page for an official mark; for a lettermark, Dozable's generator.
     public var source: String
     /// The brand terms checked.
     public var terms: String?
@@ -214,7 +214,7 @@ public enum MonoSVG {
     }
 }
 
-/// Dozer's neutral lettermarks: letters drawn as strokes (a small built-in stroke alphabet — no font, no text element)
+/// Dozable's neutral lettermarks: letters drawn as strokes (a small built-in stroke alphabet — no font, no text element)
 /// inside a frame. Deterministic: the same spec is the same bytes.
 public enum Lettermark {
     public struct Spec: Codable, Sendable, Equatable {

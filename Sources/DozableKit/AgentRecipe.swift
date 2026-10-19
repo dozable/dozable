@@ -76,9 +76,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var state: State
     public var credentials: [CredentialUse]
     public var network: Network
-    /// `osc7501` (Dozer's status protocol) | `none`.
+    /// `osc7501` (Dozable's status protocol) | `none`.
     public var status: String
-    /// Where Dozer's facts go (nil: nowhere).
+    /// Where Dozable's facts go (nil: nowhere).
     public var prompt: Prompt?
     /// Appended to the default session's argv on a restart (nil: it restarts fresh).
     public var resume: [String]?
@@ -139,7 +139,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var major: Int
         /// "OpenCode 2".
         public var title: String
-        /// The major the family's name means — exactly one per family, moved by Dozer only once the new major passes
+        /// The major the family's name means — exactly one per family, moved by Dozable only once the new major passes
         /// `make recipe-check`. Labelled "recommended", never "latest".
         public var recommended: Bool? = nil
         public var isRecommended: Bool { recommended == true }
@@ -201,7 +201,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     public struct Install: Codable, Sendable, Equatable {
         /// `builtin` | `npm` | `npm-platform-binary` | `manifest-binary` | 617: `pypi` (a Python package and every
-        /// dependency, hash-pinned, in its own venv on Dozer's pinned Python) | `release-binary` (one program from a
+        /// dependency, hash-pinned, in its own venv on Dozable's pinned Python) | `release-binary` (one program from a
         /// release download at `url`, `{version}` in it).
         public var kind: String
         /// manifest-binary (617, Antigravity CLI): the vendor's release manifest for linux-arm64 (`{"version", "url",
@@ -345,7 +345,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var model: Model
         /// Folded into "Update itself" in this agent's sandbox only (a hidden `update:<id>`).
         public var update: [Host]
-        /// Hosts the agent is known to call that Dozer keeps out, whatever is chosen.
+        /// Hosts the agent is known to call that Dozable keeps out, whatever is chosen.
         public var excluded: [String]
         /// 617 (owner: a fresh try shows no refusal): what the agent calls on its OWN vendor's sites at a normal start
         /// (release notes, its model list, its plugin list) — each with its reason, allowed in its sandbox by a hidden
@@ -355,7 +355,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// (Claude Code's error reports and usage data without "Send error reports").
         public var offWithout: [OffWithout]?
         /// 617 (owner: no setting → refuse quietly): hosts the agent calls that no setting of its own turns off and that
-        /// Dozer keeps out (telemetry); denied before everything like `excluded`, logged, never counted as a refusal.
+        /// Dozable keeps out (telemetry); denied before everything like `excluded`, logged, never counted as a refusal.
         public var quiet: [Host]?
 
         enum CodingKeys: String, CodingKey { case model, update, excluded, vendor, quiet, offWithout = "off_without" }
@@ -457,7 +457,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var permissions: String?
     }
 
-    /// One agent × one gateway. `level`: `documented` (the vendor documents it: `source`) · `verified` (Dozer proved it:
+    /// One agent × one gateway. `level`: `documented` (the vendor documents it: `source`) · `verified` (Dozable proved it:
     /// `evidence`) · `experimental` (plausible, unproven — only ever an explicit opt-in, always shown as "not supported by
     /// the vendor": `evidence`) · `no` (`reason`) · `unknown` (not looked at yet). `how` is machine-applicable: values are
     /// templates over `{gateway.endpoint.<id>}`, `{placeholder}` (the gateway key's doz placeholder) and `{model}`.
@@ -469,7 +469,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// The gateway endpoint (`Gateway.endpoints[].id`) it is pointed at.
         public var endpoint: String?
         public var how: GatewayHow?
-        /// A candidate for routing by Dozer's proxy itself (phase 2 idea): the agent's own host and the path mapping.
+        /// A candidate for routing by Dozable's proxy itself (phase 2 idea): the agent's own host and the path mapping.
         public var proxyRoute: ProxyRoute?
         public var limits: [String]?
         public var notes: [String]?
@@ -566,13 +566,13 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var checked: String?
         /// vendor-sign-in: "an x.ai or X account", "a Claude subscription".
         public var account: String?
-        /// The Dozer account kinds this method maps to today (`mac`, `setup-token`, `api-key`, `chatgpt`, …); nil: none yet.
+        /// The Dozable account kinds this method maps to today (`mac`, `setup-token`, `api-key`, `chatgpt`, …); nil: none yet.
         public var accounts: [String]?
         /// gateway: `openrouter`, …
         public var gateways: [String]?
         /// Plain words: where the sign-in lives, why a method is missing, what phase uses it.
         public var note: String?
-        /// vendor-sign-in without Dozer accounts: the agent's own sign-in works INSIDE a sandbox (its sign-in hosts are
+        /// vendor-sign-in without Dozable accounts: the agent's own sign-in works INSIDE a sandbox (its sign-in hosts are
         /// reachable — none of them excluded). `doz try` offers it (labelled: the sign-in lives in that sandbox) only when
         /// true; nil/false: shown as not offered, with `note`.
         public var inSandbox: Bool?
@@ -1301,7 +1301,7 @@ extension AgentRecipe {
             guard !platforms.musl else { throw bad("a manifest-binary install pins the glibc build only (platforms.musl false)") }
             guard install.pinned.version.contains("+") else { throw bad("a manifest-binary pin is <version>+<build>") }
         case "pypi":
-            // 617: the package and every dependency, each pinned with its sha256 (pip --require-hashes), on Dozer's
+            // 617: the package and every dependency, each pinned with its sha256 (pip --require-hashes), on Dozable's
             // pinned glibc Python; the package's own distribution also checked against the sha512 integrity.
             guard !isBuiltin, let p = install.package, install.pinned.integrity != nil, install.platformPackage == nil, install.payload == nil,
                   install.manifest == nil, install.url == nil, install.compression == nil, install.needsNode == nil, install.npmArgs == nil,
@@ -1339,7 +1339,7 @@ extension AgentRecipe {
         for a in install.npmArgs ?? [] where a.range(of: "^--[a-z][a-z-]*$", options: .regularExpression) == nil { throw bad("npm_args: \(a)") }
         if let n = install.needsNode, Int(n) == nil { throw bad("needs_node is a Node major version") }
         if let n = install.needsNode.flatMap(Int.init), n > NodeRuntime.major {
-            // 617: Dozer's Node 24 (glibc only: Node publishes no musl arm64 build).
+            // 617: Dozable's Node 24 (glibc only: Node publishes no musl arm64 build).
             guard n <= 24, install.kind == "npm", !platforms.musl else { throw bad("needs_node \(n): an npm install on glibc, Node 24 at most") }
         }
         for h in install.bakeHosts ?? [] where !AgentRecipes.isExactHost(h) { throw bad("bake host \(h) is not an exact host name") }

@@ -207,7 +207,7 @@ public final class PullMeter: @unchecked Sendable {
 
 extension ImageBaker {
     /// Pull `reference` for linux/arm64 with its progress as `.transfer` events (bytes and layers, at
-    /// most 4 a second, and always the last). Every pull Dozer makes goes through here: a pull without a
+    /// most 4 a second, and always the last). Every pull Dozable makes goes through here: a pull without a
     /// meter is silent for as long as it takes (the lab's first boot and the guest init image were —
     /// a first `doz exec` showed nothing for 18 s), and a nil platform downloads every platform's layers.
     public static func pull(_ reference: String, store: ImageStore, label: String? = nil,

@@ -6,7 +6,7 @@
 // … Dockerfile (requires `container build` which should be installed on-demand) … [COMING SOON] Deck
 // Stack Recipes". Two choices (B1): the AGENT (Claude Code · pi · none) and the BASE — Recommended (a
 // card per catalogue base), Dockerfile (Choose Dockerfile… is the Mac's own file picker; its folder
-// becomes the workspace unless one was set; built with Apple's container build, OUTSIDE Dozer's network
+// becomes the workspace unless one was set; built with Apple's container build, OUTSIDE Dozable's network
 // policy — said on the card) — or a Template (a saved disk).
 // The image a pair makes is named as the host names it: claude-code / pi / lab keep their names.
 export const AGENTS = [['claude-code', 'Claude Code'], ['pi', 'pi'], ['codex', 'Codex'], ['none', 'none']];

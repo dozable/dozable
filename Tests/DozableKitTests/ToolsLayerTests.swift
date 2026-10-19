@@ -59,7 +59,7 @@ final class ToolsLayerTests: XCTestCase {
         s.have.insert("github-known-hosts")
         script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil)
         XCTAssertTrue(script.contains("doz-tool gh ok") && script.contains("doz-tool github-known-hosts ok"))
-        // Off: removed — only Dozer's copy and Dozer's link; the host keys block only when there.
+        // Off: removed — only Dozable's copy and Dozable's link; the host keys block only when there.
         let off = ToolsLayer.plan(ToolInputs())
         script = ToolsLayer.applyScript(off, state: s, ghCopied: false, ghProblem: nil)
         XCTAssertTrue(script.contains("rm -f '\(ToolsLayer.guestGhPath)'") && script.contains("doz-tool gh removed"))

@@ -91,7 +91,7 @@ final class AgentPermissionsTests: XCTestCase {
         XCTAssertEqual(q.evaluateConnection(host: "api.example.com", port: 443).kind, .allow)
     }
 
-    /// P5: a policy stores NAMES; the hosts come from the running build — so a later Dozer that adds a
+    /// P5: a policy stores NAMES; the hosts come from the running build — so a later Dozable that adds a
     /// host to "Update itself" reaches this stored sandbox with no edit.
     func testStoredByNameSoANewHostReachesEverySandboxThatHasThePermission() throws {
         let stored = try JSONEncoder().encode(NetworkPolicy.permissions(AgentPermissions.preset("agent", base: "python")!, preset: "agent"))

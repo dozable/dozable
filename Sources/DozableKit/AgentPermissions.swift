@@ -1,10 +1,10 @@
 import Foundation
 
-// 597 — Dozer Agent Permissions (owner ruling 2026-09-30, P1–P7 as recommended). A proxied sandbox's
+// 597 — Dozable Agent Permissions (owner ruling 2026-09-30, P1–P7 as recommended). A proxied sandbox's
 // network answers "what may the agent do?": a short list of plain-language permissions, each a named
 // group of host rules. A policy STORES THE NAMES (`NetworkPolicy.permissions`) plus the user's own
 // rules; the hosts behind a name come from THIS build (`AgentPermissions.all`) every time the policy is
-// evaluated — so when an agent starts using a new host, a Dozer update reaches every sandbox that has
+// evaluated — so when an agent starts using a new host, a Dozable update reaches every sandbox that has
 // the permission, with no per-sandbox edit (P5; the 2026-09-29 agent-preset incident). The user's own
 // rules (allow/deny a host) come first, so they win over permissions.
 
@@ -42,7 +42,7 @@ public struct AgentPermission: Sendable, Equatable, Codable {
     public var warning: String?
     /// `install` for the per-ecosystem sub-switches.
     public var group: String?
-    /// 617: hosts the agent this permission belongs to is known to call that Dozer keeps out — denied before
+    /// 617: hosts the agent this permission belongs to is known to call that Dozable keeps out — denied before
     /// anything else in a sandbox that has it (a recipe's `excluded`). nil for every other permission.
     public var denies: [String]?
     /// 617: never shown as a switch (an agent's own update hosts, folded into "Update itself").
@@ -189,7 +189,7 @@ public enum AgentPermissions {
         return a
     }()
 
-    /// Test seam: hosts added to a permission as a later Dozer would (P5's "an update adds a host").
+    /// Test seam: hosts added to a permission as a later Dozable would (P5's "an update adds a host").
     nonisolated(unsafe) static var addedForTests: [String: [PermissionHost]] = [:]
 
     public static func permission(_ id: String) -> AgentPermission? { all.first { $0.id == id } }

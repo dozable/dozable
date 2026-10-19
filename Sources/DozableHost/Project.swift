@@ -2,7 +2,7 @@ import Foundation
 import DozableKit
 
 /// 594 (D9, owner ruling: YAML, like dbt's `dbt_project.yml`) — `doz_project.yaml`: a folder that
-/// is a Dozer Sandbox project. `doz init` (and the dashboard's New Sandbox wizard, 599f) writes it;
+/// is a Dozable project. `doz init` (and the dashboard's New Sandbox wizard, 599f) writes it;
 /// `doz up` with no name, in that folder, creates, starts or wakes exactly that sandbox and attaches.
 /// The folder is its /workspace.
 ///

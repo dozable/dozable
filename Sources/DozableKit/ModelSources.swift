@@ -4,7 +4,7 @@ import Foundation
 // (Anthropic, OpenAI, xAI, Google) or a gateway (OpenRouter, Vercel AI Gateway) — whose API shape it speaks. The idea is
 // DeckStack's model binding (a selection → the agent's native settings; a downloaded recipe may ask for a model binding
 // but never chooses where a secret goes), re-done here and stricter: the recipe says only which shapes it speaks and how
-// a choice reaches its own settings (`models@1`); Dozer owns the key — its binding, its hosts, its placeholder — and the
+// a choice reaches its own settings (`models@1`); Dozable owns the key — its binding, its hosts, its placeholder — and the
 // proxy swaps the real key only into requests to that source's own hosts. A recipe-chosen base URL is therefore harmless.
 // docs/recipes/RECIPE-FORMAT.md, "Model sources".
 
@@ -132,7 +132,7 @@ extension AgentRecipe {
     func validateModels(_ bad: (String) -> SandboxError) throws {
         guard let m = models else { return }
         // 618: a built-in agent (pi) may declare its sources — native only, at session time (nothing baked: its image is
-        // Dozer's own); Claude Code and Codex keep their own accounts.
+        // Dozable's own); Claude Code and Codex keep their own accounts.
         if isBuiltin, (id == "claude-code" || id == "codex" || !(m.shapes ?? []).isEmpty) {
             throw bad("models@1 of a built-in agent: pi's only, native sources only (Claude Code and Codex keep their own accounts)")
         }
@@ -274,7 +274,7 @@ public enum ModelSources {
 }
 
 /// 618 (owner: "OpenCode Zen free models, no key"): a model source that takes no key — the tool reaches it with no
-/// account (OpenCode 2 without a key uses OpenCode Zen's free models). Dozer adds nothing to its requests; its hosts are
+/// account (OpenCode 2 without a key uses OpenCode Zen's free models). Dozable adds nothing to its requests; its hosts are
 /// reachable only through the recipe's model permission, path by path. The list of models is curated (the public model
 /// list has no prices, so it cannot tell a free model from a paid one): the free models the docs list that the tool's
 /// pinned release can use without a key (OpenCode 2.0.29 enables only its catalogue's zero-cost models when it has

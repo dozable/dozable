@@ -15,7 +15,7 @@ import { phasePill } from '../components/pills.js';
 
 // ── 595: Resources ──────────────────────────────────────────────────────────
 // Owner (2026-09-30): "the Resources section should break down ALL the usage". An ACCOUNT first: every
-// byte of the store on a row (the last, "unattributed", is ~0 — red when not), the memory and CPUs Dozer
+// byte of the store on a row (the last, "unattributed", is ~0 — red when not), the memory and CPUs Dozable
 // holds, the proxy's traffic, the kernels. Management stays where it lives — a row links to Images, the
 // sandbox's page or Accounts & keys; this page deletes only what has no other home. A deletion is
 // previewed (POST resources/preview — changes nothing), confirmed once (no typed names: the owner's
@@ -59,7 +59,7 @@ function resRow(it, kids) {
   if (it.later && !it.refusal) notes.push(h('div', null, h('span', { class: 'muted' }, 'Later: '), it.later));
   if (it.warning) notes.push(h('div', { class: 'res-warn' }, '⚠ ' + it.warning));
   if (it.id === 'unattributed') notes.push(h('div', { class: bad ? 'res-refusal' : 'muted' }, it.detail));
-  // 596: Apple's container storage is shown, never deleted by Dozer — no checkbox at all (its own commands are named).
+  // 596: Apple's container storage is shown, never deleted by Dozable — no checkbox at all (its own commands are named).
   const foreign = it.id.startsWith('outside:apple-container');
   return h('tr', { class: 'res-row' + (it.parent ? ' res-child' : '') + (bad ? ' res-bad' : ''), 'data-res': it.id, 'data-group': it.group },
     h('td', { class: 'res-check' }, foreign ? null : cb),
@@ -107,8 +107,8 @@ function resSection(group, title, figure, body) {
   return h('section', { class: 'res-group', 'data-res-group': group, id: 'res-' + group },
     h('div', { class: 'head res-head' }, h('h2', null, toggle, title), h('span', { class: 'muted' }, figure)), wrap);
 }
-/// The top bar is Dozer's own split only (owner, 595): what stays, what Clean up frees, and what `du`
-/// counts again for blocks APFS clones share — the whole is Dozer's total. The volume's free space is
+/// The top bar is Dozable's own split only (owner, 595): what stays, what Clean up frees, and what `du`
+/// counts again for blocks APFS clones share — the whole is Dozable's total. The volume's free space is
 /// text beside it, never part of the bar.
 function resTotalBar(r) {
   const clean = Math.min(r.cleanableBytes, r.occupiedBytes);

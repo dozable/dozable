@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {
@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "Nanocoder's release check after it starts (read-only, that one path; no setting turns it off; a notice only); the recipe's vendor host — Dozer installs the pinned release",
+      "reason": "Nanocoder's release check after it starts (read-only, that one path; no setting turns it off; a notice only); the recipe's vendor host — Dozable installs the pinned release",
       "seen": true
     }
   ]

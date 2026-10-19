@@ -1,5 +1,5 @@
 #!/usr/bin/env swift
-// update-key.swift — Dozer's update-signing key (Ed25519, CryptoKit) and the signature on each feed entry.
+// update-key.swift — Dozable's update-signing key (Ed25519, CryptoKit) and the signature on each feed entry.
 //
 //   swift Scripts/update-key.swift generate          # ONCE, by the owner (`make doz-update-keys`): makes the key in the
 //                                                    # login keychain — after asking — and prints the PUBLIC key
@@ -11,7 +11,7 @@
 //   swift Scripts/update-key.swift test-key FILE     # a THROWAWAY keypair for tests: FILE holds the private key (base64),
 //                                                    # the public key is printed. Never the real key.
 //
-// THE KEY. Dozer's own — never Deckosaurus's — and never rotated: every installed doz carries the public key compiled
+// THE KEY. Dozable's own — never Deckosaurus's — and never rotated: every installed doz carries the public key compiled
 // in (`Distribution.updatePublicKey`, Sources/DozableHost/Updates.swift) and refuses an entry it did not sign. Losing the
 // private key means no installed doz can be told about a new release again. The private key lives ONLY in the login
 // keychain of the Mac that publishes (generic password, service "dozersandbox.com update signing", account "ed25519",
@@ -111,10 +111,10 @@ let args = CommandLine.arguments.dropFirst()
 switch args.first {
 case "generate":
     if keychainKey() != nil || security(["find-generic-password", "-s", service, "-a", account]).status == 0 {
-        die("the login keychain already holds Dozer's update-signing key (\(service)) — it is NEVER replaced (every installed doz trusts it); `public` prints its public key")
+        die("the login keychain already holds Dozable's update-signing key (\(service)) — it is NEVER replaced (every installed doz trusts it); `public` prints its public key")
     }
     print("""
-    This makes Dozer's update-signing key — Ed25519, Dozer's own — and keeps its private half in your LOGIN KEYCHAIN
+    This makes Dozable's update-signing key — Ed25519, Dozable's own — and keeps its private half in your LOGIN KEYCHAIN
     (generic password "\(service)", account "\(account)"). Every doz built afterwards trusts it, so it must never change:
     keep an offline backup (`swift Scripts/update-key.swift export FILE` writes one) — without the key, no installed doz
     can be offered an update again.

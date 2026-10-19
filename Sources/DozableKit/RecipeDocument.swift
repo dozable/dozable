@@ -3,7 +3,7 @@ import Foundation
 // 617 (owner: "one YAML file per recipe", "align as close as we can right now with our own format so that export /
 // generating a sandboxkit YAML is straightforward", "we need a JSON Schema and spec doc for our new YAML format") —
 // the recipe FILE format, `schema: 2`: Docker Sandbox Kit v3's layout (its top-level fields, a `capabilities:` list
-// with Kit's own types and config shapes where Kit has them, Dozer's extras under `dozable:` keys and in
+// with Kit's own types and config shapes where Kit has them, Dozable's extras under `dozable:` keys and in
 // `com.dozable/*@1` types, `${{ kit.args.version }}` / `${{ dozable.* }}` templating). docs/recipes/RECIPE-FORMAT.md
 // is the spec; schema/dozable-recipe-2.schema.json the contract (RecipeSchemaTests: every recipe valid, and the decoder
 // refuses what the schema refuses).
@@ -14,14 +14,14 @@ import Foundation
 // to the `AgentRecipe` everything else uses — one for one, lossless (`RecipeDocument(recipe)` is the inverse).
 //
 // Strict, as Kit is: an unknown key anywhere is an error; the Kit parts that are DERIVED (the network policy's allow
-// and deny lists, a credential's apiKey) must equal what Dozer derives, so they cannot drift.
+// and deny lists, a credential's apiKey) must equal what Dozable derives, so they cannot drift.
 
 public struct RecipeDocument: Codable, Sendable, Equatable {
     public static let schemaVersion = 2
     /// The guest home a Kit path (absolute) maps `~/` to.
     public static let guestHome = "/home/agent/"
 
-    /// Dozer's format version (export writes Kit's `schemaVersion: "3"`).
+    /// Dozable's format version (export writes Kit's `schemaVersion: "3"`).
     public var schema: Int
     /// Kit's kind: `workload` (the agent a sandbox runs).
     public var kind: String
@@ -75,7 +75,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public static let dozable = [install, launch, auth, gateways, currency, directory, models, ports, guide, family]
     }
 
-    /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozer's whole network under `dozable`.
+    /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozable's whole network under `dozable`.
     public struct NetworkPolicy: Codable, Sendable, Equatable {
         public var install: Rules?
         public var runtime: Rules?
@@ -103,7 +103,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
             public var format: String
         }
         public struct CredentialDozable: Codable, Sendable, Equatable {
-            /// The Dozer account kinds that serve it (`mac`, `setup-token`, `api-key`, `key`, …).
+            /// The Dozable account kinds that serve it (`mac`, `setup-token`, `api-key`, `key`, …).
             public var accounts: [String]
             /// 617: more guest variables that hold the same placeholder (a tool that reads its key under another name:
             /// OPENAI_API_KEY for an OpenAI-compatible base URL, LLM_GEMINI_KEY).
@@ -117,7 +117,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var path: String
     }
 
-    /// Kit's agent-context@1: where Dozer's facts go (`directory` + `filename`); how, under `dozable`.
+    /// Kit's agent-context@1: where Dozable's facts go (`directory` + `filename`); how, under `dozable`.
     public struct AgentContext: Codable, Sendable, Equatable {
         public var directory: String
         public var filename: String
@@ -131,10 +131,10 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         }
     }
 
-    /// com.dozable/install@1 — how Dozer installs it (the version is `args.version`).
+    /// com.dozable/install@1 — how Dozable installs it (the version is `args.version`).
     public struct Install: Codable, Sendable, Equatable {
         public var kind: String
-        /// true: Dozer's own Swift installs and launches it (Claude Code, pi, Codex).
+        /// true: Dozable's own Swift installs and launches it (Claude Code, pi, Codex).
         public var builtin: Bool?
         public var package: String?
         public var platformPackage: String?
@@ -159,7 +159,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         }
     }
 
-    /// com.dozable/launch@1 — how Dozer runs it.
+    /// com.dozable/launch@1 — how Dozable runs it.
     public struct Launch: Codable, Sendable, Equatable {
         public var command: [String]
         public var noPromptsArgs: [String]
@@ -329,7 +329,7 @@ extension RecipeDocument {
         return d
     }
 
-    /// The rules the schema states, and the ones only Dozer can check (the derived Kit parts).
+    /// The rules the schema states, and the ones only Dozable can check (the derived Kit parts).
     public func check() throws {
         func bad(_ s: String) -> Error { SandboxError.invalidSpec("recipe \(id): \(s)") }
         guard schema == Self.schemaVersion else { throw bad("schema \(schema) — this build reads \(Self.schemaVersion)") }
@@ -352,7 +352,7 @@ extension RecipeDocument {
         for c in capabilities where c.optional != nil || c.name != nil { throw bad("\(c.type): optional and name are export's, not the recipe's") }
         guard launch.check != nil else { throw bad("launch@1 has no check (the smoke turn make recipe-check runs)") }
         let recipe = try recipeUnchecked()
-        // The Kit parts Dozer derives: equal, or the file is out of date.
+        // The Kit parts Dozable derives: equal, or the file is out of date.
         let want = Self.networkRules(recipe)
         guard networkPolicy.install == nil, networkPolicy.runtime == want else {
             throw bad("network-policy@1 runtime must be \(Self.describe(want)) (derived from config.dozable and the key provider) — and no install phase")
@@ -615,7 +615,7 @@ extension RecipeDocument {
 
 extension RecipeDocument {
     /// The recipe as a Docker Sandbox Kit v3 descriptor (a JSON object): `schemaVersion: "3"`, Kit's top-level fields,
-    /// Kit's own capabilities with every `dozable:` key removed, Dozer's types kept as `optional: true` (a Kit host skips
+    /// Kit's own capabilities with every `dozable:` key removed, Dozable's types kept as `optional: true` (a Kit host skips
     /// an optional type it does not know, §7.3) with `${{ dozable.* }}` written as `{dozable.*}` (inert to Kit). The
     /// install-and-launch part (a Dockerfile, its ENTRYPOINT) is `doz recipe export --kit`'s, later. RecipeSchemaTests
     /// checks this view against Kit's own published JSON Schema.

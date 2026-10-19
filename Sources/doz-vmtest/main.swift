@@ -940,7 +940,7 @@ Task {
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliTrySuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-codex":
-            // 599i: Codex — Dozer's own ChatGPT sign-in, the proxy's swap and renewal, an API key (a fake OpenAI).
+            // 599i: Codex — Dozable's own ChatGPT sign-in, the proxy's swap and renewal, an API key (a fake OpenAI).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliCodexSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-tools":

@@ -207,7 +207,7 @@ final class BaseImagesHostTests: XCTestCase {
     }
 
     /// 596 addendum: Apple's container storage is a row OUTSIDE the store — measured, broken down,
-    /// never in Dozer's total, never deletable, with its own commands named.
+    /// never in Dozable's total, never deletable, with its own commands named.
     func testAppleContainerStorageIsShownOutside() throws {
         let data = root.appendingPathComponent("apple")
         for (dir, bytes) in [("snapshots/abc", 64 << 10), ("content/blobs/sha256", 16 << 10), ("kernels", 8 << 10), ("builder", 4 << 10)] {
@@ -215,7 +215,7 @@ final class BaseImagesHostTests: XCTestCase {
             try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
             try Data(repeating: 1, count: bytes).write(to: d.appendingPathComponent("f"))
         }
-        // An image tagged doz/… : its index, manifest, a layer and its snapshot count as Dozer's.
+        // An image tagged doz/… : its index, manifest, a layer and its snapshot count as Dozable's.
         let blobs = data.appendingPathComponent("content/blobs/sha256")
         func blob(_ name: String, _ body: String) throws -> String {
             try Data(body.utf8).write(to: blobs.appendingPathComponent(name)); return "sha256:" + name

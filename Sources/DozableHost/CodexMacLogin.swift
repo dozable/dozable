@@ -6,7 +6,7 @@ import DozableKit
 // in") — the account `mac` for Codex: THIS Mac's own Codex login, as `mac` is this Mac's Claude login (588's
 // rules are the template).
 //
-//   · Dozer READS ONLY the access token (and the id_token claims / account id the guest's auth.json needs) from
+//   · Dozable READS ONLY the access token (and the id_token claims / account id the guest's auth.json needs) from
 //     `$CODEX_HOME/auth.json` (else `~/.codex/auth.json` — Codex's FILE store). It never uses, holds or writes the
 //     refresh token, and never writes CODEX_HOME: the Mac's Codex stays the one refresher (a second refresher would
 //     spend its single-use refresh token and sign the Mac out).
@@ -16,7 +16,7 @@ import DozableKit
 //     expiry, whenever it asks for its auth (`login/src/auth/manager.rs` `auth()` → `should_refresh_proactively`).
 //     The Codex app's background server lists models every 4½ minutes (`app-server/src/models_refresh_worker.rs`),
 //     which asks for the auth — so while the app (or any codex session) runs, the login stays fresh. With nothing
-//     running it expires; the proxy then answers with Dozer's message, never another account.
+//     running it expires; the proxy then answers with Dozable's message, never another account.
 //   · Keep-alive (opt-in, `codex.keep_alive`): when the token is within Codex's window and a sandbox used it
 //     recently, run the Mac's OWN `codex doctor` once — it asks for the auth (its websocket check, `cli/src/
 //     doctor.rs`), which refreshes; no model is called.
@@ -196,7 +196,7 @@ public final class CodexMacSession: @unchecked Sendable {
         return (t.accessToken, nil)
     }
 
-    /// Codex's own renewal in the guest: the same placeholder back — the Mac renews, never Dozer.
+    /// Codex's own renewal in the guest: the same placeholder back — the Mac renews, never Dozable.
     public func renewalAnswer(placeholder: String) -> [UInt8] {
         _ = read()
         return OpenAIAccess.refreshAnswer(placeholder: placeholder, guestIDToken: guestIDToken, problem: problem())

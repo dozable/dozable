@@ -19,7 +19,7 @@ import { act, actOrThrow } from '../core/operations-aeb47e4b98173dcf.js';
 import { refresh } from '../core/router-61f034481475286a.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
-import { accountDialog } from '../components/accounts-8e711f4db445a594.js';
+import { accountDialog } from '../components/accounts-cb924813bb51f73d.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { confirmAction } from '../components/dialog-3079696fba2b7682.js';

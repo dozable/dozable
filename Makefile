@@ -1,4 +1,4 @@
-# Dozer Sandbox — the `doz` command and the DozableKit Swift package (macOS on Apple silicon only).
+# Dozable — the `doz` command and the DozableKit Swift package (macOS on Apple silicon only).
 #
 # `swift build && swift test` at the root is the whole story for a consumer. These targets add
 # what is easy to get wrong by hand: the build-system pin, the ENTITLED VM integration run, the
@@ -74,7 +74,7 @@ build: ## Build every product (and the VM test host)
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS)
 
 # ── Test safety BY DEFAULT ───────────────────────────────────────────────────
-# Every test target runs with the seams that keep it off this Mac's real Dozer: no look at the Mac's Claude
+# Every test target runs with the seams that keep it off this Mac's real Dozable: no look at the Mac's Claude
 # login, accounts' secrets in the host's memory (never the login keychain), a scratch Codex home, and a
 # scratch settings file (XDG_CONFIG_HOME) whose store.path and defaults.projects_dir point at scratch
 # folders — so a test that forgets --store cannot reach the default store, and a new sandbox's workspace is
@@ -144,14 +144,16 @@ test-vm-lineage: vmtest-host ## 587 image lineage: warm-base bakes, journal, dis
 # 591: an update never costs a sleeping sandbox its sessions. The PREVIOUS release's `doz` sleeps
 # sandboxes in a scratch store, and this build must wake them with their sessions. Also: a running
 # host's program overwritten in place (the 591 incident), and an idle host replaced by an update.
-# PREV_TAG is the latest release tag this branch descends from that IS a DozableKit release (its tree
-# has Sources/doz); it is built once from the tag (git archive, no checkout touched) into PREV_DIR.
-# 592: there is none yet — v0.9.0 and older are the pre-rename product, and by owner ruling their stores are NOT
-# expected to wake under doz. Then the "previous" build is a COPY of this one (a reinstall of the same
-# version): the sessions-survive-an-update wake, the in-place overwrite incident and the replaced-host
-# idle exit all still run; only the cross-version part waits for the first DozableKit tag (v0.10.0).
+# PREV_TAG is the latest release tag this branch descends from that IS a release of THIS layout (its tree has
+# Sources/DozableKit); it is built once from the tag (git archive, no checkout touched) into PREV_DIR.
+# 0.37 (630, the Dozable rename): breaking by owner ruling ("NO MIGRATION ; breaking changes all the way") — a new
+# store (~/Library/Application Support/doz), new settings dir, new guest paths and image names — so no earlier
+# release's sandboxes are expected to wake under it. Until the first tag with Sources/DozableKit exists (v0.37.0),
+# the "previous" build is a COPY of this one (a reinstall of the same version), exactly as at 592: the
+# sessions-survive-an-update wake, the in-place overwrite incident and the replaced-host idle exit all still run;
+# only the cross-version part waits for that tag.
 PREV_TAG      ?= $(shell for t in $$(git tag --list 'v[0-9]*' --sort=-v:refname --merged HEAD 2>/dev/null); do \
-                   git cat-file -e "$$t:Sources/doz" 2>/dev/null && { echo "$$t"; break; }; done)
+                   git cat-file -e "$$t:Sources/DozableKit" 2>/dev/null && { echo "$$t"; break; }; done)
 ifneq ($(PREV_TAG),)
 PREV_DIR      ?= $(or $(TMPDIR),/tmp/)doz-$(PREV_TAG)-cli
 PREV_BIN      := $(PREV_DIR)/.build/debug/doz
@@ -163,7 +165,7 @@ UPGRADE_STORE ?= $(or $(TMPDIR),/tmp/)doz-upgrade-store
 
 prev-cli: cli ## Build + sign the previous DozableKit release's doz from its tag (once, into PREV_DIR) — or copy this build when there is none
 	@if [ -z "$(PREV_TAG)" ]; then \
-	  echo "prev-cli: no DozableKit release below HEAD yet (v0.9.0 and older are the pre-rename product — not compatible, owner ruling 592); the previous build is a copy of this one"; \
+	  echo "prev-cli: no DozableKit release below HEAD yet (v0.36 and older are the pre-rename layout — not compatible, owner ruling 630); the previous build is a copy of this one"; \
 	  mkdir -p "$(PREV_DIR)" && cp "$(CLI_BIN)" "$(PREV_DIR)/.doz.new" && mv -f "$(PREV_DIR)/.doz.new" "$(PREV_BIN)" && \
 	  cp -R .build/debug/DozableKit_DozableKit.bundle .build/debug/DozableKit_DozableWeb.bundle "$(PREV_DIR)/" ; \
 	elif [ ! -x "$(PREV_BIN)" ]; then \
@@ -181,7 +183,7 @@ test-vm-ignore: vmtest-host ## 599g workspace rules: .dozignore lock/hide + .doz
 	perl -e 'alarm shift; exec @ARGV' 1800 $(VMTEST_BIN) ignore --store "$(VMTEST_STORE)"
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
 
-test-vm-agentwrite: vmtest-host ## The agent (a non-root image user) writes shared workspaces through the view — Dozer-made, 755/644, 700/600, a rules view; git; rules still refused; after sleep and hibernate (bakes a small Alpine image once per store; network)
+test-vm-agentwrite: vmtest-host ## The agent (a non-root image user) writes shared workspaces through the view — Dozable-made, 755/644, 700/600, a rules view; git; rules still refused; after sleep and hibernate (bakes a small Alpine image once per store; network)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
 
 test-vm-cwd: vmtest-host ## BUG cwd-after-wake: a program whose cwd is in /workspace keeps it across sleep, hibernate and a restore into a new process (the raw share as the control); the passthrough view's cost
@@ -227,7 +229,7 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 -include Makefile.config
 SIGN_IDENTITY  ?=
 NOTARY_PROFILE ?=
-# 611: a real release is the PUBLIC flavor (no sound kernel, no Dozer-own ChatGPT sign-in); PUBLIC=0 for a private rc.
+# 611: a real release is the PUBLIC flavor (no sound kernel, no Dozable's own ChatGPT sign-in); PUBLIC=0 for a private rc.
 PUBLIC         ?= 1
 # The official builds' closed package (anonymous usage statistics, the sign-up): a path or git URL (+ DOZ_CLOUD_REF),
 # from Makefile.config. Passed to the RELEASE build only — never exported, so `make cli`, `make test` and CI never see it.
@@ -251,7 +253,7 @@ UPDATES_DIR ?= $(or $(TMPDIR),/tmp/)doz-updates-site
 TAP_DIR     ?= $(or $(TMPDIR),/tmp/)doz-homebrew-tap
 CHANNEL     ?= canary
 
-doz-update-keys: ## 611: ONCE, by the owner — make Dozer's update-signing key in the login keychain (asks first) and print its public key to commit
+doz-update-keys: ## 611: ONCE, by the owner — make Dozable's update-signing key in the login keychain (asks first) and print its public key to commit
 	@swift Scripts/update-key.swift generate
 
 publish: ## 611: put dist/doz-VERSION's tarball on the feed + the channel formulas (VERSION=, NOTES=notes.md, CHANNEL=canary|beta|stable; DRY_RUN=1; PUSH=1)
@@ -336,7 +338,7 @@ agent-currency: ## 617: every agent's latest release, its date and age, freshnes
 test-cli-try: cli vmtest-host ## 617: doz try on a terminal (script(1)) through seams only — the key card with a FAKE key typed hidden (never in accounts.json), the try made and attached, Ctrl-] twice and "Keep this try?": Enter sleeps it, an unknown answer is asked again, d deletes it and its empty folder, k keeps it; --rm and --keep ask nothing; the slept try wakes (prepares grok at its pin)
 	perl -e 'alarm shift; exec @ARGV' 2400 $(VMTEST_BIN) cli-try --doz $(CLI_BIN)
 
-test-cli-codex: cli vmtest-host ## 599i: Codex through SEAMS only — a fake OpenAI over TLS (its own CA; the proxy's, the sign-in's and the refresh's upstream), the browser seam: Dozer's own ChatGPT sign-in, the real Codex in a VM answered via chatgpt.com with the placeholder swapped, a renewal on the Mac, the guest's renewal answered by the proxy, no token in the guest, no silent fallback, an API key, Alpine (prepares codex + alpine-codex; network: Docker Hub + npm; CODEX_KEEP=1 keeps the store)
+test-cli-codex: cli vmtest-host ## 599i: Codex through SEAMS only — a fake OpenAI over TLS (its own CA; the proxy's, the sign-in's and the refresh's upstream), the browser seam: Dozable's own ChatGPT sign-in, the real Codex in a VM answered via chatgpt.com with the placeholder swapped, a renewal on the Mac, the guest's renewal answered by the proxy, no token in the guest, no silent fallback, an API key, Alpine (prepares codex + alpine-codex; network: Docker Hub + npm; CODEX_KEEP=1 keeps the store)
 	perl -e 'alarm shift; exec @ARGV' 5400 $(VMTEST_BIN) cli-codex --doz $(CLI_BIN)
 
 test-cli-projectwizard: cli vmtest-host ## 599f: doz init --yes (every choice a flag) then doz up in the folder makes exactly that sandbox; doz_project.yml; both spellings refused; an interactive doz init on a pseudo-terminal walks the 9 steps, and again replaces the file only after its diff and a yes

@@ -7,7 +7,7 @@ import DozableKit
 //
 //   · A workspace folder that does not exist is CREATED — everywhere (the UI's forms, `doz create/up/
 //     duplicate --workspace`) — `mkdir -p` with the user's own permissions, at create time, before the
-//     VM is configured; and removed again only if Dozer made it, it is still empty, and the create failed.
+//     VM is configured; and removed again only if Dozable made it, it is still empty, and the create failed.
 //   · Refused, never created: an existing FILE; `/` or the home folder itself; a relative path. And a
 //     folder that would have to be created inside the store, or under a system location (/System, /usr,
 //     /bin, /sbin, /private/var, /Library, …). (An EXISTING folder there is shared as before.)
@@ -22,7 +22,7 @@ public enum Workspace {
 
     public struct Prepared: Equatable, Sendable {
         public var path: String
-        /// Dozer made it now (and the folders `created` lists, outermost first).
+        /// Dozable made it now (and the folders `created` lists, outermost first).
         public var created: Bool { !createdDirectories.isEmpty }
         public var createdDirectories: [String]
     }

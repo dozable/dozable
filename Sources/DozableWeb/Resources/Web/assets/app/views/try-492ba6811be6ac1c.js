@@ -27,7 +27,7 @@ import { renderModal, wizardCloseRequest } from '../components/modal-0de120a648b
 import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
 import { pageFailure, toast } from '../components/notices-00fcfa992069168b.js';
 import { paintStartProgress } from '../components/start-progress-f2138033d14554b8.js';
-import { drawPendingTry } from './sandbox-55cf209c865e177b.js';
+import { drawPendingTry } from './sandbox-f8dbf4fd4ee0e691.js';
 import { planCommand, reachList } from '../components/plan-view-db40a2b03aef0f54.js';
 import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-4ce4eaa1b78d6b80.js';
 import { prepCard } from '../components/prep-card-ba2a809595ffc093.js';
@@ -384,7 +384,7 @@ function detailNodes() {
     h('dt', null, 'Dozable installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
     a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
     h('dt', null, 'Base'), h('dd', null, a.base || '—'),
-    // 618: a family's majors — each one Dozer checked; Try's Version picks one.
+    // 618: a family's majors — each one Dozable checked; Try's Version picks one.
     ...(familyOf(a).length > 1 ? [h('dt', null, 'Majors'), h('dd', { 'data-try-majors': '' },
       familyOf(a).map((x) => x.family.title + (x.version ? ' ' + x.version : '') + (x.family.recommended ? ' (recommended)' : '')).join(' · ')
         + ' — Try lets you choose')] : []));

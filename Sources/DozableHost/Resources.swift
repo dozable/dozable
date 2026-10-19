@@ -2,8 +2,8 @@ import Darwin
 import Foundation
 import DozableKit
 
-// 595 (owner, 2026-09-30): "add a Resources section … that shows all the resources used by Dozer and a
-// way to manage them". Resources is first an ACCOUNT of everything Dozer uses (R0): every byte of the
+// 595 (owner, 2026-09-30): "add a Resources section … that shows all the resources used by Dozable and a
+// way to manage them". Resources is first an ACCOUNT of everything Dozable uses (R0): every byte of the
 // store attributed to a row — a final "unattributed" row that must be ~0 — plus the memory and CPUs it
 // holds and the traffic through its proxy. Management stays where it lives (Images, a sandbox's page,
 // Accounts & keys); Resources' own deletions are for what has no other home (caches, base disks, the
@@ -52,7 +52,7 @@ public struct ResourceItem: Codable, Equatable, Sendable {
     }
 }
 
-/// Memory Dozer holds (R0): each sandbox with a VM, the host, the UI.
+/// Memory Dozable holds (R0): each sandbox with a VM, the host, the UI.
 public struct ResourceMemory: Codable, Equatable, Sendable {
     /// `sandbox`, `host` or `ui`.
     public var kind: String
@@ -227,7 +227,7 @@ public struct ResourceFacts: Sendable {
 }
 
 public enum Resources {
-    /// Store-root files that are Dozer's own records (never deleted here).
+    /// Store-root files that are Dozable's own records (never deleted here).
     static let storeRecords: Set<String> = ["accounts.json", "onboarded.json", "preparations.json", "agent-versions.json",
                                             "host.lock", "host.pid", "host.sock", "ui.lock", "ui.sock",
                                             // 605: doz ui's port, kept sessions, ended sessions' reasons, operations.

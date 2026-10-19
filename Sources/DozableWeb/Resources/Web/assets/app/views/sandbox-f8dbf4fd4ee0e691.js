@@ -1,7 +1,7 @@
 // views/sandbox — A sandbox's page (593): the control bar, the terminal area, the inspector.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, setButton, withIcon } from '../dom/icons-2b30ba761d2d921b.js';
-import { DOCKERFILE_POLICY_NOTE } from '../core/agents-8750f182d6cf2b01.js';
+import { DOCKERFILE_POLICY_NOTE } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { bytes, full, mib, plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, transitionOf } from '../core/operations-aeb47e4b98173dcf.js';
@@ -9,8 +9,8 @@ import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes-02cb10ff22462e6d.js
 import { saveSetting, setting } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-933851e9be49078e.js';
-import { isRemote } from '../core/session-8f515cab20663e44.js';
-import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-8e711f4db445a594.js';
+import { isRemote } from '../core/session-43467681e3880ff9.js';
+import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-cb924813bb51f73d.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
@@ -18,16 +18,16 @@ import { confirmAction, confirmWithCheck, dialog } from '../components/dialog-30
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle-4e83056d968bdf48.js';
 import { menuButton, moreMenu } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { sessionMenuItems } from '../components/session-actions-e641083830e84984.js';
-import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-3ada3aca5e594b0c.js';
+import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-f71113e629b4e5ac.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-00fcfa992069168b.js';
 import { sandboxPill } from '../components/pills-fa26febb3646542c.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-d47cf44bc7dd9f56.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-5032aa12e5c0ad39.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-3d1f860e97990297.js';
-import { networkPanel } from './sandbox-network-b2421766be265b11.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-7cf8c550798cf0ff.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-57debba5c27b107d.js';
+import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-637096fbbc9706a4.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-f20edbb0fdcdb8b4.js';
+import { networkPanel } from './sandbox-network-46feaa124d2d8806.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-a1f6ad32e0449ca1.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

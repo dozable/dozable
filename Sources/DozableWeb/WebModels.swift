@@ -275,7 +275,7 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var agentStatus: WebAgentStatus?
     public var agentWorking: Bool?
     /// 617: a try (the dashboard's Quick try, `doz try`): its page offers Sleep · Delete · Keep; `trialFolder` is the
-    /// folder Dozer made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
+    /// folder Dozable made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
     public var trial: Bool?
     public var trialFolder: String?
     /// 617 (RP-1): its web ports — the header's Open buttons (listening, with a URL) and the details' list.
@@ -636,7 +636,7 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     }
 }
 
-/// 617.11: a recipe agent's guide, field by field (the recipe's text and Dozer's facts — never a secret).
+/// 617.11: a recipe agent's guide, field by field (the recipe's text and Dozable's facts — never a secret).
 public struct WebGuide: Codable, Equatable, Sendable {
     public struct Fact: Codable, Equatable, Sendable { public var id: String; public var label: String; public var value: String }
     public struct Step: Codable, Equatable, Sendable { public var text: String; public var command: String?; public var edit: Bool }
@@ -1205,7 +1205,7 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         public var current = true
         /// Its key is there and nothing else blocks it: Start works now.
         public var ready = false
-        /// The version Dozer installs, and how long ago its latest release came out ("4 days"), when measured.
+        /// The version Dozable installs, and how long ago its latest release came out ("4 days"), when measured.
         public var version: String? = nil
         public var age: String? = nil
         /// 617: one sentence about it (the recipe's description).
@@ -1269,7 +1269,7 @@ public struct WebAccounts: Codable, Equatable, Sendable {
     public var sources: [String: [String]] = [:]
     public var recipeDefaults: [String: String] = [:]
     public var sourceTitles: [String: String] = [:]
-    /// 617 (the Accounts & keys redesign): the providers in Dozer's order (Anthropic, OpenAI, then providers.json's), the
+    /// 617 (the Accounts & keys redesign): the providers in Dozable's order (Anthropic, OpenAI, then providers.json's), the
     /// tools each one's key serves (agent ids, in the try list's order — `agentTitles` names them), and the providers whose
     /// key has no check (a custom key has none either).
     public var providers: [String] = []
@@ -1319,7 +1319,7 @@ public struct WebAccounts: Codable, Equatable, Sendable {
         providers = ["anthropic", "openai"] + ModelSources.keyed.filter {
             $0 != "anthropic" && $0 != "openai" && ((ModelSources.isPublished($0) && providerTools[$0] != nil) || held.contains($0))
         }
-        // Anthropic's and OpenAI's keys are checked by Dozer itself; another provider's only when providers.json says how.
+        // Anthropic's and OpenAI's keys are checked by Dozable itself; another provider's only when providers.json says how.
         uncheckedProviders = ModelSources.keyed.filter { $0 != "anthropic" && $0 != "openai" && KeyProviders.provider($0)?.check == nil }
     }
 }
@@ -1420,7 +1420,7 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     public var homes: [String] = []
     /// 606: doz serve — what this browser is and may do (nil on doz ui).
     public var serve: WebServeSessionInfo? = nil
-    /// 611: this build has Dozer's own ChatGPT sign-in (a public build does not: the page never offers it).
+    /// 611: this build has Dozable's own ChatGPT sign-in (a public build does not: the page never offers it).
     public var chatgptSignIn: Bool = true
     /// 611: a newer doz (the banner), or one an automatic update installed that this doz ui is older than.
     public var update: WebUpdateNotice? = nil

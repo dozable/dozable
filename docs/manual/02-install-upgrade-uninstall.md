@@ -11,7 +11,8 @@ machines. You install it with Homebrew.
   run every command except the ones that boot a VM, and `doz doctor` says so.
 - **The store** is where your sandboxes, images and restore points live:
   `~/Library/Application Support/doz` unless you choose another (see
-  [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it.
+  [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it
+  (0.37 is the one exception: it starts with a new store — see [Upgrading to 0.37](#upgrading-to-037-a-fresh-start)).
 - **The settings** live in `~/.config/doz/doz.toml`, beside your agent prompt template
   (`agent-prompt.md`). Upgrading never touches them either.
 - **The host** is a background `doz` process that runs your sandboxes. A running host keeps using the
@@ -110,6 +111,32 @@ If you skip `doz host stop`, nothing breaks right away: your sandboxes keep runn
 host can no longer boot anything once Homebrew has removed its files, so a start, a wake or a new
 sandbox is refused with a message that tells you to run `doz host stop`. Once nothing runs and
 nobody is attached, the old host exits by itself.
+
+### Upgrading to 0.37: a fresh start
+
+0.37 is the first release with Dozable's own names on disk, and it **starts fresh**: nothing from an earlier
+install is read — not your sandboxes, images, restore points, accounts, settings, prompt template or dashboard
+links. There is no migration. Before you upgrade, with the version you have:
+
+```sh
+doz get my-app /workspace/notes.md ~/Desktop/   # copy out anything a sandbox holds that you want to keep
+doz ui stop
+doz host stop
+```
+
+Then upgrade and run `doz onboard` again: it makes the new store, settings and images (every image is built
+afresh). New sandboxes' folders go to `~/doz-workspaces`; your project folders, wherever they are, are never
+touched. When you no longer need the old install, remove its folders:
+
+```sh
+rm -rf ~/Library/Application\ Support/dozer-sandbox   # the old store: sandboxes, images, restore points, accounts list
+rm -rf ~/.config/dozer-sandbox                        # the old settings and agent prompt template
+rm -rf ~/Library/Caches/dozer-sandbox                 # the old download cache
+```
+
+The keys an earlier version saved stay in your login keychain (items named `doz-…`) until you delete them in
+Keychain Access. Images an earlier version built with Apple's `container` are named `dozer/…` there:
+`container image ls` lists them and `container image delete NAME` removes one.
 
 ### Your images after an upgrade
 

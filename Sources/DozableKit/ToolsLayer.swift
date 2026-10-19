@@ -2,13 +2,13 @@ import Foundation
 
 // 599h — the TOOLS LAYER (owner, 2026-10-02: "Github credentials … worked although claude in VM installed gh
 // cli. I think we should have that (and other supporting tools based on chosen settings when creating
-// sandbox)" · "a 'tools' layer that we manage"): the tools Dozer puts into a sandbox because of its settings —
+// sandbox)" · "a 'tools' layer that we manage"): the tools Dozable puts into a sandbox because of its settings —
 // on every base (Debian, Ubuntu, Alpine, a Dockerfile's), with NO image rebuild (the recipes are untouched):
 //
 //   gh                    "Use GitHub as you" on — a static linux-arm64 binary, downloaded ONCE to the Mac's
 //                         store (pinned version, sha256 checked) and COPIED into the guest over the host→guest
 //                         copy path (no guest network), at /usr/local/lib/doz/bin/gh (first on every session's
-//                         PATH). REMOVED when the setting is off (only Dozer's copy; a gh the user installed
+//                         PATH). REMOVED when the setting is off (only Dozable's copy; a gh the user installed
 //                         elsewhere is never touched).
 //   ssh client            SSH agent forwarding on — openssh-client from apt/apk (through the proxy) when missing.
 //   github.com host keys  SSH agent forwarding on — GitHub's published keys, pinned here, in a managed block of
@@ -49,7 +49,7 @@ public struct ToolItem: Codable, Equatable, Sendable {
     public var title: String
     /// Why it is there: "for GitHub as you", "for SSH agent forwarding", "for tmux sessions", "always".
     public var reason: String
-    /// `binary` (copied from the Mac), `package` (apt/apk), `file` (written by Dozer).
+    /// `binary` (copied from the Mac), `package` (apt/apk), `file` (written by Dozable).
     public var kind: String
     public var version: String?
     public var source: String
@@ -59,10 +59,10 @@ public struct ToolItem: Codable, Equatable, Sendable {
     public var command: String?
 }
 
-/// The tools a sandbox should have now, and what Dozer should take away.
+/// The tools a sandbox should have now, and what Dozable should take away.
 public struct ToolPlan: Codable, Equatable, Sendable {
     public var items: [ToolItem]
-    /// Dozer's own tools to remove (their setting is off): `gh`, `github-known-hosts`.
+    /// Dozable's own tools to remove (their setting is off): `gh`, `github-known-hosts`.
     public var removals: [String]
 }
 
@@ -242,8 +242,8 @@ public enum ToolsLayer {
         // EXPERIMENTAL (604): an audio sandbox's ALSA default and doz-sound (after the packages: they need aplay).
         if plan.items.contains(where: { $0.id == "asound-conf" }) { s += DozSound.asoundScript(say: say) }
         if plan.items.contains(where: { $0.id == "doz-sound" }) { s += DozSound.installScript(app: audioApp, say: say) }
-        // gh: Dozer's copy (in place when copied), or nothing to do, or a reason. Also linked as /usr/local/bin/gh
-        // (every PATH has it: `doz exec`, scripts) — only when that name is free or already Dozer's link.
+        // gh: Dozable's copy (in place when copied), or nothing to do, or a reason. Also linked as /usr/local/bin/gh
+        // (every PATH has it: `doz exec`, scripts) — only when that name is free or already Dozable's link.
         let link = "if [ ! -e '\(ghLink)' ] && [ ! -L '\(ghLink)' ] || [ \"$(readlink '\(ghLink)')\" = '\(guestGhPath)' ]; then ln -sf '\(guestGhPath)' '\(ghLink)'; fi; "
         if plan.items.contains(where: { $0.id == "gh" }) {
             if ghCopied {

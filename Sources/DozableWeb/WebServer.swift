@@ -325,7 +325,7 @@ public final class DozableWebServer: @unchecked Sendable {
                         let peer = channel.remoteAddress?.ipAddress.flatMap(WebIP.init)?.description ?? "?"
                         switch s.admit(peer: channel.remoteAddress, local: channel.localAddress) {
                         case .sandbox?:
-                            // A sandbox (Dozer's untrusted party) gets nothing at all: dropped before a byte is read.
+                            // A sandbox (Dozable's untrusted party) gets nothing at all: dropped before a byte is read.
                             s.audit.record(WebAuditEntry(kind: "dropped", address: peer, outcome: WebServeRules.Drop.sandbox.rawValue))
                             channel.close(promise: nil)
                             continue

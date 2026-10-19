@@ -9,7 +9,7 @@ import DozableKit
 //         passes `/run/doz/agent-prompt.md` with `--append-system-prompt`; pi's session gets
 //         `--append-system-prompt /run/doz/agent-prompt.md` (pi reads a file named there);
 //   D15b  the `doz` SKILL — `~/.claude/skills/doz/SKILL.md` (pi: `~/.pi/agent/skills/doz/`),
-//         rewritten every start. Dozer owns only that directory; the agent's own memory files
+//         rewritten every start. Dozable owns only that directory; the agent's own memory files
 //         (CLAUDE.md, AGENTS.md, APPEND_SYSTEM.md) are never touched.
 //
 // Three layers (D16): the built-in template < the user's template (`agent-prompt.md` beside
@@ -226,7 +226,7 @@ public enum AgentPrompt {
         let sshReady = tool("ssh")?.ok != false && tool("github-known-hosts")?.ok != false
         let ssh = sshAgent ? "SSH to github.com uses the user's forwarded ssh-agent (their keys stay on the Mac)"
             + (tools != nil && sshReady ? "; the ssh client and github.com's host keys are installed." : ".") : ""
-        // gh: installed by Dozer (said only when the layer said so), or not there and why.
+        // gh: installed by Dozable (said only when the layer said so), or not there and why.
         let gh: String
         if let r = tool("gh"), !r.ok {
             gh = "`git` is signed in as the user on github.com (`gh` is not installed: \(r.detail))"
@@ -529,7 +529,7 @@ public enum AgentPrompt {
 
     /// 617: a context-file agent (Gemini CLI, Grok Build): the facts as the agent's own user-level context file —
     /// `~/.gemini/extensions/doz/DOZ.md` with its `gemini-extension.json` (a bare file is not loaded), or
-    /// `~/.grok/rules/doz.md` — never in the workspace. Folders it makes are the user's; off removes only Dozer's
+    /// `~/.grok/rules/doz.md` — never in the workspace. Folders it makes are the user's; off removes only Dozable's
     /// files (Grok's rules folder may hold the person's own). nil: not such an agent.
     static func contextDeliveryScript(_ r: AgentPromptReport, user: String) -> String? {
         guard let recipe = AgentRecipes.recipe(r.agent), !recipe.isBuiltin, recipe.prompt?.kind == "context-file" else { return nil }

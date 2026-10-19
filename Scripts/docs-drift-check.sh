@@ -76,14 +76,14 @@ fi
 (cd "$PACKAGE" && swift Scripts/user-text-check.swift --doz "$BIN")
 
 # 611: the distribution names live in ONE place (Distribution in Sources/DozableHost/Updates.swift). Every
-# `brew install|tap OWNER/NAME…` and every github.com/OWNER/REPO naming Dozer in what a reader sees must agree,
+# `brew install|tap OWNER/NAME…` and every github.com/OWNER/REPO naming Dozable in what a reader sees must agree,
 # so renaming the organisation is: change the constants, then fix exactly what this lists.
 TAP="$(sed -n 's/.*static let tap = "\([^"]*\)".*/\1/p' "$PACKAGE/Sources/DozableHost/Updates.swift" | head -1)"
 REPO="$(sed -n 's/.*static let repository = "\([^"]*\)".*/\1/p' "$PACKAGE/Sources/DozableHost/Updates.swift" | head -1)"
 docs=("$PACKAGE/README.md" "$PACKAGE/CONTRIBUTING.md" "$PACKAGE/docs" "$PACKAGE/Sources/DozableKit/DozableKit.docc" "$PACKAGE/Scripts/homebrew")
 wrong="$(grep -rnoE 'brew (install|tap|untap|trust|uninstall|upgrade|reinstall) [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+' "${docs[@]}" 2>/dev/null \
     | grep -v -- " $TAP\$" | grep -vE " $TAP/doz(-beta|-canary)?\$" || true)"
-wrong+="$(grep -rnoE 'github\.com/[A-Za-z0-9_.-]+/(dozer|Dozer|doz|homebrew-)[A-Za-z0-9_.-]*' "${docs[@]}" 2>/dev/null \
+wrong+="$(grep -rnoE 'github\.com/[A-Za-z0-9_.-]+/(dozer|Dozable|doz|homebrew-)[A-Za-z0-9_.-]*' "${docs[@]}" 2>/dev/null \
     | grep -vE "github\.com/$REPO(\.git)?(\$|/)" | grep -vE "github\.com/${TAP%%/*}/homebrew-${TAP##*/}\$" || true)"
 if [[ -n "$wrong" ]]; then
     printf 'x distribution-names: these name another tap or repository than Distribution (tap %s, repository %s):\n%s\n' "$TAP" "$REPO" "$wrong" >&2

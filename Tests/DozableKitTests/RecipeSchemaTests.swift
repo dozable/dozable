@@ -19,7 +19,7 @@ final class RecipeSchemaTests: XCTestCase {
         }
     }
 
-    /// Loads a tree the way Dozer does: the strict decoder, the document's checks, the model's validation.
+    /// Loads a tree the way Dozable does: the strict decoder, the document's checks, the model's validation.
     static func loads(_ tree: [String: Any]) -> Bool {
         guard let data = try? JSONSerialization.data(withJSONObject: tree), let d = try? RecipeDocument.decode(data), let r = try? d.recipe() else { return false }
         return (try? r.validate()) != nil
@@ -122,7 +122,7 @@ final class RecipeSchemaTests: XCTestCase {
                     XCTAssertTrue(allow.contains(i["domain"] as? String ?? ""), "\(f): inject domain \(i["domain"] ?? "") is not allowed")
                 }
             }
-            // Every ${{ … }} left is a reference to a declared arg; Dozer's own are inert; Dozer's types are optional.
+            // Every ${{ … }} left is a reference to a declared arg; Dozable's own are inert; Dozable's types are optional.
             let text = String(decoding: try JSONSerialization.data(withJSONObject: kit), as: UTF8.self)
             let refs = RecipeDocument.templateNames(text.replacingOccurrences(of: "\\/", with: "/"))
             XCTAssertTrue(refs.allSatisfy { $0 == "kit.args.version" }, "\(f): \(refs)")

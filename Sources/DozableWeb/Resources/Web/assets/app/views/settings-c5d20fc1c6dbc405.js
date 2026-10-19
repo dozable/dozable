@@ -6,13 +6,13 @@ import { refresh } from '../core/router-61f034481475286a.js';
 import { adoptSettings, resetSetting, saveSetting } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { isInt } from '../core/util-1195caf40612902f.js';
-import { isRemote } from '../core/session-8f515cab20663e44.js';
+import { isRemote } from '../core/session-43467681e3880ff9.js';
 import { renderAccessStep } from '../components/access-step-9db00931b5efb1a1.js';
 import { pageIndex } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { pageFailure, toast } from '../components/notices-00fcfa992069168b.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-727ffe1a4d1aaa71.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-dfa9a5009072fe65.js';
 
 const SETTING_SECTIONS = {
   ui: 'This UI', host: 'The host', store: 'The store', claude: 'Claude Code', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',

@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "the xAI API — the model (its custom OpenAI-compatible provider; the key is swapped in by Dozer's proxy)",
+      "reason": "the xAI API — the model (its custom OpenAI-compatible provider; the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {

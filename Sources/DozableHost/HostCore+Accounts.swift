@@ -755,7 +755,7 @@ extension HostCore {
         case .chatgpt:
             // 611: a public build has no ChatGPT sign-in of its own — and takes none from an older client either.
             guard buildFlavor.chatgptSignIn else { throw HostError(.invalid, BuildFlavor.chatgptSignInMissing) }
-            // 599i: the tokens of Dozer's OWN sign-in (`doz account add NAME --chatgpt` signed in on this Mac and
+            // 599i: the tokens of Dozable's OWN sign-in (`doz account add NAME --chatgpt` signed in on this Mac and
             // sent them here) — kept as ONE keychain item; accounts.json gets the claims that are not secrets.
             guard let raw = r.secret, let t = ChatGPTTokens.parse(raw.trimmingCharacters(in: .whitespacesAndNewlines)) else {
                 throw HostError(.invalid, "a ChatGPT sign-in comes from doz account add NAME --chatgpt (it opens the browser on this Mac)")
@@ -792,7 +792,7 @@ extension HostCore {
                 try services.keychain.write(service: svc, account: Keychain.user, secret: secret)
             }
         }
-        // 617: an account switched (--force) to a key read on use leaves no copy of its old key in the keychain item Dozer
+        // 617: an account switched (--force) to a key read on use leaves no copy of its old key in the keychain item Dozable
         // made for it.
         if let old = file.accounts.first(where: { $0.name == name }), old.adopted != true, old.kind != .mac, old.kind != .chatgpt,
            let svc = old.keychainService, svc != rec.keychainService, AccountStore.isDozItem(svc) {

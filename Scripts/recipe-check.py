@@ -28,7 +28,7 @@
 #   --store     the scratch root (default /tmp/doz-recipe-check; keep it short — the host's socket path must fit in 104
 #               bytes). Prepared images are kept there between runs; sandboxes never are.
 #   --versions  pin (default): each recipe agent at its pinned release; the built-in three (Claude Code, pi, Codex)
-#               at `latest` — their pins are frozen fallbacks (RecipePinTests) and Dozer installs latest for them.
+#               at `latest` — their pins are frozen fallbacks (RecipePinTests) and Dozable installs latest for them.
 #               latest: every agent at its latest release.
 #   --only      screen: only the try and its first-screen check (a quick survey of every agent's first screen).
 #   --selections a recipe with models@1 (it can be tried with several providers and gateways): steps 2–5 run once PER

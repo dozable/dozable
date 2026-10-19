@@ -78,7 +78,7 @@ public struct BuildLogDocument: Codable, Equatable, Sendable {
 extension BuildLogs {
     // MARK: nothing secret-shaped is ever kept
 
-    /// Credential-shaped text — API keys, tokens, JWTs, Dozer placeholders, a URL's password, a private key — replaced by
+    /// Credential-shaped text — API keys, tokens, JWTs, Dozable placeholders, a URL's password, a private key — replaced by
     /// "[redacted]". Bake scripts name no credential (ImageSpec's validation) and the bake environment is scrubbed, but a
     /// build log keeps commands, environments and a guest's output: whatever is shaped like a secret never reaches it.
     static let secretPatterns: [NSRegularExpression] = [

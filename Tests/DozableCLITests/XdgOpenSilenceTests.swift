@@ -216,7 +216,7 @@ final class XdgOpenSilenceTests: XCTestCase {
     }
 
     func testTheShimWritesOnlyTheMarkerAndNothingAPersonSees() throws {
-        XCTAssertTrue(GuestCommand.openShim.contains("# doz:open-url-shim:v6"), "609 changed the shim: a new stamp, so a wake re-installs it")
+        XCTAssertTrue(GuestCommand.openShim.contains("# doz:open-url-shim:v7"), "609 changed the shim: a new stamp, so a wake re-installs it")
         XCTAssertFalse(GuestCommand.openShim.contains("Asking your Mac"), "no line for a person in the shim")
         // An opener in a new session (Claude Code's `open`): the marker reaches the session's terminal ($DOZ_TTY).
         var r = try shim([oauth])
@@ -242,7 +242,7 @@ final class XdgOpenSilenceTests: XCTestCase {
         var r = try shim(["https://example.com/x"], dozTTY: false)
         XCTAssertEqual(r.code, 1)
         XCTAssertEqual(r.out, "", "no marker in a captured output")
-        XCTAssertTrue(r.err.contains("no terminal of a Dozer session"), r.err)
+        XCTAssertTrue(r.err.contains("no terminal of a Dozable session"), r.err)
         // A refusal goes to the caller's stderr with exit 1; the session's terminal gets nothing.
         for (args, says) in [(["ftp://example.com/x"], "only http and https URLs go to the Mac"),
                              (["/workspace/notes.md"], "this sandbox is isolated"),

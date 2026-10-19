@@ -83,7 +83,7 @@ public final class SandboxCA: @unchecked Sendable {
             ? .ipAddress(ASN1OctetStringShim.bytes(h)) : .dnsName(h)
         // 617: the leaf names its issuer's key (Authority Key Identifier). Python 3.13+ verifies with VERIFY_X509_STRICT
         // by default and refuses a leaf without it ("Missing Authority Key Identifier") — every Python tool's HTTPS
-        // through the proxy (httpx, requests) failed. The CA's own Subject Key Identifier (every Dozer CA has one).
+        // through the proxy (httpx, requests) failed. The CA's own Subject Key Identifier (every Dozable CA has one).
         let caKeyID = (try? certificate.extensions.subjectKeyIdentifier)??.keyIdentifier
             ?? SubjectKeyIdentifier(hash: certificate.publicKey).keyIdentifier
         let cert = try Certificate(

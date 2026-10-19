@@ -203,7 +203,7 @@ final class KitchenTests: XCTestCase {
     // MARK: doz try (D14)
 
     func testATriesDefaultsAndItsName() throws {
-        // Beside the store and outside the system locations ($TMPDIR is under /private/var): a folder Dozer would make.
+        // Beside the store and outside the system locations ($TMPDIR is under /private/var): a folder Dozable would make.
         let projects = URL(fileURLWithPath: "/tmp/doz-kitchen-projects-\(UUID().uuidString.prefix(8))")
         defer { try? FileManager.default.removeItem(at: projects) }
         try FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)

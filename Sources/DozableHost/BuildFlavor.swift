@@ -3,7 +3,7 @@ import Foundation
 /// 611: what a PUBLIC build of doz leaves out — decided at build time (`make release PUBLIC=1`, the default for real
 /// releases, compiles with `-DDOZ_PUBLIC_BUILD`), never by a setting a person could flip.
 ///
-/// - **Dozer's own ChatGPT sign-in** (`doz account add NAME --chatgpt`, the onboarding's and the create preflight's
+/// - **Dozable's own ChatGPT sign-in** (`doz account add NAME --chatgpt`, the onboarding's and the create preflight's
 ///   "sign in with ChatGPT") — it signs in with Codex's PUBLIC client id, which is Codex's to use. A public build
 ///   keeps Codex's other two ways in: the account `mac` (this Mac's own Codex login, read-only) and an OpenAI API key.
 ///   A ChatGPT account an earlier build put in a store is kept, never used: every request says why.
@@ -39,7 +39,7 @@ public struct BuildFlavor: Sendable, Equatable {
         }
     }
 
-    /// Dozer's own ChatGPT sign-in is part of this build.
+    /// Dozable's own ChatGPT sign-in is part of this build.
     public var chatgptSignIn: Bool { !isPublic }
 
     /// Why a ChatGPT sign-in cannot be made with this build.

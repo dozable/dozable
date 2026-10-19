@@ -8,8 +8,8 @@ import NIOSSL
 // Two kinds of OpenAI account (`AccountKind.openaiKey`, `.chatgpt` in DozableHost):
 //   · an OpenAI API key — `Authorization: Bearer sk-…` on api.openai.com, like Anthropic's key: the guest
 //     gets a placeholder (in OPENAI_API_KEY and in Codex's auth.json), the proxy swaps it;
-//   · a ChatGPT plan — Dozer's OWN sign-in on the Mac (never the Mac's ~/.codex): an OAuth access token
-//     (a JWT) on chatgpt.com/backend-api, refreshed ON THE MAC with the refresh token only Dozer holds.
+//   · a ChatGPT plan — Dozable's OWN sign-in on the Mac (never the Mac's ~/.codex): an OAuth access token
+//     (a JWT) on chatgpt.com/backend-api, refreshed ON THE MAC with the refresh token only Dozable holds.
 //     The guest's ~/.codex/auth.json holds placeholders where the tokens go and an id_token whose
 //     CLAIMS are the real ones (Codex reads the plan and the account id from it) but whose signature is
 //     not — so nothing in the VM is a usable credential. Codex's own refresh request
@@ -68,7 +68,7 @@ public enum OpenAIAccess {
     public static let guestSignature = "ZG96LXVuc2lnbmVk"   // base64url("doz-unsigned")
 
     /// 599i rc.2: the claims Codex 0.160.1 reads from an id_token (`login/src/token_data.rs` IdClaims,
-    /// AccountUserClaims, exp) — everything else (organizations, …) dropped — as base64url JSON. What Dozer
+    /// AccountUserClaims, exp) — everything else (organizations, …) dropped — as base64url JSON. What Dozable
     /// keeps of a sign-in (small), and what the guest's id_token carries.
     public static func keptClaims(idToken: String) -> String {
         let c = claims(idToken) ?? [:]
@@ -165,7 +165,7 @@ public enum OpenAIAccess {
 
 // MARK: - the tokens, and the Mac's side of OpenAI's sign-in (599i)
 
-/// A ChatGPT sign-in's tokens as Dozer holds them on the Mac (ONE keychain item, `doz-chatgpt:NAME`, as
+/// A ChatGPT sign-in's tokens as Dozable holds them on the Mac (ONE keychain item, `doz-chatgpt:NAME`, as
 /// this JSON). Never in a file, a log, an event or the guest. Its description is redacted.
 public struct ChatGPTTokens: Codable, Equatable, Sendable, CustomStringConvertible, CustomReflectable {
     public var idToken: String
@@ -222,7 +222,7 @@ public enum HTTPSOnce {
             return .failure(CheckFailure("could not connect to \(host) from this Mac"))
         }
         defer { u.close() }
-        var head = "\(method) \(path) HTTP/1.1\r\nHost: \(host)\r\nUser-Agent: Dozer-Sandbox\r\nAccept: application/json\r\nConnection: close\r\n"
+        var head = "\(method) \(path) HTTP/1.1\r\nHost: \(host)\r\nUser-Agent: Dozable\r\nAccept: application/json\r\nConnection: close\r\n"
         for (k, v) in headers { head += "\(k): \(v)\r\n" }
         if method != "GET" || !body.isEmpty { head += "Content-Length: \(body.count)\r\n" }
         head += "\r\n"
@@ -253,7 +253,7 @@ public enum HTTPSOnce {
 }
 
 extension OpenAIAccess {
-    /// Codex's public OAuth client (codex-rs `login/src/auth/manager.rs:1717`, 0.160.1): the tokens Dozer
+    /// Codex's public OAuth client (codex-rs `login/src/auth/manager.rs:1717`, 0.160.1): the tokens Dozable
     /// signs in for are Codex's own, used by Codex in the sandbox.
     public static let clientID = "app_EMoamEEZ73f0CkXaXp7hrann"
     public static let issuer = "https://auth.openai.com"
@@ -317,7 +317,7 @@ extension OpenAIAccess {
     }
 
     /// The sign-in's code → tokens (a FORM post, as Codex's `oauth/client.rs:58-74`). No token exchange
-    /// for an API key: Dozer never makes one.
+    /// for an API key: Dozable never makes one.
     public static func exchange(code: String, verifier: String, redirectURI: String,
                                 override: EgressProxy.UpstreamOverride? = nil) -> Result<ChatGPTTokens, CheckFailure> {
         let body = form([("grant_type", "authorization_code"), ("code", code), ("redirect_uri", redirectURI),

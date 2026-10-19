@@ -1,7 +1,7 @@
 // views/onboarding — Onboarding (594): Welcome → Checks → Access → Workspace rules → Images → Preparing → First sandbox →
 // Usage statistics (an official build only) → Stay in touch (the optional sign-up — an official build only) → Done.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
-import { AGENT_NAMES } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { bytes, full } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, loadPreparations, prepRunning } from '../core/operations-aeb47e4b98173dcf.js';
@@ -9,11 +9,11 @@ import { loadSettings, saveSetting, secretEntryAllowed, setting, terminalsAllowe
 import { state } from '../core/state-1378d79c750c8380.js';
 import { WIZ, WIZ_ORDER, WIZ_STEPS } from '../core/wizards-3abae15180cc8b7c.js';
 import { ACCESS_TITLES, renderAccessStep } from '../components/access-step-9db00931b5efb1a1.js';
-import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-8e711f4db445a594.js';
+import { accountChooser, accountCommandsNode, accountForm } from '../components/accounts-cb924813bb51f73d.js';
 import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { imagePicker, pickerNameHint } from '../components/image-picker-5d71620596c27c0d.js';
+import { imagePicker, pickerNameHint } from '../components/image-picker-0fc0b8164986f18f.js';
 import { startWithBootView } from '../components/lifecycle-4e83056d968bdf48.js';
 import { wizHead, wizMount } from '../components/modal-0de120a648b20fdb.js';
 import { refreshNav } from '../components/nav-4db39e3533e7c567.js';
@@ -22,7 +22,7 @@ import { statusPill } from '../components/pills-fa26febb3646542c.js';
 import { prepCard } from '../components/prep-card-ba2a809595ffc093.js';
 import { rulesStep } from '../components/rules-step-5de53662175cc5bd.js';
 import { stepperNode } from '../components/stepper-61e5dacc702ce715.js';
-import { workspaceChooser } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
+import { workspaceChooser } from '../components/workspace-chooser-57debba5c27b107d.js';
 import { renderOps } from './operations-ebf0f01e8c55064d.js';
 
 let wizTimer = null;
@@ -258,7 +258,7 @@ function wizStep3(d, w) {
     wizButtons(btn('Back', () => wizGo(WIZ.rules)), go),
   ];
 }
-/// 599i: with the codex image ticked — Codex uses an OpenAI account: Dozer's own ChatGPT sign-in (a terminal
+/// 599i: with the codex image ticked — Codex uses an OpenAI account: Dozable's own ChatGPT sign-in (a terminal
 /// command: the browser opens on this Mac) or an OpenAI key in the masked field; made the store's OpenAI default.
 function wizCodexAccount(w) {
   const box = h('div', { class: 'panel wiz-codex', 'data-codex-account': '' });

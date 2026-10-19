@@ -97,7 +97,7 @@ for a in "$@"; do
     openclaw) bin=openclaw; task="openclaw agent exec \"\$T\" --auth-env-only --model google/gemini-2.5-flash --timeout 80" ;;
     *) echo "profile-agents: no scripted task for $a — add one here" >&2; rc=2; continue ;;
   esac
-  # The release it runs is the one Dozer installs: a recipe agent's pin (exact), a built-in one's latest. The profile
+  # The release it runs is the one Dozable installs: a recipe agent's pin (exact), a built-in one's latest. The profile
   # is of that release, and a sandbox that reports another (an updater that ran, a wrong install) fails the run.
   read -r setting want typed vcmd <<EOF2
 $(/usr/bin/python3 - "$REPO/Sources/DozableKit/Recipes/compiled/$a.json" "$a" "$bin" <<'PY'

@@ -3,7 +3,7 @@ import { upcall } from './hooks-a4b871a481b363cd.js';
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { withIcon } from '../dom/icons-2b30ba761d2d921b.js';
 import { clock, plural } from './format-b2e68384da8d2f36.js';
-import { adopt, pausedParts, setLive, signedOut } from './session-8f515cab20663e44.js';
+import { adopt, pausedParts, setLive, signedOut } from './session-43467681e3880ff9.js';
 import { state } from './state-1378d79c750c8380.js';
 import { terminals } from './terminals-933851e9be49078e.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -23,7 +23,7 @@ const banner = upcall('banner'), btn = upcall('btn'), connect = upcall('connect'
 /// stopped); the overlay says the page is paused and reconnecting, what to do, and holds the one Try now.
 /// The HOST stopping is never this: the page still works then (a banner; Start host).
 ///
-/// 605 (C.2): the first 15 s are CALM — a neutral "Reconnecting to Dozer…" (doz ui restarting is routine:
+/// 605 (C.2): the first 15 s are CALM — a neutral "Reconnecting to Dozable…" (doz ui restarting is routine:
 /// an upgrade, `doz ui restart`, the Mac waking) — and `end: restarting` keeps it calm for a minute. The
 /// alarming wording comes at once only when doz ui said it STOPPED (`end: shutdown`), else after 15 s.
 /// After a minute the overlay adds that doz ui may run on another port, and which one this page expected.

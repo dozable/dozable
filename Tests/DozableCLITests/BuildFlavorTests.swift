@@ -5,7 +5,7 @@ import XCTest
 @testable import DozableCLI
 @testable import DozableHost
 
-/// 611 — the public build flavor, BOTH modes in one test run: no Dozer-own ChatGPT sign-in (the CLI, the host,
+/// 611 — the public build flavor, BOTH modes in one test run: no Dozable's own ChatGPT sign-in (the CLI, the host,
 /// an existing account kept but never used) and no experimental audio; the private flavor keeps both.
 final class BuildFlavorTests: XCTestCase {
     private var root: URL!

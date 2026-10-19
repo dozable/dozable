@@ -182,7 +182,7 @@ final class MajorChoiceTests: XCTestCase {
         XCTAssertEqual(try DozableProject.parse(p.render()).agent, "opencode@1")
     }
 
-    /// A project file outlives the try that wrote it: when the recommended major later moves, a file Dozer wrote must
+    /// A project file outlives the try that wrote it: when the recommended major later moves, a file Dozable wrote must
     /// not move with it — so a family's name is written with the major it resolved to. A file written by hand with the
     /// bare name keeps meaning "recommended", and `doz up` says what that resolved to.
     func testAFileWrittenForLaterKeepsItsMajor() throws {

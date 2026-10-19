@@ -161,7 +161,7 @@ check "the doz asking is $A" [ "$("$DOZ" --version)" = "$A" ]
 mkdir -p "$R/Cellar/doz/$A/libexec/doz"
 cp -cR "$R/newer/libexec/doz/." "$R/Cellar/doz/$A/libexec/doz/"
 printf '%s\n' $A > "$R/Cellar/doz/$A/libexec/doz/VERSION"
-# Homebrew's clone of Dozer's tap: a scratch git clone whose origin moves on after the clone — doz update must
+# Homebrew's clone of Dozable's tap: a scratch git clone whose origin moves on after the clone — doz update must
 # fast-forward it before `brew upgrade` (Homebrew refreshes taps only now and then). The fake brew answers
 # --repository with it.
 git init -q -b main "$R/brew-tap-origin" && git -C "$R/brew-tap-origin" -c user.email=t@t -c user.name=t commit -q --allow-empty -m one
@@ -197,7 +197,7 @@ check "homebrew: a failing brew fails doz upgrade and shows brew's last lines an
 : > "$R/brew.log"
 out="$("$DOZ" update --store "$R/store" 2>&1 < /dev/null)" || true
 check "homebrew: doz update (the first name) still upgrades, without asking, and says it is doz upgrade now" bash -c "grep -qx 'upgrade doz' '$R/brew.log' && grep -q 'doz update is now doz upgrade' <<<\"\$1\"" _ "$out"
-check "  … after fast-forwarding Dozer's tap" [ "$(git -C "$R/brew-tap-clone" rev-parse HEAD)" = "$(git -C "$R/brew-tap-origin" rev-parse HEAD)" ]
+check "  … after fast-forwarding Dozable's tap" [ "$(git -C "$R/brew-tap-clone" rev-parse HEAD)" = "$(git -C "$R/brew-tap-origin" rev-parse HEAD)" ]
 check "  … and Homebrew is never left asking [y/n]" bash -c "grep -q '^no-ask=' '$R/brew-env.log' && ! grep '^no-ask=' '$R/brew-env.log' | grep -qv '^no-ask=1\$'"
 : > "$R/brew.log"
 "$DOZ" upgrade --channel canary --yes --store "$R/store" >/dev/null 2>&1 || true

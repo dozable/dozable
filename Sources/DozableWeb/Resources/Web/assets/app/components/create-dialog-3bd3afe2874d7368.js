@@ -1,16 +1,16 @@
 // components/create-dialog — The New sandbox form (a dialog): image, workspace, account, permissions.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon } from '../dom/icons-2b30ba761d2d921b.js';
-import { AGENT_NAMES } from '../core/agents-8750f182d6cf2b01.js';
+import { AGENT_NAMES } from '../core/agents-3a91dadbbdacda1a.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { actOrThrow } from '../core/operations-aeb47e4b98173dcf.js';
 import { setting } from '../core/settings-704be829834babad.js';
-import { accountChooser } from './accounts-8e711f4db445a594.js';
+import { accountChooser } from './accounts-cb924813bb51f73d.js';
 import { callout } from './callout-e7d97c36b36fe970.js';
 import { dialog } from './dialog-3079696fba2b7682.js';
-import { imagePicker, pickerNameHint } from './image-picker-5d71620596c27c0d.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-727ffe1a4d1aaa71.js';
-import { workspaceChooser } from './workspace-chooser-6225b0a0d6acaa4b.js';
+import { imagePicker, pickerNameHint } from './image-picker-0fc0b8164986f18f.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-dfa9a5009072fe65.js';
+import { workspaceChooser } from './workspace-chooser-57debba5c27b107d.js';
 
 export async function createDialog(quick = null) {
   let images = [], accounts = { accounts: [] }, bases = null;

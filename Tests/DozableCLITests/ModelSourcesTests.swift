@@ -4,7 +4,7 @@ import XCTest
 @testable import DozableCLI
 @testable import DozableHost
 
-/// 617 (models@1, owner: "add OpenAI and Anthropic AND gateway support"): a recipe says which API shapes it speaks; Dozer
+/// 617 (models@1, owner: "add OpenAI and Anthropic AND gateway support"): a recipe says which API shapes it speaks; Dozable
 /// offers every provider and gateway that serves one, maps the choice onto the tool's own settings, and keeps the key's
 /// destination its own — without a VM, a real keychain or the network. ShellGPT (OpenAI's chat shape) is the example.
 final class ModelSourcesTests: XCTestCase {
@@ -422,7 +422,7 @@ final class ModelSourcesTests: XCTestCase {
         var b = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
         b.models = AgentRecipe.Models(default: "anthropic", native: [.init(source: "anthropic", env: [:])])
         XCTAssertThrowsError(try b.validate(), "Claude Code and Codex keep their own accounts")
-        // 618: pi declares its sources — native only (nothing baked: its image is Dozer's own).
+        // 618: pi declares its sources — native only (nothing baked: its image is Dozable's own).
         var pi = try XCTUnwrap(AgentRecipes.recipe("pi"))
         XCTAssertNoThrow(try pi.validate())
         XCTAssertEqual(pi.offeredSources, ["anthropic", "openai", "xai", "google", "openrouter", "vercel-ai-gateway"])

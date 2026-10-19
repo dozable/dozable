@@ -20,7 +20,7 @@ public enum AccountKind: String, Codable, Sendable, CaseIterable {
     case apiKey = "api-key"
     /// 599i: an OpenAI API key (`doz-openai:NAME`) — Codex.
     case openaiKey = "openai-key"
-    /// 599i: a ChatGPT plan through Dozer's OWN sign-in on this Mac (`doz account add NAME --chatgpt`):
+    /// 599i: a ChatGPT plan through Dozable's OWN sign-in on this Mac (`doz account add NAME --chatgpt`):
     /// the tokens in `doz-chatgpt:NAME`, refreshed by the host — never the Mac's own ~/.codex login.
     case chatgpt
     /// 599i rc.3: THIS Mac's own Codex login, read-only (the account `mac` of a Codex sandbox) — never written.
@@ -229,7 +229,7 @@ public struct AccountStore: Sendable {
     /// 617: a key provider's key: `doz-xai:NAME`, `doz-google:NAME`.
     public static func keyPrefix(_ provider: String) -> String { "doz-\(provider):" }
 
-    /// 617: a keychain item Dozer made for an account (and so may delete): one of the prefixes above.
+    /// 617: a keychain item Dozable made for an account (and so may delete): one of the prefixes above.
     public static func isDozItem(_ service: String) -> Bool {
         [setupTokenPrefix, apiKeyPrefix, openaiKeyPrefix, chatgptPrefix, keyPrefix("custom")].contains(where: service.hasPrefix)
             || KeyProviders.all.filter { $0.builtinBinding == nil }.contains { service.hasPrefix(keyPrefix($0.id)) }

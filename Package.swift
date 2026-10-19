@@ -1,5 +1,5 @@
 // swift-tools-version: 6.2
-// DozableKit — the library behind Dozer Sandbox ("Fast, suspendable micro-VMs for your Mac"): one
+// DozableKit — the library behind Dozable ("Fast, suspendable micro-VMs for your Mac"): one
 // container in its own VM, built on Apple's Containerization framework, with pause/resume in ~1 ms,
 // sleep to disk that frees the RAM, wake in ~0.35 s, restore after a host crash, and terminal
 // sessions (the `deckhold` guest PTY holder) that survive every one of those.

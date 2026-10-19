@@ -59,7 +59,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model and its model list (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model and its model list (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {
@@ -73,7 +73,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model and its model list (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model and its model list (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {
@@ -87,7 +87,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "refuse",
-      "reason": "oh-my-pi's release check at start (no setting turns it off); Dozer installs the pinned release — refused quietly (network.quiet)",
+      "reason": "oh-my-pi's release check at start (no setting turns it off); Dozable installs the pinned release — refused quietly (network.quiet)",
       "seen": true
     },
     {

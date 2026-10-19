@@ -4,11 +4,11 @@ import DozableKit
 
 // 599i — the Mac's side of an OpenAI account for Codex.
 //
-//   chatgpt     Dozer's OWN ChatGPT sign-in (`doz account add NAME --chatgpt`): its tokens are ONE keychain
+//   chatgpt     Dozable's OWN ChatGPT sign-in (`doz account add NAME --chatgpt`): its tokens are ONE keychain
 //               item, `doz-chatgpt:NAME` (JSON, written on `security -i`'s stdin); `ChatGPTSession` (one per
 //               account, shared by all its sandboxes) gives the proxy the access token and renews it ON THE
-//               MAC with the refresh token only Dozer holds. Refresh tokens rotate and are single-use, so
-//               this sign-in is never the Mac's own Codex login: Dozer never reads or writes ~/.codex.
+//               MAC with the refresh token only Dozable holds. Refresh tokens rotate and are single-use, so
+//               this sign-in is never the Mac's own Codex login: Dozable never reads or writes ~/.codex.
 //   openai-key  an OpenAI API key in `doz-openai:NAME` (checked with GET api.openai.com/v1/models).
 //
 // No silent fallback: a sign-in that cannot be used (signed out, the keychain item missing or locked)
@@ -269,7 +269,7 @@ extension HostCore {
             sb.setCredential(.openai, secret: nil, expiresAt: nil, environment: [:], notice: why)
         case .record(let a) where a.kind == .codexMac:
             // 599i rc.3: this Mac's own Codex login — its access token read on use (the file's identity is the
-            // provider's version: a refresh the Mac did reaches the next request); the Mac renews, never Dozer.
+            // provider's version: a refresh the Mac did reaches the next request); the Mac renews, never Dozable.
             m.config.credentialSources[CredentialBinding.openai.id] = nil
             sb.setCredential(.openai, secret: nil, expiresAt: nil, environment: [:], notice: nil)
             let s = codexMacSession()
@@ -318,7 +318,7 @@ extension HostCore {
 
     /// 599i: the guest's `~/.codex/auth.json` for this session start — placeholders only (a ChatGPT
     /// sign-in: one placeholder for both tokens, the id_token's claims under a fake signature, the account
-    /// id, last_refresh now; an API key: its placeholder). No OpenAI account: a file Dozer wrote is removed
+    /// id, last_refresh now; an API key: its placeholder). No OpenAI account: a file Dozable wrote is removed
     /// (a person's own in-sandbox login is left alone). nil: not a Codex sandbox.
     func codexAuthScript(_ m: Managed) -> String? {
         guard m.config.imageChoice?.agent == .codex, let imageSpec = m.config.spec.imageSpec, let egress = m.sandbox.egress else { return nil }
@@ -347,7 +347,7 @@ extension HostCore {
             guard data != nil else { return nil }
         }
         guard let data else {
-            // Only a file Dozer wrote (it holds a Dozer placeholder) is removed.
+            // Only a file Dozable wrote (it holds a Dozable placeholder) is removed.
             return "if [ -f '\(file)' ] && grep -q '\(CredentialVault.placeholderPrefix)' '\(file)'; then rm -f '\(file)'; fi"
         }
         let b = data.base64EncodedString()
@@ -439,7 +439,7 @@ enum SHA256Hex {
     static func of(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }
 }
 
-/// What Dozer KEEPS of a ChatGPT sign-in (`doz-chatgpt:NAME`): the refresh token (it rotates — written after
+/// What Dozable KEEPS of a ChatGPT sign-in (`doz-chatgpt:NAME`): the refresh token (it rotates — written after
 /// every renewal), the account id, and the few id_token claims the guest's auth.json needs. The access token
 /// lives only in the host's memory (renewed on a host's first use and near expiry); the signed id_token is
 /// never kept. Small by design (a real sign-in's tokens are ~4 KB; this is a few hundred bytes plus the

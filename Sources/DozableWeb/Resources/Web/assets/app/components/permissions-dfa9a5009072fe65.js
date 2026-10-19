@@ -1,6 +1,6 @@
 // components/permissions — What the agent can do (597): the permission switches and their confirmations.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
-import { agentKey } from '../core/agents-8750f182d6cf2b01.js';
+import { agentKey } from '../core/agents-3a91dadbbdacda1a.js';
 import { dialog } from './dialog-3079696fba2b7682.js';
 
 // ── 597: what the agent can do ────────────────────────────────────────────

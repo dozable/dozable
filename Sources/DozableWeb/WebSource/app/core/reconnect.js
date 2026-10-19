@@ -23,7 +23,7 @@ const banner = upcall('banner'), btn = upcall('btn'), connect = upcall('connect'
 /// stopped); the overlay says the page is paused and reconnecting, what to do, and holds the one Try now.
 /// The HOST stopping is never this: the page still works then (a banner; Start host).
 ///
-/// 605 (C.2): the first 15 s are CALM — a neutral "Reconnecting to Dozer…" (doz ui restarting is routine:
+/// 605 (C.2): the first 15 s are CALM — a neutral "Reconnecting to Dozable…" (doz ui restarting is routine:
 /// an upgrade, `doz ui restart`, the Mac waking) — and `end: restarting` keeps it calm for a minute. The
 /// alarming wording comes at once only when doz ui said it STOPPED (`end: shutdown`), else after 15 s.
 /// After a minute the overlay adds that doz ui may run on another port, and which one this page expected.

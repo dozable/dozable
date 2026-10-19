@@ -4,7 +4,7 @@ import { act, actOrThrow, waitOp } from '../core/operations-aeb47e4b98173dcf.js'
 import { setting, terminalsAllowed } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from './button-cbb8a60e3220f977.js';
-import { createDialog } from './create-dialog-c29e9cf1cc38926f.js';
+import { createDialog } from './create-dialog-3bd3afe2874d7368.js';
 import { startWithBootView } from './lifecycle-4e83056d968bdf48.js';
 import { pageFailure, toast } from './notices-00fcfa992069168b.js';
 import { openTerminal } from './terminal-d47cf44bc7dd9f56.js';

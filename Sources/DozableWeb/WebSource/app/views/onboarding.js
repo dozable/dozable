@@ -258,7 +258,7 @@ function wizStep3(d, w) {
     wizButtons(btn('Back', () => wizGo(WIZ.rules)), go),
   ];
 }
-/// 599i: with the codex image ticked — Codex uses an OpenAI account: Dozer's own ChatGPT sign-in (a terminal
+/// 599i: with the codex image ticked — Codex uses an OpenAI account: Dozable's own ChatGPT sign-in (a terminal
 /// command: the browser opens on this Mac) or an OpenAI key in the masked field; made the store's OpenAI default.
 function wizCodexAccount(w) {
   const box = h('div', { class: 'panel wiz-codex', 'data-codex-account': '' });

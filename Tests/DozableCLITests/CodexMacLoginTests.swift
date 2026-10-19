@@ -5,7 +5,7 @@ import XCTest
 @testable import DozableHost
 
 // 599i rc.3 — `mac` for Codex: THIS Mac's own Codex login, read-only. Every test here uses a FAKE Codex home
-// (a scratch folder) — never the real ~/.codex — and checks Dozer never writes it.
+// (a scratch folder) — never the real ~/.codex — and checks Dozable never writes it.
 
 final class CodexMacLoginTests: XCTestCase {
     private var root: URL!
@@ -62,7 +62,7 @@ final class CodexMacLoginTests: XCTestCase {
         XCTAssertEqual(OpenAIAccess.claims(t.accessToken)?["jti"] as? String, "ACCESS-MAC-1")
         XCTAssertEqual(t.accountID, "acct-9")
         XCTAssertFalse("\(t)".contains("ACCESS-MAC"))
-        // The refresh token is not in anything Dozer keeps.
+        // The refresh token is not in anything Dozable keeps.
         XCTAssertFalse(String(reflecting: t).contains("RT-MAC-NEVER-READ"))
         XCTAssertFalse(t.claims.contains("RT-MAC"))
         XCTAssertFalse(String(decoding: OpenAIAccess.base64URLDecode(t.claims) ?? Data(), as: UTF8.self).contains("RT-MAC"))
@@ -109,7 +109,7 @@ final class CodexMacLoginTests: XCTestCase {
         guard case .swapped(let out, _) = v.rewrite(head: head, host: "chatgpt.com") else { return XCTFail("not swapped after the Mac's refresh") }
         let sent = String(decoding: out, as: UTF8.self)
         XCTAssertTrue(sent.contains("Bearer " + CodexMacLogin.read(codexHome).token!.accessToken))
-        // Codex's own renewal in the guest: the same placeholder back, the Mac's claims, nothing renewed by Dozer.
+        // Codex's own renewal in the guest: the same placeholder back, the Mac's claims, nothing renewed by Dozable.
         let ans = String(decoding: s.renewalAnswer(placeholder: ph), as: UTF8.self)
         XCTAssertTrue(ans.hasPrefix("HTTP/1.1 200") && ans.contains(ph) && !ans.contains("ACCESS-MAC"), ans)
         XCTAssertNotEqual(snapshot(), before, "(the fake Mac Codex rewrote its file)")
@@ -204,7 +204,7 @@ final class CodexMacLoginTests: XCTestCase {
         var use = HostRequest(.accountUse, name: "cx")
         use.account = "mac"
         do { let e = await c.handle(use).error; XCTAssertTrue(e?.message.contains("not signed in") == true, "mac cannot be chosen while signed out") }
-        // Dozer wrote nothing to the Mac's Codex home.
+        // Dozable wrote nothing to the Mac's Codex home.
         macCodexSignsIn()
         _ = before
         let s2 = snapshot()

@@ -208,8 +208,21 @@ STRAY=$(git -C "$PACKAGE" grep --untracked -nIiE "${OLD_NAME}|${OLD_SHORT}" -- .
           ':(exclude)Sources/DozableWeb/WebSource/vendor/**' \
           ':(exclude)Sources/DozableWeb/Resources/Web/assets/vendor-*' \
           ':(exclude)Sources/DozableWeb/Resources/Web/licences/**' | head -20 || true)
-[[ -z "$STRAY" ]] || fail "the old product name survives (592 renamed everything to doz / DozableKit / Dozer Sandbox):
+[[ -z "$STRAY" ]] || fail "the old product name survives (592 renamed everything to doz / DozableKit / Dozable):
 $STRAY"
+
+# ── 8b. (630) The Dozable rename: no old-named type, module or file, no old recipe capability type, no old
+#        guest path (the patterns are assembled, so this script does not match itself). DozerCloud (the closed package, renamed with its own repository later) is the one exception;
+#        the GitHub org, the feed's host and the website keep their names until the org move.
+OLD_TYPE="Doz""er"
+STRAY2=$(git -C "$PACKAGE" grep --untracked -nIE "${OLD_TYPE}(Kit|Host|CLI|Web|Store|Settings|Images|Project|Command|Exit|Main|Entry)|com\.doz""ersandbox/|/run/doz""er([^a-z]|$)|/etc/doz""er([^a-z]|$)|skills/doz""er([^a-z]|$)" -- . \
+          ':(exclude)Sources/DozableWeb/WebSource/vendor/**' ':(exclude)Sources/DozableWeb/Resources/Web/assets/vendor-*' \
+          ':(exclude)Sources/DozableWeb/Resources/Web/licences/**' | head -20 || true)
+[[ -z "$STRAY2" ]] || fail "a pre-0.37 name survives (630 renamed the types to Dozable*, the recipe types to com.dozable/*, the guest paths to doz):
+$STRAY2"
+STRAYF=$(git -C "$PACKAGE" ls-files | grep -E "${OLD_TYPE}|DOZ""ER|doz""er-" | head -20 || true)
+[[ -z "$STRAYF" ]] || fail "a file or directory still carries the old name (630):
+$STRAYF"
 
 printf 'ok audit: DozableKit imports only its allowlist (Foundation/Security/Virtualization/Containerization/NIO/X509),\n'
 printf '          depends only on apple/containerization (exact) + the apple/* packages it already resolves\n'

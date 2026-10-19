@@ -326,7 +326,7 @@ public enum GuestCommand {
     public static let openShimPath = openShimDirectory + "/xdg-open"
     /// The other names a program reaches for (links to the shim). 599b: `doz-open` (`--app NAME FILE`).
     public static let openShimAliases = ["open", "sensible-browser", "www-browser", "x-www-browser", "doz-open"]
-    static let openShimStamp = "doz:open-url-shim:v6"
+    static let openShimStamp = "doz:open-url-shim:v7"
 
     /// 599b: the document types a /workspace file may have to be opened on the Mac (lowercased
     /// extensions). The host (`WorkspaceFiles`) decides; the shim checks the same lists first so the
@@ -372,7 +372,7 @@ public enum GuestCommand {
     /// cursor jumps, so the inserted rows (a sign-in URL wraps over several) left stray text on screen and
     /// under the spaces the TUI drew afterwards — "space doesn't work" — until something made the TUI
     /// redraw all of it (`doz attach` from a terminal of another size does: a resize). The person is told
-    /// by the Dozer notice; the program that ran the shim hears a refusal on stderr and the exit status.
+    /// by the Dozable notice; the program that ran the shim hears a refusal on stderr and the exit status.
     /// 599b: a FILE as well — `doz-file;APP;/workspace/…` (the path made absolute and resolved HERE, in
     /// the caller's directory; the host resolves it again on the Mac and decides). The shim's own checks
     /// (in /workspace, a document type, not executable, not `#!`) only tell the agent why at once — the
@@ -382,8 +382,8 @@ public enum GuestCommand {
     /// folder). A package folder (`*.app`, …) is refused unless revealed. Stamp v5; 609: v6 (silent).
     public static let openShim = #"""
     #!/bin/sh
-    # doz:open-url-shim:v6
-    # Dozer Sandbox's bridge to the Mac. This sandbox has no browser and no desktop, so an http(s) URL,
+    # doz:open-url-shim:v7
+    # Dozable's bridge to the Mac. This sandbox has no browser and no desktop, so an http(s) URL,
     # or a document or folder in /workspace (the folder shared with the Mac), is handed to the Mac
     # through the session's terminal: doz shows it and opens it (the URL in the Mac's default browser,
     # the document in its default app or in an app the user allowed: bridges.open_apps, the folder in
@@ -417,7 +417,7 @@ public enum GuestCommand {
         [ "$capp" = "$app" ] && [ "${#app}" -le 64 ] || { echo "$me: \"$capp\" is not an app name" >&2; exit 1; }
     fi
     refuse() { echo "$me: $*" >&2; status=1; }
-    # The marker on the session's terminal ($1: its body) — and nothing else: the person is told by Dozer
+    # The marker on the session's terminal ($1: its body) — and nothing else: the person is told by Dozable
     # (a notice), never by text written behind the program that owns the screen (an agent's TUI).
     send() {
         # Inside tmux (sessions.tmux) the pane's terminal is tmux's, which drops a sequence it does not
@@ -427,7 +427,7 @@ public enum GuestCommand {
         if [ -w /dev/tty ] 2>/dev/null && printf '\033]6340;%s\007' "$1" 2>/dev/null > /dev/tty; then return 0; fi
         if [ -n "${DOZ_TTY:-}" ] && [ -w "$DOZ_TTY" ] && printf '\033]6340;%s\007' "$1" 2>/dev/null > "$DOZ_TTY"; then return 0; fi
         if [ -t 1 ]; then printf '\033]6340;%s\007' "$1"; return 0; fi
-        refuse "no terminal of a Dozer session to reach your Mac through (run it in a session: doz attach, or the dashboard)"
+        refuse "no terminal of a Dozable session to reach your Mac through (run it in a session: doz attach, or the dashboard)"
     }
     open_url() {
         [ -z "$app" ] || { refuse "--app is for files; a URL opens in your Mac's default browser: $1"; return; }
@@ -512,7 +512,7 @@ public enum GuestCommand {
     public static let copyShimPath = openShimDirectory + "/doz-copy"
     /// The tools a Linux program runs to copy (clipboardy — Gemini CLI —, Grok Build's command-line route, scripts).
     public static let copyShimAliases = ["xclip", "xsel", "wl-copy", "wl-paste"]
-    static let copyShimStamp = "doz:clipboard-shim:v1"
+    static let copyShimStamp = "doz:clipboard-shim:v2"
 
     /// A sandbox has no X11 or Wayland display, so `xclip`/`xsel`/`wl-copy` have nothing to reach: a copy made with one
     /// becomes OSC 52 on the session's terminal — the same sequence a TUI's own copy sends — and the host's clipboard bridge
@@ -521,8 +521,8 @@ public enum GuestCommand {
     /// Like the open shim it writes nothing a person sees (only the sequence, which every viewer takes out).
     public static let copyShim = #"""
     #!/bin/sh
-    # doz:clipboard-shim:v1
-    # Dozer Sandbox's clipboard bridge for programs that copy with xclip, xsel or wl-copy. This sandbox has no
+    # doz:clipboard-shim:v2
+    # Dozable's clipboard bridge for programs that copy with xclip, xsel or wl-copy. This sandbox has no
     # display, so the text goes to the session's terminal as OSC 52 and doz puts it on the Mac's clipboard (unless
     # the clipboard bridge is off for this sandbox: doz config show --sandbox). A sandbox never reads the Mac's
     # clipboard. Written at every boot and wake.
@@ -539,8 +539,8 @@ public enum GuestCommand {
     tmp=""
     for a in "$@"; do
         case "$me:$a" in
-            *:-version|*:--version|*:-V) echo "$me (Dozer Sandbox's clipboard bridge: copies reach your Mac as OSC 52)"; exit 0 ;;
-            *:-h|*:-help|*:--help) echo "usage: ... | $me    (copies to your Mac's clipboard through the Dozer session; reading is refused)"; exit 0 ;;
+            *:-version|*:--version|*:-V) echo "$me (Dozable's clipboard bridge: copies reach your Mac as OSC 52)"; exit 0 ;;
+            *:-h|*:-help|*:--help) echo "usage: ... | $me    (copies to your Mac's clipboard through the Dozable session; reading is refused)"; exit 0 ;;
             wl-paste:*|xclip:-o|xclip:-out|xsel:-o|xsel:--output) read=1 ;;
             xsel:-p|xsel:--primary|wl-copy:-p|wl-copy:--primary) primary=1 ;;
             xsel:-c|xsel:--clear|wl-copy:-c|wl-copy:--clear) exit 0 ;;
@@ -577,7 +577,7 @@ public enum GuestCommand {
         if [ -w /dev/tty ] 2>/dev/null && printf '\033]52;c;%s\007' "$1" 2>/dev/null > /dev/tty; then return 0; fi
         if [ -n "${DOZ_TTY:-}" ] && [ -w "$DOZ_TTY" ] && printf '\033]52;c;%s\007' "$1" 2>/dev/null > "$DOZ_TTY"; then return 0; fi
         if [ -t 1 ]; then printf '\033]52;c;%s\007' "$1"; return 0; fi
-        echo "$me: no terminal of a Dozer session to reach your Mac through (run it in a session: doz attach, or the dashboard)" >&2
+        echo "$me: no terminal of a Dozable session to reach your Mac through (run it in a session: doz attach, or the dashboard)" >&2
         return 1
     }
     send "$data"
@@ -625,7 +625,7 @@ public enum GuestCommand {
     /// W14), OSC 52 passed OUT to deckhold (the clipboard bridge), titles, extended keys where tmux has
     /// them, a TERM the image knows; `update-environment` is not needed — one tmux server per session.
     public static let tmuxConf = """
-    # doz: tmux inside a Dozer session (sessions.tmux) — rewritten at each session start.
+    # doz: tmux inside a Dozable session (sessions.tmux) — rewritten at each session start.
     set -g mouse on
     set -s set-clipboard on
     set -as terminal-features ',*:clipboard'
@@ -681,16 +681,16 @@ public enum GuestCommand {
 
     /// git's credential helper for https://github.com (root-owned, on every image).
     public static let gitCredentialHelperPath = openShimDirectory + "/git-credential-doz"
-    static let gitCredentialStamp = "doz:git-credential:v1"
+    static let gitCredentialStamp = "doz:git-credential:v2"
 
     /// It answers git with this session's PLACEHOLDER — `$GH_TOKEN`, set by doz while "Use GitHub as you"
-    /// is on — and only for https://github.com; Dozer's proxy swaps the user's real token in on the way
+    /// is on — and only for https://github.com; Dozable's proxy swaps the user's real token in on the way
     /// out. Without a doz placeholder it answers nothing (git goes on to its other helpers).
     public static let gitCredentialHelper = #"""
     #!/bin/sh
-    # doz:git-credential:v1
-    # Dozer Sandbox: git's credential helper for https://github.com. It answers with this session's doz
-    # placeholder ($GH_TOKEN) — never a real token: Dozer's proxy on the Mac swaps in the user's own login
+    # doz:git-credential:v2
+    # Dozable: git's credential helper for https://github.com. It answers with this session's doz
+    # placeholder ($GH_TOKEN) — never a real token: Dozable's proxy on the Mac swaps in the user's own login
     # (read-only unless the user turned on "Push to GitHub"). See the doz skill.
     [ "${1:-}" = get ] || exit 0
     host=; proto=
@@ -713,17 +713,17 @@ public enum GuestCommand {
             + " && mv -f '\(gitCredentialHelperPath).tmp' '\(gitCredentialHelperPath)'; }; } || true"
     }
 
-    /// Dozer's own git config, included from the system's (/etc/gitconfig) — the user's identity and the
+    /// Dozable's own git config, included from the system's (/etc/gitconfig) — the user's identity and the
     /// helper while "Use GitHub as you" is on; EMPTY otherwise (nothing of the user's stays).
     public static let dozableGitConfigPath = "/etc/doz/gitconfig"
 
     /// The file's text for `setup`.
     public static func dozableGitConfig(_ setup: GitGuestSetup) -> String {
-        guard setup.on else { return "# Dozer: \"Use GitHub as you\" is off for this sandbox.\n" }
+        guard setup.on else { return "# Dozable: \"Use GitHub as you\" is off for this sandbox.\n" }
         func value(_ s: String) -> String {
             "\"" + s.replacingOccurrences(of: "\\", with: "\\\\").replacingOccurrences(of: "\"", with: "\\\"") + "\""
         }
-        var t = "# Dozer: \"Use GitHub as you\" is on — rewritten at every boot and wake.\n"
+        var t = "# Dozable: \"Use GitHub as you\" is on — rewritten at every boot and wake.\n"
         t += "[credential \"https://github.com\"]\n\thelper = \(value(gitCredentialHelperPath))\n"
         var user = ""
         if let n = setup.name { user += "\tname = \(value(n))\n" }

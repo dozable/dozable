@@ -2,7 +2,7 @@ import Foundation
 
 // 617.11 (owner: "i tried fabric and it just gave me a terminal. I think whats missing for trys is our companion guide"):
 // a recipe's GUIDE (`com.dozable/guide@1`) — what the tool is in one or two sentences, the first steps (each a
-// command a person can copy or run), tips, and its docs. Dozer adds the facts of the sandbox (the version, the key and
+// command a person can copy or run), tips, and its docs. Dozable adds the facts of the sandbox (the version, the key and
 // model, the network, the folder) — never the recipe. The FIRST step is the recipe's own check turn (or what that turn
 // proves), so the first thing a person runs is known to work; `make recipe-check` runs every step that is not an edit.
 // docs/recipes/RECIPE-FORMAT.md, "The guide".
@@ -19,7 +19,7 @@ extension AgentRecipe {
         /// Its own documentation (https).
         public var docs: String?
         /// 617 (owner, 2026-10-15): one short line `doz try` says FIRST — what the person meets at the tool's first start
-        /// that Dozer leaves to them (Antigravity CLI's Terms of Service, accepted by the person, never by Dozer).
+        /// that Dozable leaves to them (Antigravity CLI's Terms of Service, accepted by the person, never by Dozable).
         public var notice: String? = nil
 
         public struct Step: Codable, Sendable, Equatable {

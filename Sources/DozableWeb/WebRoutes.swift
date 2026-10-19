@@ -91,7 +91,7 @@ public enum WebRoute: Equatable, Sendable {
     case projectOpen               // POST /api/v1/project/open     ({folder})
     case projectPreview            // POST /api/v1/project/preview  ({folder, form, explicit})
     case projectWrite              // POST /api/v1/project/write    ({folder, form, explicit, replace?})
-    // 595 — Resources: the account of everything Dozer uses (read), and what a deletion WOULD do
+    // 595 — Resources: the account of everything Dozable uses (read), and what a deletion WOULD do
     // (changes nothing; POST + CSRF because it carries ids). Deleting is the typed actions
     // `resources-rm` / `resources-clean`; choosing the kernel is `resources-kernel`.
     case resources                 // GET  /api/v1/resources

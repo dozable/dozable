@@ -3,8 +3,8 @@ import Foundation
 import DozableKit
 
 // 591 settings (owner request): ONE closed, typed schema of every user-facing setting, a TOML file
-// generated from it (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` — the product is
-// Dozer Sandbox since 592), and one resolution rule everywhere:
+// generated from it (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` — named for
+// the command since 0.37), and one resolution rule everywhere:
 //
 //     a command-line flag  >  its environment variable  >  the file  >  the default
 //
@@ -169,7 +169,7 @@ public struct SettingDefinition: Sendable {
     /// False: the web UI shows it read-only (host paths — the UI never names one).
     public let editableInUI: Bool
     /// A recipe agent's own setting (its id): generated from its recipe, and written into doz.toml only once that
-    /// agent has a value set there (`render`). nil: one of Dozer's own, always listed.
+    /// agent has a value set there (`render`). nil: one of Dozable's own, always listed.
     public let agent: String?
 
     public var key: String { "\(section).\(name)" }

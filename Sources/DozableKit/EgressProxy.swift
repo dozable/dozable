@@ -397,7 +397,7 @@ public final class EgressProxy: @unchecked Sendable {
         return (p[0].lowercased(), p.count == 2 ? UInt16(p[1]) ?? defaultPort : defaultPort)
     }
 
-    /// 606: what a sandbox is told when it tries to reach one of Dozer's own dashboards on this Mac.
+    /// 606: what a sandbox is told when it tries to reach one of Dozable's own dashboards on this Mac.
     static let dashboardRefusal = "Dozable's own dashboard on this Mac is never reachable from a sandbox"
 
     /// A tunnel to host:port — through CONNECT (`connectReply`) or a redirected connection.
@@ -1131,7 +1131,7 @@ enum Wire {
         defer { freeaddrinfo(first) }
         var ai: UnsafeMutablePointer<addrinfo>? = first
         while let a = ai {
-            // 606: never one of Dozer's own dashboards on this Mac, whatever the policy says.
+            // 606: never one of Dozable's own dashboards on this Mac, whatever the policy says.
             if let sa = a.pointee.ai_addr, LocalDashboards.refuses(UnsafePointer(sa), port: port) { ai = a.pointee.ai_next; continue }
             let fd = socket(a.pointee.ai_family, a.pointee.ai_socktype, a.pointee.ai_protocol)
             if fd >= 0 {

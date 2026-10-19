@@ -13,7 +13,7 @@ import Foundation
 //                      "archive": "https://github.com/<repository>/releases/download/v0.31.1/doz-0.31.1-macos-arm64.tar.gz",
 //                      "size": 28104184, "sha256": "…", "signature": "<base64 Ed25519>" }, … ] }
 //
-// Each entry is signed with DOZER's own Ed25519 key (never Deckosaurus's; `Scripts/update-key.swift`, `make
+// Each entry is signed with DOZABLE's own Ed25519 key (never Deckosaurus's; `Scripts/update-key.swift`, `make
 // doz-update-keys`): the signature covers version, build, the archive's FILE NAME, sha256 and size
 // (`UpdateSignature.message`) — not the channel, so a promotion moves the same signed bytes without the key. An entry
 // that does not verify is dropped; a feed that cannot be read is ignored; either is said ONCE. Channels nest:
@@ -23,7 +23,7 @@ import Foundation
 // a conditional request (If-None-Match / If-Modified-Since — unchanged = 304); offline = silent. Never in a guarded
 // test run unless the test names its own feed (`DOZ_TEST_UPDATE_FEED`); never for a development build.
 
-/// Where Dozer is distributed — the ONE place these names live (the Makefile and the scripts read them from here).
+/// Where Dozable is distributed — the ONE place these names live (the Makefile and the scripts read them from here).
 public enum Distribution {
     /// The feed (frozen forever — see above).
     public static let feedURL = "https://updates.dozersandbox.com/v1/feed.json"
@@ -35,7 +35,7 @@ public enum Distribution {
     public static let previousTaps = ["dozer-sandbox/tap"]
     /// The public source repository; its GitHub releases carry the tarballs.
     public static let repository = "dozer-sandbox/dozer-sandbox"
-    /// The PUBLIC half of Dozer's update-signing key (base64, 32 bytes) — `make doz-update-keys` prints it, once.
+    /// The PUBLIC half of Dozable's update-signing key (base64, 32 bytes) — `make doz-update-keys` prints it, once.
     /// Empty: this build cannot verify a feed, so it never offers an update (development builds).
     public static let updatePublicKey = "Istc57eBxex+MaRcSrmIoC2vOroeNdvY+h+N4UCeNxg="
     /// The Developer ID team whose signature a downloaded doz must carry.
@@ -192,7 +192,7 @@ public enum InstallMethod: Equatable, Sendable {
     public var upgradeCommand: String? {
         switch self {
         // Not `brew upgrade FORMULA`: Homebrew refreshes its taps only now and then, so that alone can miss the
-        // release the feed names; `doz upgrade -y` refreshes Dozer's tap first.
+        // release the feed names; `doz upgrade -y` refreshes Dozable's tap first.
         case .homebrew: "doz upgrade -y"
         case .tarball: "doz upgrade -y"
         case .development: nil

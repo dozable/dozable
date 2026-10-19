@@ -185,7 +185,7 @@ struct OnboardingFlow {
         }
         say(chosen.isEmpty ? "  none now — each image is prepared by its first start" : "  " + chosen.joined(separator: ", "))
 
-        // 4b (599i). Codex's account — OpenAI only, Dozer's own: a ChatGPT sign-in in the browser, or an OpenAI key.
+        // 4b (599i). Codex's account — OpenAI only, Dozable's own: a ChatGPT sign-in in the browser, or an OpenAI key.
         var openaiAdded: String?
         if chosen.contains(where: { ImageChoice.parse($0)?.agent == .codex }) || openaiFlag != nil {
             openaiAdded = try openAIAccountStep()
@@ -261,7 +261,7 @@ struct OnboardingFlow {
                              usageStats: usage)
     }
 
-    /// 599i: Codex's OpenAI account — a ChatGPT sign-in (the browser opens; Dozer's own sign-in, the Mac's
+    /// 599i: Codex's OpenAI account — a ChatGPT sign-in (the browser opens; Dozable's own sign-in, the Mac's
     /// ~/.codex is never touched) or an OpenAI key (a no-echo prompt), added as `doz account add` adds it and
     /// made the store's OpenAI default; or later. Off a terminal without --openai-account: later.
     private func openAIAccountStep() throws -> String? {

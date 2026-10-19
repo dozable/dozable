@@ -2,7 +2,7 @@ import DozableHost
 import DozableKit
 import Foundation
 
-/// 597 — Dozer Agent Permissions end to end, from separate processes of the REAL signed doz
+/// 597 — Dozable Agent Permissions end to end, from separate processes of the REAL signed doz
 /// (`make test-cli-permissions`; also in `make test-cli`): `doz net permissions`; `doz create --allow`;
 /// `doz net NAME` (the checklist); a fresh claude-code sandbox (Standard) reaches Claude Code's own
 /// hosts — the API, downloads.claude.ai, the Datadog intake, GitHub, pi.dev — and is refused PyPI and the

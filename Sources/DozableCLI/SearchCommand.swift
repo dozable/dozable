@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 617 (616.07) — `doz search [THING]`: is it supported here? Agents, key providers and bases this Dozer knows (the
+// 617 (616.07) — `doz search [THING]`: is it supported here? Agents, key providers and bases this Dozable knows (the
 // directory index, `dozable-directory/v1`, built from the compiled-in recipes), with your key and the try command. For
 // scripts: --json and the exit code. `doz agent ls|show` are its hidden aliases.
 

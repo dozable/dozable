@@ -3,7 +3,7 @@ import Foundation
 /// 618 (owner: "go with B and one card … make sure there is a way the user can chose an earlier major version"; the first
 /// real case of 617.B5's qualified names): what a person types to name a tool —
 ///
-///   · `NAME`            the tool; for a family (`opencode`), its RECOMMENDED major — a pin Dozer checked, never "latest";
+///   · `NAME`            the tool; for a family (`opencode`), its RECOMMENDED major — a pin Dozable checked, never "latest";
 ///   · `NAME@MAJOR`      that major (`opencode@1`): the family's recipe of that major (any tool: its own major only);
 ///   · `NAME@VERSION`    an exact release (`opencode@2.0.28`) of the major it belongs to.
 ///

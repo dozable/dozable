@@ -384,7 +384,7 @@ function detailNodes() {
     h('dt', null, 'Dozable installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
     a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
     h('dt', null, 'Base'), h('dd', null, a.base || '—'),
-    // 618: a family's majors — each one Dozer checked; Try's Version picks one.
+    // 618: a family's majors — each one Dozable checked; Try's Version picks one.
     ...(familyOf(a).length > 1 ? [h('dt', null, 'Majors'), h('dd', { 'data-try-majors': '' },
       familyOf(a).map((x) => x.family.title + (x.version ? ' ' + x.version : '') + (x.family.recommended ? ' (recommended)' : '')).join(' · ')
         + ' — Try lets you choose')] : []));

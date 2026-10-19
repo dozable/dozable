@@ -2,7 +2,7 @@ import Foundation
 import DozableKit
 
 // 617.11 (owner: "i tried fabric and it just gave me a terminal … our companion guide"): the guide a recipe agent's
-// sandbox shows — the sandbox page's Guide tab (first on a try), `doz guide NAME`, `doz try`'s "Start here". DOZER writes
+// sandbox shows — the sandbox page's Guide tab (first on a try), `doz guide NAME`, `doz try`'s "Start here". DOZABLE writes
 // the preamble and the facts ("This try") from the sandbox itself — the version, the key and model, the network, the
 // folder, where its settings live — never the recipe; the recipe gives only its intro, steps, tips and docs (guide@1).
 // No secret, ever: an account's NAME, a source's title.
@@ -32,7 +32,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
     public var session: String
     /// The session steps run in: `shell` → the default session; `screen` → a shell session (not the agent's).
     public var agentSession: String
-    /// Dozer's line on how to use it here.
+    /// Dozable's line on how to use it here.
     public var howTo: String
     /// The recipe's intro.
     public var intro: String

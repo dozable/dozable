@@ -16,7 +16,7 @@ import DozableKit
 //   · Nothing resolved and nothing prepared, and the registry cannot be reached: a clear error that
 //     names an exact version to set. An exact pin always works from what the store already has.
 
-/// The npm registry, as far as Dozer asks it anything: one version document.
+/// The npm registry, as far as Dozable asks it anything: one version document.
 public struct NpmRegistry: Sendable {
     /// `package` at `tagOrVersion` (`latest`, or an exact version) → its version and integrity.
     public typealias Lookup = @Sendable (_ package: String, _ tagOrVersion: String) async throws -> AgentRelease
@@ -487,7 +487,7 @@ public enum AgentVersions {
         if purpose == .create, let p = usable(image, store: store, settings: settings).first { return p }
         let rec = all(store)[agent]
         if let latest = rec?.latest { return try make(latest) }
-        // Never asked (an in-process host, a test) OR asked and not answered (offline): the built-in pin, the version Dozer
+        // Never asked (an in-process host, a test) OR asked and not answered (offline): the built-in pin, the version Dozable
         // checked. 618: these two used to differ — a running host that had failed to reach the registry REFUSED to plan,
         // while the same command with no host running planned the pin, so the dashboard's Try (always through the host)
         // and `doz try --dry-run` disagreed on one store. A preparation offline fails on the download anyway, saying so.

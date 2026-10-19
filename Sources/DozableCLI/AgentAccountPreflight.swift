@@ -117,7 +117,7 @@ func preflightAgentAccount(image: String?, network: String?, account: String?, _
         Out.stderr("[doz] account \(name) added (\(p.title) key) — this sandbox uses it\n")
         return name
     }
-    // 599i: Codex — an OpenAI account: one that fits, Dozer's own ChatGPT sign-in now, or an OpenAI key.
+    // 599i: Codex — an OpenAI account: one that fits, Dozable's own ChatGPT sign-in now, or an OpenAI key.
     if AgentCredentials.codexFlow(image) {
         let fits = fits.filter { $0 != "mac" } + (codexMac ? ["mac"] : [])
         let adds = OpenAIChoices.preflightAdds(flavor: .current)

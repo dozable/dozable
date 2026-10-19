@@ -11,7 +11,7 @@ import DozableKit
 //
 // The rules, all here and all checked by `UsageTests`:
 //   • A CLOSED list of messages: `installed`, `upgraded`, `daily` — every key in `UsageSchema.keys`, every value a
-//     count, a range from `UsageSchema.ranges`, a number rounded to 50 ms, or a word of Dozer's own vocabulary
+//     count, a range from `UsageSchema.ranges`, a number rounded to 50 ms, or a word of Dozable's own vocabulary
 //     (command names, agent ids, base catalogue ids, network presets). Never a name, path, host, argument, email or
 //     a hash of anything the user made — the encoder cannot express one.
 //   • The off switches, checked BEFORE anything is recorded: the setting `telemetry.send_anonymous_usage_stats`

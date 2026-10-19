@@ -5,7 +5,7 @@ import DozableHost
 // 606 — `doz serve`: the dashboard for the OTHER browsers of a home lab (owner rulings, 606.01-DESIGN.md's end).
 // This file is the rules, as pure functions over small values, so each is a unit test:
 //   · which local addresses are served (every LAN interface and Tailscale — never a sandbox's vmnet bridge),
-//   · which peers are dropped on accept (every sandbox network: an agent in a VM is Dozer's untrusted party),
+//   · which peers are dropped on accept (every sandbox network: an agent in a VM is Dozable's untrusted party),
 //   · what a request's OWN origin is (X-Forwarded-* only from a configured trusted proxy) and whether it is
 //     allowed (the Mac's names and addresses, or a configured public origin through a trusted proxy) —
 //     the DNS-rebinding defence, re-derived for LAN names.
@@ -267,7 +267,7 @@ public struct WebMacNames: Equatable, Sendable {
 public enum WebServeRules {
     /// Tailscale's ranges (CGNAT IPv4, its IPv6 ULA).
     static let tailscale = [WebCIDR("100.64.0.0/10")!, WebCIDR("fd7a:115c:a1e0::/48")!]
-    /// Dozer's automatic NAT subnets (`SubnetPool`: 192.168.100–199.0/24).
+    /// Dozable's automatic NAT subnets (`SubnetPool`: 192.168.100–199.0/24).
     static let automaticNATRange: ClosedRange<UInt8> = 100...199
 
     /// A vmnet bridge — a sandbox network (`bridge100`, `bridge101`, …; `bridge0` is the Thunderbolt Bridge).
