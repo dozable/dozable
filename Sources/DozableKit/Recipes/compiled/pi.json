@@ -1,0 +1,354 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "PI_VERSION",
+      "default" : "0.84.1",
+      "description" : "The pi release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "Mario Zechner",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "id" : "model",
+            "shared" : true
+          },
+          "update" : [
+            {
+              "host" : "pi.dev"
+            },
+            {
+              "host" : "registry.npmjs.org",
+              "paths" : [
+                "/@earendil-works/pi-coding-agent",
+                "/@earendil-works%2fpi-coding-agent",
+                "/@earendil-works%2Fpi-coding-agent"
+              ]
+            }
+          ],
+          "vendor" : [
+            {
+              "host" : "pi.dev",
+              "reason" : "pi's own site — called at start-up (not identified)"
+            }
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "pi.dev:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.anthropic.com",
+              "format" : "%s",
+              "header" : "x-api-key"
+            }
+          ],
+          "name" : "ANTHROPIC_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "api-key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "anthropic"
+      },
+      "description" : "Anthropic API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.pi/agent"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "directory" : "/home/agent/.pi/agent/skills/doz",
+        "dozable" : {
+          "kind" : "skill",
+          "launcher_arg" : [
+            "--append-system-prompt"
+          ]
+        },
+        "filename" : "SKILL.md"
+      },
+      "type" : "com.docker.sandbox/agent-context@1"
+    },
+    {
+      "config" : {
+        "binary" : "pi",
+        "builtin" : true,
+        "integrity" : "sha512-ncAqFrG+iybuPGOhMiZoEHkEzTpJgz3guYD32pD+M7ucc0WeHmauP6wa7qwP8V/KWvsZDVNa5XGsdZ7fkC7w7A==",
+        "kind" : "builtin",
+        "needs_node" : "22",
+        "npm_args" : [
+          "--ignore-scripts"
+        ],
+        "package" : "@earendil-works/pi-coding-agent"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "pi",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "pi"
+        ],
+        "env" : {
+
+        },
+        "model_args" : [
+          "--model",
+          "$DOZ_MODEL"
+        ],
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+
+        ],
+        "resume" : [
+          "--continue"
+        ],
+        "session_env" : {
+          "PI_SKIP_VERSION_CHECK" : "1"
+        },
+        "settings" : {
+          "version" : "images.pi_version"
+        },
+        "state_env" : {
+          "PI_CODING_AGENT_DIR" : "/home/agent/.pi/agent"
+        },
+        "status" : "osc7501",
+        "verify" : [
+          {
+            "argv" : [
+              "pi",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "pi reads ANTHROPIC_API_KEY; a Claude subscription is never given to it. On Anthropic it picks its own model unless you choose one (--model).",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "pi through OpenAI: doz try pi --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "pi through xAI: doz try pi --provider xai (or choose it in the try setup); the model with --model.",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "pi through Google AI: doz try pi --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "pi's own OpenRouter provider reads OPENROUTER_API_KEY (its docs/providers.md); Dozable gives its session --model openrouter/MODEL.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "pi through Vercel AI Gateway: doz try pi --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "anthropic",
+        "native" : [
+          {
+            "env" : {
+              "DOZ_MODEL" : "anthropic/${{ dozable.model }}"
+            },
+            "source" : "anthropic"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "openai/${{ dozable.model }}"
+            },
+            "source" : "openai"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "xai/${{ dozable.model }}"
+            },
+            "source" : "xai"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "google/${{ dozable.model }}"
+            },
+            "source" : "google"
+          },
+          {
+            "docs" : "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md",
+            "env" : {
+              "DOZ_MODEL" : "openrouter/${{ dozable.model }}"
+            },
+            "source" : "openrouter"
+          },
+          {
+            "docs" : "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/providers.md",
+            "env" : {
+              "DOZ_MODEL" : "vercel-ai-gateway/${{ dozable.model }}"
+            },
+            "source" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "node",
+        "icon" : "pi",
+        "kind" : "coding-agent",
+        "platforms" : {
+          "glibc" : true,
+          "musl" : true
+        },
+        "tags" : [
+          {
+            "checked" : "2026-10-12",
+            "level" : "documented",
+            "notes" : [
+              "pi -p / --print, --mode json"
+            ],
+            "source" : "https://github.com/earendil-works/pi/blob/main/packages/coding-agent/docs/cli.md",
+            "tag" : "headless"
+          }
+        ]
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/earendil-works/pi",
+        "intro" : "pi is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "pi -p \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "pi -p \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    }
+  ],
+  "description" : "A small, open-source coding agent that works with many model providers — on the key of the provider or gateway you choose (Anthropic by default).",
+  "displayName" : "pi",
+  "id" : "earendil-works/pi",
+  "kind" : "workload",
+  "licenses" : [
+    "MIT"
+  ],
+  "provides" : [
+    "com.dozable/pi@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/earendil-works/pi"
+}

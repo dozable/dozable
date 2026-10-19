@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {

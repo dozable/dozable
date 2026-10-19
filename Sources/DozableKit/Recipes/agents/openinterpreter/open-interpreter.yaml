@@ -1,0 +1,256 @@
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
+# Open Interpreter — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
+# Edit this file, then run make recipes (it writes Recipes/compiled/open-interpreter.json, which Dozable embeds).
+schema: 2
+kind: workload
+id: openinterpreter/open-interpreter
+displayName: Open Interpreter
+description: Open Interpreter, rebuilt as a Codex CLI derivative, on the key of the provider or gateway you choose (xAI by default).
+author: Open Interpreter
+sourceUrl: https://github.com/openinterpreter/openinterpreter
+licenses:
+- Apache-2.0
+args:
+  version:
+    description: The Open Interpreter release Dozable installs (its pin).
+    default: 0.0.56
+    pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
+    buildArg: OPEN_INTERPRETER_VERSION
+provides:
+- com.dozable/open-interpreter@${{ kit.args.version }}
+capabilities:
+- type: com.docker.sandbox/network-policy@1
+  config:
+    runtime:
+      allow:
+      - api.openai.com:443
+      - api.x.ai:443
+      - generativelanguage.googleapis.com:443
+      - openrouter.ai:443
+      - ai-gateway.vercel.sh:443
+      - raw.githubusercontent.com:443
+    dozable:
+      model:
+        id: model:open-interpreter
+        title: Talk to its model provider
+        summary: Open Interpreter's model — the provider or gateway its key is for (OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for Open Interpreter to answer.
+        phrase: talk to your AI model
+        hosts:
+        - host: api.openai.com
+          reason: OpenAI — when the sandbox's key is OpenAI's
+        - host: api.x.ai
+          paths:
+          - /v1/chat/completions
+          reason: xAI — when the sandbox's key is xAI's
+        - host: generativelanguage.googleapis.com
+          reason: Google AI — when the sandbox's key is Google AI's
+        - host: openrouter.ai
+          reason: OpenRouter — when the sandbox's key is OpenRouter's
+        - host: ai-gateway.vercel.sh
+          reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
+      update: []
+      excluded: []
+      vendor:
+      - host: raw.githubusercontent.com
+        paths:
+        - /openai/codex/main/announcement_tip.toml
+        reason: its TUI reads Codex's announcement tips file when it starts (read-only; no setting turns it off)
+- type: com.docker.sandbox/credential@1
+  description: xAI API access
+  config:
+    service: xai
+    phase: runtime
+    apiKey:
+      name: XAI_API_KEY
+      proxyManaged: true
+      inject:
+      - domain: api.x.ai
+        header: authorization
+        format: Bearer %s
+    dozable:
+      accounts:
+      - key
+- type: com.docker.sandbox/volume@1
+  config:
+    path: /home/agent/.openinterpreter
+- type: com.dozable/install@1
+  config:
+    kind: release-binary
+    url: https://github.com/openinterpreter/openinterpreter/releases/download/rust-v${{ kit.args.version }}/codex-aarch64-unknown-linux-musl.tar.gz
+    payload: codex-aarch64-unknown-linux-musl
+    binary: interpreter
+    bake_hosts:
+    - github.com
+    - release-assets.githubusercontent.com
+    integrity: sha512-+wUeWOq+twYjtpVk+J5dfAgCXveoIlTyn3zkGCgsAwCkxzPKCq3ZzZWxq//uHBzQfGflqbpi0UEl3EDVPBG6FA==
+- type: com.dozable/launch@1
+  config:
+    command:
+    - interpreter
+    model_args:
+    - '-m'
+    - '$DOZ_MODEL'
+    - '-c'
+    - 'model_provider=doz'
+    - '-c'
+    - 'model_providers.doz.name=Dozable'
+    - '-c'
+    - 'model_providers.doz.base_url=$DOZ_BASE_URL'
+    - '-c'
+    - 'model_providers.doz.env_key=OPENAI_API_KEY'
+    - '-c'
+    - 'model_providers.doz.wire_api=chat'
+    model_args_after:
+    - exec
+    no_prompts_args:
+    - --dangerously-bypass-approvals-and-sandbox
+    passthrough:
+    - --version
+    - -V
+    - --help
+    - -h
+    - help
+    - exec
+    - e
+    - review
+    - login
+    - logout
+    - mcp
+    - doctor
+    - completion
+    env: {}
+    state_env:
+      CODEX_HOME: /home/agent/.openinterpreter
+    first_run:
+    - file: ~/.openinterpreter/config.toml
+      set:
+        model: grok-build-0.1
+        model_provider: xai
+        check_for_update_on_startup: false
+        analytics.enabled: false
+        features.plugins: false
+        features.apps: false
+        model_providers.xai.name: xAI
+        model_providers.xai.base_url: https://api.x.ai/v1
+        model_providers.xai.env_key: XAI_API_KEY
+        model_providers.xai.wire_api: chat
+        # /workspace is trusted at the first start, as Claude Code's and Codex's are (the VM is the boundary), so the
+        # session opens on the agent, not on its trust question.
+        'projects."/workspace".trust_level': trusted
+    status: none
+    resume:
+    - resume
+    - --last
+    verify:
+    - argv:
+      - interpreter
+      - --version
+      expect: ${{ kit.args.version }}
+    check:
+      argv:
+      - interpreter
+      - exec
+      - --skip-git-repo-check
+      - say ok
+      expect: DOZ_FAKE_OK
+- type: com.dozable/auth@1
+  config:
+    methods:
+    - kind: api-key
+      provider: xai
+      accounts:
+      - key
+      keys_page: https://console.x.ai/
+      note: 'Open Interpreter''s provider settings given on its command line (-c model_provider and model_providers.doz: the chosen source''s base URL, the key''s placeholder read from OPENAI_API_KEY; -m the model); on xAI (the default) the model is grok-build-0.1.'
+      checked: '2026-10-16'
+    - kind: api-key
+      provider: openai
+      accounts:
+      - openai-key
+      keys_page: https://platform.openai.com/api-keys
+      note: 'Open Interpreter through OpenAI: doz try open-interpreter --provider openai (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-16'
+    - kind: api-key
+      provider: google
+      accounts:
+      - key
+      keys_page: https://aistudio.google.com/apikey
+      note: 'Open Interpreter through Google AI: doz try open-interpreter --provider google (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-16'
+    - kind: api-key
+      provider: openrouter
+      accounts:
+      - key
+      keys_page: https://openrouter.ai/keys
+      note: 'Open Interpreter through OpenRouter: doz try open-interpreter --gateway openrouter (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-16'
+    - kind: api-key
+      provider: vercel-ai-gateway
+      accounts:
+      - key
+      keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
+      note: 'Open Interpreter through Vercel AI Gateway: doz try open-interpreter --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
+      checked: '2026-10-16'
+- type: com.dozable/gateways@1
+  config:
+    entries:
+    - gateway: openrouter
+      level: verified
+      evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
+      checked: '2026-10-16'
+    - gateway: vercel-ai-gateway
+      level: verified
+      evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
+      checked: '2026-10-16'
+- type: com.dozable/models@1
+  config:
+    default: xai
+    shapes:
+    - shape: openai-chat
+      env:
+        DOZ_MODEL: '${{ dozable.model }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
+      key_env:
+      - OPENAI_API_KEY
+      source: https://github.com/openinterpreter/open-interpreter#configuration
+    models:
+      xai: grok-build-0.1
+- type: com.dozable/currency@1
+  config:
+    checked: '2026-10-14'
+- type: com.dozable/directory@1
+  config:
+    published: false
+    kind: coding-agent
+    categories:
+    - coding-agent
+    - personal-agent
+    aliases:
+    - interpreter
+    - openinterpreter
+    icon: open-interpreter
+    default_base: debian
+    platforms:
+      glibc: true
+      musl: true
+    tags:
+    - tag: headless
+      level: verified
+      notes:
+      - interpreter exec --skip-git-repo-check "…"
+      evidence: 'make recipe-check: interpreter exec printed the stand-in''s answer and exited in a fresh try'
+      checked: '2026-10-14'
+    terms: Your API key of the provider or gateway you choose (xAI by default).
+- type: com.dozable/guide@1
+  config:
+    intro: "Open Interpreter is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
+    steps:
+    - text: "Check it answers, without its screen."
+      command: "interpreter exec --skip-git-repo-check \"say ok\""
+    - text: "Ask it something in its own screen — the session on the left."
+    - text: "One task without its screen."
+      command: "interpreter exec --skip-git-repo-check \"list the files in this folder\""
+    tips:
+    - "Files it makes are in /workspace — your folder on the Mac."
+    - "Restart its session from the session's ⋯ menu; End stops it."
+    docs: https://github.com/openinterpreter/openinterpreter

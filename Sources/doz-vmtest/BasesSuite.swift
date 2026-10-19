@@ -1,4 +1,4 @@
-// 596 — Dozer Base Images end to end, from separate processes of the REAL signed doz
+// 596 — Dozable Base Images end to end, from separate processes of the REAL signed doz
 // (`make test-cli-bases`; its cli, dockerfile and real parts are in `make test-cli` too):
 //
 //   · cli        — `doz base ls`; --agent/--base/--dockerfile and their refusals; a pair's name and
@@ -12,7 +12,7 @@
 //                  suite made from a real image): missing → the install flow recorded
 //                  (`DOZ_TEST_CONTAINER_INSTALL`, never a download, never Installer); services stopped →
 //                  said plainly, `doz builder start`; a Dockerfile sandbox: its folder is the workspace, the
-//                  build + import + bake, "OUTSIDE Dozer's network policy" said; an unchanged rebuild
+//                  build + import + bake, "OUTSIDE Dozable's network policy" said; an unchanged rebuild
 //                  bakes nothing; a changed Dockerfile → "rebuild available"; a new build → reset takes it;
 //                  Claude Code added on top, the facts block and a credential through the proxy.
 //   · real       — the REAL `container build` (owner-approved 2026-10-01): needs Apple's services running
@@ -27,8 +27,8 @@ import ContainerizationOCI
 import CryptoKit
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 func basesHarness(_ binary: String, _ tag: String) -> CLIHarness {
     let h = onboardingHarness(binary, "b\(tag)", seed: ["kernels", "content", "state.json", "initfs.ext4"])
@@ -64,7 +64,7 @@ func basesCLIPart(_ binary: String) async {
     r = h.run(["create", "x1", "--image", "lab", "--agent", "pi"])
     check(r.code != 0 && r.err.contains("not both"), "--image with --agent: refused")
     r = h.run(["create", "x1", "--agent", "cobol-agent"])      // codex is an agent since 599i, gemini since 617
-    check(r.code != 0 && r.err.contains("--agent: \(DozerProject.agentWords)"), "an unknown agent is refused, every agent named")
+    check(r.code != 0 && r.err.contains("--agent: \(DozableProject.agentWords)"), "an unknown agent is refused, every agent named")
     r = h.run(["create", "g1", "--base", "go", "--agent", "none", "--isolated", "--json"])
     let g1 = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)
     check(r.code == 0 && g1?.image == "go" && g1?.imageTitle == "Go · none" && g1?.base == "go", "create --base go --agent none: image go, Go · none")
@@ -203,7 +203,7 @@ func basesDockerfilePart(_ binary: String) async {
         return
     }
     try? FileManager.default.removeItem(at: scratch)
-    // Beside the store (a Dockerfile inside Dozer's store is refused).
+    // Beside the store (a Dockerfile inside Dozable's store is refused).
     let app = URL(fileURLWithPath: h.store.path + "-app")
     try? FileManager.default.createDirectory(at: app, withIntermediateDirectories: true)
     defer { try? FileManager.default.removeItem(at: app) }
@@ -253,14 +253,14 @@ func basesDockerfilePart(_ binary: String) async {
           "start d1: built + imported (\(Int(firstSeconds)) s)")
     check(said.contains("OUTSIDE Dozable's network policy"), "the preparation says it too (the Operations log records it)")
     let calls = (try? String(contentsOf: fake.appendingPathComponent("calls.log"), encoding: .utf8)) ?? ""
-    check(calls.contains("build --platform linux/arm64 --progress plain -f \(df.resolvingSymlinksInPath().path) -t dozer/\(base):latest \(app.resolvingSymlinksInPath().path)")
-          && calls.contains("image save --platform linux/arm64 -o ") && calls.contains(" dozer/\(base):latest"),
-          "container build --platform linux/arm64 -f … -t dozer/<base>:latest <its folder>, then container image save -o … (linux/arm64)")
+    check(calls.contains("build --platform linux/arm64 --progress plain -f \(df.resolvingSymlinksInPath().path) -t doz/\(base):latest \(app.resolvingSymlinksInPath().path)")
+          && calls.contains("image save --platform linux/arm64 -o ") && calls.contains(" doz/\(base):latest"),
+          "container build --platform linux/arm64 -f … -t doz/<base>:latest <its folder>, then container image save -o … (linux/arm64)")
     check(h.run(["exec", "d1", "--", "cat", "/etc/os-release"]).out.contains("Debian"), "d1 boots the Dockerfile's base (Debian)")
     check(h.run(["exec", "d1", "--", "sh", "-c", "id -un; sudo -n true && echo sudo-ok"]).out == "agent\nsudo-ok\n", "the agent user and its sudo are added (the baseline)")
     check(h.run(["exec", "d1", "--", "cat", "/workspace/Dockerfile"]).out.contains("FROM debian"), "/workspace is the Dockerfile's folder")
-    let rec = Dockerfiles.record(base, DozerStore(root: h.store))
-    check(rec?.reference?.hasPrefix("dozer.local/\(base)@sha256:") == true && rec?.builds == 1, "dockerfiles.json: the build's reference (\(rec?.reference?.suffix(20) ?? "none"))")
+    let rec = Dockerfiles.record(base, DozableStore(root: h.store))
+    check(rec?.reference?.hasPrefix("doz.local/\(base)@sha256:") == true && rec?.builds == 1, "dockerfiles.json: the build's reference (\(rec?.reference?.suffix(20) ?? "none"))")
 
     // Unchanged (same layers, a new config): nothing re-baked — seconds (B8).
     try? FileManager.default.removeItem(at: fake.appendingPathComponent("next.tar"))
@@ -270,7 +270,7 @@ func basesDockerfilePart(_ binary: String) async {
     let again = Date().timeIntervalSince(t1)
     check(r.code == 0 && (r.out + r.err).contains("unchanged (same layers)") && !(r.out + r.err).contains("baking image"),
           "an unchanged Dockerfile re-prepares without a bake (\(String(format: "%.1f", again)) s vs \(Int(firstSeconds)) s)")
-    check(Dockerfiles.record(base, DozerStore(root: h.store))?.reference == rec?.reference, "the same reference is kept")
+    check(Dockerfiles.record(base, DozableStore(root: h.store))?.reference == rec?.reference, "the same reference is kept")
     check(h.row("d1")?.rebuildAvailable == nil, "d1: nothing to rebuild")
 
     // The Dockerfile changes: said on the sandbox and the image — never rebuilt by itself.
@@ -280,7 +280,7 @@ func basesDockerfilePart(_ binary: String) async {
     try? FileManager.default.removeItem(at: fake.appendingPathComponent("next.tar"))
     try? FileManager.default.copyItem(at: b, to: fake.appendingPathComponent("next.tar"))
     r = h.run(["image", "bake", base], timeout: 900)
-    check(r.code == 0 && Dockerfiles.record(base, DozerStore(root: h.store))?.reference != rec?.reference, "a rebuild with new layers: a new base, baked")
+    check(r.code == 0 && Dockerfiles.record(base, DozableStore(root: h.store))?.reference != rec?.reference, "a rebuild with new layers: a new base, baked")
     check((h.row("d1")?.rebuildAvailable ?? "").contains("reset the sandbox to take it"), "d1 keeps its disk until reset: \(h.row("d1")?.rebuildAvailable ?? "nil")")
     check(h.run(["reset", "d1", "--yes"]).code == 0 && h.run(["start", "d1"], timeout: 600).code == 0, "reset d1, start it")
     check(h.run(["exec", "d1", "--", "cat", "/etc/os-release"]).out.contains("Alpine"), "d1 now boots the new build (Alpine)")
@@ -298,7 +298,7 @@ func basesDockerfilePart(_ binary: String) async {
     check(r.code == 0 && (r.out + r.err).contains("(native build"), "start d2: Claude Code's native build added on the Dockerfile's image (exit \(r.code))")
     check(h.run(["exec", "d2", "--", "sh", "-c", "claude --version; command -v node || echo no-node"]).out.contains("no-node"), "claude runs; no Node was added for it")
     h.run(["run", "d2", "--detach", "--session", "s1", "--", "sleep", "60"])
-    let facts = h.run(["exec", "d2", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = h.run(["exec", "d2", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("base: the user's Dockerfile \(app.resolvingSymlinksInPath().path)/Dockerfile.cc") && facts.contains("adds the account's credential (fk)"),
           "the facts block: the Dockerfile as the base, the account's credential")
     let seen = h.run(["exec", "d2", "--", "sh", "-c", "echo $ANTHROPIC_API_KEY"]).out
@@ -339,7 +339,7 @@ func basesRealBuildPart(_ binary: String) async {
         // This run's image in Apple's store (doz keeps a Dockerfile's tag there; a test does not).
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/local/bin/container")
-        p.arguments = ["image", "delete", "dozer/\(ImageChoice.dockerfileBase(path: df.resolvingSymlinksInPath().path)):latest"]
+        p.arguments = ["image", "delete", "doz/\(ImageChoice.dockerfileBase(path: df.resolvingSymlinksInPath().path)):latest"]
         p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
         try? p.run()
@@ -361,7 +361,7 @@ func basesRealBuildPart(_ binary: String) async {
     check(h.run(["exec", "rb", "--", "sh", "-c", "echo $APP_GREETING"]).out == "hello-from-dockerfile\n", "its ENV reaches sessions")
     check(h.run(["exec", "rb", "--", "claude", "--version"]).out.contains("Claude Code"), "Claude Code was added by Dozable")
     h.run(["run", "rb", "--detach", "--session", "s1", "--", "sleep", "60"])
-    let facts = h.run(["exec", "rb", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = h.run(["exec", "rb", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("the user's Dockerfile") && facts.contains("adds the account's credential (fk)"), "the facts block and the credential")
     let seen = h.run(["exec", "rb", "--", "sh", "-c", "echo $ANTHROPIC_API_KEY"]).out
     check(seen.hasPrefix(CredentialVault.placeholderPrefix) && !seen.contains(fk), "a placeholder, never the key")
@@ -412,7 +412,7 @@ func basesMatrixPart(_ binary: String) async {
             let out = h.run(["exec", name, "--"] + t.argv).out + h.run(["exec", name, "--", "sh", "-c", t.argv.joined(separator: " ") + " 2>&1"]).out
             check(t.expect.map(out.contains) ?? true, "\(name): the toolchain answers (\(t.argv.joined(separator: " ")) → \(out.split(separator: "\n").first ?? ""))")
         }
-        let digest = BaseDigests.all(DozerStore(root: h.store))[b]?.digest
+        let digest = BaseDigests.all(DozableStore(root: h.store))[b]?.digest
         check(digest != nil, "\(name): \(base.shortReference) resolved to a digest at preparation (\(digest?.dropFirst(7).prefix(12) ?? "none"))")
         switch a {
         case .claudeCode:
@@ -423,7 +423,7 @@ func basesMatrixPart(_ binary: String) async {
                 check(h.run(["exec", name, "--", "sh", "-c", "command -v node || echo no-node"]).out == "no-node\n", "\(name): no Node for Claude Code's sake")
             }
             h.run(["run", name, "--detach", "--session", "s1", "--", "sleep", "30"])
-            let facts = h.run(["exec", name, "--", "cat", "/run/dozer/agent-prompt.md"]).out
+            let facts = h.run(["exec", name, "--", "cat", "/run/doz/agent-prompt.md"]).out
             check(facts.contains("(base: \(base.title) (\(base.shortReference)))"), "\(name): the facts block names the base")
         case .pi:
             check(h.run(["exec", name, "--", "pi", "--version"]).code == 0, "\(name): pi runs")
@@ -450,5 +450,5 @@ func basesMatrixPart(_ binary: String) async {
         info("\(name): removed")
     }
     let rows = h.json(["image", "ls"], [ImageRow].self) ?? []
-    info("images: " + rows.map { "\($0.name) \($0.allocatedBytes.map(DozerImages.formatBytes) ?? "—")" }.joined(separator: ", "))
+    info("images: " + rows.map { "\($0.name) \($0.allocatedBytes.map(DozableImages.formatBytes) ?? "—")" }.joined(separator: ", "))
 }

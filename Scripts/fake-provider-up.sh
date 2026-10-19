@@ -13,7 +13,7 @@ cd "$D" || exit 1
 if [ -f pid ] && kill -0 "$(cat pid)" 2>/dev/null && [ -s port ]; then cat port; echo; exit 0; fi
 printf 'basicConstraints=critical,CA:TRUE\nkeyUsage=critical,keyCertSign,cRLSign\n' > ca.ext
 printf 'subjectAltName=DNS:api.x.ai,DNS:generativelanguage.googleapis.com,DNS:api.anthropic.com,DNS:api.openai.com,DNS:openrouter.ai,DNS:ai-gateway.vercel.sh,DNS:stitch.googleapis.com,DNS:opencode.ai\nextendedKeyUsage=serverAuth\nbasicConstraints=CA:FALSE\n' > leaf.ext
-/usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozer test fake provider CA' 2>/dev/null || exit 1
+/usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout ca.key -out ca.csr -subj '/CN=Dozable test fake provider CA' 2>/dev/null || exit 1
 /usr/bin/openssl x509 -req -in ca.csr -signkey ca.key -out ca.pem -days 2 -extfile ca.ext 2>/dev/null || exit 1
 /usr/bin/openssl req -new -newkey rsa:2048 -nodes -keyout leaf.key -out leaf.csr -subj '/CN=api.x.ai' 2>/dev/null || exit 1
 /usr/bin/openssl x509 -req -in leaf.csr -CA ca.pem -CAkey ca.key -CAcreateserial -out leaf.pem -days 2 -extfile leaf.ext 2>/dev/null || exit 1

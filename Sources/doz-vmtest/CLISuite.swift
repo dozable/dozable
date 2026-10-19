@@ -16,8 +16,8 @@
 // named clia / clib; nothing outside the store is touched. Never the keychain.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 struct CLIRun {
     var code: Int32
@@ -125,7 +125,7 @@ final class CLIHarness: @unchecked Sendable {
         guard let st = json(["host", "status"], HostStatus.self) else { return nil }
         return st.pid
     }
-    var hostRunning: Bool { DozerStore(root: store).hostIsRunning() }
+    var hostRunning: Bool { DozableStore(root: store).hostIsRunning() }
 
     /// Poll `pred` for up to `seconds`.
     func waitFor(_ seconds: Double, _ pred: () -> Bool) -> Bool {
@@ -212,7 +212,7 @@ func cliSuite() async throws {
     }
     // A previous run that died part-way.
     if h.hostRunning { h.run(["host", "stop"]) }
-    for n in ["clia", "clib", "clic", "clid", "clis", "clibt", "clires"] where FileManager.default.fileExists(atPath: DozerStore(root: storeRoot).configFile(n).path) {
+    for n in ["clia", "clib", "clic", "clid", "clis", "clibt", "clires"] where FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).configFile(n).path) {
         h.run(["rm", n, "--yes"])
     }
     h.run(["template", "rm", "clitpl", "--yes"])
@@ -333,7 +333,7 @@ func cliSuite() async throws {
         check(points.contains { $0.name == "p1" }, "point ls --json lists p1")
         r = h.run(["point", "revert", "clia", "p1", "--yes"])
         check(r.code == 0 && h.row("clia")?.phase == "off", "point revert --yes: shut down onto p1")
-        check(c3.exited(within: 10) == DozerCLIExit.failed, "the attached client ends: the sandbox shut down, the session is gone")
+        check(c3.exited(within: 10) == DozableCLIExit.failed, "the attached client ends: the sandbox shut down, the session is gone")
         r = h.run(["cold-boot", "clia"])
         check(r.code == 0 && h.row("clia")?.phase == "running", "cold-boot (alias of start) boots the reverted disk")
         r = h.run(["exec", "clia", "--", "test", "-e", "/root/after-p1"])
@@ -352,7 +352,7 @@ func cliSuite() async throws {
               "4 concurrent `run --session dup -d` all succeed (exits \(runs.all.map(\.code)))")
         check(dups.count == 1 && dups.first?.ended == false, "exactly one dup session, running (\(dups.count))")
         r = h.run(["run", "clia", "--session", "dup", "-d", "--", "sleep", "601"])
-        check(r.code == DozerCLIExit.exists, "a DIFFERENT program under the same name is still refused (exit \(r.code))")
+        check(r.code == DozableCLIExit.exists, "a DIFFERENT program under the same name is still refused (exit \(r.code))")
 
         print("cli: two sandboxes at once")
         r = h.run(["create", "clib", "--image", "lab", "--memory", "512M", "--workspace", ws.path])
@@ -411,10 +411,10 @@ func cliSuite() async throws {
         check(after.contains { $0.name == "clia" && $0.phase == "hibernated" }, "clia is still hibernated")
         // 593 (owner, 2026-09-30): clis was RUNNING when the host died — it is off: its programs are gone,
         // and so are its saved screens (the periodic one included) and its panes.
-        let clisLayout = DozerStore(root: storeRoot).layout("clis")
+        let clisLayout = DozableStore(root: storeRoot).layout("clis")
         check(h.waitFor(30) { h.row("clis")?.phase == "off" && !FileManager.default.fileExists(atPath: clisLayout.screensDirectory.path) },
               "clis died with the host: its saved screens are deleted")
-        check(h.sessions("clis").isEmpty && !FileManager.default.fileExists(atPath: DozerStore(root: storeRoot).terminalLayoutFile("clis").path),
+        check(h.sessions("clis").isEmpty && !FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).terminalLayoutFile("clis").path),
               "…no sessions listed, no terminal layout")
         check(h.run(["rm", "clis", "--yes"]).code == 0 && !FileManager.default.fileExists(atPath: clisLayout.sandboxDirectory.path), "rm clis")
         check(h.waitFor(60) { h.row("clib").map { $0.phase == "asleep" && !$0.busy } ?? false },
@@ -451,7 +451,7 @@ func cliSuite() async throws {
         check(r.code == 0 && h.hostRunning, "host --idle-timeout 0.05 (3 s)")
         let ti = Date()
         check(h.waitFor(30) { !h.hostRunning }, String(format: "the idle host exited by itself after %.1f s", Date().timeIntervalSince(ti)))
-        check(!FileManager.default.fileExists(atPath: DozerStore(root: storeRoot).socket.path), "and removed its socket")
+        check(!FileManager.default.fileExists(atPath: DozableStore(root: storeRoot).socket.path), "and removed its socket")
         r = h.run(["rm", "clib", "--yes"])
         check(r.code == 0, "rm clib")
     } catch {
@@ -521,7 +521,7 @@ func cliProgressChecks(_ h: CLIHarness) {
 /// 593: `doz image ls --tree`, `doz template`, `doz duplicate` — on clia (running, lab, a workspace)
 /// and clib. Leaves clia and clib as they were; clic, clid and the template are removed.
 func cliLineageChecks(_ h: CLIHarness, ws: URL) {
-    let store = DozerStore(root: h.store)
+    let store = DozableStore(root: h.store)
     if let tree = h.json(["image", "ls", "--tree"], ImageTree.self) {
         let root = tree.nodes.first { $0.parent == nil && $0.kind == "prepared" }
         let kids = tree.nodes.filter { $0.parent == root?.id && $0.kind == "sandbox" }.map(\.name)
@@ -574,7 +574,7 @@ func cliLineageChecks(_ h: CLIHarness, ws: URL) {
 /// 593 (owner, 2026-09-30): boot logs on `clibt` (lab) — six boots, cold boots and wakes mixed; the last
 /// five kept; `doz console --list / --boot N --steps / --json`; removed with the sandbox.
 func cliBootLogChecks(_ h: CLIHarness) {
-    let layout = DozerStore(root: h.store).layout("clibt")
+    let layout = DozableStore(root: h.store).layout("clibt")
     guard h.run(["create", "clibt", "--image", "lab", "--memory", "384M"]).code == 0 else { check(false, "create clibt"); return }
     // 1 cold · 2 wake (hibernated) · 3 cold · 4 wake (asleep) · 5 wake (hibernated) · 6 cold
     let plan: [[String]] = [["start"], ["hibernate"], ["wake"], ["shutdown", "--yes"], ["start"], ["sleep"], ["wake"],
@@ -696,7 +696,7 @@ func cliHostDetachChecks(_ h: CLIHarness) {
 /// exited program's screen is removed; the periodic capture saves only what changed. Leaves `clis`
 /// RUNNING with a periodic screen — the kill -9 section checks that the crash deletes it.
 func cliSessionMemoryChecks(_ h: CLIHarness) {
-    let layout = DozerStore(root: h.store).layout("clis")
+    let layout = DozableStore(root: h.store).layout("clis")
     func rows() -> [SessionRow] { h.sessions("clis") }
     func mode(_ url: URL) -> mode_t {
         var st = stat()
@@ -786,14 +786,18 @@ func cliSessionMemoryChecks(_ h: CLIHarness) {
 /// 591: `doz config` from a separate process, on the harness's scratch XDG_CONFIG_HOME — no VM.
 func cliConfigChecks(_ h: CLIHarness) {
     let xdg = URL(fileURLWithPath: h.env["XDG_CONFIG_HOME"] ?? "/nonexistent")
-    let file = xdg.appendingPathComponent("dozer-sandbox/doz.toml")
+    let file = xdg.appendingPathComponent("doz/doz.toml")
     try? FileManager.default.removeItem(at: xdg)
     var r = h.run(["config", "path"])
     check(r.code == 0 && r.out == file.path + "\n", "config path: \(r.out.trimmingCharacters(in: .newlines))")
     r = h.run(["config", "init"])
     let template = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
-    check(r.code == 0 && DozerSettings.schema.allSatisfy { template.contains("\n# \($0.name) = \(TOML.render($0.defaultValue))\n") },
-          "config init: doz.toml lists all \(DozerSettings.schema.count) settings, each commented at its default")
+    // An agent's or tool's own settings are listed once one of them is set (Settings.render) — a fresh file has the rest.
+    let listed = DozableSettings.schema.filter { $0.agent == nil }
+    let notAtDefault = listed.filter { !template.contains("\n# \($0.name) = \(TOML.render($0.defaultValue))\n") }
+        .map { "\($0.key) = \(TOML.render($0.defaultValue))" }
+    check(r.code == 0 && notAtDefault.isEmpty,
+          "config init: doz.toml lists all \(listed.count) settings (no agent's own), each commented at its default\(notAtDefault.isEmpty ? "" : " (not: \(notAtDefault.joined(separator: ", ")))")")
     var st = stat()
     check(stat(file.path, &st) == 0 && st.st_mode & 0o777 == 0o600, "the file is 0600")
     r = h.run(["config", "set", "ui.boot_view_on_start", "true"])
@@ -862,7 +866,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
     check(off, "resources: every sandbox is off for these checks (\(h.ls().map { "\($0.name) \($0.phase)" }.joined(separator: ", ")))")
     guard let rep = h.json(["resources"], ResourceReport.self) else { check(false, "resources --json"); return }
     let du = duBytes(store)
-    check(rep.unattributedBytes == 0, "resources: every byte of the store is on a row (unattributed \(rep.unattributedBytes) of \(DozerImages.formatBytes(rep.totalBytes)))")
+    check(rep.unattributedBytes == 0, "resources: every byte of the store is on a row (unattributed \(rep.unattributedBytes) of \(DozableImages.formatBytes(rep.totalBytes)))")
     check(abs(rep.totalBytes - du) <= 2 << 20, "resources: the total is what du counts (\(rep.totalBytes) vs du \(du))")
     let top = rep.items.filter { $0.parent == nil && $0.group != "outside" }.reduce(Int64(0)) { $0 + ($1.sizeBytes ?? 0) }
     check(top == rep.totalBytes, "resources: the top-level rows add up to the total")
@@ -894,7 +898,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
     let dry = h.json(["resources", "rm"] + ids + ["--dry-run"], ResourcePlan.self)
     check(dry.map { $0.dryRun && Set($0.items.map(\.id)) == Set(ids) && $0.refused.isEmpty } ?? false
           && fm.fileExists(atPath: initfs.path) && fm.fileExists(atPath: content.path) && !golden.isEmpty,
-          "resources rm --dry-run: the plan (frees \(DozerImages.formatBytes(dry?.freedBytes ?? 0))), and nothing deleted")
+          "resources rm --dry-run: the plan (frees \(DozableImages.formatBytes(dry?.freedBytes ?? 0))), and nothing deleted")
     check(dry?.items.first { $0.id == "image:lab" }?.later?.contains("re-prepared") ?? false, "…with what each costs later")
 
     // Delete them: one operation; the volume gets back what it said.
@@ -910,7 +914,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
     let got = before - (after?.occupiedBytes ?? before)
     let said = done?.freedBytes ?? 0
     check(after?.unattributedBytes == 0 && abs(got - said) <= 4 << 20,
-          "the volume got back what it said: \(DozerImages.formatBytes(got)) of \(DozerImages.formatBytes(said)) (host.log and metrics grow meanwhile)")
+          "the volume got back what it said: \(DozableImages.formatBytes(got)) of \(DozableImages.formatBytes(said)) (host.log and metrics grow meanwhile)")
 
     // Re-created on next use: clib (a clone of the deleted lab disk) still starts — the guest init is
     // rebuilt (the download cache pulled again); a new lab sandbox re-prepares the lab.
@@ -930,7 +934,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
     check(c.code == 0 && (cleaned?.deleted.contains("cache:downloads") ?? false)
           && !(cleaned?.deleted.contains { d in never.contains { d.hasPrefix($0) } || ["logs", "metrics", "initfs", "store"].contains(d) } ?? true),
           "resources clean --yes: \(cleaned?.deleted.joined(separator: " ") ?? "?") — never templates, sandboxes, points, logs, settings")
-    check(h.row("clib") != nil && fm.fileExists(atPath: DozerStore(root: store).layout("clib").rootfs.path), "clib and its disk are untouched")
+    check(h.row("clib") != nil && fm.fileExists(atPath: DozableStore(root: store).layout("clib").rootfs.path), "clib and its disk are untouched")
 
     // Logs and metrics clear.
     let log = store.appendingPathComponent("host.log")
@@ -951,7 +955,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
 }
 
 /// The CLI's own exit codes the suite checks (the CLI target is not linked here).
-enum DozerCLIExit {
+enum DozableCLIExit {
     static let failed: Int32 = 1
     static let exists: Int32 = 4
 }

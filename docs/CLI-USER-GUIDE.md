@@ -2,7 +2,7 @@
 
 `doz` runs Linux sandboxes on your Mac that pause in a millisecond, hibernate to disk and wake
 in about a third of a second, with the programs inside them still running where they were. It is
-the command-line face of DozerKit. New to it? Start with the
+the command-line face of DozableKit. New to it? Start with the
 [walkthrough](CLI-WALKTHROUGH.md). The [user manual](manual/README.md) covers the same ground by
 task, for the CLI and the dashboard side by side; this guide is the terse command-line companion.
 
@@ -15,7 +15,7 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 | **Session** | A terminal program living in the sandbox (a shell, `claude`, `pi`). It survives pause, sleep and hibernate. You *attach* to it and *detach* from it; it keeps running either way. |
 | **Workspace** | A folder of your Mac shared into the sandbox at `/workspace`. |
 | **Host** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and exits when idle, so you never manage it. |
-| **Store** | Where everything lives on disk: `~/Library/Application Support/dozer-sandbox` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and host. |
+| **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and host. |
 
 ## Install
 
@@ -561,9 +561,9 @@ new workspace) and writes into the guest:
   the Mac folder *X* (live) or **isolated** (no folder is shared with the Mac); the network (no interface; deny by default through
   the Mac's proxy; a refused host needs the user's rule — do not retry around it); credentials
   (injected by the proxy; the placeholders are expected; never log in or ask for keys); whether it
-  has passwordless sudo (and that the policy still applies to root); sleep and hibernation between turns. Claude Code gets it through its launcher (`/run/dozer/agent-prompt.md`
-  → `--append-system-prompt`); pi's session is `pi --append-system-prompt /run/dozer/agent-prompt.md`.
-- the **`dozer` skill** — `~/.claude/skills/dozer/SKILL.md` (pi: `~/.pi/agent/skills/dozer/SKILL.md`),
+  has passwordless sudo (and that the policy still applies to root); sleep and hibernation between turns. Claude Code gets it through its launcher (`/run/doz/agent-prompt.md`
+  → `--append-system-prompt`); pi's session is `pi --append-system-prompt /run/doz/agent-prompt.md`.
+- the **`doz` skill** — `~/.claude/skills/doz/SKILL.md` (pi: `~/.pi/agent/skills/doz/SKILL.md`),
   rewritten every start: what persists (root disk, state disk, restore points), the network policy
   and how the user changes it, credentials, sleep and hibernate, the workspace, and what the agent
   cannot do from inside (take a restore point, change the policy, add a key — it asks the user).
@@ -585,7 +585,7 @@ replacing (`agent_prompt_mode: replace`). Text may use `{{variables}}` from a cl
 `workspace.host_path`, `workspace.guest_path`, `workspace.description`, `network.mode`,
 `network.allowed_hosts`, `network.description`, `account.name`, `credentials.description`,
 `sandbox.sudo`, `sudo.description`, `sandbox.timezone`,
-`mac.hostname`, `dozer.version`. An unknown variable is an **error**: the agent's sessions do not
+`mac.hostname`, `doz.version`. An unknown variable is an **error**: the agent's sessions do not
 start (the message names the variable and the file) until it is fixed or the prompt is turned off —
 never silently blank.
 
@@ -894,7 +894,7 @@ The host is started for you by the first command that needs it. It runs detached
 | **Idle exit** | It exits after 5 minutes with no running, paused or sleeping VM and no attached client (`$DOZ_HOST_IDLE` minutes, 0 = never). |
 | **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no host runs. |
 | `doz host status` | Is one running, and what does it hold? Never starts one. |
-| `doz host stop` | Hibernates everything that runs, then exits. The next command starts a new host; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-dozer (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-dozer, lab1) in 1.2 s; the next command starts a new host` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the host dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart host** show the same. |
+| `doz host stop` | Hibernates everything that runs, then exits. The next command starts a new host; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new host` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the host dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart host** show the same. |
 | `doz host [--foreground] [--idle-timeout MIN]` | Run it by hand (in the foreground, it logs to the terminal). |
 | **If it crashes** | The next command starts a new one. Sleeping sandboxes are restored with their sessions. Hibernated ones are untouched. Ones that were running are reported as died (`ls`; `inspect` shows `diedWithHost`), and their disk is checked with `e2fsck` at the next start. |
 | **If its program changes** | A host knows the file it runs from. If an update wrote into that file while it ran, macOS stops trusting it and refuses its virtual machines: every start or wake then says "this host's program was updated underneath it — `doz host stop`, then retry", and `host status` and `doctor` say so too. An update that puts a new file in place (as `make install-cli` does) is harmless: the host keeps running its own copy, `host status` notes it, and once nothing runs and nobody is attached it exits by itself so the next command runs the new build. |
@@ -1152,7 +1152,7 @@ link is a key to the UI.
 
 ## Settings
 
-Settings live in one file, `~/.config/dozer-sandbox/doz.toml` (under `$XDG_CONFIG_HOME` when that
+Settings live in one file, `~/.config/doz/doz.toml` (under `$XDG_CONFIG_HOME` when that
 is set). It lists every setting, grouped in sections, each with a description and its default
 commented out:
 
@@ -1258,7 +1258,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress (the CLI on a terminal, the web UI's boot view) |
-| `XDG_CONFIG_HOME` | — | where `dozer-sandbox/doz.toml` is (default `~/.config`) |
+| `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 
 The kernel, subnet and `[defaults]` / `[images.*]` settings are read (by the host) when a sandbox
 is created, and become part of it.
@@ -1281,7 +1281,7 @@ is created, and become part of it.
 | A browser terminal says "Disconnected" | The tab was silent for a long time, or it could not reattach. Reconnect. (After a restart or a sign-in it reattaches by itself.) |
 | A browser terminal will not type Chinese/Japanese/Korean | Its engine's input-method support is incomplete; use Open in Terminal for now. |
 | Open in Terminal says no app opened it | Make a terminal app the handler for `.command` files (Finder › Get Info on any `.command` file › Open with › Change All…). |
-| `doz ui` says the resources are missing | `DozerKit_DozerWeb.bundle` must sit beside the executable. Reinstall (`brew reinstall doz`, or `make install-cli`). |
+| `doz ui` says the resources are missing | `DozableKit_DozableWeb.bundle` must sit beside the executable. Reinstall (`brew reinstall doz`, or `make install-cli`). |
 | Anything else | `<store>/host.log` and `doz events`. |
 
 ## Not yet

@@ -11,8 +11,8 @@
 #
 #   1. the exact tarball dist/doz-V-macos-arm64.tar.gz: its .sha256 matches, it unpacks to a doz that says V,
 #      carries the RELEASE marker, verifies (codesign --strict) and — unless TEST_PUBLISH=1 — is the public flavor,
-#      signed by Dozer's Developer ID team and notarised (its ticket published — Scripts/notary-ticket.sh);
-#   2. the entry is signed with Dozer's update key (the login keychain; a test passes UPDATE_KEY_FILE) and the
+#      signed by Dozable's Developer ID team and notarised (its ticket published — Scripts/notary-ticket.sh);
+#   2. the entry is signed with Dozable's update key (the login keychain; a test passes UPDATE_KEY_FILE) and the
 #      signature is checked against the public key doz carries (Distribution.updatePublicKey; a test:
 #      UPDATE_PUBLIC_KEY) — a key that does not match what doz trusts is refused before anything is written;
 #   3. UPDATES_DIR (the Pages repo's checkout): v1/items/build-N.json, v1/notes/V.html, v1/feed.json, CNAME;
@@ -32,7 +32,7 @@ VERSION="${VERSION:-}"; CHANNEL="${CHANNEL:-canary}"; NOTES="${NOTES:-}"; DIST="
 DRY_RUN="${DRY_RUN:-}"; PUSH="${PUSH:-}"; TEST_PUBLISH="${TEST_PUBLISH:-}"
 UPDATES_DIR="${UPDATES_DIR:-${TMPDIR:-/tmp/}doz-updates-site}"
 TAP_DIR="${TAP_DIR:-${TMPDIR:-/tmp/}doz-homebrew-tap}"
-dist_value() { sed -n "s/.*static let $1 = \"\\([^\"]*\\)\".*/\\1/p" Sources/DozerHost/Updates.swift | head -1; }
+dist_value() { sed -n "s/.*static let $1 = \"\\([^\"]*\\)\".*/\\1/p" Sources/DozableHost/Updates.swift | head -1; }
 FEED_URL="$(dist_value feedURL)"
 REPOSITORY="${REPOSITORY:-$(dist_value repository)}"
 TEAM_ID="$(dist_value teamID)"
@@ -44,7 +44,7 @@ FEED_DIR="$(sed -E 's#^https://[^/]+/(.*)/feed\.json$#\1#' <<<"$FEED_URL")"   # 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || fail "VERSION must be semver, not $VERSION"
 case "$CHANNEL" in stable|beta|canary) ;; *) fail "CHANNEL is stable, beta or canary (not $CHANNEL)";; esac
 [[ -n "$NOTES" && -f "$NOTES" ]] || fail "NOTES=<a markdown file> — release notes are mandatory (the feed links them)"
-[[ "$FEED_DIR" == v1 && -n "$SITE" ]] || fail "cannot read the feed URL from Sources/DozerHost/Updates.swift"
+[[ "$FEED_DIR" == v1 && -n "$SITE" ]] || fail "cannot read the feed URL from Sources/DozableHost/Updates.swift"
 [[ -n "$PUBLIC_KEY" ]] || fail "doz carries no update public key yet (Distribution.updatePublicKey) — run make doz-update-keys once, commit the key, rebuild"
 if [[ -n "$PUSH" ]]; then
     for d in "$UPDATES_DIR" "$TAP_DIR"; do

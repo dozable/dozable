@@ -1,6 +1,6 @@
 import Darwin
 import Foundation
-import DozerKit
+import DozableKit
 
 // 583 — the hardening suite (`doz-vmtest hardening`, or one of its parts by name). Each part is
 // the regression test for a hazard the 582 scaling probe found:

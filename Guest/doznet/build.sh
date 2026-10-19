@@ -4,7 +4,7 @@
 # ghostty, no third-party code), with the SAME pinned Zig as deckhold (Guest/deckhold/build.sh
 # downloads it into $TOOLS/zig-0.16.0 on first use).
 #
-# The COMMITTED binary is Sources/DozerKit/Resources/doznet; `make doznet` runs this,
+# The COMMITTED binary is Sources/DozableKit/Resources/doznet; `make doznet` runs this,
 # installs the result there and refreshes PROVENANCE.md; `make doznet-verify` rebuilds and compares.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"

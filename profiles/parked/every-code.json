@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "Every Code's release check when its TUI starts (read-only GitHub API, that one path); it shows a notice, and Dozer installs the pinned release",
+      "reason": "Every Code's release check when its TUI starts (read-only GitHub API, that one path); it shows a notice, and Dozable installs the pinned release",
       "seen": true
     },
     {
@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     }
   ]

@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -45,7 +45,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -59,7 +59,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -73,7 +73,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -87,7 +87,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -101,7 +101,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -115,7 +115,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {
@@ -129,7 +129,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozer's)",
+      "reason": "Anthropic's API — the model and Claude Code's own account calls (the credential is Dozable's)",
       "seen": true
     },
     {

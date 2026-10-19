@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 599e: the Access step — `doz onboard` confirms each credential live and NEVER blocks; `doz access` shows
 // and confirms again; `doz access set` changes a choice. SEAMS ONLY (never the user's gh, ssh-agent or

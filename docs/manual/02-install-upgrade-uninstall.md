@@ -10,9 +10,10 @@ machines. You install it with Homebrew.
   without that, macOS refuses to boot virtual machines. A copy you build yourself without signing can
   run every command except the ones that boot a VM, and `doz doctor` says so.
 - **The store** is where your sandboxes, images and restore points live:
-  `~/Library/Application Support/dozer-sandbox` unless you choose another (see
-  [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it.
-- **The settings** live in `~/.config/dozer-sandbox/doz.toml`, beside your agent prompt template
+  `~/Library/Application Support/doz` unless you choose another (see
+  [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it
+  (0.37 is the one exception: it starts with a new store — see [Upgrading to 0.37](#upgrading-to-037-a-fresh-start)).
+- **The settings** live in `~/.config/doz/doz.toml`, beside your agent prompt template
   (`agent-prompt.md`). Upgrading never touches them either.
 - **The host** is a background `doz` process that runs your sandboxes. A running host keeps using the
   version of `doz` it started as, which is why upgrading has one extra step (below).
@@ -71,7 +72,7 @@ doz host restart
 `doz upgrade` refreshes Dozable's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
 feed itself (past any cached copy), so a release is there the minute it is published. Its first name, `doz update`,
 still works. Homebrew's own output stays off the screen: no update of your other taps first, and what brew prints
-goes to `brew.log` in doz's settings folder (`~/.config/dozer-sandbox/brew.log`) — shown when brew fails, or as it
+goes to `brew.log` in doz's settings folder (`~/.config/doz/brew.log`) — shown when brew fails, or as it
 runs with `doz upgrade --verbose`. When a host of the previous version is running, `doz upgrade` (without `-y`)
 then asks whether to restart it now. Homebrew refreshes
 its taps only now and then, so a plain `brew upgrade doz` can say there is nothing new for up to a day; with brew
@@ -110,6 +111,32 @@ If you skip `doz host stop`, nothing breaks right away: your sandboxes keep runn
 host can no longer boot anything once Homebrew has removed its files, so a start, a wake or a new
 sandbox is refused with a message that tells you to run `doz host stop`. Once nothing runs and
 nobody is attached, the old host exits by itself.
+
+### Upgrading to 0.37: a fresh start
+
+0.37 is the first release with Dozable's own names on disk, and it **starts fresh**: nothing from an earlier
+install is read — not your sandboxes, images, restore points, accounts, settings, prompt template or dashboard
+links. There is no migration. Before you upgrade, with the version you have:
+
+```sh
+doz get my-app /workspace/notes.md ~/Desktop/   # copy out anything a sandbox holds that you want to keep
+doz ui stop
+doz host stop
+```
+
+Then upgrade and run `doz onboard` again: it makes the new store, settings and images (every image is built
+afresh). New sandboxes' folders go to `~/doz-workspaces`; your project folders, wherever they are, are never
+touched. When you no longer need the old install, remove its folders:
+
+```sh
+rm -rf ~/Library/Application\ Support/dozer-sandbox   # the old store: sandboxes, images, restore points, accounts list
+rm -rf ~/.config/dozer-sandbox                        # the old settings and agent prompt template
+rm -rf ~/Library/Caches/dozer-sandbox                 # the old download cache
+```
+
+The keys an earlier version saved stay in your login keychain (items named `doz-…`) until you delete them in
+Keychain Access. Images an earlier version built with Apple's `container` are named `dozer/…` there:
+`container image ls` lists them and `container image delete NAME` removes one.
 
 ### Your images after an upgrade
 
@@ -169,7 +196,7 @@ its place and size, then asks once:
 
 - **the store**: every sandbox, image, kernel, restore point and template, and the host's log and metrics;
 - **the settings folder**: `doz.toml`, `agent-prompt.md`, and the update and usage records;
-- **the download cache** (`~/Library/Caches/dozer-sandbox`);
+- **the download cache** (`~/Library/Caches/doz`);
 - **the keychain items Dozable made**: your accounts' keys and the default GitHub key.
 
 `--dry-run` lists and removes nothing; `--yes` skips the question. A running host is stopped first; a running
@@ -189,7 +216,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 
 | key | default | what it does |
 |---|---|---|
-| `store.path` | `~/Library/Application Support/dozer-sandbox` | Where the store lives (`--store`, `$DOZ_STORE`). |
+| `store.path` | `~/Library/Application Support/doz` | Where the store lives (`--store`, `$DOZ_STORE`). |
 | `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits (`0` = never). |
 | `updates.mode` | `notify` | `notify`, `auto` or `off` (`$DOZ_UPDATES`). |
 | `updates.channel` | `stable` | `stable`, `beta` or `canary` — a Homebrew install's formula decides while it is not set. |

@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599f (owner, 2026-10-02: "a new wizard process for creating a purposeful sandbox that steps the user through
 // all the choices, capturing the config in a doz_project.yml in the project / working dir"):

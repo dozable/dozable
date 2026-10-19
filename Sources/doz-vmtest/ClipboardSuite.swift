@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599 (594.B1, owner: "lets get a proper bridge working for the clipboard so that claudes copy to clipboard
 // just works"): a program's OSC 52 copy reaches the Mac clipboard through the host — here a FILE

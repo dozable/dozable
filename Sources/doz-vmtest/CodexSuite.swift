@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 599i — Codex as a first-class agent in real VMs, through SEAMS ONLY — never OpenAI, never the owner's
 // ~/.codex, keychain or sign-in:
@@ -270,7 +270,7 @@ func cliCodexSuite(binary: String) async {
     check(d(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-xp"]).code == 0, "defaults.projects_dir is a scratch path")
     check(d(["config", "set", "images.codex_version", AgentImages.codexPinned.version]).code == 0, "the pinned Codex (no registry)")
 
-    // ── 1. Dozer's own ChatGPT sign-in (the browser seam plays the callback) ───────────────────────
+    // ── 1. Dozable's own ChatGPT sign-in (the browser seam plays the callback) ───────────────────────
     var r = d(["account", "add", "plan", "--chatgpt", "--force"], timeout: 120)
     check(r.code == 0 && r.out.contains("account plan added (chatgpt: person@example.invalid, plus"),
           "doz account add plan --chatgpt → signed in (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines))) \(r.code == 0 ? "" : r.err.suffix(300).description)")
@@ -442,12 +442,12 @@ func cliCodexSuite(binary: String) async {
     check(r.code == 0 && (r.out + r.err).contains("PONG-APIKEY-"), "alpine-codex: Codex answered through the proxy (\((r.out + r.err).suffix(160).debugDescription))")
 
     // ── 8. The launcher: the facts reach Codex as developer instructions; a session runs codex ───────────
-    r = d(["exec", "cx", "--", "sh", "-c", "cat /home/agent/.local/bin/codex | head -3; ls /home/agent/.agents/skills/dozer 2>&1"])
+    r = d(["exec", "cx", "--", "sh", "-c", "cat /home/agent/.local/bin/codex | head -3; ls /home/agent/.agents/skills/doz 2>&1"])
     check(r.out.contains("doz: Codex with its first-run setup done"), "the launcher is first on the agent's PATH")
     r = d(["run", "cx", "--detach", "--session", "codex", "--", "codex"], timeout: 120)
     usleep(3_000_000)
-    r = d(["exec", "cx", "--", "sh", "-c", "ls /home/agent/.agents/skills/dozer; grep -c dozer /run/dozer/agent-prompt.md; ps -eo args | grep -m1 'dangerously-bypass-approvals-and-sandbox' | grep -c developer_instructions; grep -A1 'projects.\"/workspace\"' /home/agent/.codex/config.toml"])
-    check(r.out.contains("SKILL.md"), "the dozer skill in ~/.agents/skills/dozer (\(r.out.debugDescription))")
+    r = d(["exec", "cx", "--", "sh", "-c", "ls /home/agent/.agents/skills/doz; grep -c doz /run/doz/agent-prompt.md; ps -eo args | grep -m1 'dangerously-bypass-approvals-and-sandbox' | grep -c developer_instructions; grep -A1 'projects.\"/workspace\"' /home/agent/.codex/config.toml"])
+    check(r.out.contains("SKILL.md"), "the doz skill in ~/.agents/skills/doz (\(r.out.debugDescription))")
     check(r.out.contains("trust_level = \"trusted\""), "/workspace is trusted in Codex's config (no trust prompt)")
     check(r.out.split(separator: "\n").dropFirst(2).first == "1", "the TUI runs with its approvals off and the facts as developer instructions")
     info("sessions: " + d(["sessions", "cx"]).out.split(separator: "\n").joined(separator: " | ").prefix(300))

@@ -84,7 +84,7 @@ var files = 0
 let stringRX = try! NSRegularExpression(pattern: "\"((?:[^\"\\\\]|\\\\.)*)\"")
 /// Cheap pre-filter: only a line with a candidate is worth the full pattern.
 let candidateRX = try! NSRegularExpression(pattern: "(58|59|60)[0-9]|W[0-9]")
-for dir in ["Sources/DozerCLI", "Sources/DozerHost", "Sources/DozerWeb", "Sources/DozerKit"] {
+for dir in ["Sources/DozableCLI", "Sources/DozableHost", "Sources/DozableWeb", "Sources/DozableKit"] {
     guard let e = FileManager.default.enumerator(atPath: dir) else { continue }
     for case let f as String in e where f.hasSuffix(".swift") {
         let path = dir + "/" + f
@@ -114,15 +114,15 @@ for dir in ["Sources/DozerCLI", "Sources/DozerHost", "Sources/DozerWeb", "Source
 }
 
 // 4. the dashboard's own strings — app.js and (607) every module under app/
-var jsFiles = ["Sources/DozerWeb/WebSource/app.js"]
-if let e = FileManager.default.enumerator(atPath: "Sources/DozerWeb/WebSource/app") {
-    while let f = e.nextObject() as? String { if f.hasSuffix(".js") { jsFiles.append("Sources/DozerWeb/WebSource/app/" + f) } }
+var jsFiles = ["Sources/DozableWeb/WebSource/app.js"]
+if let e = FileManager.default.enumerator(atPath: "Sources/DozableWeb/WebSource/app") {
+    while let f = e.nextObject() as? String { if f.hasSuffix(".js") { jsFiles.append("Sources/DozableWeb/WebSource/app/" + f) } }
 }
 var jsCount = 0
 for path in jsFiles.sorted() {
     guard let js = try? String(contentsOfFile: path, encoding: .utf8) else { continue }
     jsCount += 1
-    let name = String(path.dropFirst("Sources/DozerWeb/WebSource/".count))
+    let name = String(path.dropFirst("Sources/DozableWeb/WebSource/".count))
     let rx = try! NSRegularExpression(pattern: "'((?:[^'\\\\]|\\\\.)*)'")
     for (n, line) in js.components(separatedBy: "\n").enumerated() {
         if candidateRX.firstMatch(in: line, range: NSRange(line.startIndex..., in: line)) == nil { continue }

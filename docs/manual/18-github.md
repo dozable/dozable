@@ -153,7 +153,7 @@ git clone git@github.com:OWNER/REPO.git
 ## What the agent is told
 
 One line in its facts — that `git` and `gh` are signed in as you, read-only or with push, and to use
-HTTPS remotes (and SSH, when the agent is forwarded) — and the details in its `dozer` skill. The line says
+HTTPS remotes (and SSH, when the agent is forwarded) — and the details in its `doz` skill. The line says
 when `gh` was installed by Dozable (or, if it could not be, why), and that the ssh client and github.com's
 host keys are in place.
 

@@ -1,0 +1,404 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "COPILOT_VERSION",
+      "default" : "1.0.97",
+      "description" : "The GitHub Copilot CLI release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "GitHub",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "paths" : [
+                  "/v1/models",
+                  "/v1/chat/completions",
+                  "/v1/responses"
+                ],
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
+              }
+            ],
+            "id" : "model:copilot",
+            "phrase" : "talk to your AI model",
+            "summary" : "GitHub Copilot CLI's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for GitHub Copilot CLI to answer.",
+            "title" : "Talk to its model provider"
+          },
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
+            "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.copilot"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "directory" : "/home/agent/.copilot/skills/doz",
+        "dozable" : {
+          "kind" : "skill"
+        },
+        "filename" : "SKILL.md"
+      },
+      "type" : "com.docker.sandbox/agent-context@1"
+    },
+    {
+      "config" : {
+        "binary" : "copilot",
+        "integrity" : "sha512-iWtoEeG4kN1tz5f1tsHQKdwCQ24Dpx8+rGZ1GBn42U57QU5yjIhIeYR8DXJGFWTtoHwQn0uAlacbhDlqKYddYQ==",
+        "kind" : "npm-platform-binary",
+        "package" : "@github/copilot",
+        "payload" : "copilot",
+        "platform_package" : "@github/copilot-linux-arm64"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "copilot",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "copilot"
+        ],
+        "env" : {
+          "COPILOT_AUTO_UPDATE" : "false",
+          "COPILOT_OFFLINE" : "true"
+        },
+        "first_run" : [
+          {
+            "file" : "~/.copilot/config.json",
+            "set" : {
+              "trustedFolders" : [
+                "/workspace"
+              ]
+            }
+          }
+        ],
+        "no_prompts_args" : [
+          "--allow-all"
+        ],
+        "passthrough" : [
+          "--version",
+          "-v",
+          "--help",
+          "-h",
+          "help",
+          "version",
+          "login",
+          "init",
+          "config",
+          "update",
+          "sessions",
+          "memories",
+          "plugin",
+          "mcp",
+          "skill",
+          "instruction",
+          "lsp",
+          "sandbox",
+          "completion",
+          "app",
+          "workflow"
+        ],
+        "resume" : [
+          "--continue"
+        ],
+        "state_env" : {
+          "COPILOT_HOME" : "/home/agent/.copilot"
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "copilot",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "Copilot CLI's bring-your-own-key settings (COPILOT_PROVIDER_TYPE, COPILOT_PROVIDER_BASE_URL, COPILOT_MODEL; the key's placeholder under COPILOT_PROVIDER_API_KEY), pointed at the chosen provider or gateway; on xAI (the default) the model is grok-code-fast-1. No Copilot plan or GitHub sign-in.",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "GitHub Copilot CLI through Anthropic: doz try copilot --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "GitHub Copilot CLI through OpenAI: doz try copilot --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "GitHub Copilot CLI through Google AI: doz try copilot --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "GitHub Copilot CLI through OpenRouter: doz try copilot --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "GitHub Copilot CLI through Vercel AI Gateway: doz try copilot --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          },
+          {
+            "account" : "a GitHub account with a Copilot plan",
+            "checked" : "2026-10-14",
+            "in_sandbox" : false,
+            "kind" : "vendor-sign-in",
+            "note" : "Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozable does not offer it yet."
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "models" : {
+          "xai" : "grok-code-fast-1"
+        },
+        "shapes" : [
+          {
+            "env" : {
+              "COPILOT_MODEL" : "${{ dozable.model }}",
+              "COPILOT_PROVIDER_BASE_URL" : "${{ dozable.base_url }}",
+              "COPILOT_PROVIDER_TYPE" : "openai"
+            },
+            "key_env" : [
+              "COPILOT_PROVIDER_API_KEY"
+            ],
+            "shape" : "openai-chat",
+            "source" : "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models"
+          },
+          {
+            "env" : {
+              "COPILOT_MODEL" : "${{ dozable.model }}",
+              "COPILOT_PROVIDER_BASE_URL" : "${{ dozable.base_url }}",
+              "COPILOT_PROVIDER_TYPE" : "anthropic"
+            },
+            "key_env" : [
+              "COPILOT_PROVIDER_API_KEY"
+            ],
+            "shape" : "anthropic-messages",
+            "source" : "https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozable/currency@1"
+    },
+    {
+      "config" : {
+        "aliases" : [
+          "copilot-cli"
+        ],
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "debian",
+        "icon" : "copilot",
+        "kind" : "coding-agent",
+        "licence" : "Proprietary (GitHub Copilot CLI License)",
+        "limits" : [
+          {
+            "musl" : true,
+            "reason" : "Dozable installs Copilot CLI's glibc build; its musl build is a separate package, not used yet"
+          }
+        ],
+        "platforms" : {
+          "glibc" : true,
+          "musl" : false
+        },
+        "published" : false,
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "level" : "documented",
+            "notes" : [
+              "copilot -p \"…\""
+            ],
+            "source" : "https://docs.github.com/en/copilot/how-tos/copilot-cli/automate-copilot-cli/run-cli-programmatically",
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozable installs it from the npm registry."
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/github/copilot-cli",
+        "intro" : "GitHub Copilot CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "copilot -p \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "copilot -p \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    }
+  ],
+  "description" : "GitHub's coding agent for the terminal, with your own model key instead of a Copilot plan — on the key of the provider or gateway you choose (xAI by default).",
+  "displayName" : "GitHub Copilot CLI",
+  "id" : "github/copilot",
+  "kind" : "workload",
+  "licenses" : [
+    "LicenseRef-GitHub-Copilot-CLI"
+  ],
+  "provides" : [
+    "com.dozable/copilot@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/github/copilot-cli"
+}

@@ -11,7 +11,7 @@
 #   workflow_dispatch             recipes: changed (default) | all | a list ("grok gemini")
 #
 # Runs only on a Mac labelled doz-recipes (it boots VMs). The store is a PERSISTENT cache on that Mac
-# ($HOME/Library/Caches/DozerKit-ci/recipes-store): prepared images are kept between runs, sandboxes never are; images
+# ($HOME/Library/Caches/DozableKit-ci/recipes-store): prepared images are kept between runs, sandboxes never are; images
 # baked more than 14 days ago are pruned at the end. The kernel cache is ci.yml's.
 #
 # PUBLIC-REPO SAFETY (as ci.yml): a fork's pull request never reaches the self-hosted Mac (the guard on the job), no
@@ -21,9 +21,9 @@ name: Recipes
 on:
   pull_request:
     paths:
-      - 'Sources/DozerKit/Recipes/**'
+      - 'Sources/DozableKit/Recipes/**'
       - 'profiles/**'
-      - 'schema/dozer-recipe-2.schema.json'
+      - 'schema/dozable-recipe-2.schema.json'
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'
@@ -32,9 +32,9 @@ on:
   push:
     branches: [main]
     paths:
-      - 'Sources/DozerKit/Recipes/**'
+      - 'Sources/DozableKit/Recipes/**'
       - 'profiles/**'
-      - 'schema/dozer-recipe-2.schema.json'
+      - 'schema/dozable-recipe-2.schema.json'
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'
@@ -104,8 +104,8 @@ jobs:
           RECIPES: ${{ steps.which.outputs.recipes }}
         run: |
           set -euo pipefail
-          STORE="$HOME/Library/Caches/DozerKit-ci/recipes-store"
-          KERNELS="$HOME/Library/Caches/DozerKit-ci/kernels"
+          STORE="$HOME/Library/Caches/DozableKit-ci/recipes-store"
+          KERNELS="$HOME/Library/Caches/DozableKit-ci/kernels"
           mkdir -p "$STORE"
           RUN="make recipe-check RECIPES=\"$RECIPES\" RECIPE_STORE=\"$STORE\" KERNEL_CACHE=\"$KERNELS\" RECIPE_REPORT=\"$RUNNER_TEMP/recipe-report.json\" RECIPE_SUMMARY=\"$GITHUB_STEP_SUMMARY\""
           LOCK="$HOME/Developer/bin/ci-build-lock"
@@ -122,7 +122,7 @@ jobs:
           { echo '```'; echo "### Network profiles (new endpoints fail)"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           # The published recipes only (an unpublished one is profiled when named: make profile-agents AGENTS=…).
           AGENTS=$(/usr/bin/python3 Scripts/recipes_published.py)
-          export PROFILE_WORK="$HOME/Library/Caches/DozerKit-ci/profile-store" DOZ_KERNEL_CACHE="$HOME/Library/Caches/DozerKit-ci/kernels"
+          export PROFILE_WORK="$HOME/Library/Caches/DozableKit-ci/profile-store" DOZ_KERNEL_CACHE="$HOME/Library/Caches/DozableKit-ci/kernels"
           RUN="make profile-agents DIFF=1 AGENTS=\"$AGENTS\" KERNEL_CACHE=\"$DOZ_KERNEL_CACHE\""
           LOCK="$HOME/Developer/bin/ci-build-lock"
           if [ -x "$LOCK" ]; then "$LOCK" --name "$GITHUB_REPOSITORY#profiles" -- bash -c "$RUN" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || rc=1
@@ -141,4 +141,4 @@ jobs:
       - name: Prune images older than 14 days from the cache
         if: always()
         shell: bash
-        run: /usr/bin/python3 Scripts/recipe-check.py --store "$HOME/Library/Caches/DozerKit-ci/recipes-store" --prune-days 14
+        run: /usr/bin/python3 Scripts/recipe-check.py --store "$HOME/Library/Caches/DozableKit-ci/recipes-store" --prune-days 14

@@ -1,0 +1,433 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "OMP_VERSION",
+      "default" : "18.10.4",
+      "description" : "The oh-my-pi release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "can1357 and contributors",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "paths" : [
+                  "/v1/models",
+                  "/v1/responses",
+                  "/v1/chat/completions"
+                ],
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
+              }
+            ],
+            "id" : "model:omp",
+            "phrase" : "talk to your AI model",
+            "summary" : "oh-my-pi's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for oh-my-pi to answer.",
+            "title" : "Talk to its model provider"
+          },
+          "quiet" : [
+            {
+              "host" : "api.commandcode.ai",
+              "reason" : "oh-my-pi asks several model gateways for their public model lists when it starts (no setting turns it off); it does without them when refused"
+            },
+            {
+              "host" : "api.kilo.ai",
+              "reason" : "the same start-up model-list discovery (Kilo Gateway)"
+            },
+            {
+              "host" : "api.venice.ai",
+              "reason" : "the same start-up model-list discovery (Venice)"
+            },
+            {
+              "host" : "build.stencil.so",
+              "reason" : "oh-my-pi's release check when it starts (Dozable installs the pinned release); it carries on without it"
+            },
+            {
+              "host" : "catalog.stencil.so",
+              "reason" : "the same start-up model-list discovery (a public model catalogue)"
+            },
+            {
+              "host" : "coding-intl.dashscope.aliyuncs.com",
+              "reason" : "the same start-up model-list discovery (Alibaba Model Studio)"
+            },
+            {
+              "host" : "hyper.charm.land",
+              "reason" : "the same start-up model-list discovery (Charm Hyper)"
+            },
+            {
+              "host" : "zenmux.ai",
+              "reason" : "the same start-up model-list discovery (ZenMux)"
+            }
+          ],
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
+            "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443"
+          ],
+          "deny" : [
+            "api.commandcode.ai:443",
+            "api.kilo.ai:443",
+            "api.venice.ai:443",
+            "build.stencil.so:443",
+            "catalog.stencil.so:443",
+            "coding-intl.dashscope.aliyuncs.com:443",
+            "hyper.charm.land:443",
+            "zenmux.ai:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.omp"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "bake_hosts" : [
+          "github.com",
+          "release-assets.githubusercontent.com"
+        ],
+        "binary" : "omp",
+        "integrity" : "sha512-3ZmxKel2M9fL+bMtRZe9SLZSzJpW3CPn04l8ShQXjNx3r34o8iZKhReT1PEoPWr5N/s/fH+UIdhemFj0Ytv/yg==",
+        "kind" : "release-binary",
+        "url" : "https://github.com/can1357/oh-my-pi/releases/download/v${{ kit.args.version }}/omp-linux-arm64"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "omp",
+            "-p",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "omp"
+        ],
+        "env" : {
+
+        },
+        "first_run" : [
+          {
+            "file" : "~/.omp/agent/config.yml",
+            "set" : {
+              "setupVersion" : 2
+            }
+          }
+        ],
+        "model_args" : [
+          "--model",
+          "$DOZ_MODEL"
+        ],
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+          "--version",
+          "-v",
+          "--help",
+          "-h",
+          "-p",
+          "--print",
+          "toks"
+        ],
+        "resume" : [
+          "--continue"
+        ],
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "omp",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "oh-my-pi's built-in providers, each reading its key from the environment; Dozable puts the model on its command line (--model xai/grok-build-0.1 on xAI, the default; --model PROVIDER/MODEL for the others).",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "oh-my-pi through Anthropic: doz try omp --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "oh-my-pi through OpenAI: doz try omp --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "oh-my-pi through Google AI: doz try omp --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "oh-my-pi through OpenRouter: doz try omp --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "oh-my-pi through Vercel AI Gateway: doz try omp --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "models" : {
+          "xai" : "grok-build-0.1"
+        },
+        "native" : [
+          {
+            "env" : {
+              "DOZ_MODEL" : "anthropic/${{ dozable.model }}"
+            },
+            "source" : "anthropic"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "openai/${{ dozable.model }}"
+            },
+            "source" : "openai"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "xai/${{ dozable.model }}"
+            },
+            "source" : "xai"
+          },
+          {
+            "env" : {
+              "DOZ_MODEL" : "google/${{ dozable.model }}"
+            },
+            "source" : "google"
+          },
+          {
+            "docs" : "https://github.com/can1357/oh-my-pi/blob/v18.10.4/docs/providers.md",
+            "env" : {
+              "DOZ_MODEL" : "openrouter/${{ dozable.model }}"
+            },
+            "source" : "openrouter"
+          },
+          {
+            "docs" : "https://github.com/can1357/oh-my-pi/blob/v18.10.4/docs/providers.md",
+            "env" : {
+              "DOZ_MODEL" : "vercel-ai-gateway/${{ dozable.model }}"
+            },
+            "source" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozable/currency@1"
+    },
+    {
+      "config" : {
+        "aliases" : [
+          "oh-my-pi"
+        ],
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "debian",
+        "icon" : "omp",
+        "kind" : "coding-agent",
+        "limits" : [
+          {
+            "musl" : true,
+            "reason" : "Dozable installs oh-my-pi's glibc build; its musl build is a separate download, not used yet"
+          }
+        ],
+        "platforms" : {
+          "glibc" : true,
+          "musl" : false
+        },
+        "published" : false,
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "evidence" : "make recipe-check: omp -p \"say ok\" printed the stand-in's answer and exited in a fresh try",
+            "level" : "verified",
+            "notes" : [
+              "omp -p \"…\""
+            ],
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/can1357/oh-my-pi",
+        "intro" : "oh-my-pi is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "omp -p \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "omp -p \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    }
+  ],
+  "description" : "A batteries-included derivative of the pi coding agent (omp), on the key of the provider or gateway you choose (xAI by default).",
+  "displayName" : "oh-my-pi",
+  "id" : "can1357/omp",
+  "kind" : "workload",
+  "licenses" : [
+    "MIT"
+  ],
+  "provides" : [
+    "com.dozable/omp@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/can1357/oh-my-pi"
+}

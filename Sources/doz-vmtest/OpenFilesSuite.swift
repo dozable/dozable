@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599b (owner, 2026-10-01: "the agent can open files in the workspace that will open in the default (or
 // specific) app on the mac ; e.g. html page will open in a browser, same with markdown"): `xdg-open FILE`,
@@ -54,8 +54,8 @@ func cliOpenFilesSuite(binary: String) async {
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-fp"]).code == 0, "defaults.projects_dir is a scratch path")
     var r = t.run(["up", "of", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
     check(r.code == 0, "up of --image lab --workspace \(ws.path) --detach (exit \(r.code))")
-    r = t.run(["exec", "of", "--", "sh", "-c", "ls -l /usr/local/lib/doz/bin/ | grep -c 'doz-open -> xdg-open'; grep -c 'open-url-shim:v6' /usr/local/lib/doz/bin/xdg-open"])
-    check(r.out.split(separator: "\n").map(String.init) == ["1", "1"], "the v6 shim and its doz-open link are in the guest (\(r.out.debugDescription))")
+    r = t.run(["exec", "of", "--", "sh", "-c", "ls -l /usr/local/lib/doz/bin/ | grep -c 'doz-open -> xdg-open'; grep -c 'open-url-shim:v7' /usr/local/lib/doz/bin/xdg-open"])
+    check(r.out.split(separator: "\n").map(String.init) == ["1", "1"], "the v7 shim and its doz-open link are in the guest (\(r.out.debugDescription))")
 
     do {
         let c = try PTYClient(t, ["run", "of", "--session", "files", "--", "bash", "--norc", "-i"])

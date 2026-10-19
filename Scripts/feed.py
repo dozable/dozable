@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""feed — Dozer's update feed and Homebrew formulas, built from per-build fragments (611).
+"""feed — Dozable's update feed and Homebrew formulas, built from per-build fragments (611).
 
 THE SHAPE (Deckosaurus's appcast design, as JSON). The updates site (a GitHub Pages repo behind
 https://updates.dozersandbox.com, Cloudflare in front) holds

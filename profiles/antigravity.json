@@ -45,7 +45,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "the Gemini API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "the Gemini API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {

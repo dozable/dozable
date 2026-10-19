@@ -1,5 +1,5 @@
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 import Foundation
 
 /// 594 W28 (owner ruling: "i dont think we should rebuild images without the user agreeing (and
@@ -58,7 +58,7 @@ func cliImagesSuite(binary: String) async {
     check(row?.status == "older recipe" && row?.preparing == nil, "nothing was rebuilt by itself")
     check(t.run(["exec", "p1", "--", "test", "-x", "/usr/bin/sudo"]).code != 0, "p1 has no sudo binary (the older image)")
     check(t.run(["run", "p1", "--detach", "--session", "s", "--", "sleep", "60"], timeout: 60).code == 0, "a session in p1 (the facts are written)")
-    r = t.run(["exec", "p1", "--", "cat", "/run/dozer/agent-prompt.md"])
+    r = t.run(["exec", "p1", "--", "cat", "/run/doz/agent-prompt.md"])
     check(r.out.contains("System: no sudo: this sandbox's system disk was made from an older pi image that has no sudo"), "the facts never claim sudo p1 lacks")
 
     // 3. A newer release (a stub registry): said, never prepared by itself.

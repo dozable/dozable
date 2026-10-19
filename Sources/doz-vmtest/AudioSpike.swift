@@ -1,4 +1,4 @@
-// SPIKE (604) — can a Dozer VM use the Mac's microphone and speakers (virtio-snd) for Codex CLI's voice mode?
+// SPIKE (604) — can a Dozable VM use the Mac's microphone and speakers (virtio-snd) for Codex CLI's voice mode?
 //
 // Temporary: the gating spike for feature 604 (workspace changes/604-*/604.01-SPIKE.md). It drives the real
 // library through its public API plus ONE test-only seam (`SpikeVMDevices.configure`, which PinnedIdentity's
@@ -20,7 +20,7 @@
 //      the device (the VMLayout guard must refuse it and keep the snapshot); child 3 restores WITH it and quits
 //      again; the parent restores it (a fourth process) — two restores into a new process.
 import Darwin
-import DozerKit
+import DozableKit
 import Foundation
 import Virtualization
 

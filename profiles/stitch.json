@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "Google Stitch's MCP endpoint — every command is a call to it (the key is swapped in by Dozer's proxy)",
+      "reason": "Google Stitch's MCP endpoint — every command is a call to it (the key is swapped in by Dozable's proxy)",
       "seen": true
     }
   ]

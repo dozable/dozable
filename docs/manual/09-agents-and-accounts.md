@@ -262,11 +262,11 @@ At every session start, Dozable tells the agent where it is:
   folder (and which) or isolated; how its network works and what to do when refused; that its
   credentials are supplied by the proxy; whether it has sudo; its time zone; what the clipboard does;
   one line on what it can show you on your Mac — a URL in your browser, a workspace document in its
-  app, a workspace folder in the Finder — saying only what is on (the `dozer` skill has the details:
+  app, a workspace folder in the Finder — saying only what is on (the `doz` skill has the details:
   types, apps, refusals); and, only when you turned it on, one line saying `git` and `gh` are signed in
   as you on GitHub, read-only or with push ([GitHub as you](18-github.md));
-- the **`dozer` skill** (`~/.claude/skills/dozer/SKILL.md`, pi: `~/.pi/agent/skills/dozer/SKILL.md`,
-  Codex: `~/.agents/skills/dozer/SKILL.md`),
+- the **`doz` skill** (`~/.claude/skills/doz/SKILL.md`, pi: `~/.pi/agent/skills/doz/SKILL.md`,
+  Codex: `~/.agents/skills/doz/SKILL.md`),
   which it reads when a question is about the machine: what persists, the network, credentials,
   sleep, and what it can't do from inside (and must ask you for).
 
@@ -283,7 +283,7 @@ replacing (`--agent-prompt-mode replace`). Your text may use `{{variables}}` fro
 `workspace.shared`, `workspace.host_path`, `workspace.guest_path`, `workspace.description`, `workspace.rules`,
 `network.mode`, `network.allowed_hosts`, `network.description`, `network.permissions`,
 `account.name`, `agent.state`, `credentials.description`, `sandbox.sudo`, `sandbox.timezone`, `sudo.description`,
-`clipboard.description`, `browser.description`, `files.description`, `mac.open`, `github.facts`, `github.description`, `mac.hostname`, `dozer.version` (the template
+`clipboard.description`, `browser.description`, `files.description`, `mac.open`, `github.facts`, `github.description`, `mac.hostname`, `doz.version` (the template
 `agent-prompt.md` lists them with what each says). `doz inspect NAME --prompt` shows any mistake: an unknown variable is an error that stops the
 agent's sessions from starting until it's fixed, never silently blank.
 
@@ -299,7 +299,7 @@ touched.
 | `claude.permissions` | `skip` | Claude Code's own permission prompts in a sandbox: `skip` or `ask`. |
 | `images.claude_code_version` · `images.pi_version` · `images.codex_version` | `latest` | The agent version an image is prepared with. |
 | `sandbox.agent_sudo` | `true` | The agent's passwordless sudo. Per sandbox too. |
-| `agent.prompt` | `true` | Give the agent its facts block and the `dozer` skill. |
+| `agent.prompt` | `true` | Give the agent its facts block and the `doz` skill. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token. |
 
 ## Troubleshooting

@@ -3,7 +3,7 @@
 
 Generates, from Python's own `unicodedata` (stdlib only; the Unicode version is recorded in each output):
   Guest/dozview/match/dozfold_tables.h   the C tables (sorted uint32 arrays, binary-searched by dozfold.c)
-  Sources/DozerKit/DozFoldTables.swift   the SAME data for Swift (compact hex string literals, decoded once)
+  Sources/DozableKit/DozFoldTables.swift   the SAME data for Swift (compact hex string literals, decoded once)
                                          + DozFold.fold / DozFold.foldPattern (the same algorithm)
   Tests/Fixtures/dozfold-vectors.json    [{"in", "out"[, "pattern": true]}], `out` computed HERE
 
@@ -30,7 +30,7 @@ import unicodedata
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 C_OUT = os.path.join(ROOT, "Guest/dozview/match/dozfold_tables.h")
-SWIFT_OUT = os.path.join(ROOT, "Sources/DozerKit/DozFoldTables.swift")
+SWIFT_OUT = os.path.join(ROOT, "Sources/DozableKit/DozFoldTables.swift")
 VEC_OUT = os.path.join(ROOT, "Tests/Fixtures/dozfold-vectors.json")
 
 S_BASE, L_BASE, V_BASE, T_BASE = 0xAC00, 0x1100, 0x1161, 0x11A7

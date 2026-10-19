@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599 (594.B2, owner: "add the browser open and port forward bridge … its use-case is to pass through
 // browser based oauth logins that the agent TUI initiates"): xdg-open / $BROWSER / open in a sandbox

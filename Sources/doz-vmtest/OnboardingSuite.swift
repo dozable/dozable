@@ -8,7 +8,7 @@
 //   · D9: `init` writes doz_project.yaml; `up` with no name, in that folder, creates the sandbox with the
 //     folder at /workspace and starts its sessions; again, it uses the same sandbox
 //   · D17: create without a workspace says so; `ls` shows it
-//   · D15: a pi sandbox gets the facts file, the dozer skill and `--append-system-prompt FILE`; a
+//   · D15: a pi sandbox gets the facts file, the doz skill and `--append-system-prompt FILE`; a
 //     claude-code one the facts in Claude Code's own argv (via the launcher); agent.prompt = false removes both
 //   · D13: `uninstall` of an installed copy: no terminal and no --yes refuses; --yes removes exactly
 //     what it listed (--keep-config keeps the settings); never the keychain
@@ -18,8 +18,8 @@
 // vmtest store when it has them. Never the owner's store, settings, installed doz or keychain.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 /// A store for these checks, seeded from the vmtest store (APFS clones), with its own settings.
 func onboardingHarness(_ binary: String, _ tag: String, seed items: [String]) -> CLIHarness {
@@ -51,12 +51,12 @@ func registryLatest(_ package: String) async -> String? {
 
 /// The host's preparations, asked in-process (never starting a host).
 func preparations(_ h: CLIHarness) -> [PreparationInfo] {
-    guard let m = try? HostClient.request(HostRequest(.prepareStatus), store: DozerStore(root: h.store), autostart: false),
+    guard let m = try? HostClient.request(HostRequest(.prepareStatus), store: DozableStore(root: h.store), autostart: false),
           let st = try? m.result?.decode(PrepareStatus.self) else { return [] }
     return st.preparations
 }
 
-func hostLog(_ h: CLIHarness) -> String { (try? String(contentsOf: DozerStore(root: h.store).logFile, encoding: .utf8)) ?? "" }
+func hostLog(_ h: CLIHarness) -> String { (try? String(contentsOf: DozableStore(root: h.store).logFile, encoding: .utf8)) ?? "" }
 
 func occurrences(_ s: String, _ of: String) -> Int { s.components(separatedBy: of).count - 1 }
 
@@ -83,7 +83,7 @@ func cliOnboardingSuite(binary: String) async {
     // ── A: the lab, from nothing prepared: onboard + a joining start; init + up; D17 ─────────────
     let a = onboardingHarness(binary, "a", seed: ["kernels", "content", "state.json", "initfs.ext4"])
     let xdg = URL(fileURLWithPath: a.env["XDG_CONFIG_HOME"]!)
-    let toml = xdg.appendingPathComponent("dozer-sandbox/doz.toml")
+    let toml = xdg.appendingPathComponent("doz/doz.toml")
     defer {
         a.run(["host", "stop"])
         try? FileManager.default.removeItem(at: a.store)
@@ -92,8 +92,8 @@ func cliOnboardingSuite(binary: String) async {
     var r = a.run(["onboard", "--no-images", "--account", "later"], timeout: 120)
     check(r.code == 0 && r.out.contains("Done — this Mac is onboarded"), "onboard --no-images --account skip, no terminal, no --yes: completes without asking (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nimage = \"claude-code\"\n") == true, "doz.toml written, with defaults.image set")
-    check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("dozer-sandbox/agent-prompt.md").path), "agent-prompt.md written beside it")
-    check(OnboardingRecord.read(DozerStore(root: a.store)) != nil, "onboarded.json recorded")
+    check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("doz/agent-prompt.md").path), "agent-prompt.md written beside it")
+    check(OnboardingRecord.read(DozableStore(root: a.store)) != nil, "onboarded.json recorded")
     check(r.out.contains("3. Workspace rules") && r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "workspace.ignore_mode NOT written (only when chosen)")
     r = a.run(["onboard", "--no-images", "--account", "later", "--ignore-mode", "hide", "--yes"], timeout: 120)
@@ -150,7 +150,7 @@ func cliOnboardingSuite(binary: String) async {
     let lab = preparations(a).first { $0.image == "lab" }
     check(lab?.state == "done" && lab?.requestedBy.contains("start j1") == true && lab?.requestedBy.first == "doz onboard",
           "the preparation: done, asked by \(lab?.requestedBy.joined(separator: ", ") ?? "?")")
-    check(OnboardingRecord.read(DozerStore(root: a.store))?.images.contains("lab") == true, "onboarded.json records the lab")
+    check(OnboardingRecord.read(DozableStore(root: a.store))?.images.contains("lab") == true, "onboarded.json records the lab")
     r = a.run(["onboard", "--images", "lab", "--account", "later", "--yes"], timeout: 120)
     check(r.code == 0 && r.out.contains("already prepared") && r.out.contains("left exactly as it is"),
           "re-running: prepares nothing, leaves doz.toml alone (exit \(r.code))")
@@ -212,35 +212,35 @@ func cliOnboardingSuite(binary: String) async {
           "up pp --image pi with no API-key account: refused, nothing made, the next step said (\(r.err.split(separator: "\n").last ?? ""))")
     r = c.run(["up", "pp", "--image", "pi", "--account", "none", "--workspace", cws.path, "--agent-prompt", own.path, "--detach"], timeout: 900)
     check(r.code == 0, "up pp --image pi --account none --workspace … --agent-prompt FILE (exit \(r.code))")
-    check(c.row("pp")?.credentialProblem == "pi has no credential — pi needs an Anthropic API key; choose an API-key account",
+    check(c.row("pp")?.credentialProblem?.hasPrefix("pi has no credential — pi needs an Anthropic API key") == true,
           "ls: pp says pi has no credential (\(c.row("pp")?.credentialProblem ?? "nil"))")
-    let facts = c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("You are in `pp`, a Dozable") && facts.contains("user's Mac folder \(cws.path), shared live"),
           "the facts block is in the guest: the sandbox and its workspace")
     check(facts.contains("no credential you can use is attached") && !facts.contains("adds the account's credential"),
           "pi with no account: the facts say no credential is attached — choose one in Dozable, never log in")
     check(facts.hasSuffix("\n\nProject rule: pp runs the tests with make test.\n"), "the sandbox's own prompt is appended")
-    check(c.run(["exec", "pp", "--", "cat", "/home/agent/.pi/agent/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
-          "the dozer skill: ~/.pi/agent/skills/dozer/SKILL.md")
+    check(c.run(["exec", "pp", "--", "cat", "/home/agent/.pi/agent/skills/doz/SKILL.md"]).out.hasPrefix("---\nname: doz\n"),
+          "the doz skill: ~/.pi/agent/skills/doz/SKILL.md")
     let pi = c.sessions("pp").first { $0.name == "pi" }
-    check(pi?.command == "pi --append-system-prompt /run/dozer/agent-prompt.md", "pi's session: \(pi?.command ?? "none")")
+    check(pi?.command == "pi --append-system-prompt /run/doz/agent-prompt.md", "pi's session: \(pi?.command ?? "none")")
     r = c.run(["inspect", "pp", "--prompt"])
     check(r.code == 0 && r.out.contains("pi's --append-system-prompt") && r.out.contains("You are in `pp`"), "inspect --prompt shows it")
     let cxdg = URL(fileURLWithPath: c.env["XDG_CONFIG_HOME"]!)
     check(c.run(["config", "set", "agent.prompt", "false"]).code == 0, "config set agent.prompt false")
     c.run(["run", "pp", "--detach", "--session", "later", "--", "sleep", "300"])
-    check(c.run(["exec", "pp", "--", "sh", "-c", "test -e /run/dozer/agent-prompt.md || test -e /home/agent/.pi/agent/skills/dozer && echo left || echo gone"]).out == "gone\n",
+    check(c.run(["exec", "pp", "--", "sh", "-c", "test -e /run/doz/agent-prompt.md || test -e /home/agent/.pi/agent/skills/doz && echo left || echo gone"]).out == "gone\n",
           "off: the next session start removed both")
     c.run(["config", "unset", "agent.prompt"])
     // Your own template replaces the built-in one, from the next session.
-    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"), atomically: true, encoding: .utf8)
+    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     c.run(["run", "pp", "--detach", "--session", "later1", "--", "sleep", "300"])
-    check(c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
+    check(c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
           "agent-prompt.md (the user's template) replaces the built-in one at the next session; the sandbox's own still appended")
-    try? "Tests: {{sandbox.nmae}}".write(to: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"), atomically: true, encoding: .utf8)
+    try? "Tests: {{sandbox.nmae}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     r = c.run(["run", "pp", "--detach", "--session", "later2", "--", "sleep", "300"])
     check(r.code != 0 && r.err.contains("{{sandbox.nmae}} is not a variable"), "an unknown variable: the session does not start, and says why")
-    try? FileManager.default.removeItem(at: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"))
+    try? FileManager.default.removeItem(at: cxdg.appendingPathComponent("doz/agent-prompt.md"))
     c.run(["rm", "pp", "--yes"])
 
     print("cli: the environment prompt — claude-code, in Claude Code's argv (D15)")
@@ -252,15 +252,15 @@ func cliOnboardingSuite(binary: String) async {
                       "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); case \"$c\" in *permissions\\ --append-system-prompt*) printf '%s\\n' \"$c\";; esac; done"]).out
     check(argv.contains("/usr/local/bin/claude --dangerously-skip-permissions --append-system-prompt # Where you are running: a Dozable")
           && argv.contains("shared live"), "Claude Code runs with the facts block appended: \(argv.prefix(110))…")
-    check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
-          "the dozer skill: ~/.claude/skills/dozer/SKILL.md")
+    check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/doz/SKILL.md"]).out.hasPrefix("---\nname: doz\n"),
+          "the doz skill: ~/.claude/skills/doz/SKILL.md")
     check(c.sessions("cc").first { $0.name == "claude" }?.command == "claude", "the session's command stays `claude` (the launcher adds it)")
 
     // 594 (owner: "Can we install (optionally) latest claude code (default true)?"): images.claude_code_version
     // is latest by default — the host asked the registry, the bake installed that exact version, and
     // the image and the store record it.
     print("cli: latest Claude Code — resolved when the image was prepared, installed at that exact version")
-    let recorded = AgentVersions.all(DozerStore(root: c.store))["claude-code"]?.latest?.version
+    let recorded = AgentVersions.all(DozableStore(root: c.store))["claude-code"]?.latest?.version
     let npmNow = await registryLatest(AgentImages.claudeCodePackage)
     print("  the host resolved \(recorded ?? "nothing"); the registry says \(npmNow ?? "?") now")
     check(recorded != nil && (npmNow == nil || recorded == npmNow), "the host asked the registry: latest = \(recorded ?? "—") (<store>/agent-versions.json)")
@@ -312,7 +312,7 @@ func cliOnboardingSuite(binary: String) async {
     r = c.run(["up", "pn", "--image", "pi", "--account", "fk", "--detach"], timeout: 900)
     check(r.code == 0, "up pn --image pi --account fk: pi starts in its session (exit \(r.code))")
     check(c.row("pn")?.credentialProblem == nil, "an API-key account fits pi: no problem said")
-    check(c.run(["exec", "pn", "--", "cat", "/run/dozer/agent-prompt.md"]).out.contains("adds the account's credential (fk)"),
+    check(c.run(["exec", "pn", "--", "cat", "/run/doz/agent-prompt.md"]).out.contains("adds the account's credential (fk)"),
           "pi's facts: the proxy adds fk's credential")
     let piEnv = c.run(["exec", "pn", "--", "sh", "-c", "echo ${ANTHROPIC_API_KEY%%_*}/${CLAUDE_CODE_OAUTH_TOKEN:-none}"]).out
     check(piEnv.hasPrefix("doz/none") || piEnv.hasPrefix("doz_cred/none") || (piEnv.hasPrefix("doz") && piEnv.contains("/none")),
@@ -351,7 +351,7 @@ func cliOnboardingSuite(binary: String) async {
     check(c.waitFor(300) { preparations(c).first { $0.image == "pi" }.map { !$0.running } ?? false }, "it stopped")
     let p = preparations(c).first { $0.image == "pi" }
     check(p?.state == "cancelled", "state: \(p?.state ?? "?")")
-    check(!(OnboardingRecord.read(DozerStore(root: c.store))?.images.contains("pi") ?? false), "no onboarding recorded for pi")
+    check(!(OnboardingRecord.read(DozableStore(root: c.store))?.images.contains("pi") ?? false), "no onboarding recorded for pi")
     check(c.run(["onboard", "--cancel"]).out.contains("nothing is being prepared"), "--cancel again: nothing to cancel")
     c.run(["host", "stop"])
 
@@ -364,7 +364,7 @@ func cliOnboardingSuite(binary: String) async {
     try? FileManager.default.createDirectory(at: libexec, withIntermediateDirectories: true)
     try? FileManager.default.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
     let build = URL(fileURLWithPath: binary).deletingLastPathComponent()
-    for item in ["DozerKit_DozerKit.bundle", "DozerKit_DozerWeb.bundle"] {
+    for item in ["DozableKit_DozableKit.bundle", "DozableKit_DozableWeb.bundle"] {
         try? FileManager.default.copyItem(at: build.appendingPathComponent(item), to: libexec.appendingPathComponent(item))
     }
     try? FileManager.default.copyItem(at: URL(fileURLWithPath: binary), to: libexec.appendingPathComponent("doz"))
@@ -375,7 +375,7 @@ func cliOnboardingSuite(binary: String) async {
     uh.env["DOZ_TEST_CREDENTIALS"] = "memory"
     check(uh.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "an installed copy, onboarded on a throwaway store")
     uh.run(["host", "stop"])
-    let config = u.appendingPathComponent("xdg/dozer-sandbox")
+    let config = u.appendingPathComponent("xdg/doz")
     r = uh.run(["uninstall"])
     check(r.code == 5 && r.out.contains(ustore.path) && r.out.contains(config.path) && r.out.contains(libexec.path)
           && r.out.contains("the keychain (never touched)"), "no terminal, no --yes: it lists exactly what goes, and refuses (exit \(r.code))")

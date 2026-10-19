@@ -17,7 +17,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "Crush's release check at each run (read-only GitHub API, that one path; no setting turns it off); Dozer installs the pinned release",
+      "reason": "Crush's release check at each run (read-only GitHub API, that one path; no setting turns it off); Dozable installs the pinned release",
       "seen": true
     },
     {
@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "xAI's API — the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API — the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     }
   ]

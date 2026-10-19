@@ -19,17 +19,17 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import recipes_published  # noqa: E402
 # The compiled recipes (Recipes/compiled/*.json — each Recipes/agents/VENDOR/PRODUCT.yaml as JSON, schema 2).
-RECIPES = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+RECIPES = os.path.join(REPO, "Sources/DozableKit/Recipes/compiled")
 
 def flat(doc):
     """The few fields this report reads, from a schema-2 recipe (its capabilities by type)."""
     caps = {c["type"]: c.get("config", {}) for c in doc["capabilities"]}
     return {"id": doc["id"].split("/")[-1], "title": doc["displayName"], "homepage": doc["sourceUrl"],
-            "install": caps["com.dozersandbox/install@1"], "pin": doc["args"]["version"]["default"].split("+")[0],
-            "lifecycle": caps.get("com.dozersandbox/currency@1", {}).get("lifecycle")}
+            "install": caps["com.dozable/install@1"], "pin": doc["args"]["version"]["default"].split("+")[0],
+            "lifecycle": caps.get("com.dozable/currency@1", {}).get("lifecycle")}
 OUT = os.path.join(REPO, "profiles/currency.json")
 TODAY = datetime.date.today()
-UA = {"User-Agent": "dozer-sandbox-agent-currency (read-only)"}
+UA = {"User-Agent": "dozable-agent-currency (read-only)"}
 
 def get(url, method="GET", accept="application/json"):
     req = urllib.request.Request(url, method=method, headers=dict(UA, Accept=accept))

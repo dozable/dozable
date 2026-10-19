@@ -12,7 +12,7 @@
 //       across pause/sleep/hibernate twice each and two restores into a new process (four processes). The
 //       recordings land in DIR (shared at /out) and are analysed on the Mac.
 import Darwin
-import DozerKit
+import DozableKit
 import Foundation
 
 // MARK: spike-build

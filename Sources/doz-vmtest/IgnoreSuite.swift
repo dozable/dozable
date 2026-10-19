@@ -14,7 +14,7 @@
 // links, a killed worker restarted, a killed supervisor restarted at the next wake, no rule file → no
 // daemon, a rule file appearing (at a session start and while hibernated), and the view's cost.
 import Foundation
-import DozerKit
+import DozableKit
 
 let ignoreSandbox = "ign-a"
 

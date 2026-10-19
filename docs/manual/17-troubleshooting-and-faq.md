@@ -19,7 +19,7 @@ Then, depending on what's wrong:
 | What the agent was refused | `doz net NAME` (the suggestions), `doz net log NAME --denied` |
 | Everything about a sandbox | `doz inspect NAME` |
 | What the agent is told | `doz inspect NAME --prompt` |
-| The host's log | `<store>/host.log` (the store is `~/Library/Application Support/dozer-sandbox` by default) |
+| The host's log | `<store>/host.log` (the store is `~/Library/Application Support/doz` by default) |
 | Where the disk went | `doz resources` |
 
 Add `-v` to any command to see every step it takes.

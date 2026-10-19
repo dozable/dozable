@@ -1,0 +1,460 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "OPENCODE_VERSION",
+      "default" : "1.19.0",
+      "description" : "The OpenCode release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "Anomaly",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "paths" : [
+                  "/v1/models",
+                  "/v1/chat/completions",
+                  "/v1/responses"
+                ],
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
+              }
+            ],
+            "id" : "model:opencode",
+            "phrase" : "talk to your AI model",
+            "summary" : "OpenCode's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for OpenCode to answer.",
+            "title" : "Talk to its model provider"
+          },
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
+            "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.local/share/opencode"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.config/opencode"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "directory" : "/home/agent/.agents/skills/doz",
+        "dozable" : {
+          "kind" : "skill"
+        },
+        "filename" : "SKILL.md"
+      },
+      "type" : "com.docker.sandbox/agent-context@1"
+    },
+    {
+      "config" : {
+        "binary" : "opencode",
+        "integrity" : "sha512-XD1qcVN4jEiaYHqtx40p8cEPJxBc1mcB99ksgQ81akZsGGwcNFyG6GH857jVEplbGgdzWiWxDCrSii56sHjmRQ==",
+        "kind" : "npm-platform-binary",
+        "package" : "opencode-ai",
+        "payload" : "bin/opencode",
+        "platform_package" : "opencode-linux-arm64"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "opencode",
+            "run",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "opencode"
+        ],
+        "env" : {
+          "OPENCODE_DISABLE_AUTOUPDATE" : "1",
+          "OPENCODE_DISABLE_LSP_DOWNLOAD" : "1",
+          "OPENCODE_DISABLE_MODELS_FETCH" : "1",
+          "OPENCODE_DISABLE_SHARE" : "1"
+        },
+        "first_run" : [
+          {
+            "file" : "~/.config/opencode/opencode.json",
+            "set" : {
+              "autoupdate" : false,
+              "model" : "xai/grok-build-0.1",
+              "share" : "disabled"
+            }
+          },
+          {
+            "file" : "~/.config/opencode/package-lock.json",
+            "set" : {
+              "packages" : {
+                "" : {
+                  "dependencies" : {
+                    "@opencode-ai/plugin" : "*"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "file" : "~/.config/opencode/node_modules/.package-lock.json",
+            "set" : {
+              "lockfileVersion" : 3
+            }
+          },
+          {
+            "file" : "~/.config/opencode/doz.json",
+            "set" : {
+              "model" : "{env:DOZ_MODEL}",
+              "provider.doz.models" : {
+                "{env:DOZ_MODEL_ID}" : {
+                  "name" : "{env:DOZ_MODEL_ID}"
+                }
+              },
+              "provider.doz.name" : "Dozable (OpenAI-compatible)",
+              "provider.doz.npm" : "@ai-sdk/openai-compatible",
+              "provider.doz.options.apiKey" : "{env:OPENAI_API_KEY}",
+              "provider.doz.options.baseURL" : "{env:DOZ_BASE_URL}",
+              "provider.dozanthropic.models" : {
+                "{env:DOZ_MODEL_ID}" : {
+                  "name" : "{env:DOZ_MODEL_ID}"
+                }
+              },
+              "provider.dozanthropic.name" : "Dozable (Anthropic)",
+              "provider.dozanthropic.npm" : "@ai-sdk/anthropic",
+              "provider.dozanthropic.options.apiKey" : "{env:ANTHROPIC_API_KEY}",
+              "provider.dozanthropic.options.baseURL" : "{env:DOZ_BASE_URL}"
+            }
+          }
+        ],
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+          "--version",
+          "-v",
+          "--help",
+          "-h",
+          "auth",
+          "models",
+          "upgrade",
+          "uninstall",
+          "mcp",
+          "debug",
+          "stats"
+        ],
+        "resume" : [
+          "--continue"
+        ],
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "opencode",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "OpenCode' own xai provider on xAI (the default, model xai/grok-build-0.1); for the others, a provider of Dozable's in its config (OPENCODE_CONFIG): OpenAI-compatible at the chosen source's base URL, or Anthropic, the key read from the variable its placeholder is in.",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "OpenCode through Anthropic: doz try opencode --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "OpenCode through OpenAI: doz try opencode --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "OpenCode through Google AI: doz try opencode --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "OpenCode through OpenRouter: doz try opencode --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "OpenCode through Vercel AI Gateway: doz try opencode --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          },
+          {
+            "account" : "an OpenCode Zen, Anthropic, OpenAI or GitHub Copilot account",
+            "checked" : "2026-10-14",
+            "in_sandbox" : false,
+            "kind" : "vendor-sign-in",
+            "note" : "OpenCode can sign in itself (opencode auth login); that sign-in would live in the sandbox's own state, not on the Mac — Dozable does not offer it yet."
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "models" : {
+          "xai" : "grok-build-0.1"
+        },
+        "native" : [
+          {
+            "env" : {
+              "DOZ_BASE_URL" : "https://api.x.ai/v1",
+              "DOZ_MODEL" : "xai/${{ dozable.model }}",
+              "DOZ_MODEL_ID" : "${{ dozable.model }}",
+              "OPENCODE_CONFIG" : "/home/agent/.config/opencode/doz.json"
+            },
+            "source" : "xai"
+          }
+        ],
+        "shapes" : [
+          {
+            "env" : {
+              "DOZ_BASE_URL" : "${{ dozable.base_url }}",
+              "DOZ_MODEL" : "doz/${{ dozable.model }}",
+              "DOZ_MODEL_ID" : "${{ dozable.model }}",
+              "OPENCODE_CONFIG" : "/home/agent/.config/opencode/doz.json"
+            },
+            "key_env" : [
+              "OPENAI_API_KEY"
+            ],
+            "shape" : "openai-chat",
+            "source" : "https://opencode.ai/docs/providers/"
+          },
+          {
+            "env" : {
+              "DOZ_BASE_URL" : "${{ dozable.base_url }}/v1",
+              "DOZ_MODEL" : "dozanthropic/${{ dozable.model }}",
+              "DOZ_MODEL_ID" : "${{ dozable.model }}",
+              "OPENCODE_CONFIG" : "/home/agent/.config/opencode/doz.json"
+            },
+            "key_env" : [
+              "ANTHROPIC_API_KEY"
+            ],
+            "shape" : "anthropic-messages",
+            "source" : "https://opencode.ai/docs/providers/"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozable/currency@1"
+    },
+    {
+      "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "debian",
+        "icon" : "opencode",
+        "kind" : "coding-agent",
+        "limits" : [
+          {
+            "musl" : true,
+            "reason" : "Dozable installs OpenCode's glibc build; its musl build is a separate package, not used yet"
+          }
+        ],
+        "platforms" : {
+          "glibc" : true,
+          "musl" : false
+        },
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "evidence" : "make recipe-check: opencode run \"say ok\" printed the stand-in's answer and exited in a fresh try",
+            "level" : "verified",
+            "notes" : [
+              "opencode run \"…\""
+            ],
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/anomalyco/opencode",
+        "intro" : "OpenCode is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "opencode run \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "opencode run \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    },
+    {
+      "config" : {
+        "family" : "opencode",
+        "major" : 1,
+        "title" : "OpenCode 1"
+      },
+      "type" : "com.dozable/family@1"
+    }
+  ],
+  "description" : "An open-source coding agent for the terminal that works with many model providers, on the key of the provider or gateway you choose (xAI by default).",
+  "displayName" : "OpenCode",
+  "id" : "anomalyco/opencode",
+  "kind" : "workload",
+  "licenses" : [
+    "MIT"
+  ],
+  "provides" : [
+    "com.dozable/opencode@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/anomalyco/opencode"
+}

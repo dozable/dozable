@@ -31,7 +31,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow",
-      "reason": "xAI's API \u2014 the model (the key is swapped in by Dozer's proxy)",
+      "reason": "xAI's API \u2014 the model (the key is swapped in by Dozable's proxy)",
       "seen": true
     },
     {
@@ -45,7 +45,7 @@
       ],
       "refusedWhenProfiled": false,
       "determination": "allow-path",
-      "reason": "OpenCode Zen's free models (--provider opencode-zen, 2026-10-16) \u2014 no key: OpenCode sends its own \"public\" token, Dozer adds nothing; only its model paths on opencode.ai are allowed (not the Console or its sign-in)"
+      "reason": "OpenCode Zen's free models (--provider opencode-zen, 2026-10-16) \u2014 no key: OpenCode sends its own \"public\" token, Dozable adds nothing; only its model paths on opencode.ai are allowed (not the Console or its sign-in)"
     }
   ]
 }

@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 599h: the TOOLS LAYER in real VMs, through SEAMS only — never github.com, never the user's gh, agent or GitHub:
 //   - a LOCAL download server for gh's release tarball (DOZ_TEST_TOOLS_URL): the real pinned tarball from the

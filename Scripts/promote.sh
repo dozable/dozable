@@ -17,7 +17,7 @@ fail() { printf 'x promote: %s\n' "$*" >&2; exit 1; }
 BUILD="${BUILD:-}"; VERSION="${VERSION:-}"; CHANNEL="${CHANNEL:-}"; PUSH="${PUSH:-}"
 UPDATES_DIR="${UPDATES_DIR:-${TMPDIR:-/tmp/}doz-updates-site}"
 TAP_DIR="${TAP_DIR:-${TMPDIR:-/tmp/}doz-homebrew-tap}"
-REPOSITORY="${REPOSITORY:-$(sed -n 's/.*static let repository = "\([^"]*\)".*/\1/p' Sources/DozerHost/Updates.swift | head -1)}"
+REPOSITORY="${REPOSITORY:-$(sed -n 's/.*static let repository = "\([^"]*\)".*/\1/p' Sources/DozableHost/Updates.swift | head -1)}"
 ITEMS="$UPDATES_DIR/v1/items"
 # VERSION= instead of BUILD= (the ship knows the version, not the build number).
 if [[ -z "$BUILD" && -n "$VERSION" ]]; then

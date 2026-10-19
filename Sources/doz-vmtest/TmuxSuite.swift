@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599 (594.B3, owner: "i think we had tmux running in the sandbox very early on ; bring that back as an
 // option"): sessions.tmux runs a session inside tmux, WITHIN deckhold — so what deckhold gives keeps

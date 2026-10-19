@@ -1,4 +1,4 @@
-// doz-vmtest — DozerKit's VM integration suite, as an ENTITLED executable.
+// doz-vmtest — DozableKit's VM integration suite, as an ENTITLED executable.
 //
 // `swift test` binaries cannot carry `com.apple.security.virtualization`, so these checks run
 // here instead: `make test-vm` builds this target, ad-hoc signs it with Scripts/vmtest.entitlements,
@@ -37,7 +37,7 @@
 import Darwin
 import Foundation
 import Containerization
-import DozerKit
+import DozableKit
 
 setvbuf(stdout, nil, _IOLBF, 0)
 signal(SIGPIPE, SIG_IGN)
@@ -261,7 +261,7 @@ func lifecycleSuite() async throws {
               "the /work share works both ways after the wake")
         if !(seen.contains("from the host \(cycle)") && back.contains("from-the-guest-\(cycle)")) {
             info("guest saw: \(seen.prefix(80)) · host saw: \(back.prefix(80))")
-            let m = try await sb.exec(["sh", "-c", "grep -E 'virtiofs|/work' /proc/mounts; ls -la /work /run/dozer-vfs 2>&1 | head -20"])
+            let m = try await sb.exec(["sh", "-c", "grep -E 'virtiofs|/work' /proc/mounts; ls -la /work /run/doz-vfs 2>&1 | head -20"])
             info("mounts: \(m.output) \(m.errorOutput)")
         }
 
@@ -940,7 +940,7 @@ Task {
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliTrySuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-codex":
-            // 599i: Codex — Dozer's own ChatGPT sign-in, the proxy's swap and renewal, an API key (a fake OpenAI).
+            // 599i: Codex — Dozable's own ChatGPT sign-in, the proxy's swap and renewal, an API key (a fake OpenAI).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliCodexSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-tools":

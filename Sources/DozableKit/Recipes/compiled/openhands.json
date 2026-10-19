@@ -1,0 +1,384 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "OPENHANDS_VERSION",
+      "default" : "1.16.0",
+      "description" : "The OpenHands CLI release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "OpenHands",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "paths" : [
+                  "/v1/chat/completions"
+                ],
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
+              }
+            ],
+            "id" : "model:openhands",
+            "phrase" : "talk to your AI model",
+            "summary" : "OpenHands' model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for OpenHands to answer.",
+            "title" : "Talk to its model provider"
+          },
+          "update" : [
+
+          ],
+          "vendor" : [
+            {
+              "host" : "github.com",
+              "paths" : [
+                "/OpenHands/extensions/"
+              ],
+              "reason" : "OpenHands clones its public skills (github.com/OpenHands/extensions) at each start; no setting turns it off"
+            },
+            {
+              "host" : "pypi.org",
+              "paths" : [
+                "/pypi/openhands/json"
+              ],
+              "reason" : "OpenHands asks PyPI for its latest release when it starts (read-only; no setting turns it off) and only shows a notice"
+            }
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
+            "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443",
+            "github.com:443",
+            "pypi.org:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.openhands"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "bake_hosts" : [
+          "github.com",
+          "release-assets.githubusercontent.com"
+        ],
+        "binary" : "openhands",
+        "integrity" : "sha512-wh73oUH4wtdNUftFo20QXOa2IujQTFOhmp3y8EYk8kUpahRtjnZRKYutNo1/VZGcAOS7HfFtrn9wnt5hCqNOSg==",
+        "kind" : "release-binary",
+        "url" : "https://github.com/OpenHands/OpenHands-CLI/releases/download/${{ kit.args.version }}/openhands-linux-arm64"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "openhands",
+            "--override-with-envs",
+            "--headless",
+            "-t",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK"
+        },
+        "command" : [
+          "openhands",
+          "--override-with-envs"
+        ],
+        "env" : {
+          "LITELLM_LOCAL_MODEL_COST_MAP" : "True",
+          "OPENHANDS_SUPPRESS_BANNER" : "1"
+        },
+        "no_prompts_args" : [
+          "--always-approve"
+        ],
+        "passthrough" : [
+          "--version",
+          "-v",
+          "--help",
+          "-h",
+          "mcp",
+          "view",
+          "login",
+          "logout",
+          "cloud"
+        ],
+        "resume" : [
+          "--resume",
+          "--last"
+        ],
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "openhands",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "OpenHands' LLM settings from the environment (--override-with-envs: LLM_MODEL, LLM_BASE_URL; the key's placeholder under LLM_API_KEY), pointed at the chosen provider or gateway. On xAI (the default) the model is grok-build-0.1. OpenHands Cloud Dozable does not offer.",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "OpenHands through Anthropic: doz try openhands --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "OpenHands through OpenAI: doz try openhands --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "OpenHands through Google AI: doz try openhands --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "OpenHands through OpenRouter: doz try openhands --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "OpenHands through Vercel AI Gateway: doz try openhands --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "models" : {
+          "xai" : "grok-build-0.1"
+        },
+        "shapes" : [
+          {
+            "env" : {
+              "LLM_BASE_URL" : "${{ dozable.base_url }}",
+              "LLM_MODEL" : "openai/${{ dozable.model }}"
+            },
+            "key_env" : [
+              "LLM_API_KEY"
+            ],
+            "shape" : "openai-chat",
+            "source" : "https://docs.openhands.dev/openhands/usage/cli/headless"
+          },
+          {
+            "env" : {
+              "LLM_BASE_URL" : "${{ dozable.base_url }}",
+              "LLM_MODEL" : "anthropic/${{ dozable.model }}"
+            },
+            "key_env" : [
+              "LLM_API_KEY"
+            ],
+            "shape" : "anthropic-messages",
+            "source" : "https://docs.openhands.dev/openhands/usage/cli/headless"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozable/currency@1"
+    },
+    {
+      "config" : {
+        "aliases" : [
+          "openhands-cli"
+        ],
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "debian",
+        "icon" : "openhands",
+        "kind" : "coding-agent",
+        "limits" : [
+          {
+            "musl" : true,
+            "reason" : "OpenHands publishes a glibc linux-arm64 build only"
+          }
+        ],
+        "platforms" : {
+          "glibc" : true,
+          "musl" : false
+        },
+        "published" : false,
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "evidence" : "make recipe-check: openhands --headless -t \"say ok\" printed the stand-in's answer and exited in a fresh try",
+            "level" : "verified",
+            "notes" : [
+              "openhands --override-with-envs --headless -t \"…\""
+            ],
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/OpenHands/OpenHands-CLI",
+        "intro" : "OpenHands CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "openhands --override-with-envs --headless -t \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "openhands --override-with-envs --headless -t \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    }
+  ],
+  "description" : "OpenHands' coding agent for the terminal, on the key of the provider or gateway you choose (xAI by default; its LLM settings from the environment).",
+  "displayName" : "OpenHands CLI",
+  "id" : "openhands/openhands",
+  "kind" : "workload",
+  "licenses" : [
+    "MIT"
+  ],
+  "provides" : [
+    "com.dozable/openhands@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/OpenHands/OpenHands-CLI"
+}

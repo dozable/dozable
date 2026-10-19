@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# audit.sh — DozerKit's neutrality gate (workspace template, allowlist form borrowed
+# audit.sh — DozableKit's neutrality gate (workspace template, allowlist form borrowed
 # from repo/lib/GhosttyTerminalKit/Scripts/audit.sh).
 #
 # The package's promise: a Linux sandbox for ANY macOS host — an app, a CLI, a test runner — that
@@ -14,8 +14,8 @@
 #   4. No app-brand literal (a bundle id, a product or storage directory name) survives.
 #   5. The committed deckhold binary is the one Guest/deckhold/PROVENANCE.md records.
 #   6. The committed doznet binary is the one Guest/doznet/PROVENANCE.md records (6b: dozview's, and no libfuse).
-#   7. (590) The web UI's committed assets are exactly what Sources/DozerWeb/WebSource builds, and
-#      its modules stay where they belong (NIOHTTP1 in DozerWeb; LaunchServices in `doz ui`).
+#   7. (590) The web UI's committed assets are exactly what Sources/DozableWeb/WebSource builds, and
+#      its modules stay where they belong (NIOHTTP1 in DozableWeb; LaunchServices in `doz ui`).
 #   8. (592) The product's OLD name is gone: no file in the repo (sources, tests, scripts, docs, CI)
 #      carries it, in any case, nor its short `snz` prefixes. Nothing is allow-listed — the rename
 #      kept no compatibility (owner ruling) and this repo holds no history file. Only third-party
@@ -36,18 +36,18 @@ fail() {
 [[ -f "$DENYLIST" ]] || fail "missing import denylist"
 
 # ── 1. Import allowlist ──────────────────────────────────────────────────────
-# 585: + the CLI's own targets (DozerHost, DozerCLI), the system SQLite3 (the host's metrics) and
+# 585: + the CLI's own targets (DozableHost, DozableCLI), the system SQLite3 (the host's metrics) and
 # ArgumentParser — each confined below to where it belongs.
-# 590: + DozerWeb (the `doz ui` target), NIOHTTP1 (swift-nio's own HTTP/1.1 codec — the same
+# 590: + DozableWeb (the `doz ui` target), NIOHTTP1 (swift-nio's own HTTP/1.1 codec — the same
 # package, no new dependency) and CoreServices (LaunchServices opens the browser without putting the
 # one-use link in a process argument) — each confined in step 1b.
 # 591: + NIOWebSocket (swift-nio's own WebSocket codec — the same package) for `doz ui`'s
-# browser terminals, confined to Sources/DozerWeb in step 1b.
-# 594: + Yams (the project file doz_project.yaml — owner ruling D9), confined to Sources/DozerCLI in step 1b.
+# browser terminals, confined to Sources/DozableWeb in step 1b.
+# 594: + Yams (the project file doz_project.yaml — owner ruling D9), confined to Sources/DozableCLI in step 1b.
 # 606: + dnssd (the system's Bonjour client — `doz serve` announces itself), confined in step 1b.
 # 614: + DozerCloud (the official builds' closed package — statistics and sign-up), confined in step 1b to the
 # executable's main, under #if DOZ_CLOUD — a build from the repository never has it.
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozerKit|DozerHost|DozerCLI|SQLite3|ArgumentParser|DozerWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozerCloud'
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozerCloud'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -61,54 +61,54 @@ fi
 
 # ── 1b. (585) Confinement: the LIBRARY imports none of the CLI's additions, and only the CLI's
 #        command targets import ArgumentParser (the host needs no argument parsing) ─────────────
-LEAK=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+(ArgumentParser|SQLite3|DozerHost|DozerCLI|DozerWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams)([[:space:]]|$)' \
-        "$PACKAGE/Sources/DozerKit" || true)
+LEAK=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+(ArgumentParser|SQLite3|DozableHost|DozableCLI|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams)([[:space:]]|$)' \
+        "$PACKAGE/Sources/DozableKit" || true)
 [[ -z "$LEAK" ]] || fail "the library imports a CLI-only module:
 $LEAK"
 AP=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+ArgumentParser([[:space:]]|$)' "$PACKAGE/Sources" \
-      | grep -vE "/Sources/(DozerCLI|doz)/" || true)
-[[ -z "$AP" ]] || fail "ArgumentParser is imported outside Sources/DozerCLI and Sources/doz:
+      | grep -vE "/Sources/(DozableCLI|doz)/" || true)
+[[ -z "$AP" ]] || fail "ArgumentParser is imported outside Sources/DozableCLI and Sources/doz:
 $AP"
 # 594: Yams reads the project file — the CLI's commands only (never the library, the host or the web UI). 617: and the
-# YAML recipe sources (Sources/DozerCLI/RecipeSource.swift), compiled to JSON that DozerKit embeds.
+# YAML recipe sources (Sources/DozableCLI/RecipeSource.swift), compiled to JSON that DozableKit embeds.
 YA=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+Yams([[:space:]]|$)' "$PACKAGE/Sources" \
-      | grep -vE "/Sources/DozerCLI/" || true)
-[[ -z "$YA" ]] || fail "Yams is imported outside Sources/DozerCLI:
+      | grep -vE "/Sources/DozableCLI/" || true)
+[[ -z "$YA" ]] || fail "Yams is imported outside Sources/DozableCLI:
 $YA"
 
 # 590: the HTTP codec only in the web target; LaunchServices only in the `doz ui` command; the
 #      host never imports the web layer (the UI is a CLIENT of the host, never inside it).
-H1=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOHTTP1([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozerWeb/" || true)
-[[ -z "$H1" ]] || fail "NIOHTTP1 is imported outside Sources/DozerWeb:
+H1=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOHTTP1([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/" || true)
+[[ -z "$H1" ]] || fail "NIOHTTP1 is imported outside Sources/DozableWeb:
 $H1"
-WS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOWebSocket([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozerWeb/" || true)
-[[ -z "$WS" ]] || fail "NIOWebSocket is imported outside Sources/DozerWeb:
+WS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOWebSocket([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/" || true)
+[[ -z "$WS" ]] || fail "NIOWebSocket is imported outside Sources/DozableWeb:
 $WS"
-# 599b: + Sources/DozerHost/MacDefaultApp.swift — LaunchServices asked, read-only, which app is a file's
+# 599b: + Sources/DozableHost/MacDefaultApp.swift — LaunchServices asked, read-only, which app is a file's
 #       default (the notice names it); it opens nothing.
-CS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+CoreServices([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozerCLI/UICommand.swift$|/Sources/DozerHost/MacDefaultApp.swift$" || true)
-[[ -z "$CS" ]] || fail "CoreServices is imported outside Sources/DozerCLI/UICommand.swift and Sources/DozerHost/MacDefaultApp.swift:
+CS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+CoreServices([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableCLI/UICommand.swift$|/Sources/DozableHost/MacDefaultApp.swift$" || true)
+[[ -z "$CS" ]] || fail "CoreServices is imported outside Sources/DozableCLI/UICommand.swift and Sources/DozableHost/MacDefaultApp.swift:
 $CS"
 # 606: Bonjour only in doz serve's announcer.
-DN=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+dnssd([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozerWeb/WebBonjour.swift$" || true)
-[[ -z "$DN" ]] || fail "dnssd is imported outside Sources/DozerWeb/WebBonjour.swift:
+DN=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+dnssd([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/WebBonjour.swift$" || true)
+[[ -z "$DN" ]] || fail "dnssd is imported outside Sources/DozableWeb/WebBonjour.swift:
 $DN"
 # 606: only doz serve binds beyond loopback — doz ui (590) never constructs the network profile.
-BS=$(grep -rlE --include='*.swift' 'bindServe\(|WebServeState\(' "$PACKAGE/Sources" | grep -vE "/Sources/DozerWeb/(WebServer|WebServeState)\.swift$|/Sources/DozerCLI/ServeCommand\.swift$" || true)
-[[ -z "$BS" ]] || fail "the network (doz serve) profile is constructed outside DozerWeb and ServeCommand.swift:
+BS=$(grep -rlE --include='*.swift' 'bindServe\(|WebServeState\(' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/(WebServer|WebServeState)\.swift$|/Sources/DozableCLI/ServeCommand\.swift$" || true)
+[[ -z "$BS" ]] || fail "the network (doz serve) profile is constructed outside DozableWeb and ServeCommand.swift:
 $BS"
-grep -qE 'bindServe|WebServeState|WebServeConfig' "$PACKAGE/Sources/DozerCLI/UICommand.swift" && fail "doz ui (UICommand.swift) must stay loopback-only — it may not reach the doz serve profile"
-WH=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+DozerWeb([[:space:]]|$)' "$PACKAGE/Sources/DozerHost" || true)
+grep -qE 'bindServe|WebServeState|WebServeConfig' "$PACKAGE/Sources/DozableCLI/UICommand.swift" && fail "doz ui (UICommand.swift) must stay loopback-only — it may not reach the doz serve profile"
+WH=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+DozableWeb([[:space:]]|$)' "$PACKAGE/Sources/DozableHost" || true)
 [[ -z "$WH" ]] || fail "the host imports the web UI (the UI is a client of the host):
 $WH"
 
 # 614: the official builds' closed package is reached from ONE place: the executable's main, under
 #      `#if DOZ_CLOUD` (Usage.install; Package.swift defines it only with the package). Nothing else may name it.
-DC=$(grep -rlE --include='*.swift' 'DozerCloud' "$PACKAGE/Sources" | grep -vE "/Sources/doz/DozerMain.swift$" || true)
-[[ -z "$DC" ]] || fail "DozerCloud is named outside Sources/doz/DozerMain.swift:
+DC=$(grep -rlE --include='*.swift' 'DozerCloud' "$PACKAGE/Sources" | grep -vE "/Sources/doz/DozableMain.swift$" || true)
+[[ -z "$DC" ]] || fail "DozerCloud is named outside Sources/doz/DozableMain.swift:
 $DC"
-[[ "$(grep -cE '^[[:space:]]*#if DOZ_CLOUD$' "$PACKAGE/Sources/doz/DozerMain.swift")" == 2 ]] \
-    || fail "Sources/doz/DozerMain.swift must reach DozerCloud only under #if DOZ_CLOUD (the import and the install)"
+[[ "$(grep -cE '^[[:space:]]*#if DOZ_CLOUD$' "$PACKAGE/Sources/doz/DozableMain.swift")" == 2 ]] \
+    || fail "Sources/doz/DozableMain.swift must reach DozerCloud only under #if DOZ_CLOUD (the import and the install)"
 
 # ── 2. Denylist ──────────────────────────────────────────────────────────────
 ALTS=$(grep -v '^#' "$DENYLIST" | grep -v '^$' | paste -sd'|' -)
@@ -175,21 +175,21 @@ sys.exit(1 if bad else 0)
 PY
 
 # ── 5. The committed guest binary matches its provenance ─────────────────────
-BIN="$PACKAGE/Sources/DozerKit/Resources/deckhold"
+BIN="$PACKAGE/Sources/DozableKit/Resources/deckhold"
 [[ -f "$BIN" ]] || fail "missing the committed deckhold binary ($BIN)"
 SHA=$(shasum -a 256 "$BIN" | awk '{print $1}')
 grep -qF "| sha256 (auto) | \`$SHA\` |" "$PACKAGE/Guest/deckhold/PROVENANCE.md" \
     || fail "Resources/deckhold ($SHA) is not the binary Guest/deckhold/PROVENANCE.md records — run make deckhold"
 
 # ── 6. The committed doznet binary (580) matches its provenance ───────────
-NBIN="$PACKAGE/Sources/DozerKit/Resources/doznet"
+NBIN="$PACKAGE/Sources/DozableKit/Resources/doznet"
 [[ -f "$NBIN" ]] || fail "missing the committed doznet binary ($NBIN)"
 NSHA=$(shasum -a 256 "$NBIN" | awk '{print $1}')
 grep -qF "| sha256 (auto) | \`$NSHA\` |" "$PACKAGE/Guest/doznet/PROVENANCE.md" \
     || fail "Resources/doznet ($NSHA) is not the binary Guest/doznet/PROVENANCE.md records — run make doznet"
 
 # ── 6b. (599g) The committed dozview binary matches its provenance ───────────
-VBIN="$PACKAGE/Sources/DozerKit/Resources/dozview"
+VBIN="$PACKAGE/Sources/DozableKit/Resources/dozview"
 [[ -f "$VBIN" ]] || fail "missing the committed dozview binary ($VBIN)"
 VSHA=$(shasum -a 256 "$VBIN" | awk '{print $1}')
 grep -qF "| sha256 (auto) | \`$VSHA\` |" "$PACKAGE/Guest/dozview/PROVENANCE.md" \
@@ -198,20 +198,33 @@ grep -qF "| sha256 (auto) | \`$VSHA\` |" "$PACKAGE/Guest/dozview/PROVENANCE.md" 
 grep -rqE '#include[[:space:]]*[<"]fuse(_lowlevel)?\.h[>"]|-lfuse' "$PACKAGE/Guest/dozview" && fail "Guest/dozview must not use libfuse (LGPL) — the raw /dev/fuse protocol only"
 
 # ── 7. (590) The web UI's committed assets match their sources ───────────────
-swift "$PACKAGE/Scripts/build-web-assets.swift" --check >/dev/null || fail "Sources/DozerWeb/Resources/Web is stale — run make web-assets and commit it"
+swift "$PACKAGE/Scripts/build-web-assets.swift" --check >/dev/null || fail "Sources/DozableWeb/Resources/Web is stale — run make web-assets and commit it"
 
 # ── 8. (592) The old product name is gone ─────────────────────────────────────
 # The pattern is assembled, so this script does not match itself.
 OLD_NAME="sn""ooze"
 OLD_SHORT="sn""z(_|1|-)"
 STRAY=$(git -C "$PACKAGE" grep --untracked -nIiE "${OLD_NAME}|${OLD_SHORT}" -- . \
-          ':(exclude)Sources/DozerWeb/WebSource/vendor/**' \
-          ':(exclude)Sources/DozerWeb/Resources/Web/assets/vendor-*' \
-          ':(exclude)Sources/DozerWeb/Resources/Web/licences/**' | head -20 || true)
-[[ -z "$STRAY" ]] || fail "the old product name survives (592 renamed everything to doz / DozerKit / Dozer Sandbox):
+          ':(exclude)Sources/DozableWeb/WebSource/vendor/**' \
+          ':(exclude)Sources/DozableWeb/Resources/Web/assets/vendor-*' \
+          ':(exclude)Sources/DozableWeb/Resources/Web/licences/**' | head -20 || true)
+[[ -z "$STRAY" ]] || fail "the old product name survives (592 renamed everything to doz / DozableKit / Dozable):
 $STRAY"
 
-printf 'ok audit: DozerKit imports only its allowlist (Foundation/Security/Virtualization/Containerization/NIO/X509),\n'
+# ── 8b. (630) The Dozable rename: no old-named type, module or file, no old recipe capability type, no old
+#        guest path (the patterns are assembled, so this script does not match itself). DozerCloud (the closed package, renamed with its own repository later) is the one exception;
+#        the GitHub org, the feed's host and the website keep their names until the org move.
+OLD_TYPE="Doz""er"
+STRAY2=$(git -C "$PACKAGE" grep --untracked -nIE "${OLD_TYPE}(Kit|Host|CLI|Web|Store|Settings|Images|Project|Command|Exit|Main|Entry)|com\.doz""ersandbox/|/run/doz""er([^a-z]|$)|/etc/doz""er([^a-z]|$)|skills/doz""er([^a-z]|$)" -- . \
+          ':(exclude)Sources/DozableWeb/WebSource/vendor/**' ':(exclude)Sources/DozableWeb/Resources/Web/assets/vendor-*' \
+          ':(exclude)Sources/DozableWeb/Resources/Web/licences/**' | head -20 || true)
+[[ -z "$STRAY2" ]] || fail "a pre-0.37 name survives (630 renamed the types to Dozable*, the recipe types to com.dozable/*, the guest paths to doz):
+$STRAY2"
+STRAYF=$(git -C "$PACKAGE" ls-files | grep -E "${OLD_TYPE}|DOZ""ER|doz""er-" | head -20 || true)
+[[ -z "$STRAYF" ]] || fail "a file or directory still carries the old name (630):
+$STRAYF"
+
+printf 'ok audit: DozableKit imports only its allowlist (Foundation/Security/Virtualization/Containerization/NIO/X509),\n'
 printf '          depends only on apple/containerization (exact) + the apple/* packages it already resolves\n'
 printf '          (TLS; ArgumentParser for the CLI targets only) and Yams (exact; the CLI'"'"'s project file and recipe sources only),\n'
 printf '          carries no host brand, deckhold + doznet + dozview match their provenance (no libfuse),\n'

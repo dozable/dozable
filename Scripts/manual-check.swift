@@ -168,7 +168,7 @@ if let page = pages[settingsPage], let b = page.range(of: begin), let e = page.r
 
 // MARK: 2. setting keys named in code
 
-let promptSource = (try? String(contentsOfFile: "Sources/DozerHost/AgentPrompt.swift", encoding: .utf8)) ?? ""
+let promptSource = (try? String(contentsOfFile: "Sources/DozableHost/AgentPrompt.swift", encoding: .utf8)) ?? ""
 var promptVariables: Set<String> = []
 if let start = promptSource.range(of: "public static let variables:"), let stop = promptSource[start.upperBound...].range(of: "\n    ]") {
     let block = String(promptSource[start.upperBound..<stop.lowerBound])
@@ -177,7 +177,7 @@ if let start = promptSource.range(of: "public static let variables:"), let stop 
         if let r = Range(m.range(at: 1), in: block) { promptVariables.insert(String(block[r])) }
     }
 }
-if promptVariables.isEmpty { problem("could not read the agent prompt's variables from Sources/DozerHost/AgentPrompt.swift") }
+if promptVariables.isEmpty { problem("could not read the agent prompt's variables from Sources/DozableHost/AgentPrompt.swift") }
 let notKeys: Set<String> = Set(["host.log", "host.sock"]).union(report.settings.map(\.section))   // `[images.lab]` is a section
 let keyRX = try! NSRegularExpression(pattern: "(?<![A-Za-z0-9_./-])((ui|host|store|claude|defaults|agent|resources|sandbox|sessions|images|kernel)\\.[a-z][a-z0-9_-]*(\\.[a-z][a-z0-9_]*)?)(?![A-Za-z0-9_/-])")
 for (name, text) in pages {

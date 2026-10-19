@@ -9,18 +9,18 @@
 #
 #   doz-<version>/bin/doz                    → ../libexec/doz/doz   (a relative link)
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
-#   doz-<version>/libexec/doz/VERSION        the version it was built for (DozerCommand.version reads it)
-#   doz-<version>/libexec/doz/DozerKit_*.bundle   its resources (guest binaries, web assets)
+#   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
+#   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound   PRIVATE builds only: the audio sandboxes' kernel
 #
 # PUBLIC=1 (the default — every real release from 0.31.0 on) builds the PUBLIC flavor (`-DDOZ_PUBLIC_BUILD`,
-# Sources/DozerHost/BuildFlavor.swift): no experimental sound kernel in the tarball (doz create --audio says this
-# build does not include it) and no Dozer-own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex
+# Sources/DozableHost/BuildFlavor.swift): no experimental sound kernel in the tarball (doz create --audio says this
+# build does not include it) and no Dozable's own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex
 # login and OpenAI API keys stay). It checks both in the packed tarball.
 #
 # PUBLIC=0 (a private rc only) builds the full flavor. Its EXPERIMENTAL sound kernel (kata 6.18.15-186 + a
 # sound.conf) is NOT in git (16 MB): SOUND_KERNEL=<file> names it and it must have the sha256 pinned in
-# Sources/DozerKit/Audio.swift (SoundKernel.sha256) or the release stops; NO_SOUND_KERNEL=1 ships without it.
+# Sources/DozableKit/Audio.swift (SoundKernel.sha256) or the release stops; NO_SOUND_KERNEL=1 ships without it.
 #
 # SIGNING. With SIGN_IDENTITY (a "Developer ID Application: …" identity, from a gitignored
 # Makefile.config — see Makefile.config.example) the executable and every Mac (Mach-O) binary in its
@@ -58,8 +58,8 @@ DOZ_CLOUD_PACKAGE="${DOZ_CLOUD_PACKAGE:-}"
 DOZ_CLOUD_REF="${DOZ_CLOUD_REF:-}"
 # A public build never carries the sound kernel.
 if [[ "$PUBLIC" == 1 ]]; then NO_SOUND_KERNEL=1; fi
-SOUND_KERNEL_NAME="$(sed -n 's/.*static let fileName = "\(vmlinux-[^"]*\)".*/\1/p' Sources/DozerKit/Audio.swift)"
-SOUND_KERNEL_SHA="$(sed -n 's/.*static let sha256 = "\([0-9a-f]\{64\}\)".*/\1/p' Sources/DozerKit/Audio.swift)"
+SOUND_KERNEL_NAME="$(sed -n 's/.*static let fileName = "\(vmlinux-[^"]*\)".*/\1/p' Sources/DozableKit/Audio.swift)"
+SOUND_KERNEL_SHA="$(sed -n 's/.*static let sha256 = "\([0-9a-f]\{64\}\)".*/\1/p' Sources/DozableKit/Audio.swift)"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'x release: %s\n' "$*" >&2; exit 1; }
@@ -77,7 +77,7 @@ fi
 [[ "$(uname -m)" == "arm64" ]] || fail "doz is Apple silicon only (this is $(uname -m))"
 
 if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
-    [[ -n "$SOUND_KERNEL_NAME" && -n "$SOUND_KERNEL_SHA" ]] || fail "cannot read SoundKernel.fileName/sha256 from Sources/DozerKit/Audio.swift"
+    [[ -n "$SOUND_KERNEL_NAME" && -n "$SOUND_KERNEL_SHA" ]] || fail "cannot read SoundKernel.fileName/sha256 from Sources/DozableKit/Audio.swift"
     [[ -n "$SOUND_KERNEL" && -f "$SOUND_KERNEL" ]] || fail "a private build (PUBLIC=0) needs SOUND_KERNEL=<the sound kernel file> (or NO_SOUND_KERNEL=1 to ship without — doz create --audio then refuses)"
     got="$(shasum -a 256 "$SOUND_KERNEL" | cut -d' ' -f1)"
     [[ "$got" == "$SOUND_KERNEL_SHA" ]] || fail "the sound kernel at $SOUND_KERNEL has sha256 $got, not the pinned $SOUND_KERNEL_SHA"
@@ -107,7 +107,7 @@ if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" && ( -z "$SIGN_IDENTITY" || -z "$NO
 fi
 # 611: a public release can verify its own updates: the update public key must be compiled in (make doz-update-keys).
 if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" ]]; then
-    upk="$(sed -n 's/.*static let updatePublicKey = "\([^"]*\)".*/\1/p' Sources/DozerHost/Updates.swift | head -1)"
+    upk="$(sed -n 's/.*static let updatePublicKey = "\([^"]*\)".*/\1/p' Sources/DozableHost/Updates.swift | head -1)"
     [[ -n "$upk" ]] || fail "doz carries no update public key (Distribution.updatePublicKey is empty) — make doz-update-keys once, commit the key it prints"
 fi
 # 614: an official public release carries the statistics/sign-up package. A local path must be a package.
@@ -156,7 +156,7 @@ fi
 # 2. The install layout.
 run rm -rf "$OUT/stage"
 run mkdir -p "$STAGE/bin" "$STAGE/libexec/doz"
-for b in .build/release/DozerKit_*.bundle; do
+for b in .build/release/DozableKit_*.bundle; do
     [[ -n "$DRY_RUN" || -d "$b" ]] || fail "missing $b — build first"
     run cp -R "$b" "$STAGE/libexec/doz/"
 done

@@ -1,0 +1,408 @@
+{
+  "args" : {
+    "version" : {
+      "buildArg" : "GOOSE_VERSION",
+      "default" : "1.54.0",
+      "description" : "The Goose release Dozable installs (its pin).",
+      "pattern" : "[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?"
+    }
+  },
+  "author" : "Agentic AI Foundation",
+  "capabilities" : [
+    {
+      "config" : {
+        "dozable" : {
+          "excluded" : [
+
+          ],
+          "model" : {
+            "hosts" : [
+              {
+                "host" : "api.anthropic.com",
+                "reason" : "Anthropic — when the sandbox's key is Anthropic's"
+              },
+              {
+                "host" : "api.openai.com",
+                "reason" : "OpenAI — when the sandbox's key is OpenAI's"
+              },
+              {
+                "host" : "api.x.ai",
+                "paths" : [
+                  "/v1/models",
+                  "/v1/chat/completions",
+                  "/v1/responses"
+                ],
+                "reason" : "xAI — when the sandbox's key is xAI's"
+              },
+              {
+                "host" : "generativelanguage.googleapis.com",
+                "reason" : "Google AI — when the sandbox's key is Google AI's"
+              },
+              {
+                "host" : "openrouter.ai",
+                "reason" : "OpenRouter — when the sandbox's key is OpenRouter's"
+              },
+              {
+                "host" : "ai-gateway.vercel.sh",
+                "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
+              }
+            ],
+            "id" : "model:goose",
+            "phrase" : "talk to your AI model",
+            "summary" : "Goose's model — the provider or gateway its key is for (Anthropic, OpenAI, xAI, Google AI, OpenRouter or Vercel AI Gateway), with an API key. Needed for Goose to answer.",
+            "title" : "Talk to its model provider"
+          },
+          "update" : [
+
+          ]
+        },
+        "runtime" : {
+          "allow" : [
+            "api.anthropic.com:443",
+            "api.openai.com:443",
+            "api.x.ai:443",
+            "generativelanguage.googleapis.com:443",
+            "openrouter.ai:443",
+            "ai-gateway.vercel.sh:443"
+          ]
+        }
+      },
+      "type" : "com.docker.sandbox/network-policy@1"
+    },
+    {
+      "config" : {
+        "apiKey" : {
+          "inject" : [
+            {
+              "domain" : "api.x.ai",
+              "format" : "Bearer %s",
+              "header" : "authorization"
+            }
+          ],
+          "name" : "XAI_API_KEY",
+          "proxyManaged" : true
+        },
+        "dozable" : {
+          "accounts" : [
+            "key"
+          ]
+        },
+        "phase" : "runtime",
+        "service" : "xai"
+      },
+      "description" : "xAI API access",
+      "type" : "com.docker.sandbox/credential@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.config/goose"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "path" : "/home/agent/.local/share/goose"
+      },
+      "type" : "com.docker.sandbox/volume@1"
+    },
+    {
+      "config" : {
+        "directory" : "/home/agent/.agents/skills/doz",
+        "dozable" : {
+          "kind" : "skill"
+        },
+        "filename" : "SKILL.md"
+      },
+      "type" : "com.docker.sandbox/agent-context@1"
+    },
+    {
+      "config" : {
+        "bake_hosts" : [
+          "github.com",
+          "release-assets.githubusercontent.com"
+        ],
+        "binary" : "goose",
+        "integrity" : "sha512-dopMlnmnYA443NEV1YLTTt5wO5FMSxfHL5e93GjkV97Q2Q9SxyNk7zKnMrdNXrfHYpXS+uLAuR8MbvnnavhutQ==",
+        "kind" : "release-binary",
+        "payload" : "goose",
+        "url" : "https://github.com/aaif-goose/goose/releases/download/v${{ kit.args.version }}/goose-aarch64-unknown-linux-musl.tar.gz"
+      },
+      "type" : "com.dozable/install@1"
+    },
+    {
+      "config" : {
+        "check" : {
+          "argv" : [
+            "goose",
+            "run",
+            "--no-session",
+            "-t",
+            "say ok"
+          ],
+          "expect" : "DOZ_FAKE_OK",
+          "screen" : {
+            "expect" : [
+              "goose is ready"
+            ]
+          }
+        },
+        "command" : [
+          "goose"
+        ],
+        "env" : {
+          "GOOSE_DISABLE_KEYRING" : "1",
+          "GOOSE_MODE" : "auto",
+          "GOOSE_TELEMETRY_ENABLED" : "false",
+          "GOOSE_TELEMETRY_OFF" : "1"
+        },
+        "first_run" : [
+          {
+            "file" : "~/.config/goose/config.yaml",
+            "set" : {
+              "GOOSE_MODEL" : "grok-code-fast-1",
+              "GOOSE_PROVIDER" : "xai",
+              "GOOSE_TELEMETRY_ENABLED" : false
+            }
+          }
+        ],
+        "no_prompts_args" : [
+
+        ],
+        "passthrough" : [
+          "--version",
+          "-V",
+          "--help",
+          "-h",
+          "configure",
+          "info",
+          "update",
+          "mcp",
+          "recipe",
+          "schedule",
+          "project",
+          "projects",
+          "web",
+          "completion"
+        ],
+        "resume" : [
+          "session",
+          "--resume"
+        ],
+        "state_env" : {
+
+        },
+        "status" : "none",
+        "verify" : [
+          {
+            "argv" : [
+              "goose",
+              "--version"
+            ],
+            "expect" : "${{ kit.args.version }}"
+          }
+        ]
+      },
+      "type" : "com.dozable/launch@1"
+    },
+    {
+      "config" : {
+        "methods" : [
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.x.ai/",
+            "kind" : "api-key",
+            "note" : "Goose's own providers from the environment (GOOSE_PROVIDER, GOOSE_MODEL): xai on xAI (the default, model grok-code-fast-1), openai with OPENAI_BASE_URL for an OpenAI-compatible provider or gateway, anthropic with ANTHROPIC_HOST.",
+            "provider" : "xai"
+          },
+          {
+            "accounts" : [
+              "api-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://console.anthropic.com/settings/keys",
+            "kind" : "api-key",
+            "note" : "Goose through Anthropic: doz try goose --provider anthropic (or choose it in the try setup); the model with --model.",
+            "provider" : "anthropic"
+          },
+          {
+            "accounts" : [
+              "openai-key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://platform.openai.com/api-keys",
+            "kind" : "api-key",
+            "note" : "Goose through OpenAI: doz try goose --provider openai (or choose it in the try setup); the model with --model.",
+            "provider" : "openai"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://aistudio.google.com/apikey",
+            "kind" : "api-key",
+            "note" : "Goose through Google AI: doz try goose --provider google (or choose it in the try setup); the model with --model.",
+            "provider" : "google"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://openrouter.ai/keys",
+            "kind" : "api-key",
+            "note" : "Goose through OpenRouter: doz try goose --gateway openrouter (or choose it in the try setup); the model with --model.",
+            "provider" : "openrouter"
+          },
+          {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-16",
+            "keys_page" : "https://vercel.com/docs/ai-gateway/authentication-and-byok",
+            "kind" : "api-key",
+            "note" : "Goose through Vercel AI Gateway: doz try goose --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.",
+            "provider" : "vercel-ai-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/auth@1"
+    },
+    {
+      "config" : {
+        "entries" : [
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)",
+            "gateway" : "openrouter",
+            "level" : "verified"
+          },
+          {
+            "checked" : "2026-10-16",
+            "evidence" : "make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)",
+            "gateway" : "vercel-ai-gateway",
+            "level" : "verified"
+          }
+        ]
+      },
+      "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "xai",
+        "models" : {
+          "xai" : "grok-code-fast-1"
+        },
+        "native" : [
+          {
+            "env" : {
+              "GOOSE_MODEL" : "${{ dozable.model }}",
+              "GOOSE_PROVIDER" : "xai"
+            },
+            "source" : "xai"
+          }
+        ],
+        "shapes" : [
+          {
+            "env" : {
+              "GOOSE_MODEL" : "${{ dozable.model }}",
+              "GOOSE_PROVIDER" : "openai",
+              "OPENAI_BASE_URL" : "${{ dozable.base_url }}"
+            },
+            "key_env" : [
+              "OPENAI_API_KEY"
+            ],
+            "shape" : "openai-chat",
+            "source" : "https://goose-docs.ai/docs/getting-started/providers"
+          },
+          {
+            "env" : {
+              "ANTHROPIC_HOST" : "${{ dozable.base_url }}",
+              "GOOSE_MODEL" : "${{ dozable.model }}",
+              "GOOSE_PROVIDER" : "anthropic"
+            },
+            "key_env" : [
+              "ANTHROPIC_API_KEY"
+            ],
+            "shape" : "anthropic-messages",
+            "source" : "https://goose-docs.ai/docs/getting-started/providers"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
+    },
+    {
+      "config" : {
+        "checked" : "2026-10-14"
+      },
+      "type" : "com.dozable/currency@1"
+    },
+    {
+      "config" : {
+        "categories" : [
+          "coding-agent"
+        ],
+        "default_base" : "debian",
+        "icon" : "goose",
+        "kind" : "coding-agent",
+        "platforms" : {
+          "glibc" : true,
+          "musl" : true
+        },
+        "published" : false,
+        "tags" : [
+          {
+            "checked" : "2026-10-14",
+            "level" : "documented",
+            "notes" : [
+              "goose run -t \"…\""
+            ],
+            "source" : "https://goose-docs.ai/docs/guides/goose-cli-commands",
+            "tag" : "headless"
+          }
+        ],
+        "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
+      },
+      "type" : "com.dozable/directory@1"
+    },
+    {
+      "config" : {
+        "docs" : "https://github.com/aaif-goose/goose",
+        "intro" : "Goose is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder.",
+        "steps" : [
+          {
+            "command" : "goose run --no-session -t \"say ok\"",
+            "text" : "Check it answers, without its screen."
+          },
+          {
+            "text" : "Ask it something in its own screen — the session on the left."
+          },
+          {
+            "command" : "goose run --no-session -t \"list the files in this folder\"",
+            "text" : "One task without its screen."
+          }
+        ],
+        "tips" : [
+          "Files it makes are in /workspace — your folder on the Mac.",
+          "Restart its session from the session's ⋯ menu; End stops it."
+        ]
+      },
+      "type" : "com.dozable/guide@1"
+    }
+  ],
+  "description" : "An open-source, extensible AI agent for the terminal (Agentic AI Foundation, ex-Block), on the key of the provider or gateway you choose (xAI by default).",
+  "displayName" : "Goose",
+  "id" : "aaif/goose",
+  "kind" : "workload",
+  "licenses" : [
+    "Apache-2.0"
+  ],
+  "provides" : [
+    "com.dozable/goose@${{ kit.args.version }}"
+  ],
+  "schema" : 2,
+  "sourceUrl" : "https://github.com/aaif-goose/goose"
+}

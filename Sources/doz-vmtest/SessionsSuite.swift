@@ -1,5 +1,5 @@
 import Foundation
-import DozerHost
+import DozableHost
 
 /// 608 (`make test-cli-sessions`): sessions survive every wake, and End / Restart session — through the real
 /// host and CLI, in a lab sandbox with a workspace, in a store of its own (`/tmp/dzo-PID-ss`):

@@ -7,7 +7,7 @@ Guest/deckhold/out/
 Guest/doznet/out/
 Guest/dozview/out/
 
-# The built docs site — reproducible from DozerKit.docc + source in under two minutes (`make docs`);
+# The built docs site — reproducible from DozableKit.docc + source in under two minutes (`make docs`);
 # not committed.
 .docc-build/
 

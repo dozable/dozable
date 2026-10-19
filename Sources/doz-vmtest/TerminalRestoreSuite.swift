@@ -8,8 +8,8 @@
 // A scratch store under /tmp (seeded from the vmtest store) with one lab sandbox; nobody's store.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 /// `doz …` on a pseudo-terminal: the parent holds the master (what a terminal emulator would).
 final class PTYClient: @unchecked Sendable {
