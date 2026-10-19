@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -72,7 +72,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -101,7 +101,7 @@
         "payload" : "zeroclaw",
         "url" : "https://github.com/zeroclaw-labs/zeroclaw/releases/download/v${{ kit.args.version }}/zeroclaw-aarch64-unknown-linux-gnu.tar.gz"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -163,7 +163,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -220,7 +220,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -232,8 +232,8 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozer.model }}",
-                "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozer.gateway.endpoint.v1 }}"
+                "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozable.model }}",
+                "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -246,8 +246,8 @@
             "gateway" : "vercel-ai-gateway",
             "how" : {
               "env" : {
-                "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozer.model }}",
-                "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozer.gateway.endpoint.v1 }}"
+                "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozable.model }}",
+                "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -255,7 +255,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -263,8 +263,8 @@
         "shapes" : [
           {
             "env" : {
-              "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozer.model }}",
-              "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozer.base_url }}"
+              "ZEROCLAW_providers__models__openai__xai__model" : "${{ dozable.model }}",
+              "ZEROCLAW_providers__models__openai__xai__uri" : "${{ dozable.base_url }}"
             },
             "key_env" : [
               "ZEROCLAW_providers__models__openai__xai__api_key"
@@ -273,13 +273,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -307,7 +307,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway, web dashboard and chat channels need a background service and a forwarded port, which Dozable does not offer yet."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -330,7 +330,7 @@
           "Its settings are `~/.zeroclaw/config.toml` (kept on the sandbox's state disk)."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "A Rust personal-agent runtime with shell, file and web tools; its terminal agent on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",
@@ -341,7 +341,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/zeroclaw@${{ kit.args.version }}"
+    "com.dozable/zeroclaw@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/zeroclaw-labs/zeroclaw"

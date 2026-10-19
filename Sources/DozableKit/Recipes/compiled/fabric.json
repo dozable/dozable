@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -72,7 +72,7 @@
           "name" : "GEMINI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -110,7 +110,7 @@
         "payload" : "fabric",
         "url" : "https://github.com/danielmiessler/Fabric/releases/download/v${{ kit.args.version }}/fabric_Linux_arm64.tar.gz"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -163,7 +163,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -220,7 +220,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -232,7 +232,7 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "DEFAULT_MODEL" : "${{ dozer.model }}",
+                "DEFAULT_MODEL" : "${{ dozable.model }}",
                 "DEFAULT_VENDOR" : "OpenRouter"
               }
             },
@@ -247,7 +247,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -255,21 +255,21 @@
         "native" : [
           {
             "env" : {
-              "DEFAULT_MODEL" : "${{ dozer.model }}",
+              "DEFAULT_MODEL" : "${{ dozable.model }}",
               "DEFAULT_VENDOR" : "Anthropic"
             },
             "source" : "anthropic"
           },
           {
             "env" : {
-              "DEFAULT_MODEL" : "${{ dozer.model }}",
+              "DEFAULT_MODEL" : "${{ dozable.model }}",
               "DEFAULT_VENDOR" : "OpenAI"
             },
             "source" : "openai"
           },
           {
             "env" : {
-              "DEFAULT_MODEL" : "${{ dozer.model }}",
+              "DEFAULT_MODEL" : "${{ dozable.model }}",
               "DEFAULT_VENDOR" : "GrokAI"
             },
             "key_env" : [
@@ -279,27 +279,27 @@
           },
           {
             "env" : {
-              "DEFAULT_MODEL" : "${{ dozer.model }}",
+              "DEFAULT_MODEL" : "${{ dozable.model }}",
               "DEFAULT_VENDOR" : "Gemini"
             },
             "source" : "google"
           },
           {
             "env" : {
-              "DEFAULT_MODEL" : "${{ dozer.model }}",
+              "DEFAULT_MODEL" : "${{ dozable.model }}",
               "DEFAULT_VENDOR" : "OpenRouter"
             },
             "source" : "openrouter"
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -327,7 +327,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its patterns come with it (baked at the pin)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -344,7 +344,7 @@
           "--serve"
         ]
       },
-      "type" : "com.dozersandbox/ports@1"
+      "type" : "com.dozable/ports@1"
     },
     {
       "config" : {
@@ -376,7 +376,7 @@
           "Web pages (`-u`) and YouTube (`-y`) need the open web: refused while the network is Locked."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "A command-line prompt toolkit that applies crowd-sourced patterns to text, on a Google AI, Anthropic, OpenAI, xAI or OpenRouter key.",
@@ -387,7 +387,7 @@
     "MIT"
   ],
   "provides" : [
-    "com.dozersandbox/fabric@${{ kit.args.version }}"
+    "com.dozable/fabric@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/danielmiessler/Fabric"

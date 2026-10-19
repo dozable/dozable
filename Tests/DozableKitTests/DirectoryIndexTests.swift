@@ -2,7 +2,7 @@ import Foundation
 @testable import DozableKit
 import XCTest
 
-/// 617 (616.03 §4.5, D12): the directory index format `dozer-directory/v1` — round trip, determinism, the closed
+/// 617 (616.03 §4.5, D12): the directory index format `dozable-directory/v1` — round trip, determinism, the closed
 /// decoder, every recipe and known entry present, no user state, and the known list's own rules.
 final class DirectoryIndexTests: XCTestCase {
     func testRoundTripAndDeterminism() throws {
@@ -10,8 +10,8 @@ final class DirectoryIndexTests: XCTestCase {
         let bytes = try a.encoded()
         XCTAssertEqual(try DirectoryIndex.decode(bytes), a)
         XCTAssertEqual(try DirectoryIndex.build(version: "0.34.0").encoded(), bytes, "the same build writes the same bytes")
-        XCTAssertEqual(a.format, "dozer-directory/v1")
-        XCTAssertEqual(DirectoryIndex.signaturePrefix, "dozer-directory/v1\n")
+        XCTAssertEqual(a.format, "dozable-directory/v1")
+        XCTAssertEqual(DirectoryIndex.signaturePrefix, "dozable-directory/v1\n")
         // Sorted by kind, then current before superseded/retired (617), then id.
         let order = ["agent": 0, "provider": 1, "base": 2]
         let key = { (e: DirectoryIndex.Entry) in "\(order[e.kind]!)\((e.lifecycle?.isCurrent ?? true) ? 0 : 1)\(e.id)" }
@@ -63,7 +63,7 @@ final class DirectoryIndexTests: XCTestCase {
         obj2["entries"] = entries
         XCTAssertThrowsError(try DirectoryIndex.decode(JSONSerialization.data(withJSONObject: obj2)), "an unknown entry field (user state never fits)")
         var obj3 = try XCTUnwrap(JSONSerialization.jsonObject(with: bytes) as? [String: Any])
-        obj3["format"] = "dozer-directory/v2"
+        obj3["format"] = "dozable-directory/v2"
         XCTAssertThrowsError(try DirectoryIndex.decode(JSONSerialization.data(withJSONObject: obj3)))
     }
 

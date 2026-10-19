@@ -103,13 +103,13 @@ for a in "$@"; do
 $(/usr/bin/python3 - "$REPO/Sources/DozableKit/Recipes/compiled/$a.json" "$a" "$bin" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); caps = {c["type"]: c["config"] for c in d["capabilities"]}
-launch, inst = caps["com.dozersandbox/launch@1"], caps["com.dozersandbox/install@1"]
+launch, inst = caps["com.dozable/launch@1"], caps["com.dozable/install@1"]
 key = (launch.get("settings") or {}).get("version") or "images.%s_version" % sys.argv[2].replace("-", "_")
 # How it reports its release: a recipe agent's first verify command (smolagents has no --version); built-ins BIN --version.
 import shlex
 v = (not inst.get("builtin") and (launch.get("verify") or [{}])[0].get("argv")) or [sys.argv[3], "--version"]
 # 618: a family's major is tried by the name that means IT (the family's name only for its recommended major).
-fam = caps.get("com.dozersandbox/family@1")
+fam = caps.get("com.dozable/family@1")
 typed = sys.argv[2] if not fam else (fam["family"] if fam.get("recommended") else "%s@%d" % (fam["family"], fam["major"]))
 print(key, "latest" if inst.get("builtin") else d["args"]["version"]["default"], typed, shlex.join(v))
 PY

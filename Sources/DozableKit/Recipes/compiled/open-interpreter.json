@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -85,7 +85,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -114,7 +114,7 @@
         "payload" : "codex-aarch64-unknown-linux-musl",
         "url" : "https://github.com/openinterpreter/openinterpreter/releases/download/rust-v${{ kit.args.version }}/codex-aarch64-unknown-linux-musl.tar.gz"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -204,7 +204,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -261,7 +261,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -280,7 +280,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -291,8 +291,8 @@
         "shapes" : [
           {
             "env" : {
-              "DOZ_BASE_URL" : "${{ dozer.base_url }}",
-              "DOZ_MODEL" : "${{ dozer.model }}"
+              "DOZ_BASE_URL" : "${{ dozable.base_url }}",
+              "DOZ_MODEL" : "${{ dozable.model }}"
             },
             "key_env" : [
               "OPENAI_API_KEY"
@@ -302,13 +302,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -341,7 +341,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -365,7 +365,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Open Interpreter, rebuilt as a Codex CLI derivative, on the key of the provider or gateway you choose (xAI by default).",
@@ -376,7 +376,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/open-interpreter@${{ kit.args.version }}"
+    "com.dozable/open-interpreter@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/openinterpreter/openinterpreter"

@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -89,7 +89,7 @@
           "name" : "ANTHROPIC_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "mac",
             "setup-token",
@@ -111,7 +111,7 @@
     {
       "config" : {
         "directory" : "/home/agent/.claude/skills/doz",
-        "dozer" : {
+        "dozable" : {
           "kind" : "skill",
           "launcher_arg" : [
             "--append-system-prompt"
@@ -129,7 +129,7 @@
         "kind" : "builtin",
         "package" : "@anthropic-ai/claude-code"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -177,7 +177,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -203,7 +203,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -215,13 +215,13 @@
             "how" : {
               "env" : {
                 "ANTHROPIC_API_KEY" : "",
-                "ANTHROPIC_AUTH_TOKEN" : "${{ dozer.placeholder }}",
-                "ANTHROPIC_BASE_URL" : "${{ dozer.gateway.endpoint.anthropic }}",
+                "ANTHROPIC_AUTH_TOKEN" : "${{ dozable.placeholder }}",
+                "ANTHROPIC_BASE_URL" : "${{ dozable.gateway.endpoint.anthropic }}",
                 "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY" : "1"
               },
               "model_args" : [
                 "--model",
-                "${{ dozer.model }}"
+                "${{ dozable.model }}"
               ]
             },
             "level" : "documented",
@@ -243,13 +243,13 @@
             "how" : {
               "env" : {
                 "ANTHROPIC_API_KEY" : "",
-                "ANTHROPIC_AUTH_TOKEN" : "${{ dozer.placeholder }}",
-                "ANTHROPIC_BASE_URL" : "${{ dozer.gateway.endpoint.claude-code }}",
+                "ANTHROPIC_AUTH_TOKEN" : "${{ dozable.placeholder }}",
+                "ANTHROPIC_BASE_URL" : "${{ dozable.gateway.endpoint.claude-code }}",
                 "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY" : "1"
               },
               "model_args" : [
                 "--model",
-                "${{ dozer.model }}"
+                "${{ dozable.model }}"
               ]
             },
             "level" : "documented",
@@ -265,7 +265,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -295,7 +295,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -319,7 +319,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Anthropic's coding agent in your terminal.",
@@ -330,7 +330,7 @@
     "LicenseRef-proprietary"
   ],
   "provides" : [
-    "com.dozersandbox/claude-code@${{ kit.args.version }}"
+    "com.dozable/claude-code@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://code.claude.com"

@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -83,7 +83,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -109,7 +109,7 @@
     {
       "config" : {
         "directory" : "/home/agent/.agents/skills/doz",
-        "dozer" : {
+        "dozable" : {
           "kind" : "skill"
         },
         "filename" : "SKILL.md"
@@ -125,7 +125,7 @@
         "payload" : "bin/opencode",
         "platform_package" : "@opencode/cli-linux-arm64"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -208,7 +208,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -232,7 +232,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -242,11 +242,11 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "OPENROUTER_API_KEY" : "${{ dozer.placeholder }}"
+                "OPENROUTER_API_KEY" : "${{ dozable.placeholder }}"
               },
               "model_args" : [
                 "--model",
-                "openrouter/${{ dozer.model }}"
+                "openrouter/${{ dozable.model }}"
               ]
             },
             "level" : "documented",
@@ -261,11 +261,11 @@
             "gateway" : "vercel-ai-gateway",
             "how" : {
               "env" : {
-                "AI_GATEWAY_API_KEY" : "${{ dozer.placeholder }}"
+                "AI_GATEWAY_API_KEY" : "${{ dozable.placeholder }}"
               },
               "model_args" : [
                 "--model",
-                "vercel/${{ dozer.model }}"
+                "vercel/${{ dozable.model }}"
               ]
             },
             "level" : "documented",
@@ -277,7 +277,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -288,50 +288,50 @@
         "native" : [
           {
             "env" : {
-              "DOZ_MODEL" : "xai/${{ dozer.model }}"
+              "DOZ_MODEL" : "xai/${{ dozable.model }}"
             },
             "source" : "xai"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "openai/${{ dozer.model }}"
+              "DOZ_MODEL" : "openai/${{ dozable.model }}"
             },
             "source" : "openai"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "anthropic/${{ dozer.model }}"
+              "DOZ_MODEL" : "anthropic/${{ dozable.model }}"
             },
             "source" : "anthropic"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "openrouter/${{ dozer.model }}"
+              "DOZ_MODEL" : "openrouter/${{ dozable.model }}"
             },
             "source" : "openrouter"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "vercel/${{ dozer.model }}"
+              "DOZ_MODEL" : "vercel/${{ dozable.model }}"
             },
             "source" : "vercel-ai-gateway"
           },
           {
             "docs" : "https://opencode.ai/docs/zen/",
             "env" : {
-              "DOZ_MODEL" : "opencode/${{ dozer.model }}"
+              "DOZ_MODEL" : "opencode/${{ dozable.model }}"
             },
             "source" : "opencode-zen"
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -364,7 +364,7 @@
         ],
         "terms" : "Your xAI API key — a key from console.x.ai; or no key, with OpenCode Zen's free models (each model's data terms are in its docs)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -383,7 +383,7 @@
           "start"
         ]
       },
-      "type" : "com.dozersandbox/ports@1"
+      "type" : "com.dozable/ports@1"
     },
     {
       "config" : {
@@ -408,7 +408,7 @@
           "A key added with OpenCode's /connect is stored inside this sandbox; a key added in Dozable stays on your Mac."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     },
     {
       "config" : {
@@ -417,7 +417,7 @@
         "recommended" : true,
         "title" : "OpenCode 2"
       },
-      "type" : "com.dozersandbox/family@1"
+      "type" : "com.dozable/family@1"
     }
   ],
   "description" : "OpenCode's second major release — an open-source coding agent for the terminal with a background server and a web UI, here on an xAI API key.",
@@ -428,7 +428,7 @@
     "MIT"
   ],
   "provides" : [
-    "com.dozersandbox/opencode2@${{ kit.args.version }}"
+    "com.dozable/opencode2@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/anomalyco/opencode"

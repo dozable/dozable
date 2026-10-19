@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Mistral Vibe — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/mistral-vibe.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: MISTRAL_VIBE_VERSION
 provides:
-- com.dozersandbox/mistral-vibe@${{ kit.args.version }}
+- com.dozable/mistral-vibe@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -29,7 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
-    dozer:
+    dozable:
       model:
         id: model:mistral-vibe
         title: Talk to its model provider
@@ -64,13 +64,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.vibe
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: pypi
     package: mistral-vibe
@@ -173,7 +173,7 @@ capabilities:
     - websockets==16.0 --hash=sha256:c0204dc62a89dc9d50d682412c10b3542d748260d743500a85c13cd1ee4bde82
     - zipp==3.23.1 --hash=sha256:0b3596c50a5c700c9cb40ba8d86d9f2cc4807e9bedb06bcdf7fac85633e444dc
     - zstandard==0.25.0 --hash=sha256:bfc4e20784722098822e3eee42b8e576b379ed72cca4a7cb856ae733e62192ea
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - vibe
@@ -210,7 +210,7 @@ capabilities:
       - -p
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -255,7 +255,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'Mistral Vibe through Vercel AI Gateway: doz try mistral-vibe --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -266,32 +266,32 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        VIBE_PROVIDERS: '[{"name":"dozer","api_base":"${{ dozer.base_url }}","api_key_env_var":"OPENAI_API_KEY","api_style":"openai"}]'
-        VIBE_MODELS: '[{"name":"${{ dozer.model }}","provider":"dozer","alias":"dozer"}]'
-        VIBE_ACTIVE_MODEL: dozer
+        VIBE_PROVIDERS: '[{"name":"dozable","api_base":"${{ dozable.base_url }}","api_key_env_var":"OPENAI_API_KEY","api_style":"openai"}]'
+        VIBE_MODELS: '[{"name":"${{ dozable.model }}","provider":"dozable","alias":"dozable"}]'
+        VIBE_ACTIVE_MODEL: doz
       key_env:
       - OPENAI_API_KEY
       source: https://docs.mistral.ai/vibe/code/cli/configuration
     - shape: anthropic-messages
       env:
-        VIBE_PROVIDERS: '[{"name":"dozer","api_base":"${{ dozer.base_url }}","api_key_env_var":"ANTHROPIC_API_KEY","api_style":"anthropic"}]'
-        VIBE_MODELS: '[{"name":"${{ dozer.model }}","provider":"dozer","alias":"dozer"}]'
-        VIBE_ACTIVE_MODEL: dozer
+        VIBE_PROVIDERS: '[{"name":"dozable","api_base":"${{ dozable.base_url }}","api_key_env_var":"ANTHROPIC_API_KEY","api_style":"anthropic"}]'
+        VIBE_MODELS: '[{"name":"${{ dozable.model }}","provider":"dozable","alias":"dozable"}]'
+        VIBE_ACTIVE_MODEL: doz
       key_env:
       - ANTHROPIC_API_KEY
       source: https://docs.mistral.ai/vibe/code/cli/configuration
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -312,7 +312,7 @@ capabilities:
       evidence: 'make recipe-check: vibe -p "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Mistral Vibe is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

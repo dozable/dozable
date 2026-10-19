@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -82,7 +82,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -102,7 +102,7 @@
     {
       "config" : {
         "directory" : "/home/agent/.copilot/skills/doz",
-        "dozer" : {
+        "dozable" : {
           "kind" : "skill"
         },
         "filename" : "SKILL.md"
@@ -118,7 +118,7 @@
         "payload" : "copilot",
         "platform_package" : "@github/copilot-linux-arm64"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -190,7 +190,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -264,7 +264,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -283,7 +283,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -294,8 +294,8 @@
         "shapes" : [
           {
             "env" : {
-              "COPILOT_MODEL" : "${{ dozer.model }}",
-              "COPILOT_PROVIDER_BASE_URL" : "${{ dozer.base_url }}",
+              "COPILOT_MODEL" : "${{ dozable.model }}",
+              "COPILOT_PROVIDER_BASE_URL" : "${{ dozable.base_url }}",
               "COPILOT_PROVIDER_TYPE" : "openai"
             },
             "key_env" : [
@@ -306,8 +306,8 @@
           },
           {
             "env" : {
-              "COPILOT_MODEL" : "${{ dozer.model }}",
-              "COPILOT_PROVIDER_BASE_URL" : "${{ dozer.base_url }}",
+              "COPILOT_MODEL" : "${{ dozable.model }}",
+              "COPILOT_PROVIDER_BASE_URL" : "${{ dozable.base_url }}",
               "COPILOT_PROVIDER_TYPE" : "anthropic"
             },
             "key_env" : [
@@ -318,13 +318,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -362,7 +362,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozable installs it from the npm registry."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -386,7 +386,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "GitHub's coding agent for the terminal, with your own model key instead of a Copilot plan — on the key of the provider or gateway you choose (xAI by default).",
@@ -397,7 +397,7 @@
     "LicenseRef-GitHub-Copilot-CLI"
   ],
   "provides" : [
-    "com.dozersandbox/copilot@${{ kit.args.version }}"
+    "com.dozable/copilot@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/github/copilot-cli"

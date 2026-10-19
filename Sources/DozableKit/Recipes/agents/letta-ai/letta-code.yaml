@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Letta Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/letta-code.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: LETTA_CODE_VERSION
 provides:
-- com.dozersandbox/letta-code@${{ kit.args.version }}
+- com.dozable/letta-code@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -31,7 +31,7 @@ capabilities:
       - ai-gateway.vercel.sh:443
       deny:
       - api.letta.com:443
-    dozer:
+    dozable:
       model:
         id: model:letta-code
         title: Talk to its model provider
@@ -69,13 +69,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.letta
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: npm
     package: '@letta-ai/letta-code'
@@ -84,7 +84,7 @@ capabilities:
     npm_args:
     - --ignore-scripts
     integrity: sha512-aEu3M1aYGA2HzpDjRd4rMJKRe4owLpPvdUnQZ0Nzf9/I7wo5Bl0yu7oM8hxBvelCZpPVug+pI/K06fBhbq4ckw==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - letta
@@ -134,7 +134,7 @@ capabilities:
         # Its ready screen lists /login among its commands (Letta's own cloud, not needed here).
         allow:
         - /login +sign in with Letta
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -184,7 +184,7 @@ capabilities:
       in_sandbox: false
       note: Letta Cloud's agents and memory sync need its sign-in; Dozable does not offer it yet.
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -195,36 +195,36 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     native:
     - source: anthropic
       env:
-        DOZ_MODEL: 'anthropic/${{ dozer.model }}'
+        DOZ_MODEL: 'anthropic/${{ dozable.model }}'
     - source: openai
       env:
-        DOZ_MODEL: 'openai/${{ dozer.model }}'
+        DOZ_MODEL: 'openai/${{ dozable.model }}'
     - source: xai
       env:
-        DOZ_MODEL: 'xai/${{ dozer.model }}'
+        DOZ_MODEL: 'xai/${{ dozable.model }}'
     - source: google
       env:
-        DOZ_MODEL: 'google/${{ dozer.model }}'
+        DOZ_MODEL: 'google/${{ dozable.model }}'
     - source: openrouter
       env:
-        DOZ_MODEL: 'openrouter/${{ dozer.model }}'
+        DOZ_MODEL: 'openrouter/${{ dozable.model }}'
       docs: https://github.com/letta-ai/letta-code#local-backend
     - source: vercel-ai-gateway
       env:
-        DOZ_MODEL: 'vercel-ai-gateway/${{ dozer.model }}'
+        DOZ_MODEL: 'vercel-ai-gateway/${{ dozable.model }}'
       docs: https://github.com/letta-ai/letta-code#local-backend
     models:
       xai: grok-4.3
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -248,7 +248,7 @@ capabilities:
       evidence: 'make recipe-check: letta -p "say ok" (local backend) printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Letta Cloud is not used.
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Letta Code is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

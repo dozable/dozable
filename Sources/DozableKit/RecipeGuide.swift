@@ -1,7 +1,7 @@
 import Foundation
 
 // 617.11 (owner: "i tried fabric and it just gave me a terminal. I think whats missing for trys is our companion guide"):
-// a recipe's GUIDE (`com.dozersandbox/guide@1`) — what the tool is in one or two sentences, the first steps (each a
+// a recipe's GUIDE (`com.dozable/guide@1`) — what the tool is in one or two sentences, the first steps (each a
 // command a person can copy or run), tips, and its docs. Dozer adds the facts of the sandbox (the version, the key and
 // model, the network, the folder) — never the recipe. The FIRST step is the recipe's own check turn (or what that turn
 // proves), so the first thing a person runs is known to work; `make recipe-check` runs every step that is not an edit.
@@ -53,7 +53,7 @@ extension AgentRecipe {
     }
 
     /// The command a guide's first step must be: the check turn as a person types it — `sh -c X` is X, and a
-    /// `${{ dozer.model }}` / `${{ dozer.base_url }}` is the variable models@1 sets to it (`"$DOZ_MODEL"`).
+    /// `${{ dozable.model }}` / `${{ dozable.base_url }}` is the variable models@1 sets to it (`"$DOZ_MODEL"`).
     func guideMatchesCheck(_ command: String) -> Bool {
         guard let c = smoke else { return false }
         if c.argv.count == 3, c.argv[0] == "sh", c.argv[1] == "-c" {
@@ -64,13 +64,13 @@ extension AgentRecipe {
         var vars: [String: Set<String>] = [:]
         for e in (models?.shapes?.map(\.env) ?? []) + (models?.native?.map(\.env) ?? []) {
             for (k, v) in e {
-                if v == "{model}" { vars["${{ dozer.model }}", default: []].insert("$" + k) }
-                if v == "{base_url}" { vars["${{ dozer.base_url }}", default: []].insert("$" + k) }
+                if v == "{model}" { vars["${{ dozable.model }}", default: []].insert("$" + k) }
+                if v == "{base_url}" { vars["${{ dozable.base_url }}", default: []].insert("$" + k) }
             }
         }
         for (a, w) in zip(c.argv, words) where a != w {
             if let allowed = vars[a], allowed.contains(w) { continue }
-            // 618: a template inside a word (Droid's `custom:${{ dozer.model }}`) — the same word with the variable.
+            // 618: a template inside a word (Droid's `custom:${{ dozable.model }}`) — the same word with the variable.
             let inside = vars.contains { t, names in a.contains(t) && names.contains { a.replacingOccurrences(of: t, with: $0) == w } }
             guard inside else { return false }
         }

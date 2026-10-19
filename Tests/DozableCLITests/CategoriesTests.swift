@@ -16,7 +16,7 @@ final class CategoriesTests: XCTestCase {
                                                   "evaluation", "workflow", "local-models", "chat-app"])
         for c in Categories.all { XCTAssertNil(CapabilityTags.tag(c.id), "\(c.id) is not also a capability tag") }
         // The schema's enum is the vocabulary.
-        let schema = try String(contentsOf: Pins.packageRoot.appendingPathComponent("schema/dozer-recipe-2.schema.json"), encoding: .utf8)
+        let schema = try String(contentsOf: Pins.packageRoot.appendingPathComponent("schema/dozable-recipe-2.schema.json"), encoding: .utf8)
         XCTAssertTrue(schema.contains(Categories.all.map { "\"\($0.id)\"" }.joined(separator: ", ")), "the schema lists exactly the categories, in order")
         XCTAssertThrowsError(try Categories.validate(kinds: [CatalogWord(id: "ai-tool", title: "x", meaning: "y")], categories: Categories.all))
         XCTAssertThrowsError(try Categories.validate(kinds: Categories.kinds, categories: Categories.all + [CatalogWord(id: "headless", title: "x", meaning: "y")]),

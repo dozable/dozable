@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Agent Development Kit — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/adk.json, which Dozable embeds).
 schema: 2
@@ -17,14 +17,14 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: ADK_VERSION
 provides:
-- com.dozersandbox/adk@${{ kit.args.version }}
+- com.dozable/adk@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
     runtime:
       allow:
       - generativelanguage.googleapis.com:443
-    dozer:
+    dozable:
       model:
         id: model:adk
         title: Talk to Google AI
@@ -46,10 +46,10 @@ capabilities:
       - domain: generativelanguage.googleapis.com
         header: x-goog-api-key
         format: '%s'
-    dozer:
+    dozable:
       accounts:
       - key
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: pypi
     package: google-adk
@@ -104,7 +104,7 @@ capabilities:
     - uvicorn==0.54.0 --hash=sha256:505bdb0f318731d45f1f712071fc781a8981f6847a31c902c9f5e652d4f67faf
     - watchdog==6.0.0 --hash=sha256:7607498efa04a3542ae3e05e64da8202e58159aa1fa4acddf7678d34a35d4f13
     - websockets==15.0.1 --hash=sha256:595b6c3969023ecf9041b2936ac3827e4623bfa3ccf007575f04c5a6aa318c22
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - adk
@@ -128,7 +128,7 @@ capabilities:
       - '-c'
       - cd "$(mktemp -d)" && mkdir hello && echo 'from . import agent' > hello/__init__.py && printf 'from google.adk.agents import Agent\nroot_agent = Agent(name="hello", model="gemini-2.5-flash", instruction="Answer briefly.")\n' > hello/agent.py && printf 'say ok\nexit\n' | adk run hello
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -138,7 +138,7 @@ capabilities:
       keys_page: https://aistudio.google.com/apikey
       note: 'ADK''s agents call the Gemini API through Google''s genai SDK, which reads GEMINI_API_KEY (GOOGLE_GENAI_USE_VERTEXAI=FALSE: the API key, never Vertex AI). Agents you write choose their model (gemini-2.5-flash).'
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -149,10 +149,10 @@ capabilities:
       level: 'no'
       reason: 'ADK is a framework: the model is named in your agent''s own code, and this image''s Python speaks only the Gemini API (its OpenAI and LiteLLM model classes need packages that are not in the pinned lock)'
       checked: '2026-10-16'
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: ai-tool
@@ -171,7 +171,7 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/adk)'
       checked: '2026-10-14'
     terms: Your Gemini API key — a key from aistudio.google.com. adk web (its dev UI) and adk api_server need a forwarded port, which Dozable does not offer yet.
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Google's Agent Development Kit builds agents in Python; `adk run FOLDER` talks to one in the terminal."
     steps:

@@ -45,7 +45,7 @@ final class RecipeSourceTests: XCTestCase {
             // The file's id is its path.
             let doc = try RecipeDocument.decode(json)
             XCTAssertEqual(doc.id + ".yaml", rel, "a recipe's id is VENDOR/PRODUCT, its path")
-            XCTAssertTrue(yaml.hasPrefix("# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json\n"),
+            XCTAssertTrue(yaml.hasPrefix("# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json\n"),
                           "\(rel) starts with the editor's schema line")
         }
         let present = Set((try? FileManager.default.contentsOfDirectory(atPath: Self.recipes.appendingPathComponent("compiled").path)) ?? [])
@@ -89,7 +89,7 @@ final class RecipeSourceTests: XCTestCase {
         for r in AgentRecipes.all {
             let t = try XCTUnwrap(table[r.id], r.id)
             let doc = RecipeDocument(r, vendor: t.vendor, description: t.description, licenses: t.licenses)
-            let text = try RecipeSource.yaml(doc, schemaPath: "../../../../../schema/dozer-recipe-2.schema.json",
+            let text = try RecipeSource.yaml(doc, schemaPath: "../../../../../schema/dozable-recipe-2.schema.json",
                                              header: "\(r.title) — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.\nEdit this file, then run make recipes (it writes Recipes/compiled/\(r.id).json, which Dozable embeds).")
             let u = Self.recipes.appendingPathComponent("agents/\(t.vendor)/\(r.id).yaml")
             try FileManager.default.createDirectory(at: u.deletingLastPathComponent(), withIntermediateDirectories: true)

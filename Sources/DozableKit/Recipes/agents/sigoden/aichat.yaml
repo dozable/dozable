@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # AIChat — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/aichat.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: AICHAT_VERSION
 provides:
-- com.dozersandbox/aichat@${{ kit.args.version }}
+- com.dozable/aichat@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -28,7 +28,7 @@ capabilities:
       - api.x.ai:443
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
-    dozer:
+    dozable:
       model:
         id: model:aichat
         title: Talk to its model provider
@@ -59,13 +59,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.config/aichat
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://github.com/sigoden/aichat/releases/download/v${{ kit.args.version }}/aichat-v${{ kit.args.version }}-aarch64-unknown-linux-musl.tar.gz
@@ -75,7 +75,7 @@ capabilities:
     - github.com
     - release-assets.githubusercontent.com
     integrity: sha512-j+5lNCpZW9rhWwziKvT9KpQB17zLUKKEazhlPD4C9425uczt5zGEJxYXGHzrQH6DiutwpSZeaKdcZiBPm9UHmg==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - aichat
@@ -101,7 +101,7 @@ capabilities:
       - aichat
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -139,7 +139,7 @@ capabilities:
       keys_page: https://openrouter.ai/keys
       note: 'AIChat through OpenRouter: doz try aichat --gateway openrouter (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -149,43 +149,43 @@ capabilities:
       how:
         env:
           AICHAT_PROVIDER: 'openrouter'
-          AICHAT_MODEL: 'openrouter:${{ dozer.model }}'
+          AICHAT_MODEL: 'openrouter:${{ dozable.model }}'
       evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
       level: 'no'
       reason: 'its own client has no Vercel AI Gateway setting (an OpenAI-compatible base URL), so it is not offered'
       checked: '2026-10-14'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     native:
     - source: anthropic
       env:
         AICHAT_PROVIDER: claude
-        AICHAT_MODEL: 'claude:${{ dozer.model }}'
+        AICHAT_MODEL: 'claude:${{ dozable.model }}'
       key_env:
       - CLAUDE_API_KEY
     - source: openai
       env:
         AICHAT_PROVIDER: openai
-        AICHAT_MODEL: 'openai:${{ dozer.model }}'
+        AICHAT_MODEL: 'openai:${{ dozable.model }}'
     - source: xai
       env:
         AICHAT_PROVIDER: xai
-        AICHAT_MODEL: 'xai:${{ dozer.model }}'
+        AICHAT_MODEL: 'xai:${{ dozable.model }}'
     - source: google
       env:
         AICHAT_PROVIDER: gemini
-        AICHAT_MODEL: 'gemini:${{ dozer.model }}'
+        AICHAT_MODEL: 'gemini:${{ dozable.model }}'
     - source: openrouter
       env:
         AICHAT_PROVIDER: openrouter
-        AICHAT_MODEL: 'openrouter:${{ dozer.model }}'
-- type: com.dozersandbox/currency@1
+        AICHAT_MODEL: 'openrouter:${{ dozable.model }}'
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: ai-tool
@@ -204,7 +204,7 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/aichat)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Its --serve playground opens from the sandbox's Open button (doz open).
-- type: com.dozersandbox/ports@1
+- type: com.dozable/ports@1
   config:
     ports:
     - port: 8000
@@ -214,7 +214,7 @@ capabilities:
     serve:
     - aichat
     - --serve
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "AIChat is a chat REPL — its session is the screen on the left — and a command that answers in your shell and exits."
     steps:

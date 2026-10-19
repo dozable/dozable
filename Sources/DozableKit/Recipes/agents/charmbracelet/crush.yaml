@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Crush — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/crush.json, which Dozable embeds).
 # Licence: FSL-1.1-MIT (each release becomes MIT two years on). The owner's reading (2026-10-14): installing it for a
@@ -19,7 +19,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CRUSH_VERSION
 provides:
-- com.dozersandbox/crush@${{ kit.args.version }}
+- com.dozable/crush@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -32,7 +32,7 @@ capabilities:
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
       - api.github.com:443
-    dozer:
+    dozable:
       model:
         id: model:crush
         title: Talk to its model provider
@@ -72,7 +72,7 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
@@ -81,7 +81,7 @@ capabilities:
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.local/share/crush
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://github.com/charmbracelet/crush/releases/download/v${{ kit.args.version }}/crush_${{ kit.args.version }}_Linux_arm64.tar.gz
@@ -91,7 +91,7 @@ capabilities:
     - github.com
     - release-assets.githubusercontent.com
     integrity: sha512-VbfBLF8cxG8tzN4xTkFwCmzcTYSYAbnMNNKs8y+tQGJzKWnj9QsXFRtD7m+pfvtfe0sqixU6ttLtx1Doc7MFFg==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - crush
@@ -157,7 +157,7 @@ capabilities:
       - -q
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -202,7 +202,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'Crush through Vercel AI Gateway: doz try crush --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -213,34 +213,34 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
         DOZ_CRUSH_TYPE: openai-compat
-        DOZ_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
         DOZ_KEY_REF: $OPENAI_API_KEY
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
       key_env:
       - OPENAI_API_KEY
       source: https://github.com/charmbracelet/crush#custom-providers
     - shape: anthropic-messages
       env:
         DOZ_CRUSH_TYPE: anthropic
-        DOZ_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
         DOZ_KEY_REF: $ANTHROPIC_API_KEY
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
       key_env:
       - ANTHROPIC_API_KEY
       source: https://github.com/charmbracelet/crush#custom-providers
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -259,7 +259,7 @@ capabilities:
       evidence: 'make recipe-check: crush run "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Crush is under the FSL-1.1-MIT licence (each release becomes MIT two years on).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Crush is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

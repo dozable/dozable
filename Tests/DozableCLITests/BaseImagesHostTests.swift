@@ -238,9 +238,9 @@ final class BaseImagesHostTests: XCTestCase {
         XCTAssertGreaterThan(parts["outside:apple-container/data/snapshots"]!.sizeBytes!, 64 << 10)
         XCTAssertGreaterThan(parts["outside:apple-container/data/other"]!.sizeBytes!, 0, "builder + state.json")
         XCTAssertEqual(top.sizeBytes, parts["outside:apple-container/data"]!.sizeBytes, "no program here")
-        let dozer = try XCTUnwrap(parts["outside:apple-container/doz"])
-        XCTAssertTrue(dozer.detail!.contains("1 image"))
-        XCTAssertGreaterThan(dozer.sizeBytes!, 32 << 10)
+        let share = try XCTUnwrap(parts["outside:apple-container/doz"])
+        XCTAssertTrue(share.detail!.contains("1 image"))
+        XCTAssertGreaterThan(share.sizeBytes!, 32 << 10)
         XCTAssertTrue(items.allSatisfy { !$0.deletable && $0.group == "outside" })
         // Not installed and no data: one row, 0 B, the on-demand note.
         let none = Resources.appleContainerItems(AppleContainerFacts(dataRoot: nil, program: [],

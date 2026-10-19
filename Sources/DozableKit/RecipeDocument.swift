@@ -3,9 +3,9 @@ import Foundation
 // 617 (owner: "one YAML file per recipe", "align as close as we can right now with our own format so that export /
 // generating a sandboxkit YAML is straightforward", "we need a JSON Schema and spec doc for our new YAML format") —
 // the recipe FILE format, `schema: 2`: Docker Sandbox Kit v3's layout (its top-level fields, a `capabilities:` list
-// with Kit's own types and config shapes where Kit has them, Dozer's extras under `dozer:` keys and in
-// `com.dozersandbox/*@1` types, `${{ kit.args.version }}` / `${{ dozer.* }}` templating). docs/recipes/RECIPE-FORMAT.md
-// is the spec; schema/dozer-recipe-2.schema.json the contract (RecipeSchemaTests: every recipe valid, and the decoder
+// with Kit's own types and config shapes where Kit has them, Dozer's extras under `dozable:` keys and in
+// `com.dozable/*@1` types, `${{ kit.args.version }}` / `${{ dozable.* }}` templating). docs/recipes/RECIPE-FORMAT.md
+// is the spec; schema/dozable-recipe-2.schema.json the contract (RecipeSchemaTests: every recipe valid, and the decoder
 // refuses what the schema refuses).
 //
 // The files: `Recipes/agents/VENDOR/PRODUCT.yaml` (the source a person edits), compiled by DozableCLI's Yams to
@@ -57,29 +57,29 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public static let credential = "com.docker.sandbox/credential@1"
         public static let volume = "com.docker.sandbox/volume@1"
         public static let agentContext = "com.docker.sandbox/agent-context@1"
-        public static let install = "com.dozersandbox/install@1"
-        public static let launch = "com.dozersandbox/launch@1"
-        public static let auth = "com.dozersandbox/auth@1"
-        public static let gateways = "com.dozersandbox/gateways@1"
-        public static let currency = "com.dozersandbox/currency@1"
-        public static let models = "com.dozersandbox/models@1"
-        public static let directory = "com.dozersandbox/directory@1"
+        public static let install = "com.dozable/install@1"
+        public static let launch = "com.dozable/launch@1"
+        public static let auth = "com.dozable/auth@1"
+        public static let gateways = "com.dozable/gateways@1"
+        public static let currency = "com.dozable/currency@1"
+        public static let models = "com.dozable/models@1"
+        public static let directory = "com.dozable/directory@1"
         /// 617 (RP-1): the web ports its program serves.
-        public static let ports = "com.dozersandbox/ports@1"
+        public static let ports = "com.dozable/ports@1"
         /// 617.11: its guide (intro, first steps, tips, docs).
-        public static let guide = "com.dozersandbox/guide@1"
+        public static let guide = "com.dozable/guide@1"
         /// 618: one major release line of a tool whose majors are separate recipes.
-        public static let family = "com.dozersandbox/family@1"
-        /// Kit's own types (exported as they are, `dozer:` keys removed).
+        public static let family = "com.dozable/family@1"
+        /// Kit's own types (exported as they are, `dozable:` keys removed).
         public static let kit = [networkPolicy, credential, volume, agentContext]
-        public static let dozer = [install, launch, auth, gateways, currency, directory, models, ports, guide, family]
+        public static let dozable = [install, launch, auth, gateways, currency, directory, models, ports, guide, family]
     }
 
-    /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozer's whole network under `dozer`.
+    /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozer's whole network under `dozable`.
     public struct NetworkPolicy: Codable, Sendable, Equatable {
         public var install: Rules?
         public var runtime: Rules?
-        public var dozer: AgentRecipe.Network
+        public var dozable: AgentRecipe.Network
         public struct Rules: Codable, Sendable, Equatable {
             public var allow: [String]?
             public var deny: [String]?
@@ -91,7 +91,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var service: String
         public var phase: String
         public var apiKey: ApiKey
-        public var dozer: CredentialDozable
+        public var dozable: CredentialDozable
         public struct ApiKey: Codable, Sendable, Equatable {
             public var name: String
             public var proxyManaged: Bool
@@ -117,11 +117,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var path: String
     }
 
-    /// Kit's agent-context@1: where Dozer's facts go (`directory` + `filename`); how, under `dozer`.
+    /// Kit's agent-context@1: where Dozer's facts go (`directory` + `filename`); how, under `dozable`.
     public struct AgentContext: Codable, Sendable, Equatable {
         public var directory: String
         public var filename: String
-        public var dozer: AgentContextDozable
+        public var dozable: AgentContextDozable
         public struct AgentContextDozable: Codable, Sendable, Equatable {
             /// `skill` (a SKILL.md) | `context-file`.
             public var kind: String
@@ -131,7 +131,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         }
     }
 
-    /// com.dozersandbox/install@1 — how Dozer installs it (the version is `args.version`).
+    /// com.dozable/install@1 — how Dozer installs it (the version is `args.version`).
     public struct Install: Codable, Sendable, Equatable {
         public var kind: String
         /// true: Dozer's own Swift installs and launches it (Claude Code, pi, Codex).
@@ -144,7 +144,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var needsNode: String?
         public var npmArgs: [String]?
         public var manifest: String?
-        /// A template: `${{ dozer.build }}` is the release's `<version>-<build>` path segment.
+        /// A template: `${{ dozable.build }}` is the release's `<version>-<build>` path segment.
         public var url: String?
         public var bakeHosts: [String]?
         /// The pinned release's sha512 (npm's integrity form).
@@ -159,7 +159,7 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         }
     }
 
-    /// com.dozersandbox/launch@1 — how Dozer runs it.
+    /// com.dozable/launch@1 — how Dozer runs it.
     public struct Launch: Codable, Sendable, Equatable {
         public var command: [String]
         public var noPromptsArgs: [String]
@@ -193,19 +193,19 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         }
     }
 
-    /// com.dozersandbox/gateways@1 — one entry per gateway; `how` values are templates (`${{ dozer.placeholder }}`,
-    /// `${{ dozer.model }}`, `${{ dozer.gateway.endpoint.ID }}`).
+    /// com.dozable/gateways@1 — one entry per gateway; `how` values are templates (`${{ dozable.placeholder }}`,
+    /// `${{ dozable.model }}`, `${{ dozable.gateway.endpoint.ID }}`).
     public struct Gateways: Codable, Sendable, Equatable {
         public var entries: [AgentRecipe.GatewaySupport]
     }
 
-    /// com.dozersandbox/currency@1 — where it stands with its maker, and when the recipe was last checked.
+    /// com.dozable/currency@1 — where it stands with its maker, and when the recipe was last checked.
     public struct Currency: Codable, Sendable, Equatable {
         public var checked: String?
         public var lifecycle: AgentLifecycle?
     }
 
-    /// com.dozersandbox/directory@1 — what the directory index, `doz search` and the Quick try show.
+    /// com.dozable/directory@1 — what the directory index, `doz search` and the Quick try show.
     public struct Directory: Codable, Sendable, Equatable {
         public var aliases: [String]?
         public var icon: String?
@@ -341,8 +341,8 @@ extension RecipeDocument {
         let v = args.version
         guard v.default.range(of: "^(?:" + v.pattern + ")$", options: .regularExpression) != nil else { throw bad("args.version.default does not match its pattern") }
         guard v.buildArg.range(of: "^[A-Za-z_][A-Za-z0-9_]*$", options: .regularExpression) != nil else { throw bad("args.version.buildArg") }
-        guard provides == ["com.dozersandbox/\(product)@${{ kit.args.version }}"] else {
-            throw bad("provides is [\"com.dozersandbox/\(product)@${{ kit.args.version }}\"]")
+        guard provides == ["com.dozable/\(product)@${{ kit.args.version }}"] else {
+            throw bad("provides is [\"com.dozable/\(product)@${{ kit.args.version }}\"]")
         }
         let types = capabilities.map(\.type)
         for t in [Types.networkPolicy, Types.install, Types.launch, Types.auth, Types.gateways, Types.directory] where types.filter({ $0 == t }).count != 1 {
@@ -355,7 +355,7 @@ extension RecipeDocument {
         // The Kit parts Dozer derives: equal, or the file is out of date.
         let want = Self.networkRules(recipe)
         guard networkPolicy.install == nil, networkPolicy.runtime == want else {
-            throw bad("network-policy@1 runtime must be \(Self.describe(want)) (derived from config.dozer and the key provider) — and no install phase")
+            throw bad("network-policy@1 runtime must be \(Self.describe(want)) (derived from config.dozable and the key provider) — and no install phase")
         }
         for c in credentials {
             guard c.phase == "runtime" else { throw bad("credential@1 \(c.service): phase runtime") }
@@ -366,7 +366,7 @@ extension RecipeDocument {
         if let a = agentContext {
             guard a.directory.hasPrefix(Self.guestHome) else { throw bad("agent-context@1 directory under \(Self.guestHome)") }
             guard a.filename.range(of: #"^[^/\\]+$"#, options: .regularExpression) != nil, a.filename != ".", a.filename != ".." else { throw bad("agent-context@1 filename") }
-            if a.dozer.kind == "skill", a.filename != "SKILL.md" { throw bad("agent-context@1: a skill's filename is SKILL.md") }
+            if a.dozable.kind == "skill", a.filename != "SKILL.md" { throw bad("agent-context@1: a skill's filename is SKILL.md") }
         }
         for s in templateStrings {
             for name in Self.templateNames(s) where !Self.allowedTemplate(name) { throw bad("\(s): ${{ \(name) }} is not a template a recipe has") }
@@ -374,8 +374,8 @@ extension RecipeDocument {
         }
         // 617 (models@1): the check turn may name the selection's model and base URL (`make recipe-check` fills them in).
         for s in launch.check?.argv ?? [] {
-            for name in Self.templateNames(s) where !["dozer.model", "dozer.base_url"].contains(name) { throw bad("\(s): ${{ \(name) }} is not a template a check has") }
-            if !Self.templateNames(s).isEmpty, models == nil { throw bad("\(s): ${{ dozer.model }} and ${{ dozer.base_url }} need models@1") }
+            for name in Self.templateNames(s) where !["dozable.model", "dozable.base_url"].contains(name) { throw bad("\(s): ${{ \(name) }} is not a template a check has") }
+            if !Self.templateNames(s).isEmpty, models == nil { throw bad("\(s): ${{ dozable.model }} and ${{ dozable.base_url }} need models@1") }
         }
     }
 
@@ -430,8 +430,8 @@ extension RecipeDocument {
     }
 
     static func allowedTemplate(_ name: String) -> Bool {
-        name == "kit.args.version" || name == "dozer.build" || name == "dozer.placeholder" || name == "dozer.model" || name == "dozer.base_url"
-            || name.range(of: #"^dozer\.gateway\.endpoint\.[a-z0-9-]+$"#, options: .regularExpression) != nil
+        name == "kit.args.version" || name == "dozable.build" || name == "dozable.placeholder" || name == "dozable.model" || name == "dozable.base_url"
+            || name.range(of: #"^dozable\.gateway\.endpoint\.[a-z0-9-]+$"#, options: .regularExpression) != nil
     }
 
     /// A `{name}` left in the old syntax.
@@ -440,7 +440,7 @@ extension RecipeDocument {
         return stripped.range(of: #"\{[a-z][a-z0-9.-]*\}"#, options: .regularExpression) != nil
     }
 
-    /// `${{ kit.args.version }}` → `{version}`, `${{ dozer.NAME }}` → `{NAME}` — the model's own syntax.
+    /// `${{ kit.args.version }}` → `{version}`, `${{ dozable.NAME }}` → `{NAME}` — the model's own syntax.
     static func toModel(_ s: String) -> String {
         let re = try! NSRegularExpression(pattern: templatePattern)
         let ns = s as NSString
@@ -448,13 +448,13 @@ extension RecipeDocument {
         for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
             out += ns.substring(with: NSRange(location: last, length: m.range.location - last))
             let name = ns.substring(with: m.range(at: 1))
-            out += "{" + (name == "kit.args.version" ? "version" : String(name.dropFirst("dozer.".count))) + "}"
+            out += "{" + (name == "kit.args.version" ? "version" : String(name.dropFirst("dozable.".count))) + "}"
             last = m.range.location + m.range.length
         }
         return out + ns.substring(from: last)
     }
 
-    /// `{version}` → `${{ kit.args.version }}`, `{NAME}` → `${{ dozer.NAME }}`.
+    /// `{version}` → `${{ kit.args.version }}`, `{NAME}` → `${{ dozable.NAME }}`.
     static func toFile(_ s: String) -> String {
         let re = try! NSRegularExpression(pattern: #"\{([a-z][a-z0-9._-]*)\}"#)
         let ns = s as NSString
@@ -462,7 +462,7 @@ extension RecipeDocument {
         for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {
             out += ns.substring(with: NSRange(location: last, length: m.range.location - last))
             let name = ns.substring(with: m.range(at: 1))
-            out += "${{ " + (name == "version" ? "kit.args.version" : "dozer." + name) + " }}"
+            out += "${{ " + (name == "version" ? "kit.args.version" : "dozable." + name) + " }}"
             last = m.range.location + m.range.length
         }
         return out + ns.substring(from: last)
@@ -528,8 +528,8 @@ extension RecipeDocument {
     func recipeUnchecked() throws -> AgentRecipe {
         let i = install, l = launch, d = directory
         let prompt = agentContext.map { a in
-            AgentRecipe.Prompt(kind: a.dozer.kind, dir: Self.toModelPath(a.directory), file: a.dozer.kind == "skill" ? nil : a.filename,
-                               manifest: a.dozer.manifest, launcherArg: a.dozer.launcherArg)
+            AgentRecipe.Prompt(kind: a.dozable.kind, dir: Self.toModelPath(a.directory), file: a.dozable.kind == "skill" ? nil : a.filename,
+                               manifest: a.dozable.manifest, launcherArg: a.dozable.launcherArg)
         }
         return AgentRecipe(
             schema: 1, id: product, title: displayName, description: description, publisher: author, licence: d.licence ?? licenses[0], homepage: sourceUrl,
@@ -544,8 +544,8 @@ extension RecipeDocument {
                                        env: l.env, firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, service: l.service,
                                        modelArgs: l.modelArgs, modelArgsAfter: l.modelArgsAfter),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
-            credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozer.accounts, envAliases: $0.dozer.envAliases) },
-            network: networkPolicy.dozer, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
+            credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozable.accounts, envAliases: $0.dozable.envAliases) },
+            network: networkPolicy.dozable, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
             verify: l.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toModel)) }, smoke: l.check,
             terms: d.terms, lifecycle: currency?.lifecycle, icon: d.icon, checked: currency?.checked, settings: l.settings, auth: auth,
             gateways: gateways.entries.map { Self.mapGateway($0, Self.toModel) }, tags: d.tags, catalogKind: d.kind, categories: d.categories, guide: guide,
@@ -567,22 +567,22 @@ extension RecipeDocument {
         args = Args(version: KitArg(default: r.install.pinned.version, pattern: versionPattern,
                                     buildArg: r.id.uppercased().replacingOccurrences(of: "-", with: "_") + "_VERSION",
                                     description: "The \(r.title) release Dozable installs (its pin)."))
-        provides = ["com.dozersandbox/\(r.id)@${{ kit.args.version }}"]
+        provides = ["com.dozable/\(r.id)@${{ kit.args.version }}"]
         typealias T = Types
         var caps: [RecipeCapability] = [
-            RecipeCapability(type: T.networkPolicy, config: .networkPolicy(NetworkPolicy(install: nil, runtime: Self.networkRules(r), dozer: r.network))),
+            RecipeCapability(type: T.networkPolicy, config: .networkPolicy(NetworkPolicy(install: nil, runtime: Self.networkRules(r), dozable: r.network))),
         ]
         for c in r.credentials {
             caps.append(RecipeCapability(type: T.credential, description: (KeyProviders.provider(c.provider)?.title ?? c.provider) + " API access",
                                          config: .credential(Credential(service: c.provider, phase: "runtime",
                                                                         apiKey: Self.apiKey(c.provider) ?? Credential.ApiKey(name: "", proxyManaged: true, inject: []),
-                                                                        dozer: Credential.CredentialDozable(accounts: c.accounts, envAliases: c.envAliases)))))
+                                                                        dozable: Credential.CredentialDozable(accounts: c.accounts, envAliases: c.envAliases)))))
         }
         for p in r.state.persist { caps.append(RecipeCapability(type: T.volume, config: .volume(Volume(path: Self.toGuest(p))))) }
         if let p = r.prompt {
             caps.append(RecipeCapability(type: T.agentContext, config: .agentContext(AgentContext(
                 directory: Self.toGuest(p.dir ?? ""), filename: p.file ?? "SKILL.md",
-                dozer: AgentContext.AgentContextDozable(kind: p.kind, manifest: p.manifest, launcherArg: p.launcherArg)))))
+                dozable: AgentContext.AgentContextDozable(kind: p.kind, manifest: p.manifest, launcherArg: p.launcherArg)))))
         }
         let i = r.install
         caps.append(RecipeCapability(type: T.install, config: .install(Install(
@@ -615,8 +615,8 @@ extension RecipeDocument {
 
 extension RecipeDocument {
     /// The recipe as a Docker Sandbox Kit v3 descriptor (a JSON object): `schemaVersion: "3"`, Kit's top-level fields,
-    /// Kit's own capabilities with every `dozer:` key removed, Dozer's types kept as `optional: true` (a Kit host skips
-    /// an optional type it does not know, §7.3) with `${{ dozer.* }}` written as `{dozer.*}` (inert to Kit). The
+    /// Kit's own capabilities with every `dozable:` key removed, Dozer's types kept as `optional: true` (a Kit host skips
+    /// an optional type it does not know, §7.3) with `${{ dozable.* }}` written as `{dozable.*}` (inert to Kit). The
     /// install-and-launch part (a Dockerfile, its ENTRYPOINT) is `doz recipe export --kit`'s, later. RecipeSchemaTests
     /// checks this view against Kit's own published JSON Schema.
     public func kitDescriptor() throws -> [String: Any] {
@@ -624,7 +624,7 @@ extension RecipeDocument {
         guard let me = try JSONSerialization.jsonObject(with: try enc.encode(self)) as? [String: Any] else { return [:] }
         func inert(_ v: Any) -> Any {
             if let s = v as? String {
-                let re = try! NSRegularExpression(pattern: #"\$\{\{\s*(dozer\.[A-Za-z0-9_.-]+)\s*\}\}"#)
+                let re = try! NSRegularExpression(pattern: #"\$\{\{\s*(dozable\.[A-Za-z0-9_.-]+)\s*\}\}"#)
                 return re.stringByReplacingMatches(in: s, range: NSRange(location: 0, length: (s as NSString).length), withTemplate: "{$1}")
             }
             if let a = v as? [Any] { return a.map(inert) }
@@ -640,7 +640,7 @@ extension RecipeDocument {
             let type = c["type"] as? String ?? ""
             if Types.kit.contains(type) {
                 var cfg = c["config"] as? [String: Any] ?? [:]
-                cfg["dozer"] = nil
+                cfg["dozable"] = nil
                 e["config"] = cfg
             } else {
                 e["optional"] = true

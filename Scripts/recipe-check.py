@@ -33,7 +33,7 @@
 #   --only      screen: only the try and its first-screen check (a quick survey of every agent's first screen).
 #   --selections a recipe with models@1 (it can be tried with several providers and gateways): steps 2–5 run once PER
 #               model source it is offered — each in a fresh try with that source's FAKE key (`doz try ID --provider|
-#               --gateway SOURCE`), `${{ dozer.model }}` and `${{ dozer.base_url }}` in its check argv = that source's, the request seen on
+#               --gateway SOURCE`), `${{ dozable.model }}` and `${{ dozable.base_url }}` in its check argv = that source's, the request seen on
 #               that source's host with that key, and the leak guard to another provider AND another gateway. all
 #               (default; also $RECIPE_SELECTIONS), default (its default source only), or a list. The build is once.
 #               618: a source that takes no key (opencode-zen) is tried with no account: its requests reach its host
@@ -108,9 +108,9 @@ class Recipe:
         caps = d["capabilities"]
         cfg = lambda t: next((c["config"] for c in caps if c["type"] == t), None)
         self.pin = d["args"]["version"]["default"]
-        inst = cfg("com.dozersandbox/install@1")
+        inst = cfg("com.dozable/install@1")
         self.builtin = bool(inst.get("builtin"))
-        launch = cfg("com.dozersandbox/launch@1")
+        launch = cfg("com.dozable/launch@1")
         self.check = launch.get("check")
         self.verify = launch.get("verify", [])
         self.status = launch.get("status", "none")
@@ -120,17 +120,17 @@ class Recipe:
         self.key_env = (cred.get("apiKey") or {}).get("name")
         self.volumes = [c["config"]["path"] for c in caps if c["type"] == "com.docker.sandbox/volume@1"]
         # 617 (models@1): the model sources it can be tried with (the plan says which: `doz try ID --dry-run --json`).
-        self.models = cfg("com.dozersandbox/models@1")
+        self.models = cfg("com.dozable/models@1")
         # 617.11: its guide (the steps after the first are run too).
-        self.guide = cfg("com.dozersandbox/guide@1")
+        self.guide = cfg("com.dozable/guide@1")
         # 617 (RP-1): its web ports, and the command that serves them when the session's program does not.
-        self.ports = cfg("com.dozersandbox/ports@1")
+        self.ports = cfg("com.dozable/ports@1")
         # 617: `shell` — the default session is a login shell (a tool that answers and exits): no first screen of its own.
         self.session = launch.get("session")
         self.screen = (self.check or {}).get("screen") or {}
         # 618: a family's major is tried by the name that means IT — the family's name only for the recommended major
         # (`doz try opencode` is OpenCode 2 once 2 is recommended; OpenCode 1 is `opencode@1`). AgentRef.typed's twin.
-        fam = cfg("com.dozersandbox/family@1")
+        fam = cfg("com.dozable/family@1")
         self.typed = self.product if not fam else (fam["family"] if fam.get("recommended") else "%s@%d" % (fam["family"], fam["major"]))
 
 
@@ -403,11 +403,11 @@ class Harness:
         if first:
             step("verify", verify)
 
-        # 4. smoke — the check turn; `${{ dozer.model }}` is this selection's model
+        # 4. smoke — the check turn; `${{ dozable.model }}` is this selection's model
         def smoke():
             c = r.check
             base = self.base_urls.get((r.product, source), "")
-            argv = [a.replace("${{ dozer.model }}", model or "").replace("${{ dozer.base_url }}", base) for a in c["argv"]]
+            argv = [a.replace("${{ dozable.model }}", model or "").replace("${{ dozable.base_url }}", base) for a in c["argv"]]
             n0 = len(self.requests())
             code, out = self.doz("exec", name, "--", *argv, timeout=int(c.get("timeout") or 240) + 30)
             res["smoke_output"] = out.strip()[-400:]
@@ -763,7 +763,7 @@ def summary_markdown(report):
 # What makes every recipe's check stale: the harness, the stand-in, the shared recipe data, the format.
 SHARED = ("Scripts/recipe-check.py", "Scripts/recipes_published.py", "Scripts/fake-provider.py", "Scripts/fake-provider-up.sh", ".github/workflows/recipes.yml",
           "Sources/DozableKit/Recipes/providers.json", "Sources/DozableKit/Recipes/gateways.json", "Sources/DozableKit/Recipes/tags.json",
-          "schema/dozer-recipe-2.schema.json")
+          "schema/dozable-recipe-2.schema.json")
 
 
 def changed_recipes(base, known):

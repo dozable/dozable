@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozer-recipe-2.schema.json",
+  "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozable-recipe-2.schema.json",
   "title": "Dozable agent recipe (schema 2)",
-  "description": "One agent recipe: how Dozable installs, launches and confines a coding agent. Laid out like a Docker Sandbox Kit v3 workload descriptor (its top-level fields and a capabilities list, Kit's own capability types where Kit has them, Dozable's additions under `dozer` keys and in com.dozersandbox/* types) so that exporting a Kit descriptor is mechanical. Strict: an unknown key anywhere is an error. The spec: docs/recipes/RECIPE-FORMAT.md.",
+  "description": "One agent recipe: how Dozable installs, launches and confines a coding agent. Laid out like a Docker Sandbox Kit v3 workload descriptor (its top-level fields and a capabilities list, Kit's own capability types where Kit has them, Dozable's additions under `dozable` keys and in com.dozable/* types) so that exporting a Kit descriptor is mechanical. Strict: an unknown key anywhere is an error. The spec: docs/recipes/RECIPE-FORMAT.md.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "kind", "id", "displayName", "description", "author", "sourceUrl", "licenses", "args", "provides", "capabilities"],
@@ -33,7 +33,7 @@
         }
       }
     },
-    "provides": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "pattern": "^com\\.dozersandbox/[a-z][a-z0-9-]*@\\$\\{\\{ kit\\.args\\.version \\}\\}$" } },
+    "provides": { "type": "array", "minItems": 1, "maxItems": 1, "items": { "type": "string", "pattern": "^com\\.dozable/[a-z][a-z0-9-]*@\\$\\{\\{ kit\\.args\\.version \\}\\}$" } },
     "capabilities": {
       "type": "array",
       "items": {
@@ -79,20 +79,20 @@
     "kitHostPort": { "type": "string", "pattern": "^[a-z0-9.-]+:443$" },
 
     "isNetworkPolicy": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.docker.sandbox/network-policy@1" } } },
-    "isInstall": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/install@1" } } },
-    "isLaunch": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/launch@1" } } },
-    "isAuth": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/auth@1" } } },
-    "isGateways": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/gateways@1" } } },
-    "isDirectory": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/directory@1" } } },
+    "isInstall": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/install@1" } } },
+    "isLaunch": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/launch@1" } } },
+    "isAuth": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/auth@1" } } },
+    "isGateways": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/gateways@1" } } },
+    "isDirectory": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/directory@1" } } },
     "isAgentContext": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.docker.sandbox/agent-context@1" } } },
-    "isCurrency": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/currency@1" } } },
-    "isModels": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/models@1" } } },
+    "isCurrency": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/currency@1" } } },
+    "isModels": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/models@1" } } },
 
     "modelsCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/models@1: the model sources (providers and gateways) it can be tried with, and how a choice reaches its own settings. Dozable, never the recipe, owns the key's destination hosts.",
+      "description": "com.dozable/models@1: the model sources (providers and gateways) it can be tried with, and how a choice reaches its own settings. Dozable, never the recipe, owns the key's destination hosts.",
       "properties": {
-        "type": { "const": "com.dozersandbox/models@1" },
+        "type": { "const": "com.dozable/models@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["default"],
@@ -120,24 +120,24 @@
         }
       }
     },
-    "isPorts": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/ports@1" } } },
-    "isGuide": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/guide@1" } } },
-    "isFamily": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozersandbox/family@1" } } },
+    "isPorts": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/ports@1" } } },
+    "isGuide": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/guide@1" } } },
+    "isFamily": { "type": "object", "required": ["type"], "properties": { "type": { "const": "com.dozable/family@1" } } },
 
     "networkPolicyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "Kit's network-policy@1. runtime.allow/deny are DERIVED (host:443 for the model's and vendor's hosts; for the excluded and quiet ones) and must equal what Dozable derives; Dozable's network is under dozer.",
+      "description": "Kit's network-policy@1. runtime.allow/deny are DERIVED (host:443 for the model's and vendor's hosts; for the excluded and quiet ones) and must equal what Dozable derives; Dozable's network is under dozable.",
       "properties": {
         "type": { "const": "com.docker.sandbox/network-policy@1" },
         "description": { "type": "string" },
         "config": {
-          "type": "object", "additionalProperties": false, "required": ["dozer"],
+          "type": "object", "additionalProperties": false, "required": ["dozable"],
           "properties": {
             "runtime": {
               "type": "object", "additionalProperties": false,
               "properties": { "allow": { "type": "array", "items": { "$ref": "#/$defs/kitHostPort" } }, "deny": { "type": "array", "items": { "$ref": "#/$defs/kitHostPort" } } }
             },
-            "dozer": { "$ref": "#/$defs/network" }
+            "dozable": { "$ref": "#/$defs/network" }
           }
         }
       }
@@ -185,7 +185,7 @@
         "type": { "const": "com.docker.sandbox/credential@1" },
         "description": { "type": "string" },
         "config": {
-          "type": "object", "additionalProperties": false, "required": ["service", "phase", "apiKey", "dozer"],
+          "type": "object", "additionalProperties": false, "required": ["service", "phase", "apiKey", "dozable"],
           "properties": {
             "service": { "type": "string", "pattern": "^[a-z0-9]([a-z0-9-]{0,62}[a-z0-9])?$" },
             "phase": { "const": "runtime" },
@@ -203,7 +203,7 @@
                 }
               }
             },
-            "dozer": {
+            "dozable": {
               "type": "object", "additionalProperties": false, "required": ["accounts"],
               "properties": {
                 "accounts": { "$ref": "#/$defs/strings" },
@@ -228,16 +228,16 @@
 
     "agentContextCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "Kit's agent-context@1: where Dozable writes the facts the agent reads; how, under dozer.",
+      "description": "Kit's agent-context@1: where Dozable writes the facts the agent reads; how, under dozable.",
       "properties": {
         "type": { "const": "com.docker.sandbox/agent-context@1" },
         "description": { "type": "string" },
         "config": {
-          "type": "object", "additionalProperties": false, "required": ["directory", "filename", "dozer"],
+          "type": "object", "additionalProperties": false, "required": ["directory", "filename", "dozable"],
           "properties": {
             "directory": { "$ref": "#/$defs/guestPath" },
             "filename": { "type": "string", "pattern": "^[^/\\\\]+$" },
-            "dozer": {
+            "dozable": {
               "type": "object", "additionalProperties": false, "required": ["kind"],
               "properties": {
                 "kind": { "enum": ["skill", "context-file"] },
@@ -255,9 +255,9 @@
 
     "installCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/install@1: how Dozable installs the agent (the version is args.version).",
+      "description": "com.dozable/install@1: how Dozable installs the agent (the version is args.version).",
       "properties": {
-        "type": { "const": "com.dozersandbox/install@1" },
+        "type": { "const": "com.dozable/install@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["kind", "binary"],
@@ -301,9 +301,9 @@
 
     "launchCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/launch@1: how Dozable runs the agent.",
+      "description": "com.dozable/launch@1: how Dozable runs the agent.",
       "properties": {
-        "type": { "const": "com.dozersandbox/launch@1" },
+        "type": { "const": "com.dozable/launch@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false,
@@ -376,9 +376,9 @@
 
     "authCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/auth@1: the ways a person lets the agent reach its model, recommended first.",
+      "description": "com.dozable/auth@1: the ways a person lets the agent reach its model, recommended first.",
       "properties": {
-        "type": { "const": "com.dozersandbox/auth@1" },
+        "type": { "const": "com.dozable/auth@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["methods"],
@@ -409,9 +409,9 @@
 
     "gatewaysCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/gateways@1: how the agent works through each model gateway.",
+      "description": "com.dozable/gateways@1: how the agent works through each model gateway.",
       "properties": {
-        "type": { "const": "com.dozersandbox/gateways@1" },
+        "type": { "const": "com.dozable/gateways@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["entries"],
@@ -450,9 +450,9 @@
 
     "guideCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/guide@1: the companion guide — what it is, the first steps (the first with a command is the check turn), tips, docs, a notice. Dozable adds the sandbox's facts.",
+      "description": "com.dozable/guide@1: the companion guide — what it is, the first steps (the first with a command is the check turn), tips, docs, a notice. Dozable adds the sandbox's facts.",
       "properties": {
-        "type": { "const": "com.dozersandbox/guide@1" },
+        "type": { "const": "com.dozable/guide@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["intro", "steps"],
@@ -475,9 +475,9 @@
 
     "portsCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/ports@1 (RP-1): the web ports the program serves in the sandbox, each forwarded to the Mac's loopback (127.0.0.1) while the sandbox runs, with an Open button.",
+      "description": "com.dozable/ports@1 (RP-1): the web ports the program serves in the sandbox, each forwarded to the Mac's loopback (127.0.0.1) while the sandbox runs, with an Open button.",
       "properties": {
-        "type": { "const": "com.dozersandbox/ports@1" },
+        "type": { "const": "com.dozable/ports@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["ports"],
@@ -505,9 +505,9 @@
 
     "familyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/family@1 (618): one major release line of a tool whose majors are separate recipes. NAME is the family's recommended major, NAME@MAJOR a major, NAME@VERSION an exact release.",
+      "description": "com.dozable/family@1 (618): one major release line of a tool whose majors are separate recipes. NAME is the family's recommended major, NAME@MAJOR a major, NAME@VERSION an exact release.",
       "properties": {
-        "type": { "const": "com.dozersandbox/family@1" },
+        "type": { "const": "com.dozable/family@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["family", "major", "title"],
@@ -523,9 +523,9 @@
 
     "currencyCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/currency@1: where the agent stands with its maker, and when the recipe was last checked.",
+      "description": "com.dozable/currency@1: where the agent stands with its maker, and when the recipe was last checked.",
       "properties": {
-        "type": { "const": "com.dozersandbox/currency@1" },
+        "type": { "const": "com.dozable/currency@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "minProperties": 1,
@@ -546,9 +546,9 @@
 
     "directoryCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozersandbox/directory@1: what the directory index, doz search and the Quick try show.",
+      "description": "com.dozable/directory@1: what the directory index, doz search and the Quick try show.",
       "properties": {
-        "type": { "const": "com.dozersandbox/directory@1" },
+        "type": { "const": "com.dozable/directory@1" },
         "description": { "type": "string" },
         "config": {
           "type": "object", "additionalProperties": false, "required": ["default_base", "platforms", "tags", "kind", "categories"],

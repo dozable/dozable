@@ -4,7 +4,7 @@ import DozableKit
 import DozableHost
 
 // 617 (616.07) — `doz search [THING]`: is it supported here? Agents, key providers and bases this Dozer knows (the
-// directory index, `dozer-directory/v1`, built from the compiled-in recipes), with your key and the try command. For
+// directory index, `dozable-directory/v1`, built from the compiled-in recipes), with your key and the try command. For
 // scripts: --json and the exit code. `doz agent ls|show` are its hidden aliases.
 
 /// What THIS Mac has for a hit — never in the index (no user state there).
@@ -172,7 +172,7 @@ struct SearchCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Is it supported on this base? (doz base ls)") var base: String?
     @Flag(name: .long, help: "One agent in full: what it installs, which hosts it may reach, its keys, what is kept out, gateway levels, tags.")
     var details = false
-    @Option(name: .long, help: ArgumentHelp("Write the whole directory index (dozer-directory/v1, unsigned) to FILE.", visibility: .hidden))
+    @Option(name: .long, help: ArgumentHelp("Write the whole directory index (dozable-directory/v1, unsigned) to FILE.", visibility: .hidden))
     var index: String?
     @Flag(name: .long, help: ArgumentHelp("With --index: replace FILE.", visibility: .hidden)) var force = false
 

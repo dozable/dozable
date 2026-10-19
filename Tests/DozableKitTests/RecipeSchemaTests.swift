@@ -3,13 +3,13 @@ import XCTest
 @testable import DozableKit
 
 /// 617: the recipe format's contract. Every recipe is valid against the published JSON Schema
-/// (schema/dozer-recipe-2.schema.json), the Swift loader refuses what the schema refuses, the Kit-shaped view of every
+/// (schema/dozable-recipe-2.schema.json), the Swift loader refuses what the schema refuses, the Kit-shaped view of every
 /// recipe is a valid Docker Sandbox Kit v3 descriptor (against Kit's own vendored schema), and the document ⇄ model
 /// mapping is lossless. The icon registry's manifest is held to its own schema the same way.
 final class RecipeSchemaTests: XCTestCase {
     static let root = AgentRecipeTests.packageRoot
-    static let recipeSchema = root.appendingPathComponent("schema/dozer-recipe-2.schema.json")
-    static let iconSchema = root.appendingPathComponent("schema/dozer-icons-1.schema.json")
+    static let recipeSchema = root.appendingPathComponent("schema/dozable-recipe-2.schema.json")
+    static let iconSchema = root.appendingPathComponent("schema/dozable-icons-1.schema.json")
     static let kitSchema = root.appendingPathComponent("Tests/Fixtures/kit-v3/kit.schema.json")
     static let compiled = root.appendingPathComponent("Sources/DozableKit/Recipes/compiled")
 
@@ -57,12 +57,12 @@ final class RecipeSchemaTests: XCTestCase {
             ("an id with capitals", { $0["id"] = "Anthropic/claude-code" }),
             ("a licence that is no SPDX id", { $0["licenses"] = ["the proprietary licence"] }),
             ("provides something else", { $0["provides"] = ["claude-code@1.0.0"] }),
-            ("an unknown capability type", { t in var c = t["capabilities"] as! [[String: Any]]; c.append(["type": "com.dozersandbox/nope@1", "config": [:]]); t["capabilities"] = c }),
+            ("an unknown capability type", { t in var c = t["capabilities"] as! [[String: Any]]; c.append(["type": "com.dozable/nope@1", "config": [:]]); t["capabilities"] = c }),
             ("a second install capability", { t in var c = t["capabilities"] as! [[String: Any]]; c.append(c[capIndex(t, T.install)]); t["capabilities"] = c }),
             ("no launch capability", { t in var c = t["capabilities"] as! [[String: Any]]; c.remove(at: capIndex(t, T.launch)); t["capabilities"] = c }),
             ("a capability name (export's)", { editCap(&$0, T.install) { $0["name"] = "x" } }),
             ("an unknown key in a Kit config", { editConfig(&$0, T.networkPolicy) { $0["extra"] = true } }),
-            ("an unknown key in a dozer block", { editConfig(&$0, T.networkPolicy) { c in var d = c["dozer"] as! [String: Any]; d["extra"] = 1; c["dozer"] = d } }),
+            ("an unknown key in a dozable block", { editConfig(&$0, T.networkPolicy) { c in var d = c["dozable"] as! [String: Any]; d["extra"] = 1; c["dozable"] = d } }),
             ("a network install phase", { editConfig(&$0, T.networkPolicy) { $0["install"] = ["allow": ["registry.npmjs.org:443"]] } }),
             ("a runtime allow without its port", { editConfig(&$0, T.networkPolicy) { c in var r = c["runtime"] as! [String: Any]; var a = r["allow"] as! [String]; a[0] = a[0].replacingOccurrences(of: ":443", with: ""); r["allow"] = a; c["runtime"] = r } }),
             ("a credential's install phase", { editConfig(&$0, T.credential) { $0["phase"] = "install" } }),
@@ -129,19 +129,19 @@ final class RecipeSchemaTests: XCTestCase {
             for c in caps where !RecipeDocument.Types.kit.contains(c["type"] as? String ?? "") {
                 XCTAssertEqual(c["optional"] as? Bool, true, "\(f): \(c["type"] ?? "") is optional, which a Kit host skips (§7.3)")
             }
-            XCTAssertFalse(text.contains("\"dozer\":"), "\(f): no dozer key reaches Kit")
+            XCTAssertFalse(text.contains("\"dozable\":"), "\(f): no dozable key reaches Kit")
             XCTAssertEqual(kit["schemaVersion"] as? String, "3")
         }
     }
 
-    /// Why export removes the `dozer:` keys: Kit's capability configs are strict too.
+    /// Why export removes the `dozable:` keys: Kit's capability configs are strict too.
     func testKitRefusesADozableKeyLeftInItsOwnCapability() throws {
         var v = JSONSchemaValidator()
         let (_, t) = try XCTUnwrap(try Self.trees().first)
         var kit = try RecipeDocument.decode(JSONSerialization.data(withJSONObject: t)).kitDescriptor()
         var caps = kit["capabilities"] as! [[String: Any]]
         var cfg = caps[0]["config"] as! [String: Any]
-        cfg["dozer"] = ["model": ["id": "model"]]
+        cfg["dozable"] = ["model": ["id": "model"]]
         caps[0]["config"] = cfg
         kit["capabilities"] = caps
         XCTAssertFalse(v.validate(kit, schemaFile: Self.kitSchema).isEmpty)
@@ -161,7 +161,7 @@ final class RecipeSchemaTests: XCTestCase {
         XCTAssertEqual(RecipeDocument.apiKey("xai")?.inject.map(\.domain), ["api.x.ai"])
         // Templates: Kit's syntax in the file, the model's own inside.
         XCTAssertEqual(RecipeDocument.toModel("grok ${{ kit.args.version }}"), "grok {version}")
-        XCTAssertEqual(RecipeDocument.toFile("openrouter/{model}"), "openrouter/${{ dozer.model }}")
+        XCTAssertEqual(RecipeDocument.toFile("openrouter/{model}"), "openrouter/${{ dozable.model }}")
         XCTAssertEqual(RecipeDocument.toModel(RecipeDocument.toFile("{gateway.endpoint.v1}")), "{gateway.endpoint.v1}")
         XCTAssertFalse(RecipeDocument.allowedTemplate("kit.env.HOME"), "a recipe has no other template")
     }
@@ -172,7 +172,7 @@ final class RecipeSchemaTests: XCTestCase {
         let data = try Data(contentsOf: u)
         let tree = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
         XCTAssertEqual(v.validate(tree, schemaFile: Self.iconSchema), [])
-        XCTAssertEqual(tree["$schema"] as? String, "../../../../schema/dozer-icons-1.schema.json", "editors validate it")
+        XCTAssertEqual(tree["$schema"] as? String, "../../../../schema/dozable-icons-1.schema.json", "editors validate it")
         XCTAssertNoThrow(try AgentIcons.decodeManifest(data))
         // Refused by both: an unknown key, an unknown kind, a lettermark without its letters.
         var icons = tree["icons"] as! [[String: Any]]

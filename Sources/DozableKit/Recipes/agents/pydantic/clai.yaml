@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # clai (Pydantic AI) — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/clai.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: CLAI_VERSION
 provides:
-- com.dozersandbox/clai@${{ kit.args.version }}
+- com.dozable/clai@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -29,7 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
-    dozer:
+    dozable:
       model:
         id: model:clai
         title: Talk to its model provider
@@ -62,10 +62,10 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: pypi
     package: clai
@@ -174,7 +174,7 @@ capabilities:
     - wcwidth==0.9.2 --hash=sha256:674b518af28d38ee645ff97b74f5760abee5fad4bac74413bfc4b881ef2ce724
     - websockets==16.1.1 --hash=sha256:bae954c382e013d5ea5b190d2830526bfa45ad121c326da0049b8c769f185db6
     - wrapt==2.5.0 --hash=sha256:6058e12e9caa33468f9a36fb88c15a4bb30a479f997b37834b83abdbf062f264
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - clai
@@ -200,7 +200,7 @@ capabilities:
       - '--no-stream'
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -245,7 +245,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'clai (Pydantic AI) through Vercel AI Gateway: doz try clai --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -256,30 +256,30 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        OPENAI_BASE_URL: '${{ dozer.base_url }}'
-        DOZ_MODEL: 'openai-chat:${{ dozer.model }}'
+        OPENAI_BASE_URL: '${{ dozable.base_url }}'
+        DOZ_MODEL: 'openai-chat:${{ dozable.model }}'
       key_env:
       - OPENAI_API_KEY
       source: https://ai.pydantic.dev/models/openai/#openai-compatible-models
     - shape: anthropic-messages
       env:
-        ANTHROPIC_BASE_URL: '${{ dozer.base_url }}'
-        DOZ_MODEL: 'anthropic:${{ dozer.model }}'
+        ANTHROPIC_BASE_URL: '${{ dozable.base_url }}'
+        DOZ_MODEL: 'anthropic:${{ dozable.model }}'
       key_env:
       - ANTHROPIC_API_KEY
       source: https://ai.pydantic.dev/models/anthropic/
     models:
       xai: grok-4-1-fast
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: ai-tool
@@ -298,7 +298,7 @@ capabilities:
       evidence: 'A2 VM proof: its check turn answered DOZ_FAKE_OK through the fake provider (make recipe-check; probes/617-*/recipes/clai)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "clai is Pydantic AI's command line: its session on the left is a chat, and `clai` with a prompt answers once."
     steps:

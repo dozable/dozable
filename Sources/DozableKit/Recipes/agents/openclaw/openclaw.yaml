@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # OpenClaw — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/openclaw.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: OPENCLAW_VERSION
 provides:
-- com.dozersandbox/openclaw@${{ kit.args.version }}
+- com.dozable/openclaw@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -28,7 +28,7 @@ capabilities:
       - api.x.ai:443
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
-    dozer:
+    dozable:
       model:
         id: model:openclaw
         title: Talk to its model provider
@@ -59,20 +59,20 @@ capabilities:
       - domain: generativelanguage.googleapis.com
         header: x-goog-api-key
         format: '%s'
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.openclaw
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: npm
     package: openclaw
     binary: openclaw
     needs_node: '24'
     integrity: sha512-ncl6LntMlf76K39LFhVrDXQTbaGNAG5j52f7PL5P8vIn0knWmCrvfAe9DHMslFq+47HeOWBH2CBYQH8zEb+UAA==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - openclaw
@@ -100,11 +100,11 @@ capabilities:
       - say ok
       - --auth-env-only
       - --model
-      - '${{ dozer.model }}'
+      - '${{ dozable.model }}'
       - --timeout
       - '120'
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -142,7 +142,7 @@ capabilities:
       keys_page: https://openrouter.ai/keys
       note: 'OpenClaw through OpenRouter: doz try openclaw --gateway openrouter (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -151,42 +151,42 @@ capabilities:
       endpoint: v1
       how:
         env:
-          DOZ_MODEL: '${{ dozer.model }}'
+          DOZ_MODEL: '${{ dozable.model }}'
       evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
       level: 'no'
       reason: 'its own client has no Vercel AI Gateway setting (an OpenAI-compatible base URL), so it is not offered'
       checked: '2026-10-14'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: google
     native:
     - source: anthropic
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
     - source: openai
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
     - source: xai
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
     - source: google
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
     - source: openrouter
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
+        DOZ_MODEL: '${{ dozable.model }}'
     models:
       anthropic: anthropic/claude-sonnet-4-6
       openai: openai/gpt-5.4-mini
       xai: xai/grok-4-1-fast
       google: google/gemini-2.5-flash
       openrouter: openrouter/openai/gpt-5.4-mini
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: ai-tool
@@ -208,7 +208,7 @@ capabilities:
       evidence: 'A2 VM proof: one agent exec turn answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/openclaw)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (Google AI by default). Its Gateway (TUI, Control UI, chat channels) needs a background service and a forwarded port, which Dozable does not offer yet.
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "OpenClaw is a self-hosted personal agent with shell and file tools. Here it runs one turn at a time from your shell."
     steps:

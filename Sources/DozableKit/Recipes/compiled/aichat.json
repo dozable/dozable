@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -72,7 +72,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -101,7 +101,7 @@
         "payload" : "aichat",
         "url" : "https://github.com/sigoden/aichat/releases/download/v${{ kit.args.version }}/aichat-v${{ kit.args.version }}-aarch64-unknown-linux-musl.tar.gz"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -144,7 +144,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -201,7 +201,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -213,7 +213,7 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "AICHAT_MODEL" : "openrouter:${{ dozer.model }}",
+                "AICHAT_MODEL" : "openrouter:${{ dozable.model }}",
                 "AICHAT_PROVIDER" : "openrouter"
               }
             },
@@ -228,7 +228,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -236,7 +236,7 @@
         "native" : [
           {
             "env" : {
-              "AICHAT_MODEL" : "claude:${{ dozer.model }}",
+              "AICHAT_MODEL" : "claude:${{ dozable.model }}",
               "AICHAT_PROVIDER" : "claude"
             },
             "key_env" : [
@@ -246,41 +246,41 @@
           },
           {
             "env" : {
-              "AICHAT_MODEL" : "openai:${{ dozer.model }}",
+              "AICHAT_MODEL" : "openai:${{ dozable.model }}",
               "AICHAT_PROVIDER" : "openai"
             },
             "source" : "openai"
           },
           {
             "env" : {
-              "AICHAT_MODEL" : "xai:${{ dozer.model }}",
+              "AICHAT_MODEL" : "xai:${{ dozable.model }}",
               "AICHAT_PROVIDER" : "xai"
             },
             "source" : "xai"
           },
           {
             "env" : {
-              "AICHAT_MODEL" : "gemini:${{ dozer.model }}",
+              "AICHAT_MODEL" : "gemini:${{ dozable.model }}",
               "AICHAT_PROVIDER" : "gemini"
             },
             "source" : "google"
           },
           {
             "env" : {
-              "AICHAT_MODEL" : "openrouter:${{ dozer.model }}",
+              "AICHAT_MODEL" : "openrouter:${{ dozable.model }}",
               "AICHAT_PROVIDER" : "openrouter"
             },
             "source" : "openrouter"
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -308,7 +308,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its --serve playground opens from the sandbox's Open button (doz open)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -325,7 +325,7 @@
           "--serve"
         ]
       },
-      "type" : "com.dozersandbox/ports@1"
+      "type" : "com.dozable/ports@1"
     },
     {
       "config" : {
@@ -354,7 +354,7 @@
           "The model is `AICHAT_MODEL`, set for the key you chose; `-m` picks another."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "An all-in-one LLM command line: a chat REPL, a shell assistant, roles, sessions and RAG; on an Anthropic, OpenAI, xAI, Google AI or OpenRouter key.",
@@ -365,7 +365,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/aichat@${{ kit.args.version }}"
+    "com.dozable/aichat@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/sigoden/aichat"

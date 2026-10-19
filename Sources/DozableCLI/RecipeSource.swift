@@ -63,7 +63,7 @@ public enum RecipeSource {
         "entries", "shape", "endpoint", "how", "model_args", "proxy_route", "from_host", "unmapped", "limits", "notes", "evidence", "source",
         "checked", "lifecycle", "by",
         "aliases", "icon", "default_base", "platforms", "glibc", "musl", "base", "tags", "terms", "licence",
-        "dozer",
+        "dozable",
     ]
     static let rank: [String: Int] = { var r: [String: Int] = [:]; for (i, k) in fieldOrder.enumerated() where r[k] == nil { r[k] = i }; return r }()
 

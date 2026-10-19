@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -80,7 +80,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -202,7 +202,7 @@
           "zstandard==0.25.0 --hash=sha256:bfc4e20784722098822e3eee42b8e576b379ed72cca4a7cb856ae733e62192ea"
         ]
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -255,7 +255,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -322,7 +322,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -341,7 +341,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -352,9 +352,9 @@
         "shapes" : [
           {
             "env" : {
-              "VIBE_ACTIVE_MODEL" : "dozer",
-              "VIBE_MODELS" : "[{\"name\":\"${{ dozer.model }}\",\"provider\":\"dozer\",\"alias\":\"dozer\"}]",
-              "VIBE_PROVIDERS" : "[{\"name\":\"dozer\",\"api_base\":\"${{ dozer.base_url }}\",\"api_key_env_var\":\"OPENAI_API_KEY\",\"api_style\":\"openai\"}]"
+              "VIBE_ACTIVE_MODEL" : "doz",
+              "VIBE_MODELS" : "[{\"name\":\"${{ dozable.model }}\",\"provider\":\"dozable\",\"alias\":\"dozable\"}]",
+              "VIBE_PROVIDERS" : "[{\"name\":\"dozable\",\"api_base\":\"${{ dozable.base_url }}\",\"api_key_env_var\":\"OPENAI_API_KEY\",\"api_style\":\"openai\"}]"
             },
             "key_env" : [
               "OPENAI_API_KEY"
@@ -364,9 +364,9 @@
           },
           {
             "env" : {
-              "VIBE_ACTIVE_MODEL" : "dozer",
-              "VIBE_MODELS" : "[{\"name\":\"${{ dozer.model }}\",\"provider\":\"dozer\",\"alias\":\"dozer\"}]",
-              "VIBE_PROVIDERS" : "[{\"name\":\"dozer\",\"api_base\":\"${{ dozer.base_url }}\",\"api_key_env_var\":\"ANTHROPIC_API_KEY\",\"api_style\":\"anthropic\"}]"
+              "VIBE_ACTIVE_MODEL" : "doz",
+              "VIBE_MODELS" : "[{\"name\":\"${{ dozable.model }}\",\"provider\":\"dozable\",\"alias\":\"dozable\"}]",
+              "VIBE_PROVIDERS" : "[{\"name\":\"dozable\",\"api_base\":\"${{ dozable.base_url }}\",\"api_key_env_var\":\"ANTHROPIC_API_KEY\",\"api_style\":\"anthropic\"}]"
             },
             "key_env" : [
               "ANTHROPIC_API_KEY"
@@ -376,13 +376,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -413,7 +413,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -437,7 +437,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Mistral AI's coding agent for the terminal, on the key of the provider or gateway you choose (xAI by default; Vibe's own provider settings).",
@@ -448,7 +448,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/mistral-vibe@${{ kit.args.version }}"
+    "com.dozable/mistral-vibe@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/mistralai/mistral-vibe"

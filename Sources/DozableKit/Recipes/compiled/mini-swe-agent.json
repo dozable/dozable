@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -80,7 +80,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -186,7 +186,7 @@
           "zipp==4.1.1 --hash=sha256:8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c"
         ]
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -231,7 +231,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -298,7 +298,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -317,7 +317,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -328,8 +328,8 @@
         "shapes" : [
           {
             "env" : {
-              "MSWEA_MODEL_NAME" : "openai/${{ dozer.model }}",
-              "OPENAI_BASE_URL" : "${{ dozer.base_url }}"
+              "MSWEA_MODEL_NAME" : "openai/${{ dozable.model }}",
+              "OPENAI_BASE_URL" : "${{ dozable.base_url }}"
             },
             "key_env" : [
               "OPENAI_API_KEY"
@@ -339,8 +339,8 @@
           },
           {
             "env" : {
-              "ANTHROPIC_BASE_URL" : "${{ dozer.base_url }}",
-              "MSWEA_MODEL_NAME" : "anthropic/${{ dozer.model }}"
+              "ANTHROPIC_BASE_URL" : "${{ dozable.base_url }}",
+              "MSWEA_MODEL_NAME" : "anthropic/${{ dozable.model }}"
             },
             "key_env" : [
               "ANTHROPIC_API_KEY"
@@ -350,13 +350,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -387,7 +387,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -411,7 +411,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "A minimal bash-only coding agent from the SWE-agent team, on the key of the provider or gateway you choose (xAI by default).",
@@ -422,7 +422,7 @@
     "MIT"
   ],
   "provides" : [
-    "com.dozersandbox/mini-swe-agent@${{ kit.args.version }}"
+    "com.dozable/mini-swe-agent@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/SWE-agent/mini-swe-agent"

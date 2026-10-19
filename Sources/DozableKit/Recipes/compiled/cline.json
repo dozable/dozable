@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -99,7 +99,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -125,7 +125,7 @@
         "payload" : "bin/cline",
         "platform_package" : "@cline/cli-linux-arm64"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -187,7 +187,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -261,7 +261,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -280,7 +280,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -291,28 +291,28 @@
         "native" : [
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "anthropic"
             },
             "source" : "anthropic"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "openai-native"
             },
             "source" : "openai"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "xai"
             },
             "source" : "xai"
           },
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "gemini"
             },
             "source" : "google"
@@ -320,7 +320,7 @@
           {
             "docs" : "https://docs.cline.bot/cline-cli/overview",
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "openrouter"
             },
             "source" : "openrouter"
@@ -328,20 +328,20 @@
           {
             "docs" : "https://docs.cline.bot/cline-cli/overview",
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}",
               "DOZ_MODEL_PROVIDER" : "vercel-ai-gateway"
             },
             "source" : "vercel-ai-gateway"
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -378,7 +378,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -402,7 +402,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Cline's coding agent for the terminal (no Cline account), on the key of the provider or gateway you choose (xAI by default).",
@@ -413,7 +413,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/cline@${{ kit.args.version }}"
+    "com.dozable/cline@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/cline/cline"

@@ -1,6 +1,6 @@
 import Foundation
 
-// 617 (616.03 §4.5, D12) — the directory index, `dozer-directory/v1`: every agent, key provider and base this Dozer
+// 617 (616.03 §4.5, D12) — the directory index, `dozable-directory/v1`: every agent, key provider and base this Dozer
 // knows, with its honest status. ONE format, three readers: `doz search` / `doz try` (built from the compiled-in data
 // now; fetched later), the dashboard (later) and directory.dozersandbox.com (later). Generated, never hand-written.
 //
@@ -8,7 +8,7 @@ import Foundation
 //   feed's rule). Every string is plain text (readers render with textContent).
 // · No user state: whether YOU have a key is never in it — `doz search` adds a separate `local` object per hit.
 // · Deterministic: entries sorted by kind then id; the same build writes the same bytes.
-// · Signing comes later (D12): `index.json` + `index.json.sig`, Ed25519 over `"dozer-directory/v1\n" + the exact
+// · Signing comes later (D12): `index.json` + `index.json.sig`, Ed25519 over `"dozable-directory/v1\n" + the exact
 //   bytes`, with the update feed's key — domain-separated, so a feed signature can never pass as an index's.
 
 /// A thing Dozer knows of but does not run yet (`Recipes/known.json`), with why.
@@ -61,14 +61,14 @@ public enum KnownThings {
 }
 
 public struct DirectoryIndex: Codable, Sendable, Equatable {
-    public static let format = "dozer-directory/v1"
+    public static let format = "dozable-directory/v1"
     /// What a later signature covers before the bytes (domain separation, D12).
-    public static let signaturePrefix = "dozer-directory/v1\n"
+    public static let signaturePrefix = "dozable-directory/v1\n"
 
     public var format: String
     /// ISO 8601; phase 1: the newest `checked` date of the data (deterministic for a given build).
     public var generated: String
-    public var dozer: Dozer
+    public var dozable: Dozer
     public var entries: [Entry]
 
     public struct Dozer: Codable, Sendable, Equatable {
@@ -244,7 +244,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         func standing(_ e: Entry) -> Int { (e.lifecycle?.isCurrent ?? true) ? 0 : 1 }
         entries.sort { (order[$0.kind] ?? 9, standing($0), $0.id) < (order[$1.kind] ?? 9, standing($1), $1.id) }
         let dates = recipes.compactMap(\.checked) + known.compactMap(\.checked)
-        return DirectoryIndex(format: format, generated: (dates.max() ?? "2026-01-01") + "T00:00:00Z", dozer: Dozer(version: version), entries: entries)
+        return DirectoryIndex(format: format, generated: (dates.max() ?? "2026-01-01") + "T00:00:00Z", dozable: Dozer(version: version), entries: entries)
     }
 
     public static func entry(for r: AgentRecipe) -> Entry {

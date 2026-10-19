@@ -23,7 +23,7 @@ on:
     paths:
       - 'Sources/DozableKit/Recipes/**'
       - 'profiles/**'
-      - 'schema/dozer-recipe-2.schema.json'
+      - 'schema/dozable-recipe-2.schema.json'
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'
@@ -34,7 +34,7 @@ on:
     paths:
       - 'Sources/DozableKit/Recipes/**'
       - 'profiles/**'
-      - 'schema/dozer-recipe-2.schema.json'
+      - 'schema/dozable-recipe-2.schema.json'
       - 'Scripts/fake-provider.py'
       - 'Scripts/fake-provider-up.sh'
       - 'Scripts/recipe-check.py'

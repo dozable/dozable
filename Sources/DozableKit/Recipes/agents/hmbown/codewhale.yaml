@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # CodeWhale — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/codewhale.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: CODEWHALE_VERSION
 provides:
-- com.dozersandbox/codewhale@${{ kit.args.version }}
+- com.dozable/codewhale@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -30,7 +30,7 @@ capabilities:
       - openrouter.ai:443
       deny:
       - models.dev:443
-    dozer:
+    dozable:
       model:
         id: model:codewhale
         title: Talk to its model provider
@@ -66,13 +66,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.codewhale
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://github.com/Hmbown/CodeWhale/releases/download/v${{ kit.args.version }}/codewhale-linux-arm64
@@ -81,7 +81,7 @@ capabilities:
     - github.com
     - release-assets.githubusercontent.com
     integrity: sha512-F/gS+8C4eANXPF15cRvzss7lowLk96a1tlOPZWxdNHveKURQdU9cRQ+RlW4Di0lg4TgXsfRCebR/AS1i0qhpzw==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - codewhale
@@ -119,7 +119,7 @@ capabilities:
       - exec
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -157,7 +157,7 @@ capabilities:
       keys_page: https://openrouter.ai/keys
       note: 'CodeWhale through OpenRouter: doz try codewhale --gateway openrouter (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -169,37 +169,37 @@ capabilities:
       reason: 'CodeWhale has no Vercel AI Gateway provider, and it sends a key from the environment only to a built-in provider''s own endpoint (a custom base URL needs its own stored credential)'
       source: https://github.com/Hmbown/CodeWhale/blob/v0.10.1/docs/PROVIDERS.md
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     native:
     - source: xai
       env:
         CODEWHALE_PROVIDER: xai
-        CODEWHALE_MODEL: '${{ dozer.model }}'
+        CODEWHALE_MODEL: '${{ dozable.model }}'
     - source: openai
       env:
         CODEWHALE_PROVIDER: openai
-        CODEWHALE_MODEL: '${{ dozer.model }}'
+        CODEWHALE_MODEL: '${{ dozable.model }}'
     - source: anthropic
       env:
         CODEWHALE_PROVIDER: anthropic
-        CODEWHALE_MODEL: '${{ dozer.model }}'
+        CODEWHALE_MODEL: '${{ dozable.model }}'
     - source: openrouter
       env:
         CODEWHALE_PROVIDER: openrouter
-        CODEWHALE_MODEL: '${{ dozer.model }}'
+        CODEWHALE_MODEL: '${{ dozable.model }}'
       docs: https://github.com/Hmbown/CodeWhale/blob/v0.10.1/docs/PROVIDERS.md
     - source: google
       env:
         CODEWHALE_PROVIDER: google
-        CODEWHALE_MODEL: '${{ dozer.model }}'
+        CODEWHALE_MODEL: '${{ dozable.model }}'
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -220,7 +220,7 @@ capabilities:
       evidence: 'make recipe-check: codewhale exec "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "CodeWhale is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

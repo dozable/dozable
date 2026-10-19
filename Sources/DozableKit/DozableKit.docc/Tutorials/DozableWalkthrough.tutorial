@@ -6,7 +6,7 @@
     @Chapter(name: "First sandbox to Claude Code") {
         A first sandbox, the lifecycle, restore points, and Claude Code with a key it never sees.
 
-        @Image(source: "dozer-icon.svg", alt: "Two rounded squares, each holding a lowercase z.")
+        @Image(source: "dozable-icon.svg", alt: "Two rounded squares, each holding a lowercase z.")
 
         @TutorialReference(tutorial: "doc:FirstSandbox")
     }

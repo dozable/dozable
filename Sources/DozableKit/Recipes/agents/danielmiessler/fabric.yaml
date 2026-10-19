@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Fabric — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/fabric.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: FABRIC_VERSION
 provides:
-- com.dozersandbox/fabric@${{ kit.args.version }}
+- com.dozable/fabric@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -28,7 +28,7 @@ capabilities:
       - api.x.ai:443
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
-    dozer:
+    dozable:
       model:
         id: model:fabric
         title: Talk to its model provider
@@ -59,13 +59,13 @@ capabilities:
       - domain: generativelanguage.googleapis.com
         header: x-goog-api-key
         format: '%s'
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.config/fabric
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://github.com/danielmiessler/Fabric/releases/download/v${{ kit.args.version }}/fabric_Linux_arm64.tar.gz
@@ -81,7 +81,7 @@ capabilities:
       path: Fabric-${{ kit.args.version }}/data/patterns
       to: /opt/fabric/patterns
       what: patterns
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - fabric
@@ -114,7 +114,7 @@ capabilities:
       - -c
       - echo hello | fabric "say ok"
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -152,7 +152,7 @@ capabilities:
       keys_page: https://openrouter.ai/keys
       note: 'Fabric through OpenRouter: doz try fabric --gateway openrouter (or choose it in the try setup); the model with --model.'
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -162,43 +162,43 @@ capabilities:
       how:
         env:
           DEFAULT_VENDOR: 'OpenRouter'
-          DEFAULT_MODEL: '${{ dozer.model }}'
+          DEFAULT_MODEL: '${{ dozable.model }}'
       evidence: 'make recipe-check: its check turn through a stand-in OpenRouter (doz try with --gateway openrouter; models@1)'
       checked: '2026-10-14'
     - gateway: vercel-ai-gateway
       level: 'no'
       reason: 'its own client has no Vercel AI Gateway setting (an OpenAI-compatible base URL), so it is not offered'
       checked: '2026-10-14'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: google
     native:
     - source: anthropic
       env:
         DEFAULT_VENDOR: Anthropic
-        DEFAULT_MODEL: '${{ dozer.model }}'
+        DEFAULT_MODEL: '${{ dozable.model }}'
     - source: openai
       env:
         DEFAULT_VENDOR: OpenAI
-        DEFAULT_MODEL: '${{ dozer.model }}'
+        DEFAULT_MODEL: '${{ dozable.model }}'
     - source: xai
       env:
         DEFAULT_VENDOR: GrokAI
-        DEFAULT_MODEL: '${{ dozer.model }}'
+        DEFAULT_MODEL: '${{ dozable.model }}'
       key_env:
       - GROKAI_API_KEY
     - source: google
       env:
         DEFAULT_VENDOR: Gemini
-        DEFAULT_MODEL: '${{ dozer.model }}'
+        DEFAULT_MODEL: '${{ dozable.model }}'
     - source: openrouter
       env:
         DEFAULT_VENDOR: OpenRouter
-        DEFAULT_MODEL: '${{ dozer.model }}'
-- type: com.dozersandbox/currency@1
+        DEFAULT_MODEL: '${{ dozable.model }}'
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: ai-tool
@@ -217,7 +217,7 @@ capabilities:
       evidence: 'A2 VM proof: echo hello | fabric "say ok" answered DOZ_FAKE_OK through the fake provider (probes/617-*/recipes/fabric)'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (Google AI by default). Its patterns come with it (baked at the pin).
-- type: com.dozersandbox/ports@1
+- type: com.dozable/ports@1
   config:
     ports:
     - port: 8080
@@ -227,7 +227,7 @@ capabilities:
     serve:
     - fabric
     - --serve
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Fabric applies ready-made prompts — patterns — to text you pipe into it: summaries, wisdom extraction, code review and some 260 more. It is not a chat: it answers in your shell and exits."
     steps:

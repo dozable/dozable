@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # mini-swe-agent — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/mini-swe-agent.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+(\.[0-9]+)?([-+][0-9A-Za-z.-]+)?'
     buildArg: MINI_SWE_AGENT_VERSION
 provides:
-- com.dozersandbox/mini-swe-agent@${{ kit.args.version }}
+- com.dozable/mini-swe-agent@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -29,7 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
-    dozer:
+    dozable:
       model:
         id: model:mini-swe-agent
         title: Talk to its model provider
@@ -64,13 +64,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.config/mini-swe-agent
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: pypi
     package: mini-swe-agent
@@ -157,7 +157,7 @@ capabilities:
     - xxhash==4.0.1 --hash=sha256:74379a577a9f3b6afbdedf1b90e5c7764467051977f18a326d7d607336d743bd
     - yarl==1.25.1 --hash=sha256:14b79a30a93a3ce2e8832603fd0ab780ada281b0ba5110b519a634f2d7d7d1fc
     - zipp==4.1.1 --hash=sha256:8979f52d874162f485ff2981e3891f3a3317b7a3dd43ff1e1775b9304f307a9c
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - mini
@@ -187,7 +187,7 @@ capabilities:
       - '0'
       - --exit-immediately
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -232,7 +232,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'mini-SWE-agent through Vercel AI Gateway: doz try mini-swe-agent --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -243,30 +243,30 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        MSWEA_MODEL_NAME: 'openai/${{ dozer.model }}'
-        OPENAI_BASE_URL: '${{ dozer.base_url }}'
+        MSWEA_MODEL_NAME: 'openai/${{ dozable.model }}'
+        OPENAI_BASE_URL: '${{ dozable.base_url }}'
       key_env:
       - OPENAI_API_KEY
       source: https://docs.litellm.ai/docs/providers/openai_compatible
     - shape: anthropic-messages
       env:
-        MSWEA_MODEL_NAME: 'anthropic/${{ dozer.model }}'
-        ANTHROPIC_BASE_URL: '${{ dozer.base_url }}'
+        MSWEA_MODEL_NAME: 'anthropic/${{ dozable.model }}'
+        ANTHROPIC_BASE_URL: '${{ dozable.base_url }}'
       key_env:
       - ANTHROPIC_API_KEY
       source: https://docs.litellm.ai/docs/providers/anthropic
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -287,7 +287,7 @@ capabilities:
       evidence: 'make recipe-check: mini -t "say ok" submitted the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "mini-swe-agent is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

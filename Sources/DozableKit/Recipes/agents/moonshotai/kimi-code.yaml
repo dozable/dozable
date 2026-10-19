@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Kimi Code — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/kimi-code.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: KIMI_CODE_VERSION
 provides:
-- com.dozersandbox/kimi-code@${{ kit.args.version }}
+- com.dozable/kimi-code@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -31,7 +31,7 @@ capabilities:
       - ai-gateway.vercel.sh:443
       deny:
       - api.kimi.com:443
-    dozer:
+    dozable:
       model:
         id: model:kimi-code
         title: Talk to its model provider
@@ -69,13 +69,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.kimi-code
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: npm
     package: '@moonshot-ai/kimi-code'
@@ -84,7 +84,7 @@ capabilities:
     npm_args:
     - --ignore-scripts
     integrity: sha512-xClqcnTQUKgKDbeOGPU78qcwxGzL8wA2rqWuOX3CLpyQ1/NhSX7jAh6hZo/JFwThSX8obkgef3uw/li5JaJNyw==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - kimi
@@ -147,7 +147,7 @@ capabilities:
         - Welcome to Kimi Code
         expect:
         - context
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -192,7 +192,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'Kimi Code through Vercel AI Gateway: doz try kimi-code --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -203,34 +203,34 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        KIMI_MODEL_NAME: '${{ dozer.model }}'
+        KIMI_MODEL_NAME: '${{ dozable.model }}'
         KIMI_MODEL_PROVIDER_TYPE: openai
-        KIMI_MODEL_BASE_URL: '${{ dozer.base_url }}'
+        KIMI_MODEL_BASE_URL: '${{ dozable.base_url }}'
         KIMI_MODEL_MAX_CONTEXT_SIZE: '256000'
       key_env:
       - KIMI_MODEL_API_KEY
       source: https://moonshotai.github.io/kimi-code/en/configuration/env-vars
     - shape: anthropic-messages
       env:
-        KIMI_MODEL_NAME: '${{ dozer.model }}'
+        KIMI_MODEL_NAME: '${{ dozable.model }}'
         KIMI_MODEL_PROVIDER_TYPE: anthropic
-        KIMI_MODEL_BASE_URL: '${{ dozer.base_url }}'
+        KIMI_MODEL_BASE_URL: '${{ dozable.base_url }}'
         KIMI_MODEL_MAX_CONTEXT_SIZE: '200000'
       key_env:
       - KIMI_MODEL_API_KEY
       source: https://moonshotai.github.io/kimi-code/en/configuration/env-vars
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -254,7 +254,7 @@ capabilities:
       evidence: 'make recipe-check: kimi -p "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Kimi Code is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -81,7 +81,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -113,7 +113,7 @@
         "payload" : "bin/mimo",
         "platform_package" : "@mimo-ai/mimocode-linux-arm64"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -197,7 +197,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -271,7 +271,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -290,7 +290,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -301,25 +301,25 @@
         "native" : [
           {
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"anthropic/${{ dozer.model }}\"}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"anthropic/${{ dozable.model }}\"}"
             },
             "source" : "anthropic"
           },
           {
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"openai/${{ dozer.model }}\"}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"openai/${{ dozable.model }}\"}"
             },
             "source" : "openai"
           },
           {
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"xai/${{ dozer.model }}\"}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"xai/${{ dozable.model }}\"}"
             },
             "source" : "xai"
           },
           {
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"google/${{ dozer.model }}\"}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"google/${{ dozable.model }}\"}"
             },
             "key_env" : [
               "GOOGLE_GENERATIVE_AI_API_KEY"
@@ -329,26 +329,26 @@
           {
             "docs" : "https://mimo.xiaomi.com/coder",
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"openrouter/${{ dozer.model }}\"}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"openrouter/${{ dozable.model }}\"}"
             },
             "source" : "openrouter"
           },
           {
             "docs" : "https://mimo.xiaomi.com/coder",
             "env" : {
-              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"gateway/${{ dozer.model }}\",\"provider\":{\"gateway\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"Vercel AI Gateway\",\"options\":{\"baseURL\":\"https://ai-gateway.vercel.sh/v1\",\"apiKey\":\"{env:AI_GATEWAY_API_KEY}\"},\"models\":{\"${{ dozer.model }}\":{}}}}}"
+              "MIMOCODE_CONFIG_CONTENT" : "{\"model\":\"gateway/${{ dozable.model }}\",\"provider\":{\"gateway\":{\"npm\":\"@ai-sdk/openai-compatible\",\"name\":\"Vercel AI Gateway\",\"options\":{\"baseURL\":\"https://ai-gateway.vercel.sh/v1\",\"apiKey\":\"{env:AI_GATEWAY_API_KEY}\"},\"models\":{\"${{ dozable.model }}\":{}}}}}"
             },
             "source" : "vercel-ai-gateway"
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -386,7 +386,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). MiMo Code comes with Xiaomi's use restrictions beside its MIT licence; its usage analytics are off."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -410,7 +410,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Xiaomi's coding agent for the terminal (an OpenCode derivative), on the key of the provider or gateway you choose (xAI by default).",
@@ -421,7 +421,7 @@
     "MIT"
   ],
   "provides" : [
-    "com.dozersandbox/mimo-code@${{ kit.args.version }}"
+    "com.dozable/mimo-code@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://mimo.xiaomi.com"

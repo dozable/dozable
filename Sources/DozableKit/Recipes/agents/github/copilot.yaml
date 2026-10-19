@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # GitHub Copilot CLI — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/copilot.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: COPILOT_VERSION
 provides:
-- com.dozersandbox/copilot@${{ kit.args.version }}
+- com.dozable/copilot@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -29,7 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
-    dozer:
+    dozable:
       model:
         id: model:copilot
         title: Talk to its model provider
@@ -66,7 +66,7 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
@@ -76,9 +76,9 @@ capabilities:
   config:
     directory: /home/agent/.copilot/skills/doz
     filename: SKILL.md
-    dozer:
+    dozable:
       kind: skill
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: npm-platform-binary
     package: '@github/copilot'
@@ -86,7 +86,7 @@ capabilities:
     payload: copilot
     binary: copilot
     integrity: sha512-iWtoEeG4kN1tz5f1tsHQKdwCQ24Dpx8+rGZ1GBn42U57QU5yjIhIeYR8DXJGFWTtoHwQn0uAlacbhDlqKYddYQ==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - copilot
@@ -140,7 +140,7 @@ capabilities:
       - -p
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -190,7 +190,7 @@ capabilities:
       in_sandbox: false
       note: Copilot's own sign-in (copilot login, or a fine-grained token with Copilot Requests) would live in the sandbox's state; Dozable does not offer it yet.
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -201,32 +201,32 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
         COPILOT_PROVIDER_TYPE: openai
-        COPILOT_PROVIDER_BASE_URL: '${{ dozer.base_url }}'
-        COPILOT_MODEL: '${{ dozer.model }}'
+        COPILOT_PROVIDER_BASE_URL: '${{ dozable.base_url }}'
+        COPILOT_MODEL: '${{ dozable.model }}'
       key_env:
       - COPILOT_PROVIDER_API_KEY
       source: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models
     - shape: anthropic-messages
       env:
         COPILOT_PROVIDER_TYPE: anthropic
-        COPILOT_PROVIDER_BASE_URL: '${{ dozer.base_url }}'
-        COPILOT_MODEL: '${{ dozer.model }}'
+        COPILOT_PROVIDER_BASE_URL: '${{ dozable.base_url }}'
+        COPILOT_MODEL: '${{ dozable.model }}'
       key_env:
       - COPILOT_PROVIDER_API_KEY
       source: https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/use-byok-models
     models:
       xai: grok-code-fast-1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -251,7 +251,7 @@ capabilities:
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). GitHub Copilot CLI is GitHub's software under its own licence; Dozable installs it from the npm registry.
     licence: Proprietary (GitHub Copilot CLI License)
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "GitHub Copilot CLI is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

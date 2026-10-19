@@ -58,7 +58,7 @@ public struct ResolvedIcon: Codable, Sendable, Equatable {
 
 public enum AgentIcons {
     struct File: Codable {
-        /// The editor's schema link (schema/dozer-icons-1.schema.json).
+        /// The editor's schema link (schema/dozable-icons-1.schema.json).
         var schemaLink: String?
         var schema: Int
         var icons: [IconEntry]

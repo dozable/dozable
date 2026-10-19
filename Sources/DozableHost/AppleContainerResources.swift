@@ -78,12 +78,12 @@ extension Resources {
                 dataRows.append(ResourceItem(id: "outside:apple-container/data/\(key)", group: "outside", parent: "outside:apple-container",
                                              name: label, sizeBytes: parts[key] ?? 0, refusal: appleContainerPart))
             }
-            if let dozer = dozableShare(root) {
+            if let share = dozableShare(root) {
                 dataRows.append(ResourceItem(id: "outside:apple-container/doz", group: "outside", parent: "outside:apple-container",
-                                             name: "of which Dozable's builds", detail: dozer.images == 0
+                                             name: "of which Dozable's builds", detail: share.images == 0
                                                 ? "no image tagged doz/… in it (Dozable's builds are exported to its own store)"
-                                                : "\(dozer.images) image\(dozer.images == 1 ? "" : "s") tagged doz/… (their snapshots and layers)",
-                                             sizeBytes: dozer.bytes, refusal: "`container image ls` lists them (doz/…); `container image delete NAME` removes one — Dozable keeps its own copy in its store"))
+                                                : "\(share.images) image\(share.images == 1 ? "" : "s") tagged doz/… (their snapshots and layers)",
+                                             sizeBytes: share.bytes, refusal: "`container image ls` lists them (doz/…); `container image delete NAME` removes one — Dozable keeps its own copy in its store"))
             }
         }
         var programBytes: Int64 = 0
@@ -124,7 +124,7 @@ extension Resources {
         var digests = Set<String>()
         var snapshots = Set<String>()
         var count = 0
-        for (ref, v) in index where ref.hasPrefix("doz/") || ref.hasPrefix("docker.io/dozer/") {
+        for (ref, v) in index where ref.hasPrefix("doz/") || ref.hasPrefix("docker.io/doz/") {
             guard let desc = v as? [String: Any], let top = desc["digest"] as? String else { continue }
             count += 1
             digests.insert(top)

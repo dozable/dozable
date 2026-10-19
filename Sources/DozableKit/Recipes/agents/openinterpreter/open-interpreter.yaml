@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Open Interpreter — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/open-interpreter.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: OPEN_INTERPRETER_VERSION
 provides:
-- com.dozersandbox/open-interpreter@${{ kit.args.version }}
+- com.dozable/open-interpreter@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -29,7 +29,7 @@ capabilities:
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
       - raw.githubusercontent.com:443
-    dozer:
+    dozable:
       model:
         id: model:open-interpreter
         title: Talk to its model provider
@@ -67,13 +67,13 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.openinterpreter
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://github.com/openinterpreter/openinterpreter/releases/download/rust-v${{ kit.args.version }}/codex-aarch64-unknown-linux-musl.tar.gz
@@ -83,7 +83,7 @@ capabilities:
     - github.com
     - release-assets.githubusercontent.com
     integrity: sha512-+wUeWOq+twYjtpVk+J5dfAgCXveoIlTyn3zkGCgsAwCkxzPKCq3ZzZWxq//uHBzQfGflqbpi0UEl3EDVPBG6FA==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - interpreter
@@ -153,7 +153,7 @@ capabilities:
       - --skip-git-repo-check
       - say ok
       expect: DOZ_FAKE_OK
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -191,7 +191,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'Open Interpreter through Vercel AI Gateway: doz try open-interpreter --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -202,23 +202,23 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
-        DOZ_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_MODEL: '${{ dozable.model }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
       key_env:
       - OPENAI_API_KEY
       source: https://github.com/openinterpreter/open-interpreter#configuration
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -241,7 +241,7 @@ capabilities:
       evidence: 'make recipe-check: interpreter exec printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Open Interpreter is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

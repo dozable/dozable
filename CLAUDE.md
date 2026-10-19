@@ -1638,7 +1638,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `AgentRecipeTests` ties the folder to the manifest).
   **A recipe's SOURCE is YAML** (owner: one file per recipe, aligned with Docker Sandbox Kit v3):
   `Recipes/agents/VENDOR/PRODUCT.yaml`, `schema: 2` — the spec is `docs/recipes/RECIPE-FORMAT.md`, the contract
-  `schema/dozer-recipe-2.schema.json` (each YAML's first line points editors at it). DozableKit never parses YAML (the
+  `schema/dozable-recipe-2.schema.json` (each YAML's first line points editors at it). DozableKit never parses YAML (the
   audit keeps Yams in DozableCLI): `make recipes` compiles each to `Recipes/compiled/PRODUCT.json` (`RecipeSource`,
   YAML 1.2 core schema — `no` is a word — no anchors), committed and embedded; `RecipeSourceTests` fails when one
   drifts. `RecipeDocument` decodes it STRICTLY (unknown key anywhere = error; Kit's DERIVED parts — runtime allow/deny,
@@ -1678,8 +1678,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Model sources** (`ModelSources.swift`; RECIPE-FORMAT.md "Model sources"; owner: "add OpenAI and Anthropic AND gateway
   support"): providers.json lists each provider's endpoints by API shape (openai-chat, openai-responses,
   anthropic-messages, gemini) with a default model; OpenRouter and Vercel AI Gateway are key providers (`gateway: true`,
-  endpoints from gateways.json). A recipe may declare `models@1` (the shapes it speaks with `${{ dozer.base_url }}` /
-  `${{ dozer.model }}` env and `key_env`, native sources, except, per-source models); it is then offered every source
+  endpoints from gateways.json). A recipe may declare `models@1` (the shapes it speaks with `${{ dozable.base_url }}` /
+  `${{ dozable.model }}` env and `key_env`, native sources, except, per-source models); it is then offered every source
   serving one (`AgentRecipe.offeredSources`). The sandbox's ACCOUNT decides the source (`AgentCredentials.source(of:)`:
   `api-key` = Anthropic, `openai-key` = OpenAI, `key` = its provider — never a subscription); `applyMainAccount` binds
   that source's key (its hosts only), `HostCore.recipeEnvironment` sets the selection's env at every session open and
@@ -1741,7 +1741,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `SandboxGuide.swift`, `components/try-guide.js`, RECIPE-FORMAT.md "The guide"): `guide@1` = intro, ≤ 8 steps
   `{text, command?, edit?}`, ≤ 6 tips, docs, a `notice` (`doz try` says it first). The first step WITH a command is the check turn as a person types it
   (a step without one may come before it — Antigravity CLI's terms, the person's to accept; owner 2026-10-15)
-  (`guideMatchesCheck`: `sh -c X` = X, a `${{ dozer.* }}` = the models@1 variable set to it); every command starts with
+  (`guideMatchesCheck`: `sh -c X` = X, a `${{ dozable.* }}` = the models@1 variable set to it); every command starts with
   the tool's program/command/short name or a plain shell builtin (validated). Every recipe has one (`GuideTests`);
   `make recipe-check` runs every later non-edit step (exit 0). Dozer writes the preamble and facts (`SandboxGuide.make`:
   version, source · model · the account's NAME, network, folder, persist dirs) — `SandboxDetail.guide` → `WebGuide` →
@@ -1828,7 +1828,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   root dependency), so it calls nothing but its model; `OPENCODE_DISABLE_MODELS_FETCH` keeps models.dev out (the model
   must then be in its bundled list — `opencode models xai`). No OSC 7501 (recipe-check's status probe saw nothing).
 - **A tool's majors** (618, owner: "go with B and one card … make sure there is a way the user can chose an earlier
-  major version"; 617.B5's first qualified name): each major is a recipe; `com.dozersandbox/family@1` {family, major,
+  major version"; 617.B5's first qualified name): each major is a recipe; `com.dozable/family@1` {family, major,
   title, recommended} ties them (`AgentRecipes.validateFamilies`: one recommended, majors once, the family's name the id
   of the member that predates it — its sandboxes/image/settings/statistics keep it — no other recipe answers to it, each
   pin of its own major). **What a person TYPES goes through `AgentRef`** (DozableKit): `NAME` (a family's recommended

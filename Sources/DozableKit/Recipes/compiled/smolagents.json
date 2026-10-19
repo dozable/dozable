@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -72,7 +72,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -140,7 +140,7 @@
           "urllib3==2.8.0 --hash=sha256:0cf3cae568d36aa9576b28dfb35f11328f1cb974ca7647d9475ebb86c75ac6e3"
         ]
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -151,9 +151,9 @@
             "--model-type",
             "OpenAIModel",
             "--model-id",
-            "${{ dozer.model }}",
+            "${{ dozable.model }}",
             "--api-base",
-            "${{ dozer.base_url }}"
+            "${{ dozable.base_url }}"
           ],
           "expect" : "DOZ_FAKE_OK",
           "timeout" : 300
@@ -187,7 +187,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -244,7 +244,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -256,8 +256,8 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "DOZ_MODEL" : "${{ dozer.model }}",
-                "OPENAI_BASE_URL" : "${{ dozer.gateway.endpoint.v1 }}"
+                "DOZ_MODEL" : "${{ dozable.model }}",
+                "OPENAI_BASE_URL" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -270,8 +270,8 @@
             "gateway" : "vercel-ai-gateway",
             "how" : {
               "env" : {
-                "DOZ_MODEL" : "${{ dozer.model }}",
-                "OPENAI_BASE_URL" : "${{ dozer.gateway.endpoint.v1 }}"
+                "DOZ_MODEL" : "${{ dozable.model }}",
+                "OPENAI_BASE_URL" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -279,7 +279,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -287,8 +287,8 @@
         "shapes" : [
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
-              "OPENAI_BASE_URL" : "${{ dozer.base_url }}"
+              "DOZ_MODEL" : "${{ dozable.model }}",
+              "OPENAI_BASE_URL" : "${{ dozable.base_url }}"
             },
             "key_env" : [
               "OPENAI_API_KEY"
@@ -297,13 +297,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -331,7 +331,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its web agent (webagent) needs a browser in the image, which Dozable does not offer yet."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -352,7 +352,7 @@
           "Its web-search tools reach the open web only when you allow it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "Hugging Face's library and CLI for agents that write and run Python code (smolagent), on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",
@@ -363,7 +363,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/smolagents@${{ kit.args.version }}"
+    "com.dozable/smolagents@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/huggingface/smolagents"

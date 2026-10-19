@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -82,7 +82,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -108,7 +108,7 @@
     {
       "config" : {
         "directory" : "/home/agent/.agents/skills/doz",
-        "dozer" : {
+        "dozable" : {
           "kind" : "skill"
         },
         "filename" : "SKILL.md"
@@ -127,7 +127,7 @@
         "payload" : "goose",
         "url" : "https://github.com/aaif-goose/goose/releases/download/v${{ kit.args.version }}/goose-aarch64-unknown-linux-musl.tar.gz"
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -202,7 +202,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -269,7 +269,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -288,7 +288,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -299,7 +299,7 @@
         "native" : [
           {
             "env" : {
-              "GOOSE_MODEL" : "${{ dozer.model }}",
+              "GOOSE_MODEL" : "${{ dozable.model }}",
               "GOOSE_PROVIDER" : "xai"
             },
             "source" : "xai"
@@ -308,9 +308,9 @@
         "shapes" : [
           {
             "env" : {
-              "GOOSE_MODEL" : "${{ dozer.model }}",
+              "GOOSE_MODEL" : "${{ dozable.model }}",
               "GOOSE_PROVIDER" : "openai",
-              "OPENAI_BASE_URL" : "${{ dozer.base_url }}"
+              "OPENAI_BASE_URL" : "${{ dozable.base_url }}"
             },
             "key_env" : [
               "OPENAI_API_KEY"
@@ -320,8 +320,8 @@
           },
           {
             "env" : {
-              "ANTHROPIC_HOST" : "${{ dozer.base_url }}",
-              "GOOSE_MODEL" : "${{ dozer.model }}",
+              "ANTHROPIC_HOST" : "${{ dozable.base_url }}",
+              "GOOSE_MODEL" : "${{ dozable.model }}",
               "GOOSE_PROVIDER" : "anthropic"
             },
             "key_env" : [
@@ -332,13 +332,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -366,7 +366,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default)."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -390,7 +390,7 @@
           "Restart its session from the session's ⋯ menu; End stops it."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "An open-source, extensible AI agent for the terminal (Agentic AI Foundation, ex-Block), on the key of the provider or gateway you choose (xAI by default).",
@@ -401,7 +401,7 @@
     "Apache-2.0"
   ],
   "provides" : [
-    "com.dozersandbox/goose@${{ kit.args.version }}"
+    "com.dozable/goose@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/aaif-goose/goose"

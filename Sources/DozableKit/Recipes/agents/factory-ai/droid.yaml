@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Factory Droid — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/droid.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: DROID_VERSION
 provides:
-- com.dozersandbox/droid@${{ kit.args.version }}
+- com.dozable/droid@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -30,7 +30,7 @@ capabilities:
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
       - api.factory.ai:443
-    dozer:
+    dozable:
       model:
         id: model:droid
         title: Talk to its model provider
@@ -70,7 +70,7 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
@@ -80,9 +80,9 @@ capabilities:
   config:
     directory: /home/agent/.factory/skills/doz
     filename: SKILL.md
-    dozer:
+    dozable:
       kind: skill
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: release-binary
     url: https://downloads.factory.ai/factory-cli/releases/${{ kit.args.version }}/linux/arm64/droid
@@ -90,7 +90,7 @@ capabilities:
     bake_hosts:
     - downloads.factory.ai
     integrity: sha512-GmruvHDRWTbSNZ76lfS5iGWSTlekbTicf2EGNkzj/griE3bmR9uIaXqmFqp4fjBibjWlkX9q66BnjXl2B9/5vg==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - droid
@@ -155,14 +155,14 @@ capabilities:
       - droid
       - exec
       - -m
-      - custom:${{ dozer.model }}
+      - custom:${{ dozable.model }}
       - say ok
       expect: DOZ_FAKE_OK
       screen:
         # Its ready screen's prompt shows a rotating example task; one is "Debug why users can't login".
         allow:
         - 'Try ".*login'
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -212,7 +212,7 @@ capabilities:
       in_sandbox: false
       note: Factory's own models and account need its servers, which airgap mode keeps out; Dozable does not offer them yet.
       checked: '2026-10-14'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -223,14 +223,14 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
-        DOZ_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_MODEL: '${{ dozable.model }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
         DOZ_DROID_PROVIDER: generic-chat-completion-api
         DOZ_KEY_VAR: OPENAI_API_KEY
       key_env:
@@ -238,8 +238,8 @@ capabilities:
       source: https://docs.factory.ai/cli/byok/overview
     - shape: anthropic-messages
       env:
-        DOZ_MODEL: '${{ dozer.model }}'
-        DOZ_BASE_URL: '${{ dozer.base_url }}'
+        DOZ_MODEL: '${{ dozable.model }}'
+        DOZ_BASE_URL: '${{ dozable.base_url }}'
         DOZ_DROID_PROVIDER: anthropic
         DOZ_KEY_VAR: ANTHROPIC_API_KEY
       key_env:
@@ -247,10 +247,10 @@ capabilities:
       source: https://docs.factory.ai/cli/byok/overview
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -275,7 +275,7 @@ capabilities:
       evidence: 'make recipe-check: droid exec printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default). Droid runs in its airgap mode; Factory's account, models and cloud features are not used.
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Factory Droid is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:

@@ -11,7 +11,7 @@
   "capabilities" : [
     {
       "config" : {
-        "dozer" : {
+        "dozable" : {
           "excluded" : [
 
           ],
@@ -82,7 +82,7 @@
           "name" : "XAI_API_KEY",
           "proxyManaged" : true
         },
-        "dozer" : {
+        "dozable" : {
           "accounts" : [
             "key"
           ]
@@ -198,7 +198,7 @@
           "xlsxwriter==3.2.9 --hash=sha256:9a5db42bc5dff014806c58a20b9eae7322a134abb6fce3c92c181bfb275ec5b3"
         ]
       },
-      "type" : "com.dozersandbox/install@1"
+      "type" : "com.dozable/install@1"
     },
     {
       "config" : {
@@ -254,7 +254,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/launch@1"
+      "type" : "com.dozable/launch@1"
     },
     {
       "config" : {
@@ -311,7 +311,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/auth@1"
+      "type" : "com.dozable/auth@1"
     },
     {
       "config" : {
@@ -323,8 +323,8 @@
             "gateway" : "openrouter",
             "how" : {
               "env" : {
-                "DOZ_MODEL" : "${{ dozer.model }}",
-                "DOZ_MODEL_BASE_URL" : "${{ dozer.gateway.endpoint.v1 }}"
+                "DOZ_MODEL" : "${{ dozable.model }}",
+                "DOZ_MODEL_BASE_URL" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -337,8 +337,8 @@
             "gateway" : "vercel-ai-gateway",
             "how" : {
               "env" : {
-                "DOZ_MODEL" : "${{ dozer.model }}",
-                "DOZ_MODEL_BASE_URL" : "${{ dozer.gateway.endpoint.v1 }}"
+                "DOZ_MODEL" : "${{ dozable.model }}",
+                "DOZ_MODEL_BASE_URL" : "${{ dozable.gateway.endpoint.v1 }}"
               }
             },
             "level" : "verified",
@@ -346,7 +346,7 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/gateways@1"
+      "type" : "com.dozable/gateways@1"
     },
     {
       "config" : {
@@ -354,8 +354,8 @@
         "shapes" : [
           {
             "env" : {
-              "DOZ_MODEL" : "${{ dozer.model }}",
-              "DOZ_MODEL_BASE_URL" : "${{ dozer.base_url }}"
+              "DOZ_MODEL" : "${{ dozable.model }}",
+              "DOZ_MODEL_BASE_URL" : "${{ dozable.base_url }}"
             },
             "key_env" : [
               "DOZ_MODEL_API_KEY"
@@ -364,13 +364,13 @@
           }
         ]
       },
-      "type" : "com.dozersandbox/models@1"
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {
         "checked" : "2026-10-14"
       },
-      "type" : "com.dozersandbox/currency@1"
+      "type" : "com.dozable/currency@1"
     },
     {
       "config" : {
@@ -398,7 +398,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (xAI by default). Its gateway (chat channels) and web UI need a background service and a forwarded port, which Dozable does not offer yet."
       },
-      "type" : "com.dozersandbox/directory@1"
+      "type" : "com.dozable/directory@1"
     },
     {
       "config" : {
@@ -421,7 +421,7 @@
           "Its settings are `~/.nanobot/config.json` (kept on the sandbox's state disk)."
         ]
       },
-      "type" : "com.dozersandbox/guide@1"
+      "type" : "com.dozable/guide@1"
     }
   ],
   "description" : "A small, auditable personal agent (an OpenClaw-style assistant) in the terminal, on an xAI, OpenAI, Google AI, OpenRouter or Vercel AI Gateway key.",
@@ -432,7 +432,7 @@
     "MIT"
   ],
   "provides" : [
-    "com.dozersandbox/nanobot@${{ kit.args.version }}"
+    "com.dozable/nanobot@${{ kit.args.version }}"
   ],
   "schema" : 2,
   "sourceUrl" : "https://github.com/HKUDS/nanobot"

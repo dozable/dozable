@@ -446,7 +446,7 @@ func cliCodexSuite(binary: String) async {
     check(r.out.contains("doz: Codex with its first-run setup done"), "the launcher is first on the agent's PATH")
     r = d(["run", "cx", "--detach", "--session", "codex", "--", "codex"], timeout: 120)
     usleep(3_000_000)
-    r = d(["exec", "cx", "--", "sh", "-c", "ls /home/agent/.agents/skills/doz; grep -c dozer /run/doz/agent-prompt.md; ps -eo args | grep -m1 'dangerously-bypass-approvals-and-sandbox' | grep -c developer_instructions; grep -A1 'projects.\"/workspace\"' /home/agent/.codex/config.toml"])
+    r = d(["exec", "cx", "--", "sh", "-c", "ls /home/agent/.agents/skills/doz; grep -c doz /run/doz/agent-prompt.md; ps -eo args | grep -m1 'dangerously-bypass-approvals-and-sandbox' | grep -c developer_instructions; grep -A1 'projects.\"/workspace\"' /home/agent/.codex/config.toml"])
     check(r.out.contains("SKILL.md"), "the doz skill in ~/.agents/skills/doz (\(r.out.debugDescription))")
     check(r.out.contains("trust_level = \"trusted\""), "/workspace is trusted in Codex's config (no trust prompt)")
     check(r.out.split(separator: "\n").dropFirst(2).first == "1", "the TUI runs with its approvals off and the facts as developer instructions")

@@ -115,17 +115,17 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     public var catalogKind: String? = nil
     public var categories: [String]? = nil
     /// 617.11 (owner: "our companion guide"): its guide — intro, first steps (the first is its check turn), tips, docs
-    /// (`com.dozersandbox/guide@1`; RecipeGuide.swift). nil: none.
+    /// (`com.dozable/guide@1`; RecipeGuide.swift). nil: none.
     public var guide: Guide? = nil
     /// 617 (models@1): the model sources it can be tried with and how a choice reaches its settings; nil: its one
     /// credential, as before.
     public var models: Models? = nil
 
     /// 617 (RP-1, owner: "web port forwarding first"): the web ports its program serves in the sandbox, each forwarded
-    /// to the Mac's loopback while the sandbox runs (`com.dozersandbox/ports@1`). nil: none.
+    /// to the Mac's loopback while the sandbox runs (`com.dozable/ports@1`). nil: none.
     public var ports: WebPorts? = nil
     /// 618 (owner: "make sure there is a way the user can chose an earlier major version"): the major release line this
-    /// recipe is of a family whose majors are separate recipes (`com.dozersandbox/family@1`; AgentRef.swift). nil: none.
+    /// recipe is of a family whose majors are separate recipes (`com.dozable/family@1`; AgentRef.swift). nil: none.
     public var family: Family? = nil
     /// 629 (owner: "withdraw most of the recipes … set to 'unpublished'"; `directory@1` `published`): false — kept and
     /// valid, every stored name of it still served (a sandbox, its image, a rebuild, its settings), but offered nowhere a
@@ -286,7 +286,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// value of `env` than this run has (a model or source chosen since). Emitted only into such a recipe's launcher.
         public var service: Service? = nil
         /// 618: the arguments that choose its model when the tool takes it ONLY on its command line (`[-m, $DOZ_MODEL]`):
-        /// the launcher puts them first when `DOZ_MODEL` is set (models@1 sets it per source — `xai/${{ dozer.model }}`)
+        /// the launcher puts them first when `DOZ_MODEL` is set (models@1 sets it per source — `xai/${{ dozable.model }}`)
         /// and the run gives no flag of its own. Emitted only into such a recipe's launcher.
         public var modelArgs: [String]? = nil
         /// 618: subcommands whose own flags they are (`exec`, `run`): there the arguments go AFTER the subcommand.

@@ -137,7 +137,7 @@ class H(http.server.BaseHTTPRequestHandler):
         with open(logf, "a") as f:
             f.write(json.dumps({"t": time.time(), "method": self.command, "path": self.path, "host": self.headers.get("host"), "auth": auth,
                                 "upgrade": self.headers.get("upgrade", ""),
-                                "facts_in_body": b"Dozable" in body or b"Dozer" in body or b"dozer" in body}) + "\n")
+                                "facts_in_body": b"Dozable" in body or b"Dozer" in body or b"dozable" in body}) + "\n")
         return auth
 
     def send(self, code, obj, ctype="application/json"):

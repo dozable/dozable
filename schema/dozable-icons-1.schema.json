@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozer-icons-1.schema.json",
+  "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozable-icons-1.schema.json",
   "title": "Dozable icon registry (schema 1)",
   "description": "The vendor and product marks beside the recipes (Sources/DozableKit/Recipes/icons/icons.json). Each entry names its monochrome file (one currentColor path), where the mark came from, the brand terms checked and when. Strict: an unknown key is an error. See docs/DOZABLEKIT.md, The icon registry.",
   "type": "object",

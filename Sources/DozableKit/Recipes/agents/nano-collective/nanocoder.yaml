@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=../../../../../schema/dozer-recipe-2.schema.json
+# yaml-language-server: $schema=../../../../../schema/dozable-recipe-2.schema.json
 # Nanocoder — Dozable's recipe (schema 2). The format: docs/recipes/RECIPE-FORMAT.md.
 # Edit this file, then run make recipes (it writes Recipes/compiled/nanocoder.json, which Dozable embeds).
 schema: 2
@@ -17,7 +17,7 @@ args:
     pattern: '[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?'
     buildArg: NANOCODER_VERSION
 provides:
-- com.dozersandbox/nanocoder@${{ kit.args.version }}
+- com.dozable/nanocoder@${{ kit.args.version }}
 capabilities:
 - type: com.docker.sandbox/network-policy@1
   config:
@@ -32,7 +32,7 @@ capabilities:
       - registry.npmjs.org:443
       deny:
       - models.dev:443
-    dozer:
+    dozable:
       model:
         id: model:nanocoder
         title: Talk to its model provider
@@ -75,7 +75,7 @@ capabilities:
       - domain: api.x.ai
         header: authorization
         format: Bearer %s
-    dozer:
+    dozable:
       accounts:
       - key
 - type: com.docker.sandbox/volume@1
@@ -84,7 +84,7 @@ capabilities:
 - type: com.docker.sandbox/volume@1
   config:
     path: /home/agent/.local/share/nanocoder
-- type: com.dozersandbox/install@1
+- type: com.dozable/install@1
   config:
     kind: npm
     package: '@nanocollective/nanocoder'
@@ -93,7 +93,7 @@ capabilities:
     npm_args:
     - --ignore-scripts
     integrity: sha512-EyJn8aO7YFKDA+IYyUmSN9/XHCqgBfrYKHE61iKMf6B4ASY9GDd8VHG0J09w0bd/V5kQdUQzHszk0fiCv8fRHQ==
-- type: com.dozersandbox/launch@1
+- type: com.dozable/launch@1
   config:
     command:
     - nanocoder
@@ -149,7 +149,7 @@ capabilities:
         # step. Seen once its release check is allowed: the refused one used to print an error over it.
         allow:
         - Welcome to Nanocoder
-- type: com.dozersandbox/auth@1
+- type: com.dozable/auth@1
   config:
     methods:
     - kind: api-key
@@ -194,7 +194,7 @@ capabilities:
       keys_page: https://vercel.com/docs/ai-gateway/authentication-and-byok
       note: 'Nanocoder through Vercel AI Gateway: doz try nanocoder --gateway vercel-ai-gateway (or choose it in the try setup); the model with --model.'
       checked: '2026-10-16'
-- type: com.dozersandbox/gateways@1
+- type: com.dozable/gateways@1
   config:
     entries:
     - gateway: openrouter
@@ -205,28 +205,28 @@ capabilities:
       level: verified
       evidence: 'make recipe-check: its check turn through a stand-in Vercel AI Gateway (doz try with --gateway vercel-ai-gateway; models@1)'
       checked: '2026-10-16'
-- type: com.dozersandbox/models@1
+- type: com.dozable/models@1
   config:
     default: xai
     shapes:
     - shape: openai-chat
       env:
-        NANOCODER_PROVIDERS: '[{"name":"Dozable","sdkProvider":"openai-compatible","baseUrl":"${{ dozer.base_url }}","apiKey":"$OPENAI_API_KEY","models":["${{ dozer.model }}"]}]'
+        NANOCODER_PROVIDERS: '[{"name":"Dozable","sdkProvider":"openai-compatible","baseUrl":"${{ dozable.base_url }}","apiKey":"$OPENAI_API_KEY","models":["${{ dozable.model }}"]}]'
       key_env:
       - OPENAI_API_KEY
       source: https://github.com/Nano-Collective/nanocoder/blob/v1.31.0/docs/configuration/providers/index.md
     - shape: anthropic-messages
       env:
-        NANOCODER_PROVIDERS: '[{"name":"Dozable","sdkProvider":"anthropic","baseUrl":"${{ dozer.base_url }}/v1","apiKey":"$ANTHROPIC_API_KEY","models":["${{ dozer.model }}"]}]'
+        NANOCODER_PROVIDERS: '[{"name":"Dozable","sdkProvider":"anthropic","baseUrl":"${{ dozable.base_url }}/v1","apiKey":"$ANTHROPIC_API_KEY","models":["${{ dozable.model }}"]}]'
       key_env:
       - ANTHROPIC_API_KEY
       source: https://github.com/Nano-Collective/nanocoder/blob/v1.31.0/docs/configuration/providers/index.md
     models:
       xai: grok-build-0.1
-- type: com.dozersandbox/currency@1
+- type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
-- type: com.dozersandbox/directory@1
+- type: com.dozable/directory@1
   config:
     published: false
     kind: coding-agent
@@ -248,7 +248,7 @@ capabilities:
       evidence: 'make recipe-check: nanocoder run "say ok" printed the stand-in''s answer and exited in a fresh try'
       checked: '2026-10-14'
     terms: Your API key of the provider or gateway you choose (xAI by default).
-- type: com.dozersandbox/guide@1
+- type: com.dozable/guide@1
   config:
     intro: "Nanocoder is a coding agent with its own screen: the session on the left. Ask it to read, change and run the code in your folder."
     steps:
