@@ -93,6 +93,30 @@ public enum UpdateInstaller {
         if p.terminationStatus != 0 { output("could not refresh the \(tap) tap — upgrading with what Homebrew has\n") }
     }
 
+    /// Trust Dozable's tap — ONLY that tap — so Homebrew will load its formula. Newer Homebrew loads a formula only from
+    /// a tap the person trusts ("Refusing to load formula dozable/tap/doz-canary from untrusted tap dozable/tap"), and a
+    /// Mac that tapped it before that, or under its earlier name, was never asked. Running `doz upgrade` is the person
+    /// asking for Dozable's formula from that tap, so doz trusts it (owner, 2026-10-20: "make doz trust the tap
+    /// automatically"). Nothing when this brew has no `brew trust` (older Homebrew) or the tap is trusted already. Best
+    /// effort: a failure is said and the upgrade still runs (and fails with brew's own words if it must).
+    public static func trustTap(brew: String, output: @escaping @Sendable (String) -> Void) {
+        let listed = Collected()
+        guard runBrew(brew, ["trust", "--json=v1"], output: { listed.append($0) }) == 0,
+              let data = listed.text.data(using: .utf8),
+              let doc = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+        let trusted = Set((doc["taps"] as? [String]) ?? [])
+        var taps = [Distribution.tap]
+        let installed = installedTap(brew: brew)
+        if installed != Distribution.tap { taps.append(installed) }
+        for tap in taps where !trusted.contains(tap) {
+            if runBrew(brew, ["trust", "--tap", tap], output: { _ in }) == 0 {
+                output("trusted Dozable's Homebrew tap (\(tap)) — Homebrew loads only the taps you trust\n")
+            } else {
+                output("could not trust the \(tap) tap — if Homebrew refuses it: brew trust \(tap)\n")
+            }
+        }
+    }
+
     /// The tap's clone on this Mac (`brew --repository TAP` names the place whether or not it is tapped), or nil.
     static func tapClone(_ tap: String, brew: String) -> String? {
         let collected = Collected()
@@ -171,6 +195,7 @@ public enum UpdateInstaller {
                                      output: @escaping @Sendable (String) -> Void) throws {
         let tap = tap ?? installedTap(brew: brew)
         refreshTap(tap, brew: brew, output: output)
+        trustTap(brew: brew, output: output)
         guard runBrew(brew, ["uninstall", from], output: output) == 0 else { throw Failure("brew uninstall \(from) failed — nothing changed") }
         if runBrew(brew, ["install", "\(tap)/\(to)"], output: output) != 0 {
             let back = runBrew(brew, ["install", "\(tap)/\(from)"], output: output) == 0

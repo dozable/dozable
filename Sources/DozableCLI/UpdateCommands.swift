@@ -185,6 +185,7 @@ enum UpdateHook {
             let brewOut: @Sendable (String) -> Void = { text in if let log { log.append(text) } else { say(text) } }
             say("upgrading doz \(ctx.current) → \(e.version) with Homebrew (brew upgrade \(formula))…\n")
             UpdateInstaller.refreshTap(brew: brew, output: say)
+            UpdateInstaller.trustTap(brew: brew, output: say)
             guard UpdateInstaller.runBrew(brew, ["upgrade", formula], output: brewOut) == 0 else {
                 throw UpdateInstaller.Failure("brew upgrade \(formula) failed — doz \(ctx.current) is unchanged" + (log?.failureNote() ?? ""))
             }
