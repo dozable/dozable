@@ -395,6 +395,16 @@ name: todo-app</pre></details>
       <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
     </div>
   </div></div>
+  <p><strong>The start bar</strong> (<code>.term-start</code>): a RUNNING sandbox whose pane holds only Console (and the build log) — started from a row of
+    Sandboxes, which only boots it — offers its agent above Console: what is true (“Claude Code is not running.”), then the agent’s Start as the primary
+    (named for the agent; Open when its session runs but is not open here), any other sessions, and New shell. Never while it starts: the start sequence opens the agent.</p>
+  <div class="pair"><div class="scheme">
+    <div class="term-pane" style="max-width:720px">
+      <div class="term-strip"><div class="tabs"><div class="tab-wrap"><button type="button" class="tab tab-console active"><i data-i="cpu"></i>Console</button></div></div></div>
+      <div class="term-start"><div class="term-start-text">Claude Code is not running.</div>
+        <div class="actions"><button class="btn primary" type="button"><i data-i="play"></i>Start Claude Code</button><button class="btn" type="button"><i data-i="terminal"></i>New shell</button></div></div>
+    </div>
+  </div></div>
 </section>
 
 <section>

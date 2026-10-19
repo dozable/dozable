@@ -523,6 +523,11 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-body { flex: 1; min-height: 0; position: relative; }
 .term-empty { color: var(--term-muted); }
 .term-empty[hidden] { display: none; }
+/* 625: the start bar over Console — a running sandbox with no session terminal offers its agent here. */
+.term-start { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface); border-bottom: var(--bw) solid var(--line); }
+.term-start[hidden] { display: none; }
+.term-start-text { color: var(--ink); font-weight: var(--fw-strong); min-width: 0; }
+.term-start .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 .term-wrap { position: absolute; inset: 0; }
 .term-wrap[hidden] { display: none; }
 .term-frame-host { position: absolute; inset: 0; }

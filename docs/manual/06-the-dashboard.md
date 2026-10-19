@@ -102,7 +102,9 @@ top shows the whole sidebar over the page.
   shows or hides the details.
 - **The terminals**, whose tab strip carries what makes or arranges them: **New shell** (its **▾**:
   **Terminal…**, **Run detached…**), **Split** (its **▾** picks what a split adds) and **Open in
-  Terminal**.
+  Terminal**. **Start** on the page opens the agent too; a start from a row of **All sandboxes** only
+  boots it — its page then shows **Console** with a bar above it: **Start Claude Code** (or the
+  sandbox's agent) and **New shell**.
 - **The details**, beside them in tabs: **Overview** (RAM, disk, CPUs, the attach command, the
   workspace and its rules, its sessions and last restore point), **Sessions**, **Points** (restore
   points), **Network** (**What the agent can do**, the rules, the connection log), **Keys** (keys and

@@ -5,7 +5,7 @@ import { AGENT_NAMES } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { bytes, full } from '../core/format.js';
 import { act, actOrThrow, loadPreparations, prepRunning } from '../core/operations.js';
-import { loadSettings, saveSetting, secretEntryAllowed, setting } from '../core/settings.js';
+import { loadSettings, saveSetting, secretEntryAllowed, setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { WIZ, WIZ_ORDER, WIZ_STEPS } from '../core/wizards.js';
 import { ACCESS_TITLES, renderAccessStep } from '../components/access-step.js';
@@ -14,9 +14,10 @@ import { table } from '../components/blocks.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { imagePicker, pickerNameHint } from '../components/image-picker.js';
+import { startWithBootView } from '../components/lifecycle.js';
 import { wizHead, wizMount } from '../components/modal.js';
 import { refreshNav } from '../components/nav.js';
-import { pageFailure, toast } from '../components/notices.js';
+import { failureFor, pageFailure, toast } from '../components/notices.js';
 import { statusPill } from '../components/pills.js';
 import { prepCard } from '../components/prep-card.js';
 import { rulesStep } from '../components/rules-step.js';
@@ -363,7 +364,7 @@ function wizStep5(d, w) {
   } else create.disabled = true;
   return [
     h('h2', null, 'First sandbox (optional)'),
-    h('p', { class: 'sub' }, 'A sandbox for one project. Its workspace is a folder on this Mac, shared live at /workspace — Dozable makes it when it does not exist yet. Or Isolated: nothing is shared. It is created off; Start boots it.'),
+    h('p', { class: 'sub' }, 'A sandbox for one project. Its workspace is a folder on this Mac, shared live at /workspace — Dozable makes it when it does not exist yet. Or Isolated: nothing is shared. It is created off; at the end, Start boots it and opens its agent.'),
     h('label', { class: 'field' }, h('span', null, 'Name'), name),
     picker.el,
     acct ? acct.el : null,
@@ -454,6 +455,12 @@ function wizStepSignup(d, w) {
     wizButtons(btn('Skip', () => wizGo(WIZ.done)), send),
   ];
 }
+function startFirstSandbox(name) {
+  state.wiz = null;
+  location.hash = '#/sandbox/' + name;
+  if (terminalsAllowed()) startWithBootView(name).catch((e) => failureFor(name, e.message || String(e)));
+  else act({ action: 'start', sandbox: name });
+}
 function wizStep6(d, w) {
   const c = w.config;
   const fileLine = (label, outcome, path) => h('li', null, label + ': ', h('code', null, path || '—'),
@@ -484,7 +491,11 @@ function wizStep6(d, w) {
     h('p', { class: 'muted' }, 'From a terminal: doz init in a project folder, then doz up there. This wizard is always here: Doctor › Run onboarding again.'),
     !state.signup && state.signupPage ? h('p', { class: 'muted', 'data-signup-link': '' }, 'Stay in touch (optional) — release news, early access and tips and tricks: sign up at ',
       h('a', { href: state.signupPage, target: '_blank', rel: 'noopener noreferrer' }, state.signupPage), '.') : null,
-    wizButtons(w.created ? btn('Open ' + w.created, () => { location.hash = '#/sandbox/' + w.created; }, { icon: 'box' }) : null,
-      btn('Open Sandboxes', () => { state.wiz = null; location.hash = '#/overview'; }, { primary: true })),
+    // 625 (the m4air15 report): the first sandbox is made off, and Open Sandboxes left its Start to a row — the plain
+    // start, which opens no session. Its Start here is the start sequence (its page; Console, then the agent's tab),
+    // as Quick add's and a try's are.
+    w.created ? wizButtons(btn('Open Sandboxes', () => { state.wiz = null; location.hash = '#/overview'; }),
+      btn('Start ' + w.created, () => startFirstSandbox(w.created), { primary: true, icon: 'play' }))
+      : wizButtons(btn('Open Sandboxes', () => { state.wiz = null; location.hash = '#/overview'; }, { primary: true })),
   ];
 }
