@@ -171,7 +171,9 @@ cat > "$R/brew" <<SH
 if [ "\$1" = --repository ]; then echo "$R/brew-tap-clone"; exit 0; fi
 echo "\$*" >> "$R/brew.log"
 echo "no-ask=\${HOMEBREW_NO_ASK:-unset}" >> "$R/brew-env.log"
+echo "no-auto-update=\${HOMEBREW_NO_AUTO_UPDATE:-unset}" >> "$R/brew-env.log"
 echo "==> fake brew \$*"
+if [ -n "\${FAKE_BREW_FAIL:-}" ]; then echo "Error: fake brew failed on purpose"; exit 1; fi
 SH
 chmod +x "$R/brew"
 export DOZ_TEST_BREW="$R/brew" DOZ_TEST_UPDATE_EXECUTABLE="$R/Cellar/doz/$A/libexec/doz/doz"
@@ -182,13 +184,21 @@ check "homebrew: the notice says doz upgrade -y" grep -q "doz $B is available �
 git -C "$R/brew-tap-origin" -c user.email=t@t -c user.name=t commit -q --allow-empty -m two
 "$DOZ" upgrade --store "$R/store" >/dev/null 2>&1 < /dev/null && rc=0 || rc=$?
 check "homebrew: doz upgrade with no terminal and no -y asks nothing and does nothing" bash -c "[ $rc != 0 ] && [ ! -s '$R/brew.log' ]"
-"$DOZ" upgrade -y --store "$R/store" >/dev/null 2>&1 || true
+out="$("$DOZ" upgrade -y --store "$R/store" 2>&1)" || true
 check "homebrew: doz upgrade -y runs brew upgrade doz" grep -qx "upgrade doz" "$R/brew.log"
+# 626 (owner: "without all the unrelated homebrew noise"): brew's output is kept in brew.log, never on the screen.
+check "  … brew's own output is not on the screen" bash -c "! grep -q '==> fake brew' <<<\"\$1\" && grep -q 'with Homebrew' <<<\"\$1\"" _ "$out"
+check "  … it is in brew.log in the settings folder" grep -q "==> fake brew upgrade doz" "$R/xdg/dozer-sandbox/brew.log"
+check "  … and Homebrew does not auto-update every tap first" bash -c "grep -q '^no-auto-update=1\$' '$R/brew-env.log' && ! grep -q '^no-auto-update=unset\$' '$R/brew-env.log'"
+out="$("$DOZ" upgrade -y --verbose --store "$R/store" 2>&1)" || true
+check "homebrew: --verbose shows brew's output as it runs" grep -q "==> fake brew upgrade doz" <<<"$out"
+out="$(FAKE_BREW_FAIL=1 "$DOZ" upgrade -y --store "$R/store" 2>&1)" && rc=0 || rc=$?
+check "homebrew: a failing brew fails doz upgrade and shows brew's last lines and the log" bash -c "[ $rc != 0 ] && grep -q 'fake brew failed on purpose' <<<\"\$1\" && grep -q 'brew.log' <<<\"\$1\"" _ "$out"
 : > "$R/brew.log"
 out="$("$DOZ" update --store "$R/store" 2>&1 < /dev/null)" || true
 check "homebrew: doz update (the first name) still upgrades, without asking, and says it is doz upgrade now" bash -c "grep -qx 'upgrade doz' '$R/brew.log' && grep -q 'doz update is now doz upgrade' <<<\"\$1\"" _ "$out"
 check "  … after fast-forwarding Dozer's tap" [ "$(git -C "$R/brew-tap-clone" rev-parse HEAD)" = "$(git -C "$R/brew-tap-origin" rev-parse HEAD)" ]
-check "  … and Homebrew is never left asking [y/n]" bash -c "! grep -qv '^no-ask=1\$' '$R/brew-env.log'"
+check "  … and Homebrew is never left asking [y/n]" bash -c "grep -q '^no-ask=' '$R/brew-env.log' && ! grep '^no-ask=' '$R/brew-env.log' | grep -qv '^no-ask=1\$'"
 : > "$R/brew.log"
 "$DOZ" upgrade --channel canary --yes --store "$R/store" >/dev/null 2>&1 || true
 check "homebrew: --channel canary = uninstall doz, install the tap's doz-canary" bash -c "[ \"\$(cat '$R/brew.log')\" = \$'uninstall doz\ninstall dozable/tap/doz-canary' ]"

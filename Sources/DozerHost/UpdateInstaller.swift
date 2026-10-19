@@ -1,5 +1,6 @@
 import CryptoKit
 import Darwin
+import DozerKit
 import Foundation
 
 /// 611 — installing an update: Homebrew's (`brew upgrade <formula>`, a channel switch = uninstall + install of another
@@ -49,6 +50,10 @@ public enum UpdateInstaller {
         var env = ProcessInfo.processInfo.environment
         env["HOMEBREW_NO_ENV_HINTS"] = "1"
         env["HOMEBREW_NO_ASK"] = "1"        // Homebrew 7 asks [y/n] before an upgrade; stdin is /dev/null here
+        // 626 (owner: "without all the unrelated homebrew noise"): no auto-update of EVERY tap before each command —
+        // most of a 45 s upgrade, and the warnings about the person's other taps. Dozable's own tap is refreshed by
+        // `refreshTap` first, which is all an upgrade of doz needs.
+        env["HOMEBREW_NO_AUTO_UPDATE"] = "1"
         p.environment = env
         let pipe = Pipe()
         p.standardOutput = pipe
@@ -104,6 +109,53 @@ public enum UpdateInstaller {
     public static func installedTap(brew: String) -> String {
         if tapClone(Distribution.tap, brew: brew) != nil { return Distribution.tap }
         return Distribution.previousTaps.first { tapClone($0, brew: brew) != nil } ?? Distribution.tap
+    }
+
+    /// 626 — brew's output kept off the screen: all of it in a log (0600, rewritten at each upgrade — beside
+    /// updates.json, in the settings folder), its last lines kept to show when brew fails. What an upgrade prints is
+    /// doz's own lines; `doz upgrade --verbose` passes brew through instead.
+    public final class BrewLog: @unchecked Sendable {
+        public let url: URL
+        private let lock = NSLock()
+        private var handle: FileHandle?
+        private var recent = ""
+
+        public init(_ url: URL) {
+            self.url = url
+            let fm = FileManager.default
+            try? fm.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
+                                    attributes: [.posixPermissions: 0o700])
+            fm.createFile(atPath: url.path, contents: nil, attributes: [.posixPermissions: 0o600])
+            handle = try? FileHandle(forWritingTo: url)
+        }
+
+        deinit { try? handle?.close() }
+
+        public func append(_ s: String) {
+            lock.lock(); defer { lock.unlock() }
+            if let d = s.data(using: .utf8) { try? handle?.write(contentsOf: d) }
+            recent += s
+            if recent.count > 8000 { recent = String(recent.suffix(6000)) }
+        }
+
+        /// Its last `n` non-empty lines, control characters removed (brew colours its output when it thinks it may).
+        public func tail(_ n: Int = 15) -> [String] {
+            lock.lock(); defer { lock.unlock() }
+            let lines = recent.split(separator: "\n").map { InertText.line($0, limit: 300) }
+            return Array(lines.filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }.suffix(n))
+        }
+
+        /// What a failure adds to its message: brew's last lines and where all of it is.
+        public func failureNote() -> String {
+            let t: [String] = tail()
+            var note = ""
+            if !t.isEmpty {
+                let lines: [String] = t.map { "  " + $0 }
+                note = "\nbrew said (its last lines):\n" + lines.joined(separator: "\n")
+            }
+            let place: String = DisplayPath.tilde(url.path)
+            return note + "\nall of brew's output: " + place
+        }
     }
 
     private final class Collected: @unchecked Sendable {

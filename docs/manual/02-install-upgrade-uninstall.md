@@ -70,7 +70,10 @@ doz host restart
 
 `doz upgrade` refreshes Dozable's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
 feed itself (past any cached copy), so a release is there the minute it is published. Its first name, `doz update`,
-still works. Homebrew refreshes
+still works. Homebrew's own output stays off the screen: no update of your other taps first, and what brew prints
+goes to `brew.log` in doz's settings folder (`~/.config/dozer-sandbox/brew.log`) — shown when brew fails, or as it
+runs with `doz upgrade --verbose`. When a host of the previous version is running, `doz upgrade` (without `-y`)
+then asks whether to restart it now. Homebrew refreshes
 its taps only now and then, so a plain `brew upgrade doz` can say there is nothing new for up to a day; with brew
 directly, run `brew update` first.
 
