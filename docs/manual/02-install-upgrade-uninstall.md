@@ -208,7 +208,7 @@ data. `doz inventory` prints the same list and changes nothing.
 
 ## Build from source (contributors)
 
-The source is on GitHub (`dozer-sandbox/dozer-sandbox`). `make install-cli` builds and signs `doz` into
+The source is on GitHub (`dozable/dozable`). `make install-cli` builds and signs `doz` into
 `~/.local/bin`; `make cli` builds a signed development copy. A source build is never updated by doz itself.
 Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same time. See the repository's README.
 

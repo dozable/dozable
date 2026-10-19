@@ -14,7 +14,7 @@ permissions — treat it as you would at the keyboard.
 Paste:
 
 > Install Dozable (the `doz` command) on this Mac with Homebrew, following
-> https://github.com/dozer-sandbox/dozer-sandbox/blob/main/docs/manual/02-install-upgrade-uninstall.md.
+> https://github.com/dozable/dozable/blob/main/docs/manual/02-install-upgrade-uninstall.md.
 > When it is installed, run `doz --version` and `doz doctor --json` and tell me what they say.
 
 What it will run:

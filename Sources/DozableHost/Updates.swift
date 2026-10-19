@@ -34,7 +34,7 @@ public enum Distribution {
     /// (`UpdateInstaller.installedTap`).
     public static let previousTaps = ["dozer-sandbox/tap"]
     /// The public source repository; its GitHub releases carry the tarballs.
-    public static let repository = "dozer-sandbox/dozer-sandbox"
+    public static let repository = "dozable/dozable"
     /// The PUBLIC half of Dozable's update-signing key (base64, 32 bytes) — `make doz-update-keys` prints it, once.
     /// Empty: this build cannot verify a feed, so it never offers an update (development builds).
     public static let updatePublicKey = "Istc57eBxex+MaRcSrmIoC2vOroeNdvY+h+N4UCeNxg="

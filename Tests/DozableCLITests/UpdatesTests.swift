@@ -22,7 +22,7 @@ final class UpdatesTests: XCTestCase {
 
     func entry(_ v: String, build: Int, channel: String, sign: Curve25519.Signing.PrivateKey? = nil) -> UpdateEntry {
         var e = UpdateEntry(version: v, build: build, channel: channel, date: "2026-10-09", notes: "https://updates.dozersandbox.com/v1/notes/\(v).html",
-                            archive: "https://github.com/dozer-sandbox/dozer-sandbox/releases/download/v\(v)/doz-\(v)-macos-arm64.tar.gz",
+                            archive: "https://github.com/dozable/dozable/releases/download/v\(v)/doz-\(v)-macos-arm64.tar.gz",
                             size: 1000 + build, sha256: String(repeating: "ab", count: 32), signature: "")
         e.signature = try! (sign ?? key).signature(for: UpdateSignature.message(e)).base64EncodedString()
         return e

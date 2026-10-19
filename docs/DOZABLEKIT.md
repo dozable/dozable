@@ -341,7 +341,7 @@ this repository:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dozer-sandbox/dozer-sandbox.git", from: "0.31.0"),
+    .package(url: "https://github.com/dozable/dozable.git", from: "0.31.0"),
 ],
 targets: [
     .target(name: "YourTarget", dependencies: [
