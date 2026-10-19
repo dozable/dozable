@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599c (owner, 2026-10-01: "add a "Quick Add" sandbox that picks defaults for workspace name etc and opens
 // it immediately"): `doz new` — every default, created, started and attached. With `--detach`: it says what

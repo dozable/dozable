@@ -1,5 +1,5 @@
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 import Foundation
 
 /// 594 W25–W27 (the owner's walkthrough, step 8–9): restore point names are never cut, and a point is

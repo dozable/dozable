@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 599b (owner, 2026-10-01: "the agent can open files in the workspace that will open in the default (or
 // specific) app on the mac ; e.g. html page will open in a browser, same with markdown"): `xdg-open FILE`,

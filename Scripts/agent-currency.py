@@ -19,7 +19,7 @@ REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import recipes_published  # noqa: E402
 # The compiled recipes (Recipes/compiled/*.json — each Recipes/agents/VENDOR/PRODUCT.yaml as JSON, schema 2).
-RECIPES = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+RECIPES = os.path.join(REPO, "Sources/DozableKit/Recipes/compiled")
 
 def flat(doc):
     """The few fields this report reads, from a schema-2 recipe (its capabilities by type)."""

@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 617 (RP-1, owner: "web port forwarding first"): a sandbox's web ports on the Mac's loopback, in a real VM. A lab
 // sandbox with NO network (a forward is inbound — it needs none), a tiny HTTP server in the guest (busybox nc, looped),

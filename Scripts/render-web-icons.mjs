@@ -1,5 +1,5 @@
 // render-web-icons.mjs — the dashboard's app icons (`doz ui`'s web app manifest): render the PNGs the
-// manifest and Safari need from the two SVG masters in Sources/DozerWeb/WebSource/icons, ONCE, with
+// manifest and Safari need from the two SVG masters in Sources/DozableWeb/WebSource/icons, ONCE, with
 // headless Chrome over the DevTools protocol, and record what was rendered from what in
 // icons/PROVENANCE.json. The PNGs are committed; `make web-assets-check` (Scripts/build-web-assets.swift)
 // refuses them when a master's or a PNG's sha256 is not the one recorded here — an SVG edited without a
@@ -20,7 +20,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 
-const ICONS = join(dirname(fileURLToPath(import.meta.url)), '..', 'Sources/DozerWeb/WebSource/icons');
+const ICONS = join(dirname(fileURLToPath(import.meta.url)), '..', 'Sources/DozableWeb/WebSource/icons');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const OUTPUTS = [
   { file: 'icon-192.png', size: 192, from: 'icon.svg' },

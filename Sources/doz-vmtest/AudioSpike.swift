@@ -20,7 +20,7 @@
 //      the device (the VMLayout guard must refuse it and keep the snapshot); child 3 restores WITH it and quits
 //      again; the parent restores it (a fourth process) — two restores into a new process.
 import Darwin
-import DozerKit
+import DozableKit
 import Foundation
 import Virtualization
 

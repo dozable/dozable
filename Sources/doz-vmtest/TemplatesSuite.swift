@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 593 — templates and duplicates on an AGENT image (pi: it has a state disk), with the real signed
 // `doz` from separate processes (`make test-vm-templates`). The rules under test:

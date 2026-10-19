@@ -1,4 +1,4 @@
-# Dozer Sandbox — the `doz` command and the DozerKit Swift package (macOS on Apple silicon only).
+# Dozer Sandbox — the `doz` command and the DozableKit Swift package (macOS on Apple silicon only).
 #
 # `swift build && swift test` at the root is the whole story for a consumer. These targets add
 # what is easy to get wrong by hand: the build-system pin, the ENTITLED VM integration run, the
@@ -29,13 +29,13 @@ KERNEL_CACHE  ?=
 export DOZ_KERNEL_CACHE := $(KERNEL_CACHE)
 
 DECKHOLD_OUT := Guest/deckhold/out/deckhold
-DECKHOLD_RES := Sources/DozerKit/Resources/deckhold
+DECKHOLD_RES := Sources/DozableKit/Resources/deckhold
 
 DOZNET_OUT := Guest/doznet/out/doznet
-DOZNET_RES := Sources/DozerKit/Resources/doznet
+DOZNET_RES := Sources/DozableKit/Resources/doznet
 
 DOZVIEW_OUT := Guest/dozview/out/dozview
-DOZVIEW_RES := Sources/DozerKit/Resources/dozview
+DOZVIEW_RES := Sources/DozableKit/Resources/dozview
 
 # ── The doz CLI (585) ──────────────────────────────────────────────────────
 # `make cli` builds the debug binary and signs it with the virtualization entitlement (an unsigned
@@ -58,11 +58,11 @@ TEMPLATES_STORE ?= $(or $(TMPDIR),/tmp/)doz-templates-store
 # build-time-only tool on a package whose whole point is a short, audited dependency list.
 # `swift package dump-symbol-graph` is a first-class SwiftPM subcommand, so this needs nothing the
 # plugin would add.
-DOCC_CATALOG      := Sources/DozerKit/DozerKit.docc
+DOCC_CATALOG      := Sources/DozableKit/DozableKit.docc
 DOCC_SYMBOLS_ALL  := .build/out/symbolgraph
 DOCC_SYMBOLS_LIB  := .build/docc-symbolgraph-lib
 DOCC_OUT         ?= .docc-build
-DOCC_BASE_PATH   ?= /DozerKit/
+DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
 .PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
@@ -104,8 +104,8 @@ test-safety:
 test: test-safety web-assets-check ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check
 	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS)
 
-# 617: the agent recipes. Sources/DozerKit/Recipes/agents/VENDOR/PRODUCT.yaml is what people edit (schema 2 —
-# docs/recipes/RECIPE-FORMAT.md); Recipes/compiled/PRODUCT.json is each one as JSON (DozerKit embeds it and never
+# 617: the agent recipes. Sources/DozableKit/Recipes/agents/VENDOR/PRODUCT.yaml is what people edit (schema 2 —
+# docs/recipes/RECIPE-FORMAT.md); Recipes/compiled/PRODUCT.json is each one as JSON (DozableKit embeds it and never
 # parses YAML) and is COMMITTED. `make test` fails when they differ (RecipeSourceTests).
 recipes: test-safety ## Compile the YAML recipes to Recipes/compiled/ (commit the result)
 	DOZ_WRITE_RECIPES=1 swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --filter 'RecipeSourceTests|RecipeSchemaTests'
@@ -113,7 +113,7 @@ recipes: test-safety ## Compile the YAML recipes to Recipes/compiled/ (commit th
 # 590: `doz ui`'s front end. WebSource/ is what people edit; Resources/Web is generated from it
 # (content-hashed, digest manifest) and COMMITTED. The check fails when they differ — run by `make
 # test` and Scripts/audit.sh (CI runs both), so a stale bundle cannot ship.
-web-assets: ## Regenerate Sources/DozerWeb/Resources/Web from WebSource/ (commit the result)
+web-assets: ## Regenerate Sources/DozableWeb/Resources/Web from WebSource/ (commit the result)
 	swift Scripts/build-web-assets.swift
 
 web-assets-check: ## Fail when the committed web assets are not exactly what WebSource/ builds
@@ -144,12 +144,12 @@ test-vm-lineage: vmtest-host ## 587 image lineage: warm-base bakes, journal, dis
 # 591: an update never costs a sleeping sandbox its sessions. The PREVIOUS release's `doz` sleeps
 # sandboxes in a scratch store, and this build must wake them with their sessions. Also: a running
 # host's program overwritten in place (the 591 incident), and an idle host replaced by an update.
-# PREV_TAG is the latest release tag this branch descends from that IS a DozerKit release (its tree
+# PREV_TAG is the latest release tag this branch descends from that IS a DozableKit release (its tree
 # has Sources/doz); it is built once from the tag (git archive, no checkout touched) into PREV_DIR.
 # 592: there is none yet — v0.9.0 and older are the pre-rename product, and by owner ruling their stores are NOT
 # expected to wake under doz. Then the "previous" build is a COPY of this one (a reinstall of the same
 # version): the sessions-survive-an-update wake, the in-place overwrite incident and the replaced-host
-# idle exit all still run; only the cross-version part waits for the first DozerKit tag (v0.10.0).
+# idle exit all still run; only the cross-version part waits for the first DozableKit tag (v0.10.0).
 PREV_TAG      ?= $(shell for t in $$(git tag --list 'v[0-9]*' --sort=-v:refname --merged HEAD 2>/dev/null); do \
                    git cat-file -e "$$t:Sources/doz" 2>/dev/null && { echo "$$t"; break; }; done)
 ifneq ($(PREV_TAG),)
@@ -161,17 +161,17 @@ PREV_BIN      := $(PREV_DIR)/doz
 endif
 UPGRADE_STORE ?= $(or $(TMPDIR),/tmp/)doz-upgrade-store
 
-prev-cli: cli ## Build + sign the previous DozerKit release's doz from its tag (once, into PREV_DIR) — or copy this build when there is none
+prev-cli: cli ## Build + sign the previous DozableKit release's doz from its tag (once, into PREV_DIR) — or copy this build when there is none
 	@if [ -z "$(PREV_TAG)" ]; then \
-	  echo "prev-cli: no DozerKit release below HEAD yet (v0.9.0 and older are the pre-rename product — not compatible, owner ruling 592); the previous build is a copy of this one"; \
+	  echo "prev-cli: no DozableKit release below HEAD yet (v0.9.0 and older are the pre-rename product — not compatible, owner ruling 592); the previous build is a copy of this one"; \
 	  mkdir -p "$(PREV_DIR)" && cp "$(CLI_BIN)" "$(PREV_DIR)/.doz.new" && mv -f "$(PREV_DIR)/.doz.new" "$(PREV_BIN)" && \
-	  cp -R .build/debug/DozerKit_DozerKit.bundle .build/debug/DozerKit_DozerWeb.bundle "$(PREV_DIR)/" ; \
+	  cp -R .build/debug/DozableKit_DozableKit.bundle .build/debug/DozableKit_DozableWeb.bundle "$(PREV_DIR)/" ; \
 	elif [ ! -x "$(PREV_BIN)" ]; then \
 	  rm -rf "$(PREV_DIR)" && mkdir -p "$(PREV_DIR)" && git archive $(PREV_TAG) | tar -x -C "$(PREV_DIR)" && \
 	  (cd "$(PREV_DIR)" && swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --product doz) ; fi
 	codesign --force --sign - --entitlements Scripts/doz.entitlements $(PREV_BIN)
 
-test-vm-upgrade: cli vmtest-host prev-cli ## 591 upgrade: the previous DozerKit release (or a copy of this build) sleeps lab + pi sandboxes (sessions, markers), this build wakes them; the running host's program overwritten in place; an idle host replaced by an update
+test-vm-upgrade: cli vmtest-host prev-cli ## 591 upgrade: the previous DozableKit release (or a copy of this build) sleeps lab + pi sandboxes (sessions, markers), this build wakes them; the running host's program overwritten in place; an idle host replaced by an update
 	perl -e 'alarm shift; exec @ARGV' 3600 $(VMTEST_BIN) upgrade --old $(PREV_BIN) --doz $(CLI_BIN) --store "$(UPGRADE_STORE)" --entitlements Scripts/doz.entitlements
 
 kernel: vmtest-host ## Fetch + verify the pinned Linux kernel into the cache (KERNEL_CACHE=dir; no VM)
@@ -203,9 +203,9 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) -c release --product doz
 	codesign --force --sign - --entitlements Scripts/doz.entitlements .build/release/doz
 	mkdir -p "$(PREFIX)/bin" "$(PREFIX)/libexec/doz"
-	rm -rf "$(PREFIX)/libexec/doz/DozerKit_DozerKit.bundle" "$(PREFIX)/libexec/doz/DozerKit_DozerWeb.bundle"
-	cp -R .build/release/DozerKit_DozerKit.bundle "$(PREFIX)/libexec/doz/"
-	cp -R .build/release/DozerKit_DozerWeb.bundle "$(PREFIX)/libexec/doz/"
+	rm -rf "$(PREFIX)/libexec/doz/DozableKit_DozableKit.bundle" "$(PREFIX)/libexec/doz/DozableKit_DozableWeb.bundle"
+	cp -R .build/release/DozableKit_DozableKit.bundle "$(PREFIX)/libexec/doz/"
+	cp -R .build/release/DozableKit_DozableWeb.bundle "$(PREFIX)/libexec/doz/"
 	cp VERSION "$(PREFIX)/libexec/doz/VERSION"   # 602: the stamp `doz --version` reads (see `cli`)
 	@# NEVER overwrite the executable in place: a running `doz host` executes that very file, and
 	@# rewriting it invalidates the running process's code signature — the Virtualization framework
@@ -243,7 +243,7 @@ release: ## 598/611: build (PUBLIC=1 by default; PUBLIC=0 a private rc) + sign (
 	  Scripts/release.sh
 
 # ── Updates: the signed feed and the Homebrew channels (611) ─────────────────
-# The feed is https://updates.dozersandbox.com/v1/feed.json (Distribution in Sources/DozerHost/Updates.swift — the
+# The feed is https://updates.dozersandbox.com/v1/feed.json (Distribution in Sources/DozableHost/Updates.swift — the
 # ONE place the feed, tap and repository names live). UPDATES_DIR / TAP_DIR are local checkouts of the Pages repo
 # and the tap (Makefile.config); they default to scratch folders until those repositories exist. Nothing is pushed
 # unless PUSH=1, and the GitHub release is printed, never created.
@@ -407,15 +407,15 @@ dozview-verify: ## Rebuild dozview from scratch and check the committed bytes ma
 docs-drift-check: ## 589: the CLI reference's documented command names vs real `doz --help` (cheap; names only); the user manual's commands, flags, settings and links (docs/manual)
 	@JOBS=$(JOBS) Scripts/docs-drift-check.sh
 
-docs: docs-drift-check ## 589: build the static docs site (DocC) into DOCC_OUT (default .docc-build); DOCC_BASE_PATH for hosting (default /DozerKit/)
+docs: docs-drift-check ## 589: build the static docs site (DocC) into DOCC_OUT (default .docc-build); DOCC_BASE_PATH for hosting (default /DozableKit/)
 	swift package dump-symbol-graph --minimum-access-level public
 	@rm -rf "$(DOCC_SYMBOLS_LIB)" && mkdir -p "$(DOCC_SYMBOLS_LIB)"
-	cp "$(DOCC_SYMBOLS_ALL)/DozerKit.symbols.json" "$(DOCC_SYMBOLS_LIB)/"
+	cp "$(DOCC_SYMBOLS_ALL)/DozableKit.symbols.json" "$(DOCC_SYMBOLS_LIB)/"
 	rm -rf "$(DOCC_OUT)"
 	xcrun docc convert "$(DOCC_CATALOG)" \
 	  --analyze \
-	  --fallback-display-name DozerKit \
-	  --fallback-bundle-identifier org.dozerkit.docs \
+	  --fallback-display-name DozableKit \
+	  --fallback-bundle-identifier org.dozablekit.docs \
 	  --fallback-bundle-version 1.0.0 \
 	  --additional-symbol-graph-dir "$(DOCC_SYMBOLS_LIB)" \
 	  --output-path "$(DOCC_OUT)" \
@@ -424,7 +424,7 @@ docs: docs-drift-check ## 589: build the static docs site (DocC) into DOCC_OUT (
 	@echo "ok docs: built $(DOCC_OUT) (hosting base path $(DOCC_BASE_PATH))"
 
 docs-preview: docs ## 589: build, then serve the docs site locally (127.0.0.1:DOCC_PREVIEW_PORT, default 8000)
-	@echo "docs-preview: http://127.0.0.1:$(DOCC_PREVIEW_PORT)/documentation/dozerkit/  (Ctrl-C to stop)"
+	@echo "docs-preview: http://127.0.0.1:$(DOCC_PREVIEW_PORT)/documentation/dozablekit/  (Ctrl-C to stop)"
 	python3 -m http.server $(DOCC_PREVIEW_PORT) --bind 127.0.0.1 --directory "$(DOCC_OUT)"
 
 audit-resolved: ## (app gate) this repo pins no workspace library — the ship's app gate calls it

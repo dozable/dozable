@@ -2,7 +2,7 @@
 
 `doz` runs Linux sandboxes on your Mac that pause in a millisecond, hibernate to disk and wake
 in about a third of a second, with the programs inside them still running where they were. It is
-the command-line face of DozerKit. New to it? Start with the
+the command-line face of DozableKit. New to it? Start with the
 [walkthrough](CLI-WALKTHROUGH.md). The [user manual](manual/README.md) covers the same ground by
 task, for the CLI and the dashboard side by side; this guide is the terse command-line companion.
 
@@ -1281,7 +1281,7 @@ is created, and become part of it.
 | A browser terminal says "Disconnected" | The tab was silent for a long time, or it could not reattach. Reconnect. (After a restart or a sign-in it reattaches by itself.) |
 | A browser terminal will not type Chinese/Japanese/Korean | Its engine's input-method support is incomplete; use Open in Terminal for now. |
 | Open in Terminal says no app opened it | Make a terminal app the handler for `.command` files (Finder › Get Info on any `.command` file › Open with › Change All…). |
-| `doz ui` says the resources are missing | `DozerKit_DozerWeb.bundle` must sit beside the executable. Reinstall (`brew reinstall doz`, or `make install-cli`). |
+| `doz ui` says the resources are missing | `DozableKit_DozableWeb.bundle` must sit beside the executable. Reinstall (`brew reinstall doz`, or `make install-cli`). |
 | Anything else | `<store>/host.log` and `doz events`. |
 
 ## Not yet

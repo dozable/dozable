@@ -27,8 +27,8 @@ import ContainerizationOCI
 import CryptoKit
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 func basesHarness(_ binary: String, _ tag: String) -> CLIHarness {
     let h = onboardingHarness(binary, "b\(tag)", seed: ["kernels", "content", "state.json", "initfs.ext4"])

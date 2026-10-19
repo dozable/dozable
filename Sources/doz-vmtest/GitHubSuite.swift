@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 599d (owner: "how do we optionally give the agent in the vm git credentials (ie. the same that are on the
 // local machine) so it can operate the same way an agent would on the host. Another proxy credential

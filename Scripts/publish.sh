@@ -32,7 +32,7 @@ VERSION="${VERSION:-}"; CHANNEL="${CHANNEL:-canary}"; NOTES="${NOTES:-}"; DIST="
 DRY_RUN="${DRY_RUN:-}"; PUSH="${PUSH:-}"; TEST_PUBLISH="${TEST_PUBLISH:-}"
 UPDATES_DIR="${UPDATES_DIR:-${TMPDIR:-/tmp/}doz-updates-site}"
 TAP_DIR="${TAP_DIR:-${TMPDIR:-/tmp/}doz-homebrew-tap}"
-dist_value() { sed -n "s/.*static let $1 = \"\\([^\"]*\\)\".*/\\1/p" Sources/DozerHost/Updates.swift | head -1; }
+dist_value() { sed -n "s/.*static let $1 = \"\\([^\"]*\\)\".*/\\1/p" Sources/DozableHost/Updates.swift | head -1; }
 FEED_URL="$(dist_value feedURL)"
 REPOSITORY="${REPOSITORY:-$(dist_value repository)}"
 TEAM_ID="$(dist_value teamID)"
@@ -44,7 +44,7 @@ FEED_DIR="$(sed -E 's#^https://[^/]+/(.*)/feed\.json$#\1#' <<<"$FEED_URL")"   # 
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]] || fail "VERSION must be semver, not $VERSION"
 case "$CHANNEL" in stable|beta|canary) ;; *) fail "CHANNEL is stable, beta or canary (not $CHANNEL)";; esac
 [[ -n "$NOTES" && -f "$NOTES" ]] || fail "NOTES=<a markdown file> — release notes are mandatory (the feed links them)"
-[[ "$FEED_DIR" == v1 && -n "$SITE" ]] || fail "cannot read the feed URL from Sources/DozerHost/Updates.swift"
+[[ "$FEED_DIR" == v1 && -n "$SITE" ]] || fail "cannot read the feed URL from Sources/DozableHost/Updates.swift"
 [[ -n "$PUBLIC_KEY" ]] || fail "doz carries no update public key yet (Distribution.updatePublicKey) — run make doz-update-keys once, commit the key, rebuild"
 if [[ -n "$PUSH" ]]; then
     for d in "$UPDATES_DIR" "$TAP_DIR"; do

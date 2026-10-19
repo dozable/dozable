@@ -1,7 +1,7 @@
 // The style guide's script. Everything it draws comes from the repository itself, read over HTTP:
 //  · the icons: the dashboard's vendored Lucide set — VENDOR.json's list, each file fetched and made one inline sprite
 //    (as the asset build makes it); then every <i data-i="name"> becomes the dashboard's icon markup.
-//  · the marks: the icon registry (Sources/DozerKit/Recipes/icons/icons.json and its files) — every <span data-mark=ID>
+//  · the marks: the icon registry (Sources/DozableKit/Recipes/icons/icons.json and its files) — every <span data-mark=ID>
 //    gets that mark, and the registry section lists them all.
 //  · light and dark: each .pair's panel is cloned as the dark one (color-scheme decides app.css's light-dark()).
 //  · the theme switch: auto · light · dark — the app's own data-theme on <html>.
@@ -9,8 +9,8 @@
 (async function () {
   const NS = 'http://www.w3.org/2000/svg';
   const ROOT = '../../';
-  const VENDOR = ROOT + 'Sources/DozerWeb/WebSource/vendor/lucide-static/';
-  const ICONS = ROOT + 'Sources/DozerKit/Recipes/icons/';
+  const VENDOR = ROOT + 'Sources/DozableWeb/WebSource/vendor/lucide-static/';
+  const ICONS = ROOT + 'Sources/DozableKit/Recipes/icons/';
   // One file at a time, retried once: a simple local server (python3 -m http.server) drops some of 60 parallel requests.
   const get = async (url, as) => {
     for (let i = 0; ; i++) {

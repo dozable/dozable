@@ -41,7 +41,7 @@
 import argparse, datetime, glob, json, os, pty, re, select, shlex, shutil, signal, struct, subprocess, sys, termios, threading, time, fcntl
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-COMPILED = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+COMPILED = os.path.join(REPO, "Sources/DozableKit/Recipes/compiled")
 # 629: which recipes are published — read from the compiled recipes by the ONE helper (never a list kept here).
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import recipes_published  # noqa: E402
@@ -762,7 +762,7 @@ def summary_markdown(report):
 
 # What makes every recipe's check stale: the harness, the stand-in, the shared recipe data, the format.
 SHARED = ("Scripts/recipe-check.py", "Scripts/recipes_published.py", "Scripts/fake-provider.py", "Scripts/fake-provider-up.sh", ".github/workflows/recipes.yml",
-          "Sources/DozerKit/Recipes/providers.json", "Sources/DozerKit/Recipes/gateways.json", "Sources/DozerKit/Recipes/tags.json",
+          "Sources/DozableKit/Recipes/providers.json", "Sources/DozableKit/Recipes/gateways.json", "Sources/DozableKit/Recipes/tags.json",
           "schema/dozer-recipe-2.schema.json")
 
 
@@ -779,7 +779,7 @@ def changed_recipes(base, known):
     for f in p.stdout.split():
         if f in SHARED:
             return ["all"]
-        m = (re.match(r"Sources/DozerKit/Recipes/agents/[^/]+/([^/]+)\.yaml$", f) or re.match(r"Sources/DozerKit/Recipes/compiled/([^/]+)\.json$", f)
+        m = (re.match(r"Sources/DozableKit/Recipes/agents/[^/]+/([^/]+)\.yaml$", f) or re.match(r"Sources/DozableKit/Recipes/compiled/([^/]+)\.json$", f)
              or re.match(r"profiles/([^/]+)\.json$", f))
         if m and m.group(1) in known and m.group(1) not in out:
             out.append(m.group(1))

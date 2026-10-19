@@ -86,7 +86,7 @@ and ranges about how Dozable itself is used, never a name, path, host, command a
 sandbox — and include an optional sign-up for news. `doz telemetry show` prints exactly what would be sent; turn
 it off with `doz config set telemetry.send_anonymous_usage_stats false`, `DO_NOT_TRACK=1`, or
 `--no-send-anonymous-usage-stats` on one command. Builds from this repository send nothing; the statistics and
-sign-up code is not open source (what may be sent, and every switch, is: `Sources/DozerHost/Usage.swift`). See
+sign-up code is not open source (what may be sent, and every switch, is: `Sources/DozableHost/Usage.swift`). See
 [Usage statistics and sign-up](docs/manual/01-getting-started.md#usage-statistics-and-sign-up) and
 [dozable.com/privacy](https://dozable.com/privacy).
 
@@ -98,10 +98,10 @@ sign-up code is not open source (what may be sent, and every switch, is: `Source
   dashboard side by side, and is checked against the program on every build.
 - [The CLI walkthrough](docs/CLI-WALKTHROUGH.md) (~25 minutes, from nothing installed to uninstalling again),
   the terser [CLI user guide](docs/CLI-USER-GUIDE.md), and the complete
-  [CLI reference](Sources/DozerKit/DozerKit.docc/Articles/CLIReference.md).
+  [CLI reference](Sources/DozableKit/DozableKit.docc/Articles/CLIReference.md).
 - [The security model](docs/manual/16-security-model.md) — what the VM, the proxy and the placeholders keep
   from a sandbox, and what they do not.
-- [DozerKit](docs/DOZERKIT.md) — the Swift engine underneath, for developers: the lifecycle, lineage,
+- [DozableKit](docs/DOZABLEKIT.md) — the Swift engine underneath, for developers: the lifecycle, lineage,
   memory, the proxied network, the host process, and how to depend on it.
 - [The dashboard style guide](docs/style-guide/index.html) — a living specimen of the dashboard's look, drawn by its
   real stylesheet, icons and marks (serve the repository root, e.g. `python3 -m http.server`, and open

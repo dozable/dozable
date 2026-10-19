@@ -18,8 +18,8 @@
 // vmtest store when it has them. Never the owner's store, settings, installed doz or keychain.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 /// A store for these checks, seeded from the vmtest store (APFS clones), with its own settings.
 func onboardingHarness(_ binary: String, _ tag: String, seed items: [String]) -> CLIHarness {
@@ -364,7 +364,7 @@ func cliOnboardingSuite(binary: String) async {
     try? FileManager.default.createDirectory(at: libexec, withIntermediateDirectories: true)
     try? FileManager.default.createDirectory(at: prefix.appendingPathComponent("bin"), withIntermediateDirectories: true)
     let build = URL(fileURLWithPath: binary).deletingLastPathComponent()
-    for item in ["DozerKit_DozerKit.bundle", "DozerKit_DozerWeb.bundle"] {
+    for item in ["DozableKit_DozableKit.bundle", "DozableKit_DozableWeb.bundle"] {
         try? FileManager.default.copyItem(at: build.appendingPathComponent(item), to: libexec.appendingPathComponent(item))
     }
     try? FileManager.default.copyItem(at: URL(fileURLWithPath: binary), to: libexec.appendingPathComponent("doz"))

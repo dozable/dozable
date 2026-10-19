@@ -1,4 +1,4 @@
-// doz-vmtest — DozerKit's VM integration suite, as an ENTITLED executable.
+// doz-vmtest — DozableKit's VM integration suite, as an ENTITLED executable.
 //
 // `swift test` binaries cannot carry `com.apple.security.virtualization`, so these checks run
 // here instead: `make test-vm` builds this target, ad-hoc signs it with Scripts/vmtest.entitlements,
@@ -37,7 +37,7 @@
 import Darwin
 import Foundation
 import Containerization
-import DozerKit
+import DozableKit
 
 setvbuf(stdout, nil, _IOLBF, 0)
 signal(SIGPIPE, SIG_IGN)

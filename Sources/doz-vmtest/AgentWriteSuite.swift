@@ -17,8 +17,8 @@
 //   Another guest user (nobody) does not write through the view (documented). The same after sleep→wake
 //   and after hibernate→wake.
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 /// Alpine (the lab's pinned base) + bash + git + the agent user — the cheapest image whose session user is
 /// not root.

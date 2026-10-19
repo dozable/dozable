@@ -28,7 +28,7 @@ A=0.31.0-t.1; B=0.31.0-t.2; C=0.31.0-t.3; Z=9.9.9
 tarball() {
     local v="$1" s="$R/stage/doz-$1"
     mkdir -p "$s/bin" "$s/libexec/doz" "$R/dist"
-    for b in "$(dirname "$BUILT")"/DozerKit_*.bundle; do cp -cR "$b" "$s/libexec/doz/"; done
+    for b in "$(dirname "$BUILT")"/DozableKit_*.bundle; do cp -cR "$b" "$s/libexec/doz/"; done
     cp -c "$BUILT" "$s/libexec/doz/doz"
     codesign --force --sign - --entitlements Scripts/doz.entitlements "$s/libexec/doz/doz" 2>/dev/null
     printf '%s\n' "$v" > "$s/libexec/doz/VERSION"

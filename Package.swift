@@ -1,5 +1,5 @@
 // swift-tools-version: 6.2
-// DozerKit — the library behind Dozer Sandbox ("Fast, suspendable micro-VMs for your Mac"): one
+// DozableKit — the library behind Dozer Sandbox ("Fast, suspendable micro-VMs for your Mac"): one
 // container in its own VM, built on Apple's Containerization framework, with pause/resume in ~1 ms,
 // sleep to disk that frees the RAM, wake in ~0.35 s, restore after a host crash, and terminal
 // sessions (the `deckhold` guest PTY holder) that survive every one of those.
@@ -15,7 +15,7 @@
 // proxy's TLS; Scripts/audit.sh holds the allowlist.
 import PackageDescription
 
-// The official builds' closed package (anonymous usage statistics and the sign-up — Sources/DozerHost/Usage.swift is
+// The official builds' closed package (anonymous usage statistics and the sign-up — Sources/DozableHost/Usage.swift is
 // the open half and decides everything that may be sent). It joins ONLY when DOZ_CLOUD_PACKAGE names it — a local
 // path, or a git URL with DOZ_CLOUD_REF (an exact version, or a commit) — which `make release` passes from the
 // gitignored Makefile.config. Every other build (contributors, CI, forks, `make cli`) has no such dependency, its
@@ -35,10 +35,10 @@ let cloudIdentity: String? = cloudSource.map { src in
 }
 
 let package = Package(
-    name: "DozerKit",
+    name: "DozableKit",
     platforms: [.macOS("26.0")],
     products: [
-        .library(name: "DozerKit", targets: ["DozerKit"]),
+        .library(name: "DozableKit", targets: ["DozableKit"]),
         // 585: the `doz` command-line tool. `make cli` builds it and signs it with the
         // virtualization entitlement (an unsigned build can do everything but boot a VM).
         .executable(name: "doz", targets: ["doz"]),
@@ -65,7 +65,7 @@ let package = Package(
     ] + [cloudPackage].compactMap { $0 },
     targets: [
         .target(
-            name: "DozerKit",
+            name: "DozableKit",
             dependencies: [
                 .product(name: "Containerization", package: "containerization"),
                 .product(name: "ContainerizationArchive", package: "containerization"),
@@ -81,8 +81,8 @@ let package = Package(
                 .product(name: "X509", package: "swift-certificates"),
                 .product(name: "SwiftASN1", package: "swift-asn1"),
             ],
-            path: "Sources/DozerKit",
-            // 617: the YAML recipe sources — compiled to Recipes/compiled/ (DozerKit embeds the JSON, never parses YAML).
+            path: "Sources/DozableKit",
+            // 617: the YAML recipe sources — compiled to Recipes/compiled/ (DozableKit embeds the JSON, never parses YAML).
             exclude: ["Recipes/agents", "Recipes/parked"],
             resources: [
                 // The guest PTY holder: a static aarch64-linux-musl ELF, committed as the pin
@@ -206,17 +206,17 @@ let package = Package(
         // `Scripts/vmtest.entitlements`, and runs under a watchdog. See CLAUDE.md.
         .executableTarget(
             name: "doz-vmtest",
-            // DozerHost (585): the `cli` mode decodes the real binary's --json output with its types.
-            dependencies: ["DozerKit", "DozerHost", .product(name: "Containerization", package: "containerization")],
+            // DozableHost (585): the `cli` mode decodes the real binary's --json output with its types.
+            dependencies: ["DozableKit", "DozableHost", .product(name: "Containerization", package: "containerization")],
             path: "Sources/doz-vmtest"
         ),
         // 585 — the per-user host behind the `doz` CLI: it owns every running VM, the egress
         // proxies, the metrics writer and the shared event-loop group, and serves `<store>/host.sock`
         // (JSON lines + a raw attach relay). Also the client side of that socket. Not a product.
         .target(
-            name: "DozerHost",
-            dependencies: ["DozerKit"],
-            path: "Sources/DozerHost"
+            name: "DozableHost",
+            dependencies: ["DozableKit"],
+            path: "Sources/DozableHost"
         ),
         // 590 — `doz ui`: the local web UI. A CLIENT of the host (host.sock), served by swift-nio's
         // own HTTP/1.1 codec (NIOHTTP1 — part of swift-nio, already resolved; no new package) on
@@ -224,30 +224,30 @@ let package = Package(
         // content-hashed, digest-manifested Resources/Web by Scripts/build-web-assets.swift and
         // committed (`make web-assets`; `make web-assets-check` fails on drift). Not a product.
         // 591: + NIOWebSocket (also a module of swift-nio — Package.resolved unchanged) for the
-        // browser terminals' socket; the audit confines it to Sources/DozerWeb.
+        // browser terminals' socket; the audit confines it to Sources/DozableWeb.
         .target(
-            name: "DozerWeb",
-            dependencies: ["DozerHost", "DozerKit",
+            name: "DozableWeb",
+            dependencies: ["DozableHost", "DozableKit",
                            .product(name: "NIOCore", package: "swift-nio"),
                            .product(name: "NIOPosix", package: "swift-nio"),
                            .product(name: "NIOHTTP1", package: "swift-nio"),
                            .product(name: "NIOWebSocket", package: "swift-nio")],
-            path: "Sources/DozerWeb",
+            path: "Sources/DozableWeb",
             exclude: ["WebSource"],
             resources: [.copy("Resources/Web")]
         ),
         // 585 — the commands (swift-argument-parser), the attach client, the human/JSON output.
         .target(
-            name: "DozerCLI",
-            dependencies: ["DozerHost", "DozerKit", "DozerWeb",
+            name: "DozableCLI",
+            dependencies: ["DozableHost", "DozableKit", "DozableWeb",
                            .product(name: "ArgumentParser", package: "swift-argument-parser"),
                            .product(name: "Yams", package: "Yams")],
-            path: "Sources/DozerCLI"
+            path: "Sources/DozableCLI"
         ),
         .executableTarget(
             name: "doz",
-            // DozerHost: `Usage.install` — the bridge `main` builds when the official package is present.
-            dependencies: ["DozerCLI", "DozerHost", .product(name: "ArgumentParser", package: "swift-argument-parser")]
+            // DozableHost: `Usage.install` — the bridge `main` builds when the official package is present.
+            dependencies: ["DozableCLI", "DozableHost", .product(name: "ArgumentParser", package: "swift-argument-parser")]
                 + (cloudIdentity.map { [.product(name: "DozerCloud", package: $0)] } ?? []),
             path: "Sources/doz",
             // The bridge in main is compiled ONLY with the package (`#if DOZ_CLOUD`): `canImport` alone is not enough —
@@ -255,26 +255,26 @@ let package = Package(
             swiftSettings: cloudIdentity == nil ? [] : [.define("DOZ_CLOUD")]
         ),
         .testTarget(
-            name: "DozerCLITests",
-            dependencies: ["DozerCLI", "DozerHost", "DozerKit"],
-            path: "Tests/DozerCLITests"
+            name: "DozableCLITests",
+            dependencies: ["DozableCLI", "DozableHost", "DozableKit"],
+            path: "Tests/DozableCLITests"
         ),
         // 590 — the web UI's security rules as unit tests, and a real listener driven over HTTP.
         .testTarget(
-            name: "DozerWebTests",
-            dependencies: ["DozerWeb", "DozerHost", "DozerKit"],
-            path: "Tests/DozerWebTests"
+            name: "DozableWebTests",
+            dependencies: ["DozableWeb", "DozableHost", "DozableKit"],
+            path: "Tests/DozableWebTests"
         ),
         .testTarget(
-            name: "DozerKitTests",
-            dependencies: ["DozerKit", "DozMatch",
+            name: "DozableKitTests",
+            dependencies: ["DozableKit", "DozMatch",
                            // 587: real ext4 disks, made on the host, for the EXT4Inspector / accounting tests.
                            .product(name: "ContainerizationEXT4", package: "containerization"),
                            .product(name: "ContainerizationArchive", package: "containerization"),
                            .product(name: "NIOCore", package: "swift-nio"),
                            .product(name: "NIOEmbedded", package: "swift-nio"),
                            .product(name: "NIOSSL", package: "swift-nio-ssl")],
-            path: "Tests/DozerKitTests"
+            path: "Tests/DozableKitTests"
         ),
     ]
 )

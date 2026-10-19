@@ -1,5 +1,5 @@
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 import Foundation
 
 /// 594 W23 (owner ruling 2026-09-30: "yes, passwordless sudo by default"): the agent in a fresh

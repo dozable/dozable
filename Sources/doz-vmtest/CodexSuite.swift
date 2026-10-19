@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 599i — Codex as a first-class agent in real VMs, through SEAMS ONLY — never OpenAI, never the owner's
 // ~/.codex, keychain or sign-in:

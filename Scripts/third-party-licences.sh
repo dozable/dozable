@@ -71,7 +71,7 @@ done
         "  and Go's regexp/syntax, path and path/filepath (BSD-3-Clause, Copyright 2009 The Go Authors) — texts above." \
         "- dozview's and doz's case-folding tables are derived from the Unicode Character Database (Unicode License v3):" \
         "  Copyright © 1991-2025 Unicode, Inc. — https://www.unicode.org/license.txt"
-    for v in Sources/DozerWeb/WebSource/vendor/*/; do
+    for v in Sources/DozableWeb/WebSource/vendor/*/; do
         name="$(basename "$v")"
         lf="$(python3 -c "import json,sys; d=json.load(open('$v/VENDOR.json')); print(d.get('licenceFile','LICENSE'), d.get('licence',''), d.get('version',''))")"
         set -- $lf

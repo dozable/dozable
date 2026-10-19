@@ -1,5 +1,5 @@
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 import Foundation
 
 /// 597 — Dozer Agent Permissions end to end, from separate processes of the REAL signed doz

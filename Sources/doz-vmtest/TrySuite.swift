@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 617 — `doz try` the way a person uses it: on a terminal (script(1) gives it one, as test-cli-projectwizard does),
 // through SEAMS only — the stand-in provider (Scripts/fake-provider.py, its own CA) for xAI, a FAKE key typed into the

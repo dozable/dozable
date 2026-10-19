@@ -1,5 +1,5 @@
 import Darwin
-import DozerHost
+import DozableHost
 import Foundation
 
 /// 594 W22 (owner: "doz host stop seems to run with delay but its no doubt hibernating vms. we need some

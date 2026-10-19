@@ -12,7 +12,7 @@
 //                                                    # the public key is printed. Never the real key.
 //
 // THE KEY. Dozer's own — never Deckosaurus's — and never rotated: every installed doz carries the public key compiled
-// in (`Distribution.updatePublicKey`, Sources/DozerHost/Updates.swift) and refuses an entry it did not sign. Losing the
+// in (`Distribution.updatePublicKey`, Sources/DozableHost/Updates.swift) and refuses an entry it did not sign. Losing the
 // private key means no installed doz can be told about a new release again. The private key lives ONLY in the login
 // keychain of the Mac that publishes (generic password, service "dozersandbox.com update signing", account "ed25519",
 // its raw 32 bytes base64) plus the owner's offline backup; publishing is local, never CI. It reaches `security` on
@@ -133,7 +133,7 @@ case "generate":
 
         \(k.publicKey.rawRepresentation.base64EncodedString())
 
-    Put it in Sources/DozerHost/Updates.swift as Distribution.updatePublicKey, then `make test`.
+    Put it in Sources/DozableHost/Updates.swift as Distribution.updatePublicKey, then `make test`.
     Backup now, to a disk you keep offline:  swift Scripts/update-key.swift export /Volumes/<backup>/dozer-update-key.txt
     """)
 case "public":

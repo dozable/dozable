@@ -14,8 +14,8 @@
 //   C. A host whose program was REPLACED by an update (a rename: the new install) exits by itself once
 //      nothing runs and nobody is connected, so the next command runs the installed build.
 //
-// 592: the first DozerKit release is v0.10.0, and a store of a pre-rename release (v0.9.0 or older) is
-// NOT expected to wake under doz (owner ruling: no backward compatibility). Until a DozerKit tag exists the Makefile
+// 592: the first DozableKit release is v0.10.0, and a store of a pre-rename release (v0.9.0 or older) is
+// NOT expected to wake under doz (owner ruling: no backward compatibility). Until a DozableKit tag exists the Makefile
 // passes a COPY of this build as --old: A is then a reinstall of the same version, B and C unchanged.
 //
 // Inputs: --old PATH (the previous release's signed doz), --doz PATH (this build's), --store DIR
@@ -23,8 +23,8 @@
 // default Scripts/doz.entitlements). Sandboxes: upl (lab), upa (pi). Nothing outside the store.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 func upgradeSuite() async throws {
     func arg(_ name: String, _ def: String) -> String {
@@ -117,7 +117,7 @@ func upgradeSuite() async throws {
     try? FileManager.default.removeItem(at: binDir)
     try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
     let newDir = URL(fileURLWithPath: newBin).deletingLastPathComponent()
-    for bundle in ["DozerKit_DozerKit.bundle", "DozerKit_DozerWeb.bundle"] {
+    for bundle in ["DozableKit_DozableKit.bundle", "DozableKit_DozableWeb.bundle"] {
         try? FileManager.default.copyItem(at: newDir.appendingPathComponent(bundle), to: binDir.appendingPathComponent(bundle))
     }
     let t = binDir.appendingPathComponent("doz").path
@@ -143,7 +143,7 @@ func upgradeSuite() async throws {
     _ = held.wait(3) { _ in false }
     // The incident: write the previous release INTO the running host's file, then re-sign it.
     // 592: the incident needs DIFFERENT code written into the running host's file. When --old is a copy
-    // of this build (no DozerKit release to build yet), its bytes are identical — the running code then
+    // of this build (no DozableKit release to build yet), its bytes are identical — the running code then
     // stays valid, and codesign's rewrite reads as a mere "replaced" — so another program of this
     // build is written in instead: this test host's own executable.
     let sameBytes = FileManager.default.contentsEqual(atPath: oldBin, andPath: newBin)

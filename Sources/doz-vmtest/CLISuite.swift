@@ -16,8 +16,8 @@
 // named clia / clib; nothing outside the store is touched. Never the keychain.
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 struct CLIRun {
     var code: Int32
@@ -333,7 +333,7 @@ func cliSuite() async throws {
         check(points.contains { $0.name == "p1" }, "point ls --json lists p1")
         r = h.run(["point", "revert", "clia", "p1", "--yes"])
         check(r.code == 0 && h.row("clia")?.phase == "off", "point revert --yes: shut down onto p1")
-        check(c3.exited(within: 10) == DozerCLIExit.failed, "the attached client ends: the sandbox shut down, the session is gone")
+        check(c3.exited(within: 10) == DozableCLIExit.failed, "the attached client ends: the sandbox shut down, the session is gone")
         r = h.run(["cold-boot", "clia"])
         check(r.code == 0 && h.row("clia")?.phase == "running", "cold-boot (alias of start) boots the reverted disk")
         r = h.run(["exec", "clia", "--", "test", "-e", "/root/after-p1"])
@@ -352,7 +352,7 @@ func cliSuite() async throws {
               "4 concurrent `run --session dup -d` all succeed (exits \(runs.all.map(\.code)))")
         check(dups.count == 1 && dups.first?.ended == false, "exactly one dup session, running (\(dups.count))")
         r = h.run(["run", "clia", "--session", "dup", "-d", "--", "sleep", "601"])
-        check(r.code == DozerCLIExit.exists, "a DIFFERENT program under the same name is still refused (exit \(r.code))")
+        check(r.code == DozableCLIExit.exists, "a DIFFERENT program under the same name is still refused (exit \(r.code))")
 
         print("cli: two sandboxes at once")
         r = h.run(["create", "clib", "--image", "lab", "--memory", "512M", "--workspace", ws.path])
@@ -951,7 +951,7 @@ func cliResourcesChecks(_ h: CLIHarness) {
 }
 
 /// The CLI's own exit codes the suite checks (the CLI target is not linked here).
-enum DozerCLIExit {
+enum DozableCLIExit {
     static let failed: Int32 = 1
     static let exists: Int32 = 4
 }

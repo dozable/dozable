@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 // 612 (`make test-vm-status`): what the agent is doing (OSC 7501) through the real host and CLI, in a lab
 // sandbox in a store of its own (`/tmp/dzo-PID-st`). No real agent and no login: a FAKE agent (a shell script)

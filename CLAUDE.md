@@ -2,7 +2,7 @@
 
 The engineering guide to Dozer Sandbox — for contributors and for coding agents alike: what each part is, where
 the code lives, the rules that each cost a bug to learn (keep them, and their tests), and how a change is verified.
-The user manual is `docs/manual/`; the developer view of the engine is `docs/DOZERKIT.md`.
+The user manual is `docs/manual/`; the developer view of the engine is `docs/DOZABLEKIT.md`.
 
 **Reading the history in this repository.** Dozer is developed in a private workspace and released from here. Code
 comments and a few notes below cite the feature that introduced something by its number (`591`, `599i`) and the
@@ -15,18 +15,18 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
 - **It ships as an app:** its own `VERSION` (CI's `version-check` enforces VERSION strictly greater than `main`'s);
   a release tags `v<VERSION>` and attaches `doz-<VERSION>-macos-arm64.tar.gz` (`make release`), and the update feed
   and the Homebrew formulas follow (`make publish` / `make promote` — see "Updates").
-- **The Swift package is named `DozerKit`** (products `DozerKit` and `doz`). A later version moves the engine (the
-  `DozerKit` target, `Guest/`, the in-VM helpers) into a library of its own; until then nothing else consumes it.
+- **The Swift package is named `DozableKit`** (products `DozableKit` and `doz`). A later version moves the engine (the
+  `DozableKit` target, `Guest/`, the in-VM helpers) into a library of its own; until then nothing else consumes it.
 - `make audit-resolved` exists for the release gate: this repo pins no sibling library.
 
 ## Dependencies
 
 | Product | Targets | Depends on |
 |---|---|---|
-| `DozerKit` | `DozerKit` (+ resources `deckhold`, `doznet`, `dozview`); test-only C target `DozMatch` (`Guest/dozview/match`) | `apple/containerization` **exact** `0.47.0`: `Containerization`, `ContainerizationArchive` (the kernel tarball), `ContainerizationExtras`, `ContainerizationOCI`, `ContainerizationOS`; since 580 `swift-nio` (`NIOCore`, `NIOEmbedded`; 583 `NIOPosix`), `swift-nio-ssl` (`NIOSSL`), `swift-certificates` (`X509`), `swift-asn1` — apple/* packages containerization already resolves (README "Dependencies") |
-| `doz` (executable, 585) | `doz` → `DozerCLI` (commands) → `DozerHost` (the host + its client) | `DozerKit`; `swift-argument-parser` (`ArgumentParser`) in `DozerCLI`/`doz` ONLY; the system `SQLite3` in `DozerHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozerCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement) |
-| — (not a product) | `DozerWeb` — `doz ui`'s server and page (606: and `doz serve`'s) | `DozerHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozerCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
-| — (not a product) | `doz-vmtest` — the entitled VM test host | `DozerKit`, `DozerHost` (the `cli` mode decodes `--json` with its types) |
+| `DozableKit` | `DozableKit` (+ resources `deckhold`, `doznet`, `dozview`); test-only C target `DozMatch` (`Guest/dozview/match`) | `apple/containerization` **exact** `0.47.0`: `Containerization`, `ContainerizationArchive` (the kernel tarball), `ContainerizationExtras`, `ContainerizationOCI`, `ContainerizationOS`; since 580 `swift-nio` (`NIOCore`, `NIOEmbedded`; 583 `NIOPosix`), `swift-nio-ssl` (`NIOSSL`), `swift-certificates` (`X509`), `swift-asn1` — apple/* packages containerization already resolves (README "Dependencies") |
+| `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the host + its client) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement) |
+| — (not a product) | `DozableWeb` — `doz ui`'s server and page (606: and `doz serve`'s) | `DozableHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozableCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
+| — (not a product) | `doz-vmtest` — the entitled VM test host | `DozableKit`, `DozableHost` (the `cli` mode decodes `--json` with its types) |
 
 The Containerization pin is EXACT on purpose: the sleep design leans on its internals' shape —
 `LinuxContainer.withVirtualMachineInstance` handing out a `VZVirtualMachineInstance`, the
@@ -38,7 +38,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 | Path | What |
 |---|---|
-| `Sources/DozerKit/Sandbox.swift` | The `Sandbox` actor: boot (images, golden-disk bake, APFS clone, VM), lifecycle via the planner, exec, sessions/attach |
+| `Sources/DozableKit/Sandbox.swift` | The `Sandbox` actor: boot (images, golden-disk bake, APFS clone, VM), lifecycle via the planner, exec, sessions/attach |
 | `Phase.swift` | `Phase` and `LifecyclePlanner` — each operation's steps as DATA (incl. stop / resetToImage / delete), so the invariants are unit tests |
 | `VirtualMachine.swift` | Direct VZ ops; `PinnedIdentity` (machine id + MAC); `DozerVMM`, `AdoptingInstance`, `AdoptingAgent` — restore into a new process |
 | `SessionConnection.swift` | One viewer's connection: HELLO/DATA/RESIZE out, SNAPSHOT/DATA/EXIT in; never delivers or sends after close |
@@ -60,38 +60,38 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `SandboxCA.swift`, `HTTPRequestReader.swift`, `ConnectionLog.swift` | the per-sandbox CA + leaves; request/body framing; the metadata-only log |
 | `Resources/doznet`, `Guest/doznet/` | the guest half of a proxied network — C source, `build.sh` (the same pinned Zig), `PROVENANCE.md` |
 | `Sources/doz-vmtest/` | The VM integration suite (entitled executable); `NetworkSuite.swift` is `network`; `CLISuite.swift` is `cli` (`make test-cli`); `ClaudeSuite.swift` is `claude` (`make test-vm-claude`) |
-| `Sources/DozerHost/ClaudeLogin.swift`, `Accounts.swift`, `LoginWatcher.swift`, `HostCore+Accounts.swift` | the Mac's Claude Code login (read-only), the keychain through `/usr/bin/security`, accounts (`<store>/accounts.json`, never a secret), ONE watcher per Mac login, the keep-alive, key policy |
-| `Sources/DozerHost/HostProtocol.swift` | the host protocol (JSON lines, `HostOp`, results) — fields only ever added |
-| `Sources/DozerHost/HostCore.swift` | the host's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
-| `Sources/DozerHost/HostServer.swift` | `doz host` — the lock, the socket, the attach relay (held clients), streams, idle exit, quit = Hibernate |
-| `Sources/DozerHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
-| `Sources/DozerHost/DozerStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
-| `Sources/DozerCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
-| `Sources/DozerWeb/` | `doz ui` — `WebServer` (NIOHTTP1 on 127.0.0.1:0, SSE), `WebSecurity` + `WebSessions` + `WebConfiguration` (the checks, as pure functions), `WebRoutes` (the CLOSED route table), `WebModels` (field-by-field projections of host results), `WebDataSource` (the host client), `WebEvents` (bounded SSE hub, the monitor), `WebControl` (`ui.lock`, `ui.sock` → `ui link`), `WebAssets` (manifest + digests); phase 2: `WebActions` (the closed action enum → one HostOp each), `WebOperations` (running them, progress over SSE), `WebTerminal` (Terminal.app hand-off; CSV defusing) |
-| `Sources/DozerWeb/WebSource/` → `Resources/Web/` | the page as authored (vanilla HTML/CSS/JS) → generated by `Scripts/build-web-assets.swift` (content-hashed, manifest), committed; `vendor/ghostty-web/` (pinned, `VENDOR.json`); `offline.{html,css,js}`, `sw.js`, `app.webmanifest`, `icons/` (SVG masters + PNGs, `PROVENANCE.json`; `Scripts/render-web-icons.mjs` renders them); the page script is native ES modules — `app.js` (the entry) + `app/<layer>/*.js` (the module map below) |
+| `Sources/DozableHost/ClaudeLogin.swift`, `Accounts.swift`, `LoginWatcher.swift`, `HostCore+Accounts.swift` | the Mac's Claude Code login (read-only), the keychain through `/usr/bin/security`, accounts (`<store>/accounts.json`, never a secret), ONE watcher per Mac login, the keep-alive, key policy |
+| `Sources/DozableHost/HostProtocol.swift` | the host protocol (JSON lines, `HostOp`, results) — fields only ever added |
+| `Sources/DozableHost/HostCore.swift` | the host's model — every sandbox as a `Sandbox`, every operation, crash recovery, metrics rows; also used read-only in-process |
+| `Sources/DozableHost/HostServer.swift` | `doz host` — the lock, the socket, the attach relay (held clients), streams, idle exit, quit = Hibernate |
+| `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
+| `Sources/DozableHost/DozerStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
+| `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
+| `Sources/DozableWeb/` | `doz ui` — `WebServer` (NIOHTTP1 on 127.0.0.1:0, SSE), `WebSecurity` + `WebSessions` + `WebConfiguration` (the checks, as pure functions), `WebRoutes` (the CLOSED route table), `WebModels` (field-by-field projections of host results), `WebDataSource` (the host client), `WebEvents` (bounded SSE hub, the monitor), `WebControl` (`ui.lock`, `ui.sock` → `ui link`), `WebAssets` (manifest + digests); phase 2: `WebActions` (the closed action enum → one HostOp each), `WebOperations` (running them, progress over SSE), `WebTerminal` (Terminal.app hand-off; CSV defusing) |
+| `Sources/DozableWeb/WebSource/` → `Resources/Web/` | the page as authored (vanilla HTML/CSS/JS) → generated by `Scripts/build-web-assets.swift` (content-hashed, manifest), committed; `vendor/ghostty-web/` (pinned, `VENDOR.json`); `offline.{html,css,js}`, `sw.js`, `app.webmanifest`, `icons/` (SVG masters + PNGs, `PROVENANCE.json`; `Scripts/render-web-icons.mjs` renders them); the page script is native ES modules — `app.js` (the entry) + `app/<layer>/*.js` (the module map below) |
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `router.js` (`route`, `routePage`, `refresh`), `events.js` (SSE `connect`) |
 | `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `create-dialog.js`, `quick-add.js` |
 | `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `shortcuts` |
-| `Sources/DozerWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
-| `Sources/DozerHost/Settings.swift`, `TOML.swift`; `Sources/DozerCLI/ConfigCommands.swift`; `Sources/DozerWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozerSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
-| `Sources/DozerHost/ImageTree.swift`; `Sources/DozerCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
-| `Sources/DozerHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozerCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `dozer` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
-| `Sources/DozerKit/SavedScreens.swift`; `Sources/DozerHost/TerminalLayout.swift`; `Sources/DozerWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
-| `Sources/DozerHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozerWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
-| `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozerCLI/DozerCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozerCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
-| `Sources/DozerHost/Resources.swift`, `HostCore+Resources.swift`; `Sources/DozerCLI/ResourcesCommands.swift`; `Sources/DozerWeb/WebResources.swift`; `Tests/DozerCLITests/ResourcesTests.swift` | the account of everything Dozer uses (the walk, one leaf per entry, the three numbers from `DiskAccounting.exclusive`), refusals, the plan and the deletion; the host ops `resources` / `resources-rm` / `resources-clean` / `resources-kernel`; `doz resources`; the web projection + preview route |
-| `Sources/DozerKit/BaseCatalogue.swift`, `OCIImport.swift`; `Sources/DozerHost/BaseImages.swift`, `ContainerTool.swift`, `AppleContainerResources.swift`; `Sources/DozerCLI/BaseCommands.swift`; `Sources/DozerWeb/WebBases.swift`; `Sources/doz-vmtest/BasesSuite.swift` | base × agent images — the catalogue, `ImageChoice` names, `ImageComposer` (+ `recompose` for W28), native Claude Code, pi's Node, digests; the store's base digests and Dockerfiles; Apple's `container` (status/start/install/build) and its storage in Resources; `doz base`, `doz builder`; the bases route and the Dockerfile picker; `make test-cli-bases` |
+| `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
+| `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozerSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
+| `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
+| `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `dozer` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
+| `Sources/DozableKit/SavedScreens.swift`; `Sources/DozableHost/TerminalLayout.swift`; `Sources/DozableWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
+| `Sources/DozableHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozableWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
+| `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozerCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
+| `Sources/DozableHost/Resources.swift`, `HostCore+Resources.swift`; `Sources/DozableCLI/ResourcesCommands.swift`; `Sources/DozableWeb/WebResources.swift`; `Tests/DozableCLITests/ResourcesTests.swift` | the account of everything Dozer uses (the walk, one leaf per entry, the three numbers from `DiskAccounting.exclusive`), refusals, the plan and the deletion; the host ops `resources` / `resources-rm` / `resources-clean` / `resources-kernel`; `doz resources`; the web projection + preview route |
+| `Sources/DozableKit/BaseCatalogue.swift`, `OCIImport.swift`; `Sources/DozableHost/BaseImages.swift`, `ContainerTool.swift`, `AppleContainerResources.swift`; `Sources/DozableCLI/BaseCommands.swift`; `Sources/DozableWeb/WebBases.swift`; `Sources/doz-vmtest/BasesSuite.swift` | base × agent images — the catalogue, `ImageChoice` names, `ImageComposer` (+ `recompose` for W28), native Claude Code, pi's Node, digests; the store's base digests and Dockerfiles; Apple's `container` (status/start/install/build) and its storage in Resources; `doz base`, `doz builder`; the bases route and the Dockerfile picker; `make test-cli-bases` |
 | `Guest/dozview/` (`dozview.c`, `match/`, `build.sh`, `PROVENANCE.md`), `Resources/dozview` | the guest view daemon of workspace rules (raw /dev/fuse, supervised) and its matcher in C (`match/dozmatch.c` + `dozre.c` RE2 subset + `dozfold.c`; `match/` is also the SwiftPM C target `DozMatch` the unit tests run); `make dozview` / `dozview-verify` |
-| `Sources/DozerKit/DockerIgnore.swift`, `WorkspaceRules.swift`, `WorkspaceView.swift`, `DozFoldTables.swift` (generated by `Scripts/gen-dozfold-tables.py`); `Sources/DozerHost/WorkspaceRulesHost.swift`; `Sources/DozerCLI/IgnoreCommands.swift`; `Sources/doz-vmtest/IgnoreSuite.swift`; `Tests/Fixtures/` | `.dockerignore` semantics in Swift (the C matcher's twin), the rules as the Mac reads them (which line decides), the guest layout + scripts, folding tables; the host op `workspace-rules`, warnings; `doz ignore check|show`; `make test-vm-ignore`; the real-Docker vectors |
-| `Sources/DozerKit/OpenAIAccess.swift`; `Sources/DozerHost/ChatGPTAccounts.swift`, `ChatGPTSignIn.swift`; `Sources/doz-vmtest/CodexSuite.swift` | Codex — the proxy's OpenAI side (claims, the guest's auth.json, the renewal answer, `HTTPSOnce`, the sign-in's and refresh's requests); the host's sessions, `applyOpenAIAccount`, the guest auth.json; Dozer's own ChatGPT sign-in; `make test-cli-codex` |
-| `Sources/DozerKit/AgentPermissions.swift`; `Sources/DozerHost/Permissions.swift`; `Sources/DozerCLI/NetPermissionCommands.swift`; `Sources/doz-vmtest/PermissionsSuite.swift` | agent permissions — the catalogue and presets per base, `NetworkPolicy.permissions` (stored by name, `effectiveRules`); edits/report/suggestions/facts; `doz net NAME/allow/deny/permissions`, `--allow`; `make test-cli-permissions` |
-| `Sources/DozerWeb/WebServe*.swift`, `WebExposure.swift`, `WebQR.swift`, `WebBonjour.swift`; `Sources/DozerCLI/ServeCommand.swift`; `Sources/DozerKit/LocalDashboards.swift` | `doz serve` — the rules (`WebServe`: addresses, the accept gate, the request's own origin), devices + invites (`WebServeDevices`), the audit log, `serve.sock` (`WebServeControl`), the server's serve side (`WebServeServer`, `WebServeState`), the capability table, our QR encoder, Bonjour; the CLI (`doz serve …`, doctor's public-origin check); the egress proxy's refusal of the dashboards' ports |
-| `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozerKit/ProgramStatus.swift`; `Sources/DozerHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozerWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
-| `Sources/DozerHost/Usage.swift`; `Sources/DozerCLI/UsageCommands.swift`; `Sources/doz/DozerMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
-| `Tests/DozerWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
-| `Tests/DozerKitTests/` | Unit tests — no VM |
+| `Sources/DozableKit/DockerIgnore.swift`, `WorkspaceRules.swift`, `WorkspaceView.swift`, `DozFoldTables.swift` (generated by `Scripts/gen-dozfold-tables.py`); `Sources/DozableHost/WorkspaceRulesHost.swift`; `Sources/DozableCLI/IgnoreCommands.swift`; `Sources/doz-vmtest/IgnoreSuite.swift`; `Tests/Fixtures/` | `.dockerignore` semantics in Swift (the C matcher's twin), the rules as the Mac reads them (which line decides), the guest layout + scripts, folding tables; the host op `workspace-rules`, warnings; `doz ignore check|show`; `make test-vm-ignore`; the real-Docker vectors |
+| `Sources/DozableKit/OpenAIAccess.swift`; `Sources/DozableHost/ChatGPTAccounts.swift`, `ChatGPTSignIn.swift`; `Sources/doz-vmtest/CodexSuite.swift` | Codex — the proxy's OpenAI side (claims, the guest's auth.json, the renewal answer, `HTTPSOnce`, the sign-in's and refresh's requests); the host's sessions, `applyOpenAIAccount`, the guest auth.json; Dozer's own ChatGPT sign-in; `make test-cli-codex` |
+| `Sources/DozableKit/AgentPermissions.swift`; `Sources/DozableHost/Permissions.swift`; `Sources/DozableCLI/NetPermissionCommands.swift`; `Sources/doz-vmtest/PermissionsSuite.swift` | agent permissions — the catalogue and presets per base, `NetworkPolicy.permissions` (stored by name, `effectiveRules`); edits/report/suggestions/facts; `doz net NAME/allow/deny/permissions`, `--allow`; `make test-cli-permissions` |
+| `Sources/DozableWeb/WebServe*.swift`, `WebExposure.swift`, `WebQR.swift`, `WebBonjour.swift`; `Sources/DozableCLI/ServeCommand.swift`; `Sources/DozableKit/LocalDashboards.swift` | `doz serve` — the rules (`WebServe`: addresses, the accept gate, the request's own origin), devices + invites (`WebServeDevices`), the audit log, `serve.sock` (`WebServeControl`), the server's serve side (`WebServeServer`, `WebServeState`), the capability table, our QR encoder, Bonjour; the CLI (`doz serve …`, doctor's public-origin check); the egress proxy's refusal of the dashboards' ports |
+| `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
+| `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
+| `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
+| `Tests/DozableKitTests/` | Unit tests — no VM |
 
 ## Rules that each cost a bug to learn (keep them, and keep their tests)
 
@@ -300,8 +300,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     the build that slept it, or Shut Down), and the snapshot is kept. A record without a layout (pre-591)
     is best effort, as before. `VMLayoutTests`.
   - **`make test-vm-upgrade`** (a /ship gate for any release that touches the VM, the host or the
-    install): the previous DozerKit release tag's `doz` (built once from the tag, `prev-cli`; until
-    the first DozerKit tag exists, a COPY of this build — 592: the pre-rename releases are not
+    install): the previous DozableKit release tag's `doz` (built once from the tag, `prev-cli`; until
+    the first DozableKit tag exists, a COPY of this build — 592: the pre-rename releases are not
     expected to be compatible) sleeps a lab and a pi sandbox with a running session and markers; this build wakes them — same session pid, screen,
     file — and then its own recorded layout; then the incident (the running host's file overwritten
     in place: the host says so, `host stop` keeps the snapshot, this build wakes it) and an idle host
@@ -411,7 +411,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 - **Loopback only, nothing else representable** (`WebLoopbackAddress`: 127.0.0.1 and a port). No flag,
   environment variable or setting may bind another address. (606's `doz serve` is a SEPARATE process and profile —
-  `DozerWebServer.bindServe`; the audit keeps it out of `UICommand.swift`.) The PORT is the
+  `DozableWebServer.bindServe`; the audit keeps it out of `UICommand.swift`.) The PORT is the
   setting `ui.port` (`doz ui start --port N`, `$DOZ_UI_PORT`): `0` (the default) = the reuse —
   the port this store's LAST UI had (`<store>/ui.port`), asked for again when nothing listens there
   (`WebLoopbackAddress(reusing:)`: ≥ 1024), else the OS picks and `doz ui` SAYS so (naming the holder,
@@ -429,7 +429,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   LaunchServices (`LSOpenCFURLRef`), never `/usr/bin/open URL`; `--print-url` prints only to a TTY.
   `WebBootstrapCapability`'s description and mirror are redacted (a struct's default description
   prints its fields — DeckStack's never-conformed version still printed through `"\(cap)"`).
-- **Typed routes only.** A new capability is a new `WebRoute` case and a typed `DozerWebData`
+- **Typed routes only.** A new capability is a new `WebRoute` case and a typed `DozableWebData`
   method. Never a generic command, exec, file-read, URL-open, proxy or PTY route.
 - **Actions (phase 2) are `WebAction`: a closed enum, decoded STRICTLY** (unknown action or field,
   wrong type, out-of-rule value → 400 with a fixed message that never echoes the value), each
@@ -495,7 +495,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The policy preview is the host's own function** (`HostCore.editedPolicy`), so the preview is
   exactly what `net-policy` applies. **Metrics CSV cells are defused** against spreadsheet formulas.
 - **The UI is a CLIENT of the host** (host.sock) in its own process — it never owns a VM, and the
-  host never imports `DozerWeb` (audit). Looking never starts a host (the CLI's rule, incl. its
+  host never imports `DozableWeb` (audit). Looking never starts a host (the CLI's rule, incl. its
   recovery exception); the host's event stream is followed only while a sandbox is live, so an open
   UI never keeps an idle host alive.
 - **The API returns projections** (`WebModels.swift`), field by field — never a host result passed
@@ -569,7 +569,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `/`, `?` — never while a terminal (its iframe), a field, a menu or a dialog has the focus.
 - **Edit `WebSource/`, then `make web-assets`, and commit `Resources/Web`.** `make web-assets-check`
   (run by `make test` and `Scripts/audit.sh`) fails on drift — every module included; `WebAssets` refuses to
-  start on a digest mismatch. `make install-cli` copies `DozerKit_DozerWeb.bundle` beside the binary.
+  start on a digest mismatch. `make install-cli` copies `DozableKit_DozableWeb.bundle` beside the binary.
 - **`app.css` is in cascade layers**: `@layer tokens, base, components, views;` — tokens (the `:root`
   custom properties, the themes, reduced motion), base (box-sizing, html/body, body type, links), components (code
   and the focus ring; the building blocks — the terminal pane, pills, cards, forms (zero-specificity `:where`),
@@ -669,9 +669,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### `doz serve` — the dashboard for the other browsers of the LAN
 
-- **A separate process, the same DozerWeb code**. `doz serve` holds `<store>/serve.lock`, answers `serve.sock` (one line in,
+- **A separate process, the same DozableWeb code**. `doz serve` holds `<store>/serve.lock`, answers `serve.sock` (one line in,
   one JSON line out: status, devices, share, revoke, rename, probe, stop — `WebServeControl`), keeps `<store>/serve/`
-  (0700: `devices.json`, `audit.jsonl`, `port` — 0600). `DozerWebServer.bindServe` + `WebServeState`; `WebAuth` is
+  (0700: `devices.json`, `audit.jsonl`, `port` — 0600). `DozableWebServer.bindServe` + `WebServeState`; `WebAuth` is
   `.browser(WebSessionStore)` (doz ui) or `.devices(WebDeviceStore)` (doz serve). Never let `UICommand.swift` reach it.
 - **`--detach`** (rc.2): `DetachedLauncher` — the host's double spawn (`HostLauncher`'s pattern, untouched): an intermediate
   `serve start --launch-detached` (own session) spawns `serve start --launched --no-invite` (own session/group, parent
@@ -692,7 +692,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   a peer in a vmnet bridge's (`bridge100`+) networks, Dozer's automatic NAT range 192.168.100–199.0/24 where no LAN
   interface is, or `defaults.nat_subnet` is dropped before a byte is read, and so is a connection to a bridge's own
   address. A bridge's link-local prefix is NOT a sandbox network (fe80::/64 is every interface's). Proxied sandboxes
-  have no NIC — their traffic leaves from the host: `LocalDashboards` (DozerKit) makes `Wire.connectTCP` refuse the
+  have no NIC — their traffic leaves from the host: `LocalDashboards` (DozableKit) makes `Wire.connectTCP` refuse the
   Mac's own addresses on the dashboards' ports (`<store>/ui.port`, `<store>/serve/port`, `serve.port`; the host sets
   it, 5 s cache) whatever the policy, `open` included. `probes/606-*/serve-sandbox.mjs` (NAT + proxied-open, with
   positive controls) is the test.
@@ -745,7 +745,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **`image-tree` is a read** (answered in-process when no host runs), measured OFF the host actor;
   the page fetches it only when Lineage is shown. `ImageTree.build` is pure (unit-tested).
 - **Progress is ONE view in two terminals**: `ProgressBoard` + `ProgressTerminal`
-  (`Sources/DozerHost/ProgressView.swift`) render the host's events for the web boot view (the
+  (`Sources/DozableHost/ProgressView.swift`) render the host's events for the web boot view (the
   bridge, ticking every 120 ms) AND the CLI's stderr (a 100 ms timer while the request blocks).
   Animated: the step under way (`started` … `step`/`failed`, same label), a transfer's bar, the last 2
   output lines — a live block ERASED and redrawn under each finished line, so the scrollback holds
@@ -791,7 +791,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `WebWorkspace.swift`: `POST /api/v1/workspace/check` (makes nothing) and `/choose` (a FIXED
   AppleScript run by `/usr/bin/osascript`, the start folder and one of the FIXED prompts its argv; one
   at a time → 409; tests use `DOZ_TEST_FOLDER_PICKER=/path|cancel` or `setRunner` — never a real dialog).
-- **Quick add / `doz new`** (`DozerHost/QuickAdd.swift`): ONE plan for both — `QuickAdd.plan`
+- **Quick add / `doz new`** (`DozableHost/QuickAdd.swift`): ONE plan for both — `QuickAdd.plan`
   (the image `defaults.image` or given; the name `Workspace.suggestedName` past sandboxes and non-empty
   folders, or a given one — taken → `.exists`; the workspace `<projects_dir>/<name>`, nil when isolated)
   and `QuickAdd.requirement` (what one click cannot decide: the agent's account via
@@ -855,8 +855,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   = false` removes both at the next session.
 - **`doz_project.yaml`** is parsed by hand on Yams's node tree with the parser kept alive (anchors are
   weak): a closed key set, errors with the line, anchors/aliases refused top-down (no alias expansion
-  is ever walked), one document, 64 KiB. Yams only in `Sources/DozerCLI` (audit).
-- **The New Sandbox wizard and `doz init` share ONE model** — `DozerHost/Project.swift`: `DozerProject`
+  is ever walked), one document, 64 KiB. Yams only in `Sources/DozableCLI` (audit).
+- **The New Sandbox wizard and `doz init` share ONE model** — `DozableHost/Project.swift`: `DozerProject`
   (every key, `render`, `createOptions`, `problem(effectiveNetwork:)` the whole-project check, `dropDefaults`
   — a pre-filled value equal to the setting's is left commented unless `explicit`, `lineDiff`, `find(in:)`
   which reads `doz_project.yml` too and throws when BOTH exist) and `ProjectWizard.steps` (the 10 steps both
@@ -971,10 +971,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### Anonymous usage statistics and the sign-up — the open half
 
-- **This repository holds the open half ONLY**: `Sources/DozerHost/Usage.swift` decides WHAT may be sent and WHETHER;
+- **This repository holds the open half ONLY**: `Sources/DozableHost/Usage.swift` decides WHAT may be sent and WHETHER;
   the official builds' closed package (statistics sender + sign-up client, private, Foundation-only) only SENDS what
   it is handed. Never put the sender, an endpoint, a key or any closed code here. It joins a build only through
-  `DOZ_CLOUD_PACKAGE` (Package.swift adds the dependency and defines `DOZ_CLOUD`; `Sources/doz/DozerMain.swift` calls
+  `DOZ_CLOUD_PACKAGE` (Package.swift adds the dependency and defines `DOZ_CLOUD`; `Sources/doz/DozableMain.swift` calls
   `Usage.install(send:flush:signup:)` under `#if DOZ_CLOUD` — `canImport` alone is wrong: a module left in `.build` by
   an earlier official build makes it true in a build that does not link it). The audit allows `DozerCloud` in that
   file only. Without it (`make cli`, `make test`, CI, forks) `Usage.isOfficial` is false: nothing is recorded or sent.
@@ -1034,7 +1034,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Updates: the signed feed, channels, `doz upgrade`
 
 - **ONE feed, frozen, compiled in**: `https://updates.dozersandbox.com/v1/feed.json` (`Distribution.feedURL` in
-  `Sources/DozerHost/Updates.swift` — with `tap`, `repository`, `teamID` and `updatePublicKey`, the ONE place these
+  `Sources/DozableHost/Updates.swift` — with `tap`, `repository`, `teamID` and `updatePublicKey`, the ONE place these
   names live; the scripts read them with `sed`, and `docs-drift-check` fails on a doc naming another tap/repo). `/v1/`
   is the FORMAT — a new format is `/v2/` beside it, never a change to v1. All three channels in one file, each entry
   tagged; stable ⊂ beta ⊂ canary.
@@ -1084,9 +1084,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 - **`make release VERSION=X.Y.Z`** (`Scripts/release.sh`) is the ONE way the artefact is made:
   release build → `dist/stage/doz-X.Y.Z/{bin/doz → ../libexec/doz/doz, libexec/doz/{doz, VERSION,
-  DozerKit_*.bundle}}` → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz` + `.sha256`. It checks the
+  DozableKit_*.bundle}}` → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz` + `.sha256`. It checks the
   signature (`--verify --strict`), the virtualization entitlement, and that the packed `doz --version`
-  says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging DozerKit, attaches both files to the
+  says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging DozableKit, attaches both files to the
   tag's GitHub Release and moves the tap's formula (`RELEASES` in the ship).
 - **The version comes from the tag, never a hand-edited constant**: the tarball carries
   `libexec/doz/VERSION`; `DozerCommand.version` reads it beside the resolved executable
@@ -1477,8 +1477,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   Node ids and file handles carry the worker generation (a restarted worker never mistakes a dead one's).
 - **Not a security boundary** — said in the setting, `--help`, the manual and the facts. Root in the guest can
   kill the daemon or read through its fds; the view keeps an agent from stumbling into files.
-- **Explaining them**: ONE text, `WorkspaceRulesGuide` (DozerHost) — `doz onboard`'s step 3 and
-  `doz init`'s `rules` step (`RulesStep`, DozerCLI), the dashboard's onboarding (`wizStepRules`, steps named in
+- **Explaining them**: ONE text, `WorkspaceRulesGuide` (DozableHost) — `doz onboard`'s step 3 and
+  `doz init`'s `rules` step (`RulesStep`, DozableCLI), the dashboard's onboarding (`wizStepRules`, steps named in
   `WIZ`) and New Sandbox (`nwRules`), both drawn by `rulesStep()` (`components/rules-step.js`) from the served `rulesGuide`
   (`GET onboarding`, `POST project/open` — which also lists the folder's `rules`, inert). The onboarding writes
   `workspace.ignore_mode` ONLY when chosen (`Onboarding.writeIgnoreMode`, the Access rule; `--ignore-mode`,
@@ -1576,7 +1576,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (parts `NAME#1…#8` + a `doz-chunks:n:<sha256>` header written last, only when it does not fit one item); the ACCESS
   token lives in the host's memory only (a new host renews on first use). `accounts.json` gets plan/email/account
   id/fingerprint, never a token. **Dozer never reads or writes the Mac's `~/.codex`**
-  (`testDozerNeverTouchesTheMacsCodexHome` scans DozerHost/CLI/Web).
+  (`testDozerNeverTouchesTheMacsCodexHome` scans DozableHost/CLI/Web).
 - **The refresh is the host's** (`ChatGPTSession`, ONE per account in `HostCore.chatgptSessions`): the vault's provider
   (`setProvider(.chatgpt, ttl: 60, version: generation)`) reads the access token; it renews when its JWT `exp` is
   within 5 minutes or after an upstream 401 (`vault.onStale` → `markStale`, which bumps the generation so the vault re-reads
@@ -1633,13 +1633,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### Agent recipes and key providers
 
-- **Every agent is a recipe** (`Sources/DozerKit/AgentRecipe.swift`; data in `Sources/DozerKit/Recipes/compiled/*.json`,
+- **Every agent is a recipe** (`Sources/DozableKit/AgentRecipe.swift`; data in `Sources/DozableKit/Recipes/compiled/*.json`,
   `providers.json`, `gateways.json`, `tags.json`, each ONE `.embedInCode` line in Package.swift with a unique basename —
   `AgentRecipeTests` ties the folder to the manifest).
   **A recipe's SOURCE is YAML** (owner: one file per recipe, aligned with Docker Sandbox Kit v3):
   `Recipes/agents/VENDOR/PRODUCT.yaml`, `schema: 2` — the spec is `docs/recipes/RECIPE-FORMAT.md`, the contract
-  `schema/dozer-recipe-2.schema.json` (each YAML's first line points editors at it). DozerKit never parses YAML (the
-  audit keeps Yams in DozerCLI): `make recipes` compiles each to `Recipes/compiled/PRODUCT.json` (`RecipeSource`,
+  `schema/dozer-recipe-2.schema.json` (each YAML's first line points editors at it). DozableKit never parses YAML (the
+  audit keeps Yams in DozableCLI): `make recipes` compiles each to `Recipes/compiled/PRODUCT.json` (`RecipeSource`,
   YAML 1.2 core schema — `no` is a word — no anchors), committed and embedded; `RecipeSourceTests` fails when one
   drifts. `RecipeDocument` decodes it STRICTLY (unknown key anywhere = error; Kit's DERIVED parts — runtime allow/deny,
   a credential's apiKey — must equal what Dozer derives) and maps it one for one to `AgentRecipe`, which everything
@@ -1771,7 +1771,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   block it), each with its reason: denied first like `excluded`, logged, NEVER counted (`ConnectionLog.quietHosts`,
   set from the policy by `EgressProxy.policy`; `PermissionReport` skips it). `localhost` (RFC 6761) is answered by the
   proxy's DNS as the loopback, never judged or logged.
-- **The icon registry** (`Recipes/icons/`: `icons.json` + one mono SVG per entry, `AgentIcons.swift`; docs/DOZERKIT.md
+- **The icon registry** (`Recipes/icons/`: `icons.json` + one mono SVG per entry, `AgentIcons.swift`; docs/DOZABLEKIT.md
   says how to add one): vendor and product marks, a recipe's `icon` names its product; resolution product → vendor →
   a generated lettermark (never blank). A mono file is ONE currentColor path (`MonoSVG.check`, byte-exact); `allowed`
   official | lettermark, with the source, the brand terms checked and the date. Every mark is a Dozer lettermark today
@@ -1820,7 +1820,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `config.yaml`; `merge_yaml` is emitted only into such a recipe's helper). A JSON report; `--changed BASE` and
   `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
   recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
-  `~/Library/Caches/DozerKit-ci/recipes-store`). A new recipe passes it before it ships.
+  `~/Library/Caches/DozableKit-ci/recipes-store`). A new recipe passes it before it ships.
 - **OpenCode** (`opencode`, npm `opencode-ai` + the platform package `opencode-linux-arm64`, glibc only; an xAI key, model
   `xai/grok-build-0.1`): it installs `@opencode-ai/plugin` into each config dir in the background (`Npm.install`: skipped
   when `node_modules` exists and `package-lock.json`'s root lists the package) — 28 npm requests at a try's first start,
@@ -1831,7 +1831,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   major version"; 617.B5's first qualified name): each major is a recipe; `com.dozersandbox/family@1` {family, major,
   title, recommended} ties them (`AgentRecipes.validateFamilies`: one recommended, majors once, the family's name the id
   of the member that predates it — its sandboxes/image/settings/statistics keep it — no other recipe answers to it, each
-  pin of its own major). **What a person TYPES goes through `AgentRef`** (DozerKit): `NAME` (a family's recommended
+  pin of its own major). **What a person TYPES goes through `AgentRef`** (DozableKit): `NAME` (a family's recommended
   major), `NAME@MAJOR`, `NAME@VERSION` — `--agent`/`--image`, `doz try`, `doz_project.yaml agent:`, the web plan query,
   `doz search`; a STORED name never does (an existing sandbox never changes major). Turning a recipe back into a typed
   name is `AgentRef.typed` (the family's name only for the recommended major — never a member's id alone: it would mean
@@ -1998,7 +1998,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   baker hands out `BakePlan` once per bake (`SandboxEvent.bakePlan`, built by `ImageBaker.plan` — the SAME argv, user and
   environment each exec gets, the checks, the trim, the inputs: base@digest, kernel, guest init, the agent package and
   version/integrity, the bake policy's rules), each check's output is a `stepOutput` too, and nothing a bake DOES changes
-  (bake keys, scripts, checks — `RecipePinTests`). `BuildLogDocument` (DozerHost) is the ONE builder: the inputs (early
+  (bake keys, scripts, checks — `RecipePinTests`). `BuildLogDocument` (DozableHost) is the ONE builder: the inputs (early
   steps with "cached"), each step under a display-only plain title (`BuildLogs.title(ofStep:)`/`title(ofCheck:)` —
   never part of a key), its command or script verbatim, every file its script writes (`files(inScript:)`: the
   `cat > PATH <<'TAG'` heredocs), its output; the checks (command, expects, got); the trim. The web tab draws it as
@@ -2129,7 +2129,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ```bash
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
-make web-assets        # 590: regenerate Sources/DozerWeb/Resources/Web after editing WebSource/ (commit it)
+make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it)
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz
@@ -2163,13 +2163,13 @@ make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent laye
 Every `make test*` target (and the probes' `guard-doz.sh`) runs with `DOZ_TEST_GUARD=1`,
 `DOZ_TEST_NO_MAC_LOGIN=1`, `DOZ_TEST_CREDENTIALS=memory`, a scratch `DOZ_TEST_CODEX_HOME` and a scratch
 `XDG_CONFIG_HOME` whose `doz.toml` sets `store.path` and `defaults.projects_dir` to scratch folders — forced,
-whatever the environment says. `TestSafety` (DozerHost) STOPS a guarded process (and any XCTest run) that
+whatever the environment says. `TestSafety` (DozableHost) STOPS a guarded process (and any XCTest run) that
 would use the default store, read the Mac's real `~/.codex`, or touch the login keychain's `Claude Code-credentials*`
 items. The only way out is explicit: `DOZ_TEST_REAL_MAC=1`. A new code path that reads something of the
 Mac's own must go through a seam the Makefile sets (`CredentialServices.forHost`, `macLoginKeychain`) —
 `TestSafetyTests` pins the decisions.
 
-**Paths are SHOWN with `~`** (617): `DisplayPath` (DozerHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
+**Paths are SHOWN with `~`** (617): `DisplayPath` (DozableHost: `tilde`, `tildeIn`, `homes`) and its twin `core/paths.js`
 (`tildePath`, `tildeIn`, fed the session info's `homes`) are the ONE way a Mac path is shown — the sidebar's store, the
 try banner, the Guide's facts, the details' workspace, a Dockerfile, the plan's lines, Doctor, and the CLI's human lines
 that name a folder. Display only: stored values, requests and every JSON field stay absolute. Home is the REAL one

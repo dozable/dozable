@@ -19,7 +19,7 @@ Among the attributions those NOTICE files require:
 - SwiftNIO contains NodeJS's llhttp (MIT), "sha1.c"/"sha1.h" from FreeBSD (Copyright (C) 1995-1998
   WIDE Project, BSD) and "cpp_magic.h" from uSHET (MIT), and is heavily influenced by Netty (Apache-2.0).
 - Swift Certificates contains code derived from musl libc (MIT).
-- Docker's .dockerignore semantics (Sources/DozerKit/DockerIgnore.swift and dozview's match/dozmatch.c) are ports of
+- Docker's .dockerignore semantics (Sources/DozableKit/DockerIgnore.swift and dozview's match/dozmatch.c) are ports of
   moby/patternmatcher v0.6.1 — "Docker. Copyright 2012-2017 Docker, Inc. This product includes software developed
   at Docker, Inc. (https://www.docker.com)." (Apache-2.0) — and of tonistiigi/fsutil (MIT, Copyright 2017 Tõnis Tiigi).
 - dozview's regular-expression engine (match/dozre.c) and the path functions beside it are ports of Go's

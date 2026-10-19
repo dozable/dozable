@@ -19,8 +19,8 @@
 // the claude-code image is cloned from $DOZ_SEED_STORE or the vmtest store when it has one).
 import Darwin
 import Foundation
-import DozerKit
-import DozerHost
+import DozableKit
+import DozableHost
 
 /// The guest half: five requests through the proxy with different credentials; one JSON line each.
 let guestCredentialProbe = #"""

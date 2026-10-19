@@ -1,7 +1,7 @@
 import Darwin
 import Foundation
-import DozerHost
-import DozerKit
+import DozableHost
+import DozableKit
 
 // 617 — the recipe agents (Grok Build, Gemini CLI, Antigravity CLI) in real VMs, through SEAMS ONLY — never xAI or
 // Google, never a real key, never the owner's keychain, op or aws:

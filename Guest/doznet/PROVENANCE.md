@@ -1,6 +1,6 @@
 # doznet — provenance of the committed binary
 
-`Sources/DozerKit/Resources/doznet` is a **committed build artefact**: the guest half of
+`Sources/DozableKit/Resources/doznet` is a **committed build artefact**: the guest half of
 a proxied sandbox's network (feature 580), installed at `/usr/local/bin/doznet` on every fresh
 boot of a sandbox whose `SandboxSpec.network` is `.proxied(…)` (and in a proxied bake VM). It is the
 pin, like `deckhold`; consumers never need Zig. `make doznet` rewrites the (auto) lines after a

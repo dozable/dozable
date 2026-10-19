@@ -4,8 +4,8 @@ A **recipe** tells Dozable how to install a coding agent, launch it, keep its st
 the key ever entering the sandbox, and decide what it may reach. Each agent is one YAML file:
 
 ```
-Sources/DozerKit/Recipes/agents/VENDOR/PRODUCT.yaml      ← what you edit
-Sources/DozerKit/Recipes/compiled/PRODUCT.json           ← the same tree as JSON (generated, committed, embedded)
+Sources/DozableKit/Recipes/agents/VENDOR/PRODUCT.yaml      ← what you edit
+Sources/DozableKit/Recipes/compiled/PRODUCT.json           ← the same tree as JSON (generated, committed, embedded)
 schema/dozer-recipe-2.schema.json                         ← the contract (JSON Schema, draft 2020-12)
 ```
 
@@ -463,7 +463,7 @@ config and every `dozer:` block. A capability type this build does not know is a
 a single one. The **derived** parts (`runtime.allow`, `runtime.deny`, a credential's `apiKey`) must equal what Dozable
 derives, so they can never drift from the data they describe; the error says the expected value.
 
-The JSON Schema states the shape. The loader (`RecipeDocument` in DozerKit) refuses whatever the schema refuses, and
+The JSON Schema states the shape. The loader (`RecipeDocument` in DozableKit) refuses whatever the schema refuses, and
 also checks what only Dozable can: the derived parts, the templates, and the agent's own rules (exact host names, no
 credential in an environment variable, a pinned release that is well formed). The tests hold the two together.
 
@@ -508,7 +508,7 @@ final.
    check it against the schema as you type). Copy the closest existing recipe.
 2. **Its key provider** must be in `Recipes/providers.json`. The credential's `apiKey` is derived from it.
 3. **Its mark:** add a product (and its vendor, if new) to the icon registry, `Recipes/icons/icons.json`, and name
-   it in `directory@1`'s `icon` (docs/DOZERKIT.md, *The icon registry*).
+   it in `directory@1`'s `icon` (docs/DOZABLEKIT.md, *The icon registry*).
 4. **Embed it:** add `.embedInCode("Recipes/compiled/PRODUCT.json")` to Package.swift, and the file to the two lists
    in `AgentRecipes` (`compiled` and `compiledFiles`, AgentRecipe.swift). `AgentKind` follows the recipes by itself.
 5. **`make recipes`** writes `Recipes/compiled/PRODUCT.json`. Commit both files.

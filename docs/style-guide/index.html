@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard Style Guide</title>
 <!-- The dashboard's style guide: a LIVING specimen of the doz ui dashboard's look. It loads the dashboard's REAL stylesheet
-     (Sources/DozerWeb/WebSource/app.css — not a copy), its vendored Lucide icons (listed by
-     Sources/DozerWeb/WebSource/vendor/lucide-static/VENDOR.json) and the icon registry (Sources/DozerKit/Recipes/icons/),
-     so it shows what ships. The markup is what the components in Sources/DozerWeb/WebSource/app/ produce.
+     (Sources/DozableWeb/WebSource/app.css — not a copy), its vendored Lucide icons (listed by
+     Sources/DozableWeb/WebSource/vendor/lucide-static/VENDOR.json) and the icon registry (Sources/DozableKit/Recipes/icons/),
+     so it shows what ships. The markup is what the components in Sources/DozableWeb/WebSource/app/ produce.
 
      To view it, serve the repository root over HTTP (a file:// page cannot read the icon files):
 
@@ -16,7 +16,7 @@
 
      Rule: a change to the dashboard's UI updates this page in the same commit (CLAUDE.md). -->
 <link rel="icon" href="data:,">
-<link rel="stylesheet" href="../../Sources/DozerWeb/WebSource/app.css">
+<link rel="stylesheet" href="../../Sources/DozableWeb/WebSource/app.css">
 <link rel="stylesheet" href="style-guide.css">
 </head>
 <body>
@@ -24,9 +24,9 @@
 <header>
   <p class="sg-label">Dozable · the dashboard (doz ui)</p>
   <h1>Style guide — a living specimen</h1>
-  <p>Every sample on this page is drawn by the dashboard’s <b>real</b> stylesheet, <code>Sources/DozerWeb/WebSource/app.css</code>,
+  <p>Every sample on this page is drawn by the dashboard’s <b>real</b> stylesheet, <code>Sources/DozableWeb/WebSource/app.css</code>,
     loaded in place, with the icons the dashboard vendors and the marks of its icon registry. The markup is what the components in
-    <code>Sources/DozerWeb/WebSource/app/</code> produce. Light and dark sit side by side — <code>color-scheme</code> is the theme, exactly as in the app.</p>
+    <code>Sources/DozableWeb/WebSource/app/</code> produce. Light and dark sit side by side — <code>color-scheme</code> is the theme, exactly as in the app.</p>
   <p class="src">A change to the dashboard’s look updates this page in the same commit. A sample here that no longer matches the app is a bug in this page.</p>
 </header>
 
@@ -576,7 +576,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
 
 <section>
   <h2>Marks — the icon registry</h2>
-  <p>Vendor and product marks from <code>Sources/DozerKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.
+  <p>Vendor and product marks from <code>Sources/DozableKit/Recipes/icons/</code>: one <code>currentColor</code> path each, so they follow the text colour in light and dark.
     Each says whether it is the maker’s own mark (<i>official</i>, as its brand terms allow) or Dozable’s neutral <i>lettermark</i>. Colour variants come later.</p>
   <div class="pair"><div class="scheme"><div class="marks"></div></div></div>
 </section>

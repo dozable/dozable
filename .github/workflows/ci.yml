@@ -1,4 +1,4 @@
-# DozerKit CI — feature 578. Runs on the SELF-HOSTED Mac runner (label `deck-mac`, as
+# DozableKit CI — feature 578. Runs on the SELF-HOSTED Mac runner (label `deck-mac`, as
 # DeckStack does), never a GitHub-hosted image: macOS minutes bill 10x, the hosted image ships an
 # older Swift, and a VM needs a real Mac with Virtualization.framework.
 #
@@ -23,7 +23,7 @@
 # run with this repository's token and secrets) — `make audit` (Scripts/audit.sh) fails if either rule is broken.
 # A maintainer builds a fork's change by pushing it to a branch of this repository. Repository setting, too: Actions
 # → "Require approval for all outside collaborators".
-name: DozerKit
+name: DozableKit
 
 on:
   pull_request:
@@ -121,13 +121,13 @@ jobs:
         # The library owns its kernel (KernelProvider): kata-containers 3.28.0's vmlinux-6.18.15-186,
         # sha256-pinned. The cache lives under the runner user's home so it persists between runs and
         # is shared with SandboxLab's CI on the same host; concurrent fillers are safe (atomic rename).
-        run: make kernel KERNEL_CACHE="$HOME/Library/Caches/DozerKit-ci/kernels" VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store"
+        run: make kernel KERNEL_CACHE="$HOME/Library/Caches/DozableKit-ci/kernels" VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store"
       - name: make test-vm (scratch store under the runner's temp dir)
         shell: bash
         run: |
           set -euo pipefail
           LOCK="$HOME/Developer/bin/ci-build-lock"
-          RUN='make test-vm VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store" KERNEL_CACHE="$HOME/Library/Caches/DozerKit-ci/kernels"'
+          RUN='make test-vm VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store" KERNEL_CACHE="$HOME/Library/Caches/DozableKit-ci/kernels"'
           if [ -x "$LOCK" ]; then "$LOCK" --name "$GITHUB_REPOSITORY#vm" -- bash -c "$RUN"; else bash -c "$RUN"; fi
 
   deckhold:

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # 629 (owner: "withdraw most of the recipes … so that ci and other per-recipe build steps reduce"): which recipes are
-# PUBLISHED — read from the compiled recipes (Sources/DozerKit/Recipes/compiled/*.json), never a list kept here. A recipe
+# PUBLISHED — read from the compiled recipes (Sources/DozableKit/Recipes/compiled/*.json), never a list kept here. A recipe
 # is unpublished when its `com.dozersandbox/directory@1` config says `published: false`; absent means published.
 # The ONE helper the per-recipe work reads: Scripts/recipe-check.py (`all`, `--changed`), Scripts/agent-currency.py and
 # the nightly profile loop in .github/workflows/recipes.yml. Python 3.9+ stdlib only.
@@ -10,7 +10,7 @@
 import glob, json, os, sys
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-COMPILED = os.path.join(REPO, "Sources/DozerKit/Recipes/compiled")
+COMPILED = os.path.join(REPO, "Sources/DozableKit/Recipes/compiled")
 DIRECTORY = "com.dozersandbox/directory@1"
 
 

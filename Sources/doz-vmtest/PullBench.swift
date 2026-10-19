@@ -7,7 +7,7 @@
 import Foundation
 import Containerization
 import ContainerizationOCI
-import DozerKit
+import DozableKit
 
 final class ByteCounter: @unchecked Sendable {
     private let lock = NSLock()

@@ -100,7 +100,7 @@ for a in "$@"; do
   # The release it runs is the one Dozer installs: a recipe agent's pin (exact), a built-in one's latest. The profile
   # is of that release, and a sandbox that reports another (an updater that ran, a wrong install) fails the run.
   read -r setting want typed vcmd <<EOF2
-$(/usr/bin/python3 - "$REPO/Sources/DozerKit/Recipes/compiled/$a.json" "$a" "$bin" <<'PY'
+$(/usr/bin/python3 - "$REPO/Sources/DozableKit/Recipes/compiled/$a.json" "$a" "$bin" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1])); caps = {c["type"]: c["config"] for c in d["capabilities"]}
 launch, inst = caps["com.dozersandbox/launch@1"], caps["com.dozersandbox/install@1"]

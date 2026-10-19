@@ -1,5 +1,5 @@
 import Foundation
-import DozerKit
+import DozableKit
 
 // 580 — the proxied-network suite (`doz-vmtest network`): a claude-code image sandbox with NO
 // network interface under the `agent` policy, then a bake under the `bake` policy. Everything the

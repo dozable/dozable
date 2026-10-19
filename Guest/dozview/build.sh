@@ -6,7 +6,7 @@
 # $TOOLS/zig-0.16.0 on first use). The matcher (match/dozmatch.c) is the same file the unit tests run
 # against the real-Docker vectors on the Mac.
 #
-# The COMMITTED binary is Sources/DozerKit/Resources/dozview; `make dozview` runs this, installs the
+# The COMMITTED binary is Sources/DozableKit/Resources/dozview; `make dozview` runs this, installs the
 # result there and refreshes PROVENANCE.md; `make dozview-verify` rebuilds and compares.
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"

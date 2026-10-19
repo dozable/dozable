@@ -1,7 +1,7 @@
 import Containerization
 import Darwin
 import Foundation
-@_spi(Testing) import DozerKit
+@_spi(Testing) import DozableKit
 
 // 587 — the image-lineage suite (`doz-vmtest lineage [part]`, `make test-vm-lineage`). One part
 // per acceptance item of 587.01-PLAN.md, each printing its numbers:

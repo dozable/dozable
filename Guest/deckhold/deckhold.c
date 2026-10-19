@@ -1,7 +1,7 @@
 /*
  * deckhold — a guest-side PTY holder on headless libghostty-vt.
  *
- * Productised in DozerKit (feature 578) from the reference design proven in probe 576
+ * Productised in DozableKit (feature 578) from the reference design proven in probe 576
  * (an earlier suspend/resume prototype; the design notes are not part of this repository).
  * Changes since the probe: `deckhold pipe` (the host's frame transport, below), the NAME.exit
  * record a finished session leaves behind, and `ls` listing ended sessions.

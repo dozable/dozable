@@ -15,7 +15,7 @@
 //   the passthrough view hides nothing and makes nothing read-only (doz_project.yaml, .git/hooks, a new
 //   repository's hooks); the cost against the raw share (2,000 files).
 import Foundation
-import DozerKit
+import DozableKit
 
 let cwdLoop = """
 echo $$ > /tmp/cwdloop-$N.pid
