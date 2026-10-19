@@ -2,12 +2,12 @@
 """feed — Dozable's update feed and Homebrew formulas, built from per-build fragments (611).
 
 THE SHAPE (Deckosaurus's appcast design, as JSON). The updates site (a GitHub Pages repo behind
-https://updates.dozersandbox.com, Cloudflare in front) holds
+https://updates.dozable.com, Cloudflare in front) holds
 
     v1/items/build-<n>.json   ONE fragment per build: the signed entry + its channel history (the truth)
     v1/feed.json              GENERATED from every fragment, newest build first — never edited by hand
     v1/notes/<version>.html   the release notes page each entry links to
-    CNAME                     updates.dozersandbox.com
+    CNAME                     updates.dozable.com
 
 `/v1/` is the feed's FORMAT version — every doz ever shipped reads `/v1/feed.json` (compiled in); a new format
 goes beside it as `/v2/`, never in place. Rendering is DETERMINISTIC (same fragments → byte-identical feed, no

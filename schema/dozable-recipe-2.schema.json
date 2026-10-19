@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/dozer-sandbox/dozer-sandbox/main/schema/dozable-recipe-2.schema.json",
+  "$id": "https://raw.githubusercontent.com/dozable/dozable/main/schema/dozable-recipe-2.schema.json",
   "title": "Dozable agent recipe (schema 2)",
   "description": "One agent recipe: how Dozable installs, launches and confines a coding agent. Laid out like a Docker Sandbox Kit v3 workload descriptor (its top-level fields and a capabilities list, Kit's own capability types where Kit has them, Dozable's additions under `dozable` keys and in com.dozable/* types) so that exporting a Kit descriptor is mechanical. Strict: an unknown key anywhere is an error. The spec: docs/recipes/RECIPE-FORMAT.md.",
   "type": "object",

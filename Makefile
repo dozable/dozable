@@ -245,7 +245,7 @@ release: ## 598/611: build (PUBLIC=1 by default; PUBLIC=0 a private rc) + sign (
 	  Scripts/release.sh
 
 # ── Updates: the signed feed and the Homebrew channels (611) ─────────────────
-# The feed is https://updates.dozersandbox.com/v1/feed.json (Distribution in Sources/DozableHost/Updates.swift — the
+# The feed is https://updates.dozable.com/v1/feed.json (Distribution in Sources/DozableHost/Updates.swift — the
 # ONE place the feed, tap and repository names live). UPDATES_DIR / TAP_DIR are local checkouts of the Pages repo
 # and the tap (Makefile.config); they default to scratch folders until those repositories exist. Nothing is pushed
 # unless PUSH=1, and the GitHub release is printed, never created.

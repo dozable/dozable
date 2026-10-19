@@ -64,7 +64,7 @@ import json; f=json.load(open('$R/site/v1/feed.json'))
 assert f['schema']==1 and f['product']=='doz' and [e['build'] for e in f['entries']]==[2,1], f
 assert {e['version']:e['channel'] for e in f['entries']}=={'$B':'stable','$C':'canary'}"
 check "notes page rendered (escaped)" grep -q '<strong>test</strong>' "$R/site/v1/notes/$B.html"
-check "CNAME is the feed's host" grep -qx updates.dozersandbox.com "$R/site/CNAME"
+check "CNAME is the feed's host" grep -qx updates.dozable.com "$R/site/CNAME"
 check "formulas: doz = $B, doz-beta = $B, doz-canary = $C" bash -c "grep -q 'version \"$B\"' '$R/tap/Formula/doz.rb' && grep -q 'version \"$B\"' '$R/tap/Formula/doz-beta.rb' && grep -q 'version \"$C\"' '$R/tap/Formula/doz-canary.rb'"
 check "formulas conflict with each other and run the upgrade check" bash -c "grep -q 'conflicts_with \"doz-beta\"' '$R/tap/Formula/doz.rb' && grep -q 'conflicts_with \"doz\"' '$R/tap/Formula/doz-canary.rb' && grep -q 'upgrade-check' '$R/tap/Formula/doz-beta.rb' && grep -q 'class DozCanary < Formula' '$R/tap/Formula/doz-canary.rb'"
 if command -v ruby >/dev/null; then
@@ -87,7 +87,7 @@ requests() { grep -c 'GET /v1/feed.json' "$R/server.log" || true; }
 
 out="$("$DOZ" upgrade --check --store "$R/store" 2>&1)" && rc=0 || rc=$?
 check "upgrade --check (stable): $B available, exit 10" bash -c "[ $rc = 10 ] && grep -q 'doz $B is available — upgrade: doz upgrade -y' <<<'$out'"
-check "  … the notice links the notes" grep -q "notes: https://updates.dozersandbox.com/v1/notes/$B.html" <<<"$out"
+check "  … the notice links the notes" grep -q "notes: https://updates.dozable.com/v1/notes/$B.html" <<<"$out"
 n0=$(requests)
 err="$(DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls --store "$R/store" 2>&1 >/dev/null)"
 check "notify: one line on stderr after a command" grep -q "doz $B is available" <<<"$err"

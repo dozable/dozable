@@ -976,7 +976,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   it is handed. Never put the sender, an endpoint, a key or any closed code here. It joins a build only through
   `DOZ_CLOUD_PACKAGE` (Package.swift adds the dependency and defines `DOZ_CLOUD`; `Sources/doz/DozableMain.swift` calls
   `Usage.install(send:flush:signup:)` under `#if DOZ_CLOUD` — `canImport` alone is wrong: a module left in `.build` by
-  an earlier official build makes it true in a build that does not link it). The audit allows `DozerCloud` in that
+  an earlier official build makes it true in a build that does not link it). The audit allows `DozableCloud` in that
   file only. Without it (`make cli`, `make test`, CI, forks) `Usage.isOfficial` is false: nothing is recorded or sent.
 - **The closed list** (`UsageSchema`): messages `installed`, `upgraded`, `daily`; every key in `UsageSchema.keys`/`nested`,
   every value a count, an ASCII range (`<=8`, `9-11`, `5-30m`), a time rounded to 50 ms (≤ 1 h, p50 ≤ p90) or a word of
@@ -1033,7 +1033,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### Updates: the signed feed, channels, `doz upgrade`
 
-- **ONE feed, frozen, compiled in**: `https://updates.dozersandbox.com/v1/feed.json` (`Distribution.feedURL` in
+- **ONE feed, compiled in**: `https://updates.dozable.com/v1/feed.json` since 0.37.2 — every earlier doz asks
+  `https://updates.dozersandbox.com/v1/feed.json`, a PERMANENT 301 to it (a Cloudflare redirect rule on dozersandbox.com:
+  never remove it, and never let dozersandbox.com lapse); `publish.sh` writes the Pages `CNAME` from this constant
+  (`Distribution.feedURL` in
   `Sources/DozableHost/Updates.swift` — with `tap`, `repository`, `teamID` and `updatePublicKey`, the ONE place these
   names live; the scripts read them with `sed`, and `docs-drift-check` fails on a doc naming another tap/repo). `/v1/`
   is the FORMAT — a new format is `/v2/` beside it, never a change to v1. All three channels in one file, each entry

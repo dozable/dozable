@@ -36,7 +36,7 @@ build runs every command but cannot boot anything, and `doz doctor` (and `doz on
 ### Building from source (contributors)
 
 ```bash
-git clone https://github.com/dozer-sandbox/dozer-sandbox.git && cd dozer-sandbox
+git clone https://github.com/dozable/dozable.git && cd dozable
 make install-cli                  # PREFIX=~/.local by default → ~/.local/bin/doz (signed)
 make cli                          # a signed debug binary at .build/debug/doz, for development
 make release VERSION=X.Y.Z        # the Homebrew artefact: dist/doz-X.Y.Z-macos-arm64.tar.gz + .sha256
