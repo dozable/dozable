@@ -2,10 +2,24 @@
   "schema": 1,
   "agent": "droid",
   "version": "0.240.1",
-  "profiled": "2026-10-14",
+  "profiled": "2026-10-19",
   "how": "a fresh try with the Open network, every HTTPS request decrypted and logged; its first start, then a scripted task (read a file, edit it, run a command) run non-interactively with FAKE keys — xAI and Google through a fake provider that answers text only, Anthropic and OpenAI refused by the real API (401). A real-key run would see more: the model's turns and what its tool calls fetch.",
   "taskEnded": "DOZ_FAKE_OK",
   "endpoints": [
+    {
+      "host": "api.factory.ai",
+      "method": "POST",
+      "path": "/api/automations/sync",
+      "when": "start",
+      "count": 1,
+      "credential": [
+        "none"
+      ],
+      "refusedWhenProfiled": false,
+      "determination": "allow-path",
+      "reason": "Factory Droid syncs its automations list with Factory at start-up, without a credential, even in airgap mode (no setting turns it off); the recipe's vendor host, that one path",
+      "seen": true
+    },
     {
       "host": "api.x.ai",
       "method": "POST",

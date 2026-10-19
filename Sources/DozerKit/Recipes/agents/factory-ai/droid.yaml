@@ -29,6 +29,7 @@ capabilities:
       - generativelanguage.googleapis.com:443
       - openrouter.ai:443
       - ai-gateway.vercel.sh:443
+      - api.factory.ai:443
     dozer:
       model:
         id: model:droid
@@ -52,6 +53,11 @@ capabilities:
           reason: Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's
       update: []
       excluded: []
+      vendor:
+      - host: api.factory.ai
+        paths:
+        - /api/automations/sync
+        reason: Factory Droid syncs its automations list with Factory at start-up, without a credential, even in airgap mode (no setting turns it off)
 - type: com.docker.sandbox/credential@1
   description: xAI API access
   config:

@@ -52,6 +52,15 @@
           },
           "update" : [
 
+          ],
+          "vendor" : [
+            {
+              "host" : "api.factory.ai",
+              "paths" : [
+                "/api/automations/sync"
+              ],
+              "reason" : "Factory Droid syncs its automations list with Factory at start-up, without a credential, even in airgap mode (no setting turns it off)"
+            }
           ]
         },
         "runtime" : {
@@ -61,7 +70,8 @@
             "api.x.ai:443",
             "generativelanguage.googleapis.com:443",
             "openrouter.ai:443",
-            "ai-gateway.vercel.sh:443"
+            "ai-gateway.vercel.sh:443",
+            "api.factory.ai:443"
           ]
         }
       },
