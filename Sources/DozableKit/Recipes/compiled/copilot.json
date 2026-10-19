@@ -101,7 +101,7 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.copilot/skills/dozer",
+        "directory" : "/home/agent/.copilot/skills/doz",
         "dozer" : {
           "kind" : "skill"
         },

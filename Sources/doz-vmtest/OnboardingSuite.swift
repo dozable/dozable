@@ -8,7 +8,7 @@
 //   · D9: `init` writes doz_project.yaml; `up` with no name, in that folder, creates the sandbox with the
 //     folder at /workspace and starts its sessions; again, it uses the same sandbox
 //   · D17: create without a workspace says so; `ls` shows it
-//   · D15: a pi sandbox gets the facts file, the dozer skill and `--append-system-prompt FILE`; a
+//   · D15: a pi sandbox gets the facts file, the doz skill and `--append-system-prompt FILE`; a
 //     claude-code one the facts in Claude Code's own argv (via the launcher); agent.prompt = false removes both
 //   · D13: `uninstall` of an installed copy: no terminal and no --yes refuses; --yes removes exactly
 //     what it listed (--keep-config keeps the settings); never the keychain
@@ -214,28 +214,28 @@ func cliOnboardingSuite(binary: String) async {
     check(r.code == 0, "up pp --image pi --account none --workspace … --agent-prompt FILE (exit \(r.code))")
     check(c.row("pp")?.credentialProblem == "pi has no credential — pi needs an Anthropic API key; choose an API-key account",
           "ls: pp says pi has no credential (\(c.row("pp")?.credentialProblem ?? "nil"))")
-    let facts = c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("You are in `pp`, a Dozable") && facts.contains("user's Mac folder \(cws.path), shared live"),
           "the facts block is in the guest: the sandbox and its workspace")
     check(facts.contains("no credential you can use is attached") && !facts.contains("adds the account's credential"),
           "pi with no account: the facts say no credential is attached — choose one in Dozable, never log in")
     check(facts.hasSuffix("\n\nProject rule: pp runs the tests with make test.\n"), "the sandbox's own prompt is appended")
-    check(c.run(["exec", "pp", "--", "cat", "/home/agent/.pi/agent/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
-          "the dozer skill: ~/.pi/agent/skills/dozer/SKILL.md")
+    check(c.run(["exec", "pp", "--", "cat", "/home/agent/.pi/agent/skills/doz/SKILL.md"]).out.hasPrefix("---\nname: doz\n"),
+          "the doz skill: ~/.pi/agent/skills/doz/SKILL.md")
     let pi = c.sessions("pp").first { $0.name == "pi" }
-    check(pi?.command == "pi --append-system-prompt /run/dozer/agent-prompt.md", "pi's session: \(pi?.command ?? "none")")
+    check(pi?.command == "pi --append-system-prompt /run/doz/agent-prompt.md", "pi's session: \(pi?.command ?? "none")")
     r = c.run(["inspect", "pp", "--prompt"])
     check(r.code == 0 && r.out.contains("pi's --append-system-prompt") && r.out.contains("You are in `pp`"), "inspect --prompt shows it")
     let cxdg = URL(fileURLWithPath: c.env["XDG_CONFIG_HOME"]!)
     check(c.run(["config", "set", "agent.prompt", "false"]).code == 0, "config set agent.prompt false")
     c.run(["run", "pp", "--detach", "--session", "later", "--", "sleep", "300"])
-    check(c.run(["exec", "pp", "--", "sh", "-c", "test -e /run/dozer/agent-prompt.md || test -e /home/agent/.pi/agent/skills/dozer && echo left || echo gone"]).out == "gone\n",
+    check(c.run(["exec", "pp", "--", "sh", "-c", "test -e /run/doz/agent-prompt.md || test -e /home/agent/.pi/agent/skills/doz && echo left || echo gone"]).out == "gone\n",
           "off: the next session start removed both")
     c.run(["config", "unset", "agent.prompt"])
     // Your own template replaces the built-in one, from the next session.
     try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     c.run(["run", "pp", "--detach", "--session", "later1", "--", "sleep", "300"])
-    check(c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
+    check(c.run(["exec", "pp", "--", "cat", "/run/doz/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
           "agent-prompt.md (the user's template) replaces the built-in one at the next session; the sandbox's own still appended")
     try? "Tests: {{sandbox.nmae}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     r = c.run(["run", "pp", "--detach", "--session", "later2", "--", "sleep", "300"])
@@ -252,8 +252,8 @@ func cliOnboardingSuite(binary: String) async {
                       "for p in /proc/[0-9]*; do c=$(tr '\\0' ' ' < $p/cmdline 2>/dev/null); case \"$c\" in *permissions\\ --append-system-prompt*) printf '%s\\n' \"$c\";; esac; done"]).out
     check(argv.contains("/usr/local/bin/claude --dangerously-skip-permissions --append-system-prompt # Where you are running: a Dozable")
           && argv.contains("shared live"), "Claude Code runs with the facts block appended: \(argv.prefix(110))…")
-    check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/dozer/SKILL.md"]).out.hasPrefix("---\nname: dozer\n"),
-          "the dozer skill: ~/.claude/skills/dozer/SKILL.md")
+    check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/doz/SKILL.md"]).out.hasPrefix("---\nname: doz\n"),
+          "the doz skill: ~/.claude/skills/doz/SKILL.md")
     check(c.sessions("cc").first { $0.name == "claude" }?.command == "claude", "the session's command stays `claude` (the launcher adds it)")
 
     // 594 (owner: "Can we install (optionally) latest claude code (default true)?"): images.claude_code_version
@@ -312,7 +312,7 @@ func cliOnboardingSuite(binary: String) async {
     r = c.run(["up", "pn", "--image", "pi", "--account", "fk", "--detach"], timeout: 900)
     check(r.code == 0, "up pn --image pi --account fk: pi starts in its session (exit \(r.code))")
     check(c.row("pn")?.credentialProblem == nil, "an API-key account fits pi: no problem said")
-    check(c.run(["exec", "pn", "--", "cat", "/run/dozer/agent-prompt.md"]).out.contains("adds the account's credential (fk)"),
+    check(c.run(["exec", "pn", "--", "cat", "/run/doz/agent-prompt.md"]).out.contains("adds the account's credential (fk)"),
           "pi's facts: the proxy adds fk's credential")
     let piEnv = c.run(["exec", "pn", "--", "sh", "-c", "echo ${ANTHROPIC_API_KEY%%_*}/${CLAUDE_CODE_OAUTH_TOKEN:-none}"]).out
     check(piEnv.hasPrefix("doz/none") || piEnv.hasPrefix("doz_cred/none") || (piEnv.hasPrefix("doz") && piEnv.contains("/none")),

@@ -134,8 +134,8 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(text.contains("deny by default"))
         XCTAssertTrue(text.contains("never log in"))
         XCTAssertLessThan(text.split(separator: "\n").count, 12, "the facts block is short (D15a)")
-        XCTAssertTrue(shared.skill?.hasPrefix("---\nname: dozer\n") == true)
-        XCTAssertEqual(shared.skillPath, "/home/agent/.claude/skills/dozer/SKILL.md")
+        XCTAssertTrue(shared.skill?.hasPrefix("---\nname: doz\n") == true)
+        XCTAssertEqual(shared.skillPath, "/home/agent/.claude/skills/doz/SKILL.md")
         XCTAssertEqual(shared.layers, ["built-in"])
 
         let private_ = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil), policy: .agent, account: nil, version: "9.9",
@@ -145,7 +145,7 @@ final class OnboardingTests: XCTestCase {
 
         let pi = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil, image: "pi"), policy: .agent, account: nil, version: "9.9",
                                                   settings: DozableSettings.load(environment: env()), hostname: "m"))
-        XCTAssertEqual(pi.skillPath, "/home/agent/.pi/agent/skills/dozer/SKILL.md")
+        XCTAssertEqual(pi.skillPath, "/home/agent/.pi/agent/skills/doz/SKILL.md")
         XCTAssertNil(AgentPrompt.report(config: try config(workspace: nil, network: .nat, image: "lab"), policy: nil, account: nil, version: "1",
                                         settings: DozableSettings.load(environment: env())), "the lab runs no agent")
     }
@@ -198,16 +198,16 @@ final class OnboardingTests: XCTestCase {
         XCTAssertFalse(r.enabled)
         XCTAssertNil(r.text)
         let script = AgentPrompt.deliveryScript(r, user: "agent")
-        XCTAssertTrue(script.contains("rm -f '/run/dozer/agent-prompt.md'"), script)
-        XCTAssertTrue(script.contains("rm -rf '/home/agent/.claude/skills/dozer'"), script)
+        XCTAssertTrue(script.contains("rm -f '/run/doz/agent-prompt.md'"), script)
+        XCTAssertTrue(script.contains("rm -rf '/home/agent/.claude/skills/doz'"), script)
     }
 
     func testTheDeliveryWritesOnlyDozablesFiles() throws {
         let r = try XCTUnwrap(AgentPrompt.report(config: try config(workspace: nil), policy: .agent, account: nil, version: "1",
                                                  settings: DozableSettings.load(environment: env())))
         let s = AgentPrompt.deliveryScript(r, user: "agent")
-        XCTAssertTrue(s.contains("> '/run/dozer/agent-prompt.md.tmp'"))
-        XCTAssertTrue(s.contains("'/home/agent/.claude/skills/dozer/SKILL.md'"))
+        XCTAssertTrue(s.contains("> '/run/doz/agent-prompt.md.tmp'"))
+        XCTAssertTrue(s.contains("'/home/agent/.claude/skills/doz/SKILL.md'"))
         XCTAssertFalse(s.contains("CLAUDE.md"), "never the agent's own memory files")
         XCTAssertFalse(s.contains("settings.json"))
         // The contents travel base64-encoded: nothing of the text is interpreted by the shell.

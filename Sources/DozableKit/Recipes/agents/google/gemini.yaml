@@ -68,16 +68,16 @@ capabilities:
     path: /home/agent/.gemini
 - type: com.docker.sandbox/agent-context@1
   config:
-    directory: /home/agent/.gemini/extensions/dozer
-    filename: DOZER.md
+    directory: /home/agent/.gemini/extensions/doz
+    filename: DOZ.md
     dozer:
       kind: context-file
       manifest:
         file: gemini-extension.json
         json:
           version: 1.0.0
-          name: dozer
-          contextFileName: DOZER.md
+          name: doz
+          contextFileName: DOZ.md
 - type: com.dozersandbox/install@1
   config:
     kind: npm

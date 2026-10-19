@@ -244,11 +244,11 @@ public enum GuestCommand {
     /// that has none yet gets one after its ordinary re-bind (`WorkspaceView.startScript`). Neither ever
     /// fails the script: they print `doz-view TAG …` lines.
     public static func remountShares(_ shares: [(tag: String, guestPath: String)], views: [String: WorkspaceViewConfig] = [:]) -> String {
-        var s = "set -e; mkdir -p /run/dozer-vfs; umount -l /run/dozer-vfs 2>/dev/null || true; "
-            + "mount -t virtiofs virtiofs /run/dozer-vfs; ls -a /run/dozer-vfs >/dev/null"
+        var s = "set -e; mkdir -p /run/doz-vfs; umount -l /run/doz-vfs 2>/dev/null || true; "
+            + "mount -t virtiofs virtiofs /run/doz-vfs; ls -a /run/doz-vfs >/dev/null"
         for share in shares {
             let plain = "umount -l '\(share.guestPath)' 2>/dev/null || true"
-                + "; mount --bind '/run/dozer-vfs/\(share.tag)' '\(share.guestPath)'"
+                + "; mount --bind '/run/doz-vfs/\(share.tag)' '\(share.guestPath)'"
                 + "; ls -a '\(share.guestPath)' >/dev/null"
             guard WorkspaceView.isSafe(share.tag), WorkspaceView.isSafe(share.guestPath) else { s += "; " + plain; continue }
             let turnOn = views[share.tag].map { "; " + WorkspaceView.startScript($0) } ?? ""
@@ -300,9 +300,9 @@ public enum GuestCommand {
 
     /// 594 W23 (owner ruling 2026-09-30: "yes, passwordless sudo by default"): where the agent's sudo
     /// rule lives. sudo reads every file in /etc/sudoers.d whose name has no dot and no trailing `~`.
-    public static let agentSudoersPath = "/etc/sudoers.d/dozer-agent"
+    public static let agentSudoersPath = "/etc/sudoers.d/doz-agent"
 
-    /// Root shell (idempotent, never fails the caller): `on` → `/etc/sudoers.d/dozer-agent` (0440, root)
+    /// Root shell (idempotent, never fails the caller): `on` → `/etc/sudoers.d/doz-agent` (0440, root)
     /// giving `user` passwordless sudo, written only when the image has sudo and only after `visudo -cf`
     /// accepts it — a broken drop-in would break sudo for everyone; `off` → the drop-in removed. A root
     /// user, or a user name that is not a plain name, gets nothing.
@@ -311,7 +311,7 @@ public enum GuestCommand {
             && user.unicodeScalars.allSatisfy { ("a"..."z").contains($0) || ("0"..."9").contains($0) || $0 == "_" || $0 == "-" }
             && !(user.first.map { $0.isNumber || $0 == "-" } ?? true)
         guard plain, on else { return "rm -f '\(agentSudoersPath)'" }
-        let tmp = "/run/dozer-agent-sudoers"
+        let tmp = "/run/doz-agent-sudoers"
         // Absolute paths: a utility exec's PATH may lack /usr/sbin. No visudo, no rule (never unchecked).
         return "if [ -x /usr/bin/sudo ] && [ -x /usr/sbin/visudo ]; then mkdir -p /etc/sudoers.d"
             + " && printf '%s ALL=(ALL) NOPASSWD:ALL\\n' '\(user)' > \(tmp) && chmod 0440 \(tmp) && chown 0:0 \(tmp)"
@@ -691,7 +691,7 @@ public enum GuestCommand {
     # doz:git-credential:v1
     # Dozer Sandbox: git's credential helper for https://github.com. It answers with this session's doz
     # placeholder ($GH_TOKEN) — never a real token: Dozer's proxy on the Mac swaps in the user's own login
-    # (read-only unless the user turned on "Push to GitHub"). See the dozer skill.
+    # (read-only unless the user turned on "Push to GitHub"). See the doz skill.
     [ "${1:-}" = get ] || exit 0
     host=; proto=
     while IFS= read -r line && [ -n "$line" ]; do
@@ -715,7 +715,7 @@ public enum GuestCommand {
 
     /// Dozer's own git config, included from the system's (/etc/gitconfig) — the user's identity and the
     /// helper while "Use GitHub as you" is on; EMPTY otherwise (nothing of the user's stays).
-    public static let dozableGitConfigPath = "/etc/dozer/gitconfig"
+    public static let dozableGitConfigPath = "/etc/doz/gitconfig"
 
     /// The file's text for `setup`.
     public static func dozableGitConfig(_ setup: GitGuestSetup) -> String {
@@ -735,7 +735,7 @@ public enum GuestCommand {
     /// Root shell: write the file and include it from /etc/gitconfig (once). Idempotent, never fails the caller.
     public static func gitConfigScript(_ setup: GitGuestSetup) -> String {
         let quoted = "'" + dozableGitConfig(setup).replacingOccurrences(of: "'", with: "'\\''") + "'"
-        return "{ mkdir -p /etc/dozer && printf '%s' \(quoted) > '\(dozableGitConfigPath).tmp' && chmod 0644 '\(dozableGitConfigPath).tmp'"
+        return "{ mkdir -p /etc/doz && printf '%s' \(quoted) > '\(dozableGitConfigPath).tmp' && chmod 0644 '\(dozableGitConfigPath).tmp'"
             + " && mv -f '\(dozableGitConfigPath).tmp' '\(dozableGitConfigPath)'"
             + " && { grep -qs 'path = \(dozableGitConfigPath)' /etc/gitconfig || printf '[include]\\n\\tpath = \(dozableGitConfigPath)\\n' >> /etc/gitconfig; }; } || true"
     }

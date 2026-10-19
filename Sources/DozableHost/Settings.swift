@@ -351,7 +351,7 @@ public enum SettingKey {
     /// a store that has not chosen one defaults to (`doz account default` wins once it has).
     public static let defaultImage = "defaults.image"
     public static let defaultAccount = "defaults.account"
-    /// 594 (D16): the environment prompt (the facts block and the dozer skill) — on, or off.
+    /// 594 (D16): the environment prompt (the facts block and the doz skill) — on, or off.
     public static let agentPrompt = "agent.prompt"
     /// 594 W23: the agent's passwordless sudo inside its sandbox (default on).
     public static let agentSudo = "sandbox.agent_sudo"
@@ -552,7 +552,7 @@ public struct DozableSettings: Sendable {
                   "The Anthropic account of a store that has not chosen one: mac (this Mac's Claude Code login) or none. doz account default decides for a store once it has.",
                   applies: .newStore),
             .init("agent", "prompt", .bool, .bool(true),
-                  "Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox, its /workspace share, the network, credentials) and the dozer skill, written at every session start. Your own template: agent-prompt.md beside this file.",
+                  "Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox, its /workspace share, the network, credentials) and the doz skill, written at every session start. Your own template: agent-prompt.md beside this file.",
                   applies: .nextSession),
             // 611: updates — the feed is updates.dozersandbox.com/v1/feed.json (signed; Distribution in Updates.swift).
             .init("updates", "mode", .choice(["off", "notify", "auto"]), .string("notify"),

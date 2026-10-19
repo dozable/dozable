@@ -253,14 +253,14 @@ func basesDockerfilePart(_ binary: String) async {
           "start d1: built + imported (\(Int(firstSeconds)) s)")
     check(said.contains("OUTSIDE Dozable's network policy"), "the preparation says it too (the Operations log records it)")
     let calls = (try? String(contentsOf: fake.appendingPathComponent("calls.log"), encoding: .utf8)) ?? ""
-    check(calls.contains("build --platform linux/arm64 --progress plain -f \(df.resolvingSymlinksInPath().path) -t dozer/\(base):latest \(app.resolvingSymlinksInPath().path)")
-          && calls.contains("image save --platform linux/arm64 -o ") && calls.contains(" dozer/\(base):latest"),
-          "container build --platform linux/arm64 -f … -t dozer/<base>:latest <its folder>, then container image save -o … (linux/arm64)")
+    check(calls.contains("build --platform linux/arm64 --progress plain -f \(df.resolvingSymlinksInPath().path) -t doz/\(base):latest \(app.resolvingSymlinksInPath().path)")
+          && calls.contains("image save --platform linux/arm64 -o ") && calls.contains(" doz/\(base):latest"),
+          "container build --platform linux/arm64 -f … -t doz/<base>:latest <its folder>, then container image save -o … (linux/arm64)")
     check(h.run(["exec", "d1", "--", "cat", "/etc/os-release"]).out.contains("Debian"), "d1 boots the Dockerfile's base (Debian)")
     check(h.run(["exec", "d1", "--", "sh", "-c", "id -un; sudo -n true && echo sudo-ok"]).out == "agent\nsudo-ok\n", "the agent user and its sudo are added (the baseline)")
     check(h.run(["exec", "d1", "--", "cat", "/workspace/Dockerfile"]).out.contains("FROM debian"), "/workspace is the Dockerfile's folder")
     let rec = Dockerfiles.record(base, DozableStore(root: h.store))
-    check(rec?.reference?.hasPrefix("dozer.local/\(base)@sha256:") == true && rec?.builds == 1, "dockerfiles.json: the build's reference (\(rec?.reference?.suffix(20) ?? "none"))")
+    check(rec?.reference?.hasPrefix("doz.local/\(base)@sha256:") == true && rec?.builds == 1, "dockerfiles.json: the build's reference (\(rec?.reference?.suffix(20) ?? "none"))")
 
     // Unchanged (same layers, a new config): nothing re-baked — seconds (B8).
     try? FileManager.default.removeItem(at: fake.appendingPathComponent("next.tar"))
@@ -298,7 +298,7 @@ func basesDockerfilePart(_ binary: String) async {
     check(r.code == 0 && (r.out + r.err).contains("(native build"), "start d2: Claude Code's native build added on the Dockerfile's image (exit \(r.code))")
     check(h.run(["exec", "d2", "--", "sh", "-c", "claude --version; command -v node || echo no-node"]).out.contains("no-node"), "claude runs; no Node was added for it")
     h.run(["run", "d2", "--detach", "--session", "s1", "--", "sleep", "60"])
-    let facts = h.run(["exec", "d2", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = h.run(["exec", "d2", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("base: the user's Dockerfile \(app.resolvingSymlinksInPath().path)/Dockerfile.cc") && facts.contains("adds the account's credential (fk)"),
           "the facts block: the Dockerfile as the base, the account's credential")
     let seen = h.run(["exec", "d2", "--", "sh", "-c", "echo $ANTHROPIC_API_KEY"]).out
@@ -339,7 +339,7 @@ func basesRealBuildPart(_ binary: String) async {
         // This run's image in Apple's store (doz keeps a Dockerfile's tag there; a test does not).
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/local/bin/container")
-        p.arguments = ["image", "delete", "dozer/\(ImageChoice.dockerfileBase(path: df.resolvingSymlinksInPath().path)):latest"]
+        p.arguments = ["image", "delete", "doz/\(ImageChoice.dockerfileBase(path: df.resolvingSymlinksInPath().path)):latest"]
         p.standardOutput = FileHandle.nullDevice
         p.standardError = FileHandle.nullDevice
         try? p.run()
@@ -361,7 +361,7 @@ func basesRealBuildPart(_ binary: String) async {
     check(h.run(["exec", "rb", "--", "sh", "-c", "echo $APP_GREETING"]).out == "hello-from-dockerfile\n", "its ENV reaches sessions")
     check(h.run(["exec", "rb", "--", "claude", "--version"]).out.contains("Claude Code"), "Claude Code was added by Dozable")
     h.run(["run", "rb", "--detach", "--session", "s1", "--", "sleep", "60"])
-    let facts = h.run(["exec", "rb", "--", "cat", "/run/dozer/agent-prompt.md"]).out
+    let facts = h.run(["exec", "rb", "--", "cat", "/run/doz/agent-prompt.md"]).out
     check(facts.contains("the user's Dockerfile") && facts.contains("adds the account's credential (fk)"), "the facts block and the credential")
     let seen = h.run(["exec", "rb", "--", "sh", "-c", "echo $ANTHROPIC_API_KEY"]).out
     check(seen.hasPrefix(CredentialVault.placeholderPrefix) && !seen.contains(fk), "a placeholder, never the key")
@@ -423,7 +423,7 @@ func basesMatrixPart(_ binary: String) async {
                 check(h.run(["exec", name, "--", "sh", "-c", "command -v node || echo no-node"]).out == "no-node\n", "\(name): no Node for Claude Code's sake")
             }
             h.run(["run", name, "--detach", "--session", "s1", "--", "sleep", "30"])
-            let facts = h.run(["exec", name, "--", "cat", "/run/dozer/agent-prompt.md"]).out
+            let facts = h.run(["exec", name, "--", "cat", "/run/doz/agent-prompt.md"]).out
             check(facts.contains("(base: \(base.title) (\(base.shortReference)))"), "\(name): the facts block names the base")
         case .pi:
             check(h.run(["exec", name, "--", "pi", "--version"]).code == 0, "\(name): pi runs")

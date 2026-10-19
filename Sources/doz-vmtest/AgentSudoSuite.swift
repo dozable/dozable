@@ -34,7 +34,7 @@ func cliAgentSudoSuite(binary: String) async {
     r = t.run(["exec", "su", "--", "sh", "-c", "sudo -n debconf-show debconf 2>/dev/null | grep -i 'frontend' ; sudo -n apt-get install -y keyboard-configuration </dev/null >/tmp/kb.log 2>&1 && echo KB-OK || tail -5 /tmp/kb.log; grep -c 'Keyboard layout:\\|Character set to support:' /tmp/kb.log"], timeout: 600)
     check(r.out.contains("Noninteractive"), "W31: debconf's frontend is Noninteractive in the guest (\(r.out.split(separator: "\n").first ?? ""))")
     check(r.out.contains("KB-OK") && r.out.hasSuffix("0\n"), "W31: sudo apt-get install keyboard-configuration (+ console-setup) completes without a question: \(r.out.suffix(200))")
-    r = t.run(["exec", "su", "--", "sh", "-c", "stat -c '%a %U' /etc/sudoers.d/dozer-agent; du -sk /var/lib/apt/lists | cut -f1"])
+    r = t.run(["exec", "su", "--", "sh", "-c", "stat -c '%a %U' /etc/sudoers.d/doz-agent; du -sk /var/lib/apt/lists | cut -f1"])
     let lines = r.out.split(separator: "\n")
     check(lines.first == "440 root", "the drop-in: 0440, root (\(lines.first ?? ""))")
     info("apt lists in the image: \(lines.last.flatMap { Int($0) }.map { "\($0 / 1024) MiB" } ?? "?")")
@@ -71,7 +71,7 @@ func cliAgentSudoSuite(binary: String) async {
     // 3. --no-agent-sudo: no sudo, and the facts say so.
     r = t.run(["up", "sn", "--image", "claude-code", "--isolated", "--account", "none", "--memory", "1G", "--no-agent-sudo", "--detach"], timeout: 600)
     check(r.code == 0, "up sn --no-agent-sudo (exit \(r.code))")
-    r = t.run(["exec", "sn", "--", "sh", "-c", "sudo -n true 2>/dev/null && echo SUDO || echo NOSUDO; test -e /etc/sudoers.d/dozer-agent && echo RULE || echo NORULE"])
+    r = t.run(["exec", "sn", "--", "sh", "-c", "sudo -n true 2>/dev/null && echo SUDO || echo NOSUDO; test -e /etc/sudoers.d/doz-agent && echo RULE || echo NORULE"])
     check(r.out == "NOSUDO\nNORULE\n", "--no-agent-sudo: sudo -n true fails, no drop-in (\(r.out.replacingOccurrences(of: "\n", with: " ")))")
     check(t.run(["inspect", "sn", "--prompt"]).out.contains("System: no sudo"), "the facts say: no sudo")
 

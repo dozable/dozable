@@ -6,9 +6,9 @@ import DozableKit
 // it runs. Now, at EVERY session start, the host renders from the sandbox's CURRENT facts:
 //
 //   D15a  a short FACTS block — appended to the agent's system prompt: Claude Code's launcher
-//         passes `/run/dozer/agent-prompt.md` with `--append-system-prompt`; pi's session gets
-//         `--append-system-prompt /run/dozer/agent-prompt.md` (pi reads a file named there);
-//   D15b  the `dozer` SKILL — `~/.claude/skills/dozer/SKILL.md` (pi: `~/.pi/agent/skills/dozer/`),
+//         passes `/run/doz/agent-prompt.md` with `--append-system-prompt`; pi's session gets
+//         `--append-system-prompt /run/doz/agent-prompt.md` (pi reads a file named there);
+//   D15b  the `doz` SKILL — `~/.claude/skills/doz/SKILL.md` (pi: `~/.pi/agent/skills/doz/`),
 //         rewritten every start. Dozer owns only that directory; the agent's own memory files
 //         (CLAUDE.md, AGENTS.md, APPEND_SYSTEM.md) are never touched.
 //
@@ -31,7 +31,7 @@ public struct AgentPromptReport: Codable, Equatable, Sendable {
     public var error: String?
     /// Which layers made it: `built-in`, `user template <path>`, `sandbox (append|replace)`.
     public var layers: [String]
-    /// The `dozer` skill's SKILL.md as the next session gets it.
+    /// The `doz` skill's SKILL.md as the next session gets it.
     public var skill: String?
     /// Where each part goes in the guest.
     public var promptPath: String
@@ -45,7 +45,7 @@ public struct AgentPromptError: Error, Equatable, Sendable, LocalizedError {
 
 public enum AgentPrompt {
     /// Where the facts block is written in the guest (on the root disk; rewritten every session start).
-    public static let guestPromptPath = "/run/dozer/agent-prompt.md"
+    public static let guestPromptPath = "/run/doz/agent-prompt.md"
     /// The user's template, beside doz.toml.
     public static let userTemplateName = "agent-prompt.md"
 
@@ -78,7 +78,7 @@ public enum AgentPrompt {
         ("github.facts", "one short line: git and gh signed in as the user on GitHub (read-only or with push) and the forwarded SSH agent — empty when neither is on"),
         ("github.description", "a paragraph: how the user's GitHub login reaches the sandbox (a placeholder; the proxy), what read-only refuses, push, SSH — or that it is off and how to ask"),
         ("mac.hostname", "the Mac's name"),
-        ("dozer.version", "the doz that rendered it"),
+        ("doz.version", "the doz that rendered it"),
     ]
 
     /// The built-in facts block (D15a): only what changes per sandbox and what the agent needs
@@ -96,19 +96,19 @@ public enum AgentPrompt {
     - {{mac.open}}
     - {{github.facts}}
     - The user may pause, sleep or hibernate this VM between your turns; your processes, files and sessions survive it.
-    - More — what persists (root disk, state disk, restore points), the network policy, what you cannot do from inside — is in the `dozer` skill.
+    - More — what persists (root disk, state disk, restore points), the network policy, what you cannot do from inside — is in the `doz` skill.
     """
 
-    /// The `dozer` skill (D15b): loaded by the agent when a question is about this machine.
+    /// The `doz` skill (D15b): loaded by the agent when a question is about this machine.
     public static let skillTemplate = """
     ---
-    name: dozer
+    name: doz
     description: The Dozable sandbox this agent runs in (sandbox {{sandbox.name}}) — what persists (root disk, state disk, restore points), the /workspace share with the user's Mac, the network policy and how the user changes it, injected credentials, sleep and hibernation, and what cannot be done from inside. Use it for any question about this machine, where files live, the network, logins or keys.
     ---
 
     # Dozable — the machine you run in
 
-    You run in **{{sandbox.name}}**, a Dozable sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozable {{dozer.version}}) on Apple's Virtualization framework. It is a real VM with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
+    You run in **{{sandbox.name}}**, a Dozable sandbox: a small Linux virtual machine on the user's Mac ({{mac.hostname}}), made and run by the user's `doz` tool (Dozable {{doz.version}}) on Apple's Virtualization framework. It is a real VM with its own kernel — not a container and not a cloud machine. Image: {{sandbox.image}} (base: {{sandbox.base}}); {{sandbox.cpus}} CPUs, {{sandbox.memory}}.
 
     ## Your files and the user's Mac
 
@@ -353,7 +353,7 @@ public enum AgentPrompt {
             v["credentials.description"] = "this sandbox is not proxied, so no credential is injected; do not ask the user to paste keys into it."
         }
         v["mac.hostname"] = hostname.isEmpty ? "the user's Mac" : hostname
-        v["dozer.version"] = version
+        v["doz.version"] = version
         return v
     }
 
@@ -421,17 +421,17 @@ public enum AgentPrompt {
     /// Where the skill goes in the guest.
     public static func skillDirectory(agent: String, home: String) -> String {
         switch agent {
-        case "pi": "\(home)/.pi/agent/skills/dozer"
+        case "pi": "\(home)/.pi/agent/skills/doz"
         // 599i: Codex's user skills (`~/.agents/skills`; `$CODEX_HOME/skills` is deprecated) — never AGENTS.md.
-        case "codex": "\(home)/.agents/skills/dozer"
+        case "codex": "\(home)/.agents/skills/doz"
         // 617: a recipe agent's own place for the facts — never the workspace.
         case let a where AgentRecipes.recipe(a).map({ !$0.isBuiltin }) ?? false:
-            (AgentRecipes.recipe(a)?.prompt?.dir).map { home + "/" + $0.dropFirst(2) } ?? "\(home)/.claude/skills/dozer"
-        default: "\(home)/.claude/skills/dozer"
+            (AgentRecipes.recipe(a)?.prompt?.dir).map { home + "/" + $0.dropFirst(2) } ?? "\(home)/.claude/skills/doz"
+        default: "\(home)/.claude/skills/doz"
         }
     }
 
-    /// 617: the file the facts go in for a context-file agent (`~/.grok/rules/dozer.md`), and its manifest; nil: a skill.
+    /// 617: the file the facts go in for a context-file agent (`~/.grok/rules/doz.md`), and its manifest; nil: a skill.
     static func contextFile(agent: String, home: String) -> (path: String, manifest: (path: String, text: String)?)? {
         guard let r = AgentRecipes.recipe(agent), !r.isBuiltin, let p = r.prompt, p.kind == "context-file", let file = p.file else { return nil }
         let dir = skillDirectory(agent: agent, home: home)
@@ -493,7 +493,7 @@ public enum AgentPrompt {
                 r.layers.append("sandbox (\(mode))")
             }
             r.text = text
-            r.skill = try render(skillTemplate, vals, source: "the dozer skill")
+            r.skill = try render(skillTemplate, vals, source: "the doz skill")
         } catch let e as AgentPromptError {
             r.error = e.message
         } catch {
@@ -515,7 +515,7 @@ public enum AgentPrompt {
         let s = Data(skill.utf8).base64EncodedString()
         return """
         set -e
-        mkdir -p /run/dozer
+        mkdir -p /run/doz
         printf %s '\(p)' | base64 -d > '\(guestPromptPath).tmp'
         chmod 0644 '\(guestPromptPath).tmp'
         mv -f '\(guestPromptPath).tmp' '\(guestPromptPath)'
@@ -528,8 +528,8 @@ public enum AgentPrompt {
     }
 
     /// 617: a context-file agent (Gemini CLI, Grok Build): the facts as the agent's own user-level context file —
-    /// `~/.gemini/extensions/dozer/DOZER.md` with its `gemini-extension.json` (a bare file is not loaded), or
-    /// `~/.grok/rules/dozer.md` — never in the workspace. Folders it makes are the user's; off removes only Dozer's
+    /// `~/.gemini/extensions/doz/DOZ.md` with its `gemini-extension.json` (a bare file is not loaded), or
+    /// `~/.grok/rules/doz.md` — never in the workspace. Folders it makes are the user's; off removes only Dozer's
     /// files (Grok's rules folder may hold the person's own). nil: not such an agent.
     static func contextDeliveryScript(_ r: AgentPromptReport, user: String) -> String? {
         guard let recipe = AgentRecipes.recipe(r.agent), !recipe.isBuiltin, recipe.prompt?.kind == "context-file" else { return nil }
@@ -550,7 +550,7 @@ public enum AgentPrompt {
         let t = Data((text + "\n").utf8).base64EncodedString()
         var s = """
             set -e
-            mkdir -p /run/dozer
+            mkdir -p /run/doz
             printf %s '\(t)' | base64 -d > '\(guestPromptPath).tmp'
             chmod 0644 '\(guestPromptPath).tmp'
             mv -f '\(guestPromptPath).tmp' '\(guestPromptPath)'

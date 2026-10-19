@@ -268,7 +268,7 @@ public enum DockerfileImport {
     }
 
     /// The tag an import gives the image in Dozer's store (the digest-pinned reference is added beside it).
-    public static func tag(_ base: String) -> String { "dozer.local/\(base):latest" }
+    public static func tag(_ base: String) -> String { "doz.local/\(base):latest" }
 
     /// Import `archive` (an OCI image-layout tar, as `container build -o type=oci` writes it).
     public static func importArchive(_ archive: URL, base: String, store: DozableStore, previous: DockerfileRecord?) async throws -> Result {
@@ -299,7 +299,7 @@ public enum DockerfileImport {
         if let prev = previous, prev.layers == layers, let ref = prev.reference, await OCIImport.has(ref, storeRoot: store.root) {
             return Result(reference: ref, layers: layers, environment: env, path: path, unchanged: true)
         }
-        let reference = "dozer.local/\(base)@\(imported.digest)"
+        let reference = "doz.local/\(base)@\(imported.digest)"
         try await OCIImport.tag(tag(base), as: reference, storeRoot: store.root)
         return Result(reference: reference, layers: layers, environment: env, path: path, unchanged: false)
     }

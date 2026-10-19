@@ -118,15 +118,15 @@ final class TerminalModesTests: XCTestCase {
         let dir = URL(fileURLWithPath: "/private/tmp/dzre-\(UUID().uuidString.prefix(8))")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: dir) }
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "claude", defaultSession: "claude", folder: dir), "doz attach hello-dozer")
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "server", defaultSession: "claude", folder: dir), "doz attach hello-dozer server")
-        try "version: 1\nname: hello-dozer\nimage: claude-code\n".write(to: dir.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "claude", defaultSession: "claude", folder: dir), "doz up")
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "server", defaultSession: "claude", folder: dir), "doz attach hello-dozer server")
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "claude", defaultSession: "claude", folder: dir), "doz attach hello-doz")
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "server", defaultSession: "claude", folder: dir), "doz attach hello-doz server")
+        try "version: 1\nname: hello-doz\nimage: claude-code\n".write(to: dir.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "claude", defaultSession: "claude", folder: dir), "doz up")
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "server", defaultSession: "claude", folder: dir), "doz attach hello-doz server")
         XCTAssertEqual(reattachCommand(sandbox: "other", session: "claude", defaultSession: "claude", folder: dir), "doz attach other", "another sandbox's folder")
-        try "version: 1\nname: hello-dozer\nimage: lab\nsessions:\n  - name: server\n    command: [sh]\n".write(to: dir.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "server", defaultSession: "shell", folder: dir), "doz up", "the project's first session")
-        XCTAssertEqual(reattachCommand(sandbox: "hello-dozer", session: "shell", defaultSession: "shell", folder: dir), "doz attach hello-dozer")
+        try "version: 1\nname: hello-doz\nimage: lab\nsessions:\n  - name: server\n    command: [sh]\n".write(to: dir.appendingPathComponent("doz_project.yaml"), atomically: true, encoding: .utf8)
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "server", defaultSession: "shell", folder: dir), "doz up", "the project's first session")
+        XCTAssertEqual(reattachCommand(sandbox: "hello-doz", session: "shell", defaultSession: "shell", folder: dir), "doz attach hello-doz")
     }
 
     func testOddBytesDoNotConfuseIt() {

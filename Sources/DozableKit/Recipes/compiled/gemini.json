@@ -86,19 +86,19 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.gemini/extensions/dozer",
+        "directory" : "/home/agent/.gemini/extensions/doz",
         "dozer" : {
           "kind" : "context-file",
           "manifest" : {
             "file" : "gemini-extension.json",
             "json" : {
-              "contextFileName" : "DOZER.md",
-              "name" : "dozer",
+              "contextFileName" : "DOZ.md",
+              "name" : "doz",
               "version" : "1.0.0"
             }
           }
         },
-        "filename" : "DOZER.md"
+        "filename" : "DOZ.md"
       },
       "type" : "com.docker.sandbox/agent-context@1"
     },

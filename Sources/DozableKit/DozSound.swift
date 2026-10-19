@@ -8,7 +8,7 @@ import Foundation
 public enum DozSound {
     public static let path = "/usr/local/bin/doz-sound"
     public static let stamp = "doz:doz-sound:v1"
-    public static let confPath = "/etc/dozer/doz-sound.conf"
+    public static let confPath = "/etc/doz/doz-sound.conf"
     public static let asoundPath = "/etc/asound.conf"
     public static let asoundStamp = "doz:asound:v2"
 
@@ -43,7 +43,7 @@ public enum DozSound {
         let b64 = Data(script.utf8).base64EncodedString()
         let conf = "MAC_APP='\(safeAppName(app))'"
         return """
-        mkdir -p /etc/dozer && printf '%s\\n' "\(conf)" > '\(confPath)'; \
+        mkdir -p /etc/doz && printf '%s\\n' "\(conf)" > '\(confPath)'; \
         if grep -qs '\(stamp)' '\(path)'; then \(say("doz-sound", "ok", "TEMPORARY: doz-sound info | test | rec FILE [SECONDS] | play FILE"))\
         else mkdir -p /usr/local/bin && printf '%s' '\(b64)' | base64 -d > '\(path).tmp' && chmod 0755 '\(path).tmp' && mv -f '\(path).tmp' '\(path)' && \
         \(say("doz-sound", "installed", "TEMPORARY: doz-sound info | test | rec FILE [SECONDS] | play FILE"))fi;
@@ -63,7 +63,7 @@ public enum DozSound {
     # A recording that gets no audio ends within seconds (never hangs) and says why.
     set -u
     MAC_APP="the app that started doz"
-    [ -r /etc/dozer/doz-sound.conf ] && . /etc/dozer/doz-sound.conf
+    [ -r /etc/doz/doz-sound.conf ] && . /etc/doz/doz-sound.conf
     T=$(mktemp -d 2>/dev/null || echo /tmp/doz-sound.$$); mkdir -p "$T"; trap 'rm -rf "$T"' EXIT INT TERM
     die() { echo "doz-sound: $*" >&2; exit 1; }
     command -v aplay >/dev/null 2>&1 || die "aplay is missing — the tools layer installs alsa-utils (doz tools NAME --apply on the Mac)"

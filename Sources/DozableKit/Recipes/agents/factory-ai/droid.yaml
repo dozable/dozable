@@ -78,7 +78,7 @@ capabilities:
     path: /home/agent/.factory
 - type: com.docker.sandbox/agent-context@1
   config:
-    directory: /home/agent/.factory/skills/dozer
+    directory: /home/agent/.factory/skills/doz
     filename: SKILL.md
     dozer:
       kind: skill

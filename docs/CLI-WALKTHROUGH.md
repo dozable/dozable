@@ -198,7 +198,7 @@ cd ~/doz-try && doz up
 ```
 
 **What Claude is told about where it runs.** Every session starts with a short facts block appended
-to Claude Code's system prompt, and a `dozer` skill with the details — see it:
+to Claude Code's system prompt, and a `doz` skill with the details — see it:
 
 ```bash
 doz inspect doz-try --prompt

@@ -70,7 +70,7 @@ public enum HostStopView {
         return e
     }
 
-    /// The last line: "host stopped — 2 sandboxes hibernated (hello-dozer, lab1) in 1.2 s; the next
+    /// The last line: "host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next
     /// command starts a new host", or "host stopped (nothing was running)".
     public static func summary(_ r: HostStopResult) -> String {
         let rows = r.sandboxes

@@ -110,7 +110,7 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.claude/skills/dozer",
+        "directory" : "/home/agent/.claude/skills/doz",
         "dozer" : {
           "kind" : "skill",
           "launcher_arg" : [

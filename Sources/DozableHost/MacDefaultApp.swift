@@ -1,7 +1,7 @@
 import CoreServices
 import Foundation
 
-// 599b: the notice says WHICH app opened a workspace file ("hello-dozer opened report.html in Safari").
+// 599b: the notice says WHICH app opened a workspace file ("hello-doz opened report.html in Safari").
 // LaunchServices is asked, read-only, which app is the default for that file — nothing is opened here
 // (`WorkspaceFiles.open` does that with /usr/bin/open). The audit confines CoreServices to this file and
 // `doz ui`'s UICommand.swift.

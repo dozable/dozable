@@ -96,7 +96,7 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.qwen/skills/dozer",
+        "directory" : "/home/agent/.qwen/skills/doz",
         "dozer" : {
           "kind" : "skill"
         },

@@ -11,7 +11,7 @@ import DozableKit
 //     outside:apple-container/data         ~/Library/Application Support/com.apple.container
 //       …/snapshots · …/content · …/kernels · …/other
 //     outside:apple-container/program      /usr/local/bin/container + /usr/local/libexec/container
-//     outside:apple-container/dozer        what Dozer's own builds (images tagged dozer/…) account for
+//     outside:apple-container/doz        what Dozer's own builds (images tagged doz/…) account for
 
 /// What the Resources inventory needs to know of Apple's container tool.
 public struct AppleContainerFacts: Sendable {
@@ -79,11 +79,11 @@ extension Resources {
                                              name: label, sizeBytes: parts[key] ?? 0, refusal: appleContainerPart))
             }
             if let dozer = dozableShare(root) {
-                dataRows.append(ResourceItem(id: "outside:apple-container/dozer", group: "outside", parent: "outside:apple-container",
+                dataRows.append(ResourceItem(id: "outside:apple-container/doz", group: "outside", parent: "outside:apple-container",
                                              name: "of which Dozable's builds", detail: dozer.images == 0
-                                                ? "no image tagged dozer/… in it (Dozable's builds are exported to its own store)"
-                                                : "\(dozer.images) image\(dozer.images == 1 ? "" : "s") tagged dozer/… (their snapshots and layers)",
-                                             sizeBytes: dozer.bytes, refusal: "`container image ls` lists them (dozer/…); `container image delete NAME` removes one — Dozable keeps its own copy in its store"))
+                                                ? "no image tagged doz/… in it (Dozable's builds are exported to its own store)"
+                                                : "\(dozer.images) image\(dozer.images == 1 ? "" : "s") tagged doz/… (their snapshots and layers)",
+                                             sizeBytes: dozer.bytes, refusal: "`container image ls` lists them (doz/…); `container image delete NAME` removes one — Dozable keeps its own copy in its store"))
             }
         }
         var programBytes: Int64 = 0
@@ -110,7 +110,7 @@ extension Resources {
         return rows
     }
 
-    /// What images tagged `dozer/…` in its store account for: their snapshots (named by each
+    /// What images tagged `doz/…` in its store account for: their snapshots (named by each
     /// manifest's digest) and their blobs. nil: its store index cannot be read.
     static func dozableShare(_ root: URL) -> (images: Int, bytes: Int64)? {
         guard let d = try? Data(contentsOf: root.appendingPathComponent("state.json")),
@@ -124,7 +124,7 @@ extension Resources {
         var digests = Set<String>()
         var snapshots = Set<String>()
         var count = 0
-        for (ref, v) in index where ref.hasPrefix("dozer/") || ref.hasPrefix("docker.io/dozer/") {
+        for (ref, v) in index where ref.hasPrefix("doz/") || ref.hasPrefix("docker.io/dozer/") {
             guard let desc = v as? [String: Any], let top = desc["digest"] as? String else { continue }
             count += 1
             digests.insert(top)

@@ -54,7 +54,7 @@ final class WebInstallableTests: XCTestCase {
         XCTAssertTrue(m.publicPath.hasPrefix("/assets/app-") && m.publicPath.hasSuffix(".webmanifest"))
         XCTAssertEqual(m.cachePolicy, WebAssets.immutable)
         let j = try XCTUnwrap(try JSONSerialization.jsonObject(with: m.data) as? [String: Any])
-        XCTAssertEqual(j["id"] as? String, "/?app=dozer", "a FIXED id: a new hashed manifest URL is the same app")
+        XCTAssertEqual(j["id"] as? String, "/?app=dozable", "a FIXED id: a new hashed manifest URL is the same app")
         XCTAssertEqual(j["name"] as? String, "Dozable")
         XCTAssertEqual(j["short_name"] as? String, "Dozable")
         XCTAssertEqual(j["start_url"] as? String, "/#/overview")

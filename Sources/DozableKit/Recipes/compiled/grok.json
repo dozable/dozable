@@ -101,7 +101,7 @@
         "dozer" : {
           "kind" : "context-file"
         },
-        "filename" : "dozer.md"
+        "filename" : "doz.md"
       },
       "type" : "com.docker.sandbox/agent-context@1"
     },

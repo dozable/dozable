@@ -26,7 +26,7 @@ import DozableHost
 let guestCredentialProbe = #"""
 const http = require('http'), tls = require('tls'), fs = require('fs'), crypto = require('crypto');
 const proxy = new URL(process.env.HTTPS_PROXY || 'http://127.0.0.1:3128');
-const ca = fs.readFileSync('/etc/dozer/ca.pem');
+const ca = fs.readFileSync('/etc/doz/ca.pem');
 const rnd = n => crypto.randomBytes(n * 2).toString('base64').replace(/[^A-Za-z0-9]/g, '').slice(0, n);
 const body = JSON.stringify({ model: 'claude-haiku-4-5', max_tokens: 1, messages: [{ role: 'user', content: 'hi' }] });
 function send(label, host, headers) {

@@ -62,7 +62,7 @@ final class RecipeAgentsTests: XCTestCase {
         let alpine = try ImageComposer.spec(name: "alpine-gemini", base: BaseCatalogue.base("alpine")!.source(), agent: g, release: release, native: nil)
         XCTAssertTrue(script(alpine).contains("apk add nodejs npm"))
         XCTAssertNil(alpine.bakeHosts)
-        let df = BaseSource(reference: "dozer.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
+        let df = BaseSource(reference: "doz.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
                             hasNode: false, musl: nil, rootfsMiB: 4096)
         let d = try ImageComposer.spec(name: "df-0123456789ab-gemini", base: df, agent: g, release: release, native: nil)
         XCTAssertTrue(script(d).contains("if command -v apk"))
@@ -107,7 +107,7 @@ final class RecipeAgentsTests: XCTestCase {
         XCTAssertThrowsError(try ImageComposer.spec(name: "alpine-nomusl", base: BaseCatalogue.base("alpine")!.source(), agent: a, release: release, native: nil)) {
             XCTAssertTrue("\($0)".contains("has no musl build"), "\($0)")
         }
-        let df = BaseSource(reference: "dozer.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
+        let df = BaseSource(reference: "doz.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
                             hasNode: false, musl: nil, rootfsMiB: 4096)
         let d = try ImageComposer.spec(name: "df-0123456789ab-nomusl", base: df, agent: a, release: release, native: nil)
         XCTAssertTrue(script(d).contains("ld-musl-aarch64.so.1"), "a Dockerfile's base: checked in the bake")

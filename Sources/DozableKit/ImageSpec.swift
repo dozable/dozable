@@ -565,7 +565,7 @@ public enum AgentImages {
     static func shellQuoted(_ s: String) -> String { "'" + s + "'" }       // recipe strings hold no quote (validated)
 
     static func recipeLauncherScript(_ r: AgentRecipe) -> String {
-        let bin = r.install.binary, setup = "/usr/local/lib/dozer/\(r.id)-setup.py"
+        let bin = r.install.binary, setup = "/usr/local/lib/doz/\(r.id)-setup.py"
         let echoVar = r.permissionsVariable.replacingOccurrences(of: "_PERMISSIONS", with: "_LAUNCHER_ECHO")
         var sh = """
             #!/bin/sh
@@ -600,12 +600,12 @@ public enum AgentImages {
             if [ "${\(echoVar):-}" = 1 ]; then printf '%s\\n' /usr/local/bin/\(bin) "$@"; exit 0; fi
             exec /usr/local/bin/\(bin) "$@"
             """
-        var script = "mkdir -p /usr/local/lib/dozer /home/agent/.local/bin\n"
+        var script = "mkdir -p /usr/local/lib/doz /home/agent/.local/bin\n"
         if let merges = r.launch.firstRun, !merges.isEmpty {
             script += "cat > \(setup) <<'PY'\n\(recipeSetupPython(merges))\nPY\n"
         }
         script += "cat > /home/agent/.local/bin/\(bin) <<'SH'\n\(sh)\nSH\n"
-        script += "chmod 0755 /home/agent/.local/bin/\(bin) /usr/local/lib/dozer\n"
+        script += "chmod 0755 /home/agent/.local/bin/\(bin) /usr/local/lib/doz\n"
         if r.launch.firstRun?.isEmpty == false { script += "chmod 0644 \(setup)\n" }
         script += "chown -R agent:agent /home/agent/.local"
         return script
@@ -949,8 +949,8 @@ public enum AgentImages {
     static let codexLauncher = BakeStep.script("install the doz codex launcher", codexLauncherScript, needsNetworkFalse: ())
 
     static let codexLauncherScript = """
-        mkdir -p /usr/local/lib/dozer /home/agent/.local/bin
-        cat > /usr/local/lib/dozer/codex-setup.py <<'PY'
+        mkdir -p /usr/local/lib/doz /home/agent/.local/bin
+        cat > /usr/local/lib/doz/codex-setup.py <<'PY'
         \(codexSetupPython)
         PY
         cat > /home/agent/.local/bin/codex <<'SH'
@@ -961,15 +961,15 @@ public enum AgentImages {
         [ "$(id -u)" = 0 ] && mode=ask
         # The host writes the credentials (placeholders) and the facts at every session start.
         common="-c check_for_update_on_startup=false -c cli_auth_credentials_store=file"
-        p=/run/dozer/agent-prompt.md
+        p=/run/doz/agent-prompt.md
         dev=
         if [ -s "$p" ]; then
           case " $* " in
             *developer_instructions*) ;;
-            *) dev=$(python3 /usr/local/lib/dozer/codex-setup.py prompt "$p") || dev= ;;
+            *) dev=$(python3 /usr/local/lib/doz/codex-setup.py prompt "$p") || dev= ;;
           esac
         fi
-        trust() { python3 /usr/local/lib/dozer/codex-setup.py trust || echo "doz: could not pre-seed Codex's setup" >&2; }
+        trust() { python3 /usr/local/lib/doz/codex-setup.py trust || echo "doz: could not pre-seed Codex's setup" >&2; }
         agent() {
           trust
           if [ "$mode" = skip ]; then
@@ -996,8 +996,8 @@ public enum AgentImages {
           *) agent "$@" ;;
         esac
         SH
-        chmod 0755 /home/agent/.local/bin/codex /usr/local/lib/dozer
-        chmod 0644 /usr/local/lib/dozer/codex-setup.py
+        chmod 0755 /home/agent/.local/bin/codex /usr/local/lib/doz
+        chmod 0644 /usr/local/lib/doz/codex-setup.py
         chown -R agent:agent /home/agent/.local
         """
 
@@ -1066,8 +1066,8 @@ public enum AgentImages {
         case .python: ("claude-setup.py", "PY", claudeSetupPython, "python3")
         }
         return """
-        mkdir -p /usr/local/lib/dozer /home/agent/.local/bin
-        cat > /usr/local/lib/dozer/\(file) <<'\(marker)'
+        mkdir -p /usr/local/lib/doz /home/agent/.local/bin
+        cat > /usr/local/lib/doz/\(file) <<'\(marker)'
         \(source)
         \(marker)
         cat > /home/agent/.local/bin/claude <<'SH'
@@ -1076,10 +1076,10 @@ public enum AgentImages {
         mode=skip
         [ "${DOZ_CLAUDE_PERMISSIONS:-skip}" = ask ] && mode=ask
         [ "$(id -u)" = 0 ] && mode=ask
-        \(run) /usr/local/lib/dozer/\(file) "$mode" || echo "doz: could not pre-seed Claude Code's setup" >&2
+        \(run) /usr/local/lib/doz/\(file) "$mode" || echo "doz: could not pre-seed Claude Code's setup" >&2
         # 594: the sandbox's facts, which the host writes at every session start, are appended to
         # Claude Code's system prompt — not for a subcommand, nor when the caller gives a prompt.
-        p=/run/dozer/agent-prompt.md
+        p=/run/doz/agent-prompt.md
         if [ -s "$p" ]; then
           case "$1" in
             mcp|plugin|plugins|setup-token|doctor|update|upgrade|install|config|migrate-installer|auth|agents) ;;
@@ -1092,8 +1092,8 @@ public enum AgentImages {
         [ "$mode" = skip ] && exec /usr/local/bin/claude --dangerously-skip-permissions "$@"
         exec /usr/local/bin/claude "$@"
         SH
-        chmod 0755 /home/agent/.local/bin/claude /usr/local/lib/dozer
-        chmod 0644 /usr/local/lib/dozer/\(file)
+        chmod 0755 /home/agent/.local/bin/claude /usr/local/lib/doz
+        chmod 0644 /usr/local/lib/doz/\(file)
         chown -R agent:agent /home/agent/.local
         """
     }

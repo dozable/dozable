@@ -50,8 +50,8 @@ offers only OpenAI accounts; an OpenAI key can be typed in the masked field.
 - marks the working folder trusted in `~/.codex/config.toml` (only when that folder has no entry
   there — your own choice is kept), so there is no trust screen;
 - turns off Codex's update check (the image decides its version);
-- gives Codex the sandbox's **facts** as its developer instructions, and the **`dozer` skill** in
-  `~/.agents/skills/dozer/SKILL.md` ([Agents and accounts](09-agents-and-accounts.md)). Your
+- gives Codex the sandbox's **facts** as its developer instructions, and the **`doz` skill** in
+  `~/.agents/skills/doz/SKILL.md` ([Agents and accounts](09-agents-and-accounts.md)). Your
   `AGENTS.md` files are never touched.
 
 `codex exec`, `codex resume` and `codex fork` get the same; `codex login`, `codex mcp` and the other

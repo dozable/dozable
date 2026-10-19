@@ -205,11 +205,11 @@ final class RecipeHostTests: XCTestCase {
     // MARK: the environment prompt
 
     func testTheFactsGoToTheAgentsOwnContextFile() throws {
-        for (agent, path) in [("gemini", "/home/agent/.gemini/extensions/dozer/DOZER.md"), ("grok", "/home/agent/.grok/rules/dozer.md")] {
+        for (agent, path) in [("gemini", "/home/agent/.gemini/extensions/doz/DOZ.md"), ("grok", "/home/agent/.grok/rules/doz.md")] {
             XCTAssertEqual(AgentPrompt.contextFile(agent: agent, home: "/home/agent")?.path, path)
             let on = AgentPromptReport(enabled: true, agent: agent, text: "FACTS", error: nil, layers: [], skill: "SKILL", promptPath: AgentPrompt.guestPromptPath, skillPath: path)
             let s = AgentPrompt.deliveryScript(on, user: "agent")
-            XCTAssertTrue(s.contains("cp '/run/dozer/agent-prompt.md' '\(path)'"), s)
+            XCTAssertTrue(s.contains("cp '/run/doz/agent-prompt.md' '\(path)'"), s)
             XCTAssertTrue(s.contains("install -d -o 'agent' -g 'agent'"), "folders it makes are the user's")
             XCTAssertFalse(s.contains("/workspace"), "never the workspace")
             let off = AgentPromptReport(enabled: false, agent: agent, text: nil, error: nil, layers: [], skill: nil, promptPath: AgentPrompt.guestPromptPath, skillPath: path)
@@ -218,10 +218,10 @@ final class RecipeHostTests: XCTestCase {
             XCTAssertTrue(o.contains("'\(path)'"))
         }
         let g = AgentPrompt.deliveryScript(AgentPromptReport(enabled: true, agent: "gemini", text: "F", error: nil, layers: [], skill: nil,
-                                                             promptPath: AgentPrompt.guestPromptPath, skillPath: "/home/agent/.gemini/extensions/dozer/DOZER.md"), user: "agent")
-        XCTAssertTrue(g.contains("/home/agent/.gemini/extensions/dozer/gemini-extension.json"), "Gemini loads an extension only with its manifest")
+                                                             promptPath: AgentPrompt.guestPromptPath, skillPath: "/home/agent/.gemini/extensions/doz/DOZ.md"), user: "agent")
+        XCTAssertTrue(g.contains("/home/agent/.gemini/extensions/doz/gemini-extension.json"), "Gemini loads an extension only with its manifest")
         let manifest = try XCTUnwrap(AgentPrompt.contextFile(agent: "gemini", home: "/home/agent")?.manifest?.text)
-        XCTAssertTrue(manifest.contains("\"contextFileName\" : \"DOZER.md\""), manifest)
+        XCTAssertTrue(manifest.contains("\"contextFileName\" : \"DOZ.md\""), manifest)
         // The credentials sentence names the provider and its placeholder variable.
         let v = AgentPrompt.values(name: "gk", image: "grok", cpus: 2, memoryMiB: 2048, workspace: nil, network: .proxied(.permissions(["model:xai"])),
                                    account: "work-xai", version: "t", hostname: "mac", agent: "grok")

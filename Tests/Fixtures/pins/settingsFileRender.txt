@@ -222,7 +222,7 @@
 [agent]
 
 # Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox,
-# its /workspace share, the network, credentials) and the dozer skill, written at every session
+# its /workspace share, the network, credentials) and the doz skill, written at every session
 # start. Your own template: agent-prompt.md beside this file.
 # (boolean; applies to sessions opened from now on)
 # prompt = true

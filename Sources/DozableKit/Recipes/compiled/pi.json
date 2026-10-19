@@ -80,7 +80,7 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.pi/agent/skills/dozer",
+        "directory" : "/home/agent/.pi/agent/skills/doz",
         "dozer" : {
           "kind" : "skill",
           "launcher_arg" : [

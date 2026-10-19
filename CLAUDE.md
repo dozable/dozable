@@ -77,7 +77,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
-| `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `dozer` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
+| `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `doz` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
 | `Sources/DozableKit/SavedScreens.swift`; `Sources/DozableHost/TerminalLayout.swift`; `Sources/DozableWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
 | `Sources/DozableHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozableWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
 | `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozableCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
@@ -220,7 +220,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The agent has passwordless sudo by default**. The dev baseline
   installs `sudo` and KEEPS apt's package lists (~18 MiB, shared by APFS clones; `apt-get clean` only),
   and `apt-utils` FIRST (W24: otherwise every install says "debconf: delaying package configuration");
-  the rule itself is never baked: `GuestCommand.agentSudoScript` writes `/etc/sudoers.d/dozer-agent`
+  the rule itself is never baked: `GuestCommand.agentSudoScript` writes `/etc/sudoers.d/doz-agent`
   (0440, root, `user ALL=(ALL) NOPASSWD:ALL`, put in place only after `/usr/sbin/visudo -cf` accepts it;
   absolute paths — a utility exec's PATH may lack sbin) or removes it — at every fresh boot
   (`prepareGuest`, from `Sandbox.agentSudo`), every wake (W34: `GuestCommand.guestFixes` — the live-safe
@@ -612,7 +612,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### The installable dashboard, graceful restarts
 
 - **An installable web app, loopback only** (606's `doz serve` is the LAN side). `app.webmanifest` is hashed like the
-  css/js (`/assets/app-<h>.webmanifest`, `application/manifest+json`) with a FIXED `id` (`/?app=dozer`) so a new hash is
+  css/js (`/assets/app-<h>.webmanifest`, `application/manifest+json`) with a FIXED `id` (`/?app=dozable`) so a new hash is
   the same app; `index.html` links it, the SVG favicon, the 180 px `apple-touch-icon` and a `theme-color` per scheme.
   The page CSP gained ONLY `manifest-src 'self'; worker-src 'self'`.
 - **Icons are admitted by provenance**: `WebSource/icons/` holds two SVG masters (`icon.svg` — served, the favicon and
@@ -847,8 +847,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   host.log). `make test-cli`'s onboarding part and the wizard probe use it.
 - **The environment prompt** (`AgentPrompt.swift`) is rendered from the sandbox's CURRENT facts at every
   `open-session` of a claude-code/pi sandbox and written by a root utility exec (contents base64 in the
-  script): `/run/dozer/agent-prompt.md` and ONLY the skill dir `~/.claude/skills/dozer` (pi:
-  `~/.pi/agent/skills/dozer`) — never CLAUDE.md/AGENTS.md. Claude Code gets it through its launcher
+  script): `/run/doz/agent-prompt.md` and ONLY the skill dir `~/.claude/skills/doz` (pi:
+  `~/.pi/agent/skills/doz`) — never CLAUDE.md/AGENTS.md. Claude Code gets it through its launcher
   (`--append-system-prompt "$(cat …)"`, not for subcommands nor when the caller gives a system prompt —
   a bake-key change); pi's own session gets `--append-system-prompt FILE` (pi reads an existing path).
   Variables are a CLOSED list; an unknown one refuses the session with its name and file. `agent.prompt
@@ -1190,10 +1190,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`NetworkPolicy.bake(adding:)`).
 - **Dockerfiles** (`Dockerfiles`, `<store>/dockerfiles.json`): a create registers it (validated: absolute,
   a file ≤ 1 MiB, not in the store); a sandbox made before its first build holds a placeholder base
-  (`dozer.local/df-…@sha256:0…`) and its start builds, then `rebindDockerfileImage` re-adopts it with the
-  built spec (only with no root disk). A preparation runs `container build -t dozer/<base>:latest` then
+  (`doz.local/df-…@sha256:0…`) and its start builds, then `rebindDockerfileImage` re-adopts it with the
+  built spec (only with no root disk). A preparation runs `container build -t doz/<base>:latest` then
   `container image save --platform linux/arm64 -o` (1.2.2's `-o type=oci,dest=` fails after exporting),
-  `DockerfileImport` → `OCIImport.load` into Dozer's store as `dozer.local/<base>@<digest>`; the SAME
+  `DockerfileImport` → `OCIImport.load` into Dozer's store as `doz.local/<base>@<digest>`; the SAME
   LAYERS keep the previous reference (nothing re-baked — B8). The image's ENV reaches sessions (PATH
   entries ahead of the defaults). "Dockerfile changed — rebuild available" comes from the file's sha256.
 - **Apple's `container` is started or installed only because a person asked** (`ContainerTool`):
@@ -1204,7 +1204,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `DOZ_TEST_FILE_PICKER`, `DOZ_TEST_APPLE_CONTAINER_ROOT`. **B9: a Dockerfile build runs OUTSIDE Dozer's
   network policy** — said on the card, by the CLI, and in the preparation's log (`Dockerfiles.outsidePolicyNote`).
 - **Apple's storage is shown, never deleted** (`Resources.appleContainerItems`): an `outside:apple-container`
-  row (its data folder by part, the program, Dozer's own `dozer/…` images), not in Dozer's total or the
+  row (its data folder by part, the program, Dozer's own `doz/…` images), not in Dozer's total or the
   unattributed check, no checkbox on the page.
 - **Never rebuild a running test's `doz` in place**: a long VM run (the matrix) runs from a COPY of the
   binary and its bundles — `make cli` under a running host is an earlier incident.
@@ -1396,7 +1396,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   applies everything (vault provider, `EgressProxy.github` gate, identity, SSH agent) — at load/create, on a
   `net-policy` change, `sandbox.ssh_agent`, `key set --github`.
 - **The guest half is in `guestFixes`** (boot AND wake): `git-credential-doz` (stamp `doz:git-credential:vN` — bump
-  on any change; it answers ONLY a `doz_cred_` placeholder, ONLY for https://github.com), `/etc/dozer/gitconfig`
+  on any change; it answers ONLY a `doz_cred_` placeholder, ONLY for https://github.com), `/etc/doz/gitconfig`
   (helper + the Mac's identity, or a comment when off) included once from `/etc/gitconfig`, and the SSH agent.
   `Sandbox.applyGitHubToGuest` applies them to a running guest.
 - **SSH agent (G4)**: `SSHAgentRelay` (host vsock 5801 → the Mac's agent socket) only while `sandbox.ssh_agent`
@@ -1622,7 +1622,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`AgentPermissions.agentPermissions(.codex)`) — added at create (`DozableImages.spec`), kept by every preset change and
   edit (`editedPolicy(…agent:)`, `PermissionPolicy.edited(…agent:)` refuses revoking it for Codex), never in a preset
   (Open included), never inferred, never suggested, and absent from another agent's checklist and facts.
-- **The environment prompt**: `AgentPrompt.agent(of:)` = `codex`; the skill in `~/.agents/skills/dozer` (Codex's user
+- **The environment prompt**: `AgentPrompt.agent(of:)` = `codex`; the skill in `~/.agents/skills/doz` (Codex's user
   skills — never AGENTS.md); new variable `agent.state` (renders exactly as before for Claude Code/pi); the credentials
   sentence says OpenAI for Codex.
 - **Tests**: `OpenAIAccessTests`, `EgressProxyTests` (renewal answered / refused / policy), `CodexHostTests`,
@@ -1749,7 +1749,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   Enter into a live pane — the tool's own session for `launch.session: shell`, a shell beside an agent's screen; Type
   without Enter); `doz guide NAME`; `doz try` prints "Start here" for a shell tool; `deliverGuideNote` writes
   `/etc/profile.d/doz-guide.sh` (a shell tool's default session only) — the steps once per user (a stamp in
-  `~/.local/state/dozer`). `install.extras` bakes pinned file sets (Fabric's patterns at `/opt/fabric/patterns`,
+  `~/.local/state/doz`). `install.extras` bakes pinned file sets (Fabric's patterns at `/opt/fabric/patterns`,
   sha256-checked; `CUSTOM_PATTERNS_DIRECTORY`). `probes/617-*/stageE/browser-try-guide.mjs`.
 - **Permissions**: a recipe agent's own `model:<provider>` (Grok's path-conditioned to the API paths it uses — the VM
   proof found `/v1/responses` against the real base) and a hidden `update:<id>` (only beside "Update itself"). D5: a
@@ -1880,7 +1880,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`NpmRegistry.manifest`, `parseManifest`: the url must be the recipe's `url` with `{build}`), the release recorded as
   `<version>+<build>` with the sha512 as SRI, checked in the bake; glibc only (`platforms.musl` false). A Gemini API key
   (`modelProvider: gemini` first-run setting + `GEMINI_API_KEY`, the google provider); `AGY_CLI_DISABLE_AUTO_UPDATE=1`;
-  `--dangerously-skip-permissions`; the facts as a skill in `~/.agents/skills/dozer`.
+  `--dangerously-skip-permissions`; the facts as a skill in `~/.agents/skills/doz`.
   A recipe's `excluded` hosts are denied BEFORE the user's rules and
   every permission (Open included), never suggested, never grantable as a site — and are in no permission (validated).
 - **Keys read on use** (`SecretSources.swift`, `HostCore+Secrets.swift`): an API-key account (`api-key`, `openai-key`,

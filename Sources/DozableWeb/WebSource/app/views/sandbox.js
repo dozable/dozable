@@ -453,13 +453,13 @@ function inspResizeStart(ev) {
 function promptPanel(d) {
   const p = d.agentPrompt;
   if (!p) return panel(null, 'This image runs no agent — there is no environment prompt.');
-  if (!p.enabled) return panel(null, 'Off — agent.prompt is false (Settings): the agent gets no facts block and no dozer skill.');
+  if (!p.enabled) return panel(null, 'Off — agent.prompt is false (Settings): the agent gets no facts block and no doz skill.');
   const how = p.agent === 'pi' ? 'pi’s --append-system-prompt ' + p.promptPath
     : p.agent === 'codex' ? 'Codex’s developer instructions (its launcher reads ' + p.promptPath + ')'
     : 'Claude Code’s --append-system-prompt (its launcher reads ' + p.promptPath + ')';
   return h('div', { class: 'panel prompt-panel' },
     h('div', { class: 'muted' }, 'Written at every session start, from this sandbox’s current facts — ', how, '. Layers: ', p.layers.join(' + '),
-      '. The dozer skill: ', h('code', null, p.skillPath), ' (' + p.skillLines + ' lines).'),
+      '. The doz skill: ', h('code', null, p.skillPath), ' (' + p.skillLines + ' lines).'),
     p.error ? callout('bad', { cls: 'notice', body: 'It does not render, so sessions do not start: ' + p.error })
             : h('pre', { class: 'prompt-text' }, p.text || ''),
     h('div', { class: 'muted' }, 'Your own template: agent-prompt.md beside doz.toml · this sandbox’s own lines: agent_prompt in doz_project.yaml, or doz create --agent-prompt FILE.'));

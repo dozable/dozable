@@ -261,17 +261,17 @@ final class WorkspaceRulesTests: XCTestCase {
         let v = WorkspaceViewConfig(tag: "abc123", guestPath: "/workspace", mode: .hide, fold: true)
         let s = GuestCommand.remountShares([(tag: "abc123", guestPath: "/workspace")], views: ["abc123": v])
         let viewBranch = s.range(of: "if [ -f '/run/doz/view/abc123.conf' ]; then")!
-        let rebindRaw = s.range(of: "mount --bind '/run/dozer-vfs/abc123' '/run/doz/raw/abc123'")!
+        let rebindRaw = s.range(of: "mount --bind '/run/doz-vfs/abc123' '/run/doz/raw/abc123'")!
         let signal = s.range(of: "kill -USR1")!
         let rawList = s.range(of: "ls -a '/run/doz/raw/abc123' >/dev/null")!
         XCTAssertLessThan(viewBranch.lowerBound, rebindRaw.lowerBound)
         XCTAssertLessThan(rebindRaw.lowerBound, rawList.lowerBound)
         XCTAssertLessThan(rawList.lowerBound, signal.lowerBound, "the daemon is signalled only after the bind and its listing")
-        XCTAssertLessThan(s.range(of: "ls -a /run/dozer-vfs")!.lowerBound, rebindRaw.lowerBound, "the refreshing listing first")
-        XCTAssertFalse(s[viewBranch.lowerBound..<s.range(of: "; else ")!.lowerBound].contains("mount --bind '/run/dozer-vfs/abc123' '/workspace'"),
+        XCTAssertLessThan(s.range(of: "ls -a /run/doz-vfs")!.lowerBound, rebindRaw.lowerBound, "the refreshing listing first")
+        XCTAssertFalse(s[viewBranch.lowerBound..<s.range(of: "; else ")!.lowerBound].contains("mount --bind '/run/doz-vfs/abc123' '/workspace'"),
                        "a view's share is never bound back at /workspace")
         XCTAssertTrue(s.contains("mode=hide\\nfold=1\\n"), "the conf follows the host's choice")
-        XCTAssertTrue(s.contains("mount --bind '/run/dozer-vfs/abc123' '/workspace'"), "without a view: the plain re-bind")
+        XCTAssertTrue(s.contains("mount --bind '/run/doz-vfs/abc123' '/workspace'"), "without a view: the plain re-bind")
         XCTAssertTrue(s.contains("dozview' start --raw '/run/doz/raw/abc123' --mount '/workspace'"), "a share that gained rules gets its view at the wake")
         // no views wanted: the old script, plus only the guest-side check
         let plain = GuestCommand.remountShares([(tag: "abc123", guestPath: "/workspace")])
@@ -301,7 +301,7 @@ final class WorkspaceRulesTests: XCTestCase {
         let c = WorkspaceViewConfig(tag: "t1", guestPath: "/workspace", mode: .lock, fold: false, passthrough: true)
         XCTAssertTrue(c.isPassthrough)
         let s = WorkspaceView.startScript(c)
-        let fallback = "{ mountpoint -q '/workspace' || mount --bind '/run/doz/raw/t1' '/workspace' 2>/dev/null || mount --bind '/run/dozer-vfs/t1' '/workspace' 2>/dev/null; } ; "
+        let fallback = "{ mountpoint -q '/workspace' || mount --bind '/run/doz/raw/t1' '/workspace' 2>/dev/null || mount --bind '/run/doz-vfs/t1' '/workspace' 2>/dev/null; } ; "
         XCTAssertTrue(s.hasSuffix("|| { " + fallback + "echo 'doz-view t1 failed: the view could not start'; }"))
         let w = GuestCommand.remountShares([(tag: "t1", guestPath: "/workspace")], views: ["t1": c])
         XCTAssertTrue(w.contains("else " + fallback + "echo \"doz-view t1 failed: $pid\""), "the wake's restart falls back to the share too")

@@ -102,7 +102,7 @@
     },
     {
       "config" : {
-        "directory" : "/home/agent/.agents/skills/dozer",
+        "directory" : "/home/agent/.agents/skills/doz",
         "dozer" : {
           "kind" : "skill"
         },

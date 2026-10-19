@@ -99,7 +99,7 @@
             `doz onboard` prepared the `claude-code` image, so no bake happens inside `up`.
             The folder you create the sandbox on is shared at `/workspace`, and Claude is told so:
             every session starts with a short facts block about the sandbox appended to its system
-            prompt, and a `dozer` skill with the details. If you are already
+            prompt, and a `doz` skill with the details. If you are already
             signed in to Claude Code on this Mac with a subscription, there is nothing to do — a
             new sandbox uses the Mac's own login. Otherwise, give it an API key with one of the two
             options below; the key is **never** typed as a command-line argument.

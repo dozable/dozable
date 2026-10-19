@@ -168,6 +168,6 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(try key("debian", .none), "b7c98e178b877b42c79e8f5fed4888a1f88b2b8ee334974ad751a26a9f54a34c")
         XCTAssertEqual(try key("alpine", .none), "371cb65ba518154ba82dc0b86a36b4bcba1c464a566baef130161d99fd017d35")
         XCTAssertEqual(try key("ubuntu", .none), "ac11aef87be7d4cc8d6c0068fd229c3b379a16b7a2b4b4cc0aad514bce5bde6a")
-        XCTAssertEqual(AgentImages.claudeCode.bakeKey(kernelSHA256: "k", deckholdSHA256: "d"), "ff020f4b34997d6189fcea996518f4d3fd1979efa807df9fa5f6558d689826c5")
+        XCTAssertEqual(AgentImages.claudeCode.bakeKey(kernelSHA256: "k", deckholdSHA256: "d"), "7c9b0e39f68860c5e9bbf3677790e43d75a40314c3e1199a62f44f055f201ae2")
     }
 }

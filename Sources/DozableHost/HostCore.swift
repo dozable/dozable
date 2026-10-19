@@ -1666,7 +1666,7 @@ public actor HostCore {
         }
         // 608: what a restart reopens — the program as chosen here (before pi's prompt file, tmux, a resume).
         let recordArgv = argv
-        // 594 (D15): the environment prompt and the dozer skill, rendered from the sandbox's current
+        // 594 (D15): the environment prompt and the doz skill, rendered from the sandbox's current
         // facts and written into the guest before the program starts. pi's own session names the
         // facts file (pi reads a file given to --append-system-prompt); Claude Code's launcher reads it.
         // 594 W28: never claim sudo the guest does not have (a disk from an older image).

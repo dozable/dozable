@@ -561,9 +561,9 @@ new workspace) and writes into the guest:
   the Mac folder *X* (live) or **isolated** (no folder is shared with the Mac); the network (no interface; deny by default through
   the Mac's proxy; a refused host needs the user's rule — do not retry around it); credentials
   (injected by the proxy; the placeholders are expected; never log in or ask for keys); whether it
-  has passwordless sudo (and that the policy still applies to root); sleep and hibernation between turns. Claude Code gets it through its launcher (`/run/dozer/agent-prompt.md`
-  → `--append-system-prompt`); pi's session is `pi --append-system-prompt /run/dozer/agent-prompt.md`.
-- the **`dozer` skill** — `~/.claude/skills/dozer/SKILL.md` (pi: `~/.pi/agent/skills/dozer/SKILL.md`),
+  has passwordless sudo (and that the policy still applies to root); sleep and hibernation between turns. Claude Code gets it through its launcher (`/run/doz/agent-prompt.md`
+  → `--append-system-prompt`); pi's session is `pi --append-system-prompt /run/doz/agent-prompt.md`.
+- the **`doz` skill** — `~/.claude/skills/doz/SKILL.md` (pi: `~/.pi/agent/skills/doz/SKILL.md`),
   rewritten every start: what persists (root disk, state disk, restore points), the network policy
   and how the user changes it, credentials, sleep and hibernate, the workspace, and what the agent
   cannot do from inside (take a restore point, change the policy, add a key — it asks the user).
@@ -585,7 +585,7 @@ replacing (`agent_prompt_mode: replace`). Text may use `{{variables}}` from a cl
 `workspace.host_path`, `workspace.guest_path`, `workspace.description`, `network.mode`,
 `network.allowed_hosts`, `network.description`, `account.name`, `credentials.description`,
 `sandbox.sudo`, `sudo.description`, `sandbox.timezone`,
-`mac.hostname`, `dozer.version`. An unknown variable is an **error**: the agent's sessions do not
+`mac.hostname`, `doz.version`. An unknown variable is an **error**: the agent's sessions do not
 start (the message names the variable and the file) until it is fixed or the prompt is turned off —
 never silently blank.
 
@@ -894,7 +894,7 @@ The host is started for you by the first command that needs it. It runs detached
 | **Idle exit** | It exits after 5 minutes with no running, paused or sleeping VM and no attached client (`$DOZ_HOST_IDLE` minutes, 0 = never). |
 | **Looking never starts it** | `ls`, `inspect`, `point ls`, `image ls`, `net policy` (shown) and `key ls` read the store directly when no host runs. |
 | `doz host status` | Is one running, and what does it hold? Never starts one. |
-| `doz host stop` | Hibernates everything that runs, then exits. The next command starts a new host; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-dozer (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-dozer, lab1) in 1.2 s; the next command starts a new host` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the host dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart host** show the same. |
+| `doz host stop` | Hibernates everything that runs, then exits. The next command starts a new host; `wake`, `attach`, `up` and `exec` bring each sandbox back. It shows each sandbox as it hibernates (`✓ hibernated hello-doz (snapshot 69 MB) — 412 ms`; plain lines off a terminal or with `--progress plain`; a sandbox that cannot be hibernated says why and that it was shut down, its disk kept), then `host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next command starts a new host` — or `host stopped (nothing was running)`. `--json` gives each sandbox's row. If the host dies part way, it says what it saw. `doz uninstall` and the web UI's **Restart host** show the same. |
 | `doz host [--foreground] [--idle-timeout MIN]` | Run it by hand (in the foreground, it logs to the terminal). |
 | **If it crashes** | The next command starts a new one. Sleeping sandboxes are restored with their sessions. Hibernated ones are untouched. Ones that were running are reported as died (`ls`; `inspect` shows `diedWithHost`), and their disk is checked with `e2fsck` at the next start. |
 | **If its program changes** | A host knows the file it runs from. If an update wrote into that file while it ran, macOS stops trusting it and refuses its virtual machines: every start or wake then says "this host's program was updated underneath it — `doz host stop`, then retry", and `host status` and `doctor` say so too. An update that puts a new file in place (as `make install-cli` does) is harmless: the host keeps running its own copy, `host status` notes it, and once nothing runs and nobody is attached it exits by itself so the next command runs the new build. |

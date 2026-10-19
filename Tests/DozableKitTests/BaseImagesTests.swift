@@ -15,10 +15,12 @@ final class BaseImagesTests: XCTestCase {
     /// fe9e746, before any 596 change) — so every prepared image in every store keeps its key.
     /// 599 changed them ON PURPOSE (tmux joined the dev baseline; W28's warning names it — "adds: tmux"):
     /// before 599 they were 7dc167ad…, 39946455…, 04976cf1…. Change these only with a recipe change.
+    /// 0.37 (the Dozable rename, no migration) re-pinned Claude Code's: its launcher reads /run/doz/agent-prompt.md
+    /// (was /run/dozer/…) — every Claude Code and Codex image is baked anew; pi's is unchanged.
     func test_nodeImagesAreByteIdentical() throws {
-        XCTAssertEqual(Self.sha(AgentImages.claudeCode.canonicalJSON), "c698b09dcb3020fa9336a4e455d400c454ea4ff0659de973c19d63aadea8ef73")
+        XCTAssertEqual(Self.sha(AgentImages.claudeCode.canonicalJSON), "720daf2ec7cbb5d7ec7009e61e3fa859346e017fa43f521b9c19ab3a5563d4d0")
         XCTAssertEqual(Self.sha(AgentImages.pi.canonicalJSON), "33c6ed411162d35ebd8bc6594d0727f119e34071e55e43351f5bd4ebc47d3e47")
-        XCTAssertEqual(Self.sha(AgentImages.claudeCode(release).canonicalJSON), "cffee713e6854e3d68618a1fceda00fd7af656471ef68c843bb1287a8a20bedb")
+        XCTAssertEqual(Self.sha(AgentImages.claudeCode(release).canonicalJSON), "2a599fd690e02be66205e6cee683d966053d9219f0f1127a6b9145d02ec7f05b")
         // Composed from the catalogue's Node at its pin: the same spec.
         let node = BaseCatalogue.base("node")!
         XCTAssertEqual(node.pinnedReference, AgentImages.nodeBase)
@@ -86,7 +88,7 @@ final class BaseImagesTests: XCTestCase {
                 case .claudeCode where !b.hasNode:
                     XCTAssertTrue(script.contains("downloads.claude.ai/claude-code-releases/2.1.285/"), name)
                     XCTAssertFalse(script.contains("npm install"), "\(name): no Node for Claude Code's sake")
-                    XCTAssertTrue(script.contains("python3 /usr/local/lib/dozer/claude-setup.py"), name)
+                    XCTAssertTrue(script.contains("python3 /usr/local/lib/doz/claude-setup.py"), name)
                     XCTAssertEqual(s.bakeHosts, ["downloads.claude.ai"])
                     XCTAssertTrue(script.contains(b.musl ? String(repeating: "b", count: 64) : String(repeating: "a", count: 64)), name)
                 case .claudeCode:
@@ -127,7 +129,7 @@ final class BaseImagesTests: XCTestCase {
 
     /// A Dockerfile's base (package manager unknown): the bake looks for apt-get, else apk, and for musl.
     func test_dockerfileBaseDetects() throws {
-        let src = BaseSource(reference: "dozer.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
+        let src = BaseSource(reference: "doz.local/df-0123456789ab@sha256:" + String(repeating: "c", count: 64), packageManager: .auto,
                              hasNode: false, musl: nil, rootfsMiB: 4096)
         let s = try ImageComposer.spec(name: "df-0123456789ab-claude-code", base: src, agent: .claudeCode, release: release, native: native)
         let script = s.steps.map { $0.argv.joined(separator: " ") }.joined(separator: "\n")

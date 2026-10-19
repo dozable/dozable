@@ -153,7 +153,7 @@ final class BaseImagesHostTests: XCTestCase {
         XCTAssertThrowsError(try Dockerfiles.validate(inStore.path, store: store))
         // A build recorded: its reference and environment; a change to the file is noticed.
         var built = rec
-        built.reference = "dozer.local/\(rec.base)@sha256:" + String(repeating: "f", count: 64)
+        built.reference = "doz.local/\(rec.base)@sha256:" + String(repeating: "f", count: 64)
         built.dockerfileSHA256 = Dockerfiles.sha256(of: df)
         built.environment = ["APP_ENV": "dev"]
         built.path = ["/opt/app/bin"]
@@ -215,7 +215,7 @@ final class BaseImagesHostTests: XCTestCase {
             try FileManager.default.createDirectory(at: d, withIntermediateDirectories: true)
             try Data(repeating: 1, count: bytes).write(to: d.appendingPathComponent("f"))
         }
-        // An image tagged dozer/… : its index, manifest, a layer and its snapshot count as Dozer's.
+        // An image tagged doz/… : its index, manifest, a layer and its snapshot count as Dozer's.
         let blobs = data.appendingPathComponent("content/blobs/sha256")
         func blob(_ name: String, _ body: String) throws -> String {
             try Data(body.utf8).write(to: blobs.appendingPathComponent(name)); return "sha256:" + name
@@ -225,7 +225,7 @@ final class BaseImagesHostTests: XCTestCase {
         let index = try blob(String(repeating: "1", count: 64), #"{"manifests":[{"digest":"\#(manifest)"}]}"#)
         try FileManager.default.createDirectory(at: data.appendingPathComponent("snapshots/" + String(repeating: "2", count: 64)), withIntermediateDirectories: true)
         try Data(repeating: 2, count: 32 << 10).write(to: data.appendingPathComponent("snapshots/" + String(repeating: "2", count: 64) + "/rootfs"))
-        try Data(#"{"dozer/df-0123456789ab:latest":{"digest":"\#(index)"},"docker.io/library/alpine:3.20":{"digest":"sha256:9"}}"#.utf8)
+        try Data(#"{"doz/df-0123456789ab:latest":{"digest":"\#(index)"},"docker.io/library/alpine:3.20":{"digest":"sha256:9"}}"#.utf8)
             .write(to: data.appendingPathComponent("state.json"))
         let status = ContainerToolStatus(state: "stopped", version: "1.2.2", path: nil, note: "", supported: "", startNote: "", installNote: "")
         let items = Resources.appleContainerItems(AppleContainerFacts(dataRoot: data, program: [], status: status))
@@ -238,7 +238,7 @@ final class BaseImagesHostTests: XCTestCase {
         XCTAssertGreaterThan(parts["outside:apple-container/data/snapshots"]!.sizeBytes!, 64 << 10)
         XCTAssertGreaterThan(parts["outside:apple-container/data/other"]!.sizeBytes!, 0, "builder + state.json")
         XCTAssertEqual(top.sizeBytes, parts["outside:apple-container/data"]!.sizeBytes, "no program here")
-        let dozer = try XCTUnwrap(parts["outside:apple-container/dozer"])
+        let dozer = try XCTUnwrap(parts["outside:apple-container/doz"])
         XCTAssertTrue(dozer.detail!.contains("1 image"))
         XCTAssertGreaterThan(dozer.sizeBytes!, 32 << 10)
         XCTAssertTrue(items.allSatisfy { !$0.deletable && $0.group == "outside" })

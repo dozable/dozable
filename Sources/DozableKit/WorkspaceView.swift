@@ -128,16 +128,16 @@ public enum WorkspaceView {
     /// A passthrough view that could not start leaves the SHARE at G (bound from RAW, else from the fresh
     /// virtio-fs mount) — never an empty folder: there are no rules to keep.
     static func fallback(_ tag: String, _ g: String, _ passthrough: Bool) -> String {
-        passthrough ? "{ mountpoint -q '\(g)' || mount --bind '\(rawPath(tag))' '\(g)' 2>/dev/null || mount --bind '/run/dozer-vfs/\(tag)' '\(g)' 2>/dev/null; } ; " : ""
+        passthrough ? "{ mountpoint -q '\(g)' || mount --bind '\(rawPath(tag))' '\(g)' 2>/dev/null || mount --bind '/run/doz-vfs/\(tag)' '\(g)' 2>/dev/null; } ; " : ""
     }
 
-    /// Root shell, inside the wake's re-mount (after `/run/dozer-vfs` is fresh and listed), for a share
+    /// Root shell, inside the wake's re-mount (after `/run/doz-vfs` is fresh and listed), for a share
     /// whose guest runs a view (its conf exists): re-bind RAW — never G — then, in the same script,
     /// SIGUSR1 the daemon (it re-opens its link to the share and re-reads the rules), or start a new one
     /// when the supervisor is gone. `wanted` updates the conf first (mode/fold changed while it slept).
     static func remountWithView(tag: String, guestPath g: String, wanted: WorkspaceViewConfig?) -> String {
         let r = rawPath(tag), pf = pidPath(tag)
-        var s = "umount -l '\(r)' 2>/dev/null || true; mount --bind '/run/dozer-vfs/\(tag)' '\(r)'; ls -a '\(r)' >/dev/null"
+        var s = "umount -l '\(r)' 2>/dev/null || true; mount --bind '/run/doz-vfs/\(tag)' '\(r)'; ls -a '\(r)' >/dev/null"
         if let w = wanted { s += "; \(writeConf(w)) || true" }
         let c = WorkspaceViewConfig(tag: tag, guestPath: g, mode: wanted?.mode ?? .lock, fold: wanted?.fold ?? true, passthrough: wanted?.isPassthrough ?? false,
                                     owner: wanted?.owner)

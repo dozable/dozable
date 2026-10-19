@@ -781,7 +781,7 @@ extension HostCore {
                 try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
                     DispatchQueue.global().async {
                         do {
-                            try ContainerTool.build(dockerfile: dockerfile, context: context, tag: "dozer/\(base):latest", output: archive, env: env,
+                            try ContainerTool.build(dockerfile: dockerfile, context: context, tag: "doz/\(base):latest", output: archive, env: env,
                                                     isCancelled: { cancelled.value }) { line in
                                 emit(HostEvent(kind: .output, sandbox: image, text: ProgressFormat.inert(line, limit: 400)))
                             }

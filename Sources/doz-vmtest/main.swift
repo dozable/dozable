@@ -261,7 +261,7 @@ func lifecycleSuite() async throws {
               "the /work share works both ways after the wake")
         if !(seen.contains("from the host \(cycle)") && back.contains("from-the-guest-\(cycle)")) {
             info("guest saw: \(seen.prefix(80)) · host saw: \(back.prefix(80))")
-            let m = try await sb.exec(["sh", "-c", "grep -E 'virtiofs|/work' /proc/mounts; ls -la /work /run/dozer-vfs 2>&1 | head -20"])
+            let m = try await sb.exec(["sh", "-c", "grep -E 'virtiofs|/work' /proc/mounts; ls -la /work /run/doz-vfs 2>&1 | head -20"])
             info("mounts: \(m.output) \(m.errorOutput)")
         }
 

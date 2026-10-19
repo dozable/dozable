@@ -36,7 +36,7 @@ struct Inspect: AsyncParsableCommand {
     static let configuration = CommandConfiguration(abstract: "Everything about a sandbox, as JSON (--prompt: the agent's environment prompt, as its next session gets it).")
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
-    @Flag(name: .long, help: "Print the environment prompt the agent gets at its next session (the facts block; --json adds the dozer skill).") var prompt = false
+    @Flag(name: .long, help: "Print the environment prompt the agent gets at its next session (the facts block; --json adds the doz skill).") var prompt = false
 
     func run() async throws {
         if prompt {
@@ -52,7 +52,7 @@ struct Inspect: AsyncParsableCommand {
 
     static func render(_ r: AgentPromptReport, name: String) -> String {
         guard r.enabled else {
-            return "the environment prompt is off (agent.prompt = false) — \(name)'s agent gets no facts block and no dozer skill\n"
+            return "the environment prompt is off (agent.prompt = false) — \(name)'s agent gets no facts block and no doz skill\n"
         }
         if let e = r.error {
             return "the environment prompt of \(name) does not render: \(e)\nits sessions do not start until it does (or: doz config set agent.prompt false)\n"
@@ -61,7 +61,7 @@ struct Inspect: AsyncParsableCommand {
             : r.agent == "codex" ? "Codex's developer instructions (-c developer_instructions — the launcher reads \(r.promptPath))"
             : "Claude Code's --append-system-prompt (the launcher reads \(r.promptPath))"
         return "the environment prompt of \(name) (\(r.layers.joined(separator: " + "))) — \(how), written at every session start:\n\n"
-            + (r.text ?? "") + "\n\nand the dozer skill, \(r.skillPath) (\((r.skill ?? "").split(separator: "\n").count) lines; --json has its text)\n"
+            + (r.text ?? "") + "\n\nand the doz skill, \(r.skillPath) (\((r.skill ?? "").split(separator: "\n").count) lines; --json has its text)\n"
     }
 }
 

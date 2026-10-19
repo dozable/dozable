@@ -32,8 +32,8 @@ public final class EgressProxy: @unchecked Sendable {
     public static let vsockPort: UInt32 = 5800
     /// The guest's proxy endpoint.
     public static let proxyURL = "http://127.0.0.1:3128"
-    public static let guestCAPath = "/etc/dozer/ca.pem"
-    public static let guestCABundlePath = "/etc/dozer/ca-bundle.pem"
+    public static let guestCAPath = "/etc/doz/ca.pem"
+    public static let guestCABundlePath = "/etc/doz/ca-bundle.pem"
     public static let guestShimPath = "/usr/local/bin/doznet"
 
     public let log: ConnectionLog
@@ -258,8 +258,8 @@ public final class EgressProxy: @unchecked Sendable {
         var s = "set -e; "
         if withCA {
             s += """
-            mkdir -p /etc/dozer /usr/local/share/ca-certificates; chmod 644 \(guestCAPath); \
-            cp \(guestCAPath) /usr/local/share/ca-certificates/dozer-sandbox-ca.crt; \
+            mkdir -p /etc/doz /usr/local/share/ca-certificates; chmod 644 \(guestCAPath); \
+            cp \(guestCAPath) /usr/local/share/ca-certificates/doz-ca.crt; \
             sys=; for f in /etc/ssl/certs/ca-certificates.crt /etc/pki/tls/certs/ca-bundle.crt /etc/ssl/cert.pem; do \
             if [ -f "$f" ]; then sys=$f; break; fi; done; \
             if [ -n "$sys" ]; then line=$(sed -n 2p \(guestCAPath)); grep -qF "$line" "$sys" || cat \(guestCAPath) >> "$sys"; \

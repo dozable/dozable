@@ -249,9 +249,9 @@ facts: a short **facts block** — a Dozable VM (not a container) on the user's 
 and size, `/workspace` shared from the Mac folder *X* or **isolated** (no folder is shared with the Mac), the network (deny by
 default through the Mac's proxy; a refused host needs the user's rule), credentials (injected; never
 log in) — appended to the agent's system prompt (Claude Code's launcher passes
-`/run/dozer/agent-prompt.md` with `--append-system-prompt`; pi's session gets
-`--append-system-prompt /run/dozer/agent-prompt.md`), and the **`dozer` skill**
-(`~/.claude/skills/dozer/SKILL.md`, pi: `~/.pi/agent/skills/dozer/`) with the details: what persists,
+`/run/doz/agent-prompt.md` with `--append-system-prompt`; pi's session gets
+`--append-system-prompt /run/doz/agent-prompt.md`), and the **`doz` skill**
+(`~/.claude/skills/doz/SKILL.md`, pi: `~/.pi/agent/skills/doz/`) with the details: what persists,
 restore points, the network policy, sleep and hibernation, and what the agent cannot do from
 inside. Dozable writes only those; the agent's own `CLAUDE.md` / `AGENTS.md` are never touched.
 
@@ -276,7 +276,7 @@ the sandbox's own (`--agent-prompt FILE`, or `agent_prompt` in `doz_project.yaml
 replacing. Variables are `{{name}}` from a closed list (`sandbox.name`, `sandbox.image`,
 `sandbox.cpus`, `sandbox.memory`, `workspace.shared`, `workspace.host_path`, `workspace.guest_path`,
 `workspace.description`, `network.mode`, `network.allowed_hosts`, `network.description`,
-`account.name`, `credentials.description`, `mac.hostname`, `dozer.version`); an unknown one is an
+`account.name`, `credentials.description`, `mac.hostname`, `doz.version`); an unknown one is an
 error — the session does not start, and `inspect --prompt` says why — never silently blank. A
 claude-code image baked before 594 has no launcher support: `doz reset NAME` (or a new sandbox)
 takes the new image.

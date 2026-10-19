@@ -109,11 +109,11 @@ final class GuestCommandTests: XCTestCase {
     /// then a re-bind and a listing of each share.
     func test_remountRefreshesBeforeRebindingEveryShare() {
         let s = GuestCommand.remountShares([(tag: "abc123", guestPath: "/work"), (tag: "def456", guestPath: "/data")])
-        XCTAssertTrue(s.contains("mount --bind '/run/dozer-vfs/abc123' '/work'"))
-        XCTAssertTrue(s.contains("mount --bind '/run/dozer-vfs/def456' '/data'"))
-        let detachFresh = s.range(of: "umount -l /run/dozer-vfs")!.lowerBound
-        let mountFresh = s.range(of: "mount -t virtiofs virtiofs /run/dozer-vfs")!.lowerBound
-        let list = s.range(of: "ls -a /run/dozer-vfs")!.lowerBound
+        XCTAssertTrue(s.contains("mount --bind '/run/doz-vfs/abc123' '/work'"))
+        XCTAssertTrue(s.contains("mount --bind '/run/doz-vfs/def456' '/data'"))
+        let detachFresh = s.range(of: "umount -l /run/doz-vfs")!.lowerBound
+        let mountFresh = s.range(of: "mount -t virtiofs virtiofs /run/doz-vfs")!.lowerBound
+        let list = s.range(of: "ls -a /run/doz-vfs")!.lowerBound
         XCTAssertLessThan(detachFresh, mountFresh)
         XCTAssertLessThan(mountFresh, list)
         XCTAssertLessThan(list, s.range(of: "mount --bind")!.lowerBound, "the refreshing listing precedes every bind")

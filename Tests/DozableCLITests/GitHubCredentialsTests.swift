@@ -238,7 +238,7 @@ final class GitHubCredentialsTests: XCTestCase {
         XCTAssertNil(GitGuestSetup(on: true, name: "a\nb", email: nil).name, "one line of plain text")
         XCTAssertNil(GitGuestSetup(on: false, name: "x", email: "y").name)
         let fixes = GuestCommand.guestFixes(imageSpec: nil, git: on, sshAgent: true)
-        XCTAssertTrue(fixes.contains(GuestCommand.gitCredentialHelperPath) && fixes.contains("path = /etc/dozer/gitconfig")
+        XCTAssertTrue(fixes.contains(GuestCommand.gitCredentialHelperPath) && fixes.contains("path = /etc/doz/gitconfig")
                       && fixes.contains("agent -p 5801 -s /run/doz/ssh-agent.sock"))
         XCTAssertTrue(GuestCommand.guestFixes(imageSpec: nil).contains("agent stop"), "off by default")
         XCTAssertFalse(GuestCommand.prepareGuest(imageSpec: nil, git: on).contains("agent -p"), "a fresh boot starts the agent after doznet is in")

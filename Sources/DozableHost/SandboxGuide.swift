@@ -143,20 +143,20 @@ extension HostCore {
         let text = "\n" + g.intro + "\n" + g.plainText(stepsOnly: true) + "(doz guide " + m.name + " on the Mac, or the Guide tab, has it all)\n\n"
         let b64 = Data(text.utf8).base64EncodedString()
         let script = """
-            mkdir -p /etc/dozer /etc/profile.d
-            printf '%s' '\(b64)' | base64 -d > /etc/dozer/guide.txt
+            mkdir -p /etc/doz /etc/profile.d
+            printf '%s' '\(b64)' | base64 -d > /etc/doz/guide.txt
             cat > /etc/profile.d/doz-guide.sh <<'DOZGUIDE'
             # doz: this tool's first steps, once, in the first login shell on a terminal
-            if [ -t 1 ] && [ -r /etc/dozer/guide.txt ]; then
-              doz_guide_stamp="/Users/jscott/.local/state/dozer/guide-shown"
-              if [ ! -e "" ]; then
-                cat /etc/dozer/guide.txt
-                mkdir -p "" 2>/dev/null && : > ""
+            if [ -t 1 ] && [ -r /etc/doz/guide.txt ]; then
+              doz_guide_stamp="$HOME/.local/state/doz/guide-shown"
+              if [ ! -e "$doz_guide_stamp" ]; then
+                cat /etc/doz/guide.txt
+                mkdir -p "${doz_guide_stamp%/*}" 2>/dev/null && : > "$doz_guide_stamp"
               fi
               unset doz_guide_stamp
             fi
             DOZGUIDE
-            chmod 0644 /etc/dozer/guide.txt /etc/profile.d/doz-guide.sh
+            chmod 0644 /etc/doz/guide.txt /etc/profile.d/doz-guide.sh
             """
         do {
             let res = try await m.sandbox.exec(["sh", "-c", script], timeoutSeconds: 20)

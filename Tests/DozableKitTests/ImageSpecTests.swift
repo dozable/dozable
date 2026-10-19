@@ -118,15 +118,15 @@ final class ImageSpecTests: XCTestCase {
         let on = GuestCommand.agentSudoScript(user: "agent", on: true)
         XCTAssertTrue(on.contains("printf '%s ALL=(ALL) NOPASSWD:ALL\\n' 'agent'"))
         XCTAssertTrue(on.contains("chmod 0440"))
-        XCTAssertTrue(on.contains("/usr/sbin/visudo -cf /run/dozer-agent-sudoers >/dev/null && mv -f"), "validated before it is put in place")
-        XCTAssertTrue(on.contains("mv -f /run/dozer-agent-sudoers '/etc/sudoers.d/dozer-agent'"))
+        XCTAssertTrue(on.contains("/usr/sbin/visudo -cf /run/doz-agent-sudoers >/dev/null && mv -f"), "validated before it is put in place")
+        XCTAssertTrue(on.contains("mv -f /run/doz-agent-sudoers '/etc/sudoers.d/doz-agent'"))
         XCTAssertTrue(on.hasPrefix("if [ -x /usr/bin/sudo ] && [ -x /usr/sbin/visudo ]"), "an image without sudo (or visudo) gets nothing")
-        XCTAssertEqual(GuestCommand.agentSudoScript(user: "agent", on: false), "rm -f '/etc/sudoers.d/dozer-agent'")
+        XCTAssertEqual(GuestCommand.agentSudoScript(user: "agent", on: false), "rm -f '/etc/sudoers.d/doz-agent'")
         for odd in ["root", "", "a b", "x';rm -rf /;'", "1agent", "-agent", String(repeating: "a", count: 33)] {
-            XCTAssertEqual(GuestCommand.agentSudoScript(user: odd, on: true), "rm -f '/etc/sudoers.d/dozer-agent'", odd)
+            XCTAssertEqual(GuestCommand.agentSudoScript(user: odd, on: true), "rm -f '/etc/sudoers.d/doz-agent'", odd)
         }
         XCTAssertTrue(GuestCommand.prepareGuest(imageSpec: AgentImages.pi).contains(on), "on by default at boot")
-        XCTAssertTrue(GuestCommand.prepareGuest(imageSpec: AgentImages.pi, agentSudo: false).contains("rm -f '/etc/sudoers.d/dozer-agent'"))
+        XCTAssertTrue(GuestCommand.prepareGuest(imageSpec: AgentImages.pi, agentSudo: false).contains("rm -f '/etc/sudoers.d/doz-agent'"))
         XCTAssertFalse(GuestCommand.prepareGuest(imageSpec: nil).contains("sudoers"), "the lab (root) gets no rule")
         XCTAssertTrue(AgentImages.devBaselinePackages.contains("sudo"))
         // 594 W24: apt-utils, installed before the rest, so no install says "debconf: delaying …".
@@ -179,7 +179,7 @@ final class ImageSpecTests: XCTestCase {
                      tz.script, GuestCommand.agentSudoScript(user: "agent", on: true)] {
             XCTAssertTrue(fixes.contains(part))
         }
-        XCTAssertTrue(GuestCommand.guestFixes(imageSpec: AgentImages.pi, agentSudo: false).contains("rm -f '/etc/sudoers.d/dozer-agent'"), "follows the setting")
+        XCTAssertTrue(GuestCommand.guestFixes(imageSpec: AgentImages.pi, agentSudo: false).contains("rm -f '/etc/sudoers.d/doz-agent'"), "follows the setting")
         for live in ["/run/deckhold", "mount --bind", "set -e"] {
             XCTAssertFalse(fixes.contains(live), "never at a wake: \(live)")
         }

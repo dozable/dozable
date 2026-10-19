@@ -29,7 +29,7 @@ export async function viewMetrics() {
   for (const el of [imageSel, daysSel, steps]) {
     el.addEventListener('change', () => { state.metricsFilter = { image: imageSel.value, days: daysSel.value, steps: steps.checked }; refresh(false); });
   }
-  const csv = h('a', { class: 'btn sm', href: '/api/v1/metrics.csv?' + qs, download: 'dozer-metrics.csv' }, withIcon('download', 'Download CSV'));
+  const csv = h('a', { class: 'btn sm', href: '/api/v1/metrics.csv?' + qs, download: 'doz-metrics.csv' }, withIcon('download', 'Download CSV'));
   const toolbar = h('div', { class: 'toolbar' }, imageSel, daysSel, h('label', null, steps, ' steps inside actions'), csv);
   if (!m.available) return h('div', null, h('h1', null, 'Metrics'), toolbar, panel(null, 'No metrics yet — the host records every action it times.'));
   const max = Math.max(1, ...m.summary.map((r) => r.p90Ms || r.medianMs || 0));

@@ -76,7 +76,7 @@ public struct DockerfileRecord: Codable, Equatable, Sendable {
     public var dockerfile: String
     public var context: String
     public var builtAt: Date?
-    /// The built image in the store: `dozer.local/<base>@sha256:…`.
+    /// The built image in the store: `doz.local/<base>@sha256:…`.
     public var reference: String?
     /// sha256 of the built image's layers (their digests, in order) — a rebuild whose layers are the
     /// same keeps the previous reference, so nothing is re-baked (B8).
@@ -161,7 +161,7 @@ public enum Dockerfiles {
 
     /// A reference no build has made yet (a sandbox created before its Dockerfile was first built —
     /// its first start builds it and takes the result).
-    public static func placeholder(_ base: String) -> String { "dozer.local/\(base)@sha256:" + String(repeating: "0", count: 64) }
+    public static func placeholder(_ base: String) -> String { "doz.local/\(base)@sha256:" + String(repeating: "0", count: 64) }
     public static func isPlaceholder(_ reference: String) -> Bool { reference.hasSuffix("@sha256:" + String(repeating: "0", count: 64)) }
 }
 
