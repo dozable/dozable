@@ -161,7 +161,8 @@ across the top; **✕** or **Escape** closes it, asking first once you have chos
 9. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
 10. **Done** — what was written where, and your **projects folder**
     (`~/doz-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
-    `doz new` gets its own folder there. **Settings** › **Choose…** moves it.
+    `doz new` gets its own folder there. **Settings** › **Choose…** moves it. With a first sandbox,
+    **Start NAME** boots it and opens its agent on its page.
 
 ![The wizard's checks](images/wizard-checks.png)
 

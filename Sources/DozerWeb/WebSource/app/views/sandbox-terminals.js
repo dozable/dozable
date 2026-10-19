@@ -3,6 +3,7 @@ import { paintStartProgress } from '../components/start-progress.js';
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
 import { icon, setButton } from '../dom/icons.js';
+import { AGENT_NAMES } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
 import { actOrThrow, TRANSITION_LABEL, transitionOf, waitForOp } from '../core/operations.js';
@@ -68,11 +69,14 @@ function drawTerminals() {
       const head = h('div', { class: 'term-strip' }, strip);
       const body = h('div', { class: 'term-body' });
       const empty = h('div', { class: 'term-empty' });
-      const pane = h('div', { class: 'term-pane', 'data-pane': String(i) }, head, body);
+      // 625: a running sandbox whose pane holds only the page's own panes (Console, the build log) offers its agent here.
+      const startBar = h('div', { class: 'term-start', 'data-term-start': '' });
+      startBar.hidden = true;
+      const pane = h('div', { class: 'term-pane', 'data-pane': String(i) }, head, startBar, body);
       body.append(empty);
       pane.addEventListener('focusin', () => { if (state.param) sview(state.param).focusedPane = i; });
       pane.addEventListener('mousedown', () => { if (state.param) sview(state.param).focusedPane = i; });
-      return { root: pane, strip, head, body, empty };
+      return { root: pane, strip, head, body, empty, startBar, onlyAux: false };
     });
     termUI.grid = h('div', { class: 'term-grid' }, termUI.panes[0].root, termUI.panes[1].root);
     root.replaceChildren(termUI.grid);
@@ -95,6 +99,9 @@ function drawTerminals() {
     p.strip.replaceChildren(...mine.map((t) => tabElement(t, i)));
     scrollActiveTab(p.strip);
     p.empty.hidden = all.some((t) => !t.buildlog) || all.some((t) => t.buildlog && t.id === v.selected[i]);
+    // 625 (the m4air15 report): Console is a tab of its own since 617, so the empty area — and its Start for the agent —
+    // never showed on a running sandbox that had no session. Its own panes only: the start bar offers it instead.
+    p.onlyAux = all.length > 0 && all.every((t) => isAux(t));
     for (const t of all) {
       if (t.els.wrap.parentNode !== p.body) p.body.append(t.els.wrap);
       t.els.wrap.classList.toggle('term-pending', !!t.pending);
@@ -156,12 +163,12 @@ export function paintTermEmpty() {
   if (!termUI.built) return;
   const s = state.sbx;
   const p = termUI.panes[0];
+  paintStartBar(p, s);
   if (p.empty.hidden) return;
   if (!s || !s.d || s.name !== state.param) { p.empty.replaceChildren(h('div', { class: 'term-empty-box' }, 'Loading…')); return; }
   const i = s.d.info;
   const tr = transitionOf(s.name);
   const busy = i.busy || i.phase === 'booting' || opRunningFor(s.name) || !!tr;
-  const live = (s.d.sessions || []).filter((x) => !x.ended);
   const box = h('div', { class: 'term-empty-box' });
   if (busy) {
     box.append(h('div', { class: 'term-empty-head' }, tr ? TRANSITION_LABEL[tr.action] : i.phaseLabel + '…'), h('div', null, 'The terminal opens when it can.'));
@@ -174,23 +181,52 @@ export function paintTermEmpty() {
         // The bar's Start is the page's one primary; here it is the terminal's own button, as on the covers.
         ((b) => { b.classList.add('tc-act'); return b; })(btn('Start', () => lifecycle('start', s.name), { small: true, title: bootViewOnStart() ? 'Boot it, and watch it boot here' : 'Boot it' }))));
   } else {
-    // 593 §9 (S4): "New shell" always makes a NEW session; a running session is opened by its own name
-    // (the sessions list). The image's own session is offered by name: opened when it runs, started when not.
-    const saved = (s.d.sessions || []).filter((x) => x.saved);
-    const defaultRuns = live.some((x) => x.name === s.d.defaultSession && !x.saved);
-    const defaultSaved = saved.some((x) => x.name === s.d.defaultSession);
-    box.append(h('div', { class: 'term-empty-head' }, 'No terminal open'),
-      h('div', { class: 'actions center' },
-        defaultSaved ? null : defaultRuns
-          ? btn('Open ' + s.d.defaultSession, () => openTerminal(s.name, s.d.defaultSession, 'interactive'), { icon: 'terminal',
-            title: 'A terminal on the running ' + s.d.defaultSession + ' session' })
-          : btn('Start ' + s.d.defaultSession, () => openDefaultTerminal(s.name), { icon: 'play',
-            title: 'Start the image’s own session (' + s.d.defaultSession + ')' + (i.phase === 'running' ? '' : ' — it wakes the sandbox') }),
-        ...live.filter((x) => x.name !== s.d.defaultSession && !x.saved).slice(0, 8).map((x) => btn('Open ' + x.name, () => openTerminal(s.name, x.name, 'interactive'), { icon: 'terminal' })),
-        ...saved.slice(0, 8).map((x) => btn('Show ' + x.name, () => openSavedTerminal(s.name, x), { icon: 'eye', title: 'Its last saved screen (read-only)' })),
-        btn('New shell', () => newShellTerminal(s.name).catch((e) => failureFor(s.name, e.message || String(e))), { title: 'A NEW shell session (shell-2, shell-3, …)' })));
+    box.append(h('div', { class: 'term-empty-head' }, 'No terminal open'), h('div', { class: 'actions center' }, ...sessionActions(s, i, false)));
   }
   p.empty.replaceChildren(box);
+}
+/// 593 §9 (S4): "New shell" always makes a NEW session; a running session is opened by its own name
+/// (the sessions list). The image's own session is offered by name: opened when it runs, started when not.
+/// 625: named for its agent ("Start Claude Code"), and the primary when the start bar offers it.
+function sessionActions(s, i, primary) {
+  const live = (s.d.sessions || []).filter((x) => !x.ended);
+  const saved = (s.d.sessions || []).filter((x) => x.saved);
+  const own = s.d.defaultSession;
+  const defaultRuns = live.some((x) => x.name === own && !x.saved);
+  const defaultSaved = saved.some((x) => x.name === own);
+  const title = agentTitle(i) || own;
+  return [
+    defaultSaved ? null : defaultRuns
+      ? btn('Open ' + title, () => openTerminal(s.name, own, 'interactive'), { icon: 'terminal', primary,
+        title: 'A terminal on the running ' + own + ' session' })
+      : btn('Start ' + title, () => openDefaultTerminal(s.name), { icon: 'play', primary,
+        title: 'Start the image’s own session (' + own + ')' + (i.phase === 'running' ? '' : ' — it wakes the sandbox') }),
+    ...live.filter((x) => x.name !== own && !x.saved).slice(0, 8).map((x) => btn('Open ' + x.name, () => openTerminal(s.name, x.name, 'interactive'), { icon: 'terminal' })),
+    ...saved.slice(0, 8).map((x) => btn('Show ' + x.name, () => openSavedTerminal(s.name, x), { icon: 'eye', title: 'Its last saved screen (read-only)' })),
+    btn('New shell', () => newShellTerminal(s.name).catch((e) => failureFor(s.name, e.message || String(e))), { title: 'A NEW shell session (shell-2, shell-3, …)' }),
+  ].filter(Boolean);
+}
+/// The agent a sandbox is made of, as people call it ("Claude Code"): the built-in three by name, else the end of the
+/// image's title ("Debian · Grok Build" → "Grok Build"). Null for an image without an agent (its session is a shell).
+function agentTitle(i) {
+  if (!i.agent || i.agent === 'none') return null;
+  if (AGENT_NAMES[i.agent]) return AGENT_NAMES[i.agent];
+  const t = (i.imageTitle || '').split(' · ').pop();
+  return t && t !== i.imageTitle ? t : null;
+}
+/// 625: the start bar — over Console on a RUNNING sandbox that has no session terminal (the empty area is hidden by
+/// Console's tab, so its Start was never seen: the m4air15 first sandbox sat on its console). Settled states only;
+/// while it starts, the start sequence opens the agent itself.
+function paintStartBar(p, s) {
+  const i = s && s.d && s.name === state.param ? s.d.info : null;
+  const show = !!i && p.onlyAux && i.phase === 'running' && !i.busy && !opRunningFor(s.name) && !transitionOf(s.name);
+  p.startBar.hidden = !show;
+  if (!show) { p.startBar.replaceChildren(); return; }
+  const title = agentTitle(i);
+  const runs = (s.d.sessions || []).some((x) => !x.ended && !x.saved && x.name === s.d.defaultSession);
+  p.startBar.replaceChildren(
+    h('div', { class: 'term-start-text' }, title ? title + (runs ? ' is running — not open here.' : ' is not running.') : 'No terminal open.'),
+    h('div', { class: 'actions' }, ...sessionActions(s, i, true)));
 }
 function tabElement(t, pane) {
   const phase = t.ended || t.errorText || t.disconnected ? 'ended'

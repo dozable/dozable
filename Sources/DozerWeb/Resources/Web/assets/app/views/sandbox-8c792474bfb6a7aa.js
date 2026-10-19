@@ -25,9 +25,9 @@ import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-d47cf44bc7dd9f56.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-6225b0a0d6acaa4b.js';
 import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs-5032aa12e5c0ad39.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-1a84afa436ab345e.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-3d1f860e97990297.js';
 import { networkPanel } from './sandbox-network-b2421766be265b11.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-ec810332e6abb121.js';
+import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-7cf8c550798cf0ff.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

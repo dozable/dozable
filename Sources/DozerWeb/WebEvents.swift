@@ -228,6 +228,20 @@ actor WebMonitor {
         record(WebActivity(seq: hub.nextSeq(), time: c.time, kind: "host", text: c.text))
     }
 
+    /// What an overview is compared by, for `changed`: not the host's idle clock or its connections, and each disk in
+    /// steps of `diskStep` — a running guest's disk grows by a few KiB every few seconds (its logs), and every `changed`
+    /// makes an open sandbox page read the sandbox, which lists its sessions in the guest (`deckhold ls`) and its served
+    /// ports: two guest execs every few seconds for as long as the page was open (625, the m4air15 console).
+    static let diskStep: Int64 = 16 << 20
+    static func changeKey(_ o: WebOverview) -> WebOverview {
+        var k = o
+        k.host.idleSeconds = nil
+        k.host.connections = nil
+        for i in k.sandboxes.indices { k.sandboxes[i].diskBytes /= diskStep }
+        k.totals.diskBytes /= diskStep
+        return k
+    }
+
     private func poll(slow: Bool) async {
         // 594 W18: the host's state BEFORE the overview — which starts a host to recover a crash, so
         // only this look sees the gap that tells a kill from a clean stop.
@@ -253,10 +267,7 @@ actor WebMonitor {
         }
         lastPhases = phases
         var topics: [String] = []
-        var stable = o
-        stable.host.idleSeconds = nil
-        stable.host.connections = nil
-        if let d = try? WebJSON.encoder.encode(stable), d != lastOverview {
+        if let d = try? WebJSON.encoder.encode(Self.changeKey(o)), d != lastOverview {
             if lastOverview != nil { topics.append("overview") }
             lastOverview = d
         }
