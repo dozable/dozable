@@ -248,7 +248,7 @@ let package = Package(
             name: "doz",
             // DozableHost: `Usage.install` — the bridge `main` builds when the official package is present.
             dependencies: ["DozableCLI", "DozableHost", .product(name: "ArgumentParser", package: "swift-argument-parser")]
-                + (cloudIdentity.map { [.product(name: "DozerCloud", package: $0)] } ?? []),
+                + (cloudIdentity.map { [.product(name: "DozableCloud", package: $0)] } ?? []),
             path: "Sources/doz",
             // The bridge in main is compiled ONLY with the package (`#if DOZ_CLOUD`): `canImport` alone is not enough —
             // a module left in .build by an earlier official build would make it true in a build that does not link it.

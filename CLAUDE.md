@@ -976,7 +976,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   it is handed. Never put the sender, an endpoint, a key or any closed code here. It joins a build only through
   `DOZ_CLOUD_PACKAGE` (Package.swift adds the dependency and defines `DOZ_CLOUD`; `Sources/doz/DozableMain.swift` calls
   `Usage.install(send:flush:signup:)` under `#if DOZ_CLOUD` — `canImport` alone is wrong: a module left in `.build` by
-  an earlier official build makes it true in a build that does not link it). The audit allows `DozerCloud` in that
+  an earlier official build makes it true in a build that does not link it). The audit allows `DozableCloud` in that
   file only. Without it (`make cli`, `make test`, CI, forks) `Usage.isOfficial` is false: nothing is recorded or sent.
 - **The closed list** (`UsageSchema`): messages `installed`, `upgraded`, `daily`; every key in `UsageSchema.keys`/`nested`,
   every value a count, an ASCII range (`<=8`, `9-11`, `5-30m`), a time rounded to 50 ms (≤ 1 h, p50 ≤ p90) or a word of

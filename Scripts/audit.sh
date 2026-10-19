@@ -45,9 +45,9 @@ fail() {
 # browser terminals, confined to Sources/DozableWeb in step 1b.
 # 594: + Yams (the project file doz_project.yaml — owner ruling D9), confined to Sources/DozableCLI in step 1b.
 # 606: + dnssd (the system's Bonjour client — `doz serve` announces itself), confined in step 1b.
-# 614: + DozerCloud (the official builds' closed package — statistics and sign-up), confined in step 1b to the
+# 614: + DozableCloud (the official builds' closed package — statistics and sign-up), confined in step 1b to the
 # executable's main, under #if DOZ_CLOUD — a build from the repository never has it.
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozerCloud'
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -104,11 +104,11 @@ $WH"
 
 # 614: the official builds' closed package is reached from ONE place: the executable's main, under
 #      `#if DOZ_CLOUD` (Usage.install; Package.swift defines it only with the package). Nothing else may name it.
-DC=$(grep -rlE --include='*.swift' 'DozerCloud' "$PACKAGE/Sources" | grep -vE "/Sources/doz/DozableMain.swift$" || true)
-[[ -z "$DC" ]] || fail "DozerCloud is named outside Sources/doz/DozableMain.swift:
+DC=$(grep -rlE --include='*.swift' 'DozableCloud' "$PACKAGE/Sources" | grep -vE "/Sources/doz/DozableMain.swift$" || true)
+[[ -z "$DC" ]] || fail "DozableCloud is named outside Sources/doz/DozableMain.swift:
 $DC"
 [[ "$(grep -cE '^[[:space:]]*#if DOZ_CLOUD$' "$PACKAGE/Sources/doz/DozableMain.swift")" == 2 ]] \
-    || fail "Sources/doz/DozableMain.swift must reach DozerCloud only under #if DOZ_CLOUD (the import and the install)"
+    || fail "Sources/doz/DozableMain.swift must reach DozableCloud only under #if DOZ_CLOUD (the import and the install)"
 
 # ── 2. Denylist ──────────────────────────────────────────────────────────────
 ALTS=$(grep -v '^#' "$DENYLIST" | grep -v '^$' | paste -sd'|' -)
@@ -212,10 +212,10 @@ STRAY=$(git -C "$PACKAGE" grep --untracked -nIiE "${OLD_NAME}|${OLD_SHORT}" -- .
 $STRAY"
 
 # ── 8b. (630) The Dozable rename: no old-named type, module or file, no old recipe capability type, no old
-#        guest path (the patterns are assembled, so this script does not match itself). DozerCloud (the closed package, renamed with its own repository later) is the one exception;
-#        the GitHub org, the feed's host and the website keep their names until the org move.
+#        guest path (the patterns are assembled, so this script does not match itself). 632 moved the rest: the closed
+#        package is DozableCloud, the repository dozable/dozable, the feed updates.dozable.com.
 OLD_TYPE="Doz""er"
-STRAY2=$(git -C "$PACKAGE" grep --untracked -nIE "${OLD_TYPE}(Kit|Host|CLI|Web|Store|Settings|Images|Project|Command|Exit|Main|Entry)|com\.doz""ersandbox/|/run/doz""er([^a-z]|$)|/etc/doz""er([^a-z]|$)|skills/doz""er([^a-z]|$)" -- . \
+STRAY2=$(git -C "$PACKAGE" grep --untracked -nIE "${OLD_TYPE}(Kit|Host|CLI|Web|Store|Settings|Images|Project|Command|Exit|Main|Entry|Cloud)|com\.doz""ersandbox/|/run/doz""er([^a-z]|$)|/etc/doz""er([^a-z]|$)|skills/doz""er([^a-z]|$)" -- . \
           ':(exclude)Sources/DozableWeb/WebSource/vendor/**' ':(exclude)Sources/DozableWeb/Resources/Web/assets/vendor-*' \
           ':(exclude)Sources/DozableWeb/Resources/Web/licences/**' | head -20 || true)
 [[ -z "$STRAY2" ]] || fail "a pre-0.37 name survives (630 renamed the types to Dozable*, the recipe types to com.dozable/*, the guest paths to doz):
