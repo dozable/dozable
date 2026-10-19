@@ -83,7 +83,7 @@ REPO="$(sed -n 's/.*static let repository = "\([^"]*\)".*/\1/p' "$PACKAGE/Source
 docs=("$PACKAGE/README.md" "$PACKAGE/CONTRIBUTING.md" "$PACKAGE/docs" "$PACKAGE/Sources/DozableKit/DozableKit.docc" "$PACKAGE/Scripts/homebrew")
 wrong="$(grep -rnoE 'brew (install|tap|untap|trust|uninstall|upgrade|reinstall) [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+' "${docs[@]}" 2>/dev/null \
     | grep -v -- " $TAP\$" | grep -vE " $TAP/doz(-beta|-canary)?\$" || true)"
-wrong+="$(grep -rnoE 'github\.com/[A-Za-z0-9_.-]+/(dozer|Dozable|doz|homebrew-)[A-Za-z0-9_.-]*' "${docs[@]}" 2>/dev/null \
+wrong+="$(grep -rnoE 'github\.com/[A-Za-z0-9_.-]+/(doz|Doz|homebrew-)[A-Za-z0-9_.-]*' "${docs[@]}" 2>/dev/null \
     | grep -vE "github\.com/$REPO(\.git)?(\$|/)" | grep -vE "github\.com/${TAP%%/*}/homebrew-${TAP##*/}\$" || true)"
 if [[ -n "$wrong" ]]; then
     printf 'x distribution-names: these name another tap or repository than Distribution (tap %s, repository %s):\n%s\n' "$TAP" "$REPO" "$wrong" >&2
