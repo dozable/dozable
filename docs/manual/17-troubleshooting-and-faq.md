@@ -129,7 +129,8 @@ The host is a background process that runs your sandboxes and exits when idle. Y
 it: any command that needs it does.
 
 **How do I start completely fresh?**
-`doz uninstall`, then `brew uninstall doz`, `brew install doz` and `doz onboard`. Your project folders
+`doz uninstall`, then `brew uninstall doz`, `brew trust --tap dozable/tap`, `brew install dozable/tap/doz` and
+`doz onboard`. Your project folders
 and keychain are untouched.
 
 **Exit codes?**

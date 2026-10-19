@@ -169,6 +169,13 @@ git clone -q "$R/brew-tap-origin" "$R/brew-tap-clone"
 cat > "$R/brew" <<SH
 #!/bin/bash
 if [ "\$1" = --repository ]; then echo "$R/brew-tap-clone"; exit 0; fi
+if [ "\$1" = trust ]; then
+  echo "\$*" >> "$R/brew-trust.log"
+  if [ "\$2" = --json=v1 ]; then
+    printf '{"taps": [%s], "formulae": [], "casks": [], "commands": []}\n' "\$(sed 's/.*/"&"/' "$R/brew-trusted" 2>/dev/null | paste -sd, -)"
+  else echo "\$3" >> "$R/brew-trusted"; echo "Trusted tap: \$3"; fi
+  exit 0
+fi
 echo "\$*" >> "$R/brew.log"
 echo "no-ask=\${HOMEBREW_NO_ASK:-unset}" >> "$R/brew-env.log"
 echo "no-auto-update=\${HOMEBREW_NO_AUTO_UPDATE:-unset}" >> "$R/brew-env.log"
@@ -190,8 +197,11 @@ check "homebrew: doz upgrade -y runs brew upgrade doz" grep -qx "upgrade doz" "$
 check "  … brew's own output is not on the screen" bash -c "! grep -q '==> fake brew' <<<\"\$1\" && grep -q 'with Homebrew' <<<\"\$1\"" _ "$out"
 check "  … it is in brew.log in the settings folder" grep -q "==> fake brew upgrade doz" "$R/xdg/doz/brew.log"
 check "  … and Homebrew does not auto-update every tap first" bash -c "grep -q '^no-auto-update=1\$' '$R/brew-env.log' && ! grep -q '^no-auto-update=unset\$' '$R/brew-env.log'"
+# Newer Homebrew loads only trusted taps (owner, 2026-10-20: "make doz trust the tap automatically").
+check "  … doz trusted Dozable's tap first, and said so" bash -c "grep -qx 'trust --tap dozable/tap' '$R/brew-trust.log' && grep -q 'trusted Dozable.s Homebrew tap (dozable/tap)' <<<\"\$1\"" _ "$out"
 out="$("$DOZ" upgrade -y --verbose --store "$R/store" 2>&1)" || true
 check "homebrew: --verbose shows brew's output as it runs" grep -q "==> fake brew upgrade doz" <<<"$out"
+check "  … a tap already trusted is not trusted again" [ "$(grep -c '^trust --tap' "$R/brew-trust.log")" = 1 ]
 out="$(FAKE_BREW_FAIL=1 "$DOZ" upgrade -y --store "$R/store" 2>&1)" && rc=0 || rc=$?
 check "homebrew: a failing brew fails doz upgrade and shows brew's last lines and the log" bash -c "[ $rc != 0 ] && grep -q 'fake brew failed on purpose' <<<\"\$1\" && grep -q 'brew.log' <<<\"\$1\"" _ "$out"
 : > "$R/brew.log"
