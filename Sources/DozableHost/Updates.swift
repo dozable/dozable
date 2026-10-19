@@ -4,12 +4,16 @@ import Foundation
 
 // 611 — updates. ONE signed JSON feed, compiled in, for every channel:
 //
-//     https://updates.dozersandbox.com/v1/feed.json        (FROZEN: every doz ever shipped reads it — the /v1/ is the
-//                                                          FORMAT; a future format is /v2/ beside it, never a change here)
+//     https://updates.dozable.com/v1/feed.json             (the /v1/ is the FORMAT; a future format is /v2/ beside it,
+//                                                          never a change here)
+//
+// Every doz before 0.37.2 has https://updates.dozersandbox.com/v1/feed.json compiled in: that host is a PERMANENT 301 to
+// this one (a Cloudflare redirect rule on dozersandbox.com) and must answer forever. URLSession follows it, and the
+// signatures never cover a host.
 //
 //     { "schema": 1, "product": "doz",
 //       "entries": [ { "version": "0.31.1", "build": 3, "channel": "stable", "date": "2026-10-20",
-//                      "notes": "https://updates.dozersandbox.com/v1/notes/0.31.1.html",
+//                      "notes": "https://updates.dozable.com/v1/notes/0.31.1.html",
 //                      "archive": "https://github.com/<repository>/releases/download/v0.31.1/doz-0.31.1-macos-arm64.tar.gz",
 //                      "size": 28104184, "sha256": "…", "signature": "<base64 Ed25519>" }, … ] }
 //
@@ -25,8 +29,8 @@ import Foundation
 
 /// Where Dozable is distributed — the ONE place these names live (the Makefile and the scripts read them from here).
 public enum Distribution {
-    /// The feed (frozen forever — see above).
-    public static let feedURL = "https://updates.dozersandbox.com/v1/feed.json"
+    /// The feed (see above: the earlier host redirects here, forever).
+    public static let feedURL = "https://updates.dozable.com/v1/feed.json"
     /// The Homebrew tap: `brew install <tap>/doz` (the repository `<org>/homebrew-<name>`).
     public static let tap = "dozable/tap"
     /// Earlier names of the same tap. GitHub redirects a moved repository, so a Mac that tapped one keeps it under

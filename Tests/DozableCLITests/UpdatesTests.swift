@@ -21,7 +21,7 @@ final class UpdatesTests: XCTestCase {
     override func tearDownWithError() throws { try? FileManager.default.removeItem(at: dir) }
 
     func entry(_ v: String, build: Int, channel: String, sign: Curve25519.Signing.PrivateKey? = nil) -> UpdateEntry {
-        var e = UpdateEntry(version: v, build: build, channel: channel, date: "2026-10-09", notes: "https://updates.dozersandbox.com/v1/notes/\(v).html",
+        var e = UpdateEntry(version: v, build: build, channel: channel, date: "2026-10-09", notes: "https://updates.dozable.com/v1/notes/\(v).html",
                             archive: "https://github.com/dozable/dozable/releases/download/v\(v)/doz-\(v)-macos-arm64.tar.gz",
                             size: 1000 + build, sha256: String(repeating: "ab", count: 32), signature: "")
         e.signature = try! (sign ?? key).signature(for: UpdateSignature.message(e)).base64EncodedString()
@@ -35,7 +35,7 @@ final class UpdatesTests: XCTestCase {
     func ctx(_ current: String = "0.31.0", channel: UpdateChannel = .stable, mode: UpdateMode = .notify,
              method: InstallMethod = .tarball(prefix: URL(fileURLWithPath: "/x"))) -> UpdateContext {
         UpdateContext(mode: mode, channel: channel, current: current, method: method,
-                      feedURL: URL(string: "https://updates.dozersandbox.com/v1/feed.json")!, publicKey: pub,
+                      feedURL: URL(string: "https://updates.dozable.com/v1/feed.json")!, publicKey: pub,
                       stateURL: dir.appendingPathComponent("updates.json"), testWithoutFeed: false)
     }
 
@@ -63,7 +63,7 @@ final class UpdatesTests: XCTestCase {
     // MARK: the feed
 
     func testTheFeedURLIsFrozenAndVersioned() {
-        XCTAssertEqual(Distribution.feedURL, "https://updates.dozersandbox.com/v1/feed.json")
+        XCTAssertEqual(Distribution.feedURL, "https://updates.dozable.com/v1/feed.json")
         XCTAssertEqual(UpdateChannel.stable.formula, "doz")
         XCTAssertEqual(UpdateChannel.beta.formula, "doz-beta")
         XCTAssertEqual(UpdateChannel.canary.formula, "doz-canary")
@@ -137,9 +137,9 @@ final class UpdatesTests: XCTestCase {
         let c = ctx()
         let t0 = Date(timeIntervalSince1970: 1_791_500_000)
         _ = await UpdateChecker.check(c, now: t0, fetch: server.fetch)
-        XCTAssertEqual(server.requests.last?.url?.absoluteString, "https://updates.dozersandbox.com/v1/feed.json", "the daily check: the plain URL")
+        XCTAssertEqual(server.requests.last?.url?.absoluteString, "https://updates.dozable.com/v1/feed.json", "the daily check: the plain URL")
         _ = await UpdateChecker.check(c, manual: true, now: t0, fetch: server.fetch)
-        XCTAssertEqual(server.requests.last?.url?.absoluteString, "https://updates.dozersandbox.com/v1/feed.json?t=1791500000", "doz upgrade: a cache key of its own")
+        XCTAssertEqual(server.requests.last?.url?.absoluteString, "https://updates.dozable.com/v1/feed.json?t=1791500000", "doz upgrade: a cache key of its own")
         _ = await UpdateChecker.check(c, force: true, now: t0.addingTimeInterval(7), fetch: server.fetch)
         XCTAssertEqual(server.requests.last?.url?.query, "t=1791500007", "doz ui's start too")
     }
@@ -226,10 +226,10 @@ final class UpdatesTests: XCTestCase {
         let set = UpdateContext.current(version: "0.32.0-rc.1", executable: cellar, settings: s, env: [:])
         XCTAssertEqual(set.channel, .stable)
         XCTAssertEqual(UpdateChecker.noticeLine(entry("0.32.0", build: 9, channel: "stable"), set),
-                       "doz 0.32.0 is available — upgrade: doz upgrade --channel stable (notes: https://updates.dozersandbox.com/v1/notes/0.32.0.html)",
+                       "doz 0.32.0 is available — upgrade: doz upgrade --channel stable (notes: https://updates.dozable.com/v1/notes/0.32.0.html)",
                        "another channel's formula: the switch, not brew upgrade")
         XCTAssertEqual(UpdateChecker.noticeLine(entry("0.32.0", build: 9, channel: "stable"), ctx(method: .homebrew(formula: "doz"))),
-                       "doz 0.32.0 is available — upgrade: doz upgrade -y (notes: https://updates.dozersandbox.com/v1/notes/0.32.0.html)",
+                       "doz 0.32.0 is available — upgrade: doz upgrade -y (notes: https://updates.dozable.com/v1/notes/0.32.0.html)",
                        "doz upgrade -y, which refreshes Dozable's tap first — a bare brew upgrade can miss the release")
         XCTAssertEqual(UpdateChecker.installedLine("0.32.0"), "Updated to 0.32.0 — restart to apply: doz host restart")
     }

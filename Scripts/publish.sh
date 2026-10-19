@@ -37,7 +37,7 @@ FEED_URL="$(dist_value feedURL)"
 REPOSITORY="${REPOSITORY:-$(dist_value repository)}"
 TEAM_ID="$(dist_value teamID)"
 PUBLIC_KEY="${UPDATE_PUBLIC_KEY:-$(dist_value updatePublicKey)}"
-SITE="$(sed -E 's#^https://([^/]+)/.*#\1#' <<<"$FEED_URL")"         # updates.dozersandbox.com
+SITE="$(sed -E 's#^https://([^/]+)/.*#\1#' <<<"$FEED_URL")"         # updates.dozable.com
 FEED_DIR="$(sed -E 's#^https://[^/]+/(.*)/feed\.json$#\1#' <<<"$FEED_URL")"   # v1
 
 [[ -n "$VERSION" ]] || fail "VERSION=X.Y.Z (the release make release built)"

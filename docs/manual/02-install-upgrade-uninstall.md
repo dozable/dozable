@@ -62,7 +62,7 @@ previous version as `libexec/doz.previous`.
 doz tells you when a new release is out — one line after a command on your terminal, and a banner on the
 dashboard:
 
-> doz 0.31.1 is available — upgrade: doz upgrade -y (notes: https://updates.dozersandbox.com/v1/notes/0.31.1.html)
+> doz 0.31.1 is available — upgrade: doz upgrade -y (notes: https://updates.dozable.com/v1/notes/0.31.1.html)
 
 ```sh
 doz upgrade -y            # or doz upgrade: it shows the version and the notes, and asks first
@@ -79,7 +79,7 @@ its taps only now and then, so a plain `brew upgrade doz` can say there is nothi
 directly, run `brew update` first.
 
 - **How it knows.** At most once a day (and when `doz ui` starts), doz reads one small file,
-  `https://updates.dozersandbox.com/v1/feed.json`, signed with Dozable's own key; anything that doesn't verify
+  `https://updates.dozable.com/v1/feed.json`, signed with Dozable's own key; anything that doesn't verify
   is ignored. Nothing about you or your sandboxes is sent — only the request, with doz's version and channel
   in its user agent. Offline, it says nothing. Never with `--json` or `-q`, or when not on a terminal.
 - **The setting `updates.mode`**: `notify` (the default), `auto` — doz also installs the update itself (through
@@ -226,7 +226,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 | symptom | what to do |
 |---|---|
 | `brew install` says another doz formula is installed | One channel at a time: `doz upgrade --channel …` switches (or `brew uninstall` the other first). |
-| "the update feed was ignored" / "do not verify" | Nothing is installed from it; doz keeps working. If it persists, check your network isn't rewriting `updates.dozersandbox.com`. |
+| "the update feed was ignored" / "do not verify" | Nothing is installed from it; doz keeps working. If it persists, check your network isn't rewriting `updates.dozable.com`. |
 | `doz: command not found` | `brew list doz`, then open a new terminal window. |
 | "this host's program … is gone — an upgrade removed it" | `doz host stop`, then run your command again. |
 | "cannot boot a VM" or a message about the entitlement | `doz doctor`. Reinstall: `brew reinstall doz`. |

@@ -22,5 +22,5 @@
 # DOZ_CLOUD_REF     =
 
 # Where `make publish` / `make promote` write (local checkouts; nothing is pushed unless PUSH=1):
-# UPDATES_DIR = /path/to/a/checkout/of/the/updates-site    (the GitHub Pages repo behind updates.dozersandbox.com)
+# UPDATES_DIR = /path/to/a/checkout/of/the/updates-site    (the GitHub Pages repo behind updates.dozable.com)
 # TAP_DIR     = /path/to/a/checkout/of/homebrew-tap         (the Homebrew tap: Formula/doz.rb, doz-beta.rb, doz-canary.rb)

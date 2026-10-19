@@ -1033,7 +1033,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 
 ### Updates: the signed feed, channels, `doz upgrade`
 
-- **ONE feed, frozen, compiled in**: `https://updates.dozersandbox.com/v1/feed.json` (`Distribution.feedURL` in
+- **ONE feed, compiled in**: `https://updates.dozable.com/v1/feed.json` since 0.37.2 — every earlier doz asks
+  `https://updates.dozersandbox.com/v1/feed.json`, a PERMANENT 301 to it (a Cloudflare redirect rule on dozersandbox.com:
+  never remove it, and never let dozersandbox.com lapse); `publish.sh` writes the Pages `CNAME` from this constant
+  (`Distribution.feedURL` in
   `Sources/DozableHost/Updates.swift` — with `tap`, `repository`, `teamID` and `updatePublicKey`, the ONE place these
   names live; the scripts read them with `sed`, and `docs-drift-check` fails on a doc naming another tap/repo). `/v1/`
   is the FORMAT — a new format is `/v2/` beside it, never a change to v1. All three channels in one file, each entry

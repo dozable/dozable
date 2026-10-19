@@ -554,7 +554,7 @@ public struct DozableSettings: Sendable {
             .init("agent", "prompt", .bool, .bool(true),
                   "Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox, its /workspace share, the network, credentials) and the doz skill, written at every session start. Your own template: agent-prompt.md beside this file.",
                   applies: .nextSession),
-            // 611: updates — the feed is updates.dozersandbox.com/v1/feed.json (signed; Distribution in Updates.swift).
+            // 611: updates — the feed is updates.dozable.com/v1/feed.json (signed; Distribution in Updates.swift).
             .init("updates", "mode", .choice(["off", "notify", "auto"]), .string("notify"),
                   "Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz host restart), or off (never look). Never a downgrade; a feed that does not verify is ignored.",
                   env: "DOZ_UPDATES", applies: .nextCommand),
