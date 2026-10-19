@@ -17,7 +17,8 @@ struct UpdateCommand: AsyncParsableCommand {
         Channels: stable, beta (beta and stable releases), canary (every build first). A Homebrew install has one \
         formula per channel (doz, doz-beta, doz-canary): --channel switches formulas — Homebrew uninstalls one and \
         installs the other; your store, sandboxes and settings stay. A running host keeps its build until \
-        doz host restart. The setting updates.mode decides what doz does by itself: notify (default), auto or off. \
+        doz host restart. Homebrew's own output is kept in brew.log in the settings folder and shown when brew fails; \
+        -v shows it as it runs. The setting updates.mode decides what doz does by itself: notify (default), auto or off. \
         Exit codes: 0 · 10 with --check when an update is available.
         """,
         aliases: ["update"])
@@ -26,6 +27,9 @@ struct UpdateCommand: AsyncParsableCommand {
     @Flag(name: .long, help: "Only look: say whether a newer doz is available (exit 10 when it is).") var check = false
     @Option(name: .long, help: "Switch to this channel: stable, beta or canary (asks first; --yes skips the question).") var channel: String?
     @Flag(name: [.short, .long], help: "Do not ask (needed off a terminal).") var yes = false
+    /// 626: the global -v/--verbose also shows Homebrew's own output as it runs (otherwise it is kept in brew.log in the
+    /// settings folder, and shown only when brew fails).
+    var verbose: Bool { g.verbose }
 
     /// Run as `doz update` (the first name): said once, and it never asks — as it did.
     var asUpdate: Bool {
@@ -78,12 +82,13 @@ struct UpdateCommand: AsyncParsableCommand {
         try confirm("Upgrade doz \(ctx.current) → \(e.version) (\(ctx.channel.rawValue))? Notes: \(e.notes ?? "on the release page")",
                     yes: yes || asUpdate, g)
         do {
-            let line = try await UpdateHook.install(e, ctx, store: g.dozerStore, quiet: g.json)
+            let line = try await UpdateHook.install(e, ctx, store: g.dozerStore, quiet: g.json, verbose: verbose)
             a.installed = e.version
             if g.json { Out.json(a) } else { Out.stdout(line + "\n") }
         } catch {
             throw fail(HostError(.failed, "\(error)"), g)
         }
+        offerHostRestart(e.version)
     }
 
     /// `--channel X`: the setting, and for a Homebrew install the formula of that channel — never an older build.
@@ -114,14 +119,37 @@ struct UpdateCommand: AsyncParsableCommand {
         if let busy = UpdateInstaller.busyReason(store: g.dozerStore) {
             Out.stderr("note: \(busy) — they keep running on doz \(before.current) until doz host restart\n")
         }
-        Out.stderr("switching Homebrew formulas: \(formula) → \(c.formula) (\(Distribution.tap)/\(c.formula)); your store and settings stay\n")
+        Out.stderr("switching Homebrew formulas: \(formula) → \(c.formula) (\(Distribution.tap)/\(c.formula)); your store and settings stay…\n")
+        let log = UpdateHook.brewLog(ctx, verbose: verbose)
         do {
-            try UpdateInstaller.switchFormula(from: formula, to: c.formula, brew: brew) { Out.stderr($0) }
+            try UpdateInstaller.switchFormula(from: formula, to: c.formula, brew: brew) { text in
+                if let log { log.append(text) } else { Out.stderr(text) }
+            }
         } catch {
-            throw fail(HostError(.failed, "\(error)"), g)
+            throw fail(HostError(.failed, "\(error)" + (log?.failureNote() ?? "")), g)
         }
         UpdateHook.recordInstalled(newest!, ctx)
         Out.stdout("doz is now \(c.formula) (\(c.rawValue)) — \(UpdateHook.afterInstallLine(newest!, store: g.dozerStore))\n")
+        offerHostRestart(newest!)
+    }
+
+    /// 626 (owner: one next step at the end): a person at a terminal, a host of the previous build running, no -y —
+    /// offer the restart now, run by the NEW doz (this process is the old build, and Homebrew's cleanup may already
+    /// have removed its keg): `<Homebrew's bin>/doz host restart`. No (the default), or nothing to run: the line
+    /// already said how.
+    func offerHostRestart(_ version: String) {
+        let store = g.dozerStore
+        guard !yes, !asUpdate, !g.json, !g.quiet, store.hostIsRunning(),
+              isatty(STDIN_FILENO) == 1, isatty(STDOUT_FILENO) == 1,
+              let brew = UpdateInstaller.brew() else { return }
+        let doz = URL(fileURLWithPath: brew).deletingLastPathComponent().appendingPathComponent("doz").path
+        guard FileManager.default.isExecutableFile(atPath: doz),
+              (try? confirm("Restart the doz host now? Running sandboxes hibernate and wake on \(version)", yes: false, g)) != nil
+        else { return }
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: doz)
+        p.arguments = ["host", "restart", "--store", store.root.path]
+        do { try p.run(); p.waitUntilExit() } catch { Out.stderr("doz: could not run \(doz) host restart: \(error.localizedDescription)\n") }
     }
 }
 
@@ -135,8 +163,15 @@ enum UpdateHook {
         }
     }
 
+    /// Where brew's output goes (626): the log beside updates.json — or, `--verbose`, through to the screen as before.
+    static func brewLog(_ ctx: UpdateContext, verbose: Bool) -> UpdateInstaller.BrewLog? {
+        if verbose { return nil }
+        let folder: URL = ctx.stateURL?.deletingLastPathComponent() ?? FileManager.default.temporaryDirectory
+        return UpdateInstaller.BrewLog(folder.appendingPathComponent("brew.log"))
+    }
+
     /// Install `e` the way this doz was installed. Returns the line to show.
-    static func install(_ e: UpdateEntry, _ ctx: UpdateContext, store: DozerStore, quiet: Bool) async throws -> String {
+    static func install(_ e: UpdateEntry, _ ctx: UpdateContext, store: DozerStore, quiet: Bool, verbose: Bool = false) async throws -> String {
         let say: @Sendable (String) -> Void = { text in if !quiet { Out.stderr(text) } }
         switch ctx.method {
         case .development:
@@ -146,10 +181,12 @@ enum UpdateHook {
                 throw UpdateInstaller.Failure("this doz is the \(f.rawValue) formula (\(formula)) and updates.channel is \(ctx.channel.rawValue) — doz upgrade --channel \(ctx.channel.rawValue) switches")
             }
             guard let brew = UpdateInstaller.brew() else { throw UpdateInstaller.Failure("Homebrew's brew was not found — upgrade with: brew upgrade \(formula)") }
-            say("updating doz to \(e.version): brew upgrade \(formula)\n")
+            let log = brewLog(ctx, verbose: verbose)
+            let brewOut: @Sendable (String) -> Void = { text in if let log { log.append(text) } else { say(text) } }
+            say("upgrading doz \(ctx.current) → \(e.version) with Homebrew (brew upgrade \(formula))…\n")
             UpdateInstaller.refreshTap(brew: brew, output: say)
-            guard UpdateInstaller.runBrew(brew, ["upgrade", formula], output: say) == 0 else {
-                throw UpdateInstaller.Failure("brew upgrade \(formula) failed — doz \(ctx.current) is unchanged")
+            guard UpdateInstaller.runBrew(brew, ["upgrade", formula], output: brewOut) == 0 else {
+                throw UpdateInstaller.Failure("brew upgrade \(formula) failed — doz \(ctx.current) is unchanged" + (log?.failureNote() ?? ""))
             }
         case .tarball(let prefix):
             say("updating doz to \(e.version): downloading \(e.archiveName) (\(e.size / 1_048_576) MiB) — checked against its signature before anything changes\n")
