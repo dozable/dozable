@@ -654,7 +654,7 @@ final class UsageTests: XCTestCase {
         let env = ["XDG_CONFIG_HOME": dir.path]
         let step = try XCTUnwrap(UsageStatsStep.make(official: true, settings: .load(environment: env), env: env))
         XCTAssertEqual(try step.save(true, environment: env), [], "Yes on a default install writes nothing")
-        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("dozer-sandbox/doz.toml").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: dir.appendingPathComponent("doz/doz.toml").path))
         XCTAssertEqual(try step.save(false, environment: env), ["telemetry.send_anonymous_usage_stats = false"])
         XCTAssertEqual(DozableSettings.load(environment: env).fileValues[SettingKey.sendUsageStats], .bool(false))
         let again = try XCTUnwrap(UsageStatsStep.make(official: true, settings: .load(environment: env), env: env))

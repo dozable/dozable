@@ -222,7 +222,7 @@ final class WorkspaceRulesHostTests: XCTestCase {
 
     func testTheOnboardingWritesTheDefaultModeOnlyWhenChosen() throws {
         let env = ["XDG_CONFIG_HOME": root.appendingPathComponent("xdg").path]
-        let file = root.appendingPathComponent("xdg/dozer-sandbox/doz.toml")
+        let file = root.appendingPathComponent("xdg/doz/doz.toml")
         XCTAssertEqual(try Onboarding.writeIgnoreMode("hide", environment: env), ["workspace.ignore_mode = hide"])
         XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.ignoreMode), "hide")
         let text = try String(contentsOf: file, encoding: .utf8)

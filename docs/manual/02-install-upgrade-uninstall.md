@@ -10,9 +10,9 @@ machines. You install it with Homebrew.
   without that, macOS refuses to boot virtual machines. A copy you build yourself without signing can
   run every command except the ones that boot a VM, and `doz doctor` says so.
 - **The store** is where your sandboxes, images and restore points live:
-  `~/Library/Application Support/dozer-sandbox` unless you choose another (see
+  `~/Library/Application Support/doz` unless you choose another (see
   [Settings reference](15-settings-reference.md), `store.path`). Upgrading `doz` never touches it.
-- **The settings** live in `~/.config/dozer-sandbox/doz.toml`, beside your agent prompt template
+- **The settings** live in `~/.config/doz/doz.toml`, beside your agent prompt template
   (`agent-prompt.md`). Upgrading never touches them either.
 - **The host** is a background `doz` process that runs your sandboxes. A running host keeps using the
   version of `doz` it started as, which is why upgrading has one extra step (below).
@@ -71,7 +71,7 @@ doz host restart
 `doz upgrade` refreshes Dozable's tap first, then runs `brew upgrade` for your channel's formula. It always asks the
 feed itself (past any cached copy), so a release is there the minute it is published. Its first name, `doz update`,
 still works. Homebrew's own output stays off the screen: no update of your other taps first, and what brew prints
-goes to `brew.log` in doz's settings folder (`~/.config/dozer-sandbox/brew.log`) — shown when brew fails, or as it
+goes to `brew.log` in doz's settings folder (`~/.config/doz/brew.log`) — shown when brew fails, or as it
 runs with `doz upgrade --verbose`. When a host of the previous version is running, `doz upgrade` (without `-y`)
 then asks whether to restart it now. Homebrew refreshes
 its taps only now and then, so a plain `brew upgrade doz` can say there is nothing new for up to a day; with brew
@@ -169,7 +169,7 @@ its place and size, then asks once:
 
 - **the store**: every sandbox, image, kernel, restore point and template, and the host's log and metrics;
 - **the settings folder**: `doz.toml`, `agent-prompt.md`, and the update and usage records;
-- **the download cache** (`~/Library/Caches/dozer-sandbox`);
+- **the download cache** (`~/Library/Caches/doz`);
 - **the keychain items Dozable made**: your accounts' keys and the default GitHub key.
 
 `--dry-run` lists and removes nothing; `--yes` skips the question. A running host is stopped first; a running
@@ -189,7 +189,7 @@ Don't have a Homebrew `doz` and a source-built one on your `PATH` at the same ti
 
 | key | default | what it does |
 |---|---|---|
-| `store.path` | `~/Library/Application Support/dozer-sandbox` | Where the store lives (`--store`, `$DOZ_STORE`). |
+| `store.path` | `~/Library/Application Support/doz` | Where the store lives (`--store`, `$DOZ_STORE`). |
 | `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits (`0` = never). |
 | `updates.mode` | `notify` | `notify`, `auto` or `off` (`$DOZ_UPDATES`). |
 | `updates.channel` | `stable` | `stable`, `beta` or `canary` — a Homebrew install's formula decides while it is not set. |

@@ -45,7 +45,7 @@ DOZVIEW_RES := Sources/DozableKit/Resources/dozview
 CLI_BIN        := .build/debug/doz
 PREFIX        ?= $(HOME)/.local
 # The CLI's VM integration suite drives the REAL signed binary from separate processes, in a
-# SCRATCH store (never ~/Library/Application Support/dozer-sandbox).
+# SCRATCH store (never ~/Library/Application Support/doz).
 CLITEST_STORE ?= $(or $(TMPDIR),/tmp/)doz-clitest-store
 # 588: the Claude-credentials suite's scratch store (the claude-code image is cloned from the vmtest store).
 CLAUDETEST_STORE ?= $(or $(TMPDIR),/tmp/)doz-claudetest-store
@@ -96,8 +96,8 @@ endif
 # The scratch settings file every test target starts from (written once; a test that changes it keeps its own).
 test-safety:
 	@if [ "$(DOZ_TEST_REAL_MAC)" = 1 ]; then echo "note: DOZ_TEST_REAL_MAC=1 — the test-safety defaults are OFF for this run"; exit 0; fi; \
-	mkdir -p "$(TEST_SCRATCH)-codex-home" "$(TEST_XDG)/dozer-sandbox" "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects"; \
-	f="$(TEST_XDG)/dozer-sandbox/doz.toml"; \
+	mkdir -p "$(TEST_SCRATCH)-codex-home" "$(TEST_XDG)/doz" "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects"; \
+	f="$(TEST_XDG)/doz/doz.toml"; \
 	grep -qE '^path = "/' "$$f" 2>/dev/null && grep -qE '^projects_dir = "/' "$$f" 2>/dev/null || \
 	  printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects" > "$$f"
 

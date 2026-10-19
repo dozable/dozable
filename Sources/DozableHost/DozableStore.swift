@@ -19,7 +19,7 @@ public struct DozableStore: Sendable, Equatable {
     public init(root: URL) { self.root = root.standardizedFileURL }
 
     /// `--store`, else `$DOZ_STORE`, else the settings file's `store.path`, else
-    /// `~/Library/Application Support/dozer-sandbox`.
+    /// `~/Library/Application Support/doz`.
     public static func resolve(_ option: String?, environment: [String: String] = ProcessInfo.processInfo.environment) -> DozableStore {
         if let o = option, !o.isEmpty { return DozableStore(root: URL(fileURLWithPath: (o as NSString).expandingTildeInPath)) }
         if let e = environment["DOZ_STORE"], !e.isEmpty { return DozableStore(root: URL(fileURLWithPath: (e as NSString).expandingTildeInPath)) }
@@ -27,7 +27,7 @@ public struct DozableStore: Sendable, Equatable {
             return DozableStore(root: URL(fileURLWithPath: (p as NSString).expandingTildeInPath))
         }
         return DozableStore(root: FileManager.default.homeDirectoryForCurrentUser
-            .appendingPathComponent("Library/Application Support/dozer-sandbox"))
+            .appendingPathComponent("Library/Application Support/doz"))
     }
 
     public var socket: URL { root.appendingPathComponent("host.sock") }

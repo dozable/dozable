@@ -83,7 +83,7 @@ func cliOnboardingSuite(binary: String) async {
     // ── A: the lab, from nothing prepared: onboard + a joining start; init + up; D17 ─────────────
     let a = onboardingHarness(binary, "a", seed: ["kernels", "content", "state.json", "initfs.ext4"])
     let xdg = URL(fileURLWithPath: a.env["XDG_CONFIG_HOME"]!)
-    let toml = xdg.appendingPathComponent("dozer-sandbox/doz.toml")
+    let toml = xdg.appendingPathComponent("doz/doz.toml")
     defer {
         a.run(["host", "stop"])
         try? FileManager.default.removeItem(at: a.store)
@@ -92,7 +92,7 @@ func cliOnboardingSuite(binary: String) async {
     var r = a.run(["onboard", "--no-images", "--account", "later"], timeout: 120)
     check(r.code == 0 && r.out.contains("Done — this Mac is onboarded"), "onboard --no-images --account skip, no terminal, no --yes: completes without asking (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nimage = \"claude-code\"\n") == true, "doz.toml written, with defaults.image set")
-    check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("dozer-sandbox/agent-prompt.md").path), "agent-prompt.md written beside it")
+    check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("doz/agent-prompt.md").path), "agent-prompt.md written beside it")
     check(OnboardingRecord.read(DozableStore(root: a.store)) != nil, "onboarded.json recorded")
     check(r.out.contains("3. Workspace rules") && r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "workspace.ignore_mode NOT written (only when chosen)")
@@ -233,14 +233,14 @@ func cliOnboardingSuite(binary: String) async {
           "off: the next session start removed both")
     c.run(["config", "unset", "agent.prompt"])
     // Your own template replaces the built-in one, from the next session.
-    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"), atomically: true, encoding: .utf8)
+    try? "<!-- mine -->\nCustom: {{sandbox.name}} sees {{workspace.host_path}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     c.run(["run", "pp", "--detach", "--session", "later1", "--", "sleep", "300"])
     check(c.run(["exec", "pp", "--", "cat", "/run/dozer/agent-prompt.md"]).out == "Custom: pp sees \(cws.path)\n\nProject rule: pp runs the tests with make test.\n",
           "agent-prompt.md (the user's template) replaces the built-in one at the next session; the sandbox's own still appended")
-    try? "Tests: {{sandbox.nmae}}".write(to: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"), atomically: true, encoding: .utf8)
+    try? "Tests: {{sandbox.nmae}}".write(to: cxdg.appendingPathComponent("doz/agent-prompt.md"), atomically: true, encoding: .utf8)
     r = c.run(["run", "pp", "--detach", "--session", "later2", "--", "sleep", "300"])
     check(r.code != 0 && r.err.contains("{{sandbox.nmae}} is not a variable"), "an unknown variable: the session does not start, and says why")
-    try? FileManager.default.removeItem(at: cxdg.appendingPathComponent("dozer-sandbox/agent-prompt.md"))
+    try? FileManager.default.removeItem(at: cxdg.appendingPathComponent("doz/agent-prompt.md"))
     c.run(["rm", "pp", "--yes"])
 
     print("cli: the environment prompt — claude-code, in Claude Code's argv (D15)")
@@ -375,7 +375,7 @@ func cliOnboardingSuite(binary: String) async {
     uh.env["DOZ_TEST_CREDENTIALS"] = "memory"
     check(uh.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "an installed copy, onboarded on a throwaway store")
     uh.run(["host", "stop"])
-    let config = u.appendingPathComponent("xdg/dozer-sandbox")
+    let config = u.appendingPathComponent("xdg/doz")
     r = uh.run(["uninstall"])
     check(r.code == 5 && r.out.contains(ustore.path) && r.out.contains(config.path) && r.out.contains(libexec.path)
           && r.out.contains("the keychain (never touched)"), "no terminal, no --yes: it lists exactly what goes, and refuses (exit \(r.code))")

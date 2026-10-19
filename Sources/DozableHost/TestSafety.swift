@@ -27,7 +27,7 @@ public enum TestSafety {
 
     /// The default store a person's Dozer uses.
     public static func defaultStore(home: URL = realHome) -> URL {
-        home.appendingPathComponent("Library/Application Support/dozer-sandbox").standardizedFileURL
+        home.appendingPathComponent("Library/Application Support/doz").standardizedFileURL
     }
 
     /// Why using `store` is refused in a guarded run (nil: allowed). The default store and anything inside it.

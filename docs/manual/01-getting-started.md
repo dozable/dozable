@@ -94,7 +94,7 @@ Details: [Setting up](03-setting-up.md).
   every connection goes through the proxy, which allows only what you permit, and logs it.
 - **Your credentials never enter a sandbox.** The agent sees a stand-in; the proxy adds your real
   login as each request leaves for Anthropic.
-- **Two files hold your choices:** `~/.config/dozer-sandbox/doz.toml` (your settings for this Mac)
+- **Two files hold your choices:** `~/.config/doz/doz.toml` (your settings for this Mac)
   and a project's `doz_project.yaml` (its sandbox). Everything else is kept by the host.
 
 ## Usage statistics and sign-up

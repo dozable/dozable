@@ -89,7 +89,7 @@ with Apple's `container` command.
 |---|---|---|
 | `resources.clean_unused_days` | `30` | Clean up removes a prepared image no sandbox was made from in this many days (1–3650). It's prepared again when next needed. |
 | `host.boot_logs_kept` | `5` | Boots kept per sandbox. |
-| `store.path` | `~/Library/Application Support/dozer-sandbox` | Where the store is. |
+| `store.path` | `~/Library/Application Support/doz` | Where the store is. |
 
 ## Troubleshooting
 

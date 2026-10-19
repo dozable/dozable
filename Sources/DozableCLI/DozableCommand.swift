@@ -82,7 +82,7 @@ public enum ProgressFlag: String, ExpressibleByArgument, Sendable {
 
 /// Options every command takes.
 public struct GlobalOptions: ParsableArguments {
-    @Option(name: .long, help: "The store directory (default $DOZ_STORE, else the settings' store.path, else ~/Library/Application Support/dozer-sandbox).")
+    @Option(name: .long, help: "The store directory (default $DOZ_STORE, else the settings' store.path, else ~/Library/Application Support/doz).")
     public var store: String?
 
     @Flag(name: .long, help: "Machine-readable output (JSON on stdout).")

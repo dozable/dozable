@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 
 // 591 settings (owner request): ONE closed, typed schema of every user-facing setting, a TOML file
-// generated from it (`${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml` — the product is
+// generated from it (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` — the product is
 // Dozer Sandbox since 592), and one resolution rule everywhere:
 //
 //     a command-line flag  >  its environment variable  >  the file  >  the default
@@ -426,7 +426,7 @@ public enum SettingKey {
 }
 
 public struct DozableSettings: Sendable {
-    public static let directoryName = "dozer-sandbox"
+    public static let directoryName = "doz"
     public static let fileName = "doz.toml"
 
     // MARK: the schema
@@ -524,7 +524,7 @@ public struct DozableSettings: Sendable {
             .init("host", "keepalive", .bool, .bool(false),
                   "Near a Mac login's expiry, while a sandbox uses it and no Claude Code runs, the host runs the Mac's claude once to renew it.",
                   applies: .newStore),
-            .init("store", "path", .path, .string("~/Library/Application Support/dozer-sandbox"),
+            .init("store", "path", .path, .string("~/Library/Application Support/doz"),
                   "The store: images, kernels, sandboxes and the host's files.",
                   env: "DOZ_STORE", flag: "--store", applies: .nextCommand, ui: false),
             .init("claude", "permissions", .choice(["skip", "ask"]), .string("skip"),
@@ -674,7 +674,7 @@ public struct DozableSettings: Sendable {
 
     // MARK: the file
 
-    /// `${XDG_CONFIG_HOME:-$HOME/.config}/dozer-sandbox/doz.toml`. XDG_CONFIG_HOME counts only when
+    /// `${XDG_CONFIG_HOME:-$HOME/.config}/doz/doz.toml`. XDG_CONFIG_HOME counts only when
     /// absolute (the XDG rule). Nil when neither is set (then there is no file: defaults only).
     public static func fileURL(environment env: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
         let base: URL
@@ -698,8 +698,8 @@ public struct DozableSettings: Sendable {
     /// The file did not parse: none of it applies, and it is not overwritten.
     public let fileError: String?
     public let fileExists: Bool
-    /// What `defaults.projects_dir` means while unset on this Mac: `~/dozer-sandbox-workspaces` when that
-    /// folder already exists, else `~/doz-workspaces` (`Workspace.unsetProjectsDir`).
+    /// What `defaults.projects_dir` means while unset: `~/doz-workspaces` (`Workspace.unsetProjectsDir`;
+    /// tests inject another).
     public let unsetProjectsDir: String
 
     /// Read the file named by `environment` (defaults only when there is none).

@@ -29,7 +29,7 @@ def flat(doc):
             "lifecycle": caps.get("com.dozersandbox/currency@1", {}).get("lifecycle")}
 OUT = os.path.join(REPO, "profiles/currency.json")
 TODAY = datetime.date.today()
-UA = {"User-Agent": "dozer-sandbox-agent-currency (read-only)"}
+UA = {"User-Agent": "dozable-agent-currency (read-only)"}
 
 def get(url, method="GET", accept="application/json"):
     req = urllib.request.Request(url, method=method, headers=dict(UA, Accept=accept))

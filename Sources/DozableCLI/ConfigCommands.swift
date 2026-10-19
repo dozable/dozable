@@ -3,7 +3,7 @@ import Foundation
 import DozableKit
 import DozableHost
 
-// 591 settings — `doz config`: the settings file (`${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml`),
+// 591 settings — `doz config`: the settings file (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml`),
 // its effective values and where each came from. One closed schema (`DozableSettings.schema`); the
 // file is regenerated from it on every write, atomically, 0600.
 
@@ -188,7 +188,7 @@ struct ConfigInit: AsyncParsableCommand {
 }
 
 struct ConfigPath: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "path", abstract: "Where the settings file is (${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml).")
+    static let configuration = CommandConfiguration(commandName: "path", abstract: "Where the settings file is (${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml).")
     @OptionGroup var g: GlobalOptions
 
     func run() async throws {

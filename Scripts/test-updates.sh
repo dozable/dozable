@@ -94,7 +94,7 @@ check "notify: one line on stderr after a command" grep -q "doz $B is available"
 check "  … within a day: no new request" [ "$(requests)" = "$n0" ]
 err="$(DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls --store "$R/store" 2>&1 >/dev/null)"
 check "  … the same version is not said again the same day" bash -c "! grep -q 'is available' <<<'$err'"
-rm -f "$R/xdg/dozer-sandbox/updates.json"
+rm -f "$R/xdg/doz/updates.json"
 err="$(DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls --json --store "$R/store" 2>&1 >/dev/null)"
 check "never with --json" bash -c "! grep -q 'is available' <<<'$err'"
 err="$(DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls -q --store "$R/store" 2>&1 >/dev/null)"
@@ -145,7 +145,7 @@ touch -t 203001010000 "$R/www/v1/feed.json"     # a new Last-Modified: not a 304
 
 # auto, a tarball install: idle (no host) → download, verify, atomic swap, the previous kept.
 "$DOZ" config set updates.mode auto --store "$R/store" >/dev/null
-rm -f "$R/xdg/dozer-sandbox/updates.json"
+rm -f "$R/xdg/doz/updates.json"
 err="$(DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls --store "$R/store" 2>&1 >/dev/null)" || true
 check "auto: installed $C (the next command runs it)" grep -q "Updated to $C" <<<"$err"
 check "  … libexec/doz is $C" [ "$("$DOZ" --version)" = "$C" ]
@@ -188,7 +188,7 @@ out="$("$DOZ" upgrade -y --store "$R/store" 2>&1)" || true
 check "homebrew: doz upgrade -y runs brew upgrade doz" grep -qx "upgrade doz" "$R/brew.log"
 # 626 (owner: "without all the unrelated homebrew noise"): brew's output is kept in brew.log, never on the screen.
 check "  … brew's own output is not on the screen" bash -c "! grep -q '==> fake brew' <<<\"\$1\" && grep -q 'with Homebrew' <<<\"\$1\"" _ "$out"
-check "  … it is in brew.log in the settings folder" grep -q "==> fake brew upgrade doz" "$R/xdg/dozer-sandbox/brew.log"
+check "  … it is in brew.log in the settings folder" grep -q "==> fake brew upgrade doz" "$R/xdg/doz/brew.log"
 check "  … and Homebrew does not auto-update every tap first" bash -c "grep -q '^no-auto-update=1\$' '$R/brew-env.log' && ! grep -q '^no-auto-update=unset\$' '$R/brew-env.log'"
 out="$("$DOZ" upgrade -y --verbose --store "$R/store" 2>&1)" || true
 check "homebrew: --verbose shows brew's output as it runs" grep -q "==> fake brew upgrade doz" <<<"$out"
@@ -202,7 +202,7 @@ check "  … and Homebrew is never left asking [y/n]" bash -c "grep -q '^no-ask=
 : > "$R/brew.log"
 "$DOZ" upgrade --channel canary --yes --store "$R/store" >/dev/null 2>&1 || true
 check "homebrew: --channel canary = uninstall doz, install the tap's doz-canary" bash -c "[ \"\$(cat '$R/brew.log')\" = \$'uninstall doz\ninstall dozable/tap/doz-canary' ]"
-check "  … the setting follows" grep -q '^channel = "canary"' "$R/xdg/dozer-sandbox/doz.toml"
+check "  … the setting follows" grep -q '^channel = "canary"' "$R/xdg/doz/doz.toml"
 : > "$R/brew.log"
 export DOZ_TEST_UPDATE_EXECUTABLE="$R/Cellar/doz-canary/$Z/libexec/doz/doz"
 mkdir -p "$(dirname "$DOZ_TEST_UPDATE_EXECUTABLE")" && cp -cR "$R/newer/libexec/doz/." "$(dirname "$DOZ_TEST_UPDATE_EXECUTABLE")/"
@@ -212,7 +212,7 @@ unset DOZ_TEST_UPDATE_EXECUTABLE
 export DOZ_TEST_UPDATE_EXECUTABLE="$R/Cellar/doz/$A/libexec/doz/doz"
 "$DOZ" config set updates.channel stable --store "$R/store" >/dev/null
 "$DOZ" config set updates.mode auto --store "$R/store" >/dev/null
-rm -f "$R/xdg/dozer-sandbox/updates.json"; : > "$R/brew.log"
+rm -f "$R/xdg/doz/updates.json"; : > "$R/brew.log"
 DOZ_TEST_UPDATE_TTY=1 "$DOZ" ls --store "$R/store" >/dev/null 2>&1 || true
 check "homebrew auto (idle): brew upgrade doz" grep -qx "upgrade doz" "$R/brew.log"
 

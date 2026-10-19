@@ -186,9 +186,9 @@ again**; the choices themselves are the settings `defaults.github`, `github.cred
 
 | what | where |
 |---|---|
-| Your settings | `~/.config/dozer-sandbox/doz.toml` (under `$XDG_CONFIG_HOME` if set) — see [Settings reference](15-settings-reference.md) |
+| Your settings | `~/.config/doz/doz.toml` (under `$XDG_CONFIG_HOME` if set) — see [Settings reference](15-settings-reference.md) |
 | Your agent prompt template | `agent-prompt.md` beside it — everything inside an HTML comment, so it changes nothing until you write your own text. See [Agents and accounts](09-agents-and-accounts.md#the-agents-environment-facts) |
-| The store (images, sandboxes) | `~/Library/Application Support/dozer-sandbox` |
+| The store (images, sandboxes) | `~/Library/Application Support/doz` |
 | Accounts with a secret | your login keychain, `doz-claude:NAME` (tokens) or `doz-anthropic:NAME` (API keys) |
 | A GitHub token you gave | your login keychain, `doz-github` |
 | The last access check | `access.json` in the store — states and reasons, never a secret |

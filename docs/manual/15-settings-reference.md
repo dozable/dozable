@@ -1,6 +1,6 @@
 # Settings reference
 
-Every setting Dozable has is in one file, **`~/.config/dozer-sandbox/doz.toml`** (under
+Every setting Dozable has is in one file, **`~/.config/doz/doz.toml`** (under
 `$XDG_CONFIG_HOME` when that is set). The file lists every setting with a description and its
 default, commented out; only the values you set are uncommented. An agent or tool's own settings
 (`images.ID_version`, `ID.permissions`, `[images.ID]`) are written there only once one of them is set —
@@ -121,7 +121,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `store.path` | `~/Library/Application Support/dozer-sandbox` | path ("" = automatic) | next command | `$DOZ_STORE`, `--store` | The store: images, kernels, sandboxes and the host's files. |
+| `store.path` | `~/Library/Application Support/doz` | path ("" = automatic) | next command | `$DOZ_STORE`, `--store` | The store: images, kernels, sandboxes and the host's files. |
 
 ### `[claude]`
 
@@ -699,5 +699,5 @@ This table is generated from `doz config show` and checked against it on every b
 | `DOZ_BOOT_LOGS` | `host.boot_logs_kept` | boots kept per sandbox |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | subnet of a new `nat` sandbox |
 | `DOZ_KERNEL` · `DOZ_KERNEL_CACHE` | `kernel.path` · `kernel.cache` | an explicit kernel · a shared kernel cache |
-| `XDG_CONFIG_HOME` | — | where `dozer-sandbox/doz.toml` is (default `~/.config`) |
+| `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 | `NO_COLOR` | — | plain progress, no colours |

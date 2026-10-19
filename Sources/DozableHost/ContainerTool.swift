@@ -129,7 +129,7 @@ public enum ContainerTool {
     /// Under DOZ_TEST_CONTAINER_INSTALL only the plan is written to that file.
     public static func install(_ env: [String: String] = ProcessInfo.processInfo.environment,
                                onLine: @escaping @Sendable (String) -> Void = { _ in }) async throws -> String {
-        let cache = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/dozer-sandbox")
+        let cache = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/doz")
         let pkg = cache.appendingPathComponent("container-\(package.version)-installer-signed.pkg")
         if let log = env["DOZ_TEST_CONTAINER_INSTALL"], !log.isEmpty {
             let plan = "download \(package.url)\nverify sha256 \(package.sha256)\ncheck-signature pkgutil --check-signature \(pkg.path)\nopen /usr/bin/open -b com.apple.installer \(pkg.path)\n"

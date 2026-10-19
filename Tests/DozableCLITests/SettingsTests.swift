@@ -10,7 +10,7 @@ import XCTest
 final class SettingsTests: XCTestCase {
     private var xdg: URL!
     private var env: [String: String] { ["XDG_CONFIG_HOME": xdg.path] }
-    private var file: URL { xdg.appendingPathComponent("dozer-sandbox/doz.toml") }
+    private var file: URL { xdg.appendingPathComponent("doz/doz.toml") }
 
     override func setUpWithError() throws {
         xdg = FileManager.default.temporaryDirectory.appendingPathComponent("doz-settings-\(UUID().uuidString.prefix(8))")
@@ -245,7 +245,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(DozableStore.resolve("/flag", environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/flag")
         XCTAssertEqual(DozableStore.resolve(nil, environment: env.merging(["DOZ_STORE": "/env"]) { a, _ in a }).root.path, "/env")
         XCTAssertEqual(DozableStore.resolve(nil, environment: env).root.path, home + "/from-file")
-        XCTAssertEqual(DozableStore.resolve(nil, environment: [:]).root.path, home + "/Library/Application Support/dozer-sandbox")
+        XCTAssertEqual(DozableStore.resolve(nil, environment: [:]).root.path, home + "/Library/Application Support/doz")
     }
 
     func testNewSandboxDefaultsComeFromTheSettings() throws {
@@ -352,10 +352,10 @@ final class SettingsTests: XCTestCase {
     }
 
     func testTheFileIsFoundTheXDGWay() {
-        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "/x", "HOME": "/h"])?.path, "/x/dozer-sandbox/doz.toml")
-        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "relative", "HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml",
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "/x", "HOME": "/h"])?.path, "/x/doz/doz.toml")
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["XDG_CONFIG_HOME": "relative", "HOME": "/h"])?.path, "/h/.config/doz/doz.toml",
                        "a relative XDG_CONFIG_HOME is ignored (the XDG rule)")
-        XCTAssertEqual(DozableSettings.fileURL(environment: ["HOME": "/h"])?.path, "/h/.config/dozer-sandbox/doz.toml")
+        XCTAssertEqual(DozableSettings.fileURL(environment: ["HOME": "/h"])?.path, "/h/.config/doz/doz.toml")
         XCTAssertNil(DozableSettings.fileURL(environment: [:]))
         XCTAssertEqual(DozableSettings.load(environment: [:]).resolve("ui.theme").source, .default)
     }

@@ -22,8 +22,8 @@ OUT=${PROFILE_OUT:-$REPO/profiles}
 MODE=record
 [ "${1:-}" = "--diff" ] && { MODE=diff; shift; }
 [ $# -gt 0 ] || { echo "usage: profile-agents.sh [--diff] AGENT..." >&2; exit 64; }
-mkdir -p "$W/xdg/dozer-sandbox" "$W/store" "$W/projects" "$W/codex-home" "$W/fake" "$W/runs"
-[ -f "$W/xdg/dozer-sandbox/doz.toml" ] || printf '[store]\npath = "%s/store"\n\n[defaults]\nprojects_dir = "%s/projects"\n' "$W" "$W" > "$W/xdg/dozer-sandbox/doz.toml"
+mkdir -p "$W/xdg/doz" "$W/store" "$W/projects" "$W/codex-home" "$W/fake" "$W/runs"
+[ -f "$W/xdg/doz/doz.toml" ] || printf '[store]\npath = "%s/store"\n\n[defaults]\nprojects_dir = "%s/projects"\n' "$W" "$W" > "$W/xdg/doz/doz.toml"
 export XDG_CONFIG_HOME="$W/xdg" DO_NOT_TRACK=1 DOZ_TEST_NO_MAC_LOGIN=1 DOZ_TEST_CREDENTIALS=memory DOZ_TEST_GUARD=1
 export DOZ_TEST_CODEX_HOME="$W/codex-home" DOZ_TEST_PROFILE_NETWORK=1
 

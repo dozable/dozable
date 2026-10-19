@@ -698,7 +698,7 @@ doz config get KEY         # one value (--json: with its source and default)
 doz config set KEY VALUE   # write it to the file (checked against its type and range)
 doz config unset KEY       # back to the default (commented out again)
 doz config init            # write the file: every setting listed, commented out at its default
-doz config path            # ${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml
+doz config path            # ${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml
 doz config show|get|set|unset --sandbox NAME …   # 599: one sandbox's own value of a per-sandbox setting
                                                   # (sandbox.clipboard, sandbox.browser_bridge, sessions.tmux,
                                                   #  sandbox.agent_sudo) — it wins over the file
@@ -749,7 +749,7 @@ doz console NAME --list | --steps [--boot N] [--json]       # the kept boots (ho
 
 Every command takes `--json` (machine-readable output; errors as
 `{"error":{"code","message"}}`), `--store DIR` (default `$DOZ_STORE`, else the settings'
-`store.path`, else `~/Library/Application Support/dozer-sandbox`), `-v` (every progress step),
+`store.path`, else `~/Library/Application Support/doz`), `-v` (every progress step),
 `-q` (none) and `--progress auto|plain` (on a terminal: a spinner and download bars, or one line
 per step; not a terminal, `--json` or `NO_COLOR`: always plain) and `--[no-]send-anonymous-usage-stats`
 (official builds: usage statistics for this command, or not).
@@ -777,7 +777,7 @@ JSON documents only ever gain fields.
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |
 | `DOZ_SEND_ANONYMOUS_USAGE_STATS` | `telemetry.send_anonymous_usage_stats` | official builds: anonymous usage statistics on or off |
 | `DO_NOT_TRACK` | — | `1`: no usage statistics, whatever the setting or a flag says |
-| `XDG_CONFIG_HOME` | — | where `dozer-sandbox/doz.toml` is (default `~/.config`) |
+| `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 
 ### Troubleshooting
 

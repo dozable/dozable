@@ -16,12 +16,12 @@ final class TestSafetyTests: XCTestCase {
     }
 
     func testTheDefaultStoreAndAnythingInsideItAreRefused() {
-        let d = home.appendingPathComponent("Library/Application Support/dozer-sandbox")
+        let d = home.appendingPathComponent("Library/Application Support/doz")
         XCTAssertNotNil(TestSafety.storeViolation(d, home: home))
         XCTAssertNotNil(TestSafety.storeViolation(d.appendingPathComponent("sandboxes/x"), home: home))
         XCTAssertNotNil(TestSafety.storeViolation(URL(fileURLWithPath: d.path + "/./"), home: home))
         XCTAssertNil(TestSafety.storeViolation(URL(fileURLWithPath: "/tmp/doz-test-store"), home: home))
-        XCTAssertNil(TestSafety.storeViolation(home.appendingPathComponent("Library/Application Support/dozer-sandbox-other"), home: home))
+        XCTAssertNil(TestSafety.storeViolation(home.appendingPathComponent("Library/Application Support/doz-other"), home: home))
     }
 
     func testTheRealCodexHomeIsRefusedAndAScratchOneIsNot() {

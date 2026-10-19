@@ -15,7 +15,7 @@ task, for the CLI and the dashboard side by side; this guide is the terse comman
 | **Session** | A terminal program living in the sandbox (a shell, `claude`, `pi`). It survives pause, sleep and hibernate. You *attach* to it and *detach* from it; it keeps running either way. |
 | **Workspace** | A folder of your Mac shared into the sandbox at `/workspace`. |
 | **Host** | One background `doz` process per user and store. It owns every running VM, the network proxy and the keys. It starts when needed and exits when idle, so you never manage it. |
-| **Store** | Where everything lives on disk: `~/Library/Application Support/dozer-sandbox` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and host. |
+| **Store** | Where everything lives on disk: `~/Library/Application Support/doz` unless `--store` or `$DOZ_STORE` says otherwise. Each store has its own images, sandboxes and host. |
 
 ## Install
 
@@ -1152,7 +1152,7 @@ link is a key to the UI.
 
 ## Settings
 
-Settings live in one file, `~/.config/dozer-sandbox/doz.toml` (under `$XDG_CONFIG_HOME` when that
+Settings live in one file, `~/.config/doz/doz.toml` (under `$XDG_CONFIG_HOME` when that
 is set). It lists every setting, grouped in sections, each with a description and its default
 commented out:
 
@@ -1258,7 +1258,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress (the CLI on a terminal, the web UI's boot view) |
-| `XDG_CONFIG_HOME` | — | where `dozer-sandbox/doz.toml` is (default `~/.config`) |
+| `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 
 The kernel, subnet and `[defaults]` / `[images.*]` settings are read (by the host) when a sandbox
 is created, and become part of it.

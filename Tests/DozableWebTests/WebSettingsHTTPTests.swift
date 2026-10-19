@@ -14,7 +14,7 @@ final class WebSettingsHTTPTests: XCTestCase {
     let capability = try! WebBootstrapCapability(testingValue: "test-capability-abcdefghijklmnopqrstuvwxyz")
     let fake = FakeData()
     var xdg: URL!
-    var file: URL { xdg.appendingPathComponent("dozer-sandbox/doz.toml") }
+    var file: URL { xdg.appendingPathComponent("doz/doz.toml") }
 
     override func setUp() async throws {
         xdg = FileManager.default.temporaryDirectory.appendingPathComponent("doz-websettings-\(UUID().uuidString.prefix(8))")
@@ -356,7 +356,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         }
         XCTAssertFalse(server.folderPicker.isOpen)
 
-        // Unset, the projects folder is ~/doz-workspaces, or ~/dozer-sandbox-workspaces on a Mac that already has it.
+        // Unset, the projects folder is ~/doz-workspaces.
         let unsetProjects = home + String(Workspace.unsetProjectsDir().dropFirst(1))
         var r = try post("/api/v1/workspace/check", #"{"image":"claude-code","name":"my-box"}"#, csrf: csrf)
         XCTAssertEqual(r.status, 200, r.text)

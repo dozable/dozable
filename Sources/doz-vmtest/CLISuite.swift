@@ -786,7 +786,7 @@ func cliSessionMemoryChecks(_ h: CLIHarness) {
 /// 591: `doz config` from a separate process, on the harness's scratch XDG_CONFIG_HOME — no VM.
 func cliConfigChecks(_ h: CLIHarness) {
     let xdg = URL(fileURLWithPath: h.env["XDG_CONFIG_HOME"] ?? "/nonexistent")
-    let file = xdg.appendingPathComponent("dozer-sandbox/doz.toml")
+    let file = xdg.appendingPathComponent("doz/doz.toml")
     try? FileManager.default.removeItem(at: xdg)
     var r = h.run(["config", "path"])
     check(r.code == 0 && r.out == file.path + "\n", "config path: \(r.out.trimmingCharacters(in: .newlines))")

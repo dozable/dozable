@@ -2,29 +2,20 @@ import Foundation
 import XCTest
 @testable import DozableHost
 
-/// Dozable rename: the unset `defaults.projects_dir` is `~/doz-workspaces`, unless the Mac already has
-/// `~/dozer-sandbox-workspaces` (then nobody moves). Home and the directory check are injected.
+/// 0.37 (no migration): the unset `defaults.projects_dir` is `~/doz-workspaces` — an earlier version's
+/// `~/dozer-sandbox-workspaces` is never looked for.
 final class ProjectsDirDefaultTests: XCTestCase {
-    func test_oldFolderPresentKeepsOld() {
-        var asked: [String] = []
-        let r = Workspace.unsetProjectsDir(home: "/Users/fake", isDirectory: { asked.append($0); return true })
-        XCTAssertEqual(r, "~/dozer-sandbox-workspaces")
-        XCTAssertEqual(asked, ["/Users/fake/dozer-sandbox-workspaces"])
-    }
-
-    func test_oldFolderAbsentIsNew() {
-        XCTAssertEqual(Workspace.unsetProjectsDir(home: "/Users/fake", isDirectory: { _ in false }), "~/doz-workspaces")
+    func test_theUnsetDefaultIsAlwaysTheNewFolder() {
+        XCTAssertEqual(Workspace.unsetProjectsDir(), "~/doz-workspaces")
     }
 
     func test_settingsResolveTheEffectiveDefaultAndExplicitWins() {
-        let old = DozableSettings(text: nil, unsetProjectsDir: Workspace.unsetProjectsDir(home: "/Users/fake", isDirectory: { _ in true }))
-        XCTAssertEqual(old.string(SettingKey.projectsDir), "~/dozer-sandbox-workspaces")
-        let new = DozableSettings(text: nil, unsetProjectsDir: Workspace.unsetProjectsDir(home: "/Users/fake", isDirectory: { _ in false }))
+        let new = DozableSettings(text: nil, unsetProjectsDir: Workspace.unsetProjectsDir())
         XCTAssertEqual(new.string(SettingKey.projectsDir), "~/doz-workspaces")
-        // The documented default is the new one either way.
+        // The documented default is the same.
         XCTAssertEqual(DozableSettings.definition(SettingKey.projectsDir)?.defaultValue, .string("~/doz-workspaces"))
-        // An explicit setting wins over both.
-        let set = DozableSettings(text: "[defaults]\nprojects_dir = \"/private/tmp/mine\"\n", unsetProjectsDir: "~/dozer-sandbox-workspaces")
+        // An explicit setting wins.
+        let set = DozableSettings(text: "[defaults]\nprojects_dir = \"/private/tmp/mine\"\n", unsetProjectsDir: "~/elsewhere")
         XCTAssertEqual(set.string(SettingKey.projectsDir), "/private/tmp/mine")
         XCTAssertEqual(Workspace.defaultPath(name: "x", settings: set), "/private/tmp/mine/x")
         // "" (automatic) means the effective default.

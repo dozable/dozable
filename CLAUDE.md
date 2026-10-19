@@ -75,7 +75,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `create-dialog.js`, `quick-add.js` |
 | `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `shortcuts` |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
-| `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
+| `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
 | `Sources/DozableHost/Preparations.swift`, `Onboarding.swift`, `AgentPrompt.swift`; `Sources/DozableCLI/OnboardCommands.swift`, `ProjectFile.swift`, `Prompting.swift`, `UninstallCommand.swift`; `Sources/doz-vmtest/OnboardingSuite.swift`, `PullBench.swift` | image preparation in the host (single-flight, joined, cancelled) + `onboarded.json`; onboarding's checks / account step / settings-only-when-missing; the agent's environment prompt + the `dozer` skill; `doz onboard`/`init`/`uninstall`, `doz_project.yaml` (Yams), TTY questions; `make test-cli`'s onboarding part (`make test-cli-onboarding`); `make pullbench` (D12) |
 | `Sources/DozableKit/SavedScreens.swift`; `Sources/DozableHost/TerminalLayout.swift`; `Sources/DozableWeb/WebSessionMemory.swift` | 593 §9: the sessions' saved screens (`<sandbox>/screens/NAME.{vt,txt,json}`; the capture is `Sandbox.captureScreensLocked`, the `.captureScreens` step); the web UI's terminal layout kept by the host (`terminal-layout.json`); their web projections and the layout's strict decoder |
@@ -308,7 +308,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     replaced by rename exiting by itself.
 - **Settings are ONE closed schema**. A new user-facing knob is a new entry there — its type,
   default, description, env var, flag and when it applies — never a new ad-hoc env read, localStorage
-  key or file. The file (`${XDG_CONFIG_HOME:-~/.config}/dozer-sandbox/doz.toml` — Dozer Sandbox since
+  key or file. The file (`${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` — Dozer Sandbox since
   592) is GENERATED from the schema on every write (all settings listed, defaults commented, only set
   values uncommented; atomic, 0600 in a 0700 dir); the reader is our own strict TOML subset (strings,
   bools, ints; anything else refused with its line). An unknown key or bad value is a warning (the
@@ -876,10 +876,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `permissions` but no `github` keeps `defaults.github` (`createOptions(…settings:)`). `make test-cli-projectwizard` drives an interactive
   `doz init` through `script(1)` (the Asker needs a controlling terminal).
 - **`doz uninstall`** removes a store only if it looks like one, the settings dir only if named
-  `dozer-sandbox`, and the installed doz only when THIS executable is `<prefix>/libexec/doz/doz` (the
+  `doz`, and the installed doz only when THIS executable is `<prefix>/libexec/doz/doz` (the
   `bin/doz` link only if it resolves to it). Never the keychain; a running `doz ui` refuses it.
 - **`doz nuke` / `doz inventory`** (`NukeCommand.swift`, `Nuke.plan` — pure, `NukeTests`): back to a fresh install with
-  doz kept — uninstall's store and settings rules, plus `~/Library/Caches/dozer-sandbox` and the keychain items Dozable
+  doz kept — uninstall's store and settings rules, plus `~/Library/Caches/doz` and the keychain items Dozable
   made (`AccountStore.isDozItem`, `doz-github`; never another `doz-*` item, never Claude Code's). Each item with its
   place and allocated size; asks once (`--yes`, `--dry-run`); a running `doz ui` or `doz serve` refuses it.
   `inventory` prints the same list and changes nothing. **A guarded test run never sees this Mac's keychain or cache**:

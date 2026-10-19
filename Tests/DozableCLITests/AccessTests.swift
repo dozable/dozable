@@ -23,7 +23,7 @@ final class AccessTests: XCTestCase {
     override func setUpWithError() throws {
         root = URL(fileURLWithPath: "/private/tmp/dzac-\(UUID().uuidString.prefix(8))")
         try FileManager.default.createDirectory(at: root.appendingPathComponent("store"), withIntermediateDirectories: true)
-        try FileManager.default.createDirectory(at: xdg.appendingPathComponent("dozer-sandbox"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: xdg.appendingPathComponent("doz"), withIntermediateDirectories: true)
         // A gh that is logged out (exit 1) — a check never gets a token to send anywhere.
         try "#!/bin/sh\necho 'not logged in' >&2\nexit 1\n".write(to: root.appendingPathComponent("gh"), atomically: true, encoding: .utf8)
         chmod(root.appendingPathComponent("gh").path, 0o755)

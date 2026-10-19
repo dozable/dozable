@@ -165,7 +165,7 @@ final class OnboardingTests: XCTestCase {
     }
 
     func testTheLayersUserTemplateAndSandboxAppendOrReplaceAndOff() throws {
-        let dir = root.appendingPathComponent("xdg/dozer-sandbox")
+        let dir = root.appendingPathComponent("xdg/doz")
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let tpl = dir.appendingPathComponent("agent-prompt.md")
         // The starter onboarding writes is all comment: it changes nothing.

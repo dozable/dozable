@@ -7,7 +7,7 @@ import XCTest
 final class DisplayPathTests: XCTestCase {
     func testAPathUnderHomeReadsTilde() {
         let homes = ["/Users/me"]
-        XCTAssertEqual(DisplayPath.tilde("/Users/me/dozer-sandbox-workspaces/try-fabric", homes: homes), "~/dozer-sandbox-workspaces/try-fabric")
+        XCTAssertEqual(DisplayPath.tilde("/Users/me/doz-workspaces/try-fabric", homes: homes), "~/doz-workspaces/try-fabric")
         XCTAssertEqual(DisplayPath.tilde("/Users/me", homes: homes), "~")
         XCTAssertEqual(DisplayPath.tilde("/Users/meet/x", homes: homes), "/Users/meet/x", "a longer name is another folder")
         XCTAssertEqual(DisplayPath.tilde("/opt/x", homes: homes), "/opt/x")

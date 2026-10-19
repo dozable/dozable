@@ -24,8 +24,8 @@ final class NukeTests: XCTestCase {
 
     func testItListsTheStoreSettingsCacheAndDozablesOwnKeychainItemsWithSizes() throws {
         let store = try dir("store/sandboxes", file: "x", bytes: 100_000).deletingLastPathComponent()
-        let config = try dir("config/dozer-sandbox", file: "doz.toml", bytes: 10)
-        let cache = try dir("caches/dozer-sandbox", file: "container.pkg", bytes: 5_000)
+        let config = try dir("config/doz", file: "doz.toml", bytes: 10)
+        let cache = try dir("caches/doz", file: "container.pkg", bytes: 5_000)
         let k = MemoryKeychain()
         try k.write(service: "doz-anthropic:work", account: Keychain.user, secret: "x")
         try k.write(service: "doz-chatgpt:me#1", account: Keychain.user, secret: "x")
@@ -49,11 +49,11 @@ final class NukeTests: XCTestCase {
                                            cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain()))
         let otherCache = try dir("caches/other", file: "a")
         let p = try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: nil, cacheDir: otherCache, keychain: MemoryKeychain())
-        XCTAssertTrue(p.items.isEmpty, "a cache folder not named dozer-sandbox is never Dozable's")
+        XCTAssertTrue(p.items.isEmpty, "a cache folder not named doz is never Dozable's")
     }
 
     func testAFreshMacHasNothingToRemove() throws {
-        let p = try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: root.appendingPathComponent("nope/dozer-sandbox"),
+        let p = try Nuke.plan(store: DozableStore(root: root.appendingPathComponent("absent")), configDir: root.appendingPathComponent("nope/doz"),
                               cacheDir: root.appendingPathComponent("none"), keychain: MemoryKeychain())
         XCTAssertTrue(p.items.isEmpty)
     }

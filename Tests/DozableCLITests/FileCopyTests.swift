@@ -169,14 +169,14 @@ final class FileCopyTests: XCTestCase {
     }
 
     func testNeitherSideNamesASandboxSuggestsWhereItIs() {
-        let ws = "/Users/me/dozer-sandbox-workspaces/try-grok"
+        let ws = "/Users/me/doz-workspaces/try-grok"
         let rows = [CopyHint.Row(name: "box", phase: "off", workspace: "/x/box"),
                     CopyHint.Row(name: "try-grok", phase: "running", workspace: ws)]
         let shown: (String) -> String = { $0.replacingOccurrences(of: "/Users/me", with: "~") }
         // The owner's case: the file is in a sandbox's folder — it is already on the Mac.
         let found = CopyHint.neitherSide(source: "lemonade.html", destination: "~/Developer/fun/lemonade.html", sandboxes: rows,
                                          existsOnMac: { $0 == ws + "/lemonade.html" }, cwd: "/tmp", shown: shown)
-        XCTAssertEqual(found, "lemonade.html is in try-grok's folder — it's already on your Mac at ~/dozer-sandbox-workspaces/try-grok/lemonade.html. Or: doz get try-grok lemonade.html ~/Developer/fun/")
+        XCTAssertEqual(found, "lemonade.html is in try-grok's folder — it's already on your Mac at ~/doz-workspaces/try-grok/lemonade.html. Or: doz get try-grok lemonade.html ~/Developer/fun/")
         // Not in any folder, one running: name it (from it — the source is not on this Mac).
         XCTAssertEqual(CopyHint.neitherSide(source: "x.txt", destination: ".", sandboxes: rows, existsOnMac: { _ in false }, cwd: "/tmp", shown: shown),
                        "From try-grok: doz cp try-grok:x.txt .")

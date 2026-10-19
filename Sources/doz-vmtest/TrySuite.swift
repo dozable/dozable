@@ -20,7 +20,7 @@ func cliTrySuite(binary: String) async {
     let fm = FileManager.default
     let projects = "/tmp/dzo-\(pid)-tryp"         // beside the store: Dozable never makes a workspace inside one
     try? fm.removeItem(atPath: projects)
-    let xdg = t.store.appendingPathComponent("xdg/dozer-sandbox")
+    let xdg = t.store.appendingPathComponent("xdg/doz")
     try? fm.createDirectory(at: xdg, withIntermediateDirectories: true)
     try? fm.createDirectory(atPath: projects, withIntermediateDirectories: true)
     // The try's folder goes under a scratch projects folder — never the person's.

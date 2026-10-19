@@ -22,7 +22,7 @@ Claude Code signed in on this Mac (or an Anthropic API key) for part 4.
 ## 0. From a clean slate (optional)
 
 If Dozable was on this Mac before, start from nothing: `doz uninstall` lists exactly what it
-removes — the store (every sandbox and image), the settings (`~/.config/dozer-sandbox`) and a
+removes — the store (every sandbox and image), the settings (`~/.config/doz`) and a
 `make install-cli` `doz` — and asks once. A `doz` Homebrew installed is Homebrew's: it tells you to
 finish with `brew uninstall doz`. It never touches the keychain or Claude Code's own files.
 
@@ -53,7 +53,7 @@ Enter takes the recommended answer:
    becomes the default — or **Decide later**. Onboarding never logs in for you.
 3. **Images** — a checklist: `claude-code` ticked; `pi` and `lab` optional, each with its download
    and an estimate.
-4. **Settings** — `~/.config/dozer-sandbox/doz.toml` (every setting listed at its default; your
+4. **Settings** — `~/.config/doz/doz.toml` (every setting listed at its default; your
    answers are the only lines set) and `agent-prompt.md` beside it (your own version of what agents
    are told about where they run — all commented out for now). An existing file is never touched.
 5. **Preparing** — the kernel, the guest init disk, the base image and the bake, with the same

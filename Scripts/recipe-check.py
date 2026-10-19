@@ -155,9 +155,9 @@ class Harness:
         self.store = os.path.join(self.root, "store")
         self.fake = os.path.join(self.root, "fake")
         self.bin = os.path.join(self.root, "bin")
-        for d in ("xdg/dozer-sandbox", "store", "projects", "codex-home", "fake"):
+        for d in ("xdg/doz", "store", "projects", "codex-home", "fake"):
             os.makedirs(os.path.join(self.root, d), exist_ok=True)
-        with open(os.path.join(self.root, "xdg/dozer-sandbox/doz.toml"), "w") as f:
+        with open(os.path.join(self.root, "xdg/doz/doz.toml"), "w") as f:
             f.write('[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s/projects"\n' % (self.store, self.root))
         self.env = dict(os.environ)
         for k in list(self.env):

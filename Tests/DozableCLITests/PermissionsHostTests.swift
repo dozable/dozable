@@ -164,8 +164,8 @@ final class PermissionsHostTests: XCTestCase {
         XCTAssertEqual(fm.network.policy?.permissions, ["model", "github", "vendor:pi", "sources:pi"], "model forced on")
         // The setting.
         let xdg = root.appendingPathComponent("xdg")
-        try FileManager.default.createDirectory(at: xdg.appendingPathComponent("dozer-sandbox"), withIntermediateDirectories: true)
-        try "[defaults]\npermissions = \"+web,-github\"\n".write(to: xdg.appendingPathComponent("dozer-sandbox/doz.toml"), atomically: true, encoding: .utf8)
+        try FileManager.default.createDirectory(at: xdg.appendingPathComponent("doz"), withIntermediateDirectories: true)
+        try "[defaults]\npermissions = \"+web,-github\"\n".write(to: xdg.appendingPathComponent("doz/doz.toml"), atomically: true, encoding: .utf8)
         let (st, _) = try DozableImages.spec(name: "a6", options: CreateOptions(image: "python-claude-code"), store: store,
                                             environment: ["XDG_CONFIG_HOME": xdg.path])
         let stp = try XCTUnwrap(st.network.policy?.permissions)

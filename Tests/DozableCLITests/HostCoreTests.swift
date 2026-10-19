@@ -18,7 +18,7 @@ final class HostCoreTests: XCTestCase {
     func testStoreResolution() {
         XCTAssertEqual(DozableStore.resolve("/x/y", environment: ["DOZ_STORE": "/z"]).root.path, "/x/y")
         XCTAssertEqual(DozableStore.resolve(nil, environment: ["DOZ_STORE": "/z"]).root.path, "/z")
-        XCTAssertTrue(DozableStore.resolve(nil, environment: [:]).root.path.hasSuffix("Library/Application Support/dozer-sandbox"))
+        XCTAssertTrue(DozableStore.resolve(nil, environment: [:]).root.path.hasSuffix("Library/Application Support/doz"))
         let s = DozableStore(root: root)
         XCTAssertEqual(s.socket.lastPathComponent, "host.sock")
         XCTAssertTrue(s.socketPathFits)

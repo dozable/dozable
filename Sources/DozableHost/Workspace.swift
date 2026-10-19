@@ -162,19 +162,9 @@ public enum Workspace {
 
     /// The documented default of `defaults.projects_dir` (new installs).
     public static let projectsDirDefault = "~/doz-workspaces"
-    /// The folder the default was before the Dozable rename; a Mac that has it keeps using it.
-    public static let legacyProjectsDir = "~/dozer-sandbox-workspaces"
-
-    /// `defaults.projects_dir` while unset: `~/dozer-sandbox-workspaces` when that is already a directory
-    /// under `home`, else `~/doz-workspaces`. Both seams are injectable (tests never touch the real home).
-    public static func unsetProjectsDir(home: String = FileManager.default.homeDirectoryForCurrentUser.path,
-                                        isDirectory: (String) -> Bool = { path in
-                                            var d: ObjCBool = false
-                                            return FileManager.default.fileExists(atPath: path, isDirectory: &d) && d.boolValue
-                                        }) -> String {
-        let legacy = (home as NSString).appendingPathComponent(String(legacyProjectsDir.dropFirst(2)))
-        return isDirectory(legacy) ? legacyProjectsDir : projectsDirDefault
-    }
+    /// `defaults.projects_dir` while unset: `~/doz-workspaces`. (0.37 starts fresh: the folder an earlier
+    /// version used, `~/dozer-sandbox-workspaces`, is no longer looked for — no migration, owner ruling.)
+    public static func unsetProjectsDir() -> String { projectsDirDefault }
 
     /// `<projects_dir>/<name>` (the setting, `~` expanded).
     public static func defaultPath(name: String, settings: DozableSettings = .load()) -> String {
