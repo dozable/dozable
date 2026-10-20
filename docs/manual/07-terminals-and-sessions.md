@@ -137,18 +137,20 @@ wakes. With `--no-wake`, `attach` waits for a sleeping sandbox instead of waking
 
 On a sandbox's page in the dashboard:
 
-- **Open** (in the empty terminal area, or a session's row in the details' **Sessions** tab) attaches
-  to a session, starting the image's own one if needed.
+- **Home**, the first tab, lists every session — the agent's as a card, the others as rows, each with
+  a small picture of its screen. **Open** there attaches to a session (the image's own one is started
+  if needed).
 - **Watch** (a session's **⋯**) is read-only: nothing you type reaches the session, and it never
   resizes it.
 - On the terminals' tab strip, **New shell** starts a new shell session (`shell-2`, `shell-3`, …); its
   **▾** › **Terminal…** starts a new session — a shell, or one running a command — and **Run
   detached…** one that runs without opening here.
 - Terminals are **tabs**; **Split** shows two side by side (⇄ moves a tab across). Two tabs on one
-  session are marked "shared with tab N". Closing a tab only closes the view.
+  session are marked "shared with tab N". Closing a tab only closes the view — the session keeps
+  running; closing the agent's tab brings you to Home, which says so.
 - **All sessions** shows every session of every running sandbox as a live, read-only tile.
-- **Restart session** and **End session** are on a tab's **⋯** and on a session's **⋯** in the details'
-  **Sessions** tab (see [Restarting or ending a session](#restarting-or-ending-a-session)). Both ask first; for
+- **Restart session** and **End session** are on a tab's **⋯** and on a session's **⋯** on **Home**
+  (**End…** is on the agent's card itself) (see [Restarting or ending a session](#restarting-or-ending-a-session)). Both ask first; for
   an agent session you can choose to start a new conversation. The tab shows "Restarting the session…" and
   reattaches when the program is back, keeping what was on screen above it.
 

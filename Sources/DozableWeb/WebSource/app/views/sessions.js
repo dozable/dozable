@@ -11,7 +11,8 @@ import { lifecycle } from '../components/lifecycle.js';
 import { renderNavSandboxes } from '../components/nav.js';
 import { agentChip } from '../components/agent-status.js';
 import { pageFailure } from '../components/notices.js';
-import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from '../components/terminal.js';
+import { paintCover } from '../components/terminal.js';
+import { dropThumbTerm, thumbGoLive, thumbTerm } from '../components/session-thumb.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox — a live, read-only (watch) view: the same ticket,
@@ -158,7 +159,7 @@ function paintTile(tile, w) {
   // open grid never keeps a host alive for a sandbox that does not run).
   const kind = !w.session ? 'static' : w.saved ? 'saved' : 'live';
   if (tile.term && tile.kind && tile.kind !== kind) {
-    if (tile.kind === 'saved' && kind === 'live' && tile.term.saved) goLive(tile.term);
+    if (tile.kind === 'saved' && kind === 'live' && tile.term.saved) thumbGoLive(tile.term);
     else detachTile(tile);
   }
   tile.kind = kind;
@@ -216,17 +217,11 @@ export function gridSchedule() {
 }
 function attachTile(tile) {
   if (!setting('ui.terminals', true)) return;
-  const t = newTerm(tile.sandbox, tile.session, 'watch');
-  t.grid = true;
-  if (tile.saved) t.saved = { savedAt: tile.saved.savedAt, reason: tile.saved.savedReason };
-  tile.term = t;
-  paintCover(t);
-  tile.screen.append(t.els.wrap);
-  bootTerm(t, 13);
+  tile.term = thumbTerm(tile.sandbox, tile.session, tile.saved, tile.screen);    // 635: the one thumbnail terminal
 }
 function detachTile(tile) {
   if (!tile.term) return;
   const t = tile.term;
   tile.term = null;
-  closeTerminal(t.id);                                   // the socket closes; the frame and its engine go
+  dropThumbTerm(t);                                      // the socket closes; the frame and its engine go
 }

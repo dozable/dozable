@@ -3,27 +3,27 @@ import { paintStartProgress } from '../components/start-progress.js';
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
 import { icon, setButton } from '../dom/icons.js';
-import { AGENT_NAMES } from '../core/agents.js';
+import { agentTitle } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
-import { actOrThrow, TRANSITION_LABEL, transitionOf, waitForOp } from '../core/operations.js';
+import { actOrThrow, transitionOf, waitForOp } from '../core/operations.js';
 import { opRunningFor, sandboxImage, sandboxPhase } from '../core/sandboxes.js';
-import { bootViewOnStart, saveSetting, setting, terminalsAllowed } from '../core/settings.js';
+import { saveSetting, setting, terminalsAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
-import { isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals.js';
+import { homePane, isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals.js';
 import { splitArgs } from '../core/util.js';
 import { isRemote } from '../core/session.js';
 import { btn } from '../components/button.js';
 import { dialog } from '../components/dialog.js';
-import { lifecycle, sessionsWhyNot } from '../components/lifecycle.js';
+import { sessionsWhyNot } from '../components/lifecycle.js';
 import { menuButton } from '../components/menus.js';
 import { agentChip } from '../components/agent-status.js';
 import { failureFor, pageFailure } from '../components/notices.js';
-import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openDefaultTerminal, openTerminal, terminalTitle } from '../components/terminal.js';
+import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
 import { sessionMenuItems } from '../components/session-actions.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const openSavedTerminal = upcall('openSavedTerminal'), persistLayout = upcall('persistLayout');
+const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');
 
 // ── a sandbox's terminal area: tabs, and a split (593: per sandbox; the grid's tiles are apart)
 export function paintTabs() { if (state.view === 'sandbox') renderTerminals(); }
@@ -69,14 +69,11 @@ function drawTerminals() {
       const head = h('div', { class: 'term-strip' }, strip);
       const body = h('div', { class: 'term-body' });
       const empty = h('div', { class: 'term-empty' });
-      // 625: a running sandbox whose pane holds only the page's own panes (Console, the build log) offers its agent here.
-      const startBar = h('div', { class: 'term-start', 'data-term-start': '' });
-      startBar.hidden = true;
-      const pane = h('div', { class: 'term-pane', 'data-pane': String(i) }, head, startBar, body);
+      const pane = h('div', { class: 'term-pane', 'data-pane': String(i) }, head, body);
       body.append(empty);
       pane.addEventListener('focusin', () => { if (state.param) sview(state.param).focusedPane = i; });
       pane.addEventListener('mousedown', () => { if (state.param) sview(state.param).focusedPane = i; });
-      return { root: pane, strip, head, body, empty, startBar, onlyAux: false };
+      return { root: pane, strip, head, body, empty };
     });
     termUI.grid = h('div', { class: 'term-grid' }, termUI.panes[0].root, termUI.panes[1].root);
     root.replaceChildren(termUI.grid);
@@ -89,19 +86,22 @@ function drawTerminals() {
   termUI.panes[1].root.hidden = !v.split;
   // Another sandbox's terminals stay open (hidden) — going back to it is instant.
   for (const t of terminals.values()) if (!t.grid && t.sandbox !== name) t.els.wrap.hidden = true;
+  // 635: Home — the page's first tab, always there (a document: no engine, no socket).
+  if (name && !homePane(name)) openHomePane(name);
   termUI.panes.forEach((p, i) => {
-    // 617: the build log's small tab, then tab zero (Console), then the sessions; an agent's terminal still PENDING (not
-    // drawn yet) is laid out but has no tab. The build log is never chosen by itself: it shows when its tab is clicked.
+    // 635: Home, then (617) the build log's small tab, then Console, then the sessions; an agent's terminal still PENDING
+    // (not drawn yet) is laid out but has no tab. The build log is never chosen by itself: it shows when its tab is clicked.
     const all = name ? pageTerminals(name).filter((t) => t.pane === i) : [];
-    const mine = [...all.filter((t) => t.buildlog), ...all.filter((t) => t.mode === 'console'), ...all.filter((t) => !isAux(t) && !t.pending)];
+    const mine = [...all.filter((t) => t.home), ...all.filter((t) => t.buildlog), ...all.filter((t) => t.mode === 'console'), ...all.filter((t) => !isAux(t) && !t.pending)];
     const choosable = mine.filter((t) => !t.buildlog);
-    if (!mine.some((t) => t.id === v.selected[i])) v.selected[i] = choosable.length ? choosable[choosable.length - 1].id : null;
+    // 635: what is shown when the chosen tab is gone (a close, a session that ended) is Home — never Console.
+    if (!mine.some((t) => t.id === v.selected[i])) {
+      const home = mine.find((t) => t.home);
+      v.selected[i] = home ? home.id : choosable.length ? choosable[choosable.length - 1].id : null;
+    }
     p.strip.replaceChildren(...mine.map((t) => tabElement(t, i)));
     scrollActiveTab(p.strip);
     p.empty.hidden = all.some((t) => !t.buildlog) || all.some((t) => t.buildlog && t.id === v.selected[i]);
-    // 625 (the m4air15 report): Console is a tab of its own since 617, so the empty area — and its Start for the agent —
-    // never showed on a running sandbox that had no session. Its own panes only: the start bar offers it instead.
-    p.onlyAux = all.length > 0 && all.every((t) => isAux(t));
     for (const t of all) {
       if (t.els.wrap.parentNode !== p.body) p.body.append(t.els.wrap);
       t.els.wrap.classList.toggle('term-pending', !!t.pending);
@@ -115,20 +115,24 @@ function drawTerminals() {
       }
     }
   });
-  paintTermEmpty();
   // The strip's actions on the rightmost pane shown.
   const host = (v.split ? termUI.panes[1] : termUI.panes[0]).head;
   if (termUI.acts.parentNode !== host) host.append(termUI.acts);
   paintStripActs();
   if (name) persistLayout(name);
-  // The URL names the session shown (replaceState: no route).
+  // The URL names the session shown (replaceState: no route); Home names none.
   const sel = name && terminals.get(v.selected[v.focusedPane] ?? v.selected[0]);
   // (603: never under a wizard's modal — its URL is #/new or #/onboarding; the page's hash follows.)
   if (sel && sel.session && state.session !== sel.session && !state.modal) {
     state.session = sel.session;
     history.replaceState(null, '', location.pathname + '#/sandbox/' + name + '/' + sel.session);
     state.bgHash = location.hash;
+  } else if (sel && sel.home && state.session && !state.modal) {
+    state.session = null;
+    history.replaceState(null, '', location.pathname + '#/sandbox/' + name);
+    state.bgHash = location.hash;
   }
+  if (name) paintHome(name);                          // 635: Home's facts follow the tabs ("open in tab 2"), and its pictures
 }
 /// The strip's actions follow the sandbox: a session needs a VM (New shell, Run detached, Open in Terminal); a new
 /// terminal waits while something is under way.
@@ -158,83 +162,14 @@ function scrollActiveTab(strip) {
   if (wr.left < sr.left) strip.scrollLeft += wr.left - sr.left;
   else if (wr.right > sr.right) strip.scrollLeft += wr.right - sr.right;
 }
-/// The terminal area with no terminal: what it can open, from the sandbox's state.
-export function paintTermEmpty() {
-  if (!termUI.built) return;
-  const s = state.sbx;
-  const p = termUI.panes[0];
-  paintStartBar(p, s);
-  if (p.empty.hidden) return;
-  if (!s || !s.d || s.name !== state.param) { p.empty.replaceChildren(h('div', { class: 'term-empty-box' }, 'Loading…')); return; }
-  const i = s.d.info;
-  const tr = transitionOf(s.name);
-  const busy = i.busy || i.phase === 'booting' || opRunningFor(s.name) || !!tr;
-  const box = h('div', { class: 'term-empty-box' });
-  if (busy) {
-    box.append(h('div', { class: 'term-empty-head' }, tr ? TRANSITION_LABEL[tr.action] : i.phaseLabel + '…'), h('div', null, 'The terminal opens when it can.'));
-  } else if (i.phase === 'off' || i.phase === 'failed') {
-    // The plain off state (owner, 2026-09-30): no session screens — its sessions ended with the VM.
-    box.dataset.off = i.phase;
-    box.append(h('div', { class: 'term-empty-head' }, i.phase === 'off' ? 'Shut down' : s.name + ' failed to start'),
-      h('div', { class: 'term-empty-note' }, 'Starting boots it fresh — new sessions.'),
-      h('div', { class: 'actions center' },
-        // The bar's Start is the page's one primary; here it is the terminal's own button, as on the covers.
-        ((b) => { b.classList.add('tc-act'); return b; })(btn('Start', () => lifecycle('start', s.name), { small: true, title: bootViewOnStart() ? 'Boot it, and watch it boot here' : 'Boot it' }))));
-  } else {
-    box.append(h('div', { class: 'term-empty-head' }, 'No terminal open'), h('div', { class: 'actions center' }, ...sessionActions(s, i, false)));
-  }
-  p.empty.replaceChildren(box);
-}
-/// 593 §9 (S4): "New shell" always makes a NEW session; a running session is opened by its own name
-/// (the sessions list). The image's own session is offered by name: opened when it runs, started when not.
-/// 625: named for its agent ("Start Claude Code"), and the primary when the start bar offers it.
-function sessionActions(s, i, primary) {
-  const live = (s.d.sessions || []).filter((x) => !x.ended);
-  const saved = (s.d.sessions || []).filter((x) => x.saved);
-  const own = s.d.defaultSession;
-  const defaultRuns = live.some((x) => x.name === own && !x.saved);
-  const defaultSaved = saved.some((x) => x.name === own);
-  const title = agentTitle(i) || own;
-  return [
-    defaultSaved ? null : defaultRuns
-      ? btn('Open ' + title, () => openTerminal(s.name, own, 'interactive'), { icon: 'terminal', primary,
-        title: 'A terminal on the running ' + own + ' session' })
-      : btn('Start ' + title, () => openDefaultTerminal(s.name), { icon: 'play', primary,
-        title: 'Start the image’s own session (' + own + ')' + (i.phase === 'running' ? '' : ' — it wakes the sandbox') }),
-    ...live.filter((x) => x.name !== own && !x.saved).slice(0, 8).map((x) => btn('Open ' + x.name, () => openTerminal(s.name, x.name, 'interactive'), { icon: 'terminal' })),
-    ...saved.slice(0, 8).map((x) => btn('Show ' + x.name, () => openSavedTerminal(s.name, x), { icon: 'eye', title: 'Its last saved screen (read-only)' })),
-    btn('New shell', () => newShellTerminal(s.name).catch((e) => failureFor(s.name, e.message || String(e))), { title: 'A NEW shell session (shell-2, shell-3, …)' }),
-  ].filter(Boolean);
-}
-/// The agent a sandbox is made of, as people call it ("Claude Code"): the built-in three by name, else the end of the
-/// image's title ("Debian · Grok Build" → "Grok Build"). Null for an image without an agent (its session is a shell).
-function agentTitle(i) {
-  if (!i.agent || i.agent === 'none') return null;
-  if (AGENT_NAMES[i.agent]) return AGENT_NAMES[i.agent];
-  const t = (i.imageTitle || '').split(' · ').pop();
-  return t && t !== i.imageTitle ? t : null;
-}
-/// 625: the start bar — over Console on a RUNNING sandbox that has no session terminal (the empty area is hidden by
-/// Console's tab, so its Start was never seen: the m4air15 first sandbox sat on its console). Settled states only;
-/// while it starts, the start sequence opens the agent itself.
-function paintStartBar(p, s) {
-  const i = s && s.d && s.name === state.param ? s.d.info : null;
-  const show = !!i && p.onlyAux && i.phase === 'running' && !i.busy && !opRunningFor(s.name) && !transitionOf(s.name);
-  p.startBar.hidden = !show;
-  if (!show) { p.startBar.replaceChildren(); return; }
-  const title = agentTitle(i);
-  const runs = (s.d.sessions || []).some((x) => !x.ended && !x.saved && x.name === s.d.defaultSession);
-  p.startBar.replaceChildren(
-    h('div', { class: 'term-start-text' }, title ? title + (runs ? ' is running — not open here.' : ' is not running.') : 'No terminal open.'),
-    h('div', { class: 'actions' }, ...sessionActions(s, i, true)));
-}
 function tabElement(t, pane) {
   const phase = t.ended || t.errorText || t.disconnected ? 'ended'
     : t.saved ? sandboxPhase(t.sandbox) || 'unknown' : (t.state && t.state.phase) || 'unknown';
   const v = sview(t.sandbox);
   // Tabs are numbered (1, 2, …) per sandbox, so a shared session can say which tab it is shared with.
-  // Numbered 1, 2, … — tab zero is the console ("Console"), not numbered; a pending one is not a tab yet.
+  // Numbered 1, 2, … — Home, the build log and Console are the page's own, not numbered; a pending one is not a tab yet.
   const order = pageTerminals(t.sandbox).filter((x) => !isAux(x) && !x.pending).map((x) => x.id);
+  if (t.home) return homeTab(t, pane, v);
   if (t.mode === 'console') return consoleTab(t, pane, v);
   if (t.buildlog) return buildLogTab(t, pane, v);
   const num = order.indexOf(t.id) + 1;
@@ -255,8 +190,12 @@ function tabElement(t, pane) {
     shared);
   const move = v.split ? h('button', { type: 'button', class: 'tab-x', title: 'Move to the other pane', 'aria-label': 'Move ' + label + ' to the other pane',
     on: { click: () => { t.pane = 1 - t.pane; v.selected[t.pane] = t.id; renderTerminals(); focusTerm(t); } } }, icon('arrow-left-right')) : null;
-  const close = h('button', { type: 'button', class: 'tab-x', title: 'Close this terminal (the session keeps running)', 'aria-label': 'Close ' + label,
-    on: { click: () => closeTerminal(t.id) } }, icon('x'));
+  // 635: closing a view never ends its session — and the agent's own tab lands on Home, which says it goes on.
+  const agent = isAgentTab(t);
+  const who = agent ? agentTitle(state.sbx.d.info) || t.session : null;
+  const close = h('button', { type: 'button', class: 'tab-x', 'aria-label': 'Close ' + label,
+    title: who ? 'Close the tab — ' + who + ' keeps running. End stops it: ⋯ › End session.' : 'Close the tab — the session keeps running',
+    on: { click: () => closeSessionTab(t, agent) } }, icon('x'));
   // 608: Restart session / End session — for a running session of a running sandbox.
   const live = t.session && !t.saved && !t.ended && !t.restarting && !t.bootlog && sandboxPhase(t.sandbox) === 'running';
   // The menu is kept on the terminal across re-renders (a title or phase change re-renders the strip — an open
@@ -269,13 +208,42 @@ function tabElement(t, pane) {
   const menu = live ? t.sessionMenu.el : null;
   return h('div', { class: 'tab-wrap' }, select, move, menu, close);
 }
-/// 617: tab zero — the system console. A distinct icon, no number, no close box (it goes when the VM powers off).
+/// 635: the agent's own interactive tab on its running session — the one whose close lands on Home with the note.
+function isAgentTab(t) {
+  const s = state.sbx;
+  return !!(s && s.name === t.sandbox && s.d && t.session && t.session === s.d.defaultSession && t.mode === 'interactive'
+    && !t.saved && !t.ended && !t.pending && sandboxPhase(t.sandbox) === 'running');
+}
+/// 635: a person closed a session's tab: it goes (the session runs on) and Home is shown; the agent's tab marks its card.
+function closeSessionTab(t, agent) {
+  const v = sview(t.sandbox);
+  const shown = v.selected.includes(t.id);
+  if (agent && setting('ui.explain_tab_close', true)) v.justClosed = t.session;
+  closeTerminal(t.id);
+  const home = homePane(t.sandbox);
+  if (shown && home && t.pane === 0) { v.selected[0] = home.id; v.focusedPane = 0; renderTerminals(); }
+}
+/// 635: Home — the page's first tab: a box, no number, no close box; the number of sessions running.
+function homeTab(t, pane, v) {
+  const s = state.sbx;
+  const live = s && s.name === t.sandbox && s.d ? (s.d.sessions || []).filter((x) => !x.ended && !x.saved).length : 0;
+  const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-home' + (t.id === v.selected[pane] ? ' active' : ''),
+    title: 'Home — every session of ' + t.sandbox + ', its logs and its folder', 'data-term': String(t.id), 'data-home-tab': t.sandbox,
+    on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); } } },
+    icon('box'), 'Home', live ? h('span', { class: 'count', title: live + ' running' }, String(live)) : null);
+  return h('div', { class: 'tab-wrap' }, select);
+}
+/// 617: the system console. 635: an ordinary tab — closable at any time (even during a boot); once closed it stays
+/// closed until the next Start (Home › Logs › Console opens it again).
 function consoleTab(t, pane, v) {
   const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-console' + (t.id === v.selected[pane] ? ' active' : ''),
     title: 'The system console (the kernel and vminitd) — what doz console ' + t.sandbox + ' shows; read-only', 'data-term': String(t.id), 'data-console-tab': t.sandbox,
     on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); focusTerm(t); } } },
     icon('cpu'), 'Console');
-  return h('div', { class: 'tab-wrap' }, select);
+  const close = h('button', { type: 'button', class: 'tab-x', title: 'Close the console — it stays closed until the next start (Home › Logs opens it again)',
+    'aria-label': 'Close Console', 'data-console-close': t.sandbox,
+    on: { click: () => { v.consoleClosed = true; closeTerminal(t.id); } } }, icon('x'));
+  return h('div', { class: 'tab-wrap' }, select, close);
 }
 /// 617: the build log's tab — icon only (its name in the tooltip), no number, no close box.
 function buildLogTab(t, pane, v) {
@@ -306,13 +274,18 @@ export function syncBuildLogTab(name) {
     openBuildLogTerminal(name, log);
   }).catch(() => { /* none kept (404), or not now: no tab */ });
 }
-/// 617: tab zero exists exactly while the sandbox's VM is powered on (booting, running, paused); it goes when it shuts
-/// down, sleeps or hibernates, and comes back at the next power-on. A start under way (an agent's terminal still
-/// pending) shows it at once.
+/// 617: Console exists while the sandbox's VM is powered on (booting, running, paused); it goes when it shuts down,
+/// sleeps or hibernates, and comes back at the next power-on. A start under way (an agent's terminal still pending)
+/// shows it at once. 635: closed by the person, it stays closed until the next START — a cold boot from off or failed
+/// (never a wake: someone who closed it does not want it back after every sleep).
 export function syncConsoleTab(name, phase) {
   const on = ['booting', 'running', 'paused'].includes(phase);
+  const v = sview(name);
+  const before = v.consolePhase;
+  v.consolePhase = phase;
+  if (on && (before === 'off' || before === 'failed')) v.consoleClosed = false;
   const have = pageTerminals(name).filter((t) => t.mode === 'console');
-  if (on && !have.length) openConsoleTerminal(name, pageTerminals(name).some((t) => t.pending));
+  if (on && !have.length && !v.consoleClosed) openConsoleTerminal(name, pageTerminals(name).some((t) => t.pending));
   // A read of the phase can be older than the start under way: Console stays while the agent's terminal still waits.
   else if (!on && !pageTerminals(name).some((t) => t.pending)) for (const t of have) closeTerminal(t.id);
 }

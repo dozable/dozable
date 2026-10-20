@@ -523,11 +523,90 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-body { flex: 1; min-height: 0; position: relative; }
 .term-empty { color: var(--term-muted); }
 .term-empty[hidden] { display: none; }
-/* 625: the start bar over Console — a running sandbox with no session terminal offers its agent here. */
-.term-start { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface); border-bottom: var(--bw) solid var(--line); }
-.term-start[hidden] { display: none; }
-.term-start-text { color: var(--ink); font-weight: var(--fw-strong); min-width: 0; }
-.term-start .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* 635: a sandbox page's Home — its first tab, a document in the terminal area (like the build log), on --bg so its
+   active tab joins it. The agent's session as a card, the others as rows, each with a picture of its screen. */
+.tab.tab-home { padding: 6px 9px; }
+.tab-wrap:has(.tab-home.active) { background: var(--bg); }
+.tab.tab-home.active { color: var(--ink); }
+.tab-home .count { min-width: 16px; height: 16px; font-size: var(--fs-xs); padding: 0 4px; }
+.home-doc { position: absolute; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); padding: var(--sp-5) var(--sp-5) var(--sp-7); }
+.home-doc > * { max-width: 920px; }
+.home-doc h2 { margin: 0; font-size: var(--fs-lg); }
+.home-sect { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+.home-sect > .head { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.home-sect > .head .actions { display: flex; gap: var(--sp-2); align-items: center; }
+.home-lead { margin: -2px 0 2px; color: var(--ink-2); font-size: var(--fs-md); }
+.home-card-box { display: flex; flex-direction: column; gap: var(--sp-3); }
+.home-card-box:empty { display: none; }
+.home-agent { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: var(--sp-1) 14px; align-items: start; padding: 14px var(--sp-5);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); }
+.home-agent > .home-thumb { grid-row: span 3; }
+.home-agent .t { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-xl); font-weight: var(--fw-strong); }
+.home-agent .t .icon { width: 18px; height: 18px; color: var(--ink-2); }
+.home-agent .meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); color: var(--ink-2); font-size: var(--fs-sm); }
+.home-agent .msg { grid-column: 2; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-agent .msg[hidden] { display: none; }
+.home-agent .acts { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: var(--sp-2); align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.home-agent .home-note { grid-column: 1 / -1; }
+.home-agent .home-note:empty { display: none; }
+.home-agent.just-closed { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-1); }
+.home-rows { border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.home-rows[hidden] { display: none; }
+.home-row { display: grid; grid-template-columns: 18px minmax(110px, 0.9fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto; gap: 2px var(--sp-4); align-items: center;
+  min-height: 42px; padding: var(--sp-2) 10px var(--sp-2) 14px; border-top: var(--bw) solid var(--line); }
+.home-row:first-child { border-top: 0; }
+.home-row > .icon { width: 15px; height: 15px; color: var(--ink-2); }
+.home-row .nm { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: var(--fw-medium); }
+.home-row .nm > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .cmd-t { font: var(--fs-mono) var(--mono); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .st { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); min-width: 0; }
+.home-row .st .dot { flex: none; }
+.home-row .st > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .row-acts { flex-wrap: nowrap; justify-content: flex-end; }
+.home-row.dim .nm, .home-row.dim > .icon { color: var(--ink-2); }
+.home-row.has-thumb { grid-template-columns: 120px minmax(110px, 0.9fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto; padding-block: var(--sp-3); }
+.home-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-2) var(--sp-5); padding: var(--sp-4) 14px; margin: 0;
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.home-facts dt { color: var(--ink-2); }
+.home-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.home-empty { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--sp-1) 14px; align-items: center; padding: var(--sp-5);
+  border: var(--bw) dashed var(--line-strong); border-radius: var(--r-lg); background: var(--surface); }
+.home-empty > .icon { width: 28px; height: 28px; color: var(--ink-2); grid-row: span 2; }
+.home-empty .t { font-size: var(--fs-xl); font-weight: var(--fw-strong); }
+.home-empty .d { color: var(--ink-2); grid-column: 2; }
+.home-empty .acts { grid-column: 3; grid-row: 1 / span 2; }
+/* 635: a session's picture — its terminal laid out at 960 × 560 (the grid's tile size) and scaled into the frame; live,
+   or its saved screen. Its cover never shows here (the badge says live or saved). */
+.home-thumb { position: relative; flex: none; width: 120px; height: 68px; padding: 0; overflow: hidden; cursor: pointer; --s: 0.125;
+  border: var(--bw) solid var(--line); border-radius: var(--r-sm); background: var(--term-bg); text-align: left; }
+.home-thumb.big { width: 220px; height: 128px; --s: 0.2292; }
+.home-thumb:hover, .home-thumb:focus-visible { border-color: var(--accent); }
+.home-thumb .thumb-screen { position: absolute; left: 0; top: 0; width: 960px; height: 560px; transform: scale(var(--s)); transform-origin: 0 0; pointer-events: none; }
+.home-thumb .term-cover, .home-thumb .term-notice { display: none; }
+.home-thumb.saved .thumb-screen { opacity: 0.6; filter: saturate(0.4); }
+.home-thumb .th-plate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-1);
+  color: var(--term-muted); font-size: var(--fs-xs); text-align: center; }
+.home-thumb .th-plate[hidden] { display: none; }
+.home-thumb .th-badge { position: absolute; right: 4px; bottom: 4px; display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; height: 15px;
+  border-radius: var(--r-pill); background: color-mix(in srgb, var(--term-bg) 80%, transparent); color: var(--term-ink); font-size: 10px; line-height: 1; }
+.home-thumb .th-badge[hidden] { display: none; }
+.home-thumb .th-live, .home-thumb .th-saved { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.home-thumb .th-saved { background: var(--ph-asleep); }
+@media (max-width: 760px) {
+  .home-doc { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
+  .home-agent { grid-template-columns: minmax(0, 1fr); }
+  .home-agent > .home-thumb.big { width: 100%; grid-row: auto; }
+  .home-agent .meta, .home-agent .msg, .home-agent .acts { grid-column: 1; grid-row: auto; justify-content: flex-start; }
+  .home-row, .home-row.has-thumb { grid-template-columns: 88px minmax(0, 1fr) auto; }
+  .home-row:not(.has-thumb) { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .home-row.has-thumb .home-thumb { width: 88px; height: 50px; --s: 0.0917; grid-column: 1; grid-row: 1 / span 2; }
+  .home-row .cmd-t { display: none; }
+  .home-row .nm { grid-column: 2; grid-row: 1; }
+  .home-row .st { grid-column: 2; grid-row: 2; }
+  .home-row .row-acts { grid-column: 3; grid-row: 1 / span 2; }
+  .home-empty { grid-template-columns: 34px minmax(0, 1fr); }
+  .home-empty .acts { grid-column: 1 / -1; grid-row: auto; }
+}
 .term-wrap { position: absolute; inset: 0; }
 .term-wrap[hidden] { display: none; }
 .term-frame-host { position: absolute; inset: 0; }

@@ -102,11 +102,21 @@ top shows the whole sidebar over the page.
   shows or hides the details.
 - **The terminals**, whose tab strip carries what makes or arranges them: **New shell** (its **▾**:
   **Terminal…**, **Run detached…**), **Split** (its **▾** picks what a split adds) and **Open in
-  Terminal**. **Start** on the page opens the agent too; a start from a row of **All sandboxes** only
-  boots it — its page then shows **Console** with a bar above it: **Start Claude Code** (or the
-  sandbox's agent) and **New shell**.
+  Terminal**. The first tab is **Home** (below); then the image's build log (a small tab), **Console**
+  (the kernel and the guest's init, while the sandbox runs) and the sessions' tabs. **Start** on the
+  page opens the agent too; a start from a row of **All sandboxes** only boots it — its **Home** then
+  offers **Start Claude Code** (or the sandbox's agent).
+- **Home** — every session of the sandbox, in one place: the agent's session as a card (what it is
+  doing, since when, which tab shows it, **Open**, **End…**, and **⋯** for **Watch**, **Open in
+  Terminal**, **Restart session**), the other sessions as rows, each with a small picture of its
+  screen (live while the sandbox runs and Home is shown; its saved screen while it sleeps), then
+  **Logs** (**Console**, the build log, the boot logs) and the **Folder**. The tab shows how many
+  sessions run. **Closing a tab never stops its session**: closing the agent's tab brings you back to
+  Home, which says the agent is still running and that **End** stops it — every time, until you click
+  **Don't say this again** (the setting `ui.explain_tab_close`). **Console** can be closed at any time,
+  even during a boot; it stays closed until the next **Start** (Home › Logs › **Console** opens it again).
 - **The details**, beside them in tabs: **Overview** (RAM, disk, CPUs, the attach command, the
-  workspace and its rules, its sessions and last restore point), **Sessions**, **Points** (restore
+  workspace and its rules, its sessions and last restore point), **Points** (restore
   points), **Network** (**What the agent can do**, the rules, the connection log), **Keys** (keys and
   account) and **Config** (its configuration and the agent's environment prompt). The tab you chose is
   kept for each sandbox while the page is open; drag the details' left edge to widen them (320–560 px).
@@ -172,8 +182,7 @@ you sign in; its terminals reattach afterwards.
 
 ## Terminals in the browser
 
-On a sandbox's page, a session's **Open** (in the empty terminal area, or the details' **Sessions** tab)
-attaches to it and **Watch** (its **⋯**) shows it read-only; on the terminals' tab strip **New shell**
+On a sandbox's page, a session's **Open** (on its **Home**) attaches to it and **Watch** (its **⋯**) shows it read-only; on the terminals' tab strip **New shell**
 starts a new shell (`shell-2`, `shell-3`, …) and its **▾** › **Terminal…** starts a new session — a shell
 or one running a command. Terminals are tabs; **Split** shows two side by side. Closing a tab only closes the
 view — the session keeps running. Each tab is titled like `1 · my-app · claude · 14:05` (the setting
@@ -203,7 +212,8 @@ dashboard can switch this off but never on.
 | `ui.terminal_title` | `{sandbox} · {session} · {time}` | A terminal tab's title (and your terminal's, in `doz attach`). |
 | `ui.split_default` | `shell` | What **Split** opens: `shell`, `watch`, `attach` or `dialog`. |
 | `ui.details_open` | `true` | A sandbox's page shows its details (the tabs beside its terminals). |
-| `ui.boot_view_on_start` | `false` | After **Start**, stay on tab zero (**Console**) rather than switch to the agent's tab. |
+| `ui.boot_view_on_start` | `false` | After **Start**, stay on the **Console** tab rather than switch to the agent's tab. |
+| `ui.explain_tab_close` | `true` | Closing the agent's tab: **Home** says it is still running (until **Don't say this again**). |
 | `ui.confirm_shutdown` | `true` | **Shut down** asks first. |
 | `ui.grid_live_tiles` | `8` | All sessions: at most this many tiles live at once (1–12). |
 | `ui.grid_tile_size` | `medium` | All sessions: `small`, `medium`, `large`. |

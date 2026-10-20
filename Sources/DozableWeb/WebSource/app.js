@@ -71,9 +71,10 @@ import { viewOverview } from './app/views/overview.js';
 import { viewResources } from './app/views/resources.js';
 import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try.js';
 import './app/views/sandbox-dialogs.js';
-import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout.js';
+import { persistLayout } from './app/views/sandbox-layout.js';
 import './app/views/sandbox-network.js';
-import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals.js';
+import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals.js';
+import { paintHome } from './app/views/sandbox-home.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions.js';
 import { viewSettings } from './app/views/settings.js';
@@ -137,8 +138,8 @@ async function startApp() {
 // before anything runs.
 provide({
   acknowledgeOps, backToTrySetup, banner, btn, callout, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
-  gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openSavedTerminal, openWizardModal, pageFailure,
-  paintCover, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTermEmpty, paintTransition,
+  gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openWizardModal, pageFailure,
+  paintCover, paintHome, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,

@@ -120,7 +120,7 @@ export function promoteSaved(name, live) {
   if (gone && !pageTerminals(name).some((t) => t.bootIntent || t.pending)) { const v = sview(name); v.split = false; v.focusedPane = 0; }
   for (const t of [...terminals.values()]) {
     // A Boot log terminal is never a session's; 617: nor the build log's tab (it stays through shutdown and sleep).
-    if (t.sandbox !== name || t.bootlog || t.buildlog) continue;
+    if (t.sandbox !== name || t.bootlog || t.buildlog || t.home) continue;      // 635: nor Home (always there)
     // 617: a start's pending agent terminal waits through the preparation (the sandbox is still off then).
     if (gone && !t.bootIntent && !(t.pending && opRunningFor(name))) { if (t.grid) continue; closeTerminal(t.id); continue; }
     if (!t.saved) continue;

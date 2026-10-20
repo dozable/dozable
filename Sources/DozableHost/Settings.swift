@@ -459,10 +459,15 @@ public struct DozableSettings: Sendable {
             // 617 (owner, the start sequence): the boot console is tab zero on every start; this only decides whether the
             // page stays on it. Off by default — the agent's tab is what a start is for.
             .init("ui", "boot_view_on_start", .bool, .bool(false),
-                  "After Start the page stays on tab zero, Console (the kernel and vminitd), and marks the agent's tab when it is ready; false (the default): it switches to the agent's tab as soon as that has drawn its screen.",
+                  "After Start the page stays on its Console tab (the kernel and vminitd), and marks the agent's tab when it is ready; false (the default): it switches to the agent's tab as soon as that has drawn its screen.",
                   applies: .now),
             .init("ui", "confirm_shutdown", .bool, .bool(true),
                   "Shut Down asks first (its dialog's \"don't ask again\" sets this to false). Reset and Remove always ask with a box to tick.",
+                  applies: .now),
+            // 635 (owner: closing a tool's tab should not look like stopping it): the note on Home after the agent's tab
+            // is closed — every time, until "Don't say this again" turns it off.
+            .init("ui", "explain_tab_close", .bool, .bool(true),
+                  "Closing an agent's tab returns to the sandbox's Home, which says the agent is still running and that End stops it (its \"Don't say this again\" sets this to false). false: Home does not say it.",
                   applies: .now),
             .init("ui", "split_default", .choice(["shell", "watch", "attach", "dialog"]), .string("shell"),
                   "What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left terminal's session), attach (a second, shared view of it), dialog (choose each time).",
@@ -480,7 +485,7 @@ public struct DozableSettings: Sendable {
                   "The UI's colours: auto follows macOS.",
                   applies: .now),
             .init("ui", "details_open", .bool, .bool(true),
-                  "A sandbox's page shows its details panel (sessions, restore points, network, keys) beside the terminals; false: collapsed.",
+                  "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",
                   applies: .now),
             .init("ui", "allow_secret_entry", .bool, .bool(true),
                   "The web UI takes an Anthropic API key or a Claude setup token in a masked field — an account (the setup wizard, Accounts & keys: stored exactly as doz account add stores it, the login keychain) or a sandbox's own key (its page: exactly as doz key set does, held by the host) — sent once, in a request body. false: the pages show the command instead. The UI can turn this off, never on.",
@@ -492,7 +497,7 @@ public struct DozableSettings: Sendable {
                   "The port doz ui listens on, always on 127.0.0.1 (this Mac only): 0 = automatic (the port this store's last doz ui had, when it is free — else one the system picks, and doz ui says so), or a fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app belongs to one port: keep it fixed for one.",
                   env: "DOZ_UI_PORT", flag: "--port N", applies: .uiRestart),
             .init("ui", "grid_live_tiles", .int(1...12), .int(8),
-                  "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so.",
+                  "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sandbox's Home shows at most 4 live pictures, and never more than this.",
                   applies: .now),
             .init("ui", "grid_tile_size", .choice(["small", "medium", "large"]), .string("medium"),
                   "All sessions: the size of a tile.",

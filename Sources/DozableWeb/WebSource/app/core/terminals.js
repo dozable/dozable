@@ -24,9 +24,12 @@ export function sview(name) {
 export const PASTE_CONFIRM_BYTES = 64 * 1024;
 export const PASTE_MAX_BYTES = 1024 * 1024;
 export const INPUT_CHUNK = 16 * 1024;
-/// 617: the page's own panes of a sandbox that are no session's — tab zero, Console, and the build log's tab.
-export function isAux(t) { return t.mode === 'console' || !!t.buildlog; }
+/// 617: the page's own panes of a sandbox that are no session's — Home (635), Console, and the build log's tab. Never
+/// numbered, never persisted; whether one has a close box is its own kind's (Console has one, Home and the build log not).
+export function isAux(t) { return t.mode === 'console' || !!t.buildlog || !!t.home; }
 export function pageTerminals(name) { return [...terminals.values()].filter((t) => !t.grid && t.sandbox === name); }
+/// 635: a sandbox page's Home pane (its first tab), if it has been made.
+export function homePane(name) { return pageTerminals(name).find((t) => t.home) || null; }
 
 /// What a split adds on the right (the Split button's ▾ menu). Remembered per browser.
 export const SPLIT_KINDS = {

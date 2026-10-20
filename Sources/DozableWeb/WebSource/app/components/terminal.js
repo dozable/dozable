@@ -175,8 +175,20 @@ export function openBuildLogTerminal(sandbox, log) {
   renderTerminals();
   return t;
 }
-/// 617: tab zero — the sandbox's system console (read-only, the stream `doz console NAME` shows), while its VM is
-/// powered on. `select`: it becomes the pane's shown tab (a start under way); else it waits behind the others.
+/// 635: a sandbox page's Home — its first tab: a document in the terminal area (no engine, no socket, never persisted,
+/// never closed). `views/sandbox-home.js` draws what is in it.
+export function openHomePane(sandbox) {
+  const t = newTerm(sandbox, null, 'home');
+  t.home = true;
+  t.pane = 0;
+  t.savedShown = true;
+  t.els.wrap.dataset.home = sandbox;
+  t.els.cover.hidden = true;
+  return t;
+}
+/// 617: the sandbox's system console (read-only, the stream `doz console NAME` shows), while its VM is powered on —
+/// 635: an ordinary tab now, closable. `select`: it becomes the pane's shown tab (a start under way); else it waits
+/// behind the others.
 export async function openConsoleTerminal(sandbox, select) {
   if (!terminalsAllowed()) return null;
   const t = newTerm(sandbox, null, 'console');
@@ -425,6 +437,7 @@ function safePaste(t, raw, bracketed) {
 export function paintCover(t) {
   const e = t.els;
   let kind = 'none', headline = '', detail = '', action = null, spinner = false, glyphKey = null;
+  if (t.home) { e.cover.hidden = true; return; }                   // 635: Home is a document, never covered
   if (t.errorText) { kind = 'error'; headline = 'This terminal could not open'; detail = t.errorText; }
   else if (t.bootlog || t.buildlog) { kind = t.savedShown ? 'none' : 'reattaching'; headline = 'Loading…'; spinner = !t.savedShown; }
   else if (t.saved) { ({ headline, detail, action, glyphKey } = savedCover(t)); kind = 'saved'; }
