@@ -23,7 +23,7 @@ struct List: AsyncParsableCommand {
             if r.credentialPolicy == "strict" { account += " · strict" }
             // 594 (D17): no workspace is said, not left blank.
             let ws = r.workspace.map { DisplayPath.tilde($0) } ?? "isolated"
-            t.append([r.name + (r.trial == true ? " (try)" : ""), r.image, phase, Out.mib(r.ramHeldMiB), DozableImages.formatBytes(r.diskBytes),
+            t.append([r.name, r.image, phase, Out.mib(r.ramHeldMiB), DozableImages.formatBytes(r.diskBytes),
                       r.sessions.map(String.init) ?? "—", r.agentStatus?.label ?? "—", net, account, ws])
         }
         Out.stdout(Out.table(t, rightAligned: [3, 4, 5]))

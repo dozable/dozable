@@ -8,15 +8,18 @@ import DozableHost
 // command. It is `doz new` with Quick-try defaults through the SAME choice options and planner (no second code path):
 // a NEW EMPTY folder of its own under defaults.projects_dir (owner, after the demo: files the agent makes are on the Mac,
 // opening files and copying work — never one of the person's folders; --isolated keeps none), Locked + the agent's own
-// model, the agent's default base, the provider's default key, named try-<agent> and marked as a try. With no key: the "What you need" card (from the recipe's auth) — while the image prepares at
-// once in the background. Attached; on the way out: "Keep this try? [S]leep / [d]elete / [k]eep running".
+// model, the agent's default base, the provider's default key, named try-<agent>. 634: what it makes is an ORDINARY
+// sandbox (no mark — owner: "drop the special status of a try … but keep the ability to easily delete"). With no key:
+// the "What you need" card (from the recipe's auth) — while the image prepares at once in the background. Attached; on
+// the way out: "Leaving try-claude — [S]leep / [d]elete / [k]eep running" (the terminal's easy delete).
 
 struct TryCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "try",
-        abstract: "Try an agent now: a throwaway sandbox with safe defaults — made, started and attached in one command.",
+        abstract: "Try an agent now: a sandbox with safe defaults — made, started and attached in one command.",
         discussion: """
         doz try grok · doz try gemini --base python · doz try (a numbered list of the agents, with your keys). \
-        A try works in a NEW EMPTY folder Dozable makes under your projects folder (try-AGENT — never one of yours), shared \
+        What it makes is an ordinary sandbox, the fast way. \
+        It works in a NEW EMPTY folder Dozable makes under your projects folder (try-AGENT — never one of yours), shared \
         at /workspace, so what the agent makes is on your Mac; copying to your Mac's clipboard and opening files and links \
         on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
         installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
@@ -24,7 +27,7 @@ struct TryCommand: AsyncParsableCommand {
         running; --rm and --keep answer before. --ui opens the same in the dashboard (doz ui), with the agent chosen. Deleting it removes its folder too when the folder is empty, and asks \
         when the agent left files there. --isolated shares no folder at all (doz get and doz put \
         copy files out and in); --workspace DIR uses yours. Off a terminal it does not attach and asks nothing: it makes and starts \
-        the try, keeps it, and prints how to attach. Every choice option of doz new works here.
+        the sandbox, keeps it, and prints how to attach. Every choice option of doz new works here.
         """)
 
     @OptionGroup var g: GlobalOptions
@@ -139,7 +142,7 @@ struct TryCommand: AsyncParsableCommand {
         guard interactive else {
             if g.json {
                 Out.json(["name": .string(planned.name), "image": .string(planned.image), "phase": .string(started.phase), "session": .string(opened.session),
-                          "trial": .bool(true), "attach": .string(attachLine)] as [String: JSONValue])
+                          "attach": .string(attachLine)] as [String: JSONValue])
             } else {
                 Out.stdout("\(planned.name) is \(Out.phaseLabel(started.phase)) and kept — \(attachLine) · doz rm \(planned.name) when you are done\n")
             }
@@ -158,21 +161,21 @@ struct TryCommand: AsyncParsableCommand {
         try await finish(planned.name, end: end)
     }
 
-    /// "Keep this try?" — or what --rm / --keep said.
+    /// "Leaving NAME — Sleep / delete / keep running" — or what --rm / --keep said.
     func finish(_ name: String, end: AttachEnd) async throws {
         let asker = Asker(yes: false, json: g.json)
         var choice = TryExitChoice.decided(rm: rm, keep: keep, interactive: asker.interactive)
         while choice == nil {
-            choice = TryExitChoice.parse(asker.text(TryExitChoice.question, default: "S"))
+            choice = TryExitChoice.parse(asker.text(TryExitChoice.question(name), default: "S"))
         }
         switch choice! {
         // "Sleep" as a person means it (D14: "it then holds no memory"): Dozable's hibernate — a snapshot on disk, the
         // RAM returned; `doz wake` or `doz attach` brings it back where it was.
         case .sleep: _ = try lifecycle(.hibernate, name, g)
         case .delete:
-            let folder = await tryFolder(name, g)
+            let folder = await createdFolder(name, g)
             _ = try lifecycle(.rm, name, g)
-            cleanUpTryFolder(folder, g)
+            cleanUpCreatedFolder(folder, g)
         case .keep: Out.stdout("\(name) keeps running — doz attach \(name) · doz rm \(name) when you are done\n")
         }
         if case .ended(let c) = end, c != 0 { throw ExitCode(c) }

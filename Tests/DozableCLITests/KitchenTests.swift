@@ -123,7 +123,7 @@ final class KitchenTests: XCTestCase {
             let p = try plan(purpose, args, name: name, facts: f)
             out.append("== \(title): \(purpose) \(args.joined(separator: " "))")
             out.append("command: \(p.command)")
-            out.append("name: \(p.name) · image: \(p.imageState.name) (\(p.imageState.title ?? "-"), \(p.imageState.state)) · workspace: \(p.workspace ?? "isolated") · trial: \(p.trial.map(String.init) ?? "-")")
+            out.append("name: \(p.name) · image: \(p.imageState.name) (\(p.imageState.title ?? "-"), \(p.imageState.state)) · workspace: \(p.workspace ?? "isolated")")
             if let a = p.account { out.append("account: \(a.name ?? "none") · \(a.kind ?? "-") · \(a.provider ?? "-") · \(a.sourceLabel ?? "-")") }
             for r in p.reach { out.append("reach \(r.kind): \(r.text)") }
             out.append("yaml: " + p.yaml.split(separator: "\n").filter { !$0.hasPrefix("#") }.joined(separator: " | "))
@@ -182,7 +182,6 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(p.name, "try-grok")
         XCTAssertEqual(p.command, "doz try grok")
         XCTAssertEqual(p.create.network, "locked")
-        XCTAssertEqual(p.create.trial, true)
         XCTAssertNil(p.create.isolated, "a try has a new empty folder of its own (owner, after the demo)")
         XCTAssertEqual(p.workspace.map { ($0 as NSString).lastPathComponent }, "try-grok")
         r.planRequest?.purpose = "nonsense"
@@ -217,7 +216,6 @@ final class KitchenTests: XCTestCase {
         // makes are on the Mac; the open-files bridge works) — never one of yours.
         XCTAssertEqual(p.workspace, projects.appendingPathComponent("try-grok").path)
         XCTAssertNil(p.create.isolated)
-        XCTAssertEqual(p.trial, true)
         XCTAssertTrue(p.reach.contains { $0.kind == "folder" && $0.text.hasPrefix("A new empty folder ") && $0.text.contains("(not one of yours)") },
                       p.reach.map(\.text).joined(separator: " | "))
         XCTAssertTrue(p.reach.contains { $0.text == "Copy to your Mac's clipboard: on" })
@@ -261,15 +259,15 @@ final class KitchenTests: XCTestCase {
         XCTAssertEqual(q.command, "doz try gemini --base python --workspace /tmp/617-w --network agent")
     }
 
-    /// `doz ls` says a try (SandboxInfo's own coding carries the marker and the custom keys — the VM proof found it didn't).
-    func testSandboxInfoCarriesTheTryAndItsKeys() throws {
+    /// SandboxInfo's own coding carries the Dozable-made folder (634) and the custom keys — the VM proof found it didn't.
+    func testSandboxInfoCarriesItsCreatedFolderAndItsKeys() throws {
         var i = SandboxInfo(name: "try-grok", image: "grok", phase: "off", busy: false, cpus: 2, memoryMiB: 2048, ramHeldMiB: 0, memoryReturnedMiB: 0,
                             diskBytes: 1, sessions: nil, network: "locked", deniedConnections: nil, workspace: nil, createdAt: nil, diedWithHost: nil,
                             account: nil, credentialState: nil, credentialPolicy: nil, foreignCredentials: nil)
-        i.trial = true
+        i.createdFolder = "/tmp/projects/try-grok"
         i.extraKeys = ["ex"]
         let back = try JSONDecoder().decode(SandboxInfo.self, from: JSONEncoder().encode(i))
-        XCTAssertEqual(back.trial, true)
+        XCTAssertEqual(back.createdFolder, "/tmp/projects/try-grok")
         XCTAssertEqual(back.extraKeys, ["ex"])
     }
 

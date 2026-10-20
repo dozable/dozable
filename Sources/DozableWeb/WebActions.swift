@@ -283,7 +283,7 @@ public enum WebAction: Equatable, Sendable {
     /// Fields each action may carry (besides `action`).
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
-            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites", "trial",
+            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites",
                        "modelSource", "model"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
@@ -341,8 +341,6 @@ public enum WebAction: Equatable, Sendable {
             o.isolated = try f.flag("isolated")
             // 594 W28: the New Sandbox form's "Rebuild first" (an out-of-date image is otherwise used as it is).
             o.rebuild = try f.flag("rebuild")
-            // 617: a try (the Quick try page) — marked, so its exit offers sleep/delete and doz ls says so.
-            o.trial = try f.flag("trial")
             // 617 (models@1): the model source (a provider or gateway of this build) and the model — the host checks
             // that the agent is offered it and picks that source's key.
             o.modelSource = try f.oneOf("modelSource", ModelSources.publishedIds)   // 629: a NEW sandbox — published only

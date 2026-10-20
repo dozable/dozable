@@ -125,10 +125,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 617 (D6): custom key accounts attached beside the account (`--key NAME`), each swapped only on its own hosts,
     /// only while the policy allows them. Absent for every sandbox before 617.
     public var extraKeys: [String]?
-    /// 617 (D14): made by `doz try` (nil for every other sandbox).
-    public var trial: Bool?
-    /// 617: the folder Dozable MADE for this try (a delete offers to remove it: at once when empty, asked otherwise).
-    public var trialFolder: String?
+    /// 634: the folder Dozable MADE for this sandbox (its workspace did not exist at create) — removed with it while it is
+    /// empty, asked about (the CLI) when it holds files. nil: a folder that was there already, or none. (617's `trial` and
+    /// `trialFolder` are gone — NO migration: a doz.json carrying them loads with both ignored.)
+    public var createdFolder: String?
     /// 618: what it was made as — `opencode@2.0.29`: a family's (or tool's) name and the exact release. Display only: the
     /// sandbox keeps its image and recipe whatever the family recommends later (it never changes major).
     public var agentRef: String?

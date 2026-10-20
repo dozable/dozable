@@ -172,13 +172,14 @@ func cliAgentsSuite(binary: String) async {
 
     // ── A fresh try: no refusal counted at its first run (owner) — and an unexpected one still is ─────────
     for c in cells {
+        // 634: a try is an ordinary sandbox — the new one is the name that was not there before.
+        let before = Set(t.ls().map(\.name))
         let r = d(["try", c.agent, "-d", "-q"], timeout: 1500)
-        let tryName = t.ls().first { $0.trial == true }?.name ?? ""
-        check(r.code == 0 && !tryName.isEmpty, "\(c.agent): doz try -d makes a try (\(tryName))")
+        let tryName = t.ls().map(\.name).first { !before.contains($0) } ?? ""
+        check(r.code == 0 && !tryName.isEmpty, "\(c.agent): doz try -d makes a sandbox (\(tryName))")
         sleep(20)
         let row = t.row(tryName)
         check(row?.deniedConnections ?? -1 == 0, "\(c.agent): a fresh try's first run shows no counted refusal (\(row?.deniedConnections ?? -1))")
-        check(row?.trial == true, "\(c.agent): it is a try")
         _ = d(["exec", tryName, "--", "sh", "-c", "curl -s -m 5 -o /dev/null https://api.anthropic.com/ || true"])
         check((t.row(tryName)?.deniedConnections ?? 0) >= 1, "\(c.agent): an unexpected request (Anthropic, from a \(c.agent) try) is refused and counted")
         _ = d(["rm", tryName, "--yes"], timeout: 300)
@@ -186,8 +187,9 @@ func cliAgentsSuite(binary: String) async {
 
     // ── Off a terminal: doz try makes and starts it, never attaches, and says how to ─────────────────────
     if let c = cells.first {
+        let before = Set(t.ls().map(\.name))
         let r = d(["try", c.agent], timeout: 1500)
-        let tryName = t.ls().first { $0.trial == true }?.name ?? ""
+        let tryName = t.ls().map(\.name).first { !before.contains($0) } ?? ""
         check(r.code == 0 && r.out.contains("doz attach \(tryName)"), "\(c.agent): doz try off a terminal starts it and prints the attach command")
         if !tryName.isEmpty { _ = d(["rm", tryName, "--yes"], timeout: 300) }
     }

@@ -119,7 +119,7 @@ final class GuideTests: XCTestCase {
     func testTheFactsAreDozablesAndTheTextReadsBack() throws {
         let r = try XCTUnwrap(AgentRecipes.recipe("fabric"))
         let g = try XCTUnwrap(SandboxGuide.make(r, version: nil, source: "google", model: "gemini-2.5-flash", account: "google", accountKind: .key,
-                                                network: "its model only (Locked)", workspace: "/Users/me/try-fabric", trial: true))
+                                                network: "its model only (Locked)", workspace: "/Users/me/try-fabric"))
         XCTAssertEqual(g.session, "shell")
         XCTAssertEqual(g.facts.map(\.id), ["version", "model", "network", "folder", "settings"])
         XCTAssertEqual(g.facts[0].value, "Fabric 1.4.518 (Dozable's pin)")
@@ -127,10 +127,10 @@ final class GuideTests: XCTestCase {
         XCTAssertEqual(g.facts[3].value, "/workspace = /Users/me/try-fabric")
         XCTAssertTrue(g.what.contains("a command-line tool"))
         let text = g.plainText()
-        XCTAssertTrue(text.contains("This try\n") && text.contains("Start here\n  1. Check it answers.\n       echo hello | fabric \"say ok\""))
+        XCTAssertTrue(text.contains("This sandbox\n") && !text.contains("This try") && text.contains("Start here\n  1. Check it answers.\n       echo hello | fabric \"say ok\""))
         XCTAssertTrue(g.plainText(stepsOnly: true).hasPrefix("Start here\n"))
         let claude = try XCTUnwrap(SandboxGuide.make(try XCTUnwrap(AgentRecipes.recipe("claude-code")), version: "2.1.300", source: nil, model: nil,
-                                                     account: "mac", accountKind: .mac, network: "x", workspace: nil, trial: false))
+                                                     account: "mac", accountKind: .mac, network: "x", workspace: nil))
         XCTAssertEqual(claude.session, "screen")
         XCTAssertEqual(claude.facts[0].value, "Claude Code 2.1.300")
         XCTAssertTrue(claude.facts[1].value.contains("your Claude Code login on this Mac"))
@@ -150,13 +150,11 @@ final class GuideTests: XCTestCase {
         _ = await c.handle(HostRequest.keyAccountAdd(name: "google", provider: "google", secret: "AIzaFAKE0123456789abcdef"))
         var r = HostRequest(.create, name: "fb")
         r.create = CreateOptions(image: "fabric", network: "locked")
-        r.create?.trial = true
         let m = await c.handle(r)
         XCTAssertNil(m.error, m.error?.message ?? "")
         let dm = await c.handle(HostRequest(.inspect, name: "fb"))
         let d = try XCTUnwrap(dm.result).decode(SandboxDetail.self)
         let g = try XCTUnwrap(d.guide)
-        XCTAssertTrue(g.trial)
         XCTAssertEqual(g.facts.first { $0.id == "model" }?.value,
                        "Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder")
         XCTAssertEqual(g.facts.first { $0.id == "network" }?.value, "its model only (Locked)")

@@ -126,12 +126,13 @@ final class WebTryTests: XCTestCase {
     }
 
     func testATryIsMadeByTheOrdinaryCreateAction() throws {
-        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","network":"locked","trial":true}"#.utf8))
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","network":"locked"}"#.utf8))
         guard case .create(let name, let o) = a else { return XCTFail("not create") }
         XCTAssertEqual(name, "try-grok")
-        XCTAssertEqual(o.trial, true)
+        XCTAssertEqual(o.network, "locked")
         XCTAssertEqual(a.hostOp, .create, "one HostOp, as ever")
-        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"x","image":"grok","trial":"yes"}"#.utf8)))
+        // 634: a try is no longer marked — `trial` is an unknown field now, refused like any other.
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","trial":true}"#.utf8)))
     }
 
     func testAProvidersKeyMayBePastedNeverACustomOne() throws {
@@ -249,7 +250,7 @@ final class WebTryTests: XCTestCase {
                     #"{"purpose":"try","agent":"shell-gpt","model":"$(rm -rf /)"}"#, #"{"purpose":"try","agent":"shell-gpt","source":3}"#] {
             XCTAssertThrowsError(try WebPlanQuery.decode(Data(bad.utf8)), bad)
         }
-        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-sgpt","image":"shell-gpt","trial":true,"modelSource":"vercel-ai-gateway","model":"openai/gpt-5.4-mini"}"#.utf8))
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-sgpt","image":"shell-gpt","modelSource":"vercel-ai-gateway","model":"openai/gpt-5.4-mini"}"#.utf8))
         guard case .create(_, let o) = a else { return XCTFail("not create") }
         XCTAssertEqual(o.modelSource, "vercel-ai-gateway")
         XCTAssertEqual(o.model, "openai/gpt-5.4-mini")

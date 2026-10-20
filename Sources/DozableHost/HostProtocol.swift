@@ -205,8 +205,6 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     public var audio: Bool?
     /// 617 (D6): custom key accounts to attach (`--key NAME`, repeatable); each host must be allowed.
     public var keys: [String]?
-    /// 617 (D14): made by `doz try` — marked as a try (`doz ls` says so).
-    public var trial: Bool?
     /// 617 (models@1): the model source a recipe agent uses (`--provider`/`--gateway`: anthropic, openai, xai, google,
     /// openrouter, vercel-ai-gateway) — its account is then a key of that source — and the model (`--model`).
     public var modelSource: String?
@@ -629,10 +627,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var sessionStatuses: [SessionStatus]? = nil
     public var agentStatus: SessionStatus? = nil
     public var agentWorking: Bool? = nil
-    /// 617 (D14): made by `doz try`.
-    public var trial: Bool? = nil
-    /// 617: the folder Dozable made for this try (nil: none, or one the person chose).
-    public var trialFolder: String? = nil
+    /// 634: the folder Dozable made for this sandbox — removed with it while empty (nil: none, or one that was there).
+    public var createdFolder: String? = nil
     /// 618: what it was made as — `opencode@2.0.29` (a family's or tool's name and its release); nil: not recorded.
     public var agentRef: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
@@ -660,7 +656,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case workspaceView                                // 608
         case imagePreparation                             // create --prepare
         case sessionStatuses, agentStatus, agentWorking   // 612
-        case trial, extraKeys, trialFolder                // 617
+        case extraKeys                                    // 617
+        case createdFolder                                // 634
         case agentRef                                     // 618
         case ports                                        // 617 (RP-1)
     }
@@ -701,9 +698,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         sessionStatuses = try c.decodeIfPresent([SessionStatus].self, forKey: .sessionStatuses)
         agentStatus = try c.decodeIfPresent(SessionStatus.self, forKey: .agentStatus)
         agentWorking = try c.decodeIfPresent(Bool.self, forKey: .agentWorking)
-        trial = try c.decodeIfPresent(Bool.self, forKey: .trial)
         extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
-        trialFolder = try c.decodeIfPresent(String.self, forKey: .trialFolder)
+        createdFolder = try c.decodeIfPresent(String.self, forKey: .createdFolder)
         agentRef = try c.decodeIfPresent(String.self, forKey: .agentRef)
         ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
     }
@@ -744,9 +740,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(olderImageLine, forKey: .olderImageLine)
         try c.encodeIfPresent(imageNotice, forKey: .imageNotice)
         try c.encodeIfPresent(imagePreparation, forKey: .imagePreparation)
-        try c.encodeIfPresent(trial, forKey: .trial)
         try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
-        try c.encodeIfPresent(trialFolder, forKey: .trialFolder)
+        try c.encodeIfPresent(createdFolder, forKey: .createdFolder)
         try c.encodeIfPresent(agentRef, forKey: .agentRef)
         try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)

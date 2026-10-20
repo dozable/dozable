@@ -7,11 +7,13 @@ import DozableKit
 // through SEAMS only — the stand-in provider (Scripts/fake-provider.py, its own CA) for xAI, a FAKE key typed into the
 // card's hidden prompt, held in the host's memory; never the owner's keychain, store or projects folder.
 //   1. no key yet: the card, a pasted key (not echoed, never in accounts.json), the try made and attached; Ctrl-] twice
-//      detaches and "Keep this try?" is asked — Enter = Sleep: it hibernates, still a try
+//      detaches and "Leaving try-grok — Sleep / delete / keep running" is asked — Enter = Sleep: it hibernates (634: an
+//      ordinary sandbox, its Dozable-made folder recorded)
 //   2. an answer that is none of them is asked again; d deletes it and its empty folder
 //   3. k keeps it running
 //   4. --rm deletes it on the way out without asking; --keep keeps it without asking
 //   5. the slept try wakes on attach
+//   6. 634: any sandbox's Dozable-made folder goes with `doz rm` while empty; a folder that was there stays
 // Grok Build is the agent (its pin; the image is prepared once). `make test-cli-try`.
 
 func cliTrySuite(binary: String) async {
@@ -65,7 +67,8 @@ func cliTrySuite(binary: String) async {
 
     let sh = CLIHarness(binary: "/usr/bin/script", store: t.store)
     sh.env = t.env
-    func trials() -> Set<String> { Set(t.ls().filter { $0.trial == true }.map(\.name)) }
+    // 634: what a try makes is an ordinary sandbox (no mark) — the tries are told apart by name, before and after.
+    func trials() -> Set<String> { Set(t.ls().map(\.name)) }
     func requests() -> [[String: Any]] {
         ((try? String(contentsOfFile: ws + "/requests.log", encoding: .utf8)) ?? "").split(separator: "\n")
             .compactMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) as? [String: Any] }
@@ -99,7 +102,7 @@ func cliTrySuite(binary: String) async {
             c.type(byte: 0x1D)
             usleep(120_000)
             c.type(byte: 0x1D)
-            let q = TryExitChoice.question
+            let q = TryExitChoice.choices
             if answers.isEmpty {
                 let code = c.exited(within: 120)
                 check(!c.text.contains(q), "\(what): nothing is asked")
@@ -107,7 +110,7 @@ func cliTrySuite(binary: String) async {
                 return (name, c.text, code)
             }
             for (i, a) in answers.enumerated() {
-                check(c.wait(60) { $0.text.components(separatedBy: q).count > i + 1 }, "\(what): asked \"Keep this try?\"\(i > 0 ? " again" : "")")
+                check(c.wait(60) { $0.text.components(separatedBy: q).count > i + 1 }, "\(what): asked \"Leaving … — Sleep / delete / keep running\"\(i > 0 ? " again" : "")")
                 c.type(a + "\r")
             }
             let code = c.exited(within: 300)
@@ -129,7 +132,9 @@ func cliTrySuite(binary: String) async {
     check(requests().dropFirst(n0).contains { (($0["auth"] as? [String: String]) ?? [:]).values.contains("Bearer " + xaiKey) },
           "1: Grok Build reached the stand-in with the key swapped in by the proxy")
     let slept = t.row(one.name)
-    check(slept?.trial == true && slept?.phase == "hibernated", "1: Sleep hibernates it and it stays a try (\(one.name): \(slept?.phase ?? "gone"))")
+    check(slept?.phase == "hibernated", "1: Sleep hibernates it (\(one.name): \(slept?.phase ?? "gone"))")
+    check(slept?.createdFolder == projects + "/" + one.name, "1: its folder is recorded as Dozable's own (\(slept?.createdFolder ?? "none"))")
+    check(t.run(["ls"]).out.contains("(try)") == false, "1: doz ls marks nothing as a try (634)")
 
     // 2. Not an answer → asked again; d deletes it and its empty folder.
     let two = tryOnTerminal(answers: ["x", "d"], "2 (an unknown answer, then delete)")
@@ -146,11 +151,24 @@ func cliTrySuite(binary: String) async {
 
     // 4. --rm and --keep answer before: nothing is asked.
     let four = tryOnTerminal(["--rm"], answers: [], "4 (--rm)")
-    check(four.code == 0 && t.ls().filter { $0.trial == true }.count == 2, "4: --rm deleted its try on the way out")
+    check(four.code == 0 && t.ls().count == 2, "4: --rm deleted its try on the way out")
     let five = tryOnTerminal(["--keep"], answers: [], "4 (--keep)")
     check(five.code == 0 && five.text.contains("keeps running") && t.row(five.name)?.phase == "running", "4: --keep kept it running (\(five.name))")
 
     // 5. The slept try wakes when attached again (off a terminal: exec wakes it the same way).
     let w = t.run(["exec", one.name, "--", "grok", "--version"], timeout: 180)
     check(w.code == 0 && w.out.contains(r.install.pinned.version), "5: the slept try wakes and runs (\(w.out.trimmingCharacters(in: .whitespacesAndNewlines).suffix(40)))")
+
+    // 6. 634 — the easy delete is every sandbox's: a `doz new`-style sandbox whose folder Dozable made loses it with
+    //    `doz rm` while empty; one whose folder was there keeps it.
+    let made6 = projects + "/plain-six"
+    let c6 = t.run(["create", "plain-six", "--image", "lab", "--memory", "384M", "--workspace", made6])
+    check(c6.code == 0 && t.row("plain-six")?.createdFolder == made6, "6: create with a new folder records it (\(t.row("plain-six")?.createdFolder ?? "none"))")
+    let rm6 = t.run(["rm", "plain-six", "--yes"], timeout: 300)
+    check(rm6.code == 0 && !fm.fileExists(atPath: made6), "6: doz rm removed its empty folder too (\(rm6.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
+    let kept6 = projects + "/plain-seven"
+    try? fm.createDirectory(atPath: kept6, withIntermediateDirectories: true)
+    let c7 = t.run(["create", "plain-seven", "--image", "lab", "--memory", "384M", "--workspace", kept6])
+    check(c7.code == 0 && t.row("plain-seven")?.createdFolder == nil, "6: a folder that was there is not Dozable's")
+    check(t.run(["rm", "plain-seven", "--yes"], timeout: 300).code == 0 && fm.fileExists(atPath: kept6), "6: doz rm keeps a folder that was there")
 }

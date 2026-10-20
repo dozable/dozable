@@ -10,9 +10,9 @@
 //
 // The same decisions as `doz try`: the host's planner (`POST plan`, purpose try) names it try-AGENT, gives it a NEW
 // EMPTY folder of its own, Locked + its own model, the agent's own base and a key it can use. Browsing prepares
-// NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action (trial), starts it
-// (the image prepared then, its progress in the terminal area) and opens its session. A try's page then offers
-// Sleep · Delete · Keep (`tryBar`, views/sandbox.js).
+// NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action, starts it (the
+// image prepared then, its progress in the terminal area) and opens its session. 634: what it makes is an ordinary
+// sandbox — no mark, no try bar; its folder goes with it while empty, as every sandbox's Dozable-made folder does.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, mark } from '../dom/icons-2b30ba761d2d921b.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
@@ -772,7 +772,7 @@ function planFacts(a, p) {
     ...fact('Same in Terminal', h('code', { 'data-try-command': '' }, p.command)));
 }
 
-/// Start → the ordinary `create` action (a try: `trial`, its new folder, the account the setup chose), then the start
+/// Start → the ordinary `create` action (its new folder, the account the setup chose), then the start
 /// with the boot view, which opens its own session in a terminal on its page.
 /// 617 (owner, 2026-10-15: "fix the delay when clicking … There should be immediate feedback and … the try browser /
 /// detail modals should close"): the click's own frame disables Start with a spinner, closes both modals and goes to
@@ -797,7 +797,7 @@ async function tryCreate(button) {
   state.tr = null;
   location.hash = '#/sandbox/' + name;
   try {
-    const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image, trial: true,
+    const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image,
       ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
       ...(c.account ? { account: c.account } : {}),
       ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}) });

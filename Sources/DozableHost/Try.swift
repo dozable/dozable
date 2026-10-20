@@ -69,11 +69,15 @@ public struct TryCard: Equatable, Sendable {
     }
 }
 
-/// "Keep this try? [S]leep / [d]elete / [k]eep running".
+/// "Leaving try-claude — [S]leep / [d]elete / [k]eep running" (634: what `doz try` made is an ordinary sandbox; the
+/// question is the terminal's easy delete — orchestrator's ruling A, 2026-10-20).
 public enum TryExitChoice: String, Equatable, Sendable {
     case sleep, delete, keep
 
-    public static let question = "Keep this try? [S]leep / [d]elete / [k]eep running"
+    /// The choices, as every question ends.
+    public static let choices = "[S]leep / [d]elete / [k]eep running"
+
+    public static func question(_ name: String) -> String { "Leaving \(name) — \(choices)" }
 
     /// An answer (Enter = Sleep); nil: not one of them (asked again).
     public static func parse(_ answer: String) -> TryExitChoice? {

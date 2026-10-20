@@ -101,7 +101,6 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     public var image: String
     /// The Mac folder at /workspace; nil: isolated.
     public var workspace: String?
-    public var trial: Bool?
     /// `doz try grok --base alpine` — only what differs from the defaults.
     public var command: String
     public var argv: [String]
@@ -213,10 +212,10 @@ public enum CreatePlanner {
         let projects = f.projectsDir ?? (Workspace.defaultPath(name: "x", settings: f.settings) as NSString).deletingLastPathComponent
 
         // D14 (owner ruling after the demo): a try's defaults — a NEW empty folder of its own (files it makes are on the
-        // Mac, the open-files bridge works), Locked + its own model, marked as a try. `--isolated` keeps no folder.
+        // Mac, the open-files bridge works), Locked + its own model. `--isolated` keeps no folder. 634: what it makes is an
+        // ordinary sandbox (no mark).
         if isTry {
             if o.network == nil { o.network = "locked" }
-            o.trial = true
             if choice?.agent == nil || choice?.agent == AgentKind.none {
                 problems.append(PlanProblem(code: "invalid", text: "a try is of an agent — doz search lists them", fix: "doz try AGENT"))
             }
@@ -382,7 +381,7 @@ public enum CreatePlanner {
         var argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         if r.purpose == "try" { argv += (r.tryFlags ?? []).filter { PlanRequest.tryFlagWords.contains($0) } }
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
-        var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, trial: o.trial, command: Self.shellLine(argv),
+        var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, command: Self.shellLine(argv),
                               argv: argv, yaml: yaml, yamlNote: note, reach: reach, imageState: imageState, account: account,
                               problems: problems, create: o)
         plan.model = planModel

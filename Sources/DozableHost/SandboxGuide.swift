@@ -36,7 +36,6 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
     public var howTo: String
     /// The recipe's intro.
     public var intro: String
-    public var trial: Bool
     public var facts: [Fact]
     public var steps: [Step]
     public var tips: [String]
@@ -46,7 +45,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
 
     /// The guide of `recipe` in a sandbox with these facts (pure — the host and the tests call it).
     public static func make(_ r: AgentRecipe, version: String?, source: String?, model: String?, account: String?, accountKind: AccountKind?,
-                            network: String, workspace: String?, trial: Bool) -> SandboxGuide? {
+                            network: String, workspace: String?) -> SandboxGuide? {
         guard let g = r.guide else { return nil }
         let shell = r.launch.session == "shell"
         let what = r.catalogKind == "coding-agent" ? "a coding agent" : shell ? "a command-line tool" : "an AI tool"
@@ -79,7 +78,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
         }
         let what2 = [r.publisher.isEmpty ? nil : "by " + r.publisher, r.licence.isEmpty ? nil : r.licence, what].compactMap { $0 }.joined(separator: " · ")
         return SandboxGuide(agent: r.id, title: r.title, publisher: r.publisher, licence: r.licence, what: what2, session: shell ? "shell" : "screen",
-                            agentSession: r.shortName, howTo: howTo, intro: g.intro, trial: trial, facts: facts,
+                            agentSession: r.shortName, howTo: howTo, intro: g.intro, facts: facts,
                             steps: g.steps.map { Step(text: $0.text, command: $0.command, edit: $0.edit) }, tips: g.tips ?? [], docs: g.docs,
                             homepage: r.homepage, checked: r.checked)
     }
@@ -89,7 +88,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
         var s = ""
         if !stepsOnly {
             s += "\(title) — \(what)\n\(intro)\n\(howTo)\n\n"
-            s += (trial ? "This try\n" : "This sandbox\n")
+            s += "This sandbox\n"
             for f in facts { s += "  \(f.label): \(f.value)\n" }
             s += "\n"
         }
@@ -130,7 +129,7 @@ extension HostCore {
             }
         }()
         return SandboxGuide.make(r, version: m.config.spec.imageSpec?.agent?.version, source: source, model: sel?.model, account: account, accountKind: kind,
-                                 network: network, workspace: m.config.workspace, trial: m.config.trial == true)
+                                 network: network, workspace: m.config.workspace)
     }
 }
 

@@ -26,7 +26,7 @@ func renderPlan(_ p: CreatePlan) -> String {
     let image = (p.imageState.title ?? p.imageState.name) + " — " + [
         "prepared": "ready now", "older": "made by an older Dozable (used as it is)", "unprepared": "prepared on first use (a few minutes, once)",
     ][p.imageState.state, default: p.imageState.state]
-    s += "  makes \(p.name)\(p.trial == true ? " (a try)" : ""): \(image)\n"
+    s += "  makes \(p.name): \(image)\n"
     // 618: the release it installs; a family's major and how to get the other.
     if let v = p.version {
         s += "  version: " + (v.familyLine(command: p.purpose == "try" ? "doz try" : "--agent") ?? "\(v.title) \(v.version ?? "(at its preparation)")") + "\n"

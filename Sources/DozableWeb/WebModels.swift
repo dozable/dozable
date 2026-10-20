@@ -274,16 +274,13 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var sessionStatuses: [WebAgentStatus]?
     public var agentStatus: WebAgentStatus?
     public var agentWorking: Bool?
-    /// 617: a try (the dashboard's Quick try, `doz try`): its page offers Sleep · Delete · Keep; `trialFolder` is the
-    /// folder Dozable made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
-    public var trial: Bool?
-    public var trialFolder: String?
+    /// 634: the folder Dozable made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
+    public var createdFolder: String?
     /// 617 (RP-1): its web ports — the header's Open buttons (listening, with a URL) and the details' list.
     public var ports: [WebPort]?
 
     public init(_ i: SandboxInfo) {
-        trial = i.trial
-        trialFolder = i.trialFolder
+        createdFolder = i.createdFolder
         ports = i.ports.map { $0.map(WebPort.init) }
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
         agentStatus = i.agentStatus.map(WebAgentStatus.init)
@@ -648,7 +645,6 @@ public struct WebGuide: Codable, Equatable, Sendable {
     public var agentSession: String
     public var howTo: String
     public var intro: String
-    public var trial: Bool
     public var facts: [Fact]
     public var steps: [Step]
     public var tips: [String]
@@ -657,7 +653,6 @@ public struct WebGuide: Codable, Equatable, Sendable {
 
     public init(_ g: SandboxGuide) {
         agent = g.agent; title = g.title; what = g.what; session = g.session; agentSession = g.agentSession; howTo = g.howTo; intro = g.intro
-        trial = g.trial
         facts = g.facts.map { Fact(id: $0.id, label: $0.label, value: $0.value) }
         steps = g.steps.map { Step(text: $0.text, command: $0.command, edit: $0.edit == true) }
         tips = g.tips; docs = g.docs; checked = g.checked
@@ -1107,7 +1102,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
     public var name: String
     public var image: Image
     public var workspace: String?
-    public var trial: Bool?
     public var command: String
     public var argv: [String]
     public var yaml: String
@@ -1122,7 +1116,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var workspace: String?
         public var isolated: Bool?
         public var account: String?
-        public var trial: Bool?
         public var modelSource: String?
         public var model: String?
     }
@@ -1136,7 +1129,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
         name = p.name
         image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
         workspace = p.workspace
-        trial = p.trial
         command = p.command
         argv = p.argv
         yaml = p.yaml
@@ -1145,7 +1137,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
         create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
-                        account: p.create.account, trial: p.create.trial, modelSource: p.create.modelSource, model: p.create.model)
+                        account: p.create.account, modelSource: p.create.modelSource, model: p.create.model)
         model = p.model.map { m in
             Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,
                   offered: m.offered.map { Model.Source(id: $0.id, title: $0.title, gateway: $0.gateway, defaultModel: $0.defaultModel,
