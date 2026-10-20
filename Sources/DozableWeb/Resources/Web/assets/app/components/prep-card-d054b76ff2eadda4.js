@@ -52,7 +52,7 @@ export function prepCard(p, opts = {}) {
   }
   return h('div', { class: 'prep-card prep-' + p.state, 'data-prep': p.image },
     h('div', { class: 'prep-head' }, running ? h('span', { class: 'mini-spin', 'aria-hidden': 'true' }) : h('span', { class: 'op-state' }, p.state === 'done' ? '✓' : '✕'),
-      h('strong', null, p.image), h('span', { class: 'muted' }, ' · ' + (running ? dur(p.seconds) + ' so far' : p.state + ' in ' + dur(p.seconds)) + ' · asked by ' + p.requestedBy.join(', '))),
+      h('strong', null, p.base ? (p.baseTitle || p.base) + ' base' : p.image), h('span', { class: 'muted' }, ' · ' + (running ? dur(p.seconds) + ' so far' : p.state + ' in ' + dur(p.seconds)) + ' · asked by ' + p.requestedBy.join(', '))),
     overall, current, transfer, tail,
     p.error && p.state !== 'cancelled' ? callout('bad', { compact: true, cls: 'notice', body: p.error }) : null,
     running && p.estimateBasis && p.remainingSeconds == null && !m ? h('div', { class: 'muted' }, p.estimateBasis) : null,

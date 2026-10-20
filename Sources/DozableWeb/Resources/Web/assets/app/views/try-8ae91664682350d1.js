@@ -30,7 +30,7 @@ import { paintStartProgress } from '../components/start-progress-f2138033d14554b
 import { drawPendingTry } from './sandbox-4583be30b7399874.js';
 import { planCommand, reachList } from '../components/plan-view-db40a2b03aef0f54.js';
 import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-4ce4eaa1b78d6b80.js';
-import { prepCard } from '../components/prep-card-ba2a809595ffc093.js';
+import { prepCard } from '../components/prep-card-d054b76ff2eadda4.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const VIEW_KEY = 'doz.tryView';

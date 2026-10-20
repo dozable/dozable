@@ -462,6 +462,97 @@ final class OnboardingTests: XCTestCase {
         XCTAssertNotNil(roStatus.result, "looking does not")
     }
 
+    /// 634: the store's ONE base is a preparation of its own (`base:<id>`); a tool's image named beside it, or started
+    /// while it runs, WAITS for it (its first step says so) — one pull, one flatten — and the record says the base.
+    func core634(_ gate: Gate) async -> HostCore {
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
+        await c.setPreparationRunner({ image, _, emit in
+            gate.add(image)
+            guard image.hasPrefix("base:") else { return }
+            emit(HostEvent(kind: .started, sandbox: image, text: "pulled the base image node"))
+            while !gate.isReleased { try await Task.sleep(for: .milliseconds(20)) }
+            if gate.fail { throw HostError(.failed, "the registry did not answer") }
+            emit(HostEvent(kind: .step, sandbox: image, text: "pulled the base image node", milliseconds: 1500))
+        }, prepared: { _, _ in false })
+        return c
+    }
+
+    func testABakeOnABaseWaitsForItsRunningBasePreparation() async throws {
+        let gate = Gate()
+        let c = await core634(gate)
+        var r = HostRequest(.onboard)
+        r.base = "node"
+        r.requestedBy = "doz onboard"
+        r.follow = false
+        let first = try await c.handle(r).result!.decode(PrepareResult.self)
+        XCTAssertEqual(first.preparations.map(\.image), ["base:node"])
+        XCTAssertEqual(first.preparations.first?.base, "node")
+        XCTAssertEqual(first.preparations.first?.plannedSteps, 4, "kernel, guest init, the base image, its disk")
+        try await Task.sleep(for: .milliseconds(100))
+        // A tool's image asked for meanwhile (a try's start does the same): it waits, it does not pull.
+        var p = HostRequest(.prepare)
+        p.images = ["claude-code"]
+        p.follow = false
+        _ = await c.handle(p)
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(gate.runs, ["base:node"], "the tool's work has not started: it waits for the base")
+        var st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertEqual(st.preparations.first { $0.image == "claude-code" }?.step, "waited for the Node.js base", "its first step is the wait")
+        XCTAssertEqual(st.base?.id, "node")
+        gate.lock.withLock { gate.released = true }
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(gate.runs, ["base:node", "claude-code"], "one base, then the tool on it")
+        st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertTrue(st.preparations.first { $0.image == "claude-code" }?.steps?.contains { $0.label == "waited for the Node.js base" } == true)
+        let rec = OnboardingRecord.read(DozableStore(root: root))
+        XCTAssertEqual(rec?.base, "node", "the record says the base")
+        XCTAssertEqual(rec?.images, [], "a base is not an image")
+        // A base the catalogue does not have is refused.
+        var bad = HostRequest(.onboard)
+        bad.base = "cobol"
+        let b = await c.handle(bad)
+        XCTAssertEqual(b.error?.code, .invalid)
+    }
+
+    func testAFailedBasePreparationLetsTheToolPrepareItselfAndCancelCancels() async throws {
+        let gate = Gate()
+        gate.fail = true
+        let c = await core634(gate)
+        var r = HostRequest(.onboard)
+        r.base = "node"
+        r.images = ["pi"]
+        r.follow = false
+        _ = await c.handle(r)
+        try await Task.sleep(for: .milliseconds(100))
+        gate.lock.withLock { gate.released = true }
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(gate.runs, ["base:node", "pi"], "the base failed; the tool still prepared itself")
+        XCTAssertNil(OnboardingRecord.read(DozableStore(root: root)), "a failed base records no onboarding")
+        let st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertEqual(st.preparations.first { $0.image == "base:node" }?.state, "failed")
+        // Cancel by its name.
+        let gate2 = Gate()
+        let c2 = await core634(gate2)
+        var o = HostRequest(.onboard)
+        o.base = "node"
+        o.follow = false
+        _ = await c2.handle(o)
+        try await Task.sleep(for: .milliseconds(100))
+        var cancel = HostRequest(.prepareCancel)
+        cancel.images = ["base:node"]
+        let cancelled = try await c2.handle(cancel).result!.decode([PreparationInfo].self)
+        XCTAssertEqual(cancelled.map(\.image), ["base:node"])
+    }
+
+    func testTheBaseIsPreparedWhenItsFlattenedDiskIsThere() throws {
+        let store = DozableStore(root: root)
+        XCTAssertFalse(HostCore.isBasePrepared("node", store), "nothing in a new store")
+        XCTAssertFalse(HostCore.isPrepared("base:node", store))
+        XCTAssertNil(PreparationInfo.baseID("node"), "an image name is not a base's")
+        XCTAssertEqual(PreparationInfo.baseID("base:node"), "node")
+        XCTAssertNil(PreparationInfo.baseID("base:cobol"))
+    }
+
     /// 594 (owner: "more progress detail"): step N of M, the output's last 6 lines, the finished steps as
     /// data, and — only from this store's last run — per-step and overall estimates; a failed step keeps
     /// its last output.

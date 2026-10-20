@@ -474,4 +474,17 @@ final class WebActionTests: XCTestCase {
         XCTAssertEqual(WebOperations.summary(.lifecycle(.pause, name: "a"), same), "a is already paused")
         XCTAssertEqual(WebOperations.summary(.imageBake("lab"), .null), "lab baked")
     }
+
+    /// 634: the setup's base — `onboard {base}` prepares the store's one base (still one HostOp); `prepare-cancel {base}`
+    /// cancels it by its name; a base the catalogue does not have is refused.
+    func testOnboardTakesTheStoresBase() throws {
+        let a = try WebAction.decode(Data(#"{"action":"onboard","base":"node"}"#.utf8))
+        XCTAssertEqual(a.hostOp, .onboard)
+        XCTAssertEqual(a.hostRequest.base, "node")
+        XCTAssertEqual(a.hostRequest.images, [])
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"onboard","base":"cobol"}"#.utf8)))
+        let c = try WebAction.decode(Data(#"{"action":"prepare-cancel","base":"node"}"#.utf8))
+        XCTAssertEqual(c.hostRequest.images, ["base:node"])
+        XCTAssertEqual(WebOperations.summary(.onboard([], base: "node"), .null), "onboarded — the Node.js base ready")
+    }
 }

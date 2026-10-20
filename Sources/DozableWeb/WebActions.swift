@@ -41,9 +41,9 @@ public enum WebAction: Equatable, Sendable {
     case accountRemove(String)
     /// 594: onboard — prepare these built-in images in the host (in the background: the action ends
     /// at once; the preparation shows in the wizard and in Operations) and record the onboarding.
-    case onboard([String])
+    case onboard([String], base: String? = nil)
     /// 594: cancel the preparation of these images (all running ones when empty).
-    case prepareCancel([String])
+    case prepareCancel([String], base: String? = nil)
     /// 595 (R3): delete these resources (ids as the Resources page lists them) — one host operation,
     /// serialised with the lifecycle. A plain confirmation on the page (owner: no typed names).
     case resourcesRemove([String])
@@ -227,15 +227,17 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.accountRemove)
             r.account = a
             return r
-        case .onboard(let images):
+        case .onboard(let images, let base):
             var r = HostRequest(.onboard)
             r.images = images
+            r.base = base                     // 634: the store's one base, prepared first
             r.follow = false
             r.requestedBy = "doz ui"
             return r
-        case .prepareCancel(let images):
+        case .prepareCancel(let images, let base):
             var r = HostRequest(.prepareCancel)
-            r.images = images.isEmpty ? nil : images
+            let all = (base.map { [PreparationInfo.baseName($0)] } ?? []) + images
+            r.images = all.isEmpty ? nil : all
             return r
         case .resourcesRemove(let ids):
             var r = HostRequest(.resourcesRemove)
@@ -304,8 +306,8 @@ public enum WebAction: Equatable, Sendable {
             "account-verify": ["account"],
             "account-refresh": ["account"],
             "account-rm": ["account", "confirm"],
-            "onboard": ["images"],
-            "prepare-cancel": ["images"],
+            "onboard": ["images", "base"],
+            "prepare-cancel": ["images", "base"],
             "resources-rm": ["ids"],
             "resources-clean": [],
             "resources-kernel": ["kernel"],
@@ -431,9 +433,9 @@ public enum WebAction: Equatable, Sendable {
         case "account-rm":
             a = .accountRemove(try f.account("account"))
         case "onboard":
-            a = .onboard(try f.builtInImages("images"))
+            a = .onboard(try f.builtInImages("images"), base: try f.oneOf("base", BaseCatalogue.ids))
         case "prepare-cancel":
-            a = .prepareCancel(try f.builtInImages("images"))
+            a = .prepareCancel(try f.builtInImages("images"), base: try f.oneOf("base", BaseCatalogue.ids))
         case "resources-rm":
             a = .resourcesRemove(try f.resourceIDs("ids"))
         case "resources-clean":

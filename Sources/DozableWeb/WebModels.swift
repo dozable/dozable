@@ -706,6 +706,12 @@ public struct WebPreparation: Codable, Equatable, Sendable {
     public var stepUsualSeconds: Double?
     public var remainingSeconds: Double?
     public var estimateBasis: String?
+    /// 634: a BASE preparation (the store's one base): its catalogue id and title ("Node.js") — `image` is `base:<id>`.
+    public var base: String?
+    public var baseTitle: String?
+    /// 634: the download's bytes so far and in all (the setup's base strip: "130 of 381 MiB").
+    public var transferBytes: Int64?
+    public var transferTotalBytes: Int64?
 
     public struct WebPreparationStep: Codable, Equatable, Sendable {
         public var label: String
@@ -739,6 +745,10 @@ public struct WebPreparation: Codable, Equatable, Sendable {
         stepUsualSeconds = p.stepUsualSeconds
         remainingSeconds = p.remainingSeconds
         estimateBasis = p.estimateBasis
+        base = p.base
+        baseTitle = p.base.flatMap { BaseCatalogue.base($0)?.title }
+        transferBytes = p.transfer?.completedBytes
+        transferTotalBytes = p.transfer?.totalBytes
     }
 }
 

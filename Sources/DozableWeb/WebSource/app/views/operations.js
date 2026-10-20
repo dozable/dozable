@@ -64,12 +64,12 @@ function preparationsSection() {
   // operations table's filter and its "newest first" are the UI's own actions only.)
   const rows = state.preps.flatMap((p) => [h('tr', { class: 'prep-row op-' + (prepRunning(p) ? 'running' : p.state === 'done' ? 'done' : 'failed'), 'data-prep': p.image },
     h('td', null, prepRunning(p) ? h('span', { class: 'mini-spin', title: p.state }) : h('span', { class: 'op-state', title: p.state }, p.state === 'done' ? '✓' : '✕')),
-    h('td', { class: 'op-action' }, icon('flame'), 'prepare ' + p.image),
+    h('td', { class: 'op-action' }, icon('flame'), 'prepare ' + (p.base ? 'the ' + (p.baseTitle || p.base) + ' base' : p.image)),
     h('td', null, p.requestedBy.join(', ')),
     h('td', null, clock(p.startedAt)), h('td', { class: 'num' }, Math.round(p.seconds) + ' s'),
     h('td', { class: 'op-text' }, prepProgressText(p)),
     h('td', null, prepRunning(p) && p.state !== 'cancelling'
-      ? btn('Cancel preparation', () => act({ action: 'prepare-cancel', images: [p.image] }), { small: true, danger: true }) : null)),
+      ? btn('Cancel preparation', () => act(p.base ? { action: 'prepare-cancel', base: p.base } : { action: 'prepare-cancel', images: [p.image] }), { small: true, danger: true }) : null)),
     h('tr', { class: 'prep-detail-row', 'data-prep-detail': p.image }, h('td', { colspan: '7' }, prepCard(p, { open: false })))]);
   return h('div', { class: 'ops-preps' }, h('h2', null, 'Image preparations (in the host)'),
     h('p', { class: 'sub' }, 'The kernel, the base image and the bake of a built-in image — asked for by doz onboard, the onboarding wizard, doz image bake or a first start. One per image at a time; whoever asks next joins it.'),

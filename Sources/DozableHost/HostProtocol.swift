@@ -342,6 +342,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// preparation's `requestedBy`).
     public var images: [String]?
     public var requestedBy: String?
+    /// 634 `onboard` / `prepare`: the store's ONE base to prepare (a catalogue id) — pulled and flattened once, before
+    /// any tool is baked on it; its preparation is named `base:<id>`.
+    public var base: String?
     /// 594 `agent-prompt`: the sandbox's own layer (text) and its mode (`append` | `replace`), or clear it.
     public var prompt: String?
     public var promptMode: String?
