@@ -544,6 +544,40 @@ final class OnboardingTests: XCTestCase {
         XCTAssertEqual(cancelled.map(\.image), ["base:node"])
     }
 
+    /// 634 (the owner: "the Open Router key was not accepted"): the setup's keys are every source the PUBLISHED tools
+    /// can use — providers, then gateways (OpenRouter), then the key-less — each with the tools it serves.
+    func testTheKeyStepOffersProvidersAndGateways() {
+        let k = Onboarding.keyChoices()
+        let ids = k.map(\.id)
+        XCTAssertTrue(ids.contains("anthropic") && ids.contains("openai") && ids.contains("xai"), "\(ids)")
+        let or = k.first { $0.id == "openrouter" }
+        XCTAssertNotNil(or, "OpenRouter is offered: \(ids)")
+        XCTAssertEqual(or?.gateway, true)
+        XCTAssertEqual(or?.accountKind, "key")
+        XCTAssertTrue(or?.tools.contains("OpenCode") == true && or?.tools.contains("Claude Code") == false, "\(or?.tools ?? [])")
+        XCTAssertTrue(k.first { $0.id == "anthropic" }?.tools.contains("Claude Code") == true)
+        XCTAssertTrue(k.first { $0.id == "openai" }?.tools.contains("Codex") == true)
+        XCTAssertFalse(ids.contains("vercel-ai-gateway"), "an unpublished gateway is not offered")
+        // Providers first, then gateways, then the key-less ones.
+        let kinds = k.map { $0.keyless ? 2 : $0.gateway ? 1 : 0 }
+        XCTAssertEqual(kinds, kinds.sorted())
+        XCTAssertTrue(k.allSatisfy { !$0.tools.isEmpty }, "every row serves a tool")
+    }
+
+    func testTheBasesDiskNeedAndItsSetting() throws {
+        let node = try XCTUnwrap(BaseCatalogue.base("node"))
+        XCTAssertEqual(Onboarding.baseNeed(node, prepared: true), 0)
+        XCTAssertGreaterThan(Onboarding.baseNeed(node, prepared: false), node.downloadBytes)
+        let xdg = root.appendingPathComponent("xdg")
+        let env = ["XDG_CONFIG_HOME": xdg.path]
+        XCTAssertEqual(try Onboarding.writeBase("node", environment: env), [], "the default writes nothing")
+        let (w, _) = try Onboarding.writeSettingsIfMissing(defaultImage: "claude-code", account: nil, base: "python", environment: env)
+        XCTAssertEqual(w, .written)
+        XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.defaultBase), "python")
+        XCTAssertEqual(try Onboarding.writeBase("debian", environment: env), ["defaults.base = debian"], "into a kept file too")
+        XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.defaultBase), "debian")
+    }
+
     func testTheBaseIsPreparedWhenItsFlattenedDiskIsThere() throws {
         let store = DozableStore(root: root)
         XCTAssertFalse(HostCore.isBasePrepared("node", store), "nothing in a new store")

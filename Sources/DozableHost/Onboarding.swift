@@ -95,6 +95,67 @@ public enum Onboarding {
         return commonBytes + base + headroomBytes + todo.reduce(0) { sum, n in sum + (images.first { $0.name == n }?.bytes ?? 0) }
     }
 
+    // MARK: 634 — one base, and the keys by provider and gateway
+
+    /// 634: the disk the store's one base needs (0 when it is prepared): the common parts (kernel, guest init), its
+    /// download, its flattened disk (about two thirds of the 4 GiB capacity is never written; measured ~2 GB with the
+    /// download), and room for a first sandbox.
+    public static func baseNeed(_ base: CatalogueBase, prepared: Bool) -> Int64 {
+        prepared ? 0 : commonBytes + base.downloadBytes * 3 + headroomBytes
+    }
+
+    /// 634: the checks with the base's disk line ("the base needs about …").
+    public static func checks(doctor: [(check: String, status: String, detail: String)], store: DozableStore,
+                              base: CatalogueBase, prepared: Bool) -> [OnboardingCheck] {
+        var out: [OnboardingCheck] = doctor.filter { $0.check != "store" }
+            .map { OnboardingCheck(check: $0.check, status: $0.status, detail: $0.detail, hard: hardChecks.contains($0.check)) }
+        if let v = volume(of: store) {
+            out.append(OnboardingCheck(check: "store", status: v.apfs ? "ok" : "fail",
+                                       detail: "\(store.root.path) — \(v.format)" + (v.apfs ? "" : " — the store must be on APFS (disks are APFS clones); pick another with --store"),
+                                       hard: true))
+            let need = baseNeed(base, prepared: prepared)
+            out.append(OnboardingCheck(check: "disk", status: v.free >= need ? "ok" : "fail",
+                                       detail: "\(DozableImages.formatBytes(v.free)) free"
+                                       + (need == 0 ? " (the \(base.title) base is ready)" : " — the \(base.title) base needs about \(DozableImages.formatBytes(need)) (with room for a first sandbox)")
+                                       + (v.free >= need ? "" : " — free some space"),
+                                       hard: true))
+        }
+        return out
+    }
+
+    /// 634: one way to give tools a model — a provider's or a gateway's key, or none (a key-less source) — and the
+    /// published tools that can use it. The owner's "the Open Router key was not accepted": the setup knew only
+    /// Claude's kinds; it now offers every published source, OpenRouter included, added as `doz account add` adds it.
+    public struct KeyChoice: Codable, Equatable, Sendable {
+        /// anthropic · openai · xai · google · openrouter · opencode-zen …
+        public var id: String
+        public var title: String
+        public var gateway: Bool
+        /// No key at all (OpenCode Zen's free models).
+        public var keyless: Bool
+        /// What a key of it is added as: `api-key` (Anthropic), `openai-key` (OpenAI), `key` (with the provider).
+        public var accountKind: String
+        public var keyHint: String?
+        /// The published tools that can use it, by their (family's) name.
+        public var tools: [String]
+    }
+
+    /// The sources the published tools can use, providers first, then gateways, then the key-less ones.
+    public static func keyChoices() -> [KeyChoice] {
+        let recipes = AgentRecipes.published
+        func sources(_ r: AgentRecipe) -> [String] { r.models != nil ? r.publishedSources : [r.provider].compactMap { $0 } }
+        func name(_ r: AgentRecipe) -> String { r.family.flatMap { AgentRecipes.recipe($0.family)?.title } ?? r.title }
+        var ids: [String] = []
+        for r in recipes { for s in sources(r) where !ids.contains(s) { ids.append(s) } }
+        let choices = ids.map { id -> KeyChoice in
+            var tools: [String] = []
+            for r in recipes where sources(r).contains(id) && !tools.contains(name(r)) { tools.append(name(r)) }
+            return KeyChoice(id: id, title: ModelSources.title(id), gateway: ModelSources.isGateway(id), keyless: ModelSources.isKeyless(id),
+                             accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint, tools: tools)
+        }
+        return choices.filter { !$0.gateway && !$0.keyless } + choices.filter(\.gateway) + choices.filter(\.keyless)
+    }
+
     /// The volume a store is (or will be) on: its nearest existing directory's format and free space.
     public static func volume(of store: DozableStore) -> (apfs: Bool, free: Int64, format: String)? {
         var url = store.root
@@ -186,7 +247,7 @@ public enum Onboarding {
 
     /// Write doz.toml (every setting listed with its default, commented) with `defaults.image` and
     /// `defaults.account` set — only when there is no file. An existing one is never touched.
-    public static func writeSettingsIfMissing(defaultImage: String?, account: String?,
+    public static func writeSettingsIfMissing(defaultImage: String?, account: String?, base: String? = nil,
                                               environment: [String: String] = ProcessInfo.processInfo.environment) throws -> (ConfigOutcome, String?) {
         guard let url = DozableSettings.fileURL(environment: environment) else { return (.unavailable, nil) }
         var st = stat()
@@ -194,8 +255,19 @@ public enum Onboarding {
         var values: [String: TOMLValue] = [:]
         if let defaultImage, let d = DozableSettings.definition(SettingKey.defaultImage) { values[d.key] = try d.validate(.string(defaultImage)) }
         if let account, let d = DozableSettings.definition(SettingKey.defaultAccount) { values[d.key] = try d.validate(.string(account)) }
+        // 634: the store's base, only when it is not the default (node).
+        if let base, base != "node", let d = DozableSettings.definition(SettingKey.defaultBase) { values[d.key] = try d.validate(.string(base)) }
         try DozableSettings.writeAtomically(DozableSettings.render(values: values), to: url)
         return (.written, url.path)
+    }
+
+    /// 634: the store's base into a settings file that was KEPT (as the Access choices are) — only when it is not
+    /// what the file already says. Returns the lines set (empty: nothing changed).
+    public static func writeBase(_ base: String, environment: [String: String] = ProcessInfo.processInfo.environment) throws -> [String] {
+        let s = DozableSettings.load(environment: environment)
+        if (s.string(SettingKey.defaultBase) ?? "node") == base { return [] }
+        try s.writing(SettingKey.defaultBase, .string(base))
+        return ["\(SettingKey.defaultBase) = \(base)"]
     }
 
     /// Write the user's prompt template starter (all of it inside a comment: it changes nothing until
