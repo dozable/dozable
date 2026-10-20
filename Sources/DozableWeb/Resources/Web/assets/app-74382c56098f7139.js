@@ -69,12 +69,12 @@ import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/vi
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-ebf0f01e8c55064d.js';
 import { viewOverview } from './app/views/overview-c53728c8bf237d53.js';
 import { viewResources } from './app/views/resources-0016e52d4d198787.js';
-import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-73c2a4fef4bd954b.js';
+import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-2000b11d45c2c97a.js';
 import './app/views/sandbox-dialogs-637096fbbc9706a4.js';
 import { openSavedTerminal, persistLayout } from './app/views/sandbox-layout-e6ec1563b212a889.js';
 import './app/views/sandbox-network-46feaa124d2d8806.js';
 import { newShellTerminal, paintSplitButton, paintTabs, paintTermEmpty, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-e97162159e37bb3b.js';
-import { refreshSandbox, showSandbox } from './app/views/sandbox-a56e64994fd9dee0.js';
+import { refreshSandbox, showSandbox } from './app/views/sandbox-4583be30b7399874.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-a795dd8bd8820fa1.js';
 import { viewSettings } from './app/views/settings-c5d20fc1c6dbc405.js';
 import './app/views/shortcuts-9fd31c39b26f459b.js';

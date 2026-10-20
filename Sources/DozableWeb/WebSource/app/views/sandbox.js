@@ -52,12 +52,12 @@ function portButton(name, p) {
   }
   // Nothing listens on it in the sandbox yet: the button is there, disabled, and says how to start it.
   if (p.serving === false) {
-    return h('button', { type: 'button', class: 'btn small', disabled: true, 'data-port-open': String(p.port), 'data-port-idle': '', title: notServing(p) },
+    return h('button', { type: 'button', class: 'btn sm', disabled: true, 'data-port-open': String(p.port), 'data-port-idle': '', title: notServing(p) },
       withIcon('link', label));
   }
   const tip = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '')
     + (p.auth === 'token' && p.askHint ? ' · it asks for a token: ' + p.askHint : '');
-  return h('a', { class: 'btn small', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
+  return h('a', { class: 'btn sm', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
     withIcon('link', label));
 }
 /// What a port nothing serves yet says: start it in a session — the recipe's own command when it has one.
