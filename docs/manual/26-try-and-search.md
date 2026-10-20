@@ -35,12 +35,12 @@ as a try afterwards; you keep it, sleep it or delete it like any other:
   The try's first line says so:
 
   ```
-  try-grok · Debian · Grok Build · a new empty folder ~/doz-workspaces/try-grok (not one of yours), at
+  try-grok · Node.js · Grok Build · a new empty folder ~/doz-workspaces/try-grok (not one of yours), at
   /workspace · copy to your Mac's clipboard: on · open files on your Mac: on · open links in your Mac's browser: on
   ```
 - **Locked, plus the agent's own model** — it can talk to its AI model and nothing else. `--permissions standard`
   opens package installs; every other choice option works too.
-- **The agent's own base** (Grok Build: Debian; Gemini CLI: Node), and its approval prompts off.
+- **This store's base** (`defaults.base`, Node.js unless you set another): every tool you try is added to it as a layer, so a second tool downloads nothing more. `--base` picks another for this one. Its approval prompts are off.
 - **Your key for its provider** — the provider's default account.
 - **Named `try-<agent>`**, then `try-<agent>-2`, ….
 

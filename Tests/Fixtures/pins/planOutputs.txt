@@ -1,6 +1,6 @@
 == try grok, no key: try --agent grok
 command: doz try grok
-name: try-grok · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok
+name: try-grok · image: node-grok (Node.js · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok
 account: none · - · xai · -
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
@@ -13,11 +13,11 @@ reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
-yaml: version: 1 | name: try-grok | image: grok                  # when made | network: locked
+yaml: version: 1 | name: try-grok | image: node-grok                  # when made | network: locked
 problem key: Grok Build needs an xAI API key — the store has no default xAI account. Add one: doz account add NAME --provider xai (then create with --account NAME) [fix: doz account add NAME --provider xai]
 == try grok, a key, try-grok taken: try --agent grok
 command: doz try grok
-name: try-grok-2 · image: grok (Debian · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok-2
+name: try-grok-2 · image: node-grok (Node.js · Grok Build, unprepared) · workspace: /tmp/617-pin-projects/try-grok-2
 account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
@@ -30,7 +30,7 @@ reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 reach key: Key: work-xai from 1Password: op://Dev/xAI/credential — the sandbox gets a placeholder, the key stays on this Mac
-yaml: version: 1 | name: try-grok-2 | image: grok                  # when made | network: locked
+yaml: version: 1 | name: try-grok-2 | image: node-grok                  # when made | network: locked
 == try gemini on python, standard: try --agent gemini --base python --permissions standard
 command: doz try gemini --base python --permissions standard
 name: try-gemini · image: python-gemini (Python · Gemini CLI, unprepared) · workspace: /tmp/617-pin-projects/try-gemini

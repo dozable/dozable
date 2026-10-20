@@ -96,7 +96,8 @@ public struct WebPlanQuery: Equatable, Sendable {
         if let account { o.account = account }
         o.modelSource = source
         o.model = model
-        return PlanRequest(purpose: purpose, name: name, create: o)
+        // 634: a base named by the page (New sandbox's picker) is kept; none: a try goes on the store's base.
+        return PlanRequest(purpose: purpose, name: name, create: o, baseChosen: base != nil ? true : nil)
     }
 }
 

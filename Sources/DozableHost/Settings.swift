@@ -93,7 +93,8 @@ public enum SettingType: Sendable, Equatable {
         case .int(let r): "integer \(r.lowerBound)–\(r.upperBound)"
         // 617: a long list (defaults.image: every agent and tool) is not spelled out, so the file does not grow with
         // the recipes; the setting is still checked against all of them.
-        case .choice(let c) where c.count > 8: c.prefix(4).joined(separator: " | ") + ", or an agent or tool's id (doz try lists them)"
+        // 634: a list of bases (defaults.base) is spelled out — it is the catalogue's, not the recipes'.
+        case .choice(let c) where c.count > 8 && !c.allSatisfy({ BaseCatalogue.base($0) != nil }): c.prefix(4).joined(separator: " | ") + ", or an agent or tool's id (doz try lists them)"
         case .choice(let c): c.joined(separator: " | ")
         case .path: "path (\"\" = automatic)"
         case .subnet: "IPv4 subnet, a.b.c.d/nn (\"\" = a free one)"
@@ -351,6 +352,9 @@ public enum SettingKey {
     /// a store that has not chosen one defaults to (`doz account default` wins once it has).
     public static let defaultImage = "defaults.image"
     public static let defaultAccount = "defaults.account"
+    /// 634: the store's ONE base — the base a quick-made sandbox's tool is added to (Quick try, `doz try`, the
+    /// onboarding's First sandbox) when none is named. `doz onboard` sets it; a project file never follows it.
+    public static let defaultBase = "defaults.base"
     /// 594 (D16): the environment prompt (the facts block and the doz skill) — on, or off.
     public static let agentPrompt = "agent.prompt"
     /// 594 W23: the agent's passwordless sudo inside its sandbox (default on).
@@ -545,6 +549,9 @@ public struct DozableSettings: Sendable {
             .init("defaults", "image", .choice(["lab", "claude-code", "pi", "codex"] + recipeAgents.map(\.id)), .string("lab"),
                   "The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose.",
                   flag: "doz create --image", applies: .nextCreate),
+            .init("defaults", "base", .choice(BaseCatalogue.ids), .string("node"),
+                  "The base image of this store: every tool you try (Quick try, doz try, the setup's first sandbox) is added to it as a layer when no base is named, so a second tool downloads nothing more. doz onboard sets it. New sandbox and doz_project.yaml keep a tool's own default base unless you choose one.",
+                  flag: "doz try --base", applies: .nextCreate),
             .init("defaults", "projects_dir", .path, .string(Workspace.projectsDirDefault),
                   "The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings › Choose… sets it with the Mac's folder picker.",
                   applies: .nextCreate, ui: false),

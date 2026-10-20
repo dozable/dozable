@@ -22,7 +22,7 @@ struct TryCommand: AsyncParsableCommand {
         It works in a NEW EMPTY folder Dozable makes under your projects folder (try-AGENT — never one of yours), shared \
         at /workspace, so what the agent makes is on your Mac; copying to your Mac's clipboard and opening files and links \
         on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
-        installs), runs on the agent's own base, uses your key for its provider (asked once when there is none), and is \
+        installs), runs on this store's base (defaults.base — Node.js unless set; --base picks another), uses your key for its provider (asked once when there is none), and is \
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
         running; --rm and --keep answer before. --ui opens the same in the dashboard (doz ui), with the agent chosen. Deleting it removes its folder too when the folder is empty, and asks \
         when the agent left files there. --isolated shares no folder at all (doz get and doz put \
@@ -85,7 +85,9 @@ struct TryCommand: AsyncParsableCommand {
         }
         // 617: the plan's command is the whole command — the try's own flags too (`doz try grok --rm --dry-run`).
         let flags = (rm ? ["--rm"] : []) + (keep ? ["--keep"] : []) + (detach ? ["-d"] : [])
-        let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices(), tryFlags: flags.isEmpty ? nil : flags), g)
+        // 634: --base (or --dockerfile) named: that base; else the store's (the planner's `tryBase`).
+        let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices(), tryFlags: flags.isEmpty ? nil : flags,
+                                                        baseChosen: (c.base != nil || c.dockerfile != nil) ? true : nil), g)
         if dryRun { printPlan(planned, g); return }
         if let p = planned.problems.first(where: { $0.code != "key" }) {
             throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)

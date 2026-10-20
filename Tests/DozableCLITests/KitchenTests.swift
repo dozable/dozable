@@ -210,7 +210,7 @@ final class KitchenTests: XCTestCase {
         f.projectsDir = projects.path
         let p = try plan("try", ["--agent", "grok"], facts: f)
         XCTAssertEqual(p.problems.map(\.code), ["key"], "only the key is missing: \(p.problems.map(\.text))")
-        XCTAssertEqual(p.create.image, "grok")
+        XCTAssertEqual(p.create.image, "node-grok", "634: a try goes on the store's base (node), not its recipe's Debian")
         XCTAssertEqual(p.create.network, "locked")
         // Owner, after the demo: a NEW EMPTY folder of its own under projects_dir, shared at /workspace (files the agent
         // makes are on the Mac; the open-files bridge works) — never one of yours.

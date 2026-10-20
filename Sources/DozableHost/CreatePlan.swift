@@ -20,12 +20,16 @@ public struct PlanRequest: Codable, Equatable, Sendable {
     /// 617: a try's own flags that change nothing in the sandbox but belong to the command a person runs — `--rm`,
     /// `--keep`, `-d` — echoed at the end of the plan's command (`doz try grok --rm`). Only those three.
     public var tryFlags: [String]?
+    /// 634: the person named the base (`--base`, the Quick try's own choice). Absent: a try's tool goes on the store's
+    /// base (`defaults.base` — `CreatePlanner.tryBase`), not its recipe's default.
+    public var baseChosen: Bool?
 
-    public init(purpose: String, name: String? = nil, create: CreateOptions, tryFlags: [String]? = nil) {
+    public init(purpose: String, name: String? = nil, create: CreateOptions, tryFlags: [String]? = nil, baseChosen: Bool? = nil) {
         self.purpose = purpose
         self.name = name
         self.create = create
         self.tryFlags = tryFlags
+        self.baseChosen = baseChosen
     }
 
     public static let tryFlagWords: Set<String> = ["--rm", "--keep", "-d"]
@@ -202,13 +206,30 @@ public enum CreatePlanner {
         return "\(base)-\(i)"
     }
 
+    /// 634 (owner: "focus a single base image … all the tool layers being added to the existing single base image"): the
+    /// base a quick-made sandbox's tool goes on — the store's (`defaults.base`, node unless set), unless the tool cannot
+    /// run there (a glibc-only tool on a musl base), then its recipe's own default base.
+    public static func tryBase(_ recipe: AgentRecipe, settings: DozableSettings) -> String {
+        let want = settings.string(SettingKey.defaultBase) ?? "node"
+        guard let b = BaseCatalogue.base(want) else { return recipe.defaultBase }
+        if b.musl == true && !recipe.platforms.musl { return recipe.defaultBase }
+        return want
+    }
+
     public static func plan(_ r: PlanRequest, facts f: PlanFacts) -> CreatePlan {
         var problems: [PlanProblem] = []
         var o = r.create
-        let image = Self.image(r, settings: f.settings)
+        var image = Self.image(r, settings: f.settings)
+        let isTry = r.purpose == "try"
+        // 634: a try's tool goes on the store's base unless the person named one (`baseChosen`, or an image already on
+        // another base than its recipe's default) or a Dockerfile.
+        if isTry, r.baseChosen != true, o.dockerfile == nil, let c = ImageChoice.parse(image), !c.isDockerfile, c.agent != .none,
+           let rec = c.agent.recipe, c.base == rec.defaultBase {
+            let b = tryBase(rec, settings: f.settings)
+            if b != c.base { image = ImageChoice(base: b, agent: c.agent).name }
+        }
         o.image = image
         let choice = ImageChoice.parse(image)
-        let isTry = r.purpose == "try"
         let projects = f.projectsDir ?? (Workspace.defaultPath(name: "x", settings: f.settings) as NSString).deletingLastPathComponent
 
         // D14 (owner ruling after the demo): a try's defaults — a NEW empty folder of its own (files it makes are on the
@@ -411,7 +432,8 @@ public enum CreatePlanner {
         let isTry = purpose == "try"
         if isTry {
             a.append(o.agentRef ?? choice.flatMap { $0.agent.recipe.map(AgentRef.typed) ?? $0.agent.rawValue } ?? o.image)   // 618: what was typed (opencode@1)
-            if let c = choice, let r = c.agent.recipe, c.base != r.defaultBase, o.dockerfile == nil { a += ["--base", c.base] }
+            // 634: only a base other than the try's own default — the store's (`tryBase`).
+            if let c = choice, let r = c.agent.recipe, c.base != tryBase(r, settings: settings), o.dockerfile == nil { a += ["--base", c.base] }
         } else {
             if let n = name { a.append(n) }
             let defaultImage = settings.string(SettingKey.defaultImage) ?? "lab"
