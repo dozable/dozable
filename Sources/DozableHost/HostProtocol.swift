@@ -638,6 +638,10 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var extraKeys: [String]? = nil
     /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
     public var ports: [PortForwardRow]? = nil
+    /// 635: its sessions as the host knows them from its own events (`SessionRegistry` — never a guest call), and
+    /// how many more there are beyond the list. nil: none.
+    public var sessionList: [SessionBrief]? = nil
+    public var sessionMore: Int? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -663,6 +667,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case createdFolder                                // 634
         case agentRef                                     // 618
         case ports                                        // 617 (RP-1)
+        case sessionList, sessionMore                     // 635
     }
 
     public init(from decoder: Decoder) throws {
@@ -705,6 +710,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         createdFolder = try c.decodeIfPresent(String.self, forKey: .createdFolder)
         agentRef = try c.decodeIfPresent(String.self, forKey: .agentRef)
         ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
+        sessionList = try c.decodeIfPresent([SessionBrief].self, forKey: .sessionList)
+        sessionMore = try c.decodeIfPresent(Int.self, forKey: .sessionMore)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -750,6 +757,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
         try c.encodeIfPresent(agentWorking, forKey: .agentWorking)
+        try c.encodeIfPresent(sessionList, forKey: .sessionList)
+        try c.encodeIfPresent(sessionMore, forKey: .sessionMore)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,
@@ -821,6 +830,8 @@ public struct SessionRow: Codable, Equatable, Sendable {
     public var savedReason: String?
     /// 612: what the session's program says it is doing (OSC 7501), when it said anything.
     public var status: SessionStatus?
+    /// 635: when the host opened it (`sessions.json`); nil when it did not (or before 0.30.0).
+    public var openedAt: Date? = nil
 
     public init(_ s: SessionInfo) {
         name = s.name

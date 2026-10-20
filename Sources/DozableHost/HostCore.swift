@@ -101,6 +101,10 @@ public actor HostCore {
     var statusOpening: Set<String> = []
     var statusUnsupported: Set<String> = []
     var statusRetries: [String: Int] = [:]
+    /// 635: the registry epoch each status watcher was opened under (keyed like `statusWatches`).
+    var statusWatchEpochs: [String: UInt64] = [:]
+    /// 635: every sandbox's sessions from the host's own events (`SessionRegistry`, `HostCore+Sessions`).
+    var sessionRegistry = SessionRegistry()
     /// 599d: GitHub tokens given with `doz key set NAME --github` from stdin — in this host's MEMORY only
     /// (never written: a new host needs them given again, or a keychain item).
     var githubKeys: [String: String] = [:]
@@ -272,8 +276,8 @@ public actor HostCore {
     private func handleEvent(_ name: String, _ e: SandboxEvent) {
         // 612: a sandbox that comes to run gets its sessions' status watchers again; one that is off has no programs.
         if case .phase(let p) = e {
-            if p == .running { Task { await self.refreshStatusWatches(name) } }
-            if p == .off { clearStatuses(name) }
+            if p == .running { sessionRegistry.cameToRun(name); Task { await self.refreshStatusWatches(name) } }
+            if p == .off { clearStatuses(name); sessionRegistry.clear(name) }
             // 617 (RP-1): forwards listen while the sandbox runs, and only then.
             if p == .running { Task { await self.bindPorts(name, settle: true) } }
             if [.off, .asleep, .hibernated, .failed].contains(p) { unbindPorts(name, why: PhaseName.label(p)) }
@@ -462,6 +466,7 @@ public actor HostCore {
         let ports = portRows(m, running: phase == .running)                // 617 (RP-1)
         i.ports = ports.isEmpty ? nil : ports
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
+        sessionListFields(m, phase: phase, into: &i)                   // 635: from memory and its files, never the guest
         i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
         i.workspaceView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
                                                   active: Array(m.sandbox.activeViews.values), fallbacks: m.sandbox.viewFallbacks,
@@ -1219,6 +1224,7 @@ public actor HostCore {
         if op == .rm {
             detachWatcher(m)
             clearStatuses(m.name)                                       // 612
+            sessionRegistry.clear(m.name)                               // 635
             m.eventTask?.cancel()
             m.networkTask?.cancel()
             managed[m.name] = nil
@@ -1345,6 +1351,7 @@ public actor HostCore {
     }
 
     func sessionAttached(_ name: String, session: String, ms: Double) {
+        if managed[name] != nil { sessionRegistry.seen(name, session, program: recordedProgram(name, session, fallback: nil)) }   // 635
         Task { await self.watchStatus(name, session: session) }       // 612: a session the host had not opened
         guard let m = managed[name], let id = m.sessionRows[session] else { return }
         metrics?.sessionFirstAttach(id, ms: ms)
@@ -1442,7 +1449,9 @@ public actor HostCore {
             return withStatuses(m.name, Self.wakeable(await effectivePhase(m)) ? saved.map(SessionRow.init(saved:)) : [], live: nil)
         }
         let byName = Dictionary(saved.map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
+        let mark = sessionRegistry.epoch
         let list = try await m.sandbox.sessions()
+        reconcileSessions(m.name, list, mark: mark)                   // 635: the list this read made anyway
         let rows = list.map { s in
             var row = SessionRow(s)
             if let i = byName[s.name] {
@@ -1453,7 +1462,7 @@ public actor HostCore {
         }
         // 612: a live session the host does not watch yet (opened from inside the guest, or before a host restart).
         for s in list where !s.isEnded { Task { await self.watchStatus(m.name, session: s.name) } }
-        return withStatuses(m.name, rows, live: list)
+        return withOpenedAt(m.name, withStatuses(m.name, rows, live: list))
     }
 
     /// The phases one wakes (or resumes) back into — the only ones with saved screens.
@@ -1467,7 +1476,9 @@ public actor HostCore {
         for m in managed.values {
             guard await m.sandbox.phase == .running else { continue }
             let sb = m.sandbox
+            let mark = sessionRegistry.epoch
             guard let r = await sb.captureScreens(changedOnly: true) else { continue }
+            if let listed = r.listed { reconcileSessions(m.name, listed, mark: mark) }   // 635: its one `deckhold ls`
             if !r.captured.isEmpty || !r.failed.isEmpty {
                 HostLog.line("\(m.name): periodic screen capture — saved \(r.captured.joined(separator: ", "))"
                              + (r.failed.isEmpty ? "" : "; failed \(r.failed.joined(separator: ", "))")
@@ -1620,6 +1631,7 @@ public actor HostCore {
     /// file) and NOT recorded — a restart's resume arguments (`SessionResume`).
     func openSessionLocked(_ r: HostRequest, extraArguments: [String] = []) async throws -> SessionOpened {
         let opened = try await openSessionBody(r, extraArguments: extraArguments)
+        if let m = managed[opened.name] { registerOpened(m, opened, argv: r.argv) }   // 635: before its watcher (its epoch)
         await watchStatus(opened.name, session: opened.session)      // 612: what the program says it is doing
         return opened
     }
@@ -1630,7 +1642,9 @@ public actor HostCore {
         // 599g: a rule file that appeared since the boot gets its view before the program starts (nothing
         // runs in the guest when nothing changed).
         await m.sandbox.refreshWorkspaceViews()
+        let mark = sessionRegistry.epoch
         let list = try await m.sandbox.sessions()
+        reconcileSessions(m.name, list, mark: mark)                   // 635
         let live = Set(list.filter { !$0.isEnded }.map(\.name))
         let all = Set(list.map(\.name))
         var argv: [String]
@@ -1820,13 +1834,17 @@ public actor HostCore {
         let i = await info(m, sessions: false)
         var sessions: [SessionRow]?
         var live: [SessionInfo]?
-        if i.phase == Phase.running.rawValue, !i.busy, let list = try? await m.sandbox.sessions() { sessions = list.map(SessionRow.init); live = list }
+        let mark = sessionRegistry.epoch
+        if i.phase == Phase.running.rawValue, !i.busy, let list = try? await m.sandbox.sessions() {
+            sessions = list.map(SessionRow.init); live = list
+            reconcileSessions(m.name, list, mark: mark)               // 635: the list this read made anyway
+        }
         // 593 §9: paused, asleep or hibernated — the sessions as last saved (`saved: true`), from the
         // sandbox's directory. Shut down: none (owner, 2026-09-30).
         if let p = Phase(rawValue: i.phase), Self.wakeable(p), case let saved = m.sandbox.savedScreens(), !saved.isEmpty {
             sessions = saved.map(SessionRow.init(saved:))
         }
-        sessions = sessions.map { withStatuses(m.name, $0, live: live) }      // 612
+        sessions = sessions.map { withOpenedAt(m.name, withStatuses(m.name, $0, live: live)) }      // 612, 635
         let status = await m.sandbox.status
         return SandboxDetail(info: i, spec: m.sandbox.spec, policy: m.sandbox.egress?.policy, sessions: sessions,
                              restorePoints: m.sandbox.restorePoints(), credentials: credentials(m),

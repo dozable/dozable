@@ -492,6 +492,20 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   which connects to every session's holder — each connect is a line in the guest's
   `/run/deckhold/NAME.log` (tmpfs); the UI's 3 s poll grew one by 600 KB in 9 hours. A repeat of an
   in-flight action (same `WebAction.dedupeKey`) is 409.
+- **The overview's sessions are the host's registry, never the guest's** (635, `SessionRegistry.swift`,
+  `HostCore+Sessions.swift`): `SandboxInfo.sessionList` / `sessionMore` (name, program's basename, `isDefault`,
+  `openedAt`, `saved` — never a command line, nothing that moves by itself: the overview is compared poll to poll for
+  `changed`). Fed by the host's own events — `openSessionLocked` (`opened`: a new epoch; "already running": `seen`), an
+  attach (`seen`), the status watcher's `.ended` ONLY for the epoch it was opened under (a restart's late `.ended` of the
+  old program re-watches instead), `session-end` — and reconciled from every guest list the host makes ANYWAY
+  (`refreshStatusWatches` per transition, `detail`, `sessions`, the open path, the periodic capture's
+  `ScreenCaptureReport.listed`), never dropping an entry registered after the list began (`mark`). Running → memory
+  (the saved screens until this run's first list); paused/asleep/hibernated → the saved screens (`saved: true`);
+  off/failed/booting → none; cleared on off and `rm`. **Staleness is accepted, never a new guest call**: a program that
+  exits with nobody watching (a holder older than 612, or a watcher that gave up) or a session started inside the guest
+  is corrected at the next list the host makes anyway — at once for the page's own sandbox, else within
+  `host.screen_capture_minutes`. `SessionRegistryTests`; `make test-cli-sessions` checks it and that 20 overviews add
+  no line to a holder's log.
 - **The policy preview is the host's own function** (`HostCore.editedPolicy`), so the preview is
   exactly what `net-policy` applies. **Metrics CSV cells are defused** against spreadsheet formulas.
 - **The UI is a CLIENT of the host** (host.sock) in its own process — it never owns a VM, and the
@@ -728,7 +742,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Sandbox pages, All sessions, Lineage, Operations, templates
 
 - **The page is built around the sandbox.** The nav has a child per sandbox (from the overview —
-  `ls` without session counts, re-read on `hello`, `changed` and an operation's end). A sandbox's page
+  `ls` without session counts, its sessions from the host's registry — re-read on `hello`, `changed` and an operation's end). A sandbox's page
   is a PERSISTENT section (`#sbx`): the control bar (`#sbx-bar`) and the inspector (`#sbx-details`, 603's tabs) re-render; `#terminals` never
   does (591's rule). Terminals are per sandbox (`termUI.by[name]`: split, selected, focused pane); another
   sandbox's stay open, hidden (the 16-per-UI cap is the server's, unchanged). Arriving attaches to the

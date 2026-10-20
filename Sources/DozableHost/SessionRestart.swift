@@ -140,6 +140,7 @@ extension HostCore {
             throw HostError(.notFound, "no session \(session) in \(m.name) (doz sessions \(m.name))")
         }
         if how == .stuck { throw HostError(.failed, "session \(session) in \(m.name) did not end, even after SIGKILL — a program stuck in the kernel; doz shutdown \(m.name) ends everything") }
+        sessionRegistry.ended(m.name, session)                       // 635: under the session gate — no reopen can race it
         metrics?.record(run: metricsRun, action: "session end", sandbox: m.name, image: m.config.image, phaseBefore: "running",
                         phaseAfter: "running", startedAt: Date(), durationMs: nil, detail: ["session": session, "how": how.rawValue])
         return SessionEnded(name: m.name, session: session, how: how.rawValue)
