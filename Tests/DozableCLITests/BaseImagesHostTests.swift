@@ -96,6 +96,23 @@ final class BaseImagesHostTests: XCTestCase {
         do { _ = try await offline.digest!("docker.io/library/python:3.13-bookworm"); XCTFail("offline answered") } catch {}
     }
 
+    /// 634: the store's base prepared on its own (`base:node`) resolves the base's digest exactly as a tool's preparation
+    /// on it does — so both flatten ONE base key (test-cli-onboarding found two: the pin, then the registry's digest).
+    func testABasePreparationResolvesItsBasesDigest() async throws {
+        let fresh = "sha256:" + String(repeating: "2", count: 64)
+        let reg = NpmRegistry(lookup: nil, digest: { ref in
+            XCTAssertEqual(ref, BaseCatalogue.base("node")!.reference)
+            return fresh
+        })
+        let core = HostCore(store: store, readOnly: false, version: "0.0.0-test", agentRegistry: reg)
+        _ = await core.freshen(PreparationInfo.baseName("node"), update: false)
+        XCTAssertEqual(BaseDigests.digest("node", store), fresh, "base:node resolved the node base's digest")
+        let tool = try XCTUnwrap(DozableImages.spec(name: "t", options: CreateOptions(image: "node-opencode2"), store: store, environment: [:]).0.imageSpec)
+        let base = try XCTUnwrap(DozableImages.spec(name: "b", options: CreateOptions(image: "node"), store: store, environment: [:]).0.imageSpec)
+        XCTAssertTrue(tool.base.contains(String(fresh.dropFirst(7).prefix(12))), "the tool's spec is on the resolved digest: \(tool.base)")
+        XCTAssertEqual(tool.baseKey, base.baseKey, "one base key for the base's preparation and the tool's bake")
+    }
+
     func testNativeChecksumsAreRememberedPerVersion() async throws {
         final class Count: @unchecked Sendable { let l = NSLock(); var asked: [String] = [] }
         let c = Count()

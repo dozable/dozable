@@ -605,7 +605,10 @@ extension HostCore {
     func freshen(_ image: String, update: Bool) async -> AgentVersions.Freshness? {
         // 596: any base × agent image — the base's tag (hourly: its digest, for the next preparation and
         // "update available"; never a rebuild by itself), then the agent's version as before.
-        guard let choice = ImageChoice.parse(image) else { return nil }
+        // 634: a base's own preparation (`base:node`) resolves the base's digest exactly as a tool's on it does — else it
+        // flattened the pin while the tool's bake resolved the registry's digest: two base keys, two flattens (found by
+        // test-cli-onboarding's join).
+        guard let choice = ImageChoice.parse(PreparationInfo.baseID(image) ?? image) else { return nil }
         if choice.name != "lab", BaseCatalogue.base(choice.base) != nil,
            let e = await BaseDigests.refresh(choice.base, store: store, registry: agentRegistry) {
             HostLog.line("\(choice.base): its tag could not be resolved (\(e)) — the digest resolved before (or the built-in pin) is used")
