@@ -4,7 +4,7 @@ import { act, actOrThrow, waitOp } from '../core/operations-ff189ebd5e81fa10.js'
 import { setting, terminalsAllowed } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from './button-570a54a4d3e9cb51.js';
-import { createDialog } from './create-dialog-97ac79bc108fbeb4.js';
+import { createDialog } from './create-dialog-e5d07bf7182aa7d8.js';
 import { startWithBootView } from './lifecycle-9efdfb1dbd54c36a.js';
 import { pageFailure, toast } from './notices-4d2f95c7aa4e231b.js';
 import { openTerminal } from './terminal-88f6545ba798f8f7.js';
@@ -14,7 +14,7 @@ import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 // it immediately") — one click, no form: the default image (defaults.image), a free name (claude-sandbox,
 // -2, …), its workspace <defaults.projects_dir>/<name> (made), the default account and permissions;
 // created, started with the boot view, its page open. What one click cannot decide (the agent's
-// account, an out-of-date image) opens New sandbox with the requirement said.
+// account) opens New sandbox with the requirement said; 635: an out-of-date image is used and said.
 function quickAddTitle() {
   return 'One click: a ' + setting('defaults.image', 'lab') + ' sandbox with a free name, its folder in ' + setting('defaults.projects_dir', '~/doz-workspaces') + ' — started and opened';
 }
@@ -35,6 +35,8 @@ export async function quickAdd(button) {
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') return;        // a failure is said by the operation's own toast
     toast('Quick add: ' + p.name + ' · ' + p.image + ' · ' + (p.workspace ? tildePath(p.workspace) : 'isolated'));
+    // 635: an out-of-date image is used as it is — said, never asked (a newer patch release stopped Quick add).
+    if (p.notice) pageFailure(p.name + ': ' + p.notice, { key: 'quick-add-image', tone: 'info', title: 'A newer image is available' });
     // 617: the start sequence (the build, then tab zero Console, then the agent's tab), on its page.
     if (terminalsAllowed()) { location.hash = '#/sandbox/' + p.name; await startWithBootView(p.name); return; }
     location.hash = '#/sandbox/' + p.name;

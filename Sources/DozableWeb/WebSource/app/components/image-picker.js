@@ -189,6 +189,13 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
       return agent === 'none' ? null : agent;
     },
     dockerfile() { return kind === 'dockerfile' ? dfPath.value.trim() : null; },
+    /// 635: the choice in a few words for New sandbox's summary ("Claude Code on Node.js").
+    title() {
+      if (kind === 'template') return 'Template ' + (template || '—');
+      if (kind === 'dockerfile') return titleOf(agent) + ' on your Dockerfile';
+      const b = catalogue.find((x) => x.id === base);
+      return agent === 'none' ? (b ? b.title : base) + ', no agent' : titleOf(agent) + ' on ' + (b ? b.title : base);
+    },
     /// 597: the catalogue base (a Dockerfile's: '', a template's: null) — its permissions' Standard.
     base() { return kind === 'recommended' ? base : kind === 'dockerfile' ? '' : null; },
     /// Why Create cannot go ahead now (null: it can).

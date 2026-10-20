@@ -85,26 +85,23 @@ final class QuickAddTests: XCTestCase {
     func testPrerequisiteFallbacks() {
         let none: [String: AccountKind] = ["mac": .mac]
         // pi with no API-key account (default none, or the Mac login): the account.
-        var r = QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "none", accountKinds: none, outOfDate: nil)
+        var r = QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "none", accountKinds: none)
         XCTAssertEqual(r?.kind, "account")
         XCTAssertTrue(r?.text.contains("pi needs an Anthropic API key") == true, r?.text ?? "")
-        r = QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "mac", accountKinds: none, outOfDate: nil)
+        r = QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "mac", accountKinds: none)
         XCTAssertEqual(r?.kind, "account")
         // pi with an API key as the default: fine. With nat/none networking no account applies at all.
-        XCTAssertNil(QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "work", accountKinds: ["mac": .mac, "work": .apiKey], outOfDate: nil))
-        XCTAssertNil(QuickAdd.requirement(image: "pi", network: "nat", defaultAccount: "none", accountKinds: none, outOfDate: nil))
+        XCTAssertNil(QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "work", accountKinds: ["mac": .mac, "work": .apiKey]))
+        XCTAssertNil(QuickAdd.requirement(image: "pi", network: "nat", defaultAccount: "none", accountKinds: none))
         // Claude Code may start with none, or the Mac login; lab has no agent.
-        XCTAssertNil(QuickAdd.requirement(image: "claude-code", network: nil, defaultAccount: "none", accountKinds: none, outOfDate: nil))
-        XCTAssertNil(QuickAdd.requirement(image: "claude-code", network: nil, defaultAccount: "mac", accountKinds: none, outOfDate: nil))
-        XCTAssertNil(QuickAdd.requirement(image: "lab", network: nil, defaultAccount: "none", accountKinds: [:], outOfDate: nil))
-        // An out-of-date image: use it or rebuild — a choice the form offers.
-        r = QuickAdd.requirement(image: "claude-code", network: nil, defaultAccount: "mac", accountKinds: none,
-                                 outOfDate: "an older recipe (missing: tmux) — rebuild when ready: doz image bake claude-code")
-        XCTAssertEqual(r?.kind, "image")
-        XCTAssertEqual(r?.text, "the claude-code image is out of date: an older recipe (missing: tmux) — use it as it is, or rebuild it first")
-        // The account comes first (it blocks; the image is a choice).
-        r = QuickAdd.requirement(image: "pi", network: nil, defaultAccount: "none", accountKinds: none, outOfDate: "older")
-        XCTAssertEqual(r?.kind, "account")
+        XCTAssertNil(QuickAdd.requirement(image: "claude-code", network: nil, defaultAccount: "none", accountKinds: none))
+        XCTAssertNil(QuickAdd.requirement(image: "claude-code", network: nil, defaultAccount: "mac", accountKinds: none))
+        XCTAssertNil(QuickAdd.requirement(image: "lab", network: nil, defaultAccount: "none", accountKinds: [:]))
+        // 635 (owner: Quick add stopped on a newer patch release): an out-of-date image is used as it is and SAID — never a
+        // requirement, never rebuilt by itself.
+        XCTAssertEqual(QuickAdd.notice(image: "claude-code", outOfDate: "Claude Code 2.1.305 is available (image has 2.1.304) — rebuild when ready: doz image bake claude-code"),
+                       "it uses the claude-code image as it is — Claude Code 2.1.305 is available (image has 2.1.304); Images › Rebuild when you want it")
+        XCTAssertNil(QuickAdd.notice(image: "claude-code", outOfDate: nil))
         // The image's network setting decides whether an account applies.
         let s = settings(extra: "[images.pi]\nnetwork = \"none\"\n")
         XCTAssertEqual(QuickAdd.network(image: "pi", settings: s), "none")

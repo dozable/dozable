@@ -825,7 +825,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (the image `defaults.image` or given; the name `Workspace.suggestedName` past sandboxes and non-empty
   folders, or a given one — taken → `.exists`; the workspace `<projects_dir>/<name>`, nil when isolated)
   and `QuickAdd.requirement` (what one click cannot decide: the agent's account via
-  `AgentCredentials.createProblem` unless the image's network is nat/none, then an out-of-date image).
+  `AgentCredentials.createProblem` unless the image's network is nat/none; 635: an out-of-date image is NOT one — it
+  is used as it is and said, `QuickAdd.notice`). New sandbox (`components/create-dialog.js`) is the Name, a summary of
+  what it makes (`collapseToSummary`) and every choice folded under "Change…" (open by itself only when the account
+  must be chosen).
   The UI: `POST /api/v1/quick-add` {image?, isolated?} (CSRF, makes nothing; `WebQuickAdd.swift`) →
   the page runs the ordinary `create` action, waits for its end (`waitOp`), then `startWithBootView`;
   a requirement opens `createDialog({why, kind, image})` instead. The CLI: `New` (LifecycleCommands) —

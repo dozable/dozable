@@ -1686,6 +1686,14 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .qt-plan { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px var(--sp-4); margin: 0; font-size: var(--fs-sm); }
 .qt-plan dt { color: var(--ink-2); }
 .qt-plan dd { margin: 0; overflow-wrap: anywhere; }
+/* 635: New sandbox, summarized — what it makes in a few lines, every choice folded under Change. */
+.nsb-summary { padding: var(--sp-3) var(--sp-4); border: var(--bw) solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.nsb-more > summary { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); list-style: none; }
+.nsb-more > summary::-webkit-details-marker { display: none; }
+.nsb-more > summary:hover { color: var(--ink); }
+.nsb-more > summary .icon { width: 14px; height: 14px; }
+.nsb-more[open] { display: grid; gap: var(--sp-4); }
+.nsb-more[open] > summary { margin-bottom: var(--sp-1); }
 .qt-foot { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding-top: var(--sp-4); border-top: var(--bw) solid var(--line); }
 .qt-note { font-size: var(--fs-sm); color: var(--ink-2); }
 .qt-desc { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-prose); max-width: 72ch; }

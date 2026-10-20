@@ -11,8 +11,9 @@ import DozableKit
 //   · the store's default account and the default permissions (nothing is said: the create's defaults).
 //
 // Prerequisites still apply. What one click cannot decide — the agent needs an account the store does
-// not have as its default, or the image is out of date (rebuild or use it as it is) — is a REQUIREMENT:
-// the UI opens the New Sandbox form with it said; the CLI asks on a terminal, as `doz create` does.
+// not have as its default — is a REQUIREMENT: the UI opens the New Sandbox form with it said; the CLI asks
+// on a terminal, as `doz create` does. 635 (owner: Quick add stopped on "Claude Code 2.1.305 is available"):
+// an out-of-date image is NOT one — it is used as it is (never rebuilt without the person) and said (`notice`).
 
 /// What Quick add / `doz new` will make.
 public struct QuickAddPlan: Codable, Equatable, Sendable {
@@ -24,8 +25,10 @@ public struct QuickAddPlan: Codable, Equatable, Sendable {
     public var projectsDir: String
     /// Why one click cannot make it (nil: it can): the New Sandbox form opens with this said.
     public var requirement: String?
-    /// `account` or `image` — which kind of requirement.
+    /// `account` — which kind of requirement (635: an out-of-date image is a `notice`, no longer a requirement).
     public var requirementKind: String?
+    /// 635: said once it is made, never asked: its image is out of date ("Claude Code 2.1.305 is available …").
+    public var notice: String?
 
     public init(name: String, image: String, workspace: String?, projectsDir: String) {
         self.name = name
@@ -60,10 +63,9 @@ public enum QuickAdd {
     }
 
     /// What one click cannot decide for a new sandbox of `image` with the default account, or nil.
-    /// `network`: the image's network setting (nat/none: no account at all); `outOfDate`: the image's
-    /// standing line when it is prepared but out of date.
+    /// `network`: the image's network setting (nat/none: no account at all).
     public static func requirement(image: String, network: String?, defaultAccount: String,
-                                   accountKinds: [String: AccountKind], outOfDate: String?, openaiDefault: String? = nil,
+                                   accountKinds: [String: AccountKind], openaiDefault: String? = nil,
                                    codexMac: Bool = false, providers: [String: String] = [:],
                                    providerDefaults: [String: String] = [:]) -> (kind: String, text: String)? {
         if AgentCredentials.kinds(image) != nil, network != "nat", network != "none",
@@ -72,10 +74,14 @@ public enum QuickAdd {
                                                         providers: providers, providerDefaults: providerDefaults) {
             return ("account", problem)
         }
-        if let s = outOfDate {
-            return ("image", "the \(image) image is out of date: \(s.replacingOccurrences(of: #" — rebuild when ready: .*$"#, with: "", options: .regularExpression)) — use it as it is, or rebuild it first")
-        }
         return nil
+    }
+
+    /// 635: what Quick add says after making a sandbox of an out-of-date image (`outOfDate`: the image's standing line),
+    /// or nil. It is used as it is; rebuilding is the person's, on the Images page.
+    public static func notice(image: String, outOfDate: String?) -> String? {
+        guard let s = outOfDate else { return nil }
+        return "it uses the \(image) image as it is — \(s.replacingOccurrences(of: #" — rebuild when ready: .*$"#, with: "", options: .regularExpression)); Images › Rebuild when you want it"
     }
 
     /// The image's network setting, for `requirement` (nil for an image without an agent).

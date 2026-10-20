@@ -338,7 +338,7 @@ name: todo-app</pre></details>
       <div class="dlg-body"><p class="sub">A fresh sandbox, try-pi: a new empty folder of its own, the network locked to its model, your key never inside.</p>
         <div class="qt-sect"><h3>Key</h3><p class="try-key"><i data-i="circle-check"></i> <strong>anthropic</strong> — keychain — the sandbox only ever sees a placeholder.</p></div>
         <div class="qt-sect"><h3>Image</h3><div class="try-prep">Node.js · pi — ready.</div></div>
-        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <dialog class="dlg try-setup" open><form method="dialog">
@@ -364,7 +364,7 @@ name: todo-app</pre></details>
             <label class="ms-m on"><input type="radio" name="sg-m" checked><span class="ms-mt"><span class="ms-nm">Claude Sonnet 4.6</span> <code class="ms-id">anthropic/claude-sonnet-4.6</code></span><span class="ms-price">$3 / $15<br>per 1M in / out</span><span class="ms-meta">Anthropic · 1M context</span></label>
             <label class="ms-m"><input type="radio" name="sg-m"><span class="ms-mt"><span class="ms-nm">GPT-5.4 Mini</span> <code class="ms-id">openai/gpt-5.4-mini</code><span class="tag">default</span></span><span class="ms-price">$0.25 / $2<br>per 1M in / out</span><span class="ms-meta">OpenAI · 400K context</span></label></div>
           <div class="ms-foot">OpenRouter’s public model list, read on this Mac 2 hours ago · prices per million tokens</div></div></div>
-        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Locked — only its model providers</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why">Save an OpenRouter key, or choose a source that has one</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <div class="ms-picker"><div class="ms-top"><i data-i="search"></i><input type="search" placeholder="Search OpenCode Zen’s models — name, maker or id"></div>
@@ -372,6 +372,15 @@ name: todo-app</pre></details>
         <label class="ms-m on"><input type="radio" name="sg-z" checked><span class="ms-mt"><span class="ms-nm">Space Bunny Free</span> <code class="ms-id">space-bunny-free</code></span><span class="ms-price">free / free<br>per 1M in / out</span><span class="ms-meta"></span><span class="ms-note">Data: zero retention; not used for training</span></label>
         <label class="ms-m"><input type="radio" name="sg-z"><span class="ms-mt"><span class="ms-nm">Big Pickle</span> <code class="ms-id">big-pickle</code><span class="tag">default</span></span><span class="ms-price">free / free<br>per 1M in / out</span><span class="ms-meta"></span><span class="ms-note">Data: during its free period, collected data may be used to improve the model</span></label></div>
       <div class="ms-foot">OpenCode Zen’s free models as its docs list them (checked 2026-10-16), with their data terms — type any other free model id it names</div></div>
+    <!-- New sandbox, summarized: the Name, what it makes, every choice folded under Change. -->
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">New sandbox</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">It is made off — Start boots it.</p>
+        <label class="field"><span>Name</span><input type="text" value="claude-sandbox-2"></label>
+        <dl class="qt-plan nsb-summary"><dt>Agent</dt><dd>Claude Code on Node.js</dd><dt>Network</dt><dd>Standard</dd><dt>Account</dt><dd>the default</dd><dt>Folder</dt><dd>~/doz-workspaces/claude-sandbox-2</dd><dt>Size</dt><dd>2 CPUs · the image’s memory</dd></dl>
+        <details class="nsb-more"><summary><i data-i="settings"></i>Change the agent, base, network, account, folder or size</summary></details></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="plus"></i>Create</button></div>
+    </form></dialog>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The sandbox, its disks, snapshot and restore points are deleted.</p>
