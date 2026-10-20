@@ -14,7 +14,13 @@ const AGENT_SESSIONS = { claude: 'Claude Code', codex: 'Codex', pi: 'pi' };
 /// The agent a session runs, when it is the sandbox's own agent session (its default session).
 export function sessionAgent(name, session) {
   const s = state.sbx;
-  const def = s && s.name === name && s.d ? s.d.defaultSession : null;
+  let def = s && s.name === name && s.d ? s.d.defaultSession : null;
+  // 635: another sandbox's (the sidebar's ⋯): its own session as the overview's registry says.
+  if (!def && state.overview) {
+    const row = state.overview.sandboxes.find((x) => x.name === name);
+    const own = row && (row.sessionList || []).find((x) => x.isDefault);
+    def = own ? own.name : null;
+  }
   return def && def === session ? AGENT_SESSIONS[session] || null : null;
 }
 

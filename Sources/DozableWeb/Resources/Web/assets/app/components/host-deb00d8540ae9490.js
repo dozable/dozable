@@ -7,7 +7,7 @@ import { state } from '../core/state-1378d79c750c8380.js';
 import { card } from './blocks-53c969feeec8fe89.js';
 import { btn } from './button-570a54a4d3e9cb51.js';
 import { dialog } from './dialog-e229366c3d5e86b3.js';
-import { refreshNav } from './nav-6a291182d8154151.js';
+import { refreshNav } from './nav-e0a90fe81ad74836.js';
 import { banner, dropBanner } from './notices-4d2f95c7aa4e231b.js';
 
 function sandboxLinks(names) {

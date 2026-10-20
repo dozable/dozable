@@ -8,7 +8,7 @@ import { saveSetting, setting } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from '../components/button-570a54a4d3e9cb51.js';
 import { lifecycle } from '../components/lifecycle-9efdfb1dbd54c36a.js';
-import { renderNavSandboxes } from '../components/nav-6a291182d8154151.js';
+import { renderNavSandboxes } from '../components/nav-e0a90fe81ad74836.js';
 import { agentChip } from '../components/agent-status-c09514c1fad76dab.js';
 import { pageFailure } from '../components/notices-4d2f95c7aa4e231b.js';
 import { paintCover } from '../components/terminal-88f6545ba798f8f7.js';
@@ -107,7 +107,9 @@ function gridRender() {
     if (grid.sandbox && s.name !== grid.sandbox) continue;
     if (grid.phase && s.phase !== grid.phase) continue;
     if (s.phase === 'running') {
-      const live = (grid.sessions[s.name] || []).filter((x) => !x.saved);
+      // 635: the agent's session first in each sandbox (the host's registry says which is its own).
+      const own = ((s.sessionList || []).find((b) => b.isDefault) || {}).name;
+      const live = (grid.sessions[s.name] || []).filter((x) => !x.saved).sort((a, b) => (b.name === own) - (a.name === own));
       for (const x of live) want.push({ key: s.name + '/' + x.name, sandbox: s.name, session: x.name, command: x.command, s });
       if (!live.length) want.push({ key: s.name + '/', sandbox: s.name, session: null, s, none: true });
     } else {
@@ -145,7 +147,7 @@ function makeTile(w) {
                             'aria-label': 'Open ' + (w.session ? w.sandbox + ' · ' + w.session : w.sandbox) + ' on its page' },
     h('span', { class: 'tile-hit-icon' }, icon('maximize-2')));
   const el = h('div', { class: 'tile', 'data-key': w.key, 'data-sandbox': w.sandbox, 'data-session': w.session || '' },
-    h('div', { class: 'tile-head' }, dot, title, agent, phase, act),
+    h('div', { class: 'tile-head' }, dot, w.session ? icon('terminal') : null, title, agent, phase, act),   // 635: the session's mark
     h('div', { class: 'tile-body' }, screen, note, hit));
   const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, title, phase, act, screen, note, hit, term: null, visible: false, liveable: !!w.session };
   hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });

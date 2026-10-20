@@ -17,6 +17,7 @@ import { btn } from '../components/button.js';
 import { dialog } from '../components/dialog.js';
 import { sessionsWhyNot } from '../components/lifecycle.js';
 import { menuButton } from '../components/menus.js';
+import { markNavSession } from '../components/nav.js';
 import { agentChip } from '../components/agent-status.js';
 import { failureFor, pageFailure } from '../components/notices.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal.js';
@@ -133,6 +134,7 @@ function drawTerminals() {
     state.bgHash = location.hash;
   }
   if (name) paintHome(name);                          // 635: Home's facts follow the tabs ("open in tab 2"), and its pictures
+  markNavSession();                                   // 635: the sidebar marks the session shown (or the sandbox, on Home)
 }
 /// The strip's actions follow the sandbox: a session needs a VM (New shell, Run detached, Open in Terminal); a new
 /// terminal waits while something is under way.

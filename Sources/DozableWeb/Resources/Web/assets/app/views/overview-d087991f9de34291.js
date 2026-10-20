@@ -6,13 +6,13 @@ import { bytes, mib } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-570a54a4d3e9cb51.js';
-import { hostCard } from '../components/host-8f40e8707a02c4fd.js';
+import { hostCard } from '../components/host-deb00d8540ae9490.js';
 import { rowLifecycle } from '../components/lifecycle-9efdfb1dbd54c36a.js';
-import { renderNavSandboxes } from '../components/nav-6a291182d8154151.js';
+import { renderNavSandboxes } from '../components/nav-e0a90fe81ad74836.js';
 import { sandboxPill } from '../components/pills-4637e5a942e8545f.js';
 import { quickAddButton } from '../components/quick-add-d1a802bff376c9fe.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-2f3cbbc995e425a0.js';
-import { newSandboxWizard } from './new-sandbox-2adf0e17ccd37619.js';
+import { newSandboxWizard } from './new-sandbox-697191fce3e3295a.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {

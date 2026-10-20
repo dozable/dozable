@@ -17,11 +17,12 @@ import { btn } from '../components/button-570a54a4d3e9cb51.js';
 import { dialog } from '../components/dialog-e229366c3d5e86b3.js';
 import { sessionsWhyNot } from '../components/lifecycle-9efdfb1dbd54c36a.js';
 import { menuButton } from '../components/menus-67717e11502dafd8.js';
+import { markNavSession } from '../components/nav-e0a90fe81ad74836.js';
 import { agentChip } from '../components/agent-status-c09514c1fad76dab.js';
 import { failureFor, pageFailure } from '../components/notices-4d2f95c7aa4e231b.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-88f6545ba798f8f7.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-8ee5cb86841d0f0a.js';
-import { sessionMenuItems } from '../components/session-actions-1d20f847ad4ddd88.js';
+import { sessionMenuItems } from '../components/session-actions-2c774e12b2689925.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');
 
@@ -133,6 +134,7 @@ function drawTerminals() {
     state.bgHash = location.hash;
   }
   if (name) paintHome(name);                          // 635: Home's facts follow the tabs ("open in tab 2"), and its pictures
+  markNavSession();                                   // 635: the sidebar marks the session shown (or the sandbox, on Home)
 }
 /// The strip's actions follow the sandbox: a session needs a VM (New shell, Run detached, Open in Terminal); a new
 /// terminal waits while something is under way.

@@ -752,7 +752,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Sandbox pages, All sessions, Lineage, Operations, templates
 
 - **The page is built around the sandbox.** The nav has a child per sandbox (from the overview —
-  `ls` without session counts, its sessions from the host's registry — re-read on `hello`, `changed` and an operation's end). A sandbox's page
+  `ls` without session counts, its sessions from the host's registry — re-read on `hello`, `changed` and an operation's end).
+  635 (owner: variant A, collapsible): under each sandbox its sessions (`components/nav.js` — `sessionList`, never a guest
+  call; the tooltip is program · session, never a command line), the default first then by `openedAt`, drawn in that order
+  always; at most four lines (past that, three chosen — the agent's, any blocked/error, the one shown — then "N more — Home",
+  `#/sandbox/NAME/~home`); ⋯ (End / Restart, `sessionMenuItems`) only on a running sandbox; a caret folds a sandbox to one
+  line + its count (browser storage `doz.nav.folded`, like the inspector's width — owner's choice), a folded one still
+  shows blocked/error. An open ⋯ holds the re-render; `markNavSession` (called by `drawTerminals`) marks the shown session. A sandbox's page
   is a PERSISTENT section (`#sbx`): the control bar (`#sbx-bar`) and the inspector (`#sbx-details`, 603's tabs) re-render; `#terminals` never
   does (591's rule). Terminals are per sandbox (`termUI.by[name]`: split, selected, focused pane); another
   sandbox's stay open, hidden (the 16-per-UI cap is the server's, unchanged). Arriving attaches to the
