@@ -325,7 +325,12 @@ function sandboxParts(name, d, net, accounts) {
   // ── the inspector: six tabs instead of nine stacked sections ──
   // 617.11: a recipe agent's Guide — the last tab (634: on every sandbox; nothing chooses it by itself).
   const tabList = d.guide ? [...INSP_TABS, GUIDE_TAB] : INSP_TABS;
-  const tab = tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : 'overview';
+  // 635 (owner: "the prompt is there but the network sidebar didn't focus so the user doesn't see it"): a refusal
+  // with a NEW suggestion while this page is open brings the Network tab forward; arriving never does (page memory).
+  const v = sview(name), grants = suggestions.map((s) => s.grant);
+  if (v.seenGrants && detailsOpen && grants.some((g) => !v.seenGrants.has(g))) v.inspTab = 'network';
+  v.seenGrants = new Set([...(v.seenGrants || []), ...grants]);
+  const tab =tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : 'overview';
   const counts = { network: i.deniedConnections ? h('span', { class: 'count warn' }, String(i.deniedConnections)) : null };
   const tabs = h('div', { class: 'itabs', role: 'tablist', 'aria-label': 'Details of ' + name },
     tabList.map(([id, label, title, ic]) => h('button', { type: 'button', role: 'tab', class: 'itab', id: 'itab-' + id, 'data-insp-tab': id, 'aria-controls': 'ipanel-' + id,
