@@ -65,6 +65,8 @@ func cliTrySuite(binary: String) async {
     let made = t.run(["image", "bake", "grok", "--yes", "-q"], timeout: 1800)
     check(made.code == 0, "the grok image is prepared (once)")
 
+    /// A recorded workspace is resolved (/tmp is a link to /private/tmp).
+    func resolved(_ p: String) -> String { URL(fileURLWithPath: p).resolvingSymlinksInPath().path }
     let sh = CLIHarness(binary: "/usr/bin/script", store: t.store)
     sh.env = t.env
     // 634: what a try makes is an ordinary sandbox (no mark) — the tries are told apart by name, before and after.
@@ -133,7 +135,7 @@ func cliTrySuite(binary: String) async {
           "1: Grok Build reached the stand-in with the key swapped in by the proxy")
     let slept = t.row(one.name)
     check(slept?.phase == "hibernated", "1: Sleep hibernates it (\(one.name): \(slept?.phase ?? "gone"))")
-    check(slept?.createdFolder == projects + "/" + one.name, "1: its folder is recorded as Dozable's own (\(slept?.createdFolder ?? "none"))")
+    check(slept?.createdFolder.map(resolved) == resolved(projects + "/" + one.name), "1: its folder is recorded as Dozable's own (\(slept?.createdFolder ?? "none"))")
     check(t.run(["ls"]).out.contains("(try)") == false, "1: doz ls marks nothing as a try (634)")
 
     // 2. Not an answer → asked again; d deletes it and its empty folder.
@@ -163,7 +165,7 @@ func cliTrySuite(binary: String) async {
     //    `doz rm` while empty; one whose folder was there keeps it.
     let made6 = projects + "/plain-six"
     let c6 = t.run(["create", "plain-six", "--image", "lab", "--memory", "384M", "--workspace", made6])
-    check(c6.code == 0 && t.row("plain-six")?.createdFolder == made6, "6: create with a new folder records it (\(t.row("plain-six")?.createdFolder ?? "none"))")
+    check(c6.code == 0 && t.row("plain-six")?.createdFolder.map(resolved) == resolved(made6), "6: create with a new folder records it (\(t.row("plain-six")?.createdFolder ?? "none"))")
     let rm6 = t.run(["rm", "plain-six", "--yes"], timeout: 300)
     check(rm6.code == 0 && !fm.fileExists(atPath: made6), "6: doz rm removed its empty folder too (\(rm6.out.trimmingCharacters(in: .whitespacesAndNewlines)))")
     let kept6 = projects + "/plain-seven"
