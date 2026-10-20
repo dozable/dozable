@@ -358,7 +358,8 @@ class Harness:
             if r.models:
                 extra = ["--gateway" if source in GATEWAYS else "--provider", source] + ([] if source in KEYLESS else ["--account", "rc-" + source])
             code, out = self.doz("try", r.typed, *extra, "-d", "-q", timeout=1500)
-            names = [s["name"] for s in self.sandboxes() if s.get("trial") and s["name"] not in before]
+            # 634: a try is an ordinary sandbox — the new one is the name that was not there before.
+            names = [s["name"] for s in self.sandboxes() if s["name"] not in before]
             if code != 0 or not names:
                 fail("try: doz try %s %s -d exited %d: %s" % (r.product, " ".join(extra), code, out.strip()[-600:]))
                 return None

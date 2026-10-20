@@ -22,7 +22,8 @@ agents and AI tools in this manual are **unpublished** in this version of Dozabl
 `doz try`, `doz new` or `doz create` of one says so. A sandbox you already made with one keeps working — its image,
 its key and its settings — and so does a Vercel AI Gateway key you already added.
 
-A try is a throwaway sandbox with safe defaults:
+A try is the fast way to make a sandbox, with safe defaults. What it makes is an **ordinary sandbox** — nothing marks it
+as a try afterwards; you keep it, sleep it or delete it like any other:
 
 - **A new empty folder of its own** — Dozable makes `try-<agent>` in your projects folder (`defaults.projects_dir`,
   `~/doz-workspaces` unless you set another) and shares it at `/workspace`, so what the agent makes is on
@@ -41,7 +42,7 @@ A try is a throwaway sandbox with safe defaults:
   opens package installs; every other choice option works too.
 - **The agent's own base** (Grok Build: Debian; Gemini CLI: Node), and its approval prompts off.
 - **Your key for its provider** — the provider's default account.
-- **Named `try-<agent>`**, then `try-<agent>-2`, …, and shown as a try in `doz ls`.
+- **Named `try-<agent>`**, then `try-<agent>-2`, ….
 
 **When you have no key yet**, a terminal shows **What you need**, the same card for every agent, made from the agent's
 recipe:
@@ -58,16 +59,18 @@ It also says where to get a key. While you deal with the key, the image is alrea
 **When you leave** (the agent exits, or you detach with Ctrl-] twice), it asks:
 
 ```
-Keep this try? [S]leep / [d]elete / [k]eep running [S]:
+Leaving try-grok — [S]leep / [d]elete / [k]eep running [S]:
 ```
 
 **Sleep** (Enter) hibernates it: everything is kept on disk and it holds no memory; `doz wake try-grok` (or
 `doz attach try-grok`) brings it back where it was.
 **Delete** removes it and everything in it. Its folder goes too when it is empty; when the agent left files there,
-it asks (the default keeps the folder and says where it is), and off a terminal it keeps it and says so. `--rm` and
-`doz rm` of a try do the same; the dashboard's Delete removes an empty one. **Keep running** leaves it as it is.
+it asks (the default keeps the folder and says where it is), and off a terminal it keeps it and says so. `--rm` does
+the same without asking. **Keep running** leaves it as it is. This is no special rule of a try: `doz rm` and the
+dashboard's Remove… do the same for **every** sandbox whose folder Dozable made (see
+[Sandboxes and their lifecycle](05-sandboxes-and-lifecycle.md)).
 
-**Off a terminal** (a script, `--json`, `-d`) `doz try` asks nothing and does not attach: it makes and starts the try,
+**Off a terminal** (a script, `--json`, `-d`) `doz try` asks nothing and does not attach: it makes and starts the sandbox,
 keeps it, and prints how to attach. With no key it stops and says how to add one.
 
 ## In the dashboard: Quick try
@@ -106,8 +109,8 @@ to where you opened it.
   (`doz try opencode --provider opencode-zen`).
 - **Nothing is prepared while you browse.** **Start** makes it, starts it and opens its session: a first start
   prepares its image, and its terminal area shows the progress (the steps, the one under way and the last lines of the
-  build) until the session is there. A try's page says **Sleep (hibernate)** · **Delete…** · **Keep** — Delete removes
-  its folder too when it is empty.
+  build) until the session is there. Its page is an ordinary sandbox's page: Sleep and Hibernate are in its action bar,
+  and ⋯ › **Remove…** deletes it — and its folder too while that folder is empty.
 - **Keyboard:** `/` searches, ↑ and ↓ move through the results, Enter starts. On a phone the list comes first and an
   agent opens its details, with a back control.
 
@@ -119,8 +122,8 @@ there.
 
 Every agent and tool comes with a **guide**: what it is, the facts of your sandbox, the first steps and some tips.
 
-- **In the dashboard**, the sandbox page's details have a **Guide** tab — first, and open, on a try; last elsewhere. It
-  says what kind of thing it is and how to use it here; **This try**: its version (Dozable's pin), the provider and model
+- **In the dashboard**, the sandbox page's details have a **Guide** tab, the last of its tabs. It
+  says what kind of thing it is and how to use it here; **This sandbox**: its version (Dozable's pin), the provider and model
   with the account it uses (your key stays on the Mac), what the network lets it reach (with a link to Network), the
   folder and where its settings live; **Start here**: the first steps, each command with **Copy** and **Run** — Run
   types it into the sandbox's session and presses Enter (for an agent with its own screen, into a shell beside it: open

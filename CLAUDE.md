@@ -1748,7 +1748,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   the tool's program/command/short name or a plain shell builtin (validated). Every recipe has one (`GuideTests`);
   `make recipe-check` runs every later non-edit step (exit 0). Dozable writes the preamble and facts (`SandboxGuide.make`:
   version, source · model · the account's NAME, network, folder, persist dirs) — `SandboxDetail.guide` → `WebGuide` →
-  the inspector's Guide tab (first and chosen on a try, the details open on its first visit; Run = `sendInput` +
+  the inspector's Guide tab (the last tab, on every sandbox — 634: never chosen by itself; Run = `sendInput` +
   Enter into a live pane — the tool's own session for `launch.session: shell`, a shell beside an agent's screen; Type
   without Enter); `doz guide NAME`; `doz try` prints "Start here" for a shell tool; `deliverGuideNote` writes
   `/etc/profile.d/doz-guide.sh` (a shell tool's default session only) — the steps once per user (a stamp in
@@ -1910,8 +1910,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
   for new/try (name, workspace, Locked for a try) and what `--dry-run` prints (command, project file, reach from
   `DozableImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.
-- **`doz try`** (`TryCommand.swift`, `Try.swift`): a try is `SandboxConfig.trial`; its card comes from recipe `auth`
-  only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
+- **`doz try`** (`TryCommand.swift`, `Try.swift`): 634 — what a try makes is an ORDINARY sandbox (no mark: 617's
+  `SandboxConfig.trial`/`trialFolder` are gone, an old doz.json carrying them loads with both ignored); its card comes
+  from recipe `auth` only (`TryCard`); its exit prompt ("Leaving NAME — [S]leep / [d]elete / [k]eep running") runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
 - **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal over the app, like onboarding (owner: the
@@ -1942,9 +1943,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   readiness; one read at a time (`tr.reader`, aborted on close), a failure said in the list with Retry, never "nothing
   matches" while loading (`data-try-state` loading|list|full). `TryPlansTests`, `probes/617-*/stageE/browser-try-open-fast.mjs`
   (its control against 16e91ea shows the delay). It makes the try with the
-  ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
-  provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
-  the try bar (its message, Delete… · Keep — owner, 617.05: Sleep is the action bar's). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
+  ORDINARY `create` action (the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
+  provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). Its page is an
+  ordinary sandbox's (634: no try tag, no try bar, no Guide-first). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
   try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash) — a page cannot raise its
   own window, so the CLI activates the default browser through LaunchServices (`bringBrowserForward`, no AppleScript)
@@ -1955,7 +1956,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
 - **The start sequence** (617.05, owner: "a confusing flash of activity"; one stable page): from Start the sandbox
-  page is there at once (header, action bar, try banner, the nav entry) and NOTHING later moves it. 617 (owner, 2026-10-15:
+  page is there at once (header, action bar, the nav entry) and NOTHING later moves it. 617 (owner, 2026-10-15:
   "fix the delay when clicking the Try button"): `tryCreate` moves in the click's own frame — Start says Starting… (spinner), both
   modals close, the try's page draws its header from the PLAN (`state.pendingTry`, `drawPendingTry`: the same parts as its detail
   will, so nothing moves; the nav lists it) and an indeterminate "Preparing NAME" panel, while the create runs behind it (a 404
@@ -2013,9 +2014,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`): a hidden tab's short timers run once a minute (Chrome's
   intensive throttling — the owner's 68 s pause). `browser-try-twice.mjs` (throttling emulated), `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
-  (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
-  `SandboxConfig.trialFolder` ONLY when Dozable made it; `rm` removes it with the sandbox when empty (host), the CLI asks
-  about one with files (`cleanUpTryFolder`). The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
+  (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem). 634 — **every
+  sandbox's easy delete**: any create records `SandboxConfig.createdFolder` ONLY when Dozable made the folder (never one
+  that was there, never for a duplicate); `rm` removes it with the sandbox when empty (host), the CLI asks about one with
+  files (`cleanUpCreatedFolder`), the page's Remove… says so (`components/lifecycle.js`). `CreatedFolderTests`, TrySuite 6. The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
   Copying works in every agent: sessions get `GROK_OSC52_SINK=1` while the clipboard bridge is on
   (`HostCore.withClipboardSink` — Grok Build otherwise picks no OSC 52 route in a VM), and `xclip`/`xsel`/`wl-copy`
   are the guest's `doz-copy` shim (`GuestCommand.copyShim`, beside the open shim, stamp — bump it on any change):
