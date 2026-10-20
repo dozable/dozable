@@ -28,7 +28,9 @@ fail() {
 [[ -f "$KNOWN" ]] || fail "missing $KNOWN"
 
 echo "docs-drift-check: building the CLI (unsigned — --help needs no entitlement) …"
-(cd "$PACKAGE" && swift build -j "${JOBS:-8}" --product doz) >/dev/null
+# The Makefile's build system (SWIFT_BUILD_SYSTEM): another one re-points .build/debug at ITS products — under a
+# running VM suite that swapped the signed doz for an unsigned one.
+(cd "$PACKAGE" && swift build ${SWIFT_BUILD_SYSTEM:-} -j "${JOBS:-8}" --product doz) >/dev/null
 
 [[ -x "$BIN" ]] || fail "missing $BIN after build"
 
