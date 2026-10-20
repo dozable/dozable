@@ -5,7 +5,7 @@ import { DOCKERFILE_POLICY_NOTE } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { bytes, full, mib, plural, when } from '../core/format.js';
 import { act, actOrThrow, transitionOf } from '../core/operations.js';
-import { DESTRUCTIVE, opRunningFor } from '../core/sandboxes.js';
+import { opRunningFor } from '../core/sandboxes.js';
 import { saveSetting, setting } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals.js';
@@ -14,7 +14,7 @@ import { accountDialog, credentialBanner, keyEntry } from '../components/account
 import { chip, panel, stat, table } from '../components/blocks.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
-import { confirmAction, confirmWithCheck, dialog } from '../components/dialog.js';
+import { confirmAction, dialog } from '../components/dialog.js';
 import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle.js';
 import { menuButton, moreMenu } from '../components/menus.js';
 import { sessionMenuItems } from '../components/session-actions.js';
@@ -72,23 +72,6 @@ function portRows(name, i) {
       : p.state + (p.why ? ': ' + p.why : ''))
       + (p.origin === 'added' ? ' (added)' : '') + (p.moved && p.state === 'listening' ? ' (moved: ' + p.port + ' was taken)' : '')));
 }
-/// 617: a try's exit choice. Delete removes it (asked with a box to tick) — and its folder when the folder is empty
-/// (the host does it); a folder with the agent's files is kept, and said; Keep hides this for the page. (Sleep and
-/// Hibernate are the action bar's — owner.)
-function tryBar(name, i) {
-  const folder = i.trialFolder ? ' Its folder ' + tildePath(i.trialFolder) + ' is removed with it when empty, and kept when the agent left files there.' : '';
-  return callout('info', { compact: true, attrs: { 'data-try-bar': name },
-    // 617 (owner): the banner keeps its message, Keep and Delete — Sleep and Hibernate are the action bar's.
-    body: 'This is a try: when you are done with it, Delete removes it (Keep hides this note).' + folder,
-    actions: [
-      // 617 (owner: no typed name for a try — "i hate this"): a box to tick.
-      btn('Delete…', () => confirmWithCheck('Delete ' + name + '?', DESTRUCTIVE.rm + (i.trialFolder ? ' Its folder is removed too when it is empty.' : ''),
-        'Yes, delete ' + name + ' and everything it has on disk', name, { action: 'rm', sandbox: name }, 'Delete'),
-        { small: true, danger: true, icon: 'trash-2' }),
-      btn('Keep', () => { sview(name).tryKept = true; const el = document.querySelector('[data-try-bar="' + CSS.escape(name) + '"]'); if (el) el.remove(); }, { small: true, quiet: true, icon: 'check' }),
-    ].filter(Boolean) });
-}
-
 export async function showSandbox() {
   const name = state.param;
   const want = state.session;                  // the addressed session (renderTerminals re-points the URL)
@@ -163,25 +146,22 @@ export async function refreshSandbox() {
   }
 }
 function drawParts(name, d, net, accounts) {
-  // 617.11: a try's first visit opens the details on its Guide, whatever ui.details_open says (until Details is pressed).
-  if (d.guide && d.info.trial && sview(name).guideShown === undefined) { sview(name).guideShown = true; if (!sview(name).inspTab) sview(name).inspTab = 'guide'; }
   const parts = sandboxParts(name, d, net, accounts);
   $('sbx-bar').replaceChildren(parts.bar);
   $('sbx-details').replaceChildren(parts.details);
   $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
 }
-/// 617: a try's page from its plan, before its create returns (`state.pendingTry`): the same header as its detail will
-/// draw (so nothing moves when it arrives — the try banner with its folder, the chips, the transition's buttons), the
-/// details pane as a try's first visit has it (open on its Guide), and no tab strip (the build panel has the area).
+/// 617: a quick-made sandbox's page from its plan, before its create returns (`state.pendingTry`): the same header as its
+/// detail will draw (so nothing moves when it arrives — the chips, the transition's buttons), and no tab strip (the build
+/// panel has the area). 634: no try banner, no Guide-first details — it is an ordinary sandbox.
 export function drawPendingTry(name) {
   const p = state.pendingTry;
   if (!p || p.name !== name || (state.sbx && state.sbx.name === name && state.sbx.d)) return;
   const failed = !!p.error;
   const i = { name, phase: failed ? 'failed' : 'off', busy: !failed, image: p.image, imageTitle: p.imageTitle, ramHeldMiB: 0, memoryMiB: 2048,
-    network: p.network, accountApplies: !!p.account, account: p.account, workspace: p.workspace, trial: true, trialFolder: p.workspace };
+    network: p.network, accountApplies: !!p.account, account: p.account, workspace: p.workspace, createdFolder: p.workspace };
   const d = { info: i, sessions: [], restorePoints: [], credentials: [], attachCommand: 'doz attach ' + name, defaultSession: null, guide: null,
     cpus: 2, hasRootDisk: false, memoryMiB: 2048, shares: [], agentPrompt: null };
-  if (sview(name).guideShown === undefined) { sview(name).guideShown = true; if (!sview(name).inspTab) sview(name).inspTab = 'guide'; }
   try {
     const parts = sandboxParts(name, d, { proxied: false, note: '' }, [])   // only the bar is used;
     $('sbx-bar').replaceChildren(parts.bar);
@@ -191,8 +171,8 @@ export function drawPendingTry(name) {
   $('sbx-details').replaceChildren();
   $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
 }
-/// The details panel is open: the setting, or a try's first visit (its Guide).
-function detailsShown(name) { return setting('ui.details_open', true) || sview(name).guideShown === true; }
+/// The details panel is open: the setting.
+function detailsShown(name) { return setting('ui.details_open', true); }
 /// The page's terminals that are a session's (617: never tab zero, the console).
 function sessionTerminals(name) { return pageTerminals(name).filter((t) => !isAux(t)); }
 /// On arriving at a sandbox's page: an addressed session (#/sandbox/NAME/SESSION, from the grid)
@@ -311,7 +291,6 @@ function sandboxParts(name, d, net, accounts) {
   more.button.dataset.lifecycleMore = name;
   const detailsBtn = btn(detailsOpen ? 'Hide details' : 'Details', () => {
     const open = !detailsShown(name);
-    sview(name).guideShown = false;                       // the person decides from now on
     $('sbx-body').classList.toggle('details-closed', !open);
     saveSetting('ui.details_open', open).then(() => refreshSandbox()).catch((e) => pageFailure('ui.details_open was not saved: ' + (e.message || e)));
   }, { quiet: true, iconOnly: true, icon: 'panel-right', title: (detailsOpen ? 'Hide' : 'Show') + ' the details: sessions, restore points, network, keys (remembered: ui.details_open)' });
@@ -328,8 +307,6 @@ function sandboxParts(name, d, net, accounts) {
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
-        // 617: a try (Quick try, doz try).
-        i.trial ? h('span', { class: 'tag outline', 'data-try-tag': '', title: 'A try — Sleep, Delete or Keep it when you are done' }, withIcon('play', 'try')) : null,
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
         // 599g: the workspace's .dozignore / .dozreadonly (the details say how many patterns and whether in force).
@@ -342,8 +319,6 @@ function sandboxParts(name, d, net, accounts) {
       h('div', { 'data-op-for': name, 'data-banner': '1', role: 'status' }),
       detailsBtn),
     i.credentialProblem ? credentialBanner(name, i, accounts) : null,
-    // 617: a try's way out — doz try's "Keep this try? Sleep / Delete / Keep running", here.
-    i.trial && !sview(name).tryKept ? tryBar(name, i) : null,
     // 594 W28: its system disk came from an image an older doz made.
     i.olderImage ? callout('warn', { compact: true, cls: 'cred-banner img-banner', icon: 'flame', attrs: { 'data-older-image': name }, body: name + ' was ' + i.olderImage + '.' }) : null,
     // 596 (B8): its Dockerfile changed (or was built again) — offered, never rebuilt by itself.
@@ -353,9 +328,9 @@ function sandboxParts(name, d, net, accounts) {
         [], 'Rebuild', async () => { await actOrThrow({ action: 'image-bake', image: i.image }); }, { icon: 'flame' }), { small: true, icon: 'flame' })] }) : null,
     null);
   // ── the inspector: six tabs instead of nine stacked sections ──
-  // 617.11: a recipe agent's Guide — first (and chosen) on a try, last elsewhere.
-  const tabList = d.guide ? (i.trial ? [GUIDE_TAB, ...INSP_TABS] : [...INSP_TABS, GUIDE_TAB]) : INSP_TABS;
-  const tab = tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : (d.guide && i.trial ? 'guide' : 'overview');
+  // 617.11: a recipe agent's Guide — the last tab (634: on every sandbox; nothing chooses it by itself).
+  const tabList = d.guide ? [...INSP_TABS, GUIDE_TAB] : INSP_TABS;
+  const tab = tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : 'overview';
   const counts = { sessions: live.length ? h('span', { class: 'count' }, String(live.length)) : null,
                    network: i.deniedConnections ? h('span', { class: 'count warn' }, String(i.deniedConnections)) : null };
   const tabs = h('div', { class: 'itabs', role: 'tablist', 'aria-label': 'Details of ' + name },

@@ -14,7 +14,7 @@ import { table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
 import { imagePicker, pickerNameHint } from '../components/image-picker-0fc0b8164986f18f.js';
-import { startWithBootView } from '../components/lifecycle-4e83056d968bdf48.js';
+import { startWithBootView } from '../components/lifecycle-d4435821e96b4d0e.js';
 import { wizHead, wizMount } from '../components/modal-0de120a648b20fdb.js';
 import { refreshNav } from '../components/nav-4db39e3533e7c567.js';
 import { failureFor, pageFailure, toast } from '../components/notices-00fcfa992069168b.js';

@@ -7,7 +7,7 @@ import { SAVED_PHASES, VERBS } from '../core/sandboxes-02cb10ff22462e6d.js';
 import { saveSetting, setting } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
-import { lifecycle } from '../components/lifecycle-4e83056d968bdf48.js';
+import { lifecycle } from '../components/lifecycle-d4435821e96b4d0e.js';
 import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { pageFailure } from '../components/notices-00fcfa992069168b.js';

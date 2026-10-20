@@ -6,6 +6,7 @@ import { DESTRUCTIVE, NEXT_VERB, opRunningFor, PRIMARY_VERB, VERBS, verbsFor } f
 import { saveSetting, setting } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { pageTerminals } from '../core/terminals-933851e9be49078e.js';
+import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { btn } from './button-cbb8a60e3220f977.js';
 import { confirmAction, dialog } from './dialog-3079696fba2b7682.js';
 import { moreMenu } from './menus-b1e7a64fdf6f51f5.js';
@@ -25,8 +26,21 @@ function confirmShutdown(name) {
     return await actOrThrow(body);
   }, { danger: true });
 }
+/// 634 (owner: "keep the ability to easily delete"): the folder Dozable made for a sandbox — from its page's detail, else
+/// the overview's row (nil: none, or one the person chose).
+function createdFolderOf(name) {
+  const s = state.sbx && state.sbx.name === name && state.sbx.d ? state.sbx.d.info
+    : ((state.overview && state.overview.sandboxes) || []).find((x) => x.name === name);
+  return s ? s.createdFolder || null : null;
+}
 export function lifecycle(verb, name) {
   if (verb === 'shutdown') confirmShutdown(name);
+  else if (verb === 'rm') {
+    // Every sandbox's easy delete: its Dozable-made folder goes with it while empty (the host does it), and it says so.
+    const f = createdFolderOf(name);
+    confirmAction(VERBS.rm[0] + ' ' + name, DESTRUCTIVE.rm + (f ? ' Its folder ' + tildePath(f) + ' is removed too when it is empty (Dozable made it); a folder with files in it is kept.' : ''),
+      name, { action: 'rm', sandbox: name });
+  }
   else if (DESTRUCTIVE[verb]) confirmAction(VERBS[verb][0] + ' ' + name, DESTRUCTIVE[verb], name, { action: verb, sandbox: name });
   // 617: from its own page, the start sequence; elsewhere (a row of Sandboxes) the plain start — its page, when
   // opened, shows the boot as it is (tab zero, Console).

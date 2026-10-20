@@ -15,7 +15,7 @@ import { splitArgs } from '../core/util-1195caf40612902f.js';
 import { isRemote } from '../core/session-43467681e3880ff9.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { dialog } from '../components/dialog-3079696fba2b7682.js';
-import { lifecycle, sessionsWhyNot } from '../components/lifecycle-4e83056d968bdf48.js';
+import { lifecycle, sessionsWhyNot } from '../components/lifecycle-d4435821e96b4d0e.js';
 import { menuButton } from '../components/menus-b1e7a64fdf6f51f5.js';
 import { agentChip } from '../components/agent-status-9061c8e533911be2.js';
 import { failureFor, pageFailure } from '../components/notices-00fcfa992069168b.js';

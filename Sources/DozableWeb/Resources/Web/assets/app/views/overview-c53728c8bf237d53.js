@@ -7,10 +7,10 @@ import { state } from '../core/state-1378d79c750c8380.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { hostCard } from '../components/host-ebda56d9c08a3cdb.js';
-import { rowLifecycle } from '../components/lifecycle-4e83056d968bdf48.js';
+import { rowLifecycle } from '../components/lifecycle-d4435821e96b4d0e.js';
 import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
 import { sandboxPill } from '../components/pills-fa26febb3646542c.js';
-import { quickAddButton } from '../components/quick-add-be1d1a547fe3aab4.js';
+import { quickAddButton } from '../components/quick-add-eaf341e7ce3d225f.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-57debba5c27b107d.js';
 import { newSandboxWizard } from './new-sandbox-7e3d595f9ee3dab5.js';
 

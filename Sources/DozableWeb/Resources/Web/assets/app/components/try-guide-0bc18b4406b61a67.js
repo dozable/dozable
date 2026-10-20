@@ -1,6 +1,6 @@
 // components/try-guide — the sandbox page's Guide tab (617.11; owner: "i tried fabric and it just gave me a terminal …
 // whats missing for trys is our companion guide"; mock 617.11-TRY-GUIDE-MOCK.html). Four parts: the preamble (what it is,
-// how to use it here — Dozable's words and the recipe's intro), "This try" (Dozable's facts of THIS sandbox: version, key and
+// how to use it here — Dozable's words and the recipe's intro), "This sandbox" (Dozable's facts of THIS sandbox: version, key and
 // model, network, folder, settings), "Start here" (the recipe's steps — each command with Copy and Run, or Type for one
 // to change first) and "Good to know" (its tips, its docs, when the recipe was checked).
 //
@@ -85,7 +85,7 @@ export function guidePanel(name, g, onTab = () => {}) {
     g.checked ? h('span', null, (g.docs ? ' · ' : '') + 'Recipe checked ' + g.checked) : null);
   return h('div', { class: 'guide', 'data-guide': g.agent },
     head,
-    sect(g.trial ? 'This try' : 'This sandbox', facts),
+    sect('This sandbox', facts),
     sect('Start here', steps, why),
     tips, foot);
 }
