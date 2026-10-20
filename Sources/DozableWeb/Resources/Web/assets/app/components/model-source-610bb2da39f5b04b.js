@@ -67,6 +67,28 @@ export function sourceList({ tool, sources, chosen, keysOf, onChoose, needFor, n
   return nodes;
 }
 
+/// 634 (the setup v2's Models & keys — the owner's "the Open Router key was not accepted"): every source the published
+/// tools use, as Providers / Gateways / No key, each row with its key status and the tools it serves — nothing to
+/// choose (the "have" mode of the list above). choices: [{id, title, gateway, keyless, tools}]; keysOf(id) → [{name}];
+/// open: the id whose paste is open; onAdd(id) opens it; addNodes(id) → what goes under that row.
+export function haveList({ choices, keysOf, open, onAdd, addNodes }) {
+  const row = (s) => {
+    const keys = keysOf(s.id);
+    const k = s.keyless ? h('span', { class: 'pill st-ok', 'data-key-status': 'none-needed' }, icon('circle-check'), 'no key needed')
+      : keys.length ? keyPill(keys)
+      : btn('Add a key', () => onAdd(s.id), { small: true, icon: 'key-round' });
+    const r = h('div', { class: 'ms-opt' + (keys.length ? ' have' : ''), 'data-ms-source': s.id },
+      icon(s.keyless ? 'circle-check' : 'key-round'), h('span', { class: 'ms-t' }, s.title), h('span', { class: 'ms-k' }, k),
+      h('span', { class: 'ms-d' }, s.tools.length ? 'for ' + s.tools.join(', ') : ''));
+    return s.id === open ? [r, h('div', { class: 'ms-need', 'data-ms-need': s.id }, ...addNodes(s.id))] : [r];
+  };
+  const providers = choices.filter((s) => !s.gateway && !s.keyless), gateways = choices.filter((s) => s.gateway), free = choices.filter((s) => s.keyless);
+  return h('div', { class: 'ms-src compact', 'data-ms-list': 'have' },
+    providers.length ? h('div', { class: 'ms-grp' }, 'Providers') : null, ...providers.flatMap(row),
+    gateways.length ? h('div', { class: 'ms-grp' }, 'Gateways ', h('span', null, '— one key, models from many makers')) : null, ...gateways.flatMap(row),
+    free.length ? h('div', { class: 'ms-grp' }, 'No key') : null, ...free.flatMap(row));
+}
+
 // ── the model picker ─────────────────────────────────────────────────────────────────────────────────────────────
 const LISTS = new Map();                   // source → Promise<WebModelList> (the page's life; the host keeps the day's list)
 const QUERY = new Map();                   // source → what was typed (kept across a repaint)

@@ -859,7 +859,6 @@ public final class DozableWebServer: @unchecked Sendable {
             o.settingsExists = f.settingsExists
             o.promptTemplatePath = f.template
             o.promptTemplateExists = f.templateExists
-            o.defaultImage = settings.current.string(SettingKey.defaultImage) ?? "lab"
             return json(o)
         case .onboardingConfig:
             try Self.requireJSONBody(md)

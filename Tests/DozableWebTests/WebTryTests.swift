@@ -28,6 +28,19 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    /// 634: the setup's First sandbox plans with purpose `first` (a tool, a name, a project folder of this Mac).
+    func testTheFirstSandboxsQuestion() throws {
+        let f = try q(#"{"purpose":"first","agent":"claude-code","name":"claude","workspace":"/tmp/634-first-project"}"#)
+        XCTAssertEqual(f.request.purpose, "first")
+        XCTAssertEqual(f.request.name, "claude")
+        XCTAssertEqual(f.request.create.workspace?.hasSuffix("/tmp/634-first-project"), true, "normalized as the create action does (links resolved)")
+        XCTAssertEqual(try q(#"{"purpose":"first","agent":"pi","workspace":"~/code/x"}"#).workspace?.hasPrefix("/"), true, "~/… made absolute")
+        for bad in [#"{"purpose":"first"}"#, #"{"purpose":"first","agent":"pi","workspace":"relative/path"}"#,
+                    #"{"purpose":"first","agent":"pi","workspace":"/tmp/x","isolated":true}"#, #"{"purpose":"later","agent":"pi"}"#] {
+            XCTAssertThrowsError(try q(bad), bad)
+        }
+    }
+
     func testTheRoutesAreTypedAndAllowed() {
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/plan"), .plan)
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/try"), .tryCatalog)

@@ -76,8 +76,8 @@ At each question the recommended answer is already selected: press **Enter** to 
 doz ui
 ```
 
-The dashboard opens on the **setup wizard**: the same steps, and at the end an optional **First
-sandbox**, the **Usage statistics** switch (on unless you turn it off) and an optional **Stay in touch**.
+The dashboard opens on the **setup wizard**: the same steps — the base downloading at the foot while you answer —
+the **Usage statistics** switch (on unless you turn it off), an optional **Stay in touch**, and the **First sandbox**.
 
 ![The setup wizard's first step](images/wizard-welcome.png)
 

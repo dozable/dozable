@@ -101,10 +101,10 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertTrue(r2.settings.contains { $0.key == "images.grok_version" }, "a set agent's settings are listed")
         XCTAssertTrue(r2.settings.first { $0.key == SettingKey.defaultImage }?.choices?.contains("grok") == true, "and the value it has")
         XCTAssertNotNil(DozableSettings.definition("images.gemini_version"), "the schema stays complete")
-        // Onboarding: offered the published, a stored value still accepted.
-        XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"grok","account":"later"}"#.utf8)).defaultImage, "grok")
-        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"nope","account":"later"}"#.utf8))) { e in
-            XCTAssertFalse("\(e)".contains("grok"), "the choices said are the published ones: \(e)")
+        // Onboarding (634): it chooses the store's base, never an image — the body names no agent at all.
+        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"grok","account":"later"}"#.utf8)))
+        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"base":"grok"}"#.utf8))) { e in
+            XCTAssertFalse("\(e)".contains("grok"), "a refusal never echoes the value: \(e)")
         }
     }
 

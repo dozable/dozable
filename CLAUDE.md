@@ -72,8 +72,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `router.js` (`route`, `routePage`, `refresh`), `events.js` (SSE `connect`) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `shortcuts` |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts` |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
@@ -830,7 +830,22 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   planner's `first` purpose (a try's defaults, named after the tool, its command `doz new NAME --agent TOOL …`) made by
   `QuickMake` — the ONE path `doz try` takes too.
 - **Settings and the prompt template are written ONLY when missing** (`Onboarding.write…IfMissing`) — an
-  existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config`.
+  existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config` (634: strictly `{base?,
+  access?, ignoreMode?}` — the base written into a kept file too, `Onboarding.writeBase`).
+- **The setup wizard v2** (634; the owner's chosen mockup onboarding-v2; `views/onboarding.js`, `core/wizards.js`):
+  `WIZ` = welcome, base, keys, access, rules, usage, signup, first; each step returns `{title, lead, body, foot}`, drawn as
+  a centred `.w2-head` over a `.w2-col` of `WIZ_SIZE` (narrow 480 · medium 680 · wide 1080). Base image's "Download and
+  continue" sends `onboard {base}` and moves on; from then on `components/base-strip.js` draws the base at the foot
+  (`[data-base-slot]`, above `.w-foot`) — a poll or a `preparations` event repaints ONLY the strip and the First sandbox's
+  image line (`renderWizard()` unforced), never a step, so nothing typed is redrawn; its bar never goes back (per
+  preparation); Details is a popover (its own capture-phase Esc runs before the modal's). Models & keys: the sign-ins
+  (`WebOnboarding.macSignedIn`/`codexMac`), the keys by Providers / Gateways / No key (`model-source.js` `haveList`,
+  `WebOnboarding.keyChoices`, pasted through `POST /api/v1/accounts`), and what can be tried (`GET try`, read again after a
+  key). Workspace rules' Next writes the settings. First sandbox plans with the planner's `first` purpose (`POST plan
+  {purpose:'first', agent, name?, workspace?, account?|source?}` — `readiness()` picks a usable key, else a key-less
+  source) and makes it through `views/quick-make.js` `startQuickMade` (the Quick try's own path; `back: 'onboarding'`
+  returns to the wizard on a failed create); the switch saves `sandbox.open_files` only when changed. Workspace probe
+  `probes/594-*/run-wizard-probe.sh` (allow · deny · basefail — `DOZ_TEST_BASE_FAIL`, guarded runs only).
 - **The account step never logs in and never reads a refresh token for use.** Options: `mac`, `api-key`,
   `setup-token`, `later` ("Decide later": one option for none/skip). A key or a token goes
   ONLY through `HostRequest.accountAdd` — the request `doz account add` sends (the login keychain, the one
@@ -1485,7 +1500,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Not a security boundary** — said in the setting, `--help`, the manual and the facts. Root in the guest can
   kill the daemon or read through its fds; the view keeps an agent from stumbling into files.
 - **Explaining them**: ONE text, `WorkspaceRulesGuide` (DozableHost) — `doz onboard`'s step 3 and
-  `doz init`'s `rules` step (`RulesStep`, DozableCLI), the dashboard's onboarding (`wizStepRules`, steps named in
+  `doz init`'s `rules` step (`RulesStep`, DozableCLI), the dashboard's onboarding (`stepRules`, steps named in
   `WIZ`) and New Sandbox (`nwRules`), both drawn by `rulesStep()` (`components/rules-step.js`) from the served `rulesGuide`
   (`GET onboarding`, `POST project/open` — which also lists the folder's `rules`, inert). The onboarding writes
   `workspace.ignore_mode` ONLY when chosen (`Onboarding.writeIgnoreMode`, the Access rule; `--ignore-mode`,
@@ -1524,7 +1539,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Access — every credential a purposeful choice, each confirmed
 
 - **One step, three places**: `doz onboard`'s "2. Access" (`AccessStep` in `AccessCommands.swift`, shared with
-  `doz access` / `doz access set`), the wizard's step 2 and **Settings › Access** — both drawn by ONE
+  `doz access` / `doz access set`), the wizard's GitHub & SSH step (634: Claude's sign-in is Models & keys') and **Settings › Access** — both drawn by ONE
   self-contained component, `renderAccessStep(container, {mode: 'onboarding'|'sandbox'|'settings', state,
   claude, choices, onChange})` in `components/access-step.js` (599f's New Sandbox wizard reuses it). It writes NOTHING but the default
   GitHub key; the caller writes the choices (onboarding: `POST onboarding/config {access}`; sandbox: its create).

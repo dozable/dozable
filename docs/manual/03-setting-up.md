@@ -152,34 +152,40 @@ doz ui
 ```
 
 A store that was never set up opens on the **setup wizard**, in a window over the dashboard (its steps
-across the top; **✕** or **Escape** closes it, asking first once you have chosen something):
+across the top; **✕** or **Escape** closes it, asking first once you have chosen something). Each step's title is
+centred over a column of the step's own width — narrow for a switch or a form, wide for two columns:
 
-1. **Welcome**
-2. **Checks** — updating live; a failing required check stops here, with **Check again**.
-3. **Access** — the Claude account (this Mac's login when it is signed in; an API key or setup token
-   in a masked field; or *Decide later*), **GitHub as you** (off, read-only, read and push — from
-   this Mac's `gh` login or a token in a masked field) and **SSH agent forwarding**, each with its
-   consequence. **Next** confirms each one: *confirmed* with what was found (for GitHub, *signed in as
-   LOGIN* and the token's scopes, or how many repositories a fine-grained token can see; for SSH, how
-   many keys the agent has), or *not confirmed* with the reason and **Skip** · **Turn it off** ·
-   **Check again**. Skipping keeps the choice and moves on.
-4. **Workspace rules** — the same description as in the terminal, and the same choice: **Lock**
-   (recommended) or **Hide**. It is saved with the settings when you leave the Images step.
-5. **Images** — a checklist with each image's download size, time estimate and disk space.
-6. **Preparing** — a card per image with its progress. **Continue in the background** lets you use
-   the dashboard meanwhile (the preparation shows under **Operations**); **Cancel preparation** stops
-   it.
-7. **First sandbox** (optional) — pick the agent; it suggests a name (`claude-sandbox`) and a project
-   folder (`~/doz-workspaces/claude-sandbox`, made if it doesn't exist).
-   **Choose…** opens the Mac's own folder picker. Or pick **Isolated** to share no folder.
-8. **Usage statistics** (official builds) — the same text as in the terminal and one switch, **Send
-   anonymous usage statistics**, on. **Next** saves it only if you changed it. When `DO_NOT_TRACK` or
-   the environment decides, the switch is shown read-only with the reason.
-9. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
-10. **Done** — what was written where, and your **projects folder**
-    (`~/doz-workspaces`): each new sandbox from **Quick add**, **New sandbox** or
-    `doz new` gets its own folder there. **Settings** › **Choose…** moves it. With a first sandbox,
-    **Start NAME** boots it and opens its agent on its page.
+1. **Welcome** — what Dozable is, and **This Mac**: the doctor's checks, inline. A failing required check stops here,
+   with what to fix and **Check again**; the others only say what will not work yet.
+2. **Base image** — one card, **Node.js** (recommended), how each tool is added to it as a layer, and
+   **Another base** folded (Python, Go, Rust, …). **Download and continue** starts its download and preparation in the
+   host and moves on at once.
+3. **Models & keys** — two columns. On the left the sign-ins found on this Mac (Claude Code, Codex) and **Tools you can
+   use now**; on the right the keys by **Providers** (Anthropic, OpenAI, xAI, Google), **Gateways** (OpenRouter) and
+   **No key** (OpenCode Zen's free models), each row naming the tools it serves. **Add a key** opens a masked field
+   under its row; the key is checked once and kept in the login keychain, and the tools it serves turn ready.
+   **Decide later** moves on.
+4. **GitHub & SSH** — **GitHub as you** (off, read-only, read and push — from this Mac's `gh` login or a token in a
+   masked field) and **SSH agent forwarding**, each with its consequence. **Next** confirms each one: *confirmed* with
+   what was found, or *not confirmed* with the reason and **Skip** · **Turn it off** · **Check again**.
+5. **Workspace rules** — the same description as in the terminal, and the same choice: **Lock** (recommended) or
+   **Hide**. Its **Next** writes the settings (the base too, when it is not Node.js).
+6. **Usage statistics** (official builds) — the same text as in the terminal and one switch, **Send anonymous usage
+   statistics**, on. **Next** saves it only if you changed it.
+7. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
+8. **First sandbox** — the tools' cards (one you cannot use yet is dimmed, with what it needs) and its plan: a
+   **Name** (the tool's: `claude`), its folder — **a new empty folder** (`~/doz-workspaces/claude`, the default) or
+   **a project folder on this Mac** (typed, or **Choose…**) — then Model, Network (Locked), Image, what Delete does,
+   and **Same in Terminal** (`doz new claude --agent claude-code --network locked`). **Open what it makes on this Mac**
+   is on (the setting `sandbox.open_files`). **Create and start claude** makes it and opens its page; **Finish
+   without a sandbox** goes to Sandboxes. **What setup wrote** (folded) says what went where.
+
+From the step after Base image, the base's progress is a strip at the foot, just above the buttons: downloading (a
+bar, the bytes, the time left) → preparing (step N of 4) → ready (green). **Details** opens a popover over the step —
+the steps with their times, the last lines of output, **Operations** and **Cancel…**; **✕**, **Escape** or a click
+outside closes it. If the download stops, the strip turns red with **Retry**, and the questions go on. Reach First
+sandbox before the base is ready and its Image line says it *waits for the base*: Create and start does not wait —
+the sandbox's page opens, and its build's first step is the wait.
 
 ![The wizard's checks](images/wizard-checks.png)
 

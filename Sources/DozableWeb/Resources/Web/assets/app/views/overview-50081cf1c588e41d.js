@@ -12,7 +12,7 @@ import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
 import { sandboxPill } from '../components/pills-fa26febb3646542c.js';
 import { quickAddButton } from '../components/quick-add-eaf341e7ce3d225f.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-57debba5c27b107d.js';
-import { newSandboxWizard } from './new-sandbox-7e3d595f9ee3dab5.js';
+import { newSandboxWizard } from './new-sandbox-a8427c63f0905cdd.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {

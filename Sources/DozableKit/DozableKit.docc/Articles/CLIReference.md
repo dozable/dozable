@@ -649,14 +649,15 @@ host as `doz key set` holds it). **Open in Terminal** runs
 `doz attach` in your default terminal app. The UI is a client of the host, like any other
 command, so it can't do anything the CLI can't.
 
-A store that was never onboarded opens on the **setup wizard** — Welcome, Checks, Access, Workspace
-rules, Images, Preparing, First sandbox, Usage statistics and Stay in touch (official builds), Done — the same steps as `doz onboard` (always reachable again from
-**Onboarding** in the navigation — marked with a dot until the store is onboarded — or **Doctor ›
-Run onboarding again**). Preparing runs in the host: **Continue in the background** leaves
-it running, and **Operations** lists the host's image preparations whoever started them (the CLI
+A store that was never onboarded opens on the **setup wizard** — Welcome (the checks inline), Base image, Models &
+keys, GitHub & SSH, Workspace rules, Usage statistics and Stay in touch (official builds), First sandbox — the same
+steps as `doz onboard` (always reachable again from **Onboarding** in the navigation — marked with a dot until the
+store is onboarded — or **Doctor › Run onboarding again**). The base is prepared in the host from Base image on, its
+progress a strip at the foot of every later step (Details: a popover; a failed download: Retry), and **Operations**
+lists the host's preparations whoever started them (the CLI
 too). A sandbox's page shows its environment prompt as the next session gets it, and whether
-`/workspace` is shared (or the **isolated** badge). New sandbox, Duplicate and the wizard's First
-sandbox name the sandbox from its image (`claude-sandbox`, `-2` when taken) and offer **Shared
+`/workspace` is shared (or the **isolated** badge). New sandbox and Duplicate
+name the sandbox from its image (`claude-sandbox`, `-2` when taken) and offer **Shared
 folder** — `<defaults.projects_dir>/<name>` by default, made when missing, with **Choose…** opening
 the Mac's own folder picker — or **Isolated** (nothing on the Mac is shared).
 

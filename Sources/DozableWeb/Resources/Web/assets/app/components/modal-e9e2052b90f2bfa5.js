@@ -3,7 +3,7 @@ import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
 import { MODAL_VIEWS } from '../core/router-61f034481475286a.js';
 import { state } from '../core/state-1378d79c750c8380.js';
-import { WIZ } from '../core/wizards-3abae15180cc8b7c.js';
+import { WIZ } from '../core/wizards-b989b43058be9b08.js';
 import { btn } from './button-cbb8a60e3220f977.js';
 import { callout } from './callout-e7d97c36b36fe970.js';
 import { dialog } from './dialog-3079696fba2b7682.js';
@@ -98,7 +98,8 @@ function wizDirty() {
     const nw = state.nw;
     return !!nw && !nw.tools && (nw.step > 0 || !!nw.form || nw.explicit.size > 0 || nw.path !== nw.initPath || nw.newName !== nw.initName || nw.mode !== nw.initMode);
   }
-  if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step > WIZ.checks && w.step < WIZ.preparing; }
+  // 634: from Base image on, until the settings are written (Workspace rules' Next) — the base goes on either way.
+  if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step >= WIZ.base && !w.config; }
   return false;
 }
 export function wizardCloseRequest() {
@@ -111,7 +112,7 @@ export function wizardCloseRequest() {
   if (!wizDirty()) { leave(); return; }
   dialog(state.modal === 'new' ? 'Discard this new sandbox?' : 'Stop setting up?',
     state.modal === 'new' ? 'Nothing is written yet: closing forgets the choices made so far.'
-      : 'Nothing is written yet: closing forgets the choices made so far. Onboarding can be run again from the sidebar.',
+      : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the host). Onboarding can be run again from the sidebar.',
     [], 'Discard', async () => { leave(); }, { danger: true, icon: 'x' });
 }
 // Keyboard: Escape closes (asking first when needed) — never from inside a field, a list or a menu; Tab wraps.

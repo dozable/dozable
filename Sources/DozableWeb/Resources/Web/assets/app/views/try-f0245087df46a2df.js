@@ -17,19 +17,16 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, mark } from '../dom/icons-2b30ba761d2d921b.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { rank, suggest } from '../core/agent-search-d0eb363ef3b1699e.js';
-import { actOrThrow, beginTransition, cancelTransition, prepRunning, waitOp } from '../core/operations-aeb47e4b98173dcf.js';
+import { prepRunning } from '../core/operations-aeb47e4b98173dcf.js';
 import { secretEntryAllowed } from '../core/settings-704be829834babad.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from '../components/button-cbb8a60e3220f977.js';
 import { callout } from '../components/callout-e7d97c36b36fe970.js';
-import { startWithBootView } from '../components/lifecycle-d4435821e96b4d0e.js';
-import { renderModal, wizardCloseRequest } from '../components/modal-0de120a648b20fdb.js';
-import { renderNavSandboxes } from '../components/nav-4db39e3533e7c567.js';
+import { renderModal, wizardCloseRequest } from '../components/modal-e9e2052b90f2bfa5.js';
 import { pageFailure, toast } from '../components/notices-00fcfa992069168b.js';
-import { paintStartProgress } from '../components/start-progress-f2138033d14554b8.js';
-import { drawPendingTry } from './sandbox-4583be30b7399874.js';
+import { startQuickMade } from './quick-make-b444198a0ca4ef9d.js';
 import { planCommand, reachList } from '../components/plan-view-db40a2b03aef0f54.js';
-import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-4ce4eaa1b78d6b80.js';
+import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-610bb2da39f5b04b.js';
 import { prepCard } from '../components/prep-card-d054b76ff2eadda4.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
@@ -787,47 +784,23 @@ async function tryCreate(button) {
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
   button.replaceChildren(h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), h('span', null, 'Starting…'));
-  const c = plan.create, name = plan.name;
-  state.pendingTry = { name, agent: a.id, title: a.title, image: c.image, imageTitle: plan.image && plan.image.title,
-    workspace: c.workspace || null, account: plan.account && plan.account.name, network: c.network || 'locked',
-    plan, account_: SETUP.account, error: null, at: Date.now() };
-  beginTransition(name, 'start', ['start']);
-  renderNavSandboxes();
-  if (SETUP.d) SETUP.d.close();
-  state.tr = null;
-  location.hash = '#/sandbox/' + name;
-  try {
-    const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image,
-      ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
-      ...(c.account ? { account: c.account } : {}),
-      ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}) });
-    const end = await waitOp(op.id);
-    if (!end || end.state !== 'done') throw new Error((end && end.text) || 'the try was not made');
-    // The nav lists it, then its own page takes over from the plan's (the start keeps the transition and the panel).
-    try { state.overview = await api('overview'); renderNavSandboxes(); } catch (_) { /* the next poll */ }
-    const p = state.pendingTry;
-    if (p && p.name === name) state.pendingTry = null;
-    startWithBootView(name);
-  } catch (e) {
-    const p = state.pendingTry;
-    if (p && p.name === name) p.error = e.message || String(e);
-    cancelTransition(name, 'start');
-    renderNavSandboxes();
-    SETUP.busy = false;
-    upcallRepaint(name);
-  }
+  // 634: the one quick path, shared with the setup's First sandbox (views/quick-make.js).
+  const ok = await startQuickMade({ plan, agent: a.id, title: a.title, account: SETUP.account,
+    before: () => { if (SETUP.d) SETUP.d.close(); state.tr = null; } });
+  if (!ok) SETUP.busy = false;
 }
 
-/// The try's page repaints what it shows of a failed create (the header and the panel).
-function upcallRepaint(name) {
-  if (state.view === 'sandbox' && state.param === name) { drawPendingTry(name); paintStartProgress(); }
-}
-
-/// 617: Back to setup — Quick try on the agent, its setup reopened with the plan and the error it had.
+/// 617: Back to setup — Quick try on the agent, its setup reopened with the plan and the error it had. 634: a sandbox
+/// the setup wizard made goes back to the wizard's First sandbox, with the error.
 export function backToTrySetup() {
   const p = state.pendingTry;
   if (!p) return;
   state.pendingTry = null;
+  if (p.back === 'onboarding') {
+    if (state.wiz) state.wiz.error = p.error;
+    location.hash = '#/onboarding';
+    return;
+  }
   location.hash = '#/try/' + p.agent;
   const until = Date.now() + 15000;
   const again = () => {

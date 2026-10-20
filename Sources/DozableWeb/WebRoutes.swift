@@ -65,7 +65,7 @@ public enum WebRoute: Equatable, Sendable {
     // 617 — the build log of the sandbox's image (WebBootLogs.swift), rendered (read-only).
     case buildLog(String)               // GET  /api/v1/sandboxes/{name}/build-log
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
-    // missing (CSRF, strict {defaultImage, account}); the host's image preparations.
+    // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
     case onboardingConfig          // POST /api/v1/onboarding/config
     case preparations              // GET  /api/v1/preparations

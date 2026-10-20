@@ -110,7 +110,7 @@ prepared **joins** that preparation — it shows the same progress from its star
 download and one bake. A start of an image never prepared starts the preparation itself, and a
 second start joins it. Re-running `doz onboard` prepares only what is missing for this build.
 
-**What a preparation shows** (the web UI's preparation card — the wizard's Preparing step, a row of
+**What a preparation shows** (the web UI's preparation card — a row of
 **Operations** — in the same terms as the CLI's progress): **Step N of M** with a bar of the steps done
 (M is the plan for the image: kernel, guest init, base pull, base disk, the bake's steps, the checks);
 the step under way with its time and an animated strip (never a full bar — its length is not known);
@@ -956,22 +956,20 @@ It shows every sandbox (phase, RAM held, disk, sessions, network, account), each
 sessions, restore points, network policy and connection log, keys and their state, the images,
 the Claude accounts, the metrics, `doz doctor`, and the host's activity as it happens.
 
-**The setup wizard** (594). A store that was never onboarded opens on it — the steps of
-`doz onboard`: **Welcome → Checks** (the doctor's, the required ones marked; a failing one stops it,
-with Check again) **→ Claude account** (the Mac's login when it is signed in; an API key or a setup
-token in a masked field — or, with `ui.allow_secret_entry` off, the CLI command; or Decide later) **→ Images** (a checklist,
-claude-code ticked, each with its download, an estimate and the disk it needs) **→ Preparing** (the
-host's progress, a card per image: Step N of M, the step under way, a download bar, the last lines of
-output, estimates from this store's last run, the finished steps with their times;
-**Continue in the background** leaves it running, **Cancel preparation** stops it) **→ First
-sandbox** (optional: a name from the image — `claude-sandbox`, `pi-sandbox`, `lab-sandbox`, `-2`
-when taken — and its workspace: **Shared folder** `~/doz-workspaces/<name>` by
-default, made when it does not exist, typed, pasted or picked with **Choose…** (the Mac's own folder
-picker) — or **Isolated**) **→ Done**. The settings file
-and your prompt template are written only when missing. The wizard is always reachable again from
-**Onboarding** in the navigation (with a dot beside it until the store is onboarded) or **Doctor ›
-Run onboarding again**, and **Operations** lists the host's image preparations whoever
-started them (`doz onboard` in a terminal too); the badge counts them while they run.
+**The setup wizard** (594; 634: v2). A store that was never onboarded opens on it — the steps of
+`doz onboard`, each title centred over a column of the step's own width: **Welcome** (the doctor's checks inline; a
+failing required one stops it, with Check again) **→ Base image** (one Node.js card, the layers, "Another base" folded;
+**Download and continue** starts the store's base in the host and moves on) **→ Models & keys** (the sign-ins found;
+the keys by Providers / Gateways — OpenRouter — / No key, each pasted in a masked field under its row, or with
+`ui.allow_secret_entry` off the CLI command; what can be tried now) **→ GitHub & SSH → Workspace rules** (its Next
+writes the settings) **→ Usage statistics** and **Stay in touch** (official builds) **→ First sandbox** (the tools'
+cards, a name — the tool's — and a new empty folder or a project folder, the plan with its `doz new …` command; Create
+and start, or Finish without a sandbox). From Models & keys on, the base's progress is a strip at the foot above the
+buttons; **Details** opens a popover (the steps and their times, the output's tail, Operations, Cancel…); a failed
+download turns it red with Retry. The settings file and your prompt template are written only when missing. The
+wizard is always reachable again from **Onboarding** in the navigation (with a dot beside it until the store is
+onboarded) or **Doctor › Run onboarding again**, and **Operations** lists the host's preparations whoever started them
+(`doz onboard` in a terminal too); the badge counts them while they run.
 
 **The navigation.** **Sandboxes** opens the table of every sandbox; under it, each sandbox has its
 own entry (its name and a dot in its phase's colour) that opens **its page**:

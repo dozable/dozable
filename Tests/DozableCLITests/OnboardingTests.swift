@@ -214,35 +214,21 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(s.contains(Data((r.text! + "\n").utf8).base64EncodedString()))
     }
 
-    // MARK: D5/D6/D7 — checks, the account step, settings only when missing
+    // MARK: D5/D7 — checks, settings only when missing
 
-    func testHardChecksStopSoftOnesWarn() {
+    func testHardChecksStopSoftOnesWarn() throws {
         let doctor: [(check: String, status: String, detail: String)] = [
             ("macOS", "ok", "27"), ("chip", "fail", "x86_64"), ("claude", "warn", "not installed"), ("vmnet", "ok", ""),
             ("claude login", "warn", "signed out"), ("store", "warn", "ignored here"),
         ]
-        let checks = Onboarding.checks(doctor: doctor, store: DozableStore(root: root), chosen: ["claude-code"], prepared: [])
+        let node = try XCTUnwrap(BaseCatalogue.base("node"))
+        let checks = Onboarding.checks(doctor: doctor, store: DozableStore(root: root), base: node, prepared: false)
         XCTAssertEqual(checks.filter(\.blocks).map(\.check), ["chip"])
         XCTAssertFalse(checks.first { $0.check == "claude" }!.hard)
         XCTAssertFalse(checks.first { $0.check == "claude login" }!.hard)
         XCTAssertTrue(checks.first { $0.check == "store" }!.hard, "the store's own check is replaced by APFS + disk")
         XCTAssertEqual(checks.first { $0.check == "store" }?.status, "ok", "the temporary directory is on APFS")
         XCTAssertEqual(checks.first { $0.check == "disk" }?.status, "ok")
-        XCTAssertEqual(Onboarding.requiredBytes(["claude-code"], prepared: ["claude-code"]), 0, "prepared: nothing to download")
-        XCTAssertGreaterThan(Onboarding.requiredBytes(["claude-code", "pi"], prepared: []), Onboarding.requiredBytes(["claude-code"], prepared: []))
-    }
-
-    func testTheAccountStepOffersWhatIsThere() {
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: true).options, [.mac, .apiKey, .setupToken, .later])
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: true).preferred, .mac)
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: false).options, [.apiKey, .setupToken, .mac, .later])
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: false).preferred, .later)
-        XCTAssertEqual(Onboarding.Account.later.label, "Decide later", "owner ruling: one option for 'none' and 'skip'")
-        XCTAssertEqual(Onboarding.defaultAccount(for: .mac), "mac")
-        XCTAssertNil(Onboarding.defaultAccount(for: .later))
-        XCTAssertNil(Onboarding.defaultAccount(for: .apiKey), "the account added becomes the default, once it is")
-        XCTAssertTrue(Onboarding.accountCommands(.setupToken).contains { $0.hasPrefix("doz account add work --setup-token") })
-        XCTAssertTrue(Onboarding.accountCommands(.mac).isEmpty)
     }
 
     /// 594: a sandbox's own key — `doz key set NAME --anthropic`'s request, which the web UI builds too:
@@ -726,23 +712,6 @@ final class OnboardingTests: XCTestCase {
         let v = AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: nil, network: .none, account: nil, version: "1",
                                    hostname: "h", timeZone: "Australia/Sydney")
         XCTAssertTrue(try AgentPrompt.render(AgentPrompt.builtInTemplate, v, source: "b").contains("- Time zone: Australia/Sydney (the Mac's"))
-    }
-
-    /// 594 W6: the Images list says what WILL be installed — never a stale pin.
-    func testTheImagesListSaysWhatWillBeInstalled() throws {
-        let store = DozableStore(root: root)
-        try store.ensureDirectory()
-        let none = DozableSettings(text: nil)
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest", "never asked: latest")
-        XCTAssertNil(Onboarding.agentVersionText("lab", store: store, settings: none))
-        AgentVersions.update("claude-code", store) { $0.latest = AgentRelease(version: "2.1.285", integrity: "sha512-x") }
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest (2.1.285)")
-        let exact = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: exact), "2.1.227")
-        let opts = Onboarding.imageOptions([], versions: ["claude-code": "latest (2.1.285)"])
-        XCTAssertEqual(opts.first?.summary, "Claude Code — latest (2.1.285) — on Debian (node), with git, ripgrep, python3 and the usual tools")
-        XCTAssertTrue(opts[1].summary.hasPrefix("the pi coding agent — latest — "))
-        XCTAssertFalse(opts.map(\.summary).joined().contains("{version}"))
     }
 
     /// 594 W23: the agent's passwordless sudo — the setting (default on), a sandbox's own choice over
