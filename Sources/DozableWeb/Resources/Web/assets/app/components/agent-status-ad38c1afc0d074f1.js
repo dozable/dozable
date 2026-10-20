@@ -58,15 +58,29 @@ const TELL = {
 };
 const BLOCKED_SAYS = { permission: 'needs permission', question: 'has a question', auth: 'needs sign-in' };
 
+/// 635.B2 (owner: "these should automatically dismiss and are not needed when the session is focused"): the session
+/// is in front of the person — its tab is the one shown, in a window that has the focus. Its own tab says it already.
+function watching(sandbox, session) {
+  return !state.modal && state.view === 'sandbox' && state.param === sandbox && state.session === session
+    && document.visibilityState === 'visible' && document.hasFocus();
+}
+/// A done notice goes by itself after this long; blocked and error stay until they are no longer true (they need you).
+const DONE_FOR_MS = 10000;
+const doneTimers = new Map();
 function tell(sandbox, st) {
+  const key = 'agent:' + sandbox + '/' + st.session;
+  clearTimeout(doneTimers.get(key)); doneTimers.delete(key);
+  if (watching(sandbox, st.session)) { dropPageNotice(key); return; }
+  if (st.state === 'done') doneTimers.set(key, setTimeout(() => { doneTimers.delete(key); dropPageNotice(key); }, DONE_FOR_MS));
   const t = TELL[st.state];
   const says = st.state === 'blocked' ? (BLOCKED_SAYS[st.kind] || t.says) : t.says;
   const open = btn('Open', () => { location.hash = '#/sandbox/' + sandbox + '/' + st.session; }, { small: true, quiet: true, title: 'Its session, on its sandbox’s page' });
-  pageFailure(st.message || '', { key: 'agent:' + sandbox + '/' + st.session, tone: t.tone, title: sandbox + ' · ' + st.session + ' ' + says, actions: [open] });
+  pageFailure(st.message || '', { key, tone: t.tone, title: sandbox + ' · ' + st.session + ' ' + says, actions: [open] });
 }
 
 /// After every overview: the chips on screen, and a notice for each session whose program has just become done,
-/// blocked or failed. One that works again (or is gone) takes its notice away — it is no longer true.
+/// blocked or failed. One that works again (or is gone) takes its notice away — it is no longer true. None is told for
+/// the session being watched, and a done one goes by itself (635.B2).
 export function paintAgentStatuses() {
   const o = state.overview;
   if (!o) return;
@@ -84,5 +98,7 @@ export function paintAgentStatuses() {
     }
     for (const key of seen.keys()) if (!now.has(key)) dropPageNotice('agent:' + key);
   }
+  // A notice told while the person was elsewhere goes once they are looking at its session.
+  for (const [key, { sandbox, st }] of now) if (watching(sandbox, st.session)) dropPageNotice('agent:' + key);
   seen = new Map([...now].map(([k, v]) => [k, said(v.st)]));
 }

@@ -1418,7 +1418,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   metadata only), capped in `WebAgentStatus`, textContent only on the page.
 - **The page** (`components/agent-status.js`): chips on tabs, tiles and Home's card and rows (`data-agent-for`,
   painted in place after every overview), the sidebar's dot, and a page notice per transition to done / blocked /
-  error (dropped when no longer true). The UI's monitor pokes its poll on a `session-status` event; it is not an
+  error (dropped when no longer true; 635.B2: never for the session being watched — its tab shown in a focused window —
+  dropped once it is, and a done one goes by itself after 10 s). The UI's monitor pokes its poll on a `session-status` event; it is not an
   Activity line. `probes/612-*/browser-status.mjs` checks it in a real Chrome (scratch store and profile).
 
 ### GitHub as the user

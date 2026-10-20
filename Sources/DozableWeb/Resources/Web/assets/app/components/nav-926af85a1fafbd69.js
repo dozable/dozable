@@ -5,7 +5,7 @@ import { icon } from '../dom/icons-daa54d8199b5d712.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-1378d79c750c8380.js';
-import { agentChip, agentDot, paintAgentStatuses } from './agent-status-c09514c1fad76dab.js';
+import { agentChip, agentDot, paintAgentStatuses } from './agent-status-ad38c1afc0d074f1.js';
 import { moreMenu } from './menus-67717e11502dafd8.js';
 import { sessionMenuItems } from './session-actions-2c774e12b2689925.js';
 // Calls up the layers (provided by app.js — core/hooks.js):

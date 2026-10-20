@@ -11,7 +11,7 @@ import { isRemote } from '../core/session-47bf3f53b8ee99b4.js';
 import { saveSetting, setting } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { homePane, pageTerminals, sview } from '../core/terminals-e2028f16ee8fa887.js';
-import { agentChip, agentStatusOf } from '../components/agent-status-c09514c1fad76dab.js';
+import { agentChip, agentStatusOf } from '../components/agent-status-ad38c1afc0d074f1.js';
 import { btn } from '../components/button-570a54a4d3e9cb51.js';
 import { callout } from '../components/callout-1bfb54ab68058bf5.js';
 import { lifecycle, sessionsWhyNot } from '../components/lifecycle-9efdfb1dbd54c36a.js';
@@ -21,8 +21,8 @@ import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../com
 import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-cda100080b26931e.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-88f6545ba798f8f7.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-8ee5cb86841d0f0a.js';
-import { openSavedTerminal } from './sandbox-layout-01767aabc1738f79.js';
-import { newShellTerminal, renderTerminals } from './sandbox-terminals-41526d63e879c07a.js';
+import { openSavedTerminal } from './sandbox-layout-84a38bb792610d64.js';
+import { newShellTerminal, renderTerminals } from './sandbox-terminals-665b5fa5f762e11a.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.
