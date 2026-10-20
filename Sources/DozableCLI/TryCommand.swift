@@ -87,7 +87,7 @@ struct TryCommand: AsyncParsableCommand {
         let flags = (rm ? ["--rm"] : []) + (keep ? ["--keep"] : []) + (detach ? ["-d"] : [])
         // 634: --base (or --dockerfile) named: that base; else the store's (the planner's `tryBase`).
         let planned = try await requestPlan(PlanRequest(purpose: "try", create: try c.planChoices(), tryFlags: flags.isEmpty ? nil : flags,
-                                                        baseChosen: (c.base != nil || c.dockerfile != nil) ? true : nil), g)
+                                                        baseChosen: c.namesTheBase ? true : nil), g)
         if dryRun { printPlan(planned, g); return }
         if let p = planned.problems.first(where: { $0.code != "key" }) {
             throw fail(HostError(.invalid, p.text + (p.fix.map { " — \($0)" } ?? "")), g)

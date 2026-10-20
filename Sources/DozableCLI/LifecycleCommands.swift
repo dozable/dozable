@@ -185,6 +185,10 @@ struct ChoiceOptions: ParsableArguments {
         return try choices(image: try chosenImage() ?? image ?? "")
     }
 
+    /// 634: the person chose the base — `--base`, `--dockerfile`, or an image by name — so a try keeps it (the planner's
+    /// `PlanRequest.baseChosen`); otherwise a try's tool goes on the store's base.
+    var namesTheBase: Bool { base != nil || dockerfile != nil || image != nil }
+
     /// 617: `ChoiceOptions` itself, from argv (a plan's, a probe's) — the round trip's other half.
     static func from(_ argv: [String]) throws -> ChoiceOptions { try parse(argv) }
 
