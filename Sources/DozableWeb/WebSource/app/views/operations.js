@@ -1,6 +1,6 @@
 // views/operations — Operations (593): its own page, and the nav badge.
 import { $, h } from '../dom/h.js';
-import { icon, OP_GLYPH } from '../dom/icons.js';
+import { busyMark, icon, isWaitStep, OP_GLYPH } from '../dom/icons.js';
 import { clock, ms } from '../core/format.js';
 import { act, opEnded, prepRunning } from '../core/operations.js';
 import { state } from '../core/state.js';
@@ -45,7 +45,7 @@ export function renderOperations() {
   const rows = list.map((o) => {
     const secs = o.state === 'running' ? Math.max(0, Math.round((Date.now() - new Date(o.startedAt).getTime()) / 1000)) + ' s' : (o.milliseconds ? ms(o.milliseconds) : '—');
     return h('tr', { class: 'op-row op-' + o.state, 'data-op': o.id },
-      h('td', null, o.state === 'running' ? h('span', { class: 'mini-spin', title: 'running' }) : h('span', { class: 'op-state', title: o.state }, o.state === 'done' ? '✓' : o.state === 'interrupted' ? '–' : '✕')),
+      h('td', null, o.state === 'running' ? busyMark(isWaitStep(o.text)) : h('span', { class: 'op-state', title: o.state }, o.state === 'done' ? '✓' : o.state === 'interrupted' ? '–' : '✕')),
       h('td', { class: 'op-action' }, OP_GLYPH[o.action] ? icon(OP_GLYPH[o.action]) : null, o.action), h('td', null, o.sandbox ? h('a', { href: '#/sandbox/' + o.sandbox }, o.sandbox) : '—'),
       h('td', null, clock(o.startedAt)), h('td', { class: 'num' }, secs),
       // 594 W22: an operation of several parts (Restart host) lists each finished one.
@@ -63,7 +63,7 @@ function preparationsSection() {
   // (prep-row, not op-row: a preparation is the host's, not one of this page's operations — the
   // operations table's filter and its "newest first" are the UI's own actions only.)
   const rows = state.preps.flatMap((p) => [h('tr', { class: 'prep-row op-' + (prepRunning(p) ? 'running' : p.state === 'done' ? 'done' : 'failed'), 'data-prep': p.image },
-    h('td', null, prepRunning(p) ? h('span', { class: 'mini-spin', title: p.state }) : h('span', { class: 'op-state', title: p.state }, p.state === 'done' ? '✓' : '✕')),
+    h('td', null, prepRunning(p) ? busyMark(isWaitStep(p.step), p.state) : h('span', { class: 'op-state', title: p.state }, p.state === 'done' ? '✓' : '✕')),
     h('td', { class: 'op-action' }, icon('flame'), 'prepare ' + (p.base ? 'the ' + (p.baseTitle || p.base) + ' base' : p.image)),
     h('td', null, p.requestedBy.join(', ')),
     h('td', null, clock(p.startedAt)), h('td', { class: 'num' }, Math.round(p.seconds) + ' s'),

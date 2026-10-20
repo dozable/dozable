@@ -901,6 +901,9 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .spin.lg { width: 16px; height: 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin, .mini-spin { animation-duration: 3s; } }
+/* 634: a step that only waits for another preparation — an hourglass, still, where the spinner would be. */
+.wait-mark { display: inline-flex; flex: none; color: var(--ink-2); vertical-align: -2px; }
+.wait-mark .icon { width: 14px; height: 14px; }
 
 /* Menus — ⋯ overflow and split-button carets (menuButton in app.js). Fixed to the viewport, placed
    beside their button and kept on screen; every item an icon, a label and (where a tooltip used to

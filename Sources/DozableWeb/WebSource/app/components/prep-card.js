@@ -1,5 +1,6 @@
 // components/prep-card — An image preparation's progress (594).
 import { h } from '../dom/h.js';
+import { busyMark, isWaitStep } from '../dom/icons.js';
 import { approx, dur } from '../core/format.js';
 import { prepRunning } from '../core/operations.js';
 import { state } from '../core/state.js';
@@ -27,7 +28,7 @@ export function prepCard(p, opts = {}) {
         : '')),
     determinate(done / m, 'prep-overall-bar', 'steps done')) : null;
   const current = running && p.step ? h('div', { class: 'prep-current' },
-    h('div', { class: 'prep-step' }, h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), ' ', p.step,
+    h('div', { class: 'prep-step' }, busyMark(isWaitStep(p.step)), ' ', p.step,
       h('span', { class: 'muted' }, '  ' + dur(p.stepSeconds || 0) + (p.stepUsualSeconds != null ? ' · usually ' + approx(p.stepUsualSeconds) : ''))),
     h('div', { class: 'wiz-bar indeterminate prep-step-bar', 'aria-hidden': 'true' }, h('span'))) : null;
   const pulling = running && p.transferLine && (p.transferFraction == null || p.transferFraction < 1);
@@ -51,7 +52,7 @@ export function prepCard(p, opts = {}) {
     details.addEventListener('toggle', () => { state[key] = details.open; });
   }
   return h('div', { class: 'prep-card prep-' + p.state, 'data-prep': p.image },
-    h('div', { class: 'prep-head' }, running ? h('span', { class: 'mini-spin', 'aria-hidden': 'true' }) : h('span', { class: 'op-state' }, p.state === 'done' ? '✓' : '✕'),
+    h('div', { class: 'prep-head' }, running ? busyMark(isWaitStep(p.step)) : h('span', { class: 'op-state' }, p.state === 'done' ? '✓' : '✕'),
       h('strong', null, p.base ? (p.baseTitle || p.base) + ' base' : p.image), h('span', { class: 'muted' }, ' · ' + (running ? dur(p.seconds) + ' so far' : p.state + ' in ' + dur(p.seconds)) + ' · asked by ' + p.requestedBy.join(', '))),
     overall, current, transfer, tail,
     p.error && p.state !== 'cancelled' ? callout('bad', { compact: true, cls: 'notice', body: p.error }) : null,
