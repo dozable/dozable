@@ -181,7 +181,7 @@ final class KitchenTests: XCTestCase {
         let p = try XCTUnwrap(m.result).decode(CreatePlan.self)
         XCTAssertEqual(p.name, "try-grok")
         XCTAssertEqual(p.command, "doz try grok")
-        XCTAssertEqual(p.create.network, "locked")
+        XCTAssertNil(p.create.network, "635: a try takes a new sandbox's network (defaults.permissions, Standard)")
         XCTAssertNil(p.create.isolated, "a try has a new empty folder of its own (owner, after the demo)")
         XCTAssertEqual(p.workspace.map { ($0 as NSString).lastPathComponent }, "try-grok")
         r.planRequest?.purpose = "nonsense"
@@ -211,7 +211,9 @@ final class KitchenTests: XCTestCase {
         let p = try plan("try", ["--agent", "grok"], facts: f)
         XCTAssertEqual(p.problems.map(\.code), ["key"], "only the key is missing: \(p.problems.map(\.text))")
         XCTAssertEqual(p.create.image, "node-grok", "634: a try goes on the store's base (node), not its recipe's Debian")
-        XCTAssertEqual(p.create.network, "locked")
+        // 635 (owner: "switch both to standard"): no network forced — a new sandbox's default; Locked only when asked.
+        XCTAssertNil(p.create.network)
+        XCTAssertEqual(try plan("try", ["--agent", "grok", "--network", "locked"], facts: f).create.network, "locked")
         // Owner, after the demo: a NEW EMPTY folder of its own under projects_dir, shared at /workspace (files the agent
         // makes are on the Mac; the open-files bridge works) — never one of yours.
         XCTAssertEqual(p.workspace, projects.appendingPathComponent("try-grok").path)

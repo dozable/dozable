@@ -7,8 +7,8 @@ import DozableHost
 // 617 (D14, 616.07, the owner's "try = a hybrid") — `doz try THING`: from nothing to talking to an agent in one
 // command. It is `doz new` with Quick-try defaults through the SAME choice options and planner (no second code path):
 // a NEW EMPTY folder of its own under defaults.projects_dir (owner, after the demo: files the agent makes are on the Mac,
-// opening files and copying work — never one of the person's folders; --isolated keeps none), Locked + the agent's own
-// model, the agent's default base, the provider's default key, named try-<agent>. 634: what it makes is an ORDINARY
+// opening files and copying work — never one of the person's folders; --isolated keeps none), a new sandbox's network
+// (635: Standard, no longer Locked), the agent's default base, the provider's default key, named try-<agent>. 634: what it makes is an ORDINARY
 // sandbox (no mark — owner: "drop the special status of a try … but keep the ability to easily delete"). With no key:
 // the "What you need" card (from the recipe's auth) — while the image prepares at once in the background. Attached; on
 // the way out: "Leaving try-claude — [S]leep / [d]elete / [k]eep running" (the terminal's easy delete).
@@ -21,8 +21,8 @@ struct TryCommand: AsyncParsableCommand {
         What it makes is an ordinary sandbox, the fast way. \
         It works in a NEW EMPTY folder Dozable makes under your projects folder (try-AGENT — never one of yours), shared \
         at /workspace, so what the agent makes is on your Mac; copying to your Mac's clipboard and opening files and links \
-        on your Mac work as in any sandbox. It reaches only its own model (Locked; --permissions standard opens package \
-        installs), runs on this store's base (defaults.base — Node.js unless set; --base picks another), uses your key for its provider (asked once when there is none), and is \
+        on your Mac work as in any sandbox. It takes a new sandbox's network (defaults.permissions, Standard: its \
+        model, software packages and GitHub; --network locked reaches only its model), runs on this store's base (defaults.base — Node.js unless set; --base picks another), uses your key for its provider (asked once when there is none), and is \
         named try-AGENT. On the way out it asks: sleep it (the default — it then holds no memory), delete it or keep it \
         running; --rm and --keep answer before. --ui opens the same in the dashboard (doz ui), with the agent chosen. Deleting it removes its folder too when the folder is empty, and asks \
         when the agent left files there. --isolated shares no folder at all (doz get and doz put \

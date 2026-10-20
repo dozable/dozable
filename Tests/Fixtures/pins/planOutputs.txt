@@ -5,7 +5,11 @@ account: none · - · xai · -
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
 reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
-reach packages: No package installs (Locked)
+reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
+reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
+reach packages: Node (npm) (registry.npmjs.org)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-grok (not one of yours), at /workspace
@@ -13,7 +17,7 @@ reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
-yaml: version: 1 | name: try-grok | image: node-grok                  # when made | network: locked
+yaml: version: 1 | name: try-grok | image: node-grok                  # when made
 problem key: Grok Build needs an xAI API key — the store has no default xAI account. Add one: doz account add NAME --provider xai (then create with --account NAME) [fix: doz account add NAME --provider xai]
 == try grok, a key, try-grok taken: try --agent grok
 command: doz try grok
@@ -22,7 +26,11 @@ account: work-xai · key · xai · 1Password: op://Dev/xAI/credential
 reach model: Talk to xAI (api.x.ai, 4 API paths)
 reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers when it starts (GET /, no key sent)
 reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
-reach packages: No package installs (Locked)
+reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
+reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
+reach packages: Node (npm) (registry.npmjs.org)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-grok-2 (not one of yours), at /workspace
@@ -30,7 +38,7 @@ reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 reach key: Key: work-xai from 1Password: op://Dev/xAI/credential — the sandbox gets a placeholder, the key stays on this Mac
-yaml: version: 1 | name: try-grok-2 | image: node-grok                  # when made | network: locked
+yaml: version: 1 | name: try-grok-2 | image: node-grok                  # when made
 == try gemini on python, standard: try --agent gemini --base python --permissions standard
 command: doz try gemini --base python --permissions standard
 name: try-gemini · image: python-gemini (Python · Gemini CLI, unprepared) · workspace: /tmp/617-pin-projects/try-gemini
@@ -48,7 +56,7 @@ reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
 reach key: No key yet
-yaml: version: 1 | name: try-gemini | image: python-gemini                  # when made | network: locked | permissions: standard
+yaml: version: 1 | name: try-gemini | image: python-gemini                  # when made | permissions: standard
 problem key: Gemini CLI needs a Google AI (Gemini API) key — the store has no default Google AI (Gemini API) account. Add one: doz account add NAME --provider google (then create with --account NAME) [fix: doz account add NAME --provider google]
 == new, every default: new 
 command: doz new
@@ -140,13 +148,16 @@ yaml note: in a folder, doz up shares that folder at /workspace; this sandbox ha
 command: doz try none
 name: try-none · image: debian (Debian · none, unprepared) · workspace: /tmp/617-pin-projects/try-none
 reach model: Talk to its AI model (api.anthropic.com, statsig.anthropic.com)
-reach packages: No package installs (Locked)
+reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
+reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-none (not one of yours), at /workspace
 reach bridge: Copy to your Mac's clipboard: on
 reach bridge: Open files on your Mac: on
 reach bridge: Open links in your Mac's browser: on
-yaml: version: 1 | name: try-none | image: debian                  # when made | network: locked
+yaml: version: 1 | name: try-none | image: debian                  # when made
 problem invalid: a try is of an agent — doz search lists them [fix: doz try AGENT]
 == try opencode --rm: command: doz try opencode --rm
 == try opencode --keep: command: doz try opencode --keep

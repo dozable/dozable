@@ -236,10 +236,11 @@ public enum CreatePlanner {
         let projects = f.projectsDir ?? (Workspace.defaultPath(name: "x", settings: f.settings) as NSString).deletingLastPathComponent
 
         // D14 (owner ruling after the demo): a try's defaults — a NEW empty folder of its own (files it makes are on the
-        // Mac, the open-files bridge works), Locked + its own model. `--isolated` keeps no folder. 634: what it makes is an
-        // ordinary sandbox (no mark).
+        // Mac, the open-files bridge works). `--isolated` keeps no folder. 634: what it makes is an ordinary sandbox (no
+        // mark). 635 (owner, 2026-10-21: "switch both to standard"): its network is no longer forced to Locked — a try and
+        // the First sandbox take a new sandbox's default, `defaults.permissions` (Standard: its model, updates, packages,
+        // GitHub), like Fly.io's Sprites' `defaults` preset; Locked stays `--network locked`.
         if isTry {
-            if o.network == nil { o.network = "locked" }
             if choice?.agent == nil || choice?.agent == AgentKind.none {
                 problems.append(PlanProblem(code: "invalid", text: "\(isFirst ? "a first sandbox" : "a try") is of an agent — doz search lists them",
                                             fix: isFirst ? "doz onboard --first AGENT" : "doz try AGENT"))
@@ -437,8 +438,8 @@ public enum CreatePlanner {
     /// `doz <purpose> [NAME] --flag …`: only what differs from the defaults (a try: from the try's own).
     static func argv(purpose: String, name: String?, options o: CreateOptions, given: CreateOptions, choice: ImageChoice?, settings: DozableSettings) -> [String] {
         // 634 (orchestrator's ruling B): the First sandbox's command is the `doz new` that makes the same sandbox — its
-        // name, `--agent` always, the base only when it is not the recipe's default (`doz new` takes that), and the
-        // network (Locked: `doz new` would not take it by itself).
+        // name, `--agent` always, the base only when it is not the recipe's default (`doz new` takes that), and a network
+        // only when one was given (635: both take `doz new`'s default).
         var a = ["doz", purpose == "first" ? "new" : purpose]
         let isTry = purpose == "try"
         if isTry {
@@ -467,7 +468,7 @@ public enum CreatePlanner {
         if given.isolated == true { a.append("--isolated") }
         if let c = o.cpus { a += ["--cpus", String(c)] }
         if let m = o.memoryMiB { a += ["--memory", m % 1024 == 0 ? "\(m / 1024)G" : "\(m)M"] }
-        if let n = o.network, !(isTry && n == "locked") { a += ["--network", n] }
+        if let n = o.network { a += ["--network", n] }
         if let s = o.subnet { a += ["--subnet", s] }
         let (words, github) = splitGitHub(o.allow ?? [])
         if !words.isEmpty { a += ["--permissions", words.joined(separator: ",")] }

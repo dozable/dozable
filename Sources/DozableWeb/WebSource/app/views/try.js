@@ -9,7 +9,7 @@
 // 760 px the panes stack (a back control).
 //
 // The same decisions as `doz try`: the host's planner (`POST plan`, purpose try) names it try-AGENT, gives it a NEW
-// EMPTY folder of its own, Locked + its own model, the agent's own base and a key it can use. Browsing prepares
+// EMPTY folder of its own, Standard (635; was Locked), the agent's own base and a key it can use. Browsing prepares
 // NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action, starts it (the
 // image prepared then, its progress in the terminal area) and opens its session. 634: what it makes is an ordinary
 // sandbox — no mark, no try bar; its folder goes with it while empty, as every sandbox's Dozable-made folder does.
@@ -35,6 +35,8 @@ const VIEW_KEY = 'doz.tryView';
 /// (a segmented control; `tr.kind`) — and the filter pills are the declared CATEGORIES of that section (any of them:
 /// OR), after Ready (its key is here). The capability tags stay searchable (`tag:headless`).
 const READY = ['ready', 'Ready', (a) => !!a.ready];
+/// 635: a try's network, said the same everywhere on this page.
+const STANDARD_WORDS = 'Standard — its model, software packages and GitHub; nothing else unless you allow it';
 
 /// "4 days" → "4 days ago"; "today" stays.
 const ago = (age) => age === 'today' ? 'today' : age + ' ago';
@@ -606,7 +608,7 @@ function paintSetup() {
   d.replaceChildren(h('form', { method: 'dialog', on: { submit: (ev) => { ev.preventDefault(); if (!start.disabled) tryCreate(start); } } },
     h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + nameOf(a)), close),
     h('div', { class: 'dlg-body' },
-      h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, the network locked to its model, your key never inside.'),
+      h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, a network for its model, packages and GitHub only, your key never inside.'),
       ...(familyOf(a).length > 1 ? [sect('Version', ...versionNodes(a))] : []),
       ...(plan.model && plan.model.offered && plan.model.offered.length ? sourceSections(a, plan, missing) : keyOnly(a) ? oneSourceSection(a, plan, missing) : [sect('Key', ...keyNodes(a, plan, missing))]),
       sect('Image', h('div', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes({ ...a, plan }))),
@@ -762,7 +764,8 @@ function planFacts(a, p) {
     ...fact('Base', a.base || '—'),
     // 617 (models@1): the model and where its key goes; the network line then names no single host.
     ...(p.model ? fact('Model', keyProblem(p) ? p.model.title + ' — once its key is saved' : p.model.model + ' through ' + p.model.title) : []),
-    ...fact('Network', p.model ? 'Locked — only its model providers' : 'Locked — only its model (' + (lines('model')[0] || 'its model') + ')'),
+    // 635 (owner: "switch both to standard"): Standard — its model, packages and GitHub; the Network tab changes it.
+    ...fact('Network', STANDARD_WORDS),
     ...fact('Folder', lines('folder')[0] || '—'),
     ...fact('Your Mac', lines('bridge').join(' · ') || '—'),
     // 618: what Start makes, as a command.
@@ -871,7 +874,7 @@ function tryNode() {
   close.append(h('span', { class: 'qt-kbd', 'aria-hidden': 'true' }, 'Esc'));
   const head = h('header', { class: 'qt-mhead' },
     h('div', null, h('h1', { id: 'wm-title' }, 'Quick try'),
-      h('p', { class: 'sub' }, 'Pick an agent and try it in a fresh sandbox: its own folder, the network locked to its model, your key never inside. Nothing is prepared until you press Start.')),
+      h('p', { class: 'sub' }, 'Pick an agent and try it in a fresh sandbox: its own folder, a network for its model, packages and GitHub only, your key never inside. Nothing is prepared until you press Start.')),
     close);
   if (tr.stage !== 'loading' && !tr.catalog.agents.length && !tr.catalog.coming.length) {
     return h('div', { class: 'wizard try qt-page' }, head, callout('info', { body: 'No agent this Dozable can try.' }));

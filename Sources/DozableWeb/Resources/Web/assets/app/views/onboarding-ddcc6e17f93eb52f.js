@@ -24,7 +24,7 @@ import { pageFailure, toast } from '../components/notices-4d2f95c7aa4e231b.js';
 import { rulesStep } from '../components/rules-step-c11f4eecf5d4bc4c.js';
 import { stepperNode } from '../components/stepper-95296ab50568cb6b.js';
 import { renderOps } from './operations-77c6a9afd4734e9d.js';
-import { startQuickMade } from './quick-make-3c4b1423dc3c084b.js';
+import { startQuickMade } from './quick-make-cce56df8fd696e01.js';
 
 // The First sandbox's tools (the four published coding agents), in this order; a family by its recommended major.
 const FIRST_TOOLS = ['claude-code', 'pi', 'opencode', 'codex'];
@@ -488,7 +488,7 @@ function stepSignup(d, w) {
 }
 
 // ── 8 · First sandbox — an ordinary sandbox made the quick way (the orchestrator's ruling B) ───────────────────────
-// Its tool on the store's base, Locked, a new empty folder named after it (or a project folder of yours) — the planner's
+// Its tool on the store's base, Standard (635; was Locked), a new empty folder named after it (or a project folder of yours) — the planner's
 // `first` purpose, the same plan `doz onboard` prints (its "Same in Terminal" is the doz new that makes it). Start is the
 // Quick try's own path (views/quick-make.js).
 function firstChoice(w) {
@@ -584,7 +584,7 @@ function stepFirst(d, w) {
   const pickRow = w.folderMode === 'pick' ? folderPicker(w) : null;
   const facts = p ? h('dl', { class: 'qt-plan' },
     h('dt', null, 'Model'), h('dd', null, a && !readiness(a, d).ok ? readiness(a, d).words : modelWords(p)),
-    h('dt', null, 'Network'), h('dd', null, 'Locked — only its model'),
+    h('dt', null, 'Network'), h('dd', null, 'Standard — its model, software packages and GitHub; nothing else unless you allow it'),
     h('dt', null, 'Image'), h('dd', { 'data-first-image': '' }, ...imageLine(w)),
     h('dt', null, 'Done with it?'), h('dd', null, 'Delete removes it — and the folder Dozable made for it, while that is still empty. The same for every sandbox.'),
     h('dt', null, 'Same in Terminal'), h('dd', null, h('code', { 'data-first-command': '' }, p.command))) : h('p', { class: 'muted' }, w.planError || 'Planning…');
@@ -616,7 +616,7 @@ function stepFirst(d, w) {
   setTimeout(() => paintFirstProblems(w), 0);
   return {
     title: 'First sandbox',
-    lead: 'Make your first sandbox, with one tool in it: a folder of its own, the network locked to its model, your keys never inside. Make more any time — Quick try, or New sandbox.',
+    lead: 'Make your first sandbox, with one tool in it: a folder of its own, a network for its model, packages and GitHub only, your keys never inside. Make more any time — Quick try, or New sandbox.',
     body,
     foot: [back(state.signup ? WIZ.signup : state.usageStats ? WIZ.usage : WIZ.rules), gap(),
       waiting && p ? h('span', { class: 'muted wiz-note' }, 'Starts now: it waits for the base, then adds ' + (a ? toolName(a) : 'the tool')) : null,

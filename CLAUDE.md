@@ -1957,7 +1957,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **One set of choices, one plan** (D13): `ChoiceOptions` (LifecycleCommands; `CreateArguments` is its old name) is
   what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The host's read-only op `plan`
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
-  for new/try (name, workspace, Locked for a try) and what `--dry-run` prints (command, project file, reach from
+  for new/try (name, workspace; 635: a try's and the First sandbox's network is a new sandbox's — `defaults.permissions`,
+  Standard — no longer forced Locked; `make recipe-check` asks for `--network locked` itself, so its "a fresh try is
+  refused nothing" stays the strictest check) and what `--dry-run` prints (command, project file, reach from
   `DozableImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.
 - **`doz try`** (`TryCommand.swift`, `Try.swift`): 634 — what a try makes is an ORDINARY sandbox (no mark: 617's
   `SandboxConfig.trial`/`trialFolder` are gone, an old doz.json carrying them loads with both ignored); its card comes

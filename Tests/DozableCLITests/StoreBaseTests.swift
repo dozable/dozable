@@ -60,8 +60,9 @@ final class StoreBaseTests: XCTestCase {
         XCTAssertEqual(CreatePlanner.tryBase(opencode, settings: DozableSettings(text: "")), "node")
     }
 
-    /// The orchestrator's ruling B: onboarding's First sandbox is made the quick way (the store's base, Locked, a new empty
-    /// folder) but named after its tool, and its command is the `doz new` that makes the same sandbox.
+    /// The orchestrator's ruling B: onboarding's First sandbox is made the quick way (the store's base, a new empty
+    /// folder; 635: a new sandbox's network, Standard — no longer Locked) but named after its tool, and its command is the
+    /// `doz new` that makes the same sandbox.
     func testTheFirstSandboxIsNamedAfterItsToolAndItsCommandIsDozNew() throws {
         func first(_ args: [String], _ f: PlanFacts, name: String? = nil) throws -> CreatePlan {
             CreatePlanner.plan(PlanRequest(purpose: "first", name: name, create: try ChoiceOptions.from(args).planChoices()), facts: f)
@@ -69,14 +70,14 @@ final class StoreBaseTests: XCTestCase {
         let cc = try first(["--agent", "claude-code"], facts())
         XCTAssertEqual(cc.name, "claude")
         XCTAssertEqual(cc.workspace, "/tmp/634-storebase-projects/claude", "a new empty folder of its own")
-        XCTAssertEqual(cc.create.network, "locked")
-        XCTAssertEqual(cc.command, "doz new claude --agent claude-code --network locked")
+        XCTAssertNil(cc.create.network)
+        XCTAssertEqual(cc.command, "doz new claude --agent claude-code")
         XCTAssertTrue(cc.problems.allSatisfy { $0.code == "key" }, "\(cc.problems)")
         // OpenCode on the store's base (Node.js, not its recipe's Debian): said with --base.
         let oc = try first(["--agent", "opencode"], facts())
         XCTAssertEqual(oc.name, "opencode")
         XCTAssertEqual(oc.image, "node-opencode2")
-        XCTAssertEqual(oc.command, "doz new opencode --agent opencode --base node --network locked")
+        XCTAssertEqual(oc.command, "doz new opencode --agent opencode --base node")
         // Taken: uniquified, as a try's name is.
         var f = facts()
         f.taken = ["claude"]
@@ -85,7 +86,7 @@ final class StoreBaseTests: XCTestCase {
         let named = try first(["--agent", "pi", "--workspace", "/tmp/634-storebase-mine"], facts(), name: "work")
         XCTAssertEqual(named.name, "work")
         XCTAssertEqual(named.workspace, "/tmp/634-storebase-mine")
-        XCTAssertEqual(named.command, "doz new work --agent pi --workspace /tmp/634-storebase-mine --network locked")
+        XCTAssertEqual(named.command, "doz new work --agent pi --workspace /tmp/634-storebase-mine")
         // A try keeps its own name.
         XCTAssertEqual(try tryPlan(["--agent", "claude-code"], facts()).name, "try-claude")
     }

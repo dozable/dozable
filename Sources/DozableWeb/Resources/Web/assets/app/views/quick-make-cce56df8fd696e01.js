@@ -17,7 +17,7 @@ import { drawPendingTry } from './sandbox-590ee0504d94b9da.js';
 export async function startQuickMade({ plan, agent, title, account = null, back = null, before = () => {} }) {
   const c = plan.create, name = plan.name;
   state.pendingTry = { name, agent, title, image: c.image, imageTitle: plan.image && plan.image.title,
-    workspace: c.workspace || null, account: plan.account && plan.account.name, network: c.network || 'locked',
+    workspace: c.workspace || null, account: plan.account && plan.account.name, network: c.network || 'agent',
     plan, account_: account, back, error: null, at: Date.now() };
   beginTransition(name, 'start', ['start']);
   renderNavSandboxes();
