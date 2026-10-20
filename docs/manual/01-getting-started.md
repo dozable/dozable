@@ -54,20 +54,21 @@ At each question the recommended answer is already selected: press **Enter** to 
 1. **Checks.** Apple silicon, macOS, the virtualization permission, disk space. A required check
    that fails stops setup and says why; an optional one (Claude Code not installed, for example) is
    a warning.
-2. **Your Claude account.** If Claude Code is signed in on this Mac, Dozable offers to use that login.
-   Otherwise paste an API key or a `claude setup-token` token (it is never echoed), or choose
-   *Decide later*.
-3. **Images.** **Claude Code** is ticked; **pi** and the plain **lab** shell are optional. Anything
-   you leave out is prepared the first time you use it.
-4. **Preparing.** Dozable downloads the base system and installs the agent and its tools inside a VM.
-   It takes a few minutes. **You don't have to wait:** press **Ctrl-C** and it carries on in the
-   background; `doz onboard --status` shows it again.
+2. **Base image.** Node.js, the Linux system every tool runs on — **Enter** starts its download (about
+   380 MB) in the background, once; every tool you try is added to it. The next questions come at once.
+3. **Models & keys.** The sign-ins Dozable found on this Mac (Claude Code, Codex), then a key if you want
+   one — Anthropic, OpenAI, xAI, Google or an OpenRouter key (it is never echoed). **Enter** adds none.
+4. **Access**, **Workspace rules** and **Settings** — GitHub and your SSH agent (off unless you choose
+   them), what `.dozignore` does, and the settings file. See [Setting up this Mac](03-setting-up.md).
 5. **Usage statistics.** What an official build sends — counts and ranges about how Dozable is used,
    never names, paths, contents or anything inside a sandbox — and where to see it exactly
    (`doz telemetry show`). **Enter** keeps them on; answer **n** to turn them off. A build from the
    open-source repository sends nothing and skips this step.
 6. **Stay in touch (optional).** Release news, tool news, early access and tips and tricks by email — skip it
    with **Enter**. See [Usage statistics and sign-up](#usage-statistics-and-sign-up).
+7. **Your first sandbox.** `claude`, `pi` or `opencode` — a name (`claude`) and a new empty folder
+   (`~/doz-workspaces/claude`). Dozable waits for the base if it is still downloading (**Ctrl-C** leaves it
+   running; `doz onboard --status` shows it again), adds the tool and attaches you to it.
 
 **In your browser:**
 

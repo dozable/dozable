@@ -36,7 +36,7 @@ func cliPortsSuite(binary: String) async {
     }
 
     print("cli: web ports — doz ports, doz open, the forward's lifecycle (617, RP-1)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["up", "pp", "--image", "lab", "--isolated", "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
     check(r.code == 0, "up pp --image lab --network none --detach (exit \(r.code))")
     check(serve(g1), "a server in the guest on port \(g1)")

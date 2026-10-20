@@ -10,7 +10,7 @@ the command-line face of `DozableKit`.
 
 ```bash
 brew install dozable/tap/doz   # the prebuilt, signed release: seconds, no compiler (Apple silicon, macOS 26+)
-doz onboard                       # once: checks, the Claude account, settings, images (in the background)
+doz onboard                       # once: checks, the base (in the background), keys, settings, a first sandbox
 ```
 
 A VM can only be booted by a binary signed with Apple's virtualization entitlement; the release
@@ -31,13 +31,13 @@ cannot be stapled: Gatekeeper checks a notarised `doz` online the first time it 
 ### Setting up: onboard, init, uninstall
 
 ```bash
-doz onboard [--images claude-code,pi,lab | --all-images | --no-images] [--account mac|api-key|setup-token|later] [--yes]
-            [--account-name NAME] [--plan PLAN] [--secret-stdin] [--force]
+doz onboard [--base ID | --no-base] [--key PROVIDER [--key-name NAME] [--plan PLAN] [--secret-stdin] [--force]]
+            [--first AGENT|none] [--openai-account mac|chatgpt|openai-key|later] [--yes]
             [--github off|read|push] [--github-source gh|key] [--github-key-stdin] [--ssh-agent on|off]
             [--ignore-mode lock|hide]   # the Workspace rules step: the default workspace.ignore_mode
             [--usage-stats on|off]      # the Usage statistics step (official builds): off writes the setting
-doz onboard --status        # the onboarding record and the images; follows a preparation that runs
-doz onboard --cancel        # cancel the images being prepared
+doz onboard --status        # the onboarding record and the base; follows a preparation that runs
+doz onboard --cancel        # cancel what is being prepared (the base)
 doz init [DIR] [--name N] [--image I] [--cpus N] [--memory M] [--network …] [--permissions W] [--account A]
          [--github off|read|push] [--ssh-agent on|off] [--ignore-mode lock|hide] [--clipboard …] [--browser-bridge …]
          [--open-files …] [--[no-]tmux] [--[no-]agent-sudo] [--yes] [--force]   # 599f: on a terminal, the wizard's 10 steps
@@ -47,34 +47,32 @@ doz inventory               # everything Dozable keeps on this Mac: where and ho
 doz nuke [--dry-run] [--yes]   # back to a fresh install, doz stays installed: lists each item and its size, asks once
 ```
 
-- **`onboard`** sets up this Mac, once: the doctor's checks (a *required* one that fails —
-  not Apple silicon, macOS too old, no virtualization, the entitlement, the store not on APFS, too
-  little disk for the chosen images — stops it; the rest only warn), **Access** (every
-  credential sandboxes may use as you, each a purposeful choice and each **confirmed live**; see
-  [Access](#Access) below): the **Claude account** (this
-  Mac's Claude Code login when it is signed in; otherwise an API key or a setup token **pasted at a
-  hidden prompt** and stored exactly as `doz account add` stores it — the login keychain, one tiny
-  check request, `--plan` for a token — then made the default; or **Decide later**. It never logs in
-  and never copies Claude Code's refresh token. Off a terminal a key is read from stdin only with
-  `--secret-stdin`; otherwise that step is skipped and the command shown), **GitHub as you**
-  (off, read-only or read and push; the token from this Mac's gh login or a key you give —
-  `--github`, `--github-source`, `--github-key-stdin`) and **SSH agent forwarding** (`--ssh-agent`);
-  each is confirmed, and one that cannot be is **skipped with its reason** — the choice kept, not
-  confirmed — so the onboarding never blocks (`--yes` or no terminal: skipped with a note, exit 0).
-  The GitHub and SSH choices are written as the defaults for new sandboxes even into an existing
-  settings file, but only when chosen (a flag, or answered on a terminal) — `--yes` alone changes
-  nothing. Then the settings file and your prompt template (each written **only when
-  missing**), then **prepares the images** — the kernel, the guest init disk, the base image and
-  the bake, the waiting a first start would do. `claude-code` is prepared by default; `pi` and
-  `lab` are opt-in. The preparation runs **in the host**: Ctrl-C detaches (it goes on; `--status`
-  follows it again, `--cancel` stops it), and a `start` of that image meanwhile **joins it** —
-  one download, one bake. On a terminal it asks, the recommended answer pre-selected (Enter keeps
-  it); `--yes`, `--json` or no terminal ask nothing. Re-running is safe: it prepares only what is
-  missing. The store records it in `<store>/onboarded.json`. Last, in an official build: **Usage
-  statistics** (what is sent, `doz telemetry show`, the privacy policy, then *Send anonymous usage
-  statistics? [Y/n]* — Enter keeps them on and writes nothing; no sets
-  `telemetry.send_anonymous_usage_stats = false`; `DO_NOT_TRACK` or the variable deciding is said, not
-  asked; `--usage-stats on|off` answers it) and the optional **Stay in touch**.
+- **`onboard`** sets up this Mac, once, in this order: the doctor's **checks** (a *required* one that fails —
+  not Apple silicon, macOS too old, no virtualization, the entitlement, the store not on APFS, too little disk for
+  the base — stops it; the rest only warn); the **base image** (`Use Node.js …? [Y/n/other]`, `--base`, `--no-base`):
+  the store's ONE base (`defaults.base`) every quick-made tool is added to, prepared **in the host** from that
+  moment (the kernel, the guest init disk, the base image pulled, its disk flattened) while the questions go on —
+  a tool's bake started meanwhile **waits** for it, one download; **models & keys**: the sign-ins found (Claude
+  Code, Codex — read-only, never logged in for you) and a key of any published provider or gateway (anthropic,
+  openai, xai, google, openrouter; `setup-token` for a Claude subscription; `chatgpt` for Codex in an official
+  build) **pasted at a hidden prompt** and stored exactly as `doz account add` stores it — off a terminal only with
+  `--key … --secret-stdin`, otherwise the command is shown; an Anthropic key becomes the default only when Claude
+  Code is not signed in here; **Access** (see [Access](#Access) below): **GitHub as you** (off, read-only or read
+  and push; the token from this Mac's gh login or a key you give — `--github`, `--github-source`,
+  `--github-key-stdin`) and **SSH agent forwarding** (`--ssh-agent`), each confirmed, and one that cannot be is
+  **skipped with its reason** — the choice kept, not confirmed — so the onboarding never blocks; written as the
+  defaults for new sandboxes only when chosen; **workspace rules**; the settings file and your prompt template
+  (each written **only when missing**; the base, Access and rules answers set in it); in an official build **Usage
+  statistics** (what is sent, `doz telemetry show`, the privacy policy, then *Send anonymous usage statistics?
+  [Y/n]* — Enter keeps them on and writes nothing; no sets `telemetry.send_anonymous_usage_stats = false`;
+  `DO_NOT_TRACK` or the variable deciding is said, not asked; `--usage-stats on|off` answers it) and the optional
+  **Stay in touch**; last the **first sandbox** (`[claude/pi/opencode/no]`, its name and folder; `--first`): made
+  the quick way, as `doz try` makes one — the store's base, Locked, a new empty folder named after it unless you
+  give one — its `doz new` command shown, started and attached once the base is ready. Waiting for the base,
+  Ctrl-C detaches (it goes on; `--status` follows it again, `--cancel` stops it). On a terminal it asks, the
+  recommended answer pre-selected (Enter keeps it); `--yes`, `--json` or no terminal ask nothing — the Node.js base,
+  no key, no sandbox. Re-running is safe: it prepares only what is missing. The store records it, with its base, in
+  `<store>/onboarded.json`.
 - **`init`** makes a folder a project: it writes **`doz_project.yaml`** (onboarding this Mac
   first if it never was). **`up` with no name**, in that folder, creates, starts or wakes exactly
   that sandbox, with the folder at `/workspace`, starts its `sessions` and attaches to the first.

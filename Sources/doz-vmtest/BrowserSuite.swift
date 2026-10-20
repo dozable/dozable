@@ -24,7 +24,7 @@ func cliBrowserSuite(binary: String) async {
     let base = 40000 + Int(getpid() % 2000) * 10          // ports this run uses on the Mac (and in the guest)
 
     print("cli: the browser bridge and a sign-in's callback (599, 594.B2)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["up", "bb", "--image", "lab", "--isolated", "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
     check(r.code == 0, "up bb --image lab --network none --detach (exit \(r.code))")
     r = t.run(["exec", "bb", "--", "sh", "-c", "ls -l /usr/local/lib/doz/bin/ | tr -s ' ' | cut -d' ' -f9-; nc 2>&1 | head -1"])

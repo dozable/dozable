@@ -13,7 +13,7 @@ func cliPointsSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: restore point names and lookups (W25), check before asking (W26), exec starts an off sandbox (W27)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     // W27: `create --start`.
     var r = t.run(["create", "pq", "--image", "lab", "--isolated", "--memory", "512M", "--start", "--json"], timeout: 600)
     let made = try? HostWire.decoder.decode(SandboxInfo.self, from: r.outData)

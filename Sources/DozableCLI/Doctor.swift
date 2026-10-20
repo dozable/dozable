@@ -33,7 +33,7 @@ struct Doctor: AsyncParsableCommand {
         }
     }
 
-    /// `claude: false` (594: `doz onboard --account …`) leaves out the Claude Code checks — the ones
+    /// `claude: false` (594: `doz onboard --key …`) leaves out the Claude Code checks — the ones
     /// that run `claude --version` and read the Mac login's keychain item.
     static func checks(store: DozableStore, claude: Bool = true) -> [DoctorCheck] {
         var out: [DoctorCheck] = []

@@ -50,7 +50,7 @@ func cliOpenFilesSuite(binary: String) async {
     let real = (try? fm.destinationOfSymbolicLink(atPath: "/tmp")).map { "/" + $0 + "/dzo-\(pid)-fw" } ?? ws.path   // /private/tmp/…
 
     print("cli: open workspace files on the Mac (599b)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-fp"]).code == 0, "defaults.projects_dir is a scratch path")
     var r = t.run(["up", "of", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--network", "none", "--detach"], timeout: 600)
     check(r.code == 0, "up of --image lab --workspace \(ws.path) --detach (exit \(r.code))")

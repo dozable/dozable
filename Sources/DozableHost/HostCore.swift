@@ -727,7 +727,7 @@ public actor HostCore {
         case .ports:
             return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
         case .plan:
-            guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
+            guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init, try or first)") }
             let e = await exactVersionProblem(p.create, mustCheck: false)
             return try JSONValue(encoding: plans([p], versionProblems: e.map { [0: $0] } ?? [:])[0])
         case .plans:

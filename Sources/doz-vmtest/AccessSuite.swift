@@ -10,7 +10,7 @@ import DozableKit
 //     `X-OAuth-Scopes` for a classic token, without for a fine-grained one, `/user/repos`; 401 otherwise;
 //   - a FAKE gh (DOZ_TEST_GH) printing a fake token (or nothing: logged out);
 //   - a THROWAWAY ssh-agent with a throwaway key (DOZ_TEST_SSH_AUTH_SOCK; SSH_AUTH_SOCK is removed).
-// No VM: onboarding with --no-images. Store /tmp/dzo-PID-a, its own XDG config.
+// No VM: onboarding with --no-base. Store /tmp/dzo-PID-a, its own XDG config.
 
 // (`__import__`: a line beginning "import" is read by the audit as a Swift import.)
 private let fakeGitHubAPI = #"""
@@ -150,7 +150,7 @@ func cliAccessSuite(binary: String) async {
     func setting(_ key: String) -> String { run(["config", "get", key]).out.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     // ── 1. Onboarding: GitHub (the Mac's gh) and the SSH agent both CONFIRMED ─────────────────────
-    var r = run(["onboard", "--no-images", "--account", "later", "--github", "read", "--ssh-agent", "on", "--yes"], timeout: 180)
+    var r = run(["onboard", "--no-base", "--github", "read", "--ssh-agent", "on", "--yes"], timeout: 180)
     check(r.code == 0, "onboard --yes --github read --ssh-agent on (exit \(r.code)) \(r.code == 0 ? "" : r.err.suffix(300).description)")
     check(r.out.contains("2. Access"), "the onboarding has ONE Access step")
     check(r.out.contains("✓ GitHub as you") && r.out.contains("signed in as fake-user") && r.out.contains("scopes: repo, read:org"),
@@ -173,7 +173,7 @@ func cliAccessSuite(binary: String) async {
     // ── 2. A failing GitHub is SKIPPED with a note; the onboarding goes on (exit 0) ───────────────
     t.run(["host", "stop"])
     fakeGH(prints: "ghp_REVOKEDbutWELLformed000000000000000")
-    r = run(["onboard", "--no-images", "--account", "later", "--github", "push", "--yes"], timeout: 180)
+    r = run(["onboard", "--no-base", "--github", "push", "--yes"], timeout: 180)
     check(r.code == 0, "onboard --yes --github push with a token GitHub refuses → exit 0 (never blocked)")
     check(r.out.contains("✗ GitHub as you") && r.out.contains("GitHub refused the token (401"), "the reason is said: GitHub refused the token (401)")
     check(r.out.contains("skipped — kept, not confirmed"), "skipped with a note (kept, not confirmed)")
@@ -190,7 +190,7 @@ func cliAccessSuite(binary: String) async {
     t.run(["host", "stop"])
     fakeGH(prints: classic)
     t.env["DOZ_TEST_SSH_AUTH_SOCK"] = ws + "/no-agent.sock"
-    r = run(["onboard", "--no-images", "--account", "later", "--github", "off", "--ssh-agent", "on", "--yes"], timeout: 180)
+    r = run(["onboard", "--no-base", "--github", "off", "--ssh-agent", "on", "--yes"], timeout: 180)
     check(r.code == 0, "onboard --yes --ssh-agent on with no agent → exit 0")
     check(r.out.contains("✗ SSH agent forwarding") && r.out.contains("no ssh-agent"), "the reason: this Mac has no ssh-agent to forward")
     check(r.out.contains("skipped — kept, not confirmed"), "skipped with a note")

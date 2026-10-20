@@ -824,14 +824,18 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (the dev baseline's apt is not silenced).
 - **`<store>/onboarded.json`, never `state.json`** — that name at the store's root is Containerization's
   image-store index. The HOST writes the record once every chosen image is ready, so a detached CLI
-  (Ctrl-C = detach, exit 130) or a closed wizard still completes the onboarding.
+  (Ctrl-C = detach, exit 130) or a closed wizard still completes the onboarding. 634: `doz onboard` prepares the
+  store's ONE base (`HostRequest.base` → the preparation `base:<id>`, recorded as `OnboardingRecord.base`), started at
+  its Base image step with `follow: false` while the questions go on, followed at the end; its First sandbox is the
+  planner's `first` purpose (a try's defaults, named after the tool, its command `doz new NAME --agent TOOL …`) made by
+  `QuickMake` — the ONE path `doz try` takes too.
 - **Settings and the prompt template are written ONLY when missing** (`Onboarding.write…IfMissing`) — an
   existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config`.
 - **The account step never logs in and never reads a refresh token for use.** Options: `mac`, `api-key`,
   `setup-token`, `later` ("Decide later": one option for none/skip). A key or a token goes
   ONLY through `HostRequest.accountAdd` — the request `doz account add` sends (the login keychain, the one
   check request, `--plan`) — from `doz onboard`'s no-echo prompt (off a TTY only with `--secret-stdin`) or
-  the web UI's masked field. `doz onboard --account …` skips the Claude Code checks entirely; `doz ui`
+  the web UI's masked field. `doz onboard --key …` skips the Claude Code checks entirely (634: `--key` takes any published provider or gateway — OpenRouter too — and `setup-token`); `doz ui`
   under `DOZ_TEST_NO_MAC_LOGIN=1` (a test seam, the probes') never looks at the Mac's login.
 - **Secret entry in the browser**: `ui.allow_secret_entry` (default on; the UI can turn
   it off, never on — a reset would turn it on, so that is refused too). On: `POST /api/v1/accounts` — a

@@ -24,7 +24,7 @@ defaults.projects_dir PATH`) moves the default.
 Prefer the terminal? The same setup, without the dashboard:
 
 ```sh
-doz onboard                 # once: checks this Mac, your agent's account, and prepares an image
+doz onboard                 # once: checks this Mac, prepares the base, your keys, a first sandbox
 cd ~/code/my-project
 doz up                      # a sandbox for this folder (at /workspace), its agent running, your terminal attached
 ```

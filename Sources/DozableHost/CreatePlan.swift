@@ -12,7 +12,7 @@ import DozableKit
 
 /// What a person chose. `create.image` empty: not chosen (the defaults decide).
 public struct PlanRequest: Codable, Equatable, Sendable {
-    /// `new` | `create` | `up` | `init` | `try`.
+    /// `new` | `create` | `up` | `init` | `try` | `first` (634: onboarding's First sandbox — a try's defaults, named after its tool).
     public var purpose: String
     /// A name given on purpose (nil: the defaults name it).
     public var name: String?
@@ -34,7 +34,7 @@ public struct PlanRequest: Codable, Equatable, Sendable {
 
     public static let tryFlagWords: Set<String> = ["--rm", "--keep", "-d"]
 
-    public static let purposes = ["new", "create", "up", "init", "try"]
+    public static let purposes = ["new", "create", "up", "init", "try", "first"]
 }
 
 /// One line of "what it can reach" — `kind` lets a page style it.
@@ -192,9 +192,10 @@ public enum CreatePlanner {
     }
 
     /// The name a try gets: `try-<agent>`, then `-2`, `-3` … — a name no sandbox has and, with `projects`, whose folder
-    /// there is missing or empty (a try's folder is always a NEW empty one, never one of yours).
-    public static func tryName(agent: AgentKind, taken: Set<String>, projects: String? = nil) -> String {
-        let base = "try-" + (agent.recipe?.shortName ?? agent.rawValue)
+    /// there is missing or empty (a try's folder is always a NEW empty one, never one of yours). 634: the First sandbox's
+    /// is the same with no prefix (`claude`, `claude-2` …).
+    public static func tryName(agent: AgentKind, taken: Set<String>, projects: String? = nil, prefix: String = "try-") -> String {
+        let base = prefix + (agent.recipe?.shortName ?? agent.rawValue)
         func free(_ n: String) -> Bool {
             if taken.contains(n) { return false }
             guard let projects else { return true }
@@ -220,7 +221,9 @@ public enum CreatePlanner {
         var problems: [PlanProblem] = []
         var o = r.create
         var image = Self.image(r, settings: f.settings)
-        let isTry = r.purpose == "try"
+        // 634: `first` (onboarding's First sandbox) is made the quick way too — a try's defaults, its own name.
+        let isFirst = r.purpose == "first"
+        let isTry = r.purpose == "try" || isFirst
         // 634: a try's tool goes on the store's base unless the person named one (`baseChosen`, or an image already on
         // another base than its recipe's default) or a Dockerfile.
         if isTry, r.baseChosen != true, o.dockerfile == nil, let c = ImageChoice.parse(image), !c.isDockerfile, c.agent != .none,
@@ -238,7 +241,8 @@ public enum CreatePlanner {
         if isTry {
             if o.network == nil { o.network = "locked" }
             if choice?.agent == nil || choice?.agent == AgentKind.none {
-                problems.append(PlanProblem(code: "invalid", text: "a try is of an agent — doz search lists them", fix: "doz try AGENT"))
+                problems.append(PlanProblem(code: "invalid", text: "\(isFirst ? "a first sandbox" : "a try") is of an agent — doz search lists them",
+                                            fix: isFirst ? "doz onboard --first AGENT" : "doz try AGENT"))
             }
         }
 
@@ -252,7 +256,9 @@ public enum CreatePlanner {
                 problems.append(PlanProblem(code: "name", text: "sandbox \(n) already exists", fix: "doz up \(n) attaches to it"))
             }
         } else if isTry, let a = choice?.agent {
-            name = tryName(agent: a, taken: f.taken, projects: r.create.workspace == nil && r.create.isolated != true ? projects : nil)
+            // 634 (orchestrator's ruling B): the First sandbox is named after its tool, without the try- prefix.
+            name = tryName(agent: a, taken: f.taken, projects: r.create.workspace == nil && r.create.isolated != true ? projects : nil,
+                           prefix: isFirst ? "" : "try-")
         } else {
             name = Workspace.suggestedName(image: image, taken: f.taken, projects: r.purpose == "new" ? projects : nil)
         }
@@ -263,7 +269,8 @@ public enum CreatePlanner {
             if isTry {
                 let w = o.workspace!
                 if !Workspace.isEmptyOrMissing(w) {
-                    problems.append(PlanProblem(code: "name", text: "\(w) is there and not empty — a try's folder is always a new empty one", fix: "--isolated, or --workspace DIR"))
+                    problems.append(PlanProblem(code: "name", text: "\(w) is there and not empty — \(isFirst ? "its" : "a try's") folder is always a new empty one unless you give one",
+                                                fix: isFirst ? "another name, or a project folder" : "--isolated, or --workspace DIR"))
                 }
             }
         }
@@ -399,7 +406,8 @@ public enum CreatePlanner {
                 ? "Model: \(m.model) through \(m.title) (\(hosts)) — no key needed: no key of yours goes there"
                 : "Model: \(m.model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
         }
-        var argv = Self.argv(purpose: r.purpose, name: r.name, options: o, given: r.create, choice: choice, settings: f.settings)
+        // 634: the First sandbox's command is `doz new NAME --agent TOOL …` — the name always (doz new would name it otherwise).
+        var argv = Self.argv(purpose: r.purpose, name: isFirst ? name : r.name, options: o, given: r.create, choice: choice, settings: f.settings)
         if r.purpose == "try" { argv += (r.tryFlags ?? []).filter { PlanRequest.tryFlagWords.contains($0) } }
         let (yaml, note) = Self.yaml(name: name, options: o, choice: choice, isolated: isolated)
         var plan = CreatePlan(purpose: r.purpose, name: name, image: image, workspace: o.workspace, command: Self.shellLine(argv),
@@ -428,7 +436,10 @@ public enum CreatePlanner {
 
     /// `doz <purpose> [NAME] --flag …`: only what differs from the defaults (a try: from the try's own).
     static func argv(purpose: String, name: String?, options o: CreateOptions, given: CreateOptions, choice: ImageChoice?, settings: DozableSettings) -> [String] {
-        var a = ["doz", purpose]
+        // 634 (orchestrator's ruling B): the First sandbox's command is the `doz new` that makes the same sandbox — its
+        // name, `--agent` always, the base only when it is not the recipe's default (`doz new` takes that), and the
+        // network (Locked: `doz new` would not take it by itself).
+        var a = ["doz", purpose == "first" ? "new" : purpose]
         let isTry = purpose == "try"
         if isTry {
             a.append(o.agentRef ?? choice.flatMap { $0.agent.recipe.map(AgentRef.typed) ?? $0.agent.rawValue } ?? o.image)   // 618: what was typed (opencode@1)

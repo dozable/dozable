@@ -28,22 +28,23 @@ doz doctor --json
 
 ## 2. Set up
 
-Onboarding checks the Mac, chooses how sandboxes sign in to Claude, writes the settings and prepares images.
-The account is your choice, so the prompt makes the agent ask:
+Onboarding checks the Mac, prepares the base image every tool is added to, adds keys, writes the settings and can
+make a first sandbox. The choices are yours, so the prompt makes the agent ask:
 
-> Set up Dozable with `doz onboard`. Before you run it, ask me which Claude account the sandboxes should use
-> (this Mac's login, an API key, a setup token, or later) and which images to prepare (claude-code is the
-> default; lab is small and quick; pi is the other agent). Then run it without questions, using my answers,
-> and show me `doz onboard --status` when the images are ready. Do not change any other setting.
+> Set up Dozable with `doz onboard`. Before you run it, ask me which base image to prepare (Node.js is the
+> default; `doz base ls` lists the others) and whether to make a first sandbox now (claude, pi, opencode or none).
+> Then run it without questions, using my answers, and show me `doz onboard --status` when the base is ready. Do
+> not change any other setting, and never ask me for a key in the chat — I add keys myself with `doz account add`.
 
 What it will run (for example):
 
 ```sh
-doz onboard --yes --account mac --images claude-code,lab
+doz onboard --yes --base node --first none
 doz onboard --status
 ```
 
-Preparing claude-code the first time takes several minutes (a download and a bake); it happens once.
+Preparing the base the first time takes a few minutes (a download, once); each tool is added to it the first time
+it is used.
 
 ## 3. Brief it once
 

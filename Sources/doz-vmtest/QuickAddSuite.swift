@@ -21,7 +21,7 @@ func cliQuickAddSuite(binary: String) async {
     }
     let fm = FileManager.default
     print("cli: doz new — a sandbox with every default (599c)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "defaults.projects_dir", projects]).code == 0, "defaults.projects_dir is a scratch path (\(projects))")
     check(t.run(["config", "set", "defaults.image", "lab"]).code == 0 && t.run(["config", "set", "images.lab.memory_mib", "512"]).code == 0,
           "defaults.image lab, 512 MiB")

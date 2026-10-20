@@ -17,7 +17,7 @@ func cliAgentSudoSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: the agent's passwordless sudo (W23)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "images.claude_code_version", AgentImages.claudeCodePinned.version]).code == 0,
           "images.claude_code_version = the pin (\(AgentImages.claudeCodePinned.version)) — the registry is not asked")
     var r = t.run(["up", "su", "--image", "claude-code", "--isolated", "--account", "none", "--memory", "1G", "--detach"], timeout: 1800)

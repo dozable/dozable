@@ -187,7 +187,7 @@ func cliGitHubSuite(binary: String) async {
     t.env["DOZ_TEST_SSH_AUTH_SOCK"] = agentSock
     t.env["SSH_AUTH_SOCK"] = agentSock
 
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "images.claude_code_version", AgentImages.claudeCodePinned.version]).code == 0, "the pinned Claude Code (no registry)")
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-gp"]).code == 0, "defaults.projects_dir is a scratch path")
     var r = t.run(["up", "gh1", "--image", "claude-code", "--isolated", "--account", "none", "--memory", "1G", "--github", "read", "--detach"], timeout: 1800)

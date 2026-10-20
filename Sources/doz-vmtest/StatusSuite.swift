@@ -45,7 +45,7 @@ func cliStatusSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: what the agent is doing — OSC 7501 (612)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["create", "st", "--image", "lab", "--isolated", "--memory", "512M", "--start"], timeout: 900).code == 0, "create st --image lab --start")
     func ex(_ script: String) -> String { t.run(["exec", "st", "--", "sh", "-c", script], timeout: 60).out }
     let script = Data(fakeAgent.utf8).base64EncodedString()

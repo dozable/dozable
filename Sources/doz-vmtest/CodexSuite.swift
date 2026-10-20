@@ -266,7 +266,7 @@ func cliCodexSuite(binary: String) async {
     let seamed = startHostWithFake()
     check(seamed, "the host runs with the fake OpenAI (its log says so) — nothing goes to the real OpenAI")
     guard seamed else { info("aborted: the host has no fake OpenAI"); return }
-    check(d(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(d(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(d(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-xp"]).code == 0, "defaults.projects_dir is a scratch path")
     check(d(["config", "set", "images.codex_version", AgentImages.codexPinned.version]).code == 0, "the pinned Codex (no registry)")
 

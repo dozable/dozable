@@ -184,7 +184,7 @@ func cliToolsSuite(binary: String) async {
     t.env["GIT_CONFIG_GLOBAL"] = ws + "/no-gitconfig"
     func requests() -> String { (try? String(contentsOfFile: ws + "/requests.log", encoding: .utf8)) ?? "" }
 
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "defaults.projects_dir", "/tmp/dzo-\(pid)-tp"]).code == 0, "defaults.projects_dir is a scratch path")
 
     // ── 1. The lab (Alpine, no git/curl/ssh): the first start shows the layer; a bad checksum is refused ──

@@ -45,7 +45,7 @@ func cliProjectWizardSuite(binary: String) async {
     func file(_ dir: String, _ name: String = "doz_project.yaml") -> String { (try? String(contentsOfFile: dir + "/" + name, encoding: .utf8)) ?? "" }
 
     print("cli: the project file — doz init's steps, doz up makes what it says (599f)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "images.lab.memory_mib", "512"]).code == 0 && t.run(["config", "set", "defaults.image", "lab"]).code == 0,
           "defaults.image lab, 512 MiB")
 

@@ -13,7 +13,7 @@ func cliHostStopSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: doz host stop shows its progress (W22)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     for n in ["hs1", "hs2"] {
         let r = t.run(["up", n, "--image", "lab", "--isolated", "--memory", "512M", "--detach"], timeout: 600)
         check(r.code == 0, "up \(n) --image lab --detach (exit \(r.code))")

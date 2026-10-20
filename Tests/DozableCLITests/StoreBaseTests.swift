@@ -60,6 +60,62 @@ final class StoreBaseTests: XCTestCase {
         XCTAssertEqual(CreatePlanner.tryBase(opencode, settings: DozableSettings(text: "")), "node")
     }
 
+    /// The orchestrator's ruling B: onboarding's First sandbox is made the quick way (the store's base, Locked, a new empty
+    /// folder) but named after its tool, and its command is the `doz new` that makes the same sandbox.
+    func testTheFirstSandboxIsNamedAfterItsToolAndItsCommandIsDozNew() throws {
+        func first(_ args: [String], _ f: PlanFacts, name: String? = nil) throws -> CreatePlan {
+            CreatePlanner.plan(PlanRequest(purpose: "first", name: name, create: try ChoiceOptions.from(args).planChoices()), facts: f)
+        }
+        let cc = try first(["--agent", "claude-code"], facts())
+        XCTAssertEqual(cc.name, "claude")
+        XCTAssertEqual(cc.workspace, "/tmp/634-storebase-projects/claude", "a new empty folder of its own")
+        XCTAssertEqual(cc.create.network, "locked")
+        XCTAssertEqual(cc.command, "doz new claude --agent claude-code --network locked")
+        XCTAssertTrue(cc.problems.allSatisfy { $0.code == "key" }, "\(cc.problems)")
+        // OpenCode on the store's base (Node.js, not its recipe's Debian): said with --base.
+        let oc = try first(["--agent", "opencode"], facts())
+        XCTAssertEqual(oc.name, "opencode")
+        XCTAssertEqual(oc.image, "node-opencode2")
+        XCTAssertEqual(oc.command, "doz new opencode --agent opencode --base node --network locked")
+        // Taken: uniquified, as a try's name is.
+        var f = facts()
+        f.taken = ["claude"]
+        XCTAssertEqual(try first(["--agent", "claude-code"], f).name, "claude-2")
+        // A name and a project folder given: kept, and said.
+        let named = try first(["--agent", "pi", "--workspace", "/tmp/634-storebase-mine"], facts(), name: "work")
+        XCTAssertEqual(named.name, "work")
+        XCTAssertEqual(named.workspace, "/tmp/634-storebase-mine")
+        XCTAssertEqual(named.command, "doz new work --agent pi --workspace /tmp/634-storebase-mine --network locked")
+        // A try keeps its own name.
+        XCTAssertEqual(try tryPlan(["--agent", "claude-code"], facts()).name, "try-claude")
+    }
+
+    func testOnboardsFlags() throws {
+        XCTAssertNoThrow(try Onboard.parse(["--base", "python", "--key", "openrouter", "--key-name", "or", "--secret-stdin", "--first", "claude"]).validate())
+        XCTAssertNoThrow(try Onboard.parse(["--no-base", "--yes", "--first", "none"]).validate())
+        XCTAssertThrowsError(try Onboard.parse(["--base", "nonsense"]).validate())
+        XCTAssertThrowsError(try Onboard.parse(["--base", "node", "--no-base"]).validate())
+        XCTAssertThrowsError(try Onboard.parse(["--key", "nonsense"]).validate())
+        XCTAssertThrowsError(try Onboard.parse(["--key-name", "x"]).validate(), "--key-name goes with --key")
+        XCTAssertThrowsError(try Onboard.parse(["--key", "xai", "--plan", "max"]).validate(), "--plan goes with setup-token")
+        XCTAssertThrowsError(try Onboard.parse(["--first", "nonsense"]).validate())
+        XCTAssertThrowsError(try Onboard.parse(["--status", "--base", "node"]).validate())
+        XCTAssertEqual(OnboardingFlow.firstTool("claude")?.id, "claude-code")
+        XCTAssertEqual(OnboardingFlow.firstTool("opencode")?.id, "opencode2", "a family's name is its recommended major")
+        XCTAssertTrue(OnboardingFlow.keyWords.contains("openrouter"))
+        XCTAssertTrue(OnboardingFlow.keyWords.contains("setup-token"))
+    }
+
+    func testOnboardStatusSaysTheBase() throws {
+        let b = try XCTUnwrap(BaseCatalogue.base("node"))
+        var st = PrepareStatus(preparations: [], onboarded: nil, images: [], hostRunning: false)
+        st.base = BaseState(b, prepared: true)
+        XCTAssertTrue(Onboard.render(st).contains("base node ready — Node.js, node:"), Onboard.render(st))
+        st.base = BaseState(b, prepared: false)
+        XCTAssertTrue(Onboard.render(st).contains("base node not prepared"))
+        XCTAssertEqual(OnboardingFlow.baseLine(st, base: "node"), nil, "nothing to say while nothing runs and it is not ready")
+    }
+
     func testTheToolsOnNodeShareOneBaseKey() throws {
         let store = DozableStore(root: root)
         let keys = try ["claude-code", "pi", "codex", "node-opencode2", "node"].map { image -> String in

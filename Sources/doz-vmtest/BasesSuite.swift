@@ -34,7 +34,7 @@ func basesHarness(_ binary: String, _ tag: String) -> CLIHarness {
     let h = onboardingHarness(binary, "b\(tag)", seed: ["kernels", "content", "state.json", "initfs.ext4"])
     let projects = h.store.appendingPathComponent("projects")
     try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
-    h.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120)
+    h.run(["onboard", "--no-base", "--yes"], timeout: 120)
     h.run(["config", "set", "defaults.projects_dir", projects.path])
     return h
 }
