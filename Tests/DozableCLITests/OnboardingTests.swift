@@ -214,35 +214,21 @@ final class OnboardingTests: XCTestCase {
         XCTAssertTrue(s.contains(Data((r.text! + "\n").utf8).base64EncodedString()))
     }
 
-    // MARK: D5/D6/D7 — checks, the account step, settings only when missing
+    // MARK: D5/D7 — checks, settings only when missing
 
-    func testHardChecksStopSoftOnesWarn() {
+    func testHardChecksStopSoftOnesWarn() throws {
         let doctor: [(check: String, status: String, detail: String)] = [
             ("macOS", "ok", "27"), ("chip", "fail", "x86_64"), ("claude", "warn", "not installed"), ("vmnet", "ok", ""),
             ("claude login", "warn", "signed out"), ("store", "warn", "ignored here"),
         ]
-        let checks = Onboarding.checks(doctor: doctor, store: DozableStore(root: root), chosen: ["claude-code"], prepared: [])
+        let node = try XCTUnwrap(BaseCatalogue.base("node"))
+        let checks = Onboarding.checks(doctor: doctor, store: DozableStore(root: root), base: node, prepared: false)
         XCTAssertEqual(checks.filter(\.blocks).map(\.check), ["chip"])
         XCTAssertFalse(checks.first { $0.check == "claude" }!.hard)
         XCTAssertFalse(checks.first { $0.check == "claude login" }!.hard)
         XCTAssertTrue(checks.first { $0.check == "store" }!.hard, "the store's own check is replaced by APFS + disk")
         XCTAssertEqual(checks.first { $0.check == "store" }?.status, "ok", "the temporary directory is on APFS")
         XCTAssertEqual(checks.first { $0.check == "disk" }?.status, "ok")
-        XCTAssertEqual(Onboarding.requiredBytes(["claude-code"], prepared: ["claude-code"]), 0, "prepared: nothing to download")
-        XCTAssertGreaterThan(Onboarding.requiredBytes(["claude-code", "pi"], prepared: []), Onboarding.requiredBytes(["claude-code"], prepared: []))
-    }
-
-    func testTheAccountStepOffersWhatIsThere() {
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: true).options, [.mac, .apiKey, .setupToken, .later])
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: true).preferred, .mac)
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: false).options, [.apiKey, .setupToken, .mac, .later])
-        XCTAssertEqual(Onboarding.accountOptions(macSignedIn: false).preferred, .later)
-        XCTAssertEqual(Onboarding.Account.later.label, "Decide later", "owner ruling: one option for 'none' and 'skip'")
-        XCTAssertEqual(Onboarding.defaultAccount(for: .mac), "mac")
-        XCTAssertNil(Onboarding.defaultAccount(for: .later))
-        XCTAssertNil(Onboarding.defaultAccount(for: .apiKey), "the account added becomes the default, once it is")
-        XCTAssertTrue(Onboarding.accountCommands(.setupToken).contains { $0.hasPrefix("doz account add work --setup-token") })
-        XCTAssertTrue(Onboarding.accountCommands(.mac).isEmpty)
     }
 
     /// 594: a sandbox's own key — `doz key set NAME --anthropic`'s request, which the web UI builds too:
@@ -462,6 +448,131 @@ final class OnboardingTests: XCTestCase {
         XCTAssertNotNil(roStatus.result, "looking does not")
     }
 
+    /// 634: the store's ONE base is a preparation of its own (`base:<id>`); a tool's image named beside it, or started
+    /// while it runs, WAITS for it (its first step says so) — one pull, one flatten — and the record says the base.
+    func core634(_ gate: Gate) async -> HostCore {
+        let c = HostCore(store: DozableStore(root: root), readOnly: false, version: "t", newStoreDefaultAccount: "mac")
+        await c.setPreparationRunner({ image, _, emit in
+            gate.add(image)
+            guard image.hasPrefix("base:") else { return }
+            emit(HostEvent(kind: .started, sandbox: image, text: "pulled the base image node"))
+            while !gate.isReleased { try await Task.sleep(for: .milliseconds(20)) }
+            if gate.fail { throw HostError(.failed, "the registry did not answer") }
+            emit(HostEvent(kind: .step, sandbox: image, text: "pulled the base image node", milliseconds: 1500))
+        }, prepared: { _, _ in false })
+        return c
+    }
+
+    func testABakeOnABaseWaitsForItsRunningBasePreparation() async throws {
+        let gate = Gate()
+        let c = await core634(gate)
+        var r = HostRequest(.onboard)
+        r.base = "node"
+        r.requestedBy = "doz onboard"
+        r.follow = false
+        let first = try await c.handle(r).result!.decode(PrepareResult.self)
+        XCTAssertEqual(first.preparations.map(\.image), ["base:node"])
+        XCTAssertEqual(first.preparations.first?.base, "node")
+        XCTAssertEqual(first.preparations.first?.plannedSteps, 4, "kernel, guest init, the base image, its disk")
+        try await Task.sleep(for: .milliseconds(100))
+        // A tool's image asked for meanwhile (a try's start does the same): it waits, it does not pull.
+        var p = HostRequest(.prepare)
+        p.images = ["claude-code"]
+        p.follow = false
+        _ = await c.handle(p)
+        try await Task.sleep(for: .milliseconds(300))
+        XCTAssertEqual(gate.runs, ["base:node"], "the tool's work has not started: it waits for the base")
+        var st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertEqual(st.preparations.first { $0.image == "claude-code" }?.step, "waited for the Node.js base", "its first step is the wait")
+        XCTAssertEqual(st.base?.id, "node")
+        gate.lock.withLock { gate.released = true }
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(gate.runs, ["base:node", "claude-code"], "one base, then the tool on it")
+        st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertTrue(st.preparations.first { $0.image == "claude-code" }?.steps?.contains { $0.label == "waited for the Node.js base" } == true)
+        let rec = OnboardingRecord.read(DozableStore(root: root))
+        XCTAssertEqual(rec?.base, "node", "the record says the base")
+        XCTAssertEqual(rec?.images, [], "a base is not an image")
+        // A base the catalogue does not have is refused.
+        var bad = HostRequest(.onboard)
+        bad.base = "cobol"
+        let b = await c.handle(bad)
+        XCTAssertEqual(b.error?.code, .invalid)
+    }
+
+    func testAFailedBasePreparationLetsTheToolPrepareItselfAndCancelCancels() async throws {
+        let gate = Gate()
+        gate.fail = true
+        let c = await core634(gate)
+        var r = HostRequest(.onboard)
+        r.base = "node"
+        r.images = ["pi"]
+        r.follow = false
+        _ = await c.handle(r)
+        try await Task.sleep(for: .milliseconds(100))
+        gate.lock.withLock { gate.released = true }
+        try await Task.sleep(for: .milliseconds(500))
+        XCTAssertEqual(gate.runs, ["base:node", "pi"], "the base failed; the tool still prepared itself")
+        XCTAssertNil(OnboardingRecord.read(DozableStore(root: root)), "a failed base records no onboarding")
+        let st = try await c.handle(HostRequest(.prepareStatus)).result!.decode(PrepareStatus.self)
+        XCTAssertEqual(st.preparations.first { $0.image == "base:node" }?.state, "failed")
+        // Cancel by its name.
+        let gate2 = Gate()
+        let c2 = await core634(gate2)
+        var o = HostRequest(.onboard)
+        o.base = "node"
+        o.follow = false
+        _ = await c2.handle(o)
+        try await Task.sleep(for: .milliseconds(100))
+        var cancel = HostRequest(.prepareCancel)
+        cancel.images = ["base:node"]
+        let cancelled = try await c2.handle(cancel).result!.decode([PreparationInfo].self)
+        XCTAssertEqual(cancelled.map(\.image), ["base:node"])
+    }
+
+    /// 634 (the owner: "the Open Router key was not accepted"): the setup's keys are every source the PUBLISHED tools
+    /// can use — providers, then gateways (OpenRouter), then the key-less — each with the tools it serves.
+    func testTheKeyStepOffersProvidersAndGateways() {
+        let k = Onboarding.keyChoices()
+        let ids = k.map(\.id)
+        XCTAssertTrue(ids.contains("anthropic") && ids.contains("openai") && ids.contains("xai"), "\(ids)")
+        let or = k.first { $0.id == "openrouter" }
+        XCTAssertNotNil(or, "OpenRouter is offered: \(ids)")
+        XCTAssertEqual(or?.gateway, true)
+        XCTAssertEqual(or?.accountKind, "key")
+        XCTAssertTrue(or?.tools.contains("OpenCode") == true && or?.tools.contains("Claude Code") == false, "\(or?.tools ?? [])")
+        XCTAssertTrue(k.first { $0.id == "anthropic" }?.tools.contains("Claude Code") == true)
+        XCTAssertTrue(k.first { $0.id == "openai" }?.tools.contains("Codex") == true)
+        XCTAssertFalse(ids.contains("vercel-ai-gateway"), "an unpublished gateway is not offered")
+        // Providers first, then gateways, then the key-less ones.
+        let kinds = k.map { $0.keyless ? 2 : $0.gateway ? 1 : 0 }
+        XCTAssertEqual(kinds, kinds.sorted())
+        XCTAssertTrue(k.allSatisfy { !$0.tools.isEmpty }, "every row serves a tool")
+    }
+
+    func testTheBasesDiskNeedAndItsSetting() throws {
+        let node = try XCTUnwrap(BaseCatalogue.base("node"))
+        XCTAssertEqual(Onboarding.baseNeed(node, prepared: true), 0)
+        XCTAssertGreaterThan(Onboarding.baseNeed(node, prepared: false), node.downloadBytes)
+        let xdg = root.appendingPathComponent("xdg")
+        let env = ["XDG_CONFIG_HOME": xdg.path]
+        XCTAssertEqual(try Onboarding.writeBase("node", environment: env), [], "the default writes nothing")
+        let (w, _) = try Onboarding.writeSettingsIfMissing(defaultImage: "claude-code", account: nil, base: "python", environment: env)
+        XCTAssertEqual(w, .written)
+        XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.defaultBase), "python")
+        XCTAssertEqual(try Onboarding.writeBase("debian", environment: env), ["defaults.base = debian"], "into a kept file too")
+        XCTAssertEqual(DozableSettings.load(environment: env).string(SettingKey.defaultBase), "debian")
+    }
+
+    func testTheBaseIsPreparedWhenItsFlattenedDiskIsThere() throws {
+        let store = DozableStore(root: root)
+        XCTAssertFalse(HostCore.isBasePrepared("node", store), "nothing in a new store")
+        XCTAssertFalse(HostCore.isPrepared("base:node", store))
+        XCTAssertNil(PreparationInfo.baseID("node"), "an image name is not a base's")
+        XCTAssertEqual(PreparationInfo.baseID("base:node"), "node")
+        XCTAssertNil(PreparationInfo.baseID("base:cobol"))
+    }
+
     /// 594 (owner: "more progress detail"): step N of M, the output's last 6 lines, the finished steps as
     /// data, and — only from this store's last run — per-step and overall estimates; a failed step keeps
     /// its last output.
@@ -601,23 +712,6 @@ final class OnboardingTests: XCTestCase {
         let v = AgentPrompt.values(name: "n", image: "pi", cpus: 1, memoryMiB: 1024, workspace: nil, network: .none, account: nil, version: "1",
                                    hostname: "h", timeZone: "Australia/Sydney")
         XCTAssertTrue(try AgentPrompt.render(AgentPrompt.builtInTemplate, v, source: "b").contains("- Time zone: Australia/Sydney (the Mac's"))
-    }
-
-    /// 594 W6: the Images list says what WILL be installed — never a stale pin.
-    func testTheImagesListSaysWhatWillBeInstalled() throws {
-        let store = DozableStore(root: root)
-        try store.ensureDirectory()
-        let none = DozableSettings(text: nil)
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest", "never asked: latest")
-        XCTAssertNil(Onboarding.agentVersionText("lab", store: store, settings: none))
-        AgentVersions.update("claude-code", store) { $0.latest = AgentRelease(version: "2.1.285", integrity: "sha512-x") }
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: none), "latest (2.1.285)")
-        let exact = DozableSettings(text: "[images]\nclaude_code_version = \"2.1.227\"\n")
-        XCTAssertEqual(Onboarding.agentVersionText("claude-code", store: store, settings: exact), "2.1.227")
-        let opts = Onboarding.imageOptions([], versions: ["claude-code": "latest (2.1.285)"])
-        XCTAssertEqual(opts.first?.summary, "Claude Code — latest (2.1.285) — on Debian (node), with git, ripgrep, python3 and the usual tools")
-        XCTAssertTrue(opts[1].summary.hasPrefix("the pi coding agent — latest — "))
-        XCTAssertFalse(opts.map(\.summary).joined().contains("{version}"))
     }
 
     /// 594 W23: the agent's passwordless sudo — the setting (default on), a sandbox's own choice over

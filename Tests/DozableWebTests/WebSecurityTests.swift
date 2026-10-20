@@ -386,7 +386,7 @@ final class WebSecurityTests: XCTestCase {
             WebActivity(seq: 1, kind: "host", text: "x"),
             // 617.11: the guide (facts are words: an account's name, a source's title — never a key)
             WebGuide(SandboxGuide.make(AgentRecipes.recipe("fabric")!, version: nil, source: "google", model: "gemini-2.5-flash", account: "google",
-                                       accountKind: .key, network: "its model only (Locked)", workspace: "/Users/x/try-fabric", trial: true)!),
+                                       accountKind: .key, network: "its model only (Locked)", workspace: "/Users/x/try-fabric")!),
             // 618: a model list (someone else's data, projected)
             WebModelList(ModelList(source: "openrouter", title: "OpenRouter", gateway: true, kind: "fetched", fetchedAt: now,
                                    defaultModel: "openai/gpt-5.4-mini",

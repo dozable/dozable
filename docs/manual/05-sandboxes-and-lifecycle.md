@@ -70,7 +70,13 @@ asleep or hibernated sandbox and resumes a paused one, so it's the one command t
 `doz down NAME` puts a sandbox away when you are done for now: it hibernates it — nothing kept in memory, its
 sessions come back where they were with `doz up` (in its project folder), `doz attach` or `doz wake`.
 `--sleep` keeps its memory for an even quicker wake; `--shutdown` is a cold stop, asked first as `shutdown` is
-(`-y` skips the question). It works on a try too.
+(`-y` skips the question).
+
+**The folder Dozable made goes with it.** When a sandbox's folder did not exist and Dozable made it (`doz new`, New
+sandbox and Quick add in the dashboard, `doz try`, a `--workspace` that was not there yet), `doz rm` — and the
+dashboard's **Remove…** — removes that folder too while it is empty. When it holds files, `doz rm` asks (the default
+keeps it and says where); off a terminal and in the dashboard it is kept. A folder that was there before is never
+touched, and neither is the folder of a duplicate.
 
 `shutdown`, `reset` and `rm` ask first. `--yes` skips the question; without a terminal and without
 `--yes` they refuse, so a script can't destroy something by accident. The question names what you

@@ -131,8 +131,9 @@ doz account rm chatgpt                     # also deletes its keychain item
 ```
 
 The store has two defaults: the Anthropic one (`mac` out of the box) for Claude Code and pi, and the
-OpenAI one (none until you choose) for Codex. `doz onboard` asks about Codex's account when you choose
-the codex image (or `doz onboard --openai-account chatgpt|openai-key|later`).
+OpenAI one (none until you choose) for Codex. `doz onboard`'s Models & keys step shows whether Codex
+is signed in on this Mac, and takes an `openai` key or (official builds) `chatgpt` — or `doz onboard
+--openai-account mac|chatgpt|openai-key|later`.
 
 ## Settings
 

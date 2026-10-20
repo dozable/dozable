@@ -60,8 +60,10 @@ final class CodexWebTests: XCTestCase {
                              "a plan is for a setup token only")
     }
 
-    func testCodexIsAnImageTheFormsAccept() throws {
-        let cfg = try WebOnboardingConfig.decode(Data(#"{"defaultImage":"codex","account":"later"}"#.utf8))
-        XCTAssertEqual(cfg.defaultImage, "codex")
+    /// 634: the setup no longer chooses an image (the store's base, then a tool on it): the old body is refused.
+    func testTheSetupsConfigTakesTheBaseNotAnImage() throws {
+        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"codex","account":"later"}"#.utf8)))
+        XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"base":"node"}"#.utf8)).base, "node")
+        XCTAssertNil(try WebOnboardingConfig.decode(Data(#"{}"#.utf8)).base)
     }
 }

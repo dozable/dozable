@@ -84,6 +84,24 @@ struct Asker {
         }
     }
 
+    /// 634: one of `words`, typed (`Use Node.js …? [Y/n/other]`, `[claude/pi/opencode/no]`): the default is shown
+    /// capitalised and Enter keeps it; `also` are accepted without being shown. A word is matched case-insensitively,
+    /// and `y`/`n` stand for `yes`/`no` when those are the words.
+    func pick(_ question: String, _ words: [String], default def: String, also: [String] = []) -> String {
+        guard interactive else { return def }
+        let shown = words.map { $0 == def ? $0.prefix(1).uppercased() + $0.dropFirst() : $0 }.joined(separator: "/")
+        let all = words + also
+        while true {
+            write("\(question) [\(shown)]: ")
+            guard let line = readLine()?.lowercased() else { write("\n"); return def }
+            if line.isEmpty { return def }
+            if let w = all.first(where: { $0.lowercased() == line }) { return w }
+            if line == "y", let w = all.first(where: { $0 == "yes" }) { return w }
+            if line == "n", let w = all.first(where: { $0 == "no" }) { return w }
+            write("  one of: \(all.joined(separator: ", "))\n")
+        }
+    }
+
     /// Yes or no; Enter keeps `default`.
     func yesNo(_ question: String, default def: Bool) -> Bool {
         guard interactive else { return def }

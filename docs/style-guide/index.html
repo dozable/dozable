@@ -215,6 +215,39 @@ name: todo-app</pre></details>
   </div></div>
 </section>
 
+
+<section>
+  <h2>The setup (v2): a centred column, the base strip at the foot, its popover</h2>
+  <p>Each step's title is centred (<code>.w2-head</code>: the name and one line) over a column of the step's own width — <code>.w2-col.narrow</code> 480 (a switch, a form), <code>.medium</code> 680 (prose and choices), <code>.wide</code> 1080 (two columns: <code>.ob-two</code>, <code>.ob-try</code>). From the step after Base image the store's base is a strip at the foot, just above the buttons (<code>.wm-base.at-foot</code> in <code>.wm-base-slot</code>): downloading → preparing → ready (green, Build log) → failed (red, Retry). Details opens <code>.wb-pop</code> upwards over the step; ✕, Esc or a click outside close it, and the setup goes on (no full-build-log button).</p>
+  <div class="pair"><div class="scheme">
+    <div class="wiz-modal"><div class="wm-scrim"></div><div class="wm-box" role="dialog" aria-label="Set up Dozable">
+      <div class="wizard">
+        <header class="wm-head"><div class="wm-title-row"><h1>Set up Dozable</h1><span class="wm-gap"></span><button class="btn quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div></header>
+        <section class="wiz-card wiz-body">
+          <div class="w-body w2"><div class="w2-col narrow">
+            <div class="w2-head"><h2>Usage statistics</h2><p>Anonymous, at most once a day: counts and ranges, never names, paths or contents.</p></div>
+            <label class="wiz-choice chosen"><input type="checkbox" role="switch" checked><span><strong>Send anonymous usage statistics</strong></span></label>
+          </div></div>
+          <div class="wm-base-slot"><div class="wm-base at-foot" role="status"><i data-i="download"></i><b>Node.js base</b><span class="wb-bar"><span style="width:34%"></span></span><span class="wb-text">Downloading · 130 MiB of 381 MiB<span class="wb-long"> · about 2 min left</span></span><span class="wb-gap"></span><button type="button" class="linkish" aria-expanded="true">Details</button>
+            <div class="wb-pop" role="dialog" aria-label="Node.js base — details">
+              <div class="wp-head"><i data-i="layers"></i><b>Node.js base</b><span class="pill ph-busy"><span class="mini-spin" aria-hidden="true"></span>Downloading</span><span class="wp-gap"></span><button class="btn sm quiet icon-only" type="button" aria-label="Close the details"><i data-i="x"></i></button></div>
+              <div class="wp-meta"><code>node:22-bookworm</code><span>linux/arm64</span></div>
+              <div class="wp-bar"><span style="width:34%"></span></div>
+              <div class="wp-nums"><span><b>130 MiB</b> of 381 MiB</span><span>Step <b>3</b> of 4</span><span>about 2 min left</span></div>
+              <ol class="wp-steps"><li class="done"><i data-i="circle-check"></i><span>kernel ready (cached)</span><span class="t">13 ms</span></li><li class="current"><span class="mini-spin" aria-hidden="true"></span><span>pulled the base image docker.io/library/node</span><span class="t">0:31</span></li><li class="later"><span class="wp-n">4</span><span>one more step</span><span class="t"></span></li></ol>
+              <p class="wp-note">It goes on if you close this window — Operations shows it, and a sandbox started meanwhile waits for it.</p>
+              <div class="wp-acts"><button class="btn sm quiet" type="button"><i data-i="activity"></i>Operations</button><span class="wp-gap"></span><button class="btn sm quiet danger" type="button"><i data-i="circle-x"></i>Cancel download…</button></div>
+            </div></div></div>
+          <div class="w-foot wiz-buttons"><button class="btn" type="button"><i data-i="arrow-left"></i>Back</button><span class="wiz-gap"></span><button class="btn lg primary" type="button"><i data-i="arrow-right"></i>Next</button></div>
+        </section>
+      </div>
+    </div></div>
+    <div class="wm-base at-foot" role="status"><span class="mini-spin" aria-hidden="true"></span><b>Node.js base</b><span class="wb-bar"><span style="width:86%"></span></span><span class="wb-text">Preparing · step 4 of 4 · base disk flattened</span><span class="wb-gap"></span><button type="button" class="linkish">Details</button></div>
+    <div class="wm-base at-foot ready" role="status"><i data-i="circle-check"></i><b>Node.js base ready</b><span class="wb-text">381 MiB downloaded and prepared in 2 min 41 s<span class="wb-long"> — every tool is added to it as a layer</span></span><span class="wb-gap"></span><button type="button" class="linkish">Build log</button></div>
+    <div class="wm-base at-foot failed" role="alert"><i data-i="circle-x"></i><b>The base download stopped</b><span class="wb-text">the registry did not answer<span class="wb-long"> — the setup goes on</span></span><span class="wb-gap"></span><span class="wb-acts"><button type="button" class="linkish">Details</button><button class="btn sm" type="button"><i data-i="refresh-cw"></i>Retry</button></span></div>
+    <div class="ob-checks" role="list" style="margin-top:12px"><div class="ob-check ok"><i data-i="circle-check"></i><span><b>macOS</b> <small>27.0</small></span></div><div class="ob-check warn"><i data-i="triangle-alert"></i><span><b>vmnet</b> <small>only --network nat needs it</small></span></div><div class="ob-check fail"><i data-i="circle-x"></i><span><b>disk</b><span class="tag">required</span> <small>the base needs about 3.8 GiB</small></span></div></div>
+  </div></div>
+</section>
 <section>
   <h2>Quick try — search, pills, cards or a list, marks</h2>
   <p>The wizards' modal over the app, like onboarding (the app stays visible behind the scrim; opened from the nav's TRY section — its one item, or the + on its heading); its header has the title, a line and a labelled <b>Close</b> with its Esc hint.
@@ -471,8 +504,8 @@ name: todo-app</pre></details>
         <div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div></div></div>
     <div class="sbx-title" data-sg-chips-plain><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button></span></div>
     <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
-    <div class="sbx-title" data-sg-chips-ports><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · AIChat</span><a class="btn small" href="#" title="AIChat web — the sandbox’s port 8000 at http://127.0.0.1:8000/"><i data-i="link"></i>Open AIChat web</a></span></div>
-    <div class="sbx-title" data-sg-chips-ports-idle><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · Fabric</span><button type="button" class="btn small" disabled title="Not serving yet — start it in a session (fabric --serve)"><i data-i="link"></i>Open Fabric REST API</button></span></div>
+    <div class="sbx-title" data-sg-chips-ports><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · AIChat</span><a class="btn sm" href="#" title="AIChat web — the sandbox’s port 8000 at http://127.0.0.1:8000/"><i data-i="link"></i>Open AIChat web</a></span></div>
+    <div class="sbx-title" data-sg-chips-ports-idle><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · Fabric</span><button type="button" class="btn sm" disabled title="Not serving yet — start it in a session (fabric --serve)"><i data-i="link"></i>Open Fabric REST API</button></span></div>
   </div></div>
   <p>A forwarded web port (<code>doz ports</code>) is an <strong>Open</strong> link among the header’s chips while the sandbox runs: “Open TITLE”, a small button
     with the link glyph, its tooltip the sandbox’s port and the Mac URL (and “was taken” when the Mac port moved). It opens a new tab on this Mac’s

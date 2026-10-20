@@ -20,7 +20,7 @@ func cliSessionsSuite(binary: String) async {
         try? FileManager.default.removeItem(at: ws)
     }
     print("cli: sessions survive every wake; End / Restart session (608)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["create", "s1", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--start"], timeout: 900).code == 0, "create s1 --workspace --start")
     check(t.row("s1")?.workspaceView == "live", "s1's /workspace is the live view (ls --json workspaceView = \(t.row("s1")?.workspaceView ?? "nil"))")
     func ex(_ script: String) -> String { t.run(["exec", "s1", "--", "sh", "-c", script], timeout: 60).out.trimmingCharacters(in: .whitespacesAndNewlines) }

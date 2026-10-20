@@ -237,7 +237,8 @@ final class WebSettingsHTTPTests: XCTestCase {
     }
 
     /// 594 (D7): the wizard's settings — doz.toml and the prompt template, each written only when
-    /// missing; CSRF, exact Origin and a strict body, as every change.
+    /// missing; CSRF, exact Origin and a strict body, as every change. 634: the body is {base, access?, ignoreMode?} —
+    /// the old {defaultImage, account} is refused; the base is written into a kept file too.
     func testTheOnboardingConfigIsWrittenOnlyWhenMissing() throws {
         let (cookie, csrf) = try signIn()
         func post(_ body: String, csrf c: String?) throws -> RawResponse {
@@ -245,11 +246,11 @@ final class WebSettingsHTTPTests: XCTestCase {
             if let c { h["X-Doz-CSRF"] = c }
             return try request("/api/v1/onboarding/config", h, method: "POST", body: body)
         }
-        let body = #"{"defaultImage":"claude-code","account":"mac"}"#
+        let body = #"{"base":"node"}"#
         XCTAssertEqual(try post(body, csrf: nil).status, 403, "no CSRF token")
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
-        for bad in [#"{"defaultImage":"claude-code"}"#, #"{"defaultImage":"ubuntu","account":"mac"}"#,
-                    #"{"defaultImage":"pi","account":"sk-ant-api03-x"}"#, #"{"defaultImage":"pi","account":"mac","path":"/etc"}"#] {
+        for bad in [#"{"defaultImage":"claude-code","account":"mac"}"#, #"{"base":"ubuntu-sk-ant-api03-x"}"#,
+                    #"{"base":"node","account":"sk-ant-api03-x"}"#, #"{"base":"node","path":"/etc"}"#, #"{"base":7}"#] {
             let r = try post(bad, csrf: csrf)
             XCTAssertEqual(r.status, 400, bad)
             XCTAssertFalse(r.text.contains("sk-ant"), "a refusal never echoes the value")
@@ -261,10 +262,15 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(res.promptTemplate, "written")
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\nimage = \"claude-code\"\n"))
-        XCTAssertTrue(text.contains("\naccount = \"mac\"\n"))
-        let again = try JSONDecoder().decode(WebOnboardingConfigResult.self, from: try post(#"{"defaultImage":"lab","account":"later"}"#, csrf: csrf).body)
+        XCTAssertFalse(text.contains("\nbase = "), "node is the default base: not written")
+        let again = try JSONDecoder().decode(WebOnboardingConfigResult.self, from: try post(#"{"base":"node"}"#, csrf: csrf).body)
         XCTAssertEqual(again.settings, "kept")
+        XCTAssertEqual(again.baseSet, [], "the kept file already says node")
         XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), text, "never overwritten")
+        // Another base into the kept file: only that line changes.
+        let python = try JSONDecoder().decode(WebOnboardingConfigResult.self, from: try post(#"{"base":"python"}"#, csrf: csrf).body)
+        XCTAssertEqual(python.baseSet, ["defaults.base = python"])
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\nbase = \"python\"\n"))
         // The wizard's facts and the host's preparations: read with the session.
         XCTAssertEqual(try request("/api/v1/onboarding").status, 401)
         let o = try request("/api/v1/onboarding", ["Cookie": cookie])
@@ -274,10 +280,9 @@ final class WebSettingsHTTPTests: XCTestCase {
         let ob = try dec.decode(WebOnboarding.self, from: o.body)
         XCTAssertEqual(ob.settingsPath, file.path)
         XCTAssertTrue(ob.settingsExists)
-        XCTAssertEqual(ob.defaultImage, "claude-code")
         XCTAssertFalse(ob.blocked)
-        XCTAssertEqual(ob.preferredAccount, "later", "no Mac login: decide later is the default")
-        XCTAssertEqual(ob.accountOptions.map(\.value), ["api-key", "setup-token", "mac", "later"])
+        XCTAssertTrue(ob.bases.contains { $0.id == "node" && $0.reference.hasPrefix("node:") }, "the catalogue's bases, the registry prefix dropped")
+        XCTAssertTrue(ob.keyChoices.contains { $0.id == "openrouter" && $0.gateway }, "OpenRouter among the key choices")
         XCTAssertEqual(try request("/api/v1/preparations", ["Cookie": cookie]).text, "[]")
     }
 

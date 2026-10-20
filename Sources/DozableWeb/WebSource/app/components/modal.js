@@ -98,7 +98,8 @@ function wizDirty() {
     const nw = state.nw;
     return !!nw && !nw.tools && (nw.step > 0 || !!nw.form || nw.explicit.size > 0 || nw.path !== nw.initPath || nw.newName !== nw.initName || nw.mode !== nw.initMode);
   }
-  if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step > WIZ.checks && w.step < WIZ.preparing; }
+  // 634: from Base image on, until the settings are written (Workspace rules' Next) — the base goes on either way.
+  if (state.modal === 'onboarding') { const w = state.wiz; return !!w && w.step >= WIZ.base && !w.config; }
   return false;
 }
 export function wizardCloseRequest() {
@@ -111,7 +112,7 @@ export function wizardCloseRequest() {
   if (!wizDirty()) { leave(); return; }
   dialog(state.modal === 'new' ? 'Discard this new sandbox?' : 'Stop setting up?',
     state.modal === 'new' ? 'Nothing is written yet: closing forgets the choices made so far.'
-      : 'Nothing is written yet: closing forgets the choices made so far. Onboarding can be run again from the sidebar.',
+      : 'Nothing is written yet: closing forgets the choices made so far (a base already downloading goes on in the host). Onboarding can be run again from the sidebar.',
     [], 'Discard', async () => { leave(); }, { danger: true, icon: 'x' });
 }
 // Keyboard: Escape closes (asking first when needed) — never from inside a field, a list or a menu; Tab wraps.

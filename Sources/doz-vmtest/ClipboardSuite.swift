@@ -24,7 +24,7 @@ func cliClipboardSuite(binary: String) async {
     func clearBoard() { try? FileManager.default.removeItem(at: board) }
 
     print("cli: the clipboard bridge (599, 594.B1)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["up", "cb", "--image", "lab", "--isolated", "--memory", "512M", "--detach"], timeout: 600)
     check(r.code == 0, "up cb --image lab --detach (exit \(r.code))")
 

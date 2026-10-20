@@ -193,9 +193,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     public func onboarding() async throws -> WebOnboarding {
         let status = try await query(HostRequest(.prepareStatus)).0.decode(PrepareStatus.self)
         let doctor = try await self.doctor()
-        let prepared = Set(status.images.filter { $0.current ?? false }.map(\.name))
+        // 634: the disk line is the store's base's need.
+        let base = status.base.flatMap { BaseCatalogue.base($0.id) } ?? BaseCatalogue.all[0]
         let checks = Onboarding.checks(doctor: doctor.map { (check: $0.check, status: $0.status, detail: $0.detail) }, store: store,
-                                       chosen: ["claude-code"], prepared: prepared)
+                                       base: base, prepared: status.base?.prepared == true)
         let signedIn: Bool
         if let (t, v) = lock.withLock({ macLoginCache }), Date().timeIntervalSince(t) < 30 {
             signedIn = v
@@ -205,12 +206,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
             lock.withLock { macLoginCache = (Date(), signedIn) }
         }
         let file = AccountStore(store: store, settings: .load()).load()
-        // 594 W6: what each agent image WILL install (the hourly cache; "latest" when never asked).
-        let settings = DozableSettings.load()
-        let versions = Dictionary(uniqueKeysWithValues: ["claude-code", "pi", "codex"].compactMap { i in
-            Onboarding.agentVersionText(i, store: store, settings: settings).map { (i, $0) } })
+        // 634: this Mac's own Codex login, as the accounts list says it (read-only; never the Mac's file here).
+        let codexMac = ((try? await accounts())?.accounts ?? []).contains { $0.kind == AccountKind.codexMac.rawValue && ($0.state == "ok" || $0.state == "expired") }
         return WebOnboarding(status: status, checks: checks, freeBytes: Onboarding.volume(of: store)?.free, macSignedIn: signedIn,
-                             defaultAccount: file.defaultAccount, versions: versions)
+                             codexMac: codexMac, defaultAccount: file.defaultAccount)
     }
 
     public func addAccount(_ a: WebAccountAdd) async throws -> WebAccounts {

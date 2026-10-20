@@ -19,7 +19,7 @@ func cliImagesSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: out-of-date images are said, never rebuilt by themselves (W28); own hostname (W29); /usr/games (W30)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["config", "set", "images.pi_version", AgentImages.piPinned.version]).code == 0, "images.pi_version = the pin")
 
     // 1. An older doz bakes pi (a host of its own: the seam is read when the host starts).

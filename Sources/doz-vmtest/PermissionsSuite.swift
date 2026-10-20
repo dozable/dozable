@@ -19,7 +19,7 @@ func cliPermissionsSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: agent permissions (597)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     let projects = t.store.appendingPathComponent("projects")
     try? FileManager.default.createDirectory(at: projects, withIntermediateDirectories: true)
     t.run(["config", "set", "defaults.projects_dir", projects.path])

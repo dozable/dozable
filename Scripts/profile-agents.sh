@@ -46,7 +46,8 @@ doz account default anthropic >/dev/null 2>&1
 doz account default openai >/dev/null 2>&1
 
 TASK="Read notes.txt, add a line that says done to it, then run ls -la and tell me what you see."
-trial() { doz ls --json | /usr/bin/python3 -c 'import json,sys; r=[x["name"] for x in json.load(sys.stdin) if x.get("trial")]; print(r[0] if r else "")'; }
+# 634: a try is an ordinary sandbox (no mark) — in this scratch store the tries are the sandboxes named try-AGENT.
+trial() { doz ls --json | /usr/bin/python3 -c 'import json,sys; r=[x["name"] for x in json.load(sys.stdin) if x["name"].startswith("try-")]; print(r[0] if r else "")'; }
 rc=0
 for a in "$@"; do
   case "$a" in

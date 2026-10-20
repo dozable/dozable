@@ -192,6 +192,13 @@
 # (lab | claude-code | pi | codex, or an agent or tool's id (doz try lists them); flag doz create --image; applies to sandboxes created from now on (the host reads it at create))
 # image = "lab"
 
+# The base image of this store: every tool you try (Quick try, doz try, the setup's first sandbox)
+# is added to it as a layer when no base is named, so a second tool downloads nothing more. doz
+# onboard sets it. New sandbox and doz_project.yaml keep a tool's own default base unless you
+# choose one.
+# (node | python | go | rust | java | ruby | dotnet | debian | ubuntu | alpine; flag doz try --base; applies to sandboxes created from now on (the host reads it at create))
+# base = "node"
+
 # The base folder of new sandboxes' workspaces: the web UI's New sandbox and Quick add, and doz
 # new, share <projects_dir>/<sandbox name> (created when missing, like any workspace). doz create
 # is isolated unless --workspace; doz init uses the folder it runs in. In the web UI, Settings ›

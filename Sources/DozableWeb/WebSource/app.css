@@ -647,7 +647,6 @@ ul.plain { margin: 0; padding: 12px 16px 12px 32px; }
 
 .wiz-cmds pre, .prompt-text { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; background: var(--surface-2); border-radius: var(--r-sm); padding: 8px 10px; font-family: var(--mono); font-size: var(--fs-mono); }
 .wiz-summary { padding-left: 20px; }
-.prep-cards { display: flex; flex-direction: column; gap: 10px; }
 
 
 
@@ -902,6 +901,9 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .spin.lg { width: 16px; height: 16px; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .spin, .mini-spin { animation-duration: 3s; } }
+/* 634: a step that only waits for another preparation — an hourglass, still, where the spinner would be. */
+.wait-mark { display: inline-flex; flex: none; color: var(--ink-2); vertical-align: -2px; }
+.wait-mark .icon { width: 14px; height: 14px; }
 
 /* Menus — ⋯ overflow and split-button carets (menuButton in app.js). Fixed to the viewport, placed
    beside their button and kept on screen; every item an icon, a label and (where a tooltip used to
@@ -1797,4 +1799,178 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 .ak-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 640px) { .ak-two { grid-template-columns: 1fr; } }
 .ak-result { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); }
+}
+
+/* 634 — the setup v2 (the owner's chosen mockup onboarding-v2): each step's title centred over a column of the step's
+   own width, the store's base in a strip at the foot above the buttons, its details in a popover. Tokens only. In views: the
+   wizards' own rules (.wiz-card .w-body h2 …) are there, and a later layer wins whatever the specificity. */
+@layer views {
+/* (a) The step's column: centred, as wide as the step needs — narrow 480 (a form), medium 680, wide 1080 (two columns). */
+.wiz-card .w-body.w2 { padding: 26px 24px 30px; }
+.w2-col { width: 100%; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.w2-col > * { flex: none; }
+.w2-col.narrow { max-width: 480px; }
+.w2-col.medium { max-width: 680px; }
+.w2-col.wide { max-width: 1080px; }
+.w2-col > p { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-prose); }
+.w2-col > p.muted, .w2-col > p.sub { font-size: var(--fs-md); }
+.w2-col h3 { margin: 6px 0 0; font-size: var(--fs-lg); }
+.w2-head { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 0 auto 6px; text-align: center; max-width: 640px; }
+.wiz-card .w-body .w2-head h2 { margin: 0; font-size: var(--fs-2xl); text-wrap: balance; }
+.w2-head p { margin: 0; color: var(--ink-2); font-size: var(--fs-md); line-height: var(--lh-prose); text-wrap: pretty; }
+.wiz-card .w-foot .wiz-note { font-size: var(--fs-sm); }
+
+/* (b) The base strip at the foot: a status bar on top of the controls strip, the full width of the modal. */
+.wm-base-slot { flex: none; position: relative; }
+.wm-base-slot:empty { display: none; }
+.wm-base { display: flex; align-items: center; gap: var(--sp-3); min-height: 30px; margin: 0; padding: 7px 20px; border-top: var(--bw) solid var(--line);
+  background: var(--surface-2); font-size: var(--fs-sm); color: var(--ink-2); position: relative; }
+.wm-base > .icon { width: 14px; height: 14px; color: var(--ink-2); flex: none; }
+.wm-base > b { color: var(--ink); font-weight: var(--fw-medium); white-space: nowrap; }
+.wm-base .wb-bar { flex: 0 1 260px; height: 5px; border-radius: var(--r-pill); background: var(--data-free); overflow: hidden; min-width: 60px; }
+.wm-base .wb-bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.wm-base .wb-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.wm-base .wb-gap { flex: 1; }
+.wm-base .wb-acts { display: inline-flex; align-items: center; gap: 6px; }
+.wm-base .linkish { font-size: inherit; white-space: nowrap; }
+.wm-base .linkish[aria-expanded="true"] { text-decoration: underline; }
+.wm-base.ready { background: var(--ok-tint); color: var(--ok); }
+.wm-base.ready > .icon, .wm-base.ready > b { color: var(--ok); }
+.wm-base.failed { background: var(--bad-tint); color: var(--bad); }
+.wm-base.failed > .icon, .wm-base.failed > b { color: var(--bad); }
+.wm-base-slot + .w-foot { border-top-color: transparent; }
+
+/* (c) Its details: a popover over the step, anchored at the strip's right and opening upwards. Esc, ✕ or a click outside
+   close it; the setup goes on behind it. */
+.wb-pop { position: absolute; right: 12px; bottom: calc(100% + 10px); z-index: 6; width: min(460px, calc(100% - 24px));
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px 12px; background: var(--surface); color: var(--ink);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); box-shadow: var(--shadow-3);
+  font-size: var(--fs-md); line-height: var(--lh); white-space: normal; text-align: left; }
+.wb-pop[hidden] { display: none; }
+.wb-pop::after { content: ""; position: absolute; right: 30px; bottom: -6px; width: 10px; height: 10px; background: var(--surface);
+  border-right: var(--bw) solid var(--line); border-bottom: var(--bw) solid var(--line); transform: rotate(45deg); }
+.wb-pop b { color: var(--ink); font-weight: var(--fw-strong); }
+.wb-pop .wp-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.wb-pop .wp-head > .icon { width: 16px; height: 16px; color: var(--ink-2); flex: none; }
+.wb-pop .wp-gap { flex: 1; }
+.wb-pop .wp-head .btn.icon-only { margin: -4px -6px -4px 0; }
+.wb-pop .wp-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; color: var(--ink-2); font-size: var(--fs-sm); }
+.wb-pop .wp-meta code { font-size: var(--fs-sm); }
+.wb-pop .wp-bar { height: 6px; border-radius: var(--r-pill); background: var(--data-free); overflow: hidden; }
+.wb-pop .wp-bar > span { display: block; height: 100%; background: var(--accent); border-radius: inherit; }
+.wb-pop.ok .wp-bar > span { background: var(--ok); }
+.wb-pop.bad .wp-bar > span { background: var(--bad); }
+.wb-pop .wp-nums { display: flex; flex-wrap: wrap; gap: 2px 14px; font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wb-pop .wp-nums b { color: var(--ink); font-weight: var(--fw-medium); }
+.wb-pop ol.wp-steps { list-style: none; margin: 0; padding: 0; display: grid; border: var(--bw) solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.wb-pop .wp-steps li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; padding: 6px 10px;
+  border-top: var(--bw) solid var(--line); font-size: var(--fs-sm); }
+.wb-pop .wp-steps li:first-child { border-top: 0; }
+.wb-pop .wp-steps li > .icon, .wb-pop .wp-steps li > .mini-spin { width: 14px; height: 14px; }
+.wb-pop .wp-steps li > .wp-n { width: 14px; text-align: center; color: var(--ink-2); font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
+.wb-pop .wp-steps li.done > .icon { color: var(--ok); }
+.wb-pop .wp-steps li.failed { background: var(--bad-tint); }
+.wb-pop .wp-steps li.failed > .icon { color: var(--bad); }
+.wb-pop .wp-steps li.current { background: var(--accent-tint); font-weight: var(--fw-medium); }
+.wb-pop .wp-steps li.later { color: var(--ink-2); }
+.wb-pop .wp-steps .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.wb-pop .wp-steps .wp-sub { grid-column: 2 / -1; color: var(--ink-2); font-weight: var(--fw-regular); overflow-wrap: anywhere; }
+.wb-pop pre.wp-tail { margin: 0; padding: 7px 9px; max-height: 84px; overflow: auto; border-radius: var(--r-sm); background: var(--term-bg); color: var(--term-ink);
+  font: 11.5px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.wb-pop .wp-note { margin: 0; color: var(--ink-2); font-size: var(--fs-sm); }
+.wb-pop .wp-acts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding-top: 2px; }
+
+/* (d) Welcome's checks, inline: one compact grid; a failing required one stops Get started. */
+.ob-checks { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px 14px; padding: 10px 12px; background: var(--surface);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); }
+.ob-check { display: flex; align-items: baseline; gap: 7px; min-width: 0; font-size: var(--fs-md); }
+.ob-check .icon { width: 14px; height: 14px; flex: none; transform: translateY(2px); }
+.ob-check.ok .icon { color: var(--ok); }
+.ob-check.warn .icon { color: var(--warn); }
+.ob-check.fail .icon { color: var(--bad); }
+.ob-check span { min-width: 0; overflow-wrap: anywhere; }
+.ob-check small { color: var(--ink-2); font-size: var(--fs-sm); }
+.ob-check .tag { margin-left: 6px; }
+
+/* (e) The one base: a single card; how the layers stack. */
+.ob-base { display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: 4px 14px; padding: 14px 16px; border-radius: var(--r-lg); border: var(--bw) solid var(--accent);
+  background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent); }
+.ob-base > .icon { grid-row: span 3; width: 28px; height: 28px; color: var(--accent); margin-top: 2px; }
+.ob-base .t { font-size: var(--fs-xl); font-weight: var(--fw-strong); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ob-base .u { color: var(--ink); }
+.ob-base .m { color: var(--ink-2); font-size: var(--fs-sm); display: flex; gap: 6px 14px; flex-wrap: wrap; }
+.ob-layers { display: grid; gap: 0; border: var(--bw) solid var(--line); border-radius: var(--r-lg); overflow: hidden; background: var(--surface); font-size: var(--fs-md); }
+.ob-layers > div { display: flex; align-items: center; gap: 8px; padding: 7px 12px; border-top: var(--bw) solid var(--line); min-width: 0; flex-wrap: wrap; }
+.ob-layers > div:first-child { border-top: 0; }
+.ob-layers .ly-base { background: var(--surface-2); font-weight: var(--fw-medium); }
+.ob-layers .ly-base .icon { width: 14px; height: 14px; }
+.ob-layers .ly-tools { display: flex; gap: 6px; flex-wrap: wrap; min-width: 0; }
+.ob-layers .ly-k { color: var(--ink-2); font-size: var(--fs-sm); width: 92px; flex: none; }
+.ly-chip { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: var(--r-sm); background: var(--surface-2); font-size: var(--fs-sm); }
+
+/* (f) Models & keys: two columns — the sign-ins and what can be tried; the keys by Providers / Gateways / No key. */
+.ob-two { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 14px 24px; align-items: start; }
+.ob-two > div { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.wiz-card .w-body .ob-two h3 { margin: 0; }
+.ms-src.compact .ms-opt { grid-template-columns: 18px max-content minmax(0, 1fr) auto; padding-top: 6px; padding-bottom: 6px; }
+.ms-src.compact .ms-opt:hover { background: transparent; }
+.ms-src.compact .ms-d { grid-column: 3; grid-row: 1; color: var(--ink-2); font-size: var(--fs-sm); min-width: 0; }
+.ms-src.compact .ms-k { grid-row: 1; grid-column: 4; }
+.ms-src.compact .ms-t { grid-column: 2; grid-row: 1; }
+.ms-src.compact .ms-opt > .icon { width: 16px; height: 16px; color: var(--ink-2); }
+.ms-src.compact .ms-opt.have > .icon { color: var(--ok); }
+.ms-small { font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ob-ready { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 6px; }
+.ob-ready.one-col { grid-template-columns: minmax(0, 1fr); }
+.ob-tool { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 1px 8px; align-items: center; padding: 7px 10px; border: var(--bw) solid var(--line);
+  border-radius: var(--r-md); background: var(--surface); }
+.ob-tool > .mark, .ob-tool > .icon { width: 18px; height: 18px; grid-row: span 2; }
+.ob-tool .t { font-weight: var(--fw-medium); }
+.ob-tool .d { grid-column: 2 / -1; color: var(--ink-2); font-size: var(--fs-sm); }
+.ob-tool .s { grid-row: 1; grid-column: 3; display: inline-flex; color: var(--ok); }
+.ob-tool .s .icon { width: 15px; height: 15px; }
+.ob-tool.no .t, .ob-tool.no > .mark { color: var(--ink-2); }
+.ob-tool.no .s { color: var(--ink-2); }
+.ob-signins { display: grid; gap: 0; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.ob-signin { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 14px; border-top: var(--bw) solid var(--line); }
+.ob-signin:first-child { border-top: 0; }
+.ob-signin > .mark, .ob-signin > .icon { width: 20px; height: 20px; grid-row: span 2; }
+.ob-signin .t { font-weight: var(--fw-strong); }
+.ob-signin .d { grid-column: 2; font-size: var(--fs-sm); color: var(--ink-2); }
+.ob-signin .k { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 8px; align-items: center; }
+
+/* (g) First sandbox: the tools' cards and the plan beside them. */
+.ob-try { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ob-try .qt-results { padding: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 8px; }
+.ob-try .qt-item { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 10px 12px;
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); }
+.ob-try .qt-item .need { grid-column: 1 / -1; font-size: var(--fs-sm); color: var(--ink-2); }
+.ob-try .qt-item.dim { background: var(--surface-2); }
+.ob-try .qt-item.dim .t, .ob-try .qt-item.dim > .mark { color: var(--ink-2); }
+.ob-plan { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); min-width: 0; }
+.ob-plan .qt-sect { display: flex; flex-direction: column; gap: 10px; }
+.wiz-card .w-body .ob-plan h3 { margin: 0; }
+.ob-plan .qt-plan { margin: 0; }
+.ob-plan .fs-name, .ob-plan .fs-folder { margin: 0; }
+.ob-plan .fs-folder .wiz-choice { padding-block: 6px; }
+.ob-open { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 10px 12px; border-radius: var(--r-md); background: var(--surface-2); }
+.ob-open input { margin-top: 2px; }
+.ob-open .d { grid-column: 2; color: var(--ink-2); font-size: var(--fs-sm); }
+
+@media (max-width: 1000px) { .ob-two, .ob-try { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  .wiz-card .w-body.w2 { padding: 18px 16px 22px; }
+  .wm-base { padding: 7px 16px; }
+  .wm-base .wb-bar { flex-basis: 70px; }
+  .wm-base .wb-long { display: none; }
+  .wb-pop { left: 8px; right: 8px; width: auto; }
+  .wb-pop::after { right: 26px; }
+  .ms-src.compact .ms-opt { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .ms-src.compact .ms-d { grid-column: 2; grid-row: 2; }
+  .ms-src.compact .ms-k { grid-column: 3; grid-row: 1 / span 2; }
+  .ob-signin { grid-template-columns: 22px minmax(0, 1fr); }
+  .ob-signin .k { grid-column: 2; grid-row: auto; flex-wrap: wrap; margin-top: 4px; }
+  .ob-layers .ly-k { width: 100%; }
+}
+@media (max-width: 520px) { .ob-try .qt-results { grid-template-columns: minmax(0, 1fr); } }
 }

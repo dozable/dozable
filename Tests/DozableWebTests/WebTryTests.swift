@@ -28,6 +28,19 @@ final class WebTryTests: XCTestCase {
         }
     }
 
+    /// 634: the setup's First sandbox plans with purpose `first` (a tool, a name, a project folder of this Mac).
+    func testTheFirstSandboxsQuestion() throws {
+        let f = try q(#"{"purpose":"first","agent":"claude-code","name":"claude","workspace":"/tmp/634-first-project"}"#)
+        XCTAssertEqual(f.request.purpose, "first")
+        XCTAssertEqual(f.request.name, "claude")
+        XCTAssertEqual(f.request.create.workspace?.hasSuffix("/tmp/634-first-project"), true, "normalized as the create action does (links resolved)")
+        XCTAssertEqual(try q(#"{"purpose":"first","agent":"pi","workspace":"~/code/x"}"#).workspace?.hasPrefix("/"), true, "~/… made absolute")
+        for bad in [#"{"purpose":"first"}"#, #"{"purpose":"first","agent":"pi","workspace":"relative/path"}"#,
+                    #"{"purpose":"first","agent":"pi","workspace":"/tmp/x","isolated":true}"#, #"{"purpose":"later","agent":"pi"}"#] {
+            XCTAssertThrowsError(try q(bad), bad)
+        }
+    }
+
     func testTheRoutesAreTypedAndAllowed() {
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/plan"), .plan)
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/try"), .tryCatalog)
@@ -126,12 +139,13 @@ final class WebTryTests: XCTestCase {
     }
 
     func testATryIsMadeByTheOrdinaryCreateAction() throws {
-        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","network":"locked","trial":true}"#.utf8))
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","network":"locked"}"#.utf8))
         guard case .create(let name, let o) = a else { return XCTFail("not create") }
         XCTAssertEqual(name, "try-grok")
-        XCTAssertEqual(o.trial, true)
+        XCTAssertEqual(o.network, "locked")
         XCTAssertEqual(a.hostOp, .create, "one HostOp, as ever")
-        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"x","image":"grok","trial":"yes"}"#.utf8)))
+        // 634: a try is no longer marked — `trial` is an unknown field now, refused like any other.
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"try-grok","image":"grok","trial":true}"#.utf8)))
     }
 
     func testAProvidersKeyMayBePastedNeverACustomOne() throws {
@@ -249,7 +263,7 @@ final class WebTryTests: XCTestCase {
                     #"{"purpose":"try","agent":"shell-gpt","model":"$(rm -rf /)"}"#, #"{"purpose":"try","agent":"shell-gpt","source":3}"#] {
             XCTAssertThrowsError(try WebPlanQuery.decode(Data(bad.utf8)), bad)
         }
-        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-sgpt","image":"shell-gpt","trial":true,"modelSource":"vercel-ai-gateway","model":"openai/gpt-5.4-mini"}"#.utf8))
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"try-sgpt","image":"shell-gpt","modelSource":"vercel-ai-gateway","model":"openai/gpt-5.4-mini"}"#.utf8))
         guard case .create(_, let o) = a else { return XCTFail("not create") }
         XCTAssertEqual(o.modelSource, "vercel-ai-gateway")
         XCTAssertEqual(o.model, "openai/gpt-5.4-mini")

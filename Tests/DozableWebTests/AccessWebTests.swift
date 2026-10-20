@@ -23,10 +23,10 @@ final class AccessWebTests: XCTestCase {
         for bad in [#"{"secret":"short"}"#, #"{"secret":"two words here and more words"}"#, #"{"secret":"x","remove":true}"#, #"{"remove":false}"#] {
             XCTAssertThrowsError(try WebAccessGitHubKey.decode(Data(bad.utf8)), bad)
         }
-        let o = try WebOnboardingConfig.decode(Data(#"{"defaultImage":"lab","account":"later","access":{"github":"push","ssh":"off"}}"#.utf8))
+        let o = try WebOnboardingConfig.decode(Data(#"{"base":"node","access":{"github":"push","ssh":"off"}}"#.utf8))
         XCTAssertEqual(o.access, WebAccessChoices(github: "push", ssh: "off"))
-        XCTAssertNil(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"lab","account":"later"}"#.utf8)).access)
-        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"lab","account":"later","access":{"github":"yes"}}"#.utf8)))
+        XCTAssertNil(try WebOnboardingConfig.decode(Data(#"{"base":"node"}"#.utf8)).access)
+        XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(#"{"base":"node","access":{"github":"yes"}}"#.utf8)))
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/access"), .access)
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/access/check"), .accessCheck)
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/access/github-key"), .accessGithubKey)

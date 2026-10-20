@@ -274,16 +274,13 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var sessionStatuses: [WebAgentStatus]?
     public var agentStatus: WebAgentStatus?
     public var agentWorking: Bool?
-    /// 617: a try (the dashboard's Quick try, `doz try`): its page offers Sleep · Delete · Keep; `trialFolder` is the
-    /// folder Dozable made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
-    public var trial: Bool?
-    public var trialFolder: String?
+    /// 634: the folder Dozable made for it (nil: none, or one the person chose) — what a Delete removes when it is empty.
+    public var createdFolder: String?
     /// 617 (RP-1): its web ports — the header's Open buttons (listening, with a URL) and the details' list.
     public var ports: [WebPort]?
 
     public init(_ i: SandboxInfo) {
-        trial = i.trial
-        trialFolder = i.trialFolder
+        createdFolder = i.createdFolder
         ports = i.ports.map { $0.map(WebPort.init) }
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
         agentStatus = i.agentStatus.map(WebAgentStatus.init)
@@ -648,7 +645,6 @@ public struct WebGuide: Codable, Equatable, Sendable {
     public var agentSession: String
     public var howTo: String
     public var intro: String
-    public var trial: Bool
     public var facts: [Fact]
     public var steps: [Step]
     public var tips: [String]
@@ -657,7 +653,6 @@ public struct WebGuide: Codable, Equatable, Sendable {
 
     public init(_ g: SandboxGuide) {
         agent = g.agent; title = g.title; what = g.what; session = g.session; agentSession = g.agentSession; howTo = g.howTo; intro = g.intro
-        trial = g.trial
         facts = g.facts.map { Fact(id: $0.id, label: $0.label, value: $0.value) }
         steps = g.steps.map { Step(text: $0.text, command: $0.command, edit: $0.edit == true) }
         tips = g.tips; docs = g.docs; checked = g.checked
@@ -711,6 +706,12 @@ public struct WebPreparation: Codable, Equatable, Sendable {
     public var stepUsualSeconds: Double?
     public var remainingSeconds: Double?
     public var estimateBasis: String?
+    /// 634: a BASE preparation (the store's one base): its catalogue id and title ("Node.js") — `image` is `base:<id>`.
+    public var base: String?
+    public var baseTitle: String?
+    /// 634: the download's bytes so far and in all (the setup's base strip: "130 of 381 MiB").
+    public var transferBytes: Int64?
+    public var transferTotalBytes: Int64?
 
     public struct WebPreparationStep: Codable, Equatable, Sendable {
         public var label: String
@@ -744,10 +745,15 @@ public struct WebPreparation: Codable, Equatable, Sendable {
         stepUsualSeconds = p.stepUsualSeconds
         remainingSeconds = p.remainingSeconds
         estimateBasis = p.estimateBasis
+        base = p.base
+        baseTitle = p.base.flatMap { BaseCatalogue.base($0)?.title }
+        transferBytes = p.transfer?.completedBytes
+        transferTotalBytes = p.transfer?.totalBytes
     }
 }
 
-/// 594: the onboarding wizard's facts (D11).
+/// 594: the onboarding wizard's facts (D11). 634 (the setup v2): the store's ONE base and the catalogue's others, the
+/// sign-ins found on this Mac and the key choices (providers, gateways — OpenRouter — and the key-less ones).
 public struct WebOnboarding: Codable, Equatable, Sendable {
     public struct Check: Codable, Equatable, Sendable {
         public var check: String
@@ -755,25 +761,34 @@ public struct WebOnboarding: Codable, Equatable, Sendable {
         public var detail: String
         public var hard: Bool
     }
-    public struct Image: Codable, Equatable, Sendable {
-        public var name: String
-        public var summary: String
-        public var download: String
-        public var estimate: String
-        public var diskBytes: Int64
-        public var prepared: Bool
-        public var recommended: Bool
-    }
-    public struct AccountOption: Codable, Equatable, Sendable {
-        public var value: String
-        public var label: String
-        /// What to run in a terminal (a key or a token is never typed in a browser).
-        public var commands: [String]
-    }
     public struct Record: Codable, Equatable, Sendable {
         public var dozVersion: String
         public var date: Date
         public var images: [String]
+        /// 634: the base the onboarding prepared (nil: none).
+        public var base: String?
+    }
+    /// 634: a base, as the Base image step shows it.
+    public struct Base: Codable, Equatable, Sendable {
+        public var id: String
+        public var title: String
+        public var useCase: String
+        /// `node:22-bookworm` (the registry's library prefix dropped).
+        public var reference: String
+        public var downloadBytes: Int64
+        public var prepareSeconds: Int
+        /// Prepared in this store (its flattened disk is there).
+        public var prepared: Bool
+    }
+    /// 634: one way to give tools a model — `Onboarding.KeyChoice`.
+    public struct KeyChoice: Codable, Equatable, Sendable {
+        public var id: String
+        public var title: String
+        public var gateway: Bool
+        public var keyless: Bool
+        public var accountKind: String
+        public var keyHint: String?
+        public var tools: [String]
     }
 
     public var onboarded: Record?
@@ -782,51 +797,52 @@ public struct WebOnboarding: Codable, Equatable, Sendable {
     /// A hard check other than the disk failed: onboarding cannot go on.
     public var blocked: Bool
     public var freeBytes: Int64?
-    public var commonBytes: Int64
-    /// The agent images' shared base, counted once when claude-code or pi is chosen.
-    public var nodeBaseBytes: Int64
-    public var headroomBytes: Int64
     public var macSignedIn: Bool
-    public var accountOptions: [AccountOption]
-    public var preferredAccount: String
+    /// 634: this Mac's own Codex login is signed in (read-only).
+    public var codexMac: Bool
     /// The store's default account now.
     public var defaultAccount: String
-    public var images: [Image]
+    /// 634: the store's base (`defaults.base`, else the onboarding's, else node) and every base of the catalogue.
+    public var base: Base?
+    public var bases: [Base]
+    /// What the base needs on disk now (0 when it is prepared).
+    public var baseNeedBytes: Int64
+    public var keyChoices: [KeyChoice]
     public var preparations: [WebPreparation]
     public var settingsPath: String?
     public var settingsExists: Bool
     public var promptTemplatePath: String?
     public var promptTemplateExists: Bool
-    /// The settings' defaults.image.
-    public var defaultImage: String
     /// 599g: the Workspace rules step's words (the same `doz onboard` prints).
     public var rulesGuide = WebRulesGuide()
 
-    public init(status: PrepareStatus, checks: [OnboardingCheck], freeBytes: Int64?, macSignedIn: Bool, defaultAccount: String,
-                versions: [String: String] = [:]) {
-        onboarded = status.onboarded.map { Record(dozVersion: $0.dozVersion, date: $0.date, images: $0.images) }
+    public init(status: PrepareStatus, checks: [OnboardingCheck], freeBytes: Int64?, macSignedIn: Bool, codexMac: Bool = false,
+                defaultAccount: String) {
+        onboarded = status.onboarded.map { Record(dozVersion: $0.dozVersion, date: $0.date, images: $0.images, base: $0.base) }
         hostRunning = status.hostRunning
         self.checks = checks.map { Check(check: $0.check, status: $0.status, detail: $0.detail, hard: $0.hard) }
         blocked = checks.contains { $0.blocks && $0.check != "disk" }
         self.freeBytes = freeBytes
-        commonBytes = Onboarding.commonBytes
-        nodeBaseBytes = Onboarding.nodeBaseBytes
-        headroomBytes = Onboarding.headroomBytes
         self.macSignedIn = macSignedIn
-        let (options, preferred) = Onboarding.accountOptions(macSignedIn: macSignedIn)
-        accountOptions = options.map { AccountOption(value: $0.rawValue, label: $0.label, commands: Onboarding.accountCommands($0)) }
-        preferredAccount = preferred.rawValue
+        self.codexMac = codexMac
         self.defaultAccount = defaultAccount
-        images = Onboarding.imageOptions(status.images, versions: versions).map {
-            Image(name: $0.name, summary: $0.summary, download: $0.download, estimate: $0.estimate, diskBytes: $0.diskBytes,
-                  prepared: $0.prepared, recommended: $0.recommended)
+        func short(_ r: String) -> String { r.hasPrefix("docker.io/library/") ? String(r.dropFirst("docker.io/library/".count)) : r }
+        let current = status.base
+        base = current.map { Base(id: $0.id, title: $0.title, useCase: $0.useCase, reference: short($0.reference), downloadBytes: $0.downloadBytes,
+                                  prepareSeconds: $0.prepareSeconds, prepared: $0.prepared) }
+        bases = BaseCatalogue.all.map { b in
+            Base(id: b.id, title: b.title, useCase: b.useCase, reference: short(b.reference), downloadBytes: b.downloadBytes,
+                 prepareSeconds: b.prepareSeconds, prepared: current?.id == b.id && current?.prepared == true)
+        }
+        baseNeedBytes = current.flatMap { c in BaseCatalogue.base(c.id).map { Onboarding.baseNeed($0, prepared: c.prepared) } } ?? 0
+        keyChoices = Onboarding.keyChoices().map {
+            KeyChoice(id: $0.id, title: $0.title, gateway: $0.gateway, keyless: $0.keyless, accountKind: $0.accountKind, keyHint: $0.keyHint, tools: $0.tools)
         }
         preparations = status.preparations.map(WebPreparation.init)
         settingsPath = nil
         settingsExists = false
         promptTemplatePath = nil
         promptTemplateExists = false
-        defaultImage = "lab"
     }
 }
 
@@ -842,6 +858,8 @@ public struct WebOnboardingConfigResult: Codable, Equatable, Sendable {
     public var accessSet: [String]? = nil
     /// 599g: the Workspace rules step's setting written (`key = value`; empty: the file already said so).
     public var rulesSet: [String]? = nil
+    /// 634: `defaults.base` written into a file that was kept (empty: the file already said so).
+    public var baseSet: [String]? = nil
 }
 
 /// 599g (owner A1/A2): workspace rules explained — `WorkspaceRulesGuide`, the words `doz onboard` and `doz init`
@@ -1107,7 +1125,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
     public var name: String
     public var image: Image
     public var workspace: String?
-    public var trial: Bool?
     public var command: String
     public var argv: [String]
     public var yaml: String
@@ -1122,7 +1139,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var workspace: String?
         public var isolated: Bool?
         public var account: String?
-        public var trial: Bool?
         public var modelSource: String?
         public var model: String?
     }
@@ -1136,7 +1152,6 @@ public struct WebPlan: Codable, Equatable, Sendable {
         name = p.name
         image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
         workspace = p.workspace
-        trial = p.trial
         command = p.command
         argv = p.argv
         yaml = p.yaml
@@ -1145,7 +1160,7 @@ public struct WebPlan: Codable, Equatable, Sendable {
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
         create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
-                        account: p.create.account, trial: p.create.trial, modelSource: p.create.modelSource, model: p.create.model)
+                        account: p.create.account, modelSource: p.create.modelSource, model: p.create.model)
         model = p.model.map { m in
             Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,
                   offered: m.offered.map { Model.Source(id: $0.id, title: $0.title, gateway: $0.gateway, defaultModel: $0.defaultModel,

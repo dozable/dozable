@@ -28,7 +28,9 @@ final class MajorChoiceTests: XCTestCase {
     }
 
     func plan(_ purpose: String, _ args: [String]) throws -> CreatePlan {
-        CreatePlanner.plan(PlanRequest(purpose: purpose, create: try ChoiceOptions.from(args).planChoices()), facts: facts())
+        // 634: as doz try asks — an image (or a base) named keeps its base; else a try's tool goes on the store's base.
+        let c = try ChoiceOptions.from(args)
+        return CreatePlanner.plan(PlanRequest(purpose: purpose, create: try c.planChoices(), baseChosen: c.namesTheBase ? true : nil), facts: facts())
     }
 
     var recommended: AgentRecipe { AgentRef.recommended("opencode")! }

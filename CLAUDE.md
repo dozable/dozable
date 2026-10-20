@@ -72,8 +72,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `router.js` (`route`, `routePage`, `refresh`), `events.js` (SSE `connect`) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `shortcuts` |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts` |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
@@ -824,14 +824,33 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (the dev baseline's apt is not silenced).
 - **`<store>/onboarded.json`, never `state.json`** — that name at the store's root is Containerization's
   image-store index. The HOST writes the record once every chosen image is ready, so a detached CLI
-  (Ctrl-C = detach, exit 130) or a closed wizard still completes the onboarding.
+  (Ctrl-C = detach, exit 130) or a closed wizard still completes the onboarding. 634: `doz onboard` prepares the
+  store's ONE base (`HostRequest.base` → the preparation `base:<id>`, recorded as `OnboardingRecord.base`), started at
+  its Base image step with `follow: false` while the questions go on, followed at the end; its First sandbox is the
+  planner's `first` purpose (a try's defaults, named after the tool, its command `doz new NAME --agent TOOL …`) made by
+  `QuickMake` — the ONE path `doz try` takes too.
 - **Settings and the prompt template are written ONLY when missing** (`Onboarding.write…IfMissing`) — an
-  existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config`.
+  existing file is never touched, by the CLI or the UI's `POST /api/v1/onboarding/config` (634: strictly `{base?,
+  access?, ignoreMode?}` — the base written into a kept file too, `Onboarding.writeBase`).
+- **The setup wizard v2** (634; the owner's chosen mockup onboarding-v2; `views/onboarding.js`, `core/wizards.js`):
+  `WIZ` = welcome, base, keys, access, rules, usage, signup, first; each step returns `{title, lead, body, foot}`, drawn as
+  a centred `.w2-head` over a `.w2-col` of `WIZ_SIZE` (narrow 480 · medium 680 · wide 1080). Base image's "Download and
+  continue" sends `onboard {base}` and moves on; from then on `components/base-strip.js` draws the base at the foot
+  (`[data-base-slot]`, above `.w-foot`) — a poll or a `preparations` event repaints ONLY the strip and the First sandbox's
+  image line (`renderWizard()` unforced), never a step, so nothing typed is redrawn; its bar never goes back (per
+  preparation); Details is a popover (its own capture-phase Esc runs before the modal's). Models & keys: the sign-ins
+  (`WebOnboarding.macSignedIn`/`codexMac`), the keys by Providers / Gateways / No key (`model-source.js` `haveList`,
+  `WebOnboarding.keyChoices`, pasted through `POST /api/v1/accounts`), and what can be tried (`GET try`, read again after a
+  key). Workspace rules' Next writes the settings. First sandbox plans with the planner's `first` purpose (`POST plan
+  {purpose:'first', agent, name?, workspace?, account?|source?}` — `readiness()` picks a usable key, else a key-less
+  source) and makes it through `views/quick-make.js` `startQuickMade` (the Quick try's own path; `back: 'onboarding'`
+  returns to the wizard on a failed create); the switch saves `sandbox.open_files` only when changed. Workspace probe
+  `probes/594-*/run-wizard-probe.sh` (allow · deny · basefail — `DOZ_TEST_BASE_FAIL`, guarded runs only).
 - **The account step never logs in and never reads a refresh token for use.** Options: `mac`, `api-key`,
   `setup-token`, `later` ("Decide later": one option for none/skip). A key or a token goes
   ONLY through `HostRequest.accountAdd` — the request `doz account add` sends (the login keychain, the one
   check request, `--plan`) — from `doz onboard`'s no-echo prompt (off a TTY only with `--secret-stdin`) or
-  the web UI's masked field. `doz onboard --account …` skips the Claude Code checks entirely; `doz ui`
+  the web UI's masked field. `doz onboard --key …` skips the Claude Code checks entirely (634: `--key` takes any published provider or gateway — OpenRouter too — and `setup-token`); `doz ui`
   under `DOZ_TEST_NO_MAC_LOGIN=1` (a test seam, the probes') never looks at the Mac's login.
 - **Secret entry in the browser**: `ui.allow_secret_entry` (default on; the UI can turn
   it off, never on — a reset would turn it on, so that is refused too). On: `POST /api/v1/accounts` — a
@@ -1481,7 +1500,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Not a security boundary** — said in the setting, `--help`, the manual and the facts. Root in the guest can
   kill the daemon or read through its fds; the view keeps an agent from stumbling into files.
 - **Explaining them**: ONE text, `WorkspaceRulesGuide` (DozableHost) — `doz onboard`'s step 3 and
-  `doz init`'s `rules` step (`RulesStep`, DozableCLI), the dashboard's onboarding (`wizStepRules`, steps named in
+  `doz init`'s `rules` step (`RulesStep`, DozableCLI), the dashboard's onboarding (`stepRules`, steps named in
   `WIZ`) and New Sandbox (`nwRules`), both drawn by `rulesStep()` (`components/rules-step.js`) from the served `rulesGuide`
   (`GET onboarding`, `POST project/open` — which also lists the folder's `rules`, inert). The onboarding writes
   `workspace.ignore_mode` ONLY when chosen (`Onboarding.writeIgnoreMode`, the Access rule; `--ignore-mode`,
@@ -1520,7 +1539,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Access — every credential a purposeful choice, each confirmed
 
 - **One step, three places**: `doz onboard`'s "2. Access" (`AccessStep` in `AccessCommands.swift`, shared with
-  `doz access` / `doz access set`), the wizard's step 2 and **Settings › Access** — both drawn by ONE
+  `doz access` / `doz access set`), the wizard's GitHub & SSH step (634: Claude's sign-in is Models & keys') and **Settings › Access** — both drawn by ONE
   self-contained component, `renderAccessStep(container, {mode: 'onboarding'|'sandbox'|'settings', state,
   claude, choices, onChange})` in `components/access-step.js` (599f's New Sandbox wizard reuses it). It writes NOTHING but the default
   GitHub key; the caller writes the choices (onboarding: `POST onboarding/config {access}`; sandbox: its create).
@@ -1748,7 +1767,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   the tool's program/command/short name or a plain shell builtin (validated). Every recipe has one (`GuideTests`);
   `make recipe-check` runs every later non-edit step (exit 0). Dozable writes the preamble and facts (`SandboxGuide.make`:
   version, source · model · the account's NAME, network, folder, persist dirs) — `SandboxDetail.guide` → `WebGuide` →
-  the inspector's Guide tab (first and chosen on a try, the details open on its first visit; Run = `sendInput` +
+  the inspector's Guide tab (the last tab, on every sandbox — 634: never chosen by itself; Run = `sendInput` +
   Enter into a live pane — the tool's own session for `launch.session: shell`, a shell beside an agent's screen; Type
   without Enter); `doz guide NAME`; `doz try` prints "Start here" for a shell tool; `deliverGuideNote` writes
   `/etc/profile.d/doz-guide.sh` (a shell tool's default session only) — the steps once per user (a stamp in
@@ -1910,8 +1929,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
   for new/try (name, workspace, Locked for a try) and what `--dry-run` prints (command, project file, reach from
   `DozableImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.
-- **`doz try`** (`TryCommand.swift`, `Try.swift`): a try is `SandboxConfig.trial`; its card comes from recipe `auth`
-  only (`TryCard`); its exit prompt runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
+- **`doz try`** (`TryCommand.swift`, `Try.swift`): 634 — what a try makes is an ORDINARY sandbox (no mark: 617's
+  `SandboxConfig.trial`/`trialFolder` are gone, an old doz.json carrying them loads with both ignored); its card comes
+  from recipe `auth` only (`TryCard`); its exit prompt ("Leaving NAME — [S]leep / [d]elete / [k]eep running") runs after `AttachClient.attach` — the RETURNING attach: every way out is recorded
   (`endAttach`), the keyboard thread is stopped by a self-pipe (`stoppableRead`) so the prompt gets its first key; keep
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
 - **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal over the app, like onboarding (owner: the
@@ -1942,9 +1962,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   readiness; one read at a time (`tr.reader`, aborted on close), a failure said in the list with Retry, never "nothing
   matches" while loading (`data-try-state` loading|list|full). `TryPlansTests`, `probes/617-*/stageE/browser-try-open-fast.mjs`
   (its control against 16e91ea shows the delay). It makes the try with the
-  ORDINARY `create` action (`trial`, the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
-  provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). A try's page has
-  the try bar (its message, Delete… · Keep — owner, 617.05: Sleep is the action bar's). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
+  ORDINARY `create` action (the plan's `create` fields) — browsing prepares NOTHING (owner: no build per recipe looked at; the CLI's `doz try AGENT` still prepares early: an agent named on purpose) — pastes a
+  provider's key only through `POST /api/v1/accounts` (kind `key` + provider; sources stay CLI-only). Its page is an
+  ordinary sandbox's (634: no try tag, no try bar, no Guide-first). `doz try --ui [AGENT]` (`showDashboardPage`, UICommand.swift — the
   only CoreServices file): starts doz ui detached when none runs; an open page is pointed there by `ui.sock`'s `show
   try[/AGENT]` line (SSE `show`; `WebControl.showPage` and the page both allow ONLY that hash) — a page cannot raise its
   own window, so the CLI activates the default browser through LaunchServices (`bringBrowserForward`, no AppleScript)
@@ -1955,7 +1975,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   for `up` (`project/preview`'s `plan`), and its name follows the agent/base until edited. `WebTryTests`;
   `probes/617-*/stageD/browser-try.mjs` (headless Chrome, scratch profile, screenshots).
 - **The start sequence** (617.05, owner: "a confusing flash of activity"; one stable page): from Start the sandbox
-  page is there at once (header, action bar, try banner, the nav entry) and NOTHING later moves it. 617 (owner, 2026-10-15:
+  page is there at once (header, action bar, the nav entry) and NOTHING later moves it. 617 (owner, 2026-10-15:
   "fix the delay when clicking the Try button"): `tryCreate` moves in the click's own frame — Start says Starting… (spinner), both
   modals close, the try's page draws its header from the PLAN (`state.pendingTry`, `drawPendingTry`: the same parts as its detail
   will, so nothing moves; the nav lists it) and an indeterminate "Preparing NAME" panel, while the create runs behind it (a 404
@@ -2013,9 +2033,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   EVENT-driven (`waitOp`/`waitForOp` settle in `trackOp`): a hidden tab's short timers run once a minute (Chrome's
   intensive throttling — the owner's 68 s pause). `browser-try-twice.mjs` (throttling emulated), `browser-start-progress.mjs`.
 - **A try's folder and bridges** (owner, after the demo): a try gets a NEW EMPTY folder under `defaults.projects_dir`
-  (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem), recorded as
-  `SandboxConfig.trialFolder` ONLY when Dozable made it; `rm` removes it with the sandbox when empty (host), the CLI asks
-  about one with files (`cleanUpTryFolder`). The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
+  (`CreatePlanner.tryName` skips a name whose folder holds anything; a given one is a plan problem). 634 — **every
+  sandbox's easy delete**: any create records `SandboxConfig.createdFolder` ONLY when Dozable made the folder (never one
+  that was there, never for a duplicate); `rm` removes it with the sandbox when empty (host), the CLI asks about one with
+  files (`cleanUpCreatedFolder`), the page's Remove… says so (`components/lifecycle.js`). `CreatedFolderTests`, TrySuite 6. The plan's reach says the folder and the bridges (`folder`/`bridge` lines).
   Copying works in every agent: sessions get `GROK_OSC52_SINK=1` while the clipboard bridge is on
   (`HostCore.withClipboardSink` — Grok Build otherwise picks no OSC 52 route in a VM), and `xclip`/`xsel`/`wl-copy`
   are the guest's `doz-copy` shim (`GuestCommand.copyShim`, beside the open shim, stamp — bump it on any change):

@@ -450,8 +450,7 @@ public actor HostCore {
                            foreignCredentials: egress.map { $0.vault.foreignSightings.count }.flatMap { $0 == 0 ? nil : $0 })
         i.agent = m.sandbox.spec.imageSpec?.name
         i.credentialProblem = credentialProblem(m)
-        i.trial = m.config.trial
-        i.trialFolder = m.config.trialFolder
+        i.createdFolder = m.config.createdFolder
         i.agentRef = m.config.agentRef            // 618
         i.extraKeys = m.config.extraKeys
         // 617 (RP-1): whether something serves each port — read in the background, never on this call's path.
@@ -728,7 +727,7 @@ public actor HostCore {
         case .ports:
             return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
         case .plan:
-            guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init or try)") }
+            guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init, try or first)") }
             let e = await exactVersionProblem(p.create, mustCheck: false)
             return try JSONValue(encoding: plans([p], versionProblems: e.map { [0: $0] } ?? [:])[0])
         case .plans:
@@ -983,11 +982,9 @@ public actor HostCore {
         if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }), r.family != nil || o.agentRef != nil {
             cfg.agentRef = AgentRef.recorded(r, version: spec.imageSpec?.agent?.version)
         }
-        if o.trial == true {                           // 617 (D14)
-            cfg.trial = true
-            // The try's own folder — made now by Dozable, so its delete may offer to remove it (never one of yours).
-            if let p = prepared, p.created { cfg.trialFolder = p.path }
-        }
+        // 634 (owner: "drop the special status of a try … but keep the ability to easily delete"): a folder Dozable made
+        // now, for ANY sandbox, is recorded — its delete removes it while it is empty (never a folder that was there).
+        if let p = prepared, p.created { cfg.createdFolder = p.path }
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
         var createDetail = ["network": cfg.networkName]
@@ -1174,9 +1171,9 @@ public actor HostCore {
         case .reset:
             action = ("reset to image", { try await sb.resetToImage() })
         case .rm:
-            // 617: a try's own folder (Dozable made it) goes with it while it is EMPTY — the dashboard's Delete and `doz rm`
-            // alike; one that holds the agent's files is the person's to keep or delete (the CLI asks; the page says where).
-            let folder = m.config.trial == true ? m.config.trialFolder : nil
+            // 634: the folder Dozable made for it (any sandbox) goes with it while it is EMPTY — the dashboard's Delete and
+            // `doz rm` alike; one that holds files is the person's to keep or delete (the CLI asks; the page says where).
+            let folder = m.config.createdFolder
             action = ("delete sandbox", {
                 try await sb.delete()
                 if let f = folder, FileManager.default.fileExists(atPath: f), Workspace.isEmptyOrMissing(f) {
@@ -2046,8 +2043,7 @@ public actor HostCore {
         cfg.credentialSources = [:]
         cfg.diedWithHostAt = nil
         cfg.placeholderHashes = nil
-        cfg.trial = nil                 // 617: a duplicate is kept on purpose — never a try; its custom keys (extraKeys) come along
-        cfg.trialFolder = nil
+        cfg.createdFolder = nil         // 634: a duplicate never owns its source's folder; its custom keys (extraKeys) come along
         if spec.network.policy == nil { cfg.extraKeys = nil }
         if spec.network.policy != nil {
             switch o.account {

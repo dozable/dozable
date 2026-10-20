@@ -231,10 +231,10 @@ final class WorkspaceRulesHostTests: XCTestCase {
         XCTAssertEqual(try Onboarding.writeIgnoreMode("lock", environment: env), ["workspace.ignore_mode = lock"])
         XCTAssertThrowsError(try Onboarding.writeIgnoreMode("open", environment: env))
         // The dashboard's body: ignoreMode is optional, lock or hide, never anything else.
-        XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"lab","account":"later","ignoreMode":"hide"}"#.utf8)).ignoreMode, "hide")
-        XCTAssertNil(try WebOnboardingConfig.decode(Data(#"{"defaultImage":"lab","account":"later"}"#.utf8)).ignoreMode)
-        for bad in [#"{"defaultImage":"lab","account":"later","ignoreMode":"open"}"#, #"{"defaultImage":"lab","account":"later","ignoreMode":true}"#,
-                    #"{"defaultImage":"lab","ignoreMode":"lock"}"#, #"{"defaultImage":"lab","account":"later","ignore_mode":"lock"}"#] {
+        XCTAssertEqual(try WebOnboardingConfig.decode(Data(#"{"base":"node","ignoreMode":"hide"}"#.utf8)).ignoreMode, "hide")
+        XCTAssertNil(try WebOnboardingConfig.decode(Data(#"{"base":"node"}"#.utf8)).ignoreMode)
+        for bad in [#"{"base":"node","ignoreMode":"open"}"#, #"{"base":"node","ignoreMode":true}"#,
+                    #"{"defaultImage":"lab","ignoreMode":"lock"}"#, #"{"base":"node","ignore_mode":"lock"}"#] {
             XCTAssertThrowsError(try WebOnboardingConfig.decode(Data(bad.utf8)), bad)
         }
     }

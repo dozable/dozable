@@ -10,24 +10,21 @@
 //
 // The same decisions as `doz try`: the host's planner (`POST plan`, purpose try) names it try-AGENT, gives it a NEW
 // EMPTY folder of its own, Locked + its own model, the agent's own base and a key it can use. Browsing prepares
-// NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action (trial), starts it
-// (the image prepared then, its progress in the terminal area) and opens its session. A try's page then offers
-// Sleep · Delete · Keep (`tryBar`, views/sandbox.js).
+// NOTHING (owner: no build per recipe looked at); Start makes it with the ordinary `create` action, starts it (the
+// image prepared then, its progress in the terminal area) and opens its session. 634: what it makes is an ordinary
+// sandbox — no mark, no try bar; its folder goes with it while empty, as every sandbox's Dozable-made folder does.
 import { h } from '../dom/h.js';
 import { icon, mark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { rank, suggest } from '../core/agent-search.js';
-import { actOrThrow, beginTransition, cancelTransition, prepRunning, waitOp } from '../core/operations.js';
+import { prepRunning } from '../core/operations.js';
 import { secretEntryAllowed } from '../core/settings.js';
 import { state } from '../core/state.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
-import { startWithBootView } from '../components/lifecycle.js';
 import { renderModal, wizardCloseRequest } from '../components/modal.js';
-import { renderNavSandboxes } from '../components/nav.js';
 import { pageFailure, toast } from '../components/notices.js';
-import { paintStartProgress } from '../components/start-progress.js';
-import { drawPendingTry } from './sandbox.js';
+import { startQuickMade } from './quick-make.js';
 import { planCommand, reachList } from '../components/plan-view.js';
 import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source.js';
 import { prepCard } from '../components/prep-card.js';
@@ -772,7 +769,7 @@ function planFacts(a, p) {
     ...fact('Same in Terminal', h('code', { 'data-try-command': '' }, p.command)));
 }
 
-/// Start → the ordinary `create` action (a try: `trial`, its new folder, the account the setup chose), then the start
+/// Start → the ordinary `create` action (its new folder, the account the setup chose), then the start
 /// with the boot view, which opens its own session in a terminal on its page.
 /// 617 (owner, 2026-10-15: "fix the delay when clicking … There should be immediate feedback and … the try browser /
 /// detail modals should close"): the click's own frame disables Start with a spinner, closes both modals and goes to
@@ -787,47 +784,23 @@ async function tryCreate(button) {
   button.disabled = true;
   button.setAttribute('aria-busy', 'true');
   button.replaceChildren(h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), h('span', null, 'Starting…'));
-  const c = plan.create, name = plan.name;
-  state.pendingTry = { name, agent: a.id, title: a.title, image: c.image, imageTitle: plan.image && plan.image.title,
-    workspace: c.workspace || null, account: plan.account && plan.account.name, network: c.network || 'locked',
-    plan, account_: SETUP.account, error: null, at: Date.now() };
-  beginTransition(name, 'start', ['start']);
-  renderNavSandboxes();
-  if (SETUP.d) SETUP.d.close();
-  state.tr = null;
-  location.hash = '#/sandbox/' + name;
-  try {
-    const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image, trial: true,
-      ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
-      ...(c.account ? { account: c.account } : {}),
-      ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}) });
-    const end = await waitOp(op.id);
-    if (!end || end.state !== 'done') throw new Error((end && end.text) || 'the try was not made');
-    // The nav lists it, then its own page takes over from the plan's (the start keeps the transition and the panel).
-    try { state.overview = await api('overview'); renderNavSandboxes(); } catch (_) { /* the next poll */ }
-    const p = state.pendingTry;
-    if (p && p.name === name) state.pendingTry = null;
-    startWithBootView(name);
-  } catch (e) {
-    const p = state.pendingTry;
-    if (p && p.name === name) p.error = e.message || String(e);
-    cancelTransition(name, 'start');
-    renderNavSandboxes();
-    SETUP.busy = false;
-    upcallRepaint(name);
-  }
+  // 634: the one quick path, shared with the setup's First sandbox (views/quick-make.js).
+  const ok = await startQuickMade({ plan, agent: a.id, title: a.title, account: SETUP.account,
+    before: () => { if (SETUP.d) SETUP.d.close(); state.tr = null; } });
+  if (!ok) SETUP.busy = false;
 }
 
-/// The try's page repaints what it shows of a failed create (the header and the panel).
-function upcallRepaint(name) {
-  if (state.view === 'sandbox' && state.param === name) { drawPendingTry(name); paintStartProgress(); }
-}
-
-/// 617: Back to setup — Quick try on the agent, its setup reopened with the plan and the error it had.
+/// 617: Back to setup — Quick try on the agent, its setup reopened with the plan and the error it had. 634: a sandbox
+/// the setup wizard made goes back to the wizard's First sandbox, with the error.
 export function backToTrySetup() {
   const p = state.pendingTry;
   if (!p) return;
   state.pendingTry = null;
+  if (p.back === 'onboarding') {
+    if (state.wiz) state.wiz.error = p.error;
+    location.hash = '#/onboarding';
+    return;
+  }
   location.hash = '#/try/' + p.agent;
   const until = Date.now() + 15000;
   const again = () => {

@@ -269,6 +269,45 @@ public struct ImageBaker: Sendable {
         return try await bake(imageSpec, key: key, inputs: inputs, events: events)
     }
 
+    /// 634 (owner: "focus a single base image … allowing it to start downloading while the remainder of the onboarding
+    /// steps continue"): a BASE alone, before any tool is baked on it — its OCI image pulled (or found cached) and
+    /// flattened once per base key, the very disk every later bake of a tool on this base clones (`bake` below finds it
+    /// in the content store and in `images/bases/`). The same two step labels a bake uses; nothing here changes a bake
+    /// key, script or check.
+    @discardableResult
+    public func prepareBase(_ imageSpec: ImageSpec, events: @escaping @Sendable (SandboxEvent) -> Void = { _ in }) async throws -> BaseDisk {
+        if let hit = cachedBase(imageSpec.baseKey) {
+            events(.note("base disk ready (cached, \(imageSpec.baseKey.prefix(12)))"))
+            return hit
+        }
+        let store = try ImageStore(path: storeRoot)
+        let cachedImage = try? await store.get(reference: imageSpec.base, pull: false)
+        let baseName = imageSpec.base.split(separator: "@").first.map(String.init) ?? imageSpec.base
+        let pullLabel = cachedImage != nil ? "base image \(baseName) (cached)" : "pulled the base image \(baseName)"
+        let t0 = ContinuousClock.now
+        events(.stepStarted(pullLabel))
+        let image: Containerization.Image
+        do {
+            if let cachedImage { image = cachedImage } else { image = try await Self.pull(imageSpec.base, store: store, events: events) }
+        } catch {
+            events(.stepFailed(pullLabel, milliseconds: milliseconds(since: t0), error: error.localizedDescription))
+            throw error
+        }
+        events(.step(pullLabel, milliseconds: milliseconds(since: t0)))
+        try Task.checkCancellation()
+        let baseLabel = "base disk flattened (\(Self.shortReference(imageSpec.base)), \(imageSpec.baseKey.prefix(12)))"
+        let tb = ContinuousClock.now
+        events(.stepStarted(baseLabel))
+        let base: BaseDisk
+        do { base = try await ensureBase(imageSpec, image: image, events: events) } catch {
+            events(.stepFailed(baseLabel, milliseconds: milliseconds(since: tb), error: error.localizedDescription))
+            throw error
+        }
+        events(.step("\(baseLabel) → \(Self.mib(base.manifest.allocatedBytes)) MiB written, a \(imageSpec.rootfsMiB) MiB disk",
+                     milliseconds: milliseconds(since: tb)))
+        return base
+    }
+
     private func bake(_ imageSpec: ImageSpec, key: String, inputs: BakeInputs,
                       events: @escaping @Sendable (SandboxEvent) -> Void) async throws -> BakedImage {
         let fm = FileManager.default

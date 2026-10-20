@@ -123,7 +123,7 @@ func cliTerminalRestoreSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: a detach puts the outer terminal back (W13) — on a pseudo-terminal")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["up", "tr", "--image", "lab", "--isolated", "--memory", "512M", "--detach"], timeout: 600)
     check(r.code == 0, "up tr --image lab --detach (exit \(r.code))")
 

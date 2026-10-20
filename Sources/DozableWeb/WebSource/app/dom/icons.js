@@ -91,6 +91,13 @@ export function mark(m, cls) {
   span.append(svg);
   return span;
 }
+/// 634 (owner: "use a different icon for the waiting step"): a step that only waits for another preparation (the
+/// host's "waited for the <base> base") shows an hourglass, not the spinner of work under way.
+export function isWaitStep(text) { return /^waited for the /.test(String(text || '').trim()); }
+export function busyMark(waiting, title) {
+  return waiting ? h('span', { class: 'wait-mark', title: title || 'waiting', 'aria-hidden': 'true' }, icon('hourglass'))
+                 : h('span', { class: 'mini-spin', title: title || 'running', 'aria-hidden': 'true' });
+}
 /// A label's icon: the exact label, else its first word; the fallback is a visible "missing" (the probe fails on it).
 const ICON_EXACT = {
   'open in terminal': 'square-terminal', 'set the default to none': 'ban', 'make default': 'star', 'save as template…': 'layout-template',

@@ -15,7 +15,7 @@ func cliTimeZoneSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: the sandbox follows the Mac's time zone (W10)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     check(t.run(["create", "tz1", "--image", "lab", "--isolated", "--memory", "512M", "--start"], timeout: 600).code == 0, "create tz1 --start")
     func zone() -> String { t.run(["exec", "tz1", "--", "sh", "-c", "echo $(cat /etc/timezone) $(date +%Z)"]).out.trimmingCharacters(in: .whitespacesAndNewlines) }
     var z = zone()

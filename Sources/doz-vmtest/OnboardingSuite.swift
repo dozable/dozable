@@ -1,10 +1,11 @@
 // 594 — onboarding end to end, from separate processes of the REAL signed doz (part of `make test-cli`):
 //
-//   · onboard off a terminal never asks; writes doz.toml and agent-prompt.md only when missing; the
-//     store's onboarded.json once its image is ready; a re-run prepares nothing (D7–D10)
+//   · onboard off a terminal never asks; its steps in order (634); writes doz.toml and agent-prompt.md only when
+//     missing; the store's onboarded.json once its base is ready; a re-run prepares nothing (D7–D10)
+//   · a key the `doz account add` way: an Anthropic key, an OpenRouter key (634)
 //   · a hard check stops it with its reason (the store's socket path too long)
-//   · D4: a `start` while `onboard` prepares the lab joins that preparation — one preparation, one bake
-//   · D3: SIGINT detaches `onboard` (exit 130) and the host goes on; `--cancel` cancels it
+//   · 634: a bake on the base started while `onboard` prepares the base WAITS for it — one preparation, one flatten
+//   · D3: SIGINT detaches `onboard` (exit 130) and the host goes on; `--cancel` cancels it (the base)
 //   · D9: `init` writes doz_project.yaml; `up` with no name, in that folder, creates the sandbox with the
 //     folder at /workspace and starts its sessions; again, it uses the same sandbox
 //   · D17: create without a workspace says so; `ls` shows it
@@ -89,14 +90,20 @@ func cliOnboardingSuite(binary: String) async {
         try? FileManager.default.removeItem(at: a.store)
     }
     print("cli: onboard — off a terminal it never asks; the settings only when missing")
-    var r = a.run(["onboard", "--no-images", "--account", "later"], timeout: 120)
-    check(r.code == 0 && r.out.contains("Done — this Mac is onboarded"), "onboard --no-images --account skip, no terminal, no --yes: completes without asking (exit \(r.code))")
+    var r = a.run(["onboard", "--no-base"], timeout: 120)
+    check(r.code == 0 && r.out.contains("Done — this Mac is onboarded (no base prepared yet)"), "onboard --no-base, no terminal, no --yes: completes without asking (exit \(r.code))")
+    // 634: the steps in the new order.
+    let order = ["1. Checks", "2. Base image", "3. Models & keys", "4. Access", "5. Workspace rules", "6. Settings", "Done — this Mac is onboarded"]
+    let at = order.map { r.out.range(of: $0)?.lowerBound }
+    check(at.allSatisfy { $0 != nil } && zip(at, at.dropFirst()).allSatisfy { $0! < $1! }, "the steps in order: \(order.joined(separator: " → "))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nimage = \"claude-code\"\n") == true, "doz.toml written, with defaults.image set")
+    check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nbase =") == false, "--no-base: no defaults.base written")
     check(FileManager.default.fileExists(atPath: xdg.appendingPathComponent("doz/agent-prompt.md").path), "agent-prompt.md written beside it")
-    check(OnboardingRecord.read(DozableStore(root: a.store)) != nil, "onboarded.json recorded")
-    check(r.out.contains("3. Workspace rules") && r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
+    check(OnboardingRecord.read(DozableStore(root: a.store)) != nil && OnboardingRecord.read(DozableStore(root: a.store))?.base == nil,
+          "onboarded.json recorded, with no base")
+    check(r.out.contains("lock — unchanged"), "the Workspace rules step: said, nothing chosen off a terminal")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode =") == false, "workspace.ignore_mode NOT written (only when chosen)")
-    r = a.run(["onboard", "--no-images", "--account", "later", "--ignore-mode", "hide", "--yes"], timeout: 120)
+    r = a.run(["onboard", "--no-base", "--ignore-mode", "hide", "--yes"], timeout: 120)
     check(r.code == 0 && r.out.contains("Workspace rules: set workspace.ignore_mode = hide"), "--ignore-mode hide: chosen, so written (exit \(r.code))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nignore_mode = \"hide\"\n") == true, "doz.toml says ignore_mode = hide")
     check(a.run(["config", "set", "workspace.ignore_mode", "lock"]).code == 0, "back to lock")
@@ -104,13 +111,21 @@ func cliOnboardingSuite(binary: String) async {
 
     print("cli: onboard takes a key the doz account add way (owner ruling; the memory keychain)")
     let fakeKey = "sk-ant-api03-DOZFAKE" + String(repeating: "k", count: 40)
-    r = a.run(["onboard", "--no-images", "--account", "api-key", "--account-name", "t1"], stdin: Data((fakeKey + "\n").utf8), timeout: 120)
-    check(r.code == 0 && r.out.contains("no API key given now") && r.out.contains("doz account add work --api-key"),
-          "off a terminal WITHOUT --secret-stdin: stdin is not read, the commands are shown (exit \(r.code))")
+    r = a.run(["onboard", "--no-base", "--key", "anthropic", "--key-name", "t1"], stdin: Data((fakeKey + "\n").utf8), timeout: 120)
+    check(r.code == 0 && r.out.contains("no Anthropic key given now") && r.out.contains("doz account add t1 --api-key"),
+          "off a terminal WITHOUT --secret-stdin: stdin is not read, the command is shown (exit \(r.code))")
     check(!(a.json(["account", "ls"], [AccountRow].self) ?? []).contains { $0.name == "t1" }, "no account t1")
-    r = a.run(["onboard", "--no-images", "--account", "api-key", "--account-name", "t1", "--secret-stdin"], stdin: Data((fakeKey + "\n").utf8), timeout: 120)
+    r = a.run(["onboard", "--no-base", "--key", "anthropic", "--key-name", "t1", "--secret-stdin"], stdin: Data((fakeKey + "\n").utf8), timeout: 120)
     let t1 = (a.json(["account", "ls"], [AccountRow].self) ?? []).first { $0.name == "t1" }
-    check(r.code == 0 && r.out.contains("account t1 added"), "--secret-stdin: account t1 added (exit \(r.code))")
+    check(r.code == 0 && r.out.contains("t1 added (Anthropic key"), "--secret-stdin: account t1 added (exit \(r.code))")
+    // 634 (owner: "the Open Router key was not accepted"): a gateway's key, the same one path.
+    let orKey = "sk-or-v1-DOZFAKE" + String(repeating: "o", count: 48)
+    r = a.run(["onboard", "--no-base", "--key", "openrouter", "--key-name", "or1", "--secret-stdin"], stdin: Data((orKey + "\n").utf8), timeout: 120)
+    let or1 = (a.json(["account", "ls"], [AccountRow].self) ?? []).first { $0.name == "or1" }
+    check(r.code == 0 && r.out.contains("or1 added (OpenRouter key") && or1?.kind == "key" && or1?.provider == "openrouter",
+          "--key openrouter: or1 added as an OpenRouter key (exit \(r.code); \(or1?.kind ?? "no row")/\(or1?.provider ?? "-"))")
+    check(!r.out.contains(orKey) && !r.err.contains(orKey) && !hostLog(a).contains(orKey), "the OpenRouter key is in no output or host.log")
+    a.run(["account", "rm", "or1", "--force"])
     check(t1?.isDefault == true && t1?.keychainService == "doz-anthropic:t1" && t1?.kind == "api-key" && t1?.fingerprint != nil,
           "t1: api-key, doz-anthropic:t1, a fingerprint, the store default")
     let stored = try? String(contentsOf: a.store.appendingPathComponent("accounts.json"), encoding: .utf8)
@@ -129,34 +144,41 @@ func cliOnboardingSuite(binary: String) async {
 
     print("cli: onboard stops on a hard check")
     let longStore = "/tmp/dzo-" + String(repeating: "x", count: 100)
-    r = a.run(["onboard", "--no-images", "--account", "later", "--yes", "--store", longStore], timeout: 60)
+    r = a.run(["onboard", "--no-base", "--yes", "--store", longStore], timeout: 60)
     check(r.code == 1 && r.err.contains("onboarding stopped: socket"), "a store whose socket path is too long: stopped, with the reason (exit \(r.code))")
     try? FileManager.default.removeItem(atPath: longStore)
 
-    print("cli: a start during onboarding joins its preparation (D4)")
-    let onboard = try? AttachedClient(a, ["onboard", "--images", "lab", "--account", "later", "--yes"])
-    let running = a.waitFor(120) { preparations(a).contains { $0.image == "lab" && $0.running } }
-    check(running, "onboard --images lab: the lab is being prepared in the host")
+    // 634: the store's ONE base, prepared by onboarding in the host; a tool's bake on it started meanwhile WAITS for it —
+    // one pull, one flatten. (The base's layers are seeded, so its preparation is the flatten, ~40 s; the tool is the
+    // bare Node.js image — the developer baseline on it, the cheapest bake on that base.)
+    print("cli: a bake on the base during onboarding waits for the base's preparation (634)")
+    let onboard = try? AttachedClient(a, ["onboard", "--base", "node", "--yes"])
+    let running = a.waitFor(120) { preparations(a).contains { $0.image == "base:node" && $0.running } }
+    check(running, "onboard --base node: the Node.js base is being prepared in the host")
     let ws = a.store.appendingPathComponent("ws-j1")
     try? FileManager.default.createDirectory(at: ws, withIntermediateDirectories: true)
-    check(a.run(["create", "j1", "--image", "lab", "--memory", "384M", "--workspace", ws.path]).code == 0, "create j1 --image lab")
-    r = a.run(["start", "j1", "-v"], timeout: 600)
-    check(r.code == 0, "start j1 while the lab prepares (exit \(r.code))")
-    check(r.err.contains("joining it") || !running, "start j1 said it joins the preparation: \(r.err.split(separator: "\n").first { $0.contains("lab") } ?? "")")
+    check(a.run(["create", "j1", "--image", "node", "--memory", "512M", "--workspace", ws.path]).code == 0, "create j1 --image node")
+    r = a.run(["start", "j1", "-v"], timeout: 900)
+    check(r.code == 0, "start j1 while the base prepares (exit \(r.code))")
     check(onboard?.exited(within: 600) == 0, "onboard finished (exit \(onboard?.process.terminationStatus ?? -1))")
     let log = hostLog(a)
-    check(occurrences(log, "preparing lab (asked by") == 1, "ONE preparation of the lab in the host log (\(occurrences(log, "preparing lab (asked by")))")
-    check(occurrences(log, "prepared disk baked and kept") == 1, "ONE bake (\(occurrences(log, "prepared disk baked and kept")))")
-    let lab = preparations(a).first { $0.image == "lab" }
-    check(lab?.state == "done" && lab?.requestedBy.contains("start j1") == true && lab?.requestedBy.first == "doz onboard",
-          "the preparation: done, asked by \(lab?.requestedBy.joined(separator: ", ") ?? "?")")
-    check(OnboardingRecord.read(DozableStore(root: a.store))?.images.contains("lab") == true, "onboarded.json records the lab")
-    r = a.run(["onboard", "--images", "lab", "--account", "later", "--yes"], timeout: 120)
-    check(r.code == 0 && r.out.contains("already prepared") && r.out.contains("left exactly as it is"),
+    check(occurrences(log, "preparing base:node (asked by") == 1, "ONE preparation of the base in the host log (\(occurrences(log, "preparing base:node (asked by")))")
+    // A finished flatten's line says what it wrote (its start line ends in "…").
+    let flattens = log.split(separator: "\n").filter { $0.contains("base disk flattened") && $0.contains("written") }
+    check(flattens.count == 1, "ONE flatten of the base — the tool's bake used it (\(flattens.count): \(flattens.map { String($0.suffix(90)) }))")
+    let basePrep = preparations(a).first { $0.image == "base:node" }
+    check(basePrep?.state == "done" && basePrep?.requestedBy.first == "doz onboard", "the base's preparation: done, asked by \(basePrep?.requestedBy.joined(separator: ", ") ?? "?")")
+    let nodePrep = preparations(a).first { $0.image == "node" }
+    let waited = nodePrep?.steps?.first?.label
+    check(!running || waited == "waited for the Node.js base", "the tool's preparation waited for the base first (its first step: \(waited ?? "none"))")
+    check(OnboardingRecord.read(DozableStore(root: a.store))?.base == "node", "onboarded.json records the base: node")
+    check(onboard?.text.contains("Done — this Mac is onboarded (the Node.js base ready)") == true, "onboard says the base is ready")
+    r = a.run(["onboard", "--base", "node", "--yes"], timeout: 120)
+    check(r.code == 0 && r.out.contains("Node.js — ready in this store") && r.out.contains("left as it is"),
           "re-running: prepares nothing, leaves doz.toml alone (exit \(r.code))")
-    check((try? String(contentsOf: toml, encoding: .utf8)) == tomlBefore, "doz.toml unchanged")
+    check((try? String(contentsOf: toml, encoding: .utf8)) == tomlBefore, "doz.toml unchanged (node is the default base: nothing to write)")
     r = a.run(["onboard", "--status"])
-    check(r.code == 0 && r.out.contains("onboarded: yes") && r.out.contains("lab          ready"), "onboard --status: onboarded, lab ready")
+    check(r.code == 0 && r.out.contains("onboarded: yes") && r.out.contains("base node ready"), "onboard --status: onboarded, base node ready")
 
     print("cli: no workspace is said (D17)")
     r = a.run(["create", "nows", "--image", "lab", "--memory", "384M"])
@@ -339,19 +361,23 @@ func cliOnboardingSuite(binary: String) async {
     c.run(["account", "rm", "fk", "--force"])
 
     print("cli: Ctrl-C detaches onboarding; --cancel cancels (D3)")
-    try? FileManager.default.removeItem(at: c.store.appendingPathComponent("images/pi"))
-    let ob = try? AttachedClient(c, ["onboard", "--images", "pi", "--account", "later", "--yes"])
-    check(c.waitFor(180) { preparations(c).contains { $0.image == "pi" && $0.running } }, "onboard --images pi: preparing in the host")
+    // 634: the base is what onboarding prepares — its flattened disk removed, so it is prepared again (a flatten).
+    c.run(["host", "stop"])
+    try? FileManager.default.removeItem(at: c.store.appendingPathComponent("images/bases"))
+    let ob = try? AttachedClient(c, ["onboard", "--base", "node", "--yes"])
+    check(c.waitFor(180) { preparations(c).contains { $0.image == "base:node" && $0.running } }, "onboard --base node: preparing the base in the host")
+    // SIGINT once it waits for the base (the questions before it are not the waiting part).
+    check(ob?.wait(120) { $0.text.contains("Waiting for the Node.js base") } == true, "onboard waits for the base, said")
     if let ob { kill(ob.process.processIdentifier, SIGINT) }
     let code = ob?.exited(within: 20)
     check(code == 130 && ob?.err.text.contains("detached") == true, "SIGINT: onboard detached (exit \(code.map(String.init) ?? "still running"))")
-    check(preparations(c).contains { $0.image == "pi" && $0.running }, "the preparation goes on in the host")
+    check(preparations(c).contains { $0.image == "base:node" && $0.running }, "the preparation goes on in the host")
     r = c.run(["onboard", "--cancel"])
-    check(r.code == 0 && r.out.contains("cancelling the preparation of pi"), "onboard --cancel")
-    check(c.waitFor(300) { preparations(c).first { $0.image == "pi" }.map { !$0.running } ?? false }, "it stopped")
-    let p = preparations(c).first { $0.image == "pi" }
+    check(r.code == 0 && r.out.contains("cancelling the preparation of the Node.js base"), "onboard --cancel")
+    check(c.waitFor(300) { preparations(c).first { $0.image == "base:node" }.map { !$0.running } ?? false }, "it stopped")
+    let p = preparations(c).first { $0.image == "base:node" }
     check(p?.state == "cancelled", "state: \(p?.state ?? "?")")
-    check(!(OnboardingRecord.read(DozableStore(root: c.store))?.images.contains("pi") ?? false), "no onboarding recorded for pi")
+    check(OnboardingRecord.read(DozableStore(root: c.store)) == nil, "no onboarding recorded")
     check(c.run(["onboard", "--cancel"]).out.contains("nothing is being prepared"), "--cancel again: nothing to cancel")
     c.run(["host", "stop"])
 
@@ -373,7 +399,7 @@ func cliOnboardingSuite(binary: String) async {
     let uh = CLIHarness(binary: prefix.appendingPathComponent("bin/doz").path, store: ustore)
     uh.env["XDG_CONFIG_HOME"] = u.appendingPathComponent("xdg").path
     uh.env["DOZ_TEST_CREDENTIALS"] = "memory"
-    check(uh.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "an installed copy, onboarded on a throwaway store")
+    check(uh.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "an installed copy, onboarded on a throwaway store")
     uh.run(["host", "stop"])
     let config = u.appendingPathComponent("xdg/doz")
     r = uh.run(["uninstall"])

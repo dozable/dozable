@@ -55,23 +55,32 @@ stapled: Gatekeeper checks a notarised `doz`'s ticket online the first time it r
 
 ```bash
 doz onboard                                   # asks on a terminal; Enter takes the recommended answer
-doz onboard --images claude-code,pi --yes     # scripts: ask nothing (--yes, --json or no terminal)
-doz onboard --all-images | --no-images        # every image (~15+ min the first time) · none now
-doz onboard --account mac|api-key|setup-token|later   # answer the account step (and skip the Claude Code checks)
-doz onboard --account setup-token --account-name work --plan max --secret-stdin --yes < token.txt   # scripts: the token from stdin
-doz onboard --github off|read|push [--github-source gh|key] [--github-key-stdin] --ssh-agent on|off   # answer the rest of Access
-doz onboard --status                          # the record and the images; follows a preparation that runs
-doz onboard --cancel                          # stop the images being prepared
+doz onboard --yes                             # scripts: ask nothing (--yes, --json or no terminal): the Node.js base, no key, no sandbox
+doz onboard --base python | --no-base         # another base · none now
+doz onboard --key openrouter --key-name or-work --secret-stdin --yes < key.txt   # a key (anthropic, openai, xai, google, openrouter, setup-token)
+doz onboard --first claude|pi|opencode|none   # the first sandbox without asking
+doz onboard --github off|read|push [--github-source gh|key] [--github-key-stdin] --ssh-agent on|off   # answer Access
+doz onboard --status                          # the record and the base; follows a preparation that runs
+doz onboard --cancel                          # stop the base being prepared
 ```
 
 It does, in order:
 
 1. **Checks** — the doctor's. The *required* ones stop it when they fail: Apple silicon, macOS 26+,
-   virtualization, the entitlement, the guest tools, the store on APFS with room for the chosen
-   images, a store path short enough for its socket. The rest only warn: Claude Code missing or
-   signed out (a claude-code sandbox still works with an account added later), vmnet (only
-   `--network nat` needs it).
-2. **Access** — every credential sandboxes may use as you, each a purposeful choice, then each
+   virtualization, the entitlement, the guest tools, the store on APFS with room for the base (about 2 GB with a
+   first sandbox), a store path short enough for its socket. The rest only warn: Claude Code missing or signed out
+   (a key works instead), vmnet (only `--network nat` needs it).
+2. **Base image** — `Use Node.js (node:22-bookworm, ↓ 381 MiB)? [Y/n/other]`: the store's ONE base
+   (`defaults.base`), every quick-made tool added to it as a layer. Its preparation (kernel, guest init, the base
+   image pulled, its disk flattened) starts **in the host** at once and the questions go on; a line between two
+   steps says how far it is.
+3. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex: read-only, never logged in for you), then
+   `Add a key? [anthropic/openai/xai/google/openrouter/No]` until **no**: each pasted at a no-echo prompt and stored
+   exactly as `doz account add` stores it (the login keychain, after one tiny check request). `setup-token` adds a
+   Claude subscription's token; `chatgpt` signs Codex in (official builds). An Anthropic key or token becomes the
+   store's default only when Claude Code is not signed in here. Off a terminal a key is read from stdin only with
+   `--key … --secret-stdin`; otherwise the command is shown. Onboarding never touches Claude Code's refresh token.
+4. **Access** — every other credential sandboxes may use as you, each a purposeful choice, then each
    **confirmed live**; a failure says why and is **skipped** (the choice kept, *not confirmed*) — the
    onboarding never blocks, and `--yes` off a terminal never asks (exit 0, a note per skip). `doz
    access` shows and confirms them again later; `doz access set` changes one.
@@ -82,31 +91,26 @@ It does, in order:
    - **SSH agent forwarding** — off (the default) or on (`sandbox.ssh_agent`): confirmed by asking
      the Mac's ssh-agent for its keys (*the ssh-agent has N keys*).
    - The choices are the **defaults for new sandboxes** (written even into an existing `doz.toml`, but
-     only when chosen — a flag or an answer; `--yes` alone changes nothing).
-   - **The Claude account** — offered, never logged in for you. Claude Code signed in on this Mac: "use
-   this Mac's login" (the account `mac`) is the default. Otherwise: **an API key or a setup token,
-   pasted right there** at a no-echo prompt (with its account name, and the plan for a token) and
-   stored exactly as `doz account add` stores it — the login keychain (`doz-anthropic:NAME`,
-   `doz-claude:NAME`) after one tiny check request — then made the store's default; or **Decide
-   later** (nothing changes). Off a terminal the key is read from stdin only with `--secret-stdin`
-   (as `doz account add` reads it); otherwise the step is skipped and the command shown. Onboarding
-   never touches Claude Code's refresh token. The account chosen is confirmed too (this Mac's login
-   signed in; a key or token by `doz account verify`'s check) — "Decide later" is not checked.
-3. **Images** — `claude-code` is prepared by default; `pi` and `lab` are opt-in.
-4. **Settings** — `doz.toml` (every setting at its default, with `defaults.image` and
-   `defaults.account` from your answers) and `agent-prompt.md` beside it (see "The agent's
-   environment prompt"), each written **only when missing**. An existing file is left exactly as it is.
-5. **Preparing** — the kernel, the guest init disk, the base image and the bake. It runs **in the
-   host**: the progress is 593's view, **Ctrl-C detaches** (it goes on), `--status` re-attaches,
-   `--cancel` cancels. The store is marked onboarded (`<store>/onboarded.json`) by the host when every
-   chosen image is ready — even if you detached.
+     only when chosen — a flag or an answer; `--yes` alone changes nothing). The Claude account is confirmed too
+     (this Mac's login signed in, or a key's check).
+5. **Workspace rules** — what `.dozignore` and `.dozreadonly` do, and lock or hide.
+6. **Settings** — `doz.toml` (every setting at its default, with `defaults.image` and the base when it is not
+   Node.js) and `agent-prompt.md` beside it (see "The agent's environment prompt"), each written **only when
+   missing**. An existing file is left as it is (the base, Access and rules answers are set in it).
+7. **Usage statistics** and **Stay in touch** (official builds).
+8. **First sandbox** — `Make your first sandbox? [claude/pi/opencode/no]`, `Name [claude]:`, `Folder
+   [~/doz-workspaces/claude]:` — made the quick way (the store's base, Locked, a new empty folder unless you give
+   one), its `doz new …` command shown. Onboarding waits for the base (the progress view; **Ctrl-C detaches** — it
+   goes on, `--status` re-attaches, `--cancel` cancels), then starts it and attaches, as `doz try` does. The
+   store is marked onboarded (`<store>/onboarded.json`, with its base) by the host when the base is ready — even if
+   you detached.
 
 **One preparation per image.** A `doz start` (or `up`, `image bake`, the web UI) of an image being
 prepared **joins** that preparation — it shows the same progress from its start, and there is one
 download and one bake. A start of an image never prepared starts the preparation itself, and a
 second start joins it. Re-running `doz onboard` prepares only what is missing for this build.
 
-**What a preparation shows** (the web UI's preparation card — the wizard's Preparing step, a row of
+**What a preparation shows** (the web UI's preparation card — a row of
 **Operations** — in the same terms as the CLI's progress): **Step N of M** with a bar of the steps done
 (M is the plan for the image: kernel, guest init, base pull, base disk, the bake's steps, the checks);
 the step under way with its time and an animated strip (never a full bar — its length is not known);
@@ -952,22 +956,20 @@ It shows every sandbox (phase, RAM held, disk, sessions, network, account), each
 sessions, restore points, network policy and connection log, keys and their state, the images,
 the Claude accounts, the metrics, `doz doctor`, and the host's activity as it happens.
 
-**The setup wizard** (594). A store that was never onboarded opens on it — the steps of
-`doz onboard`: **Welcome → Checks** (the doctor's, the required ones marked; a failing one stops it,
-with Check again) **→ Claude account** (the Mac's login when it is signed in; an API key or a setup
-token in a masked field — or, with `ui.allow_secret_entry` off, the CLI command; or Decide later) **→ Images** (a checklist,
-claude-code ticked, each with its download, an estimate and the disk it needs) **→ Preparing** (the
-host's progress, a card per image: Step N of M, the step under way, a download bar, the last lines of
-output, estimates from this store's last run, the finished steps with their times;
-**Continue in the background** leaves it running, **Cancel preparation** stops it) **→ First
-sandbox** (optional: a name from the image — `claude-sandbox`, `pi-sandbox`, `lab-sandbox`, `-2`
-when taken — and its workspace: **Shared folder** `~/doz-workspaces/<name>` by
-default, made when it does not exist, typed, pasted or picked with **Choose…** (the Mac's own folder
-picker) — or **Isolated**) **→ Done**. The settings file
-and your prompt template are written only when missing. The wizard is always reachable again from
-**Onboarding** in the navigation (with a dot beside it until the store is onboarded) or **Doctor ›
-Run onboarding again**, and **Operations** lists the host's image preparations whoever
-started them (`doz onboard` in a terminal too); the badge counts them while they run.
+**The setup wizard** (594; 634: v2). A store that was never onboarded opens on it — the steps of
+`doz onboard`, each title centred over a column of the step's own width: **Welcome** (the doctor's checks inline; a
+failing required one stops it, with Check again) **→ Base image** (one Node.js card, the layers, "Another base" folded;
+**Download and continue** starts the store's base in the host and moves on) **→ Models & keys** (the sign-ins found;
+the keys by Providers / Gateways — OpenRouter — / No key, each pasted in a masked field under its row, or with
+`ui.allow_secret_entry` off the CLI command; what can be tried now) **→ GitHub & SSH → Workspace rules** (its Next
+writes the settings) **→ Usage statistics** and **Stay in touch** (official builds) **→ First sandbox** (the tools'
+cards, a name — the tool's — and a new empty folder or a project folder, the plan with its `doz new …` command; Create
+and start, or Finish without a sandbox). From Models & keys on, the base's progress is a strip at the foot above the
+buttons; **Details** opens a popover (the steps and their times, the output's tail, Operations, Cancel…); a failed
+download turns it red with Retry. The settings file and your prompt template are written only when missing. The
+wizard is always reachable again from **Onboarding** in the navigation (with a dot beside it until the store is
+onboarded) or **Doctor › Run onboarding again**, and **Operations** lists the host's preparations whoever started them
+(`doz onboard` in a terminal too); the badge counts them while they run.
 
 **The navigation.** **Sandboxes** opens the table of every sandbox; under it, each sandbox has its
 own entry (its name and a dot in its phase's colour) that opens **its page**:

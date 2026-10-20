@@ -185,6 +185,10 @@ struct ChoiceOptions: ParsableArguments {
         return try choices(image: try chosenImage() ?? image ?? "")
     }
 
+    /// 634: the person chose the base — `--base`, `--dockerfile`, or an image by name — so a try keeps it (the planner's
+    /// `PlanRequest.baseChosen`); otherwise a try's tool goes on the store's base.
+    var namesTheBase: Bool { base != nil || dockerfile != nil || image != nil }
+
     /// 617: `ChoiceOptions` itself, from argv (a plan's, a probe's) — the round trip's other half.
     static func from(_ argv: [String]) throws -> ChoiceOptions { try parse(argv) }
 
@@ -581,27 +585,27 @@ struct Remove: AsyncParsableCommand {
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
     func run() async throws {
         try await requireSandbox(name, g)
-        let folder = await tryFolder(name, g)
+        let folder = await createdFolder(name, g)
         try confirm("Remove \(name) and everything it has on disk (disks, restore points, state)?", yes: yes, g)
         _ = try lifecycle(.rm, name, g)
-        cleanUpTryFolder(folder, g)
+        cleanUpCreatedFolder(folder, g)
     }
 }
 
-/// 617: the folder Dozable made for a try (nil: not a try, or a folder the person chose).
-struct TryFolder { var path: String; var wasEmpty: Bool }
-func tryFolder(_ name: String, _ g: GlobalOptions) async -> TryFolder? {
+/// 634: the folder Dozable made for a sandbox (nil: none — a folder the person chose, or isolated).
+struct CreatedFolder { var path: String; var wasEmpty: Bool; var sandbox: String }
+func createdFolder(_ name: String, _ g: GlobalOptions) async -> CreatedFolder? {
     var r = HostRequest(.ls)
     r.withSessions = false
     let rows = (try? decode(try await query(r, g), [SandboxInfo].self, g)) ?? []
-    guard let p = rows.first(where: { $0.name == name && $0.trial == true })?.trialFolder,
+    guard let p = rows.first(where: { $0.name == name })?.createdFolder,
           FileManager.default.fileExists(atPath: p) else { return nil }
-    return TryFolder(path: p, wasEmpty: Workspace.isEmptyOrMissing(p))
+    return CreatedFolder(path: p, wasEmpty: Workspace.isEmptyOrMissing(p), sandbox: name)
 }
 
-/// 617 (owner): a removed try's own folder — gone when empty (the host removes it with the sandbox; this says so);
-/// asked about when it holds files (default: keep, saying where); kept off a terminal, said.
-func cleanUpTryFolder(_ folder: TryFolder?, _ g: GlobalOptions) {
+/// 617 (owner), 634 (every sandbox): a removed sandbox's own folder — gone when empty (the host removes it with the
+/// sandbox; this says so); asked about when it holds files (default: keep, saying where); kept off a terminal, said.
+func cleanUpCreatedFolder(_ folder: CreatedFolder?, _ g: GlobalOptions) {
     guard let folder else { return }
     let p = folder.path
     let shown = DisplayPath.tilde(p)
@@ -612,7 +616,7 @@ func cleanUpTryFolder(_ folder: TryFolder?, _ g: GlobalOptions) {
     }
     let count = ((try? FileManager.default.subpathsOfDirectory(atPath: p)) ?? []).filter { !$0.hasSuffix(".DS_Store") }.count
     let asker = Asker(yes: false, json: g.json)
-    if asker.interactive, asker.yesNo("Its folder \(shown) holds \(count) item\(count == 1 ? "" : "s") the agent made. Delete it too?", default: false) {
+    if asker.interactive, asker.yesNo("Its folder \(shown) (Dozable made it for \(folder.sandbox)) holds \(count) item\(count == 1 ? "" : "s"). Delete it too?", default: false) {
         do {
             try FileManager.default.removeItem(atPath: p)
             Out.stdout("removed its folder \(shown)\n")

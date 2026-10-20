@@ -41,9 +41,9 @@ public enum WebAction: Equatable, Sendable {
     case accountRemove(String)
     /// 594: onboard — prepare these built-in images in the host (in the background: the action ends
     /// at once; the preparation shows in the wizard and in Operations) and record the onboarding.
-    case onboard([String])
+    case onboard([String], base: String? = nil)
     /// 594: cancel the preparation of these images (all running ones when empty).
-    case prepareCancel([String])
+    case prepareCancel([String], base: String? = nil)
     /// 595 (R3): delete these resources (ids as the Resources page lists them) — one host operation,
     /// serialised with the lifecycle. A plain confirmation on the page (owner: no typed names).
     case resourcesRemove([String])
@@ -227,15 +227,17 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.accountRemove)
             r.account = a
             return r
-        case .onboard(let images):
+        case .onboard(let images, let base):
             var r = HostRequest(.onboard)
             r.images = images
+            r.base = base                     // 634: the store's one base, prepared first
             r.follow = false
             r.requestedBy = "doz ui"
             return r
-        case .prepareCancel(let images):
+        case .prepareCancel(let images, let base):
             var r = HostRequest(.prepareCancel)
-            r.images = images.isEmpty ? nil : images
+            let all = (base.map { [PreparationInfo.baseName($0)] } ?? []) + images
+            r.images = all.isEmpty ? nil : all
             return r
         case .resourcesRemove(let ids):
             var r = HostRequest(.resourcesRemove)
@@ -283,7 +285,7 @@ public enum WebAction: Equatable, Sendable {
     /// Fields each action may carry (besides `action`).
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
-            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites", "trial",
+            "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites",
                        "modelSource", "model"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
@@ -304,8 +306,8 @@ public enum WebAction: Equatable, Sendable {
             "account-verify": ["account"],
             "account-refresh": ["account"],
             "account-rm": ["account", "confirm"],
-            "onboard": ["images"],
-            "prepare-cancel": ["images"],
+            "onboard": ["images", "base"],
+            "prepare-cancel": ["images", "base"],
             "resources-rm": ["ids"],
             "resources-clean": [],
             "resources-kernel": ["kernel"],
@@ -341,8 +343,6 @@ public enum WebAction: Equatable, Sendable {
             o.isolated = try f.flag("isolated")
             // 594 W28: the New Sandbox form's "Rebuild first" (an out-of-date image is otherwise used as it is).
             o.rebuild = try f.flag("rebuild")
-            // 617: a try (the Quick try page) — marked, so its exit offers sleep/delete and doz ls says so.
-            o.trial = try f.flag("trial")
             // 617 (models@1): the model source (a provider or gateway of this build) and the model — the host checks
             // that the agent is offered it and picks that source's key.
             o.modelSource = try f.oneOf("modelSource", ModelSources.publishedIds)   // 629: a NEW sandbox — published only
@@ -433,9 +433,9 @@ public enum WebAction: Equatable, Sendable {
         case "account-rm":
             a = .accountRemove(try f.account("account"))
         case "onboard":
-            a = .onboard(try f.builtInImages("images"))
+            a = .onboard(try f.builtInImages("images"), base: try f.oneOf("base", BaseCatalogue.ids))
         case "prepare-cancel":
-            a = .prepareCancel(try f.builtInImages("images"))
+            a = .prepareCancel(try f.builtInImages("images"), base: try f.oneOf("base", BaseCatalogue.ids))
         case "resources-rm":
             a = .resourcesRemove(try f.resourceIDs("ids"))
         case "resources-clean":

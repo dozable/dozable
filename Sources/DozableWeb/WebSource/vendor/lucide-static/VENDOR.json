@@ -391,6 +391,12 @@
       "serve": "icon"
     },
     {
+      "file": "hourglass.svg",
+      "fromTarball": "package/icons/hourglass.svg",
+      "sha256": "98915227065289e7914c95e91500bf3870104e23532e7619aa8380d6e498235e",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",

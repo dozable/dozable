@@ -20,7 +20,7 @@ func cliTmuxSuite(binary: String) async {
         try? FileManager.default.removeItem(at: t.store)
     }
     print("cli: sessions inside tmux (599, 594.B3)")
-    check(t.run(["onboard", "--no-images", "--account", "later", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
+    check(t.run(["onboard", "--no-base", "--yes"], timeout: 120).code == 0, "a scratch store, onboarded")
     var r = t.run(["up", "tm", "--image", "lab", "--isolated", "--memory", "512M", "--tmux", "--detach"], timeout: 900)
     check(r.code == 0, "up tm --image lab --tmux --detach (the lab image now has tmux: exit \(r.code))")
     check(t.run(["config", "get", "--sandbox", "tm", "sessions.tmux"]).out.hasPrefix("true"), "tm's own sessions.tmux: true")

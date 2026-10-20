@@ -136,14 +136,16 @@ public final class WebSettingsStore: @unchecked Sendable {
     public var secretEntryAllowed: Bool { current.bool(SettingKey.allowSecretEntry) }
 
     /// 594 (D7): the onboarding's settings — doz.toml and the prompt template, each written only when
-    /// missing (an existing file is never touched), with `defaults.image` and the account's default.
+    /// missing (an existing file is never touched), with `defaults.image` (claude-code: `doz up NAME`'s default) and
+    /// 634: the store's base (when not node); into a file that was kept, the base as the Access choices are.
     public func writeOnboardingConfig(_ c: WebOnboardingConfig) throws -> WebOnboardingConfigResult {
         lock.lock()
         defer { lock.unlock() }
         do {
-            let account = Onboarding.Account(rawValue: c.account).flatMap(Onboarding.defaultAccount(for:))
-            let (s, sp) = try Onboarding.writeSettingsIfMissing(defaultImage: c.defaultImage, account: account, environment: environment)
+            let (s, sp) = try Onboarding.writeSettingsIfMissing(defaultImage: "claude-code", account: nil, base: c.base, environment: environment)
             let (t, tp) = try Onboarding.writePromptTemplateIfMissing(environment: environment)
+            var baseSet: [String]?
+            if let b = c.base, s == .kept { baseSet = try Onboarding.writeBase(b, environment: environment) }
             // 599e: the Access step's choices — the defaults for new sandboxes (even into a file that was kept).
             var accessSet: [String]?
             if let a = c.access, s != .unavailable {
@@ -155,7 +157,7 @@ public final class WebSettingsStore: @unchecked Sendable {
             var rulesSet: [String]?
             if let m = c.ignoreMode, s != .unavailable { rulesSet = try Onboarding.writeIgnoreMode(m, environment: environment) }
             return WebOnboardingConfigResult(settings: s.rawValue, settingsPath: sp, promptTemplate: t.rawValue, promptTemplatePath: tp, accessSet: accessSet,
-                                             rulesSet: rulesSet)
+                                             rulesSet: rulesSet, baseSet: baseSet)
         } catch let e as SettingsError {
             throw HostError(.failed, e.message)
         }
@@ -356,32 +358,33 @@ public struct WebAccessGitHubKey: Equatable, Sendable, CustomStringConvertible, 
     public func scrub(_ text: String) -> String { secret.map { WebSecretText.scrub(text, $0) } ?? text }
 }
 
-/// 594: `POST /api/v1/onboarding/config`, decoded strictly: exactly {defaultImage, account} — and (599e)
-/// optionally `access` (the Access step's choices, written as the defaults for new sandboxes), and (599g)
-/// `ignoreMode` (the Workspace rules step's: `lock` or `hide`, the default `workspace.ignore_mode`).
+/// 594: `POST /api/v1/onboarding/config`, decoded strictly. 634 (the setup v2): `base` (the store's base, a catalogue id;
+/// absent: none chosen — nothing written for it), and optionally `access` (599e: the Access step's choices, written as
+/// the defaults for new sandboxes) and `ignoreMode` (599g: `lock` or `hide`, the default `workspace.ignore_mode`). The
+/// old `defaultImage`/`account` are refused: there is no Images step and no account choice any more.
 public struct WebOnboardingConfig: Equatable, Sendable {
-    public let defaultImage: String
-    public let account: String
+    public var base: String? = nil
     public var access: WebAccessChoices? = nil
     public var ignoreMode: String? = nil
+
+    public init(base: String? = nil, access: WebAccessChoices? = nil, ignoreMode: String? = nil) {
+        self.base = base
+        self.access = access
+        self.ignoreMode = ignoreMode
+    }
 
     public static func decode(_ body: Data) throws -> WebOnboardingConfig {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSuperset(of: ["defaultImage", "account"]), Set(d.keys).isSubset(of: ["defaultImage", "account", "access", "ignoreMode"]) else {
-            throw WebAction.Invalid("exactly defaultImage and account (and access, ignoreMode)")
+        guard Set(d.keys).isSubset(of: ["base", "access", "ignoreMode"]) else {
+            throw WebAction.Invalid("only base, access and ignoreMode")
         }
-        // 617: every agent this build has a recipe for (its own default image: `grok` is Debian · Grok Build). 629: an
-        // unpublished one is still ACCEPTED (a stored value comes back here); only the published ones are offered.
-        let images = ["lab"] + AgentKind.allCases.filter { $0 != .none }.map(\.rawValue)
-        guard let i = d["defaultImage"] as? String, images.contains(i) else {
-            throw WebAction.Invalid("defaultImage: " + (["lab"] + AgentKind.published.filter { $0 != .none }.map(\.rawValue)).joined(separator: ", "))
+        var c = WebOnboardingConfig()
+        if let b = d["base"] {
+            guard let v = b as? String, BaseCatalogue.base(v) != nil else { throw WebAction.Invalid("base: " + BaseCatalogue.ids.joined(separator: ", ")) }
+            c.base = v
         }
-        guard let a = d["account"] as? String, Onboarding.Account(rawValue: a) != nil else {
-            throw WebAction.Invalid("account: \(Onboarding.Account.allCases.map(\.rawValue).joined(separator: ", "))")
-        }
-        var c = WebOnboardingConfig(defaultImage: i, account: a)
         if d["access"] != nil { c.access = try WebAccessChoices.decode(d["access"]) }
         if let m = d["ignoreMode"] {
             guard let v = m as? String, ["lock", "hide"].contains(v) else { throw WebAction.Invalid("ignoreMode: lock or hide") }

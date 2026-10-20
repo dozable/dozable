@@ -81,7 +81,9 @@ struct Init: AsyncParsableCommand {
         var onboarded: OnboardReport?
         if OnboardingRecord.read(g.dozableStore) == nil {
             if !g.json { Out.stdout("this Mac has not been onboarded yet — onboarding first\n\n") }
-            onboarded = try await OnboardingFlow(g: g, asker: asker, imagesFlag: nil, accountFlag: nil, talk: !g.json).run()
+            var flow = OnboardingFlow(g: g, asker: asker, talk: !g.json)
+            flow.firstFlag = "none"            // 634: init makes its own project's sandbox
+            onboarded = try await flow.run()
             if !g.json { Out.stdout("\n") }
         }
         var p = try ask(folder: folder, existing: existing, asker: asker)

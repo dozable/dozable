@@ -258,11 +258,14 @@ final class WebOperations: @unchecked Sendable {
             return ok ? "\(acc): its key was read again" : "\(acc): its key could not be read — the Accounts page says why"
         case .accountRemove(let acc):
             return "removed account \(acc)"
-        case .onboard(let images):
+        case .onboard(let images, let base):
             let r = try? v.decode(PrepareResult.self)
-            let preparing = r?.preparations.filter(\.running).map(\.image) ?? []
+            // 634: a base preparation is named for people ("the Node.js base"), never `base:node`.
+            let said = { (i: PreparationInfo) in i.base.map { "the \(BaseCatalogue.base($0)?.title ?? $0) base" } ?? i.image }
+            let preparing = r?.preparations.filter(\.running).map(said) ?? []
             if !preparing.isEmpty { return "preparing \(preparing.joined(separator: ", ")) in the host — it goes on in the background; the onboarding is recorded when it is done" }
-            return images.isEmpty ? "onboarded (no image prepared now)" : "onboarded — \(images.joined(separator: ", ")) ready"
+            let ready = (base.map { ["the \(BaseCatalogue.base($0)?.title ?? $0) base"] } ?? []) + images
+            return ready.isEmpty ? "onboarded (no image prepared now)" : "onboarded — \(ready.joined(separator: ", ")) ready"
         case .hostStart:
             let s = try? v.decode(HostStatus.self)
             return s.map { "the host is running (pid \($0.pid), doz \($0.version))" } ?? "the host is running"

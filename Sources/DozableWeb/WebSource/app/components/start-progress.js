@@ -11,7 +11,7 @@
 //   · a failed start keeps the area: the bar stopped and marked, the error, the log, Start again / Dismiss.
 // The data is the start's own operation (`progress`, WebOpProgress) and the image's preparation (`state.preps`, SSE).
 import { h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { busyMark, icon, isWaitStep } from '../dom/icons.js';
 import { upcall } from '../core/hooks.js';
 import { transitionOf } from '../core/operations.js';
 import { sandboxImage } from '../core/sandboxes.js';
@@ -132,7 +132,7 @@ function panelFor(name, o, p) {
   const steps = (prog.steps || []).map((s) => h('li', { class: 'sp-step' + (s.failed ? ' failed' : '') },
     icon(s.failed ? 'circle-x' : 'check'), h('span', null, s.text), s.seconds >= 0.1 ? h('span', { class: 'muted' }, s.seconds.toFixed(1) + ' s') : null));
   const current = !failed && prog.current ? h('li', { class: 'sp-step current', 'data-sp-current': '' },
-    h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), h('span', { title: prog.current }, shortStep(prog.current) + '…'),
+    busyMark(isWaitStep(prog.current)), h('span', { title: prog.current }, shortStep(prog.current) + '…'),
     h('span', { class: 'muted', 'data-sp-since': prog.since || '' }, prog.since ? elapsed(prog.since) : ''),
     prog.transfer ? h('span', { class: 'muted' }, prog.transfer) : null) : null;
   const raw = [...(p && p.output ? p.output : []), ...(prog.tail || [])].slice(-12);

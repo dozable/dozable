@@ -61,8 +61,21 @@ public struct PreparationInfo: Codable, Equatable, Sendable {
     public var stepUsualSeconds: Double?
     public var remainingSeconds: Double?
     public var estimateBasis: String?
+    /// 634: a BASE preparation (`image` is `base:<id>`): the catalogue id — the store's one base, pulled and flattened
+    /// before any tool is baked on it. nil: an image's.
+    public var base: String? = nil
 
     public var running: Bool { state == "running" || state == "cancelling" }
+
+    /// 634: `base:<id>` names a base preparation.
+    public static let basePrefix = "base:"
+    public static func baseName(_ id: String) -> String { basePrefix + id }
+    /// The catalogue id of a base preparation's name (nil: an image's name).
+    public static func baseID(_ name: String) -> String? {
+        guard name.hasPrefix(basePrefix) else { return nil }
+        let id = String(name.dropFirst(basePrefix.count))
+        return BaseCatalogue.base(id) != nil ? id : nil
+    }
 
     public init(id: String, image: String, state: String, requestedBy: [String], startedAt: Date, finishedAt: Date?, seconds: Double,
                 error: String?, step: String?, stepSeconds: Double?, transfer: PreparationTransfer?, output: [String], lines: [String]) {
@@ -189,11 +202,14 @@ public struct OnboardingRecord: Codable, Equatable, Sendable {
     public var date: Date
     /// Every image an onboarding prepared in this store (a re-run adds; nothing is removed).
     public var images: [String]
+    /// 634: the store's one base the onboarding prepared (a catalogue id); nil: an onboarding that prepared none.
+    public var base: String? = nil
 
-    public init(dozVersion: String, date: Date, images: [String]) {
+    public init(dozVersion: String, date: Date, images: [String], base: String? = nil) {
         self.dozVersion = dozVersion
         self.date = date
         self.images = images
+        self.base = base
     }
 
     public static func url(_ store: DozableStore) -> URL { store.root.appendingPathComponent("onboarded.json") }
@@ -205,14 +221,32 @@ public struct OnboardingRecord: Codable, Equatable, Sendable {
 
     /// Record (or extend) the store's onboarding.
     @discardableResult
-    public static func record(_ store: DozableStore, version: String, images: [String], now: Date = Date()) throws -> OnboardingRecord {
+    public static func record(_ store: DozableStore, version: String, images: [String], base: String? = nil, now: Date = Date()) throws -> OnboardingRecord {
         var r = read(store) ?? OnboardingRecord(dozVersion: version, date: now, images: [])
         r.dozVersion = version
         r.date = now
         for i in images where !r.images.contains(i) { r.images.append(i) }
+        if let base { r.base = base }
         try store.ensureDirectory()
         try HostWire.prettyEncoder.encode(r).write(to: url(store), options: .atomic)
         return r
+    }
+}
+
+/// 634: the store's one base, as onboarding shows it (the catalogue's facts and whether it is ready for this build).
+public struct BaseState: Codable, Equatable, Sendable {
+    public var id: String
+    public var title: String
+    /// `node:22-bookworm`.
+    public var reference: String
+    public var useCase: String
+    public var downloadBytes: Int64
+    public var prepareSeconds: Int
+    public var prepared: Bool
+
+    public init(_ b: CatalogueBase, prepared: Bool) {
+        id = b.id; title = b.title; reference = b.shortReference; useCase = b.useCase
+        downloadBytes = b.downloadBytes; prepareSeconds = b.prepareSeconds; self.prepared = prepared
     }
 }
 
@@ -223,6 +257,8 @@ public struct PrepareStatus: Codable, Equatable, Sendable {
     public var onboarded: OnboardingRecord?
     public var images: [ImageRow]
     public var hostRunning: Bool
+    /// 634: the store's base — the onboarding's, else `defaults.base` (nil: none known).
+    public var base: BaseState? = nil
 
     public init(preparations: [PreparationInfo], onboarded: OnboardingRecord?, images: [ImageRow], hostRunning: Bool) {
         self.preparations = preparations
@@ -441,6 +477,7 @@ final class Preparation: @unchecked Sendable {
             var p = PreparationInfo(id: id, image: image, state: _state, requestedBy: _requestedBy, startedAt: startedAt, finishedAt: _finishedAt,
                                     seconds: (_finishedAt ?? now).timeIntervalSince(startedAt), error: _error, step: step, stepSeconds: stepSeconds,
                                     transfer: transfer, output: output, lines: finished)
+            p.base = PreparationInfo.baseID(image)
             // Step N of M: the timed steps done, plus the one under way; M the plan (never below N).
             let done = steps.filter { $0.kind == "step" }.count
             let running = _state == "running" || _state == "cancelling"
@@ -477,6 +514,7 @@ extension HostCore {
     }
 
     nonisolated static func isUsable(_ image: String, _ store: DozableStore, currentRecipeOnly: Bool) -> Bool {
+        if let base = PreparationInfo.baseID(image) { return isBasePrepared(base, store) }
         guard FileManager.default.fileExists(atPath: store.layout("_").initfs.path),
               let spec = try? DozableImages.spec(name: "doz-prepare-\(image)", options: CreateOptions(image: image), store: store).0 else { return false }
         guard let imageSpec = spec.imageSpec else {
@@ -489,6 +527,18 @@ extension HostCore {
         guard ImageBaker(storeRoot: store.root).cached(imageSpec, key: imageSpec.bakeKey(kernelSHA256: k, deckholdSHA256: d)) != nil else { return false }
         // 596: any base × agent image has a recipe to compare (no agent too); anything else does not.
         return !currentRecipeOnly || AgentVersions.currentRecipe(for: imageSpec) == nil || AgentVersions.isCurrentRecipe(imageSpec)
+    }
+
+    /// 634: the base `id` is ready for this build — the guest init disk and the pinned kernel are here, and the base's
+    /// flattened disk for THIS build's base key (the one every tool baked on it clones).
+    @Sendable nonisolated static func isBasePrepared(_ id: String, _ store: DozableStore) -> Bool {
+        guard FileManager.default.fileExists(atPath: store.layout("_").initfs.path),
+              let spec = try? DozableImages.spec(name: "doz-prepare-base", options: CreateOptions(image: id), store: store).0,
+              let imageSpec = spec.imageSpec else { return false }
+        let kernel = spec.kernelPath.map { URL(fileURLWithPath: $0) }
+            ?? KernelProvider(cacheDirectory: spec.kernelCacheDirectory ?? StoreLayout(spec: spec).kernels).cachedKernel
+        guard FileManager.default.fileExists(atPath: kernel.path) else { return false }
+        return ImageBaker(storeRoot: store.root).cachedBase(imageSpec.baseKey) != nil
     }
 
     /// What a start of `m` has to wait for: the image whose preparation it should join — one running
@@ -555,7 +605,10 @@ extension HostCore {
     func freshen(_ image: String, update: Bool) async -> AgentVersions.Freshness? {
         // 596: any base × agent image — the base's tag (hourly: its digest, for the next preparation and
         // "update available"; never a rebuild by itself), then the agent's version as before.
-        guard let choice = ImageChoice.parse(image) else { return nil }
+        // 634: a base's own preparation (`base:node`) resolves the base's digest exactly as a tool's on it does — else it
+        // flattened the pin while the tool's bake resolved the registry's digest: two base keys, two flattens (found by
+        // test-cli-onboarding's join).
+        guard let choice = ImageChoice.parse(PreparationInfo.baseID(image) ?? image) else { return nil }
         if choice.name != "lab", BaseCatalogue.base(choice.base) != nil,
            let e = await BaseDigests.refresh(choice.base, store: store, registry: agentRegistry) {
             HostLog.line("\(choice.base): its tag could not be resolved (\(e)) — the digest resolved before (or the built-in pin) is used")
@@ -598,7 +651,7 @@ extension HostCore {
 
     /// The preparation of `image`: the one running (joined), or a new one.
     func preparation(for image: String, requestedBy who: String) throws -> Preparation {
-        guard DozableImages.builtIn.contains(image) || DozableImages.isPreparable(image, store: store) else {
+        guard DozableImages.builtIn.contains(image) || PreparationInfo.baseID(image) != nil || DozableImages.isPreparable(image, store: store) else {
             throw HostError(.invalid, "only a base × agent image is prepared (lab, claude-code, pi, python-claude-code, … — doz base ls) — not \(image)")
         }
         if let p = runningPreparation(image) {
@@ -606,7 +659,12 @@ extension HostCore {
             return p
         }
         guard !readOnly else { throw HostError(.unavailable, "preparing an image needs the host") }
-        let p = Preparation(image: image, requestedBy: who, planned: Self.plannedSteps(image, store: store),
+        // 634: a tool's image on a base whose own preparation runs (the onboarding's download) WAITS for it first — the
+        // base is pulled and flattened once, never raced by a second pull of the same layers.
+        let baseRun: Preparation? = PreparationInfo.baseID(image) == nil
+            ? ImageChoice.parse(image).flatMap { runningPreparation(PreparationInfo.baseName($0.base)) } : nil
+        let baseTitle = baseRun.flatMap { PreparationInfo.baseID($0.image) }.flatMap { BaseCatalogue.base($0)?.title } ?? "base"
+        let p = Preparation(image: image, requestedBy: who, planned: Self.plannedSteps(image, store: store).map { $0 + (baseRun == nil ? 0 : 1) },
                             previous: PreparationRecord.all(store)[image])
         preparations[image] = p
         let store = self.store
@@ -624,6 +682,15 @@ extension HostCore {
             var cancelled = false
             let result: Result<Void, Error>
             do {
+                if let baseRun {
+                    // 634: its first step is the wait; a failed or cancelled base lets this one pull for itself.
+                    let label = "waited for the \(baseTitle) base"
+                    let tw = ContinuousClock.now
+                    emit(HostEvent(kind: .started, sandbox: image, text: label))
+                    try? await baseRun.wait()
+                    try Task.checkCancellation()
+                    emit(HostEvent(kind: .step, sandbox: image, text: label, milliseconds: HostCore.buildMilliseconds(since: tw)))
+                }
                 // 617: each bake step's whole output reaches this preparation's build log (never a client).
                 try await HostCore.$buildOutputSink.withValue({ piece in p.addRecord(piece) }) {
                     try await run(image, store, emit)
@@ -664,6 +731,8 @@ extension HostCore {
     /// (measured: 594.02-RESULTS.md).
     static func plannedSteps(_ image: String, store: DozableStore? = nil) -> Int? {
         if image == "lab" { return 2 + labBootSteps }
+        // 634: a base — kernel, guest init, the base image, its flattened disk.
+        if PreparationInfo.baseID(image) != nil { return 4 }
         // 596: any base × agent image, at the version a preparation would make (the pins without a store);
         // a Dockerfile's adds its build and its import.
         let spec = DozableImages.imageSpec(image)
@@ -680,6 +749,7 @@ extension HostCore {
     /// The work itself, off the actor: the kernel and guest init disk, then the image's bake (the lab:
     /// its prepared disk, made by booting a throwaway sandbox once).
     @Sendable static func runPreparation(_ image: String, _ store: DozableStore, _ emit: @escaping @Sendable (HostEvent) -> Void) async throws {
+        if let base = PreparationInfo.baseID(image) { try await runBasePreparation(base, name: image, store, emit); return }
         let tmpName = "doz-prepare-\(image)"
         // A throwaway sandbox a crashed preparation left behind would cold-boot its kept disk
         // instead of baking: it goes first.
@@ -731,6 +801,34 @@ extension HostCore {
             throw error
         }
         try? FileManager.default.removeItem(at: store.layout(tmpName).sandboxDirectory)
+    }
+
+    /// 634: a BASE — the kernel and the guest init disk (`prepareAssets`), then its OCI image pulled and flattened once
+    /// (`ImageBaker.prepareBase`): exactly what every later bake of a tool on it starts from. No VM is booted.
+    static func runBasePreparation(_ id: String, name: String, _ store: DozableStore, _ emit: @escaping @Sendable (HostEvent) -> Void) async throws {
+        if ProcessInfo.processInfo.environment["DOZ_TEST_BASE_FAIL"] == "1", TestSafety.guarded() {
+            // A TEST seam (guarded runs only): the base's download stops, as a registry that does not answer would.
+            let label = "pulled the base image \(id)"
+            emit(HostEvent(kind: .started, sandbox: name, text: label))
+            var e = HostEvent(kind: .failed, sandbox: name, text: label, milliseconds: 0)
+            e.error = "the registry did not answer (test seam DOZ_TEST_BASE_FAIL)"
+            emit(e)
+            throw HostError(.failed, "the base \(id) did not download: the registry did not answer (test seam)")
+        }
+        let tmpName = "doz-prepare-base-\(id)"
+        try? FileManager.default.removeItem(at: store.layout(tmpName).sandboxDirectory)
+        defer { try? FileManager.default.removeItem(at: store.layout(tmpName).sandboxDirectory) }
+        let spec = try DozableImages.spec(name: tmpName, options: CreateOptions(image: id), store: store, purpose: .prepare).0
+        guard let imageSpec = spec.imageSpec else { throw HostError(.invalid, "\(id) is not a base Dozable prepares") }
+        let sb = try Sandbox(spec: spec)
+        let stream = sb.events()
+        let forward = Task { for await e in stream { if let he = HostEvent(e, sandbox: name) { emit(he) } } }
+        defer { forward.cancel() }
+        try Task.checkCancellation()
+        try await sb.prepareAssets()
+        try Task.checkCancellation()
+        try await ImageBaker(storeRoot: store.root).prepareBase(imageSpec) { e in if let he = HostEvent(e, sandbox: name) { emit(he) } }
+        for _ in 0..<8 { await Task.yield() }
     }
 
     /// 594: an agent's install step says which version and why — "npm install @anthropic-ai/claude-code@2.1.285
@@ -848,6 +946,8 @@ extension HostCore {
     static func preparableImages(_ names: [String], store: DozableStore? = nil) throws -> [String] {
         var out: [String] = []
         for raw in names {
+            // 634: a base's own preparation (`base:<id>`).
+            if PreparationInfo.baseID(raw) != nil { if !out.contains(raw) { out.append(raw) }; continue }
             // 596: any base × agent image, by any of its names.
             let n = DozableImages.canonicalName(raw)
             guard DozableImages.builtIn.contains(n) || store.map({ DozableImages.isPreparable(n, store: $0) }) == true else {
@@ -862,7 +962,12 @@ extension HostCore {
     /// them, their progress on `emit`. No images and `follow`: join whatever is running (`doz onboard
     /// --status`).
     func prepare(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void, onboarding: Bool) async throws -> PrepareResult {
-        let images = try Self.preparableImages(r.images ?? [], store: store)
+        // 634: the store's one base (`base`), prepared FIRST — a tool's image named beside it waits for it.
+        if let b = r.base, BaseCatalogue.base(b) == nil {
+            throw HostError(.invalid, "unknown base \(b) — \(BaseCatalogue.ids.joined(separator: ", ")) (doz base ls)")
+        }
+        let images = try Self.preparableImages((r.base.map { [PreparationInfo.baseName($0)] } ?? []) + (r.images ?? []), store: store)
+        let recorded = images.filter { PreparationInfo.baseID($0) == nil }, base = r.base
         let who = r.requestedBy.map { String($0.prefix(60)) } ?? (onboarding ? "onboard" : "prepare")
         let preps: [Preparation]
         if images.isEmpty && !onboarding {
@@ -881,7 +986,8 @@ extension HostCore {
                 if runningPreparation(i) != nil { todo.append(i); continue }
                 let ready = await Task.detached { check(i, s) }.value
                 if ready {
-                    emit(HostEvent(kind: .note, sandbox: i, text: "\(i) is already prepared in this store — nothing to do"))
+                    let what = PreparationInfo.baseID(i).map { "the \(BaseCatalogue.base($0)?.title ?? $0) base" } ?? i
+                    emit(HostEvent(kind: .note, sandbox: i, text: "\(what) is already prepared in this store — nothing to do"))
                     await freshen(i, update: true)
                 } else { todo.append(i) }
             }
@@ -891,14 +997,14 @@ extension HostCore {
         if onboarding {
             let store = self.store, version = self.version
             if preps.isEmpty {
-                record = try OnboardingRecord.record(store, version: version, images: images)
+                record = try OnboardingRecord.record(store, version: version, images: recorded, base: base)
             } else {
                 // The record is written when every image is ready — by the host, so a detached CLI
                 // (Ctrl-C) or a closed wizard still completes the onboarding.
                 let all = preps
                 Task.detached {
                     for p in all { do { try await p.wait() } catch { return } }
-                    _ = try? OnboardingRecord.record(store, version: version, images: images)
+                    _ = try? OnboardingRecord.record(store, version: version, images: recorded, base: base)
                 }
             }
         }
@@ -907,7 +1013,7 @@ extension HostCore {
             if let e = errors.first { throw e }
             if onboarding {
                 // The writer above runs beside this; write here too so the answer carries it.
-                record = try OnboardingRecord.record(store, version: version, images: images)
+                record = try OnboardingRecord.record(store, version: version, images: recorded, base: base)
             }
         }
         return PrepareResult(preparations: preps.map(\.info), onboarded: record ?? (onboarding ? OnboardingRecord.read(store) : nil))
@@ -929,8 +1035,12 @@ extension HostCore {
     }
 
     func prepareStatus() throws -> PrepareStatus {
-        PrepareStatus(preparations: preparationInfos(), onboarded: OnboardingRecord.read(store), images: try images(),
-                      hostRunning: !readOnly)
+        let onboarded = OnboardingRecord.read(store)
+        var s = PrepareStatus(preparations: preparationInfos(), onboarded: onboarded, images: try images(), hostRunning: !readOnly)
+        // 634: the store's one base and whether it is ready.
+        let id = onboarded?.base ?? DozableSettings.load().string(SettingKey.defaultBase) ?? "node"
+        if let b = BaseCatalogue.base(id) { s.base = BaseState(b, prepared: preparedCheck(PreparationInfo.baseName(id), store)) }
+        return s
     }
 
     /// Cancel every preparation and give them a moment to clean up (the host is exiting).
