@@ -10,7 +10,13 @@
 //    model provider "Not needed"; Change in place (a select of the keys its tool accepts, the default, No key — the
 //    existing account-use action, from its next session).
 // 3. Change a default — the Keys view: per provider a heading line over ONE table (Key · one Status · Used by on one
-//    line, "… +N" past it · a Default tick · the one verb + ⋯, whose Set default changes it); Anthropic's "No default" is the table's last row; the Mac login's keep-alive under it.
+//    line, "… +N" past it · a Default tick · the one verb + ⋯: Set default, Check again, Read again, Edit…, Details,
+//    Remove…); Anthropic's "No default" is the table's last row; the Mac login's keep-alive under it.
+//    Edit… (every key but a login and a ChatGPT sign-in; owner: "add a way to edit key details") is ONE step: the Name
+//    (`account-edit`: everything that names the key goes with it), a setup token's Plan (the same action), and — for a
+//    key Dozable keeps in the keychain itself — "Replace the key", optional (POST /api/v1/accounts with `replace` and
+//    `edit`: a key that WORKS may be replaced too). A key read from 1Password / AWS / a command, a custom key or a
+//    keychain item the person named: the name only, and the `doz account add … --force` line for the rest.
 // 4. Add a key for a tool — step 1 asks "Which tool is it for — or which provider?" and answers a tool with the providers
 //    it can use and the keys already there; a failing key is replaced IN PLACE (`replace: true` — the host's add with
 //    force; refused by the server for a key that works). A pasted key follows ui.allow_secret_entry and the secret rules
@@ -21,7 +27,7 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-0560a03cb0de25ef.js';
 import { full, when } from '../core/format-b2e68384da8d2f36.js';
-import { act, actOrThrow } from '../core/operations-1789b4518e764708.js';
+import { act, actOrThrow, waitOp } from '../core/operations-1789b4518e764708.js';
 import { refresh } from '../core/router-c1ad2163f2988945.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
@@ -339,6 +345,7 @@ function keyRow(a, rows, x, p, phases) {
     !isLogin(x) && !isFailing(x) && !(p === 'custom' || (a.uncheckedProviders || []).includes(p)) && !x.sourceLabel && checked(x)
       ? { label: 'Check again', icon: 'badge-check', desc: 'One tiny request to ' + title(a, p) + ' with it', onSelect: () => act({ action: 'account-verify', account: x.name }) } : null,
     x.sourceLabel && x.state !== 'unavailable' ? { label: 'Read again', icon: 'refresh-cw', desc: 'Read it from where you keep it now', onSelect: () => act({ action: 'account-refresh', account: x.name }) } : null,
+    editable(x) ? { label: 'Edit…', icon: 'settings', desc: editDesc(x), onSelect: () => openEditKey(a, x) } : null,
     { label: open ? 'Hide details' : 'Details', icon: 'info', desc: 'Fingerprint, keychain item, source, expiry',
       onSelect: () => { open ? UI.open.delete(x.name + '|' + x.kind) : UI.open.add(x.name + '|' + x.kind); refresh(false); } },
     isLogin(x) ? null : removeItem(x),
@@ -527,6 +534,167 @@ export function openAddKey(a, pid, source, opts = {}) {
     ref: '', host: 'api.example.com', envVar: 'EXAMPLE_API_KEY', header: 'bearer', makeDefault: null, result: null, busy: false, old };
   d.showModal();
   paintFlow();
+}
+
+// ── Edit a key: its name, a setup token's plan, a new value under the same name — ONE step ─────────────────────────────
+/// Every key but a login (this Mac's own, never renamed) and a ChatGPT sign-in (signed in again under a new name).
+const editable = (x) => !isLogin(x) && x.kind !== 'chatgpt';
+/// A key Dozable keeps in the keychain itself — its value may be replaced here (never one read from 1Password, AWS or a
+/// command, a custom key or a keychain item the person named).
+const valueHere = (x) => !x.sourceLabel && !x.adopted && providerOf(x) !== 'custom' && ['api-key', 'openai-key', 'key', 'setup-token'].includes(x.kind);
+function editDesc(x) {
+  return 'Its name' + (x.kind === 'setup-token' ? ', its plan' : '') + (valueHere(x) ? ' or a new key under the same name' : '');
+}
+/// `doz account add NAME … --force` for this key — what changes its value (or its source) in Terminal.
+function replaceCommand(x, name) {
+  const n = name || x.name;
+  if (providerOf(x) === 'custom') {
+    return 'doz account add ' + n + ' --custom' + (x.hosts || ['HOST']).map((hh) => ' --host ' + shq(hh)).join('') + ' --env-var VAR --bearer --force';
+  }
+  const flag = x.kind === 'setup-token' ? ' --setup-token --plan ' + (x.plan || 'max') : provFlag(providerOf(x));
+  if (x.sourceLabel) {
+    const m = /^([^:]+):\s*(.*)$/.exec(x.sourceLabel);
+    const kind = m ? m[1].toLowerCase() : '', ref = m ? m[2] : '';
+    const from = kind.startsWith('1password') ? ' --from ' + shq(ref || 'op://VAULT/ITEM/FIELD')
+      : kind.startsWith('aws') ? ' --from ' + shq('aws:' + (ref || 'ARN')) : ' --from-command ' + shq(ref || 'PROGRAM');
+    return 'doz account add ' + n + flag + from + ' --force';
+  }
+  return 'doz account add ' + n + flag + ' --force';
+}
+
+/// The Edit… dialog: Name, a setup token's Plan, Replace the key (optional). Save applies only what changed — the name
+/// and plan in one `account-edit` action, then a new value through POST /api/v1/accounts with replace + edit — and says
+/// the outcome here (a new value's check, like Add's last step).
+export function openEditKey(a, x) {
+  if (FLOW && FLOW.d && FLOW.d.open) FLOW.d.close();
+  const d = h('dialog', { class: 'dlg ak-flow ak-edit', 'aria-labelledby': 'ak-edit-title', 'data-ak-edit': x.name });
+  d.addEventListener('close', () => { d.remove(); if (FLOW && FLOW.d === d) FLOW = null; });
+  document.body.append(d);
+  FLOW = { d, edit: true };
+  const p = providerOf(x);
+  const st = { name: x.name, plan: x.plan || 'max', busy: false, error: '', result: null };
+  d.showModal();
+
+  const paint = () => {
+    const close = btn('Close', () => d.close(), { small: true, quiet: true, iconOnly: true, icon: 'x' });
+    const head = h('div', { class: 'dlg-head ak-flow-head' }, h('h2', { class: 'h-title', id: 'ak-edit-title' }, 'Edit ' + st.name), close);
+    const body = h('div', { class: 'dlg-body ak-flow-body' });
+    const foot = h('div', { class: 'dlg-foot dlg-buttons' });
+    if (st.result) {
+      const r = st.result;
+      const rows = [];
+      for (const line of r.lines) rows.push(h('div', null, icon('check'), ' ', line));
+      if (r.row) {
+        const s = statusOf(r.row, r.a || a);
+        const users = r.row.usedBy || [];
+        rows.push(h('div', { class: 'ak-result', role: 'status', 'data-ak-result': 'done' }, statusPill(s),
+          h('div', null, h('b', null, 'The new key ' + (s[0] === 'fail' ? 'is saved, but ' + s[2].toLowerCase() + '.' : s[2] === 'Works' ? 'works.' : 'is saved.')),
+            h('div', { class: 'muted' }, (s[2] === 'Works' ? title(a, p) + ' accepted it; it is in your login keychain.' : 'It is in your login keychain' + (s[3] ? ' — ' + s[3] : '') + '.')
+              + (users.length ? ' ' + and(users) + (users.length === 1 ? ' uses' : ' use') + ' it from ' + (users.length === 1 ? 'its' : 'their') + ' next session.' : '')))));
+      }
+      body.append(h('div', { class: 'ak-edit-done', 'data-ak-edit-done': '' }, ...rows));
+      foot.append(h('span', { class: 'spacer' }), btn('Done', () => d.close(), { primary: true, icon: 'check' }));
+      d.replaceChildren(head, body, foot);
+      return;
+    }
+    const name = h('input', { class: 'ak-in', autocomplete: 'off', spellcheck: 'false', 'aria-label': 'Name', 'data-ak-edit-name': '' });
+    name.value = st.name === x.name ? (st.newName ?? x.name) : st.name;
+    name.addEventListener('input', () => { st.newName = name.value.trim(); paintCmd(); });
+    const used = x.usedBy || [];
+    body.append(h('div', { class: 'ak-two' },
+      h('div', { class: 'field' }, h('span', null, 'Provider'), h('div', null, h('b', null, p === 'custom' ? 'Your own service' : title(a, p)))),
+      h('label', { class: 'field' }, h('span', null, 'Name'), name,
+        h('small', null, 'a-z 0-9 -. ' + (used.length ? and(used) + (used.length === 1 ? ' uses' : ' use') + ' it and keeps it under the new name.' : 'No sandbox uses it.')))));
+    let plan = null;
+    if (x.kind === 'setup-token') {
+      plan = h('select', { class: 'ak-in', 'aria-label': 'Plan', 'data-ak-edit-plan': '' }, ...['max', 'pro', 'team', 'enterprise'].map((v) => h('option', { value: v }, v)));
+      plan.value = st.plan;
+      plan.addEventListener('change', () => { st.plan = plan.value; paintCmd(); });
+      body.append(h('label', { class: 'field' }, h('span', null, 'Plan'), plan,
+        h('small', null, 'Claude Code shows it and picks its default model by it — sessions started from now on get it.')));
+    }
+    const cmdBox = h('div', { class: 'ak-cmdbox' });
+    let cmdLine = null;
+    const paintCmd = () => {
+      if (!cmdLine) return;
+      const line = cmdLine();
+      cmdBox.replaceChildren(h('pre', { class: 'ak-cmd', 'data-ak-cmd': '' }, line), h('div', null, copyBtn(line, 'Copy', { small: true, icon: 'copy' })));
+    };
+    let secret = null;
+    const here = valueHere(x);
+    if (here && secretEntryAllowed()) {
+      const what = x.kind === 'setup-token' ? 'setup token' : 'key';
+      secret = h('input', { class: 'ak-in', type: 'password', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'off', 'data-secret': '1',
+        placeholder: 'leave empty to keep the current ' + what, 'aria-label': 'Replace the ' + what, 'data-ak-edit-secret': '' });
+      body.append(h('label', { class: 'field' }, h('span', null, 'Replace the ' + what), secret,
+        h('small', null, 'Optional. Not shown, not kept in this page. ' + ((a.uncheckedProviders || []).includes(p) ? title(a, p) + ' has no key check, so it is saved as it is'
+          : 'Checked with one tiny request to ' + title(a, p)) + ', then kept in your login keychain under the same name'
+          + (used.length ? '; ' + (used.length === 1 ? 'its sandbox gets' : 'its sandboxes get') + ' it at the next session.' : '.'))));
+    } else if (here) {
+      cmdLine = () => replaceCommand(x, (st.newName || '').trim() && NAME.test(st.newName.trim()) ? st.newName.trim() : st.name).replace(/--plan \S+/, '--plan ' + st.plan);
+      body.append(callout('info', { attrs: { 'data-secret-why': '1' }, title: 'To replace the key',
+        body: [h('p', null, secretEntryWhy() + ' — in Terminal on this Mac (it asks for the key and does not echo it; the name, default and sandboxes are kept):'), cmdBox] }));
+    } else {
+      cmdLine = () => replaceCommand(x, st.name);
+      const why = x.sourceLabel ? 'Its key is read from ' + x.sourceLabel.replace(/:.*$/, '') + ' each time a sandbox needs it. Where it is read from is changed in Terminal:'
+        : providerOf(x) === 'custom' ? 'A custom key names the hosts it may go to, so its key and hosts are changed in Terminal:'
+        : 'Its key is a keychain item you named, so Dozable does not change it. To keep a new key under this name instead, in Terminal:';
+      body.append(h('div', { class: 'field' }, h('span', null, 'The key'), h('p', { class: 'muted' }, why), cmdBox));
+    }
+    paintCmd();
+    const err = h('div', { class: 'dlg-error', role: 'alert', 'data-ak-error': '' }, st.error || '');
+    body.append(err);
+    const fail = (t) => { st.error = t; err.textContent = t; };
+    const save = btn(st.busy ? 'Saving…' : 'Save', async (ev) => {
+      const b = ev.currentTarget;
+      const value = secret ? secret.value : '';
+      if (secret) secret.value = '';                              // gone from the page before any request
+      const n = name.value.trim();
+      const taken = (a.accounts || []).some((y) => y.name === n && y !== x);
+      if (!NAME.test(n) || ['default', 'none', 'mac'].includes(n)) return fail('The name: 1–40 of a-z 0-9 - (not mac, default or none).');
+      if (n !== st.name && taken) return fail('There is already a key called ' + n + '.');
+      const renamed = n !== st.name;
+      const newPlan = plan && plan.value !== (x.plan || '') ? plan.value : null;
+      if (value && value.trim().length < 20) return fail('Paste the whole ' + (x.kind === 'setup-token' ? 'token' : 'key') + ' — or leave it empty to keep the current one.');
+      if (!renamed && !newPlan && !value) return fail('Nothing to change.');
+      b.disabled = true; st.busy = true; fail('');
+      const lines = [];
+      try {
+        if (renamed || newPlan) {
+          const body2 = { action: 'account-edit', account: st.name };
+          if (renamed) body2.newName = n;
+          if (newPlan) body2.plan = newPlan;
+          const op = await actOrThrow(body2);
+          const end = op && op.id ? await waitOp(op.id) : null;
+          if (end && end.state === 'failed') throw new Error(end.text || 'The change was refused');
+          if (renamed) { lines.push('Renamed ' + st.name + ' to ' + n + (used.length ? ' — ' + and(used) + (used.length === 1 ? ' keeps' : ' keep') + ' using it.' : '.')); st.name = n; }
+          if (newPlan) { lines.push('Plan ' + newPlan + ' — sessions started from now on get it.'); x.plan = newPlan; }
+        }
+        let row = null, fresh = null;
+        if (value) {
+          const kind = x.kind;
+          const body3 = { name: st.name, kind, secret: value, replace: true, edit: true };
+          if (kind === 'setup-token') body3.plan = plan ? plan.value : (x.plan || 'max');
+          if (kind === 'key') body3.provider = p;
+          fresh = await api('accounts', { method: 'POST', json: body3 });
+          row = (fresh.accounts || []).find((y) => y.name === st.name) || null;
+        }
+        st.result = { lines, row, a: fresh ? { ...a, ...fresh } : a };
+        if (!row) { toast(st.name + ': ' + lines.join(' ')); d.close(); } else paint();
+      } catch (e) {
+        st.busy = false;
+        b.disabled = false;
+        // What was already done stays done (a rename that went through keeps its new name here too).
+        fail((lines.length ? lines.join(' ') + ' But ' : '') + (e.message || String(e)));
+        head.querySelector('.h-title').textContent = 'Edit ' + st.name;
+      }
+      refresh(false);
+    }, { primary: true, icon: 'check', data: { akEditSave: '' } });
+    foot.append(h('span', { class: 'spacer' }), btn('Cancel', () => d.close(), { icon: 'x' }), save);
+    d.replaceChildren(head, body, foot);
+    name.focus();
+  };
+  paint();
 }
 
 function suggestName(a, p) {

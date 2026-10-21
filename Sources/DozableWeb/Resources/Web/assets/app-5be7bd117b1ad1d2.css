@@ -2046,6 +2046,10 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 .ak-follow > .icon { color: var(--ink-2); }
 .ak-follow .d { grid-column: 2; color: var(--ink-2); font-size: var(--fs-sm); }
 .ak-follow .btn { grid-column: 3; grid-row: 1 / span 2; }
+/* 641: Edit a key — what was done, a line each (then a new key's check). */
+.ak-edit-done { display: grid; gap: 10px; }
+.ak-edit-done > div:not(.ak-result) { display: flex; align-items: flex-start; gap: 8px; }
+.ak-edit-done > div:not(.ak-result) > .icon { color: var(--ok); margin-top: 2px; }
 @media (max-width: 640px) {
   .ak-opt, .ak-follow { grid-template-columns: 24px minmax(0, 1fr); }
   .ak-opt .btn, .ak-follow .btn { grid-column: 2; grid-row: auto; justify-self: start; }

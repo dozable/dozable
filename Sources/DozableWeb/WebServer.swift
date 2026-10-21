@@ -884,7 +884,8 @@ public final class DozableWebServer: @unchecked Sendable {
             try Self.requireJSONBody(md)
             guard settings.secretEntryAllowed else { throw WebRejection.secretEntryOff }
             let a = try WebAccountAdd.decode(body)
-            // 641 (D1): a replace only for a key that is failing now — read here, so the page's view cannot be stale.
+            // 641 (D1): a replace only for a key that is failing now — or, from an explicit Edit… (`edit`), any key Dozable
+            // keeps itself — read here, so the page's view cannot be stale.
             if a.replace, let why = a.replaceProblem(try await data.accounts().accounts) { throw WebAction.Invalid(why) }
             do {
                 return json(try await data.addAccount(a))

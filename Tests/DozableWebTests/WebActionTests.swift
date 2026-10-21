@@ -41,6 +41,8 @@ final class WebActionTests: XCTestCase {
         // 617: read a key kept in 1Password, AWS or a command again (adding a source stays the CLI's).
         "account-refresh": #"{"action":"account-refresh","account":"work"}"#,
         "account-rm": #"{"action":"account-rm","account":"work","confirm":"work"}"#,
+        // 641: rename a key and/or a setup token's plan (never its value).
+        "account-edit": #"{"action":"account-edit","account":"work","newName":"team","plan":"pro"}"#,
         "onboard": #"{"action":"onboard","images":["claude-code","lab"]}"#,
         "prepare-cancel": #"{"action":"prepare-cancel","images":["pi"]}"#,
         "resources-rm": #"{"action":"resources-rm","ids":["cache:downloads","kernel:6.12.1-1","point:web/rp-1"]}"#,
@@ -62,6 +64,8 @@ final class WebActionTests: XCTestCase {
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,
+        // 641: a key's name and plan (no secret in it).
+        .accountEdit,
         .templateCreate, .duplicate, .onboard, .prepareCancel, .resourcesRemove, .resourcesClean, .resourcesKernel, .ping,
         // 596 (B7): consented by the person's click on a button that said what it does.
         .builderStart, .builderInstall,
@@ -72,6 +76,31 @@ final class WebActionTests: XCTestCase {
         // 594 W20: only as Restart host, which the data source refuses unless the host is OLDER.
         .hostStop,
     ]
+
+    /// 641: Edit… — `account-edit` carries a new name and/or a setup token's plan, each by its rule; never a secret, never
+    /// the Mac login, never nothing to change.
+    func testAccountEditDecodesStrictly() throws {
+        let a = try decode(Self.samples["account-edit"]!)
+        XCTAssertEqual(a, .accountEdit("work", newName: "team", plan: "pro"))
+        XCTAssertEqual(a.hostRequest.op, .accountEdit)
+        XCTAssertEqual(a.hostRequest.account, "work")
+        XCTAssertEqual(a.hostRequest.newName, "team")
+        XCTAssertEqual(a.hostRequest.plan, "pro")
+        XCTAssertNil(a.hostRequest.secret)
+        XCTAssertNil(a.confirmationTarget, "nothing is lost: no confirmation")
+        XCTAssertEqual(try decode(#"{"action":"account-edit","account":"work","plan":"max"}"#), .accountEdit("work", newName: nil, plan: "max"))
+        XCTAssertEqual(try decode(#"{"action":"account-edit","account":"work","newName":"w2"}"#), .accountEdit("work", newName: "w2", plan: nil))
+        XCTAssertNotEqual(a.dedupeKey, try decode(#"{"action":"account-edit","account":"work","newName":"w3"}"#).dedupeKey)
+        invalid(#"{"action":"account-edit","account":"work"}"#)
+        invalid(#"{"action":"account-edit","account":"work","newName":"work"}"#)
+        invalid(#"{"action":"account-edit","account":"mac","newName":"mine"}"#)
+        for bad in ["default", "none", "mac", "Bad", "-x", "a b", String(repeating: "a", count: 41)] {
+            invalid(#"{"action":"account-edit","account":"work","newName":"\#(bad)"}"#)
+        }
+        invalid(#"{"action":"account-edit","account":"work","plan":"gold"}"#)
+        invalid(#"{"action":"account-edit","account":"work","newName":"x2","secret":"sk-ant-api03-NOPE"}"#)
+        invalid(#"{"action":"account-edit","account":"work","newName":5}"#)
+    }
 
     /// 595: resources — ids by their rule, each once; no typed name (a plain confirmation: owner);
     /// never a dry-run flag or a path from the browser.

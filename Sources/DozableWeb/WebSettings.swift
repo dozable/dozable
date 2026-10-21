@@ -186,8 +186,12 @@ public struct WebAccountAdd: Equatable, Sendable, CustomStringConvertible, Custo
     /// --force`'s own request; sandboxes that follow it keep following it. The server refuses it for a key that works
     /// (`WebAccountAdd.replaceProblem`), for a name that is not a key here, and for a key of another provider.
     public var replace: Bool = false
+    /// 641 (owner: "add a way to edit key details"): the replace comes from an explicit Edit… of the key — then a key
+    /// that WORKS may be replaced too (a new value under the same name). Still never a login, a ChatGPT sign-in, a key
+    /// read from 1Password/AWS/a command, a custom key or an adopted keychain item; still the same provider.
+    public var edit: Bool = false
 
-    public var description: String { "WebAccountAdd(\(name), \(kind.rawValue)\(replace ? ", replace" : ""), secret: <redacted>)" }
+    public var description: String { "WebAccountAdd(\(name), \(kind.rawValue)\(replace ? ", replace" : "")\(edit ? ", edit" : ""), secret: <redacted>)" }
     public var debugDescription: String { description }
     public var customMirror: Mirror { Mirror(self, children: ["name": name, "kind": kind.rawValue, "secret": "<redacted>"]) }
 
@@ -196,8 +200,8 @@ public struct WebAccountAdd: Equatable, Sendable, CustomStringConvertible, Custo
             throw WebAction.Invalid("the body must be a JSON object")
         }
         let keys = Set(d.keys)
-        guard keys.isSuperset(of: ["name", "kind", "secret"]), keys.isSubset(of: ["name", "kind", "secret", "plan", "provider", "replace"]) else {
-            throw WebAction.Invalid("exactly name, kind, secret (and plan for a setup token, provider for a key, replace)")
+        guard keys.isSuperset(of: ["name", "kind", "secret"]), keys.isSubset(of: ["name", "kind", "secret", "plan", "provider", "replace", "edit"]) else {
+            throw WebAction.Invalid("exactly name, kind, secret (and plan for a setup token, provider for a key, replace, edit)")
         }
         guard let name = d["name"] as? String, name.count <= 40, (try? AccountStore.validateName(name)) != nil else {
             throw WebAction.Invalid("name: an account name, 1–40 of a-z 0-9 - (not default or none)")
@@ -232,9 +236,16 @@ public struct WebAccountAdd: Equatable, Sendable, CustomStringConvertible, Custo
             guard let n = r as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() else { throw WebAction.Invalid("replace: true or false") }
             replace = n.boolValue
         }
+        var edit = false
+        if let e = d["edit"], !(e is NSNull) {
+            guard let n = e as? NSNumber, CFGetTypeID(n) == CFBooleanGetTypeID() else { throw WebAction.Invalid("edit: true or false") }
+            edit = n.boolValue
+            guard !edit || replace else { throw WebAction.Invalid("edit: goes with replace") }
+        }
         var a = WebAccountAdd(name: name, kind: kind, plan: plan, secret: secret)
         a.provider = provider
         a.replace = replace
+        a.edit = edit
         return a
     }
 
@@ -248,7 +259,12 @@ public struct WebAccountAdd: Equatable, Sendable, CustomStringConvertible, Custo
         guard let row = current.first(where: { $0.name == name }), !["mac", "codex-mac", "chatgpt"].contains(row.kind) else {
             return "replace: there is no key of that name to replace"
         }
-        guard Self.replaceableStates.contains(row.state) else {
+        if edit {
+            // 641: an explicit edit replaces a working key too — but only a value Dozable keeps in the keychain itself.
+            guard row.sourceLabel == nil, row.provider != "custom", row.adopted != true else {
+                return "replace: this key is not kept by Dozable (it is read from where you keep it, or a keychain item you named) — change it there, or in Terminal"
+            }
+        } else if !Self.replaceableStates.contains(row.state) {
             return "replace: only a key that is refused or cannot be read is replaced in place — this one works; add it under another name"
         }
         let same = row.kind == kind.rawValue || (row.kind == "setup-token" && kind == .apiKey) || (row.kind == "api-key" && kind == .setupToken)

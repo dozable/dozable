@@ -620,8 +620,8 @@ name: todo-app</pre></details>
     heading line (<code>.ak-gh</code>: letter, name, gateway tag, “for TOOLS”, a quiet “Add PROVIDER key”) over ONE table (<code>table.ak-t</code> in a
     <code>.panel</code>): the key and where it lives, ONE status pill (a second line only for a refusal’s code, an expiry, a plan, “read on use ·
     when”), Used by (sandbox chips with their phase dot, each a link, on ONE line — <code>.ak-used.one-line</code>, the ones that do not fit become
-    “… +N” naming them on hover), a Default column holding an accent tick on the default only, the one verb + ⋯ (Set default, Details, Check again,
-    Remove…). Anthropic’s “No default” is the table’s last row (<code>tr.none-row</code>), with its own ⋯ › Set default. Under 760px each row stacks.</p>
+    “… +N” naming them on hover), a Default column holding an accent tick on the default only, the one verb + ⋯ (Set default, Check again, Read again,
+    Edit…, Details, Remove…). Anthropic’s “No default” is the table’s last row (<code>tr.none-row</code>), with its own ⋯ › Set default. Under 760px each row stacks.</p>
   <div class="pair wide"><div class="scheme">
     <section class="ak-needs" aria-label="Needs you">
       <div class="ak-needs-h"><i data-i="triangle-alert"></i><span>Needs you</span><span class="muted">— 4 keys, 3 sandboxes affected</span></div>
@@ -703,6 +703,20 @@ name: todo-app</pre></details>
     <pre class="ak-cmd">doz account add xai-2 --provider xai --from op://Dev/xai/credential</pre>
     <div class="ak-result" role="status"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><div><b>xai works.</b><div class="muted">xAI accepted it; it is in your login keychain. box-grok uses it from its next session.</div></div></div>
     <div class="ak-follow"><i data-i="trash-2"></i><b>xai-copy is the old copy — and still can’t be read</b><div class="d">No sandbox uses it. Remove it now?</div><button type="button" class="btn sm danger"><i data-i="trash-2"></i>Remove xai-copy…</button></div>
+  </div></div>
+  <p><b>Edit a key:</b> ⋯ › Edit… (every key but a login and a ChatGPT sign-in) opens ONE step in the same dialog shell (<code>dialog.dlg.ak-flow.ak-edit</code>):
+    the Name (a rename carries the keychain item Dozable made, the defaults and every sandbox that names the key), a setup token’s Plan, and — for a key
+    Dozable keeps in the keychain itself — “Replace the key”, an optional masked field (“leave empty to keep the current key”). A key read from 1Password,
+    AWS or a command, a custom key or a keychain item the person named offers the name only, with the <code>doz account add … --force</code> line
+    (<code>.ak-cmd</code>) for the rest; so does “Replace the key” while pasting is turned off. Save applies only what changed and says it
+    (<code>.ak-edit-done</code>: a line per change, then a new key’s check, <code>.ak-result</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="ak-two"><div class="field"><span>Provider</span><div><b>Anthropic</b></div></div>
+      <label class="field"><span>Name</span><input class="ak-in" value="team"><small>a-z 0-9 -. box-claude uses it and keeps it under the new name.</small></label></div>
+    <label class="field"><span>Plan</span><select class="ak-in"><option>pro</option></select><small>Claude Code shows it and picks its default model by it — sessions started from now on get it.</small></label>
+    <label class="field"><span>Replace the setup token</span><input class="ak-in" type="password" placeholder="leave empty to keep the current setup token"><small>Optional. Not shown, not kept in this page.</small></label>
+    <div class="ak-edit-done"><div><i data-i="check"></i> Renamed work to team — box-claude keeps using it.</div>
+      <div class="ak-result" role="status"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><div><b>The new key works.</b><div class="muted">Anthropic accepted it; it is in your login keychain. box-claude uses it from its next session.</div></div></div></div>
   </div></div>
 </section>
 

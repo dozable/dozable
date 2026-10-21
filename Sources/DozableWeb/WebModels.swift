@@ -1097,9 +1097,12 @@ public struct WebAccount: Codable, Equatable, Sendable {
     public var hosts: [String]?
     /// 617: when its key was last checked and worked (nil: never).
     public var verifiedAt: Date?
+    /// 641: a keychain item the person named — the page offers no "Replace the key" for it.
+    public var adopted: Bool?
 
     public init(_ a: AccountRow) {
         verifiedAt = a.verifiedAt
+        adopted = a.adopted
         provider = a.provider
         sourceLabel = a.sourceLabel
         sourceState = a.sourceState

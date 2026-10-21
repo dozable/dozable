@@ -468,6 +468,16 @@ public final class SecretSourceState: @unchecked Sendable {
     public func outcome(_ account: String) -> Outcome? { lock.withLock { outcomes[account] } }
     public func readCount(_ account: String) -> Int { lock.withLock { reads[account] ?? 0 } }
 
+    /// 641: an account renamed — its last read goes with it; the new name's generation moves on, so a provider never
+    /// takes a value cached under it before.
+    public func rename(_ old: String, to new: String) {
+        lock.withLock {
+            outcomes[new] = outcomes.removeValue(forKey: old)
+            lastStale[new] = lastStale.removeValue(forKey: old)
+            generations[new] = max(generations[new] ?? 0, generations.removeValue(forKey: old) ?? 0) + 1
+        }
+    }
+
     func record(_ account: String, _ r: CredentialVault.SecretRead, now: Date = Date()) {
         lock.withLock {
             outcomes[account] = Outcome(ok: r.secret != nil, notice: r.notice, at: now)

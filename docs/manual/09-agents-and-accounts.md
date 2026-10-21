@@ -61,9 +61,18 @@ doz account default work                          # every sandbox that follows t
 doz account use my-app work                       # this sandbox uses work (open sessions switch on their next request)
 doz account use my-app default                    # follow the store's default again
 doz account verify work                           # one tiny request to api.anthropic.com
+doz account rename work team                      # its keychain item, the default and its sandboxes go with it
+doz account set-plan team pro                     # a setup token's plan, without pasting it again
+doz account add team --setup-token --force        # a new token under the same name (default, sandboxes and plan kept)
 doz account rm work                               # also deletes the keychain item Dozable made
 doz create my-app --image claude-code --account work
 ```
+
+A rename moves everything that names the account: the keychain item Dozable made for it (written under
+the new name and read back before the old one is deleted), the store's default, and every sandbox that
+uses it — chosen for it or as a custom key. Open sessions keep working. A keychain item you named
+yourself (`--keychain SERVICE`) keeps its name. This Mac's logins keep theirs, and so does a ChatGPT
+sign-in (sign in again under the new name, then remove the old one).
 
 A new sandbox follows the store's default account — `mac` out of the box. Sign in to Claude Code on
 your Mac once, and every sandbox can use your subscription with nothing to paste.
@@ -97,8 +106,15 @@ red count while a problem breaks a sandbox.
 
 A refused or unreadable key is **replaced in place**: **Replace…** / **Add it again…** opens the paste
 under the same name, and the sandboxes that use it keep using it — the new key from their next session
-(what `doz account add NAME --force` does). A key that works is never replaced this way; add a new one
-under another name instead.
+(what `doz account add NAME --force` does). To put a new value in a key that works, use **⋯ › Edit…**.
+
+**Edit a key.** **⋯ › Edit…** changes a key's details in one step: its **Name** (the sandboxes that use
+it and its default come along), a Claude subscription token's **Plan**, and — for a key Dozable keeps in
+your keychain — **Replace the key**: paste a new value under the same name, or leave it empty to keep
+the current one. A new value is checked like an added one; the sandboxes that use it get it at their next
+session. A key read from 1Password, AWS or a command, a custom key, or a keychain item you named offers
+the name only, with the `doz account add … --force` line for the rest. This Mac's logins and a ChatGPT
+sign-in have no Edit.
 
 **Which key does this sandbox use?** The **Sandboxes** view lists every sandbox with its tool, the key it
 uses now, how it gets it (its provider's default, or chosen for it) and its status. A sandbox whose
@@ -117,7 +133,7 @@ each provider and gateway), naming the tools its key serves. Each key is a row:
   **No check for this provider** — with a second line only when it adds something (the refusal's code,
   an expiry, "read on use").
 - the sandboxes that use it (each a link to its page), then the one action that helps now (**Check**,
-  **Read again**, **Replace…**, **Add again…**) and **⋯** (**Remove…**).
+  **Read again**, **Replace…**, **Add again…**) and **⋯** (**Set default**, **Edit…**, **Details**, **Remove…**).
 
 The Claude Code keep-alive switch sits under Anthropic's table. **Find** filters both views by a tool,
 a provider, a key or a sandbox.

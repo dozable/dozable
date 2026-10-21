@@ -651,4 +651,46 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(try WebAccountAdd.decode(Data(body("xai", replace: "false").utf8)).replace, false)
         XCTAssertNil(try WebAccountAdd.decode(Data(body("good", replace: "false").utf8)).replaceProblem(fake.accountRows), "no replace: no check")
     }
+
+    /// 641 (owner: "add a way to edit key details"): from an explicit Edit… (`edit: true`, only with replace) a key that
+    /// WORKS is replaced too — still never a login, a key read on use, a custom key, an adopted item or another provider's.
+    func testAnEditReplacesAWorkingKeyButOnlyOneDozableKeeps() throws {
+        let (cookie, csrf) = try signIn()
+        let key = "xai-FAKE" + String(repeating: "e", count: 40)
+        func row(_ name: String, _ kind: String, _ state: String, provider: String? = nil, extra: String = "") throws -> WebAccount {
+            let p = provider.map { #","provider":"\#($0)""# } ?? ""
+            let json = #"{"name":"\#(name)","kind":"\#(kind)","isDefault":true,"usedBy":["grok-sandbox"],"state":"\#(state)"\#(p)\#(extra)}"#
+            return WebAccount(try JSONDecoder().decode(AccountRow.self, from: Data(json.utf8)))
+        }
+        fake.accountRows = [try row("good", "key", "ok", provider: "xai"),
+                            try row("vault", "key", "ok", provider: "xai", extra: #","sourceLabel":"1Password: op://Dev/xai/credential""#),
+                            try row("mine", "key", "ok", provider: "xai", extra: #","adopted":true"#),
+                            try row("ex", "key", "ok", provider: "custom"),
+                            try row("gem", "key", "ok", provider: "google"), try row("mac", "mac", "ok")]
+        XCTAssertEqual(fake.accountRows.first { $0.name == "mine" }?.adopted, true, "the projection carries adopted")
+        func post(_ body: String) throws -> RawResponse {
+            try request("/api/v1/accounts", ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json", "X-Doz-CSRF": csrf],
+                        method: "POST", body: body)
+        }
+        func body(_ name: String, provider: String = "xai", replace: String = "true", edit: String = "true") -> String {
+            #"{"name":"\#(name)","kind":"key","provider":"\#(provider)","secret":"\#(key)","replace":\#(replace),"edit":\#(edit)}"#
+        }
+        for (b, why) in [(body("vault"), "a key read from 1Password"), (body("mine"), "a keychain item the person named"),
+                         (body("gem"), "another provider's key"), (body("nope"), "no key of that name"),
+                         (#"{"name":"mac","kind":"api-key","secret":"\#(key)","replace":true,"edit":true}"#, "the Mac login"),
+                         (body("good", replace: "false"), "edit without replace"), (body("good", edit: "1"), "a number is not a boolean")] {
+            let r = try post(b)
+            XCTAssertEqual(r.status, 400, "\(why): \(r.text)")
+            XCTAssertFalse(r.text.contains(key) || r.text.contains("FAKEeeee"), "\(why): the secret came back: \(r.text)")
+        }
+        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the host")
+        // Without edit, a key that works is still refused (the Needs-you Replace… path is unchanged).
+        XCTAssertEqual(try post(body("good", edit: "false")).status, 400)
+        let ok = try post(body("good"))
+        XCTAssertEqual(ok.status, 200, ok.text)
+        XCTAssertFalse(ok.text.contains(key), "the answer never carries it")
+        XCTAssertEqual(fake.addedAccounts.map(\.name), ["good"])
+        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "the host's add with force")
+        XCTAssertFalse("\(fake.addedAccounts[0])".contains(key), "its description is redacted")
+    }
 }
