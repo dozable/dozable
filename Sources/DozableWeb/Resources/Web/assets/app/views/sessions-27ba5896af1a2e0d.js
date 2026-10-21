@@ -8,7 +8,7 @@ import { saveSetting, setting } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { lifecycle } from '../components/lifecycle-83134e537abf7491.js';
-import { renderNavSandboxes } from '../components/nav-121a8de4182c2aa1.js';
+import { renderNavSandboxes } from '../components/nav-54669f249ab4ba6a.js';
 import { agentChip } from '../components/agent-status-4b4b30d82051d513.js';
 import { pageFailure } from '../components/notices-63d38bfc28f739a5.js';
 import { paintCover } from '../components/terminal-78d4c0cd71da822f.js';
