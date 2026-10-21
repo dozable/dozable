@@ -183,6 +183,32 @@ public struct Prompter {
         }
     }
 
+    /// 637 (owner: "pause at doctor step to allow review and continue"): wait for Enter before going on — `text` says what
+    /// Enter does ("continue", "start"). Only with keys (a person at a terminal): typed answers — a script, or output
+    /// that is not a terminal — go on at once, so no scripted run needs an extra line. Ctrl-C stops as anywhere else.
+    public func pause(_ indent: String = "  ", _ text: String = "continue") {
+        guard interactive else { return }
+        let line = indent + Style.dim("Press ", colour: colour) + Style.key("Enter", colour: colour) + Style.dim(" to \(text)", colour: colour)
+        _ = withKeys({ keyPause(line) })
+    }
+
+    private func keyPause(_ line: String) -> Bool {
+        write("\u{1B}[?25l")
+        let block = LiveBlock(write: write)
+        block.draw([line])
+        while true {
+            guard let k = Key.read(channel!) else { block.clear(); return true }
+            switch k {
+            case .enter, .endOfInput: block.clear(); return true
+            case .interrupt:
+                block.clear()
+                interrupted()
+                return true
+            default: break
+            }
+        }
+    }
+
     /// Yes or no; Enter keeps `default`.
     public func yesNo(_ question: String, default def: Bool) -> Bool {
         guard interactive else { return def }

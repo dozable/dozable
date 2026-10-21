@@ -131,8 +131,9 @@ struct OnboardingFlow {
 
     /// 637: the steps as the dashboard's setup names them; official builds add Usage statistics and Stay in touch
     /// before the First sandbox.
-    static var totalSteps: Int { Usage.isOfficial ? 9 : 7 }
-    static let usageStep = 7
+    /// (owner: a Welcome before the checks, and a pause after them.)
+    static var totalSteps: Int { Usage.isOfficial ? 10 : 8 }
+    static let usageStep = 8
 
     /// "Step N of M · Title", a rule, and the step's lead.
     func header(_ index: Int, _ title: String, lead: String? = nil) {
@@ -158,16 +159,24 @@ struct OnboardingFlow {
         func basePrepared(_ id: String) -> Bool { prep.base?.id == id && prep.base?.prepared == true }
         let checkBase = BaseCatalogue.base(baseID ?? storeBase) ?? BaseCatalogue.all[0]
         var checks = Onboarding.checks(doctor: doctor, store: store, base: checkBase, prepared: baseID == nil || basePrepared(checkBase.id))
-        header(1, "Welcome", lead: "Dozable runs each project in its own small Linux virtual machine on this Mac. First, this Mac:")
+        // 637 (owner: "1. Welcome (before the doctor)"): what Dozable is and what these steps set up, then a pause.
+        header(1, "Welcome", lead: "Dozable runs each project in its own small Linux virtual machine on this Mac — your coding agents and tools work there, on your project's folder, without reaching the rest of your Mac.")
+        if talk {
+            say(Note("These steps check this Mac, download one base image, and ask about your models and keys, GitHub and SSH, and workspace rules — then make your first sandbox if you want one. Nothing is changed until you choose it; every answer can be changed later.").render())
+            asker.pause("  ", "start")
+        }
+        // 637 (owner: "2. pause at doctor step to allow review and continue").
+        header(2, "This Mac", lead: "What Dozable needs from this Mac:")
         for c in checks { say(Self.checkLine(c)) }
         if keyFlag != nil { say(StatusLine(.info, "claude", detail: "not checked (--key given)", column: 15).render()) }
         if let stop = checks.first(where: \.blocks) {
             say("")
             throw fail(HostError(.failed, "onboarding stopped: \(stop.check) — \(stop.detail)"), g)
         }
+        if talk { asker.pause("  ", "continue") }
 
         // 2. Base image: every tool is added to it as a layer — downloaded and prepared in the host from now on.
-        header(2, "Base image", lead: "Every sandbox starts from one base image, and each tool you try is added to it as a layer — so it is downloaded once.")
+        header(3, "Base image", lead: "Every sandbox starts from one base image, and each tool you try is added to it as a layer — so it is downloaded once.")
         if baseFlag == nil, !noBase, asker.interactive, let b = BaseCatalogue.base(storeBase) {
             if asker.keys {
                 // 637: on a terminal, every base at once (↑/↓), the store's own recommended — or none now.
@@ -215,7 +224,7 @@ struct OnboardingFlow {
         // 3. Models & keys (634, owner: "the Open Router key was not accepted"): the sign-ins found on this Mac, then a
         //    key of any published provider or gateway — added exactly as `doz account add` adds one.
         await baseProgress()
-        header(3, "Models & keys", lead: "Every tool talks to a model: the sign-ins on this Mac, and your keys. A key stays in this Mac's keychain; a sandbox only ever sees a placeholder.")
+        header(4, "Models & keys", lead: "Every tool talks to a model: the sign-ins on this Mac, and your keys. A key stays in this Mac's keychain; a sandbox only ever sees a placeholder.")
         let claudeSignedIn = keyFlag == nil && ClaudeLoginStatus.check(configDir: nil, keychain: macLoginKeychain(), probeBinary: false).state == .signedIn
         let codexState = CodexMacLogin.read(CodexMacLogin.resolveHome()).state
         let codexSignedIn = codexState == .ok || codexState == .expired
@@ -279,7 +288,7 @@ struct OnboardingFlow {
         // 4. Access (599e): GitHub as you, the SSH agent — each a purposeful choice, then each CONFIRMED live; a failure
         //    is skipped (kept, not confirmed), never blocking.
         await baseProgress()
-        header(4, "GitHub & SSH", lead: "What sandboxes may use as you — nothing is on unless you choose it, and each choice is confirmed live. One that cannot be confirmed can be skipped: setup is never blocked.")
+        header(5, "GitHub & SSH", lead: "What sandboxes may use as you — nothing is on unless you choose it, and each choice is confirmed live. One that cannot be confirmed can be skipped: setup is never blocked.")
         let haveClaudeKey = rows.contains { $0.kind == AccountKind.apiKey.rawValue || $0.kind == AccountKind.setupToken.rawValue }
             || addedKinds.contains(.apiKey) || addedKinds.contains(.setupToken)
         var step = AccessStep(g: g, asker: asker, talk: talk, githubFlag: githubFlag, sourceFlag: githubSourceFlag, sshFlag: sshFlag)
@@ -296,13 +305,13 @@ struct OnboardingFlow {
         // 5. Workspace rules (599g, owner A1): what .dozignore / .dozreadonly do, and the default mode — written
         //    only when CHOSEN (a flag or an answer), as the Access choices are.
         await baseProgress()
-        header(5, WorkspaceRulesGuide.title, lead: "What .dozignore and .dozreadonly do in a sandbox's folder.")
+        header(6, WorkspaceRulesGuide.title, lead: "What .dozignore and .dozreadonly do in a sandbox's folder.")
         let ignoreMode = RulesStep(asker: asker, talk: talk, flag: ignoreModeFlag,
                                    current: DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock", folder: nil).run()
 
         // 6. Settings (D7): written only when missing; the user's prompt template beside them (D16). 634: the base too.
         await baseProgress()
-        header(6, "Settings", lead: "Written only when missing — an existing file is left as it is, but for what you chose here.")
+        header(7, "Settings", lead: "Written only when missing — an existing file is left as it is, but for what you chose here.")
         let (settings, settingsPath) = try settingsOutcome {
             try Onboarding.writeSettingsIfMissing(defaultImage: "claude-code", account: nil, base: baseID)
         }
@@ -448,6 +457,8 @@ struct OnboardingFlow {
             return nil
         }
         say("  Same in Terminal: " + Style.code(planned.command))
+        // 637 (owner: "at the very end, pause before starting the new sandbox"): a last look before it is made and started.
+        if talk { asker.pause("  ", "make and start \(planned.name) (Ctrl-C stops here — nothing is made)") }
         let interactive = asker.interactive && talk && isatty(STDIN_FILENO) == 1 && isatty(STDOUT_FILENO) == 1
         let quick = QuickMake(g: g, recipe: recipe, interactive: interactive, requestedBy: "doz onboard")
         let made = try await quick.make(planned, rebuild: false)

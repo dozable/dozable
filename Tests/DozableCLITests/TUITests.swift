@@ -197,6 +197,19 @@ final class TUITests: XCTestCase {
         XCTAssertFalse(sh.output.contains("more"))
     }
 
+    /// 637 (owner: a pause after the checks and before the first sandbox): with keys it waits for Enter (other keys do
+    /// nothing); typed answers never wait — no scripted run needs an extra line.
+    func testPauseWaitsForEnterOnlyWithKeys() {
+        let (p, ch) = keys("x \r")
+        p.pause("  ", "continue")
+        XCTAssertEqual(ch.remaining, 0, "x and space are ignored; Enter goes on")
+        XCTAssertTrue(ch.output.contains("Press Enter to continue"))
+        let typed = ScriptedChannel("2\n", keys: true)
+        let q = Prompter(channel: typed, keys: false, width: 70)
+        q.pause("  ", "continue")
+        XCTAssertEqual(typed.remaining, 2, "typed answers: nothing read")
+    }
+
     func testInterruptRestoresAndStops() {
         let ch = ScriptedChannel("\u{03}")
         var p = Prompter(channel: ch, keys: true, width: 70)
