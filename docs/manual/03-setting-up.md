@@ -32,27 +32,33 @@ dashboard's setup wizard). Both are safe to run again.
 
 ```sh
 doz onboard
+doz onboard --no-color      # the same, without colour (doz config set ui.color never keeps it so)
 ```
 
-On a terminal it asks; **Enter** always accepts the recommended answer. While the base downloads, a line between
-two steps says how far it is — never under a question.
+On a terminal it asks, one step at a time — each headed **Step N of M** with the same names as the dashboard's setup.
+A choice is a list: **↑**/**↓** move, **Enter** picks, a number picks at once; the recommended answer is marked and
+already selected, so **Enter** alone accepts it. A name or a folder is typed, its default shown dimmed (**Enter** keeps
+it); a name that can't be used is refused right under the field. While the base downloads, a line between two steps
+says how far it is — never under a question. With `--no-color` (or `doz config set ui.color never`, or `NO_COLOR` set)
+it looks the same without colour; with its output in a pipe (`doz onboard | cat`) it asks for typed answers instead.
 
-1. **Checks** — the same checks as `doz doctor`. The required ones stop setup when they fail: Apple
+1. **Welcome** — what Dozable is and what these steps set up; **Enter** starts.
+2. **This Mac** — the same checks as `doz doctor`. The required ones stop setup when they fail: Apple
    silicon, macOS 26 or later, virtualization, the signed program, the store on an APFS disk with room
    for the base (about 2 GB with a first sandbox), and a store path short enough. The rest only warn: Claude
    Code missing or signed out (you can add a key instead), and the NAT network helper (only `--network nat`
-   needs it).
-2. **Base image** — `Use Node.js (node:22-bookworm, ↓ 381 MiB)? [Y/n/other]`. **Enter** starts its download and
-   preparation in the host at once, and the next questions follow straight away; **other** lists the other bases;
-   **n** prepares none now (each tool's first start prepares its own).
-3. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex), then `Add a key?
-   [anthropic/openai/xai/google/openrouter/No]`, each with the tools it serves, asked again until **no**. A key
+   needs it). Setup waits here for **Enter**, so you can read them.
+3. **Base image** — every base, with its size and what it is for; Node.js (`node:22-bookworm`, ↓ 381 MiB) is
+   selected. **Enter** starts its download and preparation in the host at once, and the next questions follow
+   straight away; **None now** prepares none (each tool's first start prepares its own).
+4. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex), then **Add a key?**: every provider and
+   gateway, each with the tools it serves, asked again until **No more keys**. A key
    is pasted at a hidden prompt and added exactly as `doz account add` adds it: checked with one tiny request
    and stored in your login keychain. An OpenRouter key works for every tool that can use OpenRouter (pi,
-   OpenCode). **setup-token** adds a Claude subscription's token (from `claude setup-token`); **chatgpt** signs
-   Codex in with ChatGPT (official builds). An Anthropic key becomes the store's default only when Claude Code
+   OpenCode). **Claude subscription token** adds one (from `claude setup-token`); **Sign in with ChatGPT** signs
+   Codex in (official builds). An Anthropic key becomes the store's default only when Claude Code
    is not signed in on this Mac — it never quietly replaces your subscription.
-4. **Access** — what sandboxes may use as you, each offered and never done behind your back:
+5. **GitHub & SSH** — what sandboxes may use as you, each offered and never done behind your back:
    - **GitHub as you**: *Off* (the default), *Read-only* or *Read and push* — and where the token
      comes from: this Mac's `gh` login, or a token you paste (best: a fine-grained one).
    - **SSH agent forwarding**: *Off* (the default) or *On*.
@@ -67,14 +73,14 @@ two steps says how far it is — never under a question.
 
    A failure says why, and offers **Skip** (keep the choice, not confirmed — `doz access` checks
    again later), **Turn it off**, or **Check again**. Setup is never blocked by it.
-5. **Workspace rules** — what `.dozignore` and `.dozreadonly` do, in a few lines: the benefit (keep an
+6. **Workspace rules** — what `.dozignore` and `.dozreadonly` do, in a few lines: the benefit (keep an
    agent out of your secrets, or stop it changing some files, without moving anything), and the
    consequences — **lock** keeps a path listed but unreadable, so the agent knows it exists; **hide**
    removes it altogether; only a folder with one of the files changes, and nothing costs anything without
    them; the first look through many files is a little slower when rules exist; and it is **not a security
    boundary** (root in the sandbox can get round it). Then: *Lock* (recommended) or *Hide* — the default
    for every sandbox (the setting `workspace.ignore_mode`; a sandbox can choose its own).
-6. **Settings** — `doz.toml` (every setting at its default, plus your answers) and `agent-prompt.md`
+7. **Settings** — `doz.toml` (every setting at its default, plus your answers) and `agent-prompt.md`
    beside it, each written **only if it doesn't exist yet**. Your base (when it is not Node.js), Access and
    Workspace rules answers are then set in it — only the ones you chose.
 
@@ -82,7 +88,7 @@ Then, in an official build, two questions:
 
 - **Usage statistics** — what is sent (counts and ranges about how Dozable is used, never names, paths,
   contents or anything inside a sandbox), `doz telemetry show` to see it exactly, and the privacy
-  policy; then *Send anonymous usage statistics? [Y/n]*. **Enter** keeps them on and changes nothing;
+  policy; then *Send anonymous usage statistics?* (**y**/**n**). **Enter** keeps them on and changes nothing;
   **n** sets `telemetry.send_anonymous_usage_stats = false`. When `DO_NOT_TRACK` or
   `$DOZ_SEND_ANONYMOUS_USAGE_STATS` already decides, it says so and does not ask. A build from the
   open-source repository sends nothing and skips the step.
@@ -91,12 +97,13 @@ Then, in an official build, two questions:
 
 And last:
 
-- **First sandbox** — `Make your first sandbox? [claude/pi/opencode/no]` (Codex too, once it has a sign-in or a
-  key). Then `Name [claude]:` and `Folder [~/doz-workspaces/claude]:` — **Enter** keeps a new empty folder of its
-  own; type a path to use a project folder of yours. It is made the quick way, like `doz try`: the tool on the
+- **First sandbox** — *Make your first sandbox?*: Claude Code, pi, OpenCode (Codex too, once it has a sign-in or a
+  key) or *Not now*. Then its **Name** (`claude`) and **Folder** (`~/doz-workspaces/claude`) — **Enter** keeps a new
+  empty folder of its own; type a path to use a project folder of yours. It is made the quick way, like `doz try`: the tool on the
   store's base, a new sandbox's network (**Standard**, `defaults.permissions`: its model, software packages and
   GitHub), and files it opens from its folder open on this Mac (`sandbox.open_files`). Setup says the same in one
-  command — `Same in Terminal: doz new claude --agent claude-code` — then waits for the base (its progress shown; **Ctrl-C** leaves it running),
+  command — `Same in Terminal: doz new claude --agent claude-code` — and waits for **Enter** before it makes anything
+  (**Ctrl-C** stops there, with nothing made); then it waits for the base (its progress shown; **Ctrl-C** leaves it running),
   starts the sandbox and attaches you to the tool. When you leave it: `Leaving claude — [S]leep / [d]elete / [k]eep
   running`; **d** removes it, and its folder while that is still empty.
 
@@ -108,7 +115,9 @@ doz onboard --status      # show the base and follow a preparation that is runni
 doz onboard --cancel      # stop the base being prepared
 ```
 
-When the base is ready, the store is marked as set up — even if you'd detached.
+When the base is ready, the store is marked as set up — even if you'd detached. Setup then sums up what it set up
+(the base, sign-ins, keys added, GitHub, the SSH agent, the workspace rules, the settings file) and, without a first
+sandbox, what to run next.
 
 ### Without questions (scripts)
 

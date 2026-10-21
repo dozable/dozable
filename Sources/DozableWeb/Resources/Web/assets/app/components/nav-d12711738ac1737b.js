@@ -8,8 +8,8 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { brokenCount } from './account-problems-c568a10734e5fa81.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status-4b4b30d82051d513.js';
 import { moreMenu } from './menus-5554adcb670bde92.js';
-import { canPeek, peekIcon, peekRegion } from './nav-peek-9ec7d8692ec0a962.js';
-import { sessionMenuItems } from './session-actions-b7f7f2267b765deb.js';
+import { canPeek, peekIcon, peekRegion } from './nav-peek-4a5c8676ad3ef30a.js';
+import { sessionMenuItems } from './session-actions-f23222ae16977a85.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const renderHostFoot = upcall('renderHostFoot');
 

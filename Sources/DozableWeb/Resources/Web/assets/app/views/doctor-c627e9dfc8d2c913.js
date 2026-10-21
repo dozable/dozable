@@ -4,7 +4,7 @@ import { api } from '../core/api-0560a03cb0de25ef.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
-import { statusPill } from '../components/pills-158e5293cfbf58b0.js';
+import { statusPill } from '../components/pills-1933ab2043ab468f.js';
 import { tildeIn } from '../core/paths-074fefdb8b1d48aa.js';
 
 export async function viewDoctor() {

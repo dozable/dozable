@@ -3,6 +3,7 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+import DozableTUI
 
 // MARK: image
 
@@ -814,8 +815,7 @@ struct Console: AsyncParsableCommand {
         let rec = try decode(try await query(r, g), BootLogRecord.self, g)
         if g.json { Out.json(rec); return }
         let tty = isatty(STDOUT_FILENO) != 0
-        let color = tty && ProcessInfo.processInfo.environment["NO_COLOR"] == nil
-        let text = BootLogs.render(rec, mode: tty ? .animated : .plain, color: color, steps: steps, console: true)
+        let text = BootLogs.render(rec, mode: tty ? .animated : .plain, color: Terminal.current.colour, steps: steps, console: true)
         Out.stdout(text.replacingOccurrences(of: "\r\n", with: "\n"))
     }
 }

@@ -340,6 +340,8 @@ public enum SettingKey {
     public static let gridLiveTiles = "ui.grid_live_tiles"
     public static let gridTileSize = "ui.grid_tile_size"
     public static let progress = "ui.progress"
+    /// 637: colour in the CLI — auto, always, never.
+    public static let color = "ui.color"
     public static let idleTimeout = "host.idle_timeout_minutes"
     public static let screenCapture = "host.screen_capture_minutes"
     public static let bootLogsKept = "host.boot_logs_kept"
@@ -509,6 +511,10 @@ public struct DozableSettings: Sendable {
             .init("ui", "progress", .choice(["animated", "plain"]), .string("animated"),
                   "How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a terminal: animated (a spinner on the step under way, download bars, the output's last lines) or plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR: always plain.",
                   env: "DOZ_PROGRESS", flag: "--progress auto|plain", applies: .now),
+            // 637 (owner: "colour should be able to be turned off with a flag and setting"): every colour the CLI draws.
+            .init("ui", "color", .choice(["auto", "always", "never"]), .string("auto"),
+                  "Colour in the CLI's output: auto (on a terminal, unless NO_COLOR is set, TERM is dumb, or with --json or -q), always (even into a pipe or a file), never (plain text; the layout and the symbols stay the same). The dashboard has its own theme (ui.theme).",
+                  env: "DOZ_COLOR", flag: "--color auto|always|never, --no-color", applies: .now),
             // 606: doz serve. Read-only in the web UI (they decide who reaches the dashboard): doz config set on the Mac.
             .init("serve", "port", .int(1024...65_535), .int(7443),
                   "The port doz serve listens on — the dashboard for the other browsers of your network. It stays the same (an installed app and a bookmark belong to it): when another program holds it, doz serve refuses and names it.",

@@ -64,23 +64,30 @@ doz onboard --status                          # the record and the base; follows
 doz onboard --cancel                          # stop the base being prepared
 ```
 
-It does, in order:
+It does, in order — each step headed `Step N of M · Title`, in the dashboard setup's words (Welcome, Base image,
+Models & keys, GitHub & SSH, Workspace rules, Settings, …, First sandbox), its findings as `✓` / `!` / `✕` lines. On a
+terminal each choice is a list: **↑/↓** (or j/k) move, **Enter** picks (a number picks at once), the recommended answer
+is marked and pre-selected; a name or a folder is typed with its default shown dim, and a bad one is refused under the
+field. With its output in a pipe (`doz onboard | cat`) it asks for typed answers instead (numbered options, `[Y/n]`).
+`--no-color` (or `ui.color = "never"`, or `NO_COLOR`) draws the same without colour. At the end, a summary of what was
+set up, and what to run next.
 
-1. **Checks** — the doctor's. The *required* ones stop it when they fail: Apple silicon, macOS 26+,
+1. **Checks** (Welcome) — the doctor's. The *required* ones stop it when they fail: Apple silicon, macOS 26+,
    virtualization, the entitlement, the guest tools, the store on APFS with room for the base (about 2 GB with a
    first sandbox), a store path short enough for its socket. The rest only warn: Claude Code missing or signed out
    (a key works instead), vmnet (only `--network nat` needs it).
-2. **Base image** — `Use Node.js (node:22-bookworm, ↓ 381 MiB)? [Y/n/other]`: the store's ONE base
+2. **Base image** — every base listed (Node.js first, recommended) or *None now*; typed: `Use Node.js (node:22-bookworm, ↓ 381 MiB)? [Y/n/other]`. The store's ONE base
    (`defaults.base`), every quick-made tool added to it as a layer. Its preparation (kernel, guest init, the base
    image pulled, its disk flattened) starts **in the host** at once and the questions go on; a line between two
    steps says how far it is.
 3. **Models & keys** — the sign-ins found on this Mac (Claude Code, Codex: read-only, never logged in for you), then
-   `Add a key? [anthropic/openai/xai/google/openrouter/No]` until **no**: each pasted at a no-echo prompt and stored
+   *Add a key?* — every provider and gateway with the tools it serves — until *No more keys* (typed:
+   `Add a key? [anthropic/openai/xai/google/openrouter/No]` until **no**): each pasted at a no-echo prompt and stored
    exactly as `doz account add` stores it (the login keychain, after one tiny check request). `setup-token` adds a
    Claude subscription's token; `chatgpt` signs Codex in (official builds). An Anthropic key or token becomes the
    store's default only when Claude Code is not signed in here. Off a terminal a key is read from stdin only with
    `--key … --secret-stdin`; otherwise the command is shown. Onboarding never touches Claude Code's refresh token.
-4. **Access** — every other credential sandboxes may use as you, each a purposeful choice, then each
+4. **Access** (GitHub & SSH) — every other credential sandboxes may use as you, each a purposeful choice, then each
    **confirmed live**; a failure says why and is **skipped** (the choice kept, *not confirmed*) — the
    onboarding never blocks, and `--yes` off a terminal never asks (exit 0, a note per skip). `doz
    access` shows and confirms them again later; `doz access set` changes one.
@@ -1185,7 +1192,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 
 | Section | Settings |
 |---|---|
-| `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `details_open` (true), `grid_live_tiles` (8, 1–12), `grid_tile_size` (`small` · `medium` · `large`), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
+| `[ui]` | `terminal_title` (`{sandbox} · {session} · {time}` — see "The title and the Ctrl-] menu"; `""` leaves the title to the session), `boot_view_on_start` (false), `confirm_shutdown` (true), `split_default` (`shell` · `watch` · `attach` · `dialog`), `terminals` (true), `terminal_font_size` (13), `theme` (`auto` · `light` · `dark`), `details_open` (true), `grid_live_tiles` (8, 1–12), `grid_tile_size` (`small` · `medium` · `large`), `progress` (`animated` · `plain`; `$DOZ_PROGRESS`, `--progress auto\|plain`), `color` (`auto` · `always` · `never`; `$DOZ_COLOR`, `--color`, `--no-color` — the CLI's colour), `open_browser` (`auto` · `always` · `never`; `doz ui --open\|--no-open` — when `doz ui` opens a tab; applies to the next `doz ui`) |
 | `[host]` | `idle_timeout_minutes` (5; `$DOZ_HOST_IDLE`), `boot_logs_kept` (5, 1–50; `$DOZ_BOOT_LOGS` — boots kept per sandbox for `doz console --boot N` and the Boot log), `screen_capture_minutes` (5, 0–1440; `$DOZ_SCREEN_CAPTURE` — how often a running sandbox's changed session screens are saved; 0 = only at pause, sleep and hibernate), `keepalive` (false — for a store that has not chosen with `doz account keepalive`) |
 | `[store]` | `path` (`--store`, `$DOZ_STORE`) |
 | `[claude]` | `permissions` (`skip` · `ask`) — Claude Code's own prompts in a claude-code sandbox; `-e DOZ_CLAUDE_PERMISSIONS=…` on `run`/`exec` still wins |
@@ -1222,8 +1229,11 @@ the others say when they apply (the next sandbox created, the next session, or a
   under way, redrawn in place, then "✓ step — 1.2 s"; a download as a bar with bytes, speed and time
   left, then its summary; a bake step's last output lines, dimmed. `--progress plain` (or
   `DOZ_PROGRESS=plain`, or the setting `ui.progress = "plain"`) prints one line per step and a
-  summary per download. When stderr is not a terminal, with `--json`, or with `NO_COLOR` set, it is
-  always plain — nothing is redrawn and no escape sequence is written.
+  summary per download. When stderr is not a terminal, with `--json`, or without colour (`NO_COLOR`,
+  `--no-color`, `ui.color = "never"`), it is always plain — nothing is redrawn and no escape sequence is written.
+- **Colour** follows one switch: `--color auto|always|never` (`--no-color` is `--color never`), else
+  `DOZ_COLOR`, else the setting `ui.color`, else `auto` — colour on a terminal unless `NO_COLOR` is set, `TERM`
+  is `dumb`, or with `--json` or `-q`. Off, the output keeps its layout and its symbols (✓ ! ✕), only plain.
 - `doz console NAME [--follow]` prints the sandbox's boot console (the kernel and init); with
   `--follow` it keeps printing as it boots (the web UI's boot view shows the same lines).
 - **Boot logs.** Every boot of a sandbox — each Start (a cold boot), each wake, a restore after a
@@ -1260,6 +1270,7 @@ the others say when they apply (the next sandbox created, the next session, or a
 | `DOZ_KERNEL_CACHE` / `DOZ_KERNEL` | `kernel.cache` / `kernel.path` | a shared kernel cache / an explicit kernel |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | default subnet for `--network nat` |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress (the CLI on a terminal, the web UI's boot view) |
+| `DOZ_COLOR` | `ui.color` | `auto`, `always` or `never` colour in the CLI |
 | `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
 
 The kernel, subnet and `[defaults]` / `[images.*]` settings are read (by the host) when a sandbox

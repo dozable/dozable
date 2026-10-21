@@ -15,8 +15,27 @@ import { bridgeNotice, failureFor } from './notices-63d38bfc28f739a5.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
 
-// This page never opens windows.
+// This page opens no window by itself: only a link the person Cmd-clicked in a terminal (636), checked by safeLink.
+const openWindow = window.open.bind(window);
 window.open = function refuseToOpen() { return null; };
+
+/// 636: a link from a terminal is the sandbox's text — untrusted. Only http/https, no login in it, and never this Mac
+/// itself (a loopback or this page's own host): the browser bridge's rule. The URL as the browser parses it, or null.
+function safeLink(s) {
+  let u;
+  try { u = new URL(s); } catch (_) { return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  if (u.username || u.password) return null;
+  const host = u.hostname.replace(/^\[|\]$/g, '').toLowerCase();
+  if (!host || host === 'localhost' || host.endsWith('.localhost') || host === '::1' || host === '0.0.0.0' || /^127\./.test(host)
+      || host === location.hostname.replace(/^\[|\]$/g, '').toLowerCase()) return null;
+  return u.href;
+}
+function openLink(t, s) {
+  const href = safeLink(s);
+  if (!href) { failureFor(t.sandbox, 'That link was not opened — only a web address (http or https) to another computer opens from a terminal'); return; }
+  openWindow(href, '_blank', 'noopener,noreferrer');
+}
 
 function wasmURL() {
   const m = document.querySelector('meta[name="doz-ghostty-wasm"]');
@@ -44,6 +63,7 @@ function validFrameMessage(m) {
     case 'paste': return n === 3 && typeof m.text === 'string' && m.text.length <= PASTE_MAX_BYTES && typeof m.bracketed === 'boolean';
     case 'paste-too-big': return n === 2 && isInt(m.bytes, 0, Number.MAX_SAFE_INTEGER);
     case 'key': return n === 1;
+    case 'link': return n === 2 && typeof m.url === 'string' && m.url.length <= 2048;
     default: return false;
   }
 }
@@ -64,6 +84,7 @@ window.addEventListener('message', (ev) => {
     case 'paste': safePaste(t, m.text, m.bracketed); break;
     case 'paste-too-big': failureFor(t.sandbox, 'That paste is too big — a terminal takes at most 1 MiB at once'); break;
     case 'key': savedKey(t); break;
+    case 'link': openLink(t, m.url); break;
   }
 });
 
@@ -566,6 +587,12 @@ async function loadSavedScreen(t) {
   }
   if (t.closed || !t.saved) return;
   if (!t.bootlog && !t.buildlog) t.saved = { ...t.saved, savedAt: s.savedAt, reason: s.reason };
+  // 635 (owner: "the top is chopped off the terminal thumbnail"): a thumbnail draws a saved screen at the size it was
+  // saved at, scaled — laid out at its own (fewer rows), the screen's first lines scrolled out of sight.
+  if (t.grid && Number.isInteger(s.cols) && Number.isInteger(s.rows) && s.cols > 1 && s.rows > 0) {
+    t.sessionCols = s.cols; t.sessionRows = s.rows;
+    toFrame(t, { t: 'size', cols: Math.min(1000, s.cols), rows: Math.min(500, s.rows) });
+  }
   const bin = atob(s.vt);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);

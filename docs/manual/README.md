@@ -50,8 +50,9 @@ both.
 ## Conventions
 
 - Commands are shown as you type them: `doz up`. `NAME` is a sandbox's name; `my-app` is an example.
-- Every command takes `--json` (machine-readable output), `--store DIR`, `-v` (every step) and `-q`
-  (no progress). `doz help COMMAND` shows a command's options.
+- Every command takes `--json` (machine-readable output), `--store DIR`, `-v` (every step), `-q`
+  (no progress) and `--no-color` (or `--color auto|always|never`; the lasting switch is the setting `ui.color`).
+  `doz help COMMAND` shows a command's options.
 - Settings are named `section.name`, like `sandbox.clipboard`; see the
   [Settings reference](15-settings-reference.md).
 - Screenshots use the light theme; the dashboard follows your Mac's appearance.
