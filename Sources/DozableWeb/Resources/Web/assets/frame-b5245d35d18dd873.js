@@ -58,16 +58,18 @@ function sessionSize(cols, rows) {
   if (term.cols !== cols || term.rows !== rows) quietly(() => term.resize(cols, rows));
   scaleToFit();
 }
+/// The CANVAS is scaled (the host clips what overflows its own box — scaling the host showed a clipped corner, small),
+/// up or down, by one factor: the whole session in the frame, its aspect kept.
 function scaleToFit() {
   const host = document.getElementById('term');
   const canvas = host && host.querySelector('canvas');
   if (!fixed || !canvas) return;
-  host.style.transform = '';
   const w = canvas.offsetWidth, h = canvas.offsetHeight;
-  if (!w || !h) return;
-  const s = Math.min(1, window.innerWidth / w, window.innerHeight / h);
-  host.style.transformOrigin = '0 0';
-  host.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+  const hw = host.clientWidth, hh = host.clientHeight;
+  if (!w || !h || !hw || !hh) return;
+  const s = Math.min(hw / w, hh / h);
+  canvas.style.transformOrigin = '0 0';
+  canvas.style.transform = 'scale(' + s + ')';
 }
 
 window.open = function refuseToOpen() { return null; };

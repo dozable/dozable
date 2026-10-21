@@ -211,6 +211,11 @@ final class WebTerminalBridge: @unchecked Sendable {
                 try? await Task.sleep(for: .seconds(1))
                 continue
             }
+            // 635: a watch learns its session's size BEFORE it attaches, so its first state (sent before the first
+            // screen) lays it out right — read after, the first picture was drawn at the wrong size for a second.
+            if grant.mode == .watch, let s = want.0, let size = await sessionSize(s) {
+                lock.withLock { watchSize = size; watchSizeCheckedAt = Date() }
+            }
             let att: any WebTerminalAttachment
             do {
                 att = try await data.attachTerminal(grant.sandbox, session: want.0, size: want.1)
@@ -715,15 +720,19 @@ final class WebTerminalBridge: @unchecked Sendable {
             watchSizeCheckedAt = Date()
             return (grant.sandbox, s)
         }
-        guard let (sandbox, s) = due, let row = try? await data.sessions(sandbox).first(where: { $0.name == s && !$0.saved }),
-              let c = row.cols, let r = row.rows, c > 0, r > 0 else { return }
+        guard let (_, s) = due, let size = await sessionSize(s) else { return }
         let changed: Bool = lock.withLock {
-            let size = TermSize(cols: c, rows: r)
             guard watchSize != size else { return false }
             watchSize = size
             return true
         }
         if changed { await pushState() }
+    }
+    /// The session's size as its holder lists it (nil: not running, or not known).
+    private func sessionSize(_ session: String) async -> TermSize? {
+        guard let row = try? await data.sessions(grant.sandbox).first(where: { $0.name == session && !$0.saved }),
+              let c = row.cols, let r = row.rows, c > 0, r > 0 else { return nil }
+        return TermSize(cols: c, rows: r)
     }
 }
 
