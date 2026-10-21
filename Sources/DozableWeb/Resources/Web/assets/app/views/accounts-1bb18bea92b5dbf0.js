@@ -530,13 +530,13 @@ function replaceable(a, p, name) {
 }
 
 /// Step 1's answer for a TOOL: the tools whose name the text names (a withdrawn one too — an existing sandbox of it still
-/// needs its key), the published ones first; each with the providers it can use.
+/// needs its key; owner: shown as "coming soon"), the published ones first; each with the providers it can use.
 function toolHits(a, ql) {
   if (ql.length < 2) return [];
   const titles = { ...(a.toolTitles || {}), ...(a.agentTitles || {}) };
   const ids = Object.keys(a.toolProviders || {}).filter((id) => (titles[id] || id).toLowerCase().includes(ql) || id.includes(ql));
   const pub = (id) => (a.agentTitles || {})[id] ? 0 : 1;
-  return ids.sort((x, y) => pub(x) - pub(y) || (titles[x] || x).localeCompare(titles[y] || y)).slice(0, 3).map((id) => ({ id, title: titles[id] || id, providers: a.toolProviders[id] }));
+  return ids.sort((x, y) => pub(x) - pub(y) || (titles[x] || x).localeCompare(titles[y] || y)).slice(0, 3).map((id) => ({ id, title: titles[id] || id, providers: a.toolProviders[id], coming: pub(id) === 1 }));
 }
 /// A provider the text names exactly (its id or its name).
 function providerHit(a, ql, order) {
@@ -574,7 +574,8 @@ function paintFlow() {
       const ph = providerHit(a, ql, order);
       const tools = ph ? [] : toolHits(a, ql);
       hits.replaceChildren(...tools.map((t) => h('div', { class: 'ak-tool-hit', 'data-ak-tool': t.id },
-        h('div', { class: 'h' }, icon('terminal'), t.title + ' can use a key from'),
+        h('div', { class: 'h' }, icon('terminal'), t.title + ' can use a key from',
+          t.coming ? h('span', { class: 'tag outline', title: 'Not offered for new sandboxes yet — a sandbox you already have keeps using its key' }, 'coming soon') : null),
         ...t.providers.map((pp) => {
           const have = rowsOf(pp);
           const bad = have.find(isFailing);
