@@ -20,6 +20,7 @@
 //                  {t:'paste-too-big', bytes} · {t:'failed'} (the engine did not load)
 //                  {t:'key'}                              593: a key was pressed on a SAVED screen —
 //                                                          no content; the page decides (wake/resume)
+//                  {t:'link', url}                        636: a Cmd-clicked link — the page checks and opens it
 //
 // 593 §9 — `saved` mode: a session's last saved screen (VT the host captured) drawn read-only and
 // selectable while its sandbox does not run. Nothing is ever sent from it — no keys, no reports, no
@@ -27,8 +28,8 @@
 //
 // Every message is checked here (source = the parent, known type, typed fields, capped sizes); anything
 // else is dropped and counted. The hardening that was the page's is kept, inside the frame:
-//   · links are never activated (Cmd/Ctrl clicks dropped; window.open refused — and this sandbox has no
-//     allow-popups anyway): upstream #194;
+//   · a link opens only on a Cmd-click, and never from here: the URL goes to the page, which allows http/https to
+//     another host only and opens it (Ctrl clicks dropped; this sandbox has no allow-popups): upstream #194, 636;
 //   · the engine's own paste handler never runs: a paste goes to the page, which encodes it (Ghostty
 //     1.3.0's encode), asks when unsafe or large, refuses over 1 MiB (CVE-2026-26982, upstream #193);
 //   · drops are refused; Cmd-chords stay the browser's; focus reports are sent (the engine does not);
@@ -46,12 +47,14 @@ let fit = null;
 let pendingSize = null;
 let fixed = null;
 
-/// 635: a WATCH is laid out at its session's size (cols × rows, from the page) and scaled to fit this frame — never
+/// 635: a WATCH (and a thumbnail's saved screen) is laid out at its session's size (cols × rows, from the page) and scaled to fit this frame — never
 /// fitted to the frame: laid out smaller than the session, a program's full-screen redraws scrolled.
 function sessionSize(cols, rows) {
   if (!term) { pendingSize = { cols, rows }; return; }
   if (!fixed) {
     quietly(() => fit.dispose());                    // the frame's own size no longer decides the grid
+    const host = document.getElementById('term');
+    if (host) host.style.inset = '0';                // the whole frame, so the picture is centred in it
     new ResizeObserver(scaleToFit).observe(document.documentElement);
   }
   fixed = { cols, rows };
@@ -68,11 +71,21 @@ function scaleToFit() {
   const hw = host.clientWidth, hh = host.clientHeight;
   if (!w || !h || !hw || !hh) return;
   const s = Math.min(hw / w, hh / h);
+  // Centred in the frame (owner): the spare width or height split on both sides.
+  const x = Math.max(0, (hw - w * s) / 2), y = Math.max(0, (hh - h * s) / 2);
   canvas.style.transformOrigin = '0 0';
-  canvas.style.transform = 'scale(' + s + ')';
+  canvas.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + s + ')';
 }
 
-window.open = function refuseToOpen() { return null; };
+// 636 (owner: "yes cmd-click"): the engine opens a link only on a Cmd/Ctrl click, through window.open — this frame
+// opens nothing itself (no allow-popups); it hands the URL to the page, which checks it and opens it. Ctrl-clicks are
+// still dropped (on a Mac, Ctrl-click is the context click), so only Cmd-click gets here.
+const MAX_LINK = 2048;
+window.open = function linkToPage(url) {
+  const s = String(url || '');
+  if (s.length <= MAX_LINK) toPage({ t: 'link', url: s });
+  return null;
+};
 
 function toPage(msg) { window.parent.postMessage(msg, '*'); }
 function quietly(fn, fallback) { try { return fn(); } catch (_) { return fallback; } }
@@ -230,10 +243,21 @@ function mouseGuard(root) {
 }
 
 function guard(root) {
-  // Links: never activated — the engine opens a link on a Cmd/Ctrl click; drop those clicks first.
+  // Links: a Cmd-click reaches the engine, whose link handler calls window.open (above: to the page); a Ctrl-click
+  // is dropped (a Mac's context click), and so is any modified click outside the interactive/watch screens.
   for (const type of ['click', 'auxclick', 'mousedown', 'mouseup']) {
-    root.addEventListener(type, (ev) => { if (ev.metaKey || ev.ctrlKey) { ev.preventDefault(); ev.stopPropagation(); } }, true);
+    root.addEventListener(type, (ev) => {
+      const cmdClick = ev.metaKey && !ev.ctrlKey && type === 'click' && ev.button === 0;
+      if ((ev.metaKey || ev.ctrlKey) && !cmdClick) { ev.preventDefault(); ev.stopPropagation(); }
+    }, true);
   }
+  // The engine shows a pointer over a link; say what opens it.
+  const host = document.getElementById('term');
+  if (host) new MutationObserver(() => {
+    const over = host.style.cursor === 'pointer';
+    if (over && !host.title) host.title = '⌘-click to open the link';
+    else if (!over && host.title) host.removeAttribute('title');
+  }).observe(host, { attributes: true, attributeFilter: ['style'] });
   // Paste: to the page (which makes it safe), never the engine's own handler. Drops refused.
   root.addEventListener('paste', (ev) => {
     ev.preventDefault();
@@ -282,7 +306,7 @@ function valid(m) {
     case 'write': return !!term && m.data instanceof ArrayBuffer && m.data.byteLength <= MAX_WRITE && Object.keys(m).length === 2;
     case 'paste': return !!term && typeof m.text === 'string' && m.text.length <= MAX_PASTE && Object.keys(m).length === 2;
     case 'focus': case 'keep-scrollback': case 'top': return !!term && Object.keys(m).length === 1;
-    case 'size': return mode === 'watch' && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
+    case 'size': return (mode === 'watch' || mode === 'saved') && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
                         && Number.isInteger(m.rows) && m.rows >= 1 && m.rows <= 500 && Object.keys(m).length === 3;
     default: return false;
   }

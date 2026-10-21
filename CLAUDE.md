@@ -2217,9 +2217,13 @@ may use it too.
   paste / focus / keep-scrollback / live (593: saved → interactive | watch only) / top (593: a Boot log
   opens at its first line).
   Frame → page: ready / opened / data / resize / title / paste / paste-too-big / failed / key (593: a
-  key on a saved screen, no content).
-- **The frame wraps the engine** (ghostty-web 0.4.0 fails the bar alone): Cmd/Ctrl-clicks dropped and
-  `window.open` refused (no link opens; the sandbox has no popups either), the engine's paste handler
+  key on a saved screen, no content) / link (636: a Cmd-clicked link's URL, ≤ 2048).
+- **The frame wraps the engine** (ghostty-web 0.4.0 fails the bar alone): a link opens ONLY on a Cmd-click
+  (636, owner: "yes cmd-click" — the engine's own gesture; Ctrl-clicks and every other modified press are
+  dropped) and never from the frame: its `window.open` posts `link` to the page, which opens it only when
+  `safeLink` allows it (http/https, no login in it, never a loopback or the page's own host — the browser
+  bridge's rule; a refusal is said in the sandbox's status slot) in a `noopener` tab — the page keeps the real
+  `window.open` for that alone. A link under the pointer gets the title "⌘-click to open the link". The engine's paste handler
   never runs (the frame sends the text to the page, which applies our port of Ghostty 1.3.0's paste
   `encode` and the confirm/refuse thresholds, then posts it back), drops refused, focus reports sent
   by the frame (the engine does not), `scrollback` given in BYTES (upstream #140). The browser probe

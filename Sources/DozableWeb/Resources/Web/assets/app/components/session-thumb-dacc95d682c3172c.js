@@ -3,7 +3,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { setting } from '../core/settings-d5d1cc502b79180e.js';
 import { terminals } from '../core/terminals-e2028f16ee8fa887.js';
-import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from './terminal-6a5b3921f74dfd7b.js';
+import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from './terminal-45739c714df654f9.js';
 
 /// The virtual size a thumbnail's terminal is laid out at (then scaled by CSS): the grid's tile size.
 export const THUMB_COLS_PX = 960, THUMB_ROWS_PX = 560;
