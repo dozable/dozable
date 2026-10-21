@@ -709,7 +709,13 @@ final class FakeData: DozableWebData, @unchecked Sendable {
                   parentPath: "/s/images/pi/k/root.ext4", allocatedBytes: 950 << 20, uniqueBytes: 50 << 20, sharedWithParentBytes: 900 << 20),
         ], unionBytes: 960 << 20, milliseconds: 12))
     }
-    func accounts() async throws -> WebAccounts { WebAccounts(accounts: [], defaultAccount: "mac", keepalive: false) }
+    /// 641: the accounts the fake host has (empty unless a test sets them — the replace test does).
+    private var _accountRows: [WebAccount] = []
+    var accountRows: [WebAccount] {
+        get { lock.withLock { _accountRows } }
+        set { lock.withLock { _accountRows = newValue } }
+    }
+    func accounts() async throws -> WebAccounts { WebAccounts(accounts: accountRows, defaultAccount: "mac", keepalive: false) }
     private(set) var metricsQueries: [WebMetricsQuery] = []
     func metrics(_ q: WebMetricsQuery) async throws -> WebMetrics {
         lock.withLock { metricsQueries.append(q) }

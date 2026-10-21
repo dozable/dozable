@@ -612,4 +612,43 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(try setting(#"{"key":"ui.allow_secret_entry","reset":true}"#).status, 400, "a reset would turn it on")
         XCTAssertEqual(fake.addedAccounts.count, 2)
     }
+
+    /// 641 (owner, D1): a failing key is replaced in place — `replace: true` on the same route, the host's add with force
+    /// (`doz account add NAME --force`). Refused for a key that works, a name that is not a key here, another provider's
+    /// key; a refusal never echoes the secret or the name; the decode takes only a JSON boolean.
+    func testAFailingKeyIsReplacedInPlaceAndAWorkingOneIsNot() throws {
+        let (cookie, csrf) = try signIn()
+        let key = "xai-FAKE" + String(repeating: "r", count: 40)
+        func row(_ name: String, _ kind: String, _ state: String, provider: String? = nil) throws -> WebAccount {
+            let p = provider.map { #","provider":"\#($0)""# } ?? ""
+            let json = #"{"name":"\#(name)","kind":"\#(kind)","isDefault":true,"usedBy":["grok-sandbox"],"state":"\#(state)"\#(p)}"#
+            return WebAccount(try JSONDecoder().decode(AccountRow.self, from: Data(json.utf8)))
+        }
+        fake.accountRows = [try row("xai", "key", "missing", provider: "xai"), try row("good", "key", "ok", provider: "xai"),
+                            try row("gem", "key", "rejected", provider: "google"), try row("mac", "mac", "signed-out")]
+        func post(_ body: String) throws -> RawResponse {
+            try request("/api/v1/accounts", ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json", "X-Doz-CSRF": csrf],
+                        method: "POST", body: body)
+        }
+        func body(_ name: String, provider: String = "xai", replace: String = "true") -> String {
+            #"{"name":"\#(name)","kind":"key","provider":"\#(provider)","secret":"\#(key)","replace":\#(replace)}"#
+        }
+        for (b, why) in [(body("good"), "a key that works"), (body("nope"), "no key of that name"), (body("gem"), "another provider's key"),
+                         (#"{"name":"mac","kind":"api-key","secret":"\#(key)","replace":true}"#, "the Mac login"),
+                         (body("xai", replace: "1"), "a number is not a boolean"), (body("xai", replace: "\"yes\""), "a string is not a boolean")] {
+            let r = try post(b)
+            XCTAssertEqual(r.status, 400, "\(why): \(r.text)")
+            XCTAssertFalse(r.text.contains(key) || r.text.contains("FAKErrrr"), "\(why): the secret came back: \(r.text)")
+        }
+        XCTAssertTrue(fake.addedAccounts.isEmpty, "nothing reached the host")
+        let ok = try post(body("xai"))
+        XCTAssertEqual(ok.status, 200, ok.text)
+        XCTAssertFalse(ok.text.contains(key), "the answer never carries it")
+        XCTAssertEqual(fake.addedAccounts.map(\.name), ["xai"])
+        XCTAssertEqual(fake.addedAccounts.first?.replace, true, "sent as the host's add with force")
+        XCTAssertFalse("\(fake.addedAccounts[0])".contains(key), "its description is redacted")
+        // Without replace, the same name is the host's to refuse (exists) — the page never sends that for a failing key.
+        XCTAssertEqual(try WebAccountAdd.decode(Data(body("xai", replace: "false").utf8)).replace, false)
+        XCTAssertNil(try WebAccountAdd.decode(Data(body("good", replace: "false").utf8)).replaceProblem(fake.accountRows), "no replace: no check")
+    }
 }

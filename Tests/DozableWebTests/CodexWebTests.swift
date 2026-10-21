@@ -42,8 +42,16 @@ final class CodexWebTests: XCTestCase {
         XCTAssertFalse(a.uncheckedProviders.contains("xai"), "xAI's key is checked")
         XCTAssertFalse(a.uncheckedProviders.contains("anthropic"))
         XCTAssertEqual(a.accounts.first?.verifiedAt, row.verifiedAt)
+        // 641: Add a key, by tool — every tool (a withdrawn one too: Grok Build) with its providers among the listed ones.
+        XCTAssertEqual(a.toolProviders["grok"]?.first, "xai", "\(a.toolProviders["grok"] ?? [])")
+        XCTAssertEqual(a.toolTitles["grok"], "Grok Build")
+        XCTAssertEqual(a.toolProviders["claude-code"], ["anthropic"])
+        for (tool, ps) in a.toolProviders {
+            XCTAssertNotNil(a.toolTitles[tool], tool)
+            for p in ps { XCTAssertTrue(a.providers.contains(p), "\(tool): \(p) is a listed provider") }
+        }
         let json = String(decoding: try JSONEncoder().encode(a), as: UTF8.self)
-        XCTAssertTrue(json.contains("\"providerTools\""))
+        XCTAssertTrue(json.contains("\"providerTools\"") && json.contains("\"toolProviders\""))
         XCTAssertFalse(json.contains("secret"))
     }
 
