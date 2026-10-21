@@ -47,7 +47,9 @@ fail() {
 # 606: + dnssd (the system's Bonjour client — `doz serve` announces itself), confined in step 1b.
 # 614: + DozableCloud (the official builds' closed package — statistics and sign-up), confined in step 1b to the
 # executable's main, under #if DOZ_CLOUD — a build from the repository never has it.
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud'
+# 637: + DozableTUI (the CLI's terminal components and colour switch), which itself imports Foundation and Darwin only
+# (step 1b).
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -69,6 +71,11 @@ AP=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+ArgumentParse
       | grep -vE "/Sources/(DozableCLI|doz)/" || true)
 [[ -z "$AP" ]] || fail "ArgumentParser is imported outside Sources/DozableCLI and Sources/doz:
 $AP"
+# 637: DozableTUI stands alone — Foundation and Darwin, nothing of the host, the web layer or the argument parser.
+TUI=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
+        "$PACKAGE/Sources/DozableTUI" | sed -E 's/.*import[[:space:]]+//' | sort -u | grep -vE '^(Foundation|Darwin)$' || true)
+[[ -z "$TUI" ]] || fail "Sources/DozableTUI imports more than Foundation and Darwin:
+$TUI"
 # 594: Yams reads the project file — the CLI's commands only (never the library, the host or the web UI). 617: and the
 # YAML recipe sources (Sources/DozableCLI/RecipeSource.swift), compiled to JSON that DozableKit embeds.
 YA=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+Yams([[:space:]]|$)' "$PACKAGE/Sources" \

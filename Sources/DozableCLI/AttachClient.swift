@@ -11,6 +11,7 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+import DozableTUI
 
 nonisolated(unsafe) private var savedTermios = termios()
 nonisolated(unsafe) private var rawMode = false
@@ -258,7 +259,7 @@ private func restoreTTY() { if rawMode { tcsetattr(STDIN_FILENO, TCSANOW, &saved
 
 /// A notice on stderr (with \r\n: the tty is raw).
 private func say(_ s: String) {
-    let line = rawMode ? "\r\n\u{1B}[2m[doz] \(s)\u{1B}[0m\r\n" : "[doz] \(s)\n"
+    let line = rawMode ? "\r\n" + Style.dim("[doz] \(s)", colour: Terminal.current.colour(fd: STDERR_FILENO)) + "\r\n" : "[doz] \(s)\n"
     FileHandle.standardError.write(Data(line.utf8))
 }
 

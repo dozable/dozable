@@ -4,6 +4,7 @@ import Foundation
 import DozableKit
 import DozableHost
 import DozableWeb
+import DozableTUI
 
 /// `doz` — Dozable's command-line tool: pausable Linux sandboxes on a Mac (585). Every command is a thin client of the store's
 /// host (`doz host`), which the first command that needs it starts and which exits when nothing
@@ -80,6 +81,9 @@ public enum ProgressFlag: String, ExpressibleByArgument, Sendable {
     case auto, plain
 }
 
+/// 637: `--color auto|always|never`.
+extension ColourMode: ExpressibleByArgument {}
+
 /// Options every command takes.
 public struct GlobalOptions: ParsableArguments {
     @Option(name: .long, help: "The store directory (default $DOZ_STORE, else the settings' store.path, else ~/Library/Application Support/doz).")
@@ -94,8 +98,15 @@ public struct GlobalOptions: ParsableArguments {
     @Flag(name: [.short, .long], help: "Print no progress.")
     public var quiet = false
 
-    @Option(name: .long, help: "How progress shows on a terminal: auto (animated: a spinner, download bars) or plain (one line per step). Default $DOZ_PROGRESS, else the settings' ui.progress. Not a terminal, --json or NO_COLOR: always plain.")
+    @Option(name: .long, help: "How progress shows on a terminal: auto (animated: a spinner, download bars) or plain (one line per step). Default $DOZ_PROGRESS, else the settings' ui.progress. Not a terminal, --json or no colour: always plain.")
     public var progress: ProgressFlag?
+
+    /// 637: colour — this command's; the lasting switch is the setting ui.color.
+    @Option(name: .long, help: "Colour in the output: auto (on a terminal, unless NO_COLOR is set), always, or never. Default $DOZ_COLOR, else the settings' ui.color.")
+    public var color: ColourMode?
+
+    @Flag(name: .customLong("no-color"), help: "No colour (the same as --color never).")
+    public var noColor = false
 
     /// dbt's spelling: this command only (the setting telemetry.send_anonymous_usage_stats is the lasting switch). Read
     /// by `DozableEntry` from the command line itself — before the command runs — and also accepted before the command.
@@ -105,9 +116,25 @@ public struct GlobalOptions: ParsableArguments {
 
     public init() {}
 
-    /// The progress rendering this command uses on stderr.
+    /// 637: the colour decision is made here, once, before the command runs (ArgumentParser validates an option group
+    /// as it decodes it): `Terminal.current` is what every component and colour site reads.
+    public func validate() throws {
+        if noColor, let c = color, c != .never { throw ValidationError("--no-color and --color \(c.rawValue): one of them") }
+        Terminal.configure(colour: colourMode(), json: json, quiet: quiet)
+    }
+
+    /// `--no-color` / `--color`, else `$DOZ_COLOR`, else the setting ui.color, else auto (`NO_COLOR` then turns auto off).
+    public func colourMode(_ settings: DozableSettings = DozableSettings.load()) -> ColourMode {
+        let flag: TOMLValue? = noColor ? .string("never") : color.map { .string($0.rawValue) }
+        if case .string(let s) = settings.resolve(SettingKey.color, flag: flag).value, let m = ColourMode(rawValue: s) { return m }
+        return .auto
+    }
+
+    /// The progress rendering this command uses on stderr: animated only on a terminal, without --json, and with colour
+    /// (the animation is drawn in it) — 637: colour as `Terminal` decides it for stderr, which NO_COLOR, --no-color and
+    /// ui.color all turn off.
     public var progressMode: ProgressMode {
-        guard isatty(STDERR_FILENO) == 1, !json, ProcessInfo.processInfo.environment["NO_COLOR"] == nil else { return .plain }
+        guard isatty(STDERR_FILENO) == 1, !json, Terminal.current.colour(fd: STDERR_FILENO) else { return .plain }
         return DozableSettings.load().progressMode(flag: progress?.rawValue)
     }
 

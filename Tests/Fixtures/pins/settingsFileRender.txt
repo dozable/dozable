@@ -109,6 +109,12 @@
 # (animated | plain; env DOZ_PROGRESS; flag --progress auto|plain; applies at once (the UI re-reads it))
 # progress = "animated"
 
+# Colour in the CLI's output: auto (on a terminal, unless NO_COLOR is set, TERM is dumb, or with
+# --json or -q), always (even into a pipe or a file), never (plain text; the layout and the
+# symbols stay the same). The dashboard has its own theme (ui.theme).
+# (auto | always | never; env DOZ_COLOR; flag --color auto|always|never, --no-color; applies at once (the UI re-reads it))
+# color = "auto"
+
 [serve]
 
 # The port doz serve listens on — the dashboard for the other browsers of your network. It stays

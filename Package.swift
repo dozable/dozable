@@ -236,10 +236,17 @@ let package = Package(
             exclude: ["WebSource"],
             resources: [.copy("Resources/Web")]
         ),
+        // 637 — what the CLI draws on a terminal: the colour switch (`Terminal`), semantic styles, the components and the
+        // questions (arrow keys on a terminal, typed answers elsewhere). Foundation and Darwin only (the audit holds it),
+        // so the host can use it too. Not a product.
+        .target(
+            name: "DozableTUI",
+            path: "Sources/DozableTUI"
+        ),
         // 585 — the commands (swift-argument-parser), the attach client, the human/JSON output.
         .target(
             name: "DozableCLI",
-            dependencies: ["DozableHost", "DozableKit", "DozableWeb",
+            dependencies: ["DozableHost", "DozableKit", "DozableWeb", "DozableTUI",
                            .product(name: "ArgumentParser", package: "swift-argument-parser"),
                            .product(name: "Yams", package: "Yams")],
             path: "Sources/DozableCLI"
@@ -256,7 +263,7 @@ let package = Package(
         ),
         .testTarget(
             name: "DozableCLITests",
-            dependencies: ["DozableCLI", "DozableHost", "DozableKit"],
+            dependencies: ["DozableCLI", "DozableHost", "DozableKit", "DozableTUI"],
             path: "Tests/DozableCLITests"
         ),
         // 590 — the web UI's security rules as unit tests, and a real listener driven over HTTP.
