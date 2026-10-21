@@ -104,6 +104,16 @@ public struct Terminal: Sendable {
         }
     }
 
+    /// The height of stdout (else stderr) in rows; 24 when neither is a terminal or says. (637, owner: a choice taller than
+    /// the window redrew itself too far up — a live block must fit the window.)
+    public static func measureHeight() -> Int {
+        var w = winsize()
+        for fd in [STDOUT_FILENO, STDERR_FILENO] where ioctl(fd, TIOCGWINSZ, &w) == 0 && w.ws_row > 0 {
+            return Int(w.ws_row)
+        }
+        return 24
+    }
+
     /// The width of stdout (else stderr) in columns; 80 when neither is a terminal or says.
     public static func measureWidth() -> Int {
         var w = winsize()

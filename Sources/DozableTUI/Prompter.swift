@@ -43,6 +43,7 @@ public struct Prompter {
     private let channel: PromptChannel?
     private let colour: Bool
     private let fixedWidth: Int?
+    private let fixedHeight: Int?
     /// What Ctrl-C does once the terminal is restored (tests replace it): the process's own interrupt.
     public var onInterrupt: () -> Void = Prompter.interruptProcess
 
@@ -53,6 +54,7 @@ public struct Prompter {
         let stdinTTY = isatty(STDIN_FILENO) == 1, stdoutTTY = isatty(STDOUT_FILENO) == 1
         colour = Terminal.current.colour
         fixedWidth = nil
+        fixedHeight = nil
         if yes || json || !stdinTTY || !(stdoutTTY || keys) {
             interactive = false
             self.keys = false
@@ -69,12 +71,13 @@ public struct Prompter {
     }
 
     /// Asking through `channel` (tests: a `ScriptedChannel`).
-    public init(channel: PromptChannel, keys: Bool, colour: Bool = false, width: Int = 80) {
+    public init(channel: PromptChannel, keys: Bool, colour: Bool = false, width: Int = 80, height: Int = 60) {
         interactive = true
         self.keys = keys
         self.channel = channel
         self.colour = colour
         fixedWidth = width
+        fixedHeight = height
     }
 
     private var width: Int { max(20, fixedWidth ?? Terminal.current.width) }
@@ -226,6 +229,31 @@ public struct Prompter {
 
     private func hint(_ indent: String, _ s: String) -> String { indent + "  " + Style.dim(s, colour: colour) }
 
+    /// 637 (owner: a choice taller than the window redrew itself too far up): the rows a live block may use — the
+    /// window's height less the question above it and a spare row — so a redraw never has to reach above the screen.
+    private var blockRows: Int { max(5, (fixedHeight ?? Terminal.measureHeight()) - 3) }
+
+    /// The options' lines (`groups[i]`: option i's label line and its detail lines) cut to `blockRows`: the selected one
+    /// always shown, as many neighbours as fit around it, "↑ N more" / "↓ N more" where some are hidden, then `last`.
+    private func windowed(_ groups: [[String]], sel: Int, indent: String, last: String) -> [String] {
+        let budget = blockRows
+        if groups.reduce(1, { $0 + $1.count }) <= budget { return groups.flatMap { $0 } + [last] }
+        let room = budget - 3                                   // the hint and the two "more" lines
+        var start = sel, end = sel, used = groups[sel].count
+        var grew = true
+        while grew {
+            grew = false
+            if end + 1 < groups.count, used + groups[end + 1].count <= room { end += 1; used += groups[end].count; grew = true }
+            if start > 0, used + groups[start - 1].count <= room { start -= 1; used += groups[start].count; grew = true }
+        }
+        var out: [String] = []
+        out.append(start > 0 ? indent + "  " + Style.dim("↑ \(start) more", colour: colour) : "")
+        out += groups[start...end].flatMap { $0 }
+        out.append(end < groups.count - 1 ? indent + "  " + Style.dim("↓ \(groups.count - 1 - end) more", colour: colour) : "")
+        out.append(last)
+        return out
+    }
+
     private func keyChoice(_ question: String, _ options: [ChoiceOption], default def: Int) -> Int {
         let (indent, _) = split(question)
         ask(question)
@@ -235,8 +263,9 @@ public struct Prompter {
         var sel = min(max(0, def), n - 1)
         var digits = ""
         func lines() -> [String] {
-            var out: [String] = []
+            var groups: [[String]] = []
             for (i, o) in options.enumerated() {
+                var out: [String] = []
                 let here = i == sel
                 let mark = here ? Style.accent("❯", colour: colour) : " "
                 let num = Style.dim("\(i + 1).", colour: colour)
@@ -248,9 +277,9 @@ public struct Prompter {
                     let pad = String(repeating: " ", count: head.count)
                     out += Layout.wrap(d, width: width - 1, indent: pad).map { pad + Style.dim(String($0.dropFirst(pad.count)), colour: colour) }
                 }
+                groups.append(out)
             }
-            out.append(hint(indent, "↑↓ move · Enter choose · 1–\(n)"))
-            return out
+            return windowed(groups, sel: sel, indent: indent, last: hint(indent, "↑↓ move · Enter choose · 1–\(n)"))
         }
         func done(_ i: Int) -> Int {
             block.finish([indent + "  " + Style.ok("✓", colour: colour) + " " + Style.value(Layout.fit(options[i].label, width - 6 - indent.count), colour: colour)])
@@ -299,15 +328,14 @@ public struct Prompter {
         var sel = 0
         let n = items.count
         func lines() -> [String] {
-            var out = items.enumerated().map { i, it in
+            let groups = items.enumerated().map { i, it -> [String] in
                 let here = i == sel
                 let mark = here ? Style.accent("❯", colour: colour) : " "
                 let box = ticks[i] ? Style.ok("[x]", colour: colour) : "[ ]"
                 let label = Layout.fit(it.label, width - 1 - indent.count - 8)
-                return indent + "  " + mark + " " + box + " " + (here ? Style.accent(label, colour: colour) : label)
+                return [indent + "  " + mark + " " + box + " " + (here ? Style.accent(label, colour: colour) : label)]
             }
-            out.append(hint(indent, "↑↓ move · Space tick · Enter done"))
-            return out
+            return windowed(groups, sel: sel, indent: indent, last: hint(indent, "↑↓ move · Space tick · Enter done"))
         }
         func done() -> [Bool] {
             let chosen = items.indices.filter { ticks[$0] }.map { items[$0].label }

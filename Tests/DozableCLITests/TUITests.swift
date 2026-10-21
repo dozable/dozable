@@ -173,6 +173,30 @@ final class TUITests: XCTestCase {
         XCTAssertTrue(ch.output.hasSuffix("\u{1B}[?25h"), "the cursor is shown again")
     }
 
+    /// 637 (owner: a choice taller than the window redrew itself too far up): a live block never has more rows than the
+    /// window allows — the options are windowed around the selection, with "↑/↓ N more", and a redraw goes up at most
+    /// that many rows.
+    func testATallChoiceFitsTheWindow() {
+        let opts = (1...11).map { ChoiceOption("Base \($0)", detail: "what base \($0) is") }    // 23 rows in full
+        let ch = ScriptedChannel(String(repeating: down, count: 10) + "\r")
+        var p = Prompter(channel: ch, keys: true, width: 70, height: 14)
+        p.onInterrupt = {}
+        XCTAssertEqual(p.choice("Which base image?", opts, default: 0), 10, "↓ ×10 reaches the last")
+        let ups = ch.output.components(separatedBy: "\u{1B}[").compactMap { s -> Int? in
+            guard let a = s.firstIndex(of: "A"), let n = Int(s[..<a]) else { return nil }
+            return n
+        }
+        XCTAssertFalse(ups.isEmpty)
+        XCTAssertTrue(ups.allSatisfy { $0 <= 14 - 3 - 1 }, "never up past the block's own rows: \(ups)")
+        XCTAssertTrue(ch.output.contains("↓ 10 more") || ch.output.contains("↓ "), "hidden options are said")
+        XCTAssertTrue(ch.output.contains("↑ "), "and those scrolled past above")
+        XCTAssertTrue(ch.output.contains("❯ \("11.") Base 11") || ch.output.contains("Base 11"), "the selection stays in view")
+        // A short list in a tall window is drawn whole, with no "more" lines.
+        let (q, sh) = keys("\r")
+        _ = q.choice("Q", [ChoiceOption("A"), ChoiceOption("B")], default: 0)
+        XCTAssertFalse(sh.output.contains("more"))
+    }
+
     func testInterruptRestoresAndStops() {
         let ch = ScriptedChannel("\u{03}")
         var p = Prompter(channel: ch, keys: true, width: 70)
