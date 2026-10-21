@@ -501,7 +501,7 @@ public struct DozableSettings: Sendable {
                   "The port doz ui listens on, always on 127.0.0.1 (this Mac only): 0 = automatic (the port this store's last doz ui had, when it is free — else one the system picks, and doz ui says so), or a fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app belongs to one port: keep it fixed for one.",
                   env: "DOZ_UI_PORT", flag: "--port N", applies: .uiRestart),
             .init("ui", "grid_live_tiles", .int(1...12), .int(8),
-                  "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sandbox's Home shows at most 4 live pictures, and never more than this.",
+                  "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this.",
                   applies: .now),
             .init("ui", "grid_tile_size", .choice(["small", "medium", "large"]), .string("medium"),
                   "All sessions: the size of a tile.",

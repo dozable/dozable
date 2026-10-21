@@ -92,8 +92,9 @@
 # port = 0
 
 # All sessions: at most this many tiles show their session live at once (each is a terminal engine
-# and a socket); the rest say so. A sandbox's Home shows at most 4 live pictures, and never more
-# than this.
+# and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not
+# count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid),
+# and never more than this.
 # (integer 1–12; applies at once (the UI re-reads it))
 # grid_live_tiles = 8
 

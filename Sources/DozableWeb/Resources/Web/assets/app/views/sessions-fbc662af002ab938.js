@@ -24,6 +24,8 @@ import { dropThumbTerm, thumbGoLive, thumbTerm } from '../components/session-thu
 const grid = { built: false, active: false, tiles: new Map(), io: null, sandbox: '', phase: '', lastList: 0, listTimer: null,
                sessions: {}, scheduled: false, status: null, body: null };
 const TILE_SCALE = { small: 0.3, medium: 0.42, large: 0.62 };
+/// 635: saved screens drawn at once (each an engine, no socket) — apart from ui.grid_live_tiles, which is for live ones.
+const SAVED_TILES = 24;
 
 function gridBuild() {
   const root = $('grid');
@@ -195,20 +197,27 @@ export function gridSchedule() {
     const cap = setting('ui.grid_live_tiles', 8);
     const tiles = [...grid.body.children].map((el) => grid.tiles.get(el.dataset.key)).filter(Boolean);
     for (const t of tiles) if (t.term && (!t.visible || !t.liveable)) detachTile(t);
+    // 635 (owner: a sleeping sandbox's screens took the live places): only a LIVE tile (a watch terminal — a socket)
+    // counts against ui.grid_live_tiles; a saved screen has no socket and has its own, larger allowance.
+    const isLive = (t) => !t.saved;
     // A lowered cap: the live tiles beyond it (the later ones, in page order) let go.
-    tiles.filter((t) => t.term).slice(cap).forEach(detachTile);
-    let live = tiles.filter((t) => t.term).length;
+    tiles.filter((t) => t.term && isLive(t)).slice(cap).forEach(detachTile);
+    tiles.filter((t) => t.term && !isLive(t)).slice(SAVED_TILES).forEach(detachTile);
+    let live = tiles.filter((t) => t.term && isLive(t)).length;
+    let savedN = tiles.filter((t) => t.term && !isLive(t)).length;
     let capped = 0;
     for (const t of tiles) {
       if (!t.liveable) continue;
       if (t.term) { t.note.hidden = true; continue; }
       if (!t.visible) { t.note.hidden = false; t.note.className = 'tile-note'; t.note.textContent = 'Off screen — not live'; continue; }
-      if (live < cap) { attachTile(t); live++; t.note.hidden = true; continue; }
+      if (!isLive(t) && savedN < SAVED_TILES) { attachTile(t); savedN++; t.note.hidden = true; continue; }
+      if (isLive(t) && live < cap) { attachTile(t); live++; t.note.hidden = true; continue; }
       capped++;
       t.note.hidden = false;
       t.note.className = 'tile-note capped';
       t.note.replaceChildren(h('div', { class: 'tile-note-head' }, 'Not live'),
-        h('div', null, live + ' tiles are live (the cap: Settings › ui.grid_live_tiles). Scroll, filter, or click to open.'));
+        h('div', null, isLive(t) ? live + ' tiles are live (the cap: Settings › ui.grid_live_tiles). Scroll, filter, or click to open.'
+          : SAVED_TILES + ' saved screens are shown. Scroll, filter, or click to open.'));
     }
     const total = tiles.filter((t) => t.liveable).length;
     grid.status.textContent = total + ' session' + (total === 1 ? '' : 's') + ' · ' + live + ' live' + (capped ? ' · ' + capped + ' more on screen not live (cap ' + cap + ')' : '');

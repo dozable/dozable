@@ -76,7 +76,7 @@ import './app/views/sandbox-network-f0728e3f8726c243.js';
 import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-1003afdd6545a420.js';
 import { paintHome } from './app/views/sandbox-home-6ecaae1d12be7c01.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox-ff064c04e86fbbea.js';
-import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-94f8271dd83a3e28.js';
+import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-fbc662af002ab938.js';
 import { viewSettings } from './app/views/settings-95f811c12b020239.js';
 import './app/views/shortcuts-c7665e31bba00c2a.js';
 
