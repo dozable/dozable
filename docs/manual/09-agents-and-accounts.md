@@ -84,30 +84,52 @@ only to that provider's or gateway's own API — a placeholder sent anywhere els
 
 ## Accounts — in the dashboard
 
-**Accounts & keys** shows one card per provider (Anthropic, OpenAI, then each provider and gateway),
-naming the tools its key serves. Each key is a row:
+**Accounts & keys** is built around four things you come to it for.
 
-- a **Default** radio: the key a sandbox that follows its provider's default uses. Anthropic also
-  offers **No default**.
+**Something is broken — fix it.** At the top, **Needs you** lists every problem, one line each, worst
+first: a key its provider refused, a key Dozable cannot read (its keychain item is gone, the keychain is
+locked, or the 1Password / AWS / command source did not answer), and this Mac's Claude login when it is
+signed out or expired while a sandbox relies on it. Each line says which sandboxes get no key at their
+next session and has the one fix as a button — **Copy claude** (sign in on this Mac), **Add it again…**,
+**Read again**, **Replace…** — with the rest under **⋯**. The same key stored twice is one line. When
+nothing is wrong, the page says **Every key works**. The **Accounts & keys** entry in the sidebar shows a
+red count while a problem breaks a sandbox.
+
+A refused or unreadable key is **replaced in place**: **Replace…** / **Add it again…** opens the paste
+under the same name, and the sandboxes that use it keep using it — the new key from their next session
+(what `doz account add NAME --force` does). A key that works is never replaced this way; add a new one
+under another name instead.
+
+**Which key does this sandbox use?** The **Sandboxes** view lists every sandbox with its tool, the key it
+uses now, how it gets it (its provider's default, or chosen for it) and its status. A sandbox whose
+network reaches no model provider (NAT, or no network) shows **Not needed**. **Change…** turns the row
+into a choice right there — the keys its tool can use, its provider's default, or no key — and **Use it**
+applies it from the sandbox's next session.
+
+**Change a default.** The **Keys** view has a heading and a table per provider (Anthropic, OpenAI, then
+each provider and gateway), naming the tools its key serves. Each key is a row:
+
+- a **Default** radio: the key a sandbox that follows its provider's default uses. Anthropic's last row
+  is **No default**.
 - the key's name, and where it lives in plain words: Keychain, 1Password, AWS, a command, or this
-  Mac's Claude login. **Details** shows the keychain item, the fingerprint, the source and the last check.
-- one status: **Works**, **Not checked**, **Refused** (its provider said no), **Can't read** (its source
-  did not answer, or its keychain item is gone) or **No check for this provider**.
-- the sandboxes that use it, then the one action that helps now: **Check**, **Read again** or **Fix**.
-  **Remove…** sits under **⋯**.
+  Mac's Claude login. **⋯ › Details** shows the keychain item, the fingerprint, the source and the last check.
+- one status: **Works**, **Not checked**, **Refused** (its provider said no), **Can't read** or
+  **No check for this provider** — with a second line only when it adds something (the refusal's code,
+  an expiry, "read on use").
+- the sandboxes that use it (each a link to its page), then the one action that helps now (**Check**,
+  **Read again**, **Replace…**, **Add again…**) and **⋯** (**Remove…**).
 
-A key that fails comes first, at the top of the page, with what the provider or source answered, the
-fix, and the sandboxes it affects. The same key stored twice is flagged ("same key as …"). The Claude
-Code keep-alive switch sits under the Mac login's row.
+The Claude Code keep-alive switch sits under Anthropic's table. **Find** filters both views by a tool,
+a provider, a key or a sandbox.
 
-**By sandbox** lists every sandbox with the key its tool uses now and how it got it (the provider's
-default, or chosen for it). **Change…** picks another; it applies from the sandbox's next session.
-
-**Add a key** asks for the provider first; type a tool's name (grok, codex, gemini) to find the
-providers it can use. Paste the key into the masked field: Dozable checks it with one small request
-and keeps it in your login keychain. The field is there only while the setting
-`ui.allow_secret_entry` is on. For a key kept in 1Password or AWS, read by a command, a custom key or a
-ChatGPT sign-in, the page gives the exact `doz account add` line to copy and run in Terminal.
+**Add a key for a tool.** **Add a key** first asks which tool it is for — or which provider. Type a
+tool's name (grok, codex, opencode) and it shows the providers that tool can use, with the keys you
+already have for each; type a provider's name and press Enter to go straight to it. Paste the key into
+the masked field: Dozable checks it with one small request and keeps it in your login keychain. The
+field is there only while the setting `ui.allow_secret_entry` is on. For a key kept in 1Password or
+AWS, read by a command, a custom key or a ChatGPT sign-in, the page gives the exact `doz account add`
+line to copy and run in Terminal. After the check it offers what follows: to make the new key its
+provider's default, and to remove an old copy of a replaced key that still fails.
 
 A sandbox's page shows its account, with **Account…** (the details' **Keys** tab) to change it; New
 sandbox offers only the accounts its agent can use.

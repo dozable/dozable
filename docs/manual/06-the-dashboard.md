@@ -81,7 +81,7 @@ top shows the whole sidebar over the page.
 | **Images** | The images and templates, each image's agent version, what's out of date (**Rebuild** — **Remove…** is under **⋯**), disk shared and own, and the **Lineage** tree. |
 | **Resources** | Every byte Dozable uses, and deleting what can go. A strip under the total jumps to each group (with its size); a group's heading folds it. See [Resources and disk space](13-resources-and-disk-space.md). |
 | **Operations** | Every action the dashboard (or a preparation) started: live progress, time taken, result. A spinner shows while any runs, and a red dot when one failed since you last looked. |
-| **Accounts & keys** | Your Claude accounts: add, verify, make default, remove (under **⋯**), keep-alive. |
+| **Accounts & keys** | The keys and sign-ins your sandboxes' tools use: **Needs you** (what is broken and the one fix), the **Keys** view (each provider's keys, its default, check, remove), the **Sandboxes** view (the key each sandbox uses — change it in place), **Add a key** (start from the tool). A red count beside it in the sidebar while a key a sandbox relies on does not work. See [Accounts — in the dashboard](09-agents-and-accounts.md#accounts--in-the-dashboard). |
 | **Metrics** | How long each kind of action takes (count, median, p90…), filtered by image and time; download as CSV. |
 | **Activity** | What the host is doing, live. |
 | **Onboarding** | The setup wizard, again (in a window over the page, as **New sandbox** is). |
