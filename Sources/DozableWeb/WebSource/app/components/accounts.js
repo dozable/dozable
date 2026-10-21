@@ -97,30 +97,31 @@ export function accountForm(opts) {
     error,
     h('div', { class: 'wiz-buttons' }, add));
 }
+/// What an agent can use from these accounts: {kinds, srcs, needs (a key is required), usable (the rows that fit),
+/// defName (the default it follows — 'none'), def (that row, when it fits), defFits}. 641: Accounts & keys' Sandboxes
+/// view changes a sandbox's key in place with it.
+export function usableFor(acc, current) {
+  const kinds = current && acc.agents ? acc.agents[agentKey(current, acc.agents)] : null;
+  // 617 (models@1): a recipe agent takes a key of one of its model sources (a provider or gateway) — never a subscription.
+  const srcs = current && acc.sources ? acc.sources[agentKey(current, acc.sources)] || null : null;
+  const needs = !!kinds && !kinds.includes('mac');
+  const usable = acc.accounts.filter((x) => (!kinds || kinds.includes(x.kind)) && (!srcs || srcs.includes(sourceOf(x))));
+  // 599i: Codex follows the store's OpenAI default (none until one is chosen), never the Anthropic one. 617: a recipe
+  // agent the default of its first source that has one (the host's own choice).
+  const defName = srcs ? ((acc.recipeDefaults || {})[agentKey(current, acc.sources)] || 'none')
+    : isOpenAIAgent(kinds) ? (acc.openaiDefault || 'none') : acc.defaultAccount;
+  // Two rows can be named mac (Claude's and, rc.3, this Mac's Codex login): the one this agent can use.
+  const def = usable.find((x) => x.name === defName) || null;
+  const defFits = defName !== 'none' ? !!def : !needs;
+  return { kinds, srcs, needs, usable, defFits, defName, def };
+}
+
 export function accountChooser({ accounts, agent, same = null, defaultValue = '', value = null, onChange = () => {} }) {
   let acc = accounts, current = agent(), chosen = value;            // 599f: `value` pre-selects (a project file's account)
   const el = h('div', { class: 'field acct-chooser', 'data-acct-chooser': '' });
-  const kindsOf = (a) => (a && acc.agents ? acc.agents[agentKey(a, acc.agents)] : null);
-  // 617 (models@1): a recipe agent takes a key of one of its model sources (a provider or gateway) — never a subscription.
-  const sourcesOf = (a) => (a && acc.sources ? acc.sources[agentKey(a, acc.sources)] || null : null);
-  const fits = (kinds, srcs) => acc.accounts.filter((x) => (!kinds || kinds.includes(x.kind)) && (!srcs || srcs.includes(sourceOf(x))));
   const title = (src) => (acc.sourceTitles || {})[src] || src;
-  function state() {
-    const kinds = kindsOf(current);
-    const srcs = sourcesOf(current);
-    const needs = !!kinds && !kinds.includes('mac');
-    const usable = fits(kinds, srcs);
-    // 599i: Codex follows the store's OpenAI default (none until one is chosen), never the Anthropic one. 617: a recipe
-    // agent the default of its first source that has one (the host's own choice).
-    const defName = srcs ? ((acc.recipeDefaults || {})[agentKey(current, acc.sources)] || 'none')
-      : isOpenAIAgent(kinds) ? (acc.openaiDefault || 'none') : acc.defaultAccount;
-    // Two rows can be named mac (Claude's and, rc.3, this Mac's Codex login): the one this agent can use.
-    const def = usable.find((x) => x.name === defName);
-    const defFits = defName !== 'none' ? !!def : !needs;
-    return { kinds, srcs, needs, usable, defFits, defName };
-  }
   function render() {
-    const s = state();
+    const s = usableFor(acc, current);
     const opts = [];
     if (same) opts.push(['', same]);
     if (s.defFits) opts.push([defaultValue, 'the store default (' + s.defName + ')']);

@@ -12,6 +12,8 @@ export const state = {
   opsFilter: '',
   imagesMode: 'table',     // 593: Images › Table | Lineage
   overview: null,
+  /// 641: the last accounts list read (the nav's badge, on hello, an accounts change, an account action's end).
+  accounts: null,
   activity: [],
   ops: new Map(),
   es: null,

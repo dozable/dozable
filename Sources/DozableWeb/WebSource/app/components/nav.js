@@ -5,6 +5,7 @@ import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
+import { brokenCount } from './account-problems.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status.js';
 import { moreMenu } from './menus.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek.js';
@@ -15,17 +16,39 @@ const renderHostFoot = upcall('renderHostFoot');
 // ── the nav: a child per sandbox (593) ──────────────────────────────────────
 // From the overview (`ls` without session counts — never the guest's session holders), re-read on
 // the stream's hello, on `changed`, and when an operation ends. Text only.
-let navTimer = null;
-export function refreshNav() {
+let navTimer = null, navAccounts = false;
+/// opts.accounts (641): read the accounts too — on hello, when the server says they changed, and when an account action
+/// ends; never on the poll. The badge is otherwise painted from the last list read and the fresh overview.
+export function refreshNav(opts) {
+  if (opts && opts.accounts) navAccounts = true;
   clearTimeout(navTimer);
   navTimer = setTimeout(async () => {
-    try { state.overview = await api('overview'); renderNavSandboxes(); } catch (_) { /* the last list */ }
+    const withAccounts = navAccounts;
+    navAccounts = false;
+    try {
+      const [o, a] = await Promise.all([api('overview'), withAccounts ? api('accounts').catch(() => null) : null]);
+      state.overview = o;
+      if (a) state.accounts = a;
+      renderNavSandboxes();
+    } catch (_) { /* the last list */ }
   }, 300);
+}
+/// 641 (owner, D3): Accounts & keys' badge — how many problems break a sandbox's next session (the page's Needs you
+/// lines that name one). From the last accounts list and overview; nothing is fetched here.
+export function paintAccountsBadge() {
+  const el = $('acc-badge');
+  if (!el) return;
+  const n = state.accounts && state.overview ? brokenCount(state.accounts, state.overview.sandboxes) : 0;
+  el.hidden = !n;
+  el.textContent = n ? String(n) : '';
+  el.title = n ? (n === 1 ? 'A key or sign-in a sandbox relies on does not work' : n + ' keys or sign-ins that sandboxes rely on do not work') : '';
+  el.setAttribute('aria-label', el.title);
 }
 export function renderNavSandboxes() {
   // 594 (owner: "add a link to Onboarding in the left nav"): a dot until this store is onboarded.
   if (state.overview) $('onb-dot').hidden = state.overview.onboarded !== false;
   renderHostFoot();
+  paintAccountsBadge();
   const list = state.overview ? state.overview.sandboxes.slice() : [];
   // 617: a try whose create is under way is listed from its Start (its page is already there).
   const p = state.pendingTry;

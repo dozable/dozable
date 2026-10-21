@@ -89,7 +89,7 @@ export function trackOp(op) {
   if (op.state !== 'running' && (!before || before.state === 'running')) {
     endTransition(op.sandbox, op.action, op.state === 'failed');
     if (op.state === 'failed') opFailed(op);
-    refreshNav();
+    refreshNav({ accounts: /^account-/.test(op.action || '') });
     // 595: an operation's end may have changed the disks — measure again (the nav's total too).
     remeasure();
     scheduleResTotal();

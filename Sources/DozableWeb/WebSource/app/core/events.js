@@ -32,14 +32,16 @@ export function connect() {
     checkBuild(hello);
     try { adoptOperations(await api('operations')); } catch (_) { /* */ }
     loadPreparations();
-    refreshNav();
+    refreshNav({ accounts: true });
     refresh(true);
     reattachTerminals();
   });
   // The Settings page is not about the store's live state: re-rendering it would drop a half-typed
   // value; nor is Operations (its own events keep it current), nor the onboarding wizard (its own).
-  es.addEventListener('changed', () => {
-    refreshNav();
+  es.addEventListener('changed', (ev) => {
+    let topics = [];
+    try { topics = JSON.parse(ev.data).topics || []; } catch (_) { /* an older doz ui: no topics */ }
+    refreshNav({ accounts: topics.includes('accounts') });
     liveRefresh();
   });
   // 594 W19: a line from doz ui itself ("doz ui restarted — 0.12.0-rc.4").
