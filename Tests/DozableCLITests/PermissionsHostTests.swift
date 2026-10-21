@@ -123,6 +123,23 @@ final class PermissionsHostTests: XCTestCase {
         XCTAssertTrue(r2.suggestions.isEmpty)
     }
 
+    /// 635 (owner: "the http grant failed when clicking the button"): apt's SRV lookup `_http._tcp.deb.debian.org`
+    /// was offered as "Allow this site", which no site rule can hold. It is deb.debian.org's: one System packages row.
+    func testADNSServiceLookupIsSuggestedAsItsHostsPermission() throws {
+        let p = NetworkPolicy.permissions(AgentPermissions.preset("locked", base: "node")!, preset: "locked")
+        let log = [
+            ConnectionRecord(kind: .connect, host: "_http._tcp.deb.debian.org", port: 53, verdict: .denied, rule: "default deny"),
+            ConnectionRecord(kind: .connect, host: "deb.debian.org", port: 80, verdict: .denied, rule: "default deny"),
+        ]
+        let r = PermissionPolicy.report(name: "a", policy: p, base: "node", log: log)
+        XCTAssertEqual(r.suggestions.map(\.grant), ["install:system"])
+        XCTAssertEqual(r.suggestions.first?.count, 2)
+        XCTAssertEqual(PermissionPolicy.serviceHost("_http._tcp.deb.debian.org"), "deb.debian.org")
+        XCTAssertEqual(PermissionPolicy.serviceHost("api.example.com"), "api.example.com")
+        XCTAssertEqual(PermissionPolicy.serviceHost("_x.com"), "_x.com")       // never down to a bare label
+        XCTAssertFalse(r.suggestions.contains { $0.grant.hasPrefix("site:_") })
+    }
+
     func testTheFactsListThePermissionsInPlainWords() {
         var p = NetworkPolicy.permissions(standardPy, preset: "agent")
         p.rules = [EgressRule(host: "api.example.com", note: "site you allowed")]

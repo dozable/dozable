@@ -3,6 +3,7 @@ import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { AGENT_NAMES } from '../core/agents.js';
 import { api } from '../core/api.js';
+import { tildePath } from '../core/paths.js';
 import { actOrThrow } from '../core/operations.js';
 import { setting } from '../core/settings.js';
 import { accountChooser } from './accounts.js';
@@ -39,7 +40,7 @@ export async function createDialog(quick = null) {
       radio('rebuild', 'Rebuild it first (~2 min, needs network; existing sandboxes are NOT affected)', false)));
     imgNote.hidden = false;
   };
-  const dlg = dialog('New sandbox','It is created off; Start boots it (the first start of an image not yet prepared prepares it — minutes, needs network).', [
+  const dlg = dialog('New sandbox', 'It is made off — Start boots it.', [
     { name: 'sandbox', label: 'Name', placeholder: 'a-z 0-9 -', required: true },
     // 596 (B1): Agent × Base.
     { name: 'image', type: 'custom', el: imgSlot, get: () => {
@@ -105,6 +106,41 @@ export async function createDialog(quick = null) {
   permSlot.replaceWith(perms.el);
   gate();
   dlg.inputs.network.addEventListener('change', () => { acct.agentChanged(); perms.networkChanged(); });
+  collapseToSummary(dlg, { images, picker, perms, acct, chooser, imgNote });
+}
+
+/// 635 (owner: "this dialog is WAY TOO BUSY … try collapsing all the options and just showing the defaults
+/// summarized"): the Name, then what it will make in a few lines, and every choice folded under "Change…". The
+/// fields keep their getters (the form reads them wherever they sit); the summary follows every change. The fold
+/// opens by itself only when something must be decided there (an account the agent cannot use).
+function collapseToSummary(dlg, { images, picker, perms, acct, chooser, imgNote }) {
+  const field = (input) => input.closest('label');
+  const summary = h('dl', { class: 'qt-plan nsb-summary', 'data-new-summary': '' });
+  const more = h('details', { class: 'nsb-more', 'data-new-more': '' },
+    h('summary', null, icon('settings'), 'Change the agent, base, network, account, folder or size'));
+  field(dlg.inputs.sandbox).after(summary, more);
+  more.append(picker.el, imgNote, perms.el, field(dlg.inputs.network), acct.el, chooser.el, field(dlg.inputs.cpus), field(dlg.inputs.memoryMiB));
+  const paint = () => {
+    const row = (k, v) => [h('dt', null, k), h('dd', null, v)];
+    const net = dlg.inputs.network.value;
+    const preset = perms.el.hidden ? null : perms.el.querySelector('[data-new-perm-preset]');
+    const NET = { bake: 'Bake — package registries only', nat: 'nat — not filtered', none: 'No network', locked: 'Locked', open: 'Open', agent: 'Standard' };
+    const network = preset ? preset.dataset.newPermPreset : NET[net] || 'Standard';
+    let folder;
+    try { const w = chooser.get(); folder = w.isolated ? 'None — isolated' : tildePath(w.workspace); } catch (_) { folder = 'Not set yet — Change…'; }
+    const img = images.find((x) => x.name === picker.image());
+    const cpus = dlg.inputs.cpus.value || setting('defaults.cpus', 2);
+    summary.replaceChildren(
+      ...row('Agent', picker.title() + (img && img.baked && img.standing ? ' · its image is out of date (used as it is — Change… to rebuild)' : '')),
+      ...row('Network', network),
+      ...(picker.agent() ? row('Account', acct.ok() ? (acct.get() || 'the default') : 'needs one — Change…') : []),
+      ...row('Folder', folder),
+      ...row('Size', cpus + ' CPUs' + (dlg.inputs.memoryMiB.value ? ' · ' + dlg.inputs.memoryMiB.value + ' MiB' : ' · the image’s memory')));
+    if (!acct.ok()) more.open = true;
+  };
+  for (const ev of ['input', 'change']) dlg.addEventListener(ev, paint);
+  dlg.addEventListener('click', () => setTimeout(paint, 0));      // the picker's cards and chips are buttons
+  paint();
 }
 
 /// 597 (P4): New Sandbox's switches — the default for the base (defaults.permissions), or the Network

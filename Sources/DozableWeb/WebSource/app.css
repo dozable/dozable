@@ -42,33 +42,34 @@
   --bw: 1px;
   --ctl-sm: 24px; --ctl-md: 28px; --ctl-lg: 32px;   /* control heights; 24 px is the minimum target */
 
-  /* neutrals */
-  --bg:           light-dark(#f6f6f4, #131312);
-  --surface:      light-dark(#ffffff, #1b1b1a);
-  --surface-2:    light-dark(#efefec, #242422);
-  --surface-3:    light-dark(#e6e5e1, #2d2d2a);
-  --ink:          light-dark(#1b1b19, #ecebe7);
-  --ink-2:        light-dark(#5c5b56, #a6a49c);
-  --ink-3:        light-dark(#8b8a84, #77756f);   /* disabled and decoration only — never text to be read */
-  --line:         light-dark(#e2e1dc, #2d2d2a);
-  --line-strong:  light-dark(#c9c7c0, #3d3c39);
-  --control:      light-dark(#8f8d86, #76746d);   /* an input's border: 3:1 against its surface */
+  /* neutrals — 635 (owner: "the terminal is the only fully black background"): the dark chrome sits well above the
+     terminal's --term-bg, so the terminal reads as the one black panel */
+  --bg:           light-dark(#f6f6f4, #242423);
+  --surface:      light-dark(#ffffff, #2c2c2a);
+  --surface-2:    light-dark(#efefec, #343432);
+  --surface-3:    light-dark(#e6e5e1, #3e3e3b);
+  --ink:          light-dark(#1b1b19, #f0efeb);
+  --ink-2:        light-dark(#5c5b56, #b4b2aa);
+  --ink-3:        light-dark(#8b8a84, #85837c);   /* disabled and decoration only — never text to be read */
+  --line:         light-dark(#e2e1dc, #3d3d3a);
+  --line-strong:  light-dark(#c9c7c0, #52514c);
+  --control:      light-dark(#8f8d86, #8a8880);   /* an input's border: 3:1 against its surface */
 
   /* accent, focus */
   --accent:       light-dark(#2453c9, #86a1ff);
   --accent-hover: light-dark(#1d46b0, #a3b8ff);
   --on-accent:    light-dark(#ffffff, #0d1330);
-  --accent-tint:  light-dark(#e9eefa, #2c303f);
+  --accent-tint:  light-dark(#e9eefa, #353a4e);
   --focus:        light-dark(#2453c9, #86a1ff);
 
   /* phases — text/icon colour and its tint (pill fill); every pair is AA */
-  --ph-running:    light-dark(#1d7a37, #4fc770);  --ph-running-tint:    light-dark(#e8f2eb, #233728);
+  --ph-running:    light-dark(#1d7a37, #4fc770);  --ph-running-tint:    light-dark(#e8f2eb, #2b4231);
   --ph-booting:    var(--accent);                 --ph-booting-tint:    var(--accent-tint);
-  --ph-paused:     light-dark(#8a5a00, #e6b54a);  --ph-paused-tint:     light-dark(#f3eee6, #3b3422);
-  --ph-asleep:     light-dark(#6a3fc8, #b9a2ff);  --ph-asleep-tint:     light-dark(#f0ecfa, #34313f);
-  --ph-hibernated: light-dark(#0b6f86, #4fc6dc);  --ph-hibernated-tint: light-dark(#e7f1f3, #233639);
-  --ph-off:        light-dark(#6b6a64, #9a9890);  --ph-off-tint:        light-dark(#f0f0f0, #2f2f2d);
-  --ph-failed:     light-dark(#c1272d, #ff7b72);  --ph-failed-tint:     light-dark(#f9e9ea, #3f2a28);
+  --ph-paused:     light-dark(#8a5a00, #e6b54a);  --ph-paused-tint:     light-dark(#f3eee6, #47402a);
+  --ph-asleep:     light-dark(#6a3fc8, #b9a2ff);  --ph-asleep-tint:     light-dark(#f0ecfa, #3e3a4c);
+  --ph-hibernated: light-dark(#0b6f86, #4fc6dc);  --ph-hibernated-tint: light-dark(#e7f1f3, #2a4144);
+  --ph-off:        light-dark(#6b6a64, #a5a39b);  --ph-off-tint:        light-dark(#f0f0f0, #393937);
+  --ph-failed:     light-dark(#c1272d, #ff7b72);  --ph-failed-tint:     light-dark(#f9e9ea, #4a302d);
   --on-danger:     light-dark(#ffffff, #2a0c0a);
 
   /* tones (callouts, tags, results) — aliases of the phase colours: one red, one amber, one green */
@@ -80,7 +81,7 @@
   /* data (Resources, Images, Lineage bars) */
   --data-own:    var(--accent);
   --data-shared: light-dark(#12936e, #3ccfa0);
-  --data-free:   light-dark(#dcdbd6, #3a3a37);
+  --data-free:   light-dark(#dcdbd6, #4a4a46);
 
   /* terminal chrome — dark in both themes (the engine's own theme) */
   --term-bg: #16171c; --term-ink: #e3e5ea; --term-muted: #a3a8b8; --term-accent: #c5cbff; --term-raise: #1d1f2b;
@@ -290,6 +291,10 @@ h3 { font-size: var(--fs-md); font-weight: var(--fw-strong); }
 .feed li { display: grid; grid-template-columns: 86px 90px minmax(0, 1fr); gap: 10px; padding: 7px 12px; border-bottom: 1px solid var(--line); }
 .feed li:last-child { border-bottom: 0; }
 .feed .t { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+/* 635: a page's section heading (Activity: Messages, The host). */
+.h-section { margin: var(--sp-6) 0 var(--sp-1); font-size: var(--fs-lg); }
+.feed li[data-message="bad"] .who { color: var(--bad); }
+.feed li[data-message="warn"] .who { color: var(--warn); }
 .feed .text { word-break: break-word; }
 
 .bars td.bar { width: 40%; }
@@ -376,6 +381,7 @@ dialog.dlg.bootlog-dialog { width: min(1100px, calc(100vw - 32px)); max-width: n
 .tiles { display: flex; flex-wrap: wrap; gap: 14px; }
 .tile { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
 .tile-head { display: flex; align-items: center; gap: 8px; padding: 6px 10px; font-size: var(--fs-sm); max-width: calc(960px * var(--s)); }
+.tile-head > .icon { width: 13px; height: 13px; flex: none; color: var(--ink-2); }
 .tile-title { font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile-phase { color: var(--ink-2); white-space: nowrap; }
 .tile-act { margin-left: auto; }
@@ -463,8 +469,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-wrap.term-pending { visibility: hidden; pointer-events: none; }
 /* 617: tab zero, Console — and the activity dot on a tab that is ready but not shown. */
 .tab-console .icon { color: var(--term-ink); opacity: 0.8; }
-/* 617: the build log's tab, left of Console — small: an icon only, its name in the tooltip. */
-.tab.tab-buildlog { padding: 6px 7px; }
+/* 635: the build log's own tab (a spanner), opened from Home › Logs. */
 .tab-buildlog .icon { opacity: 0.8; }
 /* 617: the build log is a document (how the image was made: inputs, every command verbatim, the files, the checks). */
 .buildlog-doc { position: absolute; inset: 0; overflow: auto; background: var(--surface); color: var(--ink); padding: var(--sp-4) var(--sp-5);
@@ -500,9 +505,15 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .denied-chip:hover { box-shadow: inset 0 0 0 1px var(--warn); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
-.tabs { display: flex; gap: 2px; padding: 4px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }
-.tab-wrap { display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; }
-.tab-wrap:has(.tab.active) { background: var(--term-bg); }
+.tabs { display: flex; gap: 3px; padding: 5px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }
+/* 635 (owner: tabs with better contrast, especially dark): each tab is a raised shape on the strip; the one shown joins
+   the terminal below it and carries an accent line on top. */
+.tab-wrap { display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; background: var(--surface-3); }
+.tab-wrap:hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface-3)); }
+.tab-wrap:hover .tab { color: var(--ink); }
+.tab-wrap:has(.tab.active) { background: var(--term-bg); box-shadow: inset 0 2px 0 var(--accent); }
+.tabs-menu { align-self: center; margin: 0 2px 0 6px; color: var(--ink-2); }
+.tabs-menu[aria-expanded="true"] { background: var(--surface-3); color: var(--ink); }
 /* 617 (owner): the active tab sits on the terminal's dark chrome in both themes — its close, move and session buttons take
    the terminal's ink, not the page's (they were dark on dark in light mode). */
 .tab-wrap:has(.tab.active) > .tab-x, .tab-wrap:has(.tab.active) .menu-wrap > .tab-x { color: var(--term-ink); }
@@ -523,11 +534,103 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-body { flex: 1; min-height: 0; position: relative; }
 .term-empty { color: var(--term-muted); }
 .term-empty[hidden] { display: none; }
-/* 625: the start bar over Console — a running sandbox with no session terminal offers its agent here. */
-.term-start { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); background: var(--surface); border-bottom: var(--bw) solid var(--line); }
-.term-start[hidden] { display: none; }
-.term-start-text { color: var(--ink); font-weight: var(--fw-strong); min-width: 0; }
-.term-start .actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+/* 635: a sandbox page's Home — its first tab, a document in the terminal area (like the build log), on --bg so its
+   active tab joins it. The agent's session as a card, the others as rows, each with a picture of its screen. */
+.tab.tab-home { padding: 6px 9px; }
+.tab-wrap:has(.tab-home.active) { background: var(--bg); }
+.tab.tab-home.active { color: var(--ink); }
+.tab-home .count { min-width: 16px; height: 16px; font-size: var(--fs-xs); padding: 0 4px; }
+.home-doc { position: absolute; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); padding: var(--sp-5) var(--sp-5) var(--sp-7); }
+.home-doc > * { max-width: 920px; }
+.home-doc h2 { margin: 0; font-size: var(--fs-lg); }
+.home-sect { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); }
+.home-sect > .head { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
+.home-sect > .head .actions { display: flex; gap: var(--sp-2); align-items: center; }
+.home-lead { margin: -2px 0 2px; color: var(--ink-2); font-size: var(--fs-md); }
+.home-card-box { display: flex; flex-direction: column; gap: var(--sp-3); }
+.home-card-box:empty { display: none; }
+.home-agent { display: grid; grid-template-columns: 220px minmax(0, 1fr) auto; gap: var(--sp-1) 14px; align-items: start; padding: 14px var(--sp-5);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-1); }
+.home-agent > .home-thumb { grid-row: span 3; }
+.home-agent .t { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; font-size: var(--fs-xl); font-weight: var(--fw-strong); }
+.home-agent .t .icon { width: 18px; height: 18px; color: var(--ink-2); }
+.home-agent .meta { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-4); color: var(--ink-2); font-size: var(--fs-sm); }
+.home-agent .msg { grid-column: 2; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-agent .msg[hidden] { display: none; }
+.home-agent .acts { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: var(--sp-2); align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.home-agent .home-note { grid-column: 1 / -1; }
+.home-agent .home-note:empty { display: none; }
+.home-agent.just-closed { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent), var(--shadow-1); }
+.home-rows { border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.home-rows[hidden] { display: none; }
+.home-row { display: grid; grid-template-columns: 18px minmax(110px, 0.9fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto; gap: 2px var(--sp-4); align-items: center;
+  min-height: 42px; padding: var(--sp-2) 10px var(--sp-2) 14px; border-top: var(--bw) solid var(--line); }
+.home-row:first-child { border-top: 0; }
+.home-row > .icon { width: 15px; height: 15px; color: var(--ink-2); }
+.home-row .nm { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; font-weight: var(--fw-medium); }
+.home-row .nm > span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .cmd-t { font: var(--fs-mono) var(--mono); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .st { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); min-width: 0; }
+.home-row .st .dot { flex: none; }
+.home-row .st > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-row .row-acts { flex-wrap: nowrap; justify-content: flex-end; }
+.home-row.dim .nm, .home-row.dim > .icon { color: var(--ink-2); }
+.home-row.has-thumb { grid-template-columns: 120px minmax(110px, 0.9fr) minmax(0, 1.3fr) minmax(0, 1.2fr) auto; padding-block: var(--sp-3); }
+.home-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--sp-2) var(--sp-5); padding: var(--sp-4) 14px; margin: 0;
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.home-facts dt { color: var(--ink-2); }
+.home-facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.home-empty { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: var(--sp-1) 14px; align-items: center; padding: var(--sp-5);
+  border: var(--bw) dashed var(--line-strong); border-radius: var(--r-lg); background: var(--surface); }
+.home-empty > .icon { width: 28px; height: 28px; color: var(--ink-2); grid-row: span 2; }
+.home-empty .t { font-size: var(--fs-xl); font-weight: var(--fw-strong); }
+.home-empty .d { color: var(--ink-2); grid-column: 2; }
+.home-empty .acts { grid-column: 3; grid-row: 1 / span 2; }
+/* 635: a session's picture — its terminal laid out at 960 × 560 (the grid's tile size) and scaled into the frame; live,
+   or its saved screen. Its cover never shows here (the badge says live or saved). */
+.home-thumb { position: relative; flex: none; width: 120px; height: 68px; padding: 0; overflow: hidden; cursor: pointer; --s: 0.125;
+  border: var(--bw) solid var(--line); border-radius: var(--r-sm); background: var(--term-bg); text-align: left; }
+.home-thumb.big { width: 220px; height: 128px; --s: 0.2292; }
+.home-thumb:hover, .home-thumb:focus-visible { border-color: var(--accent); }
+.home-thumb .thumb-screen { position: absolute; left: 0; top: 0; width: 960px; height: 560px; transform: scale(var(--s)); transform-origin: 0 0; pointer-events: none; }
+.home-thumb .term-cover, .home-thumb .term-notice { display: none; }
+.home-thumb.saved .thumb-screen { opacity: 0.6; filter: saturate(0.4); }
+.home-thumb .th-plate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: var(--sp-1);
+  color: var(--term-muted); font-size: var(--fs-xs); text-align: center; }
+.home-thumb .th-plate[hidden] { display: none; }
+.home-thumb .th-badge { position: absolute; right: 4px; bottom: 4px; display: inline-flex; align-items: center; gap: 3px; padding: 0 5px; height: 15px;
+  border-radius: var(--r-pill); background: color-mix(in srgb, var(--term-bg) 80%, transparent); color: var(--term-ink); font-size: 10px; line-height: 1; }
+.home-thumb .th-badge[hidden] { display: none; }
+.home-thumb .th-live, .home-thumb .th-saved { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.home-thumb .th-saved { background: var(--ph-asleep); }
+/* 635 (owner): Home's sessions as a grid of their live pictures — the same card and rows, laid out as tiles. */
+.home-tiles { display: flex; flex-direction: column; gap: var(--sp-3); }
+.home-view .btn.on { background: var(--surface-3); color: var(--ink); }
+.home-doc.as-grid > * { max-width: none; }
+.as-grid .home-tiles { display: grid; grid-template-columns: repeat(auto-fill, 290px); gap: var(--sp-4); }
+.as-grid .home-card-box, .as-grid .home-rows:not(.home-ended) { display: contents; }
+.as-grid .home-empty { grid-column: 1 / -1; }
+.as-grid .home-agent, .as-grid .home-row.has-thumb { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-2);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.as-grid .home-agent > .home-thumb, .as-grid .home-row > .home-thumb { width: 272px; height: 159px; --s: 0.2833; }
+.as-grid .home-agent .t { font-size: var(--fs-md); }
+.as-grid .home-agent .meta, .as-grid .home-agent .msg, .as-grid .home-row .cmd-t { display: none; }
+.as-grid .home-agent .acts, .as-grid .home-row .row-acts { justify-content: flex-start; }
+@media (max-width: 760px) {
+  .home-doc { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
+  .home-agent { grid-template-columns: minmax(0, 1fr); }
+  .home-agent > .home-thumb.big { width: 100%; grid-row: auto; }
+  .home-agent .meta, .home-agent .msg, .home-agent .acts { grid-column: 1; grid-row: auto; justify-content: flex-start; }
+  .home-row, .home-row.has-thumb { grid-template-columns: 88px minmax(0, 1fr) auto; }
+  .home-row:not(.has-thumb) { grid-template-columns: 18px minmax(0, 1fr) auto; }
+  .home-row.has-thumb .home-thumb { width: 88px; height: 50px; --s: 0.0917; grid-column: 1; grid-row: 1 / span 2; }
+  .home-row .cmd-t { display: none; }
+  .home-row .nm { grid-column: 2; grid-row: 1; }
+  .home-row .st { grid-column: 2; grid-row: 2; }
+  .home-row .row-acts { grid-column: 3; grid-row: 1 / span 2; }
+  .home-empty { grid-template-columns: 34px minmax(0, 1fr); }
+  .home-empty .acts { grid-column: 1 / -1; grid-row: auto; }
+}
 .term-wrap { position: absolute; inset: 0; }
 .term-wrap[hidden] { display: none; }
 .term-frame-host { position: absolute; inset: 0; }
@@ -562,6 +665,11 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 
 /* A two-icon glyph (Sleep = moon + cpu, Hibernate = moon + cylinder): one tight group. */
 .icon-pair { display: inline-flex; align-items: center; gap: 1px; flex: none; }
+/* 635: a glyph with a small one in its top-right corner (Open in Terminal: the terminal + an arrow out) — the corner of the
+   big one is cut away under the small one, so it reads on any background. */
+.icon-corner { position: relative; display: inline-flex; flex: none; }
+.icon-corner > .icon:first-child { -webkit-mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); }
+.icon-corner > .icon:last-child { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; stroke-width: 3; }
 .tc-glyph { display: inline-flex; color: var(--term-accent); }
 .tc-glyph[hidden] { display: none; }
 .tc-glyph .icon { width: 22px; height: 22px; }
@@ -916,7 +1024,7 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
   text-align: left; cursor: pointer; white-space: normal; }
 .menu:has(.icon-pair) .menu-item { grid-template-columns: 33px minmax(0, 1fr) auto; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--surface-2); outline: none; }
-.menu-item > .icon, .menu-item > .icon-pair { grid-column: 1; }
+.menu-item > .icon, .menu-item > .icon-pair, .menu-item > .icon-corner { grid-column: 1; }
 .menu-item > .mi-label { grid-column: 2; }
 .menu-item .desc { grid-column: 2; font-size: var(--fs-sm); color: var(--ink-2); }
 .menu-item.danger { color: var(--bad); }
@@ -1182,6 +1290,53 @@ a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; paddin
   text-decoration: none; font-size: var(--fs-md); position: relative; min-width: 0; }
 a.nav-child::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 0; width: 1px; background: var(--line); }
 .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 635 (owner: variant A, collapsible): each sandbox's sessions under it — a third level; its caret folds it to one line
+   with its session count (a session that needs you or failed still shows). Never more than four lines. */
+.nav-sbx { position: relative; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nav-caret { position: absolute; left: -1px; top: 6px; width: 14px; height: 14px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: var(--r-xs); background: none; color: var(--ink-2); cursor: pointer; z-index: 1; }
+.nav-caret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
+.nav-caret.folded .icon { transform: rotate(-90deg); }
+.nav-caret:hover { color: var(--ink); background: var(--surface-2); }
+a.nav-child .nav-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+a.nav-child .nav-count + .ag-dot { margin-left: 0; }
+.nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 14px; }
+.nav-sess-row { position: relative; display: flex; align-items: center; min-width: 0; }
+a.nav-sess { display: flex; align-items: center; gap: 7px; flex: 1; height: 24px; padding: 0 28px 0 10px; border-radius: var(--r-sm); color: var(--ink-2);
+  text-decoration: none; font-size: var(--fs-sm); position: relative; min-width: 0; }
+a.nav-sess::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+a.nav-sess:hover { background: var(--surface-2); color: var(--ink); }
+a.nav-sess.active { color: var(--ink); background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: var(--fw-medium); }
+a.nav-sess.active::before { background: var(--accent); width: 2px; left: -2.5px; }
+a.nav-sess > .icon { width: 13px; height: 13px; flex: none; }
+a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+a.nav-sess .ag-chip { margin-left: auto; height: 16px; }
+a.nav-sess.saved { font-style: italic; }
+a.nav-sess.more { color: var(--accent); }
+.nav-sess-row > .menu-wrap { position: absolute; right: 2px; top: 0; height: 24px; display: flex; align-items: center; opacity: 0; }
+.nav-sess-row:hover > .menu-wrap, .nav-sess-row:focus-within > .menu-wrap, .nav-sess-row > .menu-wrap:has(.menu:not([hidden])) { opacity: 1; }
+.nav-sess-row > .menu-wrap > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
+/* 635 (owner): the screen icon on a session line's hover; resting on it fills its underline for half a second, then the
+   session's picture opens beside the sidebar (.nav-peek-pop). */
+.nav-peek { position: absolute; right: 24px; top: 2px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); cursor: default; opacity: 0; overflow: hidden; }
+.nav-peek:last-child { right: 2px; }
+.nav-peek .icon { width: 13px; height: 13px; }
+.nav-sess-row:hover > .nav-peek { opacity: 1; }
+.nav-sess-row:has(> .nav-peek):hover a.nav-sess { padding-right: 50px; }
+.nav-peek:hover { background: var(--surface-3); color: var(--ink); }
+.nav-peek::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); }
+.nav-peek.arming::after { animation: peek-arm 500ms linear var(--arm-delay, 0ms) forwards; }
+@keyframes peek-arm { from { width: 0; } to { width: 100%; } }
+.nav-peek-pop { position: fixed; z-index: var(--z-menu); padding: 6px; border: var(--bw) solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface); box-shadow: var(--shadow-2); }
+.nav-peek-pop[hidden] { display: none; }
+.nav-peek-pop .np-frame { position: relative; overflow: hidden; border-radius: var(--r-md); background: var(--term-bg); }
+.nav-peek-pop .thumb-screen { position: absolute; left: 0; top: 0; width: 960px; height: 560px; transform: scale(var(--s)); transform-origin: 0 0; pointer-events: none; }
+.nav-peek-pop .term-cover, .nav-peek-pop .term-notice { display: none; }
+.nav-peek-pop .np-label { display: flex; align-items: center; gap: var(--sp-2); padding: 6px 2px 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.nav-peek-pop .np-label b { color: var(--ink); font-weight: var(--fw-medium); }
+.nav-peek-pop .np-label .icon { width: 13px; height: 13px; }
 .side-foot { margin-top: auto; display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--ink-2); padding: 0 4px; }
 .live { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); gap: 7px; align-items: center; }
 .live.on .dot { background: var(--ok); }
@@ -1193,6 +1348,9 @@ a.nav-child::before { content: ""; position: absolute; left: -2px; top: 0; botto
 .live.stale .dot { opacity: 0.45; }
 .version { font-variant-numeric: tabular-nums; }
 .side-foot .sign-out { justify-self: start; margin-left: -8px; }
+/* 635 (owner): Sign out, and the light / dark switch to its right. */
+.side-foot .foot-acts { display: flex; align-items: center; gap: var(--sp-1); }
+@media (max-width: 980px) { body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; } }
 @media (max-width: 980px) {
   .shell { grid-template-columns: 52px minmax(0, 1fr); }
   .shell > main { grid-column: 2; }
@@ -1309,7 +1467,7 @@ dl.facts { display: grid; grid-template-columns: minmax(96px, max-content) minma
 dl.facts dt { color: var(--ink-2); }
 dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 /* The terminal strip: tabs, then the actions that make or arrange terminals. */
-.term-strip { display: flex; align-items: stretch; background: var(--surface); border-bottom: var(--bw) solid var(--line); min-height: 36px; }
+.term-strip { display: flex; align-items: stretch; background: var(--surface-2); border-bottom: var(--bw) solid var(--line-strong); min-height: 36px; }
 .term-strip .tabs { flex: 1; min-width: 0; border-bottom: 0; background: none; }
 .strip-acts { display: flex; align-items: center; gap: 2px; padding: 0 4px; flex: none; }
 .menu-item[data-desc]::after { content: attr(data-desc); grid-column: 2; font-size: var(--fs-sm); color: var(--ink-2); }
@@ -1580,6 +1738,14 @@ details.disclosure > :not(summary) { margin-top: 6px; }
 .qt-plan { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px var(--sp-4); margin: 0; font-size: var(--fs-sm); }
 .qt-plan dt { color: var(--ink-2); }
 .qt-plan dd { margin: 0; overflow-wrap: anywhere; }
+/* 635: New sandbox, summarized — what it makes in a few lines, every choice folded under Change. */
+.nsb-summary { padding: var(--sp-3) var(--sp-4); border: var(--bw) solid var(--line); border-radius: var(--r-md); background: var(--surface-2); }
+.nsb-more > summary { display: inline-flex; align-items: center; gap: var(--sp-2); cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); list-style: none; }
+.nsb-more > summary::-webkit-details-marker { display: none; }
+.nsb-more > summary:hover { color: var(--ink); }
+.nsb-more > summary .icon { width: 14px; height: 14px; }
+.nsb-more[open] { display: grid; gap: var(--sp-4); }
+.nsb-more[open] > summary { margin-bottom: var(--sp-1); }
 .qt-foot { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; padding-top: var(--sp-4); border-top: var(--bw) solid var(--line); }
 .qt-note { font-size: var(--fs-sm); color: var(--ink-2); }
 .qt-desc { margin: 0; font-size: var(--fs-lg); line-height: var(--lh-prose); max-width: 72ch; }

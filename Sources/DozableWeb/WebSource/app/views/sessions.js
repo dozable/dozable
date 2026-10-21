@@ -11,7 +11,8 @@ import { lifecycle } from '../components/lifecycle.js';
 import { renderNavSandboxes } from '../components/nav.js';
 import { agentChip } from '../components/agent-status.js';
 import { pageFailure } from '../components/notices.js';
-import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from '../components/terminal.js';
+import { paintCover } from '../components/terminal.js';
+import { dropThumbTerm, thumbGoLive, thumbTerm } from '../components/session-thumb.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox — a live, read-only (watch) view: the same ticket,
@@ -23,6 +24,8 @@ import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from '../compone
 const grid = { built: false, active: false, tiles: new Map(), io: null, sandbox: '', phase: '', lastList: 0, listTimer: null,
                sessions: {}, scheduled: false, status: null, body: null };
 const TILE_SCALE = { small: 0.3, medium: 0.42, large: 0.62 };
+/// 635: saved screens drawn at once (each an engine, no socket) — apart from ui.grid_live_tiles, which is for live ones.
+const SAVED_TILES = 24;
 
 function gridBuild() {
   const root = $('grid');
@@ -106,7 +109,9 @@ function gridRender() {
     if (grid.sandbox && s.name !== grid.sandbox) continue;
     if (grid.phase && s.phase !== grid.phase) continue;
     if (s.phase === 'running') {
-      const live = (grid.sessions[s.name] || []).filter((x) => !x.saved);
+      // 635: the agent's session first in each sandbox (the host's registry says which is its own).
+      const own = ((s.sessionList || []).find((b) => b.isDefault) || {}).name;
+      const live = (grid.sessions[s.name] || []).filter((x) => !x.saved).sort((a, b) => (b.name === own) - (a.name === own));
       for (const x of live) want.push({ key: s.name + '/' + x.name, sandbox: s.name, session: x.name, command: x.command, s });
       if (!live.length) want.push({ key: s.name + '/', sandbox: s.name, session: null, s, none: true });
     } else {
@@ -144,7 +149,7 @@ function makeTile(w) {
                             'aria-label': 'Open ' + (w.session ? w.sandbox + ' · ' + w.session : w.sandbox) + ' on its page' },
     h('span', { class: 'tile-hit-icon' }, icon('maximize-2')));
   const el = h('div', { class: 'tile', 'data-key': w.key, 'data-sandbox': w.sandbox, 'data-session': w.session || '' },
-    h('div', { class: 'tile-head' }, dot, title, agent, phase, act),
+    h('div', { class: 'tile-head' }, dot, w.session ? icon('terminal') : null, title, agent, phase, act),   // 635: the session's mark
     h('div', { class: 'tile-body' }, screen, note, hit));
   const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, title, phase, act, screen, note, hit, term: null, visible: false, liveable: !!w.session };
   hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });
@@ -158,7 +163,7 @@ function paintTile(tile, w) {
   // open grid never keeps a host alive for a sandbox that does not run).
   const kind = !w.session ? 'static' : w.saved ? 'saved' : 'live';
   if (tile.term && tile.kind && tile.kind !== kind) {
-    if (tile.kind === 'saved' && kind === 'live' && tile.term.saved) goLive(tile.term);
+    if (tile.kind === 'saved' && kind === 'live' && tile.term.saved) thumbGoLive(tile.term);
     else detachTile(tile);
   }
   tile.kind = kind;
@@ -192,20 +197,27 @@ export function gridSchedule() {
     const cap = setting('ui.grid_live_tiles', 8);
     const tiles = [...grid.body.children].map((el) => grid.tiles.get(el.dataset.key)).filter(Boolean);
     for (const t of tiles) if (t.term && (!t.visible || !t.liveable)) detachTile(t);
+    // 635 (owner: a sleeping sandbox's screens took the live places): only a LIVE tile (a watch terminal — a socket)
+    // counts against ui.grid_live_tiles; a saved screen has no socket and has its own, larger allowance.
+    const isLive = (t) => !t.saved;
     // A lowered cap: the live tiles beyond it (the later ones, in page order) let go.
-    tiles.filter((t) => t.term).slice(cap).forEach(detachTile);
-    let live = tiles.filter((t) => t.term).length;
+    tiles.filter((t) => t.term && isLive(t)).slice(cap).forEach(detachTile);
+    tiles.filter((t) => t.term && !isLive(t)).slice(SAVED_TILES).forEach(detachTile);
+    let live = tiles.filter((t) => t.term && isLive(t)).length;
+    let savedN = tiles.filter((t) => t.term && !isLive(t)).length;
     let capped = 0;
     for (const t of tiles) {
       if (!t.liveable) continue;
       if (t.term) { t.note.hidden = true; continue; }
       if (!t.visible) { t.note.hidden = false; t.note.className = 'tile-note'; t.note.textContent = 'Off screen — not live'; continue; }
-      if (live < cap) { attachTile(t); live++; t.note.hidden = true; continue; }
+      if (!isLive(t) && savedN < SAVED_TILES) { attachTile(t); savedN++; t.note.hidden = true; continue; }
+      if (isLive(t) && live < cap) { attachTile(t); live++; t.note.hidden = true; continue; }
       capped++;
       t.note.hidden = false;
       t.note.className = 'tile-note capped';
       t.note.replaceChildren(h('div', { class: 'tile-note-head' }, 'Not live'),
-        h('div', null, live + ' tiles are live (the cap: Settings › ui.grid_live_tiles). Scroll, filter, or click to open.'));
+        h('div', null, isLive(t) ? live + ' tiles are live (the cap: Settings › ui.grid_live_tiles). Scroll, filter, or click to open.'
+          : SAVED_TILES + ' saved screens are shown. Scroll, filter, or click to open.'));
     }
     const total = tiles.filter((t) => t.liveable).length;
     grid.status.textContent = total + ' session' + (total === 1 ? '' : 's') + ' · ' + live + ' live' + (capped ? ' · ' + capped + ' more on screen not live (cap ' + cap + ')' : '');
@@ -216,17 +228,11 @@ export function gridSchedule() {
 }
 function attachTile(tile) {
   if (!setting('ui.terminals', true)) return;
-  const t = newTerm(tile.sandbox, tile.session, 'watch');
-  t.grid = true;
-  if (tile.saved) t.saved = { savedAt: tile.saved.savedAt, reason: tile.saved.savedReason };
-  tile.term = t;
-  paintCover(t);
-  tile.screen.append(t.els.wrap);
-  bootTerm(t, 13);
+  tile.term = thumbTerm(tile.sandbox, tile.session, tile.saved, tile.screen);    // 635: the one thumbnail terminal
 }
 function detachTile(tile) {
   if (!tile.term) return;
   const t = tile.term;
   tile.term = null;
-  closeTerminal(t.id);                                   // the socket closes; the frame and its engine go
+  dropThumbTerm(t);                                      // the socket closes; the frame and its engine go
 }

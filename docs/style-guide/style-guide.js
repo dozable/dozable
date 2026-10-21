@@ -54,7 +54,8 @@
     s.setAttribute('data-icon', n); const u = document.createElementNS(NS, 'use'); u.setAttribute('href', '#' + n); s.append(u); return s; };
   for (const i of document.querySelectorAll('i[data-i]')) {
     const n = i.dataset.i;
-    if (n.includes('+')) { const g = document.createElement('span'); g.className = 'icon-pair'; g.setAttribute('aria-hidden', 'true'); for (const x of n.split('+')) g.append(one(x)); i.replaceWith(g); }
+    if (n.includes('^')) { const g = document.createElement('span'); g.className = 'icon-corner'; g.setAttribute('aria-hidden', 'true'); for (const x of n.split('^')) g.append(one(x)); i.replaceWith(g); }
+    else if (n.includes('+')) { const g = document.createElement('span'); g.className = 'icon-pair'; g.setAttribute('aria-hidden', 'true'); for (const x of n.split('+')) g.append(one(x)); i.replaceWith(g); }
     else i.replaceWith(one(n));
   }
   const index = document.getElementById('icons');

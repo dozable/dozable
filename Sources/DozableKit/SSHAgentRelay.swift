@@ -16,7 +16,11 @@ public struct GitGuestSetup: Sendable, Equatable {
     public var on: Bool
     public var name: String?
     public var email: String?
-    public init(on: Bool, name: String? = nil, email: String? = nil) {
+    /// 635: the sandbox's own GitHub placeholder (`doz_cred_…` — no power anywhere but this sandbox's proxy), written for
+    /// git's credential helper, so a session opened BEFORE "Use GitHub as you" was turned on can push too (its
+    /// environment has no `GH_TOKEN`). Anything that is not a placeholder is dropped.
+    public var placeholder: String?
+    public init(on: Bool, name: String? = nil, email: String? = nil, placeholder: String? = nil) {
         self.on = on
         // An identity is one line of plain text (it lands in a config file): anything else is dropped.
         func clean(_ s: String?) -> String? {
@@ -25,6 +29,10 @@ public struct GitGuestSetup: Sendable, Equatable {
         }
         self.name = on ? clean(name) : nil
         self.email = on ? clean(email) : nil
+        self.placeholder = on ? placeholder.flatMap { p in
+            let pre = CredentialVault.placeholderPrefix
+            return p.hasPrefix(pre) && p.count > pre.count && p.dropFirst(pre.count).allSatisfy({ $0.isHexDigit }) ? p : nil
+        } : nil
     }
     public static let off = GitGuestSetup(on: false)
 }

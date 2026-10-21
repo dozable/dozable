@@ -107,7 +107,7 @@
       <button class="btn sm quiet" type="button"><i data-i="copy"></i>Copy</button>
       <button class="btn sm primary" type="button"><i data-i="play"></i>Start</button>
       <button class="btn quiet icon-only" type="button" aria-label="Close" title="Close"><i data-i="x"></i></button>
-      <button class="btn icon-only" type="button" aria-label="More" title="More"><i data-i="ellipsis"></i></button>
+      <button class="btn icon-only" type="button" aria-label="More" title="More"><i data-i="ellipsis-vertical"></i></button>
       <button class="btn lg primary" type="button"><i data-i="rocket"></i>Start</button>
     </div>
     <div class="sg-row">
@@ -338,7 +338,7 @@ name: todo-app</pre></details>
       <div class="dlg-body"><p class="sub">A fresh sandbox, try-pi: a new empty folder of its own, the network locked to its model, your key never inside.</p>
         <div class="qt-sect"><h3>Key</h3><p class="try-key"><i data-i="circle-check"></i> <strong>anthropic</strong> — keychain — the sandbox only ever sees a placeholder.</p></div>
         <div class="qt-sect"><h3>Image</h3><div class="try-prep">Node.js · pi — ready.</div></div>
-        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Locked — only its model</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <dialog class="dlg try-setup" open><form method="dialog">
@@ -364,7 +364,7 @@ name: todo-app</pre></details>
             <label class="ms-m on"><input type="radio" name="sg-m" checked><span class="ms-mt"><span class="ms-nm">Claude Sonnet 4.6</span> <code class="ms-id">anthropic/claude-sonnet-4.6</code></span><span class="ms-price">$3 / $15<br>per 1M in / out</span><span class="ms-meta">Anthropic · 1M context</span></label>
             <label class="ms-m"><input type="radio" name="sg-m"><span class="ms-mt"><span class="ms-nm">GPT-5.4 Mini</span> <code class="ms-id">openai/gpt-5.4-mini</code><span class="tag">default</span></span><span class="ms-price">$0.25 / $2<br>per 1M in / out</span><span class="ms-meta">OpenAI · 400K context</span></label></div>
           <div class="ms-foot">OpenRouter’s public model list, read on this Mac 2 hours ago · prices per million tokens</div></div></div>
-        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Locked — only its model providers</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why">Save an OpenRouter key, or choose a source that has one</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <div class="ms-picker"><div class="ms-top"><i data-i="search"></i><input type="search" placeholder="Search OpenCode Zen’s models — name, maker or id"></div>
@@ -372,6 +372,15 @@ name: todo-app</pre></details>
         <label class="ms-m on"><input type="radio" name="sg-z" checked><span class="ms-mt"><span class="ms-nm">Space Bunny Free</span> <code class="ms-id">space-bunny-free</code></span><span class="ms-price">free / free<br>per 1M in / out</span><span class="ms-meta"></span><span class="ms-note">Data: zero retention; not used for training</span></label>
         <label class="ms-m"><input type="radio" name="sg-z"><span class="ms-mt"><span class="ms-nm">Big Pickle</span> <code class="ms-id">big-pickle</code><span class="tag">default</span></span><span class="ms-price">free / free<br>per 1M in / out</span><span class="ms-meta"></span><span class="ms-note">Data: during its free period, collected data may be used to improve the model</span></label></div>
       <div class="ms-foot">OpenCode Zen’s free models as its docs list them (checked 2026-10-16), with their data terms — type any other free model id it names</div></div>
+    <!-- New sandbox, summarized: the Name, what it makes, every choice folded under Change. -->
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">New sandbox</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">It is made off — Start boots it.</p>
+        <label class="field"><span>Name</span><input type="text" value="claude-sandbox-2"></label>
+        <dl class="qt-plan nsb-summary"><dt>Agent</dt><dd>Claude Code on Node.js</dd><dt>Network</dt><dd>Standard</dd><dt>Account</dt><dd>the default</dd><dt>Folder</dt><dd>~/doz-workspaces/claude-sandbox-2</dd><dt>Size</dt><dd>2 CPUs · the image’s memory</dd></dl>
+        <details class="nsb-more"><summary><i data-i="settings"></i>Change the agent, base, network, account, folder or size</summary></details></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="plus"></i>Create</button></div>
+    </form></dialog>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The sandbox, its disks, snapshot and restore points are deleted.</p>
@@ -415,27 +424,115 @@ name: todo-app</pre></details>
 
 <section>
   <h2>The terminal strip</h2>
-  <p>The active tab sits on the terminal’s own dark chrome in both themes; its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>).
-    Tab zero, <strong>Console</strong> (<code>.tab-console</code>), is the system console: first, its own icon (<code>cpu</code>), no number, no close box, there exactly while the VM is powered on.
-    A tab that is ready but not shown carries a dot (<code>.tab-activity</code>): the agent’s, when <code>ui.boot_view_on_start</code> keeps the page on Console.
-    Left of Console, the <strong>build log</strong>’s small tab (<code>.tab-buildlog</code>): an icon only (<code>list-checks</code>), its name in the tooltip, read-only, no close box —
-    the image’s last build (its steps with their times, then each step’s whole output), there whenever one is kept, through shutdown and sleep; never chosen by itself.</p>
+  <p>635 (owner: better contrast): the strip is <code>--surface-2</code>; each tab is a raised shape (<code>--surface-3</code>, lighter on hover); the one shown joins the terminal below
+    (<code>--term-bg</code>) with an accent line on top, and its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>). Left of everything, the <strong>tabs menu</strong>
+    (<code>.tabs-menu</code>, a caret): every tab open here (the shown one checked), then <strong>Close all tabs</strong> (the sessions keep running) and <strong>End all sessions…</strong> (asks first).
+    The first tab is <strong>Home</strong> (<code>.tab-home</code>): icon <code>layout-grid</code> (the four squares), the number of sessions running, no close box, always there; active, it joins the
+    page’s <code>--bg</code>. Then <strong>Console</strong> (<code>.tab-console</code>, icon <code>cpu</code>), there while the VM is powered on, closable — it stays closed until the next Start.
+    Then the sessions; the <strong>build log</strong> is its own tab (<code>.tab-buildlog</code>, a spanner — <code>wrench</code>), never opened by itself: Home › Logs › Build log opens it.
+    The session menu is the vertical dots (<code>ellipsis-vertical</code>, every ⋮ menu). <strong>The close box means “end it”</strong>: a running session no other tab shows asks —
+    <strong>End session</strong> (danger), <strong>Hide — keep running</strong>, Cancel; a watch, a saved screen, an ended session or a second view of one just closes.
+    The actions on the right: <strong>New Claude Code session</strong> (the sandbox’s own agent again — <code>claude-2</code>…, only when it runs one), New shell ▾, Split ▾, and Open in Terminal —
+    the terminal glyph with an arrow out of its corner (<code>.icon-corner</code>, <code>square-terminal^arrow-up-right</code>).</p>
   <div class="pair"><div class="scheme">
-    <div class="sg-row" style="gap:0">
-      <div class="tab-wrap"><button type="button" class="tab tab-buildlog" title="Build log" aria-label="Build log"><i data-i="list-checks"></i></button></div>
-      <div class="tab-wrap"><button type="button" class="tab tab-console"><i data-i="cpu"></i>Console</button></div>
-      <div class="tab-wrap"><button type="button" class="tab active"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis"></i></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
-      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-1<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
+    <div class="term-strip" style="gap:0">
+      <button type="button" class="tab-x tabs-menu" aria-label="The open tabs"><i data-i="chevron-down"></i></button>
+      <div class="tabs">
+      <div class="tab-wrap"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home<span class="count">2</span></button></div>
+      <div class="tab-wrap"><button type="button" class="tab tab-console"><i data-i="cpu"></i>Console</button><button type="button" class="tab-x" aria-label="Close Console"><i data-i="x"></i></button></div>
+      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis-vertical"></i></button><button type="button" class="tab-x" aria-label="Close" title="Close — end pi, or hide its tab and keep it running"><i data-i="x"></i></button></div>
+      <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-2<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="tab-wrap"><button type="button" class="tab tab-buildlog"><i data-i="wrench"></i>Build log</button><button type="button" class="tab-x" aria-label="Close Build log"><i data-i="x"></i></button></div>
+      </div>
+      <div class="strip-acts"><button class="btn sm quiet" type="button"><i data-i="plus"></i>New Claude Code session</button><button class="btn sm quiet" type="button"><i data-i="plus"></i>New shell</button>
+        <button class="btn sm quiet icon-only" type="button" aria-label="Open in Terminal"><i data-i="square-terminal^arrow-up-right"></i></button></div>
     </div>
   </div></div>
-  <p><strong>The start bar</strong> (<code>.term-start</code>): a RUNNING sandbox whose pane holds only Console (and the build log) — started from a row of
-    Sandboxes, which only boots it — offers its agent above Console: what is true (“Claude Code is not running.”), then the agent’s Start as the primary
-    (named for the agent; Open when its session runs but is not open here), any other sessions, and New shell. Never while it starts: the start sequence opens the agent.</p>
   <div class="pair"><div class="scheme">
-    <div class="term-pane" style="max-width:720px">
-      <div class="term-strip"><div class="tabs"><div class="tab-wrap"><button type="button" class="tab tab-console active"><i data-i="cpu"></i>Console</button></div></div></div>
-      <div class="term-start"><div class="term-start-text">Claude Code is not running.</div>
-        <div class="actions"><button class="btn primary" type="button"><i data-i="play"></i>Start Claude Code</button><button class="btn" type="button"><i data-i="terminal"></i>New shell</button></div></div>
+    <div class="dlg" style="position:static;display:block;max-width:520px">
+      <div class="dlg-head"><h2 class="h-title">Close claude?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">End stops Claude Code — whatever it is doing now is lost. Hide closes the tab and keeps it running: Home, the sidebar and the tabs menu open it again.</p></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn" type="button"><i data-i="eye-off"></i>Hide — keep running</button><button class="btn primary danger" type="button"><i data-i="power"></i>End session</button></div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Home — a sandbox’s sessions, logs and folder</h2>
+  <p>The terminal area’s first tab (<code>views/sandbox-home.js</code>, <code>.home-doc</code>). <strong>The agent’s session first, as a card</strong> (<code>.home-agent</code>): a picture of its screen,
+    its name, what its program says (the chip and its message), when it started and which tab shows it, and its verbs — <strong>Open</strong> (the view’s one primary), <strong>End…</strong> in sight,
+    ⋯ for Watch, Open in Terminal, Restart. Then the other sessions, a row each (<code>.home-row</code>: a picture, Open + ⋯), an ended one quietly with Restart; then Logs and the Folder.
+    <strong>The pictures</strong> (<code>.home-thumb</code>, <code>components/session-thumb.js</code> — the same terminal as All sessions’ tiles, laid out at 960 × 560 and scaled): live only while
+    Home is shown and the row is on screen, at most 4 (never more than <code>ui.grid_live_tiles</code>, never past 12 of the UI’s 16 sockets); asleep, the saved screen (no socket). Closing the agent’s tab
+    marks the card (<code>.just-closed</code>) and says it goes on, every time until “Don’t say this again” (<code>ui.explain_tab_close</code>). Shut down: no sessions — the agent’s Start (<code>.home-empty</code>).
+    635 (owner): <strong>List | Grid</strong> (<code>.home-view</code>, remembered in this browser) — the grid (<code>.home-doc.as-grid</code>) lays the same card and rows out as tiles of their live
+    pictures (272 × 159), as many live as <code>ui.grid_live_tiles</code> allows. Logs › <strong>Build log</strong> (a spanner) opens the image’s build log in its own tab.</p>
+  <div class="pair"><div class="scheme">
+    <section class="terms sg-terms" style="height:auto;position:relative">
+      <div class="home-doc" style="position:relative">
+        <section class="home-sect">
+          <div class="head"><h2>Sessions</h2><div class="actions"><div class="btn-group home-view" role="group"><button class="btn sm quiet icon-only on" type="button" aria-label="A list"><i data-i="list"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="A grid"><i data-i="layout-grid"></i></button></div><button class="btn sm" type="button"><i data-i="plus"></i>New shell</button><button class="btn sm quiet" type="button"><i data-i="play"></i>Run detached…</button></div></div>
+          <p class="home-lead">2 running. Each keeps running when its tab is closed — End stops one.</p>
+          <div class="home-card-box"><div class="home-agent has-thumb just-closed">
+            <button type="button" class="home-thumb big" aria-label="Open claude"><span class="th-badge"><span class="th-live"></span>live</span></button>
+            <div class="t"><i data-i="terminal"></i><span>Claude Code</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></div>
+            <div class="meta"><span>session claude</span><span>running since 14:02</span><span>not open here</span><span>resumes its last conversation when restarted</span></div>
+            <div class="msg">Editing src/components/TodoList.tsx</div>
+            <div class="acts"><button class="btn primary" type="button"><i data-i="terminal"></i>Open</button><button class="btn quiet danger" type="button"><i data-i="power"></i>End…</button><button class="btn quiet icon-only sm" type="button" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div>
+            <div class="home-note"><div class="callout info compact" role="status"><i data-i="info"></i><div class="c-body"><div class="c-title">Claude Code is still running</div>You closed its tab, not Claude Code: it goes on working. Open brings its screen back; End stops it.</div>
+              <div class="c-acts"><button class="btn sm quiet" type="button"><i data-i="x"></i>Don’t say this again</button></div></div></div>
+          </div></div>
+          <div class="home-rows">
+            <div class="home-row has-thumb"><button type="button" class="home-thumb" aria-label="Open shell-2"><span class="th-badge"><span class="th-live"></span>live</span></button>
+              <span class="nm"><span>shell-2</span></span><span class="cmd-t">bash -l</span><span class="st"><span class="dot ph-running"></span><span>running since 14:05 · open in tab 1</span></span>
+              <div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="terminal"></i>Open</button><button class="btn sm quiet icon-only" type="button" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
+            <div class="home-row has-thumb"><button type="button" class="home-thumb saved" aria-label="Show dev-server"><span class="th-badge"><span class="th-saved"></span>saved</span></button>
+              <span class="nm"><span>dev-server</span></span><span class="cmd-t">npm run dev</span><span class="st"><span class="dot ph-asleep"></span><span>screen saved 12 min ago (sleep)</span></span>
+              <div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Show</button></div></div>
+          </div>
+        </section>
+        <section class="home-sect"><div class="head"><h2>Logs</h2></div><div class="home-rows">
+          <div class="home-row"><i data-i="cpu"></i><span class="nm">Console</span><span class="cmd-t">the kernel and vminitd, read-only</span><span class="st">while it runs</span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="cpu"></i>Open</button></div></div>
+          <div class="home-row"><i data-i="wrench"></i><span class="nm">Build log</span><span class="cmd-t">how claude-code was built</span><span class="st">2 h ago</span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="wrench"></i>Open</button></div></div>
+          <div class="home-row"><i data-i="history"></i><span class="nm">Boot logs</span><span class="cmd-t">its last boots: the steps and the console</span><span class="st"></span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Show</button></div></div>
+        </div></section>
+        <section class="home-sect"><div class="head"><h2>Folder</h2></div>
+          <dl class="home-facts"><dt>On this Mac</dt><dd><code>~/doz-workspaces/todo-app</code></dd><dt>In the sandbox</dt><dd><code>/workspace</code> — live, both ways</dd></dl></section>
+      </div>
+    </section>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="home-empty"><i data-i="terminal"></i><div class="t">Claude Code is not running</div><div class="d">Start boots todo-app fresh and opens Claude Code — it resumes its last conversation.</div>
+      <div class="acts"><button class="btn" type="button"><i data-i="play"></i>Start Claude Code</button></div></div>
+  </div></div>
+</section>
+
+<section>
+  <h2>The sidebar’s sessions</h2>
+  <p>Under each sandbox in the sidebar (<code>components/nav.js</code>), its sessions — from the host’s registry in the overview, never a guest call: a line each
+    (<code>a.nav-sess</code>: the terminal icon, the session’s name, what its agent says), the agent’s first, then by when opened — nothing moves. At most four lines; past that,
+    three and “N more — Home”. The session the page shows is marked (accent edge); a sleeping sandbox’s are its saved screens (italic). On hover, ⋯ has Restart session and
+    End session (a running sandbox only). The caret (<code>.nav-caret</code>) folds a sandbox to one line with its session count (<code>.nav-count</code>) — remembered in this
+    browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.
+    635 (owner): on hover a session line also shows a <strong>screen icon</strong> (<code>.nav-peek</code>, <code>monitor</code>); resting on it fills its underline for half a second
+    (<code>.arming</code>), then the session’s live picture opens beside the sidebar (<code>.nav-peek-pop</code>, 384 × 224; asleep, its saved screen). While it is open, another session’s
+    line shows its picture at once; leaving the sessions closes it. <code>ui.nav_thumbnails</code> false: no icon, no picture.</p>
+  <div class="pair"><div class="scheme">
+    <div class="nav-children" style="width:200px">
+      <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
+        <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
+        <div class="nav-sessions">
+          <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></a></div>
+          <div class="nav-sess-row"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>
+          <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div>
+          <div class="nav-sess-row"><a class="nav-sess more" href="#">2 more — Home</a></div>
+        </div></div>
+      <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">api-tests</span><span class="nav-count">2</span></a>
+        <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button>
+        <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">codex</span><span class="ag-chip ag-blocked"><span class="ag-mark"></span><span class="ag-word">needs you</span></span></a></div></div></div>
+      <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-asleep"></span><span class="nav-name">try-pi</span></a>
+        <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
+        <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess saved" href="#"><i data-i="terminal"></i><span class="ns-name">pi</span></a></div></div></div>
     </div>
   </div></div>
 </section>
@@ -445,7 +542,7 @@ name: todo-app</pre></details>
   <p>After Start the page is there at once and nothing moves. While it starts the area IS the start — no card, at its final width from the first frame: the bar spans the terminal area up to
     <code>--build-max</code> (1100 px; wider is hard to read). The action bar’s status slot says nothing while the panel shows (a failure and the result still do). The terminal area shows, in the same place: the build, while the image is prepared
     (<code>.start-progress</code>, <code>components/start-progress.js</code>) — a bar for the whole build that never moves back (steps weighted by this Mac’s last build of the recipe,
-    else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then tab zero, Console, when the VM powers on;
+    else by kind; a download fills its share by bytes), “Step N of M · step · elapsed”, the finished steps, and the raw output under “Show details”; then the Console tab, when the VM powers on (Home stays the first tab);
     then the agent’s tab once it has drawn its screen (switched to, or a dot). A cached image shows no bar. A failure keeps the area, with the error, the log, Start again and Dismiss.
     The header’s pill says Preparing…, then Booting…. When the build ends its log stays, as the small build-log tab left of Console. What the agent was refused is the header’s “N denied” menu, never a banner.
     A try’s Start moves at once: the button says Starting… with a spinner in the click’s own frame, both modals close, and the try’s page draws its header and an
@@ -538,18 +635,18 @@ name: todo-app</pre></details>
           <div class="ak-keycell"><div class="ak-name">xai <span class="tag warn">same key as xai-copy</span></div><div class="ak-where"><i data-i="key-round"></i><span>Keychain</span></div></div>
           <div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">checked 2 min ago</span></div>
           <div class="ak-used"><span class="ak-chip">box-grok</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis"></i></button></div></div>
+          <div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
         <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak"></label>
           <div class="ak-keycell"><div class="ak-name">xai-1p</div><div class="ak-where"><i data-i="shield"></i><span>1Password</span><code>op://Dev/xai/credential</code></div></div>
           <div class="ak-state"><span class="pill st-fail"><i data-i="circle-x"></i>Can’t read</span><span class="muted">its source did not answer</span></div>
           <div class="ak-used"><span>no sandbox</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Read again</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis"></i></button></div>
+          <div class="ak-acts"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Read again</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div>
           <dl class="ak-details"><dt>Source</dt><dd>1Password: op://Dev/xai/credential</dd><dt>Fingerprint</dt><dd>3f9a01c2 (a sha256 prefix — never the key)</dd><dt>Remove</dt><dd>only Dozable’s record — the source is not touched</dd></dl></div>
         <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak"></label>
           <div class="ak-keycell"><div class="ak-name">xai-old</div><div class="ak-where"><i data-i="key-round"></i><span>Keychain</span></div></div>
           <div class="ak-state"><span class="pill st-off"><i data-i="info"></i>Not checked</span><span class="muted">added without its check</span></div>
           <div class="ak-used"><span>no sandbox</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm quiet"><i data-i="badge-check"></i>Check</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis"></i></button></div></div>
+          <div class="ak-acts"><button type="button" class="btn sm quiet"><i data-i="badge-check"></i>Check</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
       </div>
     </section>
     <div class="ak-tablewrap"><table class="ak-table"><thead><tr><th>Sandbox</th><th>Tool</th><th>Key</th><th>How</th><th>Status</th><th></th></tr></thead>

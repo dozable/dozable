@@ -75,7 +75,7 @@ top shows the whole sidebar over the page.
 
 | page | what it's for |
 |---|---|
-| **All sandboxes** | Every sandbox: state, RAM held, disk, network, account. Each row has the one likely next action (**Start**, **Resume**, **Wake** or **Pause**) and **⋯** for the state's other actions; click a row to open the sandbox. **Quick add** (every default, started and opened — also the **+** beside the **Sandboxes** heading in the sidebar; see [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new)) and **New sandbox** (a wizard: every choice, step by step, written to the project folder's `doz_project.yaml` — see [Projects](04-projects.md#in-the-dashboard)). Under it in the sidebar, each sandbox has its own entry that opens **its page**; its dot is filled while the sandbox holds memory (running, paused, asleep), a ring when it holds none (hibernated, shut down), a square when it failed; a second dot at the right says what its agent is doing (see [What the agent is doing](07-terminals-and-sessions.md#what-the-agent-is-doing)). |
+| **All sandboxes** | Every sandbox: state, RAM held, disk, network, account. Each row has the one likely next action (**Start**, **Resume**, **Wake** or **Pause**) and **⋯** for the state's other actions; click a row to open the sandbox. **Quick add** (every default, started and opened — also the **+** beside the **Sandboxes** heading in the sidebar; see [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new)) and **New sandbox** (a wizard: every choice, step by step, written to the project folder's `doz_project.yaml` — see [Projects](04-projects.md#in-the-dashboard)). Under it in the sidebar, each sandbox has its own entry that opens **its page**; its dot is filled while the sandbox holds memory (running, paused, asleep), a ring when it holds none (hibernated, shut down), a square when it failed; a second dot at the right says what its agent is doing (see [What the agent is doing](07-terminals-and-sessions.md#what-the-agent-is-doing)). Under each sandbox, its **sessions**: the agent's first, each with what it is doing; click one to open it; **⋮** (on hover) has **Restart session** and **End session**, and the screen icon beside it shows the session's live picture when you rest on it for half a second (then another session's line shows its picture at once). At most four lines — past that, "N more — Home" opens the sandbox's Home. A sleeping sandbox lists the sessions it wakes back into. The caret beside a sandbox folds it to one line with its number of sessions (a session that needs you or failed still shows); this browser remembers the fold. |
 | **A sandbox's page** | See [A sandbox's page](#a-sandboxs-page) below. |
 | **All sessions** | A grid of live, read-only tiles: every session of every running sandbox, each with what its agent is doing. Click a tile to open it. |
 | **Images** | The images and templates, each image's agent version, what's out of date (**Rebuild** — **Remove…** is under **⋯**), disk shared and own, and the **Lineage** tree. |
@@ -100,13 +100,29 @@ top shows the whole sidebar over the page.
   down** apart, in red; **⋯** for **Duplicate…**, **Save as template…**, **Boot log**, then **Reset…**
   and **Remove…**. At its right: what is under way (or how the last action ended), and the button that
   shows or hides the details.
-- **The terminals**, whose tab strip carries what makes or arranges them: **New shell** (its **▾**:
+- **The terminals**, whose tab strip carries what makes or arranges them: **New Claude Code session**
+  (another session of the sandbox's own agent — `claude-2`, … — when it runs one), **New shell** (its **▾**:
   **Terminal…**, **Run detached…**), **Split** (its **▾** picks what a split adds) and **Open in
-  Terminal**. **Start** on the page opens the agent too; a start from a row of **All sandboxes** only
-  boots it — its page then shows **Console** with a bar above it: **Start Claude Code** (or the
-  sandbox's agent) and **New shell**.
+  Terminal**. At the strip's left, the **tabs menu** (**▾**) lists every tab open here, with **Close all
+  tabs** (the sessions keep running) and **End all sessions…**. The first tab is **Home** (below); then
+  **Console** (the kernel and the guest's init, while the sandbox runs) and the sessions' tabs; the image's
+  **Build log** opens in a tab of its own from Home › Logs. **Start** on the
+  page opens the agent too; a start from a row of **All sandboxes** only boots it — its **Home** then
+  offers **Start Claude Code** (or the sandbox's agent).
+- **Home** — every session of the sandbox, in one place: the agent's session as a card (what it is
+  doing, since when, which tab shows it, **Open**, **End…**, and **⋯** for **Watch**, **Open in
+  Terminal**, **Restart session**), the other sessions as rows, each with a small picture of its
+  screen (live while the sandbox runs and Home is shown; its saved screen while it sleeps), then
+  **Logs** (**Console**, the build log, the boot logs) and the **Folder**. **List | Grid** shows the
+  sessions as a list or as a grid of their live pictures. The tab shows how many sessions run. **A
+  running session's ✕ asks**: **End session** (its program stops), **Hide — keep running** (the tab
+  goes, the session goes on) or **Cancel**; a read-only view, a saved screen or a second tab on the same
+  session just closes. Closing the agent's tab another way (the tabs menu's **Close all tabs**) brings
+  you back to Home, which says the agent is still running — every time, until you click
+  **Don't say this again** (the setting `ui.explain_tab_close`). **Console** can be closed at any time,
+  even during a boot; it stays closed until the next **Start** (Home › Logs › **Console** opens it again).
 - **The details**, beside them in tabs: **Overview** (RAM, disk, CPUs, the attach command, the
-  workspace and its rules, its sessions and last restore point), **Sessions**, **Points** (restore
+  workspace and its rules, its sessions and last restore point), **Points** (restore
   points), **Network** (**What the agent can do**, the rules, the connection log), **Keys** (keys and
   account) and **Config** (its configuration and the agent's environment prompt). The tab you chose is
   kept for each sandbox while the page is open; drag the details' left edge to widen them (320–560 px).
@@ -172,11 +188,10 @@ you sign in; its terminals reattach afterwards.
 
 ## Terminals in the browser
 
-On a sandbox's page, a session's **Open** (in the empty terminal area, or the details' **Sessions** tab)
-attaches to it and **Watch** (its **⋯**) shows it read-only; on the terminals' tab strip **New shell**
+On a sandbox's page, a session's **Open** (on its **Home**) attaches to it and **Watch** (its **⋯**) shows it read-only; on the terminals' tab strip **New shell**
 starts a new shell (`shell-2`, `shell-3`, …) and its **▾** › **Terminal…** starts a new session — a shell
-or one running a command. Terminals are tabs; **Split** shows two side by side. Closing a tab only closes the
-view — the session keeps running. Each tab is titled like `1 · my-app · claude · 14:05` (the setting
+or one running a command. Terminals are tabs; **Split** shows two side by side. A running session's ✕
+asks whether to **End** it or **Hide** its tab and keep it running. Each tab is titled like `1 · my-app · claude · 14:05` (the setting
 `ui.terminal_title`). Details, including the mouse, paste and the clipboard, in
 [Terminals and sessions](07-terminals-and-sessions.md#in-the-browser).
 
@@ -197,13 +212,15 @@ dashboard can switch this off but never on.
 |---|---|---|
 | `ui.open_browser` | `auto` | When `doz ui` opens a tab: `auto` (only when no page is open), `always`, `never`. |
 | `ui.port` | `0` | The port on 127.0.0.1: `0` = the last one when free, or a fixed port 1024–65535 (for an installed app). |
-| `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. |
+| `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the foot of the sidebar sets it. |
+| `ui.nav_thumbnails` | `true` | A session line in the sidebar shows a screen icon on hover; resting on it for half a second shows the session's live picture. |
 | `ui.terminals` | `true` | Terminals in the browser. `false`: none open (Open in Terminal still works). |
 | `ui.terminal_font_size` | `13` | Font size of a browser terminal (9–32). |
 | `ui.terminal_title` | `{sandbox} · {session} · {time}` | A terminal tab's title (and your terminal's, in `doz attach`). |
 | `ui.split_default` | `shell` | What **Split** opens: `shell`, `watch`, `attach` or `dialog`. |
 | `ui.details_open` | `true` | A sandbox's page shows its details (the tabs beside its terminals). |
-| `ui.boot_view_on_start` | `false` | After **Start**, stay on tab zero (**Console**) rather than switch to the agent's tab. |
+| `ui.boot_view_on_start` | `false` | After **Start**, stay on the **Console** tab rather than switch to the agent's tab. |
+| `ui.explain_tab_close` | `true` | Closing the agent's tab: **Home** says it is still running (until **Don't say this again**). |
 | `ui.confirm_shutdown` | `true` | **Shut down** asks first. |
 | `ui.grid_live_tiles` | `8` | All sessions: at most this many tiles live at once (1–12). |
 | `ui.grid_tile_size` | `medium` | All sessions: `small`, `medium`, `large`. |

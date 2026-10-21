@@ -56,8 +56,15 @@ export const PHASE_GLYPH = { paused: 'pause', asleep: ICON_SLEEP, hibernated: IC
 /// An operation's action → its glyph (the lifecycle verbs; the rest have none).
 export const OP_GLYPH = { start: 'play', pause: 'pause', resume: 'play', sleep: ICON_SLEEP, hibernate: ICON_HIBERNATE, wake: 'sun',
                    shutdown: 'power', reset: 'rotate-ccw', rm: 'trash-2', duplicate: 'copy', 'template-create': 'layout-template' };
-/// `name`, or a pair `a+b`: a glyph drawn as two icons side by side (both hidden, one tight group).
+/// 635 (owner): Open in Terminal — the terminal glyph with an arrow out of its top-right corner.
+export const ICON_OPEN_IN_TERMINAL = 'square-terminal^arrow-up-right';
+/// `name`, or a pair `a+b`: a glyph drawn as two icons side by side (both hidden, one tight group); or `a^b`: glyph `a`
+/// with a small `b` in its top-right corner (635).
 export function icon(name) {
+  if (name.includes('^')) {
+    const [base, corner] = name.split('^');
+    return h('span', { class: 'icon-corner', 'aria-hidden': 'true', 'data-icon': name }, icon(base), icon(corner));
+  }
   if (name.includes('+')) {
     const g = h('span', { class: 'icon-pair', 'aria-hidden': 'true', 'data-icon': name });
     for (const n of name.split('+')) g.append(icon(n));
@@ -100,7 +107,7 @@ export function busyMark(waiting, title) {
 }
 /// A label's icon: the exact label, else its first word; the fallback is a visible "missing" (the probe fails on it).
 const ICON_EXACT = {
-  'open in terminal': 'square-terminal', 'set the default to none': 'ban', 'make default': 'star', 'save as template…': 'layout-template',
+  'open in terminal': ICON_OPEN_IN_TERMINAL, 'set the default to none': 'ban', 'make default': 'star', 'save as template…': 'layout-template',
   'save template': 'layout-template', 'hide details': 'panel-right', 'details': 'panel-right', 'take a restore point…': 'camera', 'take': 'camera',
   'key policy…': 'key-round', 'account…': 'user-round', 'edit policy…': 'shield', 'terminal…': 'terminal', 'new shell': 'plus',
   'new sandbox': 'plus', 'run detached…': 'play', 'default': 'rotate-ccw', 'apply anyway': 'check', 'download csv': 'download',

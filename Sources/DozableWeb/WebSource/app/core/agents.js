@@ -45,6 +45,14 @@ export function parseImageName(name, baseIDs) {
 // key", with the masked key field right there (accountForm: the same route and guarantees) — or, with
 // ui.allow_secret_entry off, the commands. `ok()` says whether the form may create.
 export const AGENT_NAMES = { 'claude-code': 'Claude Code', pi: 'pi', codex: 'Codex' };
+/// The agent a sandbox is made of, as people call it ("Claude Code"): the built-in three by name, else the end of the
+/// image's title ("Debian · Grok Build" → "Grok Build"). Null for an image without an agent (its session is a shell).
+export function agentTitle(i) {
+  if (!i || !i.agent || i.agent === 'none') return null;
+  if (AGENT_NAMES[i.agent]) return AGENT_NAMES[i.agent];
+  const t = (i.imageTitle || '').split(' · ').pop();
+  return t && t !== i.imageTitle ? t : null;
+}
 export const KIND_LABELS = { mac: 'this Mac’s login', 'setup-token': 'setup token', 'api-key': 'API key', 'openai-key': 'OpenAI API key', chatgpt: 'ChatGPT sign-in',
   'codex-mac': 'this Mac’s Codex login' };
 /// 599i: an image name or agent → the agent the accounts table is keyed by (python-codex → codex).

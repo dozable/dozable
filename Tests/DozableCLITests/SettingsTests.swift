@@ -141,6 +141,12 @@ final class SettingsTests: XCTestCase {
             XCTAssertNotNil(DozableSettings.definition(k), k)
         }
         XCTAssertEqual(DozableSettings.definition("ui.boot_view_on_start")?.defaultValue, .bool(false), "617, the owner's default: off (switch to the agent's tab)")
+        // 635: the note on Home after the agent's tab is closed — every time, until "Don't say this again".
+        let note = DozableSettings.definition("ui.explain_tab_close")
+        XCTAssertEqual(note?.type, .bool)
+        XCTAssertEqual(note?.defaultValue, .bool(true))
+        XCTAssertEqual(note?.applies, .now)
+        XCTAssertEqual(note?.editableInUI, true, "its own \"Don't say this again\" writes it")
         for d in DozableSettings.schema {
             XCTAssertNoThrow(try d.validate(d.defaultValue), "\(d.key)'s default is valid")
             XCTAssertTrue(TOML.isBareKey(d.name), d.key)

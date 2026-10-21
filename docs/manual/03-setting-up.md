@@ -94,9 +94,9 @@ And last:
 - **First sandbox** — `Make your first sandbox? [claude/pi/opencode/no]` (Codex too, once it has a sign-in or a
   key). Then `Name [claude]:` and `Folder [~/doz-workspaces/claude]:` — **Enter** keeps a new empty folder of its
   own; type a path to use a project folder of yours. It is made the quick way, like `doz try`: the tool on the
-  store's base, **Locked** (it reaches only its own model), and files it opens from its folder open on this Mac
-  (`sandbox.open_files`). Setup says the same in one command — `Same in Terminal: doz new claude --agent
-  claude-code --network locked` — then waits for the base (its progress shown; **Ctrl-C** leaves it running),
+  store's base, a new sandbox's network (**Standard**, `defaults.permissions`: its model, software packages and
+  GitHub), and files it opens from its folder open on this Mac (`sandbox.open_files`). Setup says the same in one
+  command — `Same in Terminal: doz new claude --agent claude-code` — then waits for the base (its progress shown; **Ctrl-C** leaves it running),
   starts the sandbox and attaches you to the tool. When you leave it: `Leaving claude — [S]leep / [d]elete / [k]eep
   running`; **d** removes it, and its folder while that is still empty.
 
@@ -175,8 +175,8 @@ centred over a column of the step's own width — narrow for a switch or a form,
 7. **Stay in touch** (optional, official builds) — an email and what you'd like; **Skip** moves on.
 8. **First sandbox** — the tools' cards (one you cannot use yet is dimmed, with what it needs) and its plan: a
    **Name** (the tool's: `claude`), its folder — **a new empty folder** (`~/doz-workspaces/claude`, the default) or
-   **a project folder on this Mac** (typed, or **Choose…**) — then Model, Network (Locked), Image, what Delete does,
-   and **Same in Terminal** (`doz new claude --agent claude-code --network locked`). **Open what it makes on this Mac**
+   **a project folder on this Mac** (typed, or **Choose…**) — then Model, Network (Standard), Image, what Delete does,
+   and **Same in Terminal** (`doz new claude --agent claude-code`). **Open what it makes on this Mac**
    is on (the setting `sandbox.open_files`). **Create and start claude** makes it and opens its page; **Finish
    without a sandbox** goes to Sandboxes. **What setup wrote** (folded) says what went where.
 

@@ -2106,6 +2106,7 @@ public actor Sandbox {
             note("saved screens: could not list the sessions (\(error.localizedDescription)) — the last saved screens are kept")
             return report
         }
+        report.listed = list
         let saved = Dictionary(SavedScreens.list(layout).map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
         report.removed = SavedScreens.remove(layout, keeping: Set(list.filter { !$0.isEnded }.map(\.name)))
         report.ended = list.filter(\.isEnded).map(\.name)

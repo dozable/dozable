@@ -158,6 +158,15 @@ public enum PermissionPolicy {
         return host
     }
 
+    /// The host a DNS service lookup is about: its leading `_service._proto.` labels dropped (apt asks for
+    /// `_http._tcp.deb.debian.org` before `deb.debian.org`). Owner, 2026-10-21: "Allow this site" on such a name failed
+    /// — a site rule takes no `_` label — and the suggestion belongs to the host's own permission anyway.
+    public static func serviceHost(_ host: String) -> String {
+        var labels = host.split(separator: ".", omittingEmptySubsequences: false)
+        while labels.count > 2, labels[0].hasPrefix("_") { labels.removeFirst() }
+        return labels.joined(separator: ".")
+    }
+
     /// A permission's host as a person reads it: a host limited to some paths says which kind — an agent model
     /// permission's are its model requests (OpenCode Zen, Grok's API paths), any other's the agent's own package.
     public static func hostLabel(_ h: PermissionHost, permission id: String) -> String {
@@ -192,7 +201,7 @@ public enum PermissionPolicy {
         var order: [String] = []
         let excluded = Set(AgentPermissions.excludedHosts(names))
         for r in deniedRecs {
-            let host = r.host.lowercased()
+            let host = serviceHost(r.host.lowercased())          // 635: `_http._tcp.deb.debian.org` is deb.debian.org's
             if excluded.contains(host) { continue }              // 617: kept out on purpose — never suggested
             let grant: String, what: String, perm: String?
             if let p = AgentPermissions.permission(forHost: host) {

@@ -397,6 +397,36 @@
       "serve": "icon"
     },
     {
+      "file": "ellipsis-vertical.svg",
+      "fromTarball": "package/icons/ellipsis-vertical.svg",
+      "sha256": "38cd8e1d177f7bae3ed655b53a72047d684e9d72fcef8e248225b30b5677cb82",
+      "serve": "icon"
+    },
+    {
+      "file": "wrench.svg",
+      "fromTarball": "package/icons/wrench.svg",
+      "sha256": "82203e2b522ea48381facffbb4b6168769d840581a9143019326b45b5aece000",
+      "serve": "icon"
+    },
+    {
+      "file": "monitor.svg",
+      "fromTarball": "package/icons/monitor.svg",
+      "sha256": "c7bfe77f4a40325e42f8ad0b251e090b9b5085212b9cef00a2b845d132990dc6",
+      "serve": "icon"
+    },
+    {
+      "file": "arrow-up-right.svg",
+      "fromTarball": "package/icons/arrow-up-right.svg",
+      "sha256": "c8657486432b3b22454bd262598c7b3c32205e9e65509203a1f5d9372883f62b",
+      "serve": "icon"
+    },
+    {
+      "file": "eye-off.svg",
+      "fromTarball": "package/icons/eye-off.svg",
+      "sha256": "071188b6c5b782298a5f26970404865a2bdb6b43eae5e902d5f23805af1e7453",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",

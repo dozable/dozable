@@ -211,6 +211,11 @@ final class WebTerminalBridge: @unchecked Sendable {
                 try? await Task.sleep(for: .seconds(1))
                 continue
             }
+            // 635: a watch learns its session's size BEFORE it attaches, so its first state (sent before the first
+            // screen) lays it out right — read after, the first picture was drawn at the wrong size for a second.
+            if grant.mode == .watch, let s = want.0, let size = await sessionSize(s) {
+                lock.withLock { watchSize = size; watchSizeCheckedAt = Date() }
+            }
             let att: any WebTerminalAttachment
             do {
                 att = try await data.attachTerminal(grant.sandbox, session: want.0, size: want.1)
@@ -589,6 +594,7 @@ final class WebTerminalBridge: @unchecked Sendable {
                                              reportsIgnored: reportsIgnored, keystrokeWakes: keystrokeWakes)
             s.notice = notice
             notice = nil
+            if let w = watchSize { s.cols = Int(w.cols); s.rows = Int(w.rows) }
             return WebTerminalMessage.encode(s)
         }
         let fresh: Bool = lock.withLock {
@@ -697,7 +703,36 @@ final class WebTerminalBridge: @unchecked Sendable {
                 lastSessionCheck = Date()
                 if await !sessions.isValid(grant.cookie) { await end(.policyViolation, "session-ended"); return }
             }
+            await checkWatchSize()
         }
+    }
+
+    /// 635: a WATCH viewer has no size of its own — the session's (as its holder lists it) is read once attached and
+    /// every few seconds after (someone may resize the session), and said in the state message when it changes.
+    static let watchSizeInterval: TimeInterval = 5
+    private var watchSizeCheckedAt: Date?
+    private var watchSize: TermSize?
+    private func checkWatchSize() async {
+        guard grant.mode == .watch else { return }
+        let due: (String, String)? = lock.withLock {
+            guard let s = session, attachment != nil, !ended else { return nil }
+            if let at = watchSizeCheckedAt, Date().timeIntervalSince(at) < Self.watchSizeInterval { return nil }
+            watchSizeCheckedAt = Date()
+            return (grant.sandbox, s)
+        }
+        guard let (_, s) = due, let size = await sessionSize(s) else { return }
+        let changed: Bool = lock.withLock {
+            guard watchSize != size else { return false }
+            watchSize = size
+            return true
+        }
+        if changed { await pushState() }
+    }
+    /// The session's size as its holder lists it (nil: not running, or not known).
+    private func sessionSize(_ session: String) async -> TermSize? {
+        guard let row = try? await data.sessions(grant.sandbox).first(where: { $0.name == session && !$0.saved }),
+              let c = row.cols, let r = row.rows, c > 0, r > 0 else { return nil }
+        return TermSize(cols: c, rows: r)
     }
 }
 

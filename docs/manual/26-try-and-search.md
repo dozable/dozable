@@ -38,8 +38,9 @@ as a try afterwards; you keep it, sleep it or delete it like any other:
   try-grok · Node.js · Grok Build · a new empty folder ~/doz-workspaces/try-grok (not one of yours), at
   /workspace · copy to your Mac's clipboard: on · open files on your Mac: on · open links in your Mac's browser: on
   ```
-- **Locked, plus the agent's own model** — it can talk to its AI model and nothing else. `--permissions standard`
-  opens package installs; every other choice option works too.
+- **A new sandbox's network** — `defaults.permissions`, **Standard** unless you changed it: its AI model, updating
+  itself, software packages (apt, npm, PyPI …) and GitHub; not the web at large. `--network locked` keeps it to its
+  model alone; every other choice option works too. ([Why Standard](10-permissions-and-network.md#the-default).)
 - **This store's base** (`defaults.base`, Node.js unless you set another): every tool you try is added to it as a layer, so a second tool downloads nothing more. `--base` picks another for this one. Its approval prompts are off.
 - **Your key for its provider** — the provider's default account.
 - **Named `try-<agent>`**, then `try-<agent>-2`, ….

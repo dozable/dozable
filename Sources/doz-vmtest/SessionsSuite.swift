@@ -24,6 +24,13 @@ func cliSessionsSuite(binary: String) async {
     check(t.run(["create", "s1", "--image", "lab", "--workspace", ws.path, "--memory", "512M", "--start"], timeout: 900).code == 0, "create s1 --workspace --start")
     check(t.row("s1")?.workspaceView == "live", "s1's /workspace is the live view (ls --json workspaceView = \(t.row("s1")?.workspaceView ?? "nil"))")
     func ex(_ script: String) -> String { t.run(["exec", "s1", "--", "sh", "-c", script], timeout: 60).out.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// 635: s1 as the dashboard's 3-s poll reads it — `ls` WITHOUT session counts (never a guest call).
+    func overview() -> SandboxInfo? {
+        var q = HostRequest(.ls)
+        q.withSessions = false
+        guard let m = try? HostClient.request(q, store: DozableStore(root: t.store), autostart: false) else { return nil }
+        return (try? m.result?.decode([SandboxInfo].self))?.first { $0.name == "s1" }
+    }
     check(ex("grep ' /workspace ' /proc/mounts | cut -d' ' -f3") == "fuse.dozview", "the guest mounts /workspace as fuse.dozview")
 
     // ── a program in /workspace keeps its folder across hibernate → wake and a host restart ──────────────
@@ -119,7 +126,34 @@ func cliSessionsSuite(binary: String) async {
     r = t.run(["sessions", "restart", "s1", "loop", "-d", "--yes"], timeout: 60)
     check(r.code != 0 && r.err.contains("needs it running"), "a restart of an asleep sandbox is refused (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines).suffix(120)))")
     check(t.row("s1")?.phase == "asleep", "…and it stays asleep")
+    // 635: asleep, the overview lists the sessions it wakes back into — its saved screens, no guest call.
+    var o = overview()
+    check(o?.sessionList?.contains { $0.name == "loop" && $0.saved == true } == true,
+          "asleep: the overview lists its saved sessions (\(o?.sessionList?.map { "\($0.name)\($0.saved == true ? "·saved" : "")" }.joined(separator: " ") ?? "none"))")
     check(t.run(["wake", "s1"], timeout: 120).code == 0, "wake s1")
+
+    // ── 635: the overview's sessions are the host's registry — never a guest call ───────────────────────
+    usleep(1_500_000)                                                  // the wake's one list
+    o = overview()
+    var names = Set(o?.sessionList?.map(\.name) ?? [])
+    check(names.isSuperset(of: ["cw", "loop", "race"]) && !names.contains("tm") && o?.sessionList?.allSatisfy { $0.saved == nil } == true,
+          "awake: the overview lists the running sessions, not the ended one (\(names.sorted().joined(separator: " ")))")
+    check(o?.sessionList?.first { $0.name == "loop" }?.program == "sh" && o?.sessionList?.first { $0.name == "loop" }?.openedAt != nil,
+          "each with its program's name and when it was opened")
+    check(t.run(["run", "s1", "-d", "--session", "reg", "--", "sleep", "9999"]).code == 0, "session reg")
+    names = Set(overview()?.sessionList?.map(\.name) ?? [])
+    check(names.contains("reg"), "an open is listed at once (\(names.sorted().joined(separator: " ")))")
+    check(t.run(["sessions", "end", "s1", "reg", "--yes"], timeout: 60).code == 0, "end reg")
+    names = Set(overview()?.sessionList?.map(\.name) ?? [])
+    check(!names.contains("reg"), "an end removes it at once (\(names.sorted().joined(separator: " ")))")
+    check(t.run(["run", "s1", "-d", "--session", "short", "--", "sh", "-c", "sleep 1"]).code == 0, "session short (its program exits by itself)")
+    let tEnd = Date()
+    repeat { usleep(500_000); names = Set(overview()?.sessionList?.map(\.name) ?? []) } while names.contains("short") && Date().timeIntervalSince(tEnd) < 15
+    check(!names.contains("short"), String(format: "a program that exits is dropped by its status watcher (%.1f s)", Date().timeIntervalSince(tEnd)))
+    let logBefore = ex("cat /run/deckhold/loop.log 2>/dev/null | wc -l")
+    for _ in 0..<20 { _ = overview() }
+    let logAfter = ex("cat /run/deckhold/loop.log 2>/dev/null | wc -l")
+    check(!logBefore.isEmpty && logBefore == logAfter, "20 overviews connect to no session holder (loop.log: \(logBefore) → \(logAfter) lines)")
 
     // ── the record, and the setting off ───────────────────────────────────────────────────────────
     let rec = t.store.appendingPathComponent("sandboxes/s1/sessions.json")
@@ -128,6 +162,7 @@ func cliSessionsSuite(binary: String) async {
     check(t.row("s1")?.workspaceView == "live", "a running sandbox keeps its view until its next start")
     check(t.run(["shutdown", "s1", "--yes"], timeout: 120).code == 0, "shutdown s1")
     check(!FileManager.default.fileExists(atPath: rec.path), "the shutdown cleared the record with the sessions")
+    check(overview()?.sessionList == nil, "shut down: the overview lists no session (635)")
     check(t.run(["start", "s1"], timeout: 300).code == 0, "start s1")
     check(t.row("s1")?.workspaceView == "direct" && ex("grep ' /workspace ' /proc/mounts | cut -d' ' -f3") == "virtiofs",
           "workspace.view off → the share directly (\(t.row("s1")?.workspaceView ?? "nil"))")

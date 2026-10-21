@@ -57,11 +57,12 @@ public struct WebQuickAddQuery: Equatable, Sendable {
         let outOfDate = row.flatMap { $0.baked ? $0.standing : nil }
         if let r = QuickAdd.requirement(image: p.image, network: QuickAdd.network(image: p.image, settings: settings),
                                         defaultAccount: accounts.defaultAccount,
-                                        accountKinds: kinds, outOfDate: outOfDate, openaiDefault: accounts.openaiDefault, codexMac: codexMac,
+                                        accountKinds: kinds, openaiDefault: accounts.openaiDefault, codexMac: codexMac,
                                         providers: providers, providerDefaults: providerDefaults) {
             p.requirementKind = r.kind
             p.requirement = r.text
         }
+        p.notice = QuickAdd.notice(image: p.image, outOfDate: outOfDate)      // 635: said, never asked
         return p
     }
 }

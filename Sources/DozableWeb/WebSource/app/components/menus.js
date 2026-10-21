@@ -103,7 +103,16 @@ export function menuButton(trigger, items, opts = {}) {
   if (!opts.wrap) wrap.append(trigger);
   wrap.append(menu);
   menus.add(ctl);
+  schedulePrune();
   return ctl;
+}
+/// 635: menus drawn again by a refresh (the sidebar's, Home's) leave their old ones behind — let them go after the task
+/// that made the new ones (by then those are in the page), not only at the next click: the set and its detached DOM
+/// grew without bound while nobody clicked, and every scroll walked it.
+let pruneTimer = null;
+function schedulePrune() {
+  if (pruneTimer) return;
+  pruneTimer = setTimeout(() => { pruneTimer = null; for (const m of menus) if (!m.el.isConnected) menus.delete(m); }, 0);
 }
 /// The ⋯ button: an icon-only quiet button that opens `items`.
 /**
@@ -113,7 +122,7 @@ export function menuButton(trigger, items, opts = {}) {
  * @param {MenuOptions} [opts]
  */
 export function moreMenu(label, items, opts = {}) {
-  const b = h('button', { type: 'button', class: 'btn quiet icon-only' + (opts.small ? ' sm' : ''), 'aria-label': label, title: label }, icon('ellipsis'));
+  const b = h('button', { type: 'button', class: 'btn quiet icon-only' + (opts.small ? ' sm' : ''), 'aria-label': label, title: label }, icon('ellipsis-vertical'));
   if (opts.data) for (const [k, v] of Object.entries(opts.data)) b.dataset[k] = v;
   return menuButton(b, items, { align: 'end', ...opts });
 }

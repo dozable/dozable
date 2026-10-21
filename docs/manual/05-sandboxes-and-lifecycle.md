@@ -169,7 +169,7 @@ does all that without attaching. On an existing sandbox, create options are igno
    [Projects](04-projects.md#in-the-dashboard).
 3. Or **One-page form** (in the wizard, top right): everything on one page, a **Shared folder** or
    **Isolated**, and no project file. **Create** makes it off; **Start** boots it: the terminal area shows
-   the image's build while there is one, then tab zero, **Console** (the boot as it happens), then the
+   the image's build while there is one, then the **Console** tab (the boot as it happens), then the
    agent's own tab once it has drawn its screen. With the setting `ui.boot_view_on_start` on, the page
    stays on Console and marks the agent's tab instead of switching to it.
 
@@ -268,7 +268,7 @@ newer doz fixes, without a restart.
 | `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits; `0` = never (`$DOZ_HOST_IDLE`). |
 | `host.screen_capture_minutes` | `5` | How often a running sandbox's changed screens are saved; `0` = only at pause, sleep and hibernate. |
 | `host.boot_logs_kept` | `5` | Boots kept per sandbox (1–50). |
-| `ui.boot_view_on_start` | `false` | After the dashboard's Start, stay on tab zero (Console) rather than switch to the agent's tab. |
+| `ui.boot_view_on_start` | `false` | After the dashboard's Start, stay on the Console tab rather than switch to the agent's tab. |
 | `ui.confirm_shutdown` | `true` | The dashboard's Shut down asks first. |
 
 ## Limits

@@ -357,7 +357,8 @@ class Harness:
             extra = []
             if r.models:
                 extra = ["--gateway" if source in GATEWAYS else "--provider", source] + ([] if source in KEYLESS else ["--account", "rc-" + source])
-            code, out = self.doz("try", r.typed, *extra, "-d", "-q", timeout=1500)
+            # 635: a try is Standard by default now; the check stays the strictest — Locked, refused nothing.
+            code, out = self.doz("try", r.typed, *extra, "--network", "locked", "-d", "-q", timeout=1500)
             # 634: a try is an ordinary sandbox — the new one is the name that was not there before.
             names = [s["name"] for s in self.sandboxes() if s["name"] not in before]
             if code != 0 or not names:

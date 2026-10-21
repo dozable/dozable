@@ -30,6 +30,7 @@ extension HostCore {
         let conn: SessionConnection
         do { conn = try await m.sandbox.watchStatus(session) } catch { return }
         statusWatches[key] = conn
+        statusWatchEpochs[key] = sessionRegistry.entry(name, session)?.epoch     // 635: what its `.ended` may remove
         Task.detached { [weak self] in
             var last: SessionOutput?
             for await out in conn.output {
@@ -52,7 +53,9 @@ extension HostCore {
             if !(await m.sandbox.status.busy) { break }
             try? await Task.sleep(for: .milliseconds(200))
         }
+        let mark = sessionRegistry.epoch
         guard await m.sandbox.phase == .running, let list = try? await m.sandbox.sessions() else { return }
+        reconcileSessions(name, list, mark: mark)                     // 635: this run's authoritative set
         let live = Set(list.filter { !$0.isEnded }.map(\.name))
         // A program that ended while nobody watched: what ends with it is over.
         for (session, s) in statuses[name] ?? [:] where !live.contains(session) && s.state.endsWithProgram {
@@ -87,9 +90,17 @@ extension HostCore {
 
     private func statusWatchEnded(_ name: String, session: String, _ conn: SessionConnection, _ last: SessionOutput?) async {
         let key = Self.key(name, session)
-        if statusWatches[key] === conn { statusWatches[key] = nil }
+        var epoch: UInt64?
+        if statusWatches[key] === conn { statusWatches[key] = nil; epoch = statusWatchEpochs.removeValue(forKey: key) }
         switch last {
         case .ended:
+            // 635: the program it watched ended — unless the name was opened again since (a restart: a newer
+            // epoch), which then gets a watcher of its own.
+            if let e = epoch, let now = sessionRegistry.entry(name, session)?.epoch, now != e {
+                await watchStatus(name, session: session)
+                return
+            }
+            if let e = epoch { sessionRegistry.ended(name, session, ifEpoch: e) }
             // The program exited (or there is no such session): working/blocked end with it.
             if let s = statuses[name]?[session], s.state.endsWithProgram { setStatus(name, session: session, nil) }
         case .detached(.sandboxStopped):
@@ -131,6 +142,7 @@ extension HostCore {
         statuses[name] = nil
         for k in statusUnsupported where k.hasPrefix(name + "\u{0}") { statusUnsupported.remove(k) }
         for k in statusRetries.keys where k.hasPrefix(name + "\u{0}") { statusRetries[k] = nil }
+        for k in statusWatchEpochs.keys where k.hasPrefix(name + "\u{0}") { statusWatchEpochs[k] = nil }
     }
 
     /// `ls`'s fields, from memory.

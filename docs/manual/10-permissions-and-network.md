@@ -34,6 +34,18 @@ switches — and logs it. You decide what the agent may reach; the agent can't c
   next start.
 - **Everything is logged:** host, verdict, rule, bytes. Never the contents.
 
+## The default
+
+Every new sandbox — `doz new`, `doz try`, Quick try and the setup's First sandbox alike — starts on **Standard**
+(`defaults.permissions`). It's the balance most agent work needs: the agent can talk to its model, update itself,
+install software (apt, npm, PyPI and its base's other package managers) and use GitHub, so `sudo apt-get install` and
+`npm install` just work. It cannot browse the web at large, so it can't send your code to a site you never allowed.
+Every refusal is on record, and the sandbox's **Network** tab offers to allow it.
+
+**Locked** (its model only) is one choice away — `--network locked`, or the Network tab — for an agent you don't trust
+with anything else; **Open** is for when you decide the web is fine. A sandbox runs on your Mac with your project
+folder in it, which is why the default isn't Open.
+
 ## See what the agent can do
 
 ```sh

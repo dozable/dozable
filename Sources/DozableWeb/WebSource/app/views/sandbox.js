@@ -15,19 +15,18 @@ import { chip, panel, stat, table } from '../components/blocks.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { confirmAction, dialog } from '../components/dialog.js';
-import { lifecycle, lifecycleBar, sessionsWhyNot } from '../components/lifecycle.js';
+import { lifecycle, lifecycleBar } from '../components/lifecycle.js';
 import { menuButton, moreMenu } from '../components/menus.js';
-import { sessionMenuItems } from '../components/session-actions.js';
 import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
-import { agentChip } from '../components/agent-status.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
-import { duplicateDialog, openInTerminal, policyDialog, runDetachedDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
+import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
-import { paintStripActs, paintTabs, paintTermEmpty, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
+import { paintHome } from './sandbox-home.js';
 import { tildePath } from '../core/paths.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -120,7 +119,6 @@ export async function refreshSandbox() {
     if ($('sbx-bar').querySelector('.menu:not([hidden])') || $('sbx-details').querySelector('.menu:not([hidden])')) { state.sbxHeld = true; return; }
     drawParts(name, d, net, accounts);
     paintRowOps();
-    paintTermEmpty();
     paintStripActs();
     // 593 §9: saved panes go live once it runs (their sessions listed by the detail), or repaint.
     promoteSaved(name, d.info.phase === 'running' && !d.info.busy && d.sessions ? d.sessions.filter((x) => !x.ended).map((x) => x.name) : null);
@@ -130,6 +128,7 @@ export async function refreshSandbox() {
     syncConsoleTab(name, d.info.phase);
     // 617: and the build log's small tab, to its left, follows the image's kept build log.
     syncBuildLogTab(name);
+    paintHome(name);                                  // 635: Home — every session, its logs, its folder
     // An arrival that found it under way restores once it has settled (never over a tab opened since).
     const sv = sview(name);
     if (sv.deferred && !sv.restoring && !d.info.busy && d.info.phase !== 'booting' && !opRunningFor(name)) {
@@ -187,6 +186,16 @@ async function sandboxArrived(name, want) {
   const live = (s.d.sessions || []).filter((x) => !x.ended).map((x) => x.name);
   // 593 §9 (S1): the panes the host kept for this sandbox, the first time this page shows it.
   if (!mine.length) await restorePanes(name);
+  // 635: the sidebar's "N more — Home" (#/sandbox/NAME/~home): Home, whatever else is open.
+  if (want === '~home') {
+    const v = sview(name), home = pageTerminals(name).find((t) => t.home);
+    if (home) { v.selected[0] = home.id; v.focusedPane = 0; }
+    state.session = null;
+    history.replaceState(null, '', location.pathname + '#/sandbox/' + name);
+    state.bgHash = location.hash;
+    renderTerminals();
+    return;
+  }
   if (want) {
     const have = pageTerminals(name).find((t) => t.session === want && t.mode === 'interactive' && !t.ended);
     if (have) { const v = sview(name); v.selected[have.pane] = have.id; v.focusedPane = have.pane; renderTerminals(); if (!have.saved) focusTerm(have); }
@@ -203,7 +212,8 @@ async function sandboxArrived(name, want) {
   }
 }
 /// 603: the inspector's tabs — the selected one is kept per sandbox in this page (owner decision 4).
-const INSP_TABS = [['overview', 'Overview', 'Overview', 'info'], ['sessions', 'Sessions', 'Sessions', 'terminal'], ['points', 'Points', 'Restore points', 'history'],
+/// 635: no Sessions tab — the terminal area's Home is that list, with more (its count is on the Home tab).
+const INSP_TABS = [['overview', 'Overview', 'Overview', 'info'], ['points', 'Points', 'Restore points', 'history'],
                    ['network', 'Network', 'Network', 'shield'], ['keys', 'Keys', 'Keys & account', 'key-round'], ['config', 'Config', 'Configuration', 'settings']];
 function inspShow(name, tab) {
   sview(name).inspTab = tab;
@@ -215,34 +225,19 @@ function inspShow(name, tab) {
 function sandboxParts(name, d, net, accounts) {
   const i = d.info;
   const running = i.phase === 'running';
-  const whyNot = sessionsWhyNot(name, i);
-  const gated = (b) => { if (whyNot) { b.disabled = true; b.title = whyNot; } return b; };
   const fact = (k, v) => [h('dt', null, k), h('dd', null, v)];
   const copy = btn('Copy the command', async (ev) => {
     const b = ev.currentTarget;
     try { await navigator.clipboard.writeText(d.attachCommand); setButton(b, 'Copied', 'check'); } catch (_) { setButton(b, 'Select and copy', 'clipboard'); }
     setTimeout(() => { setButton(b, 'Copy the command', 'copy'); }, 1500);
   }, { small: true, quiet: true, iconOnly: true, icon: 'copy' });
-  // 593 §9: paused, asleep or hibernated — the sessions as last saved, each can be shown (its saved
-  // screen). A shut-down sandbox has none (owner, 2026-09-30).
-  const savedState = (s) => 'screen saved ' + when(s.savedAt) + (s.savedReason ? ' (' + s.savedReason + ')' : '');
+  // 635: the sessions are Home's (the terminal area's first tab); the Overview keeps one line.
   const live = (d.sessions || []).filter((s) => !s.ended && !s.saved);
-  const sessions = (d.sessions || []).map((s) => h('tr', { 'data-session': s.name },
-    h('td', null, h('div', { class: 'cell-name' }, h('span', { class: 'dot ph-' + (s.saved ? i.phase : s.ended ? 'off' : 'running'), 'aria-hidden': 'true' }),
-        h('span', { class: 'nm' }, s.name), s.name === d.defaultSession ? h('span', { class: 'tag' }, 'default') : null,
-        agentChip(name, s.name)),                                  // 612: what its agent is doing
-      s.status && s.status.message ? h('div', { class: 'sub2 ag-msg', title: s.status.message }, s.status.message) : null,
-      h('div', { class: 'sub2' }, s.saved ? savedState(s) : s.ended ? 'ended (exit ' + s.exitCode + ')' : 'running' + (s.cols ? ' · ' + s.cols + '×' + s.rows : '') + ' · ' + plural(s.clients, 'viewer', 'viewers'))),
-    h('td', { class: 'mono trunc', title: s.command }, s.command),
-    h('td', { class: 'row-acts-cell' }, h('div', { class: 'row-acts' }, s.saved
-      ? btn('Show', () => openSavedTerminal(name, s), { small: true, quiet: true, icon: 'eye', title: 'Its last saved screen in a tab (read-only; it goes live when the sandbox runs)' })
-      : s.ended ? null : [
-        btn('Open', () => openTerminal(name, s.name, 'interactive'), { small: true, quiet: true, title: 'A terminal on this session, here in the browser' }),
-        moreMenu('More for ' + s.name, [
-          { label: 'Watch', icon: 'eye', desc: 'Read-only: nothing you type reaches it, it never resizes', onSelect: () => openTerminal(name, s.name, 'watch') },
-          isRemote() ? null : { label: 'Open in Terminal', icon: 'square-terminal', desc: 'In your terminal app (doz attach)', disabled: !!whyNot, why: whyNot, onSelect: () => openInTerminal(name, s.name) },
-          ...(running ? sessionMenuItems(name, s.name, whyNot) : []),
-        ].filter(Boolean), { small: true, onClose: sbxMenuClosed }).el]))));
+  const showHome = (ev) => {
+    ev.preventDefault();
+    const v = sview(name), home = pageTerminals(name).find((t) => t.home);
+    if (home) { v.selected[0] = home.id; v.focusedPane = 0; renderTerminals(); }
+  };
   const pointMenu = (p) => moreMenu('More for ' + p.name, [
     { label: 'Fork…', icon: 'git-fork', desc: 'A new sandbox whose disks are this point’s', onSelect: () => dialog('Fork ' + p.name, 'A new sandbox whose disks are this point’s (it cold-boots on start).',
       [{ name: 'newName', label: 'New sandbox name', required: true }], 'Fork', async (v) => { await actOrThrow({ action: 'point-fork', sandbox: name, point: p.id, newName: v.newName }); }) },
@@ -330,9 +325,13 @@ function sandboxParts(name, d, net, accounts) {
   // ── the inspector: six tabs instead of nine stacked sections ──
   // 617.11: a recipe agent's Guide — the last tab (634: on every sandbox; nothing chooses it by itself).
   const tabList = d.guide ? [...INSP_TABS, GUIDE_TAB] : INSP_TABS;
-  const tab = tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : 'overview';
-  const counts = { sessions: live.length ? h('span', { class: 'count' }, String(live.length)) : null,
-                   network: i.deniedConnections ? h('span', { class: 'count warn' }, String(i.deniedConnections)) : null };
+  // 635 (owner: "the prompt is there but the network sidebar didn't focus so the user doesn't see it"): a refusal
+  // with a NEW suggestion while this page is open brings the Network tab forward; arriving never does (page memory).
+  const v = sview(name), grants = suggestions.map((s) => s.grant);
+  if (v.seenGrants && detailsOpen && grants.some((g) => !v.seenGrants.has(g))) v.inspTab = 'network';
+  v.seenGrants = new Set([...(v.seenGrants || []), ...grants]);
+  const tab =tabList.some(([id]) => id === sview(name).inspTab) ? sview(name).inspTab : 'overview';
+  const counts = { network: i.deniedConnections ? h('span', { class: 'count warn' }, String(i.deniedConnections)) : null };
   const tabs = h('div', { class: 'itabs', role: 'tablist', 'aria-label': 'Details of ' + name },
     tabList.map(([id, label, title, ic]) => h('button', { type: 'button', role: 'tab', class: 'itab', id: 'itab-' + id, 'data-insp-tab': id, 'aria-controls': 'ipanel-' + id,
       'aria-selected': id === tab ? 'true' : 'false', title, on: { click: () => inspShow(name, id) } }, icon(ic), h('span', { class: 'itab-l' }, label), counts[id] || null)));
@@ -358,16 +357,11 @@ function sandboxParts(name, d, net, accounts) {
         h('p', { class: 'muted' }, running ? 'Each listens on this Mac’s 127.0.0.1 only. Add another: doz ports add ' + name + ' PORT.'
           : 'They listen while it runs — on this Mac’s 127.0.0.1 only.')) : null,
       h('div', null, h('div', { class: 'insp-lbl' }, 'Sessions'),
-        live.length ? h('div', null, live.map((s) => s.name).join(', '), ' ', h('a', { href: '#/sandbox/' + name, on: { click: (ev) => { ev.preventDefault(); inspShow(name, 'sessions'); } } }, 'All sessions'))
+        live.length ? h('div', null, live.map((s) => s.name).join(', '), ' ', h('a', { href: '#/sandbox/' + name, 'data-insp-home': '', on: { click: showHome } }, 'Home'))
           : h('div', { class: 'muted' }, running ? 'None running.' : 'None running — it is ' + (PHASE_WORD[i.phase] || i.phase) + '.')),
       h('div', null, h('div', { class: 'insp-lbl' }, 'Last restore point'),
         last ? h('div', null, last.name + ' · ' + when(last.createdAt) + ' ', h('a', { href: '#/sandbox/' + name, on: { click: (ev) => { ev.preventDefault(); inspShow(name, 'points'); } } }, 'All points'))
           : h('div', { class: 'muted' }, 'None yet.'))),
-    panel_('sessions',
-      head('Sessions', gated(btn('Run detached…', () => runDetachedDialog(name), { small: true }))),
-      panel(table(['Session', 'Command', ''], sessions),
-        running ? 'No sessions.' : i.phase === 'off' || i.phase === 'failed' ? 'No sessions — ' + (i.phase === 'off' ? 'shut down' : 'failed') + '. Start boots it fresh, with new sessions.'
-          : 'No saved screens — sessions are listed while it runs, and saved when it pauses, sleeps or hibernates.')),
     panel_('points',
       head('Restore points', btn('Take a restore point…', () => takePointDialog(name, running), { small: true })),
       panel(table(['Point', 'Taken', ''], points), 'No restore points yet.')),

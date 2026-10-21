@@ -8,7 +8,7 @@ import { terminals } from '../core/terminals.js';
 import { startStage } from './start-progress.js';
 import { paintCover } from './terminal.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const paintTermEmpty = upcall('paintTermEmpty');
+const paintHome = upcall('paintHome');
 
 /// 603: a pill is a state — tinted, a glyph and the word (never colour alone); the glyph is the phase's own
 /// (a dot while it runs, a spinner while under way).
@@ -40,7 +40,7 @@ export function paintTransition(name) {
   for (const b of document.querySelectorAll('[data-lifecycle-item]')) if (b.dataset.lifecycleItem === name) b.disabled = true;
   for (const el of document.querySelectorAll('[data-pill-for]')) if (el.dataset.pillFor === name) el.replaceWith(transitionPill(t, name));
   for (const x of terminals.values()) if (x.sandbox === name && x.saved) paintCover(x);
-  if (state.view === 'sandbox' && state.param === name) paintTermEmpty();
+  if (state.view === 'sandbox' && state.param === name) paintHome(name);       // 635: Home's buttons wait too
 }
 /// The phase pill — or, in a transition, what is under way.
 export function sandboxPill(s) {

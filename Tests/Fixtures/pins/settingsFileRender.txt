@@ -17,7 +17,7 @@
 
 [ui]
 
-# After Start the page stays on tab zero, Console (the kernel and vminitd), and marks the agent's
+# After Start the page stays on its Console tab (the kernel and vminitd), and marks the agent's
 # tab when it is ready; false (the default): it switches to the agent's tab as soon as that has
 # drawn its screen.
 # (boolean; applies at once (the UI re-reads it))
@@ -27,6 +27,17 @@
 # always ask with a box to tick.
 # (boolean; applies at once (the UI re-reads it))
 # confirm_shutdown = true
+
+# Closing an agent's tab returns to the sandbox's Home, which says the agent is still running and
+# that End stops it (its "Don't say this again" sets this to false). false: Home does not say it.
+# (boolean; applies at once (the UI re-reads it))
+# explain_tab_close = true
+
+# Hovering a session in the sidebar shows a screen icon; resting on it for half a second shows the
+# session's live picture (moving to another session then shows its picture at once). false: no
+# icon, no picture.
+# (boolean; applies at once (the UI re-reads it))
+# nav_thumbnails = true
 
 # What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left
 # terminal's session), attach (a second, shared view of it), dialog (choose each time).
@@ -54,8 +65,8 @@
 # (auto | light | dark; applies at once (the UI re-reads it))
 # theme = "auto"
 
-# A sandbox's page shows its details panel (sessions, restore points, network, keys) beside the
-# terminals; false: collapsed.
+# A sandbox's page shows its details panel (restore points, network, keys) beside the terminals;
+# false: collapsed.
 # (boolean; applies at once (the UI re-reads it))
 # details_open = true
 
@@ -81,7 +92,9 @@
 # port = 0
 
 # All sessions: at most this many tiles show their session live at once (each is a terminal engine
-# and a socket); the rest say so.
+# and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not
+# count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid),
+# and never more than this.
 # (integer 1–12; applies at once (the UI re-reads it))
 # grid_live_tiles = 8
 

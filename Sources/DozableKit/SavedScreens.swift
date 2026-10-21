@@ -84,6 +84,9 @@ public struct ScreenCaptureReport: Sendable, Equatable {
     public var failed: [String] = []
     /// Saved screens of sessions the guest no longer has (a previous boot's): removed.
     public var removed: [String] = []
+    /// 635: the guest's list this capture read (`deckhold ls`) — the host's session registry reconciles from it, so
+    /// the list it already makes is the only one. nil: the list could not be read.
+    public var listed: [SessionInfo]? = nil
     public var milliseconds: Double = 0
     public init() {}
 }

@@ -12,16 +12,33 @@ import { paintStartProgress } from './start-progress.js';
 /// step's own error slot, or the page notices at the top of the page. `toast(text, true)` is that last one.
 export function toast(text, bad, iconName) {
   if (bad) { pageFailure(text); return h('div'); }
+  logMessage('ok', text);
   const t = h('div', { class: 'toast', role: 'status' }, icon(iconName || 'check'), h('span', null, text));
   $('toasts').append(t);
-  setTimeout(() => t.remove(), 4000);
+  // 635 (owner: "too fast — i couldnt read it"): 8 s, held while the pointer is on it; every one is kept in Activity.
+  let timer = setTimeout(() => t.remove(), TOAST_MS);
+  t.addEventListener('mouseenter', () => clearTimeout(timer));
+  t.addEventListener('mouseleave', () => { timer = setTimeout(() => t.remove(), 3000); });
   return t;
+}
+const TOAST_MS = 8000;
+/// 635 (owner: "shouldnt it be logged?"): every message this page showed — toasts, a session's notices, failures — newest
+/// last, kept for this browser tab (Activity › Messages lists them).
+const MESSAGES_KEY = 'doz.messages', MESSAGES_MAX = 100;
+state.messages = (() => { try { const v = JSON.parse(sessionStorage.getItem(MESSAGES_KEY) || '[]'); return Array.isArray(v) ? v.slice(-MESSAGES_MAX) : []; } catch (_) { return []; } })();
+export function logMessage(tone, text) {
+  const last = state.messages[state.messages.length - 1];
+  if (last && last.text === String(text) && Date.now() - last.at < 2000) return;
+  state.messages.push({ at: Date.now(), tone, text: String(text).slice(0, 600) });
+  if (state.messages.length > MESSAGES_MAX) state.messages.splice(0, state.messages.length - MESSAGES_MAX);
+  try { sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(state.messages)); } catch (_) { /* this page only */ }
 }
 /// The page notices (#notice, at the top of main, sticky): a failure with no closer home, or one whose home
 /// is not on screen. Each stays until dismissed; at most the newest five.
 state.failures = new Map();
 export function pageFailure(text, opts = {}) {
   const key = opts.key || String(text);
+  if (!state.failures.has(key) || state.failures.get(key).text !== String(text)) logMessage(opts.tone || 'bad', (opts.title ? opts.title + ' — ' : '') + text);
   state.failures.delete(key);
   state.failures.set(key, { text: String(text), tone: opts.tone || 'bad', title: opts.title || null, actions: opts.actions || null });
   while (state.failures.size > 5) state.failures.delete(state.failures.keys().next().value);
@@ -42,7 +59,7 @@ export function dropPageNotice(key) {
 state.sbxFail = new Map();
 function statusSlotShown(name) { return !!name && [...document.querySelectorAll('[data-op-for]')].some((el) => el.dataset.opFor === name && el.getClientRects().length > 0); }
 export function failureFor(name, text) {
-  if (statusSlotShown(name)) { state.sbxFail.set(name, { text: String(text), at: Date.now() }); paintRowOps(); }
+  if (statusSlotShown(name)) { logMessage('bad', name + ': ' + text); state.sbxFail.set(name, { text: String(text), at: Date.now() }); paintRowOps(); }
   else pageFailure(name ? name + ': ' + text : text);
 }
 export function opFailed(op) {

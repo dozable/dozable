@@ -471,8 +471,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`sessions` became a group whose default subcommand `ls` keeps `doz sessions NAME`; `restart` attaches afterwards
   only when stdin AND stdout are a terminal — a script's `--yes` restarted and then attached forever — never with `-d` or
   `--json`, and `--attach` forces it: `SessionsRestart.attaches`); web actions
-  `session-end` / `session-restart` (one HostOp each; `components/session-actions.js`: a tab's ⋯ and the
-  Sessions tab's ⋯; a restarting pane (`t.restarting`) ignores the `ended` frame and the socket's close, shows
+  `session-end` / `session-restart` (one HostOp each; `components/session-actions.js`: a tab's ⋯ and
+  Home's ⋯ / End… (635); a restarting pane (`t.restarting`) ignores the `ended` frame and the socket's close, shows
   "Restarting the session…", and reattaches with its scrollback when the operation is done).
 - **`open-session` is serialized per sandbox** (`HostCore.sessionGate`, a `KeyedGate` held across
   its awaits — the actor alone is re-entrant) and idempotent: a concurrent or repeated open of one
@@ -492,6 +492,20 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   which connects to every session's holder — each connect is a line in the guest's
   `/run/deckhold/NAME.log` (tmpfs); the UI's 3 s poll grew one by 600 KB in 9 hours. A repeat of an
   in-flight action (same `WebAction.dedupeKey`) is 409.
+- **The overview's sessions are the host's registry, never the guest's** (635, `SessionRegistry.swift`,
+  `HostCore+Sessions.swift`): `SandboxInfo.sessionList` / `sessionMore` (name, program's basename, `isDefault`,
+  `openedAt`, `saved` — never a command line, nothing that moves by itself: the overview is compared poll to poll for
+  `changed`). Fed by the host's own events — `openSessionLocked` (`opened`: a new epoch; "already running": `seen`), an
+  attach (`seen`), the status watcher's `.ended` ONLY for the epoch it was opened under (a restart's late `.ended` of the
+  old program re-watches instead), `session-end` — and reconciled from every guest list the host makes ANYWAY
+  (`refreshStatusWatches` per transition, `detail`, `sessions`, the open path, the periodic capture's
+  `ScreenCaptureReport.listed`), never dropping an entry registered after the list began (`mark`). Running → memory
+  (the saved screens until this run's first list); paused/asleep/hibernated → the saved screens (`saved: true`);
+  off/failed/booting → none; cleared on off and `rm`. **Staleness is accepted, never a new guest call**: a program that
+  exits with nobody watching (a holder older than 612, or a watcher that gave up) or a session started inside the guest
+  is corrected at the next list the host makes anyway — at once for the page's own sandbox, else within
+  `host.screen_capture_minutes`. `SessionRegistryTests`; `make test-cli-sessions` checks it and that 20 overviews add
+  no line to a holder's log.
 - **The policy preview is the host's own function** (`HostCore.editedPolicy`), so the preview is
   exactly what `net-policy` applies. **Metrics CSV cells are defused** against spreadsheet formulas.
 - **The UI is a CLIENT of the host** (host.sock) in its own process — it never owns a VM, and the
@@ -560,8 +574,33 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav > a[data-view]` stay direct
     children; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
-    pane; the inspector's tabs `INSP_TABS`, the chosen tab per sandbox in `sview(name).inspTab` (page memory, no
-    setting); its width in this browser's storage. The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
+    pane; the inspector's tabs `INSP_TABS` (635: no Sessions tab — the sessions are Home's), the chosen tab per sandbox
+    in `sview(name).inspTab` (page memory, no setting); its width in this browser's storage. **Home** (635,
+    `views/sandbox-home.js`): the terminal strip's first tab — a page pane record `t.home` (`openHomePane`; no engine,
+    no socket, never persisted, never closed, `isAux`), the selection whenever the chosen tab is gone (a close lands
+    there, never on Console); the agent's session as a card (Open, End…, ⋯), the others as rows, an ended one quietly
+    with Restart, Logs, Folder. Its parts that hold a picture are built ONCE and painted in place (moving or rebuilding
+    an iframe reloads its engine); an open menu inside it holds the repaint. Pictures (`components/session-thumb.js`,
+    the grid's tile terminal): live only while Home is the shown tab of a visible page and the row is on screen, at
+    most min(4, `ui.grid_live_tiles`) and never past 12 open sockets of the UI's 16; asleep, saved mode (no socket —
+    T3). Closing the agent's tab (`sview.justClosed`) marks its card with the note until `ui.explain_tab_close` is false.
+    Console has a close box: `sview.consoleClosed` keeps it closed until the next START (an off/failed → powered edge
+    in `syncConsoleTab`; a wake is not one). `#/sandbox/NAME/~home` selects Home (the router admits `~home`).
+    635 (owner, the strip): Home's icon is `layout-grid`; the **tabs menu** (`termUI.tabsCtl`, left of Home) lists every
+    tab, Close all tabs, End all sessions…; a running session's ✕ (`askOnClose`: interactive, live, no twin tab) asks
+    End session / Hide — keep running / Cancel (`closeTabDialog`); **New <agent> session** opens `open-session` with the
+    detail's `defaultArgv` and no name (the host names it `claude-2`…); every ⋮ is `ellipsis-vertical`; Open in Terminal is
+    `ICON_OPEN_IN_TERMINAL` (`icon('a^b')`: glyph a with b in its corner, `.icon-corner`). Home's **List | Grid**
+    (`doz.home.view`, this browser) lays the same card and rows out as picture tiles (`.as-grid`, live up to
+    `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
+    500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
+    it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
+    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`).
+    A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's
+    cols × rows from its holder's list once attached and every 5 s (`checkWatchSize`), the state message carries them,
+    and the frame (`{t:'size'}`, watch only) drops its fit, resizes to them and scales to fit — laid out smaller, a
+    program's full-screen redraws scrolled (owner: cmatrix "upward scrolling" in a thumbnail). Toasts stay 8 s (held
+    under the pointer); every toast, session notice and failure is kept (`logMessage`, this tab) — Activity › Messages. The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
    : `state.modal` is the wizard, `state.view`/`state.bgHash` stay the page under it, which is never
     re-rendered or torn down by opening or closing (inert meanwhile); `wizHead()` (title, ✕, the horizontal
     `stepperNode()` strip) + `wizMount()`; ✕/Escape ask before losing choices (`wizDirty`), Back keeps them. Long pages: `pageIndex()`;
@@ -728,7 +767,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 ### Sandbox pages, All sessions, Lineage, Operations, templates
 
 - **The page is built around the sandbox.** The nav has a child per sandbox (from the overview —
-  `ls` without session counts, re-read on `hello`, `changed` and an operation's end). A sandbox's page
+  `ls` without session counts, its sessions from the host's registry — re-read on `hello`, `changed` and an operation's end).
+  635 (owner: variant A, collapsible): under each sandbox its sessions (`components/nav.js` — `sessionList`, never a guest
+  call; the tooltip is program · session, never a command line), the default first then by `openedAt`, drawn in that order
+  always; at most four lines (past that, three chosen — the agent's, any blocked/error, the one shown — then "N more — Home",
+  `#/sandbox/NAME/~home`); ⋯ (End / Restart, `sessionMenuItems`) only on a running sandbox; a caret folds a sandbox to one
+  line + its count (browser storage `doz.nav.folded`, like the inspector's width — owner's choice), a folded one still
+  shows blocked/error. An open ⋯ holds the re-render; `markNavSession` (called by `drawTerminals`) marks the shown session. A sandbox's page
   is a PERSISTENT section (`#sbx`): the control bar (`#sbx-bar`) and the inspector (`#sbx-details`, 603's tabs) re-render; `#terminals` never
   does (591's rule). Terminals are per sandbox (`termUI.by[name]`: split, selected, focused pane); another
   sandbox's stay open, hidden (the 16-per-UI cap is the server's, unchanged). Arriving attaches to the
@@ -795,7 +840,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (the image `defaults.image` or given; the name `Workspace.suggestedName` past sandboxes and non-empty
   folders, or a given one — taken → `.exists`; the workspace `<projects_dir>/<name>`, nil when isolated)
   and `QuickAdd.requirement` (what one click cannot decide: the agent's account via
-  `AgentCredentials.createProblem` unless the image's network is nat/none, then an out-of-date image).
+  `AgentCredentials.createProblem` unless the image's network is nat/none; 635: an out-of-date image is NOT one — it
+  is used as it is and said, `QuickAdd.notice`). New sandbox (`components/create-dialog.js`) is the Name, a summary of
+  what it makes (`collapseToSummary`) and every choice folded under "Change…" (open by itself only when the account
+  must be chosen).
   The UI: `POST /api/v1/quick-add` {image?, isolated?} (CSRF, makes nothing; `WebQuickAdd.swift`) →
   the page runs the ordinary `create` action, waits for its end (`waitOp`), then `startWithBootView`;
   a requirement opens `createDialog({why, kind, image})` instead. The CLI: `New` (LifecycleCommands) —
@@ -955,8 +1003,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   attach's SNAPSHOT). A saved pane holds no socket, so it keeps no host alive (T3).
 - **New is new (S4)**: New shell (shell-N, the next free name — saved names count as taken) and the
   Terminal… dialog (a new shell, or a new session running a command) never attach to a running
-  session; a running one is reached through its pane, the empty area's "Open NAME" or the inspector's
-  Sessions tab. Split's watch/attach kinds stay: they name the left pane's session explicitly.
+  session; a running one is reached through its pane or Home's Open (635). Split's watch/attach kinds stay: they name the left pane's session explicitly.
 
 ### Boot logs
 
@@ -1387,9 +1434,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `sameReport`), sent only to an `events` stream that set `HostRequest.sessionStatus` (an older client cannot
   decode the kind). **The program's `msg`/`title` are untrusted guest text: never in host.log** (`logLine` is
   metadata only), capped in `WebAgentStatus`, textContent only on the page.
-- **The page** (`components/agent-status.js`): chips on tabs, tiles and the Sessions tab's rows (`data-agent-for`,
+- **The page** (`components/agent-status.js`): chips on tabs, tiles and Home's card and rows (`data-agent-for`,
   painted in place after every overview), the sidebar's dot, and a page notice per transition to done / blocked /
-  error (dropped when no longer true). The UI's monitor pokes its poll on a `session-status` event; it is not an
+  error (dropped when no longer true; 635.B2: never for the session being watched — its tab shown in a focused window —
+  dropped once it is, and a done one goes by itself after 10 s). The UI's monitor pokes its poll on a `session-status` event; it is not an
   Activity line. `probes/612-*/browser-status.mjs` checks it in a real Chrome (scratch store and profile).
 
 ### GitHub as the user
@@ -1420,7 +1468,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The guest half is in `guestFixes`** (boot AND wake): `git-credential-doz` (stamp `doz:git-credential:vN` — bump
   on any change; it answers ONLY a `doz_cred_` placeholder, ONLY for https://github.com), `/etc/doz/gitconfig`
   (helper + the Mac's identity, or a comment when off) included once from `/etc/gitconfig`, and the SSH agent.
-  `Sandbox.applyGitHubToGuest` applies them to a running guest.
+  `Sandbox.applyGitHubToGuest` applies them to a running guest. 635 (owner: push turned on mid-session, the agent's
+  push still asked for a username — its session had no `GH_TOKEN`): `GitGuestSetup.placeholder` is the sandbox's own
+  placeholder (minted once, kept while `vault.holds` it), written to `/etc/doz/github-placeholder` while on (removed
+  when off); helper v3 reads it first, then `$GH_TOKEN`. `gh` in an older session still lacks `GH_TOKEN` (a new
+  session has it).
 - **SSH agent (G4)**: `SSHAgentRelay` (host vsock 5801 → the Mac's agent socket) only while `sandbox.ssh_agent`
   is on; it FILTERS the guest's requests (`allowed`: list 11, sign 13, the session-bind extension 27 — anything
   else, e.g. add/remove/lock, is answered SSH_AGENT_FAILURE and never reaches the Mac's agent); `doznet agent` (guest, `/run/doz/ssh-agent.sock`) — started after doznet is copied at a fresh boot,
@@ -1927,7 +1979,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **One set of choices, one plan** (D13): `ChoiceOptions` (LifecycleCommands; `CreateArguments` is its old name) is
   what new, create, up and try take — `--permissions` canonical, `--allow` its alias. The host's read-only op `plan`
   (`CreatePlan.swift`, `CreatePlanner.plan` — pure given `PlanFacts`) is the ONE place a sandbox's defaults are decided
-  for new/try (name, workspace, Locked for a try) and what `--dry-run` prints (command, project file, reach from
+  for new/try (name, workspace; 635: a try's and the First sandbox's network is a new sandbox's — `defaults.permissions`,
+  Standard — no longer forced Locked; `make recipe-check` asks for `--network locked` itself, so its "a fresh try is
+  refused nothing" stays the strictest check) and what `--dry-run` prints (command, project file, reach from
   `DozableImages.spec`'s policy). A new choice is a ChoiceOptions option + `CreatePlanner.argv` + `yaml` + a pin line.
 - **`doz try`** (`TryCommand.swift`, `Try.swift`): 634 — what a try makes is an ORDINARY sandbox (no mark: 617's
   `SandboxConfig.trial`/`trialFolder` are gone, an old doz.json carrying them loads with both ignored); its card comes
@@ -1988,10 +2042,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   operation (`state.spBar`) — "Step N of M · step · elapsed", the finished steps (`WebOperation.progress`), the raw
   output under "Show details"; a cached image has no preparation, so no bar; a failure keeps the panel (error, log,
   Start again / Dismiss); a running preparation is JOINED (the host's single flight), never started again; the header
-  pill says Preparing…, then Booting…; (2) tab zero, **Console** — terminal mode `console` (ticket `{"mode":"console"}`,
+  pill says Preparing…, then Booting…; (2) **Console** — terminal mode `console` (ticket `{"mode":"console"}`,
   no session, no size): the bridge's `consoleLoop` streams `data.bootConsole` (what `doz console NAME --follow` shows)
-  as inert text, read-only, never an attach; first in the strip, icon `cpu`, no number, no close box, never persisted;
-  it exists exactly while the VM is powered on (`syncConsoleTab` on each sandbox refresh and on the pending pane's phase);
+  as inert text, read-only, never an attach; after Home and the build log in the strip, icon `cpu`, no number, never
+  persisted; 635: a close box — closed by the person (even during the boot) it stays closed until the next Start;
+  otherwise it exists while the VM is powered on (`syncConsoleTab` on each sandbox refresh and on the pending pane's phase);
   (3) the agent's tab: `openPendingTerminal` makes it at Start, laid out but `visibility: hidden` and tab-less
   (`t.pending`), its ticket `quiet` — the bridge then never enters the boot view for it (the old boot view wrote
   `console --follow` into the agent's own pane: vminitd's lines for every exec of the start in Codex's tab, owner's shot
@@ -2012,10 +2067,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   restart, and a sandbox whose start built nothing shows the log of the build that made its image (none kept → no
   tab). Read by the host op `build-log` (by sandbox; in-process when no host runs) → `GET /api/v1/sandboxes/NAME/build-log`
   (`WebBuildLog`: `BuildLogs.render` — the steps with their times, then each step's output, inert again). The page:
-  `syncBuildLogTab` (each sandbox refresh and each preparations event) opens `openBuildLogTerminal` — a saved-mode,
-  socketless record (`t.buildlog`, like a Boot log; keys never wake) — only after the read found one; hidden while its
-  image builds and replaced when that build ends; first in the strip, icon `list-checks`, tooltip "Build log", no
-  close box, never chosen by itself, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
+  `syncBuildLogTab` (each sandbox refresh and each preparations event) reads it once into `state.buildLogs` (forgotten,
+  and its tab closed, while its image builds); 635 (owner): never opened by itself — Home › Logs › **Build log**
+  (`openBuildLog`) opens `openBuildLogTerminal`, a saved-mode, socketless record (`t.buildlog`, like a Boot log; keys never
+  wake) as its own tab after the sessions: icon `wrench`, "Build log", a close box, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
   `isAux` in `core/terminals.js` names the page's own panes). `BuildLogsTests`, the HTTP test.
   **It is the record of how the image was made** (owner: "including all the commands to build and configure"): the
   baker hands out `BakePlan` once per bake (`SandboxEvent.bakePlan`, built by `ImageBaker.plan` — the SAME argv, user and

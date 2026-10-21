@@ -269,6 +269,25 @@ final class GitHubCredentialsTests: XCTestCase {
         XCTAssertEqual(try run(req, env: ["GH_TOKEN": "doz_cred_abc123"], "store"), "", "store/erase do nothing")
     }
 
+    /// 635 (owner: push turned on, and the agent's push still asked for a username — its session predated it): the
+    /// sandbox's own placeholder is written for the helper while on, removed when off; nothing else is admitted.
+    func testTheSandboxsPlaceholderReachesSessionsOpenedBefore() {
+        let on = GitGuestSetup(on: true, placeholder: "doz_cred_0a1b2c")
+        XCTAssertEqual(on.placeholder, "doz_cred_0a1b2c")
+        XCTAssertNil(GitGuestSetup(on: true, placeholder: "ghp_REALtoken").placeholder, "only a doz placeholder")
+        XCTAssertNil(GitGuestSetup(on: true, placeholder: "doz_cred_x'; rm -rf /").placeholder, "hex only — it lands in a shell line")
+        XCTAssertNil(GitGuestSetup(on: true, placeholder: "doz_cred_").placeholder)
+        XCTAssertNil(GitGuestSetup(on: false, placeholder: "doz_cred_0a1b2c").placeholder, "off: none")
+        XCTAssertTrue(GuestCommand.gitConfigScript(on).contains("printf '%s\\n' 'doz_cred_0a1b2c' > '\(GuestCommand.githubPlaceholderPath).tmp'"))
+        XCTAssertTrue(GuestCommand.gitConfigScript(.off).contains("rm -f '\(GuestCommand.githubPlaceholderPath)'"))
+        XCTAssertTrue(GuestCommand.gitCredentialHelper.contains("cat \(GuestCommand.githubPlaceholderPath)"), "the helper reads it first")
+        let (v, t) = vault(reads: Counter())
+        XCTAssertTrue(v.holds(t, for: CredentialBinding.github.id))
+        XCTAssertFalse(v.holds(t, for: "anthropic"))
+        v.remove(CredentialBinding.github.id)
+        XCTAssertFalse(v.holds(t, for: CredentialBinding.github.id), "turned off: revoked, so a new one is minted next time")
+    }
+
     func testTheSSHPortIsOnlyGitHubAndOnlyWhileOn() throws {
         let p = try EgressProxy(policy: .permissions(["model"]), ca: nil)
         XCTAssertEqual(p.connectionVerdict(host: "github.com", port: 22).kind, .deny)

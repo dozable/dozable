@@ -681,17 +681,21 @@ public enum GuestCommand {
 
     /// git's credential helper for https://github.com (root-owned, on every image).
     public static let gitCredentialHelperPath = openShimDirectory + "/git-credential-doz"
-    static let gitCredentialStamp = "doz:git-credential:v2"
+    static let gitCredentialStamp = "doz:git-credential:v3"
 
-    /// It answers git with this session's PLACEHOLDER — `$GH_TOKEN`, set by doz while "Use GitHub as you"
-    /// is on — and only for https://github.com; Dozable's proxy swaps the user's real token in on the way
-    /// out. Without a doz placeholder it answers nothing (git goes on to its other helpers).
+    /// 635: the sandbox's own GitHub placeholder, written while "Use GitHub as you" is on (removed when off).
+    public static let githubPlaceholderPath = "/etc/doz/github-placeholder"
+
+    /// It answers git with a doz PLACEHOLDER — the sandbox's own (`githubPlaceholderPath`, rewritten each time
+    /// "Use GitHub as you" is applied, so a session opened before it was turned on can push too), else this
+    /// session's `$GH_TOKEN` — and only for https://github.com; Dozable's proxy swaps the user's real token in
+    /// on the way out. Without a doz placeholder it answers nothing (git goes on to its other helpers).
     public static let gitCredentialHelper = #"""
     #!/bin/sh
-    # doz:git-credential:v2
-    # Dozable: git's credential helper for https://github.com. It answers with this session's doz
-    # placeholder ($GH_TOKEN) — never a real token: Dozable's proxy on the Mac swaps in the user's own login
-    # (read-only unless the user turned on "Push to GitHub"). See the doz skill.
+    # doz:git-credential:v3
+    # Dozable: git's credential helper for https://github.com. It answers with a doz placeholder (the
+    # sandbox's, or this session's $GH_TOKEN) — never a real token: Dozable's proxy on the Mac swaps in the
+    # user's own login (read-only unless the user turned on "Push to GitHub"). See the doz skill.
     [ "${1:-}" = get ] || exit 0
     host=; proto=
     while IFS= read -r line && [ -n "$line" ]; do
@@ -701,7 +705,8 @@ public enum GuestCommand {
         esac
     done
     [ "$proto" = https ] && [ "$host" = github.com ] || exit 0
-    tok=${GH_TOKEN:-${GITHUB_TOKEN:-}}
+    tok=$(cat /etc/doz/github-placeholder 2>/dev/null)
+    case "$tok" in doz_cred_*) ;; *) tok=${GH_TOKEN:-${GITHUB_TOKEN:-}} ;; esac
     case "$tok" in doz_cred_*) ;; *) exit 0 ;; esac
     printf 'username=x-access-token\npassword=%s\n' "$tok"
     """#
@@ -735,9 +740,14 @@ public enum GuestCommand {
     /// Root shell: write the file and include it from /etc/gitconfig (once). Idempotent, never fails the caller.
     public static func gitConfigScript(_ setup: GitGuestSetup) -> String {
         let quoted = "'" + dozableGitConfig(setup).replacingOccurrences(of: "'", with: "'\\''") + "'"
+        // 635: the sandbox's placeholder for the helper (hex after doz_cred_ — GitGuestSetup admits nothing else).
+        let placeholder = setup.placeholder.map {
+            "printf '%s\\n' '\($0)' > '\(githubPlaceholderPath).tmp' && chmod 0644 '\(githubPlaceholderPath).tmp' && mv -f '\(githubPlaceholderPath).tmp' '\(githubPlaceholderPath)'"
+        } ?? "rm -f '\(githubPlaceholderPath)'"
         return "{ mkdir -p /etc/doz && printf '%s' \(quoted) > '\(dozableGitConfigPath).tmp' && chmod 0644 '\(dozableGitConfigPath).tmp'"
             + " && mv -f '\(dozableGitConfigPath).tmp' '\(dozableGitConfigPath)'"
-            + " && { grep -qs 'path = \(dozableGitConfigPath)' /etc/gitconfig || printf '[include]\\n\\tpath = \(dozableGitConfigPath)\\n' >> /etc/gitconfig; }; } || true"
+            + " && { grep -qs 'path = \(dozableGitConfigPath)' /etc/gitconfig || printf '[include]\\n\\tpath = \(dozableGitConfigPath)\\n' >> /etc/gitconfig; }"
+            + " && \(placeholder); } || true"
     }
 
     /// 599d (G4): where the forwarded SSH agent listens in the guest (sessions get `SSH_AUTH_SOCK` = it).

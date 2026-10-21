@@ -278,8 +278,14 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var createdFolder: String?
     /// 617 (RP-1): its web ports — the header's Open buttons (listening, with a URL) and the details' list.
     public var ports: [WebPort]?
+    /// 635: its sessions as the host knows them (the sidebar's lines — no guest call, no command line) and how many
+    /// more there are. nil: none.
+    public var sessionList: [WebSessionBrief]?
+    public var sessionMore: Int?
 
     public init(_ i: SandboxInfo) {
+        sessionList = i.sessionList.map { $0.map(WebSessionBrief.init) }
+        sessionMore = i.sessionMore
         createdFolder = i.createdFolder
         ports = i.ports.map { $0.map(WebPort.init) }
         sessionStatuses = i.sessionStatuses.map { $0.map(WebAgentStatus.init) }
@@ -316,6 +322,19 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
         credentialState = i.credentialState
         credentialPolicy = i.credentialPolicy
         foreignCredentials = i.foreignCredentials
+    }
+}
+
+/// 635: one session in the overview — its name, its program's name, whether it is the sandbox's own, when it was
+/// opened, and whether it is a saved screen (asleep). Never its command line.
+public struct WebSessionBrief: Codable, Equatable, Sendable {
+    public var name: String
+    public var program: String
+    public var isDefault: Bool?
+    public var openedAt: Date?
+    public var saved: Bool?
+    public init(_ b: SessionBrief) {
+        name = b.name; program = b.program; isDefault = b.isDefault; openedAt = b.openedAt; saved = b.saved
     }
 }
 
@@ -427,8 +446,11 @@ public struct WebSessionRow: Codable, Equatable, Sendable {
     public var savedReason: String?
     /// 612: what its program says it is doing.
     public var status: WebAgentStatus?
+    /// 635: when the host opened it (Home's "running since").
+    public var openedAt: Date?
 
     public init(_ s: SessionRow) {
+        openedAt = s.openedAt
         status = s.status.map(WebAgentStatus.init)
         name = s.name
         pid = s.pid
@@ -607,6 +629,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var project: String?
     /// 617.11: a recipe agent's guide (the Guide tab) — nil: none.
     public var guide: WebGuide?
+    /// 635: the default session's program — the tab bar's New <agent> session opens another with it.
+    public var defaultArgv: [String]?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -630,6 +654,7 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         agentPrompt = d.agentPrompt.map(WebAgentPrompt.init)
         project = d.project
         guide = d.guide.map(WebGuide.init)
+        defaultArgv = d.defaultArgv
     }
 }
 

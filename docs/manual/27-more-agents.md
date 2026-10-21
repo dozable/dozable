@@ -42,8 +42,8 @@ doz search google        # what Dozable runs with a Google key, each with its la
 
 The first `doz try` of each asks for the key (a paste, or where you keep it: 1Password, AWS, a command — see
 [Keys from 1Password, AWS or a command](09-agents-and-accounts.md#keys-from-1password-aws-or-a-command)), prepares the
-agent's image once (a minute or so) and starts it. A try is Locked: the agent reaches its model and, below, the few
-hosts its maker's program calls when it starts — nothing else. [Trying agents](26-try-and-search.md) has the rest.
+agent's image once (a minute or so) and starts it. A try is Standard, like any new sandbox: the agent reaches its model,
+software packages and GitHub, and, below, the few hosts its maker's program calls when it starts — not the web at large. [Trying agents](26-try-and-search.md) has the rest.
 
 ## Antigravity CLI (Google)
 
