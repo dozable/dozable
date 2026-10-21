@@ -319,7 +319,7 @@ function providerGroup(a, keys, p, rows, phases) {
       h('span', { class: 'ak-av', 'aria-hidden': 'true' }, custom ? '+' : t.charAt(0)),
       h('h2', null, t, isGateway(a, p) ? h('span', { class: 'tag outline' }, 'gateway') : null),
       h('span', { class: 'for' }, toolsLine(a, p)),
-      btn(custom ? 'Add a custom key…' : 'Add', () => openAddKey(a, p), { small: true, quiet: true, icon: 'plus', title: 'Add ' + article(t) + t + ' key' })),
+      btn(custom ? 'Add a custom key…' : 'Add ' + t + ' key', () => openAddKey(a, p), { small: true, quiet: true, icon: 'plus' })),
     h('div', { class: 'panel' }, table), keep);
 }
 
