@@ -8,7 +8,7 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { brokenCount } from './account-problems-c568a10734e5fa81.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status-4b4b30d82051d513.js';
 import { moreMenu } from './menus-5554adcb670bde92.js';
-import { canPeek, peekIcon, peekRegion } from './nav-peek-43b64d19345d4b66.js';
+import { canPeek, peekIcon, peekRegion } from './nav-peek-1415e9fded6c08a1.js';
 import { sessionMenuItems } from './session-actions-f23222ae16977a85.js';
 import { isAux, pageTerminals } from '../core/terminals-e2028f16ee8fa887.js';
 // Calls up the layers (provided by app.js — core/hooks.js):

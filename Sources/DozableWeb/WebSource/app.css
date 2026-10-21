@@ -1523,6 +1523,13 @@ tr.ov-strip > td { padding-top: 0; }
 .ov-th-name { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--ink-2); min-width: 0; }
 .ov-th-name .icon { width: 12px; height: 12px; flex: none; }
 .ov-th-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Thumbnails off: a Sessions cell — a 4:3 box (128 × 96) of the pictures in the squarest grid that holds them; the tile
+   size (--tw) and the screen's scale (--ts) come from the count. Too small for words: no plate, no badge. */
+td.ov-sess { width: 1%; padding-top: 4px; padding-bottom: 4px; }
+.ov-grid { display: grid; gap: 2px; width: 128px; height: 96px; align-content: center; justify-content: center; }
+.ov-grid .home-thumb { width: var(--tw); height: calc(var(--tw) * 0.75); --s: var(--ts); border-radius: 2px; }
+.ov-grid .home-thumb[data-kind="none"] { background: var(--surface-2); }
+.ov-grid .home-thumb .th-plate, .ov-grid .home-thumb .th-badge { display: none; }
 td.row-acts-cell { width: 1%; white-space: nowrap; text-align: right; }
 td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
 .trunc { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
