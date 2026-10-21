@@ -5,6 +5,7 @@ import Security
 import DozableKit
 import DozableHost
 import DozableWeb
+import DozableTUI
 
 // 606 — `doz serve`: the dashboard for the OTHER browsers of a home lab (owner rulings at the end of
 // changes/606-*/606.01-DESIGN.md, plan 606.02-PLAN.md — workspace). A separate process from `doz ui` (which stays
@@ -329,7 +330,7 @@ struct ServeShare: AsyncParsableCommand {
     static func render(_ inv: WebServeInviteAnswer) -> String {
         var t = ""
         if let rows = inv.qr?.rows, let qr = WebQR(rows: rows) {
-            t += qr.terminalText(ansi: ProcessInfo.processInfo.environment["NO_COLOR"] == nil)
+            t += qr.terminalText(ansi: Terminal.current.colour)
         }
         let mins = max(1, Int((inv.expiresAt.timeIntervalSinceNow / 60).rounded()))
         t += "Let one more browser in (whichever is used first, within \(mins) min):\n"
