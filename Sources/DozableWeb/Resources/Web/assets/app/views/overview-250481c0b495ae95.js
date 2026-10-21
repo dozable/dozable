@@ -11,15 +11,16 @@ import { state } from '../core/state-1378d79c750c8380.js';
 import { card, meter, panel } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { dialog } from '../components/dialog-756ae9b4e276284d.js';
-import { hostCard } from '../components/host-ab99dd81fabb516d.js';
+import { hostCard } from '../components/host-dd9ed2c4f8a4ba74.js';
 import { rowLifecycle } from '../components/lifecycle-eed34c088324ed4f.js';
-import { inTabOrder, renderNavSandboxes } from '../components/nav-ad310570f0801d8c.js';
+import { inTabOrder, renderNavSandboxes } from '../components/nav-9d2ca084482ccf86.js';
+import { hoverPeek } from '../components/nav-peek-593d71fff4a82486.js';
 import { paintRowOps } from '../components/notices-f6630ec2e36e2d1c.js';
 import { sandboxPill } from '../components/pills-adc6d8fb09939989.js';
 import { quickAddButton } from '../components/quick-add-74c24f0d9bbce8d0.js';
 import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-dacc95d682c3172c.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-ac0ab2d6ed9fcdbc.js';
-import { newSandboxWizard } from './new-sandbox-6414deb9ff342ee6.js';
+import { newSandboxWizard } from './new-sandbox-60345c3b38405155.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 
@@ -91,6 +92,8 @@ function mainRow(s) {
       h('div', { class: 'sub2' }, s.image, s.workspace ? null : h('span', { class: 'no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, ' · isolated')),
       h('div', { 'data-op-for': s.name })),
     h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its host') : null),
+    // 642 (owner): without the rows of pictures, a Sessions column — its pictures as a grid in a 4:3 box (kept across refreshes).
+    subRows() ? null : h('td', { class: 'ov-sess', 'data-ov-sess': s.name }, h('span', { class: 'muted' }, '—')),
     h('td', { class: 'num' }, h('div', null, s.ramHeldMiB ? mib(s.ramHeldMiB) : '—'), h('div', { class: 'sub2' }, 'of ' + mib(s.memoryMiB)), meter(s.ramHeldMiB, s.memoryMiB)),
     h('td', { class: 'num' }, bytes(s.diskBytes)),
     h('td', null, s.network, s.deniedConnections ? [' ', h('span', { class: 'tag warn' }, s.deniedConnections + ' denied')] : null),
@@ -100,53 +103,81 @@ function mainRow(s) {
       : h('td', { class: 'muted', title: 'its network cannot reach an account’s API' }, 'n/a'),
     h('td', { class: 'row-acts-cell' }, rowLifecycle(s)));
 }
-const COLS = 8;
+const cols = () => (subRows() ? 8 : 9);
 function tableHead() {
   const all = h('input', { type: 'checkbox', 'aria-label': 'Select every sandbox', 'data-ov-select-all': '',
     on: { change: (ev) => { SEL.clear(); if (ev.target.checked) for (const s of OV.list) SEL.add(s.name); repaintSelection(); } } });
   const n = OV.list.filter((s) => SEL.has(s.name)).length;
   all.checked = n > 0 && n === OV.list.length;
   all.indeterminate = n > 0 && n < OV.list.length;
-  const cols = ['Sandbox', 'Phase', 'RAM held', 'Disk', 'Network', 'Account'];
+  const names = subRows() ? ['Sandbox', 'Phase', 'RAM held', 'Disk', 'Network', 'Account'] : ['Sandbox', 'Phase', 'Sessions', 'RAM held', 'Disk', 'Network', 'Account'];
   return h('thead', null, h('tr', null, h('th', { class: 'ov-sel' }, all),
-    cols.map((c, i) => h('th', { class: i === 2 || i === 3 ? 'num' : null }, c)), h('th', null, h('span', { class: 'sr-only' }, 'Actions'))));
+    names.map((c) => h('th', { class: c === 'RAM held' || c === 'Disk' ? 'num' : null }, c)), h('th', null, h('span', { class: 'sr-only' }, 'Actions'))));
 }
 
-// ── 642 (owner): each sandbox's sessions as a row of pictures under it (on by default; this browser remembers) ──────
-function thumbsOn() { try { return localStorage.getItem('doz.overview.thumbs') !== 'off'; } catch (_) { return true; } }
+// ── 642 (owner): each sandbox's sessions as pictures — a row under it (on by default; this browser remembers), else a
+// grid of small ones in its Sessions cell. Resting on one shows it larger (components/nav-peek.js). ─────────────────
+function subRows() { try { return localStorage.getItem('doz.overview.thumbs') !== 'off'; } catch (_) { return true; } }
 function thumbsToggle() {
   const box = h('input', { type: 'checkbox', 'data-ov-thumbs': '',
-    on: { change: (ev) => { try { localStorage.setItem('doz.overview.thumbs', ev.target.checked ? 'on' : 'off'); } catch (_) { /* this page only */ } refresh(false); } } });
-  box.checked = thumbsOn();
-  return h('label', { class: 'ov-toggle', title: 'A row of each sandbox’s session pictures under it' }, box, 'Session thumbnails');
+    on: { change: (ev) => {
+      try { localStorage.setItem('doz.overview.thumbs', ev.target.checked ? 'on' : 'off'); } catch (_) { /* this page only */ }
+      dropStrips(); OV.root = null; refresh(false);   // the other layout: the table drawn anew
+    } } });
+  box.checked = subRows();
+  return h('label', { class: 'ov-toggle', title: 'Each sandbox’s session pictures in a row under it — off: small, in a Sessions column' }, box, 'Thumbnails under each sandbox');
 }
 /// The sessions a sandbox shows pictures of: a running one's (live), a sleeping one's (saved) — never a shut-down one's.
 function stripSessions(s) {
-  if (!thumbsOn() || !['running', 'paused', 'asleep', 'hibernated'].includes(s.phase)) return [];
+  if (!['running', 'paused', 'asleep', 'hibernated'].includes(s.phase)) return [];
   return inTabOrder(s.name, s.sessionList || []).filter((x) => x.saved || s.phase === 'running');
+}
+/// The Sessions cell's box (CSS px): 4:3, its pictures in the squarest grid that holds them all.
+const CELL_W = 128, CELL_H = 96, CELL_GAP = 2;
+function layoutGrid(st, n) {
+  const colsN = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / colsN);
+  const tw = Math.floor(Math.min((CELL_W - (colsN - 1) * CELL_GAP) / colsN, ((CELL_H - (rows - 1) * CELL_GAP) / rows) * 4 / 3));
+  st.box.style.setProperty('--tw', tw + 'px');
+  st.box.style.setProperty('--ts', String(tw / 960));
+  st.box.style.gridTemplateColumns = 'repeat(' + colsN + ', ' + tw + 'px)';
+  st.box.title = n + ' session' + (n === 1 ? '' : 's');
+}
+/// An existing row brought up to `nu`: every cell replaced but the Sessions cell (its pictures stay where they are).
+function patchRow(old, nu) {
+  const a = [...old.cells], b = [...nu.cells];
+  if (a.length !== b.length) { old.replaceWith(nu); return nu; }
+  a.forEach((c, i) => { if (!c.classList.contains('ov-sess')) c.replaceWith(b[i]); });
+  return old;
 }
 /// Bring the table's rows to `list`: each main row replaced where it stands, each strip kept (its pictures with it).
 function patchRows(list) {
   const names = new Set(list.map((s) => s.name));
   for (const tr of [...OV.tbody.querySelectorAll('tr[data-sandbox-row]')]) if (!names.has(tr.dataset.sandboxRow)) tr.remove();
   for (const [n] of OV.strips) if (!names.has(n)) dropStrip(n);
+  const rows = subRows();
   let prev = null;
   for (const s of list) {
-    const tr = mainRow(s);
+    let tr = mainRow(s);
     const old = OV.tbody.querySelector('tr[data-sandbox-row="' + CSS.escape(s.name) + '"]');
-    if (old) old.replaceWith(tr); else if (prev) prev.after(tr); else OV.tbody.prepend(tr);
+    if (old) tr = patchRow(old, tr); else if (prev) prev.after(tr); else OV.tbody.prepend(tr);
     prev = tr;
     const sessions = stripSessions(s);
     if (!sessions.length) { dropStrip(s.name); continue; }
     let st = OV.strips.get(s.name);
     if (!st) {
-      st = { name: s.name, box: h('div', { class: 'ov-strip-box', role: 'list', 'aria-label': s.name + '’s sessions' }), thumbs: new Map(), phase: s.phase, busy: false };
-      st.tr = h('tr', { class: 'ov-strip', 'data-ov-strip': s.name }, h('td', { class: 'ov-sel' }), h('td', { colspan: String(COLS - 1) }, st.box));
+      st = { name: s.name, thumbs: new Map(), phase: s.phase, busy: false,
+        box: h('div', { class: rows ? 'ov-strip-box' : 'ov-grid', role: 'list', 'aria-label': s.name + '’s sessions' }) };
+      if (rows) st.tr = h('tr', { class: 'ov-strip', 'data-ov-strip': s.name }, h('td', { class: 'ov-sel' }), h('td', { colspan: String(cols() - 1) }, st.box));
       OV.strips.set(s.name, st);
     }
-    if (tr.nextElementSibling !== st.tr) tr.after(st.tr);
-    tr.classList.add('has-strip');
-    prev = st.tr;
+    if (rows) {
+      if (tr.nextElementSibling !== st.tr) tr.after(st.tr);
+      tr.classList.add('has-strip');
+      prev = st.tr;
+    } else {
+      const td = tr.querySelector('td.ov-sess');
+      if (td && st.box.parentNode !== td) td.replaceChildren(st.box);
+    }
     st.phase = s.phase;
     st.busy = !!s.busy || opRunningFor(s.name);
     const keep = new Set(sessions.map((x) => x.name));
@@ -156,14 +187,19 @@ function patchRows(list) {
       if (!th) {
         th = thumbFrame('Open ' + x.name, () => { location.hash = '#/sandbox/' + s.name + '/' + x.name; }, false);
         th.session = x.name;
-        th.wrap = h('div', { class: 'ov-th', role: 'listitem', 'data-ov-thumb': x.name }, th.el,
-          h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, icon('terminal'), h('span', null, x.name)));
+        const t = th;
+        hoverPeek(th.el, s.name, () => t.row);
+        th.wrap = rows
+          ? h('div', { class: 'ov-th', role: 'listitem', 'data-ov-thumb': x.name }, th.el,
+            h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, icon('terminal'), h('span', null, x.name)))
+          : h('div', { class: 'ov-tile', role: 'listitem', 'data-ov-thumb': x.name }, th.el);
         st.thumbs.set(x.name, th);
         st.box.append(th.wrap);
         io().observe(th.el);
       }
       th.row = x;
     }
+    if (!rows) layoutGrid(st, st.thumbs.size);
   }
   schedule();
 }
@@ -178,7 +214,8 @@ function dropStrip(name) {
   const st = OV.strips.get(name);
   if (!st) return;
   for (const th of st.thumbs.values()) { dropThumbTerm(th.term); io().unobserve(th.el); }
-  st.tr.remove();
+  if (st.tr) st.tr.remove();
+  else if (st.box.parentNode) st.box.parentNode.replaceChildren(h('span', { class: 'muted' }, '—'));
   OV.strips.delete(name);
   const tr = OV.tbody && OV.tbody.querySelector('tr[data-sandbox-row="' + CSS.escape(name) + '"]');
   if (tr) tr.classList.remove('has-strip');

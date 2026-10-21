@@ -40,6 +40,20 @@ export function peekIcon(row, sandbox, x) {
   return b;
 }
 
+/// 642 (owner): the same picture from a session's thumbnail elsewhere (All sandboxes): resting on `el` opens it beside
+/// it; moving to another thumbnail while it is open shows that one's at once; leaving closes it. `getX`: the session row.
+export function hoverPeek(el, sandbox, getX) {
+  el.addEventListener('pointerenter', () => {
+    cancelHide();
+    if (peek.pop && !peek.pop.hidden) { show(sandbox, getX(), el); return; }
+    disarm();
+    peek.armKey = keyOf(sandbox, getX().name); peek.armAt = performance.now();
+    peek.armTimer = setTimeout(() => { disarm(); if (el.isConnected) show(sandbox, getX(), el); }, ARM_MS);
+  });
+  el.addEventListener('pointerleave', () => { disarm(); scheduleHide(); });
+  el.addEventListener('click', () => { disarm(); hidePeek(); });
+}
+
 /// The sidebar's session lists: leaving them closes the picture (after a moment — the way to the picture crosses a gap).
 export function peekRegion(el) {
   el.addEventListener('pointerleave', () => { disarm(); scheduleHide(); });
@@ -86,9 +100,11 @@ function show(sandbox, x, row) {
     : document.querySelector('#nav-sandboxes [data-nav-sbx="' + CSS.escape(sandbox) + '"] a.nav-sess[data-session="' + CSS.escape(x.name) + '"]')
       || document.querySelector('#nav-sandboxes');
   const r = now.getBoundingClientRect();
-  const side = document.querySelector('.side');
-  const left = (side ? side.getBoundingClientRect().right : r.right) + 8;
-  const ph = pop.offsetHeight;
+  // Beside the sidebar for its lines; beside the thumbnail elsewhere (on its left when the right has no room).
+  const side = now.closest('.side') ? document.querySelector('.side') : null;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = (side ? side.getBoundingClientRect().right : r.right) + 8;
+  if (!side && left + pw > innerWidth - 8) left = Math.max(8, r.left - pw - 8);
   pop.style.left = Math.round(left) + 'px';
   pop.style.top = Math.round(Math.max(8, Math.min(r.top + r.height / 2 - ph / 2, innerHeight - ph - 8))) + 'px';
 }
