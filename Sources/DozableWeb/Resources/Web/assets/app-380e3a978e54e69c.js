@@ -67,7 +67,7 @@ import { viewMetrics } from './app/views/metrics-a9f750efffb7b104.js';
 import { newSandboxWizard, viewNew } from './app/views/new-sandbox-95f49540fbf57855.js';
 import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-7cbca3046bdc6820.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-4aa56f6d93d31c08.js';
-import { viewOverview } from './app/views/overview-7e3d30668bab1135.js';
+import { viewOverview } from './app/views/overview-f5caf3c8109847ab.js';
 import { viewResources } from './app/views/resources-6ed10c94c39e7127.js';
 import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-e5653c6c3145ea37.js';
 import './app/views/sandbox-dialogs-0539204c1221e451.js';
