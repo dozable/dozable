@@ -22,7 +22,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
 // stay as they are). A deep link opens the modal over Sandboxes.
 export const MODAL_VIEWS = new Set(['new', 'onboarding', 'try']);
 export function route() {
-  // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab — the sidebar's "N more — Home".
+  // 635: `~home` (no session name can hold a ~) selects a sandbox page's Home tab — the sidebar's sandbox line (642).
   const m = /^#\/([a-z]+)(?:\/([a-z0-9-]{1,40})(?:\/(~home|[A-Za-z0-9_-][A-Za-z0-9._-]{0,63}))?)?$/.exec(location.hash);
   if (m && m[1] === 'terminals') { location.replace('#/sessions'); return; }      // 591's name for the grid's place
   const v = m ? m[1] : 'overview';

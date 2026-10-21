@@ -1,13 +1,13 @@
 // components/host — The host (594 W18): the sidebar's foot, Start/Restart host, the host's transitions told once.
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
-import { liveRefresh } from '../core/events-f9fc3296c6967e51.js';
+import { liveRefresh } from '../core/events-88bdf7eaed539ded.js';
 import { plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow } from '../core/operations-ff189ebd5e81fa10.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { card } from './blocks-53c969feeec8fe89.js';
 import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { dialog } from './dialog-756ae9b4e276284d.js';
-import { refreshNav } from './nav-396ce4a910dbf783.js';
+import { refreshNav } from './nav-ebce643f2f1416b7.js';
 import { banner, dropBanner } from './notices-f6630ec2e36e2d1c.js';
 
 function sandboxLinks(names) {

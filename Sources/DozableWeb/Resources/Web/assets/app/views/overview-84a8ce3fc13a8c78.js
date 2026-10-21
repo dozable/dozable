@@ -6,13 +6,13 @@ import { bytes, mib } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { card, meter, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
-import { hostCard } from '../components/host-edfb6198df82d248.js';
+import { hostCard } from '../components/host-697a2b186aeaf931.js';
 import { rowLifecycle } from '../components/lifecycle-eed34c088324ed4f.js';
-import { renderNavSandboxes } from '../components/nav-396ce4a910dbf783.js';
+import { renderNavSandboxes } from '../components/nav-ebce643f2f1416b7.js';
 import { sandboxPill } from '../components/pills-adc6d8fb09939989.js';
 import { quickAddButton } from '../components/quick-add-74c24f0d9bbce8d0.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-ac0ab2d6ed9fcdbc.js';
-import { newSandboxWizard } from './new-sandbox-c984ff8a2bb656a8.js';
+import { newSandboxWizard } from './new-sandbox-6627459fb74cf980.js';
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {

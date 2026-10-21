@@ -1,13 +1,13 @@
 // components/modal — The wizards' modal (603): a real dialog over the page under it.
 import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { $, h } from '../dom/h-d909ae8eb40113fe.js';
-import { MODAL_VIEWS } from '../core/router-54c34db03c1f68ec.js';
+import { MODAL_VIEWS } from '../core/router-649c6f7118f85118.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { WIZ } from '../core/wizards-b989b43058be9b08.js';
 import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { callout } from './callout-1fe929a7376b7fbc.js';
 import { dialog } from './dialog-756ae9b4e276284d.js';
-import { paintNav } from './nav-396ce4a910dbf783.js';
+import { paintNav } from './nav-ebce643f2f1416b7.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), viewTry = upcall('viewTry'),
   wizardStopPolling = upcall('wizardStopPolling');

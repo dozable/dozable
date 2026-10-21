@@ -2,7 +2,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
-import { refresh } from '../core/router-54c34db03c1f68ec.js';
+import { refresh } from '../core/router-649c6f7118f85118.js';
 import { adoptSettings, resetSetting, saveSetting } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { isInt } from '../core/util-1195caf40612902f.js';

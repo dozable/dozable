@@ -4,7 +4,7 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, withIcon } from '../dom/icons-b4259996eee60e3d.js';
 import { bytes, clock } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow } from '../core/operations-ff189ebd5e81fa10.js';
-import { refresh } from '../core/router-54c34db03c1f68ec.js';
+import { refresh } from '../core/router-649c6f7118f85118.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';

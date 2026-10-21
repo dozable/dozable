@@ -16,7 +16,7 @@ import { icon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow } from '../core/operations-ff189ebd5e81fa10.js';
-import { refresh } from '../core/router-54c34db03c1f68ec.js';
+import { refresh } from '../core/router-649c6f7118f85118.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { accountDialog } from '../components/accounts-ac225e9a73cb8134.js';

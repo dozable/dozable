@@ -186,7 +186,7 @@ async function sandboxArrived(name, want) {
   const live = (s.d.sessions || []).filter((x) => !x.ended).map((x) => x.name);
   // 593 §9 (S1): the panes the host kept for this sandbox, the first time this page shows it.
   if (!mine.length) await restorePanes(name);
-  // 635: the sidebar's "N more — Home" (#/sandbox/NAME/~home): Home, whatever else is open.
+  // 635, 642: the sidebar's sandbox line (#/sandbox/NAME/~home): Home, whatever else is open.
   if (want === '~home') {
     const v = sview(name), home = pageTerminals(name).find((t) => t.home);
     if (home) { v.selected[0] = home.id; v.focusedPane = 0; }

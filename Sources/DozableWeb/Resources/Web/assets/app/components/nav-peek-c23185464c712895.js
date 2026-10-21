@@ -1,7 +1,7 @@
 // components/nav-peek — 635 (owner): a session's picture from the sidebar. Hovering a session's line shows a screen icon;
 // resting on the icon fills it for half a second, then the session's live picture (or, asleep, its saved screen) opens
 // beside the sidebar. While it is open, moving to another session's line shows that one's picture at once; leaving the
-// sidebar's sessions closes it. ui.nav_thumbnails: false — no icon, no picture. One watch terminal at most (a viewer:
+// sidebar's sessions closes it; a click on the icon opens the session (642). ui.nav_thumbnails: false — no icon, no picture. One watch terminal at most (a viewer:
 // nothing typed, never a resize).
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon } from '../dom/icons-b4259996eee60e3d.js';
@@ -21,7 +21,7 @@ export function canPeek(phase, x) {
 export function peekIcon(row, sandbox, x) {
   const key = keyOf(sandbox, x.name);
   const b = h('button', { type: 'button', class: 'nav-peek', tabindex: '-1', 'aria-hidden': 'true', 'data-nav-peek': x.name,
-    title: 'Rest here to see ' + x.name + '’s screen' }, icon('monitor'));
+    title: 'Open ' + x.name + ' — rest here to see its screen' }, icon('monitor'));
   // A line drawn again under a pointer still arming (the sidebar refreshes) carries on where it was.
   if (peek.armKey === key) { b.classList.add('arming'); b.style.setProperty('--arm-delay', -(performance.now() - peek.armAt) + 'ms'); }
   b.addEventListener('pointerenter', () => {
@@ -34,7 +34,8 @@ export function peekIcon(row, sandbox, x) {
     peek.armTimer = setTimeout(() => { disarm(); show(sandbox, x, b.closest('.nav-sess-row') || row); }, ARM_MS);
   });
   b.addEventListener('pointerleave', () => { if (peek.armKey === key) disarm(); });
-  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); show(sandbox, x, b.closest('.nav-sess-row') || row); });
+  // 642 (owner): a click opens the session, as its name does (resting still shows the picture).
+  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); hidePeek(); location.hash = '#/sandbox/' + sandbox + '/' + x.name; });
   row.addEventListener('pointerenter', () => { cancelHide(); if (peek.pop && !peek.pop.hidden && peek.key !== key) show(sandbox, x, row); });
   return b;
 }

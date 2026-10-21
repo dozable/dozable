@@ -510,13 +510,14 @@ name: todo-app</pre></details>
 <section>
   <h2>The sidebar’s sessions</h2>
   <p>Under each sandbox in the sidebar (<code>components/nav.js</code>), its sessions — from the host’s registry in the overview, never a guest call: a line each
-    (<code>a.nav-sess</code>: the terminal icon, the session’s name, what its agent says), the agent’s first, then by when opened — nothing moves. At most four lines; past that,
-    three and “N more — Home”. The session the page shows is marked (accent edge); a sleeping sandbox’s are its saved screens (italic). On hover, ⋯ has Restart session and
+    (<code>a.nav-sess</code>: the terminal icon, the session’s name, what its agent says), every one (642), in the order of the tabs on the sandbox’s page, then the rest
+    (the agent’s first, then by when opened). The sandbox’s own line opens its Home; the Sandboxes heading’s ⋯ (<code>.nav-sbx-more</code>) has Expand all and Collapse
+    all. The session the page shows is marked (accent edge); a sleeping sandbox’s are its saved screens (italic). On hover, ⋯ has Restart session and
     End session (a running sandbox only). The caret (<code>.nav-caret</code>) folds a sandbox to one line with its session count (<code>.nav-count</code>) — remembered in this
     browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.
     635 (owner): on hover a session line also shows a <strong>screen icon</strong> (<code>.nav-peek</code>, <code>monitor</code>); resting on it fills its underline for half a second
     (<code>.arming</code>), then the session’s live picture opens beside the sidebar (<code>.nav-peek-pop</code>, 384 × 224; asleep, its saved screen). While it is open, another session’s
-    line shows its picture at once; leaving the sessions closes it. <code>ui.nav_thumbnails</code> false: no icon, no picture.</p>
+    line shows its picture at once; leaving the sessions closes it; a click on the icon opens the session (642). <code>ui.nav_thumbnails</code> false: no icon, no picture.</p>
   <div class="pair"><div class="scheme">
     <div class="nav-children" style="width:200px">
       <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
@@ -525,7 +526,7 @@ name: todo-app</pre></details>
           <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></a></div>
           <div class="nav-sess-row"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>
           <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div>
-          <div class="nav-sess-row"><a class="nav-sess more" href="#">2 more — Home</a></div>
+          <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">shell-3</span></a></div>
         </div></div>
       <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">api-tests</span><span class="nav-count">2</span></a>
         <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button>
