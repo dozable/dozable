@@ -30,7 +30,8 @@ const OV = { root: null, top: null, listHead: null, bulk: null, thead: null, tbo
 /// 642 (owner): the sandboxes ticked in the left margin, for the bulk controls (this page only).
 const SEL = new Set();
 /// At most this many live pictures (and never past ui.grid_live_tiles), never past SOCKET_CEILING of the UI's 16 sockets.
-const LIVE_MAX = 8, SAVED_MAX = 16, SOCKET_CEILING = 12;
+/// Past the live cap a running session shows its last captured screen (no socket) — up to SAVED_MAX pictures in all.
+const LIVE_MAX = 8, SAVED_MAX = 48, SOCKET_CEILING = 12;
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {
@@ -244,23 +245,26 @@ function placeThumbs() {
   if (!on) { if (!OV.root || !OV.root.isConnected) dropStrips(); return; }
   const cap = liveCap(LIVE_MAX);
   let live = all.filter(([, th]) => th.term && th.kind === 'live').length;
-  let savedN = all.filter(([, th]) => th.term && th.kind === 'saved').length;
+  let savedN = all.filter(([, th]) => th.term && th.kind !== 'live').length;
   for (const [st, th] of all) {
     const w = want(st, th);
     let plate = '';
     if (!w) plate = 'no picture';
     else if (!th.visible) plate = '';
     else if (w === 'live') {
-      if (th.term && th.kind === 'saved') { thumbGoLive(th.term); th.kind = 'live'; live++; }
+      const room = live < cap && openSockets() < SOCKET_CEILING;
+      if (th.term && th.kind !== 'live' && room) { thumbGoLive(th.term); th.kind = 'live'; live++; }
       else if (!th.term) {
-        if (live < cap && openSockets() < SOCKET_CEILING) { th.term = thumbTerm(st.name, th.session, null, th.screen); th.kind = 'live'; live++; }
+        if (room) { th.term = thumbTerm(st.name, th.session, null, th.screen); th.kind = 'live'; live++; }
+        // Past the live cap: its last captured screen (host.screen_capture_minutes — no socket), live once there is room.
+        else if (savedN < SAVED_MAX) { th.term = thumbTerm(st.name, th.session, { savedAt: th.row.savedAt || null, savedReason: 'periodic' }, th.screen); th.kind = 'still'; savedN++; }
         else plate = 'Not live — Open';
       }
     } else if (w === 'saved' && !th.term) {
       if (savedN < SAVED_MAX) { th.term = thumbTerm(st.name, th.session, th.row, th.screen); th.kind = 'saved'; savedN++; }
       else plate = 'Show';
     }
-    paintThumb(th, th.term ? th.kind : null, plate);
+    paintThumb(th, th.term ? (th.kind === 'still' ? 'saved' : th.kind) : null, plate);
   }
 }
 // Leaving the page (or hiding the tab) lets every picture go.
