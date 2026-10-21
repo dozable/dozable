@@ -28,7 +28,7 @@ import { icon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-0560a03cb0de25ef.js';
 import { full, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow, waitOp } from '../core/operations-1789b4518e764708.js';
-import { refresh } from '../core/router-c1ad2163f2988945.js';
+import { refresh } from '../core/router-02a6e4601934e1fc.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { accountProblems, isFailing, isLogin, loginDown, needsNoKey, providerOf } from '../components/account-problems-c568a10734e5fa81.js';
@@ -37,7 +37,7 @@ import { btn as baseBtn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { callout } from '../components/callout-1fe929a7376b7fbc.js';
 import { confirmAction } from '../components/dialog-a776616f1988c401.js';
 import { moreMenu } from '../components/menus-5554adcb670bde92.js';
-import { paintAccountsBadge } from '../components/nav-d12711738ac1737b.js';
+import { paintAccountsBadge } from '../components/nav-121a8de4182c2aa1.js';
 import { toast } from '../components/notices-63d38bfc28f739a5.js';
 
 /// The one button family, with data-* hooks for the probes (opts.data).

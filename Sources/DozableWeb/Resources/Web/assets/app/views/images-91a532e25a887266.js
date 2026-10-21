@@ -5,7 +5,7 @@ import { api } from '../core/api-0560a03cb0de25ef.js';
 import { bytes, full, pct, when } from '../core/format-b2e68384da8d2f36.js';
 import { measured, remeasure } from '../core/measure-22495ecc7d657367.js';
 import { act, actOrThrow } from '../core/operations-1789b4518e764708.js';
-import { refresh } from '../core/router-c1ad2163f2988945.js';
+import { refresh } from '../core/router-02a6e4601934e1fc.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { panel, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';

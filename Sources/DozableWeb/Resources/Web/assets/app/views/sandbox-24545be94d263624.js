@@ -23,10 +23,10 @@ import { sandboxPill } from '../components/pills-1933ab2043ab468f.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-78d4c0cd71da822f.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-063824534dc5bd7d.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-0539204c1221e451.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-4da46f3341d9366f.js';
-import { networkPanel } from './sandbox-network-b4dd1a3dc58201c4.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-b31fa99555913f4f.js';
-import { paintHome } from './sandbox-home-7ea1cc66d9024ea7.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-00e6c396951a47b6.js';
+import { networkPanel } from './sandbox-network-809179e21f42afd9.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-c775b28b0ed282f2.js';
+import { paintHome } from './sandbox-home-77018165e9dcd060.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -186,7 +186,7 @@ async function sandboxArrived(name, want) {
   const live = (s.d.sessions || []).filter((x) => !x.ended).map((x) => x.name);
   // 593 §9 (S1): the panes the host kept for this sandbox, the first time this page shows it.
   if (!mine.length) await restorePanes(name);
-  // 635: the sidebar's "N more — Home" (#/sandbox/NAME/~home): Home, whatever else is open.
+  // 635, 642: the sidebar's sandbox line (#/sandbox/NAME/~home): Home, whatever else is open.
   if (want === '~home') {
     const v = sview(name), home = pageTerminals(name).find((t) => t.home);
     if (home) { v.selected[0] = home.id; v.focusedPane = 0; }

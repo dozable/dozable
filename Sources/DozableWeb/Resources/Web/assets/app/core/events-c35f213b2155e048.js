@@ -3,7 +3,7 @@ import { upcall } from './hooks-a4b871a481b363cd.js';
 import { api } from './api-0560a03cb0de25ef.js';
 import { adoptOperations, loadPreparations, trackOp } from './operations-1789b4518e764708.js';
 import { buildUiOverlay, checkBuild, movedAway, uiBack, uiLost } from './reconnect-cdaad179553cd212.js';
-import { refresh, route } from './router-c1ad2163f2988945.js';
+import { refresh, route } from './router-02a6e4601934e1fc.js';
 import { setLive, signedOut } from './session-40bbbfc9960e365d.js';
 import { state } from './state-dde742b9b2d6390c.js';
 // Calls up the layers (provided by app.js — core/hooks.js):

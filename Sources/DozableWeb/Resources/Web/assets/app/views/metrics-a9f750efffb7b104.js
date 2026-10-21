@@ -3,7 +3,7 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { withIcon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-0560a03cb0de25ef.js';
 import { ms } from '../core/format-b2e68384da8d2f36.js';
-import { refresh } from '../core/router-c1ad2163f2988945.js';
+import { refresh } from '../core/router-02a6e4601934e1fc.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { card, panel, table } from '../components/blocks-53c969feeec8fe89.js';
 
