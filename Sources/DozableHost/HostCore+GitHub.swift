@@ -125,7 +125,11 @@ extension HostCore {
             egress.github = GitHubGate(mode: mode, sandbox: name)
             egress.githubUpstreamForTests = GitHubLogin.testUpstream(environment: env)
             let id = GitHubLogin.macIdentity(environment: env)
-            m.sandbox.setGitSetup(GitGuestSetup(on: true, name: id.name, email: id.email))
+            // 635 (owner: turned on push, and the agent's push still asked for a username): the sandbox's own
+            // placeholder for git's helper — kept while it stays live, a new one otherwise.
+            let gh = CredentialBinding.github.id
+            let ph = m.sandbox.gitSetup.placeholder.flatMap { egress.vault.holds($0, for: gh) ? $0 : nil } ?? egress.vault.mint(gh)
+            m.sandbox.setGitSetup(GitGuestSetup(on: true, name: id.name, email: id.email, placeholder: ph))
         } else {
             egress.vault.remove(CredentialBinding.github.id)          // every placeholder issued for it is now refused
             egress.github = nil

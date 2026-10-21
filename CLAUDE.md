@@ -1463,7 +1463,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The guest half is in `guestFixes`** (boot AND wake): `git-credential-doz` (stamp `doz:git-credential:vN` — bump
   on any change; it answers ONLY a `doz_cred_` placeholder, ONLY for https://github.com), `/etc/doz/gitconfig`
   (helper + the Mac's identity, or a comment when off) included once from `/etc/gitconfig`, and the SSH agent.
-  `Sandbox.applyGitHubToGuest` applies them to a running guest.
+  `Sandbox.applyGitHubToGuest` applies them to a running guest. 635 (owner: push turned on mid-session, the agent's
+  push still asked for a username — its session had no `GH_TOKEN`): `GitGuestSetup.placeholder` is the sandbox's own
+  placeholder (minted once, kept while `vault.holds` it), written to `/etc/doz/github-placeholder` while on (removed
+  when off); helper v3 reads it first, then `$GH_TOKEN`. `gh` in an older session still lacks `GH_TOKEN` (a new
+  session has it).
 - **SSH agent (G4)**: `SSHAgentRelay` (host vsock 5801 → the Mac's agent socket) only while `sandbox.ssh_agent`
   is on; it FILTERS the guest's requests (`allowed`: list 11, sign 13, the session-bind extension 27 — anything
   else, e.g. add/remove/lock, is answered SSH_AGENT_FAILURE and never reaches the Mac's agent); `doznet agent` (guest, `/run/doz/ssh-agent.sock`) — started after doznet is copied at a fresh boot,

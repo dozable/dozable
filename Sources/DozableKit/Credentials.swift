@@ -407,6 +407,12 @@ public final class CredentialVault: @unchecked Sendable {
         return token
     }
 
+    /// 635: whether `token` is a live placeholder of binding `id` (one issued and not revoked).
+    public func holds(_ token: String, for id: String) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        return placeholders[token] == id
+    }
+
     /// The environment a session gets: one fresh placeholder per binding that names a variable,
     /// plus each binding's non-secret session variables.
     public func sessionEnvironment() -> [String: String] {
