@@ -11,7 +11,7 @@ import { meter, pageIndex, panel, table } from '../components/blocks-53c969feeec
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { dialog } from '../components/dialog-756ae9b4e276284d.js';
 import { pageFailure, toast } from '../components/notices-f6630ec2e36e2d1c.js';
-import { phasePill } from '../components/pills-aaa567931eb8dacd.js';
+import { phasePill } from '../components/pills-88975a57c9381eb5.js';
 
 // ── 595: Resources ──────────────────────────────────────────────────────────
 // Owner (2026-09-30): "the Resources section should break down ALL the usage". An ACCOUNT first: every

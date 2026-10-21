@@ -566,6 +566,12 @@ async function loadSavedScreen(t) {
   }
   if (t.closed || !t.saved) return;
   if (!t.bootlog && !t.buildlog) t.saved = { ...t.saved, savedAt: s.savedAt, reason: s.reason };
+  // 635 (owner: "the top is chopped off the terminal thumbnail"): a thumbnail draws a saved screen at the size it was
+  // saved at, scaled — laid out at its own (fewer rows), the screen's first lines scrolled out of sight.
+  if (t.grid && Number.isInteger(s.cols) && Number.isInteger(s.rows) && s.cols > 1 && s.rows > 0) {
+    t.sessionCols = s.cols; t.sessionRows = s.rows;
+    toFrame(t, { t: 'size', cols: Math.min(1000, s.cols), rows: Math.min(500, s.rows) });
+  }
   const bin = atob(s.vt);
   const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);

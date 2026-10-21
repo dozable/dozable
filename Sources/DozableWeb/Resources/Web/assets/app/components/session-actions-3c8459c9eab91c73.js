@@ -6,7 +6,7 @@ import { state } from '../core/state-1378d79c750c8380.js';
 import { terminals } from '../core/terminals-e2028f16ee8fa887.js';
 import { actOrThrow, waitForOp } from '../core/operations-ff189ebd5e81fa10.js';
 import { dialog } from './dialog-756ae9b4e276284d.js';
-import { keepScrollback, paintCover, reattachTerminals } from './terminal-6a5b3921f74dfd7b.js';
+import { keepScrollback, paintCover, reattachTerminals } from './terminal-6a8bfac660ca01cc.js';
 import { failureFor } from './notices-f6630ec2e36e2d1c.js';
 
 const AGENT_SESSIONS = { claude: 'Claude Code', codex: 'Codex', pi: 'pi' };

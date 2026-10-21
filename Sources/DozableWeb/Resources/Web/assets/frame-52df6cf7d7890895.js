@@ -46,12 +46,14 @@ let fit = null;
 let pendingSize = null;
 let fixed = null;
 
-/// 635: a WATCH is laid out at its session's size (cols × rows, from the page) and scaled to fit this frame — never
+/// 635: a WATCH (and a thumbnail's saved screen) is laid out at its session's size (cols × rows, from the page) and scaled to fit this frame — never
 /// fitted to the frame: laid out smaller than the session, a program's full-screen redraws scrolled.
 function sessionSize(cols, rows) {
   if (!term) { pendingSize = { cols, rows }; return; }
   if (!fixed) {
     quietly(() => fit.dispose());                    // the frame's own size no longer decides the grid
+    const host = document.getElementById('term');
+    if (host) host.style.inset = '0';                // the whole frame, so the picture is centred in it
     new ResizeObserver(scaleToFit).observe(document.documentElement);
   }
   fixed = { cols, rows };
@@ -68,8 +70,10 @@ function scaleToFit() {
   const hw = host.clientWidth, hh = host.clientHeight;
   if (!w || !h || !hw || !hh) return;
   const s = Math.min(hw / w, hh / h);
+  // Centred in the frame (owner): the spare width or height split on both sides.
+  const x = Math.max(0, (hw - w * s) / 2), y = Math.max(0, (hh - h * s) / 2);
   canvas.style.transformOrigin = '0 0';
-  canvas.style.transform = 'scale(' + s + ')';
+  canvas.style.transform = 'translate(' + x + 'px, ' + y + 'px) scale(' + s + ')';
 }
 
 window.open = function refuseToOpen() { return null; };
@@ -282,7 +286,7 @@ function valid(m) {
     case 'write': return !!term && m.data instanceof ArrayBuffer && m.data.byteLength <= MAX_WRITE && Object.keys(m).length === 2;
     case 'paste': return !!term && typeof m.text === 'string' && m.text.length <= MAX_PASTE && Object.keys(m).length === 2;
     case 'focus': case 'keep-scrollback': case 'top': return !!term && Object.keys(m).length === 1;
-    case 'size': return mode === 'watch' && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
+    case 'size': return (mode === 'watch' || mode === 'saved') && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
                         && Number.isInteger(m.rows) && m.rows >= 1 && m.rows <= 500 && Object.keys(m).length === 3;
     default: return false;
   }
