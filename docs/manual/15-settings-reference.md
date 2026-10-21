@@ -12,9 +12,9 @@ same file.
 
 For each setting, the first of these that says something wins:
 
-1. **a command-line flag** (for the few settings that have one — `--store`, `--progress`,
+1. **a command-line flag** (for the few settings that have one — `--store`, `--progress`, `--color`/`--no-color`,
    `doz create --cpus`, …);
-2. **its environment variable** (`DOZ_STORE`, `DOZ_PROGRESS`, `DOZ_HOST_IDLE`, `DOZ_SCREEN_CAPTURE`,
+2. **its environment variable** (`DOZ_STORE`, `DOZ_PROGRESS`, `DOZ_COLOR`, `DOZ_HOST_IDLE`, `DOZ_SCREEN_CAPTURE`,
    `DOZ_BOOT_LOGS`, `DOZ_SUBNET`, `DOZ_KERNEL`, `DOZ_KERNEL_CACHE`);
 3. **the file**;
 4. **the default**.
@@ -99,6 +99,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `ui.grid_live_tiles` | `8` | integer 1–12 | at once | — | All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this. |
 | `ui.grid_tile_size` | `medium` | small \| medium \| large | at once | — | All sessions: the size of a tile. |
 | `ui.progress` | `animated` | animated \| plain | at once | `$DOZ_PROGRESS`, `--progress auto\|plain` | How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a terminal: animated (a spinner on the step under way, download bars, the output's last lines) or plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR: always plain. |
+| `ui.color` | `auto` | auto \| always \| never | at once | `$DOZ_COLOR`, `--color auto\|always\|never, --no-color` | Colour in the CLI's output: auto (on a terminal, unless NO_COLOR is set, TERM is dumb, or with --json or -q), always (even into a pipe or a file), never (plain text; the layout and the symbols stay the same). The dashboard has its own theme (ui.theme). |
 
 ### `[serve]`
 
@@ -697,10 +698,11 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|
 | `DOZ_STORE` | `store.path` | the store folder |
 | `DOZ_PROGRESS` | `ui.progress` | `animated` or `plain` progress |
+| `DOZ_COLOR` | `ui.color` | `auto`, `always` or `never` colour in the CLI |
 | `DOZ_HOST_IDLE` | `host.idle_timeout_minutes` | host idle timeout, minutes (fractions allowed) |
 | `DOZ_SCREEN_CAPTURE` | `host.screen_capture_minutes` | how often screens are saved |
 | `DOZ_BOOT_LOGS` | `host.boot_logs_kept` | boots kept per sandbox |
 | `DOZ_SUBNET` | `defaults.nat_subnet` | subnet of a new `nat` sandbox |
 | `DOZ_KERNEL` · `DOZ_KERNEL_CACHE` | `kernel.path` · `kernel.cache` | an explicit kernel · a shared kernel cache |
 | `XDG_CONFIG_HOME` | — | where `doz/doz.toml` is (default `~/.config`) |
-| `NO_COLOR` | — | plain progress, no colours |
+| `NO_COLOR` | — | no colour and plain progress, unless `--color always` (or `ui.color = "always"`) asks for it |
