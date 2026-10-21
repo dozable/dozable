@@ -17,14 +17,14 @@ import { ACCESS_TITLES, renderAccessStep } from '../components/access-step-960e1
 import { baseFraction, basePrep, baseStrip, stripPhase } from '../components/base-strip-198c532a58afaecf.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { callout } from '../components/callout-1fe929a7376b7fbc.js';
-import { wizHead, wizMount } from '../components/modal-d3ddd0c28271c374.js';
+import { wizHead, wizMount } from '../components/modal-e54acca13b808c72.js';
 import { haveList, keyPill } from '../components/model-source-4c79a17f486f0bbe.js';
-import { refreshNav } from '../components/nav-ebce643f2f1416b7.js';
+import { refreshNav } from '../components/nav-ad310570f0801d8c.js';
 import { pageFailure, toast } from '../components/notices-f6630ec2e36e2d1c.js';
 import { rulesStep } from '../components/rules-step-44f31e5fa9a8b8ad.js';
 import { stepperNode } from '../components/stepper-633627cca0db123f.js';
 import { renderOps } from './operations-b5c11841ca536b78.js';
-import { startQuickMade } from './quick-make-875d01d9e54750e7.js';
+import { startQuickMade } from './quick-make-4ed382afa50433f3.js';
 
 // The First sandbox's tools (the four published coding agents), in this order; a family by its recommended major.
 const FIRST_TOOLS = ['claude-code', 'pi', 'opencode', 'codex'];

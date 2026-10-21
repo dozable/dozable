@@ -47,10 +47,11 @@ export function renderNavSandboxes() {
     const sessions = inTabOrder(s.name, s.sessionList || []);
     const total = sessions.length + (s.sessionMore || 0);
     const fold = total > 0 && folded.has(s.name);
-    // 642 (owner): the sandbox's line opens its Home.
+    // 642 (owner): the sandbox's line opens its Home; a click on it while its Home is shown folds or shows its sessions.
     const link = h('a', { href: '#/sandbox/' + s.name + '/~home', class: 'nav-child child' + (here && !shownSession(s.name) ? ' active' : ''), 'aria-current': here ? 'page' : null,
-      'data-sandbox': s.name, title: s.name + ' — ' + s.phaseLabel },
-      h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel }), h('span', { class: 'nav-name' }, s.name),
+      'data-sandbox': s.name, title: s.name + ' — ' + s.phaseLabel,
+      on: { click: (ev) => { if (total > 0 && ev.currentTarget.classList.contains('active')) { ev.preventDefault(); setFolded(s.name, !fold); renderNavSandboxes(); } } } },
+      phaseGlyph(s), h('span', { class: 'nav-name' }, s.name),
       fold ? h('span', { class: 'nav-count', title: total + ' session' + (total === 1 ? '' : 's') }, String(total)) : null,
       agentDot(s));                                  // 612: its most urgent agent, when one says something
     const caret = total > 0 ? h('button', { type: 'button', class: 'nav-caret' + (fold ? ' folded' : ''), 'data-nav-fold': s.name,
@@ -63,10 +64,17 @@ export function renderNavSandboxes() {
   paintAgentStatuses();                              // 612: the chips on screen, and a notice per change
 }
 
+/// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
+function phaseGlyph(s) {
+  if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');
+    g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel); return g; }
+  return h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel });
+}
+
 // ── 635: a sandbox's sessions in the sidebar ────────────────────────────────────────────────────────────────────────
 /// 642 (owner: "always show all sessions in the order they appear in the tab bar"): every session, those with a tab
 /// on the sandbox's page first, in the tab bar's order, then the rest in the host's (the agent's, then by when opened).
-function inTabOrder(name, sessions) {
+export function inTabOrder(name, sessions) {
   const tabs = [];
   for (const t of pageTerminals(name)) if (!isAux(t) && t.session && !tabs.includes(t.session)) tabs.push(t.session);
   if (!tabs.length) return sessions;

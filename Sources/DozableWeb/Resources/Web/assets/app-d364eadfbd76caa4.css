@@ -1285,30 +1285,30 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
 .nav-size { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-2); }
 .nav-size.bad { color: var(--bad); }
 .nav-size[hidden] { display: none; }
-.nav-children { display: flex; flex-direction: column; gap: 1px; margin: 0 0 2px 12px; }
+/* 642 (owner): no tree lines and no indent — a sandbox's line is as wide as the nav's; its caret sits in the line's left
+   padding, a hibernated sandbox's dot is a crescent moon. */
+.nav-children { display: flex; flex-direction: column; gap: 1px; margin: 0 0 2px; }
 .nav-children:empty { display: none; }
-a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; padding: 0 8px 0 12px; border-radius: var(--r-md); color: var(--ink);
+a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; padding: 0 8px 0 26px; border-radius: var(--r-md); color: var(--ink);
   text-decoration: none; font-size: var(--fs-md); position: relative; min-width: 0; }
-a.nav-child::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 0; width: 1px; background: var(--line); }
+.ph-moon { width: 12px; height: 12px; flex: none; margin: 0 -2px; color: var(--ph); }
 .nav-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* 635 (owner: variant A, collapsible): each sandbox's sessions under it — a third level; its caret folds it to one line
    with its session count (a session that needs you or failed still shows). 642: every session, in the tab bar's order. */
 .nav-sbx { position: relative; display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-.nav-caret { position: absolute; left: -1px; top: 6px; width: 14px; height: 14px; display: grid; place-items: center; padding: 0; border: 0;
-  border-radius: var(--r-xs); background: none; color: var(--ink-2); cursor: pointer; z-index: 1; }
+.nav-caret { position: absolute; left: 3px; top: 3px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); cursor: pointer; z-index: 1; }
 .nav-caret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
 .nav-caret.folded .icon { transform: rotate(-90deg); }
 .nav-caret:hover { color: var(--ink); background: var(--surface-2); }
 a.nav-child .nav-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 a.nav-child .nav-count + .ag-dot { margin-left: 0; }
-.nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 14px; }
+.nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 16px; }
 .nav-sess-row { position: relative; display: flex; align-items: center; min-width: 0; }
 a.nav-sess { display: flex; align-items: center; gap: 7px; flex: 1; height: 24px; padding: 0 28px 0 10px; border-radius: var(--r-sm); color: var(--ink-2);
   text-decoration: none; font-size: var(--fs-sm); position: relative; min-width: 0; }
-a.nav-sess::before { content: ""; position: absolute; left: -2px; top: 0; bottom: 0; width: 1px; background: var(--line); }
 a.nav-sess:hover { background: var(--surface-2); color: var(--ink); }
 a.nav-sess.active { color: var(--ink); background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: var(--fw-medium); }
-a.nav-sess.active::before { background: var(--accent); width: 2px; left: -2.5px; }
 a.nav-sess > .icon { width: 13px; height: 13px; flex: none; }
 a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.nav-sess .ag-chip { margin-left: auto; height: 16px; }
@@ -1506,6 +1506,22 @@ tr.click { cursor: pointer; }
 tr.click:hover td { background: color-mix(in srgb, var(--surface-2) 70%, var(--surface)); }
 a.name { font-weight: var(--fw-medium); color: var(--ink); text-decoration: none; }
 a.name:hover { text-decoration: underline; }
+/* 642 (owner): All sandboxes — a tick per row in the left margin for the bulk controls above the table, and under each
+   sandbox a row of its sessions' pictures (Session thumbnails, on by default). */
+.ov-sel { width: 1%; padding-right: 0; }
+.ov-sel input { margin: 0; vertical-align: middle; }
+.ov-list-head .ov-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; }
+.ov-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
+.ov-bulk .ob-what { font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ov-bulk > .btn.danger { margin-left: auto; }
+tr.has-strip > td { border-bottom: 0; }
+tr.ov-strip > td { padding-top: 0; }
+.ov-strip-box { display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px; }
+.ov-th { display: flex; flex-direction: column; gap: 4px; flex: none; width: 160px; min-width: 0; }
+.ov-th .home-thumb { width: 160px; height: 93px; --s: 0.1667; }
+.ov-th-name { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--ink-2); min-width: 0; }
+.ov-th-name .icon { width: 12px; height: 12px; flex: none; }
+.ov-th-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 td.row-acts-cell { width: 1%; white-space: nowrap; text-align: right; }
 td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
 .trunc { max-width: 22ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
