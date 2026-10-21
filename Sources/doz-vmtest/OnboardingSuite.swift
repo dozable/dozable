@@ -92,8 +92,10 @@ func cliOnboardingSuite(binary: String) async {
     print("cli: onboard — off a terminal it never asks; the settings only when missing")
     var r = a.run(["onboard", "--no-base"], timeout: 120)
     check(r.code == 0 && r.out.contains("Done — this Mac is onboarded (no base prepared yet)"), "onboard --no-base, no terminal, no --yes: completes without asking (exit \(r.code))")
-    // 634: the steps in the new order.
-    let order = ["1. Checks", "2. Base image", "3. Models & keys", "4. Access", "5. Workspace rules", "6. Settings", "Done — this Mac is onboarded"]
+    // 634: the steps in the new order. 637: "Step N of M · Title", in the dashboard setup's words; no colour off a terminal.
+    let order = ["Step 1 of", "· Welcome", "Step 2 of", "· Base image", "Step 3 of", "· Models & keys", "Step 4 of", "· GitHub & SSH",
+                 "Step 5 of", "· Workspace rules", "Step 6 of", "· Settings", "Done — this Mac is onboarded"]
+    check(!r.out.contains("\u{1B}["), "off a terminal: no escape sequences at all")
     let at = order.map { r.out.range(of: $0)?.lowerBound }
     check(at.allSatisfy { $0 != nil } && zip(at, at.dropFirst()).allSatisfy { $0! < $1! }, "the steps in order: \(order.joined(separator: " → "))")
     check((try? String(contentsOf: toml, encoding: .utf8))?.contains("\nimage = \"claude-code\"\n") == true, "doz.toml written, with defaults.image set")

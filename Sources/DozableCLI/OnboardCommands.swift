@@ -3,12 +3,16 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+import DozableTUI
 
 // 594 — `doz onboard` (this Mac, once) and `doz init` (a project folder). Design: workspace
 // changes/594-*/594.01-DESIGN.md, D1–D10. 634 (owner: "focus a single base image"; the setup v2): the steps are
 // Checks → Base image → Models & keys → Access → Workspace rules → Settings → (Usage statistics → Stay in touch) →
 // First sandbox. The base downloads in the host from the Base image step on, while the questions go on; its
 // progress is said only between steps, never under a question.
+// 637: drawn with DozableTUI — "Step N of M · Title" headers in the dashboard wizard's words (Welcome, Base image,
+// Models & keys, GitHub & SSH, Workspace rules, …), status lines, and on a terminal arrow-key questions; colour follows
+// `Terminal` (--no-color, ui.color, NO_COLOR). Same steps, flags, answers, --json and exit codes as before.
 
 /// What `doz onboard --json` prints.
 struct OnboardReport: Encodable {
@@ -85,9 +89,9 @@ struct OnboardingFlow {
         let step = UsageStatsStep.make(official: Usage.isOfficial, settings: DozableSettings.load(environment: env), env: env)
         guard step != nil else { return nil }
         if talk {
-            say("\n\(UsageStatsStep.title)")
-            say("  " + UsageStatsStep.summary)
-            say("  To see exactly what is sent: \(UsageStatsStep.showCommand) · the privacy policy: \(Usage.privacyPage)")
+            header(Self.usageStep, UsageStatsStep.title)
+            say(Note(UsageStatsStep.summary, tone: .plain).render())
+            say(Note("To see exactly what is sent: \(UsageStatsStep.showCommand) · the privacy policy: \(Usage.privacyPage)").render())
             // Shown here: the first-run notice would only repeat it.
             UsageStatsPrompt.markNoticeShown(UsageFiles.current(env))
         }
@@ -107,53 +111,80 @@ struct OnboardingFlow {
     private func stayInTouch() async {
         guard talk else { return }
         guard Usage.isOfficial else {
-            say("\nStay in touch (optional): release news, early access and tips and tricks — sign up at \(Usage.signupPage)")
+            say("\n" + Note("Stay in touch (optional): release news, early access and tips and tricks — sign up at \(Usage.signupPage)").render())
             return
         }
         guard asker.interactive else { return }
-        say("\nStay in touch (optional) — release news, early access, tips and tricks; your email is confirmed first and never linked to the usage statistics")
-        guard asker.yesNo("  Sign up?", default: false) else { say("  skipped — doz signup any time"); return }
+        header(Self.usageStep + 1, "Stay in touch")
+        say(Note("Optional — release news, early access, tips and tricks; your email is confirmed first and never linked to the usage statistics").render())
+        guard asker.yesNo("  Sign up?", default: false) else { status(.info, "skipped — doz signup any time"); return }
         do {
             guard let r = try SignupCommand.ask(asker, email: nil, interests: [], source: "onboarding-cli", g) else { return }
             let result = try await Usage.signup(r)
-            say("  " + SignupCommand.answerLine(result, email: r.email))
+            status(.ok, SignupCommand.answerLine(result, email: r.email))
         } catch {
-            say("  the sign-up did not go through — doz signup tries again, or \(Usage.signupPage)")
+            status(.warn, "the sign-up did not go through — doz signup tries again, or \(Usage.signupPage)")
         }
     }
 
     func say(_ s: String) { if talk { Out.stdout(s + "\n") } }
 
+    /// 637: the steps as the dashboard's setup names them; official builds add Usage statistics and Stay in touch
+    /// before the First sandbox.
+    static var totalSteps: Int { Usage.isOfficial ? 9 : 7 }
+    static let usageStep = 7
+
+    /// "Step N of M · Title", a rule, and the step's lead.
+    func header(_ index: Int, _ title: String, lead: String? = nil) {
+        guard talk else { return }
+        say(StepHeader(index: index, total: Self.totalSteps, title: title).render())
+        if let lead { say(Note(lead).render()) }
+    }
+
+    /// One finding or outcome ("✓ …", "! …", "· …"): wrapped for a person on a terminal; on one line elsewhere, where
+    /// a script (and the VM suites) read the words whole.
+    func status(_ kind: StatusLine.Kind, _ text: String) { say(StatusLine(kind, text, wrap: Terminal.current.interactive).render()) }
+
     func run() async throws -> OnboardReport {
         let store = g.dozableStore
-        say("Dozable — setting up this Mac (once). Store: \(DisplayPath.tilde(store.root.path))\n")
+        say(Style.heading("Dozable — setting up this Mac (once)") + Style.dim(" · store \(DisplayPath.tilde(store.root.path))"))
         let storeBase = DozableSettings.load().string(SettingKey.defaultBase) ?? "node"
         var baseID: String? = noBase ? nil : (baseFlag ?? storeBase)
         func title(_ id: String) -> String { BaseCatalogue.base(id)?.title ?? id }
 
         // 1. Checks (D5): the doctor's, hard ones stop here; the disk line is the base's need.
-        let status = try decode(try await query(HostRequest(.prepareStatus), g), PrepareStatus.self, g)
+        let prep = try decode(try await query(HostRequest(.prepareStatus), g), PrepareStatus.self, g)
         let doctor = Doctor.checks(store: store, claude: keyFlag == nil).map { (check: $0.check, status: $0.status.rawValue, detail: $0.detail) }
-        func basePrepared(_ id: String) -> Bool { status.base?.id == id && status.base?.prepared == true }
+        func basePrepared(_ id: String) -> Bool { prep.base?.id == id && prep.base?.prepared == true }
         let checkBase = BaseCatalogue.base(baseID ?? storeBase) ?? BaseCatalogue.all[0]
         var checks = Onboarding.checks(doctor: doctor, store: store, base: checkBase, prepared: baseID == nil || basePrepared(checkBase.id))
-        say("1. Checks")
+        header(1, "Welcome", lead: "Dozable runs each project in its own small Linux virtual machine on this Mac. First, this Mac:")
         for c in checks { say(Self.checkLine(c)) }
-        if keyFlag != nil { say("  —     claude          not checked (--key given)") }
+        if keyFlag != nil { say(StatusLine(.info, "claude", detail: "not checked (--key given)", column: 15).render()) }
         if let stop = checks.first(where: \.blocks) {
             say("")
             throw fail(HostError(.failed, "onboarding stopped: \(stop.check) — \(stop.detail)"), g)
         }
 
         // 2. Base image: every tool is added to it as a layer — downloaded and prepared in the host from now on.
-        say("\n2. Base image — every tool you try is added to it as a layer, so it is downloaded once")
+        header(2, "Base image", lead: "Every sandbox starts from one base image, and each tool you try is added to it as a layer — so it is downloaded once.")
         if baseFlag == nil, !noBase, asker.interactive, let b = BaseCatalogue.base(storeBase) {
-            var answer = asker.pick("  Use \(b.title) (\(Self.shortReference(b.reference)), ↓ \(DozableImages.formatBytes(b.downloadBytes)))?", ["y", "n", "other"], default: "y")
-            if answer == "other" {
-                for o in BaseCatalogue.all { say("    \(o.id.padding(toLength: 8, withPad: " ", startingAt: 0)) \(o.title) — \(o.useCase) (↓ \(DozableImages.formatBytes(o.downloadBytes)))") }
-                answer = asker.text("  Which base", default: storeBase) { BaseCatalogue.base($0) == nil ? "one of: " + BaseCatalogue.ids.joined(separator: ", ") : nil }
+            if asker.keys {
+                // 637: on a terminal, every base at once (↑/↓), the store's own recommended — or none now.
+                let bases = BaseCatalogue.all
+                let options = bases.map { o in
+                    ChoiceOption("\(o.title) (\(Self.shortReference(o.reference)), ↓ \(DozableImages.formatBytes(o.downloadBytes)))", detail: o.useCase)
+                } + [ChoiceOption("None now", detail: "each tool's first start prepares its own base")]
+                let i = asker.choice("  Which base image?", options, default: bases.firstIndex { $0.id == b.id } ?? 0)
+                baseID = i < bases.count ? bases[i].id : nil
+            } else {
+                var answer = asker.pick("  Use \(b.title) (\(Self.shortReference(b.reference)), ↓ \(DozableImages.formatBytes(b.downloadBytes)))?", ["y", "n", "other"], default: "y")
+                if answer == "other" {
+                    for o in BaseCatalogue.all { say("    \(o.id.padding(toLength: 8, withPad: " ", startingAt: 0)) \(o.title) — \(o.useCase) (↓ \(DozableImages.formatBytes(o.downloadBytes)))") }
+                    answer = asker.text("  Which base", default: storeBase) { BaseCatalogue.base($0) == nil ? "one of: " + BaseCatalogue.ids.joined(separator: ", ") : nil }
+                }
+                baseID = answer == "n" ? nil : (answer == "y" ? storeBase : answer)
             }
-            baseID = answer == "n" ? nil : (answer == "y" ? storeBase : answer)
             if let id = baseID, let b = BaseCatalogue.base(id) {
                 let disk = Onboarding.checks(doctor: [], store: store, base: b, prepared: basePrepared(id))
                 if let stop = disk.first(where: \.blocks) { throw fail(HostError(.failed, "onboarding stopped: \(stop.check) — \(stop.detail)"), g) }
@@ -166,10 +197,10 @@ struct OnboardingFlow {
             r.follow = false
             r.requestedBy = "doz onboard"
             let started = try decode(try call(r, g), PrepareResult.self, g)
-            say(started.preparations.isEmpty ? "  \(title(id)) — ready in this store"
-                                              : "  \(title(id)) — downloading and preparing in the host now; the questions go on (doz onboard --status watches it)")
+            if started.preparations.isEmpty { status(.ok, "\(title(id)) — ready in this store") }
+            else { status(.busy, "\(title(id)) — downloading and preparing in the host now; the questions go on (doz onboard --status watches it)") }
         } else {
-            say("  none now — each tool's first start prepares its own base")
+            status(.info, "none now — each tool's first start prepares its own base")
         }
         // Its progress, said only between steps (once per change).
         var lastBaseLine: String?
@@ -178,28 +209,53 @@ struct OnboardingFlow {
                   let st = try? decode(try await query(HostRequest(.prepareStatus), g), PrepareStatus.self, g) else { return }
             guard let line = Self.baseLine(st, base: id), line != lastBaseLine else { return }
             lastBaseLine = line
-            say("  · " + line)
+            say("\n" + StatusLine(Self.baseLineKind(line), line).render())
         }
 
         // 3. Models & keys (634, owner: "the Open Router key was not accepted"): the sign-ins found on this Mac, then a
         //    key of any published provider or gateway — added exactly as `doz account add` adds one.
         await baseProgress()
-        say("\n3. Models & keys — what the tools talk to")
+        header(3, "Models & keys", lead: "Every tool talks to a model: the sign-ins on this Mac, and your keys. A key stays in this Mac's keychain; a sandbox only ever sees a placeholder.")
         let claudeSignedIn = keyFlag == nil && ClaudeLoginStatus.check(configDir: nil, keychain: macLoginKeychain(), probeBinary: false).state == .signedIn
         let codexState = CodexMacLogin.read(CodexMacLogin.resolveHome()).state
         let codexSignedIn = codexState == .ok || codexState == .expired
         let chatgpt = BuildFlavor.current.chatgptSignIn
-        say(claudeSignedIn ? "  Claude Code: signed in on this Mac — Claude Code sandboxes use that login (nothing is copied; the Mac renews it)"
-                           : "  Claude Code: not signed in on this Mac — an Anthropic key below, or setup-token for a Claude subscription")
-        say(codexSignedIn ? "  Codex: signed in on this Mac — Codex sandboxes use that login (read-only; the Mac's Codex renews it)"
-                          : "  Codex: not signed in on this Mac — an OpenAI key below" + (chatgpt ? ", or chatgpt to sign in with ChatGPT" : ""))
+        status(claudeSignedIn ? .ok : .info,
+               claudeSignedIn ? "Claude Code: signed in on this Mac — Claude Code sandboxes use that login (nothing is copied; the Mac renews it)"
+                              : "Claude Code: not signed in on this Mac — an Anthropic key below, or setup-token for a Claude subscription")
+        status(codexSignedIn ? .ok : .info,
+               codexSignedIn ? "Codex: signed in on this Mac — Codex sandboxes use that login (read-only; the Mac's Codex renews it)"
+                             : "Codex: not signed in on this Mac — an OpenAI key below" + (chatgpt ? ", or chatgpt to sign in with ChatGPT" : ""))
         let rows = (try? decode(try await query(HostRequest(.accountList), g), [AccountRow].self, g)) ?? []
         let kept = rows.filter { $0.kind != AccountKind.mac.rawValue && $0.kind != AccountKind.codexMac.rawValue }
-        if !kept.isEmpty { say("  accounts you have: " + kept.map { "\($0.name) (\(Self.kindTitle($0)))" }.joined(separator: ", ")) }
+        if !kept.isEmpty { status(.ok, "accounts you have: " + kept.map { "\($0.name) (\(Self.kindTitle($0)))" }.joined(separator: ", ")) }
         var added: [String] = [], addedKinds: [AccountKind] = []
         var openaiAdded: String?
         if let k = keyFlag {
             if let n = try addKey(k, name: keyName, claudeSignedIn: claudeSignedIn, taken: Set(rows.map(\.name))) { added.append(n); addedKinds += [Self.keyKind(k)].compactMap { $0 } }
+        } else if asker.interactive && asker.keys {
+            // 637: a choice of every provider and gateway (with the tools each serves), asked again until "No more keys".
+            let choices = Onboarding.keyChoices().filter { !$0.keyless }
+            var ids = choices.map(\.id) + ["setup-token"]
+            var options = choices.map { ChoiceOption("\($0.title)\($0.gateway ? " (a gateway)" : "") key", detail: "for " + $0.tools.joined(separator: ", ")) }
+                + [ChoiceOption("Claude subscription token", detail: "from claude setup-token on this Mac — for Claude Code")]
+            if chatgpt {
+                ids.append("chatgpt")
+                options.append(ChoiceOption("Sign in with ChatGPT", detail: "for Codex — in your browser"))
+            }
+            ids.append("no")
+            while true {
+                let none = ChoiceOption(added.isEmpty && openaiAdded == nil ? "No key now" : "No more keys",
+                                        detail: "a sandbox asks for what its tool needs; doz account add any time")
+                let w = ids[asker.choice(added.isEmpty && openaiAdded == nil ? "  Add a key?" : "  Add another key?", options + [none], default: ids.count - 1)]
+                if w == "no" { break }
+                if w == "chatgpt" {
+                    openaiAdded = try openAIAccountStep(pick: "chatgpt") ?? openaiAdded
+                    continue
+                }
+                let taken = Set(rows.map(\.name)).union(added)
+                if let n = try addKey(w, name: nil, claudeSignedIn: claudeSignedIn, taken: taken) { added.append(n); addedKinds += [Self.keyKind(w)].compactMap { $0 } }
+            }
         } else if asker.interactive {
             let choices = Onboarding.keyChoices().filter { !$0.keyless }
             for c in choices {
@@ -223,14 +279,14 @@ struct OnboardingFlow {
         // 4. Access (599e): GitHub as you, the SSH agent — each a purposeful choice, then each CONFIRMED live; a failure
         //    is skipped (kept, not confirmed), never blocking.
         await baseProgress()
-        say("\n4. Access — what sandboxes may use as you (each is confirmed; nothing is on unless you choose it)")
+        header(4, "GitHub & SSH", lead: "What sandboxes may use as you — nothing is on unless you choose it, and each choice is confirmed live. One that cannot be confirmed can be skipped: setup is never blocked.")
         let haveClaudeKey = rows.contains { $0.kind == AccountKind.apiKey.rawValue || $0.kind == AccountKind.setupToken.rawValue }
             || addedKinds.contains(.apiKey) || addedKinds.contains(.setupToken)
         var step = AccessStep(g: g, asker: asker, talk: talk, githubFlag: githubFlag, sourceFlag: githubSourceFlag, sshFlag: sshFlag)
         step.checkClaude = claudeSignedIn || haveClaudeKey
         if githubKeyStdin { step.githubKey = readGitHubToken(fromStdin: true) }
         let chosenAccess = step.choose()
-        say("  Confirming")
+        status(.busy, "Confirming")
         let (access, accessReport) = try step.confirm(AccessChoices(github: chosenAccess.github,
                                                                     githubSource: step.githubKey != nil ? "key" : chosenAccess.githubSource,
                                                                     ssh: chosenAccess.ssh))
@@ -240,26 +296,26 @@ struct OnboardingFlow {
         // 5. Workspace rules (599g, owner A1): what .dozignore / .dozreadonly do, and the default mode — written
         //    only when CHOSEN (a flag or an answer), as the Access choices are.
         await baseProgress()
-        say("\n5. \(WorkspaceRulesGuide.title) — .dozignore and .dozreadonly")
+        header(5, WorkspaceRulesGuide.title, lead: "What .dozignore and .dozreadonly do in a sandbox's folder.")
         let ignoreMode = RulesStep(asker: asker, talk: talk, flag: ignoreModeFlag,
                                    current: DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock", folder: nil).run()
 
         // 6. Settings (D7): written only when missing; the user's prompt template beside them (D16). 634: the base too.
         await baseProgress()
-        say("\n6. Settings")
+        header(6, "Settings", lead: "Written only when missing — an existing file is left as it is, but for what you chose here.")
         let (settings, settingsPath) = try settingsOutcome {
             try Onboarding.writeSettingsIfMissing(defaultImage: "claude-code", account: nil, base: baseID)
         }
         switch settings {
-        case .written: say("  wrote \(settingsPath.map { DisplayPath.tilde($0) } ?? "doz.toml") — every setting listed at its default; set: defaults.image\(baseID.map { $0 == "node" ? "" : ", defaults.base" } ?? "")")
-        case .kept: say("  \(settingsPath.map { DisplayPath.tilde($0) } ?? "doz.toml") exists — left as it is")
-        case .unavailable: say("  no settings file (neither XDG_CONFIG_HOME nor HOME is set)")
+        case .written: status(.ok, "wrote \(settingsPath.map { DisplayPath.tilde($0) } ?? "doz.toml") — every setting listed at its default; set: defaults.image\(baseID.map { $0 == "node" ? "" : ", defaults.base" } ?? "")")
+        case .kept: status(.info, "\(settingsPath.map { DisplayPath.tilde($0) } ?? "doz.toml") exists — left as it is")
+        case .unavailable: status(.warn, "no settings file (neither XDG_CONFIG_HOME nor HOME is set)")
         }
         // 634: the store's base into a file that was kept (as the Access choices are).
         if settings == .kept, let id = baseID {
             let set: [String]
             do { set = try Onboarding.writeBase(id) } catch { throw fail(HostError(.failed, "\(error)"), g) }
-            if !set.isEmpty { say("  Base: set " + set.joined(separator: ", ") + " — quick-made sandboxes' tools go on it") }
+            if !set.isEmpty { status(.ok, "Base: set " + set.joined(separator: ", ") + " — quick-made sandboxes' tools go on it") }
         }
         // 599e: the Access choices are the defaults for new sandboxes (written even into a file that was kept).
         if accessChosen, settings != .unavailable {
@@ -268,25 +324,27 @@ struct OnboardingFlow {
                 set = try Access.write(github: access.github, githubSource: access.github == "off" && githubSourceFlag == nil ? nil : access.githubSource,
                                        ssh: access.ssh)
             } catch { throw fail(HostError(.failed, "\(error)"), g) }
-            say(set.isEmpty ? "  Access: the settings already say so (defaults.github = \(access.github), sandbox.ssh_agent = \(access.ssh))"
-                            : "  Access: set " + set.joined(separator: ", ") + " — new sandboxes follow them (doz access set changes them)")
+            status(set.isEmpty ? .info : .ok,
+                   set.isEmpty ? "Access: the settings already say so (defaults.github = \(access.github), sandbox.ssh_agent = \(access.ssh))"
+                               : "Access: set " + set.joined(separator: ", ") + " — new sandboxes follow them (doz access set changes them)")
         }
         // 599g: the rules' default mode, when chosen (into a file that was kept too).
         if let m = ignoreMode, settings != .unavailable {
             let set: [String]
             do { set = try Onboarding.writeIgnoreMode(m) } catch { throw fail(HostError(.failed, "\(error)"), g) }
-            say(set.isEmpty ? "  Workspace rules: the settings already say so (workspace.ignore_mode = \(m))"
-                            : "  Workspace rules: set " + set.joined(separator: ", ") + " — doz config set workspace.ignore_mode changes it")
+            status(set.isEmpty ? .info : .ok,
+                   set.isEmpty ? "Workspace rules: the settings already say so (workspace.ignore_mode = \(m))"
+                               : "Workspace rules: set " + set.joined(separator: ", ") + " — doz config set workspace.ignore_mode changes it")
         }
         let (template, templatePath) = try settingsOutcome { try Onboarding.writePromptTemplateIfMissing() }
         switch template {
-        case .written: say("  wrote \(templatePath.map { DisplayPath.tilde($0) } ?? AgentPrompt.userTemplateName) — your own environment prompt for agents (all commented out: the built-in one applies)")
-        case .kept: say("  \(templatePath.map { DisplayPath.tilde($0) } ?? AgentPrompt.userTemplateName) exists — left as it is")
+        case .written: status(.ok, "wrote \(templatePath.map { DisplayPath.tilde($0) } ?? AgentPrompt.userTemplateName) — your own environment prompt for agents (all commented out: the built-in one applies)")
+        case .kept: status(.info, "\(templatePath.map { DisplayPath.tilde($0) } ?? AgentPrompt.userTemplateName) exists — left as it is")
         case .unavailable: break
         }
         // 599c: where doz new and the UI's Quick add / New sandbox put each new sandbox's workspace folder.
         let projects = (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
-        say("  new sandboxes' workspace folders: \(DisplayPath.tilde(projects))/<name> (defaults.projects_dir — doz config set defaults.projects_dir DIR moves it)")
+        status(.info, "new sandboxes' workspace folders: \(DisplayPath.tilde(projects))/<name> (defaults.projects_dir — doz config set defaults.projects_dir DIR moves it)")
 
         // Usage statistics (official builds only; owner, 2026-10-11) and Stay in touch (optional; default No; --yes and
         // --json skip it) — 634: BEFORE the First sandbox, which ends in the tool's own screen.
@@ -302,11 +360,22 @@ struct OnboardingFlow {
         if let f = firstFlag {
             if f != "none" { firstTool = Self.firstTool(f) }
         } else if asker.interactive && talk {
-            say("\n\(Usage.isOfficial ? 9 : 7). First sandbox — a tool on the \(baseID.map(title) ?? "its own") base, in a new empty folder; files it opens from its folder open on this Mac (sandbox.open_files)")
-            if !codexUsable { say("  (codex: no Codex sign-in or OpenAI key yet — codex login on this Mac, or doz account add NAME --openai-key)") }
+            header(Self.totalSteps, "First sandbox",
+                   lead: "A tool on the \(baseID.map(title) ?? "its own") base, in a new empty folder; files it opens from its folder open on this Mac (sandbox.open_files).")
+            if !codexUsable { status(.info, "codex: no Codex sign-in or OpenAI key yet — codex login on this Mac, or doz account add NAME --openai-key") }
             let words = Self.firstWords.map(\.word).filter { $0 != "codex" || codexUsable } + ["no"]
             let claudeUsable = claudeSignedIn || haveClaudeKey
-            let w = asker.pick("  Make your first sandbox?", words, default: claudeUsable ? "claude" : "no")
+            let def = claudeUsable ? "claude" : "no"
+            let w: String
+            if asker.keys {
+                let options = words.map { word in
+                    word == "no" ? ChoiceOption("Not now", detail: "doz try makes one any time")
+                                 : ChoiceOption(Self.firstTool(word)?.title ?? word, detail: "doz try \(word)")
+                }
+                w = words[asker.choice("  Make your first sandbox?", options, default: words.firstIndex(of: def) ?? words.count - 1)]
+            } else {
+                w = asker.pick("  Make your first sandbox?", words, default: def)
+            }
             if w != "no" { firstTool = Self.firstTool(w) }
         }
 
@@ -317,16 +386,31 @@ struct OnboardingFlow {
         r.requestedBy = "doz onboard"
         if let id = baseID {
             if talk, Self.baseLine(try decode(try await query(HostRequest(.prepareStatus), g), PrepareStatus.self, g), base: id)?.hasSuffix("ready") != true {
-                say("\nWaiting for the \(title(id)) base — Ctrl-C detaches (it goes on): doz onboard --status watches it, --cancel stops it")
+                say("\n" + StatusLine(.busy, "Waiting for the \(title(id)) base — Ctrl-C detaches (it goes on): doz onboard --status watches it, --cancel stops it").render())
             }
             result = try decode(try followingCall(r, g), PrepareResult.self, g)
         } else {
             result = try decode(try call(r, g), PrepareResult.self, g)
         }
         if let rec = result?.onboarded {
-            say("\nDone — this Mac is onboarded (\(rec.base.map { "the \(title($0)) base ready" } ?? "no base prepared yet")).")
+            say("\n" + Style.ok("✓") + " " + Style.heading("Done — this Mac is onboarded") + " (\(rec.base.map { "the \(title($0)) base ready" } ?? "no base prepared yet")).")
+            // 637: what was set up, at a glance, and what to run next.
+            func list(_ items: [String]) -> String { items.isEmpty ? "none" : items.joined(separator: ", ") }
+            say(KeyValues([
+                ("Base image", rec.base.map(title) ?? "none yet"),
+                ("Sign-ins", list((claudeSignedIn ? ["Claude Code"] : []) + (codexSignedIn ? ["Codex"] : []))),
+                ("Keys added", list(added + (openaiAdded.map { [$0] } ?? []))),
+                ("GitHub as you", access.github + (access.github == "off" ? "" : " (\(access.githubSource == "key" ? "a key" : "gh login"))")),
+                ("SSH agent", access.ssh),
+                ("Workspace rules", ignoreMode ?? DozableSettings.load().string(SettingKey.ignoreMode) ?? "lock"),
+                ("Settings", settingsPath.map { DisplayPath.tilde($0) } ?? "none"),
+            ]).render())
             if firstTool == nil {
-                say("Next: doz try (a tool, the quick way) · doz new (a sandbox with every default, attached) · doz init in a project folder · the UI: doz ui")
+                say("\n" + Style.heading("Next"))
+                for (c, what) in [("doz try", "a tool, the quick way"), ("doz new", "a sandbox with every default, attached"),
+                                  ("doz init", "in a project folder"), ("doz ui", "the dashboard")] {
+                    say(Layout.pad(Command(c).render(), 16) + Style.dim(what))
+                }
             }
         }
 
@@ -351,7 +435,7 @@ struct OnboardingFlow {
         }
         var planned = try await plan(name: nil, folder: nil)
         if asker.interactive && talk {
-            say("\nFirst sandbox: \(recipe.title)")
+            say("\n" + Section("First sandbox: \(recipe.title)").render())
             let name = asker.text("  Name", default: planned.name) { WebNameRule.isSandboxName($0) ? nil : "1–40 of a-z 0-9 - (not starting with -)" }
             let projects = planned.workspace.map { ($0 as NSString).deletingLastPathComponent } ?? (Workspace.defaultPath(name: "x") as NSString).deletingLastPathComponent
             let newFolder = DisplayPath.tilde((projects as NSString).appendingPathComponent(name))
@@ -360,10 +444,10 @@ struct OnboardingFlow {
             if name != planned.name || folder != nil { planned = try await plan(name: name, folder: folder) }
         }
         if let p = planned.problems.first(where: { $0.code != "key" }) {
-            say("  the first sandbox was not made: \(p.text)\(p.fix.map { " — \($0)" } ?? "") · later: doz try \(AgentRef.typed(recipe))")
+            status(.warn, "the first sandbox was not made: \(p.text)\(p.fix.map { " — \($0)" } ?? "") · later: doz try \(AgentRef.typed(recipe))")
             return nil
         }
-        say("  Same in Terminal: \(planned.command)")
+        say("  Same in Terminal: " + Style.code(planned.command))
         let interactive = asker.interactive && talk && isatty(STDIN_FILENO) == 1 && isatty(STDOUT_FILENO) == 1
         let quick = QuickMake(g: g, recipe: recipe, interactive: interactive, requestedBy: "doz onboard")
         let made = try await quick.make(planned, rebuild: false)
@@ -442,13 +526,13 @@ struct OnboardingFlow {
         let later = "doz account add \(name) " + (kind == .setupToken ? "--setup-token" : kind == .apiKey ? "--api-key" : kind == .openaiKey ? "--openai-key" : "--provider \(id)")
         var secret: String?
         if asker.interactive && isatty(STDIN_FILENO) == 1 {
-            if kind == .setupToken { say("  run `claude setup-token` in another terminal, then paste the token here") }
+            if kind == .setupToken { say(Note("Run claude setup-token in another terminal, then paste the token here.").render()) }
             secret = try readSecret("  \(what) (not echoed): ", g)
         } else if secretStdin {
             secret = String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
         }
         guard let secret, !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            say("  no \(what) given now (off a terminal, --secret-stdin reads one from stdin) — later: \(later)")
+            status(.info, "no \(what) given now (off a terminal, --secret-stdin reads one from stdin) — later: \(later)")
             return nil
         }
         let request = kind == .key ? HostRequest.keyAccountAdd(name: name, provider: id, secret: secret, force: force)
@@ -457,7 +541,7 @@ struct OnboardingFlow {
         guard m.ok == true else {
             // The host's message names the account, never the secret; it is scrubbed anyway.
             let why = (m.error?.message ?? "no reason").replacingOccurrences(of: secret.trimmingCharacters(in: .whitespacesAndNewlines), with: "…")
-            say("  could not add \(name): \(why) — onboarding goes on without it; later: \(later)")
+            status(.warn, "could not add \(name): \(why) — onboarding goes on without it; later: \(later)")
             return nil
         }
         let row = ((try? m.result?.decode([AccountRow].self)) ?? []).first { $0.name == name }
@@ -471,7 +555,7 @@ struct OnboardingFlow {
             note = " — Claude Code keeps this Mac's login (doz account default \(name) changes that)"
         }
         let tools = Onboarding.keyChoices().first { $0.id == id }?.tools ?? []
-        say("  \(name) added (\(what)\(row?.verification.map { ", \($0)" } ?? ""))\(note)" + (tools.isEmpty || kind == .setupToken ? "" : " · for " + tools.joined(separator: ", ")))
+        status(.ok, "\(name) added (\(what)\(row?.verification.map { ", \($0)" } ?? ""))\(note)" + (tools.isEmpty || kind == .setupToken ? "" : " · for " + tools.joined(separator: ", ")))
         return name
     }
 
@@ -482,24 +566,24 @@ struct OnboardingFlow {
     /// ~/.codex is never touched) or an OpenAI key (a no-echo prompt), added as `doz account add` adds it and
     /// made the store's OpenAI default; or later; or (rc.3) this Mac's own Codex login. `pick` is what was chosen.
     private func openAIAccountStep(pick given: String?) throws -> String? {
-        say("  Codex account (OpenAI)")
+        say(Section("  Codex account (OpenAI)").render())
         let macState = CodexMacLogin.read(CodexMacLogin.resolveHome()).state
         let macSignedIn = macState == .ok || macState == .expired
         let pick = given ?? "later"
         if pick == "mac" {
             guard macSignedIn else {
-                say("  this Mac's Codex is not signed in (\(macState.label)) — run codex login on the Mac, or add an account later")
+                status(.warn, "this Mac's Codex is not signed in (\(macState.label)) — run codex login on the Mac, or add an account later")
                 return nil
             }
             var r = HostRequest(.accountDefault)
             r.account = "mac"
             r.accountKind = "codex"
             _ = try call(r, g)
-            say("  Codex sandboxes use this Mac's Codex login (mac) — the store's default OpenAI account")
+            status(.ok, "Codex sandboxes use this Mac's Codex login (mac) — the store's default OpenAI account")
             return "mac"
         }
         guard pick != "later" else {
-            say("  decide later — a codex sandbox says what it needs; then: " + OpenAIChoices.laterHint(flavor: .current))
+            status(.info, "decide later — a codex sandbox says what it needs; then: " + OpenAIChoices.laterHint(flavor: .current))
             return nil
         }
         let name = asker.interactive ? asker.text("  Account name", default: pick == "chatgpt" ? "chatgpt" : "openai") {
@@ -508,28 +592,28 @@ struct OnboardingFlow {
         var secret: String?
         if pick == "chatgpt" {
             do { secret = try ChatGPTSignIn.run { say("  " + $0) }.json } catch {
-                say("  could not sign in: \(error.localizedDescription) — later: doz account add \(name) --chatgpt")
+                status(.warn, "could not sign in: \(error.localizedDescription) — later: doz account add \(name) --chatgpt")
                 return nil
             }
         } else if asker.interactive && isatty(STDIN_FILENO) == 1 {
             secret = try readSecret("  OpenAI API key (not echoed): ", g)
         }
         guard let secret, !secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            say("  no key given now — later: doz account add \(name) --openai-key")
+            status(.info, "no key given now — later: doz account add \(name) --openai-key")
             return nil
         }
         let kind: AccountKind = pick == "chatgpt" ? .chatgpt : .openaiKey
         let m = try rawCall(HostRequest.accountAdd(name: name, kind: kind, plan: nil, secret: secret, force: force), g)
         guard m.ok == true else {
             let why = (m.error?.message ?? "no reason").replacingOccurrences(of: secret.trimmingCharacters(in: .whitespacesAndNewlines), with: "…")
-            say("  could not add \(name): \(why) — onboarding goes on without it")
+            status(.warn, "could not add \(name): \(why) — onboarding goes on without it")
             return nil
         }
         var r = HostRequest(.accountDefault)
         r.account = name
         _ = try call(r, g)
         let row = ((try? m.result?.decode([AccountRow].self)) ?? []).first { $0.name == name }
-        say("  account \(name) added (\(kind.rawValue)\(row?.identity.map { ", \($0)" } ?? "")\(row?.plan.map { ", \($0)" } ?? "")) — the store's default OpenAI account (Codex)")
+        status(.ok, "account \(name) added (\(kind.rawValue)\(row?.identity.map { ", \($0)" } ?? "")\(row?.plan.map { ", \($0)" } ?? "")) — the store's default OpenAI account (Codex)")
         return name
     }
 
@@ -539,9 +623,16 @@ struct OnboardingFlow {
         }
     }
 
-    static func checkLine(_ c: OnboardingCheck) -> String {
-        let mark = switch c.status { case "ok": "ok  "; case "warn": "warn"; default: c.hard ? "FAIL" : "warn" }
-        return "  \(mark)  \(c.check.padding(toLength: 15, withPad: " ", startingAt: 0)) \(c.detail)"
+    /// 637: a check as a status line — ✓ ok, ! a warning (or a soft failure), ✕ a required check that failed (setup
+    /// stops on it).
+    static func checkLine(_ c: OnboardingCheck, width: Int = Terminal.current.width, colour: Bool = Terminal.current.colour) -> String {
+        let kind: StatusLine.Kind = switch c.status { case "ok": .ok; case "warn": .warn; default: c.hard ? .bad : .warn }
+        return StatusLine(kind, c.check, detail: c.detail + (kind == .bad ? " (required)" : ""), column: 15).render(width: width, colour: colour)
+    }
+
+    /// How a `baseLine` is marked: ready, failed, or under way.
+    static func baseLineKind(_ line: String) -> StatusLine.Kind {
+        line.hasSuffix("is ready") ? .ok : line.hasSuffix("(a tool's first start prepares it again)") ? .warn : .busy
     }
 }
 
@@ -586,8 +677,9 @@ struct Onboard: AsyncParsableCommand {
         Re-running is safe: it checks again, leaves existing settings alone and prepares only what is \
         missing. The base image is downloaded and prepared by the host from the Base image step on, while \
         the questions go on: Ctrl-C detaches (the preparation goes on), --status re-attaches, --cancel \
-        stops it. On a terminal it asks (Enter accepts the recommended answer); --yes, --json or no \
-        terminal ask nothing — --yes takes the Node.js base and makes no sandbox.
+        stops it. On a terminal it asks — the arrow keys choose, Enter accepts (alone, the recommended \
+        answer); with its output in a pipe it asks for typed answers; --yes, --json or no terminal ask \
+        nothing — --yes takes the Node.js base and makes no sandbox. --no-color draws it without colour.
         """)
 
     @OptionGroup var g: GlobalOptions
@@ -637,7 +729,7 @@ struct Onboard: AsyncParsableCommand {
     func run() async throws {
         if status { try await showStatus(); return }
         if cancel { try cancelPreparations(); return }
-        var flow = OnboardingFlow(g: g, asker: Asker(yes: yes, json: g.json), talk: !g.json)
+        var flow = OnboardingFlow(g: g, asker: Asker(yes: yes, json: g.json, keys: true), talk: !g.json)
         flow.baseFlag = base
         flow.noBase = noBase
         flow.keyFlag = key
