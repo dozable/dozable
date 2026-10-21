@@ -33,6 +33,12 @@
 # (boolean; applies at once (the UI re-reads it))
 # explain_tab_close = true
 
+# Hovering a session in the sidebar shows a screen icon; resting on it for half a second shows the
+# session's live picture (moving to another session then shows its picture at once). false: no
+# icon, no picture.
+# (boolean; applies at once (the UI re-reads it))
+# nav_thumbnails = true
+
 # What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left
 # terminal's session), attach (a second, shared view of it), dialog (choose each time).
 # (shell | watch | attach | dialog; applies at once (the UI re-reads it))

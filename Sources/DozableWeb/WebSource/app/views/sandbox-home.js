@@ -1,7 +1,7 @@
 // views/sandbox-home — A sandbox page's Home (635): its first tab — every session (the agent's as a card, the others as
 // rows, each with a picture of its screen), its logs and its folder. Closing a tool's tab lands here.
 import { h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, ICON_OPEN_IN_TERMINAL } from '../dom/icons.js';
 import { agentTitle } from '../core/agents.js';
 import { when } from '../core/format.js';
 import { transitionOf, TRANSITION_LABEL } from '../core/operations.js';
@@ -22,7 +22,7 @@ import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLiv
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal } from './sandbox-layout.js';
-import { newShellTerminal, renderTerminals } from './sandbox-terminals.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.
@@ -42,8 +42,11 @@ function homeOf(name) {
   const endedBox = h('div', { class: 'home-rows home-ended', hidden: true });
   const logs = h('section', { class: 'home-sect', 'data-home-logs': '' });
   const folder = h('section', { class: 'home-sect', 'data-home-folder': '' });
-  const doc = h('div', { class: 'home-doc', role: 'tabpanel', 'aria-label': 'Home of ' + name, 'data-home': name },
-    h('section', { class: 'home-sect', 'data-home-sessions': '' }, head, lead, cardBox, rowsBox, endedBox), logs, folder);
+  // 635 (owner): the sessions as a list (the agent's card, then rows) or as a grid of their live pictures — the same
+  // elements, laid out by CSS (`.as-grid`), so a picture's frame is never rebuilt by the switch.
+  const tiles = h('div', { class: 'home-tiles' }, cardBox, rowsBox);
+  const doc = h('div', { class: 'home-doc' + (gridView() ? ' as-grid' : ''), role: 'tabpanel', 'aria-label': 'Home of ' + name, 'data-home': name },
+    h('section', { class: 'home-sect', 'data-home-sessions': '' }, head, lead, tiles, endedBox), logs, folder);
   home = { name, doc, head, lead, cardBox, rowsBox, endedBox, logs, folder, card: null, empty: null, rows: new Map(), io: null };
   home.io = new IntersectionObserver((entries) => {
     for (const e of entries) for (const th of thumbsOf(home)) if (th.el === e.target) th.visible = e.isIntersecting;
@@ -51,6 +54,20 @@ function homeOf(name) {
   }, { root: doc, rootMargin: '60px' });
   HOMES.set(name, home);
   return home;
+}
+/// List or grid — in this browser, for every Home (a layout convenience, like the sidebar's folds; never a setting).
+function gridView() { try { return localStorage.getItem('doz.home.view') === 'grid'; } catch (_) { return false; } }
+function setGridView(on) {
+  try { localStorage.setItem('doz.home.view', on ? 'grid' : 'list'); } catch (_) { /* no storage: this page only */ }
+  for (const home of HOMES.values()) { home.doc.classList.toggle('as-grid', on); schedule(home.name); }
+}
+function viewSwitch() {
+  const grid = gridView();
+  const seg = (on, ic, label) => h('button', { type: 'button', class: 'btn sm quiet icon-only' + (on === grid ? ' on' : ''), 'aria-pressed': on === grid ? 'true' : 'false',
+    'aria-label': label, title: label, 'data-home-view': on ? 'grid' : 'list',
+    on: { click: () => { setGridView(on); for (const n of HOMES.keys()) paintHome(n); } } }, icon(ic));
+  return h('div', { class: 'btn-group home-view', role: 'group', 'aria-label': 'Show the sessions as' },
+    seg(false, 'list', 'A list'), seg(true, 'layout-grid', 'A grid of their live pictures'));
 }
 function thumbsOf(home) {
   return [home.card && home.card.thumb, ...[...home.rows.values()].map((r) => r.thumb)].filter(Boolean);
@@ -79,7 +96,7 @@ function sinceText(row) {
 function moreFor(name, session, why) {
   return moreMenu('More for ' + session, [
     { label: 'Watch', icon: 'eye', desc: 'Read-only: nothing you type reaches it, it never resizes', onSelect: () => openTerminal(name, session, 'watch') },
-    isRemote() ? null : { label: 'Open in Terminal', icon: 'square-terminal', desc: 'In your terminal app (doz attach)', disabled: !!why, why, onSelect: () => openInTerminal(name, session) },
+    isRemote() ? null : { label: 'Open in Terminal', icon: ICON_OPEN_IN_TERMINAL, desc: 'In your terminal app (doz attach)', disabled: !!why, why, onSelect: () => openInTerminal(name, session) },
     ...sessionMenuItems(name, session, why),
   ].filter(Boolean), { small: true, onClose: () => paintHome(name) });
 }
@@ -115,7 +132,7 @@ export function paintHome(name) {
   const newShell = btn('New shell', () => newShellTerminal(name).catch((e) => failureFor(name, e.message || String(e))), { small: true, icon: 'plus', title: why || 'A new shell session (shell-2, shell-3, …)' });
   const detached = btn('Run detached…', () => runDetachedDialog(name), { small: true, quiet: true, icon: 'play', title: why || 'A new session running a command, not opened here' });
   if (why) { newShell.disabled = true; detached.disabled = true; }
-  home.head.replaceChildren(h('h2', null, 'Sessions'), h('div', { class: 'actions' }, newShell, detached));
+  home.head.replaceChildren(h('h2', null, 'Sessions'), h('div', { class: 'actions' }, viewSwitch(), newShell, detached));
   home.lead.textContent = busy ? (tr ? TRANSITION_LABEL[tr.action] : i.phaseLabel + '…')
     : running ? (live.length ? live.length + ' running. Each keeps running when its tab is closed — End stops one.' : 'Nothing is running in it.')
     : SAVED_PHASES.includes(i.phase) ? (i.phaseLabel.replace(/^./, (c) => c.toUpperCase()) + ' — its sessions wake with it, exactly as they were. A key typed in a saved screen wakes it.')
@@ -247,12 +264,14 @@ function paintLogs(home, name, i) {
     if (c) { v.selected[c.pane] = c.id; v.focusedPane = c.pane; renderTerminals(); } else openConsoleTerminal(name, true);
   }, { small: true, quiet: true, icon: 'cpu', title: powered ? 'The system console, in a tab' : 'Only while it runs' });
   if (!powered) consoleOpen.disabled = true;
-  const blog = pageTerminals(name).find((t) => t.buildlog);
+  // 635 (owner): the build log opens in its own tab from here (never by itself).
+  const blog = state.buildLogs && state.buildLogs.get(name);
+  const blogTab = pageTerminals(name).some((t) => t.buildlog);
   home.logs.replaceChildren(h('div', { class: 'head' }, h('h2', null, 'Logs')), h('div', { class: 'home-rows' },
     logRow('cpu', 'Console', 'the kernel and vminitd, read-only', powered ? (cons ? 'open in a tab' : 'while it runs') : 'only while it runs', consoleOpen, !powered),
-    blog ? logRow('list-checks', 'Build log', 'how ' + ((blog.buildlogInfo && blog.buildlogInfo.image) || 'its image') + ' was built',
-      blog.buildlogInfo && blog.buildlogInfo.finishedAt ? when(blog.buildlogInfo.finishedAt) : '',
-      btn('Show', () => { v.selected[blog.pane] = blog.id; renderTerminals(); }, { small: true, quiet: true, icon: 'eye', title: 'The build log, in its tab' })) : null,
+    blog ? logRow('wrench', 'Build log', 'how ' + (blog.image || 'its image') + ' was built',
+      [blog.finishedAt ? when(blog.finishedAt) : '', blogTab ? 'open in a tab' : ''].filter(Boolean).join(' · '),
+      btn('Open', () => openBuildLog(name), { small: true, quiet: true, icon: 'wrench', title: 'The build log, in its own tab' })) : null,
     logRow('history', 'Boot logs', 'its last boots: the steps and the console', '',
       btn('Show', () => bootLogDialog(name), { small: true, quiet: true, icon: 'eye', title: 'Its kept boots' }))));
 }
@@ -291,7 +310,7 @@ function placeThumbs(name) {
   const info = s && s.name === name && s.d ? s.d.info : null;
   const running = !!info && info.phase === 'running' && !info.busy;
   const thumbs = thumbsOf(home);
-  const cap = liveCap(HOME_LIVE_MAX);
+  const cap = liveCap(gridView() ? SOCKET_CEILING : HOME_LIVE_MAX);   // the grid: as many as ui.grid_live_tiles allows
   // Let go first (off screen, not shown, the wrong kind), so the cap counts only what stays.
   for (const th of thumbs) {
     const want = wantOf(th, running);

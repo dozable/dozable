@@ -100,10 +100,32 @@ for (const a of document.querySelectorAll('#nav > a[data-view]')) {
   a.title = a.querySelector('.lbl').textContent;       // the rail's tooltip (the label stays readable to assistive tech)
 }
 setButton($('sign-out'), 'Sign out');
+// 635 (owner): light / dark at the foot of the sidebar — it sets ui.theme (Settings › ui.theme "auto" follows macOS again).
+const darkNow = () => document.documentElement.dataset.theme ? document.documentElement.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+function paintThemeToggle() {
+  const dark = darkNow(), label = dark ? 'Light mode' : 'Dark mode';
+  setButton($('theme-toggle'), label, dark ? 'sun' : 'moon');
+  $('theme-toggle').title = label + ' (ui.theme)';
+}
+$('theme-toggle').addEventListener('click', () => {
+  const next = darkNow() ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;                    // at once; the setting follows
+  paintThemeToggle();
+  saveSetting('ui.theme', next).catch((e) => pageFailure('ui.theme was not saved: ' + (e.message || e)));
+});
+new MutationObserver(paintThemeToggle).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeToggle);
+paintThemeToggle();
 $('nav-toggle').replaceChildren(icon('panel-right'));
 $('nav-toggle').addEventListener('click', (ev) => { ev.stopPropagation(); navRail(!document.body.classList.contains('nav-open')); });
 document.addEventListener('click', (ev) => { if (document.body.classList.contains('nav-open') && !ev.target.closest('.side')) navRail(false); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('nav-open')) navRail(false); });
+// 635 (owner: "the spinning disc … keeps getting interrupted and resetting"): every spinner turns on the page's clock, not
+// from its own start — a spinner drawn again by a refresh carries on at the same angle instead of jumping back to 0°.
+document.addEventListener('animationstart', (ev) => {
+  if (ev.animationName !== 'spin' || !ev.target.getAnimations) return;
+  for (const a of ev.target.getAnimations()) if (a.animationName === 'spin') a.startTime = 0;
+});
 
 /// The page's start, once signed in (at load, or — 605 — after its first sign-in inside the page).
 async function startApp() {

@@ -629,6 +629,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var project: String?
     /// 617.11: a recipe agent's guide (the Guide tab) — nil: none.
     public var guide: WebGuide?
+    /// 635: the default session's program — the tab bar's New <agent> session opens another with it.
+    public var defaultArgv: [String]?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -652,6 +654,7 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         agentPrompt = d.agentPrompt.map(WebAgentPrompt.init)
         project = d.project
         guide = d.guide.map(WebGuide.init)
+        defaultArgv = d.defaultArgv
     }
 }
 

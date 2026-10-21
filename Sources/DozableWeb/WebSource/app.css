@@ -42,33 +42,34 @@
   --bw: 1px;
   --ctl-sm: 24px; --ctl-md: 28px; --ctl-lg: 32px;   /* control heights; 24 px is the minimum target */
 
-  /* neutrals */
-  --bg:           light-dark(#f6f6f4, #131312);
-  --surface:      light-dark(#ffffff, #1b1b1a);
-  --surface-2:    light-dark(#efefec, #242422);
-  --surface-3:    light-dark(#e6e5e1, #2d2d2a);
-  --ink:          light-dark(#1b1b19, #ecebe7);
-  --ink-2:        light-dark(#5c5b56, #a6a49c);
-  --ink-3:        light-dark(#8b8a84, #77756f);   /* disabled and decoration only — never text to be read */
-  --line:         light-dark(#e2e1dc, #2d2d2a);
-  --line-strong:  light-dark(#c9c7c0, #3d3c39);
-  --control:      light-dark(#8f8d86, #76746d);   /* an input's border: 3:1 against its surface */
+  /* neutrals — 635 (owner: "the terminal is the only fully black background"): the dark chrome sits well above the
+     terminal's --term-bg, so the terminal reads as the one black panel */
+  --bg:           light-dark(#f6f6f4, #242423);
+  --surface:      light-dark(#ffffff, #2c2c2a);
+  --surface-2:    light-dark(#efefec, #343432);
+  --surface-3:    light-dark(#e6e5e1, #3e3e3b);
+  --ink:          light-dark(#1b1b19, #f0efeb);
+  --ink-2:        light-dark(#5c5b56, #b4b2aa);
+  --ink-3:        light-dark(#8b8a84, #85837c);   /* disabled and decoration only — never text to be read */
+  --line:         light-dark(#e2e1dc, #3d3d3a);
+  --line-strong:  light-dark(#c9c7c0, #52514c);
+  --control:      light-dark(#8f8d86, #8a8880);   /* an input's border: 3:1 against its surface */
 
   /* accent, focus */
   --accent:       light-dark(#2453c9, #86a1ff);
   --accent-hover: light-dark(#1d46b0, #a3b8ff);
   --on-accent:    light-dark(#ffffff, #0d1330);
-  --accent-tint:  light-dark(#e9eefa, #2c303f);
+  --accent-tint:  light-dark(#e9eefa, #353a4e);
   --focus:        light-dark(#2453c9, #86a1ff);
 
   /* phases — text/icon colour and its tint (pill fill); every pair is AA */
-  --ph-running:    light-dark(#1d7a37, #4fc770);  --ph-running-tint:    light-dark(#e8f2eb, #233728);
+  --ph-running:    light-dark(#1d7a37, #4fc770);  --ph-running-tint:    light-dark(#e8f2eb, #2b4231);
   --ph-booting:    var(--accent);                 --ph-booting-tint:    var(--accent-tint);
-  --ph-paused:     light-dark(#8a5a00, #e6b54a);  --ph-paused-tint:     light-dark(#f3eee6, #3b3422);
-  --ph-asleep:     light-dark(#6a3fc8, #b9a2ff);  --ph-asleep-tint:     light-dark(#f0ecfa, #34313f);
-  --ph-hibernated: light-dark(#0b6f86, #4fc6dc);  --ph-hibernated-tint: light-dark(#e7f1f3, #233639);
-  --ph-off:        light-dark(#6b6a64, #9a9890);  --ph-off-tint:        light-dark(#f0f0f0, #2f2f2d);
-  --ph-failed:     light-dark(#c1272d, #ff7b72);  --ph-failed-tint:     light-dark(#f9e9ea, #3f2a28);
+  --ph-paused:     light-dark(#8a5a00, #e6b54a);  --ph-paused-tint:     light-dark(#f3eee6, #47402a);
+  --ph-asleep:     light-dark(#6a3fc8, #b9a2ff);  --ph-asleep-tint:     light-dark(#f0ecfa, #3e3a4c);
+  --ph-hibernated: light-dark(#0b6f86, #4fc6dc);  --ph-hibernated-tint: light-dark(#e7f1f3, #2a4144);
+  --ph-off:        light-dark(#6b6a64, #a5a39b);  --ph-off-tint:        light-dark(#f0f0f0, #393937);
+  --ph-failed:     light-dark(#c1272d, #ff7b72);  --ph-failed-tint:     light-dark(#f9e9ea, #4a302d);
   --on-danger:     light-dark(#ffffff, #2a0c0a);
 
   /* tones (callouts, tags, results) — aliases of the phase colours: one red, one amber, one green */
@@ -80,7 +81,7 @@
   /* data (Resources, Images, Lineage bars) */
   --data-own:    var(--accent);
   --data-shared: light-dark(#12936e, #3ccfa0);
-  --data-free:   light-dark(#dcdbd6, #3a3a37);
+  --data-free:   light-dark(#dcdbd6, #4a4a46);
 
   /* terminal chrome — dark in both themes (the engine's own theme) */
   --term-bg: #16171c; --term-ink: #e3e5ea; --term-muted: #a3a8b8; --term-accent: #c5cbff; --term-raise: #1d1f2b;
@@ -464,8 +465,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .term-wrap.term-pending { visibility: hidden; pointer-events: none; }
 /* 617: tab zero, Console — and the activity dot on a tab that is ready but not shown. */
 .tab-console .icon { color: var(--term-ink); opacity: 0.8; }
-/* 617: the build log's tab, left of Console — small: an icon only, its name in the tooltip. */
-.tab.tab-buildlog { padding: 6px 7px; }
+/* 635: the build log's own tab (a spanner), opened from Home › Logs. */
 .tab-buildlog .icon { opacity: 0.8; }
 /* 617: the build log is a document (how the image was made: inputs, every command verbatim, the files, the checks). */
 .buildlog-doc { position: absolute; inset: 0; overflow: auto; background: var(--surface); color: var(--ink); padding: var(--sp-4) var(--sp-5);
@@ -501,9 +501,15 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .denied-chip:hover { box-shadow: inset 0 0 0 1px var(--warn); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
-.tabs { display: flex; gap: 2px; padding: 4px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }
-.tab-wrap { display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; }
-.tab-wrap:has(.tab.active) { background: var(--term-bg); }
+.tabs { display: flex; gap: 3px; padding: 5px 4px 0; overflow-x: auto; min-height: 34px; scrollbar-width: none; }
+/* 635 (owner: tabs with better contrast, especially dark): each tab is a raised shape on the strip; the one shown joins
+   the terminal below it and carries an accent line on top. */
+.tab-wrap { display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; background: var(--surface-3); }
+.tab-wrap:hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface-3)); }
+.tab-wrap:hover .tab { color: var(--ink); }
+.tab-wrap:has(.tab.active) { background: var(--term-bg); box-shadow: inset 0 2px 0 var(--accent); }
+.tabs-menu { align-self: center; margin: 0 2px 0 6px; color: var(--ink-2); }
+.tabs-menu[aria-expanded="true"] { background: var(--surface-3); color: var(--ink); }
 /* 617 (owner): the active tab sits on the terminal's dark chrome in both themes — its close, move and session buttons take
    the terminal's ink, not the page's (they were dark on dark in light mode). */
 .tab-wrap:has(.tab.active) > .tab-x, .tab-wrap:has(.tab.active) .menu-wrap > .tab-x { color: var(--term-ink); }
@@ -593,6 +599,19 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .home-thumb .th-badge[hidden] { display: none; }
 .home-thumb .th-live, .home-thumb .th-saved { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .home-thumb .th-saved { background: var(--ph-asleep); }
+/* 635 (owner): Home's sessions as a grid of their live pictures — the same card and rows, laid out as tiles. */
+.home-tiles { display: flex; flex-direction: column; gap: var(--sp-3); }
+.home-view .btn.on { background: var(--surface-3); color: var(--ink); }
+.home-doc.as-grid > * { max-width: none; }
+.as-grid .home-tiles { display: grid; grid-template-columns: repeat(auto-fill, 290px); gap: var(--sp-4); }
+.as-grid .home-card-box, .as-grid .home-rows:not(.home-ended) { display: contents; }
+.as-grid .home-empty { grid-column: 1 / -1; }
+.as-grid .home-agent, .as-grid .home-row.has-thumb { display: flex; flex-direction: column; align-items: stretch; gap: var(--sp-2); padding: var(--sp-2);
+  border: var(--bw) solid var(--line); border-radius: var(--r-lg); background: var(--surface); }
+.as-grid .home-agent > .home-thumb, .as-grid .home-row > .home-thumb { width: 272px; height: 159px; --s: 0.2833; }
+.as-grid .home-agent .t { font-size: var(--fs-md); }
+.as-grid .home-agent .meta, .as-grid .home-agent .msg, .as-grid .home-row .cmd-t { display: none; }
+.as-grid .home-agent .acts, .as-grid .home-row .row-acts { justify-content: flex-start; }
 @media (max-width: 760px) {
   .home-doc { padding: var(--sp-4) var(--sp-4) var(--sp-7); }
   .home-agent { grid-template-columns: minmax(0, 1fr); }
@@ -642,6 +661,11 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 
 /* A two-icon glyph (Sleep = moon + cpu, Hibernate = moon + cylinder): one tight group. */
 .icon-pair { display: inline-flex; align-items: center; gap: 1px; flex: none; }
+/* 635: a glyph with a small one in its top-right corner (Open in Terminal: the terminal + an arrow out) — the corner of the
+   big one is cut away under the small one, so it reads on any background. */
+.icon-corner { position: relative; display: inline-flex; flex: none; }
+.icon-corner > .icon:first-child { -webkit-mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); }
+.icon-corner > .icon:last-child { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; stroke-width: 3; }
 .tc-glyph { display: inline-flex; color: var(--term-accent); }
 .tc-glyph[hidden] { display: none; }
 .tc-glyph .icon { width: 22px; height: 22px; }
@@ -996,7 +1020,7 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
   text-align: left; cursor: pointer; white-space: normal; }
 .menu:has(.icon-pair) .menu-item { grid-template-columns: 33px minmax(0, 1fr) auto; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--surface-2); outline: none; }
-.menu-item > .icon, .menu-item > .icon-pair { grid-column: 1; }
+.menu-item > .icon, .menu-item > .icon-pair, .menu-item > .icon-corner { grid-column: 1; }
 .menu-item > .mi-label { grid-column: 2; }
 .menu-item .desc { grid-column: 2; font-size: var(--fs-sm); color: var(--ink-2); }
 .menu-item.danger { color: var(--bad); }
@@ -1288,6 +1312,27 @@ a.nav-sess.more { color: var(--accent); }
 .nav-sess-row > .menu-wrap { position: absolute; right: 2px; top: 0; height: 24px; display: flex; align-items: center; opacity: 0; }
 .nav-sess-row:hover > .menu-wrap, .nav-sess-row:focus-within > .menu-wrap, .nav-sess-row > .menu-wrap:has(.menu:not([hidden])) { opacity: 1; }
 .nav-sess-row > .menu-wrap > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
+/* 635 (owner): the screen icon on a session line's hover; resting on it fills its underline for half a second, then the
+   session's picture opens beside the sidebar (.nav-peek-pop). */
+.nav-peek { position: absolute; right: 24px; top: 2px; width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); cursor: default; opacity: 0; overflow: hidden; }
+.nav-peek:last-child { right: 2px; }
+.nav-peek .icon { width: 13px; height: 13px; }
+.nav-sess-row:hover > .nav-peek { opacity: 1; }
+.nav-sess-row:has(> .nav-peek):hover a.nav-sess { padding-right: 50px; }
+.nav-peek:hover { background: var(--surface-3); color: var(--ink); }
+.nav-peek::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); }
+.nav-peek.arming::after { animation: peek-arm 500ms linear var(--arm-delay, 0ms) forwards; }
+@keyframes peek-arm { from { width: 0; } to { width: 100%; } }
+.nav-peek-pop { position: fixed; z-index: var(--z-menu); padding: 6px; border: var(--bw) solid var(--line-strong); border-radius: var(--r-lg);
+  background: var(--surface); box-shadow: var(--shadow-2); }
+.nav-peek-pop[hidden] { display: none; }
+.nav-peek-pop .np-frame { position: relative; overflow: hidden; border-radius: var(--r-md); background: var(--term-bg); }
+.nav-peek-pop .thumb-screen { position: absolute; left: 0; top: 0; width: 960px; height: 560px; transform: scale(var(--s)); transform-origin: 0 0; pointer-events: none; }
+.nav-peek-pop .term-cover, .nav-peek-pop .term-notice { display: none; }
+.nav-peek-pop .np-label { display: flex; align-items: center; gap: var(--sp-2); padding: 6px 2px 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.nav-peek-pop .np-label b { color: var(--ink); font-weight: var(--fw-medium); }
+.nav-peek-pop .np-label .icon { width: 13px; height: 13px; }
 .side-foot { margin-top: auto; display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--ink-2); padding: 0 4px; }
 .live { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); gap: 7px; align-items: center; }
 .live.on .dot { background: var(--ok); }
@@ -1299,6 +1344,9 @@ a.nav-sess.more { color: var(--accent); }
 .live.stale .dot { opacity: 0.45; }
 .version { font-variant-numeric: tabular-nums; }
 .side-foot .sign-out { justify-self: start; margin-left: -8px; }
+/* 635 (owner): Sign out, and the light / dark switch to its right. */
+.side-foot .foot-acts { display: flex; align-items: center; gap: var(--sp-1); }
+@media (max-width: 980px) { body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; } }
 @media (max-width: 980px) {
   .shell { grid-template-columns: 52px minmax(0, 1fr); }
   .shell > main { grid-column: 2; }
@@ -1415,7 +1463,7 @@ dl.facts { display: grid; grid-template-columns: minmax(96px, max-content) minma
 dl.facts dt { color: var(--ink-2); }
 dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 /* The terminal strip: tabs, then the actions that make or arrange terminals. */
-.term-strip { display: flex; align-items: stretch; background: var(--surface); border-bottom: var(--bw) solid var(--line); min-height: 36px; }
+.term-strip { display: flex; align-items: stretch; background: var(--surface-2); border-bottom: var(--bw) solid var(--line-strong); min-height: 36px; }
 .term-strip .tabs { flex: 1; min-width: 0; border-bottom: 0; background: none; }
 .strip-acts { display: flex; align-items: center; gap: 2px; padding: 0 4px; flex: none; }
 .menu-item[data-desc]::after { content: attr(data-desc); grid-column: 2; font-size: var(--fs-sm); color: var(--ink-2); }

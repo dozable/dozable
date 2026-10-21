@@ -113,7 +113,8 @@ func iconBody(_ file: String, _ text: String) throws -> String {
     let allowedTags: Set<String> = ["path", "circle", "ellipse", "line", "polyline", "polygon", "rect"]
     let allowedAttributes: Set<String> = ["d", "cx", "cy", "r", "rx", "ry", "x", "y", "x1", "y1", "x2", "y2", "width", "height", "points"]
     let tag = try NSRegularExpression(pattern: #"<\s*(/?)\s*([A-Za-z:-]+)([^<>]*)>"#)
-    let attr = try NSRegularExpression(pattern: #"([A-Za-z:_-]+)\s*=\s*"([^"]*)""#)
+    // (635: a name may hold a digit after its first letter — x1 y1 x2 y2 of a <line>, which this never admitted before.)
+    let attr = try NSRegularExpression(pattern: #"([A-Za-z:_-][A-Za-z0-9:_-]*)\s*=\s*"([^"]*)""#)
     let ns = body as NSString
     var covered = 0
     for m in tag.matches(in: body, range: NSRange(location: 0, length: ns.length)) {

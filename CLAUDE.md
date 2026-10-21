@@ -585,7 +585,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     most min(4, `ui.grid_live_tiles`) and never past 12 open sockets of the UI's 16; asleep, saved mode (no socket —
     T3). Closing the agent's tab (`sview.justClosed`) marks its card with the note until `ui.explain_tab_close` is false.
     Console has a close box: `sview.consoleClosed` keeps it closed until the next START (an off/failed → powered edge
-    in `syncConsoleTab`; a wake is not one). `#/sandbox/NAME/~home` selects Home (the router admits `~home`). The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
+    in `syncConsoleTab`; a wake is not one). `#/sandbox/NAME/~home` selects Home (the router admits `~home`).
+    635 (owner, the strip): Home's icon is `layout-grid`; the **tabs menu** (`termUI.tabsCtl`, left of Home) lists every
+    tab, Close all tabs, End all sessions…; a running session's ✕ (`askOnClose`: interactive, live, no twin tab) asks
+    End session / Hide — keep running / Cancel (`closeTabDialog`); **New <agent> session** opens `open-session` with the
+    detail's `defaultArgv` and no name (the host names it `claude-2`…); every ⋮ is `ellipsis-vertical`; Open in Terminal is
+    `ICON_OPEN_IN_TERMINAL` (`icon('a^b')`: glyph a with b in its corner, `.icon-corner`). Home's **List | Grid**
+    (`doz.home.view`, this browser) lays the same card and rows out as picture tiles (`.as-grid`, live up to
+    `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
+    500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
+    it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
+    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`). The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
    : `state.modal` is the wizard, `state.view`/`state.bgHash` stay the page under it, which is never
     re-rendered or torn down by opening or closing (inert meanwhile); `wizHead()` (title, ✕, the horizontal
     `stepperNode()` strip) + `wizMount()`; ✕/Escape ask before losing choices (`wizDirty`), Back keeps them. Long pages: `pageIndex()`;
@@ -2048,10 +2058,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   restart, and a sandbox whose start built nothing shows the log of the build that made its image (none kept → no
   tab). Read by the host op `build-log` (by sandbox; in-process when no host runs) → `GET /api/v1/sandboxes/NAME/build-log`
   (`WebBuildLog`: `BuildLogs.render` — the steps with their times, then each step's output, inert again). The page:
-  `syncBuildLogTab` (each sandbox refresh and each preparations event) opens `openBuildLogTerminal` — a saved-mode,
-  socketless record (`t.buildlog`, like a Boot log; keys never wake) — only after the read found one; hidden while its
-  image builds and replaced when that build ends; right after Home in the strip, icon `list-checks`, tooltip "Build log", no
-  close box, never chosen by itself, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
+  `syncBuildLogTab` (each sandbox refresh and each preparations event) reads it once into `state.buildLogs` (forgotten,
+  and its tab closed, while its image builds); 635 (owner): never opened by itself — Home › Logs › **Build log**
+  (`openBuildLog`) opens `openBuildLogTerminal`, a saved-mode, socketless record (`t.buildlog`, like a Boot log; keys never
+  wake) as its own tab after the sessions: icon `wrench`, "Build log", a close box, never persisted, kept through shutdown and sleep (`promoteSaved` skips it;
   `isAux` in `core/terminals.js` names the page's own panes). `BuildLogsTests`, the HTTP test.
   **It is the record of how the image was made** (owner: "including all the commands to build and configure"): the
   baker hands out `BakePlan` once per bake (`SandboxEvent.bakePlan`, built by `ImageBaker.plan` — the SAME argv, user and

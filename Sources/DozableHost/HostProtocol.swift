@@ -808,6 +808,8 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     public var project: String?
     /// 617.11: a recipe agent's guide — the recipe's steps and Dozable's facts of this sandbox (nil: none).
     public var guide: SandboxGuide? = nil
+    /// 635: the default session's program — what a new agent session (claude-2, …) runs.
+    public var defaultArgv: [String]? = nil
 }
 
 /// One guest session (`deckhold ls`).

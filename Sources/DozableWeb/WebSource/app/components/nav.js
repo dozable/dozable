@@ -7,6 +7,7 @@ import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status.js';
 import { moreMenu } from './menus.js';
+import { canPeek, peekIcon, peekRegion } from './nav-peek.js';
 import { sessionMenuItems } from './session-actions.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const renderHostFoot = upcall('renderHostFoot');
@@ -38,6 +39,7 @@ export function renderNavSandboxes() {
   // 635 (owner: variant A, collapsible): under each, its sessions — from the host's registry in the overview (never a
   // guest call); a caret folds it to one line with its session count (remembered in this browser).
   const folded = foldedSet();
+  if (!$('nav-sandboxes').dataset.peek) { $('nav-sandboxes').dataset.peek = '1'; peekRegion($('nav-sandboxes')); }   // 635
   $('nav-sandboxes').replaceChildren(...list.map((s) => {
     const here = !state.modal && state.view === 'sandbox' && state.param === s.name;
     const sessions = s.sessionList || [];
@@ -110,7 +112,11 @@ function sessionLine(s, x) {
   const menu = s.phase === 'running' && !s.busy
     ? moreMenu('More for ' + x.name, sessionMenuItems(s.name, x.name, null), { small: true, data: { navMore: x.name }, onClose: () => setTimeout(renderNavSandboxes, 0) }).el
     : null;
-  return h('div', { class: 'nav-sess-row', role: 'listitem' }, a, menu);
+  const row = h('div', { class: 'nav-sess-row', role: 'listitem' }, a);
+  // 635 (owner): the screen icon on hover — resting on it shows the session's picture (ui.nav_thumbnails).
+  if (canPeek(s.phase, x)) row.append(peekIcon(row, s.name, x));
+  if (menu) row.append(menu);
+  return row;
 }
 /// The page's tab changed: the sidebar marks the session it shows (or the sandbox, when Home is shown) — in place.
 export function markNavSession() {

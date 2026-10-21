@@ -1851,7 +1851,8 @@ public actor HostCore {
                              directory: m.sandbox.layout.sandboxDirectory.path, bootLog: m.sandbox.bootLogURL.path,
                              snapshotBytes: Int64(status.snapshotBytes > 0 ? status.snapshotBytes : fileSize(m.sandbox.layout.snapshot)),
                              hasRootDisk: m.sandbox.hasRootDisk, defaultSession: m.config.defaultSession.name,
-                             agentPrompt: agentPromptReport(m), project: m.config.project, guide: guide(m))
+                             agentPrompt: agentPromptReport(m), project: m.config.project, guide: guide(m),
+                             defaultArgv: m.config.defaultSession.argv)
     }
 
     func credentials(_ m: Managed) -> [CredentialRow] {

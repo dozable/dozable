@@ -469,6 +469,10 @@ public struct DozableSettings: Sendable {
             .init("ui", "explain_tab_close", .bool, .bool(true),
                   "Closing an agent's tab returns to the sandbox's Home, which says the agent is still running and that End stops it (its \"Don't say this again\" sets this to false). false: Home does not say it.",
                   applies: .now),
+            // 635 (owner): a session's live picture from the sidebar — a screen icon on the row's hover, held half a second.
+            .init("ui", "nav_thumbnails", .bool, .bool(true),
+                  "Hovering a session in the sidebar shows a screen icon; resting on it for half a second shows the session's live picture (moving to another session then shows its picture at once). false: no icon, no picture.",
+                  applies: .now),
             .init("ui", "split_default", .choice(["shell", "watch", "attach", "dialog"]), .string("shell"),
                   "What a terminal's Split opens: shell (a new shell session), watch (a read-only view of the left terminal's session), attach (a second, shared view of it), dialog (choose each time).",
                   applies: .now),

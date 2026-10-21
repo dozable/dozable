@@ -51,11 +51,13 @@ export function restartSessionDialog(name, session) {
 export function endSessionDialog(name, session) {
   const agent = sessionAgent(name, session);
   dialog('End ' + session + '?', (agent ? agent + ' stops' : 'Its program stops') + ' — hung up as when its terminal closes, then terminated if it must be. Whatever it is doing now is lost.',
-    [], 'End session', async () => {
-      const op = await actOrThrow({ action: 'session-end', sandbox: name, session });
-      const done = await waitForOp(op, 60);
-      if (done && done.state === 'failed') failureFor(name, done.text);
-    }, { danger: true, icon: 'power' });
+    [], 'End session', () => endSession(name, session), { danger: true, icon: 'power' });
+}
+/// End one session (one host operation); a failure is said on the sandbox's page.
+export async function endSession(name, session) {
+  const op = await actOrThrow({ action: 'session-end', sandbox: name, session });
+  const done = await waitForOp(op, 60);
+  if (done && done.state === 'failed') failureFor(name, done.text);
 }
 
 /// Restart: the panes on the session wait ("Restarting…") instead of ending, and reattach when it is back.

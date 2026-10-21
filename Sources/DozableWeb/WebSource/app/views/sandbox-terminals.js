@@ -2,7 +2,7 @@
 import { paintStartProgress } from '../components/start-progress.js';
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon, setButton } from '../dom/icons.js';
+import { icon, ICON_OPEN_IN_TERMINAL, setButton, withIcon } from '../dom/icons.js';
 import { agentTitle } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
@@ -22,7 +22,7 @@ import { agentChip } from '../components/agent-status.js';
 import { failureFor, pageFailure } from '../components/notices.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
-import { sessionMenuItems } from '../components/session-actions.js';
+import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');
 
@@ -63,11 +63,18 @@ function drawTerminals() {
     const nsCaret = h('button', { type: 'button', class: 'btn sm quiet caret', title: 'Other terminals', 'aria-label': 'Other terminals' }, icon('chevron-down'));
     const nsGroup = h('div', { class: 'btn-group', role: 'group', 'aria-label': 'New terminal' }, termUI.newShell, nsCaret);
     termUI.nsCtl = menuButton(nsCaret, [], { wrap: nsGroup, label: 'Other terminals' });
-    termUI.openTerm = btn('Open in Terminal', () => openInTerminal(state.param, null), { small: true, quiet: true, iconOnly: true, icon: 'square-terminal' });
-    termUI.acts = h('div', { class: 'strip-acts', role: 'toolbar', 'aria-label': 'Terminals' }, nsGroup, termUI.splitBtn, isRemote() ? null : termUI.openTerm);
+    // 635 (owner): a new session of the sandbox's own agent (claude-2, …) beside New shell — shown when it has one.
+    termUI.newAgent = btn('New session', () => { const n = state.param; newAgentSession(n).catch((e) => failureFor(n, e.message || String(e))); },
+      { small: true, quiet: true, icon: 'plus' });
+    termUI.openTerm = btn('Open in Terminal', () => openInTerminal(state.param, null), { small: true, quiet: true, iconOnly: true, icon: ICON_OPEN_IN_TERMINAL });
+    termUI.acts = h('div', { class: 'strip-acts', role: 'toolbar', 'aria-label': 'Terminals' }, termUI.newAgent, nsGroup, termUI.splitBtn, isRemote() ? null : termUI.openTerm);
+    // 635 (owner): the tabs menu, left of Home — every tab open here, Close all tabs, End all sessions.
+    const tabsTrigger = h('button', { type: 'button', class: 'tab-x tabs-menu', title: 'The open tabs', 'aria-label': 'The open tabs', 'data-tabs-menu': '' },
+      icon('chevron-down'));
+    termUI.tabsCtl = menuButton(tabsTrigger, [], { label: 'The open tabs' });
     termUI.panes = [0, 1].map((i) => {
       const strip = h('div', { class: 'tabs', role: 'tablist', 'aria-label': 'Terminals' });
-      const head = h('div', { class: 'term-strip' }, strip);
+      const head = h('div', { class: 'term-strip' }, i === 0 ? termUI.tabsCtl.el : null, strip);
       const body = h('div', { class: 'term-body' });
       const empty = h('div', { class: 'term-empty' });
       const pane = h('div', { class: 'term-pane', 'data-pane': String(i) }, head, body);
@@ -90,19 +97,18 @@ function drawTerminals() {
   // 635: Home — the page's first tab, always there (a document: no engine, no socket).
   if (name && !homePane(name)) openHomePane(name);
   termUI.panes.forEach((p, i) => {
-    // 635: Home, then (617) the build log's small tab, then Console, then the sessions; an agent's terminal still PENDING
-    // (not drawn yet) is laid out but has no tab. The build log is never chosen by itself: it shows when its tab is clicked.
+    // 635: Home, then Console, then the sessions, then the build log (its own tab, opened from Home); an agent's terminal
+    // still PENDING (not drawn yet) is laid out but has no tab.
     const all = name ? pageTerminals(name).filter((t) => t.pane === i) : [];
-    const mine = [...all.filter((t) => t.home), ...all.filter((t) => t.buildlog), ...all.filter((t) => t.mode === 'console'), ...all.filter((t) => !isAux(t) && !t.pending)];
-    const choosable = mine.filter((t) => !t.buildlog);
+    const mine = [...all.filter((t) => t.home), ...all.filter((t) => t.mode === 'console'), ...all.filter((t) => !isAux(t) && !t.pending), ...all.filter((t) => t.buildlog)];
     // 635: what is shown when the chosen tab is gone (a close, a session that ended) is Home — never Console.
     if (!mine.some((t) => t.id === v.selected[i])) {
       const home = mine.find((t) => t.home);
-      v.selected[i] = home ? home.id : choosable.length ? choosable[choosable.length - 1].id : null;
+      v.selected[i] = home ? home.id : mine.length ? mine[mine.length - 1].id : null;
     }
     p.strip.replaceChildren(...mine.map((t) => tabElement(t, i)));
     scrollActiveTab(p.strip);
-    p.empty.hidden = all.some((t) => !t.buildlog) || all.some((t) => t.buildlog && t.id === v.selected[i]);
+    p.empty.hidden = all.length > 0;
     for (const t of all) {
       if (t.els.wrap.parentNode !== p.body) p.body.append(t.els.wrap);
       t.els.wrap.classList.toggle('term-pending', !!t.pending);
@@ -148,11 +154,72 @@ export function paintStripActs() {
   termUI.newShell.title = why || 'A new shell session (shell-2, shell-3, …) in a browser terminal';
   termUI.openTerm.disabled = !!why;
   termUI.openTerm.title = why || 'Open in Terminal — your terminal app attaches to the ' + (s && s.d ? s.d.defaultSession : 'default') + ' session';
+  const agent = i && s.d.defaultArgv ? agentTitle(i) : null;
+  termUI.newAgent.hidden = !agent;
+  if (agent) {
+    setButton(termUI.newAgent, 'New ' + agent + ' session', 'plus');
+    termUI.newAgent.disabled = !!why;
+    termUI.newAgent.title = why || 'Another ' + agent + ' session (' + s.d.defaultSession + '-2, …) beside the first, in the same folder';
+  }
+  if (!termUI.tabsCtl.isOpen()) termUI.tabsCtl.setItems(tabsMenuItems(name));
   if (termUI.nsCtl.isOpen()) return;
   termUI.nsCtl.setItems([
     { label: 'Terminal…', icon: 'terminal', desc: 'A new session: a shell, or a command', disabled: busy, why: 'Wait until it settles', onSelect: () => newTerminalDialog(name) },
     { label: 'Run detached…', icon: 'play', desc: 'A new session running a command, not opened here', disabled: !!why, why, onSelect: () => runDetachedDialog(name) },
   ]);
+}
+/// 635 (owner): the tabs menu — every tab of this page (the one shown checked), then Close all tabs (the sessions keep
+/// running) and End all sessions (asks first).
+function tabsMenuItems(name) {
+  if (!name) return [];
+  const v = sview(name);
+  const tabs = pageTerminals(name).filter((t) => !t.pending);
+  const order = tabs.filter((x) => !isAux(x)).map((x) => x.id);
+  const items = [...tabs.filter((t) => t.home), ...tabs.filter((t) => t.mode === 'console'), ...tabs.filter((t) => !isAux(t)), ...tabs.filter((t) => t.buildlog)].map((t) => ({
+    label: t.home ? 'Home' : t.mode === 'console' ? 'Console' : t.buildlog ? 'Build log' : (order.indexOf(t.id) + 1) + ' · ' + terminalTitle(t),
+    icon: t.home ? 'layout-grid' : t.mode === 'console' ? 'cpu' : t.buildlog ? 'wrench' : t.mode === 'watch' ? 'eye' : 'terminal',
+    check: v.selected.includes(t.id), data: { tabsItem: String(t.id) },
+    onSelect: () => { v.selected[t.pane] = t.id; v.focusedPane = t.pane; renderTerminals(); if (!t.home && !t.buildlog) focusTerm(t); },
+  }));
+  const closable = tabs.filter((t) => !t.home);
+  const s = state.sbx;
+  const live = s && s.name === name && s.d ? (s.d.sessions || []).filter((x) => !x.ended && !x.saved) : [];
+  const running = sandboxPhase(name) === 'running';
+  return [...items, { sep: true },
+    { label: 'Close all tabs', icon: 'x', desc: 'Every tab but Home — the sessions keep running', disabled: !closable.length, why: 'Only Home is open',
+      data: { tabsCloseAll: '' }, onSelect: () => closeAllTabs(name) },
+    { label: 'End all sessions…', icon: 'power', danger: true, desc: 'Every program running in ' + name + ' stops', disabled: !running || !live.length,
+      why: running ? 'Nothing is running' : 'Only while it runs', data: { tabsEndAll: '' }, onSelect: () => endAllDialog(name, live.map((x) => x.name)) },
+  ];
+}
+function closeAllTabs(name) {
+  const v = sview(name);
+  for (const t of pageTerminals(name).filter((x) => !x.home)) {
+    if (t.mode === 'console') v.consoleClosed = true;
+    closeTerminal(t.id);
+  }
+  const home = homePane(name);
+  if (home) { v.selected[0] = home.id; v.selected[1] = null; v.focusedPane = 0; }
+  renderTerminals();
+}
+function endAllDialog(name, sessions) {
+  dialog('End every session of ' + name + '?',
+    sessions.length + ' running (' + sessions.join(', ') + ') — each program stops; whatever they are doing now is lost. The sandbox keeps running.',
+    [], 'End all sessions', async () => {
+      closeAllTabs(name);
+      await Promise.all(sessions.map((x) => endSession(name, x)));
+    }, { danger: true, icon: 'power' });
+}
+/// 635 (owner): another session of the sandbox's own agent — its default program, the host names it (claude-2, …).
+async function newAgentSession(name) {
+  const s = state.sbx;
+  const argv = s && s.name === name && s.d ? s.d.defaultArgv : null;
+  if (!argv || !argv.length) throw new Error('this sandbox runs no agent');
+  const done = await waitForOp(await actOrThrow({ action: 'open-session', sandbox: name, argv }));
+  if (!done || done.state !== 'done') throw new Error(done ? done.text : 'the session did not start in time');
+  const m = /^(?:started|already running:) session (\S+) in /.exec(done.text);
+  if (!m) throw new Error(done.text);
+  openTerminal(name, m[1], 'interactive', sview(name).split ? sview(name).focusedPane : 0);
 }
 /// A pane's tab strip scrolls sideways when its tabs overflow; the selected tab is always in view
 /// (orchestrator ruling, 593 follow-up).
@@ -192,19 +259,18 @@ function tabElement(t, pane) {
     shared);
   const move = v.split ? h('button', { type: 'button', class: 'tab-x', title: 'Move to the other pane', 'aria-label': 'Move ' + label + ' to the other pane',
     on: { click: () => { t.pane = 1 - t.pane; v.selected[t.pane] = t.id; renderTerminals(); focusTerm(t); } } }, icon('arrow-left-right')) : null;
-  // 635: closing a view never ends its session — and the agent's own tab lands on Home, which says it goes on.
+  // 635 (owner): the close box reads as "end it" — a running session's asks: End, Hide (it keeps running) or Cancel.
   const agent = isAgentTab(t);
-  const who = agent ? agentTitle(state.sbx.d.info) || t.session : null;
   const close = h('button', { type: 'button', class: 'tab-x', 'aria-label': 'Close ' + label,
-    title: who ? 'Close the tab — ' + who + ' keeps running. End stops it: ⋯ › End session.' : 'Close the tab — the session keeps running',
-    on: { click: () => closeSessionTab(t, agent) } }, icon('x'));
+    title: askOnClose(t, twins) ? 'Close — end ' + t.session + ', or hide its tab and keep it running' : 'Close the tab',
+    on: { click: () => (askOnClose(t, twins) ? closeTabDialog(t) : closeSessionTab(t, agent)) } }, icon('x'));
   // 608: Restart session / End session — for a running session of a running sandbox.
   const live = t.session && !t.saved && !t.ended && !t.restarting && !t.bootlog && sandboxPhase(t.sandbox) === 'running';
   // The menu is kept on the terminal across re-renders (a title or phase change re-renders the strip — an open
   // menu must not vanish under the pointer).
   if (live && !t.sessionMenu) {
     t.sessionMenu = menuButton(h('button', { type: 'button', class: 'tab-x', title: 'Session ' + t.session + ': restart or end it',
-      'aria-label': 'More for session ' + t.session, 'data-session-menu': t.session }, icon('ellipsis')), sessionMenuItems(t.sandbox, t.session, null),
+      'aria-label': 'More for session ' + t.session, 'data-session-menu': t.session }, icon('ellipsis-vertical')), sessionMenuItems(t.sandbox, t.session, null),
       { align: 'end', label: 'Session ' + t.session });
   } else if (!live && t.sessionMenu) t.sessionMenu = null;
   const menu = live ? t.sessionMenu.el : null;
@@ -215,6 +281,26 @@ function isAgentTab(t) {
   const s = state.sbx;
   return !!(s && s.name === t.sandbox && s.d && t.session && t.session === s.d.defaultSession && t.mode === 'interactive'
     && !t.saved && !t.ended && !t.pending && sandboxPhase(t.sandbox) === 'running');
+}
+/// 635 (owner): the close box asks when it would leave a running session with no view here — an interactive tab of a
+/// running sandbox's live session that no other tab shows. A watch, a saved screen, an ended one or a twin just closes.
+function askOnClose(t, twins) {
+  return !!t.session && t.mode === 'interactive' && !t.saved && !t.ended && !t.restarting && !t.bootlog && !t.pending
+    && !twins.length && sandboxPhase(t.sandbox) === 'running';
+}
+/// End (the default, destructive), Hide — keep it running (the tab goes, the session goes on), Cancel.
+function closeTabDialog(t) {
+  const who = sessionAgent(t.sandbox, t.session);
+  const d = dialog('Close ' + t.session + '?',
+    'End stops ' + (who || 'its program') + ' — whatever it is doing now is lost. Hide closes the tab and keeps it running: Home, the sidebar and the tabs menu open it again.',
+    [], 'End session', async () => {
+      closeSessionTab(t, false);
+      await endSession(t.sandbox, t.session);
+    }, { danger: true, icon: 'power' });
+  const hide = h('button', { type: 'button', class: 'btn', 'data-close-hide': '', on: { click: () => { d.close(); closeSessionTab(t, false); } } },   // chosen knowing: no note on Home
+    withIcon('eye-off', 'Hide — keep running'));
+  d.querySelector('.dlg-buttons button[type="submit"]').before(hide);
+  hide.focus();
 }
 /// 635: a person closed a session's tab: it goes (the session runs on) and Home is shown; the agent's tab marks its card.
 function closeSessionTab(t, agent) {
@@ -232,7 +318,7 @@ function homeTab(t, pane, v) {
   const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-home' + (t.id === v.selected[pane] ? ' active' : ''),
     title: 'Home — every session of ' + t.sandbox + ', its logs and its folder', 'data-term': String(t.id), 'data-home-tab': t.sandbox,
     on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); } } },
-    icon('box'), 'Home', live ? h('span', { class: 'count', title: live + ' running' }, String(live)) : null);
+    icon('layout-grid'), 'Home', live ? h('span', { class: 'count', title: live + ' running' }, String(live)) : null);
   return h('div', { class: 'tab-wrap' }, select);
 }
 /// 617: the system console. 635: an ordinary tab — closable at any time (even during a boot); once closed it stays
@@ -247,34 +333,43 @@ function consoleTab(t, pane, v) {
     on: { click: () => { v.consoleClosed = true; closeTerminal(t.id); } } }, icon('x'));
   return h('div', { class: 'tab-wrap' }, select, close);
 }
-/// 617: the build log's tab — icon only (its name in the tooltip), no number, no close box.
+/// 635 (owner): the build log — its own tab, opened from Home › Logs (never by itself); a spanner, no number; closable.
 function buildLogTab(t, pane, v) {
   const select = h('button', { type: 'button', role: 'tab', class: 'tab tab-buildlog' + (t.id === v.selected[pane] ? ' active' : ''),
     title: 'Build log — how ' + (t.buildlogInfo ? t.buildlogInfo.image : 'its image') + ' was built' + (t.buildlogInfo ? (t.buildlogInfo.state === 'done' ? ', ' : ' (it failed), ') + when(t.buildlogInfo.finishedAt) : '') + ': the steps and their output (read-only)',
-    'aria-label': 'Build log',
     'data-term': String(t.id), 'data-buildlog-tab': t.sandbox,
     on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); } } },
-    icon('list-checks'));
-  return h('div', { class: 'tab-wrap' }, select);
+    icon('wrench'), 'Build log');
+  const close = h('button', { type: 'button', class: 'tab-x', title: 'Close the build log (Home › Logs opens it again)', 'aria-label': 'Close Build log',
+    on: { click: () => closeTerminal(t.id) } }, icon('x'));
+  return h('div', { class: 'tab-wrap' }, select, close);
 }
-/// 617: the build log's tab follows the image's kept log: shown once the page has read that one is kept (a 404 closes
-/// it again), hidden while the image is being built (its new log replaces it when the build ends — `stale`).
+/// 617: the image's kept build log, read once per page (a 404: none kept), forgotten while the image is being built (its
+/// new log replaces it when the build ends — `stale`). 635 (owner): never opened by itself — Home › Logs › Build log
+/// opens it in its own tab (`openBuildLog`).
 export function syncBuildLogTab(name) {
   if (!terminalsAllowed() || !name) return;
   const image = sandboxImage(name);
   const building = !!image && (state.preps || []).some((p) => p.image === image && (p.state === 'running' || p.state === 'cancelling'));
-  const seen = (state.blogChecked = state.blogChecked || new Set());
+  const kept = (state.buildLogs = state.buildLogs || new Map());
   const was = (state.blogBuilding = state.blogBuilding || new Set());
   const stale = was.has(name) && !building;           // a build of its image just ended: its new log replaces the tab
   if (building) was.add(name); else was.delete(name);
-  if (building || stale) { for (const t of pageTerminals(name).filter((x) => x.buildlog)) closeTerminal(t.id); seen.delete(name); }
-  if (building || seen.has(name)) return;
-  seen.add(name);
-  // Only when one is kept (no tab that would only say "none"); the tab draws what was read here.
-  api('sandboxes/' + name + '/build-log').then((log) => {
-    if (pageTerminals(name).some((t) => t.buildlog)) return;
-    openBuildLogTerminal(name, log);
-  }).catch(() => { /* none kept (404), or not now: no tab */ });
+  if (building || stale) { for (const t of pageTerminals(name).filter((x) => x.buildlog)) closeTerminal(t.id); kept.delete(name); }
+  if (building || kept.has(name)) return;
+  kept.set(name, null);
+  api('sandboxes/' + name + '/build-log').then((log) => { kept.set(name, log); paintHome(name); })
+    .catch(() => { /* none kept (404), or not now: Home has no Build log row */ });
+}
+/// 635: the build log in its own tab (shown), from what `syncBuildLogTab` read.
+export function openBuildLog(name) {
+  const log = state.buildLogs && state.buildLogs.get(name);
+  const have = pageTerminals(name).find((t) => t.buildlog);
+  const t = have || (log ? openBuildLogTerminal(name, log) : null);
+  if (!t) return;
+  const v = sview(name);
+  v.selected[t.pane] = t.id; v.focusedPane = t.pane;
+  renderTerminals();
 }
 /// 617: Console exists while the sandbox's VM is powered on (booting, running, paused); it goes when it shuts down,
 /// sleeps or hibernates, and comes back at the next power-on. A start under way (an agent's terminal still pending)
