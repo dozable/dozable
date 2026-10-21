@@ -7,8 +7,8 @@ import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status-ea43ce7858bc28f6.js';
 import { moreMenu } from './menus-5554adcb670bde92.js';
-import { canPeek, peekIcon, peekRegion } from './nav-peek-fc0c0df15ad3ccb2.js';
-import { sessionMenuItems } from './session-actions-3c8459c9eab91c73.js';
+import { canPeek, peekIcon, peekRegion } from './nav-peek-d711dc6b204c0f21.js';
+import { sessionMenuItems } from './session-actions-d4928ae1590231b3.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const renderHostFoot = upcall('renderHostFoot');
 

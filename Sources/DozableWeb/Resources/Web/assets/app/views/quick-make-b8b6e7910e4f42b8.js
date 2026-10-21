@@ -6,10 +6,10 @@
 import { api } from '../core/api-3e1b927edbd234c5.js';
 import { actOrThrow, beginTransition, cancelTransition, waitOp } from '../core/operations-ff189ebd5e81fa10.js';
 import { state } from '../core/state-1378d79c750c8380.js';
-import { startWithBootView } from '../components/lifecycle-ea2043fb9c41e95c.js';
-import { renderNavSandboxes } from '../components/nav-c4c962f5c970592c.js';
+import { startWithBootView } from '../components/lifecycle-eed34c088324ed4f.js';
+import { renderNavSandboxes } from '../components/nav-396ce4a910dbf783.js';
 import { paintStartProgress } from '../components/start-progress-18f229f5beea64c6.js';
-import { drawPendingTry } from './sandbox-90d407e4e5c8f294.js';
+import { drawPendingTry } from './sandbox-d42c413b30260c81.js';
 
 /// plan: the host's plan; agent/title: the tool; account: the setup's account choice (kept for Back); back: 'onboarding'
 /// when the setup wizard made it (else Back reopens the Quick try's setup); before(): close what is open, in this frame.
