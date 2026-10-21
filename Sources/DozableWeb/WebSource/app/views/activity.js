@@ -16,7 +16,16 @@ function activityNode() {
   const items = state.activity.slice().reverse().map((a) => h('li', null,
     h('span', { class: 't' }, clock(a.time)), h('span', { class: 'who muted' }, a.sandbox || a.kind),
     h('span', { class: 'text' }, a.text)));
+  // 635 (owner: a message went "too fast — i couldnt read it"): every message this tab showed, newest first.
+  const TONE = { ok: 'done', info: 'note', warn: 'warning', bad: 'failed' };
+  const msgs = (state.messages || []).slice().reverse().map((m) => h('li', { 'data-message': m.tone },
+    h('span', { class: 't' }, clock(new Date(m.at).toISOString())), h('span', { class: 'who muted' }, TONE[m.tone] || m.tone),
+    h('span', { class: 'text' }, m.text)));
   return h('div', null, h('h1', null, 'Activity'),
+    h('h2', { class: 'h-section' }, 'Messages'),
+    h('p', { class: 'sub' }, 'Every message this page showed — the ones that go by themselves too — since this tab opened.'),
+    panel(msgs.length ? h('ul', { class: 'feed', 'data-messages': '' }, msgs) : null, 'No messages yet.'),
+    h('h2', { class: 'h-section' }, 'The host'),
     h('p', { class: 'sub' }, 'What the host does — phases, timed steps, notes — while a sandbox is live and this page is open.'),
     panel(items.length ? h('ul', { class: 'feed' }, items) : null, 'Nothing yet. Start or wake a sandbox and it shows here.'));
 }

@@ -301,6 +301,10 @@ enum WebTerminalMessage {
         let keystrokeWakes: Int
         /// 591: a one-line note the page shows briefly ("woke in 0.4 s").
         var notice: String? = nil
+        /// 635: a WATCH viewer's session size (it has none of its own): the page lays the watch out at exactly it,
+        /// scaled — laid out smaller, the program's full-screen redraws scrolled (a thumbnail of cmatrix streamed upward).
+        var cols: Int? = nil
+        var rows: Int? = nil
     }
     struct Ended: Encodable {
         let t = "ended"

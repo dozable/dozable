@@ -42,6 +42,33 @@ const frameStats = { dropped: 0 };
 let term = null;
 let mode = 'interactive';
 let focused = false;
+let fit = null;
+let pendingSize = null;
+let fixed = null;
+
+/// 635: a WATCH is laid out at its session's size (cols × rows, from the page) and scaled to fit this frame — never
+/// fitted to the frame: laid out smaller than the session, a program's full-screen redraws scrolled.
+function sessionSize(cols, rows) {
+  if (!term) { pendingSize = { cols, rows }; return; }
+  if (!fixed) {
+    quietly(() => fit.dispose());                    // the frame's own size no longer decides the grid
+    new ResizeObserver(scaleToFit).observe(document.documentElement);
+  }
+  fixed = { cols, rows };
+  if (term.cols !== cols || term.rows !== rows) quietly(() => term.resize(cols, rows));
+  scaleToFit();
+}
+function scaleToFit() {
+  const host = document.getElementById('term');
+  const canvas = host && host.querySelector('canvas');
+  if (!fixed || !canvas) return;
+  host.style.transform = '';
+  const w = canvas.offsetWidth, h = canvas.offsetHeight;
+  if (!w || !h) return;
+  const s = Math.min(1, window.innerWidth / w, window.innerHeight / h);
+  host.style.transformOrigin = '0 0';
+  host.style.transform = s < 1 ? 'scale(' + s + ')' : '';
+}
 
 window.open = function refuseToOpen() { return null; };
 
@@ -60,10 +87,11 @@ async function init(wasm, m, fontSize) {
   term = new GhosttyWeb.Terminal({ ghostty: engine, fontSize, fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
                                    theme: THEME, cursorBlink: false, disableStdin: mode === 'watch', scrollback: 4 * 1024 * 1024 });
   term.open(host);
-  const fit = new GhosttyWeb.FitAddon();
+  fit = new GhosttyWeb.FitAddon();
   term.loadAddon(fit);
   fit.fit();
   fit.observeResize();
+  if (pendingSize) { const s = pendingSize; pendingSize = null; sessionSize(s.cols, s.rows); }
   term.onData((s) => { if (mode === 'interactive') toPage({ t: 'data', s }); });
   term.onResize((d) => toPage({ t: 'resize', cols: d.cols, rows: d.rows }));
   term.onTitleChange((s) => toPage({ t: 'title', s: String(s).slice(0, 120) }));
@@ -252,6 +280,8 @@ function valid(m) {
     case 'write': return !!term && m.data instanceof ArrayBuffer && m.data.byteLength <= MAX_WRITE && Object.keys(m).length === 2;
     case 'paste': return !!term && typeof m.text === 'string' && m.text.length <= MAX_PASTE && Object.keys(m).length === 2;
     case 'focus': case 'keep-scrollback': case 'top': return !!term && Object.keys(m).length === 1;
+    case 'size': return mode === 'watch' && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
+                        && Number.isInteger(m.rows) && m.rows >= 1 && m.rows <= 500 && Object.keys(m).length === 3;
     default: return false;
   }
 }
@@ -262,6 +292,7 @@ window.addEventListener('message', (ev) => {
     case 'init': init(m.wasm, m.mode, m.fontSize).catch(() => toPage({ t: 'failed' })); break;
     case 'write': term.write(new Uint8Array(m.data)); break;
     case 'paste': if (mode === 'interactive') term.paste(m.text); break;
+    case 'size': sessionSize(m.cols, m.rows); break;
     case 'focus': term.focus(); break;
     // 593: the saved screen becomes the live session (the page then attaches; its SNAPSHOT redraws).
     case 'live': mode = m.mode; break;

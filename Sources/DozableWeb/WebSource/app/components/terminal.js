@@ -303,6 +303,12 @@ function onTerminalMessage(t, ev) {
     wakeStateWaiters(t);
     if (t.bootIntent && m.cover && !['shutDown', 'failed', 'reattaching'].includes(m.cover.kind)) t.bootIntent = false;
     if (m.session) t.session = m.session;
+    // 635: a watch is laid out at its SESSION's size, scaled — never its own (a smaller one scrolled the program's
+    // full-screen redraws: a thumbnail of cmatrix streamed upward).
+    if (t.mode === 'watch' && Number.isInteger(m.cols) && Number.isInteger(m.rows) && (m.cols !== t.sessionCols || m.rows !== t.sessionRows)) {
+      t.sessionCols = m.cols; t.sessionRows = m.rows;
+      toFrame(t, { t: 'size', cols: Math.min(1000, Math.max(2, m.cols)), rows: Math.min(500, Math.max(1, m.rows)) });
+    }
     // 617: the VM is on (the agent's quiet terminal hears it first): tab zero, Console, appears.
     if (t.pending && ['booting', 'running', 'paused'].includes(m.phase)) syncConsoleTab(t.sandbox, m.phase);
     // "woke in 0.4 s": one line over the screen, for a few seconds.

@@ -595,7 +595,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
     500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
-    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`). The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
+    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`).
+    A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's
+    cols × rows from its holder's list once attached and every 5 s (`checkWatchSize`), the state message carries them,
+    and the frame (`{t:'size'}`, watch only) drops its fit, resizes to them and scales to fit — laid out smaller, a
+    program's full-screen redraws scrolled (owner: cmatrix "upward scrolling" in a thumbnail). Toasts stay 8 s (held
+    under the pointer); every toast, session notice and failure is kept (`logMessage`, this tab) — Activity › Messages. The wizards (`#/new`, `#/onboarding`) are a MODAL over the page
    : `state.modal` is the wizard, `state.view`/`state.bgHash` stay the page under it, which is never
     re-rendered or torn down by opening or closing (inert meanwhile); `wizHead()` (title, ✕, the horizontal
     `stepperNode()` strip) + `wizMount()`; ✕/Escape ask before losing choices (`wizDirty`), Back keeps them. Long pages: `pageIndex()`;
