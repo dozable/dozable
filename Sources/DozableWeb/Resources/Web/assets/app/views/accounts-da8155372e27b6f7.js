@@ -9,8 +9,8 @@
 // 2. See which key a sandbox uses — the Sandboxes view: Key, How it gets it, Status; a sandbox whose network reaches no
 //    model provider "Not needed"; Change in place (a select of the keys its tool accepts, the default, No key — the
 //    existing account-use action, from its next session).
-// 3. Change a default — the Keys view: per provider a heading line over ONE table (Default radio · Key · one Status ·
-//    Used by · the one verb + ⋯); Anthropic's "No default" is the table's last row; the Mac login's keep-alive under it.
+// 3. Change a default — the Keys view: per provider a heading line over ONE table (Key · one Status · Used by on one
+//    line, "… +N" past it · a Default tick · the one verb + ⋯, whose Set default changes it); Anthropic's "No default" is the table's last row; the Mac login's keep-alive under it.
 // 4. Add a key for a tool — step 1 asks "Which tool is it for — or which provider?" and answers a tool with the providers
 //    it can use and the keys already there; a failing key is replaced IN PLACE (`replace: true` — the host's add with
 //    force; refused by the server for a key that works). A pasted key follows ui.allow_secret_entry and the secret rules
@@ -297,19 +297,20 @@ function providerGroup(a, keys, p, rows, phases) {
     if (UI.open.has(x.name + '|' + x.kind)) tbody.append(detailsRow(x));
   }
   if (p === 'anthropic') {
-    const none = h('input', { type: 'radio', name: 'ak-def-' + p, 'aria-label': 'No default for Anthropic', 'data-ak-default': 'none' });
-    none.checked = !hasDef;
-    none.addEventListener('change', () => { if (none.checked) act({ action: 'account-default', account: 'none' }); });
+    const items = hasDef ? [{ label: 'Set default', icon: 'check', desc: 'No default: a sandbox that follows it gets no Anthropic key',
+      onSelect: () => act({ action: 'account-default', account: 'none' }) }] : [];
     tbody.append(h('tr', { class: 'none-row', 'data-ak-q-row': 'no default' },
-      h('td', { class: 'c-def' }, h('label', { class: 'ak-def' }, none, !hasDef ? h('b', null, 'default') : null)),
-      h('td', { colspan: '4' }, 'No default — a Claude Code or pi sandbox that follows the default gets no Anthropic key')));
+      h('td', { colspan: '3' }, 'No default — a Claude Code or pi sandbox that follows the default gets no Anthropic key'),
+      h('td', { class: 'c-def' }, defTick(!hasDef, 'No default for Anthropic')),
+      h('td', { class: 'c-acts' }, h('div', { class: 'ak-acts' }, items.length ? moreMenu('More for no default', items, { small: true }).el : null))));
   } else if (!custom && !hasDef) {
-    tbody.append(h('tr', { class: 'none-row', 'data-ak-q-row': '' }, h('td', { class: 'c-def' }, icon('info')),
-      h('td', { colspan: '4' }, p === 'openai' ? 'No default yet — a Codex sandbox that follows the default gets no key until you choose one.' : 'No default yet — choose one above.')));
+    tbody.append(h('tr', { class: 'none-row', 'data-ak-q-row': '' },
+      h('td', { colspan: '5' }, h('span', { class: 'ak-none' }, icon('info'),
+        p === 'openai' ? 'No default yet — a Codex sandbox that follows the default gets no key until you choose one: ⋯ › Set default.' : 'No default yet — choose one above: ⋯ › Set default.'))));
   }
   const table = h('table', { class: 'ak-t' },
-    h('colgroup', null, h('col', { class: 'c-def' }), h('col', { class: 'c-key' }), h('col', { class: 'c-st' }), h('col', { class: 'c-used' }), h('col', { class: 'c-acts' })),
-    h('thead', null, h('tr', null, h('th', null, custom ? '' : 'Default'), h('th', null, 'Key'), h('th', null, 'Status'), h('th', null, 'Used by'),
+    h('colgroup', null, h('col', { class: 'c-key' }), h('col', { class: 'c-st' }), h('col', { class: 'c-used' }), h('col', { class: 'c-def' }), h('col', { class: 'c-acts' })),
+    h('thead', null, h('tr', null, h('th', null, 'Key'), h('th', null, 'Status'), h('th', null, 'Used by'), h('th', { class: 'c-def' }, custom ? '' : 'Default'),
       h('th', null, h('span', { class: 'sr-only' }, 'Actions')))),
     tbody);
   const mac = keys.find((x) => x.kind === 'mac');
@@ -328,19 +329,13 @@ function keyRow(a, rows, x, p, phases) {
   const [glyph, words, ref] = whereOf(x);
   const twin = twinOf(x, rows);
   const custom = p === 'custom';
-  let def = null;
-  if (!custom && x.kind !== 'codex-mac') {
-    const r = h('input', { type: 'radio', name: 'ak-def-' + p, 'aria-label': 'Default for ' + title(a, p) + ': ' + x.name, 'data-ak-default': x.name });
-    r.checked = !!x.isDefault;
-    r.addEventListener('change', () => { if (r.checked) act({ action: 'account-default', account: x.name }); });
-    def = h('label', { class: 'ak-def', title: 'Sandboxes that follow ' + title(a, p) + '’s default use it' }, r, x.isDefault ? h('b', null, 'default') : null);
-  } else if (x.kind === 'codex-mac') {
-    def = h('span', { class: 'ak-def' }, x.isDefault ? h('b', null, 'default') : null);
-  }
+  const def = custom ? null : defTick(!!x.isDefault, title(a, p) + '’s default: ' + shownName(x));
   const used = x.usedBy || [];
   const verb = nextVerb(a, x, p);
   const open = UI.open.has(x.name + '|' + x.kind);
   const items = [
+    !custom && x.kind !== 'codex-mac' && !x.isDefault
+      ? { label: 'Set default', icon: 'check', desc: 'Sandboxes that follow ' + title(a, p) + '’s default use it', onSelect: () => act({ action: 'account-default', account: x.name }) } : null,
     !isLogin(x) && !isFailing(x) && !(p === 'custom' || (a.uncheckedProviders || []).includes(p)) && !x.sourceLabel && checked(x)
       ? { label: 'Check again', icon: 'badge-check', desc: 'One tiny request to ' + title(a, p) + ' with it', onSelect: () => act({ action: 'account-verify', account: x.name }) } : null,
     x.sourceLabel && x.state !== 'unavailable' ? { label: 'Read again', icon: 'refresh-cw', desc: 'Read it from where you keep it now', onSelect: () => act({ action: 'account-refresh', account: x.name }) } : null,
@@ -350,15 +345,40 @@ function keyRow(a, rows, x, p, phases) {
   ].filter(Boolean);
   const q = [x.name, x.kind, words, ref || '', ...used].join(' ').toLowerCase();
   return h('tr', { class: isFailing(x) || (isLogin(x) && loginDown(x) && used.length) ? 'failing' : null, 'data-ak-key': x.name, 'data-ak-kind': x.kind, 'data-ak-q-row': q },
-    h('td', { class: 'c-def' }, def),
     h('td', { class: 'c-key' },
       h('div', { class: 'ak-name' }, shownName(x), twin ? h('span', { class: 'tag warn', 'data-ak-twin': twin.name, title: 'The same fingerprint: one key stored twice' }, 'same key as ' + twin.name) : null),
       h('div', { class: 'ak-where' }, icon(glyph), h('span', null, words), ref ? h('code', { title: ref }, ref) : null)),
     h('td', { class: 'c-st' }, h('div', { class: 'ak-state' }, statusPill(s), s[3] ? h('span', { class: 'muted' }, s[3]) : null)),
-    h('td', { class: 'c-used' }, h('div', { class: 'ak-used' }, used.length
-      ? used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off'), 'aria-hidden': 'true' }), n))
-      : h('span', { class: 'none' }, 'no sandbox'))),
+    h('td', { class: 'c-used' }, used.length
+      ? oneLineChips(used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n, 'data-name': n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off'), 'aria-hidden': 'true' }), n)))
+      : h('div', { class: 'ak-used' }, h('span', { class: 'none' }, 'no sandbox'))),
+    h('td', { class: 'c-def' }, def),
     h('td', { class: 'c-acts' }, h('div', { class: 'ak-acts' }, verb, moreMenu('More for ' + shownName(x), items, { small: true }).el)));
+}
+
+/// The default column: a tick on the provider's default, nothing on the others (Set default is in the row's ⋯ menu).
+function defTick(on, label) {
+  return on ? h('span', { class: 'ak-def', role: 'img', 'aria-label': label, title: 'The default — sandboxes that follow it use this', 'data-ak-default': '' }, icon('check')) : null;
+}
+
+/// Sandbox chips on ONE line: as many as fit, then "… +N" naming the rest (a key many sandboxes use never grows the row).
+function oneLineChips(chips) {
+  const more = h('span', { class: 'ak-chip more', 'data-ak-more': '' });
+  const box = h('div', { class: 'ak-used one-line' }, ...chips, more);
+  let width = -1;
+  const fit = () => {
+    if (box.clientWidth === width) return;
+    width = box.clientWidth;
+    for (const c of chips) c.hidden = false;
+    more.hidden = true;
+    if (!width || box.scrollWidth <= width) return;
+    more.hidden = false;
+    let n = chips.length;
+    do { chips[--n].hidden = true; more.textContent = '… +' + (chips.length - n); } while (n > 1 && box.scrollWidth > width);
+    more.title = chips.slice(n).map((c) => c.dataset.name).join(', ');
+  };
+  new ResizeObserver(fit).observe(box);
+  return box;
 }
 
 function detailsRow(x) {
@@ -373,7 +393,7 @@ function detailsRow(x) {
   add('Last check', x.verification);
   add('Kind', x.kind);
   add('Remove', isLogin(x) ? 'not removable — it is this Mac’s own login' : x.sourceLabel ? 'only Dozable’s record — the source is not touched' : 'deletes its keychain item');
-  return h('tr', { class: 'details-row', 'data-ak-q-row': x.name.toLowerCase() }, h('td', { class: 'c-def' }), h('td', { colspan: '4' }, d));
+  return h('tr', { class: 'details-row', 'data-ak-q-row': x.name.toLowerCase() }, h('td', { colspan: '5' }, d));
 }
 
 /// The one verb that helps now: Replace… (refused), Add again… (its keychain item is gone), Read again (a key read on use

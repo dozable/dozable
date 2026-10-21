@@ -1900,16 +1900,18 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 .ak-gh .for { color: var(--ink-2); font-size: var(--fs-sm); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ak-gh > .btn { margin-left: auto; }
 table.ak-t, table.ak-s { table-layout: fixed; }
-table.ak-t col.c-def { width: 92px; }
 table.ak-t col.c-st { width: 180px; }
-table.ak-t col.c-used { width: 200px; }
-table.ak-t col.c-acts { width: 150px; }
+table.ak-t col.c-used { width: 220px; }
+table.ak-t col.c-def { width: 72px; }
+table.ak-t col.c-acts { width: 130px; }
 .ak-t th:first-child, .ak-t td:first-child, .ak-s th:first-child, .ak-s td:first-child { padding-left: 14px; }
+.ak-t th.c-def, .ak-t td.c-def { text-align: center; }
 .ak-t tr[hidden], .ak-s tr[hidden] { display: none; }
 .ak-t tbody tr:last-child td, .ak-s tbody tr:last-child td { border-bottom: 0; }
-.ak-def { display: flex; align-items: center; gap: 6px; white-space: nowrap; font-size: var(--fs-sm); color: var(--ink-2); }
-.ak-def input { margin: 0; accent-color: var(--accent); }
-.ak-def b { color: var(--accent); font-weight: var(--fw-medium); font-size: var(--fs-xs); }
+.ak-def { display: inline-grid; place-items: center; color: var(--accent); }
+.ak-def .icon { width: 16px; height: 16px; stroke-width: 2.5; }
+.ak-none { display: inline-flex; align-items: center; gap: 6px; }
+.ak-none .icon { width: 14px; height: 14px; flex: none; }
 .ak-name { font-weight: var(--fw-medium); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; overflow-wrap: anywhere; }
 .ak-where { font-size: var(--fs-sm); color: var(--ink-2); display: flex; gap: 5px; align-items: center; min-width: 0; }
 .ak-where .icon { width: 13px; height: 13px; flex: none; }
@@ -1924,10 +1926,15 @@ table.ak-t col.c-acts { width: 150px; }
   font-size: var(--fs-xs); font-weight: var(--fw-medium); text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ak-chip:hover { background: var(--surface-3); }
 .ak-chip .ph-dot { width: 6px; height: 6px; }
+/* One line, never a taller row: chips that do not fit become "… +N" (oneLineChips in accounts.js measures). */
+.ak-used.one-line { flex-wrap: nowrap; overflow: hidden; }
+.ak-used.one-line > * { flex: none; }
+.ak-used.one-line > :first-child { flex: 0 1 auto; min-width: 0; }
+.ak-used.one-line > [hidden] { display: none; }
+.ak-chip.more { color: var(--ink-2); background: transparent; padding: 0 4px; cursor: default; }
 .ak-acts { display: flex; gap: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
 .ak-t tr.failing td { background: color-mix(in srgb, var(--bad) 5%, transparent); }
 .ak-t tr.none-row td { color: var(--ink-2); font-size: var(--fs-sm); }
-.ak-t tr.none-row td.c-def .icon { width: 14px; height: 14px; }
 .ak-t tr.details-row td { background: var(--surface-2); }
 .ak-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 14px; margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .ak-details dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
@@ -1963,19 +1970,17 @@ table.ak-s col.c-acts { width: 120px; }
   .ak-gh .for { display: none; }
   table.ak-t colgroup, table.ak-t thead, table.ak-s colgroup, table.ak-s thead { display: none; }
   table.ak-t, table.ak-s, .ak-t tbody, .ak-s tbody { display: block; table-layout: auto; }
-  .ak-t tr, .ak-s tr { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 4px 8px; padding: 10px 12px; border-bottom: var(--bw) solid var(--line); }
+  .ak-t tr, .ak-s tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 8px; padding: 10px 12px; border-bottom: var(--bw) solid var(--line); }
   .ak-t tbody tr:last-child, .ak-s tbody tr:last-child { border-bottom: 0; }
   .ak-t td, .ak-s td { display: block; padding: 0 !important; border: 0; height: auto; min-width: 0; }
-  .ak-t td.c-def { grid-row: 1 / span 3; }
-  .ak-t td.c-key, .ak-t td.c-st, .ak-t td.c-used { grid-column: 2; }
+  .ak-t td.c-key, .ak-t td.c-st, .ak-t td.c-used { grid-column: 1; }
+  .ak-t td.c-def { grid-column: 2; grid-row: 1; }
   .ak-t td.c-acts { grid-column: 3; grid-row: 1 / span 3; }
-  .ak-def b { display: none; }
-  .ak-t tr.none-row, .ak-t tr.details-row { grid-template-columns: 26px minmax(0, 1fr); }
+  .ak-t tr.details-row { grid-template-columns: minmax(0, 1fr); }
   .ak-t tr.failing { background: color-mix(in srgb, var(--bad) 5%, transparent); }
   .ak-t tr.failing td, .ak-t tr.details-row td, .ak-s tr.changing td { background: transparent; }
   .ak-t tr.details-row { background: var(--surface-2); }
   .ak-s tr.changing { background: var(--accent-tint); }
-  .ak-t tr.none-row td + td, .ak-t tr.details-row td + td { grid-column: 2; }
   .ak-s tr { grid-template-columns: minmax(0, 1fr) auto; }
   .ak-s td.c-sbx { grid-column: 1; }
   .ak-s td.c-st { grid-column: 2; grid-row: 1; }

@@ -618,9 +618,10 @@ name: todo-app</pre></details>
     <code>.ak-ok</code> “Every key works”. The problems come from <code>components/account-problems.js</code>, which the sidebar’s badge on Accounts &amp;
     keys counts too (the lines that name a sandbox — <code>#acc-badge</code>, <code>.nav-badge.count.bad</code>). <b>Change a default:</b> per provider a
     heading line (<code>.ak-gh</code>: letter, name, gateway tag, “for TOOLS”, a quiet “Add PROVIDER key”) over ONE table (<code>table.ak-t</code> in a
-    <code>.panel</code>): the Default radio with “default” as a small accent word, the key and where it lives, ONE status pill (a second line only for a
-    refusal’s code, an expiry, a plan, “read on use · when”), Used by (sandbox chips with their phase dot, each a link), the one verb + ⋯ (Details, Check
-    again, Remove…). Anthropic’s “No default” is the table’s last row (<code>tr.none-row</code>). Under 760px each row stacks.</p>
+    <code>.panel</code>): the key and where it lives, ONE status pill (a second line only for a refusal’s code, an expiry, a plan, “read on use ·
+    when”), Used by (sandbox chips with their phase dot, each a link, on ONE line — <code>.ak-used.one-line</code>, the ones that do not fit become
+    “… +N” naming them on hover), a Default column holding an accent tick on the default only, the one verb + ⋯ (Set default, Details, Check again,
+    Remove…). Anthropic’s “No default” is the table’s last row (<code>tr.none-row</code>), with its own ⋯ › Set default. Under 760px each row stacks.</p>
   <div class="pair wide"><div class="scheme">
     <section class="ak-needs" aria-label="Needs you">
       <div class="ak-needs-h"><i data-i="triangle-alert"></i><span>Needs you</span><span class="muted">— 4 keys, 3 sandboxes affected</span></div>
@@ -638,26 +639,31 @@ name: todo-app</pre></details>
     <section class="ak-group">
       <div class="ak-gh"><span class="ak-av" aria-hidden="true">A</span><h2>Anthropic</h2><span class="for">for Claude Code, pi, OpenCode 2</span><button type="button" class="btn sm quiet"><i data-i="plus"></i>Add Anthropic key</button></div>
       <div class="panel"><table class="ak-t">
-        <colgroup><col class="c-def"><col class="c-key"><col class="c-st"><col class="c-used"><col class="c-acts"></colgroup>
-        <thead><tr><th>Default</th><th>Key</th><th>Status</th><th>Used by</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <colgroup><col class="c-key"><col class="c-st"><col class="c-used"><col class="c-def"><col class="c-acts"></colgroup>
+        <thead><tr><th>Key</th><th>Status</th><th>Used by</th><th class="c-def">Default</th><th><span class="sr-only">Actions</span></th></tr></thead>
         <tbody>
-          <tr class="failing"><td class="c-def"><label class="ak-def"><input type="radio" name="sg-ak" checked><b>default</b></label></td>
+          <tr class="failing">
             <td class="c-key"><div class="ak-name">mac</div><div class="ak-where"><i data-i="user-round"></i><span>This Mac’s Claude login</span></div></td>
             <td class="c-st"><div class="ak-state"><span class="pill st-warn"><i data-i="triangle-alert"></i>Signed out</span></div></td>
-            <td class="c-used"><div class="ak-used"><a class="ak-chip" href="#"><span class="ph-dot ph-off"></span>box-claude</a><a class="ak-chip" href="#"><span class="ph-dot ph-asleep"></span>box-claude2</a></div></td>
+            <td class="c-used"><div class="ak-used one-line"><a class="ak-chip" href="#"><span class="ph-dot ph-off"></span>box-claude</a><a class="ak-chip" href="#"><span class="ph-dot ph-asleep"></span>box-claude2</a><span class="ak-chip more" title="box-3, box-4, …">… +10</span></div></td>
+            <td class="c-def"><span class="ak-def" role="img" aria-label="Anthropic’s default: mac"><i data-i="check"></i></span></td>
             <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
-          <tr><td class="c-def"><label class="ak-def"><input type="radio" name="sg-ak"></label></td>
+          <tr>
             <td class="c-key"><div class="ak-name">claude-max</div><div class="ak-where"><i data-i="key-round"></i><span>Claude subscription token · Keychain</span></div></td>
             <td class="c-st"><div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">expires 2 Nov 2026 (in 12 days)</span></div></td>
             <td class="c-used"><div class="ak-used"><span class="none">no sandbox</span></div></td>
+            <td class="c-def"></td>
             <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
-          <tr><td class="c-def"><label class="ak-def"><input type="radio" name="sg-ak"></label></td>
+          <tr>
             <td class="c-key"><div class="ak-name">team <span class="tag warn">same key as team-old</span></div><div class="ak-where"><i data-i="shield"></i><span>1Password</span><code>op://Dev/anthropic/credential</code></div></td>
             <td class="c-st"><div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">read on use · 40 min ago</span></div></td>
             <td class="c-used"><div class="ak-used"><span class="none">no sandbox</span></div></td>
+            <td class="c-def"></td>
             <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
-          <tr class="none-row"><td class="c-def"><label class="ak-def"><input type="radio" name="sg-ak"></label></td>
-            <td colspan="4">No default — a Claude Code or pi sandbox that follows the default gets no Anthropic key</td></tr>
+          <tr class="none-row">
+            <td colspan="3">No default — a Claude Code or pi sandbox that follows the default gets no Anthropic key</td>
+            <td class="c-def"></td>
+            <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
         </tbody></table></div>
     </section>
   </div></div>
