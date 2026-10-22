@@ -38,6 +38,13 @@ get
 put
 cp
 files
+files/ls
+files/mkdir
+files/new
+files/mv
+files/rename
+files/rm
+files/open
 image
 point
 net

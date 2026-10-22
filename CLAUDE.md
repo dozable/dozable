@@ -74,7 +74,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `router.js` (`route`, `routePage`, `refresh`), `events.js` (SSE `connect`) |
 | `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts` |
+| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts` |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
@@ -92,6 +92,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
 | `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared workspace, the guest for an isolated one; the rules applied), the host op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
+| `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -576,7 +577,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav > a[data-view]` stay direct
     children; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
-    pane; the inspector's tabs `INSP_TABS` (635: no Sessions tab — the sessions are Home's), the chosen tab per sandbox
+    pane; the inspector's tabs `INSP_TABS` (635: no Sessions tab — the sessions are Home's; 644: Files after Overview), the chosen tab per sandbox
     in `sview(name).inspTab` (page memory, no setting); its width in this browser's storage. **Home** (635,
     `views/sandbox-home.js`): the terminal strip's first tab — a page pane record `t.home` (`openHomePane`; no engine,
     no socket, never persisted, never closed, `isAux`), the selection whenever the chosen tab is gone (a close lands
@@ -2177,6 +2178,53 @@ may use it too.
   — never the page's live-update stream's — `files-ready` then `files` events, the same bounded queue / heartbeats /
   ends: sign-out, rotate, revoke, shutdown, restart). The query is decoded strictly (`WebFilesQuery`: `path` only, `%XX`
   only, no `+`, UTF-8, no control character; else 404). Both `read` in `WebExposure`.
+
+### The file explorer panel — the Files tab, `doz files mkdir|new|mv|rename|rm|open`
+
+644 (owner: "expanded / collapsed state is persisted; CRUD operations"; placement: a Files tab in the sandbox page's
+inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swift`, `WebSource/app/views/sandbox-files.js`.
+
+- **Four changes, one host op each, one `WebAction` each, a CLI twin each**: `files-mkdir` (never `-p`), `files-new` (an
+  empty file), `files-move` (a rename is a move in its folder; `fileTarget`), `files-rm` (`recursive` for a folder with
+  contents; destructive: `confirm` = the guest path, the page's tick box). Nothing is EVER replaced; `/workspace` itself is
+  never changed (`FileItemPath`: one name, never the root); a folder never goes into itself. Never a generic write route.
+- **A shared workspace is changed ON THE MAC, never through a guest, never starting a host**: these ops (with
+  `files-open` and `files-tree-set`) are `HostOp.isAnsweredWithoutHost` — through the host when one runs, else
+  in-process (`terminal-layout-set`'s rule), and `HostWebData.perform` sends them through `query`, never an autostart. The
+  path discipline is the listing's: the PARENT resolved by `MacFolderListing.resolve` (lexical, from the record, realpath
+  inside the share's realpath, a link out refused), the item ONE name in it, and every change descriptor-relative on the
+  parent opened `O_NOFOLLOW` (`mkdirat`, `openat(O_EXCL|O_NOFOLLOW)`, `renameatx_np(RENAME_EXCL)`, `unlinkat`; a recursive
+  delete walks with `openat(O_NOFOLLOW)` — a link inside is removed, never followed; ≤ 100 000 entries). Keep it that way:
+  never a path string re-resolved after the check.
+- **The rules, as the guest's view decides** (a rule file present and `workspace.view` on; on the RESOLVED inside path):
+  a hidden item is "no such file", a locked or read-only one is refused, nothing is made in a read-only folder, a NEW name
+  (mkdir, new, a move's destination) must come out visible, a folder moved or deleted must hold nothing the rules protect
+  (at its old and its new place). The rule files are read-only by the rules, so they are never moved or deleted here.
+- **An isolated sandbox**: one utility exec as the image's user (`GuestFileChange`: `cd` + `pwd -P` must be /workspace or
+  below, an existence check first, `mkdir`/`set -C`/`mv`/`rm` on `./NAME`), RUNNING only — asleep/off `invalid-phase`
+  ("this never wakes or starts it"); with no host, in-process says the same.
+- **`files-open`** (shared only; `POST …/files/open` — `WebExposure` **mac-screen**: never for a doz serve browser;
+  `doz files open [--reveal]`): `WorkspaceFiles.decide` exactly as the agent's `xdg-open` (`sandbox.open_files`, document
+  types, the content sniff, a folder in the Finder, reveal) plus the rules (hidden/locked refused), `WorkspaceFiles.open`
+  (the `DOZ_TEST_OPEN_URL` seam). Nothing reads a file's content into the browser.
+- **The open folders are the host's** (`FileTreeState`, `<sandbox>/file-tree.json`, 0600, atomic, ≤ 63 + /workspace = the
+  watch's 64, each a clean relative path once): `files-tree` (read-only) / `files-tree-set` (in-process when no host runs;
+  never creates a directory), `GET|POST …/files/tree` (strict `{expanded}`, `WebFileTree.decode`). Kept across shutdown and
+  reset (the page drops a folder that is gone); gone with `rm`.
+- **The page** (`views/sandbox-files.js`): ONE persistent element per sandbox re-inserted into the rebuilt inspector (so
+  what is open, selected and focused stays); a live refresh never re-lists — the first show, a watch batch (only the
+  folders named; `resync` = every open one), Refresh, its own change (the folders it touched), an isolated sandbox coming
+  to run. The watch (643's stream, ONE per page) is open only while the tab is the shown tab of the visible page with the
+  details open, for a shared workspace, naming /workspace and every open folder (re-opened, debounced, when that set
+  changes; retried after 5 s). An isolated sandbox that does not run is asked NOTHING (the page knows the phase). Rows:
+  `.frow` `role=treeitem`, indent `--depth` set through CSSOM (the CSP refuses a style attribute); keys ↑↓→← Home End
+  Enter F2 Delete; a drag onto a folder is a move; a name the host altered (`altered`) is not changed here. An open row
+  menu holds the page's re-render (its close runs the held one).
+- **Tests**: `FileChangeTests` (the item rule, every change on a scratch folder, links, the rules, the guest script run
+  under /bin/sh, the kept state, in-process ops, open through the seam), `WebFilesTests` (routes, strict bodies, a real
+  listener), `WebActionTests.testTheFileActions`, `ServeExposureTests`; `make test-cli-files` (2b: changes while off with no
+  host, refusals, open through the seam, asleep stays asleep, isolated inside and refused asleep); the workspace probe
+  `probes/644-*/files-panel.mjs` (screenshots 1440/390, light/dark).
 
 ### Browser terminals
 

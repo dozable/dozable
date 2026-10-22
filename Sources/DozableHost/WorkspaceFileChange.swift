@@ -340,20 +340,23 @@ public enum MacFileChange {
     /// the content) plus the rules (a hidden or locked item is refused). Returns what was done, in words.
     public static func open(workspace: String, guestPath: String, reveal: Bool, enabled: Bool, rules: WorkspaceRules?,
                             environment: [String: String] = ProcessInfo.processInfo.environment) throws -> String {
+        // The rules FIRST, on the resolved path: a hidden item is "no such file" before anything else is said about it
+        // (its type, its content) — the answer must not tell that it is there.
+        if let rules, enabled, case .success(let r) = WorkspaceFiles.resolve(guestPath: guestPath, workspace: workspace, reveal: true),
+           let root = MacFolderListing.realPath(workspace), r.macPath != root {
+            let inside = String(r.macPath.dropFirst(root == "/" ? 1 : root.count + 1))
+            var st = stat()
+            let isDir = lstat(r.macPath, &st) == 0 && st.st_mode & S_IFMT == S_IFDIR
+            switch verdict(rules, inside, isDirectory: isDir) {
+            case .hidden: throw HostError(.notFound, "no such file or folder in the workspace: \(FileListPaths.shown(guestPath))")
+            case .locked: throw HostError(.failed, "\(FileListPaths.shown(guestPath)) is locked by the workspace rules — not opened")
+            case .readOnly, .visible: break
+            }
+        }
         switch WorkspaceFiles.decide(guestPath: guestPath, app: nil, reveal: reveal, workspace: workspace, enabled: enabled, allowedApps: []) {
         case .refused(_, let why):
             throw HostError(.failed, "\(FileListPaths.shown(guestPath)) — \(why)")
         case .open(let macPath, let shown, _, let how):
-            if let rules, let root = MacFolderListing.realPath(workspace), macPath != root {
-                let inside = String(macPath.dropFirst(root == "/" ? 1 : root.count + 1))
-                var st = stat()
-                let isDir = lstat(macPath, &st) == 0 && st.st_mode & S_IFMT == S_IFDIR
-                switch verdict(rules, inside, isDirectory: isDir) {
-                case .hidden: throw HostError(.notFound, "no such file or folder in the workspace: \(FileListPaths.shown(guestPath))")
-                case .locked: throw HostError(.failed, "\(FileListPaths.shown(guestPath)) is locked by the workspace rules — not opened")
-                case .readOnly, .visible: break
-                }
-            }
             guard WorkspaceFiles.open(macPath, app: nil, how: how, environment: environment) else {
                 throw HostError(.failed, "this Mac could not open \(shown)")
             }

@@ -315,6 +315,14 @@ final class FileChangeTests: XCTestCase {
         }
         XCTAssertThrowsError(try MacFileChange.open(workspace: ws.path, guestPath: "/workspace/docs/index.html", reveal: false, enabled: false, rules: nil, environment: env),
                              "sandbox.open_files off")
+        // a HIDDEN file of a type that is never opened: "no such file" — never its type (that would say it is there)
+        try write("hidden.bin", "b\n")
+        try write(".dozignore", "secret.md\nhidden.bin\n")
+        let hide = try XCTUnwrap(MacFolderListing.rules(workspace: ws.path, mode: .hide, viewOn: true))
+        XCTAssertThrowsError(try MacFileChange.open(workspace: ws.path, guestPath: "/workspace/hidden.bin", reveal: false, enabled: true, rules: hide, environment: env)) {
+            XCTAssertEqual(($0 as? HostError)?.code, .notFound)
+            XCTAssertFalse(($0 as? HostError)?.message.contains("type") == true)
+        }
         let lines = try String(contentsOf: seam, encoding: .utf8).split(separator: "\n")
         XCTAssertEqual(lines.count, 3)
         XCTAssertTrue(lines[0].hasPrefix("open-file default "))
