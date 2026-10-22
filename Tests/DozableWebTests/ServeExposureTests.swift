@@ -17,6 +17,7 @@ final class ServeExposureTests: XCTestCase {
             .accountAdd, .sandboxKey("s"), .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
+            .files("s", nil), .filesWatch("s", []),
         ]
         for r in all { _ = covered(r) }
         return all
@@ -30,7 +31,7 @@ final class ServeExposureTests: XCTestCase {
              .sessionScreen, .terminalLayout, .terminalLayoutSet, .bootLogs, .bootLog, .buildLog, .onboarding, .onboardingConfig, .preparations,
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup,
-             .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe:
+             .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch:
             return true
         }
     }

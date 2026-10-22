@@ -410,6 +410,12 @@ final class WebSecurityTests: XCTestCase {
             // 617 (RP-1): a web port (a hint where its sign-in comes from — never a value)
             WebPort(PortForwardRow(port: 8888, title: "Jupyter", path: "/", protocol: "http", origin: "recipe", state: "listening",
                                    macPort: 8888, url: "http://127.0.0.1:8888/", auth: "token", tokenHint: "printed in its session")),
+            // 643: a folder's listing and a watch's batch (names from inside a sandbox — never a file's content)
+            WebFileList(FileList(sandbox: "a", path: "/workspace", source: "mac", watch: "mac", rules: true, state: "read-only",
+                                 entries: [FileEntry(name: "n", kind: "link", size: 1, modified: now, target: "t", state: "locked", altered: true)],
+                                 truncated: false, unlisted: 1)),
+            WebFileBatch(FileChangeBatch(sandbox: "a", folders: ["/workspace"], resync: false, time: now)),
+            WebFilesReady(sandbox: "a", folders: ["/workspace"]),
         ]
         let forbidden = ["secret", "token", "password", "apikey", "api_key", "bearer", "authorization", "cookie", "csrf", "credentialvalue"]
         for v in values {

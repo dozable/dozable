@@ -64,6 +64,10 @@ public enum WebRoute: Equatable, Sendable {
     case bootLog(String, Int)           // GET  /api/v1/sandboxes/{name}/boots/{n}   (1 = the latest; 1–99)
     // 617 — the build log of the sandbox's image (WebBootLogs.swift), rendered (read-only).
     case buildLog(String)               // GET  /api/v1/sandboxes/{name}/build-log
+    // 643 — the file watcher (WebFiles.swift): one folder of /workspace (names, kinds, sizes, times — never a file's
+    // content), and a server-sent stream of which watched folders changed (a shared workspace, watched on the Mac).
+    case files(String, String?)         // GET  /api/v1/sandboxes/{name}/files?path=P          (none: /workspace)
+    case filesWatch(String, [String])   // GET  /api/v1/sandboxes/{name}/files/watch?path=P…   (≤ 64; none: /workspace)
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -128,8 +132,9 @@ public enum WebRoute: Equatable, Sendable {
         switch self { case .index, .asset, .terminalFrame, .offline, .serviceWorker: true; default: false }
     }
 
-    /// Parse a request target. Only the metrics routes read a query string (three keys, each by its
-    /// rule — anything else there is not a route); the others ignore it. Anything unusual in the
+    /// Parse a request target. Only the metrics routes (three keys) and the file routes (643: `path` only,
+    /// `WebFilesQuery`) read a query string, each key by its rule — anything else there is not a route; the
+    /// others ignore it. Anything unusual in the
     /// path — percent-encoding, dot segments, a trailing slash, a double slash — is not a route.
     public static func parse(method: WebHTTPMethod, target: String) -> WebRoute? {
         var path = target
@@ -234,8 +239,14 @@ public enum WebRoute: Equatable, Sendable {
             case "layout": return .terminalLayout(rest[1])
             case "boots": return .bootLogs(rest[1])
             case "build-log": return .buildLog(rest[1])
+            case "files":
+                guard let paths = WebFilesQuery.parse(query, maximum: 1) else { return nil }
+                return .files(rest[1], paths.first)
             default: return nil
             }
+        case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "watch":
+            guard let paths = WebFilesQuery.parse(query, maximum: WebFilesQuery.maximumPaths) else { return nil }
+            return .filesWatch(rest[1], paths)
         case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "boots":
             // 1–99, digits only (no sign, no leading zero).
             guard (1...2).contains(rest[3].count), rest[3].first != "0", rest[3].allSatisfy({ $0.isASCII && $0.isNumber }),

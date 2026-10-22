@@ -877,6 +877,31 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     private var _attachError: HostError?
     var performedOps: [HostOp] { lock.withLock { performed.map(\.op) } }
 
+    // 643 — the file watcher: demo's /workspace (a file whose name carries an escape) and a scripted watch; `iso` is isolated.
+    private(set) var filePaths: [String?] = []
+    private var fileSinks: [AsyncStream<FileChangeBatch>.Continuation] = []
+    private(set) var fileWatchesCancelled = 0
+    func files(_ name: String, path: String?) async throws -> WebFileList {
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        lock.withLock { filePaths.append(path) }
+        let inert = FileListPaths.inert("evil\u{1B}[2Jname")
+        return WebFileList(FileList(sandbox: name, path: FileListPaths.folder(path)?.guest ?? "/workspace", source: "mac", watch: "mac", rules: true,
+                                    entries: [FileEntry(name: "src", kind: "folder"), FileEntry(name: inert.text, kind: "file", size: 3, altered: true),
+                                              FileEntry(name: "secret.env", kind: "file", state: "locked")], truncated: false))
+    }
+    func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch {
+        if name == "iso" { throw HostError(.invalid, "iso is isolated — its files are inside it and are not watched: list them again to refresh (doz files iso)") }
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        let (s, c) = AsyncStream<FileChangeBatch>.makeStream()
+        lock.withLock { fileSinks.append(c) }
+        return WebFileWatch(sandbox: name, folders: folders.isEmpty ? ["/workspace"] : folders.compactMap { FileListPaths.folder($0)?.guest }, batches: s) { [weak self] in
+            c.finish()
+            self?.lock.withLock { self?.fileWatchesCancelled += 1 }
+        }
+    }
+    var fileWatchers: Int { lock.withLock { fileSinks.count } }
+    func fileChange(_ b: FileChangeBatch) { for c in lock.withLock({ fileSinks }) { c.yield(b) } }
+
     func attachTerminal(_ name: String, session: String?, size: TermSize) async throws -> any WebTerminalAttachment {
         let next: FakeAttachment? = lock.withLock {
             attaches.append((name, session, size))

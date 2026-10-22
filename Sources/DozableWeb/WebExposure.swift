@@ -46,7 +46,7 @@ public enum WebExposure {
             return .page
         case .overview, .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics,
              .metricsCSV, .events, .doctor, .stream, .operations, .settings, .sessionScreen, .terminalLayout, .bootLogs, .bootLog, .buildLog,
-             .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models:
+             .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models, .files, .filesWatch:
             return .read
         case .actions, .policyPreview, .terminalTicket, .terminalSocket, .settingsChange, .terminalLayoutSet, .onboardingConfig,
              .workspaceCheck, .quickAdd, .plan, .projectOpen, .projectPreview, .projectWrite, .resourcesPreview, .accessCheck, .signup:
