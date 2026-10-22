@@ -155,12 +155,16 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// every source) — `[ModelList]`. A gateway's public list is read again by the host when it is a day old (or
     /// `modelsRefresh`), never by a sandbox; in-process (no host) the cache only. Read-only.
     case models
+    /// 643: one folder of a sandbox's /workspace (`filePath`; nil = /workspace) — `FileList`. A shared workspace is read
+    /// ON THE MAC (its rules applied; any phase; never a guest call); an isolated sandbox from the guest, only while it
+    /// runs (never woken or started). Read-only: answered in-process when no host runs.
+    case filesList = "files-list"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -385,6 +389,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var fresh: Bool?
     /// 612 `events`: include `session-status` events (an older client could not decode them).
     public var sessionStatus: Bool?
+    /// 643 `files-list`: the folder (relative to /workspace, or `/workspace/…`; nil: /workspace).
+    public var filePath: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
