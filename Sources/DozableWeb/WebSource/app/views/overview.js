@@ -1,7 +1,8 @@
 // views/overview — Sandboxes (the overview).
 import { upcall } from '../core/hooks.js';
 import { h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, mark } from '../dom/icons.js';
+import { tildePath } from '../core/paths.js';
 import { api } from '../core/api.js';
 import { bytes, mib } from '../core/format.js';
 import { act } from '../core/operations.js';
@@ -91,8 +92,13 @@ function mainRow(s) {
   return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = '#/sandbox/' + s.name; },
     pointerenter: () => setHover(s.name), pointerleave: () => setHover(null) } },
     h('td', { class: 'ov-sel', on: { click: (ev) => ev.stopPropagation() } }, box),
-    h('td', null, h('a', { class: 'name', href: '#/sandbox/' + s.name }, s.name),
-      h('div', { class: 'sub2' }, s.image, s.workspace ? null : h('span', { class: 'no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, ' · isolated')),
+    // Owner, 2026-10-23: the tool's mark beside the name, and where its workspace is (from ~).
+    h('td', null, h('div', { class: 'ov-name' }, s.icon && s.icon.d ? mark(s.icon, 'ov-mark') : icon('box'),
+      h('a', { class: 'name', href: '#/sandbox/' + s.name }, s.name)),
+      h('div', { class: 'sub2' }, s.image),
+      s.workspace
+        ? h('div', { class: 'sub2 ov-ws', 'data-ov-ws': '', title: s.workspace }, icon('folder'), h('span', null, tildePath(s.workspace)))
+        : h('div', { class: 'sub2 no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, 'isolated — no shared folder'),
       h('div', { 'data-op-for': s.name })),
     h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its host') : null),
     // 642 (owner): without the rows of pictures, a Sessions column — its pictures as a grid in a 4:3 box (kept across refreshes).

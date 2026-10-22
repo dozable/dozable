@@ -381,6 +381,16 @@ name: todo-app</pre></details>
         <details class="nsb-more"><summary><i data-i="settings"></i>Change the agent, base, network, account, folder or size</summary></details></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="plus"></i>Create</button></div>
     </form></dialog>
+    <!-- The account chooser: "No key or account" says the tool will ask for a sign-in; "Add a key or account…" opens the form in place. -->
+    <div class="field acct-chooser"><span>Account</span>
+      <select aria-label="Account"><option>the store default (mac)</option><option selected>No key or account</option><option>Add a key or account…</option></select>
+      <div class="acct-extra"><div class="callout info compact" role="status"><i data-i="user-round"></i><div class="c-body"><small>Claude Code will ask you to sign in when it starts (/login) — the sign-in stays in this sandbox and is deleted with it.</small></div></div></div></div>
+    <!-- All sandboxes: a row's name cell — the tool's mark, the image, the workspace from ~ (or isolated). -->
+    <table class="ov-table"><tbody><tr><td>
+      <div class="ov-name"><span data-mark="claude-code" class="mark"></span><a class="name" href="#">try-claude</a></div>
+      <div class="sub2">claude-code</div>
+      <div class="sub2 ov-ws"><i data-i="folder"></i><span>~/doz-workspaces/try-claude</span></div></td></tr>
+      <tr><td><div class="ov-name"><i data-i="box"></i><a class="name" href="#">lab</a></div><div class="sub2">lab</div><div class="sub2 no-ws">isolated — no shared folder</div></td></tr></tbody></table>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The sandbox, its disks, snapshot and restore points are deleted.</p>

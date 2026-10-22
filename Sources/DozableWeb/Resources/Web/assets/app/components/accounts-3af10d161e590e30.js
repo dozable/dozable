@@ -42,6 +42,8 @@ export function accountForm(opts) {
       h('option', { value: 'openai-key' }, 'OpenAI API key'),
       // 617: every other provider's or gateway's key (xAI, Google, OpenRouter, …) — a `key` account of that provider.
       ...(opts.keyProviders || []).map((p) => h('option', { value: 'key:' + p.id }, p.title + ' key')));
+  // Only the kinds this agent can use (the chooser's "Add a key or account…").
+  if (opts.kinds && !opts.sources) for (const o of [...kindSel.options]) if (!opts.kinds.includes(o.value)) o.remove();
   if (opts.kind) kindSel.value = opts.kind;
   const keyProvider = () => (!opts.sources && kindSel.value.startsWith('key:') ? kindSel.value.slice(4) : null);
   const keyTitle = () => ((opts.keyProviders || []).find((p) => p.id === keyProvider()) || {}).title || keyProvider();
@@ -116,6 +118,7 @@ export function usableFor(acc, current) {
   return { kinds, srcs, needs, usable, defFits, defName, def };
 }
 
+const ADD = '__add';
 export function accountChooser({ accounts, agent, same = null, defaultValue = '', value = null, onChange = () => {} }) {
   let acc = accounts, current = agent(), chosen = value;            // 599f: `value` pre-selects (a project file's account)
   const el = h('div', { class: 'field acct-chooser', 'data-acct-chooser': '' });
@@ -126,16 +129,39 @@ export function accountChooser({ accounts, agent, same = null, defaultValue = ''
     if (same) opts.push(['', same]);
     if (s.defFits) opts.push([defaultValue, 'the store default (' + s.defName + ')']);
     for (const x of s.usable) opts.push([x.name, x.name + ' (' + (s.srcs ? title(sourceOf(x)) + ' key' : KIND_LABELS[x.kind] || x.kind) + ')']);
-    if (!s.needs) opts.push(['none', 'none']);
+    if (!s.needs) opts.push(['none', 'No key or account']);
+    // Owner, 2026-10-23: "i should be able to add a key" — here, without leaving the flow.
+    const addable = (s.kinds || []).filter((k) => ['api-key', 'setup-token', 'openai-key'].includes(k));
+    const canAdd = secretEntryAllowed() && (s.srcs ? s.srcs.length > 0 : addable.length > 0);
+    if (canAdd) opts.push([ADD, 'Add a key or account…']);
     const sel = h('select', { name: 'account', 'aria-label': 'Account' }, opts.map(([v, l]) => h('option', { value: v }, l)));
     if (chosen !== null && opts.some(([v]) => v === chosen)) sel.value = chosen;
     chosen = sel.value;
-    sel.addEventListener('change', () => { chosen = sel.value; onChange(); });
     const name = AGENT_NAMES[current] || current;
+    const extra = h('div', { class: 'acct-extra' });
+    const paintExtra = () => {
+      el.dataset.acctOk = String(!(s.needs && !s.usable.length) && chosen !== ADD);
+      if (chosen === ADD) {
+        const first = s.srcs ? s.srcs[0] : addable[0];
+        const base = s.srcs ? first : first === 'openai-key' ? 'openai' : 'anthropic';
+        extra.replaceChildren(accountForm({ sources: s.srcs || undefined, titles: acc.sourceTitles || {}, kinds: s.srcs ? undefined : addable,
+          kind: s.srcs || addable.length > 1 ? null : first, name: acc.accounts.some((x) => x.name === base) ? base + '-2' : base,
+          onAdded: (r, n) => { acc = r; chosen = n; toast('account ' + n + ' added'); render(); onChange(); } }));
+        return;
+      }
+      // Owner, 2026-10-23: "if i choose no key / account then add a note that the tool will require a login".
+      const none = chosen === 'none' || (chosen === defaultValue && s.defName === 'none' && !same);
+      extra.replaceChildren(none && current
+        ? callout('info', { compact: true, icon: 'user-round', attrs: { 'data-acct-login-note': '' },
+          body: h('small', null, name + ' will ask you to sign in when it starts' + (current === 'claude-code' ? ' (/login)' : '')
+            + ' — the sign-in stays in this sandbox and is deleted with it.') })
+        : '');
+    };
+    sel.addEventListener('change', () => { chosen = sel.value; paintExtra(); onChange(); });
     const missing = s.needs && !s.usable.length;
-    el.dataset.acctOk = String(!missing);
+    el.dataset.acctOk = String(!missing && chosen !== ADD);
     const parts = [h('span', null, 'Account')];
-    if (!missing) parts.push(sel);
+    if (!missing) { parts.push(sel, extra); paintExtra(); }
     if (s.srcs && current) {
       parts.push(h('small', { class: 'muted' }, name + ' can use a key of ' + s.srcs.map(title).join(', ')
         + ' — the account decides which; never a subscription'));
@@ -181,7 +207,7 @@ export function accountChooser({ accounts, agent, same = null, defaultValue = ''
     agentChanged() { current = agent(); chosen = null; render(); onChange(); },
     ok() { return el.dataset.acctOk === 'true'; },
     /// The account to send (undefined: the store default / the same).
-    get() { return chosen ? chosen : undefined; },
+    get() { return chosen && chosen !== ADD ? chosen : undefined; },
   };
 }
 

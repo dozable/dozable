@@ -6,7 +6,7 @@ import { api } from '../core/api-0560a03cb0de25ef.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { actOrThrow } from '../core/operations-1789b4518e764708.js';
 import { setting } from '../core/settings-d764a83ca7e652e0.js';
-import { accountChooser } from './accounts-22b9da5974fbb6fb.js';
+import { accountChooser } from './accounts-3af10d161e590e30.js';
 import { callout } from './callout-1fe929a7376b7fbc.js';
 import { dialog } from './dialog-a776616f1988c401.js';
 import { imagePicker, pickerNameHint } from './image-picker-df02e815e486107a.js';

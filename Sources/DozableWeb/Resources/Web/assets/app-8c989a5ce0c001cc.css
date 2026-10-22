@@ -1562,6 +1562,14 @@ tr.ov-strip > td { padding-top: 0; }
 .ov-th-name { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--ink-2); min-width: 0; }
 .ov-th-name .icon { width: 12px; height: 12px; flex: none; }
 .ov-th-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A row's name: the tool's mark (or a box for an image with no agent), and its workspace folder from ~ under it. */
+.ov-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ov-name > .mark, .ov-name > .icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.ov-ws { display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 32ch; }
+.ov-ws .icon { width: 12px; height: 12px; flex: none; }
+.ov-ws span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-extra:empty { display: none; }
+.acct-extra { margin-top: var(--sp-2); }
 /* Thumbnails off: a Sessions cell — a 4:3 box (128 × 96) of the pictures in the squarest grid that holds them; the tile
    size (--tw) and the screen's scale (--ts) come from the count. Too small for words: no plate, no badge. */
 td.ov-sess { width: 1%; padding-top: 4px; padding-bottom: 4px; }

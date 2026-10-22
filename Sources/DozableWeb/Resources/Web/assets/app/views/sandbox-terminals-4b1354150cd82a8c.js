@@ -21,7 +21,7 @@ import { markNavSession } from '../components/nav-f0a5897abb5f1fe5.js';
 import { agentChip } from '../components/agent-status-4b4b30d82051d513.js';
 import { failureFor, pageFailure } from '../components/notices-63d38bfc28f739a5.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-52ddae1c07833918.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-b11e236b206b5aa3.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-139a75d873dd804d.js';
 import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-f612cb18d351876d.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');

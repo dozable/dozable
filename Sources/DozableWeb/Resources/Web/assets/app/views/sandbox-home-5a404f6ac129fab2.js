@@ -20,9 +20,9 @@ import { failureFor } from '../components/notices-63d38bfc28f739a5.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-f612cb18d351876d.js';
 import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-ea9b068891b23f7a.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-52ddae1c07833918.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-b11e236b206b5aa3.js';
-import { openSavedTerminal } from './sandbox-layout-709c9634e82ad21a.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-7f2482c55db08639.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-139a75d873dd804d.js';
+import { openSavedTerminal } from './sandbox-layout-f069514284266fd0.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-4b1354150cd82a8c.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.
