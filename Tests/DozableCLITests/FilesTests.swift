@@ -415,13 +415,13 @@ final class FilesTests: XCTestCase {
             FileEntry(name: "ln", kind: "link", target: "../x"),
             FileEntry(name: "secret", kind: "file", state: "locked"),
         ], truncated: true)
-        let t = FilesCommand.render(l)
+        let t = FilesList.render(l)
         XCTAssertTrue(t.hasPrefix("s:/workspace/src\n"))
         XCTAssertTrue(t.contains("lib/"))
         XCTAssertTrue(t.contains("ln -> ../x"))
         XCTAssertTrue(t.contains("secret  (locked)"))
         XCTAssertTrue(t.contains("only the first 4 entries"))
-        XCTAssertTrue(FilesCommand.render(FileList(sandbox: "s", path: "/workspace", source: "guest", watch: "none", rules: false, entries: [], truncated: false))
+        XCTAssertTrue(FilesList.render(FileList(sandbox: "s", path: "/workspace", source: "guest", watch: "none", rules: false, entries: [], truncated: false))
             .contains("(empty)"))
     }
 }

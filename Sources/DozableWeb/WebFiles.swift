@@ -123,6 +123,58 @@ public struct WebFileBatch: Codable, Equatable, Sendable {
     }
 }
 
+// MARK: 644 — the file explorer panel
+
+/// `GET|POST /api/v1/sandboxes/NAME/files/tree` — the panel's open folders, kept by the host (`FileTreeState`).
+public struct WebFileTree: Codable, Equatable, Sendable {
+    public var expanded: [String]
+    public var updatedAt: Date?
+
+    public init(_ s: FileTreeState) {
+        expanded = s.expanded
+        updatedAt = s.updatedAt
+    }
+
+    /// The page's body, STRICTLY: `{expanded: [string]}` and nothing else; then the host's own rule (`validate`). Every
+    /// refusal is a fixed message that never echoes a value.
+    public static func decode(_ body: Data) throws -> FileTreeState {
+        guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
+            throw WebAction.Invalid("the body must be a JSON object")
+        }
+        guard Set(d.keys) == ["expanded"], let raw = d["expanded"] as? [Any] else { throw WebAction.Invalid("the body is {expanded: [folder, …]}") }
+        guard raw.count <= FileTreeState.maximumExpanded else { throw WebAction.Invalid("expanded: at most \(FileTreeState.maximumExpanded) folders") }
+        var out: [String] = []
+        for x in raw {
+            guard let s = x as? String, s.utf8.count <= FileListPaths.maximumPathBytes else { throw WebAction.Invalid("expanded: folder paths (strings)") }
+            out.append(s)
+        }
+        let state = FileTreeState(expanded: out)
+        do { try state.validate() } catch let e as HostError { throw WebAction.Invalid(e.message) }
+        return state
+    }
+}
+
+/// `POST /api/v1/sandboxes/NAME/files/open` — `{path, reveal?}`: a file of a shared workspace opened on the Mac (or shown
+/// in the Finder). Opens a window on the Mac's own screen, so `WebExposure` keeps it from a doz serve browser.
+public struct WebFileOpen: Equatable, Sendable {
+    public var path: String
+    public var reveal: Bool
+
+    public static func decode(_ body: Data) throws -> WebFileOpen {
+        guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
+            throw WebAction.Invalid("the body must be a JSON object")
+        }
+        guard Set(d.keys).isSubset(of: ["path", "reveal"]), let p = d["path"] as? String, p.utf8.count <= FileListPaths.maximumPathBytes,
+              FileListPaths.folder(p) != nil else { throw WebAction.Invalid("the body is {path, reveal?} — a path in /workspace") }
+        var reveal = false
+        if let v = d["reveal"], !(v is NSNull) {
+            guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw WebAction.Invalid("reveal: true or false") }
+            reveal = b
+        }
+        return WebFileOpen(path: FileListPaths.folder(p)!.guest, reveal: reveal)
+    }
+}
+
 /// A running watch for one stream: its batches, and `cancel()` (the share's FSEventStream stops with its last watcher).
 public final class WebFileWatch: @unchecked Sendable {
     public let sandbox: String

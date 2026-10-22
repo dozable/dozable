@@ -46,14 +46,14 @@ public enum WebExposure {
             return .page
         case .overview, .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics,
              .metricsCSV, .events, .doctor, .stream, .operations, .settings, .sessionScreen, .terminalLayout, .bootLogs, .bootLog, .buildLog,
-             .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models, .files, .filesWatch:
+             .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models, .files, .filesWatch, .filesTree:
             return .read
-        case .actions, .policyPreview, .terminalTicket, .terminalSocket, .settingsChange, .terminalLayoutSet, .onboardingConfig,
+        case .actions, .policyPreview, .terminalTicket, .terminalSocket, .settingsChange, .terminalLayoutSet, .filesTreeSet, .onboardingConfig,
              .workspaceCheck, .quickAdd, .plan, .projectOpen, .projectPreview, .projectWrite, .resourcesPreview, .accessCheck, .signup:
             return .change
         case .accountAdd, .sandboxKey, .accessGithubKey:
             return .secretEntry
-        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose:
+        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen:
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices

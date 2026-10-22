@@ -873,6 +873,15 @@ public final class DozableWebServer: @unchecked Sendable {
         case .terminalLayoutSet(let name):
             try Self.requireJSONBody(md)
             return json(try await data.setTerminalLayout(name, try WebTerminalLayout.decode(body)))
+        case .filesTree(let name):
+            return json(try await data.fileTree(name))
+        case .filesTreeSet(let name):
+            try Self.requireJSONBody(md)
+            return json(try await data.setFileTree(name, try WebFileTree.decode(body)))
+        case .filesOpen(let name):
+            // 644: the Mac's screen (WebExposure: mac-screen); CSRF-checked above; a strict body.
+            try Self.requireJSONBody(md)
+            return json(["message": try await data.openFile(name, try WebFileOpen.decode(body))])
         case .onboarding:
             var o = try await data.onboarding()
             let f = settings.onboardingFiles()

@@ -508,7 +508,7 @@ public actor HostCore {
         // started to write it. With a host running, the host writes it (serialised with `rm`).
         if readOnly && !(r.op.isReadOnly || (r.op == .netPolicy && isPolicyQuery(r)) || r.op == .sessions || (r.op == .netLog && r.follow != true)
                          || (r.op == .console && r.follow != true) || (r.op == .agentPrompt && r.prompt == nil && r.clearPrompt != true && r.agentSudo == nil && r.clearAgentSudo != true)
-                         || r.op == .terminalLayoutSet || ([.resourcesRemove, .resourcesClean].contains(r.op) && r.dryRun == true)
+                         || r.op.isAnsweredWithoutHost || ([.resourcesRemove, .resourcesClean].contains(r.op) && r.dryRun == true)
                          || (r.op == .sandboxSettings && r.setting == nil) || (r.op == .access && r.check != true)) {
             return .failure(HostError(.unavailable, "\(r.op.rawValue) needs the host"))
         }
@@ -699,6 +699,17 @@ public actor HostCore {
             return try JSONValue(encoding: try await workspaceRulesReport(r))
         case .filesList:
             return try JSONValue(encoding: try await filesList(r))           // 643
+        case .filesMkdir, .filesNew, .filesMove, .filesRm:
+            return try JSONValue(encoding: try await fileChange(r))          // 644
+        case .filesOpen:
+            return try JSONValue(encoding: try await fileOpen(r))            // 644
+        case .filesTree:
+            let m = try get(r.name)
+            return try JSONValue(encoding: FileTreeState.read(store, m.name) ?? FileTreeState(expanded: []))
+        case .filesTreeSet:
+            let m = try get(r.name)
+            try FileTreeState.write(r.fileTree, store, m.name)
+            return try JSONValue(encoding: FileTreeState.read(store, m.name) ?? FileTreeState(expanded: []))
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase
