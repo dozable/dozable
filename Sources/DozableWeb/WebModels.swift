@@ -1104,9 +1104,12 @@ public struct WebAccount: Codable, Equatable, Sendable {
     public var hosts: [String]?
     /// 617: when its key was last checked and worked (nil: never).
     public var verifiedAt: Date?
+    /// 641: a keychain item the person named — the page offers no "Replace the key" for it.
+    public var adopted: Bool?
 
     public init(_ a: AccountRow) {
         verifiedAt = a.verifiedAt
+        adopted = a.adopted
         provider = a.provider
         sourceLabel = a.sourceLabel
         sourceState = a.sourceState
@@ -1328,6 +1331,11 @@ public struct WebAccounts: Codable, Equatable, Sendable {
     public var sourceModels: [String: String] = [:]
     /// 618: the sources that take no key (OpenCode Zen's free models) — no account, nothing to add.
     public var keylessSources: [String] = []
+    /// 641 (Add a key, by tool): every tool's providers among `providers` (its own order) and its name — the tools a
+    /// person may come with, the withdrawn ones too (an existing sandbox of one still needs its key; knowing which
+    /// provider a tool takes offers nothing to make). `providerTools` stays the published ones (the groups' "for …").
+    public var toolProviders: [String: [String]] = [:]
+    public var toolTitles: [String: String] = [:]
 
     public init(accounts: [WebAccount], defaultAccount: String, keepalive: Bool, openaiDefault: String? = nil,
                 providerDefaults: [String: String] = [:]) {
@@ -1368,6 +1376,15 @@ public struct WebAccounts: Codable, Equatable, Sendable {
         }
         // Anthropic's and OpenAI's keys are checked by Dozable itself; another provider's only when providers.json says how.
         uncheckedProviders = ModelSources.keyed.filter { $0 != "anthropic" && $0 != "openai" && KeyProviders.provider($0)?.check == nil }
+        let listed = providers
+        for kind in AgentKind.allCases where kind != .none {
+            guard let r = kind.recipe else { continue }
+            let srcs = Set(AgentCredentials.sources(r.id) ?? (r.id == "codex" ? ["openai"] : ["anthropic"]))
+            let mine = listed.filter { srcs.contains($0) }
+            guard !mine.isEmpty else { continue }
+            toolProviders[r.id] = mine
+            toolTitles[r.id] = r.title
+        }
     }
 }
 

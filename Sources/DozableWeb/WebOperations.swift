@@ -256,6 +256,9 @@ final class WebOperations: @unchecked Sendable {
         case .accountRefresh(let acc):
             let ok = (try? v.decode([AccountRow].self))?.first { $0.name == acc }?.sourceState == "ok"
             return ok ? "\(acc): its key was read again" : "\(acc): its key could not be read — the Accounts page says why"
+        case .accountEdit(let acc, let new, let plan):
+            let said = [new.map { "renamed \($0)" }, plan.map { "plan \($0)" }].compactMap { $0 }.joined(separator: ", ")
+            return "\(acc): \(said)"
         case .accountRemove(let acc):
             return "removed account \(acc)"
         case .onboard(let images, let base):

@@ -1365,8 +1365,9 @@ a.nav-sess.saved { font-style: italic; }
   .nav-group:first-child { display: none; }
   #nav > a { justify-content: center; padding: 0; }
   #nav > a .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  #nav-operations .trail, #nav-onboarding .trail { display: flex; position: absolute; top: 3px; right: 3px; }
+  #nav-operations .trail, #nav-onboarding .trail, #nav-accounts .trail { display: flex; position: absolute; top: 3px; right: 3px; }
   #nav-operations .trail .nav-badge { display: none; }
+  #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; padding: 0 3px; }
   .side-foot { padding: 0; justify-items: center; }
   .live { grid-template-columns: 8px; justify-content: center; }
   .live .foot-k, .live #live-text, .live #host-text { display: none; }
@@ -1381,7 +1382,7 @@ a.nav-sess.saved { font-style: italic; }
   body.nav-open .nav-group:first-child { display: flex; padding-top: 2px; }
   body.nav-open #nav > a { justify-content: flex-start; padding: 0 8px; }
   body.nav-open #nav > a .lbl { position: static; width: auto; height: auto; clip: auto; }
-  body.nav-open #nav-operations .trail, body.nav-open #nav-onboarding .trail { position: static; }
+  body.nav-open #nav-operations .trail, body.nav-open #nav-onboarding .trail, body.nav-open #nav-accounts .trail { position: static; }
   body.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: inline-flex; }
   body.nav-open .side-foot { justify-items: stretch; padding: 0 4px; }
   body.nav-open .live { grid-template-columns: 8px 44px minmax(0, 1fr); justify-content: stretch; }
@@ -1889,77 +1890,136 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 }
 @layer views {
 
-/* ── Accounts & keys: one card per provider, a row per key (Default · the key and where it lives · one status ·
-   who uses it · the one verb), the failing keys first, a By sandbox table, and the Add a key flow. The lists and
-   the table stop at a readable width rather than stretching across a wide window. ── */
+/* ── Accounts & keys (641), around four tasks: fix a failing key ("Needs you": ONE block, a line per problem, worst
+   first, the fix as the line's button), see and change a sandbox's key (the Sandboxes view, Change in place), change a
+   default (the radio column of each provider's table), add a key for a tool. Every part of the page — the title and Add
+   a key too — lies in ONE 960 px column. A provider is a heading line over one table (no card of its own). ── */
+.ak-page { max-width: 960px; }
 .ak-head { display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
-.ak-head .sub { margin-bottom: 14px; max-width: 70ch; }
-.ak-head > div:last-child:not(:first-child) { margin-bottom: 12px; }
-.ak-tools { display: flex; gap: 10px; align-items: center; margin: 0 0 16px; flex-wrap: wrap; }
-.ak-attn { display: grid; gap: 8px; margin: 0 0 18px; }
-.ak-attn .callout code { overflow-wrap: anywhere; }
-.ak-attn .callout p { margin: 0 0 4px; }
-.ak-prov { background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg); margin: 0 0 14px; overflow: hidden; }
-.ak-prov-h { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 12px 14px; border-bottom: var(--bw) solid var(--line); }
-.ak-av { grid-row: span 2; width: 32px; height: 32px; border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); display: grid; place-items: center;
-  font-weight: var(--fw-strong); font-size: var(--fs-lg); box-shadow: inset 0 0 0 1px var(--line-strong); }
-.ak-prov-h h3 { margin: 0; font-size: var(--fs-lg); display: flex; gap: 6px; align-items: center; min-width: 0; }
-.ak-prov-h .muted { font-size: var(--fs-sm); grid-column: 2; min-width: 0; }
-.ak-prov-h .ak-add { grid-row: 1 / span 2; grid-column: 3; }
-.ak-rows { display: grid; }
-.ak-row { display: grid; grid-template-columns: 92px minmax(160px, 1.4fr) minmax(120px, 0.8fr) minmax(120px, 1fr) 176px; gap: 4px 12px; align-items: center;
-  padding: 10px 14px; border-top: var(--bw) solid var(--line); }
-.ak-rows > .ak-row:first-child { border-top: 0; }
-.ak-row.ak-colhead { padding-top: 6px; padding-bottom: 6px; font-size: var(--fs-xs); color: var(--ink-2); background: var(--surface-2); border-top: 0; }
-.ak-keycell { min-width: 0; }
-.ak-def { display: flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--ink-2); }
-.ak-def input { margin: 0; accent-color: var(--accent); }
+.ak-head h1 { margin: 0 0 2px; }
+.ak-head .sub { margin: 0; max-width: 64ch; }
+.ak-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 16px 0 12px; }
+.ak-tools .filter-field { flex: 1 1 220px; max-width: 340px; }
+.ak-count { margin-left: auto; color: var(--ink-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+
+/* Needs you: one block, a line per problem — what is wrong, what it breaks, the one fix. */
+.ak-needs { border: var(--bw) solid color-mix(in srgb, var(--bad) 32%, var(--line)); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; margin: 0 0 20px; }
+.ak-needs-h { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; padding: 8px 14px; background: var(--bad-tint); font-weight: var(--fw-strong); }
+.ak-needs-h .icon { color: var(--bad); }
+.ak-needs-h .muted { font-weight: var(--fw-regular); font-size: var(--fs-sm); }
+.ak-need { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 12px; align-items: start; padding: 11px 14px; border-top: var(--bw) solid var(--line); }
+.ak-needs-h + .ak-need { border-top: 0; }
+.ak-need > .icon { margin-top: 2px; }
+.ak-need.bad > .icon { color: var(--bad); }
+.ak-need.warn > .icon { color: var(--warn); }
+.ak-need.quiet > .icon { color: var(--ink-2); }
+.ak-need .t { font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.ak-need .d { grid-column: 2; color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ak-need .d b { color: var(--ink); font-weight: var(--fw-medium); }
+.ak-need .d code { font-size: var(--fs-xs); }
+.ak-need .acts { grid-column: 3; grid-row: 1 / span 2; display: flex; gap: 6px; align-items: center; justify-content: flex-end; flex-wrap: wrap; }
+.ak-ok { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 9px 14px; margin: 0 0 20px; border-radius: var(--r-lg); background: var(--ok-tint); color: var(--ok); font-weight: var(--fw-medium); }
+.ak-ok .muted { color: var(--ink-2); font-weight: var(--fw-regular); }
+
+/* A provider: a heading line over ONE table of its keys. */
+.ak-group { margin: 0 0 20px; }
+.ak-group[hidden] { display: none; }
+.ak-gh { display: flex; align-items: center; gap: 10px; margin: 0 0 6px; min-height: 28px; min-width: 0; }
+.ak-av { width: 32px; height: 32px; border-radius: var(--r-md); background: var(--surface-2); color: var(--ink); display: grid; place-items: center;
+  font-weight: var(--fw-strong); font-size: var(--fs-lg); flex: none; }
+.ak-gh .ak-av { width: 24px; height: 24px; font-size: var(--fs-sm); }
+.ak-gh h2 { margin: 0; font-size: var(--fs-lg); display: flex; align-items: center; gap: 6px; flex: none; }
+.ak-gh .for { color: var(--ink-2); font-size: var(--fs-sm); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ak-gh > .btn { margin-left: auto; }
+table.ak-t, table.ak-s { table-layout: fixed; }
+table.ak-t col.c-st { width: 180px; }
+table.ak-t col.c-used { width: 220px; }
+table.ak-t col.c-def { width: 72px; }
+table.ak-t col.c-acts { width: 130px; }
+.ak-t th:first-child, .ak-t td:first-child, .ak-s th:first-child, .ak-s td:first-child { padding-left: 14px; }
+.ak-t th.c-def, .ak-t td.c-def { text-align: center; }
+.ak-t tr[hidden], .ak-s tr[hidden] { display: none; }
+.ak-t tbody tr:last-child td, .ak-s tbody tr:last-child td { border-bottom: 0; }
+.ak-def { display: inline-grid; place-items: center; color: var(--accent); }
+.ak-def .icon { width: 16px; height: 16px; stroke-width: 2.5; }
+.ak-none { display: inline-flex; align-items: center; gap: 6px; }
+.ak-none .icon { width: 14px; height: 14px; flex: none; }
 .ak-name { font-weight: var(--fw-medium); display: flex; gap: 6px; align-items: center; flex-wrap: wrap; overflow-wrap: anywhere; }
 .ak-where { font-size: var(--fs-sm); color: var(--ink-2); display: flex; gap: 5px; align-items: center; min-width: 0; }
-.ak-where .icon { width: 13px; height: 13px; }
-.ak-where span { white-space: nowrap; }
-.ak-where code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-mono); }
-.ak-state { min-width: 0; }
-.ak-state .muted { font-size: var(--fs-sm); display: block; margin-top: 2px; overflow-wrap: anywhere; }
-.ak-used { display: flex; flex-wrap: wrap; gap: 4px; font-size: var(--fs-sm); color: var(--ink-2); min-width: 0; }
-.ak-chip { display: inline-flex; align-items: center; height: 20px; padding: 0 7px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink); font-size: var(--fs-sm);
-  box-shadow: inset 0 0 0 1px var(--line); }
-.ak-acts { display: flex; gap: 4px; justify-content: flex-end; align-items: center; }
-.ak-details { grid-column: 2 / -1; display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 14px; font-size: var(--fs-sm); color: var(--ink-2);
-  background: var(--surface-2); border-radius: var(--r-md); padding: 8px 10px; margin: 4px 0 0; }
+.ak-where .icon { width: 13px; height: 13px; flex: none; }
+.ak-where span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ak-where span:has(+ code) { flex: none; }   /* "command" whole; the path takes the ellipsis */
+.ak-where code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
+.ak-state { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.ak-state .muted { font-size: var(--fs-xs); overflow-wrap: anywhere; }
+.ak-used { display: flex; flex-wrap: wrap; gap: 4px; min-width: 0; }
+.ak-used .none { color: var(--ink-2); font-size: var(--fs-sm); }
+.ak-chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: var(--r-pill); background: var(--surface-2); color: var(--ink);
+  font-size: var(--fs-xs); font-weight: var(--fw-medium); text-decoration: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ak-chip:hover { background: var(--surface-3); }
+.ak-chip .ph-dot { width: 6px; height: 6px; }
+/* One line, never a taller row: chips that do not fit become "… +N" (oneLineChips in accounts.js measures). */
+.ak-used.one-line { flex-wrap: nowrap; overflow: hidden; }
+.ak-used.one-line > * { flex: none; }
+.ak-used.one-line > :first-child { flex: 0 1 auto; min-width: 0; }
+.ak-used.one-line > [hidden] { display: none; }
+.ak-chip.more { color: var(--ink-2); background: transparent; padding: 0 4px; cursor: default; }
+.ak-acts { display: flex; gap: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
+.ak-t tr.failing td { background: color-mix(in srgb, var(--bad) 5%, transparent); }
+.ak-t tr.none-row td { color: var(--ink-2); font-size: var(--fs-sm); }
+.ak-t tr.details-row td { background: var(--surface-2); }
+.ak-details { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px 14px; margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .ak-details dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; }
-.ak-none-row { padding: 10px 14px; border-top: var(--bw) solid var(--line); font-size: var(--fs-sm); color: var(--ink-2); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-.ak-none-row > span { flex: 1 1 200px; min-width: 0; }
-.ak-none-row > .icon + span { flex-basis: 0; }
-.ak-keep { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px 12px 118px; border-top: var(--bw) dashed var(--line); font-size: var(--fs-sm); color: var(--ink-2); }
+.ak-keep { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; margin-top: 8px; padding: 10px 14px;
+  border: var(--bw) solid var(--line); border-radius: var(--r-md); font-size: var(--fs-sm); cursor: pointer; }
 .ak-keep b { color: var(--ink); font-weight: var(--fw-medium); }
-.ak-keep input { margin-top: 1px; flex: none; }
-@media (max-width: 900px) {
-  .ak-row { grid-template-columns: 64px minmax(0, 1fr) auto; }
-  .ak-row .ak-used, .ak-row.ak-colhead .h-used, .ak-row.ak-colhead .h-state { display: none; }
-  .ak-row .ak-state { grid-column: 2; grid-row: 2; }
-  .ak-row .ak-acts { grid-column: 3; grid-row: 1 / span 2; }
-  .ak-details { grid-column: 1 / -1; }
-  .ak-keep { padding-left: 14px; }
-}
-@media (max-width: 640px) {
-  .ak-row { grid-template-columns: 24px minmax(0, 1fr); gap: 6px 10px; }
-  .ak-row.ak-colhead { display: none; }
-  .ak-row .ak-def { font-size: 0; gap: 0; align-self: start; padding-top: 2px; }
-  .ak-row .ak-keycell, .ak-row .ak-state, .ak-row .ak-acts { grid-column: 2; grid-row: auto; }
-  .ak-row .ak-acts { justify-content: flex-start; }
-  .ak-prov-h { grid-template-columns: 32px minmax(0, 1fr); }
-  .ak-prov-h .ak-add { grid-row: auto; grid-column: 1 / -1; }
-}
-.ak-more { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ink-2); margin: 6px 0 18px; }
-.ak-foot { font-size: var(--fs-sm); color: var(--ink-2); max-width: 90ch; margin-top: 18px; }
+.ak-keep .icon { color: var(--ink-2); }
+.ak-keep input { margin: 0; }
+.ak-more { display: flex; gap: 4px 6px; align-items: center; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ink-2); margin: -4px 0 20px; }
+.ak-more[hidden] { display: none; }
+.ak-foot { font-size: var(--fs-sm); color: var(--ink-2); margin-top: 18px; }
 .ak-lead { margin: 0 0 8px; }
-.ak-tablewrap { overflow-x: auto; }
-.ak-table { width: 100%; min-width: 640px; border-collapse: separate; border-spacing: 0; background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg); }
-.ak-table th { text-align: left; font-weight: var(--fw-medium); font-size: var(--fs-xs); color: var(--ink-2); background: var(--surface-2); padding: 6px 12px; white-space: nowrap; }
-.ak-table td { padding: 9px 12px; border-top: var(--bw) solid var(--line); vertical-align: middle; }
-.ak-table td.ak-tdacts { text-align: right; white-space: nowrap; }
-.ak-tools, .ak-attn, .ak-prov, .ak-more, .ak-tablewrap, .ak-lead, .ak-empty { max-width: 960px; }
+.ak-nomatch { margin: 0 0 20px; }
+
+/* The Sandboxes view: the key each sandbox's tool uses, how it got it, and Change in place. */
+table.ak-s col.c-sbx { width: 170px; }
+table.ak-s col.c-tool { width: 120px; }
+table.ak-s col.c-st { width: 140px; }
+table.ak-s col.c-acts { width: 120px; }
+.ak-s .name { font-weight: var(--fw-medium); overflow-wrap: anywhere; }
+.ak-s .how { color: var(--ink-2); font-size: var(--fs-sm); }
+.ak-s .state-word { color: var(--ink-2); font-size: var(--fs-sm); }
+.ak-s tr.changing td { background: var(--accent-tint); }
+.ak-change { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.ak-change select { min-width: 0; max-width: 100%; flex: 0 1 320px; }
+.ak-change .muted { font-size: var(--fs-sm); }
+.ak-s .dlg-error:not(:empty) { margin-top: 6px; }
+
+@media (max-width: 760px) {
+  .ak-count { margin-left: 0; width: 100%; }
+  .ak-need { grid-template-columns: 18px minmax(0, 1fr); }
+  .ak-need .acts { grid-column: 2; grid-row: auto; justify-content: flex-start; margin-top: 6px; }
+  .ak-gh .for { display: none; }
+  table.ak-t colgroup, table.ak-t thead, table.ak-s colgroup, table.ak-s thead { display: none; }
+  table.ak-t, table.ak-s, .ak-t tbody, .ak-s tbody { display: block; table-layout: auto; }
+  .ak-t tr, .ak-s tr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 8px; padding: 10px 12px; border-bottom: var(--bw) solid var(--line); }
+  .ak-t tbody tr:last-child, .ak-s tbody tr:last-child { border-bottom: 0; }
+  .ak-t td, .ak-s td { display: block; padding: 0 !important; border: 0; height: auto; min-width: 0; }
+  .ak-t td.c-key, .ak-t td.c-st, .ak-t td.c-used { grid-column: 1; }
+  .ak-t td.c-def { grid-column: 2; grid-row: 1; }
+  .ak-t td.c-acts { grid-column: 3; grid-row: 1 / span 3; }
+  .ak-t tr.details-row { grid-template-columns: minmax(0, 1fr); }
+  .ak-t tr.failing { background: color-mix(in srgb, var(--bad) 5%, transparent); }
+  .ak-t tr.failing td, .ak-t tr.details-row td, .ak-s tr.changing td { background: transparent; }
+  .ak-t tr.details-row { background: var(--surface-2); }
+  .ak-s tr.changing { background: var(--accent-tint); }
+  .ak-s tr { grid-template-columns: minmax(0, 1fr) auto; }
+  .ak-s td.c-sbx { grid-column: 1; }
+  .ak-s td.c-st { grid-column: 2; grid-row: 1; }
+  .ak-s td.c-tool, .ak-s td.c-key, .ak-s td.c-how, .ak-s td.c-acts { grid-column: 1 / -1; }
+  .ak-s td.c-acts .ak-acts { justify-content: flex-start; }
+}
+
 .ak-empty { background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg); padding: 28px; }
 .ak-empty h2 { margin-top: 0; }
 .ak-empty-foot { margin: 14px 0 0; font-size: var(--fs-sm); }
@@ -1997,6 +2057,35 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 .ak-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 @media (max-width: 640px) { .ak-two { grid-template-columns: 1fr; } }
 .ak-result { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border-radius: var(--r-md); background: var(--surface-2); }
+.ak-pick .ak-av { grid-row: span 2; }
+.ak-pick.hit { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.ak-flow .filter-field.ak-find { max-width: none; }
+/* 641: "Which tool is it for": the tool's providers, each with the keys already here and its verb. */
+.ak-hits { display: grid; gap: 10px; }
+.ak-hits:empty { display: none; }
+.ak-tool-hit { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--r-md); background: var(--accent-tint); }
+.ak-tool-hit .h { display: flex; align-items: center; gap: 8px; font-weight: var(--fw-medium); }
+.ak-opt { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; gap: 1px 10px; align-items: center; padding: 8px 10px; border-radius: var(--r-md);
+  background: var(--surface); border: var(--bw) solid var(--line); }
+.ak-opt .ak-av { width: 24px; height: 24px; font-size: var(--fs-sm); grid-row: span 2; }
+.ak-opt b { display: flex; align-items: center; gap: 6px; }
+.ak-opt small { grid-column: 2; color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.ak-opt .btn { grid-column: 3; grid-row: 1 / span 2; }
+.ak-or { color: var(--ink-2); font-size: var(--fs-sm); margin: 4px 0 -2px; }
+.ak-or[hidden] { display: none; }
+/* The check's follow-ups: the old copy to remove, the default to set. */
+.ak-follow { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 2px 10px; align-items: center; padding: 10px 12px; border: var(--bw) solid var(--line); border-radius: var(--r-md); }
+.ak-follow > .icon { color: var(--ink-2); }
+.ak-follow .d { grid-column: 2; color: var(--ink-2); font-size: var(--fs-sm); }
+.ak-follow .btn { grid-column: 3; grid-row: 1 / span 2; }
+/* 641: Edit a key — what was done, a line each (then a new key's check). */
+.ak-edit-done { display: grid; gap: 10px; }
+.ak-edit-done > div:not(.ak-result) { display: flex; align-items: flex-start; gap: 8px; }
+.ak-edit-done > div:not(.ak-result) > .icon { color: var(--ok); margin-top: 2px; }
+@media (max-width: 640px) {
+  .ak-opt, .ak-follow { grid-template-columns: 24px minmax(0, 1fr); }
+  .ak-opt .btn, .ak-follow .btn { grid-column: 2; grid-row: auto; justify-self: start; }
+}
 }
 
 /* 634 — the setup v2 (the owner's chosen mockup onboarding-v2): each step's title centred over a column of the step's

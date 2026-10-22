@@ -214,8 +214,9 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func addAccount(_ a: WebAccountAdd) async throws -> WebAccounts {
         let store = self.store
-        let r = a.provider.map { HostRequest.keyAccountAdd(name: a.name, provider: $0, secret: a.secret) }
-            ?? HostRequest.accountAdd(name: a.name, kind: a.kind, plan: a.plan, secret: a.secret)
+        // 641: `replace` (the server checked the key is failing) is the CLI's --force — the same request.
+        let r = a.provider.map { HostRequest.keyAccountAdd(name: a.name, provider: $0, secret: a.secret, force: a.replace) }
+            ?? HostRequest.accountAdd(name: a.name, kind: a.kind, plan: a.plan, secret: a.secret, force: a.replace)
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true) }
         guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
         return try await accounts()

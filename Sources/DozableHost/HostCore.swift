@@ -810,6 +810,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await verifyAccount(r))
         case .accountRefresh:
             return try JSONValue(encoding: try await refreshAccount(r))
+        case .accountEdit:
+            return try JSONValue(encoding: try await editAccount(r))
         case .accountKeepalive:
             return try JSONValue(encoding: try setKeepalive(r))
         case .console:

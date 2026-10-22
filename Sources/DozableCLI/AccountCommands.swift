@@ -21,8 +21,8 @@ struct AccountCommand: AsyncParsableCommand {
         on this Mac) — or \(BuildFlavor.current.chatgptSignIn ? "doz account add NAME --chatgpt (Dozable's own sign-in, in your browser) or --openai-key" : "an OpenAI API key: doz account add NAME --openai-key"). A sandbox follows the store's default account (mac out of the box; for Codex the default OpenAI account) \
         unless it pins one: doz account use NAME ACCOUNT.
         """,
-        subcommands: [AccountList.self, AccountShow.self, AccountAdd.self, AccountVerify.self, AccountRefresh.self, AccountRemove.self,
-                      AccountDefault.self, AccountUse.self, AccountKeepalive.self])
+        subcommands: [AccountList.self, AccountShow.self, AccountAdd.self, AccountRename.self, AccountSetPlan.self, AccountVerify.self,
+                      AccountRefresh.self, AccountRemove.self, AccountDefault.self, AccountUse.self, AccountKeepalive.self])
 }
 
 func renderAccounts(_ rows: [AccountRow]) -> String {
@@ -89,7 +89,7 @@ struct AccountAdd: AsyncParsableCommand {
     var useOpenAIKey: Bool { openaiKey || provider?.lowercased() == "openai" }
     @Option(name: .long, help: "With --setup-token: the plan (max, pro, team, enterprise) — Claude Code in the sandbox shows it and picks its default model by it.") var plan: String?
     @Flag(name: .long, help: "Store it without the check request (and, with --from/--from-command, without reading the key now).") var noVerify = false
-    @Flag(name: .long, help: "Replace an account of that name.") var force = false
+    @Flag(name: .long, help: "Replace an account of that name — a new key under the same name: it stays the default where it was, sandboxes using it get the new key (a setup token keeps its plan unless --plan).") var force = false
     @Option(name: .long, help: "Read the key where you keep it, each time a sandbox needs it (kept in memory for --ttl, never stored): op://VAULT/ITEM/FIELD (1Password) or aws:arn:aws:secretsmanager:…[#jsonKey] (AWS Secrets Manager).")
     var from: String?
     @Option(name: .long, help: "Read the key by running this program (its output is the key): argv, never a shell — e.g. 'gh auth token'. Shown and confirmed before it is saved.")
@@ -207,6 +207,54 @@ struct AccountAdd: AsyncParsableCommand {
         let who = [a?.identity, a?.plan].compactMap { $0 }.joined(separator: ", ")
         let what = a?.kind == AccountKind.key.rawValue ? "key, \(a?.provider ?? "?")" : (a?.kind ?? "?")
         Out.stdout("account \(name) added (\(what)\(who.isEmpty ? "" : ": " + who)\(a?.verification.map { ", \($0)" } ?? "")) — doz account use SANDBOX \(name)\n")
+    }
+}
+
+/// `doz account rename OLD NEW` — the account, its keychain item, the defaults and every sandbox that names it.
+struct AccountRename: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "rename",
+        abstract: "Rename an account: its keychain item, the defaults and the sandboxes that use it go with it.",
+        discussion: """
+        Sandboxes using it keep their key — nothing to restart (a custom key's variable comes with each sandbox's next session). \
+        A keychain item you named yourself (--keychain) keeps its name. To put a new key under the same name: \
+        doz account add NAME --setup-token|--api-key|--openai-key|--provider P --force (paste it).
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument(help: "The new name: 1–40 of a-z 0-9 -.") var newName: String
+    func validate() throws {
+        do { try AccountStore.validateName(newName) } catch let e as HostError { throw ValidationError(e.message) }
+        if newName == "mac" { throw ValidationError("mac is the built-in Mac login — pick another account name") }
+    }
+    func run() async throws {
+        var r = HostRequest(.accountEdit)
+        r.account = name
+        r.newName = newName
+        let rows = try decode(try call(r, g), [AccountRow].self, g)
+        if g.json { Out.json(rows); return }
+        let a = rows.first { $0.name == newName }
+        let used = a?.usedBy ?? []
+        Out.stdout("account \(name) is now \(newName)" + (used.isEmpty ? "" : " — \(used.joined(separator: ", ")) use\(used.count == 1 ? "s" : "") it") + "\n")
+    }
+}
+
+/// `doz account set-plan NAME PLAN` — a setup token's plan, without pasting the token again.
+struct AccountSetPlan: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "set-plan",
+        abstract: "Change a setup token's plan (max, pro, team, enterprise) without pasting it again — sessions started from now on get it.")
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument(help: "max, pro, team or enterprise.") var plan: String
+    func validate() throws {
+        guard ["max", "pro", "team", "enterprise"].contains(plan.lowercased()) else { throw ValidationError("the plan: max, pro, team or enterprise") }
+    }
+    func run() async throws {
+        var r = HostRequest(.accountEdit)
+        r.account = name
+        r.plan = plan.lowercased()
+        let rows = try decode(try call(r, g), [AccountRow].self, g)
+        if g.json { Out.json(rows); return }
+        Out.stdout("\(name): plan \(rows.first { $0.name == name }?.plan ?? plan.lowercased()) — sessions started from now on get it\n")
     }
 }
 

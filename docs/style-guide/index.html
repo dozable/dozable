@@ -611,60 +611,113 @@ name: todo-app</pre></details>
     The Overview tab lists every forward with its state (listening, stopped, failed and why). While nothing in the sandbox listens on the port the
     button is there but DISABLED, its tooltip how to start it — the recipe’s own command when it has one (“Not serving yet — start it in a session
     (fabric --serve)”); the details’ list says the same.</p>
-  <p>Accounts &amp; keys (<code>views/accounts.js</code>): one card per provider (<code>.ak-prov</code>) — its tools named in the header and an Add a key —
-    each key a row (<code>.ak-row</code>): a <b>Default</b> radio (Anthropic also has “No default”), the key’s name and where it lives in plain words
-    (Keychain · 1Password · a command · This Mac’s Claude login; the keychain item and fingerprint go in Details), ONE status pill — glyph and word —
-    who uses it, then the one verb that helps now (Check · Read again · Fix), Details (chevron) and ⋯ (Remove…). The statuses:
-    <span class="st-ok">Works</span>, <span class="st-off">Not checked</span>, <span class="st-fail">Refused</span> (its provider said no),
-    <span class="st-fail">Can’t read</span> (its source did not answer, or its keychain item is gone), <span class="st-off">No check for this provider</span>,
-    and for a login <span class="st-ok">Signed in</span> / <span class="st-warn">Signed out</span>. The same key stored twice wears a
-    <code>.tag.warn</code> “same key as …”. Failing keys come first, as bad callouts saying what the provider or source answered, the fix and
-    the sandboxes affected. The cards, callouts and table stop at 960px; under 640px a row stacks (radio, then the key, status and verbs).</p>
+  <p>Accounts &amp; keys (<code>views/accounts.js</code>) is built around four tasks, in ONE 960px column (<code>.ak-page</code> — the title and Add a key
+    too). <b>Fix a failing key:</b> “Needs you” (<code>.ak-needs</code>) is one block, a line per problem (<code>.ak-need</code>, <code>bad</code> /
+    <code>warn</code>, <code>quiet</code> when it breaks no sandbox), worst first — the more sandboxes it breaks the earlier — each saying what is wrong,
+    which sandboxes get no key at their next session, and ONE fix as a button (Copy <code>claude</code>, Add it again…, Read again, Replace…) + ⋯. A
+    signed-out Mac login is a problem only while a sandbox relies on it; one key stored twice (one fingerprint) is ONE line. Nothing wrong:
+    <code>.ak-ok</code> “Every key works”. The problems come from <code>components/account-problems.js</code>, which the sidebar’s badge on Accounts &amp;
+    keys counts too (the lines that name a sandbox — <code>#acc-badge</code>, <code>.nav-badge.count.bad</code>). <b>Change a default:</b> per provider a
+    heading line (<code>.ak-gh</code>: letter, name, gateway tag, “for TOOLS”, a quiet “Add PROVIDER key”) over ONE table (<code>table.ak-t</code> in a
+    <code>.panel</code>): the key and where it lives, ONE status pill (a second line only for a refusal’s code, an expiry, a plan, “read on use ·
+    when”), Used by (sandbox chips with their phase dot, each a link, on ONE line — <code>.ak-used.one-line</code>, the ones that do not fit become
+    “… +N” naming them on hover), a Default column holding an accent tick on the default only, the one verb + ⋯ (Set default, Check again, Read again,
+    Edit…, Details, Remove…). Anthropic’s “No default” is the table’s last row (<code>tr.none-row</code>), with its own ⋯ › Set default. Under 760px each row stacks.</p>
   <div class="pair wide"><div class="scheme">
-    <div class="ak-attn">
-      <div class="callout bad" role="alert"><i data-i="circle-x"></i><div class="c-body"><div class="c-title">Refused: google-old (Google AI (Gemini API))</div>
-        <p>Google AI (Gemini API) refused it (HTTP 400 from generativelanguage.googleapis.com): the key is wrong, revoked or out of credit. Add a new key, then remove this one.</p>
-        <p>Used by box-gemini — their next session gets no Google AI (Gemini API) key.</p></div>
-        <div class="c-acts"><button type="button" class="btn sm"><i data-i="key-round"></i>Add a new key…</button><button type="button" class="btn sm quiet"><i data-i="badge-check"></i>Check again</button></div></div>
-    </div>
-    <section class="ak-prov">
-      <div class="ak-prov-h"><div class="ak-av" aria-hidden="true">x</div><h3>xAI</h3><div class="muted">For Grok Build, Fabric, OpenClaw and 4 more</div>
-        <div class="ak-add"><button type="button" class="btn sm"><i data-i="plus"></i>Add a key</button></div></div>
-      <div class="ak-rows">
-        <div class="ak-row ak-colhead" aria-hidden="true"><span>Default</span><span>Key</span><span class="h-state">Status</span><span class="h-used">Used by</span><span></span></div>
-        <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak" checked>Default</label>
-          <div class="ak-keycell"><div class="ak-name">xai <span class="tag warn">same key as xai-copy</span></div><div class="ak-where"><i data-i="key-round"></i><span>Keychain</span></div></div>
-          <div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">checked 2 min ago</span></div>
-          <div class="ak-used"><span class="ak-chip">box-grok</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
-        <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak"></label>
-          <div class="ak-keycell"><div class="ak-name">xai-1p</div><div class="ak-where"><i data-i="shield"></i><span>1Password</span><code>op://Dev/xai/credential</code></div></div>
-          <div class="ak-state"><span class="pill st-fail"><i data-i="circle-x"></i>Can’t read</span><span class="muted">its source did not answer</span></div>
-          <div class="ak-used"><span>no sandbox</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Read again</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div>
-          <dl class="ak-details"><dt>Source</dt><dd>1Password: op://Dev/xai/credential</dd><dt>Fingerprint</dt><dd>3f9a01c2 (a sha256 prefix — never the key)</dd><dt>Remove</dt><dd>only Dozable’s record — the source is not touched</dd></dl></div>
-        <div class="ak-row"><label class="ak-def"><input type="radio" name="sg-ak"></label>
-          <div class="ak-keycell"><div class="ak-name">xai-old</div><div class="ak-where"><i data-i="key-round"></i><span>Keychain</span></div></div>
-          <div class="ak-state"><span class="pill st-off"><i data-i="info"></i>Not checked</span><span class="muted">added without its check</span></div>
-          <div class="ak-used"><span>no sandbox</span></div>
-          <div class="ak-acts"><button type="button" class="btn sm quiet"><i data-i="badge-check"></i>Check</button><button type="button" class="btn sm quiet icon-only" aria-label="Details"><i data-i="chevron-down"></i></button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
-      </div>
+    <section class="ak-needs" aria-label="Needs you">
+      <div class="ak-needs-h"><i data-i="triangle-alert"></i><span>Needs you</span><span class="muted">— 4 keys, 3 sandboxes affected</span></div>
+      <div class="ak-need warn"><i data-i="user-round"></i><div class="t">This Mac’s Claude login is signed out</div>
+        <div class="d">It is Anthropic’s default: <b>box-claude</b> and <b>box-claude2</b> get no Anthropic key at their next session. Sign in with <code>claude</code> on this Mac (then <code>/login</code>), or make another key the default.</div>
+        <div class="acts"><button type="button" class="btn sm"><i data-i="copy"></i>Copy claude</button><button type="button" class="btn sm quiet"><i data-i="check"></i>Use anthropic instead</button></div></div>
+      <div class="ak-need bad"><i data-i="circle-x"></i><div class="t">xai can’t be read — its keychain item is gone</div>
+        <div class="d"><b>box-grok</b> gets no xAI key at its next session. <b>xai-copy</b> is the same key and is failing too. Add it again under the same name; then remove xai-copy.</div>
+        <div class="acts"><button type="button" class="btn sm"><i data-i="key-round"></i>Add it again…</button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
+      <div class="ak-need quiet"><i data-i="circle-x"></i><div class="t">google-old was refused by Google AI (HTTP 400)</div>
+        <div class="d">No sandbox uses it. Wrong, revoked or out of credit.</div>
+        <div class="acts"><button type="button" class="btn sm quiet"><i data-i="trash-2"></i>Remove…</button><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
     </section>
-    <div class="ak-tablewrap"><table class="ak-table"><thead><tr><th>Sandbox</th><th>Tool</th><th>Key</th><th>How</th><th>Status</th><th></th></tr></thead>
-      <tbody><tr><td><b>box-grok</b></td><td>Grok Build</td><td>xai <span class="muted">(xAI)</span></td><td>follows the xAI default</td><td><span class="pill st-ok"><i data-i="circle-check"></i>Works</span></td>
-        <td class="ak-tdacts"><button type="button" class="btn sm quiet"><i data-i="key-round"></i>Change…</button></td></tr></tbody></table></div>
+    <div class="ak-ok" role="status"><i data-i="circle-check"></i><span>Every key works</span><span class="muted">· checked just now</span></div>
+    <section class="ak-group">
+      <div class="ak-gh"><span class="ak-av" aria-hidden="true">A</span><h2>Anthropic</h2><span class="for">for Claude Code, pi, OpenCode 2</span><button type="button" class="btn sm quiet"><i data-i="plus"></i>Add Anthropic key</button></div>
+      <div class="panel"><table class="ak-t">
+        <colgroup><col class="c-key"><col class="c-st"><col class="c-used"><col class="c-def"><col class="c-acts"></colgroup>
+        <thead><tr><th>Key</th><th>Status</th><th>Used by</th><th class="c-def">Default</th><th><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          <tr class="failing">
+            <td class="c-key"><div class="ak-name">mac</div><div class="ak-where"><i data-i="user-round"></i><span>This Mac’s Claude login</span></div></td>
+            <td class="c-st"><div class="ak-state"><span class="pill st-warn"><i data-i="triangle-alert"></i>Signed out</span></div></td>
+            <td class="c-used"><div class="ak-used one-line"><a class="ak-chip" href="#"><span class="ph-dot ph-off"></span>box-claude</a><a class="ak-chip" href="#"><span class="ph-dot ph-asleep"></span>box-claude2</a><span class="ak-chip more" title="box-3, box-4, …">… +10</span></div></td>
+            <td class="c-def"><span class="ak-def" role="img" aria-label="Anthropic’s default: mac"><i data-i="check"></i></span></td>
+            <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
+          <tr>
+            <td class="c-key"><div class="ak-name">claude-max</div><div class="ak-where"><i data-i="key-round"></i><span>Claude subscription token · Keychain</span></div></td>
+            <td class="c-st"><div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">expires 2 Nov 2026 (in 12 days)</span></div></td>
+            <td class="c-used"><div class="ak-used"><span class="none">no sandbox</span></div></td>
+            <td class="c-def"></td>
+            <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
+          <tr>
+            <td class="c-key"><div class="ak-name">team <span class="tag warn">same key as team-old</span></div><div class="ak-where"><i data-i="shield"></i><span>1Password</span><code>op://Dev/anthropic/credential</code></div></td>
+            <td class="c-st"><div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">read on use · 40 min ago</span></div></td>
+            <td class="c-used"><div class="ak-used"><span class="none">no sandbox</span></div></td>
+            <td class="c-def"></td>
+            <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
+          <tr class="none-row">
+            <td colspan="3">No default — a Claude Code or pi sandbox that follows the default gets no Anthropic key</td>
+            <td class="c-def"></td>
+            <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
+        </tbody></table></div>
+    </section>
   </div></div>
-  <p>By sandbox (<code>.ak-table</code> in <code>.ak-tablewrap</code>, which scrolls inside its box on a phone): each sandbox, the key it uses now and how it
-    got it; Change… picks another from its next session. Add a key is a three-step dialog (<code>dialog.dlg.ak-flow</code>): the provider (searchable by a
-    tool’s name, <code>.ak-pick</code> tiles; a non-match is <code>.dim</code>), the key (a masked field while <code>ui.allow_secret_entry</code> is on; for
-    1Password, AWS, a command, a custom key or a ChatGPT sign-in, the exact <code>doz account add</code> line in <code>.ak-cmd</code> with Copy), then the check’s
-    result. With no keys at all the page is <code>.ak-empty</code>: three <code>.ak-card</code>s — this Mac’s Claude login, paste a key, keep it in 1Password or AWS.</p>
+  <p><b>See and change a sandbox’s key:</b> the Sandboxes view (<code>table.ak-s</code>) — Sandbox (a link), Tool, Key, How it gets it, Status. A sandbox whose
+    network reaches no model provider (NAT, none) is “Not needed”, muted, never a warning. <b>Change…</b> turns the row into a choice in place
+    (<code>tr.changing</code>, <code>.ak-change</code>): the keys its tool accepts, its provider’s default, No key — “from its next session” — Use it (the
+    existing account-use action) and ✕. The dialog stays for the sandbox page’s Keys tab.</p>
+  <div class="pair wide"><div class="scheme">
+    <div class="panel"><table class="ak-s">
+      <colgroup><col class="c-sbx"><col class="c-tool"><col class="c-key"><col class="c-how"><col class="c-st"><col class="c-acts"></colgroup>
+      <thead><tr><th>Sandbox</th><th>Tool</th><th>Key</th><th>How it gets it</th><th>Status</th><th><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        <tr class="changing"><td class="c-sbx"><a class="name" href="#">box-claude</a></td><td class="c-tool">Claude Code</td>
+          <td class="c-key c-change" colspan="3"><div class="ak-change"><select aria-label="Key for box-claude"><option>claude-max — works</option><option>Follow Anthropic’s default (mac — signed out)</option><option>No key</option></select><span class="muted">from its next session</span></div></td>
+          <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm primary"><i data-i="check"></i>Use it</button><button type="button" class="btn sm quiet icon-only" aria-label="Cancel"><i data-i="x"></i></button></div></td></tr>
+        <tr><td class="c-sbx"><a class="name" href="#">box-nat</a></td><td class="c-tool">Claude Code</td><td class="c-key"><span class="muted">—</span></td>
+          <td class="c-how how">needs none: its network reaches no model provider</td><td class="c-st"><span class="state-word">Not needed</span></td><td class="c-acts"></td></tr>
+        <tr><td class="c-sbx"><a class="name" href="#">box-grok</a></td><td class="c-tool">Grok Build</td><td class="c-key">xai</td><td class="c-how how">follows xAI’s default</td>
+          <td class="c-st"><span class="pill st-fail"><i data-i="circle-x"></i>Can’t read</span></td><td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm"><i data-i="key-round"></i>Change…</button></div></td></tr>
+      </tbody></table></div>
+  </div></div>
+  <p><b>Add a key for a tool:</b> a three-step dialog (<code>dialog.dlg.ak-flow</code>: For what · The key · Check). Step 1 asks “Which tool is it for — or
+    which provider?”: a tool’s name answers with <code>.ak-tool-hit</code> — the providers it can use (<code>.ak-opt</code>), what you already have for each and
+    its verb (Add again for a failing key, Add another, Add) — over “Every provider” (<code>.ak-pick</code> tiles); a provider’s name and Enter go straight to
+    it. Step 2 pastes the key (a masked field while <code>ui.allow_secret_entry</code> is on; 1Password, AWS, a command, a custom key or a ChatGPT sign-in show
+    the exact <code>doz account add</code> line, <code>.ak-cmd</code>, with Copy). A failing key is REPLACED in place under its own name (a warn callout says
+    so; sandboxes that use it keep using it). Step 3 is the check (<code>.ak-result</code>) and its follow-ups (<code>.ak-follow</code>): the old copy to remove,
+    the default to set. With no keys at all the page is <code>.ak-empty</code>: three <code>.ak-card</code>s.</p>
   <div class="pair"><div class="scheme">
-    <div class="ak-steps"><span class="done">✓ Provider</span><span class="on">2 The key</span><span>3 Check</span></div>
-    <div class="ak-pgrid"><button type="button" class="ak-pick"><span class="ak-av" aria-hidden="true">x</span><b>xAI</b><small>Grok Build uses it</small></button>
+    <div class="ak-steps"><span class="on">1 For what</span><span>2 The key</span><span>3 Check</span></div>
+    <div class="ak-tool-hit"><div class="h"><i data-i="terminal"></i>Grok Build can use a key from</div>
+      <div class="ak-opt"><span class="ak-av" aria-hidden="true">x</span><b>xAI</b><small>you have xai — can’t be read · used by box-grok</small><button type="button" class="btn sm primary">Add again</button></div>
+      <div class="ak-opt"><span class="ak-av" aria-hidden="true">O</span><b>OpenRouter <span class="tag outline">gateway</span></b><small>no key yet</small><button type="button" class="btn sm">Add</button></div></div>
+    <div class="ak-or">Every provider</div>
+    <div class="ak-pgrid"><button type="button" class="ak-pick"><span class="ak-av" aria-hidden="true">x</span><b>xAI</b><small>1 key · for pi, OpenCode…</small></button>
       <button type="button" class="ak-pick dim"><span class="ak-av" aria-hidden="true">A</span><b>Anthropic</b><small>2 keys · for Claude Code, pi…</small></button></div>
     <pre class="ak-cmd">doz account add xai-2 --provider xai --from op://Dev/xai/credential</pre>
-    <div class="ak-result" role="status"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><div><b>xai-2 is ready.</b><div class="muted">xAI accepted it. It is in your login keychain.</div></div></div>
+    <div class="ak-result" role="status"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><div><b>xai works.</b><div class="muted">xAI accepted it; it is in your login keychain. box-grok uses it from its next session.</div></div></div>
+    <div class="ak-follow"><i data-i="trash-2"></i><b>xai-copy is the old copy — and still can’t be read</b><div class="d">No sandbox uses it. Remove it now?</div><button type="button" class="btn sm danger"><i data-i="trash-2"></i>Remove xai-copy…</button></div>
+  </div></div>
+  <p><b>Edit a key:</b> ⋯ › Edit… (every key but a login and a ChatGPT sign-in) opens ONE step in the same dialog shell (<code>dialog.dlg.ak-flow.ak-edit</code>):
+    the Name (a rename carries the keychain item Dozable made, the defaults and every sandbox that names the key), a setup token’s Plan, and — for a key
+    Dozable keeps in the keychain itself — “Replace the key”, an optional masked field (“leave empty to keep the current key”). A key read from 1Password,
+    AWS or a command, a custom key or a keychain item the person named offers the name only, with the <code>doz account add … --force</code> line
+    (<code>.ak-cmd</code>) for the rest; so does “Replace the key” while pasting is turned off. Save applies only what changed and says it
+    (<code>.ak-edit-done</code>: a line per change, then a new key’s check, <code>.ak-result</code>).</p>
+  <div class="pair"><div class="scheme">
+    <div class="ak-two"><div class="field"><span>Provider</span><div><b>Anthropic</b></div></div>
+      <label class="field"><span>Name</span><input class="ak-in" value="team"><small>a-z 0-9 -. box-claude uses it and keeps it under the new name.</small></label></div>
+    <label class="field"><span>Plan</span><select class="ak-in"><option>pro</option></select><small>Claude Code shows it and picks its default model by it — sessions started from now on get it.</small></label>
+    <label class="field"><span>Replace the setup token</span><input class="ak-in" type="password" placeholder="leave empty to keep the current setup token"><small>Optional. Not shown, not kept in this page.</small></label>
+    <div class="ak-edit-done"><div><i data-i="check"></i> Renamed work to team — box-claude keeps using it.</div>
+      <div class="ak-result" role="status"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><div><b>The new key works.</b><div class="muted">Anthropic accepted it; it is in your login keychain. box-claude uses it from its next session.</div></div></div></div>
   </div></div>
 </section>
 

@@ -347,6 +347,8 @@ public struct AccountRow: Codable, Equatable, Sendable {
     public var hosts: [String]?
     /// 617: when `verification` was decided — history ("last verified 12 Oct 16:21"), not a live state.
     public var verifiedAt: Date? = nil
+    /// 641: its key is a keychain item the person named (`--keychain SERVICE`) — Dozable never moves, replaces or deletes it.
+    public var adopted: Bool? = nil
 }
 
 // MARK: verification

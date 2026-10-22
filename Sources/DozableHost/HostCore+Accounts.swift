@@ -605,7 +605,7 @@ extension HostCore {
                                    keychainService: a.kind == .mac ? ClaudeLogin.service(configDir: a.configDir) : a.keychainService,
                                    fingerprint: a.fingerprint, provider: a.providerID,
                                    sourceLabel: src.label, sourceState: src.state, sourceProblem: src.problem, hosts: a.custom?.hosts,
-                                   verifiedAt: a.verifiedAt))
+                                   verifiedAt: a.verifiedAt, adopted: a.adopted == true ? true : nil))
         }
         if let r = codexMacRow(file, now: now) { rows.append(r) }
         return rows
@@ -624,6 +624,11 @@ extension HostCore {
             }
         }
         var rec = AccountRecord(name: name, kind: kind, plan: r.plan.map { $0.lowercased() })
+        // 641: a setup token replaced in place (--force) without a plan keeps the plan (and tier) it had.
+        if kind == .setupToken, rec.plan == nil, let old = file.accounts.first(where: { $0.name == name }), old.kind == .setupToken {
+            rec.plan = old.plan
+            rec.tier = old.tier
+        }
         var verifySecret: String?
         var chatgptTokens: ChatGPTTokens?
         // 617 (§7, D6): a key read on use from 1Password, AWS or a command — the REFERENCE is stored, never the value
@@ -798,15 +803,15 @@ extension HostCore {
            let svc = old.keychainService, svc != rec.keychainService, AccountStore.isDozItem(svc) {
             try? services.keychain.delete(service: svc, account: Keychain.user)
         }
-        file.accounts.removeAll { $0.name == name }
-        file.accounts.append(rec)
+        // 641: a key replaced in place keeps its place in the list (its name, default and sandboxes are by name: kept).
+        if let i = file.accounts.firstIndex(where: { $0.name == name }) { file.accounts[i] = rec } else { file.accounts.append(rec) }
         // 617: the first key of a provider becomes that provider's default.
         if kind == .key, let p = rec.provider, p != "custom", file.providerDefaults?[p] == nil { file.providerDefaults = (file.providerDefaults ?? [:]).merging([p: name]) { a, _ in a } }
         try accountStore.save(file)
         secretSourceState.bump(name)                  // 617: a value cached from the account's previous source is dropped
         note(nil, "account \(name) added (\(kind == .key ? "key, \(rec.provider ?? "?")" : kind.rawValue)\(rec.verification.map { ", \($0)" } ?? ""))")
         // 599i: a sign-in made again replaces the session's tokens (its sandboxes switch on their next request).
-        if let t = chatgptTokens { chatgptSession(file.accounts.last!).adopt(t) } else { chatgptSessions[name] = nil }
+        if let t = chatgptTokens { chatgptSession(rec).adopt(t) } else { chatgptSessions[name] = nil }
         for m in sandboxesUsing(name, file) { applyAccount(m) }
         for m in managed.values where m.config.extraKeys?.contains(name) == true { applyAccount(m) }      // 617: a custom key replaced
         return await accountRows()
@@ -929,6 +934,107 @@ extension HostCore {
         case .unavailable(let why): file.accounts[i].verification = "unverified: \(why)"
         }
         try accountStore.save(file)
+        return await accountRows()
+    }
+
+    /// 641 (owner: "a way to edit key details"): `doz account rename OLD NEW` / `doz account set-plan NAME PLAN`, the
+    /// dashboard's Edit… — `newName` and/or `plan`. A rename carries everything that names the account: its record, the
+    /// keychain item Dozable made for it (`<prefix>OLD` → `<prefix>NEW`: read, written, read back, and only then the old
+    /// one deleted — the secret is never lost; an ADOPTED item, a service the person named, keeps its service), the
+    /// store's defaults, every sandbox that names it (its account and its custom keys) and the host's memory of its
+    /// source's last read. Sandboxes using it keep their key (the binding is not by name); a custom key's variable comes
+    /// with its next session. A plan is a setup token's only, given to sessions started from now on.
+    func editAccount(_ r: HostRequest) async throws -> [AccountRow] {
+        guard let name = r.account, !name.isEmpty else { throw HostError(.invalid, "which account?") }
+        let newName = r.newName.flatMap { $0.isEmpty || $0 == name ? nil : $0 }
+        let plan = r.plan?.lowercased()
+        guard newName != nil || plan != nil else { throw HostError(.invalid, "nothing to change — a new name or a plan") }
+        var file = accountStore.load()
+        guard let i = file.accounts.firstIndex(where: { $0.name == name }) else { throw HostError(.notFound, "no account \(name) (doz account ls)") }
+        var rec = file.accounts[i]
+        if let p = plan {
+            guard rec.kind == .setupToken else {
+                throw HostError(.invalid, "only a Claude subscription token (setup-token) has a plan — \(name) is \(rec.label)")
+            }
+            guard ["max", "pro", "team", "enterprise"].contains(p) else { throw HostError(.invalid, "a plan is max, pro, team or enterprise") }
+            rec.plan = p
+        }
+        var moved: (old: String, new: String)?
+        if let new = newName {
+            guard name != "mac", rec.kind != .mac, rec.kind != .codexMac else {
+                throw HostError(.invalid, "\(name) is a Mac login — it keeps its name")
+            }
+            guard rec.kind != .chatgpt else {
+                throw HostError(.invalid, "a ChatGPT sign-in keeps its name — sign in again under the new one (doz account add \(new) --chatgpt), then doz account rm \(name)")
+            }
+            try AccountStore.validateName(new)
+            guard new != "mac" else { throw HostError(.invalid, "mac is the built-in Mac login — pick another account name") }
+            guard !file.accounts.contains(where: { $0.name == new }) else { throw HostError(.exists, "an account \(new) exists — pick another name") }
+            // The keychain item Dozable made for it moves with it; an adopted one (the person's own service) stays.
+            if rec.adopted != true, let svc = rec.keychainService, AccountStore.isDozItem(svc), svc.hasSuffix(":" + name) {
+                let newService = String(svc.dropLast(name.count)) + new
+                let read = services.keychain.read(service: svc, account: Keychain.user)
+                switch read {
+                case .found(let secret):
+                    try services.keychain.write(service: newService, account: Keychain.user, secret: secret)
+                    guard services.keychain.read(service: newService, account: Keychain.user).value == secret else {
+                        try? services.keychain.delete(service: newService, account: Keychain.user)
+                        throw HostError(.failed, "the key of \(name) could not be moved to the keychain item \(newService) — nothing was changed")
+                    }
+                    moved = (svc, newService)
+                case .locked:
+                    throw HostError(.failed, "the keychain item \(svc) of \(name) is locked — unlock the login keychain, then rename it")
+                default:
+                    break                                     // no item to move: the account says it is missing, under its new name too
+                }
+                rec.keychainService = newService
+                if case .keychain(let s) = rec.source, s == svc { rec.source = .keychain(service: newService) }
+            }
+            rec.name = new
+            if file.defaultAccount == name { file.defaultAccount = new }
+            if file.openaiDefault == name { file.openaiDefault = new }
+            if let d = file.providerDefaults { file.providerDefaults = d.mapValues { $0 == name ? new : $0 } }
+        }
+        file.accounts[i] = rec
+        do {
+            try accountStore.save(file)
+        } catch {
+            if let m = moved { try? services.keychain.delete(service: m.new, account: Keychain.user) }      // the old item is still there
+            throw error
+        }
+        if let m = moved { try? services.keychain.delete(service: m.old, account: Keychain.user) }
+        var touched: [Managed] = []
+        if let new = newName {
+            secretSourceState.rename(name, to: new)
+            // Every sandbox that names it: its account (a pin) and its custom keys — a loaded one and any other in the store.
+            func renamed(_ c: inout SandboxConfig) -> Bool {
+                var changed = false
+                if c.account == name { c.account = new; changed = true }
+                if let k = c.extraKeys, k.contains(name) { c.extraKeys = k.map { $0 == name ? new : $0 }; changed = true }
+                if let v = c.credentialSources.removeValue(forKey: "custom:" + name) { c.credentialSources["custom:" + new] = v; changed = true }
+                return changed
+            }
+            for m in managed.values.sorted(by: { $0.name < $1.name }) where renamed(&m.config) {
+                try? m.config.write(store.configFile(m.name))
+                touched.append(m)
+            }
+            for n in store.sandboxNames() where managed[n] == nil {
+                guard var c = SandboxConfig.read(store.configFile(n)), renamed(&c) else { continue }
+                try? c.write(store.configFile(n))
+            }
+        }
+        let using = sandboxesUsing(rec.name, file)
+        var applied: Set<String> = []
+        for m in using + managed.values.filter({ $0.config.extraKeys?.contains(rec.name) == true }) + touched where applied.insert(m.name).inserted {
+            applyAccount(m)
+        }
+        var said: [String] = []
+        if let new = newName { said.append("renamed \(new)" + (moved.map { " (its keychain item is now \($0.new))" } ?? "")) }
+        if let p = plan { said.append("plan \(p)") }
+        let users = Set(using.map(\.name)).union(touched.map(\.name)).sorted()
+        note(nil, "account \(name) \(said.joined(separator: ", "))"
+             + (users.isEmpty ? "" : " — \(users.joined(separator: ", ")) use\(users.count == 1 ? "s" : "") it; "
+                + (plan != nil ? "sessions started from now on get the plan" : "open sessions keep working")))
         return await accountRows()
     }
 
