@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -314,6 +314,9 @@ test-cli-browser: cli vmtest-host ## 599 (594.B2): xdg-open/$BROWSER → the Mac
 
 test-cli-openfiles: cli vmtest-host ## 599b: xdg-open/open/doz-open FILE in a shared-workspace sandbox → the Mac file in its default app or a listed one (a file, DOZ_TEST_OPEN_URL — never a real app); every refusal (outside, .., links out, non-documents, Mach-O as .txt, unlisted app, off, isolated), rate, URLs as before
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-openfiles --doz $(CLI_BIN)
+
+test-cli-files: cli vmtest-host ## 643: doz files — a shared workspace listed and watched ON THE MAC (off: no host; the rules as the guest sees them; a link out refused; --watch: one batch for a Mac and a guest change, nothing hidden, no host started, a sleeping sandbox stays asleep); an isolated one listed from inside while it runs, refused asleep, never watched
+	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-files --doz $(CLI_BIN)
 
 test-cli-github: cli vmtest-host ## 599d: GitHub as the user through SEAMS only — a fake GitHub (git http-backend over TLS, its own CA; the proxy's upstream seam), a fake gh, a throwaway ssh-agent: clone, the swap (Basic + token), read-only refusals (push, API, GraphQL mutation), no token in the guest, push, identity, key source, off revokes, SSH agent on/off (prepares claude-code)
 	perl -e 'alarm shift; exec @ARGV' 2400 $(VMTEST_BIN) cli-github --doz $(CLI_BIN)
