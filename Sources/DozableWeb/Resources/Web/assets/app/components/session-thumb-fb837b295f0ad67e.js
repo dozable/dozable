@@ -1,9 +1,10 @@
 // components/session-thumb — A session's screen, small: a live (watch) or saved terminal laid out at its own geometry
 // and scaled. All sessions' tiles (593) and the sandbox Home's thumbnails (635) both draw theirs with it.
 import { h } from '../dom/h-d909ae8eb40113fe.js';
+import { when } from '../core/format-b2e68384da8d2f36.js';
 import { setting } from '../core/settings-d5d1cc502b79180e.js';
 import { terminals } from '../core/terminals-e2028f16ee8fa887.js';
-import { bootTerm, closeTerminal, freezeTerm, goLive, newTerm, paintCover, thawTerm } from './terminal-298aeae34c7bb918.js';
+import { bootTerm, closeTerminal, freezeTerm, goLive, newTerm, paintCover, thawTerm } from './terminal-8d4539e977bc72ef.js';
 
 /// The virtual size a thumbnail's terminal is laid out at (then scaled by CSS): the grid's tile size.
 export const THUMB_COLS_PX = 960, THUMB_ROWS_PX = 560;
@@ -56,6 +57,8 @@ export function paintThumb(th, kind, plateText) {
   th.plate.hidden = !!th.term;
   th.plate.textContent = th.term ? '' : (plateText || '');
   th.badge.hidden = !th.term;
-  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', 'saved'];
+  // 642 (owner): a saved screen says how long ago it was saved.
+  const at = kind === 'saved' && th.term && th.term.saved ? th.term.saved.savedAt : null;
+  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', at ? 'saved ' + when(at) : 'saved'];
   if (th.term) th.badge.replaceChildren(h('span', { class: cls, 'aria-hidden': 'true' }), word);
 }

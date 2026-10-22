@@ -11,16 +11,16 @@ import { state } from '../core/state-1378d79c750c8380.js';
 import { card, meter, panel } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { dialog } from '../components/dialog-756ae9b4e276284d.js';
-import { hostCard } from '../components/host-b6962b91c443984c.js';
-import { rowLifecycle } from '../components/lifecycle-bfb3ba18578bc35d.js';
-import { inTabOrder, renderNavSandboxes } from '../components/nav-cee69d57e0de2135.js';
-import { hoverPeek } from '../components/nav-peek-ab9feab4cb9aea41.js';
+import { hostCard } from '../components/host-a59be8a65d6e044a.js';
+import { rowLifecycle } from '../components/lifecycle-437602af96bcba7a.js';
+import { inTabOrder, renderNavSandboxes } from '../components/nav-fe66ed9052227b7a.js';
+import { hoverPeek } from '../components/nav-peek-bbe9a74a862b2332.js';
 import { paintRowOps } from '../components/notices-f6630ec2e36e2d1c.js';
-import { sandboxPill } from '../components/pills-7e1f626379b9d1db.js';
-import { quickAddButton } from '../components/quick-add-6df0db91407034ca.js';
-import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb-27d3f1fdffc718eb.js';
+import { sandboxPill } from '../components/pills-48c02f33a9681938.js';
+import { quickAddButton } from '../components/quick-add-9eee74209463f3a4.js';
+import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb-fb837b295f0ad67e.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-ac0ab2d6ed9fcdbc.js';
-import { newSandboxWizard } from './new-sandbox-14ac708e3b60e23f.js';
+import { newSandboxWizard } from './new-sandbox-b152892747143642.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 

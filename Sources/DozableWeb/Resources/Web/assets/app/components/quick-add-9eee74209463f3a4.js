@@ -5,9 +5,9 @@ import { setting, terminalsAllowed } from '../core/settings-d5d1cc502b79180e.js'
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { createDialog } from './create-dialog-15dd3efbe35bd8d8.js';
-import { startWithBootView } from './lifecycle-bfb3ba18578bc35d.js';
+import { startWithBootView } from './lifecycle-437602af96bcba7a.js';
 import { pageFailure, toast } from './notices-f6630ec2e36e2d1c.js';
-import { openTerminal } from './terminal-298aeae34c7bb918.js';
+import { openTerminal } from './terminal-8d4539e977bc72ef.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── 599c: Quick add (owner: "a "Quick Add" sandbox that picks defaults for workspace name etc and opens

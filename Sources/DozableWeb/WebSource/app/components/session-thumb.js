@@ -1,6 +1,7 @@
 // components/session-thumb — A session's screen, small: a live (watch) or saved terminal laid out at its own geometry
 // and scaled. All sessions' tiles (593) and the sandbox Home's thumbnails (635) both draw theirs with it.
 import { h } from '../dom/h.js';
+import { when } from '../core/format.js';
 import { setting } from '../core/settings.js';
 import { terminals } from '../core/terminals.js';
 import { bootTerm, closeTerminal, freezeTerm, goLive, newTerm, paintCover, thawTerm } from './terminal.js';
@@ -56,6 +57,8 @@ export function paintThumb(th, kind, plateText) {
   th.plate.hidden = !!th.term;
   th.plate.textContent = th.term ? '' : (plateText || '');
   th.badge.hidden = !th.term;
-  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', 'saved'];
+  // 642 (owner): a saved screen says how long ago it was saved.
+  const at = kind === 'saved' && th.term && th.term.saved ? th.term.saved.savedAt : null;
+  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', at ? 'saved ' + when(at) : 'saved'];
   if (th.term) th.badge.replaceChildren(h('span', { class: cls, 'aria-hidden': 'true' }), word);
 }

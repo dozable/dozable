@@ -778,7 +778,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   shows blocked/error. An open ⋯ holds the re-render; `markNavSession` (called by `drawTerminals`) marks the shown session. A sandbox's page
   is a PERSISTENT section (`#sbx`): the control bar (`#sbx-bar`) and the inspector (`#sbx-details`, 603's tabs) re-render; `#terminals` never
   does (591's rule). Terminals are per sandbox (`termUI.by[name]`: split, selected, focused pane); another
-  sandbox's stay open, hidden (the 16-per-UI cap is the server's, unchanged). Arriving attaches to the
+  sandbox's stay open, hidden — 642: 5 s after its page is left they let go of their sockets (`parkTerminals`,
+  `components/terminal.js`) and reattach with their scrollback on arrival, so the UI's 16 stay free for the pictures. Arriving attaches to the
   sandbox's own session ONLY when the sandbox runs and that session runs — never a session opened, never a
   sleeping sandbox's (it would keep the host alive: T3). `#/sandbox/NAME/SESSION` addresses a tab; a tab
   change `replaceState`s it (no route).
