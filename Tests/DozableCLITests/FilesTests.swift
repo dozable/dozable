@@ -301,6 +301,7 @@ final class FilesTests: XCTestCase {
         private let lock = NSLock()
         private var list: [FileChangeBatch] = []
         func add(_ b: FileChangeBatch) { lock.withLock { list.append(b) } }
+        func clear() { lock.withLock { list.removeAll() } }
         var all: [FileChangeBatch] { lock.withLock { list } }
         func wait(_ seconds: Double, _ pred: ([FileChangeBatch]) -> Bool) -> Bool {
             let end = Date().addingTimeInterval(seconds)
@@ -321,10 +322,13 @@ final class FilesTests: XCTestCase {
         let s1 = try hub.watch(target) { one.add($0) }
         let s2 = try hub.watch(try FileWatchTarget.resolve(store: store, sandbox: "x", folders: ["docs"])) { two.add($0) }
         XCTAssertEqual(hub.streams, 1, "one FSEventStream for the sandbox, shared")
-        usleep(300_000)                                            // FSEvents starts "since now"
+        // FSEvents starts "since now", but on a loaded Mac the folders made just above can still arrive late (CI on
+        // m1max2): let the stream settle, then forget whatever came before the checks.
+        usleep(1_000_000)
+        one.clear(); two.clear()
         try write("src/new.c")
         XCTAssertTrue(one.wait(5) { $0.contains { $0.folders == ["/workspace/src"] } }, "a file written → its folder (\(one.all))")
-        XCTAssertTrue(two.all.isEmpty, "nothing for a watcher of another folder")
+        XCTAssertTrue(two.all.isEmpty, "nothing for a watcher of another folder (\(two.all))")
         try write("secret.env")
         usleep(800_000)
         XCTAssertFalse(one.all.contains { $0.folders.contains("/workspace") }, "a hidden file's change never travels (\(one.all))")
