@@ -26,7 +26,7 @@ import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from '
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-3b49819171bdf164.js';
 import { networkPanel } from './sandbox-network-35a31b055999849f.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-88da6e512b043c40.js';
-import { paintHome } from './sandbox-home-b860af07c3c5b9cf.js';
+import { paintHome } from './sandbox-home-528d539d1a92625c.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
