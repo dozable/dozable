@@ -200,7 +200,7 @@ its place and size, then asks once:
 - **the keychain items Dozable made**: your accounts' keys and the default GitHub key.
 
 `--dry-run` lists and removes nothing; `--yes` skips the question. A running host is stopped first; a running
-`doz ui` or `doz serve` must be stopped by you (`doz ui stop`, `doz serve stop`). Your next `doz` command starts
+`doz ui` must be stopped by you (`doz ui stop`). Your next `doz` command starts
 from the beginning: `doz onboard` or `doz ui`.
 
 It **never** touches your workspace folders, the Mac's own Claude Code and Codex logins, or Apple's `container`

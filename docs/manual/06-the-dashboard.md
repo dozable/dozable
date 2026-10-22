@@ -229,9 +229,9 @@ dashboard can switch this off but never on.
 
 ## Limits and security
 
-- **Loopback only**, and every page, request and terminal checks the sign-in cookie, the exact host
-  and origin, and a CSRF token on every change. For the dashboard on your other computers, tablets and phones,
-  see [`doz serve`](25-doz-serve.md).
+- **Loopback only** unless you turn on its LAN option, and every page, request and terminal checks the sign-in
+  cookie, the exact host and origin, and a CSRF token on every change. For the same dashboard on your other
+  computers, tablets and phones, see [`doz ui --lan`](25-doz-serve.md).
 - **Terminals run in an isolated frame**: whatever a sandbox prints can never reach your dashboard
   session, its cookie or other terminals. Links in terminal output aren't clickable.
 - The dashboard alone never keeps an idle host running; an open terminal does, as `doz attach` does.

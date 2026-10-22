@@ -84,12 +84,21 @@
 # (auto | always | never; applies to the next doz command (a running doz ui keeps its store))
 # open_browser = "auto"
 
-# The port doz ui listens on, always on 127.0.0.1 (this Mac only): 0 = automatic (the port this
-# store's last doz ui had, when it is free — else one the system picks, and doz ui says so), or a
-# fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An
-# installed dashboard app belongs to one port: keep it fixed for one.
+# The ONE port the dashboard (doz ui) listens on — this Mac's browser at http://127.0.0.1:<port>,
+# and with ui.lan your other browsers at http://<this Mac>.local:<port>. 0 = automatic: without
+# ui.lan, the port this store's last doz ui had when it is free (else one the system picks, and
+# doz ui says so); with ui.lan, serve.port (7443), which never moves. Or a fixed port 1024–65535
+# (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app
+# belongs to one port: keep it fixed for one.
 # (integer 0–65535; env DOZ_UI_PORT; flag --port N; applies when doz ui starts again (doz ui restart))
 # port = 0
+
+# Also serve the dashboard to the other browsers of your network (every network interface of this
+# Mac and Tailscale, never a sandbox's network) on the same port: each gets in once with an invite
+# (doz ui share). false (the default): this Mac only. Where it listens and your reverse proxy: the
+# serve.* settings.
+# (boolean; env DOZ_UI_LAN; flag doz ui --lan | --no-lan; applies when doz ui starts again (doz ui restart))
+# lan = false
 
 # All sessions: at most this many tiles show their session live at once (each is a terminal engine
 # and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not
@@ -117,33 +126,35 @@
 
 [serve]
 
-# The port doz serve listens on — the dashboard for the other browsers of your network. It stays
-# the same (an installed app and a bookmark belong to it): when another program holds it, doz
-# serve refuses and names it.
-# (integer 1024–65535; env DOZ_SERVE_PORT; flag doz serve --port N; applies when doz serve starts again)
+# The dashboard's port with ui.lan while ui.port is 0 (automatic) — an earlier name for it:
+# ui.port, when set, wins. It stays the same (devices, an installed app and a bookmark belong to
+# it): when another program holds it, doz ui refuses and names it.
+# (integer 1024–65535; env DOZ_SERVE_PORT; flag doz ui --lan --port N; applies when doz ui starts again (doz ui restart))
 # port = 7443
 
-# Where doz serve listens: lan (every network interface of this Mac and Tailscale — never a
-# sandbox's network), loopback (127.0.0.1 and ::1 only: for a reverse proxy on this Mac), or this
-# Mac's own addresses separated by commas (for a reverse proxy elsewhere on your network).
-# (lan | loopback | the Mac's addresses, comma-separated; env DOZ_SERVE_BIND; flag doz serve --bind lan|loopback|ADDRESSES; applies when doz serve starts again)
+# Where the dashboard listens for your other browsers with ui.lan: lan (every network interface of
+# this Mac and Tailscale — never a sandbox's network), loopback (127.0.0.1 and ::1 only: for a
+# reverse proxy on this Mac), or this Mac's own addresses separated by commas (for a reverse proxy
+# elsewhere on your network). This Mac's own browser is served at 127.0.0.1 in every case.
+# (lan | loopback | the Mac's addresses, comma-separated; env DOZ_SERVE_BIND; flag doz ui --lan --bind lan|loopback|ADDRESSES; applies when doz ui starts again (doz ui restart))
 # bind = "lan"
 
 # The addresses your reverse proxy serves the dashboard at, like https://doz.home.example
 # (comma-separated). A browser may use one only through a proxy listed in serve.trusted_proxies.
-# Over https, keys and tokens may be typed in the dashboard; over plain http they never are.
-# (origins like https://doz.home.example, comma-separated ("" = none); applies when doz serve starts again)
+# Over https, keys and tokens may be typed in the dashboard; over plain http they never are
+# (except in this Mac's own browser).
+# (origins like https://doz.home.example, comma-separated ("" = none); applies when doz ui starts again (doz ui restart))
 # public_origins = ""
 
-# The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For doz serve
+# The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For the dashboard
 # believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1).
 # From anyone else those headers are ignored.
-# (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz serve starts again)
+# (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz ui starts again (doz ui restart))
 # trusted_proxies = ""
 
-# Announce doz serve on your network with Bonjour ("Dozable on <this Mac>", http://<this
-# Mac>.local:<port>), so other Macs and phones can find it.
-# (boolean; applies when doz serve starts again)
+# With ui.lan, announce the dashboard on your network with Bonjour ("Dozable on <this Mac>",
+# http://<this Mac>.local:<port>), so other Macs and phones can find it.
+# (boolean; applies when doz ui starts again (doz ui restart))
 # advertise = true
 
 [host]

@@ -40,7 +40,7 @@ below 1024), Dozable picks a free one, says so (`moved`), and keeps it for next 
   reach anything: what the program itself may reach is still decided by the sandbox's [network](10-permissions-and-network.md).
 - **No key crosses it.** Your keys are swapped in by Dozable's proxy only on the sandbox's own outbound requests; a
   forward never touches them. A page that shows its environment shows a placeholder, which is useless anywhere else.
-- **From another device** (the dashboard through [`doz serve`](25-doz-serve.md)), `127.0.0.1` is that device, not your
+- **From another device** (the dashboard through [`doz ui --lan`](25-doz-serve.md)), `127.0.0.1` is that device, not your
   Mac: the button says the port is on the Mac instead of opening it there.
 
 How it works: each connection your browser makes is relayed into the sandbox by Dozable's small helper there, to the

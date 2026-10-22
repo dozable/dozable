@@ -62,7 +62,7 @@ card in the VM; every connection is judged by a policy of permissions you can re
 permissions`), credentials **swapped in by the proxy** (the sandbox only ever sees a placeholder), restore
 points and templates (APFS clones), workspace rules (`.dozignore`, `.dozreadonly`), browser sign-ins and
 `open`/clipboard bridges back to the Mac, GitHub as you (read-only by default), and a dashboard you can also
-serve to your other devices (`doz serve`).
+serve to your other devices (`doz ui --lan`).
 
 ## Updates and channels
 

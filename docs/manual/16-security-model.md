@@ -101,13 +101,15 @@ the agent install what it needs. Turn it off with `sandbox.agent_sudo` if you pr
   **Choose…** opens your Mac's own folder picker, and the folder you pick there is what is saved
   (never a folder inside the store, never `/`).
 - A dashboard link is a key: don't paste it anywhere.
-- `doz serve` (the dashboard for your other devices — [its page](25-doz-serve.md)) is a separate process you
-  start yourself. A browser needs an invite to get in (a link, a code or a QR code — one browser each, five
-  minutes) and stays in until you remove it; every request's host and origin are checked against this Mac's names
-  and addresses (or your proxy's address, only from a proxy you named in `serve.trusted_proxies`); keys and
-  tokens are never taken over plain HTTP; and a sandbox can never reach it — a sandbox network's connection is
-  dropped, and the proxy refuses the dashboards' ports on your Mac's own addresses. What other browsers do is in
-  `doz serve log`.
+- The dashboard's LAN option (`doz ui --lan`, `ui.lan` — the dashboard for your other devices,
+  [its page](25-doz-serve.md)) is off until you turn it on, on the Mac. Only a connection from this Mac to
+  `127.0.0.1:<port>` exactly, with no proxy in between, is your Mac's own browser (signed in by the link); any
+  other browser needs an invite to get in (a link, a code or a QR code — one browser each, five minutes) and stays
+  in until you remove it; every request's host and origin are checked against this Mac's names and addresses (or
+  your proxy's address, only from a proxy you named in `serve.trusted_proxies`); another browser can never type a
+  key or token over plain HTTP nor open a window on the Mac's screen; and a sandbox can never reach it — a sandbox
+  network's connection is dropped before anything is read, and the proxy refuses the dashboard's port on your Mac's
+  own addresses. What other browsers do is in `doz ui log`.
 
 ## The bridges — deliberate ways in to your Mac
 
