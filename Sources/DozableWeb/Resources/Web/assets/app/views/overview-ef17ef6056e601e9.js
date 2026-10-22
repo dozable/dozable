@@ -11,9 +11,9 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { card, meter, panel } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { dialog } from '../components/dialog-a776616f1988c401.js';
-import { hostCard } from '../components/host-0b1de17e7525c3fa.js';
+import { hostCard } from '../components/host-28748806d70b7727.js';
 import { rowLifecycle } from '../components/lifecycle-1320f4adec98e5ae.js';
-import { inTabOrder, renderNavSandboxes } from '../components/nav-bacaa78024b80de7.js';
+import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-95d49aeb50928041.js';
 import { hoverPeek } from '../components/nav-peek-62c4c955449ec876.js';
 import { paintRowOps } from '../components/notices-63d38bfc28f739a5.js';
 import { sandboxPill } from '../components/pills-9724260312041571.js';
@@ -21,7 +21,7 @@ import { quickAddButton } from '../components/quick-add-4041899623dff34d.js';
 import { livePrefs, liveControls as sharedLiveControls, liveTurn, paintLiveStatus, SOCKET_CEILING } from '../components/live-controls-7d339d60c54688c6.js';
 import { dropThumbTerm, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb-ea9b068891b23f7a.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-063824534dc5bd7d.js';
-import { newSandboxWizard } from './new-sandbox-e6ec56d934e7cceb.js';
+import { newSandboxWizard } from './new-sandbox-9b8466a8b1bc780f.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 
@@ -209,7 +209,7 @@ function patchRows(list) {
         hoverPeek(th.el, s.name, () => t.row);
         th.wrap = rows
           ? h('div', { class: 'ov-th', role: 'listitem', 'data-ov-thumb': x.name }, th.el,
-            h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, icon('terminal'), h('span', null, x.name)))
+            h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, sessionGlyph(x), h('span', null, x.name)))
           : h('div', { class: 'ov-tile', role: 'listitem', 'data-ov-thumb': x.name }, th.el);
         st.thumbs.set(x.name, th);
         st.box.append(th.wrap);

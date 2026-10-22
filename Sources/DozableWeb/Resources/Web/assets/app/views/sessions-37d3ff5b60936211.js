@@ -8,7 +8,8 @@ import { saveSetting, setting } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { lifecycle } from '../components/lifecycle-1320f4adec98e5ae.js';
-import { renderNavSandboxes } from '../components/nav-bacaa78024b80de7.js';
+import { renderNavSandboxes, sessionGlyph } from '../components/nav-95d49aeb50928041.js';
+import { hoverPeek } from '../components/nav-peek-62c4c955449ec876.js';
 import { agentChip } from '../components/agent-status-4b4b30d82051d513.js';
 import { pageFailure } from '../components/notices-63d38bfc28f739a5.js';
 import { paintCover } from '../components/terminal-52ddae1c07833918.js';
@@ -152,6 +153,8 @@ function gridRender() {
   else for (const n of [...grid.body.children]) if (!n.dataset.key) n.remove();
   gridSchedule();
 }
+/// The host's word on a tile's session (its program's mark), from the overview.
+function briefOf(w) { return ((w.s && w.s.sessionList) || []).find((b) => b.name === w.session) || null; }
 function makeTile(w) {
   const dot = h('span', { class: 'ph-dot', 'aria-hidden': 'true' });
   const title = h('span', { class: 'tile-title' });
@@ -164,11 +167,15 @@ function makeTile(w) {
   const hit = h('button', { type: 'button', class: 'tile-hit', title: 'Open on its sandbox’s page',
                             'aria-label': 'Open ' + (w.session ? w.sandbox + ' · ' + w.session : w.sandbox) + ' on its page' },
     h('span', { class: 'tile-hit-icon' }, icon('maximize-2')));
+  const glyph = w.session ? sessionGlyph(briefOf(w)) : null;                  // 642: its agent's mark, else a terminal
+  const body = h('div', { class: 'tile-body' }, screen, note, hit);
   const el = h('div', { class: 'tile', 'data-key': w.key, 'data-sandbox': w.sandbox, 'data-session': w.session || '' },
-    h('div', { class: 'tile-head' }, dot, w.session ? icon('terminal') : null, title, agent, tag, phase, act),   // 635: the session's mark
-    h('div', { class: 'tile-body' }, screen, note, hit));
-  const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, title, tag, phase, act, screen, note, hit, term: null, termKind: null, visible: false, liveable: !!w.session };
+    h('div', { class: 'tile-head' }, dot, glyph, title, agent, tag, phase, act), body);
+  const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, glyph, title, tag, phase, act, screen, note, hit, term: null, termKind: null, visible: false, liveable: !!w.session };
   hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });
+  // 642 (owner: "add the larger hover picture there too"): resting on a session's picture shows it larger, as on All sandboxes.
+  if (w.session) hoverPeek(body, w.sandbox, () => ({ name: tile.session, saved: !!tile.saved,
+    savedAt: tile.saved ? tile.saved.savedAt : null, savedReason: tile.saved ? tile.saved.savedReason : null }));
   // 642: pointing at a sandbox's tile gives its tiles the live places first.
   el.addEventListener('pointerenter', () => { if (grid.hover !== tile.sandbox) { grid.hover = tile.sandbox; gridSchedule(); } });
   el.addEventListener('pointerleave', () => { if (grid.hover === tile.sandbox) { grid.hover = ''; gridSchedule(); } });
@@ -192,6 +199,7 @@ function paintTile(tile, w) {
   tile.el.dataset.kind = kind;
   tile.el.dataset.phase = s.phase;
   tile.dot.className = 'ph-dot ph-' + s.phase;
+  if (tile.glyph) { const g = sessionGlyph(briefOf(w)); if (g.dataset.mark !== tile.glyph.dataset.mark) { tile.glyph.replaceWith(g); tile.glyph = g; } }
   tile.title.textContent = w.session ? w.sandbox + ' · ' + w.session : w.sandbox;
   tile.title.title = w.command ? w.command : '';
   tile.phase.textContent = w.saved ? s.phaseLabel + ' · saved ' + when(w.saved.savedAt) : s.phaseLabel;

@@ -1,7 +1,7 @@
 // components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, mark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
@@ -133,11 +133,13 @@ function urgent(s, session) {
   const st = (s.sessionStatuses || []).find((x) => x.session === session);
   return !!st && (st.state === 'blocked' || st.state === 'error');
 }
+/// 642 (owner: "bring back the app icons in the session glyphs"): the agent's mark when its program is one, else a terminal.
+export function sessionGlyph(x) { return x && x.icon && x.icon.d ? mark(x.icon, 'ns-mark') : icon('terminal'); }
 function sessionLine(s, x) {
   const active = shownSession(s.name) === x.name;
   const a = h('a', { href: '#/sandbox/' + s.name + '/' + x.name, class: 'nav-sess' + (x.saved ? ' saved' : '') + (active ? ' active' : ''),
     'data-session': x.name, title: x.program + ' · ' + x.name + (x.saved ? ' — its saved screen' : '') },
-    icon('terminal'), h('span', { class: 'ns-name' }, x.name), agentChip(s.name, x.name));
+    sessionGlyph(x), h('span', { class: 'ns-name' }, x.name), agentChip(s.name, x.name));
   // ⋯ on hover: End and Restart — a running sandbox's (ending a program never wakes one).
   const menu = s.phase === 'running' && !s.busy
     ? moreMenu('More for ' + x.name, sessionMenuItems(s.name, x.name, null), { small: true, data: { navMore: x.name }, onClose: () => setTimeout(renderNavSandboxes, 0) }).el

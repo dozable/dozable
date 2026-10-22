@@ -333,8 +333,15 @@ public struct WebSessionBrief: Codable, Equatable, Sendable {
     public var isDefault: Bool?
     public var openedAt: Date?
     public var saved: Bool?
+    /// 642 (owner: "bring back the app icons in the session glyphs"): the mark of the agent its program is (the recipe
+    /// whose command it runs — `claude`, `codex`, `pi`); nil for anything else (a shell), drawn as a terminal.
+    public var icon: ResolvedIcon?
     public init(_ b: SessionBrief) {
         name = b.name; program = b.program; isDefault = b.isDefault; openedAt = b.openedAt; saved = b.saved
+        icon = Self.mark(of: b.program)
+    }
+    static func mark(of program: String) -> ResolvedIcon? {
+        AgentRecipes.all.first { $0.shortName == program }.map(AgentIcons.resolve)
     }
 }
 
