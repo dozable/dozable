@@ -423,6 +423,41 @@ name: todo-app</pre></details>
 </section>
 
 <section>
+  <h2>The Files tab</h2>
+  <p>The inspector's <b>Files</b> tab (<code>views/sandbox-files.js</code>): the tree of <code>/workspace</code> — one <code>.frow</code> per entry
+    (<code>role="treeitem"</code>, indented by <code>--depth</code>, set through CSSOM), folders first; a caret opens a folder (its listing read then, and
+    watched while it is open and the tab is shown); a link shows <code>→ target</code> and is never opened; <code>locked</code> / <code>read-only</code>
+    tags from the workspace rules; a file's size. The head's icon buttons make a file or a folder in the selected folder and list again. Each row's ⋯
+    (shown on hover, focus and selection): Open on the Mac / Show in the Finder (a shared workspace, never for a doz serve browser), Copy path,
+    Rename…, Move…, Delete… — disabled with why for a locked or read-only item. A row dragged onto a folder (<code>.drop</code>) is moved there.
+    An isolated sandbox that does not run shows a callout instead and is asked nothing.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sbx-details-inner" style="max-width:420px">
+      <div class="itabs" role="tablist"><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="info"></i><span class="itab-l">Overview</span></button><button type="button" role="tab" class="itab" aria-selected="true"><i data-i="folder-tree"></i><span class="itab-l">Files</span></button><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="history"></i><span class="itab-l">Points</span></button></div>
+      <section class="ipanel"><div class="files-panel">
+        <div class="files-head"><h2>Files</h2><button class="btn sm quiet icon-only" type="button" aria-label="New file…"><i data-i="file-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="New folder…"><i data-i="folder-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="Refresh"><i data-i="refresh-cw"></i></button></div>
+        <p class="files-note">Shared from <code>~/Developer/box</code> — changes show as they happen. Workspace rules apply: locked and read-only items are not changed here.</p>
+        <div class="ftree" role="tree" aria-label="Files of box">
+          <div class="frow folder root" role="treeitem" style="--depth:0"><span class="caret"></span><i data-i="folder-open"></i><span class="fname">/workspace</span></div>
+          <div class="frow folder" role="treeitem" aria-expanded="true" style="--depth:1"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder-open"></i><span class="fname">src</span></div>
+          <div class="frow drop folder" role="treeitem" aria-expanded="false" style="--depth:2"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder"></i><span class="fname">lib</span></div>
+          <div class="frow" role="treeitem" aria-selected="true" style="--depth:2"><span class="caret"></span><i data-i="file"></i><span class="fname">main.c</span><span class="fsize">29 B</span><span class="menu-wrap"><button class="btn quiet icon-only sm" type="button" aria-label="More for main.c"><i data-i="ellipsis-vertical"></i></button></span></div>
+          <div class="frow folder" role="treeitem" aria-expanded="false" style="--depth:1"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder"></i><span class="fname">docs</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="link"></i><span class="fname">etc-link</span><span class="ftarget">→ /etc</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="file"></i><span class="fname">README.md</span><span class="tag outline">read-only</span><span class="fsize">6 B</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="lock"></i><span class="fname">secret.key</span><span class="tag warn">locked</span></div>
+          <div class="fmsg" style="--depth:1">Only the first 2000 are listed</div>
+        </div>
+      </div></section>
+      <section class="ipanel"><div class="files-panel">
+        <div class="files-head"><h2>Files</h2></div>
+        <div class="callout info compact" role="status"><i data-i="info"></i><div class="c-body"><div class="c-title">iso is asleep</div>It is isolated: its files are on its own disk, so they are listed while it runs. Looking here never wakes or starts it.</div></div>
+      </div></section>
+    </div>
+  </div></div>
+</section>
+
+<section>
   <h2>The terminal strip</h2>
   <p>635 (owner: better contrast): the strip is <code>--surface-2</code>; each tab is a raised shape (<code>--surface-3</code>, lighter on hover); the one shown joins the terminal below
     (<code>--term-bg</code>) with an accent line on top, and its close, move and session buttons take the terminal’s ink (<code>--term-ink</code>). Left of everything, the <strong>tabs menu</strong>
