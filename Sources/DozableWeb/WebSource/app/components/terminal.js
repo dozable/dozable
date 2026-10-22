@@ -687,6 +687,35 @@ export function thawTerm(t) {
   connectTerminal(t).finally(() => { t.thawing = false; });
 }
 
+/// 642 (owner: "do the proper fix"): the tabs of a sandbox whose page is not shown let go of their sockets (the UI has
+/// 16 in all — every open tab of every sandbox held one, and the pictures and the sidebar's peek found none left), after
+/// PARK_AFTER_MS away; arriving on the page attaches them again with their scrollback (a reattach ticket: the SNAPSHOT
+/// keeps it). The session runs on in the sandbox all the while — only this page stops watching it.
+const PARK_AFTER_MS = 5000;
+function pageShows(t) { return state.view === 'sandbox' && state.param === t.sandbox; }
+function parkable(t) {
+  return !t.grid && !t.closed && !t.ended && !t.errorText && !t.restarting && !t.pending && !t.bootIntent && !t.saved
+    && (t.mode === 'interactive' || t.mode === 'watch');
+}
+function parkTerminals() {
+  const now = Date.now();
+  for (const t of [...terminals.values()]) {
+    if (!parkable(t)) continue;
+    if (pageShows(t)) {
+      t.awaySince = 0;
+      if (t.parked && !t.ws && !t.thawing) {
+        t.thawing = true;
+        connectTerminal(t, { reattach: true }).then((r) => { if (r !== 'retry') t.parked = false; }).finally(() => { t.thawing = false; });
+      }
+    } else if (t.ws && t.opened && !t.parked) {
+      if (!t.awaySince) t.awaySince = now;
+      else if (now - t.awaySince >= PARK_AFTER_MS) { t.parked = true; t.awaySince = 0; freezeTerm(t); }
+    }
+  }
+}
+setInterval(parkTerminals, 1000);
+window.addEventListener('hashchange', () => setTimeout(parkTerminals, 50));
+
 /// 617: a start waiting for this pane (startWithBootView) is woken by its state, its error or its close — no polling.
 function wakeStateWaiters(t) {
   if (!t.stateWaiters) return;

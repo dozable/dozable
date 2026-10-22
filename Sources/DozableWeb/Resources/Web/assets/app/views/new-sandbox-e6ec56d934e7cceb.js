@@ -16,12 +16,12 @@ import { callout } from '../components/callout-1fe929a7376b7fbc.js';
 import { createDialog } from '../components/create-dialog-8978e10c6f0bbd64.js';
 import { dialog } from '../components/dialog-a776616f1988c401.js';
 import { imagePicker } from '../components/image-picker-d2e2d886b90820fa.js';
-import { renderModal, wizHead, wizMount } from '../components/modal-1095eed595678690.js';
+import { renderModal, wizHead, wizMount } from '../components/modal-c3ba843f85e21e92.js';
 import { pageFailure, toast } from '../components/notices-63d38bfc28f739a5.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-a3f215dcff459aba.js';
 import { rulesStep } from '../components/rules-step-44f31e5fa9a8b8ad.js';
 import { stepperNode } from '../components/stepper-633627cca0db123f.js';
-import { openDefaultTerminal } from '../components/terminal-a2a26ecfd1d1c37a.js';
+import { openDefaultTerminal } from '../components/terminal-52ddae1c07833918.js';
 import { planBlock } from '../components/plan-view-01edb21532bfdd63.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
