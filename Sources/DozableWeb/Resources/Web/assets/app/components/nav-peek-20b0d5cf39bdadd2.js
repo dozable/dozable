@@ -41,9 +41,11 @@ export function peekIcon(row, sandbox, x) {
 }
 
 /// 642 (owner): the same picture from a session's thumbnail elsewhere (All sandboxes): resting on `el` opens it beside
-/// it; moving to another thumbnail while it is open shows that one's at once; leaving closes it. `getX`: the session row.
-export function hoverPeek(el, sandbox, getX) {
+/// it; moving to another thumbnail while it is open shows that one's at once; leaving closes it. `getX`: the session row;
+/// `enabled` (optional): whether the page wants it now.
+export function hoverPeek(el, sandbox, getX, enabled) {
   el.addEventListener('pointerenter', () => {
+    if (enabled && !enabled()) return;              // 642: the page's own switch is off
     cancelHide();
     if (peek.pop && !peek.pop.hidden) { show(sandbox, getX(), el); return; }
     disarm();

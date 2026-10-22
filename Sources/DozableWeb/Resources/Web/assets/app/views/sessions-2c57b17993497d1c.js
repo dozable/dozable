@@ -8,8 +8,8 @@ import { saveSetting, setting } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { lifecycle } from '../components/lifecycle-1320f4adec98e5ae.js';
-import { renderNavSandboxes, sessionGlyph } from '../components/nav-95d49aeb50928041.js';
-import { hoverPeek } from '../components/nav-peek-62c4c955449ec876.js';
+import { renderNavSandboxes, sessionGlyph } from '../components/nav-f0a5897abb5f1fe5.js';
+import { hidePeek, hoverPeek } from '../components/nav-peek-20b0d5cf39bdadd2.js';
 import { agentChip } from '../components/agent-status-4b4b30d82051d513.js';
 import { pageFailure } from '../components/notices-63d38bfc28f739a5.js';
 import { paintCover } from '../components/terminal-52ddae1c07833918.js';
@@ -37,6 +37,16 @@ function liveEl() {
     gridSchedule();
   });
 }
+/// 642 (owner: "add a toggle for the larger picture"): resting on a tile shows it larger — on unless turned off here.
+function peekOn() { try { return localStorage.getItem('doz.sessions.peek') !== 'off'; } catch (_) { return true; } }
+function peekToggle() {
+  const box = h('input', { type: 'checkbox', 'data-sessions-peek': '', on: { change: (ev) => {
+    try { localStorage.setItem('doz.sessions.peek', ev.target.checked ? 'on' : 'off'); } catch (_) { /* this page only */ }
+    if (!ev.target.checked) hidePeek();
+  } } });
+  box.checked = peekOn();
+  return h('label', { class: 'ov-toggle', title: 'Resting on a tile’s picture for half a second shows it larger' }, box, 'Larger on hover');
+}
 function startCycle() { if (!grid.cycleTimer) grid.cycleTimer = setInterval(() => { grid.turn++; gridSchedule(); }, LIVE.hold() * 1000); }
 function stopCycle() { clearInterval(grid.cycleTimer); grid.cycleTimer = null; }
 
@@ -60,7 +70,7 @@ function gridBuild() {
   root.replaceChildren(
     h('div', { class: 'head' }, h('h1', null, 'All sessions'), h('div', { class: 'actions' }, btn('Refresh', () => gridRefresh(true), { small: true }))),
     h('p', { class: 'sub' }, 'Every session of every running sandbox, live and read-only. Click one to open it on its sandbox’s page.'),
-    h('div', { class: 'toolbar' }, sandboxSel, phaseSel, sizeSel, grid.liveEl, grid.status),
+    h('div', { class: 'toolbar' }, sandboxSel, phaseSel, sizeSel, grid.liveEl, peekToggle(), grid.status),
     grid.body);
   grid.io = new IntersectionObserver((entries) => {
     for (const e of entries) { const tile = grid.tiles.get(e.target.dataset.key); if (tile) tile.visible = e.isIntersecting; }
@@ -175,7 +185,7 @@ function makeTile(w) {
   hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });
   // 642 (owner: "add the larger hover picture there too"): resting on a session's picture shows it larger, as on All sandboxes.
   if (w.session) hoverPeek(body, w.sandbox, () => ({ name: tile.session, saved: !!tile.saved,
-    savedAt: tile.saved ? tile.saved.savedAt : null, savedReason: tile.saved ? tile.saved.savedReason : null }));
+    savedAt: tile.saved ? tile.saved.savedAt : null, savedReason: tile.saved ? tile.saved.savedReason : null }), peekOn);
   // 642: pointing at a sandbox's tile gives its tiles the live places first.
   el.addEventListener('pointerenter', () => { if (grid.hover !== tile.sandbox) { grid.hover = tile.sandbox; gridSchedule(); } });
   el.addEventListener('pointerleave', () => { if (grid.hover === tile.sandbox) { grid.hover = ''; gridSchedule(); } });
