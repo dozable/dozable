@@ -621,6 +621,9 @@ doz account use NAME work                        # this sandbox uses work; open 
 doz account use NAME default                     # follow the store's default again (none: no credential)
 doz account default work                         # every sandbox that follows the default moves to work
 doz account verify work                          # one tiny request to api.anthropic.com
+doz account rename work team                     # the account, its keychain item, the default and its sandboxes
+doz account set-plan team pro                    # a setup token's plan, without pasting it again
+doz account add team --setup-token --force       # a new token under the same name (default, sandboxes, plan kept)
 doz account rm work [--force]                    # also deletes the keychain item doz made
 doz create NAME --image claude-code --account work
 ```

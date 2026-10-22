@@ -77,6 +77,8 @@ key/ls
 key/policy
 account/ls
 account/add
+account/rename
+account/set-plan
 account/verify
 account/show
 account/refresh

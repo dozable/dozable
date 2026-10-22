@@ -43,6 +43,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case accountDefault = "account-default", accountUse = "account-use", accountVerify = "account-verify"
     /// 617: read an account's key from its source again now (the cached value is dropped).
     case accountRefresh = "account-refresh"
+    /// 641: edit an account's details in place — `newName` renames it (its keychain item, the defaults and every
+    /// sandbox that names it go with it), `plan` changes a setup token's plan. Its key is replaced by `account-add`
+    /// with `force`, as before.
+    case accountEdit = "account-edit"
     case accountKeepalive = "account-keepalive"
     case events
     case hostStop = "host-stop"

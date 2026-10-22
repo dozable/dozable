@@ -38,6 +38,9 @@ public enum WebAction: Equatable, Sendable {
     case accountVerify(String)
     /// 617: read a key kept in 1Password, AWS or a command again (never adds or changes a source — D7).
     case accountRefresh(String)
+    /// 641: edit a key's details — rename it (everything that names it goes with it) and/or a setup token's plan. Never
+    /// its value: that is `POST /api/v1/accounts` with replace.
+    case accountEdit(String, newName: String?, plan: String?)
     case accountRemove(String)
     /// 594: onboard — prepare these built-in images in the host (in the background: the action ends
     /// at once; the preparation shows in the wizard and in Operations) and record the onboarding.
@@ -88,7 +91,7 @@ public enum WebAction: Equatable, Sendable {
              .keyRemove(let n, _), .accountUse(let n, _), .templateCreate(let n, _, _, _), .duplicate(let n, _, _, _), .toolsApply(let n),
              .sessionEnd(let n, _), .sessionRestart(let n, _, _):
             return n
-        case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove, .onboard, .prepareCancel,
+        case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
             return nil
         }
@@ -223,6 +226,12 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.accountRefresh)
             r.account = a
             return r
+        case .accountEdit(let a, let new, let plan):
+            var r = HostRequest(.accountEdit)
+            r.account = a
+            r.newName = new
+            r.plan = plan
+            return r
         case .accountRemove(let a):
             var r = HostRequest(.accountRemove)
             r.account = a
@@ -305,6 +314,7 @@ public enum WebAction: Equatable, Sendable {
             "account-keepalive": ["enabled"],
             "account-verify": ["account"],
             "account-refresh": ["account"],
+            "account-edit": ["account", "newName", "plan"],
             "account-rm": ["account", "confirm"],
             "onboard": ["images", "base"],
             "prepare-cancel": ["images", "base"],
@@ -430,6 +440,17 @@ public enum WebAction: Equatable, Sendable {
             a = .accountVerify(try f.account("account"))
         case "account-refresh":
             a = .accountRefresh(try f.account("account"))
+        case "account-edit":
+            let acc = try f.account("account")
+            guard acc != "mac" else { throw Invalid("account: the Mac login keeps its name and has no plan to set") }
+            var new: String?
+            if let n = try f.string("newName", max: 40) {
+                guard (try? AccountStore.validateName(n)) != nil, n != "mac" else { throw Invalid("newName: an account name, 1–40 of a-z 0-9 - (not mac, default or none)") }
+                new = n == acc ? nil : n
+            }
+            let plan = try f.oneOf("plan", ["max", "pro", "team", "enterprise"])
+            guard new != nil || plan != nil else { throw Invalid("account-edit: nothing to change — newName or plan") }
+            a = .accountEdit(acc, newName: new, plan: plan)
         case "account-rm":
             a = .accountRemove(try f.account("account"))
         case "onboard":
