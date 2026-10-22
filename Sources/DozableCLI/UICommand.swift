@@ -9,10 +9,12 @@ import DozableWeb
 // 590 — `doz ui`: a local web UI for the whole store, served by THIS process (a client of the
 // store's host, like every other command) on 127.0.0.1 and a port the OS picks. Phase 1 is a
 // read-only dashboard. The security design is changes/590-*/590.01-DESIGN.md (workspace).
+// 645 — the ONE dashboard command: its LAN option (`doz serve` before) is built in ServeCommand.swift
+// (`LANDashboard`) — this file, which opens browsers through LaunchServices, never constructs the LAN profile.
 
 struct UICommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "ui",
-        abstract: "A local web dashboard for this store: sandboxes, sessions, terminals, images, restore points, network, accounts, metrics, events.",
+        abstract: "The web dashboard for this store — on this Mac, and with --lan on your other computers, tablets and phones.",
         discussion: """
         doz ui (doz ui start) serves http://127.0.0.1:<port> — this Mac only — until Ctrl-C, and opens it in your browser \
         with a link that works ONCE, for five minutes. The link signs the browser in (for 14 days without use, renewed \
@@ -26,8 +28,19 @@ struct UICommand: AsyncParsableCommand {
         `doz ui restart` restarts the running one (open pages and their terminals carry on by themselves); \
         --detach runs it in the background (its log: <store>/ui.log) until doz ui stop; \
         --new-link (or doz ui link --rotate) signs every page out for a new link.
+
+        With --lan (or the setting ui.lan) the SAME dashboard, on the same port, also serves the other browsers of your \
+        network — every network interface of this Mac and Tailscale, never a sandbox's network — at \
+        http://<this Mac>.local:<port> (the port: ui.port, else serve.port, 7443). This Mac's browser stays signed in by \
+        the link; another browser gets in ONCE with an invite — a QR code, a short code and a link, printed at start on a \
+        terminal and by doz ui share (any browser already in can make one too: Devices › Add another browser) — and stays \
+        in until it is removed (doz ui devices, doz ui revoke). Over plain HTTP another browser can do everything except \
+        type a key or token, or open a window on this Mac's screen (a folder picker, Terminal). For HTTPS behind your own \
+        reverse proxy: serve.public_origins and serve.trusted_proxies (doz doctor checks them). What the other browsers \
+        did: doz ui log. `doz serve` is the earlier name of `doz ui --lan`.
         """,
-        subcommands: [UIStart.self, UILink.self, UIRestart.self, UIStop.self, UIServe.self],
+        subcommands: [UIStart.self, UILink.self, UIRestart.self, UIStop.self, UIStatus.self, ServeShare.self, ServeDevices.self,
+                      ServeRevoke.self, ServeRename.self, ServeLog.self, UIServe.self],
         defaultSubcommand: UIStart.self)
 }
 
@@ -163,17 +176,37 @@ struct UIStartOptions: ParsableArguments {
     @Flag(name: .customLong("launch-detached"), help: .hidden) var launchDetached = false
     /// The detached doz ui itself (its parent is launchd; no terminal).
     @Flag(name: .customLong("launched"), help: .hidden) var launched = false
+    /// 645: the LAN option for this run (the setting ui.lan otherwise).
+    @Flag(name: .customLong("lan"), help: "Also serve your other computers, tablets and phones on your network (every network interface of this Mac and Tailscale, never a sandbox's network) — each browser gets in once with an invite (doz ui share). Default: the setting ui.lan (off).") var lan = false
+    @Flag(name: .customLong("no-lan"), help: "This Mac only, whatever ui.lan says.") var noLAN = false
+    @Option(name: .long, help: "With --lan, where to listen for the other browsers: lan, loopback, or this Mac's addresses separated by commas (default: the setting serve.bind).") var bind: String?
+    @Flag(name: .customLong("no-invite"), help: "With the LAN option, do not print an invite at start (doz ui share makes one).") var noInvite = false
 
     func validate() throws {
         try delivery.validate(json: g.json)
         if let port, port != 0, !(1024...65_535).contains(port) { throw ValidationError("--port is 0 (automatic) or a port 1024–65535") }
+        if lan && noLAN { throw ValidationError("--lan or --no-lan, not both") }
+        if let bind, !ServeSettingValues.isBind(bind) { throw ValidationError("--bind is lan, loopback, or this Mac's own addresses separated by commas") }
     }
 
-    /// The settings flags this command gives (the store, the port).
+    /// The settings flags this command gives (the store, the port, the LAN option, where it listens).
     var flags: [String: TOMLValue] {
         var f = configFlags(g)
         if let port { f[SettingKey.uiPort] = .int(port) }
+        if lan { f[SettingKey.uiLAN] = .bool(true) }
+        if noLAN { f[SettingKey.uiLAN] = .bool(false) }
+        if let bind { f[SettingKey.serveBind] = .string(bind) }
         return f
+    }
+
+    /// The flags a detached start (and a restart's re-exec, through its argv) passes on.
+    var passthrough: [String] {
+        var a: [String] = []
+        if let port { a += ["--port", String(port)] }
+        if lan { a.append("--lan") }
+        if noLAN { a.append("--no-lan") }
+        if let bind { a += ["--bind", bind] }
+        return a
     }
 }
 
@@ -186,7 +219,7 @@ struct UIStart: AsyncParsableCommand {
     func run() async throws { try await UIRunner(o: o).run() }
 }
 
-/// The command's earlier name (before `doz serve`, the dashboard for other machines, took the word).
+/// The command's earlier name (`doz ui serve`, before `doz serve` took the word — and 645, before that became `doz ui --lan`).
 struct UIServe: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "serve", abstract: "The earlier name of doz ui start.", shouldDisplay: false)
     @OptionGroup var o: UIStartOptions
@@ -275,7 +308,7 @@ struct UIRunner {
         }
         let env = ProcessInfo.processInfo.environment
         let mode = delivery.openMode(WebSettingsStore(environment: env, flags: o.flags).current)
-        let passthrough = o.port.map { ["--port", String($0)] } ?? []
+        let passthrough = o.passthrough
         if o.launchDetached {
             // The intermediate: the detached doz ui in a session of its own; its pid on stdout; exit (its parent → launchd).
             let pid = try DetachedLauncher.spawnDetached(
@@ -306,6 +339,8 @@ struct UIRunner {
             }
             if !g.quiet && !g.json {
                 Out.stdout("doz ui is running in the background (pid \(pid)) on \(up.origin) — its log: \(log.path); stop it: doz ui stop\(g.store.map { " --store \($0)" } ?? "")\n")
+                // 645: with the LAN option, where the other browsers reach it and an invite (a terminal only).
+                LANDashboard.printDetached(store, invite: !o.noInvite)
             }
             if o.newLink, let url = WebControl.requestRotate(store) { try delivery.deliver(url, g); return }
             if mode != "never" || delivery.printURL, let url = WebControl.requestLink(store) { try delivery.deliver(url, g) }
@@ -330,6 +365,10 @@ struct UIRunner {
             }
             let pages = running.pages == 1 ? "1 page is open" : "\(running.pages) pages are open"
             Out.stdout("doz ui is already running at \(running.origin) — \(pages)\(mode == "auto" ? "; not opening another (--open does)" : "; doz ui link opens one")\n")
+            // 645: asked for the LAN, but the running one is this Mac's only — say how (it is the same process).
+            if o.lan, !LANDashboard.isServing(store) {
+                Out.stdout("it is not on your network: doz config set ui.lan true, then doz ui restart\n")
+            }
             return
         }
         // 605: the kept sessions end as "a new link was made" (their pages are told why), not silently.
@@ -350,28 +389,46 @@ struct UIRunner {
         let settings = WebSettingsStore(environment: env, flags: o.flags)
         // 605 (owner Q10): `ui.port` — 0: 594 W18's reuse (the port this store's last UI had, when free —
         // an open page then reconnects by itself — else the OS's pick, said below); N: exactly N, never a
-        // silent move (an installed app belongs to its port).
-        let configured = settings.int(SettingKey.uiPort)
-        let address: WebLoopbackAddress
-        if configured != 0 {
-            guard let a = WebLoopbackAddress(reusing: configured) else {
-                WebControl.cleanUp(store, listenFD: -1, lockFD: lockFD)
-                throw fail(HostError(.unavailable, "ui.port is \(configured), and \(PortHolder.describe(configured) ?? "another program") listens on 127.0.0.1:\(configured) — stop it, or choose another port: doz config set ui.port N (0 = automatic)"), g)
-            }
-            address = a
-        } else {
-            address = WebControl.address(store)
-        }
+        // silent move (an installed app belongs to its port). 645: with the LAN option the port is always fixed
+        // (`ui.port`, else serve.port — 7443): the LAN's devices, bookmarks and Bonjour belong to it.
+        let lan = settings.bool(SettingKey.uiLAN)
+        let portChoice = UIRunner.portChoice(settings)
+        let configured: Int = if case .fixed(let p) = portChoice { p } else { 0 }
         let remembered = WebControl.rememberedPort(store)
-        // 605: `doz ui restart` onto another port (ui.port changed): the open pages cannot follow.
         let server: DozableWebServer
-        do {
-            server = try await DozableWebServer.bind(data: data, assets: assets, version: DozableCommand.version, settings: settings,
-                                                   address: address, fixedPort: configured != 0, sessionsFile: WebControl.sessionsFile(store),
-                                                   revokedFile: WebControl.revokedFile(store), operationsFile: WebControl.operationsFile(store))
-        } catch {
-            WebControl.cleanUp(store, listenFD: -1, lockFD: lockFD)
-            throw fail(HostError(.unavailable, "could not listen on 127.0.0.1\(configured != 0 ? ":\(configured)" : ""): \(error)"), g)
+        let lanSide: LANDashboard.Handle?
+        if lan {
+            // The LAN profile is built in ServeCommand.swift (the dashboard's LAN side) — never in this file.
+            let side: LANDashboard.Handle
+            do {
+                side = try await LANDashboard.bind(store: store, data: data, assets: assets, settings: settings, port: configured,
+                                                   launched: o.launched)
+            } catch {
+                WebControl.cleanUp(store, listenFD: -1, lockFD: lockFD)
+                throw fail((error as? HostError) ?? HostError(.unavailable, "\(error)"), g)
+            }
+            lanSide = side
+            server = side.server
+        } else {
+            lanSide = nil
+            let address: WebLoopbackAddress
+            if configured != 0 {
+                guard let a = WebLoopbackAddress(reusing: configured) else {
+                    WebControl.cleanUp(store, listenFD: -1, lockFD: lockFD)
+                    throw fail(HostError(.unavailable, "ui.port is \(configured), and \(PortHolder.describe(configured) ?? "another program") listens on 127.0.0.1:\(configured) — stop it, or choose another port: doz config set ui.port N (0 = automatic)"), g)
+                }
+                address = a
+            } else {
+                address = WebControl.address(store)
+            }
+            do {
+                server = try await DozableWebServer.bind(data: data, assets: assets, version: DozableCommand.version, settings: settings,
+                                                       address: address, fixedPort: configured != 0, sessionsFile: WebControl.sessionsFile(store),
+                                                       revokedFile: WebControl.revokedFile(store), operationsFile: WebControl.operationsFile(store))
+            } catch {
+                WebControl.cleanUp(store, listenFD: -1, lockFD: lockFD)
+                throw fail(HostError(.unavailable, "could not listen on 127.0.0.1\(configured != 0 ? ":\(configured)" : ""): \(error)"), g)
+            }
         }
         if configured == 0, let remembered, remembered != server.origin.port, !g.json {
             Out.stderr("doz ui: this store's last port, 127.0.0.1:\(remembered), is taken (by \(PortHolder.describe(remembered) ?? "another program")) — listening on 127.0.0.1:\(server.origin.port) instead. A page or an installed app of the old port needs a new link (doz ui link); a fixed port: doz config set ui.port N\n")
@@ -380,22 +437,22 @@ struct UIRunner {
         let fds = ControlFDs(lock: lockFD)
         let flags = o.flags, json = g.json
         let restarter = WebControl.Restarter(check: {
-            // Where the new process will listen: ui.port as the file says NOW (a flag or variable still wins).
-            let next = WebSettingsStore(environment: env, flags: flags).int(SettingKey.uiPort)
-            guard next != 0, next != server.origin.port else { return nil }
+            // Where the new process will listen: ui.port (and 645: ui.lan) as the file says NOW (a flag or variable still wins).
+            guard case .fixed(let next) = UIRunner.portChoice(WebSettingsStore(environment: env, flags: flags)), next != server.origin.port else { return nil }
             guard !WebLoopbackAddress.inUse(next) else {
-                return "ui.port is \(next), and \(PortHolder.describe(next) ?? "another program") listens on 127.0.0.1:\(next) — doz ui stays on \(server.origin.port)"
+                return "the dashboard's port would be \(next), and \(PortHolder.describe(next) ?? "another program") listens on 127.0.0.1:\(next) — doz ui stays on \(server.origin.port)"
             }
             return nil
         }, restart: {
             fds.restarting = true
             Task {
-                let next = WebSettingsStore(environment: env, flags: flags).int(SettingKey.uiPort)
-                if next != 0, next != server.origin.port, let to = try? WebOrigin(port: next) {
+                if case .fixed(let next) = UIRunner.portChoice(WebSettingsStore(environment: env, flags: flags)), next != server.origin.port,
+                   let to = try? WebOrigin(port: next) {
                     await server.close(.moving(to))
                 } else {
                     await server.close(.restarting)
                 }
+                lanSide?.cleanUp()
                 WebControl.cleanUp(store, listenFD: fds.listen, lockFD: fds.lock)
                 if !json { Out.stderr("\ndoz ui restarting…\n") }
                 UIRunner.reexec()
@@ -408,29 +465,47 @@ struct UIRunner {
         fds.listen = listenFD
         setvbuf(stdout, nil, _IOLBF, 0)
         signal(SIGPIPE, SIG_IGN)
+        // One stop, from a signal or (645, the LAN option) serve.sock's `stop` (`doz serve stop`, an earlier client).
+        let stopping = StopOnce()
+        let stop: @Sendable () -> Void = {
+            guard stopping.first(), !fds.restarting else { return }
+            Task {
+                lanSide?.recordStop()
+                await server.close()
+                lanSide?.cleanUp()
+                WebControl.cleanUp(store, listenFD: listenFD, lockFD: lockFD)
+                Out.stderr("\ndoz ui stopped\n")
+                Darwin.exit(0)
+            }
+        }
         var sources: [DispatchSourceSignal] = []
         for sig in [SIGINT, SIGTERM, SIGHUP] {
             signal(sig, SIG_IGN)
             let src = DispatchSource.makeSignalSource(signal: sig, queue: .global())
-            src.setEventHandler {
-                Task {
-                    await server.close()
-                    WebControl.cleanUp(store, listenFD: listenFD, lockFD: lockFD)
-                    Out.stderr("\ndoz ui stopped\n")
-                    Darwin.exit(0)
-                }
-            }
+            src.setEventHandler { stop() }
             src.resume()
             sources.append(src)
         }
+        if let lanSide {
+            do { try lanSide.serveControl(onStop: stop) } catch {
+                await server.close()
+                lanSide.cleanUp()
+                WebControl.cleanUp(store, listenFD: listenFD, lockFD: lockFD)
+                throw fail(HostError(.unavailable, "could not create the LAN's control socket: \(error.localizedDescription)"), g)
+            }
+            lanSide.announce(json: g.json)
+        }
         if g.json {
-            Out.jsonLine(["origin": server.origin.value, "store": store.root.path, "pid": String(getpid())])
+            Out.jsonLine(["origin": server.origin.value, "store": store.root.path, "pid": String(getpid())]
+                         .merging(lanSide.map { ["lan": $0.origins.joined(separator: " ")] } ?? [:]) { a, _ in a })
         } else {
             // The origin, never the link: the link is a key (a browser gets it, or --print-url's TTY).
             Out.stdout("doz ui on \(server.origin.value) — store \(store.root.path)\n")
+            if let lanSide { Out.stdout(lanSide.startText()) }
             Out.stdout(o.launched ? "Running detached (pid \(getpid())): doz ui stop stops it. A browser or tab: doz ui link\n"
                                   : "Ctrl-C stops it. Another browser or tab: doz ui link\(g.store.map { " --store \($0)" } ?? "")\n")
         }
+        if let lanSide, !g.json, !o.noInvite, !o.restarted, !o.launched { await lanSide.printInvite() }
         let serving = Task { try await server.run() }
         // 611: doz ui looks for an update when it starts (whatever the day's check said), then once a day while it runs;
         // the dashboard's banner reads what was found (UpdateChecker.remembered) — the page never asks the network.
@@ -474,14 +549,21 @@ struct UIRunner {
         }
         do { try await serving.value } catch {
             if !fds.restarting {
+                lanSide?.cleanUp()
                 WebControl.cleanUp(store, listenFD: listenFD, lockFD: lockFD)
                 throw fail(HostError(.failed, "the UI server stopped: \(error)"), g)
             }
         }
         // 605: the listener closed for `doz ui restart` — the restart replaces this process (exec); never
-        // return (that would exit before it does).
-        while fds.restarting { try? await Task.sleep(for: .seconds(1)) }
-        withExtendedLifetime(sources) {}
+        // return (that would exit before it does). Nor while a stop is under way (it exits by itself).
+        while fds.restarting || stopping.started { try? await Task.sleep(for: .seconds(1)) }
+        withExtendedLifetime((sources, lanSide)) {}
+    }
+
+    /// 645: the dashboard's port as these settings decide it (`ui.port`, `ui.lan`, `serve.port`).
+    static func portChoice(_ settings: WebSettingsStore) -> WebDashboardPort {
+        WebDashboardPort.resolve(uiPort: settings.int(SettingKey.uiPort), lan: settings.bool(SettingKey.uiLAN),
+                                 servePort: settings.int(SettingKey.servePort))
     }
 
     /// The dashboard's data source (shared by doz ui and doz serve).
@@ -518,6 +600,11 @@ struct UIRunner {
         args.removeAll { ["--open", "--print-url", "--new-link", "--restarted"].contains($0) }
         if let i = args.firstIndex(of: "ui") {
             if i + 1 < args.count, args[i + 1] == "start" || args[i + 1] == "serve" { args[i + 1] = "start" } else { args.insert("start", at: i + 1) }
+        } else if let i = args.firstIndex(of: "serve") {
+            // 645: the `doz serve` alias = `doz ui start --lan`.
+            args[i] = "ui"
+            if i + 1 < args.count, args[i + 1] == "start" { } else { args.insert("start", at: i + 1) }
+            if !args.contains("--lan") { args.append("--lan") }
         }
         args.append("--restarted")
         for sig in [SIGINT, SIGTERM, SIGHUP, SIGPIPE] { signal(sig, SIG_DFL) }

@@ -96,6 +96,41 @@ final class ServeRulesTests: XCTestCase {
         XCTAssertNil(admit("192.168.86.48", "192.168.86.65", .addresses([ip("192.168.86.65")])))
         XCTAssertEqual(admit("192.168.86.48", "192.168.86.74", .addresses([ip("192.168.86.65")])), .notServed)
         XCTAssertEqual(admit("192.168.112.2", "192.168.86.65", .addresses([ip("192.168.86.65")])), .sandbox)
+        // 645: this Mac's loopback is served under EVERY bind (the Mac's own browser on the one port) — after the sandbox
+        // checks (a bridge that held a loopback address would still be a sandbox's).
+        XCTAssertNil(admit("127.0.0.1", "127.0.0.1", .addresses([ip("192.168.86.65")])))
+        XCTAssertNil(admit("::1", "::1", .addresses([ip("192.168.86.65")])))
+    }
+
+    /// 645 — the Mac's own browser on the LAN dashboard: a loopback connection, the exact 127.0.0.1 Host, no forwarding
+    /// header. Everything else is a remote device.
+    func testTheMacPrincipalIsDecidedPerRequest() {
+        func mac(_ peer: String?, _ local: String?, _ host: String?, _ headers: [String] = ["Host", "Cookie"]) -> Bool {
+            WebServeRules.isMacRequest(peer: peer.flatMap(WebIP.init), local: local.flatMap(WebIP.init), host: host, port: 7443, headerNames: headers)
+        }
+        XCTAssertTrue(mac("127.0.0.1", "127.0.0.1", "127.0.0.1:7443"))
+        XCTAssertTrue(mac("::ffff:127.0.0.1", "::ffff:127.0.0.1", "127.0.0.1:7443"), "a dual-stack listener's mapped loopback")
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "localhost:7443"), "a name is never the Mac (DNS rebinding)")
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "m1max.local:7443"))
+        XCTAssertFalse(mac("::1", "::1", "[::1]:7443"))
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "127.0.0.1:7444"), "another port")
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "127.0.0.1"), "no port")
+        XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", nil), "no (or a repeated) Host")
+        XCTAssertFalse(mac("192.168.86.48", "192.168.86.65", "127.0.0.1:7443"), "from the LAN, whatever its Host says")
+        XCTAssertFalse(mac("127.0.0.1", "192.168.86.65", "127.0.0.1:7443"))
+        XCTAssertFalse(mac(nil, nil, "127.0.0.1:7443"), "no addresses: not the Mac")
+        for h in ["X-Forwarded-For", "x-forwarded-host", "X-Forwarded-Proto", "Forwarded", "X-Real-IP"] {
+            XCTAssertFalse(mac("127.0.0.1", "127.0.0.1", "127.0.0.1:7443", ["Host", h]), "a reverse proxy on this Mac forwards a remote browser: \(h)")
+        }
+    }
+
+    /// 645 — the one port: `ui.port` wins; with the LAN and `ui.port` 0, `serve.port` (fixed, never moved); else automatic.
+    func testTheDashboardsOnePort() {
+        XCTAssertEqual(WebDashboardPort.resolve(uiPort: 0, lan: false, servePort: 7443), .automatic)
+        XCTAssertEqual(WebDashboardPort.resolve(uiPort: 0, lan: true, servePort: 7443), .fixed(7443))
+        XCTAssertEqual(WebDashboardPort.resolve(uiPort: 0, lan: true, servePort: 17607), .fixed(17607))
+        XCTAssertEqual(WebDashboardPort.resolve(uiPort: 17606, lan: true, servePort: 7443), .fixed(17606))
+        XCTAssertEqual(WebDashboardPort.resolve(uiPort: 17606, lan: false, servePort: 7443), .fixed(17606))
     }
 
     let names = WebMacNames(localHostName: "m1max", hostName: "m1max.lan")

@@ -12,6 +12,8 @@ final class ServeHTTPTests: XCTestCase {
     var state: WebServeState!
     let fake = FakeData()
     var dir: URL!
+    /// 645: the Mac's own browser's one-use link (the same server, the Mac principal).
+    let capability = try! WebBootstrapCapability(testingValue: "mac-link-capability-645-AAAAAAAAAAAAAAAA")
 
     override func setUp() {
         dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-serve-http-\(UUID().uuidString)")
@@ -31,16 +33,19 @@ final class ServeHTTPTests: XCTestCase {
                               devices: WebDeviceStore(file: dir.appendingPathComponent("serve/devices.json")),
                               audit: WebServeAudit(file: dir.appendingPathComponent("serve/audit.jsonl")), interfaces: { interfaces })
         server = try await DozableWebServer.bindServe(data: fake, assets: try WebAssets.load(), version: "test", limits: .standard,
-                                                    settings: WebSettingsStore(environment: [:]), serve: state, pollInterval: .milliseconds(200))
+                                                    settings: WebSettingsStore(environment: [:]), serve: state, capability: capability,
+                                                    pollInterval: .milliseconds(200), sessionsFile: dir.appendingPathComponent("ui.sessions"),
+                                                    revokedFile: dir.appendingPathComponent("ui.revoked"))
         let s = server!
         serveTask = Task { try await s.run() }
     }
 
     var port: Int { state.port }
-    var own: String { "http://127.0.0.1:\(port)" }
+    /// 645: a REMOTE browser — `localhost` is a device (only the exact 127.0.0.1 Host is the Mac's own browser).
+    var own: String { "http://localhost:\(port)" }
 
     func req(_ path: String, _ headers: [String: String] = [:], method: String = "GET", body: String? = nil) throws -> RawResponse {
-        var h = ["Host": "127.0.0.1:\(port)"]
+        var h = ["Host": "localhost:\(port)"]
         for (k, v) in headers { h[k] = v }
         return try RawHTTP.request(port: port, method: method, path: path, headers: h, body: body)
     }
@@ -107,8 +112,8 @@ final class ServeHTTPTests: XCTestCase {
         }
         XCTAssertEqual(try req("/api/v1/overview", ["Host": "localhost:\(port)", "Cookie": cookie]).status, 200, "a loopback-bound serve answers to localhost")
         // Origin must equal the request's OWN origin — another of this server's names is refused.
-        XCTAssertEqual(try req("/api/v1/overview", ["Cookie": cookie, "Origin": "http://localhost:\(port)"]).status, 403)
-        XCTAssertEqual(try req("/api/v1/serve/share", ["Cookie": cookie, "X-Doz-CSRF": csrf, "Origin": "http://localhost:\(port)",
+        XCTAssertEqual(try req("/api/v1/overview", ["Cookie": cookie, "Origin": "http://127.0.0.1:\(port)"]).status, 403)
+        XCTAssertEqual(try req("/api/v1/serve/share", ["Cookie": cookie, "X-Doz-CSRF": csrf, "Origin": "http://127.0.0.1:\(port)",
                                                          "Content-Type": "application/json"], method: "POST", body: "{}").status, 403)
         XCTAssertEqual(try req("/api/v1/overview", ["Cookie": cookie, "Sec-Fetch-Site": "same-site"]).status, 403)
         let ok = try req("/api/v1/serve/share", ["Cookie": cookie, "X-Doz-CSRF": csrf, "Origin": own, "Content-Type": "application/json"], method: "POST", body: "{}")
@@ -171,7 +176,7 @@ final class ServeHTTPTests: XCTestCase {
         try await start()
         let (cookie, csrf) = try await admit()
         let (other, _) = try await admit()
-        let stream = try RawStream(port: port, path: "/api/v1/stream", headers: ["Host": "127.0.0.1:\(port)", "Cookie": other])
+        let stream = try RawStream(port: port, path: "/api/v1/stream", headers: ["Host": "localhost:\(port)", "Cookie": other])
         defer { stream.close() }
         _ = try stream.read(until: "event: hello", seconds: 5)
         let list = try req("/api/v1/serve/devices", ["Cookie": cookie])
@@ -229,20 +234,23 @@ final class ServeHTTPTests: XCTestCase {
         let r = try req("/")
         XCTAssertEqual(r.status, 403)
         XCTAssertTrue(r.text.contains("not-served"), r.text)
-        XCTAssertTrue(r.text.contains("doz serve does not answer on this network address"))
+        XCTAssertTrue(r.text.contains("the dashboard does not answer on this network address"))
         state.admitOverride = { _, _ in .sandbox }
         XCTAssertThrowsError(try req("/"), "a sandbox's connection: dropped, nothing answered")
         state.admitOverride = nil
         XCTAssertEqual(try req("/").status, 200)
     }
 
-    /// The Mac's own browser on a lan-bound doz serve: loopback served, by name and by 127.0.0.1 / localhost.
+    /// Loopback on a lan-bound dashboard: served by 127.0.0.1 (645: the Mac's own browser, signed in by the link) and by
+    /// name / localhost (a device like any other: an invite).
     func testTheMacsOwnBrowserIsServedOnLoopback() async throws {
         try await start(WebServeConfig(port: 0, bind: .lan, advertise: false),
                         interfaces: [WebInterfaceAddress(name: "en0", address: WebIP("192.0.2.10")!, prefix: 24)])
         for host in ["127.0.0.1:\(port)", "localhost:\(port)", "testmac.local:\(port)"] {
             XCTAssertEqual(try req("/", ["Host": host]).status, 200, host)
-            XCTAssertEqual(try req("/api/v1/overview", ["Host": host]).status, 401, "\(host): still needs an invite")
+            let r = try req("/api/v1/overview", ["Host": host])
+            XCTAssertEqual(r.status, 401, host)
+            XCTAssertTrue(r.text.contains(host.hasPrefix("127.") ? "\"unauthenticated\"" : "not-admitted"), "\(host): \(r.text)")
         }
         let inv = await server.share(by: "the Mac")
         let ok = try req("/api/v1/session", ["Host": "testmac.local:\(port)", "Origin": "http://testmac.local:\(port)", "Authorization": "Bearer \(inv.testToken)"], method: "POST")
@@ -257,6 +265,117 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertEqual(a.alternates?.count, 1)
         XCTAssertTrue(a.alternates?[0].hasPrefix("http://192.0.2.10:\(port)/#cap=") == true)
         XCTAssertEqual(a.alternates?[0].split(separator: "#").last, a.link.split(separator: "#").last, "the same invite")
+    }
+
+    // MARK: 645 — one dashboard: the Mac's browser (the link) and the LAN's (devices) on ONE port
+
+    var mac: String { "http://127.0.0.1:\(port)" }
+
+    /// The Mac's own browser signs in with the link: (cookie pair, csrf).
+    func macSignIn() throws -> (String, String) {
+        let r = try req("/api/v1/session", ["Host": "127.0.0.1:\(port)", "Origin": mac,
+                                            "Authorization": "Bearer mac-link-capability-645-AAAAAAAAAAAAAAAA"], method: "POST")
+        XCTAssertEqual(r.status, 200, r.text)
+        let set = try XCTUnwrap(r.header("set-cookie"))
+        XCTAssertTrue(set.hasPrefix("doz_ui_\(port)="), set)
+        let info = try XCTUnwrap(try JSONSerialization.jsonObject(with: r.body) as? [String: Any])
+        XCTAssertNil(info["serve"], "the Mac's page is not a remote one")
+        return (String(set.split(separator: ";")[0]), try XCTUnwrap(info["csrf"] as? String))
+    }
+
+    func macReq(_ path: String, _ headers: [String: String] = [:], method: String = "GET", body: String? = nil) throws -> RawResponse {
+        var h = ["Host": "127.0.0.1:\(port)"]
+        for (k, v) in headers { h[k] = v }
+        return try RawHTTP.request(port: port, method: method, path: path, headers: h, body: body)
+    }
+
+    func testOneProcessServesTheMacByTheLinkAndADeviceByAnInvite() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        XCTAssertTrue(devCookie.hasPrefix("doz_serve_\(port)="))
+        XCTAssertEqual(try macReq("/api/v1/overview", ["Cookie": macCookie]).status, 200, "the Mac's browser")
+        XCTAssertEqual(try req("/api/v1/overview", ["Cookie": devCookie]).status, 200, "a device, same port")
+        // A cookie of one store never signs a request of the other in — whatever name it is presented under.
+        let macValue = macCookie.split(separator: "=", maxSplits: 1)[1], devValue = devCookie.split(separator: "=", maxSplits: 1)[1]
+        let a = try req("/api/v1/overview", ["Cookie": "doz_serve_\(port)=\(macValue)"])
+        XCTAssertEqual(a.status, 401); XCTAssertTrue(a.text.contains("not-admitted"), a.text)
+        let b = try macReq("/api/v1/overview", ["Cookie": "doz_ui_\(port)=\(devValue)"])
+        XCTAssertEqual(b.status, 401); XCTAssertTrue(b.text.contains("\"unauthenticated\""), b.text)
+        // The Mac's link on a remote Host is an invite attempt — refused (the link is not an invite).
+        let c = try req("/api/v1/session", ["Origin": own, "Authorization": "Bearer mac-link-capability-645-BBBBBBBBBBBBBBBB"], method: "POST")
+        XCTAssertEqual(c.status, 401)
+        // The Mac's own requests are not in the audit log; the device's admission is.
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertEqual(log.filter { $0.kind == "admit" }.count, 1)
+    }
+
+    func testMacOnlyAbilitiesAreDecidedPerRequest() async throws {
+        try await start()
+        let (macCookie, macCSRF) = try macSignIn()
+        let (devCookie, devCSRF) = try await admit()
+        let key = #"{"name":"work","kind":"api-key","secret":"sk-ant-api03-\#(String(repeating: "k", count: 40))"}"#
+        // The Mac's browser over plain http: Open in Terminal and typing a key work (the Mac's own screen, no network).
+        let t = try macReq("/api/v1/sandboxes/demo/terminal", ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac,
+                                                                "Content-Type": "application/json"], method: "POST", body: "{}")
+        XCTAssertEqual(t.status, 200, t.text)
+        let k = try macReq("/api/v1/accounts", ["Cookie": macCookie, "X-Doz-CSRF": macCSRF, "Origin": mac, "Content-Type": "application/json"],
+                           method: "POST", body: key)
+        XCTAssertEqual(k.status, 200, k.text)
+        // A device on the same port: refused, each with its reason.
+        let t2 = try req("/api/v1/sandboxes/demo/terminal", ["Cookie": devCookie, "X-Doz-CSRF": devCSRF, "Origin": own,
+                                                             "Content-Type": "application/json"], method: "POST", body: "{}")
+        XCTAssertEqual(t2.status, 403); XCTAssertTrue(t2.text.contains("mac-screen"))
+        let k2 = try req("/api/v1/accounts", ["Cookie": devCookie, "X-Doz-CSRF": devCSRF, "Origin": own, "Content-Type": "application/json"],
+                         method: "POST", body: key)
+        XCTAssertEqual(k2.status, 403); XCTAssertTrue(k2.text.contains("secret-over-http"))
+        // The device's change is audited; the Mac's are not.
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertFalse(log.contains { $0.kind == "change" && $0.route == "accountAdd" }, "the Mac's own key is not in the LAN's audit log")
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "secret-over-http" }, "the device's refusal is")
+    }
+
+    /// A reverse proxy on this Mac connects from loopback: what it forwards is never the Mac's browser, even when it
+    /// rewrites Host to 127.0.0.1.
+    func testAForwardedRequestIsNeverTheMac() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        for h in ["X-Forwarded-For", "X-Forwarded-Proto", "X-Forwarded-Host", "Forwarded", "X-Real-IP"] {
+            let r = try macReq("/api/v1/overview", ["Cookie": macCookie, h: "203.0.113.9"])
+            XCTAssertEqual(r.status, 401, h)
+        }
+        // The Mac's own browser by another name (localhost) is a device: it needs an invite.
+        let n = try req("/api/v1/overview", ["Cookie": macCookie.replacingOccurrences(of: "doz_ui_", with: "doz_serve_")])
+        XCTAssertEqual(n.status, 401)
+    }
+
+    /// The accept gate runs BEFORE the principal: a sandbox's connection is dropped even with the Mac's exact Host.
+    func testASandboxNeverReachesItEvenAsTheMacsHost() async throws {
+        try await start()
+        state.admitOverride = { _, _ in .sandbox }
+        XCTAssertThrowsError(try macReq("/"), "dropped before a byte is read")
+        XCTAssertThrowsError(try macReq("/api/v1/session", ["Origin": mac, "Authorization": "Bearer mac-link-capability-645-AAAAAAAAAAAAAAAA"], method: "POST"))
+        state.admitOverride = nil
+        _ = try macSignIn()                                  // the link was not spent by the dropped attempt
+    }
+
+    /// `doz ui link --rotate` signs the Mac's pages out; the LAN's devices stay signed in (another store).
+    func testRotateSignsOutTheMacsPagesOnly() async throws {
+        try await start()
+        let (macCookie, _) = try macSignIn()
+        let (devCookie, _) = try await admit()
+        let macStream = try RawStream(port: port, path: "/api/v1/stream", headers: ["Host": "127.0.0.1:\(port)", "Cookie": macCookie])
+        defer { macStream.close() }
+        let devStream = try RawStream(port: port, path: "/api/v1/stream", headers: ["Host": "localhost:\(port)", "Cookie": devCookie])
+        defer { devStream.close() }
+        _ = try macStream.read(until: "event: hello", seconds: 5)
+        _ = try devStream.read(until: "event: hello", seconds: 5)
+        let link = await server.rotate()
+        XCTAssertTrue(link.absoluteString.hasPrefix(mac + "/#cap="), "a new link for the Mac's browser")
+        XCTAssertTrue(try macStream.read(until: "\"reason\":\"rotated\"", seconds: 5).contains("event: end"))
+        let after = try macReq("/api/v1/overview", ["Cookie": macCookie])
+        XCTAssertEqual(after.status, 401); XCTAssertTrue(after.text.contains("session-rotated"))
+        XCTAssertEqual(try req("/api/v1/overview", ["Cookie": devCookie]).status, 200, "the device stays in")
     }
 
     func testDozUIStillAnswersOnlyItsLoopbackOriginAndNotTheProbe() async throws {

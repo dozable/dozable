@@ -9,7 +9,9 @@ import DozableHost
 //   · what a request's OWN origin is (X-Forwarded-* only from a configured trusted proxy) and whether it is
 //     allowed (the Mac's names and addresses, or a configured public origin through a trusted proxy) —
 //     the DNS-rebinding defence, re-derived for LAN names.
-// `doz ui` (590) is untouched: it stays `WebLoopbackAddress` + `WebOrigin`.
+// 645: these are the rules of `doz ui`'s LAN option (`doz serve` before — one process now). Without the option `doz ui`
+// stays `WebLoopbackAddress` + `WebOrigin` (590); with it, a request is the Mac's own browser only when
+// `isMacRequest` says so — every other one is a remote device judged here.
 
 /// An IPv4 or IPv6 address as bytes (IPv4-mapped IPv6 normalised to IPv4).
 public struct WebIP: Hashable, Sendable, CustomStringConvertible {
@@ -220,6 +222,22 @@ public struct WebServeConfig: Equatable, Sendable {
     public func isTrustedProxy(_ ip: WebIP) -> Bool { trustedProxies.contains { $0.contains(ip) } }
 }
 
+/// 645 — the dashboard's ONE port (`ui.port`), resolved. Pure.
+public enum WebDashboardPort: Equatable, Sendable {
+    /// Loopback only, automatic: the port this store's last dashboard had when it is free, else the system's.
+    case automatic
+    /// Exactly this port, never moved silently (refused when taken).
+    case fixed(Int)
+
+    /// `uiPort`: `ui.port` (0 = automatic). `lan`: the LAN option. `servePort`: `serve.port` — with the LAN on and
+    /// `ui.port` automatic the port is that one (7443 by default; the earlier `doz serve`'s port, so its devices' origins
+    /// keep working): a LAN dashboard's port never moves, whatever is free.
+    public static func resolve(uiPort: Int, lan: Bool, servePort: Int) -> WebDashboardPort {
+        if uiPort != 0 { return .fixed(uiPort) }
+        return lan ? .fixed(servePort) : .automatic
+    }
+}
+
 /// The Mac's names a browser on the LAN may use (`<LocalHostName>.local`, its host name).
 public struct WebMacNames: Equatable, Sendable {
     public var localHostName: String?     // m1max  → m1max.local
@@ -322,9 +340,11 @@ public enum WebServeRules {
                              natSubnet: String? = nil) -> Drop? {
         if sandboxNetworks(interfaces, natSubnet: natSubnet).contains(where: { $0.contains(peer) }) { return .sandbox }
         if interfaces.contains(where: { isSandboxBridge($0.name) && $0.address == local }) { return .sandbox }
+        // 645: this Mac's own loopback is served under every bind — the Mac's browser uses the same port (its requests
+        // are then the Mac principal only by `isMacRequest`; anything else on loopback is a device like any other).
+        if local.isLoopback { return nil }
         switch bind {
         case .lan:
-            if local.isLoopback { return nil }
             return interfaces.contains(where: { $0.address == local && isServed($0) }) ? nil : .notServed
         case .loopback:
             return local.isLoopback ? nil : .notServed
@@ -407,6 +427,18 @@ public enum WebServeRules {
         let allowed = (scheme == "http" && direct.contains(candidate))
             || (trusted && config.publicOrigins.contains { $0.description == candidate })
         return RequestOrigin(origin: allowed ? candidate : nil, secure: allowed && scheme == "https", viaProxy: trusted, client: client)
+    }
+
+    /// 645 — is this request the Mac's OWN browser (signed in by the link, may use the Mac-screen routes and type a
+    /// secret)? Only when ALL hold: the connection's peer AND local address are loopback (nothing off this Mac — and a
+    /// sandbox was dropped at accept already), its Host is exactly `127.0.0.1:<port>` (590's DNS-rebinding rule: never a
+    /// name), and it carries no forwarding header (a reverse proxy on this Mac connects from loopback too: what it
+    /// forwards is a remote browser's request). Anything else is a remote device.
+    public static let forwardingHeaders = ["forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip"]
+
+    public static func isMacRequest(peer: WebIP?, local: WebIP?, host: String?, port: Int, headerNames: [String]) -> Bool {
+        guard let peer, let local, peer.isLoopback, local.isLoopback, host == "127.0.0.1:\(port)" else { return false }
+        return !headerNames.contains { forwardingHeaders.contains($0.lowercased()) }
     }
 
     /// The device cookie's name: `__Host-` + Secure over https (a sibling http origin can neither set nor

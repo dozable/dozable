@@ -14,6 +14,9 @@ import DozableHost
 ///
 /// 591: a connection's FIRST request may upgrade to a WebSocket — only the terminal socket, only
 /// with a one-use ticket (`admitTerminal`). NIOWebSocket is part of swift-nio (no new package).
+///
+/// 645: ONE server for the Mac's browser and (the LAN option, `bindServe`) the other browsers of the network, on one
+/// port — who asks is decided per request (`requestContext`).
 public final class DozableWebServer: @unchecked Sendable {
     public let origin: WebOrigin
     public let serverRun = UUID().uuidString.lowercased()
@@ -39,9 +42,10 @@ public final class DozableWebServer: @unchecked Sendable {
     private let gate: UpgradeGate
     private let capability: WebBootstrapCapability
     private let listeners: [NIOAsyncChannel<Accepted, Never>]
-    /// 606: how a request signs in — doz ui's browser sessions, or doz serve's devices.
+    /// 645: how a request signs in — the Mac's browser by the link (`sessions`), another browser as a device (the LAN).
     let auth: WebAuth
-    /// 606: doz serve's own state (nil: doz ui, loopback — 590).
+    /// 606/645: the LAN option's state (nil: loopback only — 590). With it, each request's principal is decided on its
+    /// own (`requestContext`): the Mac's browser, or a remote device.
     public let serveState: WebServeState?
     private let lock = NSLock()
     private var children: [ObjectIdentifier: Channel] = [:]
@@ -85,7 +89,7 @@ public final class DozableWebServer: @unchecked Sendable {
                 guard let server else { return nil }
                 do {
                     if let r = server.connectionRefusal(id) { throw r }      // 606: a refused doz serve connection
-                    let grant = try await server.admitTerminal(head, peer: channel.remoteAddress)
+                    let grant = try await server.admitTerminal(head, peer: channel.remoteAddress, local: channel.localAddress)
                     lock.withLock { grants[id] = grant }
                     var h = HTTPHeaders()
                     for (k, v) in WebSecurity.responseHeaders { h.add(name: k, value: v) }
@@ -121,7 +125,7 @@ public final class DozableWebServer: @unchecked Sendable {
         self.gate = gate
         self.serveState = serveState
         sessions = WebSessionStore(bootstrap: capability, limits: limits, persist: sessionsFile, port: origin.port, revoked: revokedFile)
-        auth = serveState.map { .devices($0.devices) } ?? .browser(sessions)
+        auth = WebAuth(browser: sessions, devices: serveState?.devices)
         hub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
         filesHub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
         tickets = WebTerminalTicketStore()
@@ -167,17 +171,20 @@ public final class DozableWebServer: @unchecked Sendable {
         return server
     }
 
-    /// 606: `doz serve` — the same server on the LAN (`serve.bind`: the wildcard, each connection's local address
-    /// checked; loopback; or the Mac's own addresses), signed in by devices (`WebDeviceStore`), every request
-    /// judged by `WebServeRules` and `WebExposure`. `serve.port` 0 is a test's ephemeral port.
+    /// 606/645: `doz ui` with the LAN option — the same server on ONE port for the Mac's browser (127.0.0.1, signed in
+    /// by the link: `sessionsFile`/`revokedFile`, as `bind`) and the LAN (`serve.bind`: the wildcard, each connection's
+    /// local address checked; loopback; or the Mac's own addresses — 127.0.0.1 is bound in every case), the other
+    /// browsers signed in as devices (`WebDeviceStore`), every request judged by `WebServeRules` and `WebExposure`.
+    /// `serve.port` 0 is a test's ephemeral port.
     public static func bindServe(data: DozableWebData, assets: WebAssets, version: String, limits: WebLimits, settings: WebSettingsStore,
-                                 serve: WebServeState, pollInterval: Duration = .seconds(3), operationsFile: URL? = nil,
+                                 serve: WebServeState, capability: WebBootstrapCapability = .make(), pollInterval: Duration = .seconds(3),
+                                 sessionsFile: URL? = nil, revokedFile: URL? = nil, operationsFile: URL? = nil,
                                  group: EventLoopGroup = MultiThreadedEventLoopGroup.singleton) async throws -> DozableWebServer {
         let gate = UpgradeGate()
         let hosts: [String] = switch serve.config.bind {
-        case .lan: ["::"]
+        case .lan: ["::"]                                                   // dual-stack: 127.0.0.1 included
         case .loopback: ["127.0.0.1", "::1"]
-        case .addresses(let ips): ips.map(\.description)
+        case .addresses(let ips): ["127.0.0.1"] + ips.map(\.description).filter { $0 != "127.0.0.1" }
         }
         var listeners: [NIOAsyncChannel<Accepted, Never>] = []
         var port = serve.config.port
@@ -198,8 +205,9 @@ public final class DozableWebServer: @unchecked Sendable {
         }
         serve.port = port
         let server = DozableWebServer(origin: try WebOrigin(port: port), version: version, limits: limits, assets: assets, data: data,
-                                     capability: .make(), pollInterval: pollInterval, gate: gate, listeners: listeners,
-                                     settings: settings, sessionsFile: nil, revokedFile: nil, operationsFile: operationsFile, serveState: serve)
+                                     capability: capability, pollInterval: pollInterval, gate: gate, listeners: listeners,
+                                     settings: settings, sessionsFile: sessionsFile, revokedFile: revokedFile, operationsFile: operationsFile,
+                                     serveState: serve)
         gate.server = server
         return server
     }
@@ -237,26 +245,27 @@ public final class DozableWebServer: @unchecked Sendable {
     /// 591 — the terminal socket's upgrade, in order (591.01-DESIGN.md §4.2): exact Host, Origin
     /// required and exact, Fetch Metadata, the route, the one cookie → a live session, the ticket
     /// in the subprotocol → consumed against that session and this sandbox, then room for one more.
-    func admitTerminal(_ head: HTTPRequestHead, peer: SocketAddress? = nil) async throws -> WebTerminalGrant {
+    func admitTerminal(_ head: HTTPRequestHead, peer: SocketAddress? = nil, local: SocketAddress? = nil) async throws -> WebTerminalGrant {
         guard let method = WebHTTPMethod(rawValue: head.method.rawValue) else { throw WebRejection.methodNotAllowed }
         let md = metadata(head, method: method, bodyBytes: 0)
-        let ctx = requestContext(head, md, peer: peer)
+        let ctx = requestContext(head, md, peer: peer, local: local)
+        let remote = ctx.principal.isRemote
         do {
             try WebSecurity.checkListener(md, ctx.view, originRequired: true)
             if head.headers["origin"].count > 1 { throw WebRejection.originRejected }
             guard case .terminalSocket(let name)? = WebRoute.parse(method: method, target: head.uri) else { throw WebRejection.notFound }
             let (cookie, ticket) = try WebSecurity.validateTerminalUpgrade(md, ctx.view, subprotocols: head.headers["sec-websocket-protocol"])
-            _ = try await auth.authenticate(cookie)
+            let (_, dev) = try await auth.authenticate(cookie, remote: remote)
             if let r = WebExposure.decide(.terminalSocket(name), ctx.principal) { throw r }
             let grant = try await tickets.consume(ticket, cookie: cookie, sandbox: name)
             guard terminals.hasRoom() else { throw WebRejection.tooManyTerminals }
-            if let s = serveState, case .devices(let d) = auth, let dev = try? await d.authenticate(cookie).1 {
+            if let s = serveState, let dev {
                 s.audit.record(WebAuditEntry(kind: "terminal-open", device: dev.id, deviceName: dev.name, address: ctx.client,
                                              sandbox: name, outcome: grant.mode.rawValue))
             }
             return grant
         } catch let r as WebRejection {
-            serveState?.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: "terminal-socket", outcome: r.rawValue))
+            if remote { serveState?.audit.record(WebAuditEntry(kind: "refused", address: ctx.client, route: "terminal-socket", outcome: r.rawValue)) }
             throw r
         }
     }
@@ -293,9 +302,14 @@ public final class DozableWebServer: @unchecked Sendable {
     /// open page is told to use the new link), then a fresh one-use link.
     public func rotate() async -> URL {
         await sessions.revokeAll()
-        for c in hub.all + filesHub.all { c.finish(.rotated) }
+        // 645: only the Mac's pages are signed out — a LAN device's cookie is another store's and stays valid.
+        for c in hub.all + filesHub.all where await !auth.isValid(c.cookie) { c.finish(.rotated) }
         // 605: the page keeps its terminals and reattaches them after it signs in again.
-        await terminals.closeAll(reason: "session-ended")
+        if serveState == nil {
+            await terminals.closeAll(reason: "session-ended")
+        } else {
+            for b in terminals.all where await !auth.isValid(b.grant.cookie) { await b.end(.policyViolation, "session-ended") }
+        }
         return await newLink()
     }
 
@@ -402,7 +416,7 @@ public final class DozableWebServer: @unchecked Sendable {
             await terminals.closeAll(reason: "restarting")
         }
         await monitor.stop()
-        if case .devices(let d) = auth { await d.flush() }
+        await auth.devices?.flush()
         try? await Task.sleep(for: .milliseconds(100))           // let the streams write their last frame
         for l in listeners { try? await l.channel.close() }
         for c in open { c.close(promise: nil) }
@@ -429,7 +443,9 @@ public final class DozableWebServer: @unchecked Sendable {
                 // A refused upgrade: NIO's typed upgrader does not pass the refused request's head on
                 // (only what followed it), so the refusal is answered here, from the decision itself,
                 // and the connection closed (its decoder has stopped parsing after an upgrade request).
-                if let r = gate.takeRefusal(id) ?? connectionRefusal(id) { await refuse(conn, r) } else { await serve(conn, peer: accepted.channel.remoteAddress) }
+                if let r = gate.takeRefusal(id) ?? connectionRefusal(id) { await refuse(conn, r) } else {
+                    await serve(conn, peer: accepted.channel.remoteAddress, local: accepted.channel.localAddress)
+                }
             case .websocket(let socket, let grant):
                 await terminal(socket, grant)
             }
@@ -455,15 +471,17 @@ public final class DozableWebServer: @unchecked Sendable {
                 return
             }
             defer { terminals.remove(bridge) }
+            // 645: a device's terminal is in the audit log; the Mac's own browser's never was.
+            let remote = await serveState?.devices.isValid(grant.cookie) ?? false
             await bridge.run(inbound)
-            if let s = serveState {
+            if let s = serveState, remote {
                 s.audit.record(WebAuditEntry(kind: "terminal-close", address: socket.channel.remoteAddress?.ipAddress.flatMap(WebIP.init)?.description,
                                              sandbox: grant.sandbox))
             }
         }
     }
 
-    private func serve(_ conn: Connection, peer: SocketAddress? = nil) async {
+    private func serve(_ conn: Connection, peer: SocketAddress? = nil, local: SocketAddress? = nil) async {
         do {
             try await conn.executeThenClose { inbound, outbound in
                 var it = inbound.makeAsyncIterator()
@@ -487,7 +505,7 @@ public final class DozableWebServer: @unchecked Sendable {
                         try await write(outbound, head, error(.bodyTooLarge), isHead: isHead, keepAlive: false)
                         return
                     }
-                    switch await respond(head, body: Data(body.readableBytesView), connection: ObjectIdentifier(conn.channel), peer: peer) {
+                    switch await respond(head, body: Data(body.readableBytesView), connection: ObjectIdentifier(conn.channel), peer: peer, local: local) {
                     case .stream(let client):
                         try await stream(client, conn: conn, outbound: outbound, head: head)
                         return
@@ -555,19 +573,27 @@ public final class DozableWebServer: @unchecked Sendable {
         return md
     }
 
-    /// 606: the request's view of this server — doz ui: 590's exact loopback origin; doz serve: `WebServeRules`.
-    func requestContext(_ head: HTTPRequestHead, _ md: WebRequestMetadata, peer: SocketAddress?) -> WebRequestContext {
-        if let s = serveState { return s.context(HTTPHeadersView(pairs: head.headers.map { ($0.name, $0.value) }), peer: peer) }
-        return WebRequestContext(view: .loopback(md, origin), principal: .mac, client: WebLoopbackAddress.host, userAgent: nil)
+    /// 645: the request's view of this server, decided per REQUEST — the Mac's own browser (590's exact loopback
+    /// origin, the link's sessions) or, with the LAN option, a remote device (`WebServeRules`). Without the LAN option
+    /// every request is the Mac's (the listener is 127.0.0.1 only).
+    func requestContext(_ head: HTTPRequestHead, _ md: WebRequestMetadata, peer: SocketAddress?, local: SocketAddress? = nil) -> WebRequestContext {
+        let mac = WebRequestContext(view: .loopback(md, origin), principal: .mac, client: WebLoopbackAddress.host, userAgent: nil)
+        guard let s = serveState else { return mac }
+        if WebServeRules.isMacRequest(peer: peer?.ipAddress.flatMap(WebIP.init), local: local?.ipAddress.flatMap(WebIP.init),
+                                      host: md.host, port: origin.port, headerNames: head.headers.map(\.name)) {
+            return mac
+        }
+        return s.context(HTTPHeadersView(pairs: head.headers.map { ($0.name, $0.value) }), peer: peer)
     }
 
-    func respond(_ head: HTTPRequestHead, body: Data, connection: ObjectIdentifier? = nil, peer: SocketAddress? = nil) async -> Reply {
+    func respond(_ head: HTTPRequestHead, body: Data, connection: ObjectIdentifier? = nil, peer: SocketAddress? = nil,
+                 local: SocketAddress? = nil) async -> Reply {
         guard let method = WebHTTPMethod(rawValue: head.method.rawValue) else {
             let e = error(.methodNotAllowed)
             return .response(e.0, e.1, e.2)
         }
         let md = metadata(head, method: method, bodyBytes: body.count)
-        var ctx = requestContext(head, md, peer: peer)
+        var ctx = requestContext(head, md, peer: peer, local: local)
         var route: WebRoute?
         var device: WebDeviceView?
         let reply: Reply
@@ -592,7 +618,7 @@ public final class DozableWebServer: @unchecked Sendable {
             }
             reply = try await dispatch(r, md, body: body, ctx: &ctx, device: &device)
         } catch let r as WebRejection {
-            if serveState != nil, r != .notAdmitted || !md.method.isSafe, route != .sessionBootstrap || r == .hostRejected || r == .originRejected {
+            if serveState != nil, ctx.principal.isRemote, r != .notAdmitted || !md.method.isSafe, route != .sessionBootstrap || r == .hostRejected || r == .originRejected {
                 serveState?.audit.record(WebAuditEntry(kind: "refused", device: device?.id, deviceName: device?.name, address: ctx.client,
                                                        route: route.map(Self.routeLabel), outcome: r.rawValue))
             }
@@ -629,7 +655,7 @@ public final class DozableWebServer: @unchecked Sendable {
     /// 606: every change a remote browser asked for, in the audit log — the route, the action and its sandbox
     /// (decoded by the closed action types already), the outcome. Never a body.
     private func auditChange(_ route: WebRoute?, _ md: WebRequestMetadata, _ body: Data, _ ctx: WebRequestContext, _ device: WebDeviceView?, outcome: String) {
-        guard let s = serveState, let route, !md.method.isSafe else { return }
+        guard let s = serveState, ctx.principal.isRemote, let route, !md.method.isSafe else { return }
         if case .sessionRenew = route { return }
         if case .sessionBootstrap = route { return }                     // admissions are their own lines
         var action: String?, sandbox: String?
@@ -700,9 +726,9 @@ public final class DozableWebServer: @unchecked Sendable {
         return info
     }
 
-    /// The session cookie as this request should receive it (doz serve: the device's, `Secure` over https).
+    /// The session cookie as this request should receive it (a remote device's: `Secure` over https, 400 days).
     func sessionCookieHeader(_ s: WebSession, _ ctx: WebRequestContext) -> (String, String) {
-        if serveState != nil {
+        if ctx.principal.isRemote {
             return ("Set-Cookie", WebSecurity.setCookie(s.cookieValue, name: ctx.view.cookieName, maxAge: WebDeviceStore.cookieMaxAge, secure: ctx.secure))
         }
         return ("Set-Cookie", WebSecurity.setCookie(s.cookieValue, name: ctx.view.cookieName, maxAge: s.expiresAt.timeIntervalSinceNow))
@@ -730,7 +756,8 @@ public final class DozableWebServer: @unchecked Sendable {
             guard let a = assets.assets[WebAssets.serviceWorker] else { throw WebRejection.notFound }
             return .response(200, [("Content-Type", a.mimeType), ("Cache-Control", a.cachePolicy)] + WebSecurity.serviceWorkerHeaders, a.data)
         case .sessionBootstrap:
-            if let st = serveState { return try await admit(md, body: body, ctx: ctx, serve: st, device: &device) }
+            // 645: a remote browser is admitted by an invite (a device); the Mac's own by the link (a session).
+            if let st = serveState, ctx.principal.isRemote { return try await admit(md, body: body, ctx: ctx, serve: st, device: &device) }
             let cap = try WebSecurity.validateBootstrap(md, view, limit: limits.maximumRequestBodyBytes)
             let s = try await sessions.exchange(cap)
             return json(sessionInfo(s, ctx, nil), extra: [sessionCookieHeader(s, ctx)])
@@ -746,15 +773,13 @@ public final class DozableWebServer: @unchecked Sendable {
             break
         }
         let cookie = try WebSecurity.validateAuthenticated(md, view, limit: limits.maximumRequestBodyBytes)
-        let session: WebSession
-        if case .devices(let d) = auth {
-            let (s, dev) = md.method.isSafe ? try await d.authenticate(cookie) : try await d.authenticateMutation(cookie, csrf: md.csrfToken)
-            session = s
+        // 645: against the store of THIS request's principal only — the Mac's sessions, or the LAN's devices.
+        let remote = ctx.principal.isRemote
+        let (session, dev) = md.method.isSafe ? try await auth.authenticate(cookie, remote: remote)
+                                              : try await auth.authenticateMutation(cookie, csrf: md.csrfToken, remote: remote)
+        if let dev, let d = auth.devices {
             device = dev
             await d.touch(cookie, address: ctx.client, userAgent: ctx.userAgent)
-        } else {
-            session = md.method.isSafe ? try await sessions.authenticate(cookie)
-                                       : try await sessions.authenticateMutation(cookie, csrf: md.csrfToken)
         }
         // 606: who may do what (WebExposure — the server is the wall; the page only hides).
         if let r = WebExposure.decide(route, ctx.principal) { throw r }
@@ -765,11 +790,11 @@ public final class DozableWebServer: @unchecked Sendable {
             return json(sessionInfo(session, ctx, device))
         case .sessionRenew:
             // The installed dashboard app was used (a fixed word; recorded only while statistics are on).
-            if serveState == nil, md.displayMode == "standalone" { UsageRuntime.recordFeature("app") }
-            let s = try await auth.renew(cookie)
+            if !remote, md.displayMode == "standalone" { UsageRuntime.recordFeature("app") }
+            let s = try await auth.renew(cookie, remote: remote)
             return json(sessionInfo(s, ctx, device), extra: [sessionCookieHeader(s, ctx)])
         case .sessionEnd:
-            await auth.signOut(cookie)
+            await auth.signOut(cookie, remote: remote)
             if let st = serveState, let device {
                 st.audit.record(WebAuditEntry(kind: "sign-out", device: device.id, deviceName: device.name, address: ctx.client))
             }
@@ -779,10 +804,10 @@ public final class DozableWebServer: @unchecked Sendable {
         case .serveStatus:
             return json(try await serveStatus())
         case .serveDevices:
-            return json(try await serveDevices(current: serveState != nil ? cookie : nil))
+            return json(try await serveDevices(current: remote ? cookie : nil))
         case .serveShare:
             try Self.requireJSONBody(md)
-            return json(try await serveShare(by: device?.name ?? "the Mac", origin: serveState != nil ? ctx.view.ownOrigin : nil, ctx: ctx, device: device))
+            return json(try await serveShare(by: device?.name ?? "the Mac", origin: remote ? ctx.view.ownOrigin : nil, ctx: ctx, device: device))
         case .serveRevoke(let id):
             try Self.requireJSONBody(md)
             return json(try await serveRevoke(id, by: device?.name ?? "the Mac", ctx: ctx, asker: device))

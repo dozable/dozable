@@ -197,6 +197,46 @@ final class CommandTests: XCTestCase {
         XCTAssertFalse((try parse(["ui"]) as? UIStart)?.o.restarted ?? true)
     }
 
+    /// 645: ONE dashboard command — `doz ui --lan` (the setting ui.lan, off by default), the device commands under
+    /// `doz ui`, and `doz serve` a hidden alias that still parses every earlier subcommand.
+    func testOneDashboardCommandLANOptionAndTheServeAlias() throws {
+        XCTAssertFalse(WebSettingsStore(environment: [:]).bool(SettingKey.uiLAN), "the LAN is off by default")
+        let lan = try XCTUnwrap(try parse(["ui", "--lan", "--bind", "loopback"]) as? UIStart)
+        XCTAssertEqual(lan.o.flags[SettingKey.uiLAN], .bool(true))
+        XCTAssertEqual(lan.o.flags[SettingKey.serveBind], .string("loopback"))
+        XCTAssertEqual(lan.o.passthrough, ["--lan", "--bind", "loopback"], "a detached start passes them on")
+        XCTAssertTrue(WebSettingsStore(environment: [:], flags: lan.o.flags).bool(SettingKey.uiLAN))
+        let off = try XCTUnwrap(try parse(["ui", "--no-lan"]) as? UIStart)
+        XCTAssertFalse(WebSettingsStore(environment: [:], flags: off.o.flags).bool(SettingKey.uiLAN), "--no-lan over the file")
+        XCTAssertThrowsError(try parse(["ui", "--lan", "--no-lan"]))
+        XCTAssertThrowsError(try parse(["ui", "--lan", "--bind", "example.com"]))
+        XCTAssertNil((try parse(["ui"]) as? UIStart)?.o.flags[SettingKey.uiLAN], "the setting decides")
+        // The one port: with the LAN and ui.port automatic, serve.port (7443); a fixed ui.port wins.
+        XCTAssertEqual(UIRunner.portChoice(WebSettingsStore(environment: [:])), .automatic)
+        XCTAssertEqual(UIRunner.portChoice(WebSettingsStore(environment: [:], flags: lan.o.flags)), .fixed(7443))
+        let fixed = try XCTUnwrap(try parse(["ui", "--lan", "--port", "17606"]) as? UIStart)
+        XCTAssertEqual(UIRunner.portChoice(WebSettingsStore(environment: [:], flags: fixed.o.flags)), .fixed(17606))
+        // The device commands are doz ui's now.
+        XCTAssertTrue(try parse(["ui", "status"]) is UIStatus)
+        XCTAssertTrue(try parse(["ui", "devices"]) is ServeDevices)
+        XCTAssertTrue(try parse(["ui", "revoke", "--all"]) is ServeRevoke)
+        XCTAssertTrue(try parse(["ui", "rename", "abc123", "Kitchen iPad"]) is ServeRename)
+        XCTAssertTrue(try parse(["ui", "log", "-n", "5"]) is ServeLog)
+        let listed = UICommand.helpMessage().components(separatedBy: "SUBCOMMANDS:").last ?? ""
+        for c in ["  share", "  devices", "  revoke", "  status", "  log"] { XCTAssertTrue(listed.contains(c), c) }
+        // `doz serve`: hidden, every earlier subcommand still parses; `doz serve` = `doz ui start --lan`.
+        XCTAssertFalse(DozableCommand.helpMessage().contains("  serve "), "the alias is not listed")
+        let serve = try XCTUnwrap(try parse(["serve", "--port", "17607", "--bind", "loopback", "--no-invite"]) as? ServeStart)
+        XCTAssertEqual(serve.o.flags[SettingKey.uiPort], .int(17607))
+        XCTAssertTrue(serve.o.noInvite)
+        XCTAssertThrowsError(try parse(["serve", "--no-lan"]))
+        XCTAssertTrue(try parse(["serve", "--detach"]) is ServeStart)
+        // (share validates that stdout is a terminal — an invite is a key — so it is not parsed here.)
+        for sub in [["devices"], ["revoke", "--all"], ["rename", "abc123", "x"], ["status"], ["log"], ["stop"]] {
+            XCTAssertNoThrow(try parse(["serve"] + sub), sub.joined(separator: " "))
+        }
+    }
+
     /// 594 W18: the probes' version seam takes a plain version string only.
     func testTheTestVersionSeamTakesAPlainVersionOnly() {
         XCTAssertEqual(DozableCommand.testVersion("0.12.0-rc.4"), "0.12.0-rc.4")
