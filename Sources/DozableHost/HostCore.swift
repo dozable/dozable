@@ -781,6 +781,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await templateCreate(r))
         case .duplicate:
             return try JSONValue(encoding: try await duplicate(r))
+        case .rename:
+            return try JSONValue(encoding: try await rename(r))             // owner, 2026-10-23
         case .imageBake:
             return try JSONValue(encoding: try await bake(r.image, emit: emit))
         case .imageRm:
@@ -2130,6 +2132,100 @@ public actor HostCore {
         var i = await info(nm, sessions: false)
         i.workspaceCreated = prepared?.created == true ? true : nil
         return i
+    }
+
+    /// Owner, 2026-10-23 ("add rename … and enable rename in the ui"): a sandbox gets another name IN PLACE. Everything it
+    /// has lives in its directory, `sandboxes/<name>/` — the disks, restore points, doz.json, sandbox.json, the terminal
+    /// layout, the Files tab's open folders, the boot logs, the proxy's CA — so that directory is renamed (one `rename(2)`
+    /// that refuses an existing target), the records that NAME it are rewritten (doz.json's name and spec; sandbox.json's
+    /// spec and the disk paths its last VM layout recorded), and it is adopted again under the new name exactly as a host
+    /// start loads it (watcher, vault hooks, account and GitHub applied anew). Only a SHUT-DOWN or failed sandbox with no
+    /// snapshot: no VM, no session, nothing whose recorded VM names the old directory's files. Kept as they were, on
+    /// purpose: its folder on the Mac (and the record that Dozable made it), the metrics' rows (history keeps the old
+    /// name), a template's `fromSandbox` (provenance), the CA's subject (cosmetic — the guest trusts the same CA).
+    private func rename(_ r: HostRequest) async throws -> SandboxInfo {
+        let m = try get(r.name)
+        let old = m.name
+        guard let new = r.newName, !new.isEmpty else { throw HostError(.invalid, "rename needs the new name (doz rename \(old) NEW)") }
+        guard new != old else { throw HostError(.invalid, "\(old) is already called \(new)") }
+        var cfg = m.config
+        cfg.name = new
+        cfg.spec.name = new
+        do { try cfg.spec.validate() } catch {
+            throw HostError(.invalid, "\(new) is not a sandbox name — 1–40 characters of a-z, 0-9 and -, not starting with -")
+        }
+        let fm = FileManager.default
+        let from = store.layout(old).sandboxDirectory, to = store.layout(new).sandboxDirectory
+        func checkFree() throws {
+            guard managed[new] == nil, !creating.contains(new) else { throw HostError(.exists, "sandbox \(new) already exists") }
+            guard !fm.fileExists(atPath: to.path) else {
+                throw HostError(.exists, "\(to.path) already exists (not made by doz — remove it or pick another name)")
+            }
+        }
+        try checkFree()
+        let shutFirst = "shut \(old) down first: doz shutdown \(old) (Shut down keeps its disk)"
+        let phase = await effectivePhase(m)
+        let busy = await m.sandbox.status.busy
+        guard [.off, .failed].contains(phase), !busy, !coldStarts.isRunning(old) else {
+            throw HostError(.invalidPhase, "\(old) is \(busy ? "busy" : PhaseName.label(phase)) — \(shutFirst)")
+        }
+        guard !fm.fileExists(atPath: m.sandbox.layout.snapshot.path) else {
+            throw HostError(.invalidPhase, "\(old) keeps a snapshot of its last run — \(shutFirst)")
+        }
+        // The awaits above let other requests in: look again, then hold both names with no await in between. From here a
+        // request for the old name finds none; one already under way holds its own `Sandbox`, and `whileOff` waits for it.
+        guard managed[old] === m else { throw HostError(.notFound, "no sandbox \(old) (doz ls)") }
+        try checkFree()
+        managed[old] = nil
+        creating.insert(new)
+        defer { creating.remove(new) }
+        let t0 = ContinuousClock.now
+        do {
+            try await m.sandbox.whileOff("rename") {
+                guard renamex_np(from.path, to.path, UInt32(RENAME_EXCL)) == 0 else {
+                    throw HostError(.failed, "could not rename \(from.path): \(String(cString: strerror(errno)))")
+                }
+            }
+        } catch {
+            managed[old] = m
+            if let s = error as? SandboxError, case .invalidPhase(_, let p) = s {
+                throw HostError(.invalidPhase, "\(old) is \(PhaseName.label(p)) — \(shutFirst)")
+            }
+            throw error
+        }
+        // The records that name it, in its new place (doz.json first: it is what a host loads).
+        do {
+            try cfg.write(store.configFile(new))
+        } catch {
+            if renamex_np(to.path, from.path, UInt32(RENAME_EXCL)) == 0 { managed[old] = m }
+            throw HostError(.failed, "could not record the new name: \(error.localizedDescription)")
+        }
+        let nl = store.layout(new)
+        if var p = PersistedSandbox.read(from: nl.persistedState) {
+            p.spec.name = new
+            if var l = p.vmLayout {
+                let prefix = from.path + "/"
+                for i in l.disks.indices where l.disks[i].file.hasPrefix(prefix) { l.disks[i].file = to.path + "/" + l.disks[i].file.dropFirst(prefix.count) }
+                p.vmLayout = l
+            }
+            try? p.write(to: nl.persistedState)
+        }
+        // The host's memory of it: dropped under the old name, then adopted under the new one.
+        detachWatcher(m)
+        m.eventTask?.cancel()
+        m.networkTask?.cancel()
+        clearStatuses(old)                                              // 612 (an off sandbox has none; to be sure)
+        sessionRegistry.clear(old)                                      // 635
+        portServing[old] = nil
+        if let k = githubKeys.removeValue(forKey: old) { githubKeys[new] = k }    // 599d: a key given from stdin goes along
+        let nm: Managed
+        do { nm = try adopt(cfg) } catch {
+            throw HostError(.failed, "\(old) was renamed \(new), but could not be loaded: \(error.localizedDescription) — doz host stop, then any doz command loads it")
+        }
+        metrics?.record(run: metricsRun, action: "rename", sandbox: new, image: cfg.image, phaseAfter: "off", startedAt: Date(),
+                        durationMs: ms(since: t0), detail: ["from": old])
+        note(new, "renamed from \(old) — the same disks, restore points, workspace and settings")
+        return await info(nm, sessions: false)
     }
 
     // MARK: images

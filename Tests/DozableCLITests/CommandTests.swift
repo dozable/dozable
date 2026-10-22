@@ -21,6 +21,16 @@ final class CommandTests: XCTestCase {
         XCTAssertTrue(try parse(["rm", "box", "--yes"]) is Remove)
     }
 
+    /// Owner, 2026-10-23: `doz rename OLD NEW` — two names, --json; nothing to confirm (nothing is lost).
+    func testRenameTakesTheOldAndTheNewName() throws {
+        let r = try XCTUnwrap(parse(["rename", "box", "website", "--json", "--store", "/tmp/s"]) as? Rename)
+        XCTAssertEqual(r.name, "box")
+        XCTAssertEqual(r.newName, "website")
+        XCTAssertTrue(r.g.json)
+        XCTAssertThrowsError(try parse(["rename", "box"]), "the new name is required")
+        XCTAssertThrowsError(try parse(["rename", "box", "website", "--yes"]), "no question, so no --yes")
+    }
+
     func testEveryCommandTakesJSONAndStore() throws {
         let lines: [[String]] = [
             ["create", "b", "--image", "lab"], ["up", "b"], ["start", "b"], ["pause", "b"], ["resume", "b"], ["sleep", "b"],

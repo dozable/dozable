@@ -862,6 +862,13 @@ its subcommands still parse) — remove it in a later release, saying so.
   keep it. From a live sandbox, `template-create` and `duplicate` go through a TEMPORARY restore point
   (sync, pause, clone, resume), deleted afterwards. `duplicate`'s state disk starts fresh unless
   `copyState`; `isolated` drops the source's workspace.
+- **Rename is in place, and only while shut down** (owner, 2026-10-23): host op `rename` (`name` → `newName`), `doz rename
+  OLD NEW`, web action `rename`, the sidebar line's ⋯ and the page's ⋯ → `components/rename-dialog.js`. Everything a sandbox
+  has is in `sandboxes/<name>/`, so `HostCore.rename` checks (off or failed, not busy, no cold start, no snapshot; the new
+  name valid and free), drops it from `managed`, renames the directory inside the sandbox's own gate (`Sandbox.whileOff`,
+  `renamex_np` with `RENAME_EXCL`), rewrites doz.json (name, spec) and sandbox.json (spec, the recorded disk paths), and
+  adopts it again as a host start loads it. Kept under the old name on purpose: metrics rows, a template's `fromSandbox`,
+  the proxy CA's subject; the Mac folder is never moved. `RenameTests`, `WebActionTests.testRename`.
 - **A workspace that does not exist is MADE** (`Workspace.swift`): `Workspace.prepare` (normalize —
   absolute or `~/`, links in the existing part resolved — then `refusal`, then `mkdir -p`) runs in
   `create` and `duplicate` BEFORE the VM is configured; `Workspace.undo` removes, innermost first, only

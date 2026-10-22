@@ -1333,6 +1333,13 @@ a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; paddin
 .nav-caret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
 .nav-caret.folded .icon { transform: rotate(-90deg); }
 .nav-caret:hover { color: var(--ink); background: var(--surface-2); }
+/* Owner, 2026-10-23: a sandbox line's ⋯ (Rename…) — on its hover or focus, as a session line's; the line's right end
+   (its count, its agent's dot) makes room while it shows. */
+.nav-sbx > .nav-sbx-menu { position: absolute; right: 2px; top: 0; height: 26px; display: flex; align-items: center; opacity: 0; z-index: 1; }
+.nav-sbx > a.nav-child:hover ~ .nav-sbx-menu, .nav-sbx > .nav-sbx-menu:hover, .nav-sbx > .nav-sbx-menu:focus-within,
+.nav-sbx > .nav-sbx-menu:has(.menu:not([hidden])) { opacity: 1; }
+.nav-sbx > .nav-sbx-menu > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
+.nav-sbx > a.nav-child:hover, .nav-sbx:has(> .nav-sbx-menu:hover) > a.nav-child, .nav-sbx:has(> .nav-sbx-menu:focus-within) > a.nav-child { padding-right: 28px; }
 a.nav-child .nav-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 a.nav-child .nav-count + .ag-dot { margin-left: 0; }
 .nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 16px; }

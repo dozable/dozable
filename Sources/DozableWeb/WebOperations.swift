@@ -232,6 +232,8 @@ final class WebOperations: @unchecked Sendable {
         case .templateCreate(let name, _, let image, _):
             return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the template \(image) (\(DozableImages.formatBytes($0.allocatedBytes)); no state disk)" }
                 ?? "saved the template \(image)"
+        case .rename(let name, let new):
+            return "renamed \(name) to \((try? v.decode(SandboxInfo.self))?.name ?? new)"
         case .duplicate(let name, let new, _, let o):
             return "duplicated \(name) as \(new) (state disk \(o.copyState == true ? "copied" : "fresh")) — start it to boot"
         case .imageBake(let i):

@@ -123,7 +123,7 @@ const ICON_WORD = {
   open: 'terminal', split: 'columns-2', duplicate: 'copy', revert: 'history', fork: 'git-fork', copy: 'clipboard', copied: 'check',
   select: 'clipboard', refresh: 'refresh-cw', create: 'plus', bake: 'flame', 're-bake': 'flame', verify: 'badge-check', watch: 'eye',
   set: 'check', use: 'check', run: 'play', save: 'layout-template', preview: 'eye', apply: 'check', cancel: 'x', paste: 'clipboard-paste',
-  reconnect: 'refresh-cw', table: 'table', lineage: 'list-tree', shut: 'power', attach: 'link', close: 'x',
+  reconnect: 'refresh-cw', table: 'table', lineage: 'list-tree', shut: 'power', attach: 'link', close: 'x', rename: 'pencil',
 };
 export function iconFor(label) {
   const l = String(label).trim().toLowerCase();

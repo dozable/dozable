@@ -169,6 +169,10 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 644: the panel's open folders (`FileTreeState`), kept beside doz.json — read, and set (`fileTree`; nil clears).
     case filesTree = "files-tree"
     case filesTreeSet = "files-tree-set"
+    /// Owner, 2026-10-23 ("add rename"): a SHUT-DOWN (or failed) sandbox (`name`) gets another name (`newName`) in place —
+    /// its disks, restore points, workspace, settings, account, policy and kept UI state go with it. Answered with its
+    /// `SandboxInfo` under the new name. Changes the store: needs the host, like `rm`.
+    case rename
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {

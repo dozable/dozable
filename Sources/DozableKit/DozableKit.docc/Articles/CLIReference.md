@@ -111,9 +111,12 @@ See <doc:Concepts> for what each word means.
 | `down NAME [--sleep \| --shutdown [-y]]` | the opposite of `up`: hibernate (the default), sleep, or shut down (asked as `shutdown` is) — the same requests and output as those verbs | as those | as those | as those |
 | `reset NAME` | shut down and go back to a fresh copy of the image (restore points and the agent's state disk stay) | | | end |
 | `rm NAME` | remove the sandbox and everything it has on disk | | | end |
+| `rename NAME NEW` | give a shut-down sandbox another name: the same disks, restore points, folder, account, network and settings | instant | | — |
 
 `shutdown`, `reset` and `rm` ask first; `--yes` skips the question; with no terminal and no
-`--yes` they refuse (exit 5). A program started less than 3 s before hibernating gets the rest of
+`--yes` they refuse (exit 5). `rename` asks nothing (nothing is lost); it needs the sandbox shut down (or failed) —
+`doz shutdown NAME` first (exit 3 otherwise) — and refuses a name that is taken (exit 4) or not 1–40 of a-z 0-9 -
+(exit 64). Its folder on the Mac keeps its own name. A program started less than 3 s before hibernating gets the rest of
 those 3 s first (Claude Code's first network calls, for example, can otherwise fail on wake).
 
 ### Creating and entering sandboxes

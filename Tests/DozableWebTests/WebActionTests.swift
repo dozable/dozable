@@ -62,7 +62,30 @@ final class WebActionTests: XCTestCase {
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
         "files-move": #"{"action":"files-move","sandbox":"web","path":"/workspace/a.md","to":"/workspace/docs/a.md"}"#,
         "files-rm": #"{"action":"files-rm","sandbox":"web","path":"/workspace/old","recursive":true,"confirm":"/workspace/old"}"#,
+        // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
+        "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
     ]
+
+    /// Owner, 2026-10-23: `rename` — two sandbox names by the rule, different, nothing else; no confirm (nothing is lost).
+    func testRename() throws {
+        let a = try decode(Self.samples["rename"]!)
+        XCTAssertEqual(a, .rename(name: "web", newName: "website"))
+        XCTAssertEqual(a.hostRequest.op, .rename)
+        XCTAssertEqual(a.hostRequest.name, "web")
+        XCTAssertEqual(a.hostRequest.newName, "website")
+        XCTAssertEqual(a.sandbox, "web")
+        XCTAssertNil(a.confirmationTarget)
+        XCTAssertEqual(a.label, "rename web to website", "the page reads the new name from this label (core/operations.js)")
+        XCTAssertNotEqual(a.dedupeKey, try decode(#"{"action":"rename","sandbox":"web","newName":"site"}"#).dedupeKey)
+        invalid(#"{"action":"rename","sandbox":"web"}"#)                                       // the new name is required
+        invalid(#"{"action":"rename","sandbox":"web","newName":"web"}"#)                       // a different name
+        for bad in ["Web", "-web", "a b", "a_b", "", String(repeating: "a", count: 41)] {
+            invalid(#"{"action":"rename","sandbox":"web","newName":"\#(bad)"}"#)
+        }
+        invalid(#"{"action":"rename","sandbox":"web","newName":5}"#)
+        invalid(#"{"action":"rename","sandbox":"web","newName":"site","confirm":"web"}"#)      // not a field of rename
+        invalid(#"{"action":"rename","sandbox":"web","newName":"site","workspace":"/tmp"}"#)
+    }
 
     /// 644: the file actions' fields, strictly.
     func testTheFileActions() throws {
@@ -93,6 +116,8 @@ final class WebActionTests: XCTestCase {
     /// Everything the web layer may send to the host — and, as important, what it may never.
     static let allowedOps: Set<HostOp> = [
         .filesMkdir, .filesNew, .filesMove, .filesRm,
+        // Owner, 2026-10-23: a shut-down sandbox's new name (nothing is lost).
+        .rename,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,

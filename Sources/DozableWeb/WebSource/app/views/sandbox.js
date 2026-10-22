@@ -20,6 +20,7 @@ import { menuButton, moreMenu } from '../components/menus.js';
 import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
+import { renameItem } from '../components/rename-dialog.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
@@ -279,8 +280,9 @@ function sandboxParts(name, d, net, accounts) {
     inspShow(name, tab);
   };
   // ── the bar: title row (name, phase, labelled chips) · toolbar (lifecycle, Shut down, ⋯ | status, details) ──
-  const more = moreMenu('More: duplicate, save as template, boot log, reset, remove', [
+  const more = moreMenu('More: duplicate, rename, save as template, boot log, reset, remove', [
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this disk', disabled: !!holdWhy, why: holdWhy, onSelect: () => duplicateDialog(name, d, accounts, null) },
+    renameItem(name),                                  // owner, 2026-10-23: the dialog says why it must wait (shut it down first)
     { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
     { sep: true },

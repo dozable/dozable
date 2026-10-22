@@ -25,6 +25,7 @@ wake
 shutdown
 reset
 rm
+rename
 ls
 inspect
 sessions

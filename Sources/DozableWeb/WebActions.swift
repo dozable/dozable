@@ -81,6 +81,9 @@ public enum WebAction: Equatable, Sendable {
     case filesNew(name: String, path: String)
     case filesMove(name: String, path: String, to: String)
     case filesRemove(name: String, path: String, recursive: Bool)
+    /// Owner, 2026-10-23: Rename… (the sidebar's ⋯ on a sandbox's line, the sandbox page's ⋯) — the CLI's `doz rename`. Nothing
+    /// is lost, so no `confirm`; the host refuses unless the sandbox is shut down.
+    case rename(name: String, newName: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -97,7 +100,7 @@ public enum WebAction: Equatable, Sendable {
              .pointFork(let n, _, _), .pointRemove(let n, _), .pointSaveImage(let n, _, _, _), .netPolicy(let n, _), .keyPolicy(let n, _),
              .keyRemove(let n, _), .accountUse(let n, _), .templateCreate(let n, _, _, _), .duplicate(let n, _, _, _), .toolsApply(let n),
              .sessionEnd(let n, _), .sessionRestart(let n, _, _), .filesMkdir(let n, _), .filesNew(let n, _), .filesMove(let n, _, _),
-             .filesRemove(let n, _, _):
+             .filesRemove(let n, _, _), .rename(let n, _):
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
@@ -144,6 +147,7 @@ public enum WebAction: Equatable, Sendable {
         case .filesNew(let n, let p): return "files-new \(n) \(p)"
         case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
         case .filesRemove(let n, let p, _): return "files-rm \(n) \(p)"
+        case .rename(let n, let new): return "rename \(n) to \(new)"
         default: break
         }
         let r = hostRequest
@@ -312,6 +316,10 @@ public enum WebAction: Equatable, Sendable {
             r.filePath = p
             r.recursive = rec ? true : nil
             return r
+        case .rename(let n, let new):
+            var r = HostRequest(.rename, name: n)
+            r.newName = new
+            return r
         }
     }
 
@@ -363,6 +371,7 @@ public enum WebAction: Equatable, Sendable {
             "files-new": ["sandbox", "path"],
             "files-move": ["sandbox", "path", "to"],
             "files-rm": ["sandbox", "path", "recursive", "confirm"],
+            "rename": ["sandbox", "newName"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -524,6 +533,10 @@ public enum WebAction: Equatable, Sendable {
             a = .filesMove(name: try f.sandbox("sandbox"), path: p, to: to)
         case "files-rm":
             a = .filesRemove(name: try f.sandbox("sandbox"), path: try f.fileItem("path"), recursive: try f.flag("recursive") == true)
+        case "rename":
+            let name = try f.sandbox("sandbox"), new = try f.sandbox("newName")
+            guard name != new else { throw Invalid("newName: a different name") }
+            a = .rename(name: name, newName: new)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))

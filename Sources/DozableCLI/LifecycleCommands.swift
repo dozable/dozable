@@ -592,6 +592,25 @@ struct Remove: AsyncParsableCommand {
     }
 }
 
+/// Owner, 2026-10-23 ("add rename"): the same sandbox under another name — its disks, restore points, folder, account and
+/// settings go with it. Nothing is lost, so nothing is asked; the sandbox is resolved first all the same (check, then act).
+struct Rename: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "rename",
+        abstract: "Give a shut-down sandbox another name (the same disks, restore points, folder and settings).",
+        discussion: "It must be shut down first: doz shutdown NAME (Shut down keeps its disk). Its folder on this Mac keeps its own name.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "Its new name: 1–40 characters of a-z, 0-9 and -.") var newName: String
+    func run() async throws {
+        try await requireSandbox(name, g)
+        var r = HostRequest(.rename, name: name)
+        r.newName = newName
+        let i = try decode(try call(r, g), SandboxInfo.self, g)
+        if g.json { Out.json(i); return }
+        Out.stdout("renamed \(name) to \(i.name) — doz start \(i.name)\n")
+    }
+}
+
 /// 634: the folder Dozable made for a sandbox (nil: none — a folder the person chose, or isolated).
 struct CreatedFolder { var path: String; var wasEmpty: Bool; var sandbox: String }
 func createdFolder(_ name: String, _ g: GlobalOptions) async -> CreatedFolder? {

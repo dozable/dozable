@@ -184,6 +184,7 @@ name: todo-app</pre></details>
   <div class="pair"><div class="scheme">
     <div class="menu" role="menu">
       <button class="menu-item" type="button" data-desc="A copy of this sandbox, its disk shared until it writes"><i data-i="copy"></i><span class="mi-label">Duplicate</span></button>
+      <button class="menu-item" type="button" data-desc="Another name — the same disks, restore points and folder"><i data-i="pencil"></i><span class="mi-label">Rename…</span></button>
       <button class="menu-item" type="button"><i data-i="layout-template"></i><span class="mi-label">Save as template…</span></button>
       <div class="menu-sep"></div>
       <button class="menu-item danger" type="button"><i data-i="trash-2"></i><span class="mi-label">Remove…</span></button>
@@ -403,6 +404,23 @@ name: todo-app</pre></details>
         <label class="field check confirm-check"><input type="checkbox" checked><span>Yes, reset demo</span></label></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
     </form></dialog>
+    <!-- Owner, 2026-10-23: Rename… (components/rename-dialog.js) — from the sidebar's ⋯ on a sandbox's line and the page's ⋯.
+         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error); a sandbox that is not shut
+         down keeps the button disabled and says why in the footer (.why). -->
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Rename demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
+        <label class="field"><span>New name</span><input type="text" value="website"><small>1–40 characters of a-z, 0-9 and -</small></label>
+        <div class="dlg-extra"></div><div class="dlg-error" role="alert"></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="pencil"></i>Rename</button></div>
+    </form></dialog>
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Rename api-tests</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
+        <label class="field"><span>New name</span><input type="text" value="Api Tests"><small>1–40 characters of a-z, 0-9 and -</small></label>
+        <div class="dlg-extra"></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why">Shut it down first — renaming keeps its disk, points and folder</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Rename</button></div>
+    </form></dialog>
   </div></div>
 </section>
 
@@ -562,11 +580,15 @@ name: todo-app</pre></details>
     browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.
     635 (owner): on hover a session line also shows a <strong>screen icon</strong> (<code>.nav-peek</code>, <code>monitor</code>); resting on it fills its underline for half a second
     (<code>.arming</code>), then the session’s live picture opens beside the sidebar (<code>.nav-peek-pop</code>, 384 × 224; asleep, its saved screen). While it is open, another session’s
-    line shows its picture at once; leaving the sessions closes it; a click on the icon opens the session (642). <code>ui.nav_thumbnails</code> false: no icon, no picture.</p>
+    line shows its picture at once; leaving the sessions closes it; a click on the icon opens the session (642). <code>ui.nav_thumbnails</code> false: no icon, no picture.
+    Owner, 2026-10-23: the sandbox’s own line has a ⋯ too (<code>.nav-sbx-menu</code>, shown on the line’s hover or focus — here on todo-app, with its menu open):
+    <strong>Rename…</strong>, which opens the Rename dialog (above, with the destructive confirmations).</p>
   <div class="pair"><div class="scheme">
     <div class="nav-children" style="width:200px">
-      <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
+      <div class="nav-sbx"><a class="nav-child" href="#" style="padding-right:28px"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
         <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
+        <span class="menu-wrap nav-sbx-menu" style="opacity:1"><button type="button" class="btn quiet icon-only sm" aria-label="More for todo-app" aria-expanded="true"><i data-i="ellipsis-vertical"></i></button>
+          <div class="menu" role="menu" style="position:absolute;left:auto;right:0;top:24px"><button class="menu-item" type="button" data-desc="Another name — the same disks, restore points and folder"><i data-i="pencil"></i><span class="mi-label">Rename…</span></button></div></span>
         <div class="nav-sessions">
           <div class="nav-sess-row"><a class="nav-sess" href="#"><span data-mark="claude-code" class="mark"></span><span class="ns-name">claude</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></a></div>
           <div class="nav-sess-row"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>
