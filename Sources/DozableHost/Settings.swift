@@ -390,8 +390,10 @@ public enum SettingKey {
     public static let allowSecretEntry = "ui.allow_secret_entry"
     /// 594 W19 (owner: "a new web page opening up every time i run doz ui"): when `doz ui` opens a tab.
     public static let openBrowser = "ui.open_browser"
-    /// 605 (owner Q10): the loopback port `doz ui` listens on — 0 = automatic (the last one, when free).
+    /// 605 (owner Q10): the port `doz ui` listens on — 0 = automatic (the last one, when free). 645: the ONE port (the LAN's too).
     public static let uiPort = "ui.port"
+    /// 645: the dashboard's LAN option — also serve the other browsers of the network (`doz serve` before).
+    public static let uiLAN = "ui.lan"
     /// 606: `doz serve`, the dashboard for the other browsers of the LAN.
     public static let servePort = "serve.port"
     public static let serveBind = "serve.bind"
@@ -500,8 +502,13 @@ public struct DozableSettings: Sendable {
                   "When doz ui opens a browser tab: auto (only when no page of this store's UI is open — an open page reconnects by itself instead), always (every start), never (it prints the address; doz ui link opens a page). --open and --no-open override it.",
                   applies: .nextCommand),
             .init("ui", "port", .int(0...65_535), .int(0),
-                  "The port doz ui listens on, always on 127.0.0.1 (this Mac only): 0 = automatic (the port this store's last doz ui had, when it is free — else one the system picks, and doz ui says so), or a fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app belongs to one port: keep it fixed for one.",
+                  "The ONE port the dashboard (doz ui) listens on — this Mac's browser at http://127.0.0.1:<port>, and with ui.lan your other browsers at http://<this Mac>.local:<port>. 0 = automatic: without ui.lan, the port this store's last doz ui had when it is free (else one the system picks, and doz ui says so); with ui.lan, serve.port (7443), which never moves. Or a fixed port 1024–65535 (doz ui refuses to start, naming the program, when another holds it). An installed dashboard app belongs to one port: keep it fixed for one.",
                   env: "DOZ_UI_PORT", flag: "--port N", applies: .uiRestart),
+            // 645 (owner, one dashboard command): the LAN is an option of doz ui, off by default — outward-facing, so only
+            // ever turned on from the Mac (never from the web page).
+            .init("ui", "lan", .bool, .bool(false),
+                  "Also serve the dashboard to the other browsers of your network (every network interface of this Mac and Tailscale, never a sandbox's network) on the same port: each gets in once with an invite (doz ui share). false (the default): this Mac only. Where it listens and your reverse proxy: the serve.* settings.",
+                  env: "DOZ_UI_LAN", flag: "doz ui --lan | --no-lan", applies: .uiRestart, ui: false),
             .init("ui", "grid_live_tiles", .int(1...12), .int(8),
                   "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this.",
                   applies: .now),
@@ -515,22 +522,23 @@ public struct DozableSettings: Sendable {
             .init("ui", "color", .choice(["auto", "always", "never"]), .string("auto"),
                   "Colour in the CLI's output: auto (on a terminal, unless NO_COLOR is set, TERM is dumb, or with --json or -q), always (even into a pipe or a file), never (plain text; the layout and the symbols stay the same). The dashboard has its own theme (ui.theme).",
                   env: "DOZ_COLOR", flag: "--color auto|always|never, --no-color", applies: .now),
-            // 606: doz serve. Read-only in the web UI (they decide who reaches the dashboard): doz config set on the Mac.
+            // 606/645: the dashboard's LAN option (ui.lan). Read-only in the web UI (they decide who reaches the dashboard):
+            // doz config set on the Mac. The section keeps its name (`doz serve` was the LAN dashboard's command).
             .init("serve", "port", .int(1024...65_535), .int(7443),
-                  "The port doz serve listens on — the dashboard for the other browsers of your network. It stays the same (an installed app and a bookmark belong to it): when another program holds it, doz serve refuses and names it.",
-                  env: "DOZ_SERVE_PORT", flag: "doz serve --port N", applies: .serveRestart, ui: false),
+                  "The dashboard's port with ui.lan while ui.port is 0 (automatic) — an earlier name for it: ui.port, when set, wins. It stays the same (devices, an installed app and a bookmark belong to it): when another program holds it, doz ui refuses and names it.",
+                  env: "DOZ_SERVE_PORT", flag: "doz ui --lan --port N", applies: .uiRestart, ui: false),
             .init("serve", "bind", .serveBind, .string("lan"),
-                  "Where doz serve listens: lan (every network interface of this Mac and Tailscale — never a sandbox's network), loopback (127.0.0.1 and ::1 only: for a reverse proxy on this Mac), or this Mac's own addresses separated by commas (for a reverse proxy elsewhere on your network).",
-                  env: "DOZ_SERVE_BIND", flag: "doz serve --bind lan|loopback|ADDRESSES", applies: .serveRestart, ui: false),
+                  "Where the dashboard listens for your other browsers with ui.lan: lan (every network interface of this Mac and Tailscale — never a sandbox's network), loopback (127.0.0.1 and ::1 only: for a reverse proxy on this Mac), or this Mac's own addresses separated by commas (for a reverse proxy elsewhere on your network). This Mac's own browser is served at 127.0.0.1 in every case.",
+                  env: "DOZ_SERVE_BIND", flag: "doz ui --lan --bind lan|loopback|ADDRESSES", applies: .uiRestart, ui: false),
             .init("serve", "public_origins", .originList, .string(""),
-                  "The addresses your reverse proxy serves the dashboard at, like https://doz.home.example (comma-separated). A browser may use one only through a proxy listed in serve.trusted_proxies. Over https, keys and tokens may be typed in the dashboard; over plain http they never are.",
-                  applies: .serveRestart, ui: false),
+                  "The addresses your reverse proxy serves the dashboard at, like https://doz.home.example (comma-separated). A browser may use one only through a proxy listed in serve.trusted_proxies. Over https, keys and tokens may be typed in the dashboard; over plain http they never are (except in this Mac's own browser).",
+                  applies: .uiRestart, ui: false),
             .init("serve", "trusted_proxies", .addressList, .string(""),
-                  "The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For doz serve believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored.",
-                  applies: .serveRestart, ui: false),
+                  "The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For the dashboard believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored.",
+                  applies: .uiRestart, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
-                  "Announce doz serve on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
-                  applies: .serveRestart, ui: false),
+                  "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
+                  applies: .uiRestart, ui: false),
             .init("host", "idle_timeout_minutes", .int(0...10_080), .int(5),
                   "Minutes with nothing running before the host exits; 0 = never.",
                   env: "DOZ_HOST_IDLE", flag: "doz host start --idle-timeout", applies: .hostRestart),
@@ -900,7 +908,7 @@ public struct DozableSettings: Sendable {
                 // 599c: the projects folder has the web UI's Choose… (the Mac's folder picker) too.
                 note = d.key == SettingKey.projectsDir
                     ? "a host path — Choose… (this Mac's folder picker), or doz config set \(d.key) PATH"
-                    : d.section == "serve" ? "who reaches the dashboard is set on the Mac: doz config set \(d.key) VALUE"
+                    : d.section == "serve" || d.key == SettingKey.uiLAN ? "who reaches the dashboard is set on the Mac: doz config set \(d.key) VALUE"
                     : "a host path — set it with: doz config set \(d.key) PATH"
             }
             if fileError != nil, note == nil { note = "the settings file does not parse — fix it (or remove it) first" }

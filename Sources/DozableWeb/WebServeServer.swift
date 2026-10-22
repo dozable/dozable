@@ -1,8 +1,8 @@
 import Foundation
 import DozableHost
 
-// 606 — the server's doz serve side: admission, the devices, invites. On doz ui (the Mac's own dashboard) the
-// device routes are answered by the running doz serve over serve.sock — or, when none runs, from its files.
+// 606/645 — the server's LAN side: admission, the devices, invites. With the LAN option the server answers them itself;
+// without it, from serve.sock (an earlier `doz serve` still running) or the files.
 
 extension DozableWebServer {
     var storeRoot: URL { URL(fileURLWithPath: data.storePath) }
@@ -64,7 +64,8 @@ extension DozableWebServer {
     func serveShare(by: String, origin: String?, ctx: WebRequestContext, device: WebDeviceView?) async throws -> WebServeInviteAnswer {
         if let st = serveState {
             let inv = await share(by: by, address: ctx.client, device: device)
-            return inv.answer(origin: origin ?? st.preferredOrigin)
+            // The Mac's own page (no origin of the LAN's): the LAN name, and its addresses beside it.
+            return inv.answer(origin: origin ?? st.preferredOrigin, alsoAt: origin == nil ? st.addressOrigins : [])
         }
         guard let r = WebServeControl.request(storeRoot, "share", as: WebServeInviteAnswer.self) else { throw WebRejection.serveNotRunning }
         return try r.get()

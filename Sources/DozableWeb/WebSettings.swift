@@ -82,6 +82,12 @@ public final class WebSettingsStore: @unchecked Sendable {
         return current.string(key)
     }
 
+    /// 645: a boolean setting as this process sees it — its flag first (`doz ui --lan`), then the rest.
+    public func bool(_ key: String) -> Bool {
+        if case .bool(let b)? = flags[key] { return b }
+        return current.bool(key)
+    }
+
     public func report() -> SettingsReport { current.report(flags: flags, offered: true) }   // 629: the published agents' settings
 
     /// Apply one change: refused when the UI may not set that key, or the environment or a flag sets
@@ -93,7 +99,7 @@ public final class WebSettingsStore: @unchecked Sendable {
         guard let d = DozableSettings.definition(change.key) else { throw WebAction.Invalid("unknown setting") }
         guard d.editableInUI else {
             // 606: who may reach the dashboard is decided on the Mac, never from a browser.
-            if d.section == "serve" { throw HostError(.invalid, "\(d.key) decides who reaches the dashboard — set it on the Mac: doz config set \(d.key) VALUE") }
+            if d.section == "serve" || d.key == SettingKey.uiLAN { throw HostError(.invalid, "\(d.key) decides who reaches the dashboard — set it on the Mac: doz config set \(d.key) VALUE") }
             throw HostError(.invalid, "\(d.key) is a host path — set it with: doz config set \(d.key) PATH")
         }
         let r = s.resolve(d.key, flag: flags[d.key])

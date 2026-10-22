@@ -5,44 +5,50 @@ import NIOCore
 // the interfaces (re-read every few seconds, so a Wi-Fi switch or a new lease needs no restart), the devices,
 // the audit log, the doctor's one-use probe tokens, and the connections per address.
 
-/// How a request is signed in: `doz ui`'s browser sessions (590/605) or `doz serve`'s devices (606).
-enum WebAuth: Sendable {
-    case browser(WebSessionStore)
-    case devices(WebDeviceStore)
+/// 645 — the ONE sign-in model of the dashboard: the Mac's own browser is signed in by the link (`browser`: 590/605's
+/// sessions, cookie `doz_ui_<port>`), every other browser is a DEVICE admitted by an invite (`devices`: 606, cookie
+/// `doz_serve_<port>`; nil while the LAN option is off). Which store a request is checked against is decided by its
+/// principal (`WebRequestContext.principal`) — a cookie of one store never signs a request in against the other.
+struct WebAuth: Sendable {
+    let browser: WebSessionStore
+    let devices: WebDeviceStore?
 
-    func authenticate(_ cookie: String) async throws -> WebSession {
-        switch self {
-        case .browser(let s): try await s.authenticate(cookie)
-        case .devices(let d): try await d.authenticate(cookie).0
+    /// The request's session (and its device, for a remote request).
+    func authenticate(_ cookie: String, remote: Bool) async throws -> (WebSession, WebDeviceView?) {
+        if remote {
+            guard let devices else { throw WebRejection.notAdmitted }
+            let (s, d) = try await devices.authenticate(cookie)
+            return (s, d)
         }
+        return (try await browser.authenticate(cookie), nil)
     }
 
-    func authenticateMutation(_ cookie: String, csrf: String?) async throws -> WebSession {
-        switch self {
-        case .browser(let s): try await s.authenticateMutation(cookie, csrf: csrf)
-        case .devices(let d): try await d.authenticateMutation(cookie, csrf: csrf).0
+    func authenticateMutation(_ cookie: String, csrf: String?, remote: Bool) async throws -> (WebSession, WebDeviceView?) {
+        if remote {
+            guard let devices else { throw WebRejection.notAdmitted }
+            let (s, d) = try await devices.authenticateMutation(cookie, csrf: csrf)
+            return (s, d)
         }
+        return (try await browser.authenticateMutation(cookie, csrf: csrf), nil)
     }
 
+    /// Still signed in (a stream's heartbeat, a terminal's check) — the cookie was authenticated against its own store
+    /// when the stream or terminal opened; cookies are 256-bit random values, so one is only ever in one store.
     func isValid(_ cookie: String) async -> Bool {
-        switch self {
-        case .browser(let s): await s.isValid(cookie)
-        case .devices(let d): await d.isValid(cookie)
-        }
+        if await browser.isValid(cookie) { return true }
+        return await devices?.isValid(cookie) ?? false
     }
 
-    func renew(_ cookie: String) async throws -> WebSession {
-        switch self {
-        case .browser(let s): try await s.renew(cookie)
-        case .devices(let d): try await d.authenticate(cookie).0
+    func renew(_ cookie: String, remote: Bool) async throws -> WebSession {
+        if remote {
+            guard let devices else { throw WebRejection.notAdmitted }
+            return try await devices.authenticate(cookie).0
         }
+        return try await browser.renew(cookie)
     }
 
-    func signOut(_ cookie: String) async {
-        switch self {
-        case .browser(let s): await s.revoke(cookie)
-        case .devices(let d): await d.signOut(cookie)
-        }
+    func signOut(_ cookie: String, remote: Bool) async {
+        if remote { await devices?.signOut(cookie) } else { await browser.revoke(cookie) }
     }
 }
 
@@ -153,7 +159,7 @@ public final class WebServeState: @unchecked Sendable {
         }
     }
 
-    /// The request's view: its own origin (or nil), the cookie name, who asks.
+    /// The request's view as a REMOTE browser's (a device): its own origin (or nil), the cookie name, who asks.
     func context(_ head: HTTPHeadersView, peer: SocketAddress?) -> WebRequestContext {
         let ip = peer?.ipAddress.flatMap(WebIP.init) ?? WebIP("0.0.0.0")!
         let r = WebServeRules.requestOrigin(hostHeader: head.single("host"), forwardedProto: head.single("x-forwarded-proto"),
