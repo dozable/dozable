@@ -222,6 +222,14 @@ public final class CredentialVault: @unchecked Sendable {
         set { lock.lock(); _onStale = newValue; lock.unlock() }
     }
     private var _onStale: (@Sendable (String) -> Void)?
+    /// Called (from a proxy thread, never under the vault's lock) before each request is decided:
+    /// a cheap look whether the owner's source changed (the Mac's Claude login signed in as another
+    /// account), which then `set`s the secret again before this request uses it.
+    public var onBeforeUse: (@Sendable () -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onBeforeUse }
+        set { lock.lock(); _onBeforeUse = newValue; lock.unlock() }
+    }
+    private var _onBeforeUse: (@Sendable () -> Void)?
     /// The first sighting of each foreign credential (by fingerprint).
     public var onForeign: (@Sendable (ForeignCredential) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onForeign }
@@ -483,6 +491,7 @@ public final class CredentialVault: @unchecked Sendable {
     /// has carried the guest's own credential — never adds our secret to a request without one.
     public func rewrite(head: [UInt8], host: String, inject: Bool = true, now: Date = Date()) -> CredentialDecision {
         refreshProviders(host: host.lowercased(), now: now)
+        onBeforeUse?()
         var d = decide(head: head, host: host, inject: inject, now: now, staleCheck: true)
         if case .stale(let id) = d {
             onStale?(id)

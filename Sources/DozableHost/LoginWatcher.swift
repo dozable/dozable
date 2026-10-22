@@ -55,18 +55,20 @@ public struct KeepaliveConfig: Sendable {
 ///
 /// It follows the Mac: a renewed access token goes to every subscriber's vault; an expired one
 /// stays (the proxy answers 401 with how to renew it); a Mac sign-out clears it at once (D5); a
-/// different account signing in on the Mac HOLDS every subscriber (D6) until `account use … mac`
-/// follows it; a locked or unreadable keychain keeps the last token and warns.
+/// different account signing in on the Mac is FOLLOWED (owner, 2026-10-23: "this should be
+/// transparent to the sandboxes" — D6's hold is gone): the new identity is pinned and said once;
+/// a locked or unreadable keychain keeps the last token and warns. `freshen()` (the vault's
+/// `onBeforeUse`) notices a sign-in between polls from the config file's date, so the request
+/// after `claude /login` already carries the new account's token.
 public final class LoginWatcher: @unchecked Sendable {
     public enum State: Equatable, Sendable {
-        case unknown, ok, expired, signedOut, accountChanged, unreadable
+        case unknown, ok, expired, signedOut, unreadable
         public var label: String {
             switch self {
             case .unknown: "unknown"
             case .ok: "ok"
             case .expired: "expired"
             case .signedOut: "signed-out"
-            case .accountChanged: "held"
             case .unreadable: "unreadable"
             }
         }
@@ -77,8 +79,12 @@ public final class LoginWatcher: @unchecked Sendable {
     public let service: String
     let keychain: KeychainAccess
     let identityReader: @Sendable () -> ClaudeIdentity?
+    /// The identity file's modification date (nil: none) — `freshen()`'s cheap look.
+    let identityStamp: @Sendable () -> Date?
 
     private let lock = NSLock()
+    private var _stamp: Date?
+    private var _stampChecked = Date.distantPast
     private var _pinned: ClaudeIdentity?
     private var _seen: ClaudeIdentity?
     private var token: ClaudeLoginToken?
@@ -96,13 +102,17 @@ public final class LoginWatcher: @unchecked Sendable {
     public var onIdentity: @Sendable (ClaudeIdentity) -> Void = { _ in }
 
     public init(account: String, configDir: String?, keychain: KeychainAccess, pinned: ClaudeIdentity?,
-                identityReader: (@Sendable () -> ClaudeIdentity?)? = nil) {
+                identityReader: (@Sendable () -> ClaudeIdentity?)? = nil, identityStamp: (@Sendable () -> Date?)? = nil) {
         self.account = account
         self.configDir = configDir
         self.service = ClaudeLogin.service(configDir: configDir)
         self.keychain = keychain
         self._pinned = pinned
         self.identityReader = identityReader ?? { ClaudeLogin.identity(configDir: configDir) }
+        self.identityStamp = identityStamp ?? {
+            let path = ClaudeLogin.configFile(configDir: configDir).path
+            return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+        }
     }
 
     public var state: State { lock.lock(); defer { lock.unlock() }; return _state }
@@ -115,7 +125,7 @@ public final class LoginWatcher: @unchecked Sendable {
         set { lock.lock(); _keepalive = newValue; lock.unlock() }
     }
 
-    /// Follow whoever is signed in on the Mac now (the one-command follow after a hold).
+    /// Follow whoever is signed in on the Mac now (`doz account use NAME mac`).
     public func repin(_ identity: ClaudeIdentity?) {
         lock.lock(); _pinned = identity; lock.unlock()
         readNow()
@@ -165,14 +175,34 @@ public final class LoginWatcher: @unchecked Sendable {
         }
     }
 
+    /// Before a request uses the login: one `stat` of the identity file (at most once a second); when
+    /// it changed and names another account than the one followed, read the keychain now — a Mac
+    /// `claude /login` as someone else then reaches the very next request, not the next poll.
+    public func freshen(now: Date = Date()) {
+        lock.lock()
+        guard now.timeIntervalSince(_stampChecked) >= 1 else { lock.unlock(); return }
+        _stampChecked = now
+        let before = _stamp
+        lock.unlock()
+        let stamp = identityStamp()
+        guard stamp != before else { return }
+        lock.lock(); _stamp = stamp; let followed = _seen; lock.unlock()
+        let id = identityReader()
+        if let id, let followed, id.sameAccount(as: followed) { return }
+        if id == nil && followed == nil { return }
+        readNow(now: now)
+    }
+
     /// Read the keychain item once and fan out whatever changed.
     public func readNow(now: Date = Date()) {
         let r = keychain.read(service: service, account: Keychain.user)
+        let stamp = identityStamp()
         let identity: ClaudeIdentity? = { if case .found = r { return identityReader() }; return nil }()
         var events: [(String?, String)] = []
         var newIdentity: ClaudeIdentity?
         lock.lock()
         _reads += 1
+        _stamp = stamp
         HostLog.line("\(account): read the keychain item \(service) for \(subscribers.count) sandbox(es)")
         let before = _state, beforeToken = token?.accessToken
         switch r {
@@ -182,14 +212,17 @@ public final class LoginWatcher: @unchecked Sendable {
                 if let id = identity {
                     _seen = id
                     if _pinned == nil { _pinned = id; newIdentity = id }
+                    else if let p = _pinned, !id.sameAccount(as: p) {
+                        // Another account signed in on the Mac: follow it (no hold), and say so once.
+                        _pinned = id
+                        newIdentity = id
+                        for name in subscribers.keys.sorted() {
+                            events.append((name, "\(account): the Mac is now signed in as \(id.label) — \(name) uses it from now on"))
+                        }
+                    }
                 }
-                if let p = _pinned, let id = identity, !id.sameAccount(as: p) {
-                    _state = .accountChanged
-                    token = nil
-                } else {
-                    token = t
-                    _state = (t.expiresAt.map { $0 <= now } ?? false) ? .expired : .ok
-                }
+                token = t
+                _state = (t.expiresAt.map { $0 <= now } ?? false) ? .expired : .ok
             } else {
                 if !warnedUnreadable { events.append((nil, "\(account): Claude Code's keychain item \(service) has a format doz doesn't know — keeping the last token")) }
                 warnedUnreadable = true
@@ -223,7 +256,6 @@ public final class LoginWatcher: @unchecked Sendable {
         case .ok: "\(account) login ok" + (token?.expiresAt.map { " (access expires \(CredentialVaultClock.hm($0)))" } ?? "")
         case .expired: "\(account) login expired at \(token?.expiresAt.map(CredentialVaultClock.hm) ?? "?") — it renews only while Claude Code runs on the Mac"
         case .signedOut: "\(account): Claude Code signed out on the Mac — the sandbox's token was cleared"
-        case .accountChanged: "\(account): the Mac is now signed in as a different Claude account\(_seen.map { " (\($0.label))" } ?? "") — held; `doz account use NAME \(account)` follows it"
         case .unreadable: "\(account): the Mac login could not be read"
         case .unknown: ""
         }
@@ -242,10 +274,6 @@ public final class LoginWatcher: @unchecked Sendable {
             sb.setCredential(b, secret: nil, expiresAt: nil, environment: [:],
                              notice: "this Mac's Claude Code signed out — sign in again with `claude` on the Mac, or pick another account: "
                                      + "doz account use \(name) ACCOUNT")
-        case .accountChanged:
-            sb.setCredential(b, secret: nil, expiresAt: nil, environment: [:],
-                             notice: "the Mac is now signed in as a different Claude account\(_seen.map { " (\($0.label))" } ?? "") — "
-                                     + "\(name) is held; to follow it: doz account use \(name) \(account)")
         case .unreadable, .unknown:
             if token == nil {
                 sb.setCredential(b, secret: nil, expiresAt: nil, environment: [:],

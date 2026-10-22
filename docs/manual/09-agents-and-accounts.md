@@ -165,8 +165,10 @@ Claude Code renews it whenever it runs on your Mac near expiry.
   login recently and no Claude Code runs on the Mac, the host runs the Mac's `claude` once — one tiny
   turn on your subscription.
 - **If you sign out on the Mac**, sandboxes stop getting a token at once. **If a different account
-  signs in**, sandboxes on `mac` are held rather than silently switching who pays;
-  `doz account use NAME mac` follows the new one.
+  signs in**, sandboxes on `mac` follow it at their next request — running sessions keep working,
+  with no restart and no sign-in inside the sandbox — and each sandbox's activity says which account
+  it now uses. (A session's plan and rate-limit tier are read when it starts, so a session started
+  before the switch still reports the earlier account's until it is restarted.)
 - **Several Claude config folders:** `doz account add work-mac --claude-login --config-dir ~/.claude-work`.
 
 **No silent fallback:** a missing or expired credential is refused with a message saying what to do.

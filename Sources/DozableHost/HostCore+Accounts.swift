@@ -262,6 +262,7 @@ extension HostCore {
 
     func detachWatcher(_ m: Managed) {
         m.sandbox.egress?.vault.onStale = nil
+        m.sandbox.egress?.vault.onBeforeUse = nil
         guard let w = m.watcher else { return }
         w.unsubscribe(m.name)
         m.watcher = nil
@@ -278,7 +279,11 @@ extension HostCore {
         if let w = watchers[a.name] { return w }
         let home = services.home, dir = a.configDir
         let w = LoginWatcher(account: a.name, configDir: dir, keychain: services.keychain, pinned: a.identity,
-                             identityReader: { ClaudeLogin.identity(configDir: dir, home: home) })
+                             identityReader: { ClaudeLogin.identity(configDir: dir, home: home) },
+                             identityStamp: {
+                                 let path = ClaudeLogin.configFile(configDir: dir, home: home).path
+                                 return (try? FileManager.default.attributesOfItem(atPath: path))?[.modificationDate] as? Date
+                             })
         w.keepalive = keepaliveConfig(file.keepalive)
         w.onEvent = { [weak self] s, t in Task { await self?.note(s, t) } }
         let name = a.name
@@ -374,6 +379,7 @@ extension HostCore {
                 m.watcher = w
                 w.subscribe(m.name, sb)
                 sb.egress?.vault.onStale = { [weak w] _ in w?.stale() }
+                sb.egress?.vault.onBeforeUse = { [weak w] in w?.freshen() }
             case .openaiKey, .chatgpt, .codexMac, .key:
                 break                                   // never here: an Anthropic agent does not accept them (above)
             case .apiKey:

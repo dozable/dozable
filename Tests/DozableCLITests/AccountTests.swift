@@ -269,7 +269,7 @@ final class AccountTests: XCTestCase {
         }
     }
 
-    func testMacSignOutClearsAndADifferentAccountHolds() async throws {
+    func testMacSignOutClearsAndADifferentAccountIsFollowed() async throws {
         keychain.put(svc, claudeItem("sk-ant-oat01-MAC", expires: Date().addingTimeInterval(7200)))
         let c = await core()
         try await create(c, "a")
@@ -292,21 +292,22 @@ final class AccountTests: XCTestCase {
         XCTAssertEqual(w.state, .ok)
         XCTAssertTrue(v.hasSecret("claude-oauth"), "a locked keychain keeps the last token")
         keychain.lockedServices = []
-        // D6: someone else signs in on the Mac → held.
+        // Someone else signs in on the Mac → followed, with no hold and no poll: the very next request
+        // notices the identity file changed and carries the new account's token (owner, 2026-10-23).
         signIn(as: "acct-2", email: "other@example.com")
         keychain.put(svc, claudeItem("sk-ant-oat01-OTHER", expires: Date().addingTimeInterval(7200)))
-        w.tick()
-        XCTAssertEqual(w.state, .accountChanged)
-        guard case .refuse(401, let held) = v.rewrite(head: req, host: "api.anthropic.com") else { return XCTFail() }
-        XCTAssertTrue(held.contains("different Claude account") && held.contains("doz account use a mac"))
-        // The one-command follow.
-        let m = await use(c, "a", "mac")
-        XCTAssertNil(m.error)
-        XCTAssertEqual(w.state, .ok)
+        try await Task.sleep(for: .milliseconds(1100))   // freshen() looks at most once a second
         guard case .swapped(let out, _) = v.rewrite(head: req, host: "api.anthropic.com") else { return XCTFail() }
         XCTAssertTrue(String(decoding: out, as: UTF8.self).contains("OTHER"))
+        XCTAssertEqual(w.state, .ok)
+        try await Task.sleep(for: .milliseconds(200))    // pinIdentity runs in a Task
         let file = AccountStore(store: DozableStore(root: root)).load()
         XCTAssertEqual(file.accounts.first { $0.name == "mac" }?.identity?.accountUuid, "acct-2")
+        // A request with nothing changed reads no keychain item.
+        let reads = keychain.reads.count
+        try await Task.sleep(for: .milliseconds(1100))
+        _ = v.rewrite(head: req, host: "api.anthropic.com")
+        XCTAssertEqual(keychain.reads.count, reads)
     }
 
     func testExpiredLoginIsReReadByTheProxyThenExplained() async throws {

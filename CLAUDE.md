@@ -390,9 +390,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Placeholders persist as sha256 hashes** (`doz.json` `placeholderHashes`, D8) so a session
   survives a host restart; `shutdown`/`reset`/`rm` revoke them. A stdin key is still memory-only:
   after a host restart a sandbox holding only one has no secret, and the proxy stops decrypting.
-- **No silent fallback between accounts.** A missing, expired, signed-out or held credential is
+- **No silent fallback between accounts.** A missing, expired or signed-out credential is
   answered by the proxy itself (401, an Anthropic-shaped JSON error Claude Code shows) with what
-  to do — never another account's or an API key's.
+  to do — never another account's or an API key's. The account `mac` MEANS whoever is signed in on
+  the Mac, so a Mac sign-in as someone else is followed, not held (owner, 2026-10-23: "this should be
+  transparent to the sandboxes"): `LoginWatcher.freshen` (the vault's `onBeforeUse`, one `stat` of
+  `.claude.json` at most once a second) re-reads on the next request, the new identity is pinned and
+  said once. `testMacSignOutClearsAndADifferentAccountIsFollowed`.
 - **virtio-fs caches:** deleting a file on the HOST that the guest has cached is not visible at once
   — tests use fresh file names (this cost an afternoon of chasing a non-bug).
 
