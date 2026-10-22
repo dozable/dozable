@@ -697,6 +697,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await resourcesKernel(r))
         case .workspaceRules:
             return try JSONValue(encoding: try await workspaceRulesReport(r))
+        case .filesList:
+            return try JSONValue(encoding: try await filesList(r))           // 643
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase

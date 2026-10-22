@@ -91,6 +91,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableWeb/WebServe*.swift`, `WebExposure.swift`, `WebQR.swift`, `WebBonjour.swift`; `Sources/DozableCLI/ServeCommand.swift`; `Sources/DozableKit/LocalDashboards.swift` | `doz serve` — the rules (`WebServe`: addresses, the accept gate, the request's own origin), devices + invites (`WebServeDevices`), the audit log, `serve.sock` (`WebServeControl`), the server's serve side (`WebServeServer`, `WebServeState`), the capability table, our QR encoder, Bonjour; the CLI (`doz serve …`, doctor's public-origin check); the egress proxy's refusal of the dashboards' ports |
 | `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
+| `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared workspace, the guest for an isolated one; the rules applied), the host op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1929,7 +1930,7 @@ may use it too.
   recipe's `check.screen.expect/refuse`) — the owner's first `doz try goose` opened Goose's own wizard, which the
   headless check never sees; `RECIPE_ONLY=screen` runs it alone. A first-run file may be YAML (top-level keys, Goose's
   `config.yaml`; `merge_yaml` is emitted only into such a recipe's helper). A JSON report; `--changed BASE` and
-  `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
+  `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1max2, label `doz-ci` — the CI Mac kept for Dozable alone, changed
   recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
   `~/Library/Caches/DozableKit-ci/recipes-store`). A new recipe passes it before it ships.
 - **OpenCode** (`opencode`, npm `opencode-ai` + the platform package `opencode-linux-arm64`, glibc only; an xAI key, model
@@ -2151,6 +2152,32 @@ may use it too.
   gateway, `how` as templates over `{gateway.endpoint.<id>}`, `{placeholder}`, `{model}`), `capabilityTags` (derived
   from the data; only `headless` is declared). `UsageSchema.agents` must contain every agent id (`RecipeHostTests`).
 
+### The file watcher — `files-list`, `doz files`, the files routes
+
+- **Listing follows the bytes.** `files-list` (read-only host op: in-process when no host runs) reads a SHARED workspace ON
+  THE MAC in any phase — never a guest call — with the open-files bridge's path discipline (`WorkspaceFiles`): the asked
+  path normalised lexically under /workspace (`..` above it refused), mapped onto the folder from the sandbox's RECORD,
+  `realpath`, and it must stay inside the share's realpath; entries are `lstat`ed (a link's target is display only, never
+  followed). An ISOLATED sandbox is listed by one utility exec as the image's user (`GuestFolderListing`: `stat -c`, names
+  passed as `./NAME`) ONLY while it runs — asleep/off is `invalid-phase`, never a wake or a start.
+- **The workspace rules apply as the guest's view applies them** (a rule file present and `workspace.view` on): hidden
+  absent, locked listed `locked` with no size or time, read-only marked; a hidden folder is "no such folder", a locked one
+  refused; decided on the RESOLVED path (`WorkspaceRules.Evaluator`, the same as `doz ignore check`).
+- **Names are untrusted text**: `FileListPaths.inert` (control and bidi-control characters → U+FFFD, ≤ 255 characters) on
+  the host, before any client; the CLI's `Console.printable` too.
+- **The watch is NOT a host op** (keep it so): it runs in the process that asks — `doz ui`'s server, `doz files --watch`
+  — with FSEvents on the share (CoreServices, `FileWatch.swift` only — the audit). A host stream would be a held
+  connection, which keeps an idle host alive (T3), and with no host a watch would have to start one. One FSEventStream
+  per sandbox per process (`FileWatchHub`), stopped with its last watcher; `FileWatchCoalescer` turns file-level events
+  into ONE batch per watcher per 250 ms naming the watched folders whose listing changed — never a name (a hidden one
+  never travels; inside a locked folder nothing counts) — or `resync` (dropped events, the root moved, a rule file
+  changed, > 64 folders). ≤ 64 folders per watcher. An isolated sandbox is not watched (refresh on demand) until the
+  owner rules on a guest watcher (a `deckhold` subcommand or a new pinned-Zig guest program).
+- **Web**: `GET …/files?path=P` (`WebFileList`, a projection) and `GET …/files/watch?path=P…` (its OWN SSE hub `filesHub`
+  — never the page's live-update stream's — `files-ready` then `files` events, the same bounded queue / heartbeats /
+  ends: sign-out, rotate, revoke, shutdown, restart). The query is decoded strictly (`WebFilesQuery`: `path` only, `%XX`
+  only, no `+`, UTF-8, no control character; else 404). Both `read` in `WebExposure`.
+
 ### Browser terminals
 
 - **A terminal is two steps.** `POST …/terminal-ticket` (CSRF, strict body) mints a 256-bit ticket that
@@ -2267,6 +2294,7 @@ make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a 
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
 make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
+make test-cli-files  # 643: doz files — listed/watched on the Mac (no host, rules, a link out refused, nothing woken); isolated listed inside while running
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
 make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite
 make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozable-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)

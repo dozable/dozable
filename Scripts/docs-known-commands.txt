@@ -37,6 +37,7 @@ exec
 get
 put
 cp
+files
 image
 point
 net

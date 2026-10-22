@@ -388,3 +388,82 @@ enum FileTransfer {
         return o
     }
 }
+
+// 643: `doz files NAME [PATH] [--watch]` — a folder of a sandbox's /workspace (the host's read-only `files-list`; in this
+// process when no host runs), and, with --watch, which folders change: watched HERE on the Mac (FSEvents — FileWatch.swift),
+// never through the host and never in the guest, so it keeps no host alive and wakes nothing.
+struct FilesCommand: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "files",
+        abstract: "List a folder of a sandbox's /workspace; --watch then says which folders change (Ctrl-C stops).",
+        discussion: """
+        doz files my-app · doz files my-app src · doz files my-app /workspace/src --watch. A shared workspace is read \
+        on this Mac, in any state of the sandbox — nothing is started or woken — and its workspace rules apply as in \
+        the sandbox: a hidden name is not there, a locked one is listed as locked, a read-only one is marked. A link \
+        is shown with its target, never followed; one that leads outside the shared folder cannot be listed. An \
+        isolated sandbox is listed from inside it while it runs (as the image's user); it is not watched — list it \
+        again to refresh. --watch prints a line each time the folder's listing changes (a quarter of a second of \
+        changes at a time); --json gives the list, or one JSON line per change.
+        """)
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "The folder: relative to /workspace, or /workspace/… (default /workspace).") var path: String?
+    @Flag(name: [.short, .long], help: "Keep watching the folder and print a line when its listing changes (a shared workspace only).")
+    var watch = false
+
+    func run() async throws {
+        var r = HostRequest(.filesList, name: name)
+        r.filePath = path
+        // Watching an isolated sandbox is refused BEFORE anything is listed (the target says why).
+        var target: FileWatchTarget?
+        if watch {
+            do { target = try FileWatchTarget.resolve(store: g.dozableStore, sandbox: name, folders: [path ?? FileListPaths.root]) }
+            catch let e as HostError { throw fail(e, g, code: e.code == .invalid ? DozableExit.usage : nil) }
+        }
+        let list = try decode(try await query(r, g), FileList.self, g)
+        if g.json && !watch { Out.json(list); return }
+        if !g.json { Out.stdout(Self.render(list)) }
+        guard let target else { return }
+        let hub = FileWatchHub()
+        let (stream, cont) = AsyncStream<FileChangeBatch>.makeStream(bufferingPolicy: .bufferingNewest(256))
+        let sub: FileWatchSubscription
+        do { sub = try hub.watch(target) { cont.yield($0) } } catch let e as HostError { throw fail(e, g) }
+        defer { sub.cancel() }
+        if !g.quiet { Out.stderr("watching \(list.path) in \(name) for changes (Ctrl-C stops)\n") }
+        for await b in stream {
+            if g.json { Out.jsonLine(b); continue }
+            let when = Self.clock.string(from: b.time)
+            Out.stdout(b.resync ? "\(when)  changed: everything watched — list again\n"
+                                : "\(when)  changed: \(b.folders.joined(separator: ", "))\n")
+        }
+    }
+
+    static let clock: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        return f
+    }()
+
+    static let stamp: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f
+    }()
+
+    /// The table a person reads. Names are inert already (the host made them so); `printable` is the CLI's own guard.
+    static func render(_ l: FileList, now: Date = Date()) -> String {
+        var out = "\(l.sandbox):\(l.path)" + (l.source == "guest" ? " (inside the sandbox — list again to refresh)" : "")
+            + (l.state == "read-only" ? " — read-only" : "") + "\n"
+        if l.entries.isEmpty { return out + "  (empty)\n" }
+        var rows: [[String]] = [["KIND", "SIZE", "MODIFIED", "NAME"]]
+        for e in l.entries {
+            var name = Console.printable(e.name) + (e.kind == "folder" ? "/" : "")
+            if let t = e.target { name += " -> " + Console.printable(t) }
+            if let s = e.state { name += "  (\(s))" }
+            rows.append([e.kind, e.size.map(ProgressFormat.bytes) ?? "", e.modified.map { stamp.string(from: $0) } ?? "", name])
+        }
+        out += Out.table(rows, rightAligned: [1])
+        if l.truncated { out += "… only the first \(l.entries.count) entries are listed\n" }
+        if let u = l.unlisted { out += "… \(u) name\(u == 1 ? "" : "s") with a line break in it not listed\n" }
+        return out
+    }
+}

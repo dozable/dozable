@@ -23,6 +23,9 @@ public final class DozableWebServer: @unchecked Sendable {
     let assets: WebAssets
     let data: DozableWebData
     let hub: SSEHub
+    /// 643: the file-watch streams — a hub of their own (a ninth of one session replaces that session's oldest watch,
+    /// never the page's live-update stream), ended with the others (sign-out, rotate, shutdown, restart).
+    let filesHub: SSEHub
     let monitor: WebMonitor
     let operations: WebOperations
     let tickets: WebTerminalTicketStore
@@ -120,6 +123,7 @@ public final class DozableWebServer: @unchecked Sendable {
         sessions = WebSessionStore(bootstrap: capability, limits: limits, persist: sessionsFile, port: origin.port, revoked: revokedFile)
         auth = serveState.map { .devices($0.devices) } ?? .browser(sessions)
         hub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
+        filesHub = SSEHub(maxClients: limits.maximumSSEClients, capacity: limits.maximumBufferedSSEEvents)
         tickets = WebTerminalTicketStore()
         terminals = WebTerminalHub()
         monitor = WebMonitor(data: data, hub: hub, terminals: terminals, pollInterval: pollInterval)
@@ -289,7 +293,7 @@ public final class DozableWebServer: @unchecked Sendable {
     /// open page is told to use the new link), then a fresh one-use link.
     public func rotate() async -> URL {
         await sessions.revokeAll()
-        for c in hub.all { c.finish(.rotated) }
+        for c in hub.all + filesHub.all { c.finish(.rotated) }
         // 605: the page keeps its terminals and reattaches them after it signs in again.
         await terminals.closeAll(reason: "session-ended")
         return await newLink()
@@ -386,12 +390,15 @@ public final class DozableWebServer: @unchecked Sendable {
         switch how {
         case .shutdown:
             hub.finishAll(.shutdown)
+            filesHub.finishAll(.shutdown)
             await terminals.closeAll()
         case .restarting:
             hub.finishAll(.restarting)
+            filesHub.finishAll(.restarting)
             await terminals.closeAll(reason: "restarting")
         case .moving(let to):
             hub.finishAll(.moved(to.value))
+            filesHub.finishAll(.moved(to.value))
             await terminals.closeAll(reason: "restarting")
         }
         await monitor.stop()
@@ -408,6 +415,8 @@ public final class DozableWebServer: @unchecked Sendable {
     enum Reply {
         case response(Int, [(String, String)], Data)
         case stream(SSEClient)
+        /// 643: a file-watch stream — its client (in `filesHub`) and the watch it relays.
+        case fileStream(SSEClient, WebFileWatch)
     }
 
     /// A new connection: plain HTTP, or a terminal socket its first request upgraded to.
@@ -481,6 +490,10 @@ public final class DozableWebServer: @unchecked Sendable {
                     switch await respond(head, body: Data(body.readableBytesView), connection: ObjectIdentifier(conn.channel), peer: peer) {
                     case .stream(let client):
                         try await stream(client, conn: conn, outbound: outbound, head: head)
+                        return
+                    case .fileStream(let client, let watch):
+                        defer { watch.cancel() }
+                        try await fileStream(client, watch, conn: conn, outbound: outbound, head: head)
                         return
                     case .response(let status, let headers, let data):
                         try await write(outbound, head, (status, headers, data), isHead: isHead, keepAlive: head.isKeepAlive)
@@ -760,7 +773,7 @@ public final class DozableWebServer: @unchecked Sendable {
             if let st = serveState, let device {
                 st.audit.record(WebAuditEntry(kind: "sign-out", device: device.id, deviceName: device.name, address: ctx.client))
             }
-            for c in hub.all where c.cookie == cookie { c.finish(.sessionEnded) }
+            for c in hub.all + filesHub.all where c.cookie == cookie { c.finish(.sessionEnded) }
             terminals.closeAll(cookie: cookie)
             return .response(204, [("Set-Cookie", WebSecurity.clearCookie(name: view.cookieName, secure: ctx.secure))], Data())
         case .serveStatus:
@@ -849,6 +862,14 @@ public final class DozableWebServer: @unchecked Sendable {
             return json(try await data.bootLog(name, number: n))
         case .buildLog(let name):
             return json(try await data.buildLog(name))
+        case .files(let name, let path):
+            return json(try await data.files(name, path: path))
+        case .filesWatch(let name, let paths):
+            // 643: resolved and watched first (an isolated sandbox, a folder outside, a locked one: a plain error answer,
+            // never an empty stream), then a client of the files hub.
+            let watch = try await data.watchFiles(name, folders: paths)
+            guard let client = filesHub.add(cookie: cookie) else { watch.cancel(); throw WebRejection.tooManyStreams }
+            return .fileStream(client, watch)
         case .terminalLayoutSet(let name):
             try Self.requireJSONBody(md)
             return json(try await data.setTerminalLayout(name, try WebTerminalLayout.decode(body)))
@@ -1028,17 +1049,39 @@ public final class DozableWebServer: @unchecked Sendable {
 
     private func stream(_ client: SSEClient, conn: Connection, outbound: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>,
                         head: HTTPRequestHead) async throws {
+        // `hello` first: the page (re)fetches everything on it — every (re)connect is a resync. 605: with
+        // this build's page script and style, so a page of an older build offers a reload.
+        let hello = (try? WebJSON.encoder.encode(WebHello(serverRun: serverRun, version: version, script: assets.pageScript,
+                                                          style: assets.pageStyle))) ?? Data()
+        try await sse(client, hub: hub, first: SSEFrame(event: "hello", id: hub.nextSeq(), json: hello), conn: conn, outbound: outbound, head: head)
+    }
+
+    /// 643: a file-watch stream — `files-ready` (what is watched) first, then a `files` event per coalesced batch (the
+    /// watched folders whose listing changed — never a name — or `resync`). The same bounded queue, heartbeats and ends
+    /// as the live-update stream.
+    private func fileStream(_ client: SSEClient, _ watch: WebFileWatch, conn: Connection,
+                            outbound: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>, head: HTTPRequestHead) async throws {
+        let files = filesHub
+        let ready = (try? WebJSON.encoder.encode(WebFilesReady(sandbox: watch.sandbox, folders: watch.folders))) ?? Data()
+        let relay = Task {
+            for await b in watch.batches {
+                guard let d = try? WebJSON.encoder.encode(WebFileBatch(b)) else { continue }
+                client.send(SSEFrame(event: "files", id: files.nextSeq(), json: d))
+            }
+        }
+        defer { relay.cancel() }
+        try await sse(client, hub: files, first: SSEFrame(event: "files-ready", id: files.nextSeq(), json: ready), conn: conn, outbound: outbound, head: head)
+    }
+
+    private func sse(_ client: SSEClient, hub: SSEHub, first: SSEFrame, conn: Connection,
+                     outbound: NIOAsyncChannelOutboundWriter<HTTPServerResponsePart>, head: HTTPRequestHead) async throws {
         defer { hub.remove(client) }
         var h = HTTPHeaders()
         for (k, v) in WebSecurity.responseHeaders { h.add(name: k, value: v) }
         h.add(name: "Content-Type", value: "text/event-stream; charset=utf-8")
         h.add(name: "Cache-Control", value: "no-store")
         try await outbound.write(.head(HTTPResponseHead(version: head.version, status: .ok, headers: h)))
-        // `hello` first: the page (re)fetches everything on it — every (re)connect is a resync. 605: with
-        // this build's page script and style, so a page of an older build offers a reload.
-        let hello = (try? WebJSON.encoder.encode(WebHello(serverRun: serverRun, version: version, script: assets.pageScript,
-                                                          style: assets.pageStyle))) ?? Data()
-        try await outbound.write(.body(.byteBuffer(ByteBuffer(bytes: SSEFrame(event: "hello", id: hub.nextSeq(), json: hello).bytes))))
+        try await outbound.write(.body(.byteBuffer(ByteBuffer(bytes: first.bytes))))
         conn.channel.closeFuture.whenComplete { _ in client.finish(.clientGone) }
         let auth = self.auth, cookie = client.cookie, beat = limits.heartbeatInterval, channel = conn.channel
         let heartbeat = Task {

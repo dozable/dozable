@@ -93,8 +93,10 @@ WS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+NIOWebSocket(
 $WS"
 # 599b: + Sources/DozableHost/MacDefaultApp.swift — LaunchServices asked, read-only, which app is a file's
 #       default (the notice names it); it opens nothing.
-CS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+CoreServices([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableCLI/UICommand.swift$|/Sources/DozableHost/MacDefaultApp.swift$" || true)
-[[ -z "$CS" ]] || fail "CoreServices is imported outside Sources/DozableCLI/UICommand.swift and Sources/DozableHost/MacDefaultApp.swift:
+# 643: + Sources/DozableHost/FileWatch.swift — FSEvents watches a sandbox's SHARED folder on the Mac (read-only: it
+#       is told what changed; it opens, writes and launches nothing).
+CS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+CoreServices([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableCLI/UICommand.swift$|/Sources/DozableHost/MacDefaultApp.swift$|/Sources/DozableHost/FileWatch.swift$" || true)
+[[ -z "$CS" ]] || fail "CoreServices is imported outside Sources/DozableCLI/UICommand.swift, Sources/DozableHost/MacDefaultApp.swift and Sources/DozableHost/FileWatch.swift:
 $CS"
 # 606: Bonjour only in doz serve's announcer.
 DN=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+dnssd([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/WebBonjour.swift$" || true)

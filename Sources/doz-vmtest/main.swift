@@ -951,6 +951,10 @@ Task {
             // 599e: the Access step — onboarding confirms each credential, skips failures, never blocks (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliAccessSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-files":
+            // 643: doz files — a shared workspace listed and watched on the Mac, an isolated one listed from inside.
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliFilesSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-openfiles":
             // 599b: workspace files opened on the Mac (through the opener seam).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

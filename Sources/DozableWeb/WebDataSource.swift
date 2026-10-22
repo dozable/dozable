@@ -86,12 +86,19 @@ public protocol DozableWebData: Sendable {
     func plans(_ rs: [PlanRequest]) async -> [WebPlan?]
     /// 618: the models a provider or gateway offers (the host's `models`; in-process with no host: the cache only).
     func models(_ source: String) async throws -> WebModelList
+    /// 643: one folder of a sandbox's /workspace (the host's read-only `files-list`; in-process when no host runs).
+    func files(_ name: String, path: String?) async throws -> WebFileList
+    /// 643: watch folders of a sandbox's SHARED workspace — in this process, on the Mac (never the host, never the guest).
+    /// An isolated sandbox is refused (list it again to refresh).
+    func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch
 }
 
 extension DozableWebData {
     public func tools(_ name: String) async throws -> ToolsLayerReport { throw HostError(.notImplemented, "tools") }
     public func plan(_ r: PlanRequest) async throws -> WebPlan { throw HostError(.notImplemented, "plan") }
     public func models(_ source: String) async throws -> WebModelList { throw HostError(.notImplemented, "models") }
+    public func files(_ name: String, path: String?) async throws -> WebFileList { throw HostError(.notImplemented, "files") }
+    public func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch { throw HostError(.notImplemented, "files") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -175,6 +182,8 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     /// 594: whether Claude Code is signed in on this Mac (the onboarding's account step) — read-only.
     let macLogin: @Sendable () -> Bool
     private var macLoginCache: (Date, Bool)?
+    /// 643: this UI's file watches (one FSEventStream per sandbox, shared by every open watch stream).
+    let fileWatches = FileWatchHub()
 
     public init(store: DozableStore, version: String, executable: String = HostLauncher.executablePath,
                 terminal: @escaping @Sendable (String) throws -> Void = TerminalHandoff.openInTerminalApp,
@@ -587,6 +596,29 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func buildLog(_ name: String) async throws -> WebBuildLog {
         WebBuildLog(try await query(HostRequest(.buildLog, name: name)).0.decode(BuildLog.self))
+    }
+
+    // MARK: 643 — the file watcher
+
+    public func files(_ name: String, path: String?) async throws -> WebFileList {
+        var r = HostRequest(.filesList, name: name)
+        r.filePath = path
+        return WebFileList(try await query(r).0.decode(FileList.self))
+    }
+
+    /// The share is resolved from the store (its record and the settings) and watched by THIS process's hub — one
+    /// FSEventStream per sandbox for every open stream; no host is asked, started or kept.
+    public func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch {
+        let store = self.store, hub = fileWatches
+        return try await blocking {
+            let t = try FileWatchTarget.resolve(store: store, sandbox: name, folders: folders)
+            let (stream, cont) = AsyncStream<FileChangeBatch>.makeStream(bufferingPolicy: .bufferingNewest(64))
+            let sub = try hub.watch(t) { cont.yield($0) }
+            return WebFileWatch(sandbox: name, folders: Array(Set(t.folders.values)).sorted(), batches: stream) {
+                sub.cancel()
+                cont.finish()
+            }
+        }
     }
 
     /// `doz attach NAME`, with `--store` when this is not the default store (shell-quoted). The UI

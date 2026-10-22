@@ -68,6 +68,26 @@ doz cp my-app:/workspace/report.md .      # the Docker spelling: NAME:PATH on on
   holding a link that points outside it is not copied, either way (the copy says which link).
 - A large copy shows its progress; `--json` gives the result as data.
 
+### Looking at the files: `doz files`
+
+```sh
+doz files my-app                 # /workspace: kind, size, modified, name (a link with its target)
+doz files my-app src             # a folder in it (relative to /workspace, or /workspace/src)
+doz files my-app src --watch     # then a line each time that folder's listing changes (Ctrl-C stops)
+```
+
+- **A shared workspace is read on your Mac**, whatever the sandbox is doing: nothing is started or woken,
+  and no Dozable host is started to answer. It shows what the sandbox sees: with
+  [workspace rules](20-workspace-rules.md) a hidden name is not there, a locked one is listed as
+  `locked`, a read-only one is marked `read-only`. A link is shown with its target and never followed; a
+  folder through a link (or `..`) that leads outside the shared folder is not listed.
+- **`--watch`** watches the folder on your Mac: a quarter of a second of changes is one line, whether the
+  change was made on the Mac or inside the sandbox. Nothing is watched inside the sandbox, so a sleeping
+  sandbox stays asleep. `--json` gives the list, or one JSON line per change.
+- **An isolated sandbox** keeps its files on its own disk: they are listed from inside it while it runs (as
+  the image's user) and never watched — list again to see what changed. While it is asleep or off it is not
+  woken to answer; start it first.
+
 ### Restarting or ending a session
 
 `doz sessions restart NAME SESSION` ends the session's program and starts **the same program again**, in

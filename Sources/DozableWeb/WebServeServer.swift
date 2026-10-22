@@ -105,7 +105,7 @@ extension DozableWebServer {
             digests = await st.devices.revokeAll(by: by)
         }
         let gone = Set(digests)
-        for c in hub.all where gone.contains(WebDeviceStore.digest(c.cookie)) { c.finish(.revoked) }
+        for c in hub.all + filesHub.all where gone.contains(WebDeviceStore.digest(c.cookie)) { c.finish(.revoked) }
         for b in terminals.all where gone.contains(WebDeviceStore.digest(b.grant.cookie)) { await b.end(.policyViolation, "session-ended") }
         let revoked = before.filter { d in id == nil || d.id == id }
         for d in revoked {
