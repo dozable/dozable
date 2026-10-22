@@ -15,14 +15,14 @@ import { splitArgs } from '../core/util-1195caf40612902f.js';
 import { isRemote } from '../core/session-40bbbfc9960e365d.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { dialog } from '../components/dialog-a776616f1988c401.js';
-import { sessionsWhyNot } from '../components/lifecycle-83134e537abf7491.js';
+import { sessionsWhyNot } from '../components/lifecycle-5633f225c09da44a.js';
 import { menuButton } from '../components/menus-5554adcb670bde92.js';
-import { markNavSession } from '../components/nav-4f0923b5c022fde9.js';
+import { markNavSession } from '../components/nav-f9c8b8132c67f50d.js';
 import { agentChip } from '../components/agent-status-4b4b30d82051d513.js';
 import { failureFor, pageFailure } from '../components/notices-63d38bfc28f739a5.js';
-import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-78d4c0cd71da822f.js';
+import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-a2a26ecfd1d1c37a.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-0539204c1221e451.js';
-import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-f23222ae16977a85.js';
+import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-55662b5ddff5bcb2.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');
 

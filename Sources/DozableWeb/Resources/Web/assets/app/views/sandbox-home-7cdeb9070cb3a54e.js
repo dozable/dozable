@@ -14,15 +14,15 @@ import { homePane, pageTerminals, sview } from '../core/terminals-e2028f16ee8fa8
 import { agentChip, agentStatusOf } from '../components/agent-status-4b4b30d82051d513.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { callout } from '../components/callout-1fe929a7376b7fbc.js';
-import { lifecycle, sessionsWhyNot } from '../components/lifecycle-83134e537abf7491.js';
+import { lifecycle, sessionsWhyNot } from '../components/lifecycle-5633f225c09da44a.js';
 import { moreMenu } from '../components/menus-5554adcb670bde92.js';
 import { failureFor } from '../components/notices-63d38bfc28f739a5.js';
-import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-f23222ae16977a85.js';
-import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-3483402082e89354.js';
-import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-78d4c0cd71da822f.js';
+import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-55662b5ddff5bcb2.js';
+import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-d7018a2c531d2789.js';
+import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-a2a26ecfd1d1c37a.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-0539204c1221e451.js';
-import { openSavedTerminal } from './sandbox-layout-969edabe3f7f3ff3.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-4bb275ef11e40c7a.js';
+import { openSavedTerminal } from './sandbox-layout-ec223d732f3c53e0.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-e2d520aa60c74eb8.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.

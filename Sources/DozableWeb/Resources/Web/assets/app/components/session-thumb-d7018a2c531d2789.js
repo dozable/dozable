@@ -3,7 +3,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { setting } from '../core/settings-d764a83ca7e652e0.js';
 import { terminals } from '../core/terminals-e2028f16ee8fa887.js';
-import { bootTerm, closeTerminal, goLive, newTerm, paintCover } from './terminal-78d4c0cd71da822f.js';
+import { bootTerm, closeTerminal, freezeTerm, goLive, newTerm, paintCover, thawTerm } from './terminal-a2a26ecfd1d1c37a.js';
 
 /// The virtual size a thumbnail's terminal is laid out at (then scaled by CSS): the grid's tile size.
 export const THUMB_COLS_PX = 960, THUMB_ROWS_PX = 560;
@@ -27,6 +27,10 @@ export function dropThumbTerm(t) { if (t) closeTerminal(t.id); }
 /// A saved thumbnail whose sandbox runs again becomes the live one in place (the frame leaves saved mode).
 export function thumbGoLive(t) { if (t && t.saved) goLive(t); }
 
+/// 642: a live thumbnail lets go of its socket and keeps its last frame; and attaches again.
+export function thumbFreeze(t) { freezeTerm(t); }
+export function thumbThaw(t) { thawTerm(t); }
+
 /// How many sockets this page holds now (every terminal with one) — the server allows 16 per UI.
 export function openSockets() { return [...terminals.values()].filter((t) => t.ws).length; }
 
@@ -44,12 +48,14 @@ export function thumbFrame(label, onClick, big) {
   return { el, screen, plate, badge, term: null, kind: null, visible: false };
 }
 
-/// Say what a thumbnail shows: its kind (live | saved | null) and, when it shows nothing, why.
+/// Say what a thumbnail shows: its kind (live | saved | frozen — 642: its last live frame, between turns | null) and,
+/// when it shows nothing, why.
 export function paintThumb(th, kind, plateText) {
   th.el.dataset.kind = kind || 'none';
   th.el.classList.toggle('saved', kind === 'saved');
   th.plate.hidden = !!th.term;
   th.plate.textContent = th.term ? '' : (plateText || '');
   th.badge.hidden = !th.term;
-  if (th.term) th.badge.replaceChildren(h('span', { class: kind === 'live' ? 'th-live' : 'th-saved', 'aria-hidden': 'true' }), kind === 'live' ? 'live' : 'saved');
+  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', 'saved'];
+  if (th.term) th.badge.replaceChildren(h('span', { class: cls, 'aria-hidden': 'true' }), word);
 }

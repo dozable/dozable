@@ -11,7 +11,7 @@ import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { confirmAction, dialog } from './dialog-a776616f1988c401.js';
 import { moreMenu } from './menus-5554adcb670bde92.js';
 import { pageFailure } from './notices-63d38bfc28f739a5.js';
-import { openPendingTerminal } from './terminal-78d4c0cd71da822f.js';
+import { openPendingTerminal } from './terminal-a2a26ecfd1d1c37a.js';
 
 /// Shut Down keeps the disk, so it asks with a plain confirmation (and can stop asking); Reset and
 /// Remove destroy data and keep the typed name. "Don't ask again" is the setting ui.confirm_shutdown

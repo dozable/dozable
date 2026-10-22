@@ -6,7 +6,7 @@ import { TRANSITION_LABEL, transitionOf } from '../core/operations-1789b4518e764
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { terminals } from '../core/terminals-e2028f16ee8fa887.js';
 import { startStage } from './start-progress-d120ddafb051f626.js';
-import { paintCover } from './terminal-78d4c0cd71da822f.js';
+import { paintCover } from './terminal-a2a26ecfd1d1c37a.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const paintHome = upcall('paintHome');
 

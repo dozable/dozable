@@ -603,6 +603,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .home-thumb .th-badge[hidden] { display: none; }
 .home-thumb .th-live, .home-thumb .th-saved { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .home-thumb .th-saved { background: var(--ph-asleep); }
+.home-thumb .th-frozen { width: 6px; height: 6px; border-radius: 50%; background: var(--term-muted); }   /* 642: its last live frame, between turns */
 /* 635 (owner): Home's sessions as a grid of their live pictures — the same card and rows, laid out as tiles. */
 .home-tiles { display: flex; flex-direction: column; gap: var(--sp-3); }
 .home-view .btn.on { background: var(--surface-3); color: var(--ink); }
@@ -1512,6 +1513,12 @@ a.name:hover { text-decoration: underline; }
 .ov-sel { width: 1%; padding-right: 0; }
 .ov-sel input { margin: 0; vertical-align: middle; }
 .ov-list-head .ov-toggle { display: inline-flex; align-items: center; gap: 6px; font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; }
+.ov-list-head .actions { flex-wrap: wrap; gap: 14px; }
+.ov-live { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-sm); color: var(--ink-2); }
+.ov-step { display: inline-flex; align-items: center; gap: 2px; }
+.ov-step > .btn.sm { width: 22px; height: 22px; min-height: 22px; padding: 0; }
+.ov-step-v { min-width: 2ch; text-align: center; color: var(--ink); font-variant-numeric: tabular-nums; }
+.ov-cycle-status { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; }
 .ov-bulk { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0 0 8px; }
 .ov-bulk .ob-what { font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .ov-bulk > .btn.danger { margin-left: auto; }

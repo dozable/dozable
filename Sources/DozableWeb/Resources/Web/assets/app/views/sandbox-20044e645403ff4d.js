@@ -15,18 +15,18 @@ import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
 import { callout } from '../components/callout-1fe929a7376b7fbc.js';
 import { confirmAction, dialog } from '../components/dialog-a776616f1988c401.js';
-import { lifecycle, lifecycleBar } from '../components/lifecycle-83134e537abf7491.js';
+import { lifecycle, lifecycleBar } from '../components/lifecycle-5633f225c09da44a.js';
 import { menuButton, moreMenu } from '../components/menus-5554adcb670bde92.js';
-import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-8cd5834e614fb3e0.js';
+import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-4de174f15efceb53.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-63d38bfc28f739a5.js';
-import { sandboxPill } from '../components/pills-1933ab2043ab468f.js';
-import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-78d4c0cd71da822f.js';
+import { sandboxPill } from '../components/pills-13e9749e90c0c151.js';
+import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-a2a26ecfd1d1c37a.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-063824534dc5bd7d.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-0539204c1221e451.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-969edabe3f7f3ff3.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-ec223d732f3c53e0.js';
 import { networkPanel } from './sandbox-network-809179e21f42afd9.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-4bb275ef11e40c7a.js';
-import { paintHome } from './sandbox-home-32a79c749ab10248.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-e2d520aa60c74eb8.js';
+import { paintHome } from './sandbox-home-7cdeb9070cb3a54e.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
