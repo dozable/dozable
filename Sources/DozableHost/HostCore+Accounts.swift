@@ -113,16 +113,29 @@ extension HostCore {
     static let signInHosts = ["console.anthropic.com", "platform.claude.com", "claude.ai"]
     static let signInNote = "doz key policy strict: no sign-in inside the sandbox"
 
+    /// Claude Code with NO account (owner, 2026-10-23: "create a claude code sandbox with no account and just use the
+    /// normal login workflow"): its own `/login` is the only way it gets a credential, so the sign-in hosts are allowed
+    /// while it has none — derived like the strict block, never stored, gone the moment an account is attached.
+    static let signInAllowNote = "no account: Claude Code signs in inside the sandbox"
+
     static func withoutSignInBlock(_ p: NetworkPolicy) -> NetworkPolicy {
         var q = p
-        q.rules.removeAll { $0.note == signInNote }
+        q.rules.removeAll { $0.note == signInNote || $0.note == signInAllowNote }
         return q
     }
 
-    static func withSignInBlock(_ p: NetworkPolicy, strict: Bool) -> NetworkPolicy {
+    static func withSignInBlock(_ p: NetworkPolicy, strict: Bool, allowSignIn: Bool = false) -> NetworkPolicy {
         var q = withoutSignInBlock(p)
         if strict { for h in signInHosts.reversed() { q.rules.insert(EgressRule(.deny, host: h, note: signInNote), at: 0) } }
+        else if allowSignIn {
+            for h in signInHosts { q.rules.append(EgressRule(.allow, host: h, note: signInAllowNote)) }
+        }
         return q
+    }
+
+    /// A Claude Code sandbox with no account: it signs in inside (its sign-in hosts are allowed).
+    func signsInInside(_ m: Managed, _ file: AccountsFile) -> Bool {
+        m.config.imageChoice?.agent == .claudeCode && resolvedAccount(m, file) == .none
     }
 
     // MARK: resolving
@@ -452,8 +465,10 @@ extension HostCore {
         egress.vault.strictNotice = "\(m.name) is pinned to \(who). It refused this request's own credential (fp {fp}) — a /login or a key "
             + "inside the sandbox. Remove it (unset CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY overrides, or delete ~/.claude/.credentials.json), "
             + "or allow it with: doz key policy \(m.name) allow"
+        egress.vault.noSecretNotice = "\(m.name) has no account attached now, so this session's credential has nothing behind it — "
+            + "attach one and retry: doz account use \(m.name) mac (or another account; Accounts & keys in the dashboard)"
         egress.vault.setFingerprintLabels(Dictionary(file.accounts.compactMap { a in a.fingerprint.map { ($0, a.name) } }) { a, _ in a })
-        let p = Self.withSignInBlock(egress.policy, strict: policy == .strict)
+        let p = Self.withSignInBlock(egress.policy, strict: policy == .strict, allowSignIn: signsInInside(m, file))
         if p != egress.policy { m.sandbox.setNetworkPolicy(p) }
     }
 

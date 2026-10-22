@@ -2292,7 +2292,8 @@ public actor HostCore {
         }
         if isPolicyQuery(r) { return egress.policy }
         let p = try Self.editedPolicy(egress.policy, r, base: PermissionPolicy.base(of: m.config), agent: m.config.imageChoice?.agent)
-        m.sandbox.setNetworkPolicy(Self.withSignInBlock(p, strict: egress.vault.foreignPolicy == .strict))
+        m.sandbox.setNetworkPolicy(Self.withSignInBlock(p, strict: egress.vault.foreignPolicy == .strict,
+                                                        allowSignIn: signsInInside(m, accountStore.load())))
         m.config.spec.network = .proxied(p)
         try m.config.write(store.configFile(m.name))
         // 599d: "Use GitHub as you" / "Push to GitHub" take effect at once (turning it off revokes every placeholder).

@@ -341,6 +341,15 @@ final class CredentialTests: XCTestCase {
         let u = try XCTUnwrap(w.mint(CredentialBinding.claudeOAuth.id))
         guard case .reject(let why) = w.rewrite(head: head("GET / HTTP/1.1\nHost: api.anthropic.com\nAuthorization: Bearer \(u)\n\n"), host: oauthHost) else { return XCTFail() }
         XCTAssertTrue(why.contains("no secret on this Mac"))
+        // A binding that issued placeholders and holds nothing now is still decrypted (never tunnelled to the provider
+        // as a bearer token), and the owner's notice answers it; a request without one passes as before.
+        XCTAssertTrue(w.boundHosts.contains(oauthHost))
+        w.noSecretNotice = "attach one: doz account use a mac"
+        XCTAssertEqual(w.rewrite(head: head("GET / HTTP/1.1\nHost: api.anthropic.com\nAuthorization: Bearer \(u)\n\n"), host: oauthHost),
+                       .refuse(401, "attach one: doz account use a mac"))
+        guard case .passThrough = w.rewrite(head: head("GET / HTTP/1.1\nHost: api.anthropic.com\n\n"), host: oauthHost) else { return XCTFail() }
+        // A vault that never issued one decrypts nothing.
+        XCTAssertFalse(loginVault(nil).boundHosts.contains(oauthHost))
     }
 
     /// D8: a new vault given the old one's placeholder HASHES honours the old placeholders.

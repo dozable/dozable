@@ -536,6 +536,32 @@ final class AccountTests: XCTestCase {
         XCTAssertNil(ls.first { $0.name == "a" }?.account)
     }
 
+    func testClaudeCodeWithNoAccountMaySignInInside() async throws {
+        let c = await core()
+        try await create(c, "a", account: "none")
+        var pol = try await XCTUnwrapAsync(await c.effectiveNetworkPolicy(of: "a"))
+        for h in HostCore.signInHosts {
+            XCTAssertEqual(pol.evaluate(host: h, port: 443).action, .allow, "no account: /login must reach \(h)")
+        }
+        // An edit keeps it, and the kept policy never stores it.
+        var g = HostRequest(.netPolicy, name: "a")
+        g.grant = ["github"]
+        let gm = await c.handle(g)
+        XCTAssertNil(gm.error)
+        pol = try await XCTUnwrapAsync(await c.effectiveNetworkPolicy(of: "a"))
+        XCTAssertEqual(pol.evaluate(host: "platform.claude.com", port: 443).action, .allow)
+        let stored = await c.config(of: "a")
+        if case .proxied(let p)? = stored?.spec.network {
+            XCTAssertFalse(p.rules.contains { $0.note == HostCore.signInAllowNote }, "derived, never stored")
+        } else { XCTFail("proxied") }
+        // An account attached: the sign-in hosts are off again (Standard).
+        keychain.put(svc, claudeItem("sk-ant-oat01-MAC", expires: Date().addingTimeInterval(7200)))
+        let um = await use(c, "a", "mac")
+        XCTAssertNil(um.error)
+        pol = try await XCTUnwrapAsync(await c.effectiveNetworkPolicy(of: "a"))
+        XCTAssertEqual(pol.evaluate(host: "platform.claude.com", port: 443).action, .deny)
+    }
+
     // MARK: aliases (D10) and persisted placeholders (D8)
 
     func testKeySetClaudeLoginIsAccountUseMacAndOldConfigsMigrate() async throws {
