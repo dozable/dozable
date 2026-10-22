@@ -9,7 +9,7 @@ import { opRunningFor } from '../core/sandboxes-a8ce08093e702ad4.js';
 import { saveSetting, setting } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { isAux, pageTerminals, sview, terminals } from '../core/terminals-e2028f16ee8fa887.js';
-import { isRemote } from '../core/session-40bbbfc9960e365d.js';
+import { isRemote } from '../core/session-8981e55f65ad2c3c.js';
 import { accountDialog, credentialBanner, keyEntry } from '../components/accounts-22b9da5974fbb6fb.js';
 import { chip, panel, stat, table } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
@@ -21,12 +21,12 @@ import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-f2a56d
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-63d38bfc28f739a5.js';
 import { sandboxPill } from '../components/pills-9724260312041571.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-52ddae1c07833918.js';
-import { ISOLATED_NOTE } from '../components/workspace-chooser-063824534dc5bd7d.js';
-import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-0539204c1221e451.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-55c2b9ccb4d78185.js';
+import { ISOLATED_NOTE } from '../components/workspace-chooser-b4c754a2f89ecdae.js';
+import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-b11e236b206b5aa3.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-709c9634e82ad21a.js';
 import { networkPanel } from './sandbox-network-809179e21f42afd9.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-2dded972f9c6d121.js';
-import { paintHome } from './sandbox-home-1a87797afb3ebc1f.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-7f2482c55db08639.js';
+import { paintHome } from './sandbox-home-2a39cfdc635ad31f.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
