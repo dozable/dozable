@@ -1312,6 +1312,7 @@ a.nav-sess { display: flex; align-items: center; gap: 7px; flex: 1; height: 24px
 a.nav-sess:hover { background: var(--surface-2); color: var(--ink); }
 a.nav-sess.active { color: var(--ink); background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: var(--fw-medium); }
 a.nav-sess > .icon { width: 13px; height: 13px; flex: none; }
+a.nav-sess > .mark, .tile-head > .mark, .ov-th-name > .mark { width: 15px; height: 15px; color: inherit; }
 a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 a.nav-sess .ag-chip { margin-left: auto; height: 16px; }
 a.nav-sess.saved { font-style: italic; }

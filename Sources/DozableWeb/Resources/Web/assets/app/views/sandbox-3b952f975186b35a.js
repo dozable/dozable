@@ -23,10 +23,10 @@ import { sandboxPill } from '../components/pills-48c02f33a9681938.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-8d4539e977bc72ef.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-ac0ab2d6ed9fcdbc.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-5fdc1743fdacd269.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-e0fe6402a9aeab27.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-88e0bb161b5c9353.js';
 import { networkPanel } from './sandbox-network-35a31b055999849f.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-65181a0571a0a3a7.js';
-import { paintHome } from './sandbox-home-34c59da116f62b1c.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-1908a19a279810e6.js';
+import { paintHome } from './sandbox-home-de18de473e9119fe.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

@@ -13,7 +13,7 @@ import { btn } from '../components/button.js';
 import { dialog } from '../components/dialog.js';
 import { hostCard } from '../components/host.js';
 import { rowLifecycle } from '../components/lifecycle.js';
-import { inTabOrder, renderNavSandboxes } from '../components/nav.js';
+import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav.js';
 import { hoverPeek } from '../components/nav-peek.js';
 import { paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
@@ -209,7 +209,7 @@ function patchRows(list) {
         hoverPeek(th.el, s.name, () => t.row);
         th.wrap = rows
           ? h('div', { class: 'ov-th', role: 'listitem', 'data-ov-thumb': x.name }, th.el,
-            h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, icon('terminal'), h('span', null, x.name)))
+            h('div', { class: 'ov-th-name', title: x.program + ' · ' + x.name }, sessionGlyph(x), h('span', null, x.name)))
           : h('div', { class: 'ov-tile', role: 'listitem', 'data-ov-thumb': x.name }, th.el);
         st.thumbs.set(x.name, th);
         st.box.append(th.wrap);
