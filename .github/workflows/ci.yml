@@ -1,4 +1,4 @@
-# DozableKit CI — feature 578. Runs on the SELF-HOSTED Mac runner (label `deck-mac`, as
+# DozableKit CI — feature 578. Runs on the SELF-HOSTED Mac runner (label `doz-ci` — the Mac kept for Dozable alone, as
 # DeckStack does), never a GitHub-hosted image: macOS minutes bill 10x, the hosted image ships an
 # older Swift, and a VM needs a real Mac with Virtualization.framework.
 #
@@ -48,7 +48,7 @@ jobs:
     name: version-check
     if: github.event_name == 'pull_request'
     # This repository's own branches: the Mac runner; a fork's PR: a GitHub-hosted runner (never self-hosted).
-    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && fromJSON('["self-hosted","deck-mac"]') || 'ubuntu-latest' }}
+    runs-on: ${{ github.event.pull_request.head.repo.full_name == github.repository && fromJSON('["self-hosted","doz-ci"]') || 'ubuntu-latest' }}
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
@@ -81,7 +81,7 @@ jobs:
   package:
     name: Swift package (Mac runner)
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, deck-mac]
+    runs-on: [self-hosted, doz-ci]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +111,7 @@ jobs:
     name: VM integration suite (entitled test host)
     needs: package
     if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && ((github.event_name == 'workflow_dispatch' && inputs.vm) || vars.DOZ_VM_CI == '1')
-    runs-on: [self-hosted, deck-mac]
+    runs-on: [self-hosted, doz-ci]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -133,7 +133,7 @@ jobs:
   deckhold:
     name: Rebuild deckhold and verify the committed binary
     if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'workflow_dispatch' && inputs.deckhold
-    runs-on: [self-hosted, deck-mac]
+    runs-on: [self-hosted, doz-ci]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4

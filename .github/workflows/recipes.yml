@@ -10,7 +10,7 @@
 #   when named in a dispatch); Scripts/recipes_published.py reads the flag from the compiled recipes.
 #   workflow_dispatch             recipes: changed (default) | all | a list ("grok gemini")
 #
-# Runs only on a Mac labelled doz-recipes (it boots VMs). The store is a PERSISTENT cache on that Mac
+# Runs only on a Mac labelled doz-ci (the Mac kept for Dozable alone) (it boots VMs). The store is a PERSISTENT cache on that Mac
 # ($HOME/Library/Caches/DozableKit-ci/recipes-store): prepared images are kept between runs, sandboxes never are; images
 # baked more than 14 days ago are pruned at the end. The kernel cache is ci.yml's.
 #
@@ -62,7 +62,7 @@ jobs:
   recipes:
     name: Recipe check
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
-    runs-on: [self-hosted, doz-recipes]
+    runs-on: [self-hosted, doz-ci]
     timeout-minutes: ${{ (github.event_name == 'schedule' || inputs.recipes == 'all') && 180 || 90 }}
     steps:
       - uses: actions/checkout@v4

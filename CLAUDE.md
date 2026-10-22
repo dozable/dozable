@@ -1929,7 +1929,7 @@ may use it too.
   recipe's `check.screen.expect/refuse`) — the owner's first `doz try goose` opened Goose's own wizard, which the
   headless check never sees; `RECIPE_ONLY=screen` runs it alone. A first-run file may be YAML (top-level keys, Goose's
   `config.yaml`; `merge_yaml` is emitted only into such a recipe's helper). A JSON report; `--changed BASE` and
-  `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1b, label `doz-recipes`, changed
+  `--prune-days N` serve the **Recipes** workflow (`.github/workflows/recipes.yml`: m1max2, label `doz-ci` — the CI Mac kept for Dozable alone, changed
   recipes per PR/push, all nightly + `agent-currency` + `profile-agents DIFF=1`, a persistent store in
   `~/Library/Caches/DozableKit-ci/recipes-store`). A new recipe passes it before it ships.
 - **OpenCode** (`opencode`, npm `opencode-ai` + the platform package `opencode-linux-arm64`, glibc only; an xAI key, model
