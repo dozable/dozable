@@ -18,7 +18,8 @@ import { hoverPeek } from '../components/nav-peek.js';
 import { paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
 import { quickAddButton } from '../components/quick-add.js';
-import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb.js';
+import { livePrefs, liveControls as sharedLiveControls, liveTurn, paintLiveStatus, SOCKET_CEILING } from '../components/live-controls.js';
+import { dropThumbTerm, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { newSandboxWizard } from './new-sandbox.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -31,7 +32,7 @@ const OV = { root: null, top: null, listHead: null, bulk: null, thead: null, tbo
 const SEL = new Set();
 /// At most this many live pictures (and never past ui.grid_live_tiles), never past SOCKET_CEILING of the UI's 16 sockets.
 /// Past the live cap a running session shows its last captured screen (no socket) — up to SAVED_MAX pictures in all.
-const LIVE_MAX = 8, SAVED_MAX = 48, SOCKET_CEILING = 12;
+const LIVE_MAX = 8, SAVED_MAX = 48;
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {
@@ -130,30 +131,10 @@ function redrawListHead() {
   OV.listHead = lh;
 }
 /// 642 (owner): Live − N + (how many pictures are live at once) · Cycle (they take turns) · − S s + (each turn).
-function stepper(label, value, text, min, max, set) {
-  const b = (sign, d) => h('button', { type: 'button', class: 'btn sm quiet icon-only', 'aria-label': label + (d < 0 ? ' — fewer' : ' — more'),
-    disabled: (d < 0 ? value <= min : value >= max) ? '' : null, on: { click: () => set(value + d) } }, sign);
-  return h('span', { class: 'ov-step', role: 'group', 'aria-label': label }, b('−', -1), h('span', { class: 'ov-step-v' }, text), b('+', 1));
-}
 function liveControls() {
-  const n = liveLimit(), hold = holdSecs();
-  const cyc = h('input', { type: 'checkbox', 'data-ov-cycle': '',
-    on: { change: (ev) => { setPref('doz.overview.cycle', ev.target.checked ? 'on' : 'off'); stopCycle(); OV.turn = 0; redrawListHead(); schedule(); } } });
-  cyc.checked = cycleOn();
-  return h('span', { class: 'ov-live', 'data-ov-live': '' },
-    h('span', { class: 'ov-lbl', title: 'How many session pictures are live at once — the rest show their last screen' }, 'Live'),
-    stepper('Live pictures', n, String(n), 0, SOCKET_CEILING, (v) => { setPref('doz.overview.live', v); redrawListHead(); schedule(); }),
-    h('label', { class: 'ov-toggle', title: 'The live pictures take turns, so every one is brought up to date' }, cyc, 'Cycle'),
-    cycleOn() ? stepper('Seconds live per turn', hold, hold + ' s each', 1, 10, (v) => { setPref('doz.overview.hold', v); stopCycle(); redrawListHead(); schedule(); }) : null,
-    h('span', { class: 'ov-cycle-status', 'data-ov-cycle-status': '' }));
+  return sharedLiveControls(LIVE, (what) => { if (what !== 'limit') { stopCycle(); OV.turn = 0; } redrawListHead(); schedule(); });
 }
-/// "20 pictures · each again every ~6 s" — or why it does not cycle.
-function paintCycleStatus() {
-  const el = OV.listHead && OV.listHead.querySelector('[data-ov-cycle-status]');
-  if (!el) return;
-  const n = liveLimit(), c = OV.cand || 0;
-  el.textContent = !cycleOn() || !c ? '' : c <= n ? 'all ' + c + ' live' : c + ' pictures · each again every ~' + Math.ceil(c / Math.max(1, n)) * holdSecs() + ' s';
-}
+function paintCycleStatus() { paintLiveStatus(OV.listHead, LIVE, OV.cand || 0); }
 function thumbsToggle() {
   const box = h('input', { type: 'checkbox', 'data-ov-thumbs': '',
     on: { change: (ev) => {
@@ -271,12 +252,10 @@ function shown() {
 }
 /// 642 (owner): how many pictures are live at once (this browser; ui.grid_live_tiles until changed), whether the live
 /// ones take turns, and how long each turn is.
-function pref(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (_) { return d; } }
-function setPref(k, v) { try { localStorage.setItem(k, String(v)); } catch (_) { /* this page only */ } }
-function liveLimit() { const n = parseInt(pref('doz.overview.live', ''), 10); return Number.isInteger(n) ? Math.max(0, Math.min(SOCKET_CEILING, n)) : liveCap(LIVE_MAX); }
-function cycleOn() { return pref('doz.overview.cycle', 'off') === 'on'; }
-function holdSecs() { const n = parseInt(pref('doz.overview.hold', '2'), 10); return n >= 1 && n <= 10 ? n : 2; }
-function startCycle() { if (!OV.cycleTimer) OV.cycleTimer = setInterval(() => { OV.turn = (OV.turn || 0) + 1; placeThumbs(); }, holdSecs() * 1000); }
+const LIVE = livePrefs('overview', LIVE_MAX);
+function liveLimit() { return LIVE.limit(); }
+function cycleOn() { return LIVE.cycle(); }
+function startCycle() { if (!OV.cycleTimer) OV.cycleTimer = setInterval(() => { OV.turn = (OV.turn || 0) + 1; placeThumbs(); }, LIVE.hold() * 1000); }
 function stopCycle() { clearInterval(OV.cycleTimer); OV.cycleTimer = null; }
 /// 642 (owner): the sandbox under the pointer — its pictures are live first.
 function setHover(name) { if (OV.hover !== name) { OV.hover = name; schedule(); } }
@@ -300,16 +279,8 @@ function placeThumbs() {
   if (cycling) startCycle(); else stopCycle();
   // The pictures that hold a live slot now: the hovered sandbox's first; then, cycling, the next of the rest in turn —
   // else those already live, then the first in the page's order.
-  const firm = all.filter(([st, th]) => st.name === OV.hover && cand.includes(th)).map(([, th]) => th).slice(0, cap);
-  const turn = new Set(firm);
-  if (cycling) {
-    const rest = cand.filter((th) => !turn.has(th));
-    const k = cap - firm.length, start = rest.length && k > 0 ? ((OV.turn || 0) * k) % rest.length : 0;
-    for (let i = 0; i < Math.min(k, rest.length); i++) turn.add(rest[(start + i) % rest.length]);
-  } else {
-    for (const th of cand) if (turn.size < cap && th.kind === 'live') turn.add(th);
-    for (const th of cand) if (turn.size < cap) turn.add(th);
-  }
+  const firm = all.filter(([st, th]) => st.name === OV.hover && cand.includes(th)).map(([, th]) => th);
+  const turn = liveTurn(cand, firm, cap, cycling, OV.turn, (th) => th.kind === 'live');
   OV.cand = cand.length;
   paintCycleStatus();
   // A live picture whose turn is over (or past the limit) lets go of its socket and keeps its last frame.

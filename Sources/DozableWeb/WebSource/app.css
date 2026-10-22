@@ -384,6 +384,7 @@ dialog.dlg.bootlog-dialog { width: min(1100px, calc(100vw - 32px)); max-width: n
 .tile-head > .icon { width: 13px; height: 13px; flex: none; color: var(--ink-2); }
 .tile-title { font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tile-phase { color: var(--ink-2); white-space: nowrap; }
+.tile-tag:empty { display: none; }
 .tile-act { margin-left: auto; }
 .tile-body { position: relative; width: calc(960px * var(--s)); height: calc(560px * var(--s)); background: var(--term-bg); overflow: hidden; }
 .tile-screen { position: absolute; left: 0; top: 0; width: 960px; height: 560px; transform: scale(var(--s)); transform-origin: 0 0; }
