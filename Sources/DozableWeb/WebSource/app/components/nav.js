@@ -1,7 +1,7 @@
 // components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, mark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
@@ -9,6 +9,7 @@ import { agentChip, agentDot, paintAgentStatuses } from './agent-status.js';
 import { moreMenu } from './menus.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek.js';
 import { sessionMenuItems } from './session-actions.js';
+import { isAux, pageTerminals } from '../core/terminals.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const renderHostFoot = upcall('renderHostFoot');
 
@@ -40,29 +41,55 @@ export function renderNavSandboxes() {
   // guest call); a caret folds it to one line with its session count (remembered in this browser).
   const folded = foldedSet();
   if (!$('nav-sandboxes').dataset.peek) { $('nav-sandboxes').dataset.peek = '1'; peekRegion($('nav-sandboxes')); }   // 635
+  if (!$('nav-sbx-more').firstChild) $('nav-sbx-more').append(sandboxesMenu());                                       // 642
   $('nav-sandboxes').replaceChildren(...list.map((s) => {
     const here = !state.modal && state.view === 'sandbox' && state.param === s.name;
-    const sessions = s.sessionList || [];
+    const sessions = inTabOrder(s.name, s.sessionList || []);
     const total = sessions.length + (s.sessionMore || 0);
     const fold = total > 0 && folded.has(s.name);
-    const link = h('a', { href: '#/sandbox/' + s.name, class: 'nav-child child' + (here && !shownSession(s.name) ? ' active' : ''), 'aria-current': here ? 'page' : null,
-      'data-sandbox': s.name, title: s.name + ' — ' + s.phaseLabel },
-      h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel }), h('span', { class: 'nav-name' }, s.name),
+    // 642 (owner): the sandbox's line opens its Home; a click on it while its Home is shown folds or shows its sessions.
+    const link = h('a', { href: '#/sandbox/' + s.name + '/~home', class: 'nav-child child' + (here && !shownSession(s.name) ? ' active' : ''), 'aria-current': here ? 'page' : null,
+      'data-sandbox': s.name, title: s.name + ' — ' + s.phaseLabel,
+      on: { click: (ev) => { if (total > 0 && ev.currentTarget.classList.contains('active')) { ev.preventDefault(); setFolded(s.name, !fold); renderNavSandboxes(); } } } },
+      phaseGlyph(s), h('span', { class: 'nav-name' }, s.name),
       fold ? h('span', { class: 'nav-count', title: total + ' session' + (total === 1 ? '' : 's') }, String(total)) : null,
       agentDot(s));                                  // 612: its most urgent agent, when one says something
     const caret = total > 0 ? h('button', { type: 'button', class: 'nav-caret' + (fold ? ' folded' : ''), 'data-nav-fold': s.name,
       'aria-expanded': fold ? 'false' : 'true', 'aria-label': (fold ? 'Show ' : 'Fold ') + s.name + '’s sessions', title: fold ? 'Show its sessions' : 'Fold its sessions',
       on: { click: (ev) => { ev.preventDefault(); ev.stopPropagation(); setFolded(s.name, !fold); renderNavSandboxes(); } } }, icon('chevron-down')) : null;
-    const lines = navLines(s, sessions, total, fold);
+    const lines = (fold ? sessions.filter((x) => urgent(s, x.name)) : sessions).map((x) => sessionLine(s, x));
     return h('div', { class: 'nav-sbx', role: 'listitem', 'data-nav-sbx': s.name }, link, caret,
       lines.length ? h('div', { class: 'nav-sessions', role: 'list', 'aria-label': s.name + '’s sessions', 'data-nav-sessions': s.name }, ...lines) : null);
   }));
   paintAgentStatuses();                              // 612: the chips on screen, and a notice per change
 }
 
+/// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
+function phaseGlyph(s) {
+  if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');
+    g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel); return g; }
+  return h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel });
+}
+
 // ── 635: a sandbox's sessions in the sidebar ────────────────────────────────────────────────────────────────────────
-/// At most this many lines under a sandbox (the last one "N more — Home" when there are more sessions).
-const NAV_LINES = 4;
+/// 642 (owner: "always show all sessions in the order they appear in the tab bar"): every session, those with a tab
+/// on the sandbox's page first, in the tab bar's order, then the rest in the host's (the agent's, then by when opened).
+export function inTabOrder(name, sessions) {
+  const tabs = [];
+  for (const t of pageTerminals(name)) if (!isAux(t) && t.session && !tabs.includes(t.session)) tabs.push(t.session);
+  if (!tabs.length) return sessions;
+  const at = (x) => { const i = tabs.indexOf(x.name); return i < 0 ? tabs.length : i; };
+  return sessions.map((x, i) => [x, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map(([x]) => x);
+}
+/// 642 (owner): the Sandboxes heading's ⋯ — Expand all / Collapse all.
+function sandboxesMenu() {
+  const names = () => (state.overview ? state.overview.sandboxes : []).filter((s) => (s.sessionList || []).length).map((s) => s.name);
+  const m = moreMenu('More for Sandboxes', [
+    { label: 'Expand all', icon: 'chevron-down', desc: 'Every sandbox’s sessions', onSelect: () => { setFoldedAll([]); renderNavSandboxes(); } },
+    { label: 'Collapse all', icon: 'chevron-right', desc: 'Each sandbox on one line (a session that needs you still shows)', onSelect: () => { setFoldedAll(names()); renderNavSandboxes(); } },
+  ], { small: true, data: { navSandboxesMore: '' } });
+  return m.el;
+}
 /// The folds, per sandbox, in this browser (a layout convenience, like the inspector's width — never a setting).
 function foldedSet() {
   try { const v = JSON.parse(localStorage.getItem('doz.nav.folded') || '[]'); return new Set(Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []); } catch (_) { return new Set(); }
@@ -72,6 +99,9 @@ function setFolded(name, on) {
   if (on) f.add(name); else f.delete(name);
   try { localStorage.setItem('doz.nav.folded', JSON.stringify([...f].slice(-200))); } catch (_) { /* no storage: this page only */ }
 }
+function setFoldedAll(names) {
+  try { localStorage.setItem('doz.nav.folded', JSON.stringify(names.slice(-200))); } catch (_) { /* no storage: this page only */ }
+}
 /// The session the sandbox's page shows now (its selected tab), when that page is open.
 function shownSession(name) {
   return !state.modal && state.view === 'sandbox' && state.param === name ? state.session || null : null;
@@ -80,34 +110,13 @@ function urgent(s, session) {
   const st = (s.sessionStatuses || []).find((x) => x.session === session);
   return !!st && (st.state === 'blocked' || st.state === 'error');
 }
-/// Which lines a sandbox shows: folded, only a session that needs you or failed; open, all of them up to four —
-/// past that, the agent's, any that needs you or failed, the one shown, the rest in order, and "N more — Home" as the
-/// fourth line. Always drawn in the list's own order (the agent's first, then by when opened): nothing moves.
-function navLines(s, sessions, total, fold) {
-  let pick;
-  if (fold) pick = sessions.filter((x) => urgent(s, x.name));
-  else if (total <= NAV_LINES) pick = sessions;
-  else {
-    const want = new Set();
-    const add = (x) => { if (x && want.size < NAV_LINES - 1) want.add(x.name); };
-    add(sessions.find((x) => x.isDefault));
-    for (const x of sessions) if (urgent(s, x.name)) add(x);
-    add(sessions.find((x) => x.name === shownSession(s.name)));
-    for (const x of sessions) add(x);
-    pick = sessions.filter((x) => want.has(x.name));
-  }
-  const lines = pick.map((x) => sessionLine(s, x));
-  if (!fold && total > pick.length) {
-    lines.push(h('div', { class: 'nav-sess-row', role: 'listitem' },
-      h('a', { href: '#/sandbox/' + s.name + '/~home', class: 'nav-sess more', title: 'Every session of ' + s.name + ', on its Home' }, (total - pick.length) + ' more — Home')));
-  }
-  return lines;
-}
+/// 642 (owner: "bring back the app icons in the session glyphs"): the agent's mark when its program is one, else a terminal.
+export function sessionGlyph(x) { return x && x.icon && x.icon.d ? mark(x.icon, 'ns-mark') : icon('terminal'); }
 function sessionLine(s, x) {
   const active = shownSession(s.name) === x.name;
   const a = h('a', { href: '#/sandbox/' + s.name + '/' + x.name, class: 'nav-sess' + (x.saved ? ' saved' : '') + (active ? ' active' : ''),
     'data-session': x.name, title: x.program + ' · ' + x.name + (x.saved ? ' — its saved screen' : '') },
-    icon('terminal'), h('span', { class: 'ns-name' }, x.name), agentChip(s.name, x.name));
+    sessionGlyph(x), h('span', { class: 'ns-name' }, x.name), agentChip(s.name, x.name));
   // ⋯ on hover: End and Restart — a running sandbox's (ending a program never wakes one).
   const menu = s.phase === 'running' && !s.busy
     ? moreMenu('More for ' + x.name, sessionMenuItems(s.name, x.name, null), { small: true, data: { navMore: x.name }, onClose: () => setTimeout(renderNavSandboxes, 0) }).el
@@ -126,6 +135,12 @@ export function markNavSession() {
     const link = box.querySelector('a.nav-child');
     if (link) link.classList.toggle('active', here && !shown);
     for (const a of box.querySelectorAll('a.nav-sess[data-session]')) a.classList.toggle('active', a.dataset.session === shown);
+  }
+  // 642: a tab opened or closed can change the order — then the sidebar is drawn again.
+  for (const s of state.overview ? state.overview.sandboxes : []) {
+    const drawn = [...document.querySelectorAll('#nav-sandboxes [data-nav-sbx="' + CSS.escape(s.name) + '"] a.nav-sess[data-session]')].map((a) => a.dataset.session);
+    const want = inTabOrder(s.name, s.sessionList || []).map((x) => x.name).filter((n) => drawn.includes(n));
+    if (want.join('\n') !== drawn.join('\n')) { renderNavSandboxes(); return; }
   }
 }
 export function paintNav() {

@@ -1,7 +1,7 @@
 // components/nav-peek — 635 (owner): a session's picture from the sidebar. Hovering a session's line shows a screen icon;
 // resting on the icon fills it for half a second, then the session's live picture (or, asleep, its saved screen) opens
 // beside the sidebar. While it is open, moving to another session's line shows that one's picture at once; leaving the
-// sidebar's sessions closes it. ui.nav_thumbnails: false — no icon, no picture. One watch terminal at most (a viewer:
+// sidebar's sessions closes it; a click on the icon opens the session (642). ui.nav_thumbnails: false — no icon, no picture. One watch terminal at most (a viewer:
 // nothing typed, never a resize).
 import { h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
@@ -21,7 +21,7 @@ export function canPeek(phase, x) {
 export function peekIcon(row, sandbox, x) {
   const key = keyOf(sandbox, x.name);
   const b = h('button', { type: 'button', class: 'nav-peek', tabindex: '-1', 'aria-hidden': 'true', 'data-nav-peek': x.name,
-    title: 'Rest here to see ' + x.name + '’s screen' }, icon('monitor'));
+    title: 'Open ' + x.name + ' — rest here to see its screen' }, icon('monitor'));
   // A line drawn again under a pointer still arming (the sidebar refreshes) carries on where it was.
   if (peek.armKey === key) { b.classList.add('arming'); b.style.setProperty('--arm-delay', -(performance.now() - peek.armAt) + 'ms'); }
   b.addEventListener('pointerenter', () => {
@@ -34,9 +34,26 @@ export function peekIcon(row, sandbox, x) {
     peek.armTimer = setTimeout(() => { disarm(); show(sandbox, x, b.closest('.nav-sess-row') || row); }, ARM_MS);
   });
   b.addEventListener('pointerleave', () => { if (peek.armKey === key) disarm(); });
-  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); show(sandbox, x, b.closest('.nav-sess-row') || row); });
+  // 642 (owner): a click opens the session, as its name does (resting still shows the picture).
+  b.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); disarm(); hidePeek(); location.hash = '#/sandbox/' + sandbox + '/' + x.name; });
   row.addEventListener('pointerenter', () => { cancelHide(); if (peek.pop && !peek.pop.hidden && peek.key !== key) show(sandbox, x, row); });
   return b;
+}
+
+/// 642 (owner): the same picture from a session's thumbnail elsewhere (All sandboxes): resting on `el` opens it beside
+/// it; moving to another thumbnail while it is open shows that one's at once; leaving closes it. `getX`: the session row;
+/// `enabled` (optional): whether the page wants it now.
+export function hoverPeek(el, sandbox, getX, enabled) {
+  el.addEventListener('pointerenter', () => {
+    if (enabled && !enabled()) return;              // 642: the page's own switch is off
+    cancelHide();
+    if (peek.pop && !peek.pop.hidden) { show(sandbox, getX(), el); return; }
+    disarm();
+    peek.armKey = keyOf(sandbox, getX().name); peek.armAt = performance.now();
+    peek.armTimer = setTimeout(() => { disarm(); if (el.isConnected) show(sandbox, getX(), el); }, ARM_MS);
+  });
+  el.addEventListener('pointerleave', () => { disarm(); scheduleHide(); });
+  el.addEventListener('click', () => { disarm(); hidePeek(); });
 }
 
 /// The sidebar's session lists: leaving them closes the picture (after a moment — the way to the picture crosses a gap).
@@ -85,9 +102,11 @@ function show(sandbox, x, row) {
     : document.querySelector('#nav-sandboxes [data-nav-sbx="' + CSS.escape(sandbox) + '"] a.nav-sess[data-session="' + CSS.escape(x.name) + '"]')
       || document.querySelector('#nav-sandboxes');
   const r = now.getBoundingClientRect();
-  const side = document.querySelector('.side');
-  const left = (side ? side.getBoundingClientRect().right : r.right) + 8;
-  const ph = pop.offsetHeight;
+  // Beside the sidebar for its lines; beside the thumbnail elsewhere (on its left when the right has no room).
+  const side = now.closest('.side') ? document.querySelector('.side') : null;
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = (side ? side.getBoundingClientRect().right : r.right) + 8;
+  if (!side && left + pw > innerWidth - 8) left = Math.max(8, r.left - pw - 8);
   pop.style.left = Math.round(left) + 'px';
   pop.style.top = Math.round(Math.max(8, Math.min(r.top + r.height / 2 - ph / 2, innerHeight - ph - 8))) + 'px';
 }

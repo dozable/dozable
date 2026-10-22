@@ -355,6 +355,7 @@ function onTerminalMessage(t, ev) {
 }
 
 function onTerminalClose(t, ws, ev) {
+  if (ws === t.frozenWs) { t.frozenWs = null; return; }   // 642: a picture let go of its socket on purpose (freezeTerm)
   if (t.ws === ws) t.ws = null;
   clearInterval(t.pinger);
   if (t.closed || t.ended || t.errorText) return;
@@ -670,6 +671,50 @@ export function goLive(t) {
   t.initMode = t.mode;
   connectTerminal(t);
 }
+
+/// 642 (owner: thumbnails cycled through a few live connections): a live watch picture lets go of its socket and keeps
+/// its last frame — `thawTerm` attaches it again (the attach's SNAPSHOT redraws it in place).
+export function freezeTerm(t) {
+  if (!t || !t.ws) return;
+  const ws = t.ws;
+  t.frozenWs = ws; t.ws = null;
+  clearInterval(t.pinger);
+  try { ws.close(1000, 'closed'); } catch (_) { /* already closing */ }
+}
+export function thawTerm(t) {
+  if (!t || t.ws || t.thawing || t.closed || !t.booted) return;
+  t.thawing = true;
+  connectTerminal(t).finally(() => { t.thawing = false; });
+}
+
+/// 642 (owner: "do the proper fix"): the tabs of a sandbox whose page is not shown let go of their sockets (the UI has
+/// 16 in all — every open tab of every sandbox held one, and the pictures and the sidebar's peek found none left), after
+/// PARK_AFTER_MS away; arriving on the page attaches them again with their scrollback (a reattach ticket: the SNAPSHOT
+/// keeps it). The session runs on in the sandbox all the while — only this page stops watching it.
+const PARK_AFTER_MS = 5000;
+function pageShows(t) { return state.view === 'sandbox' && state.param === t.sandbox; }
+function parkable(t) {
+  return !t.grid && !t.closed && !t.ended && !t.errorText && !t.restarting && !t.pending && !t.bootIntent && !t.saved
+    && (t.mode === 'interactive' || t.mode === 'watch');
+}
+function parkTerminals() {
+  const now = Date.now();
+  for (const t of [...terminals.values()]) {
+    if (!parkable(t)) continue;
+    if (pageShows(t)) {
+      t.awaySince = 0;
+      if (t.parked && !t.ws && !t.thawing) {
+        t.thawing = true;
+        connectTerminal(t, { reattach: true }).then((r) => { if (r !== 'retry') t.parked = false; }).finally(() => { t.thawing = false; });
+      }
+    } else if (t.ws && t.opened && !t.parked) {
+      if (!t.awaySince) t.awaySince = now;
+      else if (now - t.awaySince >= PARK_AFTER_MS) { t.parked = true; t.awaySince = 0; freezeTerm(t); }
+    }
+  }
+}
+setInterval(parkTerminals, 1000);
+window.addEventListener('hashchange', () => setTimeout(parkTerminals, 50));
 
 /// 617: a start waiting for this pane (startWithBootView) is woken by its state, its error or its close — no polling.
 function wakeStateWaiters(t) {

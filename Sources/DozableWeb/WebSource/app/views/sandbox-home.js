@@ -314,26 +314,31 @@ function placeThumbs(name) {
   // Let go first (off screen, not shown, the wrong kind), so the cap counts only what stays.
   for (const th of thumbs) {
     const want = wantOf(th, running);
-    if (th.term && (!shown || !th.visible || !want || (want === 'saved' && th.kind === 'live'))) { dropThumbTerm(th.term); th.term = null; th.kind = null; }
+    if (th.term && (!shown || !th.visible || !want || (want === 'saved' && th.kind !== 'saved'))) { dropThumbTerm(th.term); th.term = null; th.kind = null; }
   }
   let live = thumbs.filter((th) => th.term && th.kind === 'live').length;
-  let savedN = thumbs.filter((th) => th.term && th.kind === 'saved').length;
+  let savedN = thumbs.filter((th) => th.term && th.kind !== 'live').length;
   for (const th of thumbs) {
     const want = wantOf(th, running);
     let plate = '';
     if (!shown || !want) plate = want ? '' : 'no picture';
     else if (!th.visible) plate = '';
     else if (want === 'live') {
-      if (th.term && th.kind === 'saved') { thumbGoLive(th.term); th.kind = 'live'; live++; }
+      // Room: under the cap, and a socket free (every open tab of every sandbox holds one of the UI's 16).
+      const room = live < cap && openSockets() < SOCKET_CEILING;
+      if (th.term && th.kind !== 'live' && room) { thumbGoLive(th.term); th.kind = 'live'; live++; }
       else if (!th.term) {
-        if (live < cap && openSockets() < SOCKET_CEILING) { th.term = thumbTerm(name, th.session, null, th.screen); th.kind = 'live'; live++; }
+        if (room) { th.term = thumbTerm(name, th.session, null, th.screen); th.kind = 'live'; live++; }
+        // 642 (owner: "why are these thumbnails not live"): no room — its last captured screen (no socket), live once
+        // there is room.
+        else if (savedN < SAVED_MAX) { th.term = thumbTerm(name, th.session, { savedAt: th.row.savedAt || null, savedReason: 'periodic' }, th.screen); th.kind = 'still'; savedN++; }
         else plate = 'Not live — Open';
       }
     } else if (want === 'saved' && !th.term) {
       if (savedN < SAVED_MAX) { th.term = thumbTerm(name, th.session, th.row, th.screen); th.kind = 'saved'; savedN++; }
       else plate = 'Show';
     }
-    paintThumb(th, th.term ? th.kind : null, plate);
+    paintThumb(th, th.term ? (th.kind === 'still' ? 'saved' : th.kind) : null, plate);
   }
   home.doc.dataset.live = String(live);
 }
