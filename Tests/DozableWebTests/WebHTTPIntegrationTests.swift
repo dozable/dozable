@@ -902,6 +902,24 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     var fileWatchers: Int { lock.withLock { fileSinks.count } }
     func fileChange(_ b: FileChangeBatch) { for c in lock.withLock({ fileSinks }) { c.yield(b) } }
 
+    // 644 — the panel's open folders (kept here) and the open (recorded).
+    private var tree = FileTreeState(expanded: [])
+    private(set) var opened: [WebFileOpen] = []
+    func fileTree(_ name: String) async throws -> WebFileTree {
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        return WebFileTree(lock.withLock { tree })
+    }
+    func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree {
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        lock.withLock { tree = state }
+        return WebFileTree(state)
+    }
+    func openFile(_ name: String, _ o: WebFileOpen) async throws -> String {
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        lock.withLock { opened.append(o) }
+        return (o.reveal ? "showed " : "opened ") + o.path
+    }
+
     func attachTerminal(_ name: String, session: String?, size: TermSize) async throws -> any WebTerminalAttachment {
         let next: FakeAttachment? = lock.withLock {
             attaches.append((name, session, size))
