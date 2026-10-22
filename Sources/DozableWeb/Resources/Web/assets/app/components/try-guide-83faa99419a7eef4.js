@@ -12,7 +12,7 @@ import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { isAux, pageTerminals, sview } from '../core/terminals-e2028f16ee8fa887.js';
 import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { toast } from './notices-f6630ec2e36e2d1c.js';
-import { focusTerm, sendInput } from './terminal-45739c714df654f9.js';
+import { focusTerm, sendInput } from './terminal-298aeae34c7bb918.js';
 import { tildeIn } from '../core/paths-074fefdb8b1d48aa.js';
 
 /// Which steps ran, per sandbox (page memory).

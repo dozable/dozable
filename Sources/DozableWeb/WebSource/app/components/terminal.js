@@ -355,6 +355,7 @@ function onTerminalMessage(t, ev) {
 }
 
 function onTerminalClose(t, ws, ev) {
+  if (ws === t.frozenWs) { t.frozenWs = null; return; }   // 642: a picture let go of its socket on purpose (freezeTerm)
   if (t.ws === ws) t.ws = null;
   clearInterval(t.pinger);
   if (t.closed || t.ended || t.errorText) return;
@@ -669,6 +670,21 @@ export function goLive(t) {
   toFrame(t, { t: 'live', mode: t.mode });
   t.initMode = t.mode;
   connectTerminal(t);
+}
+
+/// 642 (owner: thumbnails cycled through a few live connections): a live watch picture lets go of its socket and keeps
+/// its last frame — `thawTerm` attaches it again (the attach's SNAPSHOT redraws it in place).
+export function freezeTerm(t) {
+  if (!t || !t.ws) return;
+  const ws = t.ws;
+  t.frozenWs = ws; t.ws = null;
+  clearInterval(t.pinger);
+  try { ws.close(1000, 'closed'); } catch (_) { /* already closing */ }
+}
+export function thawTerm(t) {
+  if (!t || t.ws || t.thawing || t.closed || !t.booted) return;
+  t.thawing = true;
+  connectTerminal(t).finally(() => { t.thawing = false; });
 }
 
 /// 617: a start waiting for this pane (startWithBootView) is woken by its state, its error or its close — no polling.

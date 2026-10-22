@@ -7,12 +7,12 @@ import { SAVED_PHASES, VERBS } from '../core/sandboxes-02cb10ff22462e6d.js';
 import { saveSetting, setting } from '../core/settings-d5d1cc502b79180e.js';
 import { state } from '../core/state-1378d79c750c8380.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';
-import { lifecycle } from '../components/lifecycle-eed34c088324ed4f.js';
-import { renderNavSandboxes } from '../components/nav-9d2ca084482ccf86.js';
+import { lifecycle } from '../components/lifecycle-bfb3ba18578bc35d.js';
+import { renderNavSandboxes } from '../components/nav-cee69d57e0de2135.js';
 import { agentChip } from '../components/agent-status-ea43ce7858bc28f6.js';
 import { pageFailure } from '../components/notices-f6630ec2e36e2d1c.js';
-import { paintCover } from '../components/terminal-45739c714df654f9.js';
-import { dropThumbTerm, thumbGoLive, thumbTerm } from '../components/session-thumb-dacc95d682c3172c.js';
+import { paintCover } from '../components/terminal-298aeae34c7bb918.js';
+import { dropThumbTerm, thumbGoLive, thumbTerm } from '../components/session-thumb-27d3f1fdffc718eb.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox — a live, read-only (watch) view: the same ticket,
