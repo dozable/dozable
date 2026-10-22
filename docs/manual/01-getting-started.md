@@ -105,7 +105,7 @@ what to fix and improve: at most once a day, counts and ranges about how Dozable
 commands ran and how often they failed (by exit code), which agents, bases and network presets new
 sandboxes use, the size of your setup as ranges, typical start and wake times rounded to 50 ms, how long
 sandboxes ran and slept and how long agents worked (as ranges), which features you used (the dashboard,
-the installed app, `doz serve`, workspace rules, GitHub access, restore points, templates), which built-in
+the installed app, the dashboard on your network (`doz ui --lan`), workspace rules, GitHub access, restore points, templates), which built-in
 image-preparation step failed, and your Mac's macOS version, chip family, memory and cores as ranges — with
 a random install id. **Never**
 a sandbox, image or project name, a file or folder name or path, anything inside a sandbox, anything

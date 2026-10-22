@@ -102,11 +102,12 @@ $CS"
 DN=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+dnssd([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/WebBonjour.swift$" || true)
 [[ -z "$DN" ]] || fail "dnssd is imported outside Sources/DozableWeb/WebBonjour.swift:
 $DN"
-# 606: only doz serve binds beyond loopback — doz ui (590) never constructs the network profile.
+# 606/645: only the dashboard's LAN side (ServeCommand.swift's LANDashboard — `doz ui --lan`) binds beyond loopback;
+# UICommand.swift (the browser opener, CoreServices) never constructs the network profile itself.
 BS=$(grep -rlE --include='*.swift' 'bindServe\(|WebServeState\(' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/(WebServer|WebServeState)\.swift$|/Sources/DozableCLI/ServeCommand\.swift$" || true)
-[[ -z "$BS" ]] || fail "the network (doz serve) profile is constructed outside DozableWeb and ServeCommand.swift:
+[[ -z "$BS" ]] || fail "the network (LAN) profile is constructed outside DozableWeb and ServeCommand.swift:
 $BS"
-grep -qE 'bindServe|WebServeState|WebServeConfig' "$PACKAGE/Sources/DozableCLI/UICommand.swift" && fail "doz ui (UICommand.swift) must stay loopback-only — it may not reach the doz serve profile"
+grep -qE 'bindServe|WebServeState|WebServeConfig' "$PACKAGE/Sources/DozableCLI/UICommand.swift" && fail "UICommand.swift may not construct the LAN profile — that is ServeCommand.swift's LANDashboard"
 WH=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+DozableWeb([[:space:]]|$)' "$PACKAGE/Sources/DozableHost" || true)
 [[ -z "$WH" ]] || fail "the host imports the web UI (the UI is a client of the host):
 $WH"
@@ -238,5 +239,5 @@ printf '          depends only on apple/containerization (exact) + the apple/* p
 printf '          (TLS; ArgumentParser for the CLI targets only) and Yams (exact; the CLI'"'"'s project file and recipe sources only),\n'
 printf '          carries no host brand, deckhold + doznet + dozview match their provenance (no libfuse),\n'
 printf '          the web UI (NIOHTTP1, confined) ships exactly the assets its sources build,\n'
-printf '          doz ui stays loopback-only and only doz serve binds the LAN (dnssd confined to its announcer),\n'
+printf '          doz ui binds the LAN only through its LAN side (ServeCommand.swift) (dnssd confined to its announcer),\n'
 printf '          and no file carries the pre-592 product name\n'

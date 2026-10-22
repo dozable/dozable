@@ -6,7 +6,7 @@ import { refresh } from '../core/router-02a6e4601934e1fc.js';
 import { adoptSettings, resetSetting, saveSetting } from '../core/settings-d764a83ca7e652e0.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { isInt } from '../core/util-1195caf40612902f.js';
-import { isRemote } from '../core/session-40bbbfc9960e365d.js';
+import { isRemote } from '../core/session-8981e55f65ad2c3c.js';
 import { renderAccessStep } from '../components/access-step-d9f3866ee9fca9b3.js';
 import { pageIndex } from '../components/blocks-53c969feeec8fe89.js';
 import { btn } from '../components/button-b2be2d3eaa1a3fd0.js';

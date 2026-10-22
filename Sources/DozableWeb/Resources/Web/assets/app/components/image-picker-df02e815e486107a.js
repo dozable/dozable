@@ -5,7 +5,7 @@ import { AGENT_NAMES, AGENTS, CATALOG, imageNameOf, parseImageName, registerCata
 import { api } from '../core/api-0560a03cb0de25ef.js';
 import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitOps } from '../core/operations-1789b4518e764708.js';
-import { isRemote } from '../core/session-40bbbfc9960e365d.js';
+import { isRemote } from '../core/session-8981e55f65ad2c3c.js';
 import { btn } from './button-b2be2d3eaa1a3fd0.js';
 import { callout } from './callout-1fe929a7376b7fbc.js';
 

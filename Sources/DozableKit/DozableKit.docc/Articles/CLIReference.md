@@ -670,33 +670,35 @@ name the sandbox from its image (`claude-sandbox`, `-2` when taken) and offer **
 folder** — `<defaults.projects_dir>/<name>` by default, made when missing, with **Choose…** opening
 the Mac's own folder picker — or **Isolated** (nothing on the Mac is shared).
 
-### The dashboard for your other browsers
+### The dashboard for your other browsers (the LAN option)
 
 ```bash
-doz serve [start] [--detach|-d] [--port N] [--bind lan|loopback|ADDRESSES] [--no-invite] [--store DIR]   # serve the dashboard on your network; Ctrl-C (or doz serve stop) stops it; --detach: in the background
-doz serve share [--store DIR]                          # an invite for one more browser: a QR code, a code and a link (a terminal only)
-doz serve devices [--json] [--store DIR]               # the browsers let in: name, first and last seen, from where, which browser
-doz serve revoke ID | --all [--store DIR]              # remove a browser: signed out at once (its terminals close)
-doz serve rename ID NAME [--store DIR]                 # name a browser
-doz serve status [--json] [--store DIR]                # running? where, how many browsers, open invites
-doz serve log [-n N] [--json] [--store DIR]            # what the other browsers did (the audit log)
-doz serve stop [--store DIR]                           # stop the running doz serve
+doz ui --lan [--detach|-d] [--port N] [--bind lan|loopback|ADDRESSES] [--no-invite] [--store DIR]   # the same dashboard on your network too (ui.lan); Ctrl-C (or doz ui stop) stops it
+doz ui share [--store DIR]                             # an invite for one more browser: a QR code, a code and a link (a terminal only)
+doz ui devices [--json] [--store DIR]                  # the browsers let in: name, first and last seen, from where, which browser
+doz ui revoke ID | --all [--store DIR]                 # remove a browser: signed out at once (its terminals close)
+doz ui rename ID NAME [--store DIR]                    # name a browser
+doz ui status [--json] [--store DIR]                   # running? where, open pages, and on your network: where, browsers, open invites
+doz ui log [-n N] [--json] [--store DIR]               # what the other browsers did (the audit log)
 ```
 
-`doz serve` is a separate process from `doz ui` (which stays on `127.0.0.1`): its own lock, socket, port
-(`serve.port`, 7443) and devices (`<store>/serve/`, 0700 — `devices.json` holds each browser's cookie digest, never
-the cookie). It listens on every network interface of the Mac and Tailscale (`serve.bind = lan`) — never on a
-sandbox's network, and a connection from a sandbox network is dropped before a byte is read; the host's egress
-proxy refuses the dashboards' ports on the Mac's own addresses to proxied sandboxes. A browser gets in once with
-an invite (a 256-bit link token in the URL fragment, an 8-character code, the QR code of the link — whichever is
-used first, within five minutes) and stays in until it is revoked. Everything the Mac's dashboard does works,
-except typing a key or token over plain HTTP (403 `secret-over-http`) and what opens a window on the Mac's own
-screen (the folder pickers, Open in Terminal: 403 `mac-screen`). Each request's own origin is derived from its
-`Host` (the Mac's names and addresses) or, only from a `serve.trusted_proxies` peer, from `X-Forwarded-Proto` /
+ONE process and ONE port serve this Mac's browser and, with the LAN option (`ui.lan`, off by default — set only on the
+Mac), the other browsers of your network (the port: `ui.port`, else `serve.port`, 7443). Who asks is decided per
+request: only a loopback connection to exactly `127.0.0.1:<port>` with no forwarding header is this Mac's browser
+(signed in by the link, everything allowed); every other browser is a device (`<store>/serve/`, 0700 — `devices.json`
+holds each browser's cookie digest, never the cookie). It listens on every network interface of the Mac and Tailscale
+(`serve.bind = lan`) — never on a sandbox's network, and a connection from a sandbox network is dropped before a byte
+is read; the host's egress proxy refuses the dashboard's port on the Mac's own addresses to proxied sandboxes. A
+browser gets in once with an invite (a 256-bit link token in the URL fragment, an 8-character code, the QR code of the
+link — whichever is used first, within five minutes) and stays in until it is revoked. Everything the Mac's browser
+does works, except typing a key or token over plain HTTP (403 `secret-over-http`) and what opens a window on the
+Mac's own screen (the folder pickers, Open in Terminal: 403 `mac-screen`). Each request's own origin is derived from
+its `Host` (the Mac's names and addresses) or, only from a `serve.trusted_proxies` peer, from `X-Forwarded-Proto` /
 `X-Forwarded-Host` (a `serve.public_origins` entry); `Origin` must equal it; `Sec-Fetch-Site` same-origin or none.
 Over https through a trusted proxy the cookie is `__Host-` and `Secure`, and keys may be typed. `doz doctor`
-fetches each public origin with a one-use token to prove it reaches this `doz serve`. Announced with Bonjour
-(`serve.advertise`). Remote changes, terminals, admissions and refusals go to `<store>/serve/audit.jsonl`.
+fetches each public origin with a one-use token to prove it reaches this dashboard. Announced with Bonjour
+(`serve.advertise`). Remote changes, terminals, admissions and refusals go to `<store>/serve/audit.jsonl`. The
+earlier name, doz serve, is a hidden alias of `doz ui --lan` for one release (its subcommands still work).
 
 ### Settings
 

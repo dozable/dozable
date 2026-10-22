@@ -62,7 +62,7 @@ export function adopt(info) {
   $('version').textContent = 'doz ' + info.version;
   document.title = (mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');
-  if (k) k.textContent = state.serve ? 'doz serve' : 'doz ui';
+  if (k) k.textContent = 'doz ui';                  // 645: one dashboard command, whoever asks
   $('sign-out').hidden = false;
   // 611: an update — a newer doz (how to upgrade, its notes), or one an automatic update installed that this
   // dashboard is older than (restart to apply). From the last check; the page itself never asks the network.
@@ -154,7 +154,7 @@ function showSignIn(message, code) {
 function showServeSignIn(message, code) {
   state.serveSignIn = true;
   const k = document.querySelector('#live .foot-k');
-  if (k) k.textContent = 'doz serve';
+  if (k) k.textContent = 'doz ui';
   const o = $('ui-overlay');
   const title = SIGN_IN_TITLE[code] || (state.everSignedIn ? 'This browser was signed out' : 'Let this browser in');
   const codeField = h('input', { type: 'text', id: 'signin-code', name: 'code', autocomplete: 'off', spellcheck: 'false', autocapitalize: 'characters',
@@ -175,8 +175,8 @@ function showServeSignIn(message, code) {
       h('p', null, message || 'This browser is not let in to Dozable on this Mac yet.'),
       form,
       h('p', { class: 'muted', id: 'signin-help' }, 'An invite comes from a browser that is already in (Devices › ', h('strong', null, 'Add another browser'),
-        ') or from the Mac: ', h('code', null, 'doz serve share'), '. Scan its QR code, type its code here, or open its link — each lets ONE browser in, within five minutes.'),
-      h('p', { class: 'muted' }, 'This browser then stays in until it is removed (Devices, or doz serve revoke).'))));
+        ') or from the Mac: ', h('code', null, 'doz ui share'), '. Scan its QR code, type its code here, or open its link — each lets ONE browser in, within five minutes.'),
+      h('p', { class: 'muted' }, 'This browser then stays in until it is removed (Devices, or doz ui revoke).'))));
   for (const el of pausedParts()) el.inert = true;
   document.body.classList.add('ui-paused', 'signing-in');
   o.setAttribute('role', 'dialog');
@@ -195,8 +195,8 @@ async function serveSignInWith(codeField, field, err, go) {
   let body;
   if (text) {
     const m = /#cap=([A-Za-z0-9_-]{16,256})$/.exec(text);
-    if (!m) { fail('That is not an invite link — it ends #cap=… (Add another browser, or doz serve share).'); return; }
-    // An invite works on any of this Mac's names (the same doz serve): only its port must be this page's.
+    if (!m) { fail('That is not an invite link — it ends #cap=… (Add another browser, or doz ui share).'); return; }
+    // An invite works on any of this Mac's names (the same dashboard): only its port must be this page's.
     try { const u = new URL(text); if (u.port !== location.port && u.origin !== location.origin) { fail('That link is for another dashboard (' + u.origin + '); this page is ' + location.origin + '.'); return; } } catch (_) { /* the regex decides */ }
     body = { method: 'POST', bearer: m[1] };
   } else if (typed) {

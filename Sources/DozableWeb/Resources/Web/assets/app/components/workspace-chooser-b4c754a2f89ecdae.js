@@ -2,7 +2,7 @@
 import { h } from '../dom/h-d909ae8eb40113fe.js';
 import { icon, withIcon } from '../dom/icons-b4259996eee60e3d.js';
 import { api } from '../core/api-0560a03cb0de25ef.js';
-import { isRemote } from '../core/session-40bbbfc9960e365d.js';
+import { isRemote } from '../core/session-8981e55f65ad2c3c.js';
 
 // ── 594: the workspace of a new sandbox ─────────────────────────────────────
 // Owner (2026-09-29): "an easier way to pick a workspace folder … a default location
