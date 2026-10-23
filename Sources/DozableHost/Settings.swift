@@ -336,6 +336,8 @@ public enum SettingKey {
     public static let terminalTitle = "ui.terminal_title"
     public static let terminalFontSize = "ui.terminal_font_size"
     public static let theme = "ui.theme"
+    /// 647: the dashboard's spacing — comfortable or compact.
+    public static let density = "ui.density"
     public static let detailsOpen = "ui.details_open"
     public static let gridLiveTiles = "ui.grid_live_tiles"
     public static let gridTileSize = "ui.grid_tile_size"
@@ -491,6 +493,11 @@ public struct DozableSettings: Sendable {
                   applies: .now),
             .init("ui", "theme", .choice(["auto", "light", "dark"]), .string("auto"),
                   "The UI's colours: auto follows macOS.",
+                  applies: .now),
+            // 647 (owner, the dashboard review's decision 1): the dashboard's density — the same structure and type, less
+            // space. The page applies it as data-density on <html>, beside data-theme.
+            .init("ui", "density", .choice(["comfortable", "compact"]), .string("comfortable"),
+                  "The UI's spacing: comfortable, or compact — tighter rows, tabs, controls and page margins; the text stays the same size.",
                   applies: .now),
             .init("ui", "details_open", .bool, .bool(true),
                   "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",

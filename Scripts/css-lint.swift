@@ -20,13 +20,13 @@
 import Foundation
 
 var cssPath = "Sources/DozableWeb/WebSource/app.css"
-var spacingIsError = false
+var spacingIsError = true      // 647: an error since the spacing went to tokens (--spacing warn while reworking a block)
 var verbose = false
 var args = CommandLine.arguments.dropFirst().makeIterator()
 while let a = args.next() {
     switch a {
     case "--css": if let v = args.next() { cssPath = v }
-    case "--spacing": spacingIsError = args.next() == "error"
+    case "--spacing": spacingIsError = args.next() != "warn"
     case "--verbose": verbose = true
     default: FileHandle.standardError.write(Data("css-lint: unknown argument \(a)\n".utf8)); exit(64)
     }

@@ -49,18 +49,24 @@
 
 <section>
   <h2>Tokens — colour</h2>
-  <p>Each swatch is drawn with the token itself; the values under the panels are read live from app.css.</p>
+  <p>Each swatch is drawn with the token itself; the values under the panels are read live from app.css.
+    <b>Surfaces by role</b>: <code>--shell</code> is the frame (the sidebar, the tab strips — one step below the page), <code>--bg</code>
+    the page, <code>--surface</code> content (panels, tables, dialogs), <code>--well</code> a sunken block (commands, code, previews);
+    <code>--surface-2</code> is a quiet fill (a chip, a disabled control), <code>--surface-3</code> a bar's empty track and nothing else.</p>
   <div class="pair"><div class="scheme">
     <div class="sg-sw">
-      <div><i style="background:var(--bg)"></i><span>--bg</span></div>
-      <div><i style="background:var(--surface)"></i><span>--surface</span></div>
-      <div><i style="background:var(--surface-2)"></i><span>--surface-2</span></div>
-      <div><i style="background:var(--surface-3)"></i><span>--surface-3</span></div>
+      <div><i style="background:var(--shell)"></i><span>--shell (the frame)</span></div>
+      <div><i style="background:var(--bg)"></i><span>--bg (the page)</span></div>
+      <div><i style="background:var(--surface)"></i><span>--surface (content)</span></div>
+      <div><i style="background:var(--well)"></i><span>--well (code, commands)</span></div>
+      <div><i style="background:var(--surface-2)"></i><span>--surface-2 (a quiet fill)</span></div>
+      <div><i style="background:var(--surface-3)"></i><span>--surface-3 (a track only)</span></div>
       <div><i style="background:var(--ink)"></i><span>--ink</span></div>
       <div><i style="background:var(--ink-2)"></i><span>--ink-2</span></div>
       <div><i style="background:var(--ink-3)"></i><span>--ink-3 (decoration)</span></div>
-      <div><i style="background:var(--line)"></i><span>--line</span></div>
-      <div><i style="background:var(--line-strong)"></i><span>--line-strong</span></div>
+      <div><i style="background:var(--line)"></i><span>--line (rows, panels)</span></div>
+      <div><i style="background:var(--sep)"></i><span>--sep (between areas)</span></div>
+      <div><i style="background:var(--line-strong)"></i><span>--line-strong (a control's edge)</span></div>
       <div><i style="background:var(--control)"></i><span>--control</span></div>
       <div><i style="background:var(--accent)"></i><span>--accent</span></div>
       <div><i style="background:var(--accent-tint)"></i><span>--accent-tint</span></div>
@@ -73,7 +79,58 @@
       <div><i style="background:var(--data-shared)"></i><span>--data-shared</span></div>
     </div>
   </div></div>
-  <p class="src" style="margin-top:8px">Source, e.g. <code>--accent</code> = <code data-token="--accent"></code> · <code>--bg</code> = <code data-token="--bg"></code> · <code>--ok</code> = <code data-token="--ok"></code></p>
+  <p class="src" style="margin-top:8px">Source, e.g. <code>--accent</code> = <code data-token="--accent"></code> · <code>--bg</code> = <code data-token="--bg"></code> · <code>--ok</code> = <code data-token="--ok"></code> · <code>--state-hover</code> = <code data-token="--state-hover"></code></p>
+  <p style="margin-top:16px"><b>States are laid over the surface</b> (translucent ink, or the accent for selected), so a hover reads the same on
+    every surface: <code>--state-hover</code>, <code>--state-press</code>, <code>--state-selected</code> (+ the 2 px <code>--indicator</code>
+    on its leading edge). A selected item's words stay <code>--ink</code> (<code>--state-selected-ink</code>): the accent as text is under AA on a
+    pressed or selected dark surface. Every hover in app.css is <code>--state-hover</code> (a filled button: the state over its own surface).</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-states">
+      <span></span><b>at rest</b><b>hover</b><b>pressed</b><b>selected</b>
+      <b>--shell</b><i style="background:var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--shell);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--bg</b><i style="background:var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--bg);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--surface</b><i style="background:var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--surface);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--well</b><i style="background:var(--well)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--well)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--well)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--well);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Density — comfortable and compact</h2>
+  <p>The setting <code>ui.density</code> (Settings › This UI): <b>compact</b> sets <code>data-density="compact"</code> on <code>&lt;html&gt;</code>
+    and redefines the space ROLE tokens — <code>--row-py</code> 7 → 3, <code>--th-h</code> 32 → 26, <code>--cell-px</code>, <code>--nav-h</code> 30 → 26,
+    <code>--nav-child-h</code>, <code>--nav-sess-h</code>, <code>--strip-h</code> 34 → 28, <code>--tab-py</code>, <code>--page-py/px</code> 24/32 → 14/20,
+    <code>--work-py/px</code>, <code>--gap</code> and <code>--panel-p</code> 12 → 8, <code>--ctl-px</code>, the control heights 28 → 24. The structure and the
+    type (13 px) stay. Every padding, margin and gap is a <code>--sp-*</code> step or one of these roles (<code>make css-lint</code>).</p>
+  <div class="pair"><div class="scheme" data-s="comfortable">
+    <div class="sg-density">
+      <div class="panel"><table><thead><tr><th>Sandbox</th><th>Phase</th><th class="num">RAM</th></tr></thead>
+        <tbody><tr class="click"><td><a class="name" href="#">claude-sandbox-5</a></td><td><span class="pill ph-running"><span class="dot ph-running"></span>running</span></td><td class="num">1.0 GiB</td></tr>
+          <tr class="click"><td><a class="name" href="#">docs-site</a></td><td><span class="pill ph-off"><i data-i="power"></i>off</span></td><td class="num">—</td></tr></tbody></table></div>
+      <div class="nav-children" style="width:220px">
+        <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">claude-sandbox-5</span></a>
+          <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span></a></div>
+            <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div></div></div></div>
+      <div class="term-strip"><div class="tabs">
+        <div class="tab-wrap is-home is-active"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home</button></div>
+        <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>claude</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div></div></div>
+      <div class="sg-row"><button class="btn" type="button"><i data-i="play"></i>Start</button><button class="btn sm" type="button"><i data-i="copy"></i>Copy</button><input type="text" value="todo-app"></div>
+    </div>
+  </div><div class="scheme" data-s="compact" data-density="compact">
+    <div class="sg-density">
+      <div class="panel"><table><thead><tr><th>Sandbox</th><th>Phase</th><th class="num">RAM</th></tr></thead>
+        <tbody><tr class="click"><td><a class="name" href="#">claude-sandbox-5</a></td><td><span class="pill ph-running"><span class="dot ph-running"></span>running</span></td><td class="num">1.0 GiB</td></tr>
+          <tr class="click"><td><a class="name" href="#">docs-site</a></td><td><span class="pill ph-off"><i data-i="power"></i>off</span></td><td class="num">—</td></tr></tbody></table></div>
+      <div class="nav-children" style="width:220px">
+        <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">claude-sandbox-5</span></a>
+          <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span></a></div>
+            <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div></div></div></div>
+      <div class="term-strip"><div class="tabs">
+        <div class="tab-wrap is-home is-active"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home</button></div>
+        <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>claude</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div></div></div>
+      <div class="sg-row"><button class="btn" type="button"><i data-i="play"></i>Start</button><button class="btn sm" type="button"><i data-i="copy"></i>Copy</button><input type="text" value="todo-app"></div>
+    </div>
+  </div></div>
 </section>
 
 <section>

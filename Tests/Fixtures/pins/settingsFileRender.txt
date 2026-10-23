@@ -65,6 +65,11 @@
 # (auto | light | dark; applies at once (the UI re-reads it))
 # theme = "auto"
 
+# The UI's spacing: comfortable, or compact — tighter rows, tabs, controls and page margins; the
+# text stays the same size.
+# (comfortable | compact; applies at once (the UI re-reads it))
+# density = "comfortable"
+
 # A sandbox's page shows its details panel (restore points, network, keys) beside the terminals;
 # false: collapsed.
 # (boolean; applies at once (the UI re-reads it))

@@ -575,7 +575,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`ui.theme` sets `data-theme`); never a literal colour outside `:root` (the terminal chrome is `--term-*`;
     `frame.css` has its own `--term-bg`). Type `--fs-*` (13 px is THE UI size), space `--sp-*`, radii `--r-*`,
     elevations `--shadow-*`, layers `--z-*`. A comment in a stylesheet never contains `*/` (a path like
-    `changes/603-*/…` closed one and dropped the whole token block).
+    `changes/603-*/…` closed one and dropped the whole token block). 647: surfaces by ROLE — `--shell` (the frame:
+    sidebar, tab strips), `--bg` (the page), `--surface` (content), `--well` (code, commands); `--surface-3` is a track
+    only. A hover is `--state-hover` laid over its surface (`--state-press`, `--state-selected` + the 2 px `--indicator`);
+    separators `--line` (rows, panels), `--sep` (between areas), `--line-strong` (a control's edge). Space by ROLE —
+    `--row-py`, `--th-h`, `--cell-px`, `--nav-*-h`, `--strip-h`, `--tab-py`, `--page-py/px`, `--work-py/px`, `--gap`,
+    `--panel-p`, `--ctl-px`: the setting `ui.density` (comfortable | compact; `core/settings.js` sets
+    `data-density="compact"` on `<html>`) redefines them and the `--ctl-*` heights, never the type.
   - **One button family**: `btn(label, fn, {primary, quiet, danger, small, lg, iconOnly, icon})` — ONE primary per
     view (the verb that moves things forward: Start/Wake/Resume, Next, Create; a running sandbox has none);
     icon-only only where the icon is unambiguous (it gets aria-label + title). Menus: `menuButton(trigger, items)`
@@ -641,7 +647,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **The sheet's rules are checked** (647): `make css-lint` (`Scripts/css-lint.swift`, part of `make test`) refuses `:has()`,
   a universal right-most key (`*`, `> *`, a lone `::placeholder`), `text-transform: uppercase` but on an access code's
   input, a literal colour outside `:root`, a selector list defined twice, blank runs and a rule outside its layer, and
-  warns on literal px spacing. A state the page knows is a CLASS the component sets — `.tab-wrap.is-active`/`.is-home`
+  literal px spacing (padding, margin, gap: a `--sp-*` step or a role token; 1 px is a hairline). A state the page knows is a CLASS the component sets — `.tab-wrap.is-active`/`.is-home`
   (the strip), `.menu-wrap.is-open` and `.menu.has-pairs` (`components/menus.js`), `.wiz-choice.is-checked`/`.is-disabled`
   (`choiceCard`, `components/choice.js`), `.head.has-title`, a phase dot's shape `.mark-ring`/`.mark-square`/
   `.mark-turning` (`phaseMark`, `dom/icons.js`), `.nav-sbx.menu-hover`/`.menu-focus`, `.nav-sess-row.has-peek`; a rule

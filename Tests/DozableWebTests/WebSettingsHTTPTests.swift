@@ -130,6 +130,34 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\n# boot_view_on_start = false\n"))
     }
 
+    /// 647: ui.density — comfortable by default; the page sets compact (written to the file, read back), a reset returns to
+    /// comfortable, and nothing but the two words is taken.
+    func testDensityIsSetFromThePageAndReset() throws {
+        let (cookie, csrf) = try signIn()
+        var rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))
+        XCTAssertEqual(try row(rep, "ui.density").value, .string("comfortable"))
+        XCTAssertEqual(try row(rep, "ui.density").source, .default)
+        XCTAssertTrue(try row(rep, "ui.density").editable, "the Settings page switches it")
+        var r = try change(#"{"key":"ui.density","value":"compact"}"#, cookie, csrf)
+        XCTAssertEqual(r.status, 200, r.text)
+        rep = try report(r)
+        XCTAssertEqual(try row(rep, "ui.density").value, .string("compact"))
+        XCTAssertEqual(try row(rep, "ui.density").source, .file)
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\ndensity = \"compact\"\n"))
+        // A reload reads it back.
+        rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))
+        XCTAssertEqual(try row(rep, "ui.density").value, .string("compact"))
+        for bad in [#"{"key":"ui.density","value":"dense"}"#, #"{"key":"ui.density","value":true}"#, #"{"key":"ui.density","value":"Compact"}"#] {
+            XCTAssertEqual(try change(bad, cookie, csrf).status, 400, bad)
+        }
+        r = try change(#"{"key":"ui.density","reset":true}"#, cookie, csrf)
+        XCTAssertEqual(r.status, 200, r.text)
+        rep = try report(r)
+        XCTAssertEqual(try row(rep, "ui.density").value, .string("comfortable"))
+        XCTAssertEqual(try row(rep, "ui.density").source, .default)
+        XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\n# density = \"comfortable\"\n"))
+    }
+
     func testTheRouteRefusesNoCSRFAnotherOriginAndNonJSON() throws {
         let (cookie, csrf) = try signIn()
         let body = #"{"key":"ui.theme","value":"dark"}"#
