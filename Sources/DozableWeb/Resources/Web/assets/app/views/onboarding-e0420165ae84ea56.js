@@ -24,7 +24,7 @@ import { pageFailure, toast } from '../components/notices-b87dc98df37a200f.js';
 import { rulesStep } from '../components/rules-step-3c46bfae0447ea9a.js';
 import { stepperNode } from '../components/stepper-43f6b25006340fee.js';
 import { renderOps } from './operations-c9e3fb0a4ca4cf99.js';
-import { startQuickMade } from './quick-make-4fbcba07daab3245.js';
+import { startQuickMade } from './quick-make-7d9e84d581aa7302.js';
 
 // The First sandbox's tools (the four published coding agents), in this order; a family by its recommended major.
 const FIRST_TOOLS = ['claude-code', 'pi', 'opencode', 'codex'];

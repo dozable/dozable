@@ -456,7 +456,8 @@ name: todo-app</pre></details>
     (<code>role="treeitem"</code>, indented by <code>--depth</code>, set through CSSOM), folders first; a caret opens a folder (its listing read then, and
     watched while it is open and the tab is shown); a link shows <code>→ target</code> and is never opened; <code>locked</code> / <code>read-only</code>
     tags from the workspace rules; a file's size. The head's icon buttons make a file or a folder in the selected folder and list again. Each row's ⋯
-    (shown on hover, focus and selection): Open on the Mac / Show in the Finder (a shared workspace, never for a doz serve browser), Copy path,
+    (shown on hover, focus and selection): Open on the Mac / Open in &lt;editor&gt; (646: a folder or a file, each editor the host offers — <code>code-xml</code>,
+    the last used first) / Show in the Finder (a shared workspace, never for a doz serve browser), Copy path,
     Rename…, Move…, Delete… — disabled with why for a locked or read-only item. A row dragged onto a folder (<code>.drop</code>) is moved there.
     An isolated sandbox that does not run shows a callout instead and is asked nothing.</p>
   <div class="pair"><div class="scheme">
@@ -495,8 +496,10 @@ name: todo-app</pre></details>
     Then the sessions; the <strong>build log</strong> is its own tab (<code>.tab-buildlog</code>, a spanner — <code>wrench</code>), never opened by itself: Home › Logs › Build log opens it.
     The session menu is the vertical dots (<code>ellipsis-vertical</code>, every ⋮ menu). <strong>The close box means “end it”</strong>: a running session no other tab shows asks —
     <strong>End session</strong> (danger), <strong>Hide — keep running</strong>, Cancel; a watch, a saved screen, an ended session or a second view of one just closes.
-    The actions on the right: <strong>New Claude Code session</strong> (the sandbox’s own agent again — <code>claude-2</code>…, only when it runs one), New shell ▾, Split ▾, and Open in Terminal —
-    the terminal glyph with an arrow out of its corner (<code>.icon-corner</code>, <code>square-terminal^arrow-up-right</code>).</p>
+    The actions on the right: <strong>New Claude Code session</strong> (the sandbox’s own agent again — <code>claude-2</code>…, only when it runs one), New shell ▾, Split ▾,
+    <strong>Open folder</strong> (646, <code>folder-open</code>: a menu — Show in the Finder, then Open in &lt;editor&gt; for each editor installed, <code>code-xml</code>, the last used
+    first; disabled with why for an isolated sandbox) and Open in Terminal —
+    the terminal glyph with an arrow out of its corner (<code>.icon-corner</code>, <code>square-terminal^arrow-up-right</code>). Neither of the last two is drawn for a LAN device’s browser.</p>
   <div class="pair"><div class="scheme">
     <div class="term-strip" style="gap:0">
       <button type="button" class="tab-x tabs-menu" aria-label="The open tabs"><i data-i="chevron-down"></i></button>
@@ -508,7 +511,17 @@ name: todo-app</pre></details>
       <div class="tab-wrap"><button type="button" class="tab tab-buildlog"><i data-i="wrench"></i>Build log</button><button type="button" class="tab-x" aria-label="Close Build log"><i data-i="x"></i></button></div>
       </div>
       <div class="strip-acts"><button class="btn sm quiet" type="button"><i data-i="plus"></i>New Claude Code session</button><button class="btn sm quiet" type="button"><i data-i="plus"></i>New shell</button>
+        <button class="btn sm quiet icon-only" type="button" aria-label="Open folder" aria-haspopup="menu"><i data-i="folder-open"></i></button>
         <button class="btn sm quiet icon-only" type="button" aria-label="Open in Terminal"><i data-i="square-terminal^arrow-up-right"></i></button></div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="menu" role="menu" aria-label="Open the workspace on this Mac">
+      <button class="menu-item" type="button" data-desc="~/Developer/box"><i data-i="folder-open"></i><span class="mi-label">Show in the Finder</span></button>
+      <div class="menu-sep"></div>
+      <button class="menu-item" type="button"><i data-i="code-xml"></i><span class="mi-label">Open in Cursor</span></button>
+      <button class="menu-item" type="button"><i data-i="code-xml"></i><span class="mi-label">Open in Visual Studio Code</span></button>
+      <button class="menu-item" type="button"><i data-i="code-xml"></i><span class="mi-label">Open in Zed</span></button>
     </div>
   </div></div>
   <div class="pair"><div class="scheme">

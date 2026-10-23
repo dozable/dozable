@@ -46,6 +46,7 @@ files/mv
 files/rename
 files/rm
 files/open
+files/editors
 image
 point
 net

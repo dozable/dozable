@@ -142,9 +142,23 @@ final class WebFilesTests: XCTestCase {
         // the open, strictly
         XCTAssertEqual(try WebFileOpen.decode(Data(#"{"path":"docs/a.md"}"#.utf8)), WebFileOpen(path: "/workspace/docs/a.md", reveal: false))
         XCTAssertEqual(try WebFileOpen.decode(Data(#"{"path":"/workspace","reveal":true}"#.utf8)).reveal, true)
-        for bad in [#"{}"#, #"{"path":"/etc/passwd"}"#, #"{"path":"../x"}"#, #"{"path":"a","app":"Terminal"}"#, #"{"path":"a","reveal":"yes"}"#] {
+        for bad in [#"{}"#, #"{"path":"/etc/passwd"}"#, #"{"path":"../x"}"#, #"{"path":"a","reveal":"yes"}"#, #"{"path":"a","x":1}"#] {
             XCTAssertThrowsError(try WebFileOpen.decode(Data(bad.utf8)), bad)
         }
+        // 646: an editor — only an app NAME here (the host decides which are accepted); never with reveal
+        XCTAssertEqual(try WebFileOpen.decode(Data(#"{"path":"/workspace","app":"cursor"}"#.utf8)),
+                       WebFileOpen(path: "/workspace", reveal: false, app: "cursor"))
+        XCTAssertNil(try WebFileOpen.decode(Data(#"{"path":"a","app":null}"#.utf8)).app)
+        for bad in [#"{"path":"a","app":1}"#, #"{"path":"a","app":"-a"}"#, #"{"path":"a","app":"/Applications/Evil.app"}"#,
+                    #"{"path":"a","app":""}"#, #"{"path":"a","app":"cursor","reveal":true}"#] {
+            XCTAssertThrowsError(try WebFileOpen.decode(Data(bad.utf8)), bad)
+        }
+        // 646: the editor list — a GET, mac-screen like the open it serves
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/editors"), .editors)
+        XCTAssertNil(WebRoute.parse(method: .post, target: "/api/v1/editors"))
+        XCTAssertEqual(WebExposure.kind(.editors), .macScreen)
+        XCTAssertNil(WebExposure.decide(.editors, .mac))
+        XCTAssertEqual(WebExposure.decide(.editors, .remote(secure: true)), .macScreen, "a LAN device's browser never gets it")
         // the projection has no secret-shaped field
         let obj = try JSONSerialization.jsonObject(with: WebJSON.encoder.encode(WebFileTree(FileTreeState(expanded: ["a"], updatedAt: Date()))))
         XCTAssertEqual(Set((obj as? [String: Any] ?? [:]).keys), ["expanded", "updatedAt"])
@@ -171,6 +185,15 @@ final class WebFilesTests: XCTestCase {
         XCTAssertEqual(r.status, 200, r.text)
         XCTAssertTrue(r.text.contains("showed /workspace/docs/a.md"))
         XCTAssertEqual(fake.opened, [WebFileOpen(path: "/workspace/docs/a.md", reveal: true)])
+        // 646: the editors, and the workspace opened in one
+        let ed = try get("/api/v1/editors", ["Cookie": cookie])
+        XCTAssertEqual(ed.status, 200, ed.text)
+        XCTAssertEqual(try WebJSON.decoder.decode([WebEditor].self, from: ed.body).map(\.id), ["cursor", "Typora"])
+        r = try post("/api/v1/sandboxes/demo/files/open", #"{"path":"/workspace","app":"cursor"}"#)
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertTrue(r.text.contains("opened /workspace in cursor"), r.text)
+        XCTAssertEqual(fake.opened.last, WebFileOpen(path: "/workspace", reveal: false, app: "cursor"))
+        XCTAssertEqual(try post("/api/v1/sandboxes/demo/files/open", #"{"path":"/workspace","app":"-a x"}"#).status, 400)
     }
 
     func testTheWatchStreamDeliversBatchesAndEndsWithTheSession() async throws {

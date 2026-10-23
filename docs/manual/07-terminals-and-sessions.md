@@ -97,6 +97,9 @@ doz files rename my-app notes/todo.md plan.md
 doz files mv my-app notes/plan.md docs/plan.md
 doz files rm my-app old.txt             # asks first (--yes does not); a folder with anything in it needs -r
 doz files open my-app docs/index.html   # on your Mac, in its default app; --reveal shows it in the Finder
+doz files open my-app                   # the workspace in the Finder
+doz files open my-app --app cursor      # the workspace in your editor (a folder or a file in it too)
+doz files editors                       # the editors --app can use on this Mac
 ```
 
 - **Nothing is ever replaced**: a new file, a new folder or a move to a name that is there is refused.
@@ -112,6 +115,12 @@ doz files open my-app docs/index.html   # on your Mac, in its default app; --rev
 - **`open`** follows the rules of the agent’s own opening ([Opening workspace files on your Mac](#opening-workspace-files-on-your-mac)):
   `sandbox.open_files` on, documents only, never a program; a folder opens in the Finder. An isolated
   sandbox's files are inside it — `doz get` copies one out.
+- **`open --app EDITOR`** opens the workspace — or a folder or a file in it — in an editor: one Dozable knows
+  that is installed on this Mac (`vscode`, `cursor`, `zed`, `windsurf`, `xcode`, `sublime`, `nova`, `bbedit`,
+  `intellij`, `pycharm`, `webstorm`, `goland`, `textmate` — its id or its name, `"Visual Studio Code"`), or an
+  app you listed in `bridges.open_apps`. An editor opens text, so any file that is not a program opens; never an
+  executable, a script (`#!`), an app or an installer. The workspace rules, `sandbox.open_files` and isolation
+  apply as above. `doz files editors` lists what `--app` takes here.
 
 ### The Files tab
 
@@ -119,11 +128,18 @@ The sandbox page's details have a **Files** tab: the tree of `/workspace`. A fol
 →, Enter); while the tab is shown, open folders are watched, so a change made on the Mac or inside the
 sandbox appears by itself (an isolated sandbox: Refresh). Which folders are open is kept per sandbox, so a
 reload, another browser or a restarted `doz ui` shows the same ones open. The head's buttons make a file or a
-folder in the selected folder; each row's ⋯ opens it on the Mac, shows it in the Finder, copies its path,
+folder in the selected folder; each row's ⋯ opens it on the Mac (a folder or a file also in each editor
+installed — **Open in Cursor**, …), shows it in the Finder, copies its path,
 renames, moves or deletes it (a box to tick first) — the same rules as the commands above, and nothing done
 here starts a host or wakes the sandbox. A row dragged onto a folder is moved there. Locked and read-only
 items are marked and cannot be changed here. An isolated sandbox that is not running says so, and nothing in
 it is asked.
+
+**Open folder** (the folder icon beside Open in Terminal, on the right of the terminal strip) opens the
+whole workspace on this Mac: **Show in the Finder**, or **Open in &lt;editor&gt;** for each editor installed.
+The editor you used last comes first next time (this browser remembers it). An isolated sandbox has nothing
+on this Mac, so the button is disabled and says why; a browser on another device (`doz ui --lan`) does not
+show it.
 
 ### Restarting or ending a session
 

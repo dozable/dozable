@@ -917,7 +917,11 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     func openFile(_ name: String, _ o: WebFileOpen) async throws -> String {
         guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
         lock.withLock { opened.append(o) }
-        return (o.reveal ? "showed " : "opened ") + o.path
+        return (o.reveal ? "showed " : "opened ") + o.path + (o.app.map { " in " + $0 } ?? "")
+    }
+    // 646 — the editors this "Mac" offers.
+    func editors() async throws -> [WebEditor] {
+        [WebEditor(EditorApps.Editor(id: "cursor", name: "Cursor")), WebEditor(EditorApps.Editor(id: "Typora", name: "Typora"))]
     }
 
     func attachTerminal(_ name: String, session: String?, size: TermSize) async throws -> any WebTerminalAttachment {

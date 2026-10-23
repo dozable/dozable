@@ -93,6 +93,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
 | `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared workspace, the guest for an isolated one; the rules applied), the host op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
 | `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
+| `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open Workspace — a shared workspace (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the host op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1475,7 +1476,8 @@ may use it too.
   `make test-cli-openfiles`.
 - **Tests never touch the Mac**: `DOZ_TEST_PASTEBOARD=<file>` replaces pbcopy; `DOZ_TEST_OPEN_URL=<file>`
   replaces `/usr/bin/open` and plays the browser's last step (GET the callback on the Mac's port); a
-  workspace file is recorded there as `open-file APP|default MACPATH`.
+  workspace file is recorded there as `open-file APP|default MACPATH`. 646: `DOZ_TEST_EDITORS=<ids>` stands in for
+  LaunchServices' answer of which known editors are installed (`EditorApps`).
   A fake OAuth server must READ before it answers (busybox `nc -e`), as a real one does.
 
 ### What the agent is doing (OSC 7501)
@@ -2246,6 +2248,21 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   `doz files open [--reveal]`): `WorkspaceFiles.decide` exactly as the agent's `xdg-open` (`sandbox.open_files`, document
   types, the content sniff, a folder in the Finder, reveal) plus the rules (hidden/locked refused), `WorkspaceFiles.open`
   (the `DOZ_TEST_OPEN_URL` seam). Nothing reads a file's content into the browser.
+- **Open in an editor** (646, owner: "open the workspace in my editor"; `files-open`'s `app`, `doz files open NAME [PATH]
+  --app APP`, the page's `{path, app}`): the PERSON's action, never the agent's bridge (`WorkspaceFiles.decide` from a
+  guest marker still refuses `--app` on a folder). `app` never reaches `open -a` as typed: `EditorApps.resolve` takes a
+  KNOWN editor (`EditorApps.known`: id · name · bundle ids) that is INSTALLED — its `.app` path from LaunchServices by
+  bundle id (`MacDefaultApp.appPath`, read-only; CoreServices stays confined to that file), opened by that path — else a
+  `bridges.open_apps` name (the listed spelling). It opens a folder (not a package) or a file that is not executable, not
+  a program or `#!` by its first bytes, and not a never-type — except the source-text ones (`WorkspaceFiles.editorSourceTypes`:
+  sh, py, js, swift…, refused for a default app, which could run them); the document allow-list does not apply. The rules
+  first (hidden = no such file, locked = refused), `sandbox.open_files`, isolation, as above. `editors` (read-only, no
+  sandbox) answers `[{id, name}]`: the known ones installed, then `bridges.open_apps`; `GET /api/v1/editors` is
+  **mac-screen** like `files/open`. Seams: `DOZ_TEST_EDITORS=vscode,zed` (the installed known ones, at a path that does not
+  exist) and `DOZ_TEST_OPEN_URL` (`open-file <editor name> PATH`). The page (`components/open-with.js`): the editor list
+  asked once per page; the last used first (`doz.openWith`, this browser); the terminal strip's **Open folder**
+  (`folder-open`, beside Open in Terminal: Show in the Finder + Open in <editor>, `code-xml`; disabled with why for an
+  isolated sandbox; not drawn when `isRemote()`) and the Files tab's ⋯ on a folder or a file.
 - **The open folders are the host's** (`FileTreeState`, `<sandbox>/file-tree.json`, 0600, atomic, ≤ 63 + /workspace = the
   watch's 64, each a clean relative path once): `files-tree` (read-only) / `files-tree-set` (in-process when no host runs;
   never creates a directory), `GET|POST …/files/tree` (strict `{expanded}`, `WebFileTree.decode`). Kept across shutdown and

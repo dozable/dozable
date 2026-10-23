@@ -24,6 +24,7 @@ import { btn } from '../components/button-caceac829713667a.js';
 import { callout } from '../components/callout-8c3992ec1930ec62.js';
 import { dialog } from '../components/dialog-d0d0d2bf58ef81d8.js';
 import { moreMenu } from '../components/menus-7f5e823039c45ec6.js';
+import { editorItems } from '../components/open-with-39e492c7cba91a70.js';
 import { failureFor, pageFailure, toast } from '../components/notices-b87dc98df37a200f.js';
 
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -405,6 +406,9 @@ function rowMenu(P, rel, e, why) {
   if (mac && e.state !== 'locked') {
     if (e.kind === 'file') items.push({ label: 'Open on the Mac', icon: 'external-link', desc: 'In its default app — documents only, as the agent’s own opening', onSelect: () => openItem(P, rel, false) });
     if (isFolder) items.push({ label: 'Open in the Finder', icon: 'external-link', onSelect: () => openItem(P, rel, false) });
+    // 646: a folder or a file in an editor (the host's list; the last used first) — redrawn once the host answered.
+    if (!P.onEditors) P.onEditors = () => render(P);
+    if (isFolder || e.kind === 'file') items.push(...editorItems(P.name, guest(rel), P.onEditors));
     items.push({ label: 'Show in the Finder', icon: 'folder-open', desc: 'Selected in its folder', onSelect: () => openItem(P, rel, true) });
   }
   items.push({ label: 'Copy path', icon: 'copy', desc: guest(rel), onSelect: () => copyText(guest(rel), guest(rel)) });

@@ -703,6 +703,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await fileChange(r))          // 644
         case .filesOpen:
             return try JSONValue(encoding: try await fileOpen(r))            // 644
+        case .editors:
+            return try JSONValue(encoding: await editors())                  // 646
         case .filesTree:
             let m = try get(r.name)
             return try JSONValue(encoding: FileTreeState.read(store, m.name) ?? FileTreeState(expanded: []))

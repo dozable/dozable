@@ -156,22 +156,49 @@ public struct WebFileTree: Codable, Equatable, Sendable {
 
 /// `POST /api/v1/sandboxes/NAME/files/open` — `{path, reveal?}`: a file of a shared workspace opened on the Mac (or shown
 /// in the Finder). Opens a window on the Mac's own screen, so `WebExposure` keeps it from a doz serve browser.
+/// 646: `{path, app}` opens it in that editor instead — the host resolves `app` (a known editor installed here, or a
+/// `bridges.open_apps` name); here it is only checked to be an app name, never trusted.
 public struct WebFileOpen: Equatable, Sendable {
     public var path: String
     public var reveal: Bool
+    public var app: String?
+
+    public init(path: String, reveal: Bool, app: String? = nil) {
+        self.path = path
+        self.reveal = reveal
+        self.app = app
+    }
 
     public static func decode(_ body: Data) throws -> WebFileOpen {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSubset(of: ["path", "reveal"]), let p = d["path"] as? String, p.utf8.count <= FileListPaths.maximumPathBytes,
-              FileListPaths.folder(p) != nil else { throw WebAction.Invalid("the body is {path, reveal?} — a path in /workspace") }
+        guard Set(d.keys).isSubset(of: ["path", "reveal", "app"]), let p = d["path"] as? String, p.utf8.count <= FileListPaths.maximumPathBytes,
+              FileListPaths.folder(p) != nil else { throw WebAction.Invalid("the body is {path, reveal?, app?} — a path in /workspace") }
         var reveal = false
         if let v = d["reveal"], !(v is NSNull) {
             guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw WebAction.Invalid("reveal: true or false") }
             reveal = b
         }
-        return WebFileOpen(path: FileListPaths.folder(p)!.guest, reveal: reveal)
+        var app: String?
+        if let v = d["app"], !(v is NSNull) {
+            guard let s = v as? String, WorkspaceFiles.isAppName(s) else { throw WebAction.Invalid("app: an editor's id or name") }
+            app = s
+        }
+        if app != nil && reveal { throw WebAction.Invalid("app or reveal, not both") }
+        return WebFileOpen(path: FileListPaths.folder(p)!.guest, reveal: reveal, app: app)
+    }
+}
+
+/// 646 `GET /api/v1/editors` — the editors this Mac can open a workspace in (the host's read-only `editors`): `{id, name}`
+/// each, the known ones installed first, then `bridges.open_apps`. A mac-screen route: only the Mac's own browser asks.
+public struct WebEditor: Codable, Equatable, Sendable {
+    public var id: String
+    public var name: String
+
+    public init(_ e: EditorApps.Editor) {
+        id = e.id
+        name = e.name
     }
 }
 

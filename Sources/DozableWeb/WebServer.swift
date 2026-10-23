@@ -907,6 +907,9 @@ public final class DozableWebServer: @unchecked Sendable {
             // 644: the Mac's screen (WebExposure: mac-screen); CSRF-checked above; a strict body.
             try Self.requireJSONBody(md)
             return json(["message": try await data.openFile(name, try WebFileOpen.decode(body))])
+        case .editors:
+            // 646: read-only (LaunchServices asked, nothing launched); mac-screen like files/open, which it serves.
+            return json(try await data.editors())
         case .onboarding:
             var o = try await data.onboarding()
             let f = settings.onboardingFiles()
