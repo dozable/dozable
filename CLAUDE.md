@@ -638,6 +638,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `:where` — both found and kept apart): `probes/607-*/run-cascade.sh` compares every element's computed style
   (the 603 harness's states, light/dark, 1280/900 px, every interactive element forced into :hover, :focus and
   :active) of the sheet before against a candidate — keep it at 0 differences. A new rule goes in its layer's block.
+- **The sheet's rules are checked** (647): `make css-lint` (`Scripts/css-lint.swift`, part of `make test`) refuses `:has()`,
+  a universal right-most key (`*`, `> *`, a lone `::placeholder`), `text-transform: uppercase` but on an access code's
+  input, a literal colour outside `:root`, a selector list defined twice, blank runs and a rule outside its layer, and
+  warns on literal px spacing. A state the page knows is a CLASS the component sets — `.tab-wrap.is-active`/`.is-home`
+  (the strip), `.menu-wrap.is-open` and `.menu.has-pairs` (`components/menus.js`), `.wiz-choice.is-checked`/`.is-disabled`
+  (`choiceCard`, `components/choice.js`), `.head.has-title`, a phase dot's shape `.mark-ring`/`.mark-square`/
+  `.mark-turning` (`phaseMark`, `dom/icons.js`), `.nav-sbx.menu-hover`/`.menu-focus`, `.nav-sess-row.has-peek`; a rule
+  about a container's children keys on their class (`markChildren(el, 'w-item')`, `dom/h.js`) or an inner wrapper
+  (`.bl-page`). `make css-perf` (`Scripts/css-perf.mjs`: a real headless Chrome, a scratch store and profile; standalone)
+  walks a fixed path five times and compares the style recalculation and the selector statistics with
+  `Tests/Fixtures/css-perf-baseline.json`; `make css-perf ARGS=--write-baseline` records a new one.
 - **The UI watches the host** (`WebHostWatch` — pure, unit-tested): before each overview the
   monitor PROBES without starting anything (`hostProbe`: the lock, a stale `host.pid` = killed, records
   left live, the last host's own exit line in `host.log` — `HostExitReason`), because the overview
@@ -2381,6 +2392,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
 make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it)
+make css-lint          # 647: the stylesheet's rules (in make test); make css-perf: its cost in headless Chrome vs the baseline
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz

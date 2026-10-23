@@ -1,0 +1,173 @@
+{
+ "note": "make css-perf --write-baseline: the median of the walks on this build; compared by make css-perf",
+ "recorded": "2026-10-23",
+ "recalcs": 43,
+ "recalcMs": 416.79,
+ "selectorMs": 19.18,
+ "selectors": 932,
+ "runs": 5,
+ "chrome": "Chrome/155.0.8059.86",
+ "ownSelectorMs": 12.71,
+ "top": [
+  {
+   "selector": "*",
+   "elapsedUs": 1184,
+   "attempts": 30081,
+   "matches": 29521,
+   "fastRejects": 0,
+   "usPerAttempt": 0.03936
+  },
+  {
+   "selector": ":not(svg)",
+   "elapsedUs": 606,
+   "attempts": 15184,
+   "matches": 13804,
+   "fastRejects": 0,
+   "usPerAttempt": 0.039909999999999994
+  },
+  {
+   "selector": "div",
+   "elapsedUs": 481,
+   "attempts": 11544,
+   "matches": 11544,
+   "fastRejects": 0,
+   "usPerAttempt": 0.04167
+  },
+  {
+   "selector": "svg:not(:root)",
+   "elapsedUs": 347,
+   "attempts": 2760,
+   "matches": 2760,
+   "fastRejects": 0,
+   "usPerAttempt": 0.12572
+  },
+  {
+   "selector": ".wiz-bar.indeterminate > span",
+   "elapsedUs": 209,
+   "attempts": 7658,
+   "matches": 0,
+   "fastRejects": 7658,
+   "usPerAttempt": 0.02729
+  },
+  {
+   "selector": ".brand > div",
+   "elapsedUs": 208,
+   "attempts": 7826,
+   "matches": 30,
+   "fastRejects": 7760,
+   "usPerAttempt": 0.02658
+  },
+  {
+   "selector": "button",
+   "elapsedUs": 185,
+   "attempts": 3244,
+   "matches": 3244,
+   "fastRejects": 0,
+   "usPerAttempt": 0.057030000000000004
+  },
+  {
+   "selector": "a:-webkit-any-link:read-write",
+   "elapsedUs": 179,
+   "attempts": 607,
+   "matches": 0,
+   "fastRejects": 0,
+   "usPerAttempt": 0.29489
+  },
+  {
+   "selector": ".ob-layers > div:first-child",
+   "elapsedUs": 170,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02594
+  },
+  {
+   "selector": ".ak-edit-done > div:not(.ak-result)",
+   "elapsedUs": 169,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02579
+  },
+  {
+   "selector": "input[type=\"checkbox\" i]",
+   "elapsedUs": 167,
+   "attempts": 4670,
+   "matches": 2545,
+   "fastRejects": 0,
+   "usPerAttempt": 0.03576
+  },
+  {
+   "selector": "input:disabled",
+   "elapsedUs": 162,
+   "attempts": 4236,
+   "matches": 20,
+   "fastRejects": 0,
+   "usPerAttempt": 0.03824
+  },
+  {
+   "selector": ".prep-output > div",
+   "elapsedUs": 162,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02472
+  },
+  {
+   "selector": ".ob-layers > div",
+   "elapsedUs": 162,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02472
+  },
+  {
+   "selector": ".ob-two > div",
+   "elapsedUs": 161,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02457
+  },
+  {
+   "selector": ".qt-mhead > div",
+   "elapsedUs": 149,
+   "attempts": 6553,
+   "matches": 0,
+   "fastRejects": 6553,
+   "usPerAttempt": 0.02274
+  },
+  {
+   "selector": "button:disabled",
+   "elapsedUs": 146,
+   "attempts": 1622,
+   "matches": 240,
+   "fastRejects": 0,
+   "usPerAttempt": 0.09001
+  },
+  {
+   "selector": "input:where(:not([type]), [type=\"text\"], [type=\"number\"], [type=\"password\"], [type=\"search\"])",
+   "elapsedUs": 135,
+   "attempts": 1059,
+   "matches": 125,
+   "fastRejects": 0,
+   "usPerAttempt": 0.12748
+  },
+  {
+   "selector": "symbol",
+   "elapsedUs": 130,
+   "attempts": 3240,
+   "matches": 3240,
+   "fastRejects": 0,
+   "usPerAttempt": 0.040119999999999996
+  },
+  {
+   "selector": ".hbar > span",
+   "elapsedUs": 127,
+   "attempts": 3829,
+   "matches": 0,
+   "fastRejects": 3829,
+   "usPerAttempt": 0.033170000000000005
+  }
+ ]
+}

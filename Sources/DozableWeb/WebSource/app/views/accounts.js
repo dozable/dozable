@@ -24,7 +24,7 @@
 //    key / a ChatGPT sign-in: the exact `doz account add` line to copy.
 // Find filters both views. Only what the host already exposes; every action one HostOp.
 import { h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { full, when } from '../core/format.js';
 import { act, actOrThrow, waitOp } from '../core/operations.js';
@@ -354,10 +354,10 @@ function keyRow(a, rows, x, p, phases) {
   return h('tr', { class: isFailing(x) || (isLogin(x) && loginDown(x) && used.length) ? 'failing' : null, 'data-ak-key': x.name, 'data-ak-kind': x.kind, 'data-ak-q-row': q },
     h('td', { class: 'c-key' },
       h('div', { class: 'ak-name' }, shownName(x), twin ? h('span', { class: 'tag warn', 'data-ak-twin': twin.name, title: 'The same fingerprint: one key stored twice' }, 'same key as ' + twin.name) : null),
-      h('div', { class: 'ak-where' }, icon(glyph), h('span', null, words), ref ? h('code', { title: ref }, ref) : null)),
+      h('div', { class: 'ak-where' }, icon(glyph), h('span', ref ? { class: 'ak-where-k' } : null, words), ref ? h('code', { title: ref }, ref) : null)),
     h('td', { class: 'c-st' }, h('div', { class: 'ak-state' }, statusPill(s), s[3] ? h('span', { class: 'muted' }, s[3]) : null)),
     h('td', { class: 'c-used' }, used.length
-      ? oneLineChips(used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n, 'data-name': n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off'), 'aria-hidden': 'true' }), n)))
+      ? oneLineChips(used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n, 'data-name': n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off') + phaseMark(phases[n] || 'off'), 'aria-hidden': 'true' }), n)))
       : h('div', { class: 'ak-used' }, h('span', { class: 'none' }, 'no sandbox'))),
     h('td', { class: 'c-def' }, def),
     h('td', { class: 'c-acts' }, h('div', { class: 'ak-acts' }, verb, moreMenu('More for ' + shownName(x), items, { small: true }).el)));

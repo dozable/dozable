@@ -41,7 +41,9 @@ function deniedChip(name, denied, suggestions, review) {
   const items = suggestions.slice(0, 6).map((s) => ({ label: s.what + ' (' + s.count + ')', icon: 'ban', desc: s.permission ? 'its permission: ' + s.permission : 'a site', onSelect: review }));
   if (items.length) items.push({ sep: true });
   items.push({ label: 'Review in Network', icon: 'shield', desc: 'Allow what it needs, or keep it out', onSelect: review, data: { 'review-network': name } });
-  return menuButton(b, items, { label: 'Refused for ' + name, align: 'start' }).el;
+  const m = menuButton(b, items, { label: 'Refused for ' + name, align: 'start' });
+  m.el.classList.add('chip-wrap');      // 647: it sits in the chips' row like a chip
+  return m.el;
 }
 /// 617 (RP-1): a web port's Open button — the forward on this Mac's loopback (127.0.0.1). From another device
 /// (doz serve) 127.0.0.1 is that device's own, so the button says so instead of opening the wrong machine.
@@ -342,7 +344,7 @@ function sandboxParts(name, d, net, accounts) {
     tabList.map(([id, label, title, ic]) => h('button', { type: 'button', role: 'tab', class: 'itab', id: 'itab-' + id, 'data-insp-tab': id, 'aria-controls': 'ipanel-' + id,
       'aria-selected': id === tab ? 'true' : 'false', title, on: { click: () => inspShow(name, id) } }, icon(ic), h('span', { class: 'itab-l' }, label), counts[id] || null)));
   const panel_ = (id, ...kids) => h('section', { class: 'ipanel', role: 'tabpanel', id: 'ipanel-' + id, 'data-insp': id, 'aria-labelledby': 'itab-' + id, hidden: id !== tab }, ...kids);
-  const head = (title, ...acts) => h('div', { class: 'head' }, h('h2', null, title), acts.length ? h('div', { class: 'actions' }, acts) : null);
+  const head = (title, ...acts) => h('div', { class: 'head has-title' }, h('h2', null, title), acts.length ? h('div', { class: 'actions' }, acts) : null);
   const last = d.restorePoints.length ? d.restorePoints[d.restorePoints.length - 1] : null;
   const details = h('div', { class: 'sbx-details-inner' }, tabs,
     d.guide ? panel_('guide', guideHead(), guidePanel(name, d.guide, (t) => inspShow(name, t))) : null,

@@ -97,6 +97,6 @@ function guideRepaint(name, g, onTab) {
 }
 
 /// The tab's own heading (the inspector's panels open with one).
-export function guideHead() { return h('div', { class: 'head' }, h('h2', null, 'Guide')); }
+export function guideHead() { return h('div', { class: 'head has-title' }, h('h2', null, 'Guide')); }
 
 export const GUIDE_TAB = ['guide', 'Guide', 'Guide: how to use it', 'list-checks'];

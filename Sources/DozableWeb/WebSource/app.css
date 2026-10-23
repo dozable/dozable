@@ -297,7 +297,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 617: the build log is a document (how the image was made: inputs, every command verbatim, the files, the checks). */
 .buildlog-doc { position: absolute; inset: 0; overflow: auto; background: var(--surface); color: var(--ink); padding: var(--sp-4) var(--sp-5);
   font-size: var(--fs-sm); }
-.buildlog-doc > * { max-width: var(--build-max); }
+.buildlog-doc > .bl-page { max-width: var(--build-max); }
 .buildlog-doc h2 { margin: 0 0 var(--sp-1); font-size: var(--fs-lg); }
 .buildlog-doc h3 { margin: 0 0 var(--sp-1); font-size: var(--fs-md); display: flex; align-items: baseline; gap: var(--sp-2); }
 .bl-sub { color: var(--ink-2); margin: 0 0 var(--sp-2); }
@@ -324,7 +324,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 617: the header's "N denied" opens what was refused (a menu), never a banner that moves the page. */
 .denied-chip { border: 0; font: inherit; font-size: var(--fs-xs); cursor: pointer; margin: 0 0 0 var(--sp-1); height: 22px; }
 /* Its menu's wrapper sits in the chips' row like a chip: it must never make that row taller (the header would move). */
-.menu-wrap:has(> .denied-chip) { display: inline-flex; align-items: center; vertical-align: middle; }
+.menu-wrap.chip-wrap { display: inline-flex; align-items: center; vertical-align: middle; }
 .denied-chip:hover { box-shadow: inset 0 0 0 1px var(--warn); }
 .term-pane { display: flex; flex-direction: column; min-height: 0; min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--term-bg); overflow: hidden; }
 .term-pane[hidden] { display: none; }
@@ -335,12 +335,12 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 .tab-wrap { flex: none; display: flex; align-items: center; border-radius: var(--r-md) var(--r-md) 0 0; background: var(--surface-3); }
 .tab-wrap:hover { background: color-mix(in srgb, var(--ink) 12%, var(--surface-3)); }
 .tab-wrap:hover .tab { color: var(--ink); }
-.tab-wrap:has(.tab.active) { background: var(--term-bg); box-shadow: inset 0 2px 0 var(--accent); }
+.tab-wrap.is-active { background: var(--term-bg); box-shadow: inset 0 2px 0 var(--accent); }
 .tabs-menu { align-self: center; margin: 0 2px 0 6px; color: var(--ink-2); }
 .tabs-menu[aria-expanded="true"] { background: var(--surface-3); color: var(--ink); }
 /* 617 (owner): the active tab sits on the terminal's dark chrome in both themes — its close, move and session buttons take
    the terminal's ink, not the page's (they were dark on dark in light mode). */
-.tab-wrap:has(.tab.active) > .tab-x, .tab-wrap:has(.tab.active) .menu-wrap > .tab-x { color: var(--term-ink); }
+.tab-wrap.is-active > .tab-x, .tab-wrap.is-active .menu-wrap > .tab-x { color: var(--term-ink); }
 .tab { font: inherit; font-size: var(--fs-sm); border: 0; background: none; color: var(--ink-2); padding: 6px 8px; cursor: pointer; display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .tab.active { color: var(--term-ink); }
 .tab .tag.shared { background: color-mix(in srgb, var(--warn) 25%, transparent); color: var(--term-warn); }
@@ -350,11 +350,11 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 635: a sandbox page's Home — its first tab, a document in the terminal area (like the build log), on --bg so its
    active tab joins it. The agent's session as a card, the others as rows, each with a picture of its screen. */
 .tab.tab-home { padding: 6px 9px; }
-.tab-wrap:has(.tab-home.active) { background: var(--bg); }
+.tab-wrap.is-home.is-active { background: var(--bg); }
 .tab.tab-home.active { color: var(--ink); }
 .tab-home .count { min-width: 16px; height: 16px; font-size: var(--fs-xs); padding: 0 4px; }
 .home-doc { position: absolute; inset: 0; overflow: auto; background: var(--bg); color: var(--ink); padding: var(--sp-5) var(--sp-5) var(--sp-7); }
-.home-doc > * { max-width: 920px; }
+.home-doc > .home-sect { max-width: 920px; }
 .home-doc h2 { margin: 0; font-size: var(--fs-lg); }
 .home-sect { display: flex; flex-direction: column; gap: var(--sp-3); margin-bottom: var(--sp-6); }
 .home-sect > .head { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3); flex-wrap: wrap; }
@@ -420,7 +420,7 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 635 (owner): Home's sessions as a grid of their live pictures — the same card and rows, laid out as tiles. */
 .home-tiles { display: flex; flex-direction: column; gap: var(--sp-3); }
 .home-view .btn.on { background: var(--surface-3); color: var(--ink); }
-.home-doc.as-grid > * { max-width: none; }
+.home-doc.as-grid > .home-sect { max-width: none; }
 .as-grid .home-tiles { display: grid; grid-template-columns: repeat(auto-fill, 290px); gap: var(--sp-4); }
 .as-grid .home-card-box, .as-grid .home-rows:not(.home-ended) { display: contents; }
 .as-grid .home-empty { grid-column: 1 / -1; }
@@ -481,7 +481,8 @@ progress.sp-bar.failed::-moz-progress-bar { background: var(--bad); }
 /* 635: a glyph with a small one in its top-right corner (Open in Terminal: the terminal + an arrow out) — the corner of the
    big one is cut away under the small one, so it reads on any background. */
 .icon-corner { position: relative; display: inline-flex; flex: none; }
-.icon-corner > .icon:first-child { -webkit-mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); mask: radial-gradient(circle at 100% 0, transparent 7px, #000 7.5px); }
+/* A mask reads only its alpha: its opaque stop is the one black token. */
+.icon-corner > .icon:first-child { -webkit-mask: radial-gradient(circle at 100% 0, transparent 7px, var(--qr-dark) 7.5px); mask: radial-gradient(circle at 100% 0, transparent 7px, var(--qr-dark) 7.5px); }
 .icon-corner > .icon:last-child { position: absolute; top: -3px; right: -3px; width: 9px; height: 9px; stroke-width: 3; }
 .tc-glyph { display: inline-flex; color: var(--term-accent); }
 .tc-glyph[hidden] { display: none; }
@@ -635,7 +636,7 @@ dialog.dlg.dlg-wide { width: min(720px, calc(100vw - 32px)); }
   .res-child .res-name { padding-left: 18px; }
 }
 /* 596: New Sandbox — Agent × Base. */
-dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
+dialog.dlg.has-picker { width: min(780px, calc(100vw - 32px)); }
 .image-picker { gap: 6px; }
 .image-picker .segmented { align-self: flex-start; }
 .image-picker .seg[disabled] { opacity: .45; cursor: not-allowed; }
@@ -771,7 +772,7 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .menu-item { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; column-gap: var(--sp-3); row-gap: 1px; align-items: center; width: 100%;
   min-height: var(--ctl-md); padding: 5px 8px; border: 0; border-radius: var(--r-sm); background: none; color: var(--ink); font: inherit;
   text-align: left; cursor: pointer; white-space: normal; }
-.menu:has(.icon-pair) .menu-item { grid-template-columns: 33px minmax(0, 1fr) auto; }
+.menu.has-pairs .menu-item { grid-template-columns: 33px minmax(0, 1fr) auto; }
 .menu-item:hover, .menu-item:focus-visible { background: var(--surface-2); outline: none; }
 .menu-item > .icon, .menu-item > .icon-pair, .menu-item > .icon-corner { grid-column: 1; }
 .menu-item > .mi-label { grid-column: 2; }
@@ -811,9 +812,10 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .pill .icon { width: 12px; height: 12px; stroke-width: 2.25; }
 .pill .mini-spin, .pill .spin { color: inherit; width: 10px; height: 10px; }
 .dot, .ph-dot, .tab-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; display: inline-block; background: var(--ph, var(--ph-off)); }
-:is(.dot, .ph-dot, .tab-dot):is(.ph-hibernated, .ph-off, .ph-unknown, .ph-ended) { background: transparent; box-shadow: inset 0 0 0 2px var(--ph); }
-:is(.dot, .ph-dot, .tab-dot).ph-failed { border-radius: var(--r-xs); }
-:is(.dot, .ph-dot, .tab-dot):is(.ph-booting, .ph-busy) { background: transparent; border: 2px solid var(--ph); border-top-color: transparent; animation: spin 0.9s linear infinite; }
+/* 647: the shape is a class the component sets beside the colour (`phaseMark`, dom/icons.js) — never an :is() list. */
+.mark-ring { background: transparent; box-shadow: inset 0 0 0 2px var(--ph); }
+.mark-square { border-radius: var(--r-xs); }
+.mark-turning { background: transparent; border: 2px solid var(--ph); border-top-color: transparent; animation: spin 0.9s linear infinite; }
 
 /* 612: what the agent is doing (OSC 7501) — a chip on a session's tab, tile and row; a dot on the sidebar's sandbox.
    The colour says the state (working = info, blocked = warn, done = ok, error = bad, idle = quiet); the word says it too. */
@@ -862,15 +864,18 @@ dialog.dlg:has(.image-picker) { width: min(780px, calc(100vw - 32px)); }
 .field small { color: var(--ink-2); font-size: var(--fs-sm); }
 .field[hidden] { display: none; }
 .field.check { flex-direction: row; align-items: center; gap: var(--sp-3); }
-:where(input:not([type]), input[type="text"], input[type="number"], input[type="password"], input[type="search"], select, textarea) {
+/* 647: keyed on the element (input, select, textarea), so every other element is rejected at once; the hover stands
+   aside for a focused field (the focus ring's border wins, as it did when this rule had no specificity). */
+input:where(:not([type]), [type="text"], [type="number"], [type="password"], [type="search"]), select, textarea {
   font: var(--fs-md)/1.3 var(--font); color: var(--ink); background: var(--surface); border: var(--bw) solid var(--control); border-radius: var(--r-sm);
   min-height: var(--ctl-md); padding: 0 8px; min-width: 0; }
-:where(textarea) { padding: 6px 8px; font: var(--fs-mono)/1.5 var(--mono); resize: vertical; }
-:where(input:not([type]), input[type="text"], input[type="number"], input[type="password"], input[type="search"], select, textarea):hover { border-color: var(--ink-2); }
-:where(input:not([type]), input[type="text"], input[type="number"], input[type="password"], input[type="search"], select, textarea):disabled {
+textarea { padding: 6px 8px; font: var(--fs-mono)/1.5 var(--mono); resize: vertical; }
+input:where(:not([type]), [type="text"], [type="number"], [type="password"], [type="search"]):hover:where(:not(:focus-visible)),
+select:hover:where(:not(:focus-visible)), textarea:hover:where(:not(:focus-visible)) { border-color: var(--ink-2); }
+input:where(:not([type]), [type="text"], [type="number"], [type="password"], [type="search"]):disabled, select:disabled, textarea:disabled {
   background: var(--surface-2); color: var(--ink-3); border-color: var(--line-strong); }
 input[aria-invalid="true"] { border-color: var(--bad); }
-::placeholder { color: var(--ink-2); opacity: 1; }
+input::placeholder, textarea::placeholder { color: var(--ink-2); opacity: 1; }
 input[type="checkbox"], input[type="radio"] { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; flex: none; }
 input[type="checkbox"][role="switch"] { appearance: none; -webkit-appearance: none; width: 30px; height: 18px; border-radius: var(--r-pill); background: var(--line-strong);
   position: relative; cursor: pointer; transition: background var(--dur-1) var(--ease); margin: 0; flex: none; }
@@ -884,8 +889,8 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
   border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); cursor: pointer; }
 .wiz-choice:hover { border-color: var(--control); }
 .wiz-choice > input { margin-top: 1px; }
-.wiz-choice.chosen, .wiz-choice:has(> input:checked) { border-color: var(--accent); background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent); }
-.wiz-choice:has(> input:disabled) { cursor: not-allowed; color: var(--ink-3); background: var(--surface-2); }
+.wiz-choice.chosen, .wiz-choice.is-checked { border-color: var(--accent); background: var(--accent-tint); box-shadow: inset 0 0 0 1px var(--accent); }
+.wiz-choice.is-disabled { cursor: not-allowed; color: var(--ink-3); background: var(--surface-2); }
 .base-card { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; text-align: left; font: inherit; font-size: var(--fs-sm); padding: 9px 10px;
   border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); color: var(--ink); cursor: pointer; }
 .base-card:hover { border-color: var(--control); }
@@ -1024,7 +1029,7 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
 .frow .fsize { flex: none; color: var(--ink-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
 .frow .tag { flex: none; margin: 0; height: 16px; }
 .frow .menu-wrap { flex: none; opacity: 0; }
-.frow:hover .menu-wrap, .frow:focus-within .menu-wrap, .frow[aria-selected="true"] .menu-wrap, .frow .menu-wrap:has([aria-expanded="true"]) { opacity: 1; }
+.frow:hover .menu-wrap, .frow:focus-within .menu-wrap, .frow[aria-selected="true"] .menu-wrap, .frow .menu-wrap.is-open { opacity: 1; }
 @media (hover: none) { .frow .menu-wrap { opacity: 1; } }
 .fmsg { padding: var(--sp-0) var(--sp-3) var(--sp-0) calc(var(--sp-1) + var(--depth, 0) * 14px + 20px); color: var(--ink-2); font-size: var(--fs-sm); }
 .fmsg.bad { color: var(--bad); }
@@ -1082,9 +1087,9 @@ a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; paddin
    (its count, its agent's dot) makes room while it shows. */
 .nav-sbx > .nav-sbx-menu { position: absolute; right: 2px; top: 0; height: 26px; display: flex; align-items: center; opacity: 0; z-index: 1; }
 .nav-sbx > a.nav-child:hover ~ .nav-sbx-menu, .nav-sbx > .nav-sbx-menu:hover, .nav-sbx > .nav-sbx-menu:focus-within,
-.nav-sbx > .nav-sbx-menu:has(.menu:not([hidden])) { opacity: 1; }
+.nav-sbx > .nav-sbx-menu.is-open { opacity: 1; }
 .nav-sbx > .nav-sbx-menu > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
-.nav-sbx > a.nav-child:hover, .nav-sbx:has(> .nav-sbx-menu:hover) > a.nav-child, .nav-sbx:has(> .nav-sbx-menu:focus-within) > a.nav-child { padding-right: 28px; }
+.nav-sbx > a.nav-child:hover, .nav-sbx.menu-hover > a.nav-child, .nav-sbx.menu-focus > a.nav-child { padding-right: 28px; }
 a.nav-child .nav-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 a.nav-child .nav-count + .ag-dot { margin-left: 0; }
 .nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 16px; }
@@ -1099,7 +1104,7 @@ a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; w
 a.nav-sess .ag-chip { margin-left: auto; height: 16px; }
 a.nav-sess.saved { font-style: italic; }
 .nav-sess-row > .menu-wrap { position: absolute; right: 2px; top: 0; height: 24px; display: flex; align-items: center; opacity: 0; }
-.nav-sess-row:hover > .menu-wrap, .nav-sess-row:focus-within > .menu-wrap, .nav-sess-row > .menu-wrap:has(.menu:not([hidden])) { opacity: 1; }
+.nav-sess-row:hover > .menu-wrap, .nav-sess-row:focus-within > .menu-wrap, .nav-sess-row > .menu-wrap.is-open { opacity: 1; }
 .nav-sess-row > .menu-wrap > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
 /* 635 (owner): the screen icon on a session line's hover; resting on it fills its underline for half a second, then the
    session's picture opens beside the sidebar (.nav-peek-pop). */
@@ -1108,7 +1113,7 @@ a.nav-sess.saved { font-style: italic; }
 .nav-peek:last-child { right: 2px; }
 .nav-peek .icon { width: 13px; height: 13px; }
 .nav-sess-row:hover > .nav-peek { opacity: 1; }
-.nav-sess-row:has(> .nav-peek):hover a.nav-sess { padding-right: 50px; }
+.nav-sess-row.has-peek:hover a.nav-sess { padding-right: 50px; }
 .nav-peek:hover { background: var(--surface-3); color: var(--ink); }
 .nav-peek::after { content: ""; position: absolute; left: 0; bottom: 0; height: 2px; width: 0; background: var(--accent); }
 .nav-peek.arming::after { animation: peek-arm 500ms linear var(--arm-delay, 0ms) forwards; }
@@ -1216,7 +1221,7 @@ button.chip-kv:hover { background: var(--surface-3); }
 .ipanel { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
 .ipanel[hidden] { display: none; }
 .ipanel h2 { font-size: var(--fs-md); margin: 0; }
-.ipanel .head, .ipanel .head:has(h2) { margin: 0; }
+.ipanel .head { margin: 0; }
 .ipanel p { margin: 4px 0 0; }
 .insp-lbl { font-size: var(--fs-sm); color: var(--ink-2); font-weight: var(--fw-medium); margin-bottom: 4px; }
 .ipanel .panel { border-radius: var(--r-md); }
@@ -1339,7 +1344,7 @@ td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
 .stat .n-act { margin-top: 4px; }
 .head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .head h1, .head h2 { margin: 0; }
-.head:has(h2) { margin: 24px 0 8px; }
+.head:where(.has-title) { margin: 24px 0 8px; }
 /* Images below 1100 px: the bar says own and shared; their figure columns (and the note) step aside. */
 @media (max-width: 1100px) { .images-t th:nth-child(6), .images-t td:nth-child(6), .images-t th:nth-child(7), .images-t td:nth-child(7),
   .images-t th:nth-child(10), .images-t td:nth-child(10) { display: none; } }
@@ -1386,7 +1391,7 @@ ol.stepper { list-style: none; margin: 0; padding: 0; display: grid; grid-auto-f
 .step-compact b { color: var(--ink); }
 .wm-box .wiz-card { flex: 1; min-height: 0; display: flex; flex-direction: column; min-width: 0; margin: 0; }
 .wiz-card .w-body { flex: 1; min-height: 0; overflow-y: auto; padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.wiz-card .w-body > * { flex: none; }
+.wiz-card .w-body > .w-item { flex: none; }
 .wiz-card .w-body h2 { margin: 0; font-size: var(--fs-xl); }
 .wiz-card .w-body h3 { margin: 6px 0 0; font-size: var(--fs-lg); }
 .wiz-card .w-body > p, .wiz-card .rules-step > p { font-size: var(--fs-lg); line-height: var(--lh-prose); margin: 0; }
@@ -1412,7 +1417,7 @@ details.disclosure > summary { cursor: pointer; color: var(--ink-2); font-size: 
 details.disclosure > summary::-webkit-details-marker { display: none; }
 details.disclosure > summary .icon { width: 14px; height: 14px; transform: rotate(-90deg); transition: transform var(--dur-1) var(--ease); }
 details.disclosure[open] > summary .icon { transform: none; }
-details.disclosure > :not(summary) { margin-top: 6px; }
+details.disclosure > .d-part { margin-top: 6px; }
 .nw-review dl.facts { margin: 0; }
 }
 @layer components {
@@ -1618,7 +1623,7 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 .ms-keyline[data-ms-no-key] > span { min-width: 0; }
 .ms-keyline select { min-width: 0; max-width: 100%; }
 .ms-other summary { color: var(--accent); cursor: pointer; font-size: var(--fs-sm); }
-.ms-other > * + * { margin-top: var(--sp-2); }
+.ms-other > .ms-part { margin-top: var(--sp-2); }
 .ms-cmd { display: block; font-family: var(--mono); font-size: var(--fs-mono); padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--surface-2);
   overflow-wrap: anywhere; user-select: all; }
 .ms-notoffer { margin: var(--sp-2) 2px 0; font-size: var(--fs-sm); color: var(--ink-2); }
@@ -1725,7 +1730,7 @@ table.ak-t col.c-acts { width: 130px; }
 .ak-where { font-size: var(--fs-sm); color: var(--ink-2); display: flex; gap: 5px; align-items: center; min-width: 0; }
 .ak-where .icon { width: 13px; height: 13px; flex: none; }
 .ak-where span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ak-where span:has(+ code) { flex: none; }   /* "command" whole; the path takes the ellipsis */
+.ak-where .ak-where-k { flex: none; }   /* "command" whole; the path takes the ellipsis */
 .ak-where code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-xs); }
 .ak-state { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .ak-state .muted { font-size: var(--fs-xs); overflow-wrap: anywhere; }
@@ -1737,8 +1742,8 @@ table.ak-t col.c-acts { width: 130px; }
 .ak-chip .ph-dot { width: 6px; height: 6px; }
 /* One line, never a taller row: chips that do not fit become "… +N" (oneLineChips in accounts.js measures). */
 .ak-used.one-line { flex-wrap: nowrap; overflow: hidden; }
-.ak-used.one-line > * { flex: none; }
-.ak-used.one-line > :first-child { flex: 0 1 auto; min-width: 0; }
+.ak-used.one-line > .ak-chip { flex: none; }
+.ak-used.one-line > .ak-chip:first-child { flex: 0 1 auto; min-width: 0; }
 .ak-used.one-line > [hidden] { display: none; }
 .ak-chip.more { color: var(--ink-2); background: transparent; padding: 0 4px; cursor: default; }
 .ak-acts { display: flex; gap: 4px; justify-content: flex-end; align-items: center; flex-wrap: wrap; }
@@ -1871,7 +1876,7 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 /* (a) The step's column: centred, as wide as the step needs — narrow 480 (a form), medium 680, wide 1080 (two columns). */
 .wiz-card .w-body.w2 { padding: 26px 24px 30px; }
 .w2-col { width: 100%; margin-inline: auto; display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-.w2-col > * { flex: none; }
+.w2-col > .w-item { flex: none; }
 .w2-col.narrow { max-width: 480px; }
 .w2-col.medium { max-width: 680px; }
 .w2-col.wide { max-width: 1080px; }

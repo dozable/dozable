@@ -1,6 +1,6 @@
 // components/modal — The wizards' modal (603): a real dialog over the page under it.
 import { upcall } from '../core/hooks.js';
-import { $, h } from '../dom/h.js';
+import { $, h, markChildren } from '../dom/h.js';
 import { MODAL_VIEWS } from '../core/router.js';
 import { state } from '../core/state.js';
 import { WIZ } from '../core/wizards.js';
@@ -67,7 +67,7 @@ export async function renderModal(first) {
   let node;
   try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : await viewOnboarding(); } catch (e) {
     node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozable', null, [], null),
-      h('div', { class: 'wiz-card' }, h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) }))));
+      h('div', { class: 'wiz-card' }, markChildren(h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) })), 'w-item')));
   }
   if (state.modal !== v || state.signedOut) return;
   wizMount(node, first);

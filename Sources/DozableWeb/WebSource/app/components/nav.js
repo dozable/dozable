@@ -1,7 +1,7 @@
 // components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon, mark } from '../dom/icons.js';
+import { icon, mark, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
@@ -95,13 +95,20 @@ function sandboxLineMenu(s) {
   const m = moreMenu('More for ' + s.name, [renameItem(s.name)],
     { small: true, data: { navLineMore: s.name }, onClose: () => setTimeout(renderNavSandboxes, 0) });
   m.el.classList.add('nav-sbx-menu');
+  // 647: while the pointer or the focus is on the ⋯, the sandbox's line makes room for it — a state class on the line's
+  // box (never :has()).
+  const mark = (cls, on) => { const box = m.el.parentElement; if (box) box.classList.toggle(cls, on); };
+  m.el.addEventListener('pointerenter', () => mark('menu-hover', true));
+  m.el.addEventListener('pointerleave', () => mark('menu-hover', false));
+  m.el.addEventListener('focusin', () => mark('menu-focus', true));
+  m.el.addEventListener('focusout', () => mark('menu-focus', false));
   return m.el;
 }
 /// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
 function phaseGlyph(s) {
   if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');
     g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel); return g; }
-  return h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel });
+  return h('span', { class: 'ph-dot ph-' + s.phase + phaseMark(s.phase), role: 'img', 'aria-label': s.phaseLabel });
 }
 
 // ── 635: a sandbox's sessions in the sidebar ────────────────────────────────────────────────────────────────────────
@@ -156,7 +163,7 @@ function sessionLine(s, x) {
     : null;
   const row = h('div', { class: 'nav-sess-row', role: 'listitem' }, a);
   // 635 (owner): the screen icon on hover — resting on it shows the session's picture (ui.nav_thumbnails).
-  if (canPeek(s.phase, x)) row.append(peekIcon(row, s.name, x));
+  if (canPeek(s.phase, x)) { row.append(peekIcon(row, s.name, x)); row.classList.add('has-peek'); }
   if (menu) row.append(menu);
   return row;
 }

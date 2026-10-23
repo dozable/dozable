@@ -2,7 +2,7 @@
 import { paintStartProgress } from '../components/start-progress.js';
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon, ICON_OPEN_IN_TERMINAL, setButton, withIcon } from '../dom/icons.js';
+import { icon, ICON_OPEN_IN_TERMINAL, phaseMark, setButton, withIcon } from '../dom/icons.js';
 import { agentTitle } from '../core/agents.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
@@ -276,7 +276,7 @@ function tabElement(t, pane) {
                                title: (t.title ? t.title + ' — ' + label : label) + '\nShift+drag selects text while the program uses the mouse',
                                'data-term': String(t.id),
                                on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); focusTerm(t); } } },
-    h('span', { class: 'tab-dot ph-' + phase, 'aria-hidden': 'true' }), icon(t.mode === 'watch' ? 'eye' : 'terminal'), label,
+    h('span', { class: 'tab-dot ph-' + phase + phaseMark(phase), 'aria-hidden': 'true' }), icon(t.mode === 'watch' ? 'eye' : 'terminal'), label,
     t.activity ? h('span', { class: 'tab-activity', 'data-tab-activity': '', title: 'Ready — it has drawn its screen', 'aria-label': 'ready' }) : null,
     t.mode === 'watch' ? h('span', { class: 'tag' }, 'watch') : null,
     t.session && !t.bootlog ? agentChip(t.sandbox, t.session) : null,     // 612: what its agent is doing
@@ -299,7 +299,7 @@ function tabElement(t, pane) {
       { align: 'end', label: 'Session ' + t.session });
   } else if (!live && t.sessionMenu) t.sessionMenu = null;
   const menu = live ? t.sessionMenu.el : null;
-  return h('div', { class: 'tab-wrap' }, select, move, menu, close);
+  return h('div', { class: 'tab-wrap' + (t.id === v.selected[pane] ? ' is-active' : '') }, select, move, menu, close);
 }
 /// 635: the agent's own interactive tab on its running session — the one whose close lands on Home with the note.
 function isAgentTab(t) {
@@ -344,7 +344,7 @@ function homeTab(t, pane, v) {
     title: 'Home — every session of ' + t.sandbox + ', its logs and its folder', 'data-term': String(t.id), 'data-home-tab': t.sandbox,
     on: { click: () => { v.selected[pane] = t.id; v.focusedPane = pane; renderTerminals(); } } },
     icon('layout-grid'), 'Home', live ? h('span', { class: 'count', title: live + ' running' }, String(live)) : null);
-  return h('div', { class: 'tab-wrap' }, select);
+  return h('div', { class: 'tab-wrap is-home' + (t.id === v.selected[pane] ? ' is-active' : '') }, select);
 }
 /// 617: the system console. 635: an ordinary tab — closable at any time (even during a boot); once closed it stays
 /// closed until the next Start (Home › Logs › Console opens it again).
@@ -356,7 +356,7 @@ function consoleTab(t, pane, v) {
   const close = h('button', { type: 'button', class: 'tab-x', title: 'Close the console — it stays closed until the next start (Home › Logs opens it again)',
     'aria-label': 'Close Console', 'data-console-close': t.sandbox,
     on: { click: () => { v.consoleClosed = true; closeTerminal(t.id); } } }, icon('x'));
-  return h('div', { class: 'tab-wrap' }, select, close);
+  return h('div', { class: 'tab-wrap' + (t.id === v.selected[pane] ? ' is-active' : '') }, select, close);
 }
 /// 635 (owner): the build log — its own tab, opened from Home › Logs (never by itself); a spanner, no number; closable.
 function buildLogTab(t, pane, v) {
@@ -367,7 +367,7 @@ function buildLogTab(t, pane, v) {
     icon('wrench'), 'Build log');
   const close = h('button', { type: 'button', class: 'tab-x', title: 'Close the build log (Home › Logs opens it again)', 'aria-label': 'Close Build log',
     on: { click: () => closeTerminal(t.id) } }, icon('x'));
-  return h('div', { class: 'tab-wrap' }, select, close);
+  return h('div', { class: 'tab-wrap' + (t.id === v.selected[pane] ? ' is-active' : '') }, select, close);
 }
 /// 617: the image's kept build log, read once per page (a 404: none kept), forgotten while the image is being built (its
 /// new log replaces it when the build ends — `stale`). 635 (owner): never opened by itself — Home › Logs › Build log

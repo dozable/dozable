@@ -1,7 +1,7 @@
 // views/sandbox-home — A sandbox page's Home (635): its first tab — every session (the agent's as a card, the others as
 // rows, each with a picture of its screen), its logs and its folder. Closing a tool's tab lands here.
 import { h } from '../dom/h.js';
-import { icon, ICON_OPEN_IN_TERMINAL } from '../dom/icons.js';
+import { icon, ICON_OPEN_IN_TERMINAL, phaseMark } from '../dom/icons.js';
 import { agentTitle } from '../core/agents.js';
 import { when } from '../core/format.js';
 import { transitionOf, TRANSITION_LABEL } from '../core/operations.js';
@@ -35,7 +35,7 @@ const HOMES = new Map();
 function homeOf(name) {
   let home = HOMES.get(name);
   if (home) return home;
-  const head = h('div', { class: 'head' });
+  const head = h('div', { class: 'head has-title' });
   const lead = h('p', { class: 'home-lead' });
   const cardBox = h('div', { class: 'home-card-box' });
   const rowsBox = h('div', { class: 'home-rows', hidden: true });
@@ -243,7 +243,8 @@ function paintRow(r, name, row, why) {
   r.nm.replaceChildren(h('span', null, row.name), agentChip(name, row.name));
   r.cmd.textContent = row.command;
   r.cmd.title = row.command;
-  r.st.replaceChildren(h('span', { class: 'dot ph-' + (row.saved ? (state.sbx.d.info.phase) : 'running'), 'aria-hidden': 'true' }),
+  const dotPhase = row.saved ? state.sbx.d.info.phase : 'running';
+  r.st.replaceChildren(h('span', { class: 'dot ph-' + dotPhase + phaseMark(dotPhase), 'aria-hidden': 'true' }),
     h('span', null, row.saved ? sinceText(row) : sinceText(row) + ' · ' + tabFact(name, row.name)));
   r.acts.replaceChildren(...(row.saved
     ? [btn('Show', () => showSaved(name, row), { small: true, quiet: true, icon: 'eye', title: 'Its last saved screen in a tab (read-only)' })]
@@ -267,7 +268,7 @@ function paintLogs(home, name, i) {
   // 635 (owner): the build log opens in its own tab from here (never by itself).
   const blog = state.buildLogs && state.buildLogs.get(name);
   const blogTab = pageTerminals(name).some((t) => t.buildlog);
-  home.logs.replaceChildren(h('div', { class: 'head' }, h('h2', null, 'Logs')), h('div', { class: 'home-rows' },
+  home.logs.replaceChildren(h('div', { class: 'head has-title' }, h('h2', null, 'Logs')), h('div', { class: 'home-rows' },
     logRow('cpu', 'Console', 'the kernel and vminitd, read-only', powered ? (cons ? 'open in a tab' : 'while it runs') : 'only while it runs', consoleOpen, !powered),
     blog ? logRow('wrench', 'Build log', 'how ' + (blog.image || 'its image') + ' was built',
       [blog.finishedAt ? when(blog.finishedAt) : '', blogTab ? 'open in a tab' : ''].filter(Boolean).join(' · '),
@@ -287,7 +288,7 @@ function paintFolder(home, i) {
   } else {
     fact('Folder', 'isolated — no folder of this Mac is shared');
   }
-  home.folder.replaceChildren(h('div', { class: 'head' }, h('h2', null, 'Folder')), h('dl', { class: 'home-facts' }, ...facts));
+  home.folder.replaceChildren(h('div', { class: 'head has-title' }, h('h2', null, 'Folder')), h('dl', { class: 'home-facts' }, ...facts));
 }
 
 // ── the pictures: live only while Home is shown and the row is on screen; capped ─────────────────────────────────
