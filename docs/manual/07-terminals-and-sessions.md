@@ -88,6 +88,43 @@ doz files my-app src --watch     # then a line each time that folder's listing c
   the image's user) and never watched — list again to see what changed. While it is asleep or off it is not
   woken to answer; start it first.
 
+### Changing the files: `doz files mkdir|new|mv|rename|rm|open`
+
+```sh
+doz files mkdir my-app notes            # a new, empty folder (its parent must be there)
+doz files new my-app notes/todo.md      # a new, empty file
+doz files rename my-app notes/todo.md plan.md
+doz files mv my-app notes/plan.md docs/plan.md
+doz files rm my-app old.txt             # asks first (--yes does not); a folder with anything in it needs -r
+doz files open my-app docs/index.html   # on your Mac, in its default app; --reveal shows it in the Finder
+```
+
+- **Nothing is ever replaced**: a new file, a new folder or a move to a name that is there is refused.
+  `/workspace` itself is never renamed, moved or deleted, and a folder never goes into itself.
+- **A shared workspace is changed on your Mac**, in any state of the sandbox — nothing is started or woken,
+  and no Dozable host is started for it. Only the shared folder is touched: a link is never followed (deleting
+  a link deletes the link, never what it points to) and a path that leads outside the shared folder is
+  refused. The [workspace rules](20-workspace-rules.md) apply as in the sandbox: a hidden item is not there,
+  a locked or read-only one is not changed, a new name the rules would hide, lock or make read-only is
+  refused, and a folder holding something the rules protect is not moved or deleted.
+- **An isolated sandbox** is changed from inside, as the image's user, while it runs; asleep or off it is
+  refused (and stays as it is).
+- **`open`** follows the rules of the agent’s own opening ([Opening workspace files on your Mac](#opening-workspace-files-on-your-mac)):
+  `sandbox.open_files` on, documents only, never a program; a folder opens in the Finder. An isolated
+  sandbox's files are inside it — `doz get` copies one out.
+
+### The Files tab
+
+The sandbox page's details have a **Files** tab: the tree of `/workspace`. A folder opens on a click (or
+→, Enter); while the tab is shown, open folders are watched, so a change made on the Mac or inside the
+sandbox appears by itself (an isolated sandbox: Refresh). Which folders are open is kept per sandbox, so a
+reload, another browser or a restarted `doz ui` shows the same ones open. The head's buttons make a file or a
+folder in the selected folder; each row's ⋯ opens it on the Mac, shows it in the Finder, copies its path,
+renames, moves or deletes it (a box to tick first) — the same rules as the commands above, and nothing done
+here starts a host or wakes the sandbox. A row dragged onto a folder is moved there. Locked and read-only
+items are marked and cannot be changed here. An isolated sandbox that is not running says so, and nothing in
+it is asked.
+
 ### Restarting or ending a session
 
 `doz sessions restart NAME SESSION` ends the session's program and starts **the same program again**, in

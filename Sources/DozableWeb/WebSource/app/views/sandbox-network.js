@@ -33,11 +33,17 @@ function permissionsPanel(name, net) {
     b.addEventListener('click', () => { if (id === 'open') confirmWeb(() => send({ preset: 'open' })); else send({ preset: id }); });
     return b;
   };
-  const suggestions = p.suggestions.map((s) => callout('warn', { compact: true, cls: 'perm-suggest', icon: 'shield', attrs: { 'data-suggest': s.grant },
-    body: ['The agent tried to ', h('strong', null, s.permission ? s.what : 'reach ' + s.what),
-      h('div', { class: 'muted' }, s.hosts.join(', ') + ' · ' + s.count + ' time' + (s.count === 1 ? '' : 's'))],
-    actions: [btn(s.permission ? 'Allow' : 'Allow this site', () => (s.permission === 'web' ? confirmWeb(() => send({ grant: [s.grant] })) : send({ grant: [s.grant] })),
-      { small: true, icon: 'check' })] }));
+  // A refused host under a domain is offered as the whole domain (`site:*.example.com`, owner 2026-10-23: one approval,
+  // not one per URL); its hosts are listed, the first three.
+  const suggestions = p.suggestions.map((s) => {
+    const domain = s.grant.startsWith('site:*.') ? s.grant.slice(7) : null;
+    const hosts = s.hosts.slice(0, 3).join(', ') + (s.hosts.length > 3 ? ' and ' + (s.hosts.length - 3) + ' more' : '');
+    return callout('warn', { compact: true, cls: 'perm-suggest', icon: 'shield', attrs: { 'data-suggest': s.grant },
+      body: ['The agent tried to ', h('strong', null, s.permission ? s.what : domain ? 'reach sites at ' + domain : 'reach ' + s.what),
+        h('div', { class: 'muted' }, hosts + ' · ' + s.count + ' time' + (s.count === 1 ? '' : 's'))],
+      actions: [btn(s.permission ? 'Allow' : domain ? 'Allow ' + domain : 'Allow this site', () => (s.permission === 'web' ? confirmWeb(() => send({ grant: [s.grant] })) : send({ grant: [s.grant] })),
+        { small: true, icon: 'check' })] });
+  });
   const sites = p.sites.map((host) => h('span', { class: 'tag perm-site', 'data-site': host }, host, ' ',
     h('button', { type: 'button', class: 'btn sm quiet icon-only', title: 'Deny ' + host, 'aria-label': 'Deny ' + host, on: { click: () => send({ revoke: ['site:' + host] }) } }, icon('x'))));
   const siteInput = h('input', { type: 'text', placeholder: 'api.example.com', 'aria-label': 'A site to allow', 'data-site-input': '', spellcheck: 'false' });

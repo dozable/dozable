@@ -118,6 +118,61 @@ final class WebFilesTests: XCTestCase {
         XCTAssertEqual(try get("/api/v1/sandboxes/demo/files?path=a&path=b", ["Cookie": cookie]).status, 404, "not a route")
     }
 
+    // MARK: 644 — the panel's open folders and the open
+
+    func testThePanelRoutesAndTheirStrictBodies() throws {
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/sandboxes/demo/files/tree"), .filesTree("demo"))
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/sandboxes/demo/files/tree"), .filesTreeSet("demo"))
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/sandboxes/demo/files/open"), .filesOpen("demo"))
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/sandboxes/demo/files/open"), "opening is never a GET")
+        XCTAssertNil(WebRoute.parse(method: .post, target: "/api/v1/sandboxes/demo/files/write"), "no generic file write")
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/sandboxes/demo/files/read"), "no file read")
+        XCTAssertEqual(WebExposure.kind(.filesTree("s")), .read)
+        XCTAssertEqual(WebExposure.kind(.filesTreeSet("s")), .change)
+        XCTAssertEqual(WebExposure.kind(.filesOpen("s")), .macScreen, "it opens a window on the Mac's screen")
+        XCTAssertEqual(WebExposure.decide(.filesOpen("s"), .remote(secure: true)), .macScreen)
+        // the open folders, strictly
+        XCTAssertEqual(try WebFileTree.decode(Data(#"{"expanded":["src","src/lib"]}"#.utf8)).expanded, ["src", "src/lib"])
+        XCTAssertEqual(try WebFileTree.decode(Data(#"{"expanded":[]}"#.utf8)).expanded, [])
+        let tooMany = "[" + (0...FileTreeState.maximumExpanded).map { "\"d\($0)\"" }.joined(separator: ",") + "]"
+        for bad in [#"[]"#, #"{}"#, #"{"expanded":"src"}"#, #"{"expanded":[1]}"#, #"{"expanded":["src"],"x":1}"#, #"{"expanded":["../etc"]}"#,
+                    #"{"expanded":["/workspace/src"]}"#, #"{"expanded":["src","src"]}"#, #"{"expanded":[""]}"#, #"{"expanded":\#(tooMany)}"#] {
+            XCTAssertThrowsError(try WebFileTree.decode(Data(bad.utf8)), bad)
+        }
+        // the open, strictly
+        XCTAssertEqual(try WebFileOpen.decode(Data(#"{"path":"docs/a.md"}"#.utf8)), WebFileOpen(path: "/workspace/docs/a.md", reveal: false))
+        XCTAssertEqual(try WebFileOpen.decode(Data(#"{"path":"/workspace","reveal":true}"#.utf8)).reveal, true)
+        for bad in [#"{}"#, #"{"path":"/etc/passwd"}"#, #"{"path":"../x"}"#, #"{"path":"a","app":"Terminal"}"#, #"{"path":"a","reveal":"yes"}"#] {
+            XCTAssertThrowsError(try WebFileOpen.decode(Data(bad.utf8)), bad)
+        }
+        // the projection has no secret-shaped field
+        let obj = try JSONSerialization.jsonObject(with: WebJSON.encoder.encode(WebFileTree(FileTreeState(expanded: ["a"], updatedAt: Date()))))
+        XCTAssertEqual(Set((obj as? [String: Any] ?? [:]).keys), ["expanded", "updatedAt"])
+    }
+
+    func testThePanelRoutesThroughARealListener() async throws {
+        try await start()
+        let (cookie, csrf) = try signIn()
+        let post = { (path: String, body: String) throws -> RawResponse in
+            var h = ["Host": self.server.origin.authority, "Cookie": cookie, "Origin": self.server.origin.value, "X-Doz-CSRF": csrf,
+                     "Content-Type": "application/json"]
+            h["Sec-Fetch-Site"] = "same-origin"
+            return try RawHTTP.request(port: self.server.origin.port, method: "POST", path: path, headers: h, body: body)
+        }
+        XCTAssertEqual(try get("/api/v1/sandboxes/demo/files/tree", ["Cookie": cookie]).text.contains(#""expanded":[]"#), true)
+        var r = try post("/api/v1/sandboxes/demo/files/tree", #"{"expanded":["src"]}"#)
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertTrue(try get("/api/v1/sandboxes/demo/files/tree", ["Cookie": cookie]).text.contains(#""expanded":["src"]"#))
+        XCTAssertEqual(try post("/api/v1/sandboxes/demo/files/tree", #"{"expanded":["../x"]}"#).status, 400)
+        // CSRF: without the token, nothing
+        XCTAssertEqual(try get("/api/v1/sandboxes/demo/files/tree", ["Cookie": cookie, "Origin": server.origin.value, "Content-Type": "application/json"],
+                               method: "POST").status, 403)
+        r = try post("/api/v1/sandboxes/demo/files/open", #"{"path":"docs/a.md","reveal":true}"#)
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertTrue(r.text.contains("showed /workspace/docs/a.md"))
+        XCTAssertEqual(fake.opened, [WebFileOpen(path: "/workspace/docs/a.md", reveal: true)])
+    }
+
     func testTheWatchStreamDeliversBatchesAndEndsWithTheSession() async throws {
         try await start()
         let (cookie, csrf) = try signIn()

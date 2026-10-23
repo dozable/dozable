@@ -78,7 +78,10 @@ On a sandbox's page, the details' **Network** tab › **What the agent can do** 
 **Standard** · **Open**) and the permissions as switches, with its sites below. Flip a switch and it
 applies at once; each permission's **hosts** unfold beneath it. When the agent was refused something, a line
 says so — "The agent tried to install Python packages (PyPI)" — with **Allow** (or **Allow this
-site**). **Browse the web** asks you to confirm first. **Details: the rules and hosts** shows every
+site**). A site is offered as its whole domain — the agent refused at `abc.frame.claudeusercontent.com` gets
+**Allow claudeusercontent.com** (`site:*.claudeusercontent.com`), so a service that uses a new host name for
+each request needs one approval, not one per address; `doz net allow NAME site:HOST` still allows a single
+host. **Browse the web** asks you to confirm first. **Details: the rules and hosts** shows every
 host behind the switches, and **Edit policy…** edits the raw rules with a preview of exactly what
 changes.
 

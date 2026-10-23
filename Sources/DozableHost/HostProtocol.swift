@@ -159,13 +159,36 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// ON THE MAC (its rules applied; any phase; never a guest call); an isolated sandbox from the guest, only while it
     /// runs (never woken or started). Read-only: answered in-process when no host runs.
     case filesList = "files-list"
+    /// 644: the file explorer panel's changes to /workspace — a new folder, a new empty file, a move (a rename is a move
+    /// within its folder; `fileTarget` the destination; never replaces), a delete (`recursive` for a folder with contents).
+    /// A SHARED workspace is changed ON THE MAC (any phase; the rules honoured; through the host when one runs, else
+    /// in-process — never a host started, never a wake); an isolated one by one exec as the image's user, while it runs.
+    case filesMkdir = "files-mkdir", filesNew = "files-new", filesMove = "files-move", filesRm = "files-rm"
+    /// 644: open a file of a shared workspace on the Mac (or `reveal` it in the Finder) — the open-files bridge's rules.
+    case filesOpen = "files-open"
+    /// 644: the panel's open folders (`FileTreeState`), kept beside doz.json — read, and set (`fileTree`; nil clears).
+    case filesTree = "files-tree"
+    case filesTreeSet = "files-tree-set"
+    /// Owner, 2026-10-23 ("add rename"): a SHUT-DOWN (or failed) sandbox (`name`) gets another name (`newName`) in place —
+    /// its disks, restore points, workspace, settings, account, policy and kept UI state go with it. Answered with its
+    /// `SandboxInfo` under the new name. Changes the store: needs the host, like `rm`.
+    case rename
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree: true
         case .netPolicy: false        // decided per request (a change needs the host)
+        default: false
+        }
+    }
+
+    /// 644: changes made on the Mac (a shared workspace) or UI state — answered in-process when no host runs, like
+    /// `terminal-layout-set` (an isolated sandbox's change then answers that it is not running: no host, no VM).
+    public var isAnsweredWithoutHost: Bool {
+        switch self {
+        case .filesMkdir, .filesNew, .filesMove, .filesRm, .filesOpen, .filesTreeSet, .terminalLayoutSet: true
         default: false
         }
     }
@@ -391,6 +414,14 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var sessionStatus: Bool?
     /// 643 `files-list`: the folder (relative to /workspace, or `/workspace/…`; nil: /workspace).
     public var filePath: String?
+    /// 644 `files-move`: where to (relative to /workspace, or `/workspace/…`; the new name included).
+    public var fileTarget: String?
+    /// 644 `files-rm`: a folder with everything in it.
+    public var recursive: Bool?
+    /// 644 `files-open`: show it selected in the Finder instead of opening it.
+    public var reveal: Bool?
+    /// 644 `files-tree-set`: the open folders (nil clears them).
+    public var fileTree: FileTreeState?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version

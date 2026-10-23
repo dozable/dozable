@@ -112,7 +112,7 @@ final class PermissionsHostTests: XCTestCase {
         XCTAssertEqual(r.suggestions[0].count, 3)
         XCTAssertEqual(Set(r.suggestions[0].hosts), ["pypi.org", "files.pythonhosted.org"])
         XCTAssertEqual(r.suggestions[0].what, "install Python packages (PyPI)")
-        XCTAssertEqual(r.suggestions[1].grant, "site:api.example.com")
+        XCTAssertEqual(r.suggestions[1].grant, "site:*.example.com")       // owner, 2026-10-23: one approval per domain
         XCTAssertNil(r.suggestions[1].permission)
         XCTAssertEqual(r.denied, ["api.example.com", "files.pythonhosted.org", "pypi.org"])
         // A permission that is on but a user's rule denied: no suggestion to switch it on.
@@ -121,6 +121,27 @@ final class PermissionsHostTests: XCTestCase {
         let r2 = PermissionPolicy.report(name: "a", policy: q, base: "node",
                                          log: [ConnectionRecord(kind: .connect, host: "github.com", port: 443, verdict: .denied, rule: "x")])
         XCTAssertTrue(r2.suggestions.isEmpty)
+    }
+
+    /// Owner, 2026-10-23 ("i dont want to have to approve each URL"): claude.ai's artifact frames are a new
+    /// `<uuid>.frame.claudeusercontent.com` each time — one suggestion for the domain, and none once it is allowed.
+    func testRefusedHostsAreSuggestedOncePerDomain() throws {
+        let p = NetworkPolicy.permissions(AgentPermissions.preset("agent", base: "node")!, preset: "agent")
+        let log = ["5b94faa6.frame.claudeusercontent.com", "86c06e4b.frame.claudeusercontent.com", "da4151d3.frame.claudeusercontent.com"]
+            .map { ConnectionRecord(kind: .connect, host: $0, port: 443, verdict: .denied, rule: "default deny") }
+        let r = PermissionPolicy.report(name: "a", policy: p, base: "node", log: log)
+        XCTAssertEqual(r.suggestions.map(\.grant), ["site:*.claudeusercontent.com"])
+        XCTAssertEqual(r.suggestions.first?.hosts.count, 3)
+        XCTAssertEqual(r.suggestions.first?.count, 3)
+        let allowed = try PermissionPolicy.edited(p, grant: ["site:*.claudeusercontent.com"], revoke: [], base: "node")
+        XCTAssertEqual(allowed.evaluateConnection(host: "0b4dea6a.frame.claudeusercontent.com", port: 443).kind, .allow)
+        XCTAssertTrue(PermissionPolicy.report(name: "a", policy: allowed, base: "node", log: log).suggestions.isEmpty, "allowed since: nothing to ask")
+        XCTAssertEqual(PermissionPolicy.siteDomain("example.com"), "example.com")
+        XCTAssertEqual(PermissionPolicy.siteDomain("api.example.com.au"), "example.com.au")
+        XCTAssertEqual(PermissionPolicy.siteDomain("www.bbc.co.uk"), "bbc.co.uk")
+        XCTAssertEqual(PermissionPolicy.siteDomain("me.github.io"), "me.github.io")
+        XCTAssertEqual(PermissionPolicy.siteDomain("docs.me.github.io"), "me.github.io")
+        XCTAssertEqual(PermissionPolicy.siteDomain("10.0.0.12"), "10.0.0.12")
     }
 
     /// 635 (owner: "the http grant failed when clicking the button"): apt's SRV lookup `_http._tcp.deb.debian.org`

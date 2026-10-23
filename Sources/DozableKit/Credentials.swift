@@ -222,6 +222,14 @@ public final class CredentialVault: @unchecked Sendable {
         set { lock.lock(); _onStale = newValue; lock.unlock() }
     }
     private var _onStale: (@Sendable (String) -> Void)?
+    /// Called (from a proxy thread, never under the vault's lock) before each request is decided:
+    /// a cheap look whether the owner's source changed (the Mac's Claude login signed in as another
+    /// account), which then `set`s the secret again before this request uses it.
+    public var onBeforeUse: (@Sendable () -> Void)? {
+        get { lock.lock(); defer { lock.unlock() }; return _onBeforeUse }
+        set { lock.lock(); _onBeforeUse = newValue; lock.unlock() }
+    }
+    private var _onBeforeUse: (@Sendable () -> Void)?
     /// The first sighting of each foreign credential (by fingerprint).
     public var onForeign: (@Sendable (ForeignCredential) -> Void)? {
         get { lock.lock(); defer { lock.unlock() }; return _onForeign }
@@ -387,11 +395,25 @@ public final class CredentialVault: @unchecked Sendable {
         return sightings.values.sorted { $0.firstSeen < $1.firstSeen }
     }
 
-    /// Hosts whose TLS the proxy must decrypt (a binding with a secret covers them).
+    /// Hosts whose TLS the proxy must decrypt (a binding with a secret covers them). Also a binding that has
+    /// issued placeholders but holds nothing now (its account was taken away): a session still sends them,
+    /// and tunnelled unseen they reached the provider as a bearer token ("401 Invalid bearer token", owner
+    /// 2026-10-23) — decrypted, the request is answered here with `noSecretNotice`.
     public var boundHosts: Set<String> {
         lock.lock(); defer { lock.unlock() }
-        return Set(bindings.values.filter { secrets[$0.id] != nil || notices[$0.id] != nil || providers[$0.id] != nil }.flatMap(\.hosts))
+        let issued = Set(placeholders.values).union(restoredHashes.values)
+        return Set(bindings.values.filter { secrets[$0.id] != nil || notices[$0.id] != nil || providers[$0.id] != nil
+            || issued.contains($0.id) }.flatMap(\.hosts))
     }
+
+    /// What a request carrying a placeholder of a binding that holds no secret (and has no notice of its own) is
+    /// answered (401) — set by the owner, which knows the sandbox's name and how to attach an account. Nil: refused
+    /// with a generic reason.
+    public var noSecretNotice: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _noSecretNotice }
+        set { lock.lock(); _noSecretNotice = newValue; lock.unlock() }
+    }
+    private var _noSecretNotice: String?
 
     /// A fresh placeholder for binding `id` (nil if there is no such binding).
     public func mint(_ id: String) -> String? {
@@ -483,6 +505,7 @@ public final class CredentialVault: @unchecked Sendable {
     /// has carried the guest's own credential — never adds our secret to a request without one.
     public func rewrite(head: [UInt8], host: String, inject: Bool = true, now: Date = Date()) -> CredentialDecision {
         refreshProviders(host: host.lowercased(), now: now)
+        onBeforeUse?()
         var d = decide(head: head, host: host, inject: inject, now: now, staleCheck: true)
         if case .stale(let id) = d {
             onStale?(id)
@@ -553,7 +576,7 @@ public final class CredentialVault: @unchecked Sendable {
                 return .decided(.reject("a credential placeholder for \(bindings[bid]?.hosts.joined(separator: ",") ?? bid), sent to \(h)"))
             }
             if secrets[bid] == nil {
-                if let n = notices[bid] { return .decided(.refuse(401, n)) }
+                if let n = notices[bid] ?? _noSecretNotice { return .decided(.refuse(401, n)) }
                 return .decided(.reject("a placeholder for \(bid), which has no secret on this Mac right now"))
             }
         }

@@ -232,6 +232,8 @@ final class WebOperations: @unchecked Sendable {
         case .templateCreate(let name, _, let image, _):
             return (try? v.decode(CustomImage.self)).map { "saved \(name)'s root disk as the template \(image) (\(DozableImages.formatBytes($0.allocatedBytes)); no state disk)" }
                 ?? "saved the template \(image)"
+        case .rename(let name, let new):
+            return "renamed \(name) to \((try? v.decode(SandboxInfo.self))?.name ?? new)"
         case .duplicate(let name, let new, _, let o):
             return "duplicated \(name) as \(new) (state disk \(o.copyState == true ? "copied" : "fresh")) — start it to boot"
         case .imageBake(let i):
@@ -292,6 +294,16 @@ final class WebOperations: @unchecked Sendable {
         case .sessionRestart(let name, let session, _):
             guard let r = try? v.decode(SessionRestarted.self) else { return "restarted session \(session) in \(name)" }
             return "restarted session \(session) in \(name)" + (r.resumed ? " — its conversation continues" : "") + (r.notice.map { " (\($0))" } ?? "")
+        case .filesMkdir(let name, let p):
+            return "made the folder \(p) in \(name)"
+        case .filesNew(let name, let p):
+            return "made the file \(p) in \(name)"
+        case .filesMove(let name, let p, let to):
+            return "moved \(p) → \(to) in \(name)"
+        case .filesRemove(let name, let p, _):
+            let r = try? v.decode(FileChangeResult.self)
+            let n = (r?.items ?? 1) - 1
+            return "deleted \(p) in \(name)" + (r?.kind == "folder" && n > 0 ? " (\(n) item\(n == 1 ? "" : "s") in it)" : "")
         case .toolsApply(let name):
             let r = (try? v.decode(ToolsLayerReport.self))?.last
             return "\(name): tools — " + (r?.summary ?? "set up")

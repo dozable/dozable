@@ -20,11 +20,13 @@ import { menuButton, moreMenu } from '../components/menus.js';
 import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
+import { renameItem } from '../components/rename-dialog.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
+import { filesPanel, syncFiles } from './sandbox-files.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
 import { paintHome } from './sandbox-home.js';
 import { tildePath } from '../core/paths.js';
@@ -149,6 +151,7 @@ function drawParts(name, d, net, accounts) {
   $('sbx-bar').replaceChildren(parts.bar);
   $('sbx-details').replaceChildren(parts.details);
   $('sbx-body').classList.toggle('details-closed', !detailsShown(name));
+  syncFiles();                                      // 644: the Files tab's first look and its watch follow what is shown
 }
 /// 617: a quick-made sandbox's page from its plan, before its create returns (`state.pendingTry`): the same header as its
 /// detail will draw (so nothing moves when it arrives — the chips, the transition's buttons), and no tab strip (the build
@@ -213,7 +216,8 @@ async function sandboxArrived(name, want) {
 }
 /// 603: the inspector's tabs — the selected one is kept per sandbox in this page (owner decision 4).
 /// 635: no Sessions tab — the terminal area's Home is that list, with more (its count is on the Home tab).
-const INSP_TABS = [['overview', 'Overview', 'Overview', 'info'], ['points', 'Points', 'Restore points', 'history'],
+/// 644: Files — the tree of /workspace (views/sandbox-files.js), after Overview.
+const INSP_TABS = [['overview', 'Overview', 'Overview', 'info'], ['files', 'Files', 'Files in /workspace', 'folder-tree'], ['points', 'Points', 'Restore points', 'history'],
                    ['network', 'Network', 'Network', 'shield'], ['keys', 'Keys', 'Keys & account', 'key-round'], ['config', 'Config', 'Configuration', 'settings']];
 function inspShow(name, tab) {
   sview(name).inspTab = tab;
@@ -221,6 +225,7 @@ function inspShow(name, tab) {
   for (const b of root.querySelectorAll('.itab')) b.setAttribute('aria-selected', b.dataset.inspTab === tab ? 'true' : 'false');
   for (const p of root.querySelectorAll('.ipanel')) p.hidden = p.dataset.insp !== tab;
   root.scrollTop = 0;
+  syncFiles();
 }
 function sandboxParts(name, d, net, accounts) {
   const i = d.info;
@@ -275,8 +280,9 @@ function sandboxParts(name, d, net, accounts) {
     inspShow(name, tab);
   };
   // ── the bar: title row (name, phase, labelled chips) · toolbar (lifecycle, Shut down, ⋯ | status, details) ──
-  const more = moreMenu('More: duplicate, save as template, boot log, reset, remove', [
+  const more = moreMenu('More: duplicate, rename, save as template, boot log, reset, remove', [
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this disk', disabled: !!holdWhy, why: holdWhy, onSelect: () => duplicateDialog(name, d, accounts, null) },
+    renameItem(name),                                  // owner, 2026-10-23: the dialog says why it must wait (shut it down first)
     { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
     { sep: true },
@@ -362,6 +368,7 @@ function sandboxParts(name, d, net, accounts) {
       h('div', null, h('div', { class: 'insp-lbl' }, 'Last restore point'),
         last ? h('div', null, last.name + ' · ' + when(last.createdAt) + ' ', h('a', { href: '#/sandbox/' + name, on: { click: (ev) => { ev.preventDefault(); inspShow(name, 'points'); } } }, 'All points'))
           : h('div', { class: 'muted' }, 'None yet.'))),
+    panel_('files', filesPanel(name, d)),
     panel_('points',
       head('Restore points', btn('Take a restore point…', () => takePointDialog(name, running), { small: true })),
       panel(table(['Point', 'Taken', ''], points), 'No restore points yet.')),

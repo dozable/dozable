@@ -167,6 +167,23 @@ public enum PermissionPolicy {
         return labels.joined(separator: ".")
     }
 
+    /// The domain a host belongs to, as one approval allows it: its last two labels (`frame.claudeusercontent.com` →
+    /// `claudeusercontent.com`), three under a two-part country suffix (`api.example.com.au` → `example.com.au`) or a
+    /// shared host where every customer is a subdomain (`me.github.io` stays itself). An IP address stays itself.
+    public static func siteDomain(_ host: String) -> String {
+        let labels = host.split(separator: ".").map(String.init)
+        guard labels.count > 2, !labels.allSatisfy({ $0.allSatisfy(\.isNumber) }) else { return host }
+        let last2 = labels.suffix(2).joined(separator: ".")
+        let keep = sharedSuffixes.contains(last2) || (labels[labels.count - 1].count == 2 && countrySeconds.contains(labels[labels.count - 2])) ? 3 : 2
+        return labels.suffix(keep).joined(separator: ".")
+    }
+    /// The second labels of a two-part country suffix (`com.au`, `co.uk`, `ac.jp`).
+    static let countrySeconds: Set<String> = ["com", "co", "net", "org", "edu", "gov", "ac", "or", "ne", "go"]
+    /// Shared hosts: one customer per subdomain, so the domain is the customer's, not the host's.
+    static let sharedSuffixes: Set<String> = ["github.io", "amazonaws.com", "cloudfront.net", "herokuapp.com", "vercel.app",
+                                              "netlify.app", "pages.dev", "workers.dev", "azurewebsites.net", "appspot.com",
+                                              "web.app", "firebaseapp.com", "fly.dev", "onrender.com"]
+
     /// A permission's host as a person reads it: a host limited to some paths says which kind — an agent model
     /// permission's are its model requests (OpenCode Zen, Grok's API paths), any other's the agent's own package.
     public static func hostLabel(_ h: PermissionHost, permission id: String) -> String {
@@ -203,12 +220,19 @@ public enum PermissionPolicy {
         for r in deniedRecs {
             let host = serviceHost(r.host.lowercased())          // 635: `_http._tcp.deb.debian.org` is deb.debian.org's
             if excluded.contains(host) { continue }              // 617: kept out on purpose — never suggested
+            // Allowed since (a site or a permission granted after the refusal): nothing left to ask for.
+            if policy.evaluateConnection(host: host, port: r.port ?? 443).kind != .deny { continue }
             let grant: String, what: String, perm: String?
             if let p = AgentPermissions.permission(forHost: host) {
                 guard !names.contains(p.id) else { continue }       // on, but a rule of the user's denied it
                 grant = p.id; what = p.phrase; perm = p.id
             } else {
-                grant = "site:" + host; what = host; perm = nil
+                // Owner, 2026-10-23: "i dont want to have to approve each URL" — one approval per domain: a host under
+                // it is suggested as `*.domain` (claude.ai's artifact frames are a new `<uuid>.frame.claudeusercontent.com`
+                // each time), the domain itself as itself.
+                let domain = siteDomain(host)
+                if domain == host { grant = "site:" + host; what = host } else { grant = "site:*." + domain; what = "*." + domain }
+                perm = nil
             }
             if byGrant[grant] == nil { order.append(grant); byGrant[grant] = PermissionSuggestion(permission: perm, what: what, hosts: [], count: 0, grant: grant) }
             if !byGrant[grant]!.hosts.contains(host) { byGrant[grant]!.hosts.append(host) }

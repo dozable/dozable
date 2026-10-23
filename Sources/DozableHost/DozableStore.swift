@@ -12,6 +12,7 @@ import DozableKit
 ///     <store>/metrics.sqlite   lifecycle metrics (the SandboxLab schema)
 ///     <store>/sandboxes/<name>/doz.json   what `doz create` said (SandboxConfig)
 ///     <store>/sandboxes/<name>/terminal-layout.json   593: the web UI's panes (TerminalLayout)
+///     <store>/sandboxes/<name>/file-tree.json   644: the Files panel's open folders (FileTreeState)
 ///     …and everything `StoreLayout` documents.
 public struct DozableStore: Sendable, Equatable {
     public let root: URL
@@ -41,6 +42,8 @@ public struct DozableStore: Sendable, Equatable {
     public func configFile(_ name: String) -> URL { layout(name).sandboxDirectory.appendingPathComponent("doz.json") }
     /// 593 §9 (S1): the web UI's terminal layout for the sandbox (`TerminalLayout`, 0600).
     public func terminalLayoutFile(_ name: String) -> URL { layout(name).sandboxDirectory.appendingPathComponent("terminal-layout.json") }
+    /// 644: the file explorer panel's open folders for the sandbox (`FileTreeState`, 0600).
+    public func fileTreeFile(_ name: String) -> URL { layout(name).sandboxDirectory.appendingPathComponent("file-tree.json") }
 
     /// The names of the sandboxes `doz create` made in this store.
     public func sandboxNames() -> [String] {

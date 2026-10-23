@@ -74,6 +74,16 @@ public enum WebAction: Equatable, Sendable {
     /// `doz sessions end|restart`; lifecycle-class, so a remote (doz serve) browser may use them too.
     case sessionEnd(name: String, session: String)
     case sessionRestart(name: String, session: String, fresh: Bool)
+    /// 644: the Files panel's changes to /workspace — one HostOp each (the CLI's `doz files mkdir|new|mv|rm`). Paths are
+    /// guest paths (`/workspace/…`), checked by the item rule here and again by the host. A delete is destructive: it
+    /// carries `confirm` = the path.
+    case filesMkdir(name: String, path: String)
+    case filesNew(name: String, path: String)
+    case filesMove(name: String, path: String, to: String)
+    case filesRemove(name: String, path: String, recursive: Bool)
+    /// Owner, 2026-10-23: Rename… (the sidebar's ⋯ on a sandbox's line, the sandbox page's ⋯) — the CLI's `doz rename`. Nothing
+    /// is lost, so no `confirm`; the host refuses unless the sandbox is shut down.
+    case rename(name: String, newName: String)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -89,7 +99,8 @@ public enum WebAction: Equatable, Sendable {
         case .create(let n, _), .lifecycle(_, let n), .openSession(let n, _, _), .pointTake(let n, _, _), .pointRevert(let n, _),
              .pointFork(let n, _, _), .pointRemove(let n, _), .pointSaveImage(let n, _, _, _), .netPolicy(let n, _), .keyPolicy(let n, _),
              .keyRemove(let n, _), .accountUse(let n, _), .templateCreate(let n, _, _, _), .duplicate(let n, _, _, _), .toolsApply(let n),
-             .sessionEnd(let n, _), .sessionRestart(let n, _, _):
+             .sessionEnd(let n, _), .sessionRestart(let n, _, _), .filesMkdir(let n, _), .filesNew(let n, _), .filesMove(let n, _, _),
+             .filesRemove(let n, _, _), .rename(let n, _):
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
@@ -106,6 +117,7 @@ public enum WebAction: Equatable, Sendable {
         case .pointRevert(let n, _), .pointRemove(let n, _): n
         case .imageRemove(let i): i
         case .accountRemove(let a): a
+        case .filesRemove(_, let p, _): p
         default: nil
         }
     }
@@ -115,7 +127,7 @@ public enum WebAction: Equatable, Sendable {
     public var dedupeKey: String {
         let r = hostRequest
         return [r.op.rawValue, r.name ?? "", r.session ?? "", r.point ?? r.pointName ?? "", r.image ?? "", r.account ?? "", r.newName ?? "",
-                r.ids?.joined(separator: ",") ?? "", r.kernel ?? ""].joined(separator: "|")
+                r.ids?.joined(separator: ",") ?? "", r.kernel ?? "", r.filePath ?? ""].joined(separator: "|")
     }
 
     /// A short label for the progress line ("hibernate lab1").
@@ -131,6 +143,11 @@ public enum WebAction: Equatable, Sendable {
         case .toolsApply(let n): return "set up the tools of \(n)"
         case .sessionEnd(let n, let s): return "end session \(s) in \(n)"
         case .sessionRestart(let n, let s, _): return "restart session \(s) in \(n)"
+        case .filesMkdir(let n, let p): return "files-mkdir \(n) \(p)"
+        case .filesNew(let n, let p): return "files-new \(n) \(p)"
+        case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
+        case .filesRemove(let n, let p, _): return "files-rm \(n) \(p)"
+        case .rename(let n, let new): return "rename \(n) to \(new)"
         default: break
         }
         let r = hostRequest
@@ -281,6 +298,28 @@ public enum WebAction: Equatable, Sendable {
             r.session = s
             r.fresh = fresh ? true : nil
             return r
+        case .filesMkdir(let n, let p):
+            var r = HostRequest(.filesMkdir, name: n)
+            r.filePath = p
+            return r
+        case .filesNew(let n, let p):
+            var r = HostRequest(.filesNew, name: n)
+            r.filePath = p
+            return r
+        case .filesMove(let n, let p, let to):
+            var r = HostRequest(.filesMove, name: n)
+            r.filePath = p
+            r.fileTarget = to
+            return r
+        case .filesRemove(let n, let p, let rec):
+            var r = HostRequest(.filesRm, name: n)
+            r.filePath = p
+            r.recursive = rec ? true : nil
+            return r
+        case .rename(let n, let new):
+            var r = HostRequest(.rename, name: n)
+            r.newName = new
+            return r
         }
     }
 
@@ -328,6 +367,11 @@ public enum WebAction: Equatable, Sendable {
             "tools-apply": ["sandbox"],
             "session-end": ["sandbox", "session"],
             "session-restart": ["sandbox", "session", "fresh"],
+            "files-mkdir": ["sandbox", "path"],
+            "files-new": ["sandbox", "path"],
+            "files-move": ["sandbox", "path", "to"],
+            "files-rm": ["sandbox", "path", "recursive", "confirm"],
+            "rename": ["sandbox", "newName"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -479,12 +523,26 @@ public enum WebAction: Equatable, Sendable {
             a = .sessionEnd(name: try f.sandbox("sandbox"), session: try f.required(f.session("session"), "session"))
         case "session-restart":
             a = .sessionRestart(name: try f.sandbox("sandbox"), session: try f.required(f.session("session"), "session"), fresh: try f.flag("fresh") == true)
+        case "files-mkdir":
+            a = .filesMkdir(name: try f.sandbox("sandbox"), path: try f.fileItem("path"))
+        case "files-new":
+            a = .filesNew(name: try f.sandbox("sandbox"), path: try f.fileItem("path"))
+        case "files-move":
+            let p = try f.fileItem("path"), to = try f.fileItem("to")
+            guard p != to else { throw Invalid("to: a different path") }
+            a = .filesMove(name: try f.sandbox("sandbox"), path: p, to: to)
+        case "files-rm":
+            a = .filesRemove(name: try f.sandbox("sandbox"), path: try f.fileItem("path"), recursive: try f.flag("recursive") == true)
+        case "rename":
+            let name = try f.sandbox("sandbox"), new = try f.sandbox("newName")
+            guard name != new else { throw Invalid("newName: a different name") }
+            a = .rename(name: name, newName: new)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))
         }
         if let target = a.confirmationTarget {
-            guard let c = d["confirm"] as? String, c == target else { throw Invalid("\(verb) is destructive: type the name to confirm it") }
+            guard let c = d["confirm"] as? String, c == target else { throw Invalid("\(verb) is destructive: confirm it (the name)") }
         }
         return a
     }
@@ -652,6 +710,14 @@ public enum WebAction: Equatable, Sendable {
                 out.append(s)
             }
             return out
+        }
+
+        /// 644: a file or folder of /workspace (never /workspace itself) → its guest path, `/workspace/…`.
+        func fileItem(_ key: String) throws -> String {
+            guard let s = try string(key, max: FileListPaths.maximumPathBytes), let item = FileItemPath.parse(s) else {
+                throw Invalid("\(key): a file or folder in /workspace (not /workspace itself)")
+            }
+            return item.guest
         }
 
         /// A detached session's program: 1–64 arguments, no NUL, ≤ 4 KiB each, 16 KiB in all.

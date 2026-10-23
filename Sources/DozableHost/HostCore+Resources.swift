@@ -8,7 +8,7 @@ extension HostCore {
     /// Operations that create, boot, clone or remove disks: a resource deletion never runs beside one.
     static let diskOps: Set<HostOp> = [.create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm,
                                        .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .templateCreate, .duplicate,
-                                       .imageBake, .imageRm, .prepare, .onboard, .openSession]
+                                       .imageBake, .imageRm, .prepare, .onboard, .openSession, .rename]
 
     /// What the files do not say: phases, what new sandboxes get, what is being prepared, the kernels, …
     func resourceFacts() async -> ResourceFacts {

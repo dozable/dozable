@@ -282,8 +282,12 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     /// more there are. nil: none.
     public var sessionList: [WebSessionBrief]?
     public var sessionMore: Int?
+    /// Owner, 2026-10-23 (All sandboxes: "the tool / recipe vendor icon"): the mark of the agent its image runs (the
+    /// icon registry: product → vendor → a lettermark); nil for an image with no agent.
+    public var icon: ResolvedIcon?
 
     public init(_ i: SandboxInfo) {
+        icon = ImageChoice.parse(i.image).flatMap { $0.agent == .none ? nil : $0.agent.recipe }.map(AgentIcons.resolve)
         sessionList = i.sessionList.map { $0.map(WebSessionBrief.init) }
         sessionMore = i.sessionMore
         createdFolder = i.createdFolder

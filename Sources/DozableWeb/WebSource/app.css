@@ -1253,6 +1253,36 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
 .share-link { flex: 1; min-width: 0; }
 .share-left { display: flex; gap: var(--sp-3); align-items: center; margin-top: var(--sp-3); color: var(--ink-2); }
 @media (max-width: 640px) { .share-grid { grid-template-columns: 1fr; } }
+/* 644: the Files tab — the tree of /workspace (views/sandbox-files.js). One row per entry, indented by its depth. */
+.files-panel { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.files-head { display: flex; align-items: center; gap: var(--sp-1); }
+.files-head h2 { flex: 1 1 auto; }
+.files-note { margin: 0; font-size: var(--fs-sm); color: var(--ink-2); }
+.ftree { padding: var(--sp-1); border: var(--bw) solid var(--line); border-radius: var(--r-md); background: var(--surface); min-width: 0; }
+.ftree:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.frow { display: flex; align-items: center; gap: var(--sp-1); min-height: var(--ctl-sm); padding: 0 var(--sp-1) 0 calc(var(--sp-1) + var(--depth, 0) * 14px);
+  border-radius: var(--r-sm); color: var(--ink); font-size: var(--fs-md); cursor: default; user-select: none; min-width: 0; }
+.frow:hover { background: var(--surface-2); }
+.frow[aria-selected="true"] { background: var(--accent-tint); }
+.frow:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.frow.drop { box-shadow: inset 0 0 0 2px var(--accent); }
+.frow.dragging { opacity: 0.5; }
+.frow .caret { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 16px; height: 16px; color: var(--ink-2);
+  transition: transform var(--dur-1) var(--ease); }
+.frow .caret .icon { width: 12px; height: 12px; }
+.frow[aria-expanded="true"] .caret { transform: rotate(90deg); }
+.frow > .icon { flex: none; width: 14px; height: 14px; color: var(--ink-2); }
+.frow.folder > .icon { color: var(--accent); }
+.frow .fname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow.root .fname { font-family: var(--mono); font-size: var(--fs-mono); }
+.frow .ftarget { flex: 0 1 auto; max-width: 45%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-2); font-size: var(--fs-sm); }
+.frow .fsize { flex: none; color: var(--ink-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }
+.frow .tag { flex: none; margin: 0; height: 16px; }
+.frow .menu-wrap { flex: none; opacity: 0; }
+.frow:hover .menu-wrap, .frow:focus-within .menu-wrap, .frow[aria-selected="true"] .menu-wrap, .frow .menu-wrap:has([aria-expanded="true"]) { opacity: 1; }
+@media (hover: none) { .frow .menu-wrap { opacity: 1; } }
+.fmsg { padding: var(--sp-0) var(--sp-3) var(--sp-0) calc(var(--sp-1) + var(--depth, 0) * 14px + 20px); color: var(--ink-2); font-size: var(--fs-sm); }
+.fmsg.bad { color: var(--bad); }
 }
 @layer views {
 
@@ -1303,6 +1333,13 @@ a.nav-child { display: flex; align-items: center; gap: 9px; height: 26px; paddin
 .nav-caret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
 .nav-caret.folded .icon { transform: rotate(-90deg); }
 .nav-caret:hover { color: var(--ink); background: var(--surface-2); }
+/* Owner, 2026-10-23: a sandbox line's ⋯ (Rename…) — on its hover or focus, as a session line's; the line's right end
+   (its count, its agent's dot) makes room while it shows. */
+.nav-sbx > .nav-sbx-menu { position: absolute; right: 2px; top: 0; height: 26px; display: flex; align-items: center; opacity: 0; z-index: 1; }
+.nav-sbx > a.nav-child:hover ~ .nav-sbx-menu, .nav-sbx > .nav-sbx-menu:hover, .nav-sbx > .nav-sbx-menu:focus-within,
+.nav-sbx > .nav-sbx-menu:has(.menu:not([hidden])) { opacity: 1; }
+.nav-sbx > .nav-sbx-menu > .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
+.nav-sbx > a.nav-child:hover, .nav-sbx:has(> .nav-sbx-menu:hover) > a.nav-child, .nav-sbx:has(> .nav-sbx-menu:focus-within) > a.nav-child { padding-right: 28px; }
 a.nav-child .nav-count { margin-left: auto; font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 a.nav-child .nav-count + .ag-dot { margin-left: 0; }
 .nav-sessions { display: flex; flex-direction: column; gap: 1px; margin: 0 0 3px 16px; }
@@ -1532,6 +1569,14 @@ tr.ov-strip > td { padding-top: 0; }
 .ov-th-name { display: flex; align-items: center; gap: 5px; font-size: var(--fs-xs); color: var(--ink-2); min-width: 0; }
 .ov-th-name .icon { width: 12px; height: 12px; flex: none; }
 .ov-th-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A row's name: the tool's mark (or a box for an image with no agent), and its workspace folder from ~ under it. */
+.ov-name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ov-name > .mark, .ov-name > .icon { width: 16px; height: 16px; flex: none; color: var(--ink-2); }
+.ov-ws { display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 32ch; }
+.ov-ws .icon { width: 12px; height: 12px; flex: none; }
+.ov-ws span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-extra:empty { display: none; }
+.acct-extra { margin-top: var(--sp-2); }
 /* Thumbnails off: a Sessions cell — a 4:3 box (128 × 96) of the pictures in the squarest grid that holds them; the tile
    size (--tw) and the screen's scale (--ts) come from the count. Too small for words: no plate, no badge. */
 td.ov-sess { width: 1%; padding-top: 4px; padding-bottom: 4px; }

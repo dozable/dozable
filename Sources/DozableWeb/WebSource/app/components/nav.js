@@ -9,6 +9,7 @@ import { brokenCount } from './account-problems.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status.js';
 import { moreMenu } from './menus.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek.js';
+import { renameItem } from './rename-dialog.js';
 import { sessionMenuItems } from './session-actions.js';
 import { isAux, pageTerminals } from '../core/terminals.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -81,12 +82,21 @@ export function renderNavSandboxes() {
       'aria-expanded': fold ? 'false' : 'true', 'aria-label': (fold ? 'Show ' : 'Fold ') + s.name + '’s sessions', title: fold ? 'Show its sessions' : 'Fold its sessions',
       on: { click: (ev) => { ev.preventDefault(); ev.stopPropagation(); setFolded(s.name, !fold); renderNavSandboxes(); } } }, icon('chevron-down')) : null;
     const lines = (fold ? sessions.filter((x) => urgent(s, x.name)) : sessions).map((x) => sessionLine(s, x));
-    return h('div', { class: 'nav-sbx', role: 'listitem', 'data-nav-sbx': s.name }, link, caret,
+    return h('div', { class: 'nav-sbx', role: 'listitem', 'data-nav-sbx': s.name }, link, caret, sandboxLineMenu(s),
       lines.length ? h('div', { class: 'nav-sessions', role: 'list', 'aria-label': s.name + '’s sessions', 'data-nav-sessions': s.name }, ...lines) : null);
   }));
   paintAgentStatuses();                              // 612: the chips on screen, and a notice per change
 }
 
+/// Owner, 2026-10-23 ("new three-dot menu in the left nav for each sandbox name"): ⋯ on the sandbox's line, shown on its
+/// hover or focus like a session line's — Rename… (the dialog says why it must wait). Never on a try still being made.
+function sandboxLineMenu(s) {
+  if (!state.overview || !state.overview.sandboxes.some((x) => x.name === s.name)) return null;
+  const m = moreMenu('More for ' + s.name, [renameItem(s.name)],
+    { small: true, data: { navLineMore: s.name }, onClose: () => setTimeout(renderNavSandboxes, 0) });
+  m.el.classList.add('nav-sbx-menu');
+  return m.el;
+}
 /// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
 function phaseGlyph(s) {
   if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');

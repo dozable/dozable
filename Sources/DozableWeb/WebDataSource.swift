@@ -91,6 +91,12 @@ public protocol DozableWebData: Sendable {
     /// 643: watch folders of a sandbox's SHARED workspace — in this process, on the Mac (never the host, never the guest).
     /// An isolated sandbox is refused (list it again to refresh).
     func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch
+    /// 644: the Files panel's open folders (the host's `files-tree`), and their change (`files-tree-set` — through the
+    /// host when one runs, else in-process: it never starts one).
+    func fileTree(_ name: String) async throws -> WebFileTree
+    func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree
+    /// 644: open a file of a shared workspace on the Mac, or show it in the Finder (`files-open`). One line for the page.
+    func openFile(_ name: String, _ o: WebFileOpen) async throws -> String
 }
 
 extension DozableWebData {
@@ -99,6 +105,9 @@ extension DozableWebData {
     public func models(_ source: String) async throws -> WebModelList { throw HostError(.notImplemented, "models") }
     public func files(_ name: String, path: String?) async throws -> WebFileList { throw HostError(.notImplemented, "files") }
     public func watchFiles(_ name: String, folders: [String]) async throws -> WebFileWatch { throw HostError(.notImplemented, "files") }
+    public func fileTree(_ name: String) async throws -> WebFileTree { throw HostError(.notImplemented, "files") }
+    public func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree { throw HostError(.notImplemented, "files") }
+    public func openFile(_ name: String, _ o: WebFileOpen) async throws -> String { throw HostError(.notImplemented, "files") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -484,6 +493,9 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     // MARK: phase 2 — actions
 
     public func perform(_ r: HostRequest, onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
+        // 644: the Files panel's changes never start a host — a shared workspace is changed on the Mac (through the host
+        // when one runs, else in this process); an isolated one needs a running sandbox, so a host runs already.
+        if [.filesMkdir, .filesNew, .filesMove, .filesRm].contains(r.op) { return try await query(r).0 }
         let store = self.store
         let m = try await blocking { try HostClient.request(r, store: store, autostart: true, onEvent: onEvent) }
         if m.ok == true { return m.result ?? .null }
@@ -619,6 +631,26 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
                 cont.finish()
             }
         }
+    }
+
+    // MARK: 644 — the file explorer panel
+
+    public func fileTree(_ name: String) async throws -> WebFileTree {
+        WebFileTree(try await query(HostRequest(.filesTree, name: name)).0.decode(FileTreeState.self))
+    }
+
+    public func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree {
+        var r = HostRequest(.filesTreeSet, name: name)
+        r.fileTree = state
+        return WebFileTree(try await query(r).0.decode(FileTreeState.self))
+    }
+
+    public func openFile(_ name: String, _ o: WebFileOpen) async throws -> String {
+        var r = HostRequest(.filesOpen, name: name)
+        r.filePath = o.path
+        r.reveal = o.reveal ? true : nil
+        let c = try await query(r).0.decode(FileChangeResult.self)
+        return c.message ?? "opened \(c.path)"
     }
 
     /// `doz attach NAME`, with `--store` when this is not the default store (shell-quoted). The UI

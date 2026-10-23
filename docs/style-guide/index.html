@@ -184,6 +184,7 @@ name: todo-app</pre></details>
   <div class="pair"><div class="scheme">
     <div class="menu" role="menu">
       <button class="menu-item" type="button" data-desc="A copy of this sandbox, its disk shared until it writes"><i data-i="copy"></i><span class="mi-label">Duplicate</span></button>
+      <button class="menu-item" type="button" data-desc="Another name — the same disks, restore points and folder"><i data-i="pencil"></i><span class="mi-label">Rename…</span></button>
       <button class="menu-item" type="button"><i data-i="layout-template"></i><span class="mi-label">Save as template…</span></button>
       <div class="menu-sep"></div>
       <button class="menu-item danger" type="button"><i data-i="trash-2"></i><span class="mi-label">Remove…</span></button>
@@ -381,6 +382,16 @@ name: todo-app</pre></details>
         <details class="nsb-more"><summary><i data-i="settings"></i>Change the agent, base, network, account, folder or size</summary></details></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="plus"></i>Create</button></div>
     </form></dialog>
+    <!-- The account chooser: "No key or account" says the tool will ask for a sign-in; "Add a key or account…" opens the form in place. -->
+    <div class="field acct-chooser"><span>Account</span>
+      <select aria-label="Account"><option>the store default (mac)</option><option selected>No key or account</option><option>Add a key or account…</option></select>
+      <div class="acct-extra"><div class="callout info compact" role="status"><i data-i="user-round"></i><div class="c-body"><small>Claude Code will ask you to sign in when it starts (/login) — the sign-in stays in this sandbox and is deleted with it.</small></div></div></div></div>
+    <!-- All sandboxes: a row's name cell — the tool's mark, the image, the workspace from ~ (or isolated). -->
+    <table class="ov-table"><tbody><tr><td>
+      <div class="ov-name"><span data-mark="claude-code" class="mark"></span><a class="name" href="#">try-claude</a></div>
+      <div class="sub2">claude-code</div>
+      <div class="sub2 ov-ws"><i data-i="folder"></i><span>~/doz-workspaces/try-claude</span></div></td></tr>
+      <tr><td><div class="ov-name"><i data-i="box"></i><a class="name" href="#">lab</a></div><div class="sub2">lab</div><div class="sub2 no-ws">isolated — no shared folder</div></td></tr></tbody></table>
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Delete try-pi?</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The sandbox, its disks, snapshot and restore points are deleted.</p>
@@ -392,6 +403,23 @@ name: todo-app</pre></details>
       <div class="dlg-body"><p class="sub">Its root disk goes back to the image: everything installed or changed outside the workspace is lost.</p>
         <label class="field check confirm-check"><input type="checkbox" checked><span>Yes, reset demo</span></label></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
+    </form></dialog>
+    <!-- Owner, 2026-10-23: Rename… (components/rename-dialog.js) — from the sidebar's ⋯ on a sandbox's line and the page's ⋯.
+         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error); a sandbox that is not shut
+         down keeps the button disabled and says why in the footer (.why). -->
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Rename demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
+        <label class="field"><span>New name</span><input type="text" value="website"><small>1–40 characters of a-z, 0-9 and -</small></label>
+        <div class="dlg-extra"></div><div class="dlg-error" role="alert"></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="pencil"></i>Rename</button></div>
+    </form></dialog>
+    <dialog class="dlg" open><form method="dialog">
+      <div class="dlg-head"><h2 class="h-title">Rename api-tests</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
+        <label class="field"><span>New name</span><input type="text" value="Api Tests"><small>1–40 characters of a-z, 0-9 and -</small></label>
+        <div class="dlg-extra"></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why">Shut it down first — renaming keeps its disk, points and folder</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Rename</button></div>
     </form></dialog>
   </div></div>
 </section>
@@ -418,6 +446,41 @@ name: todo-app</pre></details>
           <div class="guide-sect"><h3>Good to know</h3><ul class="guide-tips"><li><code>fabric -s</code> streams the answer as it comes.</li></ul></div>
           <p class="muted guide-foot"><span>Docs: <code>https://github.com/danielmiessler/Fabric</code></span><span> · Recipe checked 2026-10-14</span></p>
         </div></section>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>The Files tab</h2>
+  <p>The inspector's <b>Files</b> tab (<code>views/sandbox-files.js</code>): the tree of <code>/workspace</code> — one <code>.frow</code> per entry
+    (<code>role="treeitem"</code>, indented by <code>--depth</code>, set through CSSOM), folders first; a caret opens a folder (its listing read then, and
+    watched while it is open and the tab is shown); a link shows <code>→ target</code> and is never opened; <code>locked</code> / <code>read-only</code>
+    tags from the workspace rules; a file's size. The head's icon buttons make a file or a folder in the selected folder and list again. Each row's ⋯
+    (shown on hover, focus and selection): Open on the Mac / Show in the Finder (a shared workspace, never for a doz serve browser), Copy path,
+    Rename…, Move…, Delete… — disabled with why for a locked or read-only item. A row dragged onto a folder (<code>.drop</code>) is moved there.
+    An isolated sandbox that does not run shows a callout instead and is asked nothing.</p>
+  <div class="pair"><div class="scheme">
+    <div class="sbx-details-inner" style="max-width:420px">
+      <div class="itabs" role="tablist"><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="info"></i><span class="itab-l">Overview</span></button><button type="button" role="tab" class="itab" aria-selected="true"><i data-i="folder-tree"></i><span class="itab-l">Files</span></button><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="history"></i><span class="itab-l">Points</span></button></div>
+      <section class="ipanel"><div class="files-panel">
+        <div class="files-head"><h2>Files</h2><button class="btn sm quiet icon-only" type="button" aria-label="New file…"><i data-i="file-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="New folder…"><i data-i="folder-plus"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="Refresh"><i data-i="refresh-cw"></i></button></div>
+        <p class="files-note">Shared from <code>~/Developer/box</code> — changes show as they happen. Workspace rules apply: locked and read-only items are not changed here.</p>
+        <div class="ftree" role="tree" aria-label="Files of box">
+          <div class="frow folder root" role="treeitem" style="--depth:0"><span class="caret"></span><i data-i="folder-open"></i><span class="fname">/workspace</span></div>
+          <div class="frow folder" role="treeitem" aria-expanded="true" style="--depth:1"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder-open"></i><span class="fname">src</span></div>
+          <div class="frow drop folder" role="treeitem" aria-expanded="false" style="--depth:2"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder"></i><span class="fname">lib</span></div>
+          <div class="frow" role="treeitem" aria-selected="true" style="--depth:2"><span class="caret"></span><i data-i="file"></i><span class="fname">main.c</span><span class="fsize">29 B</span><span class="menu-wrap"><button class="btn quiet icon-only sm" type="button" aria-label="More for main.c"><i data-i="ellipsis-vertical"></i></button></span></div>
+          <div class="frow folder" role="treeitem" aria-expanded="false" style="--depth:1"><span class="caret"><i data-i="chevron-right"></i></span><i data-i="folder"></i><span class="fname">docs</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="link"></i><span class="fname">etc-link</span><span class="ftarget">→ /etc</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="file"></i><span class="fname">README.md</span><span class="tag outline">read-only</span><span class="fsize">6 B</span></div>
+          <div class="frow" role="treeitem" style="--depth:1"><span class="caret"></span><i data-i="lock"></i><span class="fname">secret.key</span><span class="tag warn">locked</span></div>
+          <div class="fmsg" style="--depth:1">Only the first 2000 are listed</div>
+        </div>
+      </div></section>
+      <section class="ipanel"><div class="files-panel">
+        <div class="files-head"><h2>Files</h2></div>
+        <div class="callout info compact" role="status"><i data-i="info"></i><div class="c-body"><div class="c-title">iso is asleep</div>It is isolated: its files are on its own disk, so they are listed while it runs. Looking here never wakes or starts it.</div></div>
+      </div></section>
     </div>
   </div></div>
 </section>
@@ -517,11 +580,15 @@ name: todo-app</pre></details>
     browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.
     635 (owner): on hover a session line also shows a <strong>screen icon</strong> (<code>.nav-peek</code>, <code>monitor</code>); resting on it fills its underline for half a second
     (<code>.arming</code>), then the session’s live picture opens beside the sidebar (<code>.nav-peek-pop</code>, 384 × 224; asleep, its saved screen). While it is open, another session’s
-    line shows its picture at once; leaving the sessions closes it; a click on the icon opens the session (642). <code>ui.nav_thumbnails</code> false: no icon, no picture.</p>
+    line shows its picture at once; leaving the sessions closes it; a click on the icon opens the session (642). <code>ui.nav_thumbnails</code> false: no icon, no picture.
+    Owner, 2026-10-23: the sandbox’s own line has a ⋯ too (<code>.nav-sbx-menu</code>, shown on the line’s hover or focus — here on todo-app, with its menu open):
+    <strong>Rename…</strong>, which opens the Rename dialog (above, with the destructive confirmations).</p>
   <div class="pair"><div class="scheme">
     <div class="nav-children" style="width:200px">
-      <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
+      <div class="nav-sbx"><a class="nav-child" href="#" style="padding-right:28px"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
         <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
+        <span class="menu-wrap nav-sbx-menu" style="opacity:1"><button type="button" class="btn quiet icon-only sm" aria-label="More for todo-app" aria-expanded="true"><i data-i="ellipsis-vertical"></i></button>
+          <div class="menu" role="menu" style="position:absolute;left:auto;right:0;top:24px"><button class="menu-item" type="button" data-desc="Another name — the same disks, restore points and folder"><i data-i="pencil"></i><span class="mi-label">Rename…</span></button></div></span>
         <div class="nav-sessions">
           <div class="nav-sess-row"><a class="nav-sess" href="#"><span data-mark="claude-code" class="mark"></span><span class="ns-name">claude</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></a></div>
           <div class="nav-sess-row"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>

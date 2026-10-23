@@ -287,6 +287,22 @@ public actor Sandbox {
     /// Stop if needed, then remove everything this sandbox has on disk.
     public func delete() async throws { try await perform(.delete) }
 
+    /// A rename (owner, 2026-10-23): `body` runs inside this sandbox's lifecycle gate — after whatever operation is under
+    /// way (a restore point being cloned, a stop) — and only while it is off or failed and not busy, so no VM and no step
+    /// holds a file of its directory while the caller moves it. A failed sandbox's leftover runtime is released first (the
+    /// stop steps a Start runs from failed). The caller discards this object afterwards: its spec names the old directory.
+    public func whileOff<T: Sendable>(_ operation: String, _ body: @Sendable () throws -> T) async throws -> T {
+        await acquire(); defer { release() }
+        guard phase == .off || phase == .failed, !busy else { throw SandboxError.invalidPhase(operation: operation, phase: phase) }
+        if phase == .failed {
+            setBusy(true)
+            await runStopSteps(from: .failed)
+            setPhase(.off)
+            setBusy(false)
+        }
+        return try body()
+    }
+
     // MARK: restore points (disk only — see RestorePoints.swift)
 
     /// This sandbox's restore points, oldest first.

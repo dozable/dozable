@@ -68,6 +68,12 @@ public enum WebRoute: Equatable, Sendable {
     // content), and a server-sent stream of which watched folders changed (a shared workspace, watched on the Mac).
     case files(String, String?)         // GET  /api/v1/sandboxes/{name}/files?path=P          (none: /workspace)
     case filesWatch(String, [String])   // GET  /api/v1/sandboxes/{name}/files/watch?path=P…   (≤ 64; none: /workspace)
+    // 644 — the file explorer panel (WebFiles.swift): its open folders, kept by the host (read, and ONE typed CSRF-checked
+    // change); and a file of a shared workspace opened on the Mac (mac-screen — never for a doz serve browser). The
+    // panel's changes to files are the typed actions files-mkdir | files-new | files-move | files-rm.
+    case filesTree(String)              // GET  /api/v1/sandboxes/{name}/files/tree
+    case filesTreeSet(String)           // POST /api/v1/sandboxes/{name}/files/tree   ({expanded: [folder, …]})
+    case filesOpen(String)              // POST /api/v1/sandboxes/{name}/files/open   ({path, reveal?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -193,6 +199,10 @@ public enum WebRoute: Equatable, Sendable {
             return .sandboxKey(rest[1])
         case (.post, 3) where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "layout":
             return .terminalLayoutSet(rest[1])
+        case (.post, 4) where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "tree":
+            return .filesTreeSet(rest[1])
+        case (.post, 4) where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "open":
+            return .filesOpen(rest[1])
         default: break
         }
         guard method == .get else { return nil }
@@ -247,6 +257,8 @@ public enum WebRoute: Equatable, Sendable {
         case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "watch":
             guard let paths = WebFilesQuery.parse(query, maximum: WebFilesQuery.maximumPaths) else { return nil }
             return .filesWatch(rest[1], paths)
+        case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "tree":
+            return .filesTree(rest[1])
         case 4 where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "boots":
             // 1–99, digits only (no sign, no leading zero).
             guard (1...2).contains(rest[3].count), rest[3].first != "0", rest[3].allSatisfy({ $0.isASCII && $0.isNumber }),

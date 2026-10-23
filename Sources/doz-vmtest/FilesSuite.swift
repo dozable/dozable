@@ -96,6 +96,47 @@ func cliFilesSuite(binary: String) async {
         check(!t.hostRunning, "watching started no host")
     } catch { check(false, "watch: \(error)") }
 
+    // 2b. 644: the panel's changes while OFF — on the Mac, no host started, nothing woken; the rules (hide mode now) and
+    // the confinement refuse what the guest's view would.
+    print("cli: doz files mkdir|new|mv|rename|rm|open — the file explorer panel's changes (644)")
+    func ok(_ args: [String], _ what: String) { let r = t.run(["files"] + args); check(r.code == 0, what + (r.code == 0 ? "" : " (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines)))")) }
+    func refused(_ args: [String], _ says: String, _ what: String) {
+        let r = t.run(["files"] + args)
+        check(r.code != 0 && r.err.contains(says), what + " (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines)))")
+    }
+    let has = { (rel: String) in fm.fileExists(atPath: ws.appendingPathComponent(rel).path) }
+    ok(["mkdir", "fl", "made"], "files mkdir fl made (off)")
+    ok(["new", "fl", "made/a.txt"], "files new fl made/a.txt")
+    ok(["rename", "fl", "made/a.txt", "b.txt"], "files rename … b.txt")
+    ok(["mv", "fl", "made/b.txt", "/workspace/src/b.txt"], "files mv … into src")
+    check(has("made") && !has("made/a.txt") && has("src/b.txt"), "the Mac folder shows each change")
+    refused(["mkdir", "fl", "src"], "is there already", "never replaces: mkdir of an existing folder")
+    refused(["new", "fl", "src/b.txt"], "is there already", "never replaces: new over a file")
+    refused(["new", "fl", "out/x"], "leads outside the shared folder", "a link out is never written through")
+    refused(["new", "fl", "secret.env"], "hide that name", "a name the rules hide is refused (hide mode)")
+    refused(["rm", "fl", "README.md", "--yes"], "read-only", "a read-only file is not deleted")
+    refused(["rm", "fl", "/workspace", "--yes"], "never deleted", "/workspace itself is never deleted")
+    refused(["rm", "fl", "src", "--yes"], "not empty", "a folder with contents needs -r")
+    ok(["rm", "fl", "made", "--yes"], "files rm fl made (an empty folder)")
+    ok(["mkdir", "fl", "tmpdir"], "files mkdir fl tmpdir")
+    ok(["new", "fl", "tmpdir/x"], "files new fl tmpdir/x")
+    ok(["rm", "fl", "tmpdir", "-r", "--yes"], "files rm -r (a folder with contents)")
+    check(!has("tmpdir") && fm.fileExists(atPath: "/etc/hosts"), "deleted on the Mac; nothing outside touched")
+    let seam = t.store.appendingPathComponent("opened.log")
+    t.env["DOZ_TEST_OPEN_URL"] = seam.path
+    put("docs/page.html", "<p>hi</p>\n")
+    ok(["open", "fl", "docs/page.html"], "files open (through the opener seam)")
+    ok(["open", "fl", "src/main.c", "--reveal"], "files open --reveal (a file, shown in its folder)")
+    refused(["open", "fl", "secret.env"], "no such file", "a hidden file is not opened")
+    let opened = (try? String(contentsOf: seam, encoding: .utf8)) ?? ""
+    check(opened.contains("open-file default ") && opened.contains("page.html") && opened.contains("reveal "), "the seam saw the open and the reveal (\(opened))")
+    t.env["DOZ_TEST_OPEN_URL"] = nil
+    let j = t.run(["files", "new", "fl", "j.txt", "--json"])
+    let jr = try? HostWire.decoder.decode(FileChangeResult.self, from: j.outData)
+    check(jr?.folders == ["/workspace"] && jr?.source == "mac", "--json: the folders that changed")
+    check(!t.hostRunning, "no change started a host")
+    check(t.row("fl")?.phase == "off", "and fl is still off")
+
     // 3. Running: the listing is what the guest sees; a change made in the guest arrives; asleep stays asleep.
     check(t.run(["start", "fl"], timeout: 300).code == 0, "start fl")
     r = t.run(["exec", "fl", "--", "sh", "-c", "ls -A /workspace | sort"])
@@ -106,6 +147,9 @@ func cliFilesSuite(binary: String) async {
         defer { w.close() }
         check(w.wait(15) { $0.err.text.contains("watching") }, "watching again (host running)")
         usleep(400_000)
+        // 644: a change made on the Mac through doz files is what the guest sees
+        check(t.run(["files", "mkdir", "fl", "from-mac-\(pid)"]).code == 0
+              && t.run(["exec", "fl", "--", "test", "-d", "/workspace/from-mac-\(pid)"]).code == 0, "files mkdir while running: the guest sees it")
         check(t.run(["exec", "fl", "--", "sh", "-c", "echo g > /workspace/src/from-guest-\(pid).c"]).code == 0, "a file written in the guest")
         check(w.wait(10) { $0.text.contains("/workspace/src") }, "→ a batch (the share's change reaches the Mac's FSEvents)")
         check(t.run(["sleep", "fl"], timeout: 300).code == 0, "sleep fl")
@@ -116,6 +160,10 @@ func cliFilesSuite(binary: String) async {
         check(t.row("fl")?.phase == "asleep", "and fl is still asleep — watching never wakes it (\(t.row("fl")?.phase ?? "?"))")
         check(list(["fl", "src"]).map { names($0).contains("while-asleep-\(pid).c") } == true, "listing it asleep: no wake either")
         check(t.row("fl")?.phase == "asleep", "still asleep")
+        // 644: a change while it sleeps — on the Mac, no wake
+        check(t.run(["files", "new", "fl", "src/made-asleep-\(pid).c"]).code == 0, "files new while asleep")
+        sleep(1)
+        check(t.row("fl")?.phase == "asleep", "and fl is still asleep — a change never wakes it")
     } catch { check(false, "watch: \(error)") }
 
     // 4. Isolated: listed from inside while it runs; refused asleep (still asleep); not watched.
@@ -132,10 +180,28 @@ func cliFilesSuite(binary: String) async {
     check(r.code != 0 && r.err.contains("list them again to refresh"), "isolated: --watch is refused with why")
     r = t.run(["files", "fl2", "nope"])
     check(r.code != 0 && r.err.contains("no such folder"), "isolated: a missing folder")
+    // 644: the changes, inside, as the image's user, while it runs
+    check(t.run(["files", "mkdir", "fl2", "d/sub"]).code == 0 && t.run(["files", "new", "fl2", "d/sub/n.txt"]).code == 0, "isolated: files mkdir + new inside")
+    check(t.run(["files", "mv", "fl2", "d/sub/n.txt", "d/m.txt"]).code == 0, "isolated: files mv inside")
+    r = t.run(["exec", "fl2", "--", "sh", "-c", "test -f /workspace/d/m.txt && test ! -e /workspace/d/sub/n.txt && echo yes"])
+    check(r.out.contains("yes"), "isolated: the guest shows the changes")
+    r = t.run(["files", "new", "fl2", "d/m.txt"])
+    check(r.code != 0 && r.err.contains("is there already"), "isolated: never replaces")
+    r = t.run(["files", "mkdir", "fl2", "ln/x"])
+    check(r.code != 0 && r.err.contains("outside /workspace"), "isolated: a link out of /workspace is refused (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines)))")
+    r = t.run(["files", "rm", "fl2", "d", "--yes"])
+    check(r.code != 0 && r.err.contains("not empty"), "isolated: a folder with contents needs -r")
+    check(t.run(["files", "rm", "fl2", "d", "-r", "--yes"]).code == 0
+          && t.run(["exec", "fl2", "--", "test", "!", "-e", "/workspace/d"]).code == 0, "isolated: files rm -r inside")
+    r = t.run(["files", "open", "fl2", "x"])
+    check(r.code != 0 && r.err.contains("doz get"), "isolated: no open on the Mac — the copy command instead")
     check(t.run(["sleep", "fl2"], timeout: 300).code == 0, "sleep fl2")
     r = t.run(["files", "fl2"])
     check(r.code != 0 && r.err.contains("never wakes or starts it"), "isolated and asleep: refused with why (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines)))")
     check(t.row("fl2")?.phase == "asleep", "and still asleep")
+    r = t.run(["files", "mkdir", "fl2", "z"])
+    check(r.code != 0 && r.err.contains("never wakes or starts it"), "isolated and asleep: a change is refused with why")
+    check(t.row("fl2")?.phase == "asleep", "and still asleep after it")
 
     check(t.run(["rm", "fl2", "--yes"], timeout: 120).code == 0, "rm fl2")
     check(t.run(["rm", "fl", "--yes"], timeout: 120).code == 0, "rm fl")

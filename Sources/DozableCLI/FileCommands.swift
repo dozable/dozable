@@ -392,8 +392,143 @@ enum FileTransfer {
 // 643: `doz files NAME [PATH] [--watch]` — a folder of a sandbox's /workspace (the host's read-only `files-list`; in this
 // process when no host runs), and, with --watch, which folders change: watched HERE on the Mac (FSEvents — FileWatch.swift),
 // never through the host and never in the guest, so it keeps no host alive and wakes nothing.
+/// 644: `doz files` is a group — `ls` (the default: `doz files NAME [PATH] [--watch]` as before) and the file explorer
+/// panel's changes: `mkdir`, `new`, `mv`, `rename`, `rm`, `open`. A shared workspace is changed on this Mac (any state of
+/// the sandbox; no host is started and nothing is woken); an isolated one inside it while it runs.
 struct FilesCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "files",
+        abstract: "A sandbox's /workspace: list a folder (the default), make, move, rename or delete files and folders, open one on this Mac.",
+        subcommands: [FilesList.self, FilesMkdir.self, FilesNew.self, FilesMove.self, FilesRename.self, FilesRemove.self, FilesOpen.self],
+        defaultSubcommand: FilesList.self)
+}
+
+/// One change: answered by the host when it runs, else in this process (a shared workspace needs no VM) — never a host
+/// started for it. An isolated sandbox's change then says it is not running.
+func fileChange(_ r: HostRequest, _ g: GlobalOptions) async throws -> FileChangeResult {
+    try decode(try await query(r, g), FileChangeResult.self, g)
+}
+
+struct FilesMkdir: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "mkdir",
+        abstract: "Make a new, empty folder in a sandbox's /workspace (its parent must be there).",
+        discussion: "doz files mkdir my-app src/new. PATH is relative to /workspace or /workspace/…. Never replaces what is there; the workspace rules apply.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "The new folder.") var path: String
+    func run() async throws {
+        var r = HostRequest(.filesMkdir, name: name)
+        r.filePath = path
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet { Out.stdout("made the folder \(c.path) in \(name)\n") }
+    }
+}
+
+struct FilesNew: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "new",
+        abstract: "Make a new, empty file in a sandbox's /workspace.",
+        discussion: "doz files new my-app notes/todo.md. Never replaces a file that is there; the workspace rules apply.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "The new file.") var path: String
+    func run() async throws {
+        var r = HostRequest(.filesNew, name: name)
+        r.filePath = path
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet { Out.stdout("made the file \(c.path) in \(name)\n") }
+    }
+}
+
+struct FilesMove: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "mv",
+        abstract: "Move (or rename) a file or folder within a sandbox's /workspace.",
+        discussion: "doz files mv my-app notes/a.md docs/a.md. TO is the new path, its name included. Nothing is ever replaced; a locked or read-only item is not moved, nor a folder holding one.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "What to move.") var path: String
+    @Argument(help: "Where to — the new path, its name included.") var to: String
+    func run() async throws {
+        var r = HostRequest(.filesMove, name: name)
+        r.filePath = path
+        r.fileTarget = to
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet { Out.stdout("moved \(c.path) → \(c.to ?? to) in \(name)\n") }
+    }
+}
+
+struct FilesRename: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "rename",
+        abstract: "Rename a file or folder in its own folder of a sandbox's /workspace.",
+        discussion: "doz files rename my-app notes/a.md b.md. Nothing is ever replaced.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "What to rename.") var path: String
+    @Argument(help: "The new name (one name, no /).") var newName: String
+    func run() async throws {
+        guard let item = FileItemPath.parse(path) else {
+            throw fail(HostError(.invalid, "not a file or folder in /workspace: \(path)"), g, code: DozableExit.usage)
+        }
+        guard !newName.isEmpty, !newName.contains("/"), newName != ".", newName != ".." else {
+            throw fail(HostError(.invalid, "the new name is one name, without /"), g, code: DozableExit.usage)
+        }
+        var r = HostRequest(.filesMove, name: name)
+        r.filePath = item.guest
+        r.fileTarget = FileListPaths.guestPath(item.parent.isEmpty ? newName : item.parent + "/" + newName)
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet { Out.stdout("renamed \(c.path) → \(c.to ?? newName) in \(name)\n") }
+    }
+}
+
+struct FilesRemove: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "rm",
+        abstract: "Delete a file, a link (never what it points to) or a folder from a sandbox's /workspace.",
+        discussion: "doz files rm my-app old.txt · doz files rm my-app build -r. A folder with anything in it needs -r. Asks first unless --yes. A locked or read-only item is not deleted, nor a folder holding one.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "What to delete.") var path: String
+    @Flag(name: [.short, .long], help: "A folder with everything in it.") var recursive = false
+    @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
+    func run() async throws {
+        guard let item = FileItemPath.parse(path) else {
+            throw fail(HostError(.invalid, "not a file or folder in /workspace: \(path) (/workspace itself is never deleted)"), g, code: DozableExit.usage)
+        }
+        try await requireSandbox(name, g)
+        try confirm("Delete \(item.guest) in \(name)\(recursive ? " with everything in it" : "")? It cannot be undone.", yes: yes || g.json, g)
+        var r = HostRequest(.filesRm, name: name)
+        r.filePath = item.guest
+        r.recursive = recursive ? true : nil
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet {
+            let n = c.items ?? 1
+            Out.stdout("deleted \(c.path) in \(name)" + (c.kind == "folder" && n > 1 ? " (\(n - 1) item\(n == 2 ? "" : "s") in it)" : "") + "\n")
+        }
+    }
+}
+
+struct FilesOpen: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "open",
+        abstract: "Open a file of a sandbox's shared workspace on this Mac (its default app), a folder in the Finder, or --reveal it there.",
+        discussion: "doz files open my-app docs/index.html · doz files open my-app src --reveal. The rules of the agent's own opening apply (sandbox.open_files, document types only, never a program); an isolated sandbox's files are inside it — doz get copies one out.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The sandbox.") var name: String
+    @Argument(help: "The file or folder (default /workspace).") var path: String?
+    @Flag(name: .long, help: "Show it selected in the Finder instead.") var reveal = false
+    func run() async throws {
+        var r = HostRequest(.filesOpen, name: name)
+        r.filePath = path
+        r.reveal = reveal ? true : nil
+        let c = try await fileChange(r, g)
+        if g.json { Out.json(c); return }
+        if !g.quiet { Out.stdout((c.message ?? "opened \(c.path)") + "\n") }
+    }
+}
+
+struct FilesList: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "ls",
         abstract: "List a folder of a sandbox's /workspace; --watch then says which folders change (Ctrl-C stops).",
         discussion: """
         doz files my-app · doz files my-app src · doz files my-app /workspace/src --watch. A shared workspace is read \

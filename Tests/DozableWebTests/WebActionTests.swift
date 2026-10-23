@@ -57,10 +57,67 @@ final class WebActionTests: XCTestCase {
         "tools-apply": #"{"action":"tools-apply","sandbox":"web"}"#,
         "session-end": #"{"action":"session-end","sandbox":"web","session":"codex"}"#,
         "session-restart": #"{"action":"session-restart","sandbox":"web","session":"codex","fresh":false}"#,
+        // 644: the Files panel's changes.
+        "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
+        "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
+        "files-move": #"{"action":"files-move","sandbox":"web","path":"/workspace/a.md","to":"/workspace/docs/a.md"}"#,
+        "files-rm": #"{"action":"files-rm","sandbox":"web","path":"/workspace/old","recursive":true,"confirm":"/workspace/old"}"#,
+        // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
+        "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
     ]
+
+    /// Owner, 2026-10-23: `rename` — two sandbox names by the rule, different, nothing else; no confirm (nothing is lost).
+    func testRename() throws {
+        let a = try decode(Self.samples["rename"]!)
+        XCTAssertEqual(a, .rename(name: "web", newName: "website"))
+        XCTAssertEqual(a.hostRequest.op, .rename)
+        XCTAssertEqual(a.hostRequest.name, "web")
+        XCTAssertEqual(a.hostRequest.newName, "website")
+        XCTAssertEqual(a.sandbox, "web")
+        XCTAssertNil(a.confirmationTarget)
+        XCTAssertEqual(a.label, "rename web to website", "the page reads the new name from this label (core/operations.js)")
+        XCTAssertNotEqual(a.dedupeKey, try decode(#"{"action":"rename","sandbox":"web","newName":"site"}"#).dedupeKey)
+        invalid(#"{"action":"rename","sandbox":"web"}"#)                                       // the new name is required
+        invalid(#"{"action":"rename","sandbox":"web","newName":"web"}"#)                       // a different name
+        for bad in ["Web", "-web", "a b", "a_b", "", String(repeating: "a", count: 41)] {
+            invalid(#"{"action":"rename","sandbox":"web","newName":"\#(bad)"}"#)
+        }
+        invalid(#"{"action":"rename","sandbox":"web","newName":5}"#)
+        invalid(#"{"action":"rename","sandbox":"web","newName":"site","confirm":"web"}"#)      // not a field of rename
+        invalid(#"{"action":"rename","sandbox":"web","newName":"site","workspace":"/tmp"}"#)
+    }
+
+    /// 644: the file actions' fields, strictly.
+    func testTheFileActions() throws {
+        let mk = try decode(Self.samples["files-mkdir"]!)
+        XCTAssertEqual(mk.hostRequest.filePath, "/workspace/src/new")
+        XCTAssertEqual(mk.sandbox, "web")
+        XCTAssertEqual(try decode(Self.samples["files-new"]!).hostRequest.filePath, "/workspace/notes.md", "relative: under /workspace")
+        let mv = try decode(Self.samples["files-move"]!)
+        XCTAssertEqual(mv.hostRequest.fileTarget, "/workspace/docs/a.md")
+        let rm = try decode(Self.samples["files-rm"]!)
+        XCTAssertEqual(rm.hostRequest.recursive, true)
+        XCTAssertEqual(rm.confirmationTarget, "/workspace/old")
+        XCTAssertNil(try decode(#"{"action":"files-rm","sandbox":"web","path":"/workspace/f","confirm":"/workspace/f"}"#).hostRequest.recursive)
+        XCTAssertNotEqual(try decode(#"{"action":"files-mkdir","sandbox":"web","path":"a"}"#).dedupeKey,
+                          try decode(#"{"action":"files-mkdir","sandbox":"web","path":"b"}"#).dedupeKey, "two folders made at once are two operations")
+        invalid(#"{"action":"files-rm","sandbox":"web","path":"/workspace/old"}"#)                                  // destructive: confirm
+        invalid(#"{"action":"files-rm","sandbox":"web","path":"/workspace/old","confirm":"/workspace/other"}"#)
+        invalid(#"{"action":"files-mkdir","sandbox":"web","path":"/workspace"}"#)                                   // never the root
+        invalid(#"{"action":"files-mkdir","sandbox":"web","path":"../etc/x"}"#)
+        invalid(#"{"action":"files-mkdir","sandbox":"web","path":"/etc/x"}"#)
+        invalid(#"{"action":"files-new","sandbox":"web","path":"a\u0001b"}"#)
+        invalid(#"{"action":"files-move","sandbox":"web","path":"a"}"#)                                             // to is required
+        invalid(#"{"action":"files-move","sandbox":"web","path":"a","to":"/workspace/a"}"#)
+        invalid(#"{"action":"files-mkdir","sandbox":"web","path":"a","content":"x"}"#)                             // never a file's content
+        invalid(#"{"action":"files-rm","sandbox":"web","path":"a","recursive":"yes","confirm":"/workspace/a"}"#)
+    }
 
     /// Everything the web layer may send to the host — and, as important, what it may never.
     static let allowedOps: Set<HostOp> = [
+        .filesMkdir, .filesNew, .filesMove, .filesRm,
+        // Owner, 2026-10-23: a shut-down sandbox's new name (nothing is lost).
+        .rename,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,

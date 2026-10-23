@@ -427,6 +427,66 @@
       "serve": "icon"
     },
     {
+      "file": "folder-tree.svg",
+      "fromTarball": "package/icons/folder-tree.svg",
+      "sha256": "b45bbab9ea5af658bdd61c67b3adab66a8b331c7c60e6fdac7d1ac684442e9f5",
+      "serve": "icon"
+    },
+    {
+      "file": "folder-open.svg",
+      "fromTarball": "package/icons/folder-open.svg",
+      "sha256": "1abe32ef2ee84c4eef815c98578202b287dd45aa1dfcda08b15c5fa1328f82d3",
+      "serve": "icon"
+    },
+    {
+      "file": "folder-plus.svg",
+      "fromTarball": "package/icons/folder-plus.svg",
+      "sha256": "735ab6ff5003ddbc718cc6f62883104bd2fac76142f003be2fdf8a1f034b2d0a",
+      "serve": "icon"
+    },
+    {
+      "file": "file.svg",
+      "fromTarball": "package/icons/file.svg",
+      "sha256": "ad4a83a21e44838953ac3d5547d4dcf8efa9450366ff133070e778adeee9303a",
+      "serve": "icon"
+    },
+    {
+      "file": "file-plus.svg",
+      "fromTarball": "package/icons/file-plus.svg",
+      "sha256": "cbd555add753fa789333c1addc0c02e1fb822e1731ea7c2ab4daf7acd096db55",
+      "serve": "icon"
+    },
+    {
+      "file": "lock.svg",
+      "fromTarball": "package/icons/lock.svg",
+      "sha256": "caff65b287f27e50e7f41b5b773c8aff493df53ce91444904ed88aa4a92fdf46",
+      "serve": "icon"
+    },
+    {
+      "file": "pencil.svg",
+      "fromTarball": "package/icons/pencil.svg",
+      "sha256": "8a6c22aa180b2f082db20c2563c9cc8533905e736b8c62eb042b24541ab525d0",
+      "serve": "icon"
+    },
+    {
+      "file": "chevron-right.svg",
+      "fromTarball": "package/icons/chevron-right.svg",
+      "sha256": "62013d75bcc86b1fe6cece9251245488e9004efb239ea1ea15ce51a5534d7706",
+      "serve": "icon"
+    },
+    {
+      "file": "folder-input.svg",
+      "fromTarball": "package/icons/folder-input.svg",
+      "sha256": "96517ebb5ff5b334970e7cb21da18e9c1f27b26939fec85d829f3dd3999f7705",
+      "serve": "icon"
+    },
+    {
+      "file": "external-link.svg",
+      "fromTarball": "package/icons/external-link.svg",
+      "sha256": "c8a40e6ba009b85c1e99138ea1841769cd0a2930d614d0e2b0dd4c2e379ccec0",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",

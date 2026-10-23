@@ -82,6 +82,26 @@ touched, and neither is the folder of a duplicate.
 `--yes` they refuse, so a script can't destroy something by accident. The question names what you
 asked for — and checks it exists — before you answer.
 
+## Renaming a sandbox
+
+`doz rename NAME NEW` gives a sandbox another name. It is the same sandbox: its disks, restore points, folder,
+account, network, settings and kept terminal layout come along — only the name changes (its hostname inside follows
+at the next start). Nothing is lost, so it asks nothing.
+
+```bash
+doz shutdown demo        # renaming needs it shut down (Shut down keeps its disk)
+doz rename demo website
+doz start website
+```
+
+It refuses while the sandbox runs, sleeps, hibernates or is busy — shut it down first — and refuses a name that is
+already taken or is not 1–40 characters of a-z, 0-9 and `-`. Its folder on your Mac keeps its own name and place —
+Dozable never moves your files. Templates saved from it keep saying which
+sandbox they came from, and past numbers on the Metrics page stay under the old name.
+
+In the dashboard: **Rename…** in a sandbox's ⋯ menu — in the sidebar (on the sandbox's line) and on its page's
+toolbar.
+
 A program started less than three seconds before a hibernate gets the rest of those three seconds
 first, so a program in the middle of starting up isn't frozen at a bad moment.
 
