@@ -197,6 +197,11 @@ asks whether to **End** it or **Hide** its tab and keep it running. Each tab is 
 
 **Open in Terminal** opens the same session in your terminal app instead, via `doz attach`.
 
+**Open folder** (the folder icon beside it) opens the sandbox's shared workspace on your Mac — **Show in the
+Finder**, or **Open in &lt;editor&gt;** for each editor installed (VS Code, Cursor, Zed, …; the one you used last
+first). An isolated sandbox has nothing on the Mac: the button says so. The same as `doz files open NAME --app
+EDITOR` ([Terminals and sessions](07-terminals-and-sessions.md)).
+
 ## Keys in the browser
 
 With `ui.allow_secret_entry` on (the default), the wizard and **Accounts & keys** take an API key or

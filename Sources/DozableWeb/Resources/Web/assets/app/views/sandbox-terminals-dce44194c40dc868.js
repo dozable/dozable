@@ -21,6 +21,8 @@ import { markNavSession } from '../components/nav-cba758f16097c8a0.js';
 import { agentChip } from '../components/agent-status-0a5e5ec07d86de4f.js';
 import { failureFor, pageFailure } from '../components/notices-b87dc98df37a200f.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-5cbf0348e381e015.js';
+import { editorItems, openOnMac } from '../components/open-with-39e492c7cba91a70.js';
+import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-f59885e4f9347123.js';
 import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-6ad89fe486be3eb3.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
@@ -67,7 +69,13 @@ function drawTerminals() {
     termUI.newAgent = btn('New session', () => { const n = state.param; newAgentSession(n).catch((e) => failureFor(n, e.message || String(e))); },
       { small: true, quiet: true, icon: 'plus' });
     termUI.openTerm = btn('Open in Terminal', () => openInTerminal(state.param, null), { small: true, quiet: true, iconOnly: true, icon: ICON_OPEN_IN_TERMINAL });
-    termUI.acts = h('div', { class: 'strip-acts', role: 'toolbar', 'aria-label': 'Terminals' }, termUI.newAgent, nsGroup, termUI.splitBtn, isRemote() ? null : termUI.openTerm);
+    // 646 (owner: "open the workspace in my editor"): beside Open in Terminal — the workspace in the Finder or an editor.
+    // Never for a LAN device's browser (the routes are mac-screen).
+    const openFolder = btn('Open folder', () => {}, { small: true, quiet: true, iconOnly: true, icon: 'folder-open' });
+    openFolder.dataset.openFolder = '';
+    termUI.openFolderCtl = menuButton(openFolder, [], { label: 'Open the workspace on this Mac' });
+    termUI.acts = h('div', { class: 'strip-acts', role: 'toolbar', 'aria-label': 'Terminals' }, termUI.newAgent, nsGroup, termUI.splitBtn,
+      isRemote() ? null : termUI.openFolderCtl.el, isRemote() ? null : termUI.openTerm);
     // 635 (owner): the tabs menu, left of Home — every tab open here, Close all tabs, End all sessions.
     const tabsTrigger = h('button', { type: 'button', class: 'tab-x tabs-menu', title: 'The open tabs', 'aria-label': 'The open tabs', 'data-tabs-menu': '' },
       icon('chevron-down'));
@@ -162,10 +170,27 @@ export function paintStripActs() {
     termUI.newAgent.title = why || 'Another ' + agent + ' session (' + s.d.defaultSession + '-2, …) beside the first, in the same folder';
   }
   if (!termUI.tabsCtl.isOpen()) termUI.tabsCtl.setItems(tabsMenuItems(name));
+  if (!isRemote()) paintOpenFolder(name, i);
   if (termUI.nsCtl.isOpen()) return;
   termUI.nsCtl.setItems([
     { label: 'Terminal…', icon: 'terminal', desc: 'A new session: a shell, or a command', disabled: busy, why: 'Wait until it settles', onSelect: () => newTerminalDialog(name) },
     { label: 'Run detached…', icon: 'play', desc: 'A new session running a command, not opened here', disabled: !!why, why, onSelect: () => runDetachedDialog(name) },
+  ]);
+}
+/// 646: the Open folder menu — Show in the Finder, then Open in <editor> for each the host offers (the last used first).
+/// A shared workspace is on this Mac in any state of the sandbox; an isolated one has nothing here (disabled, with why).
+function paintOpenFolder(name, i) {
+  const b = termUI.openFolderCtl.button;
+  const why = !i ? 'Loading…' : !i.workspace ? 'Isolated — nothing on this Mac is shared' : null;
+  b.disabled = !!why;
+  b.title = why || 'Open the workspace — in the Finder or an editor';
+  if (why || termUI.openFolderCtl.isOpen()) return;
+  const editors = editorItems(name, '/workspace', () => { if (state.param === name) paintStripActs(); });
+  termUI.openFolderCtl.setItems([
+    { label: 'Show in the Finder', icon: 'folder-open', desc: tildePath(i.workspace), data: { openFinder: '' }, onSelect: () => openOnMac(name, '/workspace') },
+    { sep: true },
+    ...(editors.length ? editors
+      : [{ label: 'No editor found', icon: 'code-xml', disabled: true, why: 'None of the known editors is installed — or name one in bridges.open_apps' }]),
   ]);
 }
 /// 635 (owner): the tabs menu — every tab of this page (the one shown checked), then Close all tabs (the sessions keep

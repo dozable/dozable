@@ -66,7 +66,7 @@ change their network, settings, images and resources — with two exceptions:
   token would send it across your network unencrypted, so the dashboard does not offer the field there and refuses
   it. Add it on the Mac (`doz account add NAME --api-key`, or this Mac's own browser), or reach the dashboard over
   HTTPS through your reverse proxy (below) — there it is allowed.
-- **Nothing that opens a window on the Mac's screen**: the Mac's folder and file pickers and **Open in Terminal** are
+- **Nothing that opens a window on the Mac's screen**: the Mac's folder and file pickers, **Open in Terminal**, **Open folder** and the Files tab's Open items are
   not shown on another computer. Type the folder's path instead, and use the browser's own terminals.
 
 `ui.lan` and the `serve.*` settings — who can reach the dashboard — are changed only on the Mac, with `doz config set`.

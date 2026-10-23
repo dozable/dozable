@@ -487,6 +487,12 @@
       "serve": "icon"
     },
     {
+      "file": "code-xml.svg",
+      "fromTarball": "package/icons/code-xml.svg",
+      "sha256": "b10a4e4350694757e0a741bf69433458b0a3bb4cc2480d00ee3df887adfc1583",
+      "serve": "icon"
+    },
+    {
       "file": "LICENSE",
       "fromTarball": "package/LICENSE",
       "sha256": "b495047bd93a9b06913511076f504daba17d5bbeb3e0650f3bb53a4220329c57",
