@@ -128,8 +128,19 @@ func cliFilesSuite(binary: String) async {
     ok(["open", "fl", "docs/page.html"], "files open (through the opener seam)")
     ok(["open", "fl", "src/main.c", "--reveal"], "files open --reveal (a file, shown in its folder)")
     refused(["open", "fl", "secret.env"], "no such file", "a hidden file is not opened")
+    // 646: --app — the workspace and a source file in an editor (the editors' seam: never the Mac's LaunchServices)
+    t.env["DOZ_TEST_EDITORS"] = "cursor"
+    let ed = t.run(["files", "editors"])
+    check(ed.code == 0 && ed.out.contains("Cursor") && !ed.out.contains("Zed"), "files editors lists what the seam installed")
+    let wsOpen = t.run(["files", "open", "fl", "--app", "cursor"])
+    check(wsOpen.code == 0 && wsOpen.out.contains("opened the workspace in Cursor"), "files open fl --app cursor (\(wsOpen.out)\(wsOpen.err))")
+    ok(["open", "fl", "src/main.c", "--app", "Cursor"], "files open --app (a source file)")
+    refused(["open", "fl", "--app", "zed"], "not installed", "an editor not installed is refused")
+    refused(["open", "fl", "secret.env", "--app", "cursor"], "no such file", "a hidden file is not opened in an editor either")
+    t.env["DOZ_TEST_EDITORS"] = nil
     let opened = (try? String(contentsOf: seam, encoding: .utf8)) ?? ""
     check(opened.contains("open-file default ") && opened.contains("page.html") && opened.contains("reveal "), "the seam saw the open and the reveal (\(opened))")
+    check(opened.contains("open-file Cursor ") && opened.contains("main.c"), "the seam saw the editor opens (\(opened))")
     t.env["DOZ_TEST_OPEN_URL"] = nil
     let j = t.run(["files", "new", "fl", "j.txt", "--json"])
     let jr = try? HostWire.decoder.decode(FileChangeResult.self, from: j.outData)

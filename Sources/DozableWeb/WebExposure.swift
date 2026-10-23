@@ -53,7 +53,7 @@ public enum WebExposure {
             return .change
         case .accountAdd, .sandboxKey, .accessGithubKey:
             return .secretEntry
-        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen:
+        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen, .editors:   // 646: editors with files/open
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices

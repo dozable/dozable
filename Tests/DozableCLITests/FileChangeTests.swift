@@ -329,4 +329,80 @@ final class FileChangeTests: XCTestCase {
         XCTAssertTrue(lines[1].hasPrefix("open-folder "))
         XCTAssertTrue(lines[2].hasPrefix("reveal "))
     }
+
+    // MARK: 646 — open in an editor
+
+    func testOpenInAnEditorThroughTheSeams() throws {
+        let seam = root.appendingPathComponent("opened.txt")
+        let env = ["DOZ_TEST_OPEN_URL": seam.path, EditorApps.testSeam: "cursor,vscode"]
+        try write("src/main.swift", "print(1)\n")
+        try write("Makefile", "all:\n")
+        try write("tool.sh", "#!/bin/sh\n")
+        try write("bin/prog", "\u{7F}ELF....")
+        try write("setup.pkg", "x\n")
+        try mkdir("Thing.app")
+        try write("secret.md", "s\n")
+        try write("hidden.txt", "h\n")
+        try write(".dozignore", "secret.md\n")
+        let exe = ws.appendingPathComponent("run.txt")
+        try Data("plain\n".utf8).write(to: exe)
+        try fm.setAttributes([.posixPermissions: 0o755], ofItemAtPath: exe.path)
+        let real = try XCTUnwrap(MacFolderListing.realPath(ws.path))
+        func open(_ p: String, _ app: String?, reveal: Bool = false, enabled: Bool = true, rules: WorkspaceRules? = nil,
+                  openApps: [String] = ["Typora"]) throws -> String {
+            try MacFileChange.open(workspace: ws.path, guestPath: p, reveal: reveal, enabled: enabled, rules: rules, app: app,
+                                   openApps: openApps, environment: env)
+        }
+        // the workspace, a folder, a file the document list would refuse (an editor opens text)
+        XCTAssertEqual(try open("/workspace", "cursor"), "opened the workspace in Cursor")
+        XCTAssertEqual(try open("/workspace/src", "Visual Studio Code"), "opened src/ in Visual Studio Code")
+        XCTAssertEqual(try open("/workspace/src/main.swift", "VSCODE"), "opened src/main.swift in Visual Studio Code", "the id, any case")
+        XCTAssertEqual(try open("/workspace/Makefile", "cursor"), "opened Makefile in Cursor", "no extension: fine for an editor")
+        try write("lib.py", "x = 1\n")
+        XCTAssertEqual(try open("/workspace/lib.py", "cursor"), "opened lib.py in Cursor", "source text: an editor opens it (a default app never)")
+        XCTAssertThrowsError(try open("/workspace/lib.py", nil), "without an editor the document rules stay")
+        XCTAssertEqual(try open("/workspace/src", "typora"), "opened src/ in Typora", "a bridges.open_apps name, its listed spelling")
+        // never a program, a never-type or a package; the setting, --reveal, an app not installed or not known
+        for (p, why) in [("/workspace/tool.sh", "script"), ("/workspace/bin/prog", "ELF"), ("/workspace/run.txt", "executable"),
+                         ("/workspace/setup.pkg", "never opened"), ("/workspace/Thing.app", "package")] {
+            XCTAssertThrowsError(try open(p, "cursor"), p) { XCTAssertTrue(($0 as? HostError)?.message.contains(why) == true, "\(p): \($0)") }
+        }
+        XCTAssertThrowsError(try open("/workspace", "zed")) { XCTAssertEqual(($0 as? HostError)?.message, "Zed is not installed on this Mac") }
+        XCTAssertThrowsError(try open("/workspace", "Safari")) { XCTAssertTrue(($0 as? HostError)?.message.contains("not a known editor or in bridges.open_apps") == true) }
+        XCTAssertThrowsError(try open("/workspace", "-a")) { XCTAssertEqual(($0 as? HostError)?.code, .invalid) }
+        XCTAssertThrowsError(try open("/workspace", "cursor", enabled: false)) { XCTAssertTrue(($0 as? HostError)?.message.contains("sandbox.open_files") == true) }
+        XCTAssertThrowsError(try open("/workspace/src/main.swift", "cursor", reveal: true)) { XCTAssertEqual(($0 as? HostError)?.code, .invalid) }
+        // the rules first: locked refused, hidden is "no such file"
+        let lock = try XCTUnwrap(MacFolderListing.rules(workspace: ws.path, mode: .lock, viewOn: true))
+        XCTAssertThrowsError(try open("/workspace/secret.md", "cursor", rules: lock)) { XCTAssertTrue(($0 as? HostError)?.message.contains("locked") == true) }
+        try write(".dozignore", "secret.md\nhidden.txt\n")
+        let hide = try XCTUnwrap(MacFolderListing.rules(workspace: ws.path, mode: .hide, viewOn: true))
+        XCTAssertThrowsError(try open("/workspace/hidden.txt", "zed", rules: hide)) { XCTAssertEqual(($0 as? HostError)?.code, .notFound, "before the app is looked at") }
+        let lines = try String(contentsOf: seam, encoding: .utf8).split(separator: "\n").map(String.init)
+        XCTAssertEqual(lines, ["open-file Cursor \(real)", "open-file Visual Studio Code \(real)/src",
+                               "open-file Visual Studio Code \(real)/src/main.swift", "open-file Cursor \(real)/Makefile",
+                               "open-file Cursor \(real)/lib.py", "open-file Typora \(real)/src"], "the seam names the editor; nothing else was opened")
+    }
+
+    func testTheEditorsAndTheOpenWithAnAppAreAnsweredInProcess() async throws {
+        XCTAssertTrue(HostOp.editors.isReadOnly)
+        let store = try storeWithSandbox(workspace: ws)
+        let core = HostCore(store: store, readOnly: true, version: "test")
+        await core.load()
+        setenv(EditorApps.testSeam, "zed", 1)
+        defer { unsetenv(EditorApps.testSeam) }
+        let m = await core.handle(HostRequest(.editors))
+        XCTAssertEqual(m.ok, true, m.error?.message ?? "")
+        let list = try XCTUnwrap(m.result).decode([EditorApps.Editor].self)
+        XCTAssertEqual(list.first, EditorApps.Editor(id: "zed", name: "Zed"))
+        XCTAssertFalse(list.contains { $0.id == "vscode" })
+        // an app that is not known (or listed) is refused before anything opens
+        var r = HostRequest(.filesOpen, name: "x")
+        r.filePath = "/workspace"
+        r.app = "no-such-editor"
+        let refused = await core.handle(r)
+        XCTAssertEqual(refused.error?.code, .invalid)
+        XCTAssertTrue(refused.error?.message.contains("not a known editor") == true, refused.error?.message ?? "")
+        XCTAssertFalse(store.hostIsRunning())
+    }
 }

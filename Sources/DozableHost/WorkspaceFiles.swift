@@ -47,6 +47,12 @@ public enum WorkspaceFiles {
     /// or redirect). Anything not in `documentTypes` is refused too; this list only makes the refusal clear.
     public static var neverTypes: [String] { GuestCommand.openFileNeverTypes }
 
+    /// 646: the never-types that are source text — refused for a default app (it could RUN them), opened by an editor
+    /// named with `--app` (`open -a EDITOR` hands the editor the file; nothing runs). Still refused there: an executable
+    /// one, and one whose first bytes are `#!` or a program (`contentProblem`).
+    public static let editorSourceTypes: Set<String> = ["sh", "bash", "zsh", "csh", "tcsh", "ksh", "fish", "py", "rb", "pl", "php",
+                                                        "js", "mjs", "lua", "swift"]
+
     /// How a resolved path is shown on the Mac.
     public enum How: String, Equatable, Sendable {
         /// A document, in its default app or the listed one (`open [-a APP] PATH`).
@@ -161,7 +167,10 @@ public enum WorkspaceFiles {
     /// A folder (the workspace itself or any folder in it) opens in the Finder — never an app or a package
     /// (that is a program, to the Mac), which only `--reveal` may show, selected in its parent. With
     /// `reveal`, a file is shown, not opened, so its type and content are not checked.
-    public static func resolve(guestPath: String, workspace: String, reveal: Bool = false)
+    /// 646 `editor`: for the person's `--app EDITOR` (never the agent's bridge) — an editor opens text, so the document
+    /// allow-list does not apply; a never-type, an executable and a program by its first bytes are still refused, and so
+    /// is a package folder.
+    public static func resolve(guestPath: String, workspace: String, reveal: Bool = false, editor: Bool = false)
         -> Result<(macPath: String, shown: String, folder: Bool), Refusal> {
         guard guestPath.utf8.count <= maximumPathBytes else { return .failure(Refusal("the path is longer than \(maximumPathBytes) bytes")) }
         guard !guestPath.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) else {
@@ -196,7 +205,12 @@ public enum WorkspaceFiles {
         }
         let shown = inside
         if reveal { return .success((real, shown, false)) }
-        if let why = typeProblem(real) { return .failure(Refusal(why)) }
+        if editor {
+            let ext = ((real as NSString).lastPathComponent as NSString).pathExtension.lowercased()
+            if neverTypes.contains(ext) && !editorSourceTypes.contains(ext) {
+                return .failure(Refusal(".\(ext) is never opened (an app, link or installer type)"))
+            }
+        } else if let why = typeProblem(real) { return .failure(Refusal(why)) }
         if st.st_mode & 0o111 != 0 { return .failure(Refusal("it is executable: never opened")) }
         if let why = contentProblem(real, expecting: st) { return .failure(Refusal(why)) }
         return .success((real, shown, false))
@@ -255,12 +269,12 @@ public enum WorkspaceFiles {
     /// file instead. Never a real app from a test.
     /// A folder: `open -a Finder PATH` (the Finder shows it — a folder is never launched as an app);
     /// `.reveal`: `open -R PATH` (selected in its folder; nothing opened). Seam lines: `open-folder PATH`,
-    /// `reveal PATH`.
-    public static func open(_ path: String, app: String?, how: How = .app,
+    /// `reveal PATH`. 646 `label`: how the seam line names the app when `app` is an editor's resolved `.app` path (its name).
+    public static func open(_ path: String, app: String?, how: How = .app, label: String? = nil,
                             environment: [String: String] = ProcessInfo.processInfo.environment) -> Bool {
         if let seam = environment["DOZ_TEST_OPEN_URL"], !seam.isEmpty {
             switch how {
-            case .app: BrowserBridge.append(seam, "open-file \(app ?? "default") \(path)\n")
+            case .app: BrowserBridge.append(seam, "open-file \(label ?? app ?? "default") \(path)\n")
             case .finder: BrowserBridge.append(seam, "open-folder \(path)\n")
             case .reveal: BrowserBridge.append(seam, "reveal \(path)\n")
             }

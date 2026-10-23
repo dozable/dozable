@@ -398,7 +398,8 @@ enum FileTransfer {
 struct FilesCommand: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "files",
         abstract: "A sandbox's /workspace: list a folder (the default), make, move, rename or delete files and folders, open one on this Mac.",
-        subcommands: [FilesList.self, FilesMkdir.self, FilesNew.self, FilesMove.self, FilesRename.self, FilesRemove.self, FilesOpen.self],
+        subcommands: [FilesList.self, FilesMkdir.self, FilesNew.self, FilesMove.self, FilesRename.self, FilesRemove.self, FilesOpen.self,
+                      FilesEditors.self],
         defaultSubcommand: FilesList.self)
 }
 
@@ -511,19 +512,54 @@ struct FilesRemove: AsyncParsableCommand {
 
 struct FilesOpen: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "open",
-        abstract: "Open a file of a sandbox's shared workspace on this Mac (its default app), a folder in the Finder, or --reveal it there.",
-        discussion: "doz files open my-app docs/index.html · doz files open my-app src --reveal. The rules of the agent's own opening apply (sandbox.open_files, document types only, never a program); an isolated sandbox's files are inside it — doz get copies one out.")
+        abstract: "Open a sandbox's shared workspace (or a file or folder in it) on this Mac: the Finder, its default app, or --app an editor.",
+        discussion: """
+        doz files open my-app (the workspace in the Finder) · doz files open my-app --app cursor (the workspace in Cursor) · \
+        doz files open my-app src/main.swift --app "Visual Studio Code" · doz files open my-app docs/index.html · \
+        doz files open my-app src --reveal. Without --app the rules of the agent's own opening apply (sandbox.open_files, \
+        document types only, never a program). --app takes a known editor that is installed — \
+        \(EditorApps.known.map(\.id).joined(separator: ", ")) (its id or its name) — or a name in bridges.open_apps; it opens \
+        a folder, or a file that is not a program (doz files editors lists what is installed). An isolated sandbox's files \
+        are inside it — doz get copies one out.
+        """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
     @Argument(help: "The file or folder (default /workspace).") var path: String?
     @Flag(name: .long, help: "Show it selected in the Finder instead.") var reveal = false
+    @Option(name: .long, help: "Open it in this editor (vscode, cursor, zed, … or a bridges.open_apps name).") var app: String?
     func run() async throws {
+        if app != nil && reveal {
+            throw fail(HostError(.invalid, "--app or --reveal, not both (--reveal shows it in the Finder)"), g, code: DozableExit.usage)
+        }
         var r = HostRequest(.filesOpen, name: name)
         r.filePath = path
         r.reveal = reveal ? true : nil
+        r.app = app
         let c = try await fileChange(r, g)
         if g.json { Out.json(c); return }
         if !g.quiet { Out.stdout((c.message ?? "opened \(c.path)") + "\n") }
+    }
+}
+
+/// 646: `doz files editors` — what `doz files open --app` takes on this Mac (the host's read-only `editors`).
+struct FilesEditors: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "editors",
+        abstract: "List the editors doz files open --app can use on this Mac.",
+        discussion: "The known editors that are installed (\(EditorApps.known.map(\.name).joined(separator: ", "))), then the names in bridges.open_apps. --json: [{id, name}].")
+    @OptionGroup var g: GlobalOptions
+    func run() async throws {
+        let list = try decode(try await query(HostRequest(.editors), g), [EditorApps.Editor].self, g)
+        if g.json { Out.json(list); return }
+        Out.stdout(Self.render(list))
+    }
+
+    static func render(_ list: [EditorApps.Editor]) -> String {
+        if list.isEmpty {
+            return "no known editor is installed and bridges.open_apps is empty — doz files open opens the Finder or a file's default app\n"
+        }
+        var rows: [[String]] = [["APP", "NAME"]]
+        for e in list { rows.append([e.id, e.name]) }
+        return Out.table(rows)
     }
 }
 

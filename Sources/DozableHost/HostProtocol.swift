@@ -166,6 +166,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     case filesMkdir = "files-mkdir", filesNew = "files-new", filesMove = "files-move", filesRm = "files-rm"
     /// 644: open a file of a shared workspace on the Mac (or `reveal` it in the Finder) — the open-files bridge's rules.
     case filesOpen = "files-open"
+    /// 646: the editors `files-open`'s `app` takes here — the known ones installed on this Mac, then `bridges.open_apps`
+    /// (`[EditorApps.Editor]`). No sandbox; read-only (LaunchServices asked, nothing launched).
+    case editors
     /// 644: the panel's open folders (`FileTreeState`), kept beside doz.json — read, and set (`fileTree`; nil clears).
     case filesTree = "files-tree"
     case filesTreeSet = "files-tree-set"
@@ -178,7 +181,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -420,6 +423,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var recursive: Bool?
     /// 644 `files-open`: show it selected in the Finder instead of opening it.
     public var reveal: Bool?
+    /// 646 `files-open`: open it in this editor (a known editor's id or name, or a `bridges.open_apps` name) instead.
+    public var app: String?
     /// 644 `files-tree-set`: the open folders (nil clears them).
     public var fileTree: FileTreeState?
 

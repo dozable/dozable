@@ -338,7 +338,10 @@ public enum MacFileChange {
     /// 644: open a file of the shared workspace on the Mac (its default app), a folder in the Finder, or `reveal` one
     /// selected in its folder — the open-files bridge's decision (`WorkspaceFiles.decide`: the setting, the document types,
     /// the content) plus the rules (a hidden or locked item is refused). Returns what was done, in words.
+    /// 646 `app`: open it in that editor instead (`EditorApps.resolve` against `openApps`) — a folder (the workspace itself
+    /// or one in it) or a file that is not a program; the rules, the setting and isolation exactly as above.
     public static func open(workspace: String, guestPath: String, reveal: Bool, enabled: Bool, rules: WorkspaceRules?,
+                            app: String? = nil, openApps: [String] = [],
                             environment: [String: String] = ProcessInfo.processInfo.environment) throws -> String {
         // The rules FIRST, on the resolved path: a hidden item is "no such file" before anything else is said about it
         // (its type, its content) — the answer must not tell that it is there.
@@ -353,6 +356,10 @@ public enum MacFileChange {
             case .readOnly, .visible: break
             }
         }
+        if let app {
+            return try openInEditor(workspace: workspace, guestPath: guestPath, reveal: reveal, enabled: enabled, app: app,
+                                    openApps: openApps, environment: environment)
+        }
         switch WorkspaceFiles.decide(guestPath: guestPath, app: nil, reveal: reveal, workspace: workspace, enabled: enabled, allowedApps: []) {
         case .refused(_, let why):
             throw HostError(.failed, "\(FileListPaths.shown(guestPath)) — \(why)")
@@ -365,6 +372,28 @@ public enum MacFileChange {
             case .reveal: return "showed \(shown) in the Finder"
             case .app: return "opened \(shown) in \(MacDefaultApp.name(forFile: macPath) ?? "its default app")"
             }
+        }
+    }
+
+    /// 646: the `--app` half of `open` (the rules were applied by the caller) — the setting, then the app, then the path.
+    static func openInEditor(workspace: String, guestPath: String, reveal: Bool, enabled: Bool, app: String, openApps: [String],
+                             environment: [String: String]) throws -> String {
+        let asked = FileListPaths.shown(guestPath)
+        guard enabled else { throw HostError(.failed, "\(asked) — opening files is off for it (sandbox.open_files)") }
+        guard !reveal else { throw HostError(.invalid, "--app with --reveal: --reveal shows it in the Finder") }
+        let editor: EditorApps.Resolved
+        switch EditorApps.resolve(app, openApps: openApps, environment: environment) {
+        case .success(let r): editor = r
+        case .failure(let why): throw HostError(.invalid, why.message)
+        }
+        switch WorkspaceFiles.resolve(guestPath: guestPath, workspace: workspace, editor: true) {
+        case .failure(let why):
+            throw HostError(.failed, "\(asked) — \(why.message)")
+        case .success(let r):
+            guard WorkspaceFiles.open(r.macPath, app: editor.target, how: .app, label: editor.name, environment: environment) else {
+                throw HostError(.failed, "this Mac could not open \(r.shown) in \(editor.name)")
+            }
+            return "opened \(r.shown) in \(editor.name)"
         }
     }
 }

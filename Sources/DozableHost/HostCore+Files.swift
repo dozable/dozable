@@ -110,9 +110,18 @@ extension HostCore {
         let enabled = Self.sandboxValue(m.config, SettingKey.openFiles) != .string("off")
         let rules = MacFolderListing.rules(workspace: w, mode: Self.ruleMode(m.config).mode, viewOn: Self.workspaceViewOn(m.config))
         let reveal = r.reveal == true
+        // 646: an editor (`--app`) — a known one installed here, or a `bridges.open_apps` name (read now, like the bridge).
+        let app = r.app
+        let openApps = app == nil ? [] : (WorkspaceFiles.appNames(DozableSettings.load().string(SettingKey.openApps) ?? "") ?? [])
         let said = try await Task.detached {
-            try MacFileChange.open(workspace: w, guestPath: guest, reveal: reveal, enabled: enabled, rules: rules)
+            try MacFileChange.open(workspace: w, guestPath: guest, reveal: reveal, enabled: enabled, rules: rules, app: app, openApps: openApps)
         }.value
         return FileChangeResult(sandbox: m.name, action: reveal ? "reveal" : "open", path: guest, folders: [], source: "mac", message: said)
+    }
+
+    /// 646 `editors`: what `files-open`'s `app` takes on this Mac. LaunchServices is asked off the actor (read-only).
+    func editors() async -> [EditorApps.Editor] {
+        let openApps = WorkspaceFiles.appNames(DozableSettings.load().string(SettingKey.openApps) ?? "") ?? []
+        return await Task.detached { EditorApps.installed(openApps: openApps) }.value
     }
 }
