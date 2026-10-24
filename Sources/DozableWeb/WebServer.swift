@@ -934,6 +934,15 @@ public final class DozableWebServer: @unchecked Sendable {
             } catch {
                 throw HostError(.failed, WebSignup.failure)
             }
+        case .updatesCheck:
+            // 647: CSRF-checked (an unsafe method, above), the body {} only. The checker's own rules: never a development
+            // build, never a guarded test run without its feed; forced, so the feed is asked past the CDN's copy.
+            try Self.requireJSONBody(md)
+            try WebUpdateCheck.decodeRequest(body)
+            let ctx = UpdateContext.current(version: version, executable: HostLauncher.executablePath)
+            let r = await UpdateChecker.check(ctx, force: true)
+            return json(WebUpdateCheck(current: version, checkedAt: Date(), disabled: r.disabled, offline: r.offline,
+                                       problem: r.problem, update: r.disabled == nil ? updateNotice : nil))
         case .preparations:
             return json(try await data.preparations())
         case .accountAdd:

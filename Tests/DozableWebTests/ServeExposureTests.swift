@@ -15,7 +15,7 @@ final class ServeExposureTests: XCTestCase {
             .policyPreview("s"), .terminal("s"), .terminalTicket("s"), .terminalSocket("s"), .settings, .settingsChange, .sessionScreen("s", "shell"),
             .terminalLayout("s"), .terminalLayoutSet("s"), .bootLogs("s"), .bootLog("s", 1), .buildLog("s"), .onboarding, .onboardingConfig, .preparations,
             .accountAdd, .sandboxKey("s"), .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
-            .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup,
+            .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors,
         ]
@@ -30,7 +30,7 @@ final class ServeExposureTests: XCTestCase {
              .stream, .actions, .operations, .policyPreview, .terminal, .terminalTicket, .terminalSocket, .settings, .settingsChange,
              .sessionScreen, .terminalLayout, .terminalLayoutSet, .bootLogs, .bootLog, .buildLog, .onboarding, .onboardingConfig, .preparations,
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
-             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup,
+             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors:
             return true
         }
@@ -66,6 +66,16 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertTrue(WebRejection.macScreen.message.contains("Mac's own screen"))
         XCTAssertEqual(WebRejection.deviceRevoked.status, 401)
         XCTAssertEqual(WebRejection.tooManyAttempts.status, 429)
+    }
+
+    /// 647: Check for updates — POST only, a body of {} and nothing else, a change (it asks the network).
+    func testTheUpdateCheckRoute() throws {
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/updates/check"), .updatesCheck)
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/updates/check"))
+        XCTAssertEqual(WebExposure.kind(.updatesCheck), .change)
+        XCTAssertNoThrow(try WebUpdateCheck.decodeRequest(Data("{}".utf8)))
+        XCTAssertThrowsError(try WebUpdateCheck.decodeRequest(Data(#"{"force":true}"#.utf8)))
+        XCTAssertThrowsError(try WebUpdateCheck.decodeRequest(Data("[]".utf8)))
     }
 
     func testNewRoutesParse() {

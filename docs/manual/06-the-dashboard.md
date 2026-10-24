@@ -67,17 +67,21 @@ run, instead of the browser's error page; it comes back by itself, on the view i
 
 ![The Sandboxes page](images/dashboard-sandboxes.png)
 
-The sidebar groups the pages under five headings — **Sandboxes** (All sandboxes, each sandbox, All
-sessions), **Try** (Quick try), **Store** (Images, Resources), **Activity** (Operations, Activity,
-Metrics) and **Setup** (Accounts & keys, Settings, Devices, Doctor, Onboarding). The page, sandbox or
-session you are on is tinted, with a line at its left edge. In a window narrower than about 980 px the
-sidebar is a column of icons (hover one for its name); the button at its top shows the whole sidebar
-over the page. On a phone (narrower than about 760 px) a bar across the top takes its place: the menu
-button opens the sidebar, a key button appears while a key needs you, and **+** is Quick add.
+A header runs across the top of the window: the Dozable mark, its name and the store it shows; its
+right end is where notifications appear (see [Notifications](#notifications)). Below it, the sidebar
+groups the pages under five headings — **Sandboxes** (All sessions, All sandboxes and each sandbox),
+**Try** (Quick try), **Store** (Images, Resources), **Activity** (Operations, Activity, Metrics) and
+**Setup** (Accounts & keys, Settings, Devices, Doctor, Onboarding, Debug). The page, sandbox or session
+you are on is tinted, with a line at its left edge. Click **All sandboxes** while its page is shown (or
+its caret) to fold the list of sandboxes under it, and again to show it; this browser remembers. In a
+window narrower than about 980 px the sidebar is a column of icons (hover one for its name); the menu
+button at the left of the header shows the whole sidebar over the page. On a phone (narrower than about
+760 px) the column goes too: the menu button opens the sidebar as a drawer, a key button appears in the
+header while a key needs you, and **+** is Quick add.
 
 | page | what it's for |
 |---|---|
-| **All sandboxes** | Every sandbox: state, RAM held, disk, network, account. Each row has the one likely next action (**Start**, **Resume**, **Wake** or **Pause**) and **⋯** for the state's other actions; click a row to open the sandbox. Under each running or sleeping sandbox, a row of its sessions' pictures (live, or the saved screen), each one opening its session; **Thumbnails under each sandbox** above the table turns these rows off (this browser remembers): the pictures are then small, in a **Sessions** column — a grid in a 4:3 box, smaller the more sessions there are. Rest on any picture for half a second to see it larger. **Live − N +** sets how many pictures are live at once (up to 12; the rest show their last screen, paused); **Cycle** makes the live ones take turns — each live for the seconds shown, so every picture is brought up to date in turn. Pointing at a sandbox's row gives its pictures the live places first. Tick sandboxes in the left margin and the controls above the table — **Start** (start, resume or wake), **Pause**, **Sleep**, **Hibernate**, **Shut down** (asks first) — act on those; with none ticked they act on every sandbox, and each says how many it applies to. **Quick add** (every default, started and opened — also the **+** beside the **Sandboxes** heading in the sidebar; see [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new)) and **New sandbox** (a wizard: every choice, step by step, written to the project folder's `doz_project.yaml` — see [Projects](04-projects.md#in-the-dashboard)). Under it in the sidebar, each sandbox has its own entry that opens **its page** at its Home; its dot is filled while the sandbox holds memory (running, paused, asleep), a crescent moon when it is hibernated, a ring when it is shut down, a square when it failed; a second dot at the right says what its agent is doing (see [What the agent is doing](07-terminals-and-sessions.md#what-the-agent-is-doing)). Under each sandbox, all its **sessions** (each with its agent's mark, or a terminal for a shell), in the order of the tabs on its page (then any without a tab: the agent's first), each with what it is doing; click one — or its screen icon — to open it; **⋮** (on hover) has **Restart session** and **End session**, and the screen icon beside it shows the session's live picture when you rest on it for half a second (then another session's line shows its picture at once). A sleeping sandbox lists the sessions it wakes back into. The caret beside a sandbox (or a click on the sandbox while its Home is shown) folds it to one line with its number of sessions (a session that needs you or failed still shows); this browser remembers the fold. **⋮** beside the **Sandboxes** heading has **Expand all** and **Collapse all**. |
+| **All sandboxes** | Every sandbox: state, RAM held, disk, network, account. Each row has the one likely next action (**Start**, **Resume**, **Wake** or **Pause**) and **⋯** for the state's other actions; click a row to open the sandbox. Under each running or sleeping sandbox, a row of its sessions' pictures (live, or the saved screen), each one opening its session; **Thumbnails under each sandbox** above the table turns these rows off (this browser remembers): the pictures are then small, in a **Sessions** column — a grid in a 4:3 box, smaller the more sessions there are. Rest on any picture for half a second to see it larger. **Live − N +** sets how many pictures are live at once (up to 12; the rest show their last screen, paused); **Cycle** makes the live ones take turns — each live for the seconds shown, so every picture is brought up to date in turn. Pointing at a sandbox's row gives its pictures the live places first. Tick sandboxes in the left margin and the controls above the table — **Start** (start, resume or wake), **Pause**, **Sleep**, **Hibernate**, **Shut down** (asks first) — act on those; with none ticked they act on every sandbox, and each says how many it applies to. **Quick add** (every default, started and opened — also the **+** beside the **Sandboxes** heading in the sidebar; see [The quickest way](05-sandboxes-and-lifecycle.md#the-quickest-way-quick-add-and-doz-new)) and **New sandbox** (a wizard: every choice, step by step, written to the project folder's `doz_project.yaml` — see [Projects](04-projects.md#in-the-dashboard)). Under it in the sidebar, each sandbox has its own entry that opens **its page** at its Home; its dot is filled while the sandbox holds memory (running, paused, asleep), a crescent moon when it is hibernated, a ring when it is shut down, a square when it failed; a second dot at the right says what its agent is doing (see [What the agent is doing](07-terminals-and-sessions.md#what-the-agent-is-doing)). Under each sandbox, all its **sessions** (each with its agent's mark, or a terminal for a shell), in the order of the tabs on its page (then any without a tab: the agent's first), each with what it is doing; click one — or its screen icon — to open it; **⋮** (on hover) has **Restart session** and **End session**, and the screen icon beside it shows the session's live picture when you rest on it for half a second (then another session's line shows its picture at once). A sleeping sandbox lists the sessions it wakes back into. The caret beside a sandbox (or a click on the sandbox while its Home is shown) folds it to one line with its number of sessions (a session that needs you or failed still shows); this browser remembers the fold. **⋮** on the **All sandboxes** line (on hover) has **Expand all** and **Collapse all**. |
 | **A sandbox's page** | See [A sandbox's page](#a-sandboxs-page) below. |
 | **All sessions** | A grid of live, read-only tiles: every session of every running sandbox, each with what its agent is doing. Click a tile to open it. **Live − N +** and **Cycle** work as on **All sandboxes**: the tiles past the live number show their last screen (marked **last screen**, or **paused** between turns), and pointing at a tile gives its sandbox's tiles the live places first. Rest on a tile's picture for half a second to see it larger; **Larger on hover** turns that off (this browser remembers). |
 | **Images** | The images and templates, each image's agent version, what's out of date (**Rebuild** — **Remove…** is under **⋯**), disk shared and own, and the **Lineage** tree. |
@@ -153,15 +157,46 @@ terminal has the focus — there every key is the terminal's.
 ## The host, watched
 
 The sidebar's footer is one line: a dot for the dashboard's connection and one for the host, then the
-version, or what is wrong. Point at it (or tap it) for the details.
+version, or what is wrong. Point at it for its card; click (or tap) it to keep the card open. The card
+has:
 
-- **The host stopped** (`doz host stop`, idle, or a clean quit): a banner says your sandboxes were
-  hibernated, with **Start host**.
-- **The host crashed or was killed:** a banner names the sandboxes that were running (they are shut
-  down; start them again).
-- **Another version of the host took over:** a banner says so. If the host is **older** than the
-  dashboard, **Restart host** asks first, hibernates what runs and starts the newer host (sandboxes
-  wake when you use them). If the dashboard is the older one, restart `doz ui`.
+- **doz ui** — the dashboard's connection.
+- **host** — whether the host runs, and its version, with **Restart** (it asks first, hibernates what
+  runs — sessions kept, they wake when you use them — and starts the host again, as
+  `doz host restart` does) or **Start** while none runs.
+- A line when the host and the dashboard are **different versions**, saying which is older: an older
+  host is fixed by **Restart**; an older dashboard by `doz ui restart`.
+- **updates** — what the last check found (a newer doz and the command that installs it, or up to
+  date, and when it was checked), with **Check** to look now. A doz built from source is never updated,
+  and says so.
+
+Notifications tell you what happened to the host:
+
+- **The host stopped** (`doz host stop`, idle, or a clean quit): your sandboxes were hibernated, with
+  **Start host**.
+- **The host crashed or was killed:** the sandboxes that were running (they are shut down; start them
+  again).
+- **Another version of the host took over:** it says so. If the host is **older** than the dashboard,
+  **Restart host** asks first, hibernates what runs and starts the newer host (sandboxes wake when you
+  use them). If the dashboard is the older one, restart `doz ui`.
+
+## Notifications
+
+Everything the dashboard tells you appears at the right end of the header: a success (it goes by
+itself after a few seconds; pointing at it holds it), a failure or a warning that has no closer place
+(it stays until you close it, or until it is no longer true), and the news about the host and the
+dashboard itself. Every one is also kept in **Activity › Messages** for this tab. The setting
+`ui.notifications` (**Settings › This UI**) chooses how they look:
+
+- **Cards** (the default) — a column hanging below the header, the newest on top, each with its full
+  text and buttons.
+- **Pills** — one line each in the header, the newest at the right; the ones that don't fit fold into
+  **+N**. Click a pill for its full text and buttons.
+- **Bell** — a count; the newest shows beside it for a few seconds. Click the bell for the list, with
+  **Clear all**.
+
+The **Debug** page (in the sidebar, under Setup) makes each kind of notification with sample words, so
+you can see how each looks in each style. Nothing on it asks the host or changes a sandbox.
 
 ## When `doz ui` restarts or stops
 
@@ -173,7 +208,7 @@ answers again the page carries on where it was, still signed in, with no reload:
   dropped, never typed later). An open **New sandbox** wizard keeps its choices.
 - **An operation that was running** (a start, a wake) ends with what happened — the host carried it
   on — "finished while doz ui restarted", never a spinner that never stops.
-- **A newer doz ui** (after `brew upgrade doz` and a restart): a banner says *Dozable was updated* with
+- **A newer doz ui** (after `brew upgrade doz` and a restart): a notification says *Dozable was updated* with
   **Reload**; the page reloads by itself as soon as nothing would be lost (no wizard or dialog open, no
   terminal you're typing in, nothing typed in a field).
 
@@ -222,6 +257,7 @@ dashboard can switch this off but never on.
 | `ui.port` | `0` | The port on 127.0.0.1: `0` = the last one when free, or a fixed port 1024–65535 (for an installed app). |
 | `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the foot of the sidebar sets it. |
 | `ui.density` | `comfortable` | `compact`: tighter rows, tabs, controls and page margins — the text stays the same size. **Settings › This UI** switches it at once. |
+| `ui.notifications` | `cards` | How notifications look at the right of the header: `cards`, `pills` or `bell` (see [Notifications](#notifications)). **Settings › This UI** and the Debug page switch it at once. |
 | `ui.nav_thumbnails` | `true` | A session line in the sidebar shows a screen icon on hover; resting on it for half a second shows the session's live picture. |
 | `ui.terminals` | `true` | Terminals in the browser. `false`: none open (Open in Terminal still works). |
 | `ui.terminal_font_size` | `13` | Font size of a browser terminal (9–32). |

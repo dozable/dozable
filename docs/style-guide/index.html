@@ -648,37 +648,53 @@ name: todo-app</pre></details>
 </section>
 
 <section>
-  <h2>The sidebar</h2>
-  <p>647: the sidebar is the frame — on <code>--shell</code>, with no line of its own (the step from <code>--shell</code> to <code>--bg</code> separates it from the page).
-    The current page, sandbox or session is <strong>selected</strong>, one way everywhere: <code>--state-selected</code> and the 2 px <code>--indicator</code> on its leading
-    edge (<code>#nav &gt; a.active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code> (here on
-    Settings). A folded sandbox is one line with its session count (api-tests). The <strong>foot</strong> is one line (<code>.foot-status</code>): a dot for doz ui and one for
-    the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>); its hover, keyboard focus or a tap shows the card
-    (<code>.foot-card</code>, shown open here) with both rows and the version. Sign out (when a browser can sign out) and the light / dark switch are at its right.
+  <h2>The header and the sidebar</h2>
+  <p>647 (owner): a <strong>header</strong> runs the full width above the sidebar and the page (<code>#topbar</code>, <code>--header-h</code>): the menu (below 980 px),
+    the brand and the store; below 760 px a key button only while a key needs you (<code>.topbar-keys</code>) and Quick add. The header and the sidebar are the frame —
+    on <code>--shell</code>, with no line of their own (the step from <code>--shell</code> to <code>--bg</code> separates them from the page). Notifications sit over
+    the header’s right end (below).</p>
+  <div class="pair"><div class="scheme">
+    <header class="topbar" style="position:static">
+      <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span>
+      <span class="topbar-gap"></span>
+    </header>
+  </div></div>
+  <p>The current page, sandbox or session is <strong>selected</strong>, one way everywhere: <code>--state-selected</code> and the 2 px <code>--indicator</code> on its leading
+    edge (<code>#nav a[data-view].active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code>
+    (here on Settings). Sandboxes: <strong>All sessions</strong>, then <strong>All sandboxes</strong> heading the tree (<code>.nav-all</code>): a click on it while its page is
+    shown, or its caret (<code>.nav-tree-caret</code>), folds the tree (<code>#nav.tree-folded</code>); its ⋯ (Expand all, Collapse all — <code>.nav-sbx-more</code>) shows on
+    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>foot</strong> is one line (<code>.foot-status</code>): a dot for
+    doz ui and one for the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>). Its hover or focus shows the card
+    (<code>.foot-card</code>, shown pinned here — a click pins it), which is <strong>interactive</strong>: the host’s row has Restart (Start while none runs), a line says when the
+    host and the dashboard are different builds (<code>#foot-mismatch</code>), and the updates row has Check. Sign out and the light / dark switch are at its right.
     Accounts &amp; keys carries a count of the keys and sign-ins that break a sandbox’s next session (<code>components/account-problems.js</code>).</p>
   <div class="pair"><div class="scheme">
-    <aside class="side" style="position:static;height:auto;width:220px">
-      <div class="brand"><span class="brand-mark" aria-hidden="true">z</span><div><div class="brand-name">Dozable</div><div class="brand-store">~/doz-store</div></div></div>
+    <aside class="side" style="position:static;height:auto;width:220px;padding-bottom:var(--sp-3)">
       <nav id="nav" aria-label="Pages">
-        <div class="nav-group"><span class="ng-label">Sandboxes</span></div>
-        <a href="#"><i data-i="box"></i><span class="lbl">All sandboxes</span><span class="trail">3</span></a>
+        <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" aria-label="Quick add a sandbox"><i data-i="plus"></i></button></div>
+        <a href="#" data-view="sessions"><i data-i="layout-grid"></i><span class="lbl">All sessions</span></a>
+        <div class="nav-all menu-hover"><a href="#" data-view="overview"><i data-i="box"></i><span class="lbl">All sandboxes</span><span class="trail">3</span></a>
+          <button type="button" class="nav-tree-caret" aria-label="Fold the sandboxes"><i data-i="chevron-down"></i></button>
+          <span class="nav-sbx-more"><span class="menu-wrap"><button type="button" class="btn quiet icon-only sm" aria-label="More for All sandboxes"><i data-i="ellipsis-vertical"></i></button></span></span></div>
         <div class="nav-children">
           <div class="nav-sbx"><a class="nav-child active" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a></div>
           <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">api-tests</span><span class="nav-count">2</span></a>
             <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button></div>
           <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-off"></span><span class="nav-name">docs-site</span></a></div>
         </div>
-        <a href="#"><i data-i="layout-grid"></i><span class="lbl">All sessions</span></a>
         <div class="nav-group"><span class="ng-label">Setup</span></div>
-        <a href="#"><i data-i="key-round"></i><span class="lbl">Accounts &amp; keys</span><span class="trail"><span class="nav-badge count bad">1</span></span></a>
-        <a href="#" style="background:var(--state-hover)"><i data-i="settings"></i><span class="lbl">Settings</span></a>
-        <a href="#" class="active"><i data-i="stethoscope"></i><span class="lbl">Doctor</span></a>
+        <a href="#" data-view="accounts"><i data-i="key-round"></i><span class="lbl">Accounts &amp; keys</span><span class="trail"><span class="nav-badge count bad">1</span></span></a>
+        <a href="#" data-view="settings" style="background:var(--state-hover)"><i data-i="settings"></i><span class="lbl">Settings</span></a>
+        <a href="#" data-view="doctor" class="active"><i data-i="stethoscope"></i><span class="lbl">Doctor</span></a>
+        <a href="#" data-view="debug"><i data-i="bug"></i><span class="lbl">Debug</span></a>
       </nav>
-      <div class="side-foot">
-        <button type="button" class="foot-status" aria-label="Status"><span class="dot on" aria-hidden="true"></span><span class="dot on" aria-hidden="true"></span><span class="foot-sum">doz 0.37.18</span></button>
-        <div class="foot-card is-open" role="tooltip">
+      <div class="side-foot" style="margin-top:300px">
+        <button type="button" class="foot-status" aria-label="Status" aria-expanded="true"><span class="dot on" aria-hidden="true"></span><span class="dot on" aria-hidden="true"></span><span class="foot-sum warn">host is another build</span></button>
+        <div class="foot-card is-open" role="group" aria-label="Status">
           <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span>live</span></div>
-          <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span>running · doz 0.37.18</span></div>
+          <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span>running · doz 0.37.17</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="rotate-ccw"></i>Restart</button></span></div>
+          <div class="foot-note warn">This doz ui (0.37.18) is newer than the host (0.37.17) — Restart to use the new build.</div>
+          <div class="live upd info"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span>doz 0.38.0 is available — brew upgrade doz</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="refresh-cw"></i>Check</button></span></div>
           <div class="version">doz 0.37.18</div>
         </div>
         <div class="foot-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Sign out"><i data-i="log-out"></i></button>
@@ -686,16 +702,54 @@ name: todo-app</pre></details>
       </div>
     </aside>
   </div></div>
-  <p>Below 980 px the sidebar is a 52 px icon rail (its toggle shows it all over the page). Below 760 px a 44 px <strong>top bar</strong> (<code>.topbar</code>) replaces the
-    rail: the menu (the whole sidebar as a drawer over a scrim), the brand, a key button only while a key needs you (<code>.topbar-keys</code>), and Quick add.</p>
+  <p>Below 980 px the sidebar is a 52 px icon rail and the header’s menu (<code>#nav-menu</code>) shows it all over the page, under the header. Below 760 px the rail goes:
+    the menu opens the sidebar as a drawer over a scrim; the header keeps the brand (not the store), the key and Quick add.</p>
   <div class="pair"><div class="scheme">
-    <header class="topbar" style="display:flex;position:static;width:390px;max-width:100%">
-      <button type="button" class="btn sm quiet icon-only" aria-label="Show the menu"><i data-i="list"></i></button>
-      <span class="brand-mark" aria-hidden="true">z</span><b class="topbar-name">Dozable</b>
+    <header class="topbar" style="position:static;width:390px;max-width:100%">
+      <button type="button" class="btn sm quiet icon-only nav-menu" style="display:inline-flex" aria-label="Show the menu"><i data-i="list"></i></button>
+      <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
       <span class="topbar-gap"></span>
-      <a class="btn sm quiet icon-only topbar-keys" href="#" aria-label="Accounts &amp; keys: a key needs you"><i data-i="key-round"></i></a>
-      <button type="button" class="btn sm quiet icon-only" aria-label="Quick add a sandbox"><i data-i="plus"></i></button>
+      <span class="topbar-acts" style="display:flex"><a class="btn sm quiet icon-only topbar-keys" href="#" aria-label="Accounts &amp; keys: a key needs you"><i data-i="key-round"></i></a>
+        <button type="button" class="btn sm quiet icon-only" aria-label="Quick add a sandbox"><i data-i="plus"></i></button></span>
     </header>
+  </div></div>
+</section>
+
+<section>
+  <h2>Notifications — in the header, three ways</h2>
+  <p>647 (owner: “always show notifications in the header, stacked from the right … implement all three, switch with a setting”): every toast, page notice and banner
+    is a <strong>note</strong> (<code>components/notes.js</code>), drawn in <code>#notes</code> — fixed over the header’s right end, outside the shell, so it is never inert under
+    a wizard or a pause and stays in front of the paused overlay. A note is a callout (banner variant, compact). A success goes by itself after 8 s (held under the
+    pointer); a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — a column hanging below the
+    header, newest on top; <strong>pills</strong> (<code>.note-pill</code>) — one line each in the header row, the newest at the right, the rest under <code>+N</code>
+    (<code>.note-more</code>), a click opens its card; <strong>bell</strong> (<code>.note-bell</code>) — a count (its colour the worst tone), the newest beside it for 5 s
+    (<code>.note-flash</code>), a click opens the list with Clear all. The Debug page (<code>#/debug</code>) makes every kind.</p>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-cards" style="position:static;align-items:stretch;max-width:none">
+      <div class="notes-col">
+        <div class="callout ok compact banner note toast" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-pills" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none">
+        <button type="button" class="note-more">+3</button>
+        <div class="note-pill bad"><button type="button" class="np-open"><i data-i="circle-x"></i><span class="np-text">Start api-tests: the image could not be prepared</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+        <div class="note-pill warn"><button type="button" class="np-open"><i data-i="triangle-alert"></i><span class="np-text">The doz host stopped (idle for 15 min)</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+        <div class="note-pill ok"><button type="button" class="np-open"><i data-i="check"></i><span class="np-text">todo-app started in 3.2 s</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-bell" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none">
+        <button type="button" class="note-flash ok"><i data-i="check"></i><span class="np-text">todo-app started in 3.2 s</span></button>
+        <button type="button" class="btn sm quiet icon-only note-bell" aria-label="6 notifications"><i data-i="bell"></i><span class="note-count bad">6</span></button>
+      </div>
+    </div>
   </div></div>
 </section>
 
@@ -703,7 +757,7 @@ name: todo-app</pre></details>
   <h2>The sidebar’s sessions</h2>
   <p>Under each sandbox in the sidebar (<code>components/nav.js</code>), its sessions — from the host’s registry in the overview, never a guest call: a line each
     (<code>a.nav-sess</code>: its agent’s mark — a terminal for a shell — the session’s name, what its agent says), every one (642), in the order of the tabs on the sandbox’s page, then the rest
-    (the agent’s first, then by when opened). The sandbox’s own line opens its Home; the Sandboxes heading’s ⋯ (<code>.nav-sbx-more</code>) has Expand all and Collapse
+    (the agent’s first, then by when opened). The sandbox’s own line opens its Home; All sandboxes’ ⋯ (<code>.nav-sbx-more</code>, 647: moved from the Sandboxes heading) has Expand all and Collapse
     all. The session the page shows is marked (accent edge); a sleeping sandbox’s are its saved screens (italic). On hover, ⋯ has Restart session and
     End session (a running sandbox only). The caret (<code>.nav-caret</code>) folds a sandbox to one line with its session count (<code>.nav-count</code>) — remembered in this
     browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.

@@ -58,9 +58,9 @@ public enum WebAction: Equatable, Sendable {
     /// starts the normal detached way (`HostLauncher`), exactly as the CLI's first command starts one.
     /// Starting is all it does (`host stop` stays out of the browser).
     case hostStart
-    /// 594 W20: "Restart host" — the CLI's `host stop`, then a host of this UI's build (`HostLauncher`),
-    /// and ONLY while the running host is an OLDER build than the UI (`HostWebData.restartHost`
-    /// refuses anything else). The one way `host-stop` is reachable from the browser.
+    /// 594 W20: "Restart host" — the CLI's `host stop`, then a host of this UI's build (`HostLauncher`);
+    /// 647: any running host (`HostWebData.restartHost` refuses only when none runs). The one way
+    /// `host-stop` is reachable from the browser.
     case hostRestart
     /// 596 (B7): start Apple's container services (`builder-start`) — the page has said what it does
     /// (launchd services, its kernel) and the person pressed the button; that is the consent.

@@ -138,12 +138,13 @@ function updateUiOverlay(status) {
 function uiStoppedBanner() {
   const calm = uiCalm();
   const key = calm ? 'calm' : 'stopped';
-  const have = $('banners').querySelector('[data-banner="ui-stopped"]');
-  if (have && have.dataset.tone === key) return;
-  const el = calm ? banner('ui-stopped', 'info', [state.uiRestarting ? 'doz ui is restarting — reconnecting…' : 'Reconnecting to Dozable…'])
+  // 647: the banner is a note in the header (state.notes); its tag says which wording it has.
+  const have = state.notes && state.notes.get('banner:ui-stopped');
+  if (have && have.tag === key) return;
+  const n = calm ? banner('ui-stopped', 'info', [state.uiRestarting ? 'doz ui is restarting — reconnecting…' : 'Reconnecting to Dozable…'])
     : banner('ui-stopped', 'bad', [(state.uiSaid ? 'The doz ui process stopped' : 'This page lost its doz ui server') +
       ' (last connected ' + clock(state.lastConnected) + ').']);
-  el.dataset.tone = key;
+  n.tag = key;
 }
 function paintUiOverlayTone() {
   const t = $('ui-ov-title'), what = $('ui-ov-what');
@@ -229,7 +230,7 @@ export function movedAway(to) {
   setLive('', 'moved');
   const addr = to.replace(/^https?:\/\//, '');
   const b = banner('ui-stopped', 'info', ['doz ui moved to ' + addr + '.']);
-  b.dataset.tone = 'calm';
+  b.tag = 'calm';
   const o = $('ui-overlay');
   const copy = h('button', { type: 'button', class: 'btn', id: 'ui-copy-addr' }, withIcon('copy', 'Copy the address'));
   copy.addEventListener('click', () => {

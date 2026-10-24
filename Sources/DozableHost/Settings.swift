@@ -338,6 +338,8 @@ public enum SettingKey {
     public static let theme = "ui.theme"
     /// 647: the dashboard's spacing — comfortable or compact.
     public static let density = "ui.density"
+    /// 647: where the dashboard's notifications show — cards, pills or bell.
+    public static let notifications = "ui.notifications"
     public static let detailsOpen = "ui.details_open"
     public static let gridLiveTiles = "ui.grid_live_tiles"
     public static let gridTileSize = "ui.grid_tile_size"
@@ -498,6 +500,10 @@ public struct DozableSettings: Sendable {
             // space. The page applies it as data-density on <html>, beside data-theme.
             .init("ui", "density", .choice(["comfortable", "compact"]), .string("comfortable"),
                   "The UI's spacing: comfortable, or compact — tighter rows, tabs, controls and page margins; the text stays the same size.",
+                  applies: .now),
+            // 647 (owner: "implement all three, switch with a setting"): where the dashboard's notifications show in its header.
+            .init("ui", "notifications", .choice(["cards", "pills", "bell"]), .string("cards"),
+                  "Where the UI shows its notifications, at the right of its header: cards (a column hanging below the header, each with its full text and buttons), pills (one line each in the header, the newest at the right; click one for the rest), or bell (a count; the newest shows beside it for a few seconds; click for the list). Successes go by themselves; a failure stays until you close it.",
                   applies: .now),
             .init("ui", "details_open", .bool, .bool(true),
                   "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",

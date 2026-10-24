@@ -10,7 +10,7 @@ import { quietly } from './util.js';
 import { setHomes, tildePath } from './paths.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const banner = upcall('banner'), connect = upcall('connect'), dropBanner = upcall('dropBanner'), modalInert = upcall('modalInert'),
-  paintCover = upcall('paintCover'), startApp = upcall('startApp');
+  paintCover = upcall('paintCover'), paintUpdates = upcall('paintUpdates'), startApp = upcall('startApp');
 
 // ── session ─────────────────────────────────────────────────────────────────
 export async function bootstrap() {
@@ -67,15 +67,21 @@ export function adopt(info) {
   $('sign-out').hidden = false;
   // 611: an update — a newer doz (how to upgrade, its notes), or one an automatic update installed that this
   // dashboard is older than (restart to apply). From the last check; the page itself never asks the network.
-  const u = info.update;
+  state.update = info.update || null;
+  showUpdate(state.update);
+  paintUpdates();                    // 647: the status card's updates row
+  state.everSignedIn = true;
+  scheduleRenew();
+  registerWorker();
+}
+/// The update notice (611): a newer doz (how to upgrade, its notes), or one an automatic update installed (restart).
+/// From the last check (the page load's session info, or the status card's Check — 647).
+export function showUpdate(u) {
   if (u) {
     const parts = [u.text + ' — ', h('code', null, u.command)];
     if (u.notes && /^https:\/\//.test(u.notes)) parts.push(' · ', h('a', { href: u.notes, target: '_blank', rel: 'noopener noreferrer' }, 'release notes'));
     banner('update', u.kind === 'installed' ? 'warn' : 'info', parts);
   } else dropBanner('update');
-  state.everSignedIn = true;
-  scheduleRenew();
-  registerWorker();
 }
 /// 605: the service worker — ONLY the offline page (an installed app opened, or a reload, while doz ui is
 /// not running). It never answers /api or the event stream (sw.js). Registered once signed in; a browser
@@ -277,13 +283,16 @@ export function paintFootLine() {
   $('live-dot').className = 'dot' + (kinds(ui) ? ' ' + kinds(ui) : '');
   $('host-dot').className = 'dot' + (kinds(host) ? ' ' + kinds(host) : '');
   const hostDown = /\b(warn|bad)\b/.test(host.className);
+  const mismatch = $('foot-mismatch') && !$('foot-mismatch').hidden;
   sum.textContent = !ui.classList.contains('on') ? 'doz ui ' + $('live-text').textContent
     : hostDown ? 'host ' + $('host-text').textContent
-    : $('version').textContent || 'doz ui live';
+    : mismatch ? 'host is another build'
+    : ($('version').textContent || 'doz ui live') + (state.update && state.update.kind === 'available' ? ' · update' : '');
   sum.classList.toggle('bad', ui.classList.contains('bad') || /\bbad\b/.test(host.className));
+  sum.classList.toggle('warn', !sum.classList.contains('bad') && mismatch);
 }
-/// Everything but the banner strip: the sidebar and main's other children (an inert ancestor would
-/// take the banners with it).
+/// Everything but the notifications: the header, the sidebar and main's children (647: the notes, `#notes`, are outside
+/// all three, so they stay live and in front while the page is paused).
 export function pausedParts() {
-  return [document.querySelector('.side'), $('topbar'), ...[...$('main').children].filter((e) => e.id !== 'banners')];
+  return [$('topbar'), document.querySelector('.side'), ...$('main').children];
 }

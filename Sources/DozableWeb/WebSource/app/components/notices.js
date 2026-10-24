@@ -1,27 +1,25 @@
 // components/notices — Notices: toasts (successes), the page notices, a sandbox's status line — a failure is never only a toast (603).
-import { $, h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+// 647: toasts, page notices and banners are the header's notes (components/notes.js), shown the way ui.notifications says.
+import { h } from '../dom/h.js';
 import { opEnded } from '../core/operations.js';
 import { state } from '../core/state.js';
 import { callout } from './callout.js';
+import { addNote, dropNote } from './notes.js';
 import { paintStartProgress } from './start-progress.js';
 
 /// 603 (E7): a toast acknowledges a success (or says something worth knowing) and goes after 4 s. A FAILURE is
 /// never only a toast: it is said where the action was started and stays until dismissed or fixed — in its
 /// dialog (which stays open), its sandbox's status line (the sandbox page's bar, the Sandboxes row), the
 /// step's own error slot, or the page notices at the top of the page. `toast(text, true)` is that last one.
-export function toast(text, bad, iconName) {
-  if (bad) { pageFailure(text); return h('div'); }
+/// 647: a note in the header (`components/notes.js`) that goes by itself — 8 s (635, owner: "too fast — i couldnt read
+/// it"), held while the pointer is on it; every one is kept in Activity. `opts`: {cls, attrs} on its note.
+let toastSeq = 0;
+export function toast(text, bad, iconName, opts = {}) {
+  if (bad) { pageFailure(text); return; }
   logMessage('ok', text);
-  const t = h('div', { class: 'toast', role: 'status' }, icon(iconName || 'check'), h('span', null, text));
-  $('toasts').append(t);
-  // 635 (owner: "too fast — i couldnt read it"): 8 s, held while the pointer is on it; every one is kept in Activity.
-  let timer = setTimeout(() => t.remove(), TOAST_MS);
-  t.addEventListener('mouseenter', () => clearTimeout(timer));
-  t.addEventListener('mouseleave', () => { timer = setTimeout(() => t.remove(), 3000); });
-  return t;
+  addNote({ id: 'toast:' + (++toastSeq), tone: iconName === 'info' ? 'info' : 'ok', icon: iconName || 'check', body: String(text), sticky: false,
+    role: 'status', cls: 'toast' + (opts.cls ? ' ' + opts.cls : ''), attrs: opts.attrs });
 }
-const TOAST_MS = 8000;
 /// 635 (owner: "shouldnt it be logged?"): every message this page showed — toasts, a session's notices, failures — newest
 /// last, kept for this browser tab (Activity › Messages lists them).
 const MESSAGES_KEY = 'doz.messages', MESSAGES_MAX = 100;
@@ -33,26 +31,22 @@ export function logMessage(tone, text) {
   if (state.messages.length > MESSAGES_MAX) state.messages.splice(0, state.messages.length - MESSAGES_MAX);
   try { sessionStorage.setItem(MESSAGES_KEY, JSON.stringify(state.messages)); } catch (_) { /* this page only */ }
 }
-/// The page notices (#notice, at the top of main, sticky): a failure with no closer home, or one whose home
-/// is not on screen. Each stays until dismissed; at most the newest five.
+/// The page notices: a failure with no closer home, or one whose home is not on screen — 647: a note in the header that
+/// stays until dismissed (or no longer true); at most the newest five.
 state.failures = new Map();
 export function pageFailure(text, opts = {}) {
   const key = opts.key || String(text);
   if (!state.failures.has(key) || state.failures.get(key).text !== String(text)) logMessage(opts.tone || 'bad', (opts.title ? opts.title + ' — ' : '') + text);
   state.failures.delete(key);
-  state.failures.set(key, { text: String(text), tone: opts.tone || 'bad', title: opts.title || null, actions: opts.actions || null });
-  while (state.failures.size > 5) state.failures.delete(state.failures.keys().next().value);
-  paintFailures();
-}
-function paintFailures() {
-  const box = $('notice');
-  box.hidden = state.failures.size === 0;
-  box.replaceChildren(...[...state.failures.entries()].map(([key, f]) => callout(f.tone, { compact: true, title: f.title, body: f.text,
-    actions: f.actions, attrs: { 'data-failure': key }, dismiss: () => { state.failures.delete(key); paintFailures(); } })));
+  state.failures.set(key, { text: String(text), tone: opts.tone || 'bad' });
+  while (state.failures.size > 5) { const old = state.failures.keys().next().value; state.failures.delete(old); dropNote('failure:' + old); }
+  addNote({ id: 'failure:' + key, tone: opts.tone || 'bad', title: opts.title || null, body: String(text), actions: opts.actions || null, sticky: true,
+    attrs: { 'data-failure': key }, onDismiss: () => state.failures.delete(key) });
 }
 /// A page notice that is no longer true (612: an agent that was blocked works again) goes without a click.
 export function dropPageNotice(key) {
-  if (state.failures.delete(key)) paintFailures();
+  state.failures.delete(key);
+  dropNote('failure:' + key);
 }
 /// A failure about a sandbox: its status line when one is on screen (it stays there until dismissed, or until
 /// the next operation on it), else the page notices.
@@ -75,9 +69,7 @@ export function bridgeNotice(kind, text) {
   if (recentBridgeNotices.has(k + '\n' + s)) return;
   recentBridgeNotices.set(k + '\n' + s, now);
   if (/-(refused|off)$/.test(k)) { pageFailure(s, { tone: 'warn', key: 'bridge:' + k + ':' + s }); return; }
-  const t = toast(s, false, 'info');
-  t.classList.add('bridge');
-  t.dataset.bridge = k;
+  toast(s, false, 'info', { cls: 'bridge', attrs: { 'data-bridge': k } });
 }
 /// The newest operation of each sandbox, shown under its name in the list (live, without a refetch).
 /// A running operation counts its seconds, so a two-minute first start (pull, flatten, bake) is
@@ -141,16 +133,12 @@ export function paintRowOps() {
 // The footer holds two facts: this page's link to the `doz ui` server (#live) and the host's state and
 // build (#host-live). A banner says each transition once: the host stopped (hibernated), died (its
 // sandboxes shut down), came back as another build; doz ui stopped (the page retries on its own).
+// 647: a banner is a note in the header that stays until dismissed or dropped (one per key). It returns the note
+// (`tag` is the caller's own mark — reconnect's calm/stopped tone).
 export function banner(key, kind, parts, actions = []) {
-  const box = $('banners');
-  // 603: a banner is the callout's banner variant (a surface with the tone's edge), dismissible.
-  const el = callout(kind || 'info', { banner: true, cls: 'b-' + (kind || 'info'), bodyCls: 'b-text', body: parts, actions, dismiss: true,
+  return addNote({ id: 'banner:' + key, tone: kind || 'info', body: parts, actions, sticky: true, cls: 'b-' + (kind || 'info'),
     attrs: { 'data-banner': key }, role: kind === 'bad' ? 'alert' : 'status' });
-  const old = box.querySelector('[data-banner="' + key + '"]');
-  if (old) old.replaceWith(el); else box.append(el);
-  return el;
 }
 export function dropBanner(key) {
-  const el = $('banners').querySelector('[data-banner="' + key + '"]');
-  if (el) el.remove();
+  dropNote('banner:' + key);
 }

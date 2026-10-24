@@ -206,7 +206,7 @@ final class WebActionTests: XCTestCase {
     }
 
     /// 594 W20: "Restart host" — no fields; `host stop` + a start of this UI's build, refused by the
-    /// data source unless the running host is an older build (and by the fake, which has no host).
+    /// data source when no host runs (647: any running host, not only an older one).
     func testRestartHostIsTheOnlyHostStopAndItIsGuarded() async throws {
         let a = try decode(Self.samples["host-restart"]!)
         XCTAssertEqual(a, .hostRestart)

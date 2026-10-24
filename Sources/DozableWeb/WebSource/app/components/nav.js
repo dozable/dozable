@@ -68,7 +68,8 @@ export function renderNavSandboxes() {
   // guest call); a caret folds it to one line with its session count (remembered in this browser).
   const folded = foldedSet();
   if (!$('nav-sandboxes').dataset.peek) { $('nav-sandboxes').dataset.peek = '1'; peekRegion($('nav-sandboxes')); }   // 635
-  if (!$('nav-sbx-more').firstChild) $('nav-sbx-more').append(sandboxesMenu());                                       // 642
+  if (!$('nav-sbx-more').firstChild) { $('nav-sbx-more').append(sandboxesMenu()); wireAllRow(); }                  // 642, 647
+  paintTreeFold();
   $('nav-sandboxes').replaceChildren(...list.map((s) => {
     const here = !state.modal && state.view === 'sandbox' && state.param === s.name;
     const sessions = inTabOrder(s.name, s.sessionList || []);
@@ -124,14 +125,44 @@ export function inTabOrder(name, sessions) {
   const at = (x) => { const i = tabs.indexOf(x.name); return i < 0 ? tabs.length : i; };
   return sessions.map((x, i) => [x, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map(([x]) => x);
 }
-/// 642 (owner): the Sandboxes heading's ⋯ — Expand all / Collapse all.
+/// 642 (owner): Expand all / Collapse all — 647 (owner): on All sandboxes' line (it was on the Sandboxes heading).
 function sandboxesMenu() {
   const names = () => (state.overview ? state.overview.sandboxes : []).filter((s) => (s.sessionList || []).length).map((s) => s.name);
-  const m = moreMenu('More for Sandboxes', [
-    { label: 'Expand all', icon: 'chevron-down', desc: 'Every sandbox’s sessions', onSelect: () => { setFoldedAll([]); renderNavSandboxes(); } },
-    { label: 'Collapse all', icon: 'chevron-right', desc: 'Each sandbox on one line (a session that needs you still shows)', onSelect: () => { setFoldedAll(names()); renderNavSandboxes(); } },
+  const m = moreMenu('More for All sandboxes', [
+    { label: 'Expand all', icon: 'chevron-down', desc: 'Every sandbox’s sessions', onSelect: () => { setTreeFolded(false); setFoldedAll([]); renderNavSandboxes(); } },
+    { label: 'Collapse all', icon: 'chevron-right', desc: 'Each sandbox on one line (a session that needs you still shows)', onSelect: () => { setTreeFolded(false); setFoldedAll(names()); renderNavSandboxes(); } },
   ], { small: true, data: { navSandboxesMore: '' } });
+  // While the pointer or the focus is on it, All sandboxes' line makes room for it (a state class — never :has()).
+  const row = () => $('nav-all-row');
+  m.el.addEventListener('pointerenter', () => row().classList.add('menu-hover'));
+  m.el.addEventListener('pointerleave', () => row().classList.remove('menu-hover'));
+  m.el.addEventListener('focusin', () => row().classList.add('menu-focus'));
+  m.el.addEventListener('focusout', () => row().classList.remove('menu-focus'));
   return m.el;
+}
+// ── 647 (owner: "allow the Sandboxes tree to be collapsed / expanded with a click on the All Sandboxes heading") ─────────
+// A click on All sandboxes opens the page; a click on it while that page is shown folds or shows the tree under it (as a
+// sandbox's line does with its sessions — 642). Its caret does the same from anywhere. Kept in this browser.
+const TREE_KEY = 'doz.nav.tree';
+function treeFolded() { try { return localStorage.getItem(TREE_KEY) === 'folded'; } catch (_) { return false; } }
+function setTreeFolded(on) { try { if (on) localStorage.setItem(TREE_KEY, 'folded'); else localStorage.removeItem(TREE_KEY); } catch (_) { /* this page only */ } }
+function wireAllRow() {
+  $('nav-tree-caret').replaceChildren(icon('chevron-down'));
+  const flip = () => { setTreeFolded(!treeFolded()); paintTreeFold(); };
+  $('nav-tree-caret').addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); flip(); });
+  $('nav-all').addEventListener('click', (ev) => { if (!state.modal && state.view === 'overview') { ev.preventDefault(); flip(); } });
+}
+function paintTreeFold() {
+  const folded = treeFolded();
+  $('nav').classList.toggle('tree-folded', folded);
+  const c = $('nav-tree-caret');
+  c.classList.toggle('folded', folded);
+  c.setAttribute('aria-expanded', folded ? 'false' : 'true');
+  c.setAttribute('aria-label', folded ? 'Show the sandboxes' : 'Fold the sandboxes');
+  c.title = folded ? 'Show the sandboxes' : 'Fold the sandboxes';
+  // A folded tree still says when a sandbox's agent needs you (its count turns to an alert).
+  const urgentAny = folded && state.overview && state.overview.sandboxes.some((s) => (s.sessionList || []).some((x) => urgent(s, x.name)));
+  $('nav-count').classList.toggle('bad', !!urgentAny);
 }
 /// The folds, per sandbox, in this browser (a layout convenience, like the inspector's width — never a setting).
 function foldedSet() {
@@ -187,7 +218,7 @@ export function markNavSession() {
   }
 }
 export function paintNav() {
-  for (const a of document.querySelectorAll('#nav > a')) {
+  for (const a of document.querySelectorAll('#nav a[data-view]')) {
     // A sandbox's own page marks its child entry; New sandbox belongs to All sandboxes.
     // (603: an open wizard's entry — Onboarding, or All sandboxes for New sandbox — marks the nav under its modal.)
     const cur = state.modal === 'onboarding' ? 'onboarding' : state.modal === 'new' ? 'overview' : state.modal === 'try' ? 'try' : state.view;
@@ -198,15 +229,13 @@ export function paintNav() {
   renderNavSandboxes();
   navRail(false);
 }
-/// 603: below 980 px the sidebar is an icon rail; its toggle shows the whole sidebar over the page. 647: below 760 px the
-/// top bar's menu button shows it as a drawer.
+/// 603: below 980 px the sidebar is an icon rail; 647: the header's menu button shows the whole sidebar over the page
+/// (below 760 px, as a drawer).
 export function navRail(open) {
   document.body.classList.toggle('nav-open', !!open);
-  for (const b of [$('nav-toggle'), $('nav-menu')]) {
-    if (!b) continue;
-    b.setAttribute('aria-expanded', open ? 'true' : 'false');
-    b.setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
-  }
+  const b = $('nav-menu');
+  b.setAttribute('aria-expanded', open ? 'true' : 'false');
+  b.setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
 }
 export function paintResTotal(r) {
   const el = $('res-total');

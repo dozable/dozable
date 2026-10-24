@@ -35,6 +35,7 @@
   /* 647: space by ROLE — what ui.density (data-density="compact" on <html>) redefines; the structure and the type stay.
      comfortable (these) · compact (below) */
   --row-py: 7px;  --row-min: 36px;  --th-h: 32px;  --cell-px: 10px;        /* a list or table row, a column head, a cell's side */
+  --header-h: 44px;                                                         /* 647: the header row, full width */
   --nav-h: 30px;  --nav-child-h: 26px;  --nav-sess-h: 24px;                 /* the sidebar: a page, a sandbox, a session */
   --strip-h: 34px;  --tab-py: 6px;                                          /* a tab strip and its tabs */
   --page-py: 24px;  --page-px: 32px;                                        /* a page's margin */
@@ -138,6 +139,7 @@
    element too, so the style guide can show both side by side. */
 :root[data-density="compact"], [data-density="compact"] {
   --row-py: 3px;  --row-min: 28px;  --th-h: 26px;  --cell-px: 8px;
+  --header-h: 38px;
   --nav-h: 26px;  --nav-child-h: 22px;  --nav-sess-h: 21px;
   --strip-h: 28px;  --tab-py: 3px;
   --page-py: 14px;  --page-px: 20px;
@@ -155,6 +157,7 @@
 @layer base {
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
+html { scroll-padding-top: calc(var(--header-h) + var(--sp-3)); }   /* 647: a jump to a section lands below the sticky header */
 /* 603 step 2: ONE UI size (13 px) for tables, controls and body text; 14 for prose and section titles. */
 body { font: var(--fw-regular) var(--fs-md)/var(--lh) var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); text-underline-offset: 2px; }
@@ -171,10 +174,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { outline-offs
 /* 594 W22: an operation's finished parts (Restart host: each sandbox's hibernation). */
 .op-lines { margin: var(--sp-1) 0 0; padding: 0; list-style: none; color: var(--ink-2); font-size: var(--fs-sm); }
 .op-lines li { font-variant-numeric: tabular-nums; }
-/* 594 W21: doz ui is gone — the page is paused under an overlay; the banner strip stays IN FRONT of it
-   (and outside the inert parts), pinned to the top of the viewport. */
-body.ui-paused #banners { position: sticky; top: 12px; z-index: var(--z-banner-paused); }
-body.ui-paused .toasts { z-index: var(--z-toast-paused); }
+/* 594 W21: doz ui is gone — the page is paused under an overlay; 647: the notifications (#notes, outside the inert
+   parts) stay IN FRONT of it. */
+body.ui-paused .notes { z-index: var(--z-toast-paused); }
 
 main { padding: var(--page-py) var(--page-px) calc(var(--page-py) * 2); min-width: 0; }
 main:focus { outline: none; }
@@ -224,7 +226,7 @@ h3 { font-size: var(--fs-md); font-weight: var(--fw-strong); }
    canvas inside .term-host (its colours are the terminal theme, dark in both modes). The cover sits
    over it, translucent, and TAKES NO CLICKS except its one button: a click focuses the terminal and
    the next key wakes the sandbox (SandboxLab's PaneCover). */
-main.main-terms { padding: var(--work-py) var(--work-px); display: flex; flex-direction: column; height: 100vh; }
+main.main-terms { padding: var(--work-py) var(--work-px); display: flex; flex-direction: column; height: calc(100vh - var(--header-h)); }
 .terms:not([hidden]) { display: flex; flex-direction: column; gap: var(--gap); flex: 1; min-height: 0; min-width: 0; }
 
 /* A terminal pane with nothing in it. */
@@ -974,12 +976,6 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .callout.img-choice { margin: var(--sp-2) 0 var(--sp-3); }
 .callout.img-choice .c-body { display: flex; flex-direction: column; gap: var(--sp-2); }
 .callout.img-choice label { display: flex; gap: var(--sp-3); align-items: center; }
-.banners { display: flex; flex-direction: column; gap: var(--sp-3); }
-.banners:not(:empty) { margin-bottom: var(--sp-4); }
-/* The page notices: a failure with no closer home — at the top of main, sticky while the page scrolls. */
-.page-notices { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; flex-direction: column; gap: var(--sp-2); margin: calc(-1 * var(--sp-1)) 0 var(--sp-4); }
-.page-notices[hidden] { display: none; }
-.page-notices .callout { box-shadow: var(--shadow-1); }
 /* A sandbox's status line: a quiet line while an operation runs, a callout when it ended. */
 .row-op { font-size: var(--fs-sm); color: var(--ink-2); max-width: 320px; }
 .row-op.op-running { color: var(--accent); }
@@ -989,10 +985,55 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .op-banner.empty-op { display: none; }
 .op-banner .op-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .op-banner .callout { flex: 1; }
-/* Toasts — success and progress acknowledgements only (a failure is said where it happened). */
-.toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: var(--sp-3); z-index: var(--z-toast); max-width: min(420px, calc(100vw - 32px)); }
-.toast { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--ink); color: var(--bg); box-shadow: var(--shadow-2); }
-.toast .icon { color: inherit; }
+/* 647 (owner: "always show notifications in the header, stacked from the right"): the notes — every toast, page notice and
+   banner — over the header's right end (#notes: fixed, outside the shell, so never inert under a wizard or a pause).
+   ui.notifications draws them as cards (a column hanging below the header), pills (in the header row, the newest at the
+   right) or a bell (a count; the newest beside it for a few seconds). A note is a callout (banner variant, compact). */
+.notes { --notes-right: var(--sp-3); --notes-row-max: calc(100vw - 460px);
+  position: fixed; top: 0; right: var(--notes-right); z-index: var(--z-toast); display: flex; flex-direction: column; align-items: flex-end;
+  max-width: calc(100vw - var(--sp-5)); pointer-events: none; }
+.notes-col, .notes-row, .notes-pop { pointer-events: auto; }
+.notes .callout.note { box-shadow: var(--shadow-2); }
+.notes-col { display: flex; flex-direction: column; gap: var(--sp-2); width: min(420px, calc(100vw - var(--sp-6))); }
+.notes.mode-cards { top: calc(var(--header-h) + var(--sp-2)); right: var(--sp-3); }
+.notes.mode-cards > .notes-col { max-height: calc(100vh - var(--header-h) - var(--sp-5)); overflow-y: auto; }
+.notes-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); height: var(--header-h); max-width: var(--notes-row-max); min-width: 0; }
+.notes-pop { margin-top: var(--sp-0); width: min(420px, calc(100vw - var(--sp-6))); }
+.notes-list { max-height: calc(100vh - var(--header-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
+  border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-3); }
+.notes-list .callout.note { box-shadow: none; }
+.notes-none { margin: 0; padding: var(--sp-2) var(--sp-1); font-size: var(--fs-sm); }
+.notes-foot { display: flex; justify-content: flex-end; padding-top: var(--sp-2); }
+/* pills: one line each, the tone's tint; a click opens its card under the header. */
+.note-pill { --tone: var(--info); --tone-t: var(--info-tint);
+  display: flex; align-items: center; min-width: 0; max-width: 280px; height: var(--ctl-md); border-radius: var(--r-pill); background: var(--tone-t);
+  border: var(--bw) solid color-mix(in srgb, var(--tone) 30%, var(--surface)); color: var(--ink); font-size: var(--fs-sm); }
+.note-pill.ok, .note-flash.ok { --tone: var(--ok); --tone-t: var(--ok-tint); }
+.note-pill.warn, .note-flash.warn { --tone: var(--warn); --tone-t: var(--warn-tint); }
+.note-pill.bad, .note-flash.bad { --tone: var(--bad); --tone-t: var(--bad-tint); }
+.note-pill.is-open { box-shadow: inset 0 0 0 1px var(--tone); }
+.np-open { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; height: 100%; padding: 0 var(--sp-1) 0 var(--sp-3); border: 0; background: none;
+  color: inherit; font: inherit; cursor: pointer; border-radius: var(--r-pill); }
+.np-open > .icon, .note-flash > .icon { width: 14px; height: 14px; flex: none; color: var(--tone); }
+.np-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-x { display: grid; place-items: center; width: var(--ctl-sm); height: var(--ctl-sm); margin-right: var(--sp-0); padding: 0; border: 0; border-radius: var(--r-pill);
+  background: none; color: var(--ink-2); cursor: pointer; flex: none; }
+.np-x:hover { background: var(--state-hover); color: var(--ink); }
+.np-x .icon { width: 12px; height: 12px; }
+.note-more { height: var(--ctl-md); padding: 0 var(--sp-3); border: var(--bw) solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface);
+  color: var(--ink-2); font: var(--fw-medium) var(--fs-sm)/1 var(--font); cursor: pointer; font-variant-numeric: tabular-nums; flex: none; }
+.note-more:hover, .note-more.is-open { color: var(--ink); background: var(--state-hover); }
+/* bell: a count over the bell; the newest note beside it for a few seconds. */
+.note-bell { position: relative; }
+.note-bell.is-open { background: var(--state-selected); }
+.note-count { position: absolute; top: calc(-1 * var(--sp-0)); right: calc(-1 * var(--sp-0)); min-width: 16px; height: 16px; padding: 0 var(--sp-0); border-radius: var(--r-pill);
+  background: var(--ink-2); color: var(--bg); font: var(--fw-strong) var(--fs-xs)/16px var(--font); text-align: center; font-variant-numeric: tabular-nums; }
+.note-count.warn { background: var(--warn); }
+.note-count.bad { background: var(--bad); }
+.note-flash { --tone: var(--info); --tone-t: var(--info-tint);
+  display: flex; align-items: center; gap: var(--sp-2); min-width: 0; max-width: 360px; height: var(--ctl-md); padding: 0 var(--sp-3); border: 0; border-radius: var(--r-pill);
+  background: var(--tone-t); color: var(--ink); font: var(--fs-sm)/1 var(--font); cursor: pointer; animation: note-in var(--dur-2) var(--ease); }
+@keyframes note-in { from { opacity: 0; transform: translateX(var(--sp-3)); } to { opacity: 1; transform: none; } }
 /* Dialogs — title (and close), a sentence of consequence, the fields, then the footer: why at the left,
    Cancel (quiet) and the action at the right. A destructive one asks for the name; errors stay inside. */
 dialog.dlg { border: var(--bw) solid var(--line); border-radius: var(--r-xl); background: var(--surface); color: var(--ink); padding: 0;
@@ -1085,28 +1126,49 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
    647: the sidebar is the frame — on --shell with no line of its own (the surface step separates it from the page); the
    current page, sandbox or session is SELECTED (--state-selected + the 2 px indicator, never a raised card); the foot is
    one line (two status dots and the version, a hover card with the rest); below 760 px a top bar and a drawer. ── */
-.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
-.side { background: var(--shell); padding: var(--sp-4) var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4);
-  position: sticky; top: 0; height: 100vh; overflow-y: auto; min-width: 0; z-index: var(--z-sticky); }
-.brand { display: flex; gap: var(--sp-3); align-items: center; padding: 0 var(--sp-1); }
-.brand-mark { width: 26px; height: 26px; border-radius: var(--r-md); background: var(--ink); color: var(--bg); display: grid; place-items: center;
+/* 647 (owner: "add a header row at the top (full width) and move the app icon and path into it"): the header — above the
+   sidebar and the page, on --shell like the sidebar (one L-shaped frame): the menu (below 980 px), the brand, the store;
+   below 760 px a key that needs you and Quick add. The notifications sit over its right end (#notes, components). */
+.topbar { display: flex; align-items: center; gap: var(--sp-3); height: var(--header-h); padding: 0 var(--sp-4) 0 var(--sp-5); background: var(--shell);
+  position: sticky; top: 0; z-index: calc(var(--z-sticky) + 1); min-width: 0; }
+.topbar .nav-menu { display: none; margin-left: calc(-1 * var(--sp-2)); }
+.brand-mark { width: 24px; height: 24px; border-radius: var(--r-md); background: var(--ink); color: var(--bg); display: grid; place-items: center;
   font-weight: 700; font-style: italic; font-size: var(--fs-md); flex: none; }
-.brand > div { min-width: 0; flex: 1; }
-.brand-name { font-weight: var(--fw-strong); }
-.brand-store { font-size: var(--fs-xs); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.nav-toggle { display: none; }
-.nav-toggle .icon { transform: scaleX(-1); }
+.brand-name { font-weight: var(--fw-strong); flex: none; }
+.brand-store { min-width: 0; font-size: var(--fs-sm); color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topbar-gap { flex: 1; }
+.topbar-acts { display: none; align-items: center; gap: var(--sp-1); flex: none; }
+.topbar-keys { color: var(--bad); }
+.topbar-keys[hidden] { display: none; }
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - var(--header-h)); }
+.side { background: var(--shell); padding: var(--sp-3) var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4);
+  position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); overflow-y: auto; min-width: 0; z-index: var(--z-sticky); }
 #nav { display: flex; flex-direction: column; gap: 1px; }
 .nav-group { display: flex; align-items: center; min-height: 26px; padding: var(--sp-3) var(--sp-3) var(--sp-0); font: var(--fw-medium) var(--fs-xs)/1 var(--font); color: var(--ink-2); }
 .nav-group:first-child { padding-top: var(--sp-0); }
 .nav-group .nav-quick { margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-0)) calc(-1 * var(--sp-2)) auto; }
-.nav-sbx-more { display: flex; margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-0)) calc(-1 * var(--sp-2)) var(--sp-0); }   /* 642: the Sandboxes heading's ⋯ (Expand all / Collapse all) */
-#nav > a { display: flex; align-items: center; gap: var(--sp-3); height: var(--nav-h); padding: 0 var(--sp-3); border-radius: var(--r-md); color: var(--ink); text-decoration: none;
+#nav a[data-view] { display: flex; align-items: center; gap: var(--sp-3); height: var(--nav-h); padding: 0 var(--sp-3); border-radius: var(--r-md); color: var(--ink); text-decoration: none;
   position: relative; min-width: 0; flex: none; }
-#nav > a > .icon { color: var(--ink-2); }
-#nav > a .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#nav > a:hover, a.nav-child:hover { background: var(--state-hover); color: var(--ink); }
-#nav > a.active > .icon { color: var(--accent); }
+#nav a[data-view] > .icon { color: var(--ink-2); }
+#nav a[data-view] .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#nav a[data-view]:hover, a.nav-child:hover { background: var(--state-hover); color: var(--ink); }
+#nav a[data-view].active > .icon { color: var(--accent); }
+/* 647 (owner): All sandboxes after All sessions, heading the tree — a click on it while its page is shown (or its caret)
+   folds the tree; its ⋯ (Expand all / Collapse all, moved from the Sandboxes heading) shows on its hover or focus. */
+.nav-all { position: relative; display: flex; flex-direction: column; min-width: 0; }
+#nav .nav-all > a[data-view] { padding-right: calc(var(--sp-7) + var(--sp-0)); }
+#nav .nav-all > a[data-view]:hover, #nav .nav-all.menu-hover > a[data-view], #nav .nav-all.menu-focus > a[data-view] { padding-right: calc(var(--sp-8) + var(--sp-5)); }
+.nav-tree-caret { position: absolute; right: 3px; top: calc((var(--nav-h) - 20px) / 2); width: 20px; height: 20px; display: grid; place-items: center; padding: 0; border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); cursor: pointer; z-index: 1; }
+.nav-tree-caret .icon { width: 11px; height: 11px; transition: transform var(--dur-1) var(--ease); }
+.nav-tree-caret.folded .icon { transform: rotate(-90deg); }
+.nav-tree-caret:hover { color: var(--ink); background: var(--state-hover); }
+.nav-all > .nav-sbx-more { position: absolute; right: calc(var(--sp-7) + var(--sp-0)); top: 0; height: var(--nav-h); display: flex; align-items: center; opacity: 0; z-index: 1; }
+.nav-all > a[data-view]:hover ~ .nav-sbx-more, .nav-all > .nav-sbx-more:hover, .nav-all > .nav-sbx-more:focus-within,
+.nav-all.menu-hover > .nav-sbx-more, .nav-all.menu-focus > .nav-sbx-more { opacity: 1; }
+.nav-all > .nav-sbx-more .btn.sm { width: 20px; height: 20px; min-height: 20px; padding: 0; }
+#nav.tree-folded .nav-children { display: none; }
+#nav-count.bad { color: var(--bad); font-weight: var(--fw-medium); }
 #nav .trail { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 #nav .trail:empty { display: none; }
 .nav-size { font-size: var(--fs-xs); font-variant-numeric: tabular-nums; color: var(--ink-2); }
@@ -1143,7 +1205,7 @@ a.nav-sess { display: flex; align-items: center; gap: var(--sp-2); flex: 1; heig
   text-decoration: none; font-size: var(--fs-sm); position: relative; min-width: 0; }
 a.nav-sess:hover { background: var(--state-hover); color: var(--ink); }
 /* 647: ONE selected treatment for a page, a sandbox and a session — after the hovers, so a selected line stays selected. */
-#nav > a.active, a.nav-child.active, a.nav-sess.active { background: var(--state-selected); box-shadow: inset 2px 0 0 var(--indicator);
+#nav a[data-view].active, a.nav-child.active, a.nav-sess.active { background: var(--state-selected); box-shadow: inset 2px 0 0 var(--indicator);
   color: var(--state-selected-ink); font-weight: var(--fw-medium); }
 a.nav-sess > .icon { width: 13px; height: 13px; flex: none; }
 a.nav-sess > .mark, .tile-head > .mark, .ov-th-name > .mark { width: 15px; height: 15px; color: inherit; }
@@ -1175,48 +1237,53 @@ a.nav-sess.saved { font-style: italic; }
 .nav-peek-pop .np-label b { color: var(--ink); font-weight: var(--fw-medium); }
 .nav-peek-pop .np-label .icon { width: 13px; height: 13px; }
 /* 647: the foot — ONE line: a dot for doz ui and one for the host, then the version (or what is wrong: `paintFootLine`,
-   core/session.js); its hover or focus shows the card with both rows and the version; Sign out and the light / dark
-   switch (635, owner) at its right. */
+   core/session.js); its hover or focus shows the card, and a click pins it open. The card is interactive (owner: "make the
+   footer popup interactive"): the host's row has Restart (or Start), a line says when the host and this dashboard are
+   different builds, the updates row has Check. Sign out and the light / dark switch (635, owner) at its right. */
 .side-foot { margin-top: auto; position: relative; display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
 .foot-status { display: flex; align-items: center; gap: var(--sp-1); flex: 1; min-width: 0; height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0;
-  border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; text-align: left; cursor: default; }
-.foot-status:hover { background: var(--state-hover); }
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; text-align: left; cursor: pointer; }
+.foot-status:hover, .foot-status[aria-expanded="true"] { background: var(--state-hover); }
 .foot-sum { min-width: 0; margin-left: var(--sp-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .foot-sum.bad { color: var(--bad); }
+.foot-sum.warn { color: var(--warn); }
 .live.on .dot, .foot-status .dot.on { background: var(--ok); }
 .live.bad .dot, .foot-status .dot.bad { background: var(--bad); }
 .live.warn .dot, .foot-status .dot.warn { background: var(--warn); }
+.live.info .dot { background: var(--info); }
 .live.stale .dot, .foot-status .dot.stale { opacity: 0.45; }
-.foot-card { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--sp-1)); z-index: var(--z-menu); display: none; gap: var(--sp-1);
+.foot-card { position: absolute; left: 0; bottom: calc(100% + var(--sp-1)); width: 300px; z-index: var(--z-menu); display: none; gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-3); border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-2); }
-.foot-status:hover + .foot-card, .foot-status:focus-visible + .foot-card, .foot-card.is-open { display: grid; }
-.live { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); gap: var(--sp-2); align-items: center; }
+/* The pointer crosses the gap between the line and the card without closing it. */
+.foot-card::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(var(--sp-1) + 2px); }
+.foot-status:hover + .foot-card, .foot-status:focus-visible + .foot-card, .foot-card:hover, .foot-card:focus-within, .foot-card.is-open { display: grid; }
+.live { display: grid; grid-template-columns: 8px 52px minmax(0, 1fr) auto; gap: var(--sp-2); align-items: center; min-height: var(--ctl-sm); }
 .live .foot-k { color: var(--ink-2); }
-.live #live-text, .live #host-text { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
-.live.stale #host-text { color: var(--ink-2); font-style: italic; }
+.live #live-text, .live #host-text, .live #upd-text { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
+.live.stale #host-text, .live.upd.stale #upd-text { color: var(--ink-2); font-style: italic; }
+.live .foot-act { display: flex; justify-content: flex-end; }
+.live .foot-act:empty { display: none; }
+.foot-note { margin: 0 0 0 calc(var(--sp-3) + var(--sp-2)); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-sm); font-size: var(--fs-sm); color: var(--ink); overflow-wrap: anywhere; }
+.foot-note.warn { background: var(--warn-tint); }
+.foot-note[hidden] { display: none; }
 .version { font-variant-numeric: tabular-nums; }
-.foot-card .version { margin-top: var(--sp-1); padding-top: var(--sp-2); border-top: var(--bw) solid var(--line); }
+.foot-card .version { margin-top: var(--sp-0); padding-top: var(--sp-2); border-top: var(--bw) solid var(--line); }
 .foot-card .version:empty { display: none; }
 .side-foot .foot-acts { display: flex; align-items: center; gap: var(--sp-0); flex: none; }
-/* 647: the phone's top bar — shown below 760 px (below). */
-.topbar { display: none; align-items: center; gap: var(--sp-2); height: 44px; padding: 0 var(--sp-3); background: var(--shell);
-  position: sticky; top: 0; z-index: var(--z-sticky); }
-.topbar .brand-mark { width: 22px; height: 22px; font-size: var(--fs-sm); }
-.topbar-name { font-weight: var(--fw-strong); }
-.topbar-gap { flex: 1; }
-.topbar-keys { color: var(--bad); }
-.topbar-keys[hidden] { display: none; }
+/* 647: the Debug page — the samples by group. */
+.debug-groups { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--panel-p); }
+.debug-group h3 { margin: 0 0 var(--sp-2); }
+.debug-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
 @media (max-width: 980px) {
+  .topbar .nav-menu { display: inline-flex; }
   .shell { grid-template-columns: 52px minmax(0, 1fr); }
   .shell > main { grid-column: 2; }
-  .side { padding: var(--sp-4) var(--sp-3); align-items: stretch; overflow-x: hidden; }
-  .brand { flex-direction: column; padding: 0; gap: var(--sp-2); }
-  .brand > div, .nav-group .ng-label, .nav-group .nav-quick, .nav-sbx-more, #nav .trail, .nav-children { display: none; }
-  .nav-toggle { display: inline-flex; }
+  .side { padding: var(--sp-3) var(--sp-3); align-items: stretch; overflow-x: hidden; }
+  .nav-group .ng-label, .nav-group .nav-quick, .nav-sbx-more, .nav-tree-caret, #nav .trail, .nav-children { display: none; }
   .nav-group { padding: 0; min-height: 0; border-top: var(--bw) solid var(--line); margin: var(--sp-2) 0; }
   .nav-group:first-child { display: none; }
-  #nav > a { justify-content: center; padding: 0; }
-  #nav > a .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  #nav a[data-view], #nav .nav-all > a[data-view] { justify-content: center; padding: 0; }
+  #nav a[data-view] .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   #nav-operations .trail, #nav-onboarding .trail, #nav-accounts .trail { display: flex; position: absolute; top: 3px; right: 3px; }
   #nav-operations .trail .nav-badge { display: none; }
   #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; padding: 0 var(--sp-0); }
@@ -1225,29 +1292,34 @@ a.nav-sess.saved { font-style: italic; }
   body:not(.nav-open) .foot-status { flex: none; justify-content: center; padding: 0; width: var(--ctl-sm); }
   body:not(.nav-open) .foot-sum { display: none; }
   body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; }
-  body:not(.nav-open) .foot-card { position: fixed; left: calc(52px + var(--sp-1)); right: auto; bottom: var(--sp-3); width: 240px; }
-  /* The toggle: the whole sidebar over the page, until a link, Escape or a click outside closes it. */
-  body.nav-open .side { position: fixed; left: 0; top: 0; width: 232px; z-index: var(--z-menu); background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-4) var(--sp-3) var(--sp-3); }
-  body.nav-open .brand { flex-direction: row; padding: 0 var(--sp-1); }
-  body.nav-open .brand > div, body.nav-open .nav-group .ng-label, body.nav-open .nav-group .nav-quick, body.nav-open .nav-sbx-more, body.nav-open #nav .trail, body.nav-open .nav-children { display: flex; }
-  body.nav-open .brand > div { display: block; }
+  body:not(.nav-open) .foot-card { position: fixed; left: calc(52px + var(--sp-1)); right: auto; bottom: var(--sp-3); width: 300px; }
+  body:not(.nav-open) .foot-card::after { left: auto; right: 100%; top: 0; bottom: 0; width: var(--sp-5); height: auto; }
+  /* The header's menu: the whole sidebar over the page, under the header, until a link, Escape or a click outside closes it. */
+  body.nav-open .side { position: fixed; left: 0; top: var(--header-h); height: calc(100vh - var(--header-h)); width: 232px; z-index: var(--z-menu);
+    background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-3) var(--sp-3) var(--sp-3); }
+  body.nav-open .nav-group .ng-label, body.nav-open .nav-group .nav-quick, body.nav-open .nav-sbx-more, body.nav-open #nav .trail, body.nav-open .nav-children,
+  body.nav-open .nav-tree-caret { display: flex; }
+  body.nav-open .nav-tree-caret { display: grid; }
   body.nav-open .nav-group { border-top: 0; margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-0); min-height: 26px; }
   body.nav-open .nav-group:first-child { display: flex; padding-top: var(--sp-0); }
-  body.nav-open #nav > a { justify-content: flex-start; padding: 0 var(--sp-3); }
-  body.nav-open #nav > a .lbl { position: static; width: auto; height: auto; clip: auto; }
+  body.nav-open #nav a[data-view] { justify-content: flex-start; padding: 0 var(--sp-3); }
+  body.nav-open #nav .nav-all > a[data-view] { padding-right: calc(var(--sp-7) + var(--sp-0)); }
+  body.nav-open #nav a[data-view] .lbl { position: static; width: auto; height: auto; clip: auto; }
   body.nav-open #nav-operations .trail, body.nav-open #nav-onboarding .trail, body.nav-open #nav-accounts .trail { position: static; }
   body.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: inline-flex; }
 }
-/* 647 (owner, D2): below 760 px a 44 px top bar replaces the rail — the menu, the brand, a key that needs you, Quick add;
-   the menu opens the whole sidebar as a drawer over a scrim. */
+/* 647 (owner, D2): below 760 px the rail goes — the header's menu opens the sidebar as a drawer over a scrim; the header
+   keeps the brand (not the store), a key that needs you and Quick add; the notifications sit left of those two. */
 @media (max-width: 760px) {
-  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
-  .shell > main { grid-column: 1; grid-row: 2; }
-  .topbar { display: flex; grid-row: 1; }
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .shell > main { grid-column: 1; }
+  .topbar { padding: 0 var(--sp-4) 0 var(--sp-4); }
+  .topbar .brand-store { display: none; }
+  .topbar-acts { display: flex; }
+  .notes { --notes-right: calc(var(--sp-4) + var(--ctl-sm) * 2 + var(--sp-3)); --notes-row-max: calc(100vw - 210px); }
   body:not(.nav-open) .side { display: none; }
   body.nav-open .side { width: min(280px, calc(100vw - 48px)); z-index: var(--z-modal); }
-  body.nav-open .nav-toggle { display: none; }
-  body.nav-open::before { content: ""; position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-menu); }
+  body.nav-open::before { content: ""; position: fixed; inset: var(--header-h) 0 0 0; background: var(--scrim); z-index: var(--z-menu); }
 }
 
 /* ── 603 step 6: a sandbox's page — a title row (name, phase, labelled chips), ONE toolbar (the lifecycle group,
@@ -1506,13 +1578,13 @@ details.disclosure > .d-part { margin-top: var(--sp-2); }
 
 /* ── 603 step 9: long pages — a sticky index of the page's sections (with a figure each on Resources), groups
    that fold (Resources, kept in this browser), and the Settings filter. ── */
-.page-index { position: sticky; top: 0; z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--sp-0) var(--sp-1); padding: var(--sp-2) 0; margin: var(--sp-3) 0 var(--sp-1);
+.page-index { position: sticky; top: var(--header-h); z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--sp-0) var(--sp-1); padding: var(--sp-2) 0; margin: var(--sp-3) 0 var(--sp-1);
   background: var(--bg); border-bottom: var(--bw) solid var(--line); }
 .page-index a { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: var(--ctl-sm); padding: 0 var(--sp-3); border-radius: var(--r-sm); color: var(--ink);
   text-decoration: none; font-size: var(--fs-sm); white-space: nowrap; }
 .page-index a:hover { background: var(--state-hover); }
 .page-index a .muted { font-variant-numeric: tabular-nums; }
-.page-tools { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-3); position: sticky; top: 0; z-index: var(--z-sticky); background: var(--bg); }
+.page-tools { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-3); position: sticky; top: var(--header-h); z-index: var(--z-sticky); background: var(--bg); }
 .page-tools .page-index { position: static; margin: 0; }
 .filter-field { display: flex; align-items: center; gap: var(--sp-2); max-width: 420px; position: relative; }
 .filter-field .icon { position: absolute; left: 8px; color: var(--ink-2); pointer-events: none; }

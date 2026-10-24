@@ -17,21 +17,27 @@
   <script type="module" src="/app.js"></script>
 </head>
 <body>
+  <header class="topbar" id="topbar">
+    <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
+    <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
+    <span class="brand-store" id="store-path">—</span>
+    <span class="topbar-gap"></span>
+    <span class="topbar-acts">
+      <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
+      <button type="button" class="btn sm quiet icon-only topbar-add" id="top-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button>
+    </span>
+  </header>
   <div class="shell">
     <aside class="side" aria-label="Sections">
-      <div class="brand">
-        <span class="brand-mark" aria-hidden="true">z</span>
-        <div>
-          <div class="brand-name">Dozable</div>
-          <div class="brand-store" id="store-path">—</div>
-        </div>
-        <button type="button" class="btn sm quiet icon-only nav-toggle" id="nav-toggle" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
-      </div>
       <nav id="nav" aria-label="Pages">
-        <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button><span class="nav-sbx-more" id="nav-sbx-more"></span></div>
-        <a href="#/overview" data-view="overview"><span class="lbl">All sandboxes</span><span class="trail" id="nav-count"></span></a>
-        <div class="nav-children" id="nav-sandboxes" role="list" aria-label="Sandboxes"></div>
+        <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
         <a href="#/sessions" data-view="sessions"><span class="lbl">All sessions</span></a>
+        <div class="nav-all" id="nav-all-row">
+          <a href="#/overview" data-view="overview" id="nav-all"><span class="lbl">All sandboxes</span><span class="trail" id="nav-count"></span></a>
+          <button type="button" class="nav-tree-caret" id="nav-tree-caret" aria-controls="nav-sandboxes" aria-expanded="true" aria-label="Fold the sandboxes" title="Fold the sandboxes"></button>
+          <span class="nav-sbx-more" id="nav-sbx-more"></span>
+        </div>
+        <div class="nav-children" id="nav-sandboxes" role="list" aria-label="Sandboxes"></div>
         <div class="nav-group"><span class="ng-label">Try</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-try-add" data-nav-try-add title="Quick try: an agent in a fresh sandbox, safe defaults" aria-label="Quick try an agent"></button></div>
         <a href="#/try" data-view="try" data-quick-try><span class="lbl">Quick try</span></a>
         <div class="nav-group"><span class="ng-label">Store</span></div>
@@ -47,28 +53,22 @@
         <a href="#/devices" data-view="devices"><span class="lbl">Devices</span></a>
         <a href="#/doctor" data-view="doctor"><span class="lbl">Doctor</span></a>
         <a href="#/onboarding" data-view="onboarding" id="nav-onboarding"><span class="lbl">Onboarding</span><span class="trail"><span class="nav-alert nav-todo" id="onb-dot" hidden role="img" aria-label="Setup is not finished" title="Setup is not finished"></span></span></a>
+        <a href="#/debug" data-view="debug" id="nav-debug"><span class="lbl">Debug</span></a>
       </nav>
-      <div class="side-foot">
-        <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-describedby="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>
-        <div class="foot-card" id="foot-card" role="tooltip">
-          <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span></div>
-          <div class="live" id="host-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span></div>
+      <div class="side-foot" id="side-foot">
+        <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-expanded="false" aria-controls="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>
+        <div class="foot-card" id="foot-card" role="group" aria-label="Status">
+          <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span><span class="foot-act"></span></div>
+          <div class="live" id="host-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span><span class="foot-act" id="host-act"></span></div>
+          <div class="foot-note" id="foot-mismatch" hidden></div>
+          <div class="live upd" id="upd-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span id="upd-text">—</span><span class="foot-act" id="upd-act"></span></div>
           <div class="version" id="version"></div>
         </div>
         <div class="foot-acts"><button type="button" class="btn sm quiet icon-only sign-out" id="sign-out" hidden aria-label="Sign out"></button>
           <button type="button" class="btn sm quiet icon-only theme-toggle" id="theme-toggle" aria-label="Dark mode" title="Dark mode"></button></div>
       </div>
     </aside>
-    <header class="topbar" id="topbar">
-      <button type="button" class="btn sm quiet icon-only" id="nav-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
-      <span class="brand-mark" aria-hidden="true">z</span><b class="topbar-name">Dozable</b>
-      <span class="topbar-gap"></span>
-      <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
-      <button type="button" class="btn sm quiet icon-only" id="top-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button>
-    </header>
     <main id="main" tabindex="-1">
-      <div class="banners" id="banners" aria-live="polite"></div>
-      <div class="page-notices" id="notice" aria-live="polite" hidden></div>
       <section id="view"></section>
       <section id="sbx" class="sbx" hidden>
         <div id="sbx-bar" class="sbx-bar"></div>
@@ -85,6 +85,6 @@
     </main>
   </div>
   <div class="ui-overlay" id="ui-overlay" tabindex="-1" hidden></div>
-  <div class="toasts" id="toasts" aria-live="assertive"></div>
+  <div class="notes mode-cards" id="notes" aria-live="polite" aria-label="Notifications"></div>
 </body>
 </html>

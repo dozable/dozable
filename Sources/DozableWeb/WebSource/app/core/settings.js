@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { state } from './state.js';
 import { SPLIT_KINDS, termUI } from './terminals.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const pageFailure = upcall('pageFailure'), paintSplitButton = upcall('paintSplitButton');
+const pageFailure = upcall('pageFailure'), paintNotes = upcall('paintNotes'), paintSplitButton = upcall('paintSplitButton');
 
 // ── settings (591) ──────────────────────────────────────────────────────────
 // doz.toml, as the UI process reads it (GET /api/v1/settings, every value with its default, source and
@@ -24,6 +24,7 @@ export function adoptSettings(report) {
   const split = setting('ui.split_default', 'shell');
   termUI.splitKind = SPLIT_KINDS[split] ? split : 'shell';
   paintSplitButton();
+  paintNotes();                     // 647: ui.notifications — cards, pills or bell, at once
 }
 /// 647: ui.density — compact sets data-density="compact" on <html> (the stylesheet's role tokens follow it); comfortable,
 /// the default, sets nothing. Applied at once by the Settings page, before its save returns (like the theme switch).

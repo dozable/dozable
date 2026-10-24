@@ -111,6 +111,7 @@ function settingControl(r) {
   }
   if (!r.editable) return h('code', { class: 'setting-value', title: r.note || '' }, shownValue(r.value, r.type));
   if (r.key === 'ui.density') return densityControl(r);
+  if (r.key === 'ui.notifications') return notificationsControl(r);
   let input;
   if (r.type === 'bool') {
     input = h('input', { type: 'checkbox', role: 'switch', 'aria-label': r.key });
@@ -179,6 +180,22 @@ function densityControl(r) {
           for (const b of seg.querySelectorAll('.seg')) { const me = b.dataset.densityChoice === c; b.classList.toggle('active', me); b.setAttribute('aria-pressed', me ? 'true' : 'false'); }
           applyDensity(c);
           changeSetting(r.key, c).then(() => applyDensity(setting('ui.density', 'comfortable')));
+        } } }, words[c] || c);
+    }));
+  return seg;
+}
+/// 647: ui.notifications as a segmented control (Cards | Pills | Bell) — the header's notifications follow at once
+/// (adoptSettings repaints them when the save returns).
+function notificationsControl(r) {
+  const words = { cards: 'Cards', pills: 'Pills', bell: 'Bell' };
+  const seg = h('div', { class: 'segmented', role: 'group', 'aria-label': r.key, 'data-notes-control': '' },
+    r.choices.map((c) => {
+      const on = c === r.value;
+      return h('button', { type: 'button', class: 'seg' + (on ? ' active' : ''), 'aria-pressed': on ? 'true' : 'false', 'data-notes-choice': c,
+        on: { click: () => {
+          if (c === setting('ui.notifications', 'cards')) return;
+          for (const b of seg.querySelectorAll('.seg')) { const me = b.dataset.notesChoice === c; b.classList.toggle('active', me); b.setAttribute('aria-pressed', me ? 'true' : 'false'); }
+          changeSetting(r.key, c);
         } } }, words[c] || c);
     }));
   return seg;
