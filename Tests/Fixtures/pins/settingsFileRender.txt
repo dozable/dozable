@@ -70,6 +70,13 @@
 # (comfortable | compact; applies at once (the UI re-reads it))
 # density = "comfortable"
 
+# Where the UI shows its notifications, at the right of its header: cards (a column hanging below
+# the header, each with its full text and buttons), pills (one line each in the header, the newest
+# at the right; click one for the rest), or bell (a count; the newest shows beside it for a few
+# seconds; click for the list). Successes go by themselves; a failure stays until you close it.
+# (cards | pills | bell; applies at once (the UI re-reads it))
+# notifications = "cards"
+
 # A sandbox's page shows its details panel (restore points, network, keys) beside the terminals;
 # false: collapsed.
 # (boolean; applies at once (the UI re-reads it))
