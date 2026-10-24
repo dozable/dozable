@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -101,8 +101,19 @@ test-safety:
 	grep -qE '^path = "/' "$$f" 2>/dev/null && grep -qE '^projects_dir = "/' "$$f" 2>/dev/null || \
 	  printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects" > "$$f"
 
-test: test-safety web-assets-check ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check
+test: test-safety web-assets-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check and the CSS check
 	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS)
+
+# 647: the dashboard's stylesheet. css-lint (no browser, in `make test`) keeps the rules of app.css — no :has(), no
+# universal right-most key, no capitals-only labels, no literal colour outside :root, no literal px spacing, no twin
+# selectors, no blank runs (Scripts/css-lint.swift says why each). css-perf (a real headless Chrome on a scratch store and
+# a scratch profile — standalone: it needs Chrome and takes a minute) walks a fixed path and compares the style cost with
+# Tests/Fixtures/css-perf-baseline.json; `make css-perf ARGS=--write-baseline` records a new one.
+css-lint: ## The stylesheet's rules (app.css) — no browser; part of make test
+	swift Scripts/css-lint.swift
+
+css-perf: cli ## The stylesheet's cost in a real headless Chrome against the baseline (scratch store and profile; ARGS=--write-baseline)
+	node Scripts/css-perf.mjs $(ARGS)
 
 # 617: the agent recipes. Sources/DozableKit/Recipes/agents/VENDOR/PRODUCT.yaml is what people edit (schema 2 —
 # docs/recipes/RECIPE-FORMAT.md); Recipes/compiled/PRODUCT.json is each one as JSON (DozableKit embeds it and never

@@ -53,6 +53,15 @@ const SPRITE_HOST_ID = 'doz-icon-symbols', LOCAL_PREFIX = 'doz-icon-';
 const ICON_SLEEP = 'moon+cpu', ICON_HIBERNATE = 'moon+cylinder';
 /// A phase (or a cover's kind) → its glyph, where it has one.
 export const PHASE_GLYPH = { paused: 'pause', asleep: ICON_SLEEP, hibernated: ICON_HIBERNATE, off: 'power', shutDown: 'power' };
+/// 647: a phase dot's SHAPE (`.dot`, `.ph-dot`, `.tab-dot`), as a class the stylesheet keys on: filled = in memory (running,
+/// paused, asleep — no class), a ring = nothing in memory, a square = failed, a turning ring = under way. The class beside
+/// the dot's `ph-<phase>` (its colour): `'ph-dot ph-' + phase + phaseMark(phase)`.
+export function phaseMark(phase) {
+  if (phase === 'hibernated' || phase === 'off' || phase === 'unknown' || phase === 'ended') return ' mark-ring';
+  if (phase === 'failed') return ' mark-square';
+  if (phase === 'booting' || phase === 'busy') return ' mark-turning';
+  return '';
+}
 /// An operation's action → its glyph (the lifecycle verbs; the rest have none).
 export const OP_GLYPH = { start: 'play', pause: 'pause', resume: 'play', sleep: ICON_SLEEP, hibernate: ICON_HIBERNATE, wake: 'sun',
                    shutdown: 'power', reset: 'rotate-ccw', rm: 'trash-2', duplicate: 'copy', 'template-create': 'layout-template' };

@@ -1,5 +1,6 @@
 // components/access-step — Access (599e): one self-contained step — the onboarding, New Sandbox and Settings › Access.
 import { h } from '../dom/h.js';
+import { choiceCard } from './choice.js';
 import { api } from '../core/api.js';
 import { secretEntryAllowed, secretEntryWhy } from '../core/settings.js';
 import { btn } from './button.js';
@@ -94,7 +95,7 @@ export function renderAccessStep(container, opts = {}) {
       input.addEventListener('change', () => onPick(v));
       const a = { class: 'wiz-choice' + (v === value ? ' chosen' : '') };
       a['data-access-' + name] = v;
-      return h('label', a, input, h('span', null, label, sub ? h('div', { class: 'muted' }, sub) : null));
+      return choiceCard(a, input, h('span', null, label, sub ? h('div', { class: 'muted' }, sub) : null));
     });
   }
   function keyNode() {

@@ -77,6 +77,7 @@ export function menuButton(trigger, items, opts = {}) {
     for (const o of menus) if (o !== ctl) o.close();
     menu.hidden = false;
     trigger.setAttribute('aria-expanded', 'true');
+    wrap.classList.add('is-open');       // 647: the state CSS reads (never :has())
     place();
     if (focusFirst) { const f = items_()[0]; if (f) f.focus(); }
     if (opts.onOpen) opts.onOpen();
@@ -85,10 +86,15 @@ export function menuButton(trigger, items, opts = {}) {
     if (menu.hidden) return;
     menu.hidden = true;
     trigger.setAttribute('aria-expanded', 'false');
+    wrap.classList.remove('is-open');
     if (refocus && trigger.isConnected) trigger.focus();
     if (opts.onClose) opts.onClose();
   }
-  function setItems(list) { menu.replaceChildren(...menuItemsNodes(list, close)); if (!menu.hidden) place(); }
+  function setItems(list) {
+    menu.replaceChildren(...menuItemsNodes(list, close));
+    menu.classList.toggle('has-pairs', !!menu.querySelector('.icon-pair'));   // 647: a two-icon glyph widens the icon column
+    if (!menu.hidden) place();
+  }
   trigger.addEventListener('click', (ev) => { ev.stopPropagation(); if (menu.hidden) open(ev.detail === 0); else close(false); });
   trigger.addEventListener('keydown', (ev) => { if (ev.key === 'ArrowDown') { ev.preventDefault(); open(true); } });
   menu.addEventListener('keydown', (ev) => {

@@ -128,7 +128,7 @@ function tableHead() {
 // grid of small ones in its Sessions cell. Resting on one shows it larger (components/nav-peek.js). ─────────────────
 function subRows() { try { return localStorage.getItem('doz.overview.thumbs') !== 'off'; } catch (_) { return true; } }
 function listHeadEl() {
-  return h('div', { class: 'head ov-list-head' }, h('h2', null, 'All sandboxes'), h('div', { class: 'actions' }, liveControls(), thumbsToggle()));
+  return h('div', { class: 'head has-title ov-list-head' }, h('h2', null, 'All sandboxes'), h('div', { class: 'actions' }, liveControls(), thumbsToggle()));
 }
 function redrawListHead() {
   if (!OV.listHead || !OV.listHead.isConnected) return;

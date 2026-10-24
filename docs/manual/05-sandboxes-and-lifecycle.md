@@ -100,7 +100,8 @@ Dozable never moves your files. Templates saved from it keep saying which
 sandbox they came from, and past numbers on the Metrics page stay under the old name.
 
 In the dashboard: **Rename…** in a sandbox's ⋯ menu — in the sidebar (on the sandbox's line) and on its page's
-toolbar.
+toolbar. A sandbox that isn't shut down is shut down first: the dialog says so, and its button reads **Shut down and
+rename**.
 
 A program started less than three seconds before a hibernate gets the rest of those three seconds
 first, so a program in the middle of starting up isn't frozen at a bad moment.

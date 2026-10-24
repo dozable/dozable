@@ -137,7 +137,7 @@ function panelFor(name, o, p) {
     prog.transfer ? h('span', { class: 'muted' }, prog.transfer) : null) : null;
   const raw = [...(p && p.output ? p.output : []), ...(prog.tail || [])].slice(-12);
   const details = raw.length ? h('details', { class: 'disclosure sp-details' }, h('summary', null, icon('chevron-down'), failed ? 'The log' : 'Show details'),
-    h('pre', { class: 'sp-tail', 'data-sp-tail': '' }, raw.join('\n'))) : null;
+    h('pre', { class: 'sp-tail d-part', 'data-sp-tail': '' }, raw.join('\n'))) : null;
   if (details && failed) details.open = true;
   const what = failed
     ? h('div', { class: 'sp-failed', role: 'alert' },

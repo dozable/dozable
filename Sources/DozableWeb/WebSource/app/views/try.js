@@ -544,9 +544,9 @@ function pasteNodes(src, adding) {
       h('code', { class: 'ms-cmd' }, 'doz account add NAME ' + (src.accountKind === 'api-key' ? '--api-key' : src.accountKind === 'openai-key' ? '--openai-key' : '--provider ' + src.id)));
   }
   nodes.push(h('details', { class: 'ms-other' }, h('summary', null, 'Keep it in 1Password, AWS or a program instead'),
-    h('code', { class: 'ms-cmd' }, sourceCommand(src.id, src.accountKind)),
-    h('div', { class: 'muted ms-small' }, 'or --from aws:arn:… or --from-command \'…\' — then Check again.'),
-    h('div', null, btn('Check again', () => recheck(), { small: true, quiet: true, icon: 'refresh-cw' }))));
+    h('code', { class: 'ms-cmd ms-part' }, sourceCommand(src.id, src.accountKind)),
+    h('div', { class: 'muted ms-small ms-part' }, 'or --from aws:arn:… or --from-command \'…\' — then Check again.'),
+    h('div', { class: 'ms-part' }, btn('Check again', () => recheck(), { small: true, quiet: true, icon: 'refresh-cw' }))));
   if (adding) nodes.push(h('div', null, btn('Keep the key it has', () => { SETUP.adding = false; paintSetup(); }, { small: true, quiet: true })));
   return nodes;
 }

@@ -96,6 +96,7 @@ export async function createDialog(quick = null) {
     onChange: () => { if (chooser) chooser.imageChanged(); if (acct) acct.agentChanged(); renderImgNote(picker.image()); if (perms.baseChanged) perms.baseChanged(); gate(); },
     onDockerfile: (folder) => { if (chooser) chooser.suggest(folder); } });
   imgSlot.replaceWith(picker.el);
+  dlg.classList.add('has-picker');      // 647: the agent × base picker needs a wider dialog
   chooser = workspaceChooser({ nameInput: dlg.inputs.sandbox, image: () => pickerNameHint(picker) });
   slot.replaceWith(chooser.el);
   const netProxied = () => !['nat', 'none'].includes(dlg.inputs.network.value);

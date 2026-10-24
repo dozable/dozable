@@ -1,6 +1,6 @@
 // components/modal — The wizards' modal (603): a real dialog over the page under it.
 import { upcall } from '../core/hooks.js';
-import { $, h } from '../dom/h.js';
+import { $, h, markChildren } from '../dom/h.js';
 import { MODAL_VIEWS } from '../core/router.js';
 import { state } from '../core/state.js';
 import { WIZ } from '../core/wizards.js';
@@ -17,7 +17,7 @@ const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), vi
 // is open, focus moves in and is kept there (Tab wraps), and returns to what opened it. ✕ or Escape (not inside a
 // field or a list) closes it — after asking, when the person has made choices; the browser's Back closes it and
 // KEEPS the choices (Forward, or the wizard's entry, resumes them).
-const MODAL_INERT = ['side', 'banners', 'notice', 'view', 'sbx', 'grid'];
+const MODAL_INERT = ['side', 'topbar', 'banners', 'notice', 'view', 'sbx', 'grid'];
 export function modalInert(on) {
   if (!on && state.uiOverlay) return;                  // the "doz ui stopped" overlay keeps everything inert
   for (const id of MODAL_INERT) { const el = id === 'side' ? document.querySelector('.side') : $(id); if (el) el.inert = on; }
@@ -67,7 +67,7 @@ export async function renderModal(first) {
   let node;
   try { node = v === 'new' ? await viewNew() : v === 'try' ? await viewTry() : await viewOnboarding(); } catch (e) {
     node = h('div', { class: 'wizard' }, wizHead(v === 'new' ? 'New sandbox' : v === 'try' ? 'Quick try' : 'Set up Dozable', null, [], null),
-      h('div', { class: 'wiz-card' }, h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) }))));
+      h('div', { class: 'wiz-card' }, markChildren(h('div', { class: 'w-body' }, callout('bad', { cls: 'notice', title: 'This could not be read', body: e.message || String(e) })), 'w-item')));
   }
   if (state.modal !== v || state.signedOut) return;
   wizMount(node, first);

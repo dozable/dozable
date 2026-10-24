@@ -4,7 +4,8 @@
 // store's base downloads in the host from the Base image step on, its strip at the foot above the buttons (Details: a
 // popover). A poll or a preparations event repaints only the strip (and the First sandbox's image line) — never a step,
 // so nothing a person types is redrawn under them.
-import { $, h } from '../dom/h.js';
+import { $, h, markChildren } from '../dom/h.js';
+import { choiceCard } from '../components/choice.js';
 import { icon, mark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes, full } from '../core/format.js';
@@ -99,10 +100,10 @@ function wizardNode() {
     wizHead('Set up Dozable', ['Once for this Mac (store ', h('code', null, $('store-path').textContent), '). The same as ', h('code', null, 'doz onboard'), ' in a terminal.'],
       [], { list: stepper, compact }),
     h('section', { class: 'wiz-card wiz-body' },
-      h('div', { class: 'w-body w2' }, h('div', { class: 'w2-col ' + size, 'data-size': size },
+      markChildren(h('div', { class: 'w-body w2' }, markChildren(h('div', { class: 'w2-col ' + size, 'data-size': size },
         h('div', { class: 'w2-head' }, h('h2', null, s.title), s.lead ? h('p', null, s.lead) : null),
         ...s.body,
-        w.error ? callout('bad', { compact: true, body: w.error, attrs: { 'data-wiz-error': '' }, dismiss: () => { w.error = null; renderWizard(true); } }) : null)),
+        w.error ? callout('bad', { compact: true, body: w.error, attrs: { 'data-wiz-error': '' }, dismiss: () => { w.error = null; renderWizard(true); } }) : null), 'w-item')), 'w-item'),
       h('div', { class: 'wm-base-slot', 'data-base-slot': '' }, w.step > WIZ.base ? stripNode() : null),
       h('div', { class: 'wiz-buttons w-foot' }, ...s.foot)));
 }
@@ -191,11 +192,11 @@ function stepBase(d, w) {
   const others = (d.bases || []).filter((x) => x.id !== b.id);
   const other = h('details', { class: 'disclosure', 'data-other-bases': '' },
     h('summary', null, icon('chevron-down'), 'Another base — ' + others.map((x) => x.title).join(', ')),
-    h('p', { class: 'muted' }, 'Only when your projects need that language’s toolchain from the start. New sandbox can still use any base later; each extra base is another download.'),
-    h('div', { class: 'wiz-choices' }, ...others.map((x) => {
+    h('p', { class: 'muted d-part' }, 'Only when your projects need that language’s toolchain from the start. New sandbox can still use any base later; each extra base is another download.'),
+    h('div', { class: 'wiz-choices d-part' }, ...others.map((x) => {
       const r = h('input', { type: 'radio', name: 'wiz-base', value: x.id });
       r.addEventListener('change', () => { w.base = x.id; renderWizard(true); });
-      return h('label', { class: 'wiz-choice', 'data-base': x.id }, r, h('span', null, h('strong', null, x.title), h('div', { class: 'muted' }, x.useCase + ' · ↓ ' + bytes(x.downloadBytes))));
+      return choiceCard({ class: 'wiz-choice', 'data-base': x.id }, r, h('span', null, h('strong', null, x.title), h('div', { class: 'muted' }, x.useCase + ' · ↓ ' + bytes(x.downloadBytes))));
     })));
   if (w.base !== ((d.base && d.base.id) || 'node')) other.open = true;
   const chip = (t) => h('span', { class: 'ly-chip' }, t);
@@ -414,7 +415,7 @@ function stepUsage(d, w) {
   const input = h('input', { type: 'checkbox', role: 'switch', name: 'wiz-usage' });
   input.checked = w.usageOn;
   input.disabled = !!u.fixed;
-  const choice = h('label', { class: 'wiz-choice' + (w.usageOn ? ' chosen' : ''), 'data-usage-stats': '' }, input,
+  const choice = choiceCard({ class: 'wiz-choice' + (w.usageOn ? ' chosen' : ''), 'data-usage-stats': '' }, input,
     h('span', null, h('strong', null, 'Send anonymous usage statistics'),
       h('div', { class: 'muted' }, 'Change it any time: Settings › ' + u.key + '.')));
   input.addEventListener('change', () => { w.usageOn = input.checked; choice.classList.toggle('chosen', input.checked); });
@@ -458,7 +459,7 @@ function stepSignup(d, w) {
   const email = h('input', { type: 'email', name: 'wiz-email', autocomplete: 'email', spellcheck: 'false', placeholder: 'name@example.com' });
   const boxes = SIGNUP_INTERESTS.map(([value, label, desc]) => {
     const input = h('input', { type: 'checkbox', value });
-    return { input, el: h('label', { class: 'wiz-choice', 'data-interest': value }, input, h('span', null, h('strong', null, label), h('div', { class: 'muted' }, desc))) };
+    return { input, el: choiceCard({ class: 'wiz-choice', 'data-interest': value }, input, h('span', null, h('strong', null, label), h('div', { class: 'muted' }, desc))) };
   });
   const error = h('div', { class: 'dlg-error', role: 'alert' });
   const send = btn('Sign up', async (ev) => {
@@ -579,7 +580,7 @@ function stepFirst(d, w) {
     const r = h('input', { type: 'radio', name: 'wiz-first-folder', value: mode });
     r.checked = (w.folderMode || 'new') === mode;
     r.addEventListener('change', () => { w.folderMode = mode; if (mode === 'new' || w.folder) planFirst(); renderWizard(true); });
-    return h('label', { class: 'wiz-choice', 'data-first-folder': mode }, r, h('span', null, label, detail ? h('div', { class: 'muted' }, detail) : null));
+    return choiceCard({ class: 'wiz-choice', 'data-first-folder': mode }, r, h('span', null, label, detail ? h('div', { class: 'muted' }, detail) : null));
   };
   const pickRow = w.folderMode === 'pick' ? folderPicker(w) : null;
   const facts = p ? h('dl', { class: 'qt-plan' },
@@ -672,7 +673,7 @@ function whatWritten(d, w) {
   const access = w.access && w.access.choices ? 'GitHub as you: ' + ({ off: 'off', read: 'read-only', push: 'read and push' }[w.access.choices.github] || w.access.choices.github) +
     ' · SSH agent: ' + w.access.choices.ssh + (w.access.skipped && w.access.skipped.size ? ' (not confirmed: ' + [...w.access.skipped].map((id) => ACCESS_TITLES[id]).join(', ') + ')' : '') : null;
   return h('details', { class: 'disclosure', 'data-what-written': '' }, h('summary', null, icon('chevron-down'), 'What setup wrote'),
-    h('ul', { class: 'plain wiz-summary' },
+    h('ul', { class: 'plain wiz-summary d-part' },
       c ? fileLine('Settings', c.settings, c.settingsPath) : null,
       c ? fileLine('Your environment prompt template', c.promptTemplate, c.promptTemplatePath) : null,
       h('li', { 'data-wiz-projects': '' }, 'Workspace folders of new sandboxes: ', h('code', null, tildePath(setting('defaults.projects_dir', '~/doz-workspaces')) + '/<name>')),

@@ -1,6 +1,6 @@
 // views/sessions — All sessions: the grid (593).
 import { $, h } from '../dom/h.js';
-import { icon, PHASE_GLYPH } from '../dom/icons.js';
+import { icon, PHASE_GLYPH, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
 import { SAVED_PHASES, VERBS } from '../core/sandboxes.js';
@@ -208,7 +208,7 @@ function paintTile(tile, w) {
   if (tile.term && tile.term.saved && w.saved) paintCover(tile.term);
   tile.el.dataset.kind = kind;
   tile.el.dataset.phase = s.phase;
-  tile.dot.className = 'ph-dot ph-' + s.phase;
+  tile.dot.className = 'ph-dot ph-' + s.phase + phaseMark(s.phase);
   if (tile.glyph) { const g = sessionGlyph(briefOf(w)); if (g.dataset.mark !== tile.glyph.dataset.mark) { tile.glyph.replaceWith(g); tile.glyph = g; } }
   tile.title.textContent = w.session ? w.sandbox + ' · ' + w.session : w.sandbox;
   tile.title.title = w.command ? w.command : '';

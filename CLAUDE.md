@@ -575,7 +575,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`ui.theme` sets `data-theme`); never a literal colour outside `:root` (the terminal chrome is `--term-*`;
     `frame.css` has its own `--term-bg`). Type `--fs-*` (13 px is THE UI size), space `--sp-*`, radii `--r-*`,
     elevations `--shadow-*`, layers `--z-*`. A comment in a stylesheet never contains `*/` (a path like
-    `changes/603-*/…` closed one and dropped the whole token block).
+    `changes/603-*/…` closed one and dropped the whole token block). 647: surfaces by ROLE — `--shell` (the frame:
+    sidebar, tab strips), `--bg` (the page), `--surface` (content), `--well` (code, commands); `--surface-3` is a track
+    only. A hover is `--state-hover` laid over its surface (`--state-press`, `--state-selected` + the 2 px `--indicator`);
+    separators `--line` (rows, panels), `--sep` (between areas), `--line-strong` (a control's edge). Space by ROLE —
+    `--row-py`, `--th-h`, `--cell-px`, `--nav-*-h`, `--strip-h`, `--tab-py`, `--page-py/px`, `--work-py/px`, `--gap`,
+    `--panel-p`, `--ctl-px`: the setting `ui.density` (comfortable | compact; `core/settings.js` sets
+    `data-density="compact"` on `<html>`) redefines them and the `--ctl-*` heights, never the type.
   - **One button family**: `btn(label, fn, {primary, quiet, danger, small, lg, iconOnly, icon})` — ONE primary per
     view (the verb that moves things forward: Start/Wake/Resume, Next, Create; a running sandbox has none);
     icon-only only where the icon is unambiguous (it gets aria-label + title). Menus: `menuButton(trigger, items)`
@@ -614,7 +620,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
     500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
-    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`).
+    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
+    border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the foot is ONE line (`.foot-status`:
+    two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
+    whose card (`.foot-card`) holds the rows; below 760 px `#topbar` (menu = `navRail`, `#top-keys` from `paintAccountsBadge`,
+    Quick add) replaces the rail and the sidebar is a drawer (inert with the rest under a wizard and a pause).
     A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's
     cols × rows from its holder's list once attached and every 5 s (`checkWatchSize`), the state message carries them,
     and the frame (`{t:'size'}`, watch only) drops its fit, resizes to them and scales to fit — laid out smaller, a
@@ -638,6 +648,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `:where` — both found and kept apart): `probes/607-*/run-cascade.sh` compares every element's computed style
   (the 603 harness's states, light/dark, 1280/900 px, every interactive element forced into :hover, :focus and
   :active) of the sheet before against a candidate — keep it at 0 differences. A new rule goes in its layer's block.
+- **The sheet's rules are checked** (647): `make css-lint` (`Scripts/css-lint.swift`, part of `make test`) refuses `:has()`,
+  a universal right-most key (`*`, `> *`, a lone `::placeholder`), `text-transform: uppercase` but on an access code's
+  input, a literal colour outside `:root`, a selector list defined twice, blank runs and a rule outside its layer, and
+  literal px spacing (padding, margin, gap: a `--sp-*` step or a role token; 1 px is a hairline). A state the page knows is a CLASS the component sets — `.tab-wrap.is-active`/`.is-home`
+  (the strip), `.menu-wrap.is-open` and `.menu.has-pairs` (`components/menus.js`), `.wiz-choice.is-checked`/`.is-disabled`
+  (`choiceCard`, `components/choice.js`), `.head.has-title`, a phase dot's shape `.mark-ring`/`.mark-square`/
+  `.mark-turning` (`phaseMark`, `dom/icons.js`), `.nav-sbx.menu-hover`/`.menu-focus`, `.nav-sess-row.has-peek`; a rule
+  about a container's children keys on their class (`markChildren(el, 'w-item')`, `dom/h.js`) or an inner wrapper
+  (`.bl-page`). `make css-perf` (`Scripts/css-perf.mjs`: a real headless Chrome, a scratch store and profile; standalone)
+  walks a fixed path five times and compares the style recalculation and the selector statistics with
+  `Tests/Fixtures/css-perf-baseline.json`; `make css-perf ARGS=--write-baseline` records a new one.
 - **The UI watches the host** (`WebHostWatch` — pure, unit-tested): before each overview the
   monitor PROBES without starting anything (`hostProbe`: the lock, a stale `host.pid` = killed, records
   left live, the last host's own exit line in `host.log` — `HostExitReason`), because the overview
@@ -2381,6 +2402,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
 make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it)
+make css-lint          # 647: the stylesheet's rules (in make test); make css-perf: its cost in headless Chrome vs the baseline
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz

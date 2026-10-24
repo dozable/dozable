@@ -67,11 +67,13 @@ run, instead of the browser's error page; it comes back by itself, on the view i
 
 ![The Sandboxes page](images/dashboard-sandboxes.png)
 
-The sidebar groups the pages under four headings — **Sandboxes** (All sandboxes, each sandbox, All
-sessions), **Store** (Images, Resources), **Activity** (Operations, Activity, Metrics) and **Setup**
-(Accounts & keys, Settings, Doctor, Onboarding). The page you are on is the raised entry. In a window
-narrower than about 980 px the sidebar is a column of icons (hover one for its name); the button at its
-top shows the whole sidebar over the page.
+The sidebar groups the pages under five headings — **Sandboxes** (All sandboxes, each sandbox, All
+sessions), **Try** (Quick try), **Store** (Images, Resources), **Activity** (Operations, Activity,
+Metrics) and **Setup** (Accounts & keys, Settings, Devices, Doctor, Onboarding). The page, sandbox or
+session you are on is tinted, with a line at its left edge. In a window narrower than about 980 px the
+sidebar is a column of icons (hover one for its name); the button at its top shows the whole sidebar
+over the page. On a phone (narrower than about 760 px) a bar across the top takes its place: the menu
+button opens the sidebar, a key button appears while a key needs you, and **+** is Quick add.
 
 | page | what it's for |
 |---|---|
@@ -150,7 +152,8 @@ terminal has the focus — there every key is the terminal's.
 
 ## The host, watched
 
-The sidebar's footer shows the dashboard's connection and the host's state and version.
+The sidebar's footer is one line: a dot for the dashboard's connection and one for the host, then the
+version, or what is wrong. Point at it (or tap it) for the details.
 
 - **The host stopped** (`doz host stop`, idle, or a clean quit): a banner says your sandboxes were
   hibernated, with **Start host**.
@@ -218,6 +221,7 @@ dashboard can switch this off but never on.
 | `ui.open_browser` | `auto` | When `doz ui` opens a tab: `auto` (only when no page is open), `always`, `never`. |
 | `ui.port` | `0` | The port on 127.0.0.1: `0` = the last one when free, or a fixed port 1024–65535 (for an installed app). |
 | `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the foot of the sidebar sets it. |
+| `ui.density` | `comfortable` | `compact`: tighter rows, tabs, controls and page margins — the text stays the same size. **Settings › This UI** switches it at once. |
 | `ui.nav_thumbnails` | `true` | A session line in the sidebar shows a screen icon on hover; resting on it for half a second shows the session's live picture. |
 | `ui.terminals` | `true` | Terminals in the browser. `false`: none open (Open in Terminal still works). |
 | `ui.terminal_font_size` | `13` | Font size of a browser terminal (9–32). |

@@ -118,6 +118,17 @@ matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintTheme
 paintThemeToggle();
 $('nav-toggle').replaceChildren(icon('panel-right'));
 $('nav-toggle').addEventListener('click', (ev) => { ev.stopPropagation(); navRail(!document.body.classList.contains('nav-open')); });
+// 647: below 760 px a top bar replaces the rail — the menu (the sidebar as a drawer), the brand, a key alert, Quick add.
+$('nav-menu').replaceChildren(icon('list'));
+$('nav-menu').addEventListener('click', (ev) => { ev.stopPropagation(); navRail(!document.body.classList.contains('nav-open')); });
+$('top-keys').replaceChildren(icon('key-round'));
+$('top-quick-add').replaceChildren(icon('plus'));
+$('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
+// 647: the foot's status card — on hover or keyboard focus (CSS), and on a tap (no hover on a phone) until it loses focus.
+$('foot-status').addEventListener('click', () => $('foot-card').classList.toggle('is-open'));
+$('foot-status').addEventListener('blur', () => $('foot-card').classList.remove('is-open'));
+// A click elsewhere closes it too (Safari never focuses a clicked button, so its blur never comes).
+document.addEventListener('click', (ev) => { if (!ev.target.closest('#foot-status')) $('foot-card').classList.remove('is-open'); });
 document.addEventListener('click', (ev) => { if (document.body.classList.contains('nav-open') && !ev.target.closest('.side')) navRail(false); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('nav-open')) navRail(false); });
 // 635 (owner: "the spinning disc … keeps getting interrupted and resetting"): every spinner turns on the page's clock, not
