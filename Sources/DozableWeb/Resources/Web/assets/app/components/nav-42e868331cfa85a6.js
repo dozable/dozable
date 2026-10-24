@@ -9,7 +9,7 @@ import { brokenCount } from './account-problems-c568a10734e5fa81.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status-29b5cd8d540ae467.js';
 import { moreMenu } from './menus-23bc819d6d81d035.js';
 import { canPeek, peekIcon, peekRegion } from './nav-peek-4a456b9466f848e1.js';
-import { renameItem } from './rename-dialog-32808522ec95bb61.js';
+import { renameItem } from './rename-dialog-e4dd8f8a15953bab.js';
 import { sessionMenuItems } from './session-actions-f9498df9105b2619.js';
 import { isAux, pageTerminals } from '../core/terminals-e2028f16ee8fa887.js';
 // Calls up the layers (provided by app.js — core/hooks.js):

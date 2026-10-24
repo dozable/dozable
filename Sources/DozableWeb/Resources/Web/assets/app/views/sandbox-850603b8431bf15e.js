@@ -20,15 +20,15 @@ import { menuButton, moreMenu } from '../components/menus-23bc819d6d81d035.js';
 import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide-473b4d1feb1e2892.js';
 import { failureFor, pageFailure, paintRowOps } from '../components/notices-90920b2aaea4c446.js';
 import { sandboxPill } from '../components/pills-d7769a342034f780.js';
-import { renameItem } from '../components/rename-dialog-32808522ec95bb61.js';
+import { renameItem } from '../components/rename-dialog-e4dd8f8a15953bab.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-db5079cbec33b9cd.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-9884d2c58ac9d314.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-93cc5aaad01eb4f3.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-1a78c2620ca7e75e.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-f2dca168e5e4b7f3.js';
 import { networkPanel } from './sandbox-network-4cc5455d727ccdbc.js';
 import { filesPanel, syncFiles } from './sandbox-files-ae30da1377c67185.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-2b1bd147deaec94c.js';
-import { paintHome } from './sandbox-home-e70a7531a6093919.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-1a4533c0c5b33152.js';
+import { paintHome } from './sandbox-home-971a006f4964bace.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -284,7 +284,7 @@ function sandboxParts(name, d, net, accounts) {
   // ── the bar: title row (name, phase, labelled chips) · toolbar (lifecycle, Shut down, ⋯ | status, details) ──
   const more = moreMenu('More: duplicate, rename, save as template, boot log, reset, remove', [
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this disk', disabled: !!holdWhy, why: holdWhy, onSelect: () => duplicateDialog(name, d, accounts, null) },
-    renameItem(name),                                  // owner, 2026-10-23: the dialog says why it must wait (shut it down first)
+    renameItem(name),                                  // owner, 2026-10-23/24: the dialog shuts it down first when it must
     { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
     { sep: true },

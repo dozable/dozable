@@ -17,7 +17,7 @@ import { btn } from '../components/button-f435595b4098d043.js';
 import { dialog } from '../components/dialog-ee9a9a31b03dc349.js';
 import { sessionsWhyNot } from '../components/lifecycle-8b27035aea7b7d2b.js';
 import { menuButton } from '../components/menus-23bc819d6d81d035.js';
-import { markNavSession } from '../components/nav-04a64db754e686f6.js';
+import { markNavSession } from '../components/nav-42e868331cfa85a6.js';
 import { agentChip } from '../components/agent-status-29b5cd8d540ae467.js';
 import { failureFor, pageFailure } from '../components/notices-90920b2aaea4c446.js';
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-db5079cbec33b9cd.js';

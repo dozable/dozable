@@ -4,14 +4,19 @@ import { actOrThrow, waitOp } from '../core/operations-773ff6e3f3377064.js';
 import { sandboxBusy, sandboxPhase } from '../core/sandboxes-a8ce08093e702ad4.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { sview } from '../core/terminals-e2028f16ee8fa887.js';
+import { callout } from './callout-045a1af4db6ce704.js';
 import { dialog } from './dialog-ee9a9a31b03dc349.js';
 
-/// The host's rule (`rename`): shut down (or failed), nothing under way. Null: it can be renamed now; else why not.
+/// The host's rule (`rename`): shut down (or failed), nothing under way. Null: it can be renamed now (after a shut down
+/// the dialog does itself — `mustShutDown`); else why not.
 export function renameWhyNot(name) {
   const phase = sandboxPhase(name);
   if (sandboxBusy(name) || phase === 'booting') return 'Wait until it settles';
-  return phase === 'off' || phase === 'failed' ? null : 'Shut it down first — renaming keeps its disk, points and folder';
+  return null;
 }
+/// Owner (2026-10-24: "the rename button doesnt activate" — every sandbox was hibernated): one that is not shut down is
+/// shut down by the dialog first, said before the person confirms.
+const mustShutDown = (name) => !['off', 'failed'].includes(sandboxPhase(name));
 /// The ⋯ item (the sidebar's, the page's): always offered — the dialog says why it cannot be done yet.
 export function renameItem(name) {
   return { label: 'Rename…', icon: 'pencil', desc: 'Another name — the same disks, restore points and folder', data: { 'rename-item': name },
@@ -27,11 +32,17 @@ function nameProblem(name, to) {
 }
 export function renameDialog(name) {
   const why = renameWhyNot(name);
+  const shutFirst = mustShutDown(name);
   const dlg = dialog('Rename ' + name, 'The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.',
-    [{ name: 'newName', label: 'New name', value: name, required: true, help: '1–40 characters of a-z, 0-9 and -' }], 'Rename', async (v) => {
+    [{ name: 'newName', label: 'New name', value: name, required: true, help: '1–40 characters of a-z, 0-9 and -' }], shutFirst ? 'Shut down and rename' : 'Rename', async (v) => {
       const to = v.newName;
       const bad = nameProblem(name, to);
       if (bad) throw new Error(bad);
+      if (mustShutDown(name)) {
+        const down = await actOrThrow({ action: 'shutdown', sandbox: name });
+        const downEnd = await waitOp(down.id);
+        if (downEnd && downEnd.state === 'failed') throw new Error(downEnd.text || name + ' did not shut down');
+      }
       const op = await actOrThrow({ action: 'rename', sandbox: name, newName: to });
       const end = await waitOp(op.id);
       if (end && end.state === 'failed') throw new Error(end.text || 'The rename failed');
@@ -40,7 +51,12 @@ export function renameDialog(name) {
   const submit = dlg.querySelector('button[type="submit"]');
   const error = dlg.querySelector('.dlg-error');
   const input = dlg.inputs.newName;
-  dlg.why.textContent = why || '';
+  // Said in the dialog's body, where it is read — not only beside the buttons.
+  const note = why ? callout('info', { compact: true, body: why + ' — ' + name + ' is ' + (sandboxPhase(name) || 'busy') + '.' })
+    : shutFirst ? callout('warn', { compact: true, attrs: { 'data-rename-shutdown': '' },
+      body: name + ' is ' + sandboxPhase(name) + '. Renaming shuts it down first: its running programs end; its disk, restore points and folder stay.' })
+    : null;
+  if (note) dlg.querySelector('.dlg-extra').append(note);
   input.setAttribute('maxlength', '40');
   input.dataset.renameName = name;
   // Said as it is typed (the same name is simply not a change yet: no message, the button waits).

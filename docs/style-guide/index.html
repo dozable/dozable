@@ -468,8 +468,9 @@ name: todo-app</pre></details>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
     </form></dialog>
     <!-- Owner, 2026-10-23: Rename… (components/rename-dialog.js) — from the sidebar's ⋯ on a sandbox's line and the page's ⋯.
-         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error); a sandbox that is not shut
-         down keeps the button disabled and says why in the footer (.why). -->
+         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error). Owner, 2026-10-24: a sandbox
+         that is not shut down is shut down by the dialog first — said in the body (a warn callout) and on the button,
+         "Shut down and rename"; only a busy one waits (an info callout, the button disabled). -->
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Rename demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
@@ -481,8 +482,8 @@ name: todo-app</pre></details>
       <div class="dlg-head"><h2 class="h-title">Rename api-tests</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
         <label class="field"><span>New name</span><input type="text" value="Api Tests"><small>1–40 characters of a-z, 0-9 and -</small></label>
-        <div class="dlg-extra"></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
-      <div class="dlg-foot dlg-buttons"><span class="why">Shut it down first — renaming keeps its disk, points and folder</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Rename</button></div>
+        <div class="dlg-extra"><div class="callout warn compact" role="status"><i data-i="triangle-alert"></i><div class="c-body">api-tests is hibernated. Renaming shuts it down first: its running programs end; its disk, restore points and folder stay.</div></div></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Shut down and rename</button></div>
     </form></dialog>
   </div></div>
 </section>

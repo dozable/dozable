@@ -284,7 +284,7 @@ function sandboxParts(name, d, net, accounts) {
   // ── the bar: title row (name, phase, labelled chips) · toolbar (lifecycle, Shut down, ⋯ | status, details) ──
   const more = moreMenu('More: duplicate, rename, save as template, boot log, reset, remove', [
     { label: 'Duplicate…', icon: 'copy', desc: 'A new sandbox from this disk', disabled: !!holdWhy, why: holdWhy, onSelect: () => duplicateDialog(name, d, accounts, null) },
-    renameItem(name),                                  // owner, 2026-10-23: the dialog says why it must wait (shut it down first)
+    renameItem(name),                                  // owner, 2026-10-23/24: the dialog shuts it down first when it must
     { label: 'Save as template…', icon: 'layout-template', desc: 'Its root disk becomes an image (never its state disk)', disabled: !!holdWhy, why: holdWhy, onSelect: () => templateDialog(name, d, null) },
     { label: 'Boot log', icon: 'history', desc: 'Its last boots: the steps and the kernel console', onSelect: () => bootLogDialog(name) },
     { sep: true },
