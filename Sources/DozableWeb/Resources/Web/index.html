@@ -13,8 +13,8 @@
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
   <meta name="doz-icons" content="/assets/vendor-lucide-icons-d03cdaf308eca36a.svg">
-  <link rel="stylesheet" href="/assets/app-3174995c162248f4.css">
-  <script type="module" src="/assets/app-96e956207228c412.js"></script>
+  <link rel="stylesheet" href="/assets/app-398e798abf33686c.css">
+  <script type="module" src="/assets/app-a87124b871b02138.js"></script>
 </head>
 <body>
   <div class="shell">
@@ -49,13 +49,23 @@
         <a href="#/onboarding" data-view="onboarding" id="nav-onboarding"><span class="lbl">Onboarding</span><span class="trail"><span class="nav-alert nav-todo" id="onb-dot" hidden role="img" aria-label="Setup is not finished" title="Setup is not finished"></span></span></a>
       </nav>
       <div class="side-foot">
-        <div class="live" id="live" title="This page's link to the doz ui server"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span></div>
-        <div class="live" id="host-live" title="The store's host"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span></div>
-        <div class="version" id="version"></div>
-        <div class="foot-acts"><button type="button" class="btn sm quiet sign-out" id="sign-out" hidden>Sign out</button>
+        <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-describedby="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>
+        <div class="foot-card" id="foot-card" role="tooltip">
+          <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span></div>
+          <div class="live" id="host-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span></div>
+          <div class="version" id="version"></div>
+        </div>
+        <div class="foot-acts"><button type="button" class="btn sm quiet icon-only sign-out" id="sign-out" hidden aria-label="Sign out"></button>
           <button type="button" class="btn sm quiet icon-only theme-toggle" id="theme-toggle" aria-label="Dark mode" title="Dark mode"></button></div>
       </div>
     </aside>
+    <header class="topbar" id="topbar">
+      <button type="button" class="btn sm quiet icon-only" id="nav-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
+      <span class="brand-mark" aria-hidden="true">z</span><b class="topbar-name">Dozable</b>
+      <span class="topbar-gap"></span>
+      <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
+      <button type="button" class="btn sm quiet icon-only" id="top-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button>
+    </header>
     <main id="main" tabindex="-1">
       <div class="banners" id="banners" aria-live="polite"></div>
       <div class="page-notices" id="notice" aria-live="polite" hidden></div>

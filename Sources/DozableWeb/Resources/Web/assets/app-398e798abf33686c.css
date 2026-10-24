@@ -1080,11 +1080,13 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
 }
 @layer views {
 
-/* ── 603 step 5: the sidebar — four groups (Sandboxes · Store · Activity · Setup); the current page is a RAISED
-   item with an accent icon (never the ink fill a primary button had); counts and alerts at the right edge;
-   below 980 px an icon rail (labels kept for assistive tech and as tooltips) whose toggle shows it all. ── */
+/* ── 603 step 5: the sidebar — its groups (Sandboxes · Try · Store · Activity · Setup); counts and alerts at the right
+   edge; below 980 px an icon rail (labels kept for assistive tech and as tooltips) whose toggle shows it all.
+   647: the sidebar is the frame — on --shell with no line of its own (the surface step separates it from the page); the
+   current page, sandbox or session is SELECTED (--state-selected + the 2 px indicator, never a raised card); the foot is
+   one line (two status dots and the version, a hover card with the rest); below 760 px a top bar and a drawer. ── */
 .shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: 100vh; }
-.side { background: var(--bg); border-right: var(--bw) solid var(--line); padding: var(--sp-4) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4);
+.side { background: var(--shell); padding: var(--sp-4) var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4);
   position: sticky; top: 0; height: 100vh; overflow-y: auto; min-width: 0; z-index: var(--z-sticky); }
 .brand { display: flex; gap: var(--sp-3); align-items: center; padding: 0 var(--sp-1); }
 .brand-mark { width: 26px; height: 26px; border-radius: var(--r-md); background: var(--ink); color: var(--bg); display: grid; place-items: center;
@@ -1104,7 +1106,6 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
 #nav > a > .icon { color: var(--ink-2); }
 #nav > a .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #nav > a:hover, a.nav-child:hover { background: var(--state-hover); color: var(--ink); }
-#nav > a.active, a.nav-child.active { background: var(--surface); box-shadow: 0 0 0 1px var(--line), var(--shadow-1); font-weight: var(--fw-medium); }
 #nav > a.active > .icon { color: var(--accent); }
 #nav .trail { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 #nav .trail:empty { display: none; }
@@ -1141,7 +1142,9 @@ a.nav-child .nav-count + .ag-dot { margin-left: 0; }
 a.nav-sess { display: flex; align-items: center; gap: var(--sp-2); flex: 1; height: var(--nav-sess-h); padding: 0 calc(var(--sp-7) + var(--sp-1)) 0 var(--sp-3); border-radius: var(--r-sm); color: var(--ink-2);
   text-decoration: none; font-size: var(--fs-sm); position: relative; min-width: 0; }
 a.nav-sess:hover { background: var(--state-hover); color: var(--ink); }
-a.nav-sess.active { color: var(--ink); background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-weight: var(--fw-medium); }
+/* 647: ONE selected treatment for a page, a sandbox and a session — after the hovers, so a selected line stays selected. */
+#nav > a.active, a.nav-child.active, a.nav-sess.active { background: var(--state-selected); box-shadow: inset 2px 0 0 var(--indicator);
+  color: var(--state-selected-ink); font-weight: var(--fw-medium); }
 a.nav-sess > .icon { width: 13px; height: 13px; flex: none; }
 a.nav-sess > .mark, .tile-head > .mark, .ov-th-name > .mark { width: 15px; height: 15px; color: inherit; }
 a.nav-sess .ns-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1171,26 +1174,44 @@ a.nav-sess.saved { font-style: italic; }
 .nav-peek-pop .np-label { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-0) 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .nav-peek-pop .np-label b { color: var(--ink); font-weight: var(--fw-medium); }
 .nav-peek-pop .np-label .icon { width: 13px; height: 13px; }
-.side-foot { margin-top: auto; display: grid; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); padding: 0 var(--sp-1); }
+/* 647: the foot — ONE line: a dot for doz ui and one for the host, then the version (or what is wrong: `paintFootLine`,
+   core/session.js); its hover or focus shows the card with both rows and the version; Sign out and the light / dark
+   switch (635, owner) at its right. */
+.side-foot { margin-top: auto; position: relative; display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
+.foot-status { display: flex; align-items: center; gap: var(--sp-1); flex: 1; min-width: 0; height: var(--ctl-sm); padding: 0 var(--sp-2); border: 0;
+  border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; text-align: left; cursor: default; }
+.foot-status:hover { background: var(--state-hover); }
+.foot-sum { min-width: 0; margin-left: var(--sp-1); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.foot-sum.bad { color: var(--bad); }
+.live.on .dot, .foot-status .dot.on { background: var(--ok); }
+.live.bad .dot, .foot-status .dot.bad { background: var(--bad); }
+.live.warn .dot, .foot-status .dot.warn { background: var(--warn); }
+.live.stale .dot, .foot-status .dot.stale { opacity: 0.45; }
+.foot-card { position: absolute; left: 0; right: 0; bottom: calc(100% + var(--sp-1)); z-index: var(--z-menu); display: none; gap: var(--sp-1);
+  padding: var(--sp-3) var(--sp-3); border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-2); }
+.foot-status:hover + .foot-card, .foot-status:focus-visible + .foot-card, .foot-card.is-open { display: grid; }
 .live { display: grid; grid-template-columns: 8px 44px minmax(0, 1fr); gap: var(--sp-2); align-items: center; }
-.live.on .dot { background: var(--ok); }
-.live.bad .dot { background: var(--bad); }
-.live.warn .dot { background: var(--warn); }
 .live .foot-k { color: var(--ink-2); }
 .live #live-text, .live #host-text { color: var(--ink); min-width: 0; overflow-wrap: anywhere; }
 .live.stale #host-text { color: var(--ink-2); font-style: italic; }
-.live.stale .dot { opacity: 0.45; }
 .version { font-variant-numeric: tabular-nums; }
-.side-foot .sign-out { justify-self: start; margin-left: calc(-1 * var(--sp-3)); }
-/* 635 (owner): Sign out, and the light / dark switch to its right. */
-.side-foot .foot-acts { display: flex; align-items: center; gap: var(--sp-1); }
-@media (max-width: 980px) { body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; } }
+.foot-card .version { margin-top: var(--sp-1); padding-top: var(--sp-2); border-top: var(--bw) solid var(--line); }
+.foot-card .version:empty { display: none; }
+.side-foot .foot-acts { display: flex; align-items: center; gap: var(--sp-0); flex: none; }
+/* 647: the phone's top bar — shown below 760 px (below). */
+.topbar { display: none; align-items: center; gap: var(--sp-2); height: 44px; padding: 0 var(--sp-3); background: var(--shell);
+  position: sticky; top: 0; z-index: var(--z-sticky); }
+.topbar .brand-mark { width: 22px; height: 22px; font-size: var(--fs-sm); }
+.topbar-name { font-weight: var(--fw-strong); }
+.topbar-gap { flex: 1; }
+.topbar-keys { color: var(--bad); }
+.topbar-keys[hidden] { display: none; }
 @media (max-width: 980px) {
   .shell { grid-template-columns: 52px minmax(0, 1fr); }
   .shell > main { grid-column: 2; }
   .side { padding: var(--sp-4) var(--sp-3); align-items: stretch; overflow-x: hidden; }
   .brand { flex-direction: column; padding: 0; gap: var(--sp-2); }
-  .brand > div, .nav-group .ng-label, .nav-group .nav-quick, .nav-sbx-more, #nav .trail, .nav-children, .version { display: none; }
+  .brand > div, .nav-group .ng-label, .nav-group .nav-quick, .nav-sbx-more, #nav .trail, .nav-children { display: none; }
   .nav-toggle { display: inline-flex; }
   .nav-group { padding: 0; min-height: 0; border-top: var(--bw) solid var(--line); margin: var(--sp-2) 0; }
   .nav-group:first-child { display: none; }
@@ -1199,13 +1220,14 @@ a.nav-sess.saved { font-style: italic; }
   #nav-operations .trail, #nav-onboarding .trail, #nav-accounts .trail { display: flex; position: absolute; top: 3px; right: 3px; }
   #nav-operations .trail .nav-badge { display: none; }
   #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; padding: 0 var(--sp-0); }
-  .side-foot { padding: 0; justify-items: center; }
-  .live { grid-template-columns: 8px; justify-content: center; }
-  .live .foot-k, .live #live-text, .live #host-text { display: none; }
-  .side-foot .sign-out { margin: 0; width: var(--ctl-sm); padding: 0; }
-  .side-foot .sign-out .btn-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  /* The rail's foot: the two dots over the switches; the card opens beside the rail. */
+  body:not(.nav-open) .side-foot { flex-direction: column; }
+  body:not(.nav-open) .foot-status { flex: none; justify-content: center; padding: 0; width: var(--ctl-sm); }
+  body:not(.nav-open) .foot-sum { display: none; }
+  body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; }
+  body:not(.nav-open) .foot-card { position: fixed; left: calc(52px + var(--sp-1)); right: auto; bottom: var(--sp-3); width: 240px; }
   /* The toggle: the whole sidebar over the page, until a link, Escape or a click outside closes it. */
-  body.nav-open .side { position: fixed; left: 0; top: 0; width: 232px; z-index: var(--z-menu); background: var(--surface); box-shadow: var(--shadow-3); padding: var(--sp-4) var(--sp-3); }
+  body.nav-open .side { position: fixed; left: 0; top: 0; width: 232px; z-index: var(--z-menu); background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-4) var(--sp-3) var(--sp-3); }
   body.nav-open .brand { flex-direction: row; padding: 0 var(--sp-1); }
   body.nav-open .brand > div, body.nav-open .nav-group .ng-label, body.nav-open .nav-group .nav-quick, body.nav-open .nav-sbx-more, body.nav-open #nav .trail, body.nav-open .nav-children { display: flex; }
   body.nav-open .brand > div { display: block; }
@@ -1215,11 +1237,17 @@ a.nav-sess.saved { font-style: italic; }
   body.nav-open #nav > a .lbl { position: static; width: auto; height: auto; clip: auto; }
   body.nav-open #nav-operations .trail, body.nav-open #nav-onboarding .trail, body.nav-open #nav-accounts .trail { position: static; }
   body.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: inline-flex; }
-  body.nav-open .side-foot { justify-items: stretch; padding: 0 var(--sp-1); }
-  body.nav-open .live { grid-template-columns: 8px 44px minmax(0, 1fr); justify-content: stretch; }
-  body.nav-open .live .foot-k, body.nav-open .live #live-text, body.nav-open .live #host-text { display: inline; }
-  body.nav-open .side-foot .sign-out { width: auto; padding: 0 var(--sp-3); margin-left: calc(-1 * var(--sp-3)); }
-  body.nav-open .side-foot .sign-out .btn-label { position: static; width: auto; height: auto; clip: auto; }
+}
+/* 647 (owner, D2): below 760 px a 44 px top bar replaces the rail — the menu, the brand, a key that needs you, Quick add;
+   the menu opens the whole sidebar as a drawer over a scrim. */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .shell > main { grid-column: 1; grid-row: 2; }
+  .topbar { display: flex; grid-row: 1; }
+  body:not(.nav-open) .side { display: none; }
+  body.nav-open .side { width: min(280px, calc(100vw - 48px)); z-index: var(--z-modal); }
+  body.nav-open .nav-toggle { display: none; }
+  body.nav-open::before { content: ""; position: fixed; inset: 0; background: var(--scrim); z-index: var(--z-menu); }
 }
 
 /* ── 603 step 6: a sandbox's page — a title row (name, phase, labelled chips), ONE toolbar (the lifecycle group,

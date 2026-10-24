@@ -1,13 +1,14 @@
 // components/host — The host (594 W18): the sidebar's foot, Start/Restart host, the host's transitions told once.
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
-import { liveRefresh } from '../core/events-41ddbf01c5b291c1.js';
+import { liveRefresh } from '../core/events-5f7d44da81a05c54.js';
+import { paintFootLine } from '../core/session-81e998f6bbb5650a.js';
 import { plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow } from '../core/operations-773ff6e3f3377064.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { card } from './blocks-6b2d43608253a84f.js';
 import { btn } from './button-f435595b4098d043.js';
 import { dialog } from './dialog-ee9a9a31b03dc349.js';
-import { refreshNav } from './nav-42e868331cfa85a6.js';
+import { refreshNav } from './nav-8ff005d496c3ab03.js';
 import { banner, dropBanner } from './notices-90920b2aaea4c446.js';
 
 function sandboxLinks(names) {
@@ -30,6 +31,7 @@ export function renderHostFoot() {
   el.className = 'live' + (kind ? ' ' + kind : '');
   el.dataset.host = host ? (host.running ? 'running' : (state.hostChange && state.hostChange.state === 'died' ? 'died' : 'stopped')) : '';
   $('host-text').textContent = text;
+  paintFootLine();
   // One note, once per pair of builds: this UI and the host it talks to differ. 594 W20: the server
   // compares them and advises the OLDER side (a host older than this UI: stop it — Restart host).
   const note = host && host.running && host.versionNote;

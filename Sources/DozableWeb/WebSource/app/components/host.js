@@ -1,6 +1,7 @@
 // components/host — The host (594 W18): the sidebar's foot, Start/Restart host, the host's transitions told once.
 import { $, h } from '../dom/h.js';
 import { liveRefresh } from '../core/events.js';
+import { paintFootLine } from '../core/session.js';
 import { plural, when } from '../core/format.js';
 import { act, actOrThrow } from '../core/operations.js';
 import { state } from '../core/state.js';
@@ -30,6 +31,7 @@ export function renderHostFoot() {
   el.className = 'live' + (kind ? ' ' + kind : '');
   el.dataset.host = host ? (host.running ? 'running' : (state.hostChange && state.hostChange.state === 'died' ? 'died' : 'stopped')) : '';
   $('host-text').textContent = text;
+  paintFootLine();
   // One note, once per pair of builds: this UI and the host it talks to differ. 594 W20: the server
   // compares them and advises the OLDER side (a host older than this UI: stop it — Restart host).
   const note = host && host.running && host.versionNote;

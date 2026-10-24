@@ -45,6 +45,9 @@ export function paintAccountsBadge() {
   el.textContent = n ? String(n) : '';
   el.title = n ? (n === 1 ? 'A key or sign-in a sandbox relies on does not work' : n + ' keys or sign-ins that sandboxes rely on do not work') : '';
   el.setAttribute('aria-label', el.title);
+  // 647: the phone's top bar says it too — a key button, only while something needs you.
+  const top = $('top-keys');
+  if (top) { top.hidden = !n; top.title = el.title; top.setAttribute('aria-label', 'Accounts & keys: ' + el.title); }
 }
 export function renderNavSandboxes() {
   // 594 (owner: "add a link to Onboarding in the left nav"): a dot until this store is onboarded.
@@ -195,11 +198,15 @@ export function paintNav() {
   renderNavSandboxes();
   navRail(false);
 }
-/// 603: below 980 px the sidebar is an icon rail; its toggle shows the whole sidebar over the page.
+/// 603: below 980 px the sidebar is an icon rail; its toggle shows the whole sidebar over the page. 647: below 760 px the
+/// top bar's menu button shows it as a drawer.
 export function navRail(open) {
   document.body.classList.toggle('nav-open', !!open);
-  $('nav-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
-  $('nav-toggle').setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
+  for (const b of [$('nav-toggle'), $('nav-menu')]) {
+    if (!b) continue;
+    b.setAttribute('aria-expanded', open ? 'true' : 'false');
+    b.setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
+  }
 }
 export function paintResTotal(r) {
   const el = $('res-total');

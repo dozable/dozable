@@ -620,7 +620,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
     500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
-    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`).
+    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
+    border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the foot is ONE line (`.foot-status`:
+    two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
+    whose card (`.foot-card`) holds the rows; below 760 px `#topbar` (menu = `navRail`, `#top-keys` from `paintAccountsBadge`,
+    Quick add) replaces the rail and the sidebar is a drawer (inert with the rest under a wizard and a pause).
     A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's
     cols × rows from its holder's list once attached and every 5 s (`checkWatchSize`), the state message carries them,
     and the frame (`{t:'size'}`, watch only) drops its fit, resizes to them and scales to fit — laid out smaller, a

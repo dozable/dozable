@@ -17,7 +17,7 @@ const viewNew = upcall('viewNew'), viewOnboarding = upcall('viewOnboarding'), vi
 // is open, focus moves in and is kept there (Tab wraps), and returns to what opened it. ✕ or Escape (not inside a
 // field or a list) closes it — after asking, when the person has made choices; the browser's Back closes it and
 // KEEPS the choices (Forward, or the wizard's entry, resumes them).
-const MODAL_INERT = ['side', 'banners', 'notice', 'view', 'sbx', 'grid'];
+const MODAL_INERT = ['side', 'topbar', 'banners', 'notice', 'view', 'sbx', 'grid'];
 export function modalInert(on) {
   if (!on && state.uiOverlay) return;                  // the "doz ui stopped" overlay keeps everything inert
   for (const id of MODAL_INERT) { const el = id === 'side' ? document.querySelector('.side') : $(id); if (el) el.inert = on; }

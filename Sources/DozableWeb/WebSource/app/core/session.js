@@ -60,6 +60,7 @@ export function adopt(info) {
   sp.textContent = mac ? 'on ' + mac + ' · ' + tildePath(info.store) : tildePath(info.store);
   sp.title = tildePath(info.store);
   $('version').textContent = 'doz ' + info.version;
+  paintFootLine();
   document.title = (mac ? 'Dozable on ' + mac : 'Dozable') + ' — ' + info.store.split('/').pop();
   const k = document.querySelector('#live .foot-k');
   if (k) k.textContent = 'doz ui';                  // 645: one dashboard command, whoever asks
@@ -265,9 +266,24 @@ export function setLive(kind, text) {
   const el = $('live');
   el.className = 'live' + (kind ? ' ' + kind : '');
   $('live-text').textContent = text;
+  paintFootLine();
+}
+/// 647: the sidebar's foot is ONE line — a dot for doz ui and one for the host, then the version, or what is wrong; the
+/// rows (`#live`, `#host-live`, `#version`) are its hover card. Read from the rows, which the page paints as before.
+export function paintFootLine() {
+  const ui = $('live'), host = $('host-live'), sum = $('foot-sum');
+  if (!ui || !host || !sum) return;
+  const kinds = (el) => el.className.replace(/^live\s*/, '');
+  $('live-dot').className = 'dot' + (kinds(ui) ? ' ' + kinds(ui) : '');
+  $('host-dot').className = 'dot' + (kinds(host) ? ' ' + kinds(host) : '');
+  const hostDown = /\b(warn|bad)\b/.test(host.className);
+  sum.textContent = !ui.classList.contains('on') ? 'doz ui ' + $('live-text').textContent
+    : hostDown ? 'host ' + $('host-text').textContent
+    : $('version').textContent || 'doz ui live';
+  sum.classList.toggle('bad', ui.classList.contains('bad') || /\bbad\b/.test(host.className));
 }
 /// Everything but the banner strip: the sidebar and main's other children (an inert ancestor would
 /// take the banners with it).
 export function pausedParts() {
-  return [document.querySelector('.side'), ...[...$('main').children].filter((e) => e.id !== 'banners')];
+  return [document.querySelector('.side'), $('topbar'), ...[...$('main').children].filter((e) => e.id !== 'banners')];
 }

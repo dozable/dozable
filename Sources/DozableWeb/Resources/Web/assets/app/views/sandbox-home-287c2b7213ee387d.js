@@ -7,7 +7,7 @@ import { when } from '../core/format-b2e68384da8d2f36.js';
 import { transitionOf, TRANSITION_LABEL } from '../core/operations-773ff6e3f3377064.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { opRunningFor, SAVED_PHASES } from '../core/sandboxes-a8ce08093e702ad4.js';
-import { isRemote } from '../core/session-ca95e16e804ada35.js';
+import { isRemote } from '../core/session-81e998f6bbb5650a.js';
 import { saveSetting, setting } from '../core/settings-f00434ef195e82b4.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { homePane, pageTerminals, sview } from '../core/terminals-e2028f16ee8fa887.js';
@@ -20,9 +20,9 @@ import { failureFor } from '../components/notices-90920b2aaea4c446.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-f9498df9105b2619.js';
 import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-0d5a39a79157577e.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-db5079cbec33b9cd.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-93cc5aaad01eb4f3.js';
-import { openSavedTerminal } from './sandbox-layout-f2dca168e5e4b7f3.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-1a4533c0c5b33152.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-981c469316268b9e.js';
+import { openSavedTerminal } from './sandbox-layout-774bf5ca778dfbe7.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-49b920c76e60bb2e.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.
