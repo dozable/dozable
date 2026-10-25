@@ -1,4 +1,5 @@
-// components/grid-feed — 648: the ONE poller of the page's session pictures. Every 500 ms, while the browser tab is
+// components/grid-feed — 648: the ONE poller of the page's session pictures. Every ui.grid_refresh_ms (500 ms by
+// default), while the browser tab is
 // visible and a subscribed picture is on screen, it asks `POST /api/v1/grids` for those pictures' screens — each with the
 // `gen` it last painted, so the host answers `unchanged` for a screen that did not move — at most 64 a request (more go
 // in the next request of the same pass). It never wakes or starts anything: a session the host cannot read is
@@ -9,9 +10,15 @@
 // (the session-screen route — its grid when the host kept one, else its VT read into a grid), fetched once per capture.
 import { api } from '../core/api-0560a03cb0de25ef.js';
 import { textToGrid, validGrid } from '../core/grid-4b92452852ac3a96.js';
+import { setting } from '../core/settings-0b4a6cca79ee581c.js';
 import { vtToGrid } from '../core/vt-grid-95166c7ca01e9679.js';
 
-const POLL_MS = 500, MAX_BACKOFF_MS = 8000, ROUTE_RETRY_MS = 60000, BATCH = 64;
+const MAX_BACKOFF_MS = 8000, ROUTE_RETRY_MS = 60000, BATCH = 64;
+/// How often the pictures are brought up to date: the setting ui.grid_refresh_ms, read at each pass (it applies at once).
+export function refreshMs() {
+  const v = Number(setting('ui.grid_refresh_ms', 500));
+  return Number.isFinite(v) ? Math.min(10000, Math.max(200, v)) : 500;
+}
 const STATES = new Set(['grid', 'unchanged', 'unavailable']);
 
 // ── on screen ────────────────────────────────────────────────────────────────
@@ -82,8 +89,9 @@ async function tick() {
       for (const s of subs) tell(s, 'unavailable', 'this dashboard’s server sends no screens');
     }
   } finally { feed.busy = false; }
-  feed.backoff = ok ? 0 : Math.min(MAX_BACKOFF_MS, Math.max(POLL_MS, feed.backoff * 2 || 1000));
-  schedule(ok ? POLL_MS : feed.backoff);
+  const period = refreshMs();
+  feed.backoff = ok ? 0 : Math.min(MAX_BACKOFF_MS, Math.max(period, feed.backoff * 2 || 1000));
+  schedule(ok ? period : feed.backoff);
 }
 function schedule(ms) { if (!feed.timer) feed.timer = setTimeout(tick, Math.max(0, ms)); }
 /// The answer, item by item, matched to what was asked — a malformed one is that picture's `unavailable`, never drawn.

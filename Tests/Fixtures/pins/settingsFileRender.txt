@@ -123,6 +123,13 @@
 # (small | medium | large; applies at once (the UI re-reads it))
 # grid_tile_size = "medium"
 
+# How often the session pictures (All sessions, All sandboxes, a sandbox's Home) are brought up to
+# date, in milliseconds. Only pictures on screen are asked for, only while the browser tab is
+# shown, and a screen that did not change costs almost nothing. Lower looks livelier and costs
+# more.
+# (integer 200–10000; applies at once (the UI re-reads it))
+# grid_refresh_ms = 500
+
 # How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a
 # terminal: animated (a spinner on the step under way, download bars, the output's last lines) or
 # plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR:

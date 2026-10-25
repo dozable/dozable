@@ -614,7 +614,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     there, never on Console); the agent's session as a card (Open, End…, ⋯), the others as rows, an ended one quietly
     with Restart, Logs, Folder. Its parts that hold a picture are built ONCE and painted in place; an open menu inside it
     holds the repaint. Pictures (648: PAINTED — see "Painted pictures" below): EVERY session's is live — one with a tab
-    on the page is mirrored from that tab's own frame (the frame's `grid` message, polled at 500 ms while the picture is
+    on the page is mirrored from that tab's own frame (the frame's `grid` message, polled every `ui.grid_refresh_ms` while the picture is
     on screen: a hidden Home is not), one without from the host's feed; asleep, the saved screen; no cap. Closing the agent's tab (`sview.justClosed`) marks its card with the note until `ui.explain_tab_close` is false.
     Console has a close box: `sview.consoleClosed` keeps it closed until the next START (an off/failed → powered edge
     in `syncConsoleTab`; a wake is not one). `#/sandbox/NAME/~home` selects Home (the router admits `~home`).
@@ -871,7 +871,7 @@ its subcommands still parse) — remove it in a later release, saying so.
   underline, the cursor as an outlined block, bars below 5 device px; `picture(canvas)` paints again only when source +
   `gen` change or the box resizes — one ResizeObserver). Never an iframe, WASM or socket for a picture; text only on a
   canvas, never markup. Sources (`components/session-thumb.js` `pictureSource`): a running session's from the ONE feed
-  (`components/grid-feed.js`: every 500 ms while the browser tab is visible, `POST /api/v1/grids` for the pictures ON
+  (`components/grid-feed.js`: every `ui.grid_refresh_ms` (500 ms; `refreshMs()`, read at each pass) while the browser tab is visible, `POST /api/v1/grids` for the pictures ON
   SCREEN — one IntersectionObserver — each with the gen it last painted, ≤ 64 an item list, errors back off to 8 s; a
   404/405 (a server without the route) is `unavailable` for a minute); `unavailable` (an older holder, no watcher) →
   the session's last saved screen, marked "last screen", else a plate; a sleeping sandbox's from the session-screen

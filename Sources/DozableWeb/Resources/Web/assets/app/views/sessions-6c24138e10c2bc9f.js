@@ -8,11 +8,11 @@ import { saveSetting, setting } from '../core/settings-0b4a6cca79ee581c.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { btn } from '../components/button-f435595b4098d043.js';
 import { lifecycle } from '../components/lifecycle-9fa26d46167a3033.js';
-import { renderNavSandboxes, sessionGlyph } from '../components/nav-0c81675ef71d9cf8.js';
-import { hidePeek, hoverPeek } from '../components/nav-peek-6395e1b3fb17faad.js';
+import { renderNavSandboxes, sessionGlyph } from '../components/nav-8b7d74adb490fa37.js';
+import { hidePeek, hoverPeek } from '../components/nav-peek-e1448ab501517ae6.js';
 import { agentChip } from '../components/agent-status-427018a8ec783336.js';
 import { pageFailure } from '../components/notices-b9b2a3550693d815.js';
-import { pictureSource } from '../components/session-thumb-0cdbe86a2e670d9c.js';
+import { pictureSource } from '../components/session-thumb-21059b09e0543fad.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox, and the saved screens of every sleeping one. 648: each tile is PAINTED

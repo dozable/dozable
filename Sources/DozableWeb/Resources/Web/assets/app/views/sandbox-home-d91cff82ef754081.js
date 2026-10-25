@@ -18,11 +18,11 @@ import { lifecycle, sessionsWhyNot } from '../components/lifecycle-9fa26d46167a3
 import { moreMenu } from '../components/menus-23bc819d6d81d035.js';
 import { failureFor } from '../components/notices-b9b2a3550693d815.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-cff18777b25e6b57.js';
-import { thumbFrame } from '../components/session-thumb-0cdbe86a2e670d9c.js';
+import { thumbFrame } from '../components/session-thumb-21059b09e0543fad.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-1539c4919cc0399c.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-7592631e73566cb8.js';
-import { openSavedTerminal } from './sandbox-layout-b2e5401ce20f77f6.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-30f1ec358f5172e8.js';
+import { openSavedTerminal } from './sandbox-layout-3ceb018e1ebec6b6.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-627a3962d97ea687.js';
 
 /// Each sandbox's Home: its document and the parts that hold a picture (built once and painted in place), keyed by
 /// session.

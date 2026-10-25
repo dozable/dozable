@@ -17,7 +17,7 @@ import { callout } from '../components/callout-045a1af4db6ce704.js';
 import { createDialog } from '../components/create-dialog-b96cd06216d208ce.js';
 import { dialog } from '../components/dialog-ee9a9a31b03dc349.js';
 import { imagePicker } from '../components/image-picker-7c0d878c6f87eb0e.js';
-import { renderModal, wizHead, wizMount } from '../components/modal-dfa222696db9e74d.js';
+import { renderModal, wizHead, wizMount } from '../components/modal-b94e969540b6b3cf.js';
 import { pageFailure, toast } from '../components/notices-b9b2a3550693d815.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-e49cffa2c0d6b8da.js';
 import { rulesStep } from '../components/rules-step-f6e11413ec922aa2.js';

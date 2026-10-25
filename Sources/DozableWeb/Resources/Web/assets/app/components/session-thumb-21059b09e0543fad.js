@@ -5,7 +5,7 @@
 // terminal still: `thumbTerm`, laid out at its session's geometry and scaled.
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { when } from '../core/format-b2e68384da8d2f36.js';
-import { feedSubscribe, isVisible, savedPicture, watchVisible } from './grid-feed-769790d62f20eaae.js';
+import { feedSubscribe, isVisible, refreshMs, savedPicture, watchVisible } from './grid-feed-1845116086f22c8c.js';
 import { picture } from './screen-paint-6e36213aa05daa71.js';
 import { bootTerm, closeTerminal, newTerm, paintCover, requestGrid } from './terminal-1539c4919cc0399c.js';
 
@@ -91,13 +91,19 @@ export function pictureSource(canvas, onState) {
   return s;
 }
 
-// Home's pictures of sessions with a tab: ONE timer for all of them, every 500 ms while any is on screen and the browser
-// tab is visible; each asks its tab's frame for the screen unless it is still the gen it painted.
+// Home's pictures of sessions with a tab: ONE timer for all of them, every ui.grid_refresh_ms (the feed's period) while
+// any is on screen and the browser tab is visible; each asks its tab's frame for the screen unless it is still the gen it
+// painted. The timer re-arms itself, so a changed setting applies at the next pass.
 const tabPolls = new Set();
 let tabTimer = null;
-function startTabPolls() { if (!tabTimer) tabTimer = setInterval(pollTabs, 500); }
+function startTabPolls() { if (!tabTimer) tabTimer = setTimeout(tabPass, refreshMs()); }
+function tabPass() {
+  tabTimer = null;
+  pollTabs();
+  if (tabPolls.size) startTabPolls();
+}
 function pollTabs() {
-  if (!tabPolls.size) { clearInterval(tabTimer); tabTimer = null; return; }
+  if (!tabPolls.size) return;
   if (document.visibilityState !== 'visible') return;
   for (const s of [...tabPolls]) {
     const tab = s.spec && s.spec.tab;

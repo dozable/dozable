@@ -8,7 +8,7 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { brokenCount } from './account-problems-c568a10734e5fa81.js';
 import { agentChip, agentDot, paintAgentStatuses } from './agent-status-427018a8ec783336.js';
 import { moreMenu } from './menus-23bc819d6d81d035.js';
-import { canPeek, peekIcon, peekRegion } from './nav-peek-6395e1b3fb17faad.js';
+import { canPeek, peekIcon, peekRegion } from './nav-peek-e1448ab501517ae6.js';
 import { renameItem } from './rename-dialog-e4dd8f8a15953bab.js';
 import { sessionMenuItems } from './session-actions-cff18777b25e6b57.js';
 import { isAux, pageTerminals } from '../core/terminals-e2028f16ee8fa887.js';

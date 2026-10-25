@@ -423,6 +423,7 @@ Limits:
 | `ui.terminal_font_size` | `13` | Browser terminal font size. |
 | `ui.split_default` | `shell` | What **Split** opens. |
 | `ui.grid_tile_size` | `medium` | The size of All sessions' tiles (every tile is live; `ui.grid_live_tiles` is no longer used). |
+| `ui.grid_refresh_ms` | `500` | How often the pictures are brought up to date, in milliseconds (200–10000; lower is livelier and costs more). |
 | `host.screen_capture_minutes` | `5` | How often running sessions' screens are saved. |
 
 ## Troubleshooting

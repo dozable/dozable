@@ -280,6 +280,7 @@ dashboard can switch this off but never on.
 | `ui.confirm_shutdown` | `true` | **Shut down** asks first. |
 | `ui.grid_live_tiles` | `12` | No longer used — every picture is live; kept so an older settings file still reads. |
 | `ui.grid_tile_size` | `medium` | All sessions: `small`, `medium`, `large`. |
+| `ui.grid_refresh_ms` | `500` | How often the pictures are brought up to date, in milliseconds (200–10000). |
 | `ui.progress` | `animated` | How starts and preparations show their progress: `animated` or `plain`. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token (see above). |
 
