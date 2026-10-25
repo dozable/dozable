@@ -99,6 +99,9 @@ public protocol DozableWebData: Sendable {
     func openFile(_ name: String, _ o: WebFileOpen) async throws -> String
     /// 646: the editors `openFile`'s `app` takes on this Mac (the host's read-only `editors`; in-process when no host runs).
     func editors() async throws -> [WebEditor]
+    /// 648: the running sessions' pictures as cells (the host's `session-grids`) — NEVER starting a host: with none,
+    /// every item is unavailable.
+    func grids(_ items: [SessionGridRequest]) async -> WebGrids
 }
 
 extension DozableWebData {
@@ -111,6 +114,7 @@ extension DozableWebData {
     public func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree { throw HostError(.notImplemented, "files") }
     public func openFile(_ name: String, _ o: WebFileOpen) async throws -> String { throw HostError(.notImplemented, "files") }
     public func editors() async throws -> [WebEditor] { throw HostError(.notImplemented, "editors") }
+    public func grids(_ items: [SessionGridRequest]) async -> WebGrids { .unavailable(items, WebGrids.sentence(.noHost)) }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -270,6 +274,23 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let m = try await blocking { try HostClient.request(HostRequest(.tools, name: name), store: store, autostart: false) }
         guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
         return try (m.result ?? .null).decode(ToolsLayerReport.self)
+    }
+
+    /// 648: through a RUNNING host only (`autostart: false`; with none, or a stopping one, every item is unavailable —
+    /// the page asks twice a second and must never start a host or bring a stopped one back). No in-process answer
+    /// either: there would be no watcher to ask, and loading the store twice a second would cost for nothing.
+    public func grids(_ items: [SessionGridRequest]) async -> WebGrids {
+        let store = self.store
+        guard !items.isEmpty else { return WebGrids([]) }
+        guard store.hostIsRunning() else { return .unavailable(items, WebGrids.sentence(.noHost)) }
+        var r = HostRequest(.sessionGrids)
+        r.grids = items
+        let request = r
+        guard let m = try? await blocking({ try HostClient.request(request, store: store, autostart: false) }), m.ok == true,
+              let answers = try? (m.result ?? .null).decode([SessionGridAnswer].self), answers.count == items.count else {
+            return .unavailable(items, WebGrids.hostNotAsked)
+        }
+        return WebGrids(answers)
     }
 
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport {

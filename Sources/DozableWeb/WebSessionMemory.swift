@@ -26,8 +26,11 @@ public struct WebSavedScreen: Codable, Equatable, Sendable {
     public var truncated: Bool
     /// The SNAPSHOT (VT bytes), base64 — at most `SavedScreens.maximumVTBytes` before encoding.
     public var vt: String
+    /// 648: the screen as cells (the contract of `POST /api/v1/grids`), when the capture had one — a tile paints it.
+    public var grid: WebGrid?
 
     public init(_ s: SessionScreen) {
+        grid = s.grid.flatMap(WebGrid.init)
         session = s.session
         savedAt = s.savedAt
         reason = s.reason

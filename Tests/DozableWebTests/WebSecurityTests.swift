@@ -416,6 +416,11 @@ final class WebSecurityTests: XCTestCase {
                                  truncated: false, unlisted: 1)),
             WebFileBatch(FileChangeBatch(sandbox: "a", folders: ["/workspace"], resync: false, time: now)),
             WebFilesReady(sandbox: "a", folders: ["/workspace"]),
+            // 648: the tiles' pictures (a screen as cells — the guest's text, inert)
+            WebGrids([SessionGridAnswer(sandbox: "a", session: "s", state: .grid, gen: 1,
+                                        grid: ScreenGrid(cols: 2, rows: 1, gen: 1, fg: "#ffffff", bg: "#000000", cursor: nil,
+                                                         lines: [[.init(col: 0, text: "x", cells: 1)]])),
+                      SessionGridAnswer.unavailable(SessionGridRequest(sandbox: "a", session: "t"), .noWatcher)]),
         ]
         let forbidden = ["secret", "token", "password", "apikey", "api_key", "bearer", "authorization", "cookie", "csrf", "credentialvalue"]
         for v in values {

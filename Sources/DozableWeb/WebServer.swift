@@ -910,6 +910,10 @@ public final class DozableWebServer: @unchecked Sendable {
         case .editors:
             // 646: read-only (LaunchServices asked, nothing launched); mac-screen like files/open, which it serves.
             return json(try await data.editors())
+        case .grids:
+            // 648: CSRF-checked (an unsafe method, above), a strict body; the host's session-grids, never starting one.
+            try Self.requireJSONBody(md)
+            return json(await data.grids(try WebGridsRequest.decode(body)))
         case .onboarding:
             var o = try await data.onboarding()
             let f = settings.onboardingFiles()
