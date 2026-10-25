@@ -665,10 +665,11 @@ name: todo-app</pre></details>
     edge (<code>#nav a[data-view].active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code>
     (here on Settings). Sandboxes: <strong>All sessions</strong>, then <strong>All sandboxes</strong> heading the tree (<code>.nav-all</code>): a click on it while its page is
     shown, or its caret (<code>.nav-tree-caret</code>), folds the tree (<code>#nav.tree-folded</code>); its ⋯ (Expand all, Collapse all — <code>.nav-sbx-more</code>) shows on
-    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>foot</strong> is one line (<code>.foot-status</code>): a dot for
-    doz ui and one for the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>). Its hover or focus shows the card
-    (<code>.foot-card</code>, shown pinned here — a click pins it), which is <strong>interactive</strong>: the host’s row has Restart (Start while none runs), a line says when the
-    host and the dashboard are different builds (<code>#foot-mismatch</code>), and the updates row has Check. Sign out and the light / dark switch are at its right.
+    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>status bar</strong> (<code>footer.statusbar</code>, 647 — owner: “add a status bar at the bottom - full width; move the version / status dots and popup there”)
+    runs along the foot of the window under the sidebar and the page (<code>--status-h</code>; the body keeps that height free). At its left one line (<code>.foot-status</code>): a dot for
+    doz ui and one for the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>). Its hover or focus shows the card above it
+    (<code>.foot-card</code>, shown pinned below — a click pins it), which is <strong>interactive</strong>: the host’s row has Restart (Start while none runs), a line says when the
+    host and the dashboard are different builds (<code>#foot-mismatch</code>), and the updates row has Check. Sign out and the light / dark switch are at its right end.
     Accounts &amp; keys carries a count of the keys and sign-ins that break a sandbox’s next session (<code>components/account-problems.js</code>).</p>
   <div class="pair"><div class="scheme">
     <aside class="side" style="position:static;height:auto;width:220px;padding-bottom:var(--sp-3)">
@@ -690,19 +691,22 @@ name: todo-app</pre></details>
         <a href="#" data-view="doctor" class="active"><i data-i="stethoscope"></i><span class="lbl">Doctor</span></a>
         <a href="#" data-view="debug"><i data-i="bug"></i><span class="lbl">Debug</span></a>
       </nav>
-      <div class="side-foot" style="margin-top:300px">
-        <button type="button" class="foot-status" aria-label="Status" aria-expanded="true"><span class="dot on" aria-hidden="true"></span><span class="dot on" aria-hidden="true"></span><span class="foot-sum warn">host is another build</span></button>
-        <div class="foot-card is-open" role="group" aria-label="Status">
-          <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span>live</span></div>
-          <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span>running · doz 0.37.17</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="rotate-ccw"></i>Restart</button></span></div>
-          <div class="foot-note warn">This doz ui (0.37.18) is newer than the host (0.37.17) — Restart to use the new build.</div>
-          <div class="live upd info"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span>doz 0.38.0 is available — brew upgrade doz</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="refresh-cw"></i>Check</button></span></div>
-          <div class="version">doz 0.37.18</div>
-        </div>
-        <div class="foot-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Sign out"><i data-i="log-out"></i></button>
-          <button type="button" class="btn sm quiet icon-only" aria-label="Dark mode"><i data-i="moon"></i></button></div>
-      </div>
     </aside>
+  </div></div>
+  <h3>The status bar — the card pinned open above it</h3>
+  <div class="pair"><div class="scheme">
+    <div class="foot-card is-open" role="group" aria-label="Status" style="position:static;margin-bottom:var(--sp-1)">
+      <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span>live</span></div>
+      <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span>running · doz 0.37.17</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="rotate-ccw"></i>Restart</button></span></div>
+      <div class="foot-note warn">This doz ui (0.37.18) is newer than the host (0.37.17) — Restart to use the new build.</div>
+      <div class="live upd info"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span>doz 0.38.0 is available — brew upgrade doz</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="refresh-cw"></i>Check</button></span></div>
+      <div class="version">doz 0.37.18</div>
+    </div>
+    <footer class="statusbar" style="position:static">
+      <button type="button" class="foot-status" aria-label="Status" aria-expanded="true"><span class="dot on" aria-hidden="true"></span><span class="dot on" aria-hidden="true"></span><span class="foot-sum warn">host is another build</span></button>
+      <div class="foot-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Sign out"><i data-i="log-out"></i></button>
+        <button type="button" class="btn sm quiet icon-only" aria-label="Dark mode"><i data-i="moon"></i></button></div>
+    </footer>
   </div></div>
   <p>Below 980 px the sidebar is a 52 px icon rail and the header’s menu (<code>#nav-menu</code>) shows it all over the page, under the header. Below 760 px the rail goes:
     the menu opens the sidebar as a drawer over a scrim; the header keeps the brand (not the store), the key and Quick add.</p>

@@ -294,5 +294,5 @@ export function paintFootLine() {
 /// Everything but the notifications: the header, the sidebar and main's children (647: the notes, `#notes`, are outside
 /// all three, so they stay live and in front while the page is paused).
 export function pausedParts() {
-  return [$('topbar'), document.querySelector('.side'), ...$('main').children];
+  return [$('topbar'), document.querySelector('.side'), $('statusbar'), ...$('main').children];
 }

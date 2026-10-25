@@ -157,8 +157,8 @@ terminal has the focus — there every key is the terminal's.
 
 ## The host, watched
 
-The sidebar's footer is one line: a dot for the dashboard's connection and one for the host, then the
-version, or what is wrong. Point at it for its card; click (or tap) it to keep the card open. The card
+The status bar along the bottom of the window starts with a dot for the dashboard's connection and
+one for the host, then the version, or what is wrong. Point at it for its card; click (or tap) it to keep the card open. The card
 has:
 
 - **doz ui** — the dashboard's connection.
@@ -263,7 +263,7 @@ dashboard can switch this off but never on.
 |---|---|---|
 | `ui.open_browser` | `auto` | When `doz ui` opens a tab: `auto` (only when no page is open), `always`, `never`. |
 | `ui.port` | `0` | The port on 127.0.0.1: `0` = the last one when free, or a fixed port 1024–65535 (for an installed app). |
-| `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the foot of the sidebar sets it. |
+| `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the right of the status bar sets it. |
 | `ui.density` | `comfortable` | `compact`: tighter rows, tabs, controls and page margins — the text stays the same size. **Settings › This UI** switches it at once. |
 | `ui.notifications` | `cards` | How notifications look at the right of the header: `cards`, `pills` or `bell` (see [Notifications](#notifications)). **Settings › This UI** and the Debug page switch it at once. |
 | `ui.nav_thumbnails` | `true` | A session line in the sidebar shows a screen icon on hover; resting on it for half a second shows the session's live picture. |

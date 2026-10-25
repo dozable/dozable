@@ -12,7 +12,7 @@ import { saveSetting, setting, terminalsAllowed } from '../core/settings-0b4a6cc
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { homePane, isAux, pageTerminals, SPLIT_KINDS, sview, terminals, termUI } from '../core/terminals-e2028f16ee8fa887.js';
 import { splitArgs } from '../core/util-1195caf40612902f.js';
-import { isRemote } from '../core/session-922929b008d99045.js';
+import { isRemote } from '../core/session-bd22eba33578b6ab.js';
 import { btn } from '../components/button-f435595b4098d043.js';
 import { dialog } from '../components/dialog-ee9a9a31b03dc349.js';
 import { sessionsWhyNot } from '../components/lifecycle-c3747b3b05617c9b.js';
@@ -23,7 +23,7 @@ import { failureFor, pageFailure } from '../components/notices-e1a47ffbab8f403c.
 import { bootTerm, closeTerminal, focusTerm, openBuildLogTerminal, openConsoleTerminal, openHomePane, openTerminal, terminalTitle } from '../components/terminal-b39e9c0034b2cffc.js';
 import { editorItems, openOnMac } from '../components/open-with-b909c2862d3fa46e.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
-import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-8cada4936bee14ac.js';
+import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-6339120213b2c6c8.js';
 import { endSession, sessionAgent, sessionMenuItems } from '../components/session-actions-e44aeb26368f12f6.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const persistLayout = upcall('persistLayout'), paintHome = upcall('paintHome');

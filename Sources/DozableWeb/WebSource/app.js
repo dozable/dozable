@@ -137,8 +137,8 @@ function footCard(on) {
 $('foot-status').addEventListener('click', () => footCard(!$('foot-card').classList.contains('is-open')));
 // Tab away closes it; a click elsewhere too (by the event's path: Safari never focuses a clicked button, and a button in
 // the card may have redrawn itself by the time the click reaches the document).
-$('side-foot').addEventListener('focusout', (ev) => { if (ev.relatedTarget && !$('side-foot').contains(ev.relatedTarget)) footCard(false); });
-document.addEventListener('click', (ev) => { if (!ev.composedPath().includes($('side-foot'))) footCard(false); });
+$('statusbar').addEventListener('focusout', (ev) => { if (ev.relatedTarget && !$('statusbar').contains(ev.relatedTarget)) footCard(false); });
+document.addEventListener('click', (ev) => { if (!ev.composedPath().includes($('statusbar'))) footCard(false); });
 document.addEventListener('click', (ev) => { if (document.body.classList.contains('nav-open') && !ev.target.closest('.side')) navRail(false); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('nav-open')) navRail(false); });
 // 635 (owner: "the spinning disc … keeps getting interrupted and resetting"): every spinner turns on the page's clock, not

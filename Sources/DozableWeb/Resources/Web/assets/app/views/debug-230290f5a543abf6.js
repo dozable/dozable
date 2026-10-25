@@ -2,11 +2,11 @@
 // dashboard shows, made on demand with sample words. Nothing here asks the host or changes a sandbox — except a sample's
 // own buttons that are the real ones (Start host, Reload), which do what they always do.
 import { h } from '../dom/h-f853cc7eb6672c45.js';
-import { showUpdate } from '../core/session-922929b008d99045.js';
+import { showUpdate } from '../core/session-bd22eba33578b6ab.js';
 import { saveSetting, setting } from '../core/settings-0b4a6cca79ee581c.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { btn } from '../components/button-f435595b4098d043.js';
-import { hostChanged } from '../components/host-ca71f5ae3d64ecfb.js';
+import { hostChanged } from '../components/host-713bcc47c2d3ab99.js';
 import { clearNotes, notesMode } from '../components/notes-e2b199cd1685c2ad.js';
 import { banner, dropPageNotice, failureFor, pageFailure, toast } from '../components/notices-e1a47ffbab8f403c.js';
 import { panel } from '../components/blocks-6b2d43608253a84f.js';

@@ -627,8 +627,9 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
     500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
-    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
-    border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the foot is ONE line (`.foot-status`:
+    redrawn spinner never jumps back. The status bar's right end has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
+    border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the STATUS BAR (`footer#statusbar`, owner:
+    "a status bar at the bottom - full width"; fixed, `--status-h`, the body pads for it; inert under a wizard and a pause) starts with ONE line (`.foot-status`:
     two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
     whose card (`.foot-card`) holds the rows. 647 (owner, after stage 4): the card is interactive — the host's row has Restart
     / Start (`paintHostCard`, `components/host.js`, built only when what it says changes), `#foot-mismatch` says when the host

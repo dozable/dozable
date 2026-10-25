@@ -9,9 +9,9 @@ import { setting } from '../core/settings-0b4a6cca79ee581c.js';
 import { accountChooser } from './accounts-990758cbc09f31cb.js';
 import { callout } from './callout-045a1af4db6ce704.js';
 import { dialog } from './dialog-ee9a9a31b03dc349.js';
-import { imagePicker, pickerNameHint } from './image-picker-5c45901aa98d951f.js';
+import { imagePicker, pickerNameHint } from './image-picker-7c0d878c6f87eb0e.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-e49cffa2c0d6b8da.js';
-import { workspaceChooser } from './workspace-chooser-204c8b601b4f59dc.js';
+import { workspaceChooser } from './workspace-chooser-22bb637b74fb3ecc.js';
 
 export async function createDialog(quick = null) {
   let images = [], accounts = { accounts: [] }, bases = null;

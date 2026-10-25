@@ -13,8 +13,8 @@
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
   <meta name="doz-icons" content="/assets/vendor-lucide-icons-8c4115a429f5ea8a.svg">
-  <link rel="stylesheet" href="/assets/app-7c0878c2bb27ec56.css">
-  <script type="module" src="/assets/app-976b804d7abaec31.js"></script>
+  <link rel="stylesheet" href="/assets/app-c432cf08bd4f0d9f.css">
+  <script type="module" src="/assets/app-5426b8e83f1ae9f5.js"></script>
 </head>
 <body>
   <header class="topbar" id="topbar">
@@ -56,18 +56,6 @@
         <a href="#/onboarding" data-view="onboarding" id="nav-onboarding"><span class="lbl">Onboarding</span><span class="trail"><span class="nav-alert nav-todo" id="onb-dot" hidden role="img" aria-label="Setup is not finished" title="Setup is not finished"></span></span></a>
         <a href="#/debug" data-view="debug" id="nav-debug"><span class="lbl">Debug</span></a>
       </nav>
-      <div class="side-foot" id="side-foot">
-        <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-expanded="false" aria-controls="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>
-        <div class="foot-card" id="foot-card" role="group" aria-label="Status">
-          <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span><span class="foot-act"></span></div>
-          <div class="live" id="host-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span><span class="foot-act" id="host-act"></span></div>
-          <div class="foot-note" id="foot-mismatch" hidden></div>
-          <div class="live upd" id="upd-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span id="upd-text">—</span><span class="foot-act" id="upd-act"></span></div>
-          <div class="version" id="version"></div>
-        </div>
-        <div class="foot-acts"><button type="button" class="btn sm quiet icon-only sign-out" id="sign-out" hidden aria-label="Sign out"></button>
-          <button type="button" class="btn sm quiet icon-only theme-toggle" id="theme-toggle" aria-label="Dark mode" title="Dark mode"></button></div>
-      </div>
     </aside>
     <main id="main" tabindex="-1">
       <section id="view"></section>
@@ -85,6 +73,18 @@
       </div>
     </main>
   </div>
+  <footer class="statusbar" id="statusbar" aria-label="Status bar">
+    <button type="button" class="foot-status" id="foot-status" aria-label="Status" aria-expanded="false" aria-controls="foot-card"><span class="dot" id="live-dot" aria-hidden="true"></span><span class="dot" id="host-dot" aria-hidden="true"></span><span class="foot-sum" id="foot-sum">connecting…</span></button>
+    <div class="foot-card" id="foot-card" role="group" aria-label="Status">
+      <div class="live" id="live"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span id="live-text">connecting…</span><span class="foot-act"></span></div>
+      <div class="live" id="host-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span id="host-text">—</span><span class="foot-act" id="host-act"></span></div>
+      <div class="foot-note" id="foot-mismatch" hidden></div>
+      <div class="live upd" id="upd-live"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span id="upd-text">—</span><span class="foot-act" id="upd-act"></span></div>
+      <div class="version" id="version"></div>
+    </div>
+    <div class="foot-acts"><button type="button" class="btn sm quiet icon-only sign-out" id="sign-out" hidden aria-label="Sign out"></button>
+      <button type="button" class="btn sm quiet icon-only theme-toggle" id="theme-toggle" aria-label="Dark mode" title="Dark mode"></button></div>
+  </footer>
   <div class="ui-overlay" id="ui-overlay" tabindex="-1" hidden></div>
   <div class="notes mode-cards" id="notes" aria-live="polite" aria-label="Notifications"></div>
 </body>

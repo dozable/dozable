@@ -1,8 +1,8 @@
 // components/host — The host (594 W18): the sidebar's foot, Start/Restart host, the host's transitions told once.
 import { $, h } from '../dom/h-f853cc7eb6672c45.js';
 import { api } from '../core/api-0560a03cb0de25ef.js';
-import { liveRefresh } from '../core/events-076065f43c45bb67.js';
-import { paintFootLine, showUpdate } from '../core/session-922929b008d99045.js';
+import { liveRefresh } from '../core/events-df09e5a656060809.js';
+import { paintFootLine, showUpdate } from '../core/session-bd22eba33578b6ab.js';
 import { plural, when } from '../core/format-b2e68384da8d2f36.js';
 import { act, actOrThrow } from '../core/operations-773ff6e3f3377064.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';

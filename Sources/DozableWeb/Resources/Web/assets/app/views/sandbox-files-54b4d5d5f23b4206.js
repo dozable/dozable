@@ -17,7 +17,7 @@ import { upcall } from '../core/hooks-a4b871a481b363cd.js';
 import { bytes } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow, waitOp } from '../core/operations-773ff6e3f3377064.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
-import { isRemote } from '../core/session-922929b008d99045.js';
+import { isRemote } from '../core/session-bd22eba33578b6ab.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { sview } from '../core/terminals-e2028f16ee8fa887.js';
 import { btn } from '../components/button-f435595b4098d043.js';
