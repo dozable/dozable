@@ -1130,7 +1130,7 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
    below 760 px a key that needs you and Quick add. The notifications sit over its right end (#notes, components). */
 .topbar { display: flex; align-items: center; gap: var(--sp-3); height: var(--header-h); padding: 0 var(--sp-4) 0 var(--sp-5); background: var(--shell);
   position: sticky; top: 0; z-index: calc(var(--z-sticky) + 1); min-width: 0; }
-.topbar .nav-menu { display: none; margin-left: calc(-1 * var(--sp-2)); }
+.topbar .nav-menu { display: inline-flex; margin-left: calc(-1 * var(--sp-2)); }
 .brand-mark { width: 24px; height: 24px; border-radius: var(--r-md); background: var(--ink); color: var(--bg); display: grid; place-items: center;
   font-weight: 700; font-style: italic; font-size: var(--fs-md); flex: none; }
 .brand-name { font-weight: var(--fw-strong); flex: none; }
@@ -1274,51 +1274,51 @@ a.nav-sess.saved { font-style: italic; }
 .debug-groups { display: flex; flex-direction: column; gap: var(--sp-5); padding: var(--panel-p); }
 .debug-group h3 { margin: 0 0 var(--sp-2); }
 .debug-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
-@media (max-width: 980px) {
-  .topbar .nav-menu { display: inline-flex; }
-  .shell { grid-template-columns: 52px minmax(0, 1fr); }
-  .shell > main { grid-column: 2; }
-  .side { padding: var(--sp-3) var(--sp-3); align-items: stretch; overflow-x: hidden; }
-  .nav-group .ng-label, .nav-group .nav-quick, .nav-sbx-more, .nav-tree-caret, #nav .trail, .nav-children { display: none; }
-  .nav-group { padding: 0; min-height: 0; border-top: var(--bw) solid var(--line); margin: var(--sp-2) 0; }
-  .nav-group:first-child { display: none; }
-  #nav a[data-view], #nav .nav-all > a[data-view] { justify-content: center; padding: 0; }
-  #nav a[data-view] .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  #nav-operations .trail, #nav-onboarding .trail, #nav-accounts .trail { display: flex; position: absolute; top: 3px; right: 3px; }
-  #nav-operations .trail .nav-badge { display: none; }
-  #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; padding: 0 var(--sp-0); }
-  /* The rail's foot: the two dots over the switches; the card opens beside the rail. */
-  body:not(.nav-open) .side-foot { flex-direction: column; }
-  body:not(.nav-open) .foot-status { flex: none; justify-content: center; padding: 0; width: var(--ctl-sm); }
-  body:not(.nav-open) .foot-sum { display: none; }
-  body:not(.nav-open) .side-foot .foot-acts { flex-direction: column; }
-  body:not(.nav-open) .foot-card { position: fixed; left: calc(52px + var(--sp-1)); right: auto; bottom: var(--sp-3); width: 300px; }
-  body:not(.nav-open) .foot-card::after { left: auto; right: 100%; top: 0; bottom: 0; width: var(--sp-5); height: auto; }
-  /* The header's menu: the whole sidebar over the page, under the header, until a link, Escape or a click outside closes it. */
-  body.nav-open .side { position: fixed; left: 0; top: var(--header-h); height: calc(100vh - var(--header-h)); width: 232px; z-index: var(--z-menu);
-    background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-3) var(--sp-3) var(--sp-3); }
-  body.nav-open .nav-group .ng-label, body.nav-open .nav-group .nav-quick, body.nav-open .nav-sbx-more, body.nav-open #nav .trail, body.nav-open .nav-children,
-  body.nav-open .nav-tree-caret { display: flex; }
-  body.nav-open .nav-tree-caret { display: grid; }
-  body.nav-open .nav-group { border-top: 0; margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-0); min-height: 26px; }
-  body.nav-open .nav-group:first-child { display: flex; padding-top: var(--sp-0); }
-  body.nav-open #nav a[data-view] { justify-content: flex-start; padding: 0 var(--sp-3); }
-  body.nav-open #nav .nav-all > a[data-view] { padding-right: calc(var(--sp-7) + var(--sp-0)); }
-  body.nav-open #nav a[data-view] .lbl { position: static; width: auto; height: auto; clip: auto; }
-  body.nav-open #nav-operations .trail, body.nav-open #nav-onboarding .trail, body.nav-open #nav-accounts .trail { position: static; }
-  body.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: inline-flex; }
-}
+/* The icon rail: `body.rail` — below 980 px always, and at any width when the header's menu collapsed the sidebar
+   (647, owner: "make it always collapsible"; `applyRail`, components/nav.js, this browser remembers it). */
+body.rail .shell { grid-template-columns: 52px minmax(0, 1fr); }
+body.rail .shell > main { grid-column: 2; }
+body.rail .side { padding: var(--sp-3) var(--sp-3); align-items: stretch; overflow-x: hidden; }
+body.rail .nav-group .ng-label, body.rail .nav-group .nav-quick, body.rail .nav-sbx-more, body.rail .nav-tree-caret, body.rail #nav .trail, body.rail .nav-children { display: none; }
+body.rail .nav-group { padding: 0; min-height: 0; border-top: var(--bw) solid var(--line); margin: var(--sp-2) 0; }
+body.rail .nav-group:first-child { display: none; }
+body.rail #nav a[data-view], body.rail #nav .nav-all > a[data-view] { justify-content: center; padding: 0; }
+body.rail #nav a[data-view] .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body.rail #nav-operations .trail, body.rail #nav-onboarding .trail, body.rail #nav-accounts .trail { display: flex; position: absolute; top: 3px; right: 3px; }
+body.rail #nav-operations .trail .nav-badge { display: none; }
+body.rail #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; padding: 0 var(--sp-0); }
+/* The rail's foot: the two dots over the switches; the card opens beside the rail. */
+body.rail:not(.nav-open) .side-foot { flex-direction: column; }
+body.rail:not(.nav-open) .foot-status { flex: none; justify-content: center; padding: 0; width: var(--ctl-sm); }
+body.rail:not(.nav-open) .foot-sum { display: none; }
+body.rail:not(.nav-open) .side-foot .foot-acts { flex-direction: column; }
+body.rail:not(.nav-open) .foot-card { position: fixed; left: calc(52px + var(--sp-1)); right: auto; bottom: var(--sp-3); width: 300px; }
+body.rail:not(.nav-open) .foot-card::after { left: auto; right: 100%; top: 0; bottom: 0; width: var(--sp-5); height: auto; }
+/* Below 980 px the header's menu shows the whole sidebar over the page, under the header, until a link, Escape or a
+   click outside closes it. */
+body.rail.nav-open .side { position: fixed; left: 0; top: var(--header-h); height: calc(100vh - var(--header-h)); width: 232px; z-index: var(--z-menu);
+  background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-3) var(--sp-3) var(--sp-3); }
+body.rail.nav-open .nav-group .ng-label, body.rail.nav-open .nav-group .nav-quick, body.rail.nav-open .nav-sbx-more, body.rail.nav-open #nav .trail, body.rail.nav-open .nav-children,
+body.rail.nav-open .nav-tree-caret { display: flex; }
+body.rail.nav-open .nav-tree-caret { display: grid; }
+body.rail.nav-open .nav-group { border-top: 0; margin: 0; padding: var(--sp-3) var(--sp-3) var(--sp-0); min-height: 26px; }
+body.rail.nav-open .nav-group:first-child { display: flex; padding-top: var(--sp-0); }
+body.rail.nav-open #nav a[data-view] { justify-content: flex-start; padding: 0 var(--sp-3); }
+body.rail.nav-open #nav .nav-all > a[data-view] { padding-right: calc(var(--sp-7) + var(--sp-0)); }
+body.rail.nav-open #nav a[data-view] .lbl { position: static; width: auto; height: auto; clip: auto; }
+body.rail.nav-open #nav-operations .trail, body.rail.nav-open #nav-onboarding .trail, body.rail.nav-open #nav-accounts .trail { position: static; }
+body.rail.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: inline-flex; }
 /* 647 (owner, D2): below 760 px the rail goes — the header's menu opens the sidebar as a drawer over a scrim; the header
    keeps the brand (not the store), a key that needs you and Quick add; the notifications sit left of those two. */
 @media (max-width: 760px) {
-  .shell { grid-template-columns: minmax(0, 1fr); }
-  .shell > main { grid-column: 1; }
+  body.rail .shell { grid-template-columns: minmax(0, 1fr); }
+  body.rail .shell > main { grid-column: 1; }
   .topbar { padding: 0 var(--sp-4) 0 var(--sp-4); }
   .topbar .brand-store { display: none; }
   .topbar-acts { display: flex; }
   .notes { --notes-right: calc(var(--sp-4) + var(--ctl-sm) * 2 + var(--sp-3)); --notes-row-max: calc(100vw - 210px); }
-  body:not(.nav-open) .side { display: none; }
-  body.nav-open .side { width: min(280px, calc(100vw - 48px)); z-index: var(--z-modal); }
+  body.rail:not(.nav-open) .side { display: none; }
+  body.rail.nav-open .side { width: min(280px, calc(100vw - 48px)); z-index: var(--z-modal); }
   body.nav-open::before { content: ""; position: fixed; inset: var(--header-h) 0 0 0; background: var(--scrim); z-index: var(--z-menu); }
 }
 

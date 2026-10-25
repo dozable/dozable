@@ -73,9 +73,10 @@ groups the pages under five headings — **Sandboxes** (All sessions, All sandbo
 **Try** (Quick try), **Store** (Images, Resources), **Activity** (Operations, Activity, Metrics) and
 **Setup** (Accounts & keys, Settings, Devices, Doctor, Onboarding, Debug). The page, sandbox or session
 you are on is tinted, with a line at its left edge. Click **All sandboxes** while its page is shown (or
-its caret) to fold the list of sandboxes under it, and again to show it; this browser remembers. In a
-window narrower than about 980 px the sidebar is a column of icons (hover one for its name); the menu
-button at the left of the header shows the whole sidebar over the page. On a phone (narrower than about
+its caret) to fold the list of sandboxes under it, and again to show it; this browser remembers. The
+menu button at the left of the header collapses the sidebar to a column of icons (hover one for its
+name) and expands it again; this browser remembers. In a window narrower than about 980 px the sidebar
+is always the column of icons, and the menu button shows the whole sidebar over the page. On a phone (narrower than about
 760 px) the column goes too: the menu button opens the sidebar as a drawer, a key button appears in the
 header while a key needs you, and **+** is Quick add.
 

@@ -24,11 +24,11 @@ import { renameItem } from '../components/rename-dialog-e4dd8f8a15953bab.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal-ef114bcadd4a29c6.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-204c8b601b4f59dc.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-edd5035d6fb5c8c2.js';
-import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-1db56d180da41559.js';
+import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-5d2924814b841bc3.js';
 import { networkPanel } from './sandbox-network-8aa6b75d4dca9643.js';
 import { filesPanel, syncFiles } from './sandbox-files-2e5b9adda7022a42.js';
-import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-824ee73f0ace759f.js';
-import { paintHome } from './sandbox-home-ea55f212a9f2b86d.js';
+import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-a59b169fff6c7c19.js';
+import { paintHome } from './sandbox-home-f67c2f8a716650be.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

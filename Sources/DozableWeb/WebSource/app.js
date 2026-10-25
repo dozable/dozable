@@ -48,7 +48,7 @@ import './app/components/keyboard.js';
 import { lifecycle } from './app/components/lifecycle.js';
 import './app/components/menus.js';
 import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal.js';
-import { navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
+import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
 import { paintNotes } from './app/components/notes.js';
 import { banner, dropBanner, failureFor, opFailed, pageFailure, paintRowOps, toast } from './app/components/notices.js';
 import './app/components/permissions.js';
@@ -121,7 +121,8 @@ paintThemeToggle();
 // 647 (owner): the header, full width — the menu (below 980 px: the whole sidebar over the page; below 760 px a drawer),
 // the brand and the store; below 760 px a key alert and Quick add. The notifications sit over its right end (#notes).
 $('nav-menu').replaceChildren(icon('list'));
-$('nav-menu').addEventListener('click', (ev) => { ev.stopPropagation(); navRail(!document.body.classList.contains('nav-open')); });
+$('nav-menu').addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+applyRail();                       // 647: the rail below 980 px, or wider when collapsed (this browser remembers)
 $('top-keys').replaceChildren(icon('key-round'));
 $('top-quick-add').replaceChildren(icon('plus'));
 $('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });

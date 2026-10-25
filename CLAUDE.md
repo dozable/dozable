@@ -635,8 +635,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     and the UI are different builds, the updates row (`paintUpdates`) shows `state.update` / `state.updateCheck` with Check
     (`POST /api/v1/updates/check`, `WebUpdateCheck`: forced, the checker's own rules — a development build says it is never
     updated); it stays open while the pointer or focus is in it and is pinned by a click. The header (`#topbar`) is FULL
-    WIDTH above the shell (`--header-h`; the sidebar and sticky page parts sit below it): the menu (`#nav-menu` = `navRail`,
-    below 980 px), the brand and `#store-path`; below 760 px `#top-keys` (from `paintAccountsBadge`) and Quick add, and the
+    WIDTH above the shell (`--header-h`; the sidebar and sticky page parts sit below it): the menu (`#nav-menu` →
+    `navMenuClick`: below 980 px `navRail`, the whole sidebar over the page; wider it collapses the sidebar to the rail and
+    back — the rail is the class `body.rail` (`applyRail`: below 980 px, or collapsed, browser storage `doz.nav.collapsed`),
+    never a media query), the brand and `#store-path`; below 760 px `#top-keys` (from `paintAccountsBadge`) and Quick add, and the
     sidebar is a drawer (inert with the rest under a wizard and a pause). Sandboxes: All sessions, then All sandboxes,
     whose click on its own page (or caret) folds the tree (`#nav.tree-folded`, browser storage `doz.nav.tree`).
     A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's

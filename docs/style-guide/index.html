@@ -649,12 +649,14 @@ name: todo-app</pre></details>
 
 <section>
   <h2>The header and the sidebar</h2>
-  <p>647 (owner): a <strong>header</strong> runs the full width above the sidebar and the page (<code>#topbar</code>, <code>--header-h</code>): the menu (below 980 px),
+  <p>647 (owner): a <strong>header</strong> runs the full width above the sidebar and the page (<code>#topbar</code>, <code>--header-h</code>): the menu (at every width —
+    wider than 980 px it collapses the sidebar to the icon rail and back, <code>body.rail</code>, remembered in this browser; narrower it shows the whole sidebar),
     the brand and the store; below 760 px a key button only while a key needs you (<code>.topbar-keys</code>) and Quick add. The header and the sidebar are the frame —
     on <code>--shell</code>, with no line of their own (the step from <code>--shell</code> to <code>--bg</code> separates them from the page). Notifications sit over
     the header’s right end (below).</p>
   <div class="pair"><div class="scheme">
     <header class="topbar" style="position:static">
+      <button type="button" class="btn sm quiet icon-only nav-menu" aria-label="Collapse the sidebar"><i data-i="list"></i></button>
       <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span>
       <span class="topbar-gap"></span>
     </header>

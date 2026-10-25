@@ -233,10 +233,37 @@ export function paintNav() {
 /// (below 760 px, as a drawer).
 export function navRail(open) {
   document.body.classList.toggle('nav-open', !!open);
-  const b = $('nav-menu');
-  b.setAttribute('aria-expanded', open ? 'true' : 'false');
-  b.setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
+  paintMenuButton();
 }
+// ── 647 (owner: "make it always collapsible"): the rail at any width ───────────────────────────────────────────────
+// `body.rail` draws the sidebar as the icon rail: below 980 px always (the menu then shows it all over the page, or as
+// a drawer below 760 px); wider, when the person collapsed it with the header's menu — remembered in this browser.
+const RAIL_KEY = 'doz.nav.collapsed';
+const narrowMQ = matchMedia('(max-width: 980px)');
+let collapsed = (() => { try { return localStorage.getItem(RAIL_KEY) === '1'; } catch (_) { return false; } })();
+export function applyRail() {
+  document.body.classList.toggle('rail', narrowMQ.matches || collapsed);
+  if (!narrowMQ.matches) document.body.classList.remove('nav-open');
+  paintMenuButton();
+}
+/// The header's menu button: below 980 px it opens the whole sidebar over the page; wider it collapses the sidebar to
+/// the rail, or expands it again.
+export function navMenuClick() {
+  if (narrowMQ.matches) { navRail(!document.body.classList.contains('nav-open')); return; }
+  collapsed = !collapsed;
+  try { if (collapsed) localStorage.setItem(RAIL_KEY, '1'); else localStorage.removeItem(RAIL_KEY); } catch (_) { /* this page only */ }
+  applyRail();
+}
+function paintMenuButton() {
+  const b = $('nav-menu');
+  if (!b) return;
+  const narrow = narrowMQ.matches, open = document.body.classList.contains('nav-open'), rail = document.body.classList.contains('rail');
+  const label = narrow ? (open ? 'Hide the menu' : 'Show the menu') : (rail ? 'Expand the sidebar' : 'Collapse the sidebar');
+  b.setAttribute('aria-expanded', narrow ? String(open) : String(!rail));
+  b.setAttribute('aria-label', label);
+  b.title = label;
+}
+narrowMQ.addEventListener('change', applyRail);
 export function paintResTotal(r) {
   const el = $('res-total');
   if (!el || !r) return;
