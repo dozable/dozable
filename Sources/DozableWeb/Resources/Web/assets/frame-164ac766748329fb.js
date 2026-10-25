@@ -104,10 +104,11 @@ async function init(wasm, m, fontSize) {
   // 648: a read-only screen (a thumbnail, a watch, a saved screen) never takes the focus as it loads. The engine's open()
   // focuses its element whatever the mode, and a frame that takes the focus makes the browser scroll the PAGE to bring
   // it into view — the dashboard jumped ~400 px each time a picture loaded after a scroll (the 647 thumb-scroll trace).
-  // The engine is vendored byte for byte, so its focus is held here, around open() only; a click still focuses a frame.
+  // The engine is vendored byte for byte, so its focus is held here, around open() — and until the second focus its
+  // focus() defers with setTimeout(0) has run (a timer set after it runs after it); a click still focuses a frame.
   const realFocus = HTMLElement.prototype.focus;
   if (mode !== 'interactive') HTMLElement.prototype.focus = function () {};
-  try { term.open(host); } finally { HTMLElement.prototype.focus = realFocus; }
+  try { term.open(host); } finally { setTimeout(() => { HTMLElement.prototype.focus = realFocus; }, 0); }
   fit = new GhosttyWeb.FitAddon();
   term.loadAddon(fit);
   fit.fit();
