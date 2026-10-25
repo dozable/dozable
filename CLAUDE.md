@@ -864,7 +864,13 @@ its subcommands still parse) — remove it in a later release, saying so.
   change `replaceState`s it (no route).
 - **All sessions (the grid) holds engines only on screen**: a tile is a WATCH terminal (same ticket,
   socket and frame), laid out at 960 × 560 and CSS-scaled; an `IntersectionObserver` attaches and
-  detaches, and at most `ui.grid_live_tiles` are live. A non-running sandbox is a static tile — no
+  detaches, and at most `ui.grid_live_tiles` (default 12 = `SOCKET_CEILING`: every tile on screen) are live. 647 (owner:
+  "scrolling is not smooth when thumbnail positions come into view"; a frame per picture loads and compiles the engine on
+  the page's thread — the probe `probes/647-*/thumb-scroll/` measured 48–94 frames made and dropped per scroll): All
+  sessions and All sandboxes never make, attach or drop a picture while the document scrolls (`whenScrollRests`,
+  `components/session-thumb.js`), make at most `MAKE_PER_PASS` engines a pass (the next in idle time), and a picture off
+  screen but NEAR it (a second observer, `NEAR_MARGIN`: a screen each way) keeps its engine — only its socket goes
+  (`thumbFreeze`). A non-running sandbox is a static tile — no
   terminal, so an open grid never keeps a host alive. Sessions are listed (`deckhold ls` in the guest)
   on entry, Refresh, and `changed` at most every 10 s — never on the 3 s poll.
 - **Operations is its own page** (no block on top of other pages); the nav badge counts running

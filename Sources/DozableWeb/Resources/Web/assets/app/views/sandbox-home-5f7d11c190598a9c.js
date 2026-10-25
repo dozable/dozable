@@ -18,11 +18,11 @@ import { lifecycle, sessionsWhyNot } from '../components/lifecycle-8165289cce9a5
 import { moreMenu } from '../components/menus-23bc819d6d81d035.js';
 import { failureFor } from '../components/notices-b9b2a3550693d815.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions-679893e0dffde3e7.js';
-import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-6651f9e699a3f2a5.js';
+import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-c263e4698fc9a98d.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-e9bc5c1567a65dd9.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-7592631e73566cb8.js';
-import { openSavedTerminal } from './sandbox-layout-23d39b6c078b330a.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-caa6399bfe40bab6.js';
+import { openSavedTerminal } from './sandbox-layout-117cdc3c82df6981.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-6df706b9d8980f2b.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.

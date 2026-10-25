@@ -1,7 +1,7 @@
 // components/live-controls — 642 (owner): how many session pictures a page keeps live at once, and whether the live
 // ones take turns (All sandboxes, All sessions): Live − N + · Cycle · − S s each +. Each page's choice is this browser's.
 import { h } from '../dom/h-f853cc7eb6672c45.js';
-import { liveCap } from './session-thumb-6651f9e699a3f2a5.js';
+import { liveCap } from './session-thumb-c263e4698fc9a98d.js';
 
 /// Of the UI's 16 terminal sockets a page's pictures use at most this many — the rest are kept for real tabs.
 export const SOCKET_CEILING = 12;

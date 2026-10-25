@@ -421,7 +421,7 @@ Limits:
 | `ui.terminals` | `true` | Terminals in the browser at all. |
 | `ui.terminal_font_size` | `13` | Browser terminal font size. |
 | `ui.split_default` | `shell` | What **Split** opens. |
-| `ui.grid_live_tiles` · `ui.grid_tile_size` | `8` · `medium` | All sessions' live tiles and their size. |
+| `ui.grid_live_tiles` · `ui.grid_tile_size` | `12` · `medium` | All sessions' live tiles and their size. |
 | `host.screen_capture_minutes` | `5` | How often running sessions' screens are saved. |
 
 ## Troubleshooting

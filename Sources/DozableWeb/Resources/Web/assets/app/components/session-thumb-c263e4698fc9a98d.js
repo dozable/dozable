@@ -36,7 +36,31 @@ export function thumbThaw(t) { thawTerm(t); }
 export function openSockets() { return [...terminals.values()].filter((t) => t.ws).length; }
 
 /// The live thumbnails a page may hold at once: ui.grid_live_tiles, at most `max`.
-export function liveCap(max) { return Math.max(1, Math.min(max, Number(setting('ui.grid_live_tiles', 8)) || 8)); }
+export function liveCap(max) { return Math.max(1, Math.min(max, Number(setting('ui.grid_live_tiles', 12)) || 12)); }
+
+// 647 (owner: "scrolling is not smooth when thumbnail positions come into view … make sure that they are not blocking the
+// UI"): a picture's engine is a frame that loads and compiles the terminal engine — work on the page's own thread. So a
+// page of pictures (All sessions, All sandboxes) never makes, attaches or lets go of one while the document scrolls: its
+// pass waits until the scroll has rested; it makes at most MAKE_PER_PASS engines a pass, the next pass in idle time; and a
+// picture that scrolls off keeps its engine (only its socket goes) while it is NEAR — within a screen of the view — so
+// scrolling back shows it at once instead of loading it again.
+const SCROLL_REST_MS = 150;
+export const MAKE_PER_PASS = 2;
+/// The margin of the observer that says a picture is near: a screen above and below the view.
+export const NEAR_MARGIN = '100% 0px';
+let scrolledAt = 0;
+window.addEventListener('scroll', () => { scrolledAt = performance.now(); }, { passive: true });
+/// Run `fn` once the document is not scrolling — at once when it is not.
+export function whenScrollRests(fn) {
+  const wait = SCROLL_REST_MS - (performance.now() - scrolledAt);
+  if (wait > 0) setTimeout(() => whenScrollRests(fn), wait);
+  else fn();
+}
+/// Run `fn` in the browser's idle time (soon, whatever).
+export function whenIdle(fn) {
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => fn(), { timeout: 300 });
+  else setTimeout(fn, 16);
+}
 
 /// A thumbnail's frame: a button (a click is Open, or Show) holding the scaled screen, a plate for when it is not
 /// drawn, and a badge (live · saved). Text only.
