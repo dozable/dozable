@@ -602,11 +602,13 @@ name: todo-app</pre></details>
   <p>The terminal area’s first tab (<code>views/sandbox-home.js</code>, <code>.home-doc</code>). <strong>The agent’s session first, as a card</strong> (<code>.home-agent</code>): a picture of its screen,
     its name, what its program says (the chip and its message), when it started and which tab shows it, and its verbs — <strong>Open</strong> (the view’s one primary), <strong>End…</strong> in sight,
     ⋯ for Watch, Open in Terminal, Restart. Then the other sessions, a row each (<code>.home-row</code>: a picture, Open + ⋯), an ended one quietly with Restart; then Logs and the Folder.
-    <strong>The pictures</strong> (<code>.home-thumb</code>, <code>components/session-thumb.js</code> — the same terminal as All sessions’ tiles, laid out at 960 × 560 and scaled): live only while
-    Home is shown and the row is on screen, at most 4 (never more than <code>ui.grid_live_tiles</code>, never past 12 of the UI’s 16 sockets); asleep, the saved screen (no socket). Closing the agent’s tab
+    <strong>The pictures</strong> (<code>.home-thumb</code> holding a <code>canvas.thumb-paint</code>, <code>components/session-thumb.js</code>): 648 — PAINTED from the screen’s grid
+    (<code>components/screen-paint.js</code>, the same as All sessions’ and All sandboxes’ tiles; no terminal engine, no frame, no socket). Every session has a live one: with a tab here, mirrored from the
+    tab’s own frame; without, from the host’s feed (<code>components/grid-feed.js</code>), asked only while the picture is on screen; asleep, the saved screen (<code>.saved</code>: dimmed). The badge says
+    <em>live</em>, <em>saved N ago</em> or <em>last screen</em> (the live one could not be had); the specimens below are painted by the real module from sample grids. Closing the agent’s tab
     marks the card (<code>.just-closed</code>) and says it goes on, every time until “Don’t say this again” (<code>ui.explain_tab_close</code>). Shut down: no sessions — the agent’s Start (<code>.home-empty</code>).
     635 (owner): <strong>List | Grid</strong> (<code>.home-view</code>, remembered in this browser) — the grid (<code>.home-doc.as-grid</code>) lays the same card and rows out as tiles of their live
-    pictures (272 × 159), as many live as <code>ui.grid_live_tiles</code> allows. Logs › <strong>Build log</strong> (a spanner) opens the image’s build log in its own tab.</p>
+    pictures (272 × 159), every one live. Logs › <strong>Build log</strong> (a spanner) opens the image’s build log in its own tab.</p>
   <div class="pair"><div class="scheme">
     <section class="terms sg-terms" style="height:auto;position:relative">
       <div class="home-doc" style="position:relative">
@@ -614,7 +616,7 @@ name: todo-app</pre></details>
           <div class="head has-title"><h2>Sessions</h2><div class="actions"><div class="btn-group home-view" role="group"><button class="btn sm quiet icon-only on" type="button" aria-label="A list"><i data-i="list"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="A grid"><i data-i="layout-grid"></i></button></div><button class="btn sm" type="button"><i data-i="plus"></i>New shell</button><button class="btn sm quiet" type="button"><i data-i="play"></i>Run detached…</button></div></div>
           <p class="home-lead">2 running. Each keeps running when its tab is closed — End stops one.</p>
           <div class="home-card-box"><div class="home-agent has-thumb just-closed">
-            <button type="button" class="home-thumb big" aria-label="Open claude"><span class="th-badge"><span class="th-live"></span>live</span></button>
+            <button type="button" class="home-thumb big" aria-label="Open claude"><canvas class="thumb-paint" data-sg-paint="agent" aria-hidden="true"></canvas><span class="th-badge"><span class="th-live"></span>live</span></button>
             <div class="t"><i data-i="terminal"></i><span>Claude Code</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></div>
             <div class="meta"><span>session claude</span><span>running since 14:02</span><span>not open here</span><span>resumes its last conversation when restarted</span></div>
             <div class="msg">Editing src/components/TodoList.tsx</div>
@@ -623,10 +625,10 @@ name: todo-app</pre></details>
               <div class="c-acts"><button class="btn sm quiet" type="button"><i data-i="x"></i>Don’t say this again</button></div></div></div>
           </div></div>
           <div class="home-rows">
-            <div class="home-row has-thumb"><button type="button" class="home-thumb" aria-label="Open shell-2"><span class="th-badge"><span class="th-live"></span>live</span></button>
+            <div class="home-row has-thumb"><button type="button" class="home-thumb" aria-label="Open shell-2"><canvas class="thumb-paint" data-sg-paint="shell" aria-hidden="true"></canvas><span class="th-badge"><span class="th-live"></span>live</span></button>
               <span class="nm"><span>shell-2</span></span><span class="cmd-t">bash -l</span><span class="st"><span class="dot ph-running"></span><span>running since 14:05 · open in tab 1</span></span>
               <div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="terminal"></i>Open</button><button class="btn sm quiet icon-only" type="button" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></div>
-            <div class="home-row has-thumb"><button type="button" class="home-thumb saved" aria-label="Show dev-server"><span class="th-badge"><span class="th-saved"></span>saved</span></button>
+            <div class="home-row has-thumb"><button type="button" class="home-thumb saved" aria-label="Show dev-server"><canvas class="thumb-paint" data-sg-paint="server" aria-hidden="true"></canvas><span class="th-badge"><span class="th-saved"></span>saved 12 min ago</span></button>
               <span class="nm"><span>dev-server</span></span><span class="cmd-t">npm run dev</span><span class="st"><span class="dot ph-asleep"></span><span>screen saved 12 min ago (sleep)</span></span>
               <div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Show</button></div></div>
           </div>

@@ -211,8 +211,9 @@ wakes. With `--no-wake`, `attach` waits for a sleeping sandbox instead of waking
 On a sandbox's page in the dashboard:
 
 - **Home**, the first tab, lists every session — the agent's as a card, the others as rows, each with
-  a small picture of its screen. **Open** there attaches to a session (the image's own one is started
-  if needed).
+  a small picture of its screen, live while the sandbox runs (a picture is drawn from the session's
+  screen, not a terminal of its own, so it never attaches to the session or changes its size).
+  **Open** there attaches to a session (the image's own one is started if needed).
 - **Watch** (a session's **⋯**) is read-only: nothing you type reaches the session, and it never
   resizes it.
 - On the terminals' tab strip, **New shell** starts a new shell session (`shell-2`, `shell-3`, …); its
@@ -421,7 +422,7 @@ Limits:
 | `ui.terminals` | `true` | Terminals in the browser at all. |
 | `ui.terminal_font_size` | `13` | Browser terminal font size. |
 | `ui.split_default` | `shell` | What **Split** opens. |
-| `ui.grid_live_tiles` · `ui.grid_tile_size` | `12` · `medium` | All sessions' live tiles and their size. |
+| `ui.grid_tile_size` | `medium` | The size of All sessions' tiles (every tile is live; `ui.grid_live_tiles` is no longer used). |
 | `host.screen_capture_minutes` | `5` | How often running sessions' screens are saved. |
 
 ## Troubleshooting
