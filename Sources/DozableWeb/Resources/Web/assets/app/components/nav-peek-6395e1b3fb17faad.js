@@ -6,7 +6,7 @@
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { icon } from '../dom/icons-0a9984f90615977d.js';
 import { setting } from '../core/settings-0b4a6cca79ee581c.js';
-import { dropThumbTerm, THUMB_COLS_PX, THUMB_ROWS_PX, thumbTerm } from './session-thumb-76e1bff2986027cf.js';
+import { dropThumbTerm, THUMB_COLS_PX, THUMB_ROWS_PX, thumbTerm } from './session-thumb-0cdbe86a2e670d9c.js';
 
 const ARM_MS = 500, HIDE_MS = 250, SCALE = 0.4;
 const peek = { pop: null, screen: null, label: null, key: null, term: null, armKey: null, armAt: 0, armTimer: null, hideTimer: null };

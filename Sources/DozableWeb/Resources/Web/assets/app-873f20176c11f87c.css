@@ -1572,7 +1572,9 @@ h1.page-title { display: flex; align-items: center; }
 @media (max-width: 760px) {
   .page-title { padding-right: var(--page-px); }
   .panel { overflow-x: auto; }
-  #view thead th { position: static; }   /* a panel that scrolls sideways would hold its heads inside itself */
+  /* A panel that scrolls sideways would hold its heads inside itself, so they do not stick; relative, not static, so a
+     head's hidden label (.sr-only, absolute) stays inside the panel — static, it was placed against the page and widened it. */
+  #view thead th { position: relative; }
 }
 
 /* ── 603: the wizards (New sandbox, onboarding) — a modal over the page, the full width of the window up to

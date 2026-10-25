@@ -2,7 +2,7 @@
 // terminal engine, no WebAssembly, no socket. The canvas is its box × devicePixelRatio; the screen keeps a terminal's
 // cell shape and is centred in the box; the default background first, then each run's background, then its text —
 // fillText with a maxWidth of its cells, so the columns hold — bold, italic, faint, underline, and the cursor as an
-// outlined block. Too small to draw at all (a font under 3 device pixels) the text is drawn as bars, like a minimap.
+// outlined block. Too small to draw at all (a font under 2 device pixels) the text is drawn as bars, like a minimap.
 // A picture is drawn again only when what it shows changed (its source and `gen`) or its box was resized.
 import { FLAG_BOLD, FLAG_FAINT, FLAG_ITALIC, FLAG_UNDERLINE, inertText, textToGrid } from '../core/grid-4b92452852ac3a96.js';
 
@@ -42,7 +42,7 @@ export function paintGrid(canvas, grid, opts = {}) {
   }
   const fontPx = ch * 0.9;
   // Bars only when text could not be drawn at all: tiny text still shows a log moving, bars of equal lines do not.
-  const bars = fontPx < 3;
+  const bars = fontPx < 2;
   let font = '';
   ctx.textBaseline = 'middle';
   for (let y = 0; y < grid.rows; y++) {
