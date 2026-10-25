@@ -60,8 +60,9 @@
  *   - Two formatter extras are replaced by hand: `palette` emits all 256 OSC 4 entries (~6 KB,
  *     and it would repaint the viewer's own theme), so only entries a program changed are sent;
  *     and the terminal-level extras (DECSTBM homes the cursor, tabstops move it) come AFTER the
- *     cursor CUP, so the cursor is re-asserted at the very end. Known loss: background colour on text-less cells (a screen
- *     cleared with a background colour set comes back default-coloured until redrawn).
+ *     cursor CUP, so the cursor is re-asserted at the very end. Blank cells with a background colour are written by
+ *     none of the formatter's passes; a background pass paints them afterwards (paint_blank_backgrounds — tty-clock's
+ *     digits came back as gaps on every new viewer until the program redrew them).
  *   - `select_all` is NOT used: it trims to the first/last non-whitespace cell, which would
  *     shift a full-screen program's layout up by its leading blank rows.
  *
@@ -733,6 +734,99 @@ static bool row_has_text(uint32_t y) {
     return false;
 }
 
+/* The background a BLANK cell shows (no text, or a space), as an SGR colour, for the snapshot's background pass:
+ * the formatter treats such a cell as nothing at all, so a program that paints with background-coloured blanks
+ * (tty-clock's digits, a status bar's padding, a screen cleared under a colour) lost them on every new viewer until
+ * it redrew. Both of ghostty's forms: a cell with no text holding only a background (BG_COLOR_PALETTE/RGB), and a
+ * blank with a style whose background is set (an inverse blank shows its foreground colour as its background).
+ * Returns 1 for a coloured blank (its colour in `sgr`: "48;5;N" / "48;2;R;G;B"), 0 for a plain blank (`sgr` empty), -1
+ * for anything else — text, a wide half, an inverse blank of the default colours — which is the formatter's alone. */
+static int blank_cell_bg(GhosttyTerminal t, uint16_t x, uint32_t y, char *sgr, size_t n) {
+    sgr[0] = 0;
+    GhosttyPoint p = { .tag = GHOSTTY_POINT_TAG_ACTIVE, .value.coordinate = { .x = x, .y = y } };
+    GhosttyGridRef r;
+    memset(&r, 0, sizeof r);
+    r.size = sizeof r;
+    GhosttyCell c = 0;
+    if (ghostty_terminal_grid_ref(t, p, &r) != GHOSTTY_SUCCESS || ghostty_grid_ref_cell(&r, &c) != GHOSTTY_SUCCESS) return -1;
+    GhosttyCellWide w = GHOSTTY_CELL_WIDE_NARROW;
+    ghostty_cell_get(c, GHOSTTY_CELL_DATA_WIDE, &w);
+    if (w != GHOSTTY_CELL_WIDE_NARROW) return -1;
+    GhosttyCellContentTag tag = GHOSTTY_CELL_CONTENT_CODEPOINT;
+    ghostty_cell_get(c, GHOSTTY_CELL_DATA_CONTENT_TAG, &tag);
+    if (tag == GHOSTTY_CELL_CONTENT_BG_COLOR_PALETTE) {
+        GhosttyColorPaletteIndex i = 0;
+        if (ghostty_cell_get(c, GHOSTTY_CELL_DATA_COLOR_PALETTE, &i) != GHOSTTY_SUCCESS) return -1;
+        snprintf(sgr, n, "48;5;%u", (unsigned)i);
+        return 1;
+    }
+    if (tag == GHOSTTY_CELL_CONTENT_BG_COLOR_RGB) {
+        GhosttyColorRgb v = {0};
+        if (ghostty_cell_get(c, GHOSTTY_CELL_DATA_COLOR_RGB, &v) != GHOSTTY_SUCCESS) return -1;
+        snprintf(sgr, n, "48;2;%u;%u;%u", v.r, v.g, v.b);
+        return 1;
+    }
+    if (tag != GHOSTTY_CELL_CONTENT_CODEPOINT) return -1;
+    uint32_t cp = 0;
+    ghostty_cell_get(c, GHOSTTY_CELL_DATA_CODEPOINT, &cp);
+    if (cp != 0 && cp != ' ') return -1;
+    GhosttyStyle st = GHOSTTY_INIT_SIZED(GhosttyStyle);
+    if (ghostty_grid_ref_style(&r, &st) != GHOSTTY_SUCCESS) return -1;
+    GhosttyStyleColor col = st.inverse ? st.fg_color : st.bg_color;
+    if (col.tag == GHOSTTY_STYLE_COLOR_PALETTE) { snprintf(sgr, n, "48;5;%u", (unsigned)col.value.palette); return 1; }
+    if (col.tag == GHOSTTY_STYLE_COLOR_RGB) {
+        snprintf(sgr, n, "48;2;%u;%u;%u", col.value.rgb.r, col.value.rgb.g, col.value.rgb.b);
+        return 1;
+    }
+    return st.inverse ? -1 : 0;   /* an inverse blank of the default colours is not expressible as a colour: leave it */
+}
+
+/* The snapshot's background pass. In every row that holds a coloured blank, every blank cell — coloured AND plain — is
+ * written again as a space under its own colour (plain: SGR 0), run by run: the formatter writes no coloured blank, and
+ * around them it can leave its last background on blanks that have none. Spaces, never an erase: ghostty's ECH resets
+ * the row's soft-wrap flag, which would unjoin a wrapped line on the viewer. Each run starts with its own CUP (a run
+ * ending at the last column only leaves a pending wrap, which the next CUP drops). Rows without a coloured blank are
+ * left exactly as the formatter wrote them. Inside DECSC/DECRC, so the pen and cursor the formatter's extras just set
+ * come back exactly; insert mode (spaces would push the row right) and origin mode (rows counted from the scrolling
+ * region) are off while it paints and put back after. */
+static void paint_blank_backgrounds(struct buf *s) {
+    bool saved = false, insert = false, origin = false;
+    ghostty_terminal_mode_get(S.term, GHOSTTY_MODE_INSERT, &insert);
+    ghostty_terminal_mode_get(S.term, GHOSTTY_MODE_ORIGIN, &origin);
+    char cur[48], run[48], seq[96];
+    bool above = false;      /* the row above was repainted and soft-wraps into this one */
+    for (uint32_t y = 0; y < S.rows; y++) {
+        bool coloured = false;
+        for (uint16_t x = 0; x < S.cols && !coloured; x++) coloured = blank_cell_bg(S.term, x, y, cur, sizeof cur) == 1;
+        /* The formatter keeps a coloured blank's background on the plain blanks after it, past the row's edge into
+         * the row it wraps into — so a repainted row's continuation is repainted too. */
+        bool repaint = coloured || above;
+        above = repaint && row_wraps(GHOSTTY_POINT_TAG_ACTIVE, y);
+        if (!repaint) continue;
+        uint16_t x = 0;
+        while (x < S.cols) {
+            if (blank_cell_bg(S.term, x, y, run, sizeof run) < 0) { x++; continue; }
+            uint16_t start = x;
+            x++;
+            while (x < S.cols && blank_cell_bg(S.term, x, y, cur, sizeof cur) >= 0 && !strcmp(cur, run)) x++;
+            if (!saved) {
+                buf_str(s, "\x1b" "7");
+                if (insert) buf_str(s, "\x1b[4l");
+                if (origin) buf_str(s, "\x1b[?6l");
+                saved = true;
+            }
+            snprintf(seq, sizeof seq, "\x1b[0%s%sm\x1b[%u;%uH", run[0] ? ";" : "", run, y + 1u, start + 1u);
+            buf_str(s, seq);
+            for (uint16_t k = start; k < x; k++) buf_str(s, " ");
+        }
+    }
+    if (!saved) return;
+    buf_str(s, "\x1b[0m");
+    if (insert) buf_str(s, "\x1b[4h");
+    if (origin) buf_str(s, "\x1b[?6h");     /* homes the cursor; DECRC puts it back */
+    buf_str(s, "\x1b" "8");
+}
+
 /* One formatter pass over `sel` as VT. `modes` emits the terminal modes BEFORE the content (the formatter
  * always puts them first); `extras` the rest of the state, which the formatter puts AFTER the content
  * (cursor, pen, charsets, kitty keyboard; scrolling region, tabstops, pwd, keyboard). */
@@ -838,6 +932,8 @@ static void send_snapshot(struct client *c, const char *why) {
         if (select_rows(GHOSTTY_POINT_TAG_ACTIVE, 0, (uint32_t)(S.rows - 1), &sel)) format_into(&s, &sel, true, true);
         else format_into(&s, NULL, true, true);
     }
+    /* Blank cells with a background: the formatter writes none of them (see blank_cell_bg). */
+    paint_blank_backgrounds(&s);
 
     /* The terminal-level extras (DECSTBM homes the cursor; tabstops move it with CHA) are
      * emitted AFTER the screen's cursor CUP, so the cursor must be put back last. */

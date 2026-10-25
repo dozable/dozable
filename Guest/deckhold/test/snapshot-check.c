@@ -10,7 +10,7 @@
  * from the SAME pinned ghostty commit (Guest/deckhold/test/run.sh): each case feeds bytes to the holder's
  * emulator, resizes it as a viewer's HELLO/RESIZE would (resize_to — the reflow), builds the snapshot
  * (send_snapshot) and replays it into a FRESH emulator of the same size — then compares every cell of the
- * active area (codepoint), each row's soft-wrap flag, and the cursor. Fixed cases (the 609 shape) first, then
+ * active area (codepoint, and a blank cell's background), each row's soft-wrap flag, and the cursor. Fixed cases (the 609 shape) first, then
  * a seeded fuzz of screens and size sequences.
  *
  * Exit 0 = every case matched. Usage: snapshot-check [fuzz-iterations] [seed]
@@ -76,8 +76,23 @@ static bool row_wrap(GhosttyTerminal t, uint16_t y) {
  * ('w') is compared where it is MEANINGFUL — a row with text soft-wrapped into a row with text (a selection
  * or a copy joins them). A wrap into or out of an empty row joins nothing; the snapshot places the rows
  * around it by position, and the viewer learns such a wrap only when something is printed there. */
+/* A row's blank cells with a background, as runs "x-x2=SGR " (blank_cell_bg, deckhold's own reading) — what a viewer
+ * must paint where the program painted with background-coloured blanks. Empty when there are none. */
+static void row_backgrounds(GhosttyTerminal t, uint16_t cols, uint16_t y, char *out, size_t n) {
+    size_t len = 0;
+    out[0] = 0;
+    char run[48], cur[48];
+    uint16_t x = 0;
+    while (x < cols && len + 80 < n) {
+        if (blank_cell_bg(t, x, y, run, sizeof run) != 1) { x++; continue; }
+        uint16_t start = x++;
+        while (x < cols && blank_cell_bg(t, x, y, cur, sizeof cur) == 1 && !strcmp(cur, run)) x++;
+        len += (size_t)snprintf(out + len, n - len, "%u-%u=%s ", start, x - 1u, run);
+    }
+}
+
 static char *screen_text(GhosttyTerminal t, uint16_t cols, uint16_t rows) {
-    size_t n = (size_t)(cols + 4) * rows + 64;
+    size_t n = (size_t)(cols + 4) * rows + 64 + (size_t)rows * 4096;
     char *s = calloc(1, n), *p = s;
     bool ok = true;
     char *line_start[1001];
@@ -87,6 +102,9 @@ static char *screen_text(GhosttyTerminal t, uint16_t cols, uint16_t rows) {
         for (uint16_t x = 0; x < cols; x++) *p++ = cell_char(t, x, y, &ok);
         *p++ = '|';
         *p++ = row_wrap(t, y) ? 'w' : ' ';
+        char bg[4000];
+        row_backgrounds(t, cols, y, bg, sizeof bg);
+        if (bg[0]) p += snprintf(p, sizeof bg + 8, " bg %s", bg);
         *p++ = '\n';
     }
     for (uint16_t y = 0; y < rows; y++) {
@@ -218,6 +236,28 @@ static void case_exact_multiple(void) {
     snapshot_matches("… back to 100", true);
 }
 
+/* tty-clock's shape: digits drawn as background-coloured blanks on rows with no text (the owner's live preview showed
+ * only the digits redrawn since the attach), both of ghostty's forms — spaces under a background SGR and an erase (ECH,
+ * EL) under one — plus a 256-colour and a true-colour background, an inverse blank, and a row with text whose padding to
+ * the edge is coloured (a status bar). */
+static void case_background_blanks(void) {
+    holder(80, 24);
+    feed("\x1b[2J");
+    feed("\x1b[8;20H\x1b[44m      \x1b[0m  \x1b[44m  \x1b[0m");         /* spaces with a background */
+    feed("\x1b[9;20H\x1b[44m\x1b[6X\x1b[0m");                            /* an erase under a background */
+    feed("\x1b[10;20H\x1b[48;5;202m\x1b[4X\x1b[0m");                     /* 256 colours */
+    feed("\x1b[11;20H\x1b[48;2;10;200;30m   \x1b[0m");                  /* true colour */
+    feed("\x1b[12;20H\x1b[7;31m  \x1b[0m");                              /* an inverse blank: shows its foreground */
+    feed("\x1b[14;30H2026-10-26");
+    feed("\x1b[24;1H\x1b[42mstatus\x1b[K\x1b[0m");                       /* text, then EL under a background */
+    feed("\x1b[3;3H");
+    snapshot_matches("tty-clock shape: background-coloured blanks", true);
+    resize_to(100, 30);
+    snapshot_matches("… widened to 100x30", true);
+    feed("\x1b[1;1H\x1b[45m\x1b[2J\x1b[0m");                             /* a screen cleared under a colour */
+    snapshot_matches("a screen cleared under a background", true);
+}
+
 /* ── the fuzz ─────────────────────────────────────────────────────────────────────────────── */
 
 static uint64_t rng;
@@ -227,7 +267,9 @@ static void random_screen(uint16_t cols) {
     char b[512];
     int ops = 20 + (int)rnd(60);
     for (int i = 0; i < ops; i++) {
-        switch (rnd(10)) {
+        switch (rnd(12)) {
+        case 10: snprintf(b, sizeof b, "\x1b[4%um%*s\x1b[0m", rnd(8), (int)(1 + rnd(8)), ""); feed(b); break;  /* coloured blanks */
+        case 11: snprintf(b, sizeof b, "\x1b[48;5;%um\x1b[%uX\x1b[0m", rnd(256), 1 + rnd(10)); feed(b); break; /* an erase under a colour */
         case 0: case 1: {                                       /* text, maybe to the edge or past it */
             int len = (int)rnd(cols * 2u);
             for (int k = 0; k < len && k < (int)sizeof b - 1; k++) b[k] = rnd(6) == 0 ? ' ' : (char)('a' + rnd(26));
@@ -280,6 +322,7 @@ int main(int argc, char **argv) {
     case_blank_continuation();
     case_tui_switch();
     case_exact_multiple();
+    case_background_blanks();
     fuzz(iterations);
     printf("%s: %d cases, %d failed\n", failures ? "snapshot-check FAILED" : "snapshot-check: ALL PASS", cases, failures);
     return failures ? 1 : 0;

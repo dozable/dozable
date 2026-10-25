@@ -2378,6 +2378,12 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   last. `make deckhold-snapshot-check` (`Guest/deckhold/test/`: deckhold.c itself against a Mac build of the SAME
   ghostty commit) replays every snapshot on a fresh emulator and compares cell by cell (fixed cases + a seeded fuzz of
   screens × size changes; 0.30.1's source failed ~45 %). Run it on any change to `send_snapshot` or the ghostty pin.
+  648: the formatter writes NO blank cell that carries only a background (tty-clock's digits, a status bar's padding — a
+  new viewer showed gaps until the program redrew), and leaves a coloured blank's background on the plain blanks after
+  it, past the edge into a wrapped continuation. `paint_blank_backgrounds` repaints, after the runs and inside
+  DECSC/DECRC (insert and origin mode off meanwhile), every blank of a row holding a coloured blank and of its wrapped
+  continuations — as SPACES, never ECH (ghostty's erase resets the row's soft-wrap). The check compares each blank's
+  background too (`blank_cell_bg`, deckhold's own reading) and its fuzz paints with backgrounds.
 - **GRID only to a holder that ANNOUNCED it** (648, painted thumbnails). deckhold's `'G'` GRID `{gen u32}` is answered
   with the screen as cells (binary, WIRE in deckhold.c: version, gen, changed 0/1/2, then cols, rows, cursor, default
   colours and per row runs of `col, cells, flags, fg?, bg?, text`) built from libghostty-vt's RENDER STATE (one in `S`,
