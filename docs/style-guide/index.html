@@ -42,24 +42,31 @@
     <li><b>Choices are cards</b> (<code>.wiz-choice</code>, <code>.base-card</code>, Quick try’s <code>.qt-item</code>): chosen = a ring; a segmented control for 2–4 short modes.</li>
     <li><b>Icons are the vendored Lucide set only</b> (listed at the end). A new icon is a vendoring change (VENDOR.json). <b>Marks</b> (agents, vendors) come from the icon registry, monochrome, in <code>currentColor</code>.</li>
     <li><b>Commands and files are shown exactly</b>, monospace, copyable, never holding a secret; a long file folds away behind a disclosure.</li>
+    <li><b>CSS rules</b> (<code>make css-lint</code>, part of <code>make test</code>): no <code>:has()</code> — a state is a class the component sets (<code>.is-active</code>, <code>.is-open</code>, <code>.is-checked</code>, <code>.has-title</code>, a dot's <code>.mark-ring</code>); no universal right-most key (<code>&gt; *</code>: give the children a class, or set it on an inner wrapper); a rule in its layer's block, never twice; no capitals-only labels; no literal colour outside <code>:root</code>; spacing from the <code>--sp-*</code> scale. <code>make css-perf</code> measures the sheet in a real headless Chrome against its baseline.</li>
     <li><b>Light and dark</b> both work, and the theme is the app’s switch (<code>data-theme</code> on <code>&lt;html&gt;</code>; auto follows macOS). Text is set with <code>textContent</code>, never markup.</li>
   </ol>
 </section>
 
 <section>
   <h2>Tokens — colour</h2>
-  <p>Each swatch is drawn with the token itself; the values under the panels are read live from app.css.</p>
+  <p>Each swatch is drawn with the token itself; the values under the panels are read live from app.css.
+    <b>Surfaces by role</b>: <code>--shell</code> is the frame (the sidebar, the tab strips — one step below the page), <code>--bg</code>
+    the page, <code>--surface</code> content (panels, tables, dialogs), <code>--well</code> a sunken block (commands, code, previews);
+    <code>--surface-2</code> is a quiet fill (a chip, a disabled control), <code>--surface-3</code> a bar's empty track and nothing else.</p>
   <div class="pair"><div class="scheme">
     <div class="sg-sw">
-      <div><i style="background:var(--bg)"></i><span>--bg</span></div>
-      <div><i style="background:var(--surface)"></i><span>--surface</span></div>
-      <div><i style="background:var(--surface-2)"></i><span>--surface-2</span></div>
-      <div><i style="background:var(--surface-3)"></i><span>--surface-3</span></div>
+      <div><i style="background:var(--shell)"></i><span>--shell (the frame)</span></div>
+      <div><i style="background:var(--bg)"></i><span>--bg (the page)</span></div>
+      <div><i style="background:var(--surface)"></i><span>--surface (content)</span></div>
+      <div><i style="background:var(--well)"></i><span>--well (code, commands)</span></div>
+      <div><i style="background:var(--surface-2)"></i><span>--surface-2 (a quiet fill)</span></div>
+      <div><i style="background:var(--surface-3)"></i><span>--surface-3 (a track only)</span></div>
       <div><i style="background:var(--ink)"></i><span>--ink</span></div>
       <div><i style="background:var(--ink-2)"></i><span>--ink-2</span></div>
       <div><i style="background:var(--ink-3)"></i><span>--ink-3 (decoration)</span></div>
-      <div><i style="background:var(--line)"></i><span>--line</span></div>
-      <div><i style="background:var(--line-strong)"></i><span>--line-strong</span></div>
+      <div><i style="background:var(--line)"></i><span>--line (rows, panels)</span></div>
+      <div><i style="background:var(--sep)"></i><span>--sep (between areas)</span></div>
+      <div><i style="background:var(--line-strong)"></i><span>--line-strong (a control's edge)</span></div>
       <div><i style="background:var(--control)"></i><span>--control</span></div>
       <div><i style="background:var(--accent)"></i><span>--accent</span></div>
       <div><i style="background:var(--accent-tint)"></i><span>--accent-tint</span></div>
@@ -72,7 +79,58 @@
       <div><i style="background:var(--data-shared)"></i><span>--data-shared</span></div>
     </div>
   </div></div>
-  <p class="src" style="margin-top:8px">Source, e.g. <code>--accent</code> = <code data-token="--accent"></code> · <code>--bg</code> = <code data-token="--bg"></code> · <code>--ok</code> = <code data-token="--ok"></code></p>
+  <p class="src" style="margin-top:8px">Source, e.g. <code>--accent</code> = <code data-token="--accent"></code> · <code>--bg</code> = <code data-token="--bg"></code> · <code>--ok</code> = <code data-token="--ok"></code> · <code>--state-hover</code> = <code data-token="--state-hover"></code></p>
+  <p style="margin-top:16px"><b>States are laid over the surface</b> (translucent ink, or the accent for selected), so a hover reads the same on
+    every surface: <code>--state-hover</code>, <code>--state-press</code>, <code>--state-selected</code> (+ the 2 px <code>--indicator</code>
+    on its leading edge). A selected item's words stay <code>--ink</code> (<code>--state-selected-ink</code>): the accent as text is under AA on a
+    pressed or selected dark surface. Every hover in app.css is <code>--state-hover</code> (a filled button: the state over its own surface).</p>
+  <div class="pair"><div class="scheme">
+    <div class="sg-states">
+      <span></span><b>at rest</b><b>hover</b><b>pressed</b><b>selected</b>
+      <b>--shell</b><i style="background:var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--shell)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--shell);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--bg</b><i style="background:var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--bg)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--bg);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--surface</b><i style="background:var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--surface)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--surface);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+      <b>--well</b><i style="background:var(--well)">Aa</i><i style="background:linear-gradient(var(--state-hover),var(--state-hover)) var(--well)">Aa</i><i style="background:linear-gradient(var(--state-press),var(--state-press)) var(--well)">Aa</i><i style="background:linear-gradient(var(--state-selected),var(--state-selected)) var(--well);box-shadow:inset 2px 0 0 var(--indicator)">Aa</i>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Density — comfortable and compact</h2>
+  <p>The setting <code>ui.density</code> (Settings › This UI): <b>compact</b> sets <code>data-density="compact"</code> on <code>&lt;html&gt;</code>
+    and redefines the space ROLE tokens — <code>--row-py</code> 7 → 3, <code>--th-h</code> 32 → 26, <code>--cell-px</code>, <code>--nav-h</code> 30 → 26,
+    <code>--nav-child-h</code>, <code>--nav-sess-h</code>, <code>--strip-h</code> 34 → 28, <code>--tab-py</code>, <code>--page-py/px</code> 24/32 → 14/20,
+    <code>--work-py/px</code>, <code>--gap</code> and <code>--panel-p</code> 12 → 8, <code>--ctl-px</code>, the control heights 28 → 24. The structure and the
+    type (13 px) stay. Every padding, margin and gap is a <code>--sp-*</code> step or one of these roles (<code>make css-lint</code>).</p>
+  <div class="pair"><div class="scheme" data-s="comfortable">
+    <div class="sg-density">
+      <div class="panel"><table><thead><tr><th>Sandbox</th><th>Phase</th><th class="num">RAM</th></tr></thead>
+        <tbody><tr class="click"><td><a class="name" href="#">claude-sandbox-5</a></td><td><span class="pill ph-running"><span class="dot ph-running"></span>running</span></td><td class="num">1.0 GiB</td></tr>
+          <tr class="click"><td><a class="name" href="#">docs-site</a></td><td><span class="pill ph-off"><i data-i="power"></i>off</span></td><td class="num">—</td></tr></tbody></table></div>
+      <div class="nav-children" style="width:220px">
+        <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">claude-sandbox-5</span></a>
+          <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span></a></div>
+            <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div></div></div></div>
+      <div class="term-strip"><div class="tabs">
+        <div class="tab-wrap is-home is-active"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home</button></div>
+        <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>claude</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div></div></div>
+      <div class="sg-row"><button class="btn" type="button"><i data-i="play"></i>Start</button><button class="btn sm" type="button"><i data-i="copy"></i>Copy</button><input type="text" value="todo-app"></div>
+    </div>
+  </div><div class="scheme" data-s="compact" data-density="compact">
+    <div class="sg-density">
+      <div class="panel"><table><thead><tr><th>Sandbox</th><th>Phase</th><th class="num">RAM</th></tr></thead>
+        <tbody><tr class="click"><td><a class="name" href="#">claude-sandbox-5</a></td><td><span class="pill ph-running"><span class="dot ph-running"></span>running</span></td><td class="num">1.0 GiB</td></tr>
+          <tr class="click"><td><a class="name" href="#">docs-site</a></td><td><span class="pill ph-off"><i data-i="power"></i>off</span></td><td class="num">—</td></tr></tbody></table></div>
+      <div class="nav-children" style="width:220px">
+        <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">claude-sandbox-5</span></a>
+          <div class="nav-sessions"><div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">claude</span></a></div>
+            <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div></div></div></div>
+      <div class="term-strip"><div class="tabs">
+        <div class="tab-wrap is-home is-active"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home</button></div>
+        <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>claude</button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div></div></div>
+      <div class="sg-row"><button class="btn" type="button"><i data-i="play"></i>Start</button><button class="btn sm" type="button"><i data-i="copy"></i>Copy</button><input type="text" value="todo-app"></div>
+    </div>
+  </div></div>
 </section>
 
 <section>
@@ -130,6 +188,11 @@
       <span class="pill ph-off"><i data-i="power"></i>off</span>
       <span class="pill ph-failed"><i data-i="x"></i>failed</span>
     </div>
+    <div class="sg-row" title="A phase dot: its shape is a class beside its colour — phaseMark(phase), dom/icons.js">
+      <span class="ph-dot ph-running"></span>running <span class="ph-dot ph-paused"></span>paused <span class="ph-dot ph-asleep"></span>asleep
+      <span class="ph-dot ph-hibernated mark-ring"></span>hibernated <span class="ph-dot ph-off mark-ring"></span>off
+      <span class="ph-dot ph-failed mark-square"></span>failed <span class="ph-dot ph-booting mark-turning"></span>starting
+    </div>
     <div class="sg-row">
       <span class="tag">plain</span><span class="tag info">info</span><span class="tag ok">current</span><span class="tag warn">superseded</span><span class="tag bad">refused</span><span class="tag outline">headless</span>
     </div>
@@ -160,7 +223,7 @@
     <label class="field"><span>Network</span><select><option>agent — proxied: what the agent may do is its permissions</option></select></label>
     <div class="sg-row"><label class="field check"><input type="checkbox" checked><span>A checkbox</span></label><label class="field check"><input type="checkbox" role="switch" checked><span>A switch (on)</span></label><label class="field check"><input type="checkbox" role="switch"><span>off</span></label></div>
     <div class="wiz-choices">
-      <label class="wiz-choice chosen"><input type="radio" name="g1" checked><span>A new folder in your projects folder</span></label>
+      <label class="wiz-choice chosen is-checked"><input type="radio" name="g1" checked><span>A new folder in your projects folder</span></label>
       <label class="wiz-choice"><input type="radio" name="g1"><span>A folder you have (your project)</span></label>
     </div>
     <div class="field image-picker"><span>Agent</span>
@@ -174,7 +237,7 @@
       <button type="button" class="base-card"><span class="base-title">Python</span><span class="base-use">Python 3.13 with pip</span><code class="base-ref">python:3.13-bookworm</code><span class="base-meta">↓ 356 MiB · ~3 min</span><span class="base-prepared">prepared</span></button>
     </div>
     <dl class="facts"><dt>Folder</dt><dd><code>~/code/todo-app</code></dd><dt>Network</dt><dd>agent · standard</dd></dl>
-    <details class="disclosure" open><summary><i data-i="chevron-down"></i>The file, exactly as written (12 lines)</summary><pre class="nw-yaml">version: 1
+    <details class="disclosure" open><summary><i data-i="chevron-down"></i>The file, exactly as written (12 lines)</summary><pre class="nw-yaml d-part">version: 1
 name: todo-app</pre></details>
   </div></div>
 </section>
@@ -208,7 +271,7 @@ name: todo-app</pre></details>
             <li><span class="n">5</span><span class="s-label">Review</span></li>
           </ol></nav>
         </header>
-        <form class="wiz-card"><div class="w-body"><h2>Base</h2><p class="muted">The step’s content scrolls here; the header and footer stay put.</p></div>
+        <form class="wiz-card"><div class="w-body"><h2 class="w-item">Base</h2><p class="muted w-item">The step’s content scrolls here; the header and footer stay put.</p></div>
           <div class="w-foot wiz-buttons"><button class="btn" type="button"><i data-i="arrow-left"></i>Back</button><span class="wiz-gap"></span><button class="btn quiet" type="button"><i data-i="skip-forward"></i>Skip to review</button><button class="btn lg primary" type="button"><span class="btn-label">Next</span><i data-i="arrow-right"></i></button></div>
         </form>
       </div>
@@ -225,9 +288,9 @@ name: todo-app</pre></details>
       <div class="wizard">
         <header class="wm-head"><div class="wm-title-row"><h1>Set up Dozable</h1><span class="wm-gap"></span><button class="btn quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div></header>
         <section class="wiz-card wiz-body">
-          <div class="w-body w2"><div class="w2-col narrow">
-            <div class="w2-head"><h2>Usage statistics</h2><p>Anonymous, at most once a day: counts and ranges, never names, paths or contents.</p></div>
-            <label class="wiz-choice chosen"><input type="checkbox" role="switch" checked><span><strong>Send anonymous usage statistics</strong></span></label>
+          <div class="w-body w2"><div class="w2-col narrow w-item">
+            <div class="w2-head w-item"><h2>Usage statistics</h2><p>Anonymous, at most once a day: counts and ranges, never names, paths or contents.</p></div>
+            <label class="wiz-choice chosen is-checked w-item"><input type="checkbox" role="switch" checked><span><strong>Send anonymous usage statistics</strong></span></label>
           </div></div>
           <div class="wm-base-slot"><div class="wm-base at-foot" role="status"><i data-i="download"></i><b>Node.js base</b><span class="wb-bar"><span style="width:34%"></span></span><span class="wb-text">Downloading · 130 MiB of 381 MiB<span class="wb-long"> · about 2 min left</span></span><span class="wb-gap"></span><button type="button" class="linkish" aria-expanded="true">Details</button>
             <div class="wb-pop" role="dialog" aria-label="Node.js base — details">
@@ -357,7 +420,7 @@ name: todo-app</pre></details>
             <label class="ms-opt on"><input type="radio" name="sg-ms" checked><span class="ms-t">OpenRouter</span><span class="ms-k"><span class="pill st-off"><i data-i="circle-dot"></i>no key yet</span></span><span class="ms-d">one key, models from many makers</span></label>
             <div class="ms-need"><div class="try-paste"><input type="password" placeholder="paste your OpenRouter key (sk-or-…)"><button class="btn sm" type="button"><i data-i="key-round"></i>Save the key</button></div>
               <div class="muted ms-small">Kept in this Mac’s keychain; the sandbox only ever sees a placeholder. Get one at <strong>openrouter.ai/keys</strong>.</div>
-              <details class="ms-other"><summary>Keep it in 1Password, AWS or a program instead</summary><code class="ms-cmd">doz account add NAME --provider openrouter --from op://VAULT/ITEM/FIELD</code></details></div>
+              <details class="ms-other"><summary>Keep it in 1Password, AWS or a program instead</summary><code class="ms-cmd ms-part">doz account add NAME --provider openrouter --from op://VAULT/ITEM/FIELD</code></details></div>
           </div>
           <p class="ms-notoffer">Not offered: a Claude subscription sign-in — it takes API keys only.</p></div>
         <div class="qt-sect"><h3>Model</h3><div class="ms-picker"><div class="ms-top"><i data-i="search"></i><input type="search" value="claude" placeholder="Search OpenRouter’s models — name, maker or id"></div>
@@ -405,8 +468,9 @@ name: todo-app</pre></details>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary danger" type="button"><i data-i="rotate-ccw"></i>Reset</button></div>
     </form></dialog>
     <!-- Owner, 2026-10-23: Rename… (components/rename-dialog.js) — from the sidebar's ⋯ on a sandbox's line and the page's ⋯.
-         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error); a sandbox that is not shut
-         down keeps the button disabled and says why in the footer (.why). -->
+         Nothing is lost, so no box to tick; the name is checked as it is typed (.dlg-error). Owner, 2026-10-24: a sandbox
+         that is not shut down is shut down by the dialog first — said in the body (a warn callout) and on the button,
+         "Shut down and rename"; only a busy one waits (an info callout, the button disabled). -->
     <dialog class="dlg" open><form method="dialog">
       <div class="dlg-head"><h2 class="h-title">Rename demo</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
@@ -418,8 +482,8 @@ name: todo-app</pre></details>
       <div class="dlg-head"><h2 class="h-title">Rename api-tests</h2><button class="btn sm quiet icon-only" type="button" aria-label="Close"><i data-i="x"></i></button></div>
       <div class="dlg-body"><p class="sub">The same sandbox under another name: its disks, restore points, folder, account and settings stay as they are. Its folder on the Mac keeps its own name.</p>
         <label class="field"><span>New name</span><input type="text" value="Api Tests"><small>1–40 characters of a-z, 0-9 and -</small></label>
-        <div class="dlg-extra"></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
-      <div class="dlg-foot dlg-buttons"><span class="why">Shut it down first — renaming keeps its disk, points and folder</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Rename</button></div>
+        <div class="dlg-extra"><div class="callout warn compact" role="status"><i data-i="triangle-alert"></i><div class="c-body">api-tests is hibernated. Renaming shuts it down first: its running programs end; its disk, restore points and folder stay.</div></div></div><div class="dlg-error" role="alert">1–40 characters of a-z, 0-9 and - (not starting with -)</div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="pencil"></i>Shut down and rename</button></div>
     </form></dialog>
   </div></div>
 </section>
@@ -433,7 +497,7 @@ name: todo-app</pre></details>
   <div class="pair"><div class="scheme">
     <div class="sbx-details-inner" style="max-width:420px">
       <div class="itabs" role="tablist"><button type="button" role="tab" class="itab" aria-selected="true"><i data-i="list-checks"></i><span class="itab-l">Guide</span></button><button type="button" role="tab" class="itab" aria-selected="false"><i data-i="info"></i><span class="itab-l">Overview</span></button></div>
-      <section class="ipanel"><div class="head"><h2>Guide</h2></div>
+      <section class="ipanel"><div class="head has-title"><h2>Guide</h2></div>
         <div class="guide">
           <div class="guide-head"><div class="guide-title"><strong>Fabric</strong><span class="muted"> · by Daniel Miessler · MIT · a command-line tool</span></div>
             <p>Fabric applies ready-made prompts — patterns — to text you pipe into it. It is not a chat: it answers in your shell and exits.</p>
@@ -504,7 +568,7 @@ name: todo-app</pre></details>
     <div class="term-strip" style="gap:0">
       <button type="button" class="tab-x tabs-menu" aria-label="The open tabs"><i data-i="chevron-down"></i></button>
       <div class="tabs">
-      <div class="tab-wrap"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home<span class="count">2</span></button></div>
+      <div class="tab-wrap is-home is-active"><button type="button" class="tab tab-home active"><i data-i="layout-grid"></i>Home<span class="count">2</span></button></div>
       <div class="tab-wrap"><button type="button" class="tab tab-console"><i data-i="cpu"></i>Console</button><button type="button" class="tab-x" aria-label="Close Console"><i data-i="x"></i></button></div>
       <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>1 · try-pi · pi</button><button type="button" class="tab-x" aria-label="More"><i data-i="ellipsis-vertical"></i></button><button type="button" class="tab-x" aria-label="Close" title="Close — end pi, or hide its tab and keep it running"><i data-i="x"></i></button></div>
       <div class="tab-wrap"><button type="button" class="tab"><span class="tab-dot ph-running"></span><i data-i="terminal"></i>2 · shell-2<span class="tab-activity" aria-label="ready"></span></button><button type="button" class="tab-x" aria-label="Close"><i data-i="x"></i></button></div>
@@ -547,7 +611,7 @@ name: todo-app</pre></details>
     <section class="terms sg-terms" style="height:auto;position:relative">
       <div class="home-doc" style="position:relative">
         <section class="home-sect">
-          <div class="head"><h2>Sessions</h2><div class="actions"><div class="btn-group home-view" role="group"><button class="btn sm quiet icon-only on" type="button" aria-label="A list"><i data-i="list"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="A grid"><i data-i="layout-grid"></i></button></div><button class="btn sm" type="button"><i data-i="plus"></i>New shell</button><button class="btn sm quiet" type="button"><i data-i="play"></i>Run detached…</button></div></div>
+          <div class="head has-title"><h2>Sessions</h2><div class="actions"><div class="btn-group home-view" role="group"><button class="btn sm quiet icon-only on" type="button" aria-label="A list"><i data-i="list"></i></button><button class="btn sm quiet icon-only" type="button" aria-label="A grid"><i data-i="layout-grid"></i></button></div><button class="btn sm" type="button"><i data-i="plus"></i>New shell</button><button class="btn sm quiet" type="button"><i data-i="play"></i>Run detached…</button></div></div>
           <p class="home-lead">2 running. Each keeps running when its tab is closed — End stops one.</p>
           <div class="home-card-box"><div class="home-agent has-thumb just-closed">
             <button type="button" class="home-thumb big" aria-label="Open claude"><span class="th-badge"><span class="th-live"></span>live</span></button>
@@ -567,12 +631,12 @@ name: todo-app</pre></details>
               <div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Show</button></div></div>
           </div>
         </section>
-        <section class="home-sect"><div class="head"><h2>Logs</h2></div><div class="home-rows">
+        <section class="home-sect"><div class="head has-title"><h2>Logs</h2></div><div class="home-rows">
           <div class="home-row"><i data-i="cpu"></i><span class="nm">Console</span><span class="cmd-t">the kernel and vminitd, read-only</span><span class="st">while it runs</span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="cpu"></i>Open</button></div></div>
           <div class="home-row"><i data-i="wrench"></i><span class="nm">Build log</span><span class="cmd-t">how claude-code was built</span><span class="st">2 h ago</span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="wrench"></i>Open</button></div></div>
           <div class="home-row"><i data-i="history"></i><span class="nm">Boot logs</span><span class="cmd-t">its last boots: the steps and the console</span><span class="st"></span><div class="row-acts"><button class="btn sm quiet" type="button"><i data-i="eye"></i>Show</button></div></div>
         </div></section>
-        <section class="home-sect"><div class="head"><h2>Folder</h2></div>
+        <section class="home-sect"><div class="head has-title"><h2>Folder</h2></div>
           <dl class="home-facts"><dt>On this Mac</dt><dd><code>~/doz-workspaces/todo-app</code></dd><dt>In the sandbox</dt><dd><code>/workspace</code> — live, both ways</dd></dl></section>
       </div>
     </section>
@@ -584,10 +648,176 @@ name: todo-app</pre></details>
 </section>
 
 <section>
+  <h2>The sidebar’s head, the page’s title bar and the bell’s corner</h2>
+  <p>647 (owner: “i dont like the height that it takes away from the main page. make the header in the navbar only”): there is no header row above the page
+    (<code>--header-h</code> is 0 wider than 760 px). The sidebar’s head (<code>.side-head</code>) holds the menu (wider than 980 px it collapses the sidebar to the icon rail
+    and back, <code>body.rail</code>, remembered in this browser; narrower it shows the whole sidebar), the brand and the store (<code>#store-path</code>); in the rail only the
+    menu. The sidebar is the frame — on <code>--shell</code>, with no line of its own. The notifications keep a fixed corner at the top right (<code>#notes</code>,
+    <code>--corner-w</code>). Each page’s title bar (<code>.page-title</code> — its <code>.head</code>, or its h1 alone; <code>components/page-title.js</code> marks it after
+    each render) runs edge to edge at the top, <code>--title-bar-h</code> tall like the bell’s row, leaves the corner free, and STICKS as the page scrolls, with a line under it
+    once stuck (<code>.is-stuck</code>). A page’s sticky tools or index sit under it (<code>--title-h</code>), and every table’s column heads under all of that
+    (<code>#view thead th</code>, <code>--stack-h</code>) — so a panel clips its overflow instead of scrolling it (a phone’s still scrolls sideways).</p>
+  <div class="pair"><div class="scheme">
+    <div style="display:flex;background:var(--bg)">
+      <div class="side" style="position:static;height:auto;width:220px;flex:none">
+        <div class="side-head"><button type="button" class="btn sm quiet icon-only nav-menu" aria-label="Collapse the sidebar"><i data-i="list"></i></button>
+          <span class="brand-mark" aria-hidden="true">z</span><span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span></span></div>
+      </div>
+      <div style="position:relative;flex:1;min-width:0;padding:var(--page-py) var(--page-px) 0">
+        <div class="head page-title is-stuck" style="position:static"><h1>Images</h1><div class="actions"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Refresh</button></div></div>
+        <div class="panel"><table><thead><tr><th>Image</th><th>Status</th><th>Size</th></tr></thead><tbody><tr><td>claude-code</td><td>up to date</td><td>1.2 GB</td></tr></tbody></table></div>
+        <div class="notes mode-cards" style="position:absolute;top:0;right:var(--sp-3)"><div class="notes-row"><button type="button" class="btn sm quiet icon-only note-bell" aria-label="2 notifications" title="Notifications"><i data-i="bell"></i><span class="note-count">2</span></button></div></div>
+      </div>
+    </div>
+  </div></div>
+  <p>The current page, sandbox or session is <strong>selected</strong>, one way everywhere: <code>--state-selected</code> and the 2 px <code>--indicator</code> on its leading
+    edge (<code>#nav a[data-view].active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code>
+    (here on Settings). Sandboxes: <strong>All sessions</strong>, then <strong>All sandboxes</strong> heading the tree (<code>.nav-all</code>): a click on it while its page is
+    shown, or its caret (<code>.nav-tree-caret</code>), folds the tree (<code>#nav.tree-folded</code>); its ⋯ (Expand all, Collapse all — <code>.nav-sbx-more</code>) shows on
+    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>status bar</strong> (<code>footer.statusbar</code>, 647 — owner: “move the bottom status bar to only appear (also fixed) in the sidebar”: the sidebar never scrolls itself — its head stays at the top, the status bar at its foot, only <code>#nav</code> between them scrolls; in the rail, the two dots over the two switches, the card beside the rail)
+    is <code>--status-h</code> tall. At its left one line (<code>.foot-status</code>): a dot for
+    doz ui and one for the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>). Its hover or focus shows the card above it
+    (<code>.foot-card</code>, shown pinned below — a click pins it), which is <strong>interactive</strong>: the host’s row has Restart (Start while none runs), a line says when the
+    host and the dashboard are different builds (<code>#foot-mismatch</code>), and the updates row has Check. Sign out and the light / dark switch are at its right end.
+    Accounts &amp; keys carries a count of the keys and sign-ins that break a sandbox’s next session (<code>components/account-problems.js</code>).</p>
+  <div class="pair"><div class="scheme">
+    <aside class="side" style="position:static;height:auto;width:220px;padding-bottom:var(--sp-3)">
+      <nav id="nav" aria-label="Pages">
+        <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" aria-label="Quick add a sandbox"><i data-i="plus"></i></button></div>
+        <a href="#" data-view="sessions"><i data-i="layout-grid"></i><span class="lbl">All sessions</span></a>
+        <div class="nav-all menu-hover"><a href="#" data-view="overview"><i data-i="box"></i><span class="lbl">All sandboxes</span><span class="trail">3</span></a>
+          <button type="button" class="nav-tree-caret" aria-label="Fold the sandboxes"><i data-i="chevron-down"></i></button>
+          <span class="nav-sbx-more"><span class="menu-wrap"><button type="button" class="btn quiet icon-only sm" aria-label="More for All sandboxes"><i data-i="ellipsis-vertical"></i></button></span></span></div>
+        <div class="nav-children">
+          <div class="nav-sbx"><a class="nav-child active" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a></div>
+          <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">api-tests</span><span class="nav-count">2</span></a>
+            <button type="button" class="nav-caret folded" aria-label="Show"><i data-i="chevron-down"></i></button></div>
+          <div class="nav-sbx"><a class="nav-child" href="#"><span class="ph-dot ph-off"></span><span class="nav-name">docs-site</span></a></div>
+        </div>
+        <div class="nav-group"><span class="ng-label">Setup</span></div>
+        <a href="#" data-view="accounts"><i data-i="key-round"></i><span class="lbl">Accounts &amp; keys</span><span class="trail"><span class="nav-badge count bad">1</span></span></a>
+        <a href="#" data-view="settings" style="background:var(--state-hover)"><i data-i="settings"></i><span class="lbl">Settings</span></a>
+        <a href="#" data-view="doctor" class="active"><i data-i="stethoscope"></i><span class="lbl">Doctor</span></a>
+        <a href="#" data-view="debug"><i data-i="bug"></i><span class="lbl">Debug</span></a>
+      </nav>
+    </aside>
+  </div></div>
+  <h3>The status bar — the card pinned open above it</h3>
+  <div class="pair"><div class="scheme">
+    <div class="foot-card is-open" role="group" aria-label="Status" style="position:static;margin-bottom:var(--sp-1)">
+      <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">doz ui</span><span>live</span></div>
+      <div class="live on"><span class="dot" aria-hidden="true"></span><span class="foot-k">host</span><span>running · doz 0.37.17</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="rotate-ccw"></i>Restart</button></span></div>
+      <div class="foot-note warn">This doz ui (0.37.18) is newer than the host (0.37.17) — Restart to use the new build.</div>
+      <div class="live upd info"><span class="dot" aria-hidden="true"></span><span class="foot-k">updates</span><span>doz 0.38.0 is available — brew upgrade doz</span><span class="foot-act"><button type="button" class="btn sm quiet"><i data-i="refresh-cw"></i>Check</button></span></div>
+      <div class="version">doz 0.37.18</div>
+    </div>
+    <footer class="statusbar" style="position:static">
+      <button type="button" class="foot-status" aria-label="Status" aria-expanded="true"><span class="dot on" aria-hidden="true"></span><span class="dot on" aria-hidden="true"></span><span class="foot-sum warn">host is another build</span></button>
+      <div class="foot-acts"><button type="button" class="btn sm quiet icon-only" aria-label="Sign out"><i data-i="log-out"></i></button>
+        <button type="button" class="btn sm quiet icon-only" aria-label="Dark mode"><i data-i="moon"></i></button></div>
+    </footer>
+  </div></div>
+  <p>Below 980 px the sidebar is a 52 px icon rail and its menu (<code>#nav-menu</code>) shows it all over the page. Below 760 px the rail goes and a phone’s
+    header row comes (<code>#topbar</code>, <code>--header-h</code>): its menu (<code>#top-menu</code>) opens the sidebar as a drawer over a scrim; the brand, the key while one
+    needs you (<code>.topbar-keys</code>) and Quick add. The notifications sit in it, left of those two; the title bar sticks under it.</p>
+  <div class="pair"><div class="scheme">
+    <header class="topbar" style="position:static;display:flex;width:390px;max-width:100%">
+      <button type="button" class="btn sm quiet icon-only nav-menu" style="display:inline-flex" aria-label="Show the menu"><i data-i="list"></i></button>
+      <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
+      <span class="topbar-gap"></span>
+      <span class="topbar-acts" style="display:flex"><a class="btn sm quiet icon-only topbar-keys" href="#" aria-label="Accounts &amp; keys: a key needs you"><i data-i="key-round"></i></a>
+        <button type="button" class="btn sm quiet icon-only" aria-label="Quick add a sandbox"><i data-i="plus"></i></button></span>
+    </header>
+  </div></div>
+</section>
+
+<section>
+  <h2>Notifications — in the top right corner, three ways</h2>
+  <p>647 (owner: “always show notifications in the header, stacked from the right … implement all three, switch with a setting”): every toast, page notice and banner
+    is a <strong>note</strong> (<code>components/notes.js</code>), drawn in <code>#notes</code> — fixed in the top right corner (the phone’s header row’s right end), outside the shell, so it is never inert under
+    a wizard or a pause and stays in front of the paused overlay. A note is a callout (banner variant, compact). A success goes by itself after 8 s;
+    a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — the bell in the corner (always: owner,
+    “the cards but with the addition of a permanent notification bell”; its click shows and hides the stack — <code>.is-open</code> while shown — and a new note shows it
+    again; with none, it opens an empty stack, <code>.notes-stack.is-empty</code>, with History) and a column hanging below it (<code>.notes-stack</code>), newest on top;
+    a success (<code>.passing</code>) has a countdown strip along its foot (<code>.note-timer</code> — an Animation driven by the note’s own timer, so a repaint never restarts it);
+    the pointer on ANY card holds every countdown and the stack turns solid on <code>--shell</code> with its count, History and Dismiss all (<code>.notes.is-held</code>);
+    <strong>pills</strong> (<code>.note-pill</code>) — one line each along the top, the newest at the right, the rest under <code>+N</code>
+    (<code>.note-more</code>), a click opens its card; <strong>bell</strong> (<code>.note-bell</code>) — a count (its colour the worst tone), the newest beside it for 5 s
+    (<code>.note-flash</code>), a click opens the list with History and Clear all. Every note shown is kept for the tab: the Notifications page (<code>#/notifications</code>).
+    The Debug page (<code>#/debug</code>) makes every kind.</p>
+  <h3>Cards — at rest, and with the pointer on a card</h3>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-cards" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none"><button type="button" class="btn sm quiet icon-only note-bell is-open" aria-label="3 notifications" title="Notifications" aria-expanded="true"><i data-i="bell"></i><span class="note-count bad">3</span></button></div>
+      <div class="notes-stack" style="margin-right:0">
+        <div class="notes-col">
+          <div class="callout ok compact banner note toast passing" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div><div class="note-timer" aria-hidden="true"><i class="note-timer-bar" style="transform:scaleX(0.62)"></i></div></div>
+          <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+          <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        </div>
+        <div class="notes-stack-foot"><span class="muted">3 notifications</span><a href="#" class="notes-history">History</a><button type="button" class="btn sm"><i data-i="x"></i>Dismiss all</button></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-cards is-held" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none"><button type="button" class="btn sm quiet icon-only note-bell is-open" aria-label="3 notifications" title="Notifications" aria-expanded="true"><i data-i="bell"></i><span class="note-count bad">3</span></button></div>
+      <div class="notes-stack" style="margin-right:0">
+        <div class="notes-col">
+          <div class="callout ok compact banner note toast passing" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div><div class="note-timer" aria-hidden="true"><i class="note-timer-bar" style="transform:scaleX(0.4)"></i></div></div>
+          <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+          <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        </div>
+        <div class="notes-stack-foot"><span class="muted">3 notifications</span><a href="#" class="notes-history">History</a><button type="button" class="btn sm"><i data-i="x"></i>Dismiss all</button></div>
+      </div>
+    </div>
+  </div></div>
+  <h3>Cards — the bell clicked with none showing</h3>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-cards" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none"><button type="button" class="btn sm quiet icon-only note-bell is-open" aria-label="No notifications" title="Notifications" aria-expanded="true"><i data-i="bell"></i></button></div>
+      <div class="notes-stack is-empty" style="margin-right:0">
+        <p class="muted notes-none">No notifications.</p>
+        <div class="notes-stack-foot"><span class="muted"></span><a href="#" class="notes-history">History</a></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-pills" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none">
+        <button type="button" class="note-more">+3</button>
+        <div class="note-pill bad"><button type="button" class="np-open"><i data-i="circle-x"></i><span class="np-text">Start api-tests: the image could not be prepared</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+        <div class="note-pill warn"><button type="button" class="np-open"><i data-i="triangle-alert"></i><span class="np-text">The doz host stopped (idle for 15 min)</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+        <div class="note-pill ok"><button type="button" class="np-open"><i data-i="check"></i><span class="np-text">todo-app started in 3.2 s</span></button><button type="button" class="np-x" aria-label="Dismiss"><i data-i="x"></i></button></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-bell" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none">
+        <button type="button" class="note-flash ok"><i data-i="check"></i><span class="np-text">todo-app started in 3.2 s</span></button>
+        <button type="button" class="btn sm quiet icon-only note-bell" aria-label="6 notifications"><i data-i="bell"></i><span class="note-count bad">6</span></button>
+      </div>
+    </div>
+  </div></div>
+  <h3>The Notifications page — the history</h3>
+  <p><code>views/notifications.js</code>: every note this tab showed (<code>state.noteHistory</code>, kept in the tab’s session storage, 200 at most), newest first; a filter
+    (All · Showing · Failures · Warnings · Successes); the ones showing have Dismiss and an inset edge in their tone (<code>.nh-row.is-live</code>), the others say how they
+    ended — dismissed, went by itself, no longer true, replaced, too many at once.</p>
+  <div class="pair"><div class="scheme">
+    <div class="panel"><ul class="nh-list">
+      <li class="nh-row bad is-live"><span class="nh-icon"><i data-i="circle-x"></i></span><span class="nh-t">14:02:11</span><span class="nh-text">Start api-tests: the image could not be prepared — the network did not answer</span><span class="nh-end"><span class="nh-live">Showing</span><button type="button" class="btn sm quiet"><i data-i="x"></i>Dismiss</button></span></li>
+      <li class="nh-row ok"><span class="nh-icon"><i data-i="circle-check"></i></span><span class="nh-t">14:01:52</span><span class="nh-text">todo-app started in 3.2 s</span><span class="nh-end"><span class="muted">Went by itself</span></span></li>
+      <li class="nh-row warn"><span class="nh-icon"><i data-i="triangle-alert"></i></span><span class="nh-t">13:47:05</span><span class="nh-text">The doz host stopped (idle for 15 min)</span><span class="nh-end"><span class="muted">Dismissed</span></span></li>
+    </ul></div>
+  </div></div>
+</section>
+
+<section>
   <h2>The sidebar’s sessions</h2>
   <p>Under each sandbox in the sidebar (<code>components/nav.js</code>), its sessions — from the host’s registry in the overview, never a guest call: a line each
     (<code>a.nav-sess</code>: its agent’s mark — a terminal for a shell — the session’s name, what its agent says), every one (642), in the order of the tabs on the sandbox’s page, then the rest
-    (the agent’s first, then by when opened). The sandbox’s own line opens its Home; the Sandboxes heading’s ⋯ (<code>.nav-sbx-more</code>) has Expand all and Collapse
+    (the agent’s first, then by when opened). The sandbox’s own line opens its Home; All sandboxes’ ⋯ (<code>.nav-sbx-more</code>, 647: moved from the Sandboxes heading) has Expand all and Collapse
     all. The session the page shows is marked (accent edge); a sleeping sandbox’s are its saved screens (italic). On hover, ⋯ has Restart session and
     End session (a running sandbox only). The caret (<code>.nav-caret</code>) folds a sandbox to one line with its session count (<code>.nav-count</code>) — remembered in this
     browser; a folded sandbox still shows a session that needs you or failed. Below 980 px (the rail) no lines; the opened sidebar shows them.
@@ -598,13 +828,13 @@ name: todo-app</pre></details>
     <strong>Rename…</strong>, which opens the Rename dialog (above, with the destructive confirmations).</p>
   <div class="pair"><div class="scheme">
     <div class="nav-children" style="width:200px">
-      <div class="nav-sbx"><a class="nav-child" href="#" style="padding-right:28px"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
+      <div class="nav-sbx menu-focus"><a class="nav-child" href="#"><span class="ph-dot ph-running"></span><span class="nav-name">todo-app</span></a>
         <button type="button" class="nav-caret" aria-label="Fold"><i data-i="chevron-down"></i></button>
-        <span class="menu-wrap nav-sbx-menu" style="opacity:1"><button type="button" class="btn quiet icon-only sm" aria-label="More for todo-app" aria-expanded="true"><i data-i="ellipsis-vertical"></i></button>
+        <span class="menu-wrap nav-sbx-menu is-open"><button type="button" class="btn quiet icon-only sm" aria-label="More for todo-app" aria-expanded="true"><i data-i="ellipsis-vertical"></i></button>
           <div class="menu" role="menu" style="position:absolute;left:auto;right:0;top:24px"><button class="menu-item" type="button" data-desc="Another name — the same disks, restore points and folder"><i data-i="pencil"></i><span class="mi-label">Rename…</span></button></div></span>
         <div class="nav-sessions">
           <div class="nav-sess-row"><a class="nav-sess" href="#"><span data-mark="claude-code" class="mark"></span><span class="ns-name">claude</span><span class="ag-chip ag-working"><span class="ag-mark"></span><span class="ag-word">working</span></span></a></div>
-          <div class="nav-sess-row"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>
+          <div class="nav-sess-row has-peek"><a class="nav-sess active" href="#"><i data-i="terminal"></i><span class="ns-name">shell-2</span></a><button type="button" class="nav-peek arming" style="opacity:1;right:2px" aria-hidden="true"><i data-i="monitor"></i></button></div>
           <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">dev-server</span></a></div>
           <div class="nav-sess-row"><a class="nav-sess" href="#"><i data-i="terminal"></i><span class="ns-name">shell-3</span></a></div>
         </div></div>
@@ -658,7 +888,7 @@ name: todo-app</pre></details>
           <li class="sp-step"><i data-i="check"></i><span>Started a VM to prepare the image</span><span class="muted">0.5 s</span></li>
           <li class="sp-step current"><span class="mini-spin" aria-hidden="true"></span><span>Installing Gemini CLI…</span><span class="muted">0:12</span></li>
         </ol>
-        <details class="disclosure sp-details"><summary><i data-i="chevron-down"></i>Show details</summary><pre class="sp-tail">added 412 packages in 9s</pre></details>
+        <details class="disclosure sp-details"><summary><i data-i="chevron-down"></i>Show details</summary><pre class="sp-tail d-part">added 412 packages in 9s</pre></details>
       </div></div>
     </section>
   </div></div>
@@ -681,7 +911,7 @@ name: todo-app</pre></details>
       <div class="op-banner op-failed"><div class="callout bad compact" role="alert"><i data-i="circle-x"></i><div class="c-body">try-gemini did not start: the image could not be prepared</div>
         <div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div></div></div>
     <div class="sbx-title" data-sg-chips-plain><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button></span></div>
-    <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
+    <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap chip-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
     <div class="sbx-title" data-sg-chips-ports><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · AIChat</span><a class="btn sm" href="#" title="AIChat web — the sandbox’s port 8000 at http://127.0.0.1:8000/"><i data-i="link"></i>Open AIChat web</a></span></div>
     <div class="sbx-title" data-sg-chips-ports-idle><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · Fabric</span><button type="button" class="btn sm" disabled title="Not serving yet — start it in a session (fabric --serve)"><i data-i="link"></i>Open Fabric REST API</button></span></div>
   </div></div>
@@ -726,7 +956,7 @@ name: todo-app</pre></details>
           <tr class="failing">
             <td class="c-key"><div class="ak-name">mac</div><div class="ak-where"><i data-i="user-round"></i><span>This Mac’s Claude login</span></div></td>
             <td class="c-st"><div class="ak-state"><span class="pill st-warn"><i data-i="triangle-alert"></i>Signed out</span></div></td>
-            <td class="c-used"><div class="ak-used one-line"><a class="ak-chip" href="#"><span class="ph-dot ph-off"></span>box-claude</a><a class="ak-chip" href="#"><span class="ph-dot ph-asleep"></span>box-claude2</a><span class="ak-chip more" title="box-3, box-4, …">… +10</span></div></td>
+            <td class="c-used"><div class="ak-used one-line"><a class="ak-chip" href="#"><span class="ph-dot ph-off mark-ring"></span>box-claude</a><a class="ak-chip" href="#"><span class="ph-dot ph-asleep"></span>box-claude2</a><span class="ak-chip more" title="box-3, box-4, …">… +10</span></div></td>
             <td class="c-def"><span class="ak-def" role="img" aria-label="Anthropic’s default: mac"><i data-i="check"></i></span></td>
             <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
           <tr>
@@ -736,7 +966,7 @@ name: todo-app</pre></details>
             <td class="c-def"></td>
             <td class="c-acts"><div class="ak-acts"><button type="button" class="btn sm quiet icon-only" aria-label="More"><i data-i="ellipsis-vertical"></i></button></div></td></tr>
           <tr>
-            <td class="c-key"><div class="ak-name">team <span class="tag warn">same key as team-old</span></div><div class="ak-where"><i data-i="shield"></i><span>1Password</span><code>op://Dev/anthropic/credential</code></div></td>
+            <td class="c-key"><div class="ak-name">team <span class="tag warn">same key as team-old</span></div><div class="ak-where"><i data-i="shield"></i><span class="ak-where-k">1Password</span><code>op://Dev/anthropic/credential</code></div></td>
             <td class="c-st"><div class="ak-state"><span class="pill st-ok"><i data-i="circle-check"></i>Works</span><span class="muted">read on use · 40 min ago</span></div></td>
             <td class="c-used"><div class="ak-used"><span class="none">no sandbox</span></div></td>
             <td class="c-def"></td>
@@ -810,12 +1040,12 @@ name: todo-app</pre></details>
     expects, what it got. Text only; nothing secret-shaped is ever kept in it.</p>
   <div class="pair"><div class="scheme">
     <section class="terms sg-terms" style="height:420px">
-      <div class="buildlog-doc">
+      <div class="buildlog-doc"><div class="bl-page">
         <header class="bl-head"><h2>How debian-gemini was built</h2><p class="bl-sub">Built in 1:12 · 13 Oct 2026, 19:34</p></header>
         <section class="bl-inputs"><h3>Inputs</h3>
           <dl class="bl-facts"><dt>Base image</dt><dd>docker.io/library/debian@sha256:6f1e2d…</dd><dt>Kernel</dt><dd>vmlinux-6.18.15-186 (sha256 2fe4a58d2885d623…)</dd>
             <dt>Recipe</dt><dd>gemini — @google/gemini-cli 0.63.0 (integrity sha512-…)</dd><dt>Bake network</dt><dd>no interface — only through the Mac’s proxy, policy bake (anything else: deny)</dd></dl>
-          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Bake network policy (6 rules)</summary><pre class="bl-code">allow deb.debian.org:443</pre></details>
+          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Bake network policy (6 rules)</summary><pre class="bl-code d-part">allow deb.debian.org:443</pre></details>
           <ul class="bl-early"><li><span class="bl-mark ok">✓</span>kernel ready (vmlinux-6.18.15-186, cached) <span class="muted">0.0 s</span><span class="tag">cached</span></li></ul>
         </section>
         <section class="bl-step"><h3><span class="bl-mark ok">✓</span>2. Install the developer baseline</h3>
@@ -825,7 +1055,7 @@ name: todo-app</pre></details>
 apt-get update
 apt-get install -y --no-install-recommends apt-utils
 apt-get install -y --no-install-recommends procps git less jq …</pre></div>
-          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Writes /home/agent/.local/bin/gemini (14 lines)</summary><pre class="bl-code bl-file">#!/bin/sh
+          <details class="disclosure bl-fold"><summary><i data-i="chevron-down"></i>Writes /home/agent/.local/bin/gemini (14 lines)</summary><pre class="bl-code bl-file d-part">#!/bin/sh
 exec /usr/local/bin/gemini "$@"</pre></details>
           <div class="bl-out"><div class="bl-label">Output (113 lines)</div><pre class="bl-code bl-output">Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]</pre></div>
         </section>
@@ -833,7 +1063,7 @@ exec /usr/local/bin/gemini "$@"</pre></details>
           <div class="bl-check-head"><span class="bl-mark ok">✓</span><strong>Check: apt’s package lists are kept</strong><span class="muted">0.6 s</span></div>
           <dl class="bl-facts"><dt>Command</dt><dd><code>sh -c 'apt-cache policy cowsay | grep -q Candidate: …'</code></dd><dt>Expects</dt><dd>exit 0, and the output contains “apt-lists-ok”</dd>
             <dt>Got</dt><dd><pre class="bl-code">apt-lists-ok</pre></dd></dl></li></ul></section>
-      </div>
+      </div></div>
     </section>
   </div></div>
 </section>

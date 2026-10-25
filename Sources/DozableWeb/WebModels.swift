@@ -1534,6 +1534,30 @@ public struct WebUpdateNotice: Codable, Equatable, Sendable {
     public var text: String
 }
 
+/// 647: the sidebar's status card's Check for updates — a check the person asked for (`POST /api/v1/updates/check`):
+/// the feed asked now (past the CDN's copy), its verdict, and the banner's notice as it then reads.
+public struct WebUpdateCheck: Codable, Equatable, Sendable {
+    /// This doz ui's version.
+    public var current: String
+    /// When it was asked.
+    public var checkedAt: Date
+    /// Why this doz does not look for updates (a development build, `updates.mode` off …) — then nothing was asked.
+    public var disabled: String?
+    /// The feed could not be reached (the last one is kept).
+    public var offline: Bool
+    /// The feed was ignored or had entries that did not verify.
+    public var problem: String?
+    /// A newer doz, or one an automatic update installed (nil: this doz is the newest on its channel).
+    public var update: WebUpdateNotice?
+
+    /// The request body: an empty object, nothing else.
+    public static func decodeRequest(_ body: Data) throws {
+        guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any], d.isEmpty else {
+            throw WebAction.Invalid("the body must be {}")
+        }
+    }
+}
+
 /// 606: a doz serve page's own facts: this device, how it arrived, the Mac it is on.
 public struct WebServeSessionInfo: Codable, Equatable, Sendable {
     /// remote (always, on doz serve)

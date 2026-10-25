@@ -129,7 +129,10 @@ public enum WebRoute: Equatable, Sendable {
     // The optional sign-up (the setup wizard's Stay in touch): an email and its interests, handed to the official
     // build's package (`Usage.signup`). Never logged, never echoed; a build from the repository answers 404.
     case signup                    // POST /api/v1/signup  ({email, interests})
-    case serveStatus               // GET  /api/v1/serve
+    // 647 — the sidebar's status card: look for an update NOW (the feed asked, past the CDN's copy; the answer is what
+    // the banner then shows). POST + CSRF: it asks the network and writes the checker's state.
+    case updatesCheck              // POST /api/v1/updates/check  ({})
+    case serveStatus              // GET  /api/v1/serve
     case serveDevices              // GET  /api/v1/serve/devices
     case serveShare                // POST /api/v1/serve/share  ({})
     case serveRevoke(String)       // POST /api/v1/serve/devices/{id}/revoke  ({})
@@ -188,6 +191,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["access", "check"]: return .accessCheck
         case (.post, 2) where rest == ["access", "github-key"]: return .accessGithubKey
         case (.post, 1) where rest[0] == "signup": return .signup
+        case (.post, 2) where rest == ["updates", "check"]: return .updatesCheck
         case (.post, 2) where rest == ["serve", "share"]: return .serveShare
         case (.post, 4) where rest[0] == "serve" && rest[1] == "devices" && isDeviceID(rest[2]) && rest[3] == "revoke": return .serveRevoke(rest[2])
         case (.post, 4) where rest[0] == "serve" && rest[1] == "devices" && isDeviceID(rest[2]) && rest[3] == "name": return .serveRename(rest[2])

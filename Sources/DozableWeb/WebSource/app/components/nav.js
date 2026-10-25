@@ -1,7 +1,7 @@
 // components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon, mark } from '../dom/icons.js';
+import { icon, mark, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
@@ -45,6 +45,9 @@ export function paintAccountsBadge() {
   el.textContent = n ? String(n) : '';
   el.title = n ? (n === 1 ? 'A key or sign-in a sandbox relies on does not work' : n + ' keys or sign-ins that sandboxes rely on do not work') : '';
   el.setAttribute('aria-label', el.title);
+  // 647: the phone's top bar says it too — a key button, only while something needs you.
+  const top = $('top-keys');
+  if (top) { top.hidden = !n; top.title = el.title; top.setAttribute('aria-label', 'Accounts & keys: ' + el.title); }
 }
 export function renderNavSandboxes() {
   // 594 (owner: "add a link to Onboarding in the left nav"): a dot until this store is onboarded.
@@ -65,7 +68,8 @@ export function renderNavSandboxes() {
   // guest call); a caret folds it to one line with its session count (remembered in this browser).
   const folded = foldedSet();
   if (!$('nav-sandboxes').dataset.peek) { $('nav-sandboxes').dataset.peek = '1'; peekRegion($('nav-sandboxes')); }   // 635
-  if (!$('nav-sbx-more').firstChild) $('nav-sbx-more').append(sandboxesMenu());                                       // 642
+  if (!$('nav-sbx-more').firstChild) { $('nav-sbx-more').append(sandboxesMenu()); wireAllRow(); }                  // 642, 647
+  paintTreeFold();
   $('nav-sandboxes').replaceChildren(...list.map((s) => {
     const here = !state.modal && state.view === 'sandbox' && state.param === s.name;
     const sessions = inTabOrder(s.name, s.sessionList || []);
@@ -95,13 +99,20 @@ function sandboxLineMenu(s) {
   const m = moreMenu('More for ' + s.name, [renameItem(s.name)],
     { small: true, data: { navLineMore: s.name }, onClose: () => setTimeout(renderNavSandboxes, 0) });
   m.el.classList.add('nav-sbx-menu');
+  // 647: while the pointer or the focus is on the ⋯, the sandbox's line makes room for it — a state class on the line's
+  // box (never :has()).
+  const mark = (cls, on) => { const box = m.el.parentElement; if (box) box.classList.toggle(cls, on); };
+  m.el.addEventListener('pointerenter', () => mark('menu-hover', true));
+  m.el.addEventListener('pointerleave', () => mark('menu-hover', false));
+  m.el.addEventListener('focusin', () => mark('menu-focus', true));
+  m.el.addEventListener('focusout', () => mark('menu-focus', false));
   return m.el;
 }
 /// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
 function phaseGlyph(s) {
   if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');
     g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel); return g; }
-  return h('span', { class: 'ph-dot ph-' + s.phase, role: 'img', 'aria-label': s.phaseLabel });
+  return h('span', { class: 'ph-dot ph-' + s.phase + phaseMark(s.phase), role: 'img', 'aria-label': s.phaseLabel });
 }
 
 // ── 635: a sandbox's sessions in the sidebar ────────────────────────────────────────────────────────────────────────
@@ -114,14 +125,44 @@ export function inTabOrder(name, sessions) {
   const at = (x) => { const i = tabs.indexOf(x.name); return i < 0 ? tabs.length : i; };
   return sessions.map((x, i) => [x, i]).sort((a, b) => at(a[0]) - at(b[0]) || a[1] - b[1]).map(([x]) => x);
 }
-/// 642 (owner): the Sandboxes heading's ⋯ — Expand all / Collapse all.
+/// 642 (owner): Expand all / Collapse all — 647 (owner): on All sandboxes' line (it was on the Sandboxes heading).
 function sandboxesMenu() {
   const names = () => (state.overview ? state.overview.sandboxes : []).filter((s) => (s.sessionList || []).length).map((s) => s.name);
-  const m = moreMenu('More for Sandboxes', [
-    { label: 'Expand all', icon: 'chevron-down', desc: 'Every sandbox’s sessions', onSelect: () => { setFoldedAll([]); renderNavSandboxes(); } },
-    { label: 'Collapse all', icon: 'chevron-right', desc: 'Each sandbox on one line (a session that needs you still shows)', onSelect: () => { setFoldedAll(names()); renderNavSandboxes(); } },
+  const m = moreMenu('More for All sandboxes', [
+    { label: 'Expand all', icon: 'chevron-down', desc: 'Every sandbox’s sessions', onSelect: () => { setTreeFolded(false); setFoldedAll([]); renderNavSandboxes(); } },
+    { label: 'Collapse all', icon: 'chevron-right', desc: 'Each sandbox on one line (a session that needs you still shows)', onSelect: () => { setTreeFolded(false); setFoldedAll(names()); renderNavSandboxes(); } },
   ], { small: true, data: { navSandboxesMore: '' } });
+  // While the pointer or the focus is on it, All sandboxes' line makes room for it (a state class — never :has()).
+  const row = () => $('nav-all-row');
+  m.el.addEventListener('pointerenter', () => row().classList.add('menu-hover'));
+  m.el.addEventListener('pointerleave', () => row().classList.remove('menu-hover'));
+  m.el.addEventListener('focusin', () => row().classList.add('menu-focus'));
+  m.el.addEventListener('focusout', () => row().classList.remove('menu-focus'));
   return m.el;
+}
+// ── 647 (owner: "allow the Sandboxes tree to be collapsed / expanded with a click on the All Sandboxes heading") ─────────
+// A click on All sandboxes opens the page; a click on it while that page is shown folds or shows the tree under it (as a
+// sandbox's line does with its sessions — 642). Its caret does the same from anywhere. Kept in this browser.
+const TREE_KEY = 'doz.nav.tree';
+function treeFolded() { try { return localStorage.getItem(TREE_KEY) === 'folded'; } catch (_) { return false; } }
+function setTreeFolded(on) { try { if (on) localStorage.setItem(TREE_KEY, 'folded'); else localStorage.removeItem(TREE_KEY); } catch (_) { /* this page only */ } }
+function wireAllRow() {
+  $('nav-tree-caret').replaceChildren(icon('chevron-down'));
+  const flip = () => { setTreeFolded(!treeFolded()); paintTreeFold(); };
+  $('nav-tree-caret').addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); flip(); });
+  $('nav-all').addEventListener('click', (ev) => { if (!state.modal && state.view === 'overview') { ev.preventDefault(); flip(); } });
+}
+function paintTreeFold() {
+  const folded = treeFolded();
+  $('nav').classList.toggle('tree-folded', folded);
+  const c = $('nav-tree-caret');
+  c.classList.toggle('folded', folded);
+  c.setAttribute('aria-expanded', folded ? 'false' : 'true');
+  c.setAttribute('aria-label', folded ? 'Show the sandboxes' : 'Fold the sandboxes');
+  c.title = folded ? 'Show the sandboxes' : 'Fold the sandboxes';
+  // A folded tree still says when a sandbox's agent needs you (its count turns to an alert).
+  const urgentAny = folded && state.overview && state.overview.sandboxes.some((s) => (s.sessionList || []).some((x) => urgent(s, x.name)));
+  $('nav-count').classList.toggle('bad', !!urgentAny);
 }
 /// The folds, per sandbox, in this browser (a layout convenience, like the inspector's width — never a setting).
 function foldedSet() {
@@ -156,7 +197,7 @@ function sessionLine(s, x) {
     : null;
   const row = h('div', { class: 'nav-sess-row', role: 'listitem' }, a);
   // 635 (owner): the screen icon on hover — resting on it shows the session's picture (ui.nav_thumbnails).
-  if (canPeek(s.phase, x)) row.append(peekIcon(row, s.name, x));
+  if (canPeek(s.phase, x)) { row.append(peekIcon(row, s.name, x)); row.classList.add('has-peek'); }
   if (menu) row.append(menu);
   return row;
 }
@@ -177,7 +218,7 @@ export function markNavSession() {
   }
 }
 export function paintNav() {
-  for (const a of document.querySelectorAll('#nav > a')) {
+  for (const a of document.querySelectorAll('#nav a[data-view]')) {
     // A sandbox's own page marks its child entry; New sandbox belongs to All sandboxes.
     // (603: an open wizard's entry — Onboarding, or All sandboxes for New sandbox — marks the nav under its modal.)
     const cur = state.modal === 'onboarding' ? 'onboarding' : state.modal === 'new' ? 'overview' : state.modal === 'try' ? 'try' : state.view;
@@ -188,12 +229,43 @@ export function paintNav() {
   renderNavSandboxes();
   navRail(false);
 }
-/// 603: below 980 px the sidebar is an icon rail; its toggle shows the whole sidebar over the page.
+/// 603: below 980 px the sidebar is an icon rail; 647: the header's menu button shows the whole sidebar over the page
+/// (below 760 px, as a drawer).
 export function navRail(open) {
   document.body.classList.toggle('nav-open', !!open);
-  $('nav-toggle').setAttribute('aria-expanded', open ? 'true' : 'false');
-  $('nav-toggle').setAttribute('aria-label', open ? 'Hide the menu' : 'Show the menu');
+  paintMenuButton();
 }
+// ── 647 (owner: "make it always collapsible"): the rail at any width ───────────────────────────────────────────────
+// `body.rail` draws the sidebar as the icon rail: below 980 px always (the menu then shows it all over the page, or as
+// a drawer below 760 px); wider, when the person collapsed it with the header's menu — remembered in this browser.
+const RAIL_KEY = 'doz.nav.collapsed';
+const narrowMQ = matchMedia('(max-width: 980px)');
+let collapsed = (() => { try { return localStorage.getItem(RAIL_KEY) === '1'; } catch (_) { return false; } })();
+export function applyRail() {
+  document.body.classList.toggle('rail', narrowMQ.matches || collapsed);
+  if (!narrowMQ.matches) document.body.classList.remove('nav-open');
+  paintMenuButton();
+}
+/// The header's menu button: below 980 px it opens the whole sidebar over the page; wider it collapses the sidebar to
+/// the rail, or expands it again.
+export function navMenuClick() {
+  if (narrowMQ.matches) { navRail(!document.body.classList.contains('nav-open')); return; }
+  collapsed = !collapsed;
+  try { if (collapsed) localStorage.setItem(RAIL_KEY, '1'); else localStorage.removeItem(RAIL_KEY); } catch (_) { /* this page only */ }
+  applyRail();
+}
+function paintMenuButton() {
+  const narrow = narrowMQ.matches, open = document.body.classList.contains('nav-open'), rail = document.body.classList.contains('rail');
+  const label = narrow ? (open ? 'Hide the menu' : 'Show the menu') : (rail ? 'Expand the sidebar' : 'Collapse the sidebar');
+  for (const id of ['nav-menu', 'top-menu']) {           // the sidebar's head; the phone's header row
+    const b = $(id);
+    if (!b) continue;
+    b.setAttribute('aria-expanded', narrow ? String(open) : String(!rail));
+    b.setAttribute('aria-label', label);
+    b.title = label;
+  }
+}
+narrowMQ.addEventListener('change', applyRail);
 export function paintResTotal(r) {
   const el = $('res-total');
   if (!el || !r) return;

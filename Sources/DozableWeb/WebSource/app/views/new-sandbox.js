@@ -1,5 +1,6 @@
 // views/new-sandbox — The New Sandbox wizard (599f): the same model as doz init.
-import { $, h } from '../dom/h.js';
+import { $, h, markChildren } from '../dom/h.js';
+import { choiceCard } from '../components/choice.js';
 import { icon } from '../dom/icons.js';
 import { AGENT_NAMES, agentKey, parseImageName } from '../core/agents.js';
 import { api } from '../core/api.js';
@@ -135,7 +136,7 @@ function nwNode() {
   // Next: the step's one primary — a trailing arrow (forward); the actions in a footer that never leaves the screen.
   const next = last ? null : h('button', { type: 'submit', class: 'btn lg primary', 'data-nw-next': '' }, h('span', { class: 'btn-label' }, 'Next'), icon('arrow-right'));
   const form = h('form', { class: 'wiz-card', 'data-nw-body': id, novalidate: '' },
-    h('div', { class: 'w-body' }, h('h2', null, (steps[nw.step] || { title: 'Project folder' }).title), step.el, error),
+    markChildren(h('div', { class: 'w-body' }, h('h2', null, (steps[nw.step] || { title: 'Project folder' }).title), step.el, error), 'w-item'),
     h('div', { class: 'w-foot wiz-buttons' }, back, h('span', { class: 'wiz-gap' }), skip, step.extra || null, next));
   form.addEventListener('submit', (ev) => { ev.preventDefault(); if (!last) nwGo(nw.step + 1); });
   form.addEventListener('keydown', (ev) => {
@@ -186,12 +187,12 @@ function nwToolsNode(nw) {
     wizHead('New sandbox', t.name + ' is made. Now it starts, and Dozable sets up the tools its settings call for — the tools layer, on any base, without rebuilding an image.',
       [], { list: stepper, compact }),
       h('section', { class: 'wiz-card', 'data-nw-tools': t.phase },
-        h('div', { class: 'w-body' },
+        markChildren(h('div', { class: 'w-body' },
           h('h2', null, 'Setting up tools'),
           plan ? h('ul', { class: 'plain tool-list' }, rows) : h('p', { class: 'muted' }, 'Reading the tools layer…'),
           h('p', { class: 'muted mono tools-progress', 'data-tools-progress': '', 'aria-live': 'polite' }, busy ? (t.progress || 'starting…') : ''),
           t.error ? callout('bad', { cls: 'notice', attrs: { 'data-tools-error': '' }, body: t.error }) : null,
-          failed ? h('p', { class: 'muted' }, 'Something could not be set up — the sandbox works without it. Retry, or continue; ', h('code', null, 'doz tools ' + t.name + ' --apply'), ' tries again later.') : null),
+          failed ? h('p', { class: 'muted' }, 'Something could not be set up — the sandbox works without it. Retry, or continue; ', h('code', null, 'doz tools ' + t.name + ' --apply'), ' tries again later.') : null), 'w-item'),
         h('div', { class: 'w-foot wiz-buttons' }, h('span', { class: 'wiz-gap' }), buttons)));
   nw.node = node;
   return node;
@@ -264,7 +265,7 @@ function nwFolder() {
     const r = h('input', { type: 'radio', name: 'nw-folder', value, 'data-nw-mode': value });
     r.checked = nw.mode === value;
     r.addEventListener('change', () => { if (r.checked) { nw.mode = value; nw.open = null; nw.form = null; nwRender(); } });
-    return h('label', { class: 'wiz-choice' + (nw.mode === value ? ' chosen' : '') }, r, h('span', null, label, extra));
+    return choiceCard({ class: 'wiz-choice' + (nw.mode === value ? ' chosen' : '') }, r, h('span', null, label, extra));
   };
   const name = h('input', { type: 'text', name: 'nw-new-name', 'data-nw-new-name': '', autocomplete: 'off', spellcheck: 'false', placeholder: 'a-z 0-9 -' });
   name.value = nw.newName;
@@ -399,9 +400,9 @@ function nwModelSource(agent, ids) {
         : h('div', { class: 'muted ms-small', 'data-secret-why': '1' }, 'Pasting keys here is off (ui.allow_secret_entry) — in a terminal: doz account add NAME ' +
             (s.accountKind === 'api-key' ? '--api-key' : s.accountKind === 'openai-key' ? '--openai-key' : '--provider ' + id));
       return [form, h('details', { class: 'ms-other' }, h('summary', null, 'Keep it in 1Password, AWS or a program instead'),
-        h('code', { class: 'ms-cmd' }, sourceCommand(id, s.accountKind)),
-        h('div', { class: 'muted ms-small' }, 'or --from aws:arn:… or --from-command \'…\' — then Check again.'),
-        h('div', null, btn('Check again', async () => { try { nw.accounts = await api('accounts'); } catch (_) { /* keep */ } paint(); }, { small: true, quiet: true, icon: 'refresh-cw' })))];
+        h('code', { class: 'ms-cmd ms-part' }, sourceCommand(id, s.accountKind)),
+        h('div', { class: 'muted ms-small ms-part' }, 'or --from aws:arn:… or --from-command \'…\' — then Check again.'),
+        h('div', { class: 'ms-part' }, btn('Check again', async () => { try { nw.accounts = await api('accounts'); } catch (_) { /* keep */ } paint(); }, { small: true, quiet: true, icon: 'refresh-cw' })))];
     };
     const list = sourceList({ tool, sources, chosen: src, keysOf, needFor: need,
       onChoose: (id) => {
@@ -599,8 +600,8 @@ function nwSession() {
 }
 function nwReview() {
   const nw = state.nw;
-  const pre = h('pre', { class: 'nw-yaml', 'data-nw-yaml': '' }, nw.preview ? nw.preview.text : 'Reading…');
-  const where = h('div', { class: 'muted mono', 'data-nw-file': '' }, nw.preview ? nw.preview.path : '');
+  const pre = h('pre', { class: 'nw-yaml d-part', 'data-nw-yaml': '' }, nw.preview ? nw.preview.text : 'Reading…');
+  const where = h('div', { class: 'muted mono d-part', 'data-nw-file': '' }, nw.preview ? nw.preview.path : '');
   const diffBox = h('div', { 'data-nw-diff-box': '' });
   // 617: the plan — the command that makes the same in a terminal, and what it can reach — from the host's planner.
   const planBox = h('div', { 'data-nw-plan-box': '' });

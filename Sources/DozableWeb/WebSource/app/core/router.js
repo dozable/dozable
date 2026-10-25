@@ -12,7 +12,8 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
   viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'),
-  viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'),
+  viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
+  viewNotifications = upcall('viewNotifications'),
   wizardStopPolling = upcall('wizardStopPolling');
 
 // ── routing ─────────────────────────────────────────────────────────────────
@@ -85,13 +86,13 @@ export async function refresh(scrollTop) {
   refreshing = true;
   try {
     const views = { overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
-                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, devices: viewDevices };
+                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, devices: viewDevices, debug: viewDebug, notifications: viewNotifications };
     const fn = views[state.view] || viewOverview;
     const node = await fn();
     if (node && !state.signedOut) {
       $('view').replaceChildren(node);
       paintRowOps();
-      if (scrollTop) $('main').scrollTop = 0;
+      if (scrollTop) window.scrollTo(0, 0);           // 647: the document scrolls (the header is sticky), not main
     }
   } catch (e) {
     if (!state.signedOut) {

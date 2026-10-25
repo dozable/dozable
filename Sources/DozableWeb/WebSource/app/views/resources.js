@@ -105,7 +105,7 @@ function resSection(group, title, figure, body) {
     toggle.setAttribute('aria-expanded', nowClosed ? 'false' : 'true');
   });
   return h('section', { class: 'res-group', 'data-res-group': group, id: 'res-' + group },
-    h('div', { class: 'head res-head' }, h('h2', null, toggle, title), h('span', { class: 'muted' }, figure)), wrap);
+    h('div', { class: 'head has-title res-head' }, h('h2', null, toggle, title), h('span', { class: 'muted' }, figure)), wrap);
 }
 /// The top bar is Dozable's own split only (owner, 595): what stays, what Clean up frees, and what `du`
 /// counts again for blocks APFS clones share — the whole is Dozable's total. The volume's free space is
@@ -178,9 +178,9 @@ export async function viewResources() {
 }
 function renderResources() {
   if (state.view !== 'resources' || !state.measured.resources) return;
-  const top = $('main').scrollTop;
+  const top = window.scrollY;
   $('view').replaceChildren(resourcesNode(state.measured.resources));
-  $('main').scrollTop = top;
+  window.scrollTo(0, top);
 }
 function resourcesNode(r) {
   const del = btn('Delete selected…', () => resDelete([...state.resSel], false), { danger: true, icon: 'trash-2' });

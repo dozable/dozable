@@ -336,6 +336,10 @@ public enum SettingKey {
     public static let terminalTitle = "ui.terminal_title"
     public static let terminalFontSize = "ui.terminal_font_size"
     public static let theme = "ui.theme"
+    /// 647: the dashboard's spacing — comfortable or compact.
+    public static let density = "ui.density"
+    /// 647: where the dashboard's notifications show — cards, pills or bell.
+    public static let notifications = "ui.notifications"
     public static let detailsOpen = "ui.details_open"
     public static let gridLiveTiles = "ui.grid_live_tiles"
     public static let gridTileSize = "ui.grid_tile_size"
@@ -492,6 +496,15 @@ public struct DozableSettings: Sendable {
             .init("ui", "theme", .choice(["auto", "light", "dark"]), .string("auto"),
                   "The UI's colours: auto follows macOS.",
                   applies: .now),
+            // 647 (owner, the dashboard review's decision 1): the dashboard's density — the same structure and type, less
+            // space. The page applies it as data-density on <html>, beside data-theme.
+            .init("ui", "density", .choice(["comfortable", "compact"]), .string("comfortable"),
+                  "The UI's spacing: comfortable, or compact — tighter rows, tabs, controls and page margins; the text stays the same size.",
+                  applies: .now),
+            // 647 (owner: "implement all three, switch with a setting"): where the dashboard's notifications show in its header.
+            .init("ui", "notifications", .choice(["cards", "pills", "bell"]), .string("cards"),
+                  "Where the UI shows its notifications, in its top right corner: cards (a bell, and a column hanging below it, each with its full text and buttons and, for a success, a countdown that waits while the pointer is on any card), pills (one line each along the top, the newest at the right; click one for the rest), or bell (a count; the newest shows beside it for a few seconds; click for the list). Successes go by themselves; a failure stays until you close it. The Notifications page lists every one this tab showed.",
+                  applies: .now),
             .init("ui", "details_open", .bool, .bool(true),
                   "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",
                   applies: .now),
@@ -509,8 +522,8 @@ public struct DozableSettings: Sendable {
             .init("ui", "lan", .bool, .bool(false),
                   "Also serve the dashboard to the other browsers of your network (every network interface of this Mac and Tailscale, never a sandbox's network) on the same port: each gets in once with an invite (doz ui share). false (the default): this Mac only. Where it listens and your reverse proxy: the serve.* settings.",
                   env: "DOZ_UI_LAN", flag: "doz ui --lan | --no-lan", applies: .uiRestart, ui: false),
-            .init("ui", "grid_live_tiles", .int(1...12), .int(8),
-                  "All sessions: at most this many tiles show their session live at once (each is a terminal engine and a socket); the rest say so. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this.",
+            .init("ui", "grid_live_tiles", .int(1...12), .int(12),
+                  "All sessions and All sandboxes: at most this many pictures on screen show their session live at once (each is a socket — the dashboard keeps 4 of its 16 for the pages); the rest take turns or show their last screen. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this.",
                   applies: .now),
             .init("ui", "grid_tile_size", .choice(["small", "medium", "large"]), .string("medium"),
                   "All sessions: the size of a tile.",

@@ -4,7 +4,7 @@ import { api } from './api.js';
 import { state } from './state.js';
 import { SPLIT_KINDS, termUI } from './terminals.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
-const pageFailure = upcall('pageFailure'), paintSplitButton = upcall('paintSplitButton');
+const pageFailure = upcall('pageFailure'), paintNotes = upcall('paintNotes'), paintSplitButton = upcall('paintSplitButton');
 
 // ── settings (591) ──────────────────────────────────────────────────────────
 // doz.toml, as the UI process reads it (GET /api/v1/settings, every value with its default, source and
@@ -20,9 +20,17 @@ export function adoptSettings(report) {
   const theme = setting('ui.theme', 'auto');
   if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
+  applyDensity(setting('ui.density', 'comfortable'));
   const split = setting('ui.split_default', 'shell');
   termUI.splitKind = SPLIT_KINDS[split] ? split : 'shell';
   paintSplitButton();
+  paintNotes();                     // 647: ui.notifications — cards, pills or bell, at once
+}
+/// 647: ui.density — compact sets data-density="compact" on <html> (the stylesheet's role tokens follow it); comfortable,
+/// the default, sets nothing. Applied at once by the Settings page, before its save returns (like the theme switch).
+export function applyDensity(density) {
+  if (density === 'compact') document.documentElement.dataset.density = 'compact';
+  else delete document.documentElement.dataset.density;
 }
 export async function loadSettings() {
   try { adoptSettings(await api('settings')); } catch (_) { /* the defaults, until the next read */ }

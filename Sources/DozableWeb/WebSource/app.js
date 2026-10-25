@@ -42,13 +42,15 @@ import { btn } from './app/components/button.js';
 import { callout } from './app/components/callout.js';
 import './app/components/create-dialog.js';
 import './app/components/dialog.js';
-import { hostChanged, renderHostFoot } from './app/components/host.js';
+import { hostChanged, paintUpdates, renderHostFoot } from './app/components/host.js';
 import './app/components/image-picker.js';
 import './app/components/keyboard.js';
 import { lifecycle } from './app/components/lifecycle.js';
 import './app/components/menus.js';
 import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal.js';
-import { navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
+import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
+import { paintNotes } from './app/components/notes.js';
+import { watchPageTitle } from './app/components/page-title.js';
 import { banner, dropBanner, failureFor, opFailed, pageFailure, paintRowOps, toast } from './app/components/notices.js';
 import './app/components/permissions.js';
 import { paintTransition } from './app/components/pills.js';
@@ -60,6 +62,8 @@ import { closeTerminal, focusTerm, openTerminal, paintCover, reattachTerminals, 
 import './app/components/workspace-chooser.js';
 import { viewAccounts } from './app/views/accounts.js';
 import { renderActivity, viewActivity } from './app/views/activity.js';
+import { viewDebug } from './app/views/debug.js';
+import { viewNotifications } from './app/views/notifications.js';
 import { viewDevices } from './app/views/devices.js';
 import { viewDoctor } from './app/views/doctor.js';
 import { viewImages } from './app/views/images.js';
@@ -94,8 +98,8 @@ $('sign-out').addEventListener('click', async () => {
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
 const NAV_ICONS = { devices: 'user-round', overview: 'box', sessions: 'layout-grid', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
-                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', try: 'play' };
-for (const a of document.querySelectorAll('#nav > a[data-view]')) {
+                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', try: 'play', debug: 'bug', notifications: 'bell' };
+for (const a of document.querySelectorAll('#nav a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
   a.title = a.querySelector('.lbl').textContent;       // the rail's tooltip (the label stays readable to assistive tech)
 }
@@ -116,8 +120,30 @@ $('theme-toggle').addEventListener('click', () => {
 new MutationObserver(paintThemeToggle).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeToggle);
 paintThemeToggle();
-$('nav-toggle').replaceChildren(icon('panel-right'));
-$('nav-toggle').addEventListener('click', (ev) => { ev.stopPropagation(); navRail(!document.body.classList.contains('nav-open')); });
+// 647 (owner: "make the header in the navbar only"): the sidebar's head — the menu (wider than 980 px it collapses the
+// sidebar to the rail; below, the whole sidebar over the page), the brand and the store. Below 760 px the header row
+// (#topbar) has its own menu for the drawer, a key alert and Quick add. The notifications keep the top-right corner.
+for (const id of ['nav-menu', 'top-menu']) {
+  $(id).replaceChildren(icon('list'));
+  $(id).addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+}
+applyRail();                       // 647: the rail below 980 px, or wider when collapsed (this browser remembers)
+watchPageTitle();                  // 647: a page's title bar and its tables' column heads stick as it scrolls
+$('top-keys').replaceChildren(icon('key-round'));
+$('top-quick-add').replaceChildren(icon('plus'));
+$('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
+paintNotes();
+// 647: the foot's status card — on hover or keyboard focus (CSS), and pinned open by a click (a tap on a phone). It has
+// buttons now (Restart / Start the host, Check for updates), so it stays while the pointer or the focus is in it.
+function footCard(on) {
+  $('foot-card').classList.toggle('is-open', on);
+  $('foot-status').setAttribute('aria-expanded', on ? 'true' : 'false');
+}
+$('foot-status').addEventListener('click', () => footCard(!$('foot-card').classList.contains('is-open')));
+// Tab away closes it; a click elsewhere too (by the event's path: Safari never focuses a clicked button, and a button in
+// the card may have redrawn itself by the time the click reaches the document).
+$('statusbar').addEventListener('focusout', (ev) => { if (ev.relatedTarget && !$('statusbar').contains(ev.relatedTarget)) footCard(false); });
+document.addEventListener('click', (ev) => { if (!ev.composedPath().includes($('statusbar'))) footCard(false); });
 document.addEventListener('click', (ev) => { if (document.body.classList.contains('nav-open') && !ev.target.closest('.side')) navRail(false); });
 document.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && document.body.classList.contains('nav-open')) navRail(false); });
 // 635 (owner: "the spinning disc … keeps getting interrupted and resetting"): every spinner turns on the page's clock, not
@@ -161,9 +187,9 @@ async function startApp() {
 provide({
   acknowledgeOps, backToTrySetup, banner, btn, callout, closeWizardModal, connect, dropBanner, failureFor, gridEnter, gridLeave,
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openWizardModal, pageFailure,
-  paintCover, paintHome, paintNav, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition,
+  paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDevices, viewDoctor,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,
   viewTry, wizardStopPolling,
 });

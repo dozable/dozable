@@ -1,6 +1,6 @@
 // views/sessions — All sessions: the grid (593).
 import { $, h } from '../dom/h.js';
-import { icon, PHASE_GLYPH } from '../dom/icons.js';
+import { icon, PHASE_GLYPH, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { when } from '../core/format.js';
 import { SAVED_PHASES, VERBS } from '../core/sandboxes.js';
@@ -14,16 +14,17 @@ import { agentChip } from '../components/agent-status.js';
 import { pageFailure } from '../components/notices.js';
 import { paintCover } from '../components/terminal.js';
 import { livePrefs, liveControls, liveTurn, paintLiveStatus, SOCKET_CEILING } from '../components/live-controls.js';
-import { dropThumbTerm, openSockets, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb.js';
+import { dropThumbTerm, MAKE_PER_PASS, NEAR_MARGIN, openSockets, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw, whenIdle, whenScrollRests } from '../components/session-thumb.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox — a live, read-only (watch) view: the same ticket,
 // socket and frame as any terminal, laid out at a fixed virtual size (960 × 560) and scaled, so it
 // is a thumbnail of the session at its own geometry. A sandbox that is not running is one static
-// tile (no engine, no socket: an open grid never keeps a host alive for it). Engines exist only
-// for tiles on screen (IntersectionObserver), and at most ui.grid_live_tiles at once. Sessions are
-// listed on entry, on Refresh, and on a live change at most every 10 s (listing asks the guest).
-const grid = { built: false, active: false, tiles: new Map(), io: null, sandbox: '', phase: '', lastList: 0, listTimer: null,
+// tile (no engine, no socket: an open grid never keeps a host alive for it). Engines are made
+// for tiles on screen (IntersectionObserver) and kept while near it (647: only the socket goes),
+// and at most ui.grid_live_tiles are live at once. Sessions are listed on entry, on Refresh, and on
+// a live change at most every 10 s (listing asks the guest).
+const grid = { built: false, active: false, tiles: new Map(), io: null, nearIo: null, sandbox: '', phase: '', lastList: 0, listTimer: null,
                sessions: {}, scheduled: false, status: null, body: null, hover: '', turn: 0, cycleTimer: null, cand: 0, liveEl: null };
 const TILE_SCALE = { small: 0.3, medium: 0.42, large: 0.62 };
 /// 635: saved screens drawn at once (each an engine, no socket) — apart from the live ones.
@@ -76,6 +77,10 @@ function gridBuild() {
     for (const e of entries) { const tile = grid.tiles.get(e.target.dataset.key); if (tile) tile.visible = e.isIntersecting; }
     gridSchedule();
   }, { root: null, rootMargin: '100px' });
+  grid.nearIo = new IntersectionObserver((entries) => {
+    for (const e of entries) { const tile = grid.tiles.get(e.target.dataset.key); if (tile) tile.near = e.isIntersecting; }
+    gridSchedule();
+  }, { root: null, rootMargin: NEAR_MARGIN });
   grid.built = true;
 }
 function gridApplySize(size) {
@@ -149,11 +154,11 @@ function gridRender() {
     }
   }
   const keep = new Set(want.map((w) => w.key));
-  for (const [k, tile] of grid.tiles) if (!keep.has(k)) { detachTile(tile); grid.io.unobserve(tile.el); tile.el.remove(); grid.tiles.delete(k); }
+  for (const [k, tile] of grid.tiles) if (!keep.has(k)) { detachTile(tile); grid.io.unobserve(tile.el); grid.nearIo.unobserve(tile.el); tile.el.remove(); grid.tiles.delete(k); }
   let prev = null;
   for (const w of want) {
     let tile = grid.tiles.get(w.key);
-    if (!tile) { tile = makeTile(w); grid.tiles.set(w.key, tile); grid.io.observe(tile.el); }
+    if (!tile) { tile = makeTile(w); grid.tiles.set(w.key, tile); grid.io.observe(tile.el); grid.nearIo.observe(tile.el); }
     paintTile(tile, w);
     const next = prev ? prev.nextSibling : grid.body.firstChild;
     if (next !== tile.el) grid.body.insertBefore(tile.el, next);
@@ -181,7 +186,7 @@ function makeTile(w) {
   const body = h('div', { class: 'tile-body' }, screen, note, hit);
   const el = h('div', { class: 'tile', 'data-key': w.key, 'data-sandbox': w.sandbox, 'data-session': w.session || '' },
     h('div', { class: 'tile-head' }, dot, glyph, title, agent, tag, phase, act), body);
-  const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, glyph, title, tag, phase, act, screen, note, hit, term: null, termKind: null, visible: false, liveable: !!w.session };
+  const tile = { key: w.key, sandbox: w.sandbox, session: w.session, el, dot, glyph, title, tag, phase, act, screen, note, hit, term: null, termKind: null, visible: false, near: false, liveable: !!w.session };
   hit.addEventListener('click', () => { location.hash = '#/sandbox/' + w.sandbox + (tile.session ? '/' + tile.session : ''); });
   // 642 (owner: "add the larger hover picture there too"): resting on a session's picture shows it larger, as on All sandboxes.
   if (w.session) hoverPeek(body, w.sandbox, () => ({ name: tile.session, saved: !!tile.saved,
@@ -208,7 +213,7 @@ function paintTile(tile, w) {
   if (tile.term && tile.term.saved && w.saved) paintCover(tile.term);
   tile.el.dataset.kind = kind;
   tile.el.dataset.phase = s.phase;
-  tile.dot.className = 'ph-dot ph-' + s.phase;
+  tile.dot.className = 'ph-dot ph-' + s.phase + phaseMark(s.phase);
   if (tile.glyph) { const g = sessionGlyph(briefOf(w)); if (g.dataset.mark !== tile.glyph.dataset.mark) { tile.glyph.replaceWith(g); tile.glyph = g; } }
   tile.title.textContent = w.session ? w.sandbox + ' · ' + w.session : w.sandbox;
   tile.title.title = w.command ? w.command : '';
@@ -226,67 +231,79 @@ function paintTile(tile, w) {
         : known.length ? 'Sessions when it last ran: ' + known.map((x) => x.name).join(', ') : 'Its sessions are listed while it runs.'));
   }
 }
+/// 647: a pass waits until the document's scroll rests (session-thumb.js).
 export function gridSchedule() {
   if (grid.scheduled) return;
   grid.scheduled = true;
-  setTimeout(() => {
-    grid.scheduled = false;
-    if (!grid.active) return;
-    const on = setting('ui.terminals', true) && document.visibilityState === 'visible';
-    const tiles = [...grid.body.children].map((el) => grid.tiles.get(el.dataset.key)).filter(Boolean);
-    for (const t of tiles) if (t.term && (!on || !t.visible || !t.liveable)) detachTile(t);
-    if (!on) { stopCycle(); return; }
-    // 635 (owner: a sleeping sandbox's screens took the live places): only a LIVE tile (a watch terminal — a socket)
-    // counts against the live places; a saved screen has no socket and has its own, larger allowance.
-    const wantsLive = (t) => t.liveable && !t.saved;
-    const cap = LIVE.limit();
-    // 642: the running tiles on screen; the pointed-at sandbox's take the live places first, the rest — cycling — in turn.
-    const cand = tiles.filter((t) => t.visible && wantsLive(t));
-    const cycling = LIVE.cycle() && cap > 0 && cand.length > cap;
-    if (cycling) startCycle(); else stopCycle();
-    const turn = liveTurn(cand, cand.filter((t) => t.sandbox === grid.hover), cap, cycling, grid.turn, (t) => t.termKind === 'live');
-    grid.cand = cand.length;
-    paintLiveStatus(grid.liveEl, LIVE, cand.length);
-    // A live tile whose turn is over (or past the limit) lets go of its socket and keeps its last frame.
-    let live = 0;
-    for (const t of tiles) {
-      if (!t.term || t.termKind !== 'live') continue;
-      if (turn.has(t)) live++;
-      else { thumbFreeze(t.term); t.termKind = 'frozen'; }
-    }
-    tiles.filter((t) => t.term && t.termKind !== 'live').slice(SAVED_TILES).forEach(detachTile);
-    let savedN = tiles.filter((t) => t.term && t.termKind !== 'live').length;
-    let capped = 0;
-    for (const t of tiles) {
-      if (!t.liveable) continue;
-      if (!t.visible) { t.note.hidden = false; t.note.className = 'tile-note'; t.note.textContent = 'Off screen — not live'; paintTag(t); continue; }
-      if (!wantsLive(t)) {
-        if (!t.term && savedN < SAVED_TILES) { attachTile(t, 'saved'); savedN++; }
-      } else {
-        const room = turn.has(t) && live < cap && openSockets() < SOCKET_CEILING;
-        if (t.term && t.termKind !== 'live' && room) {
-          if (t.termKind === 'frozen') thumbThaw(t.term); else thumbGoLive(t.term);
-          t.termKind = 'live'; live++;
-        } else if (!t.term) {
-          if (room) { attachTile(t, 'live'); live++; }
-          // Past the live places: its last captured screen (no socket), live in its turn.
-          else if (savedN < SAVED_TILES) { attachTile(t, 'still'); savedN++; }
-        }
-      }
-      if (t.term) { t.note.hidden = true; paintTag(t); continue; }
-      capped++;
+  setTimeout(() => whenScrollRests(() => { grid.scheduled = false; gridPlace(); }), 50);
+}
+function gridPlace() {
+  if (!grid.active) return;
+  const on = setting('ui.terminals', true) && document.visibilityState === 'visible';
+  const tiles = [...grid.body.children].map((el) => grid.tiles.get(el.dataset.key)).filter(Boolean);
+  // 647: a tile off screen but near it keeps its engine (a live one lets go of its socket below).
+  for (const t of tiles) if (t.term && (!on || !t.near || !t.liveable)) detachTile(t);
+  if (!on) { stopCycle(); return; }
+  // 635 (owner: a sleeping sandbox's screens took the live places): only a LIVE tile (a watch terminal — a socket)
+  // counts against the live places; a saved screen has no socket and has its own, larger allowance.
+  const wantsLive = (t) => t.liveable && !t.saved;
+  const cap = LIVE.limit();
+  // 642: the running tiles on screen; the pointed-at sandbox's take the live places first, the rest — cycling — in turn.
+  const cand = tiles.filter((t) => t.visible && wantsLive(t));
+  const cycling = LIVE.cycle() && cap > 0 && cand.length > cap;
+  if (cycling) startCycle(); else stopCycle();
+  const turn = liveTurn(cand, cand.filter((t) => t.sandbox === grid.hover), cap, cycling, grid.turn, (t) => t.termKind === 'live');
+  grid.cand = cand.length;
+  paintLiveStatus(grid.liveEl, LIVE, cand.length);
+  // A live tile whose turn is over (or past the limit) lets go of its socket and keeps its last frame.
+  let live = 0;
+  for (const t of tiles) {
+    if (!t.term || t.termKind !== 'live') continue;
+    if (turn.has(t)) live++;
+    else { thumbFreeze(t.term); t.termKind = 'frozen'; }
+  }
+  // Past the allowance of engines without a socket, those off screen go first.
+  const idle = tiles.filter((t) => t.term && t.termKind !== 'live');
+  if (idle.length > SAVED_TILES) idle.sort((a, b) => a.visible - b.visible).slice(0, idle.length - SAVED_TILES).forEach(detachTile);
+  let savedN = tiles.filter((t) => t.term && t.termKind !== 'live').length;
+  let capped = 0, made = 0, more = false;
+  // 647: at most MAKE_PER_PASS engines made a pass; the rest in the next one, in idle time.
+  const make = (t, kind) => { if (made >= MAKE_PER_PASS) { more = true; return false; } attachTile(t, kind); made++; return true; };
+  for (const t of tiles) {
+    if (!t.liveable) continue;
+    if (!t.visible) {
+      if (t.term) t.note.hidden = true;
+      else { t.note.hidden = false; t.note.className = 'tile-note'; t.note.textContent = 'Off screen — not live'; }
       paintTag(t);
-      t.note.hidden = false;
-      t.note.className = 'tile-note capped';
-      t.note.replaceChildren(h('div', { class: 'tile-note-head' }, 'Not live'),
-        h('div', null, SAVED_TILES + ' screens are shown. Scroll, filter, or click to open.'));
+      continue;
     }
-    const total = tiles.filter((t) => t.liveable).length;
-    grid.status.textContent = total + ' session' + (total === 1 ? '' : 's') + ' · ' + live + ' live' + (capped ? ' · ' + capped + ' not shown' : '');
-    grid.el = grid.body;
-    $('grid').dataset.live = String(live);
-    $('grid').dataset.capped = String(capped);
-  }, 50);
+    if (!wantsLive(t)) {
+      if (!t.term && savedN < SAVED_TILES && make(t, 'saved')) savedN++;
+    } else {
+      const room = turn.has(t) && live < cap && openSockets() < SOCKET_CEILING;
+      if (t.term && t.termKind !== 'live' && room) {
+        if (t.termKind === 'frozen') thumbThaw(t.term); else thumbGoLive(t.term);
+        t.termKind = 'live'; live++;
+      } else if (!t.term) {
+        if (room) { if (make(t, 'live')) live++; }
+        // Past the live places: its last captured screen (no socket), live in its turn.
+        else if (savedN < SAVED_TILES && make(t, 'still')) savedN++;
+      }
+    }
+    if (t.term || more) { t.note.hidden = true; paintTag(t); continue; }
+    capped++;
+    paintTag(t);
+    t.note.hidden = false;
+    t.note.className = 'tile-note capped';
+    t.note.replaceChildren(h('div', { class: 'tile-note-head' }, 'Not live'),
+      h('div', null, SAVED_TILES + ' screens are shown. Scroll, filter, or click to open.'));
+  }
+  const total = tiles.filter((t) => t.liveable).length;
+  grid.status.textContent = total + ' session' + (total === 1 ? '' : 's') + ' · ' + live + ' live' + (capped ? ' · ' + capped + ' not shown' : '');
+  grid.el = grid.body;
+  $('grid').dataset.live = String(live);
+  $('grid').dataset.capped = String(capped);
+  if (more) whenIdle(gridSchedule);
 }
 /// `kind`: live (a watch terminal), saved (a sleeping sandbox's saved screen) or still (642: a running session's last
 /// captured screen — host.screen_capture_minutes — no socket).

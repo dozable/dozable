@@ -24,7 +24,7 @@
 //    key / a ChatGPT sign-in: the exact `doz account add` line to copy.
 // Find filters both views. Only what the host already exposes; every action one HostOp.
 import { h } from '../dom/h.js';
-import { icon } from '../dom/icons.js';
+import { icon, phaseMark } from '../dom/icons.js';
 import { api } from '../core/api.js';
 import { full, when } from '../core/format.js';
 import { act, actOrThrow, waitOp } from '../core/operations.js';
@@ -132,10 +132,10 @@ export async function viewAccounts() {
   const keys = rows.filter((x) => !isLogin(x) || !loginDown(x) || x.state === 'expired' || (x.usedBy || []).length);
   const all = ov.sandboxes || [];
   const sandboxes = all.filter((s) => s.agent);
-  const head = h('div', { class: 'ak-head' },
-    h('div', null, h('h1', null, 'Accounts & keys'),
-      h('p', { class: 'sub' }, 'The keys and sign-ins your sandboxes’ tools use. They stay on this Mac: a sandbox only ever sees a placeholder, and this page never shows a key.')),
-    keys.length ? btn('Add a key', () => openAddKey(a, null), { primary: true, icon: 'plus' }) : null);
+  // The title and its one action are the page's title bar (it sticks as the page scrolls); the line under it is not.
+  const head = [h('div', { class: 'head ak-head' }, h('h1', null, 'Accounts & keys'),
+    keys.length ? btn('Add a key', () => openAddKey(a, null), { primary: true, icon: 'plus' }) : null),
+  h('p', { class: 'sub ak-sub' }, 'The keys and sign-ins your sandboxes’ tools use. They stay on this Mac: a sandbox only ever sees a placeholder, and this page never shows a key.')];
   const foot = h('p', { class: 'ak-foot' }, 'Pasting a key here can be turned off in Settings (', h('code', null, 'ui.allow_secret_entry'), '); in a terminal: ',
     h('code', null, 'doz account add'), '.');
   if (!keys.length) return h('div', { class: 'ak-page', 'data-accounts': 'empty' }, head, emptyPage(a), foot);
@@ -354,10 +354,10 @@ function keyRow(a, rows, x, p, phases) {
   return h('tr', { class: isFailing(x) || (isLogin(x) && loginDown(x) && used.length) ? 'failing' : null, 'data-ak-key': x.name, 'data-ak-kind': x.kind, 'data-ak-q-row': q },
     h('td', { class: 'c-key' },
       h('div', { class: 'ak-name' }, shownName(x), twin ? h('span', { class: 'tag warn', 'data-ak-twin': twin.name, title: 'The same fingerprint: one key stored twice' }, 'same key as ' + twin.name) : null),
-      h('div', { class: 'ak-where' }, icon(glyph), h('span', null, words), ref ? h('code', { title: ref }, ref) : null)),
+      h('div', { class: 'ak-where' }, icon(glyph), h('span', ref ? { class: 'ak-where-k' } : null, words), ref ? h('code', { title: ref }, ref) : null)),
     h('td', { class: 'c-st' }, h('div', { class: 'ak-state' }, statusPill(s), s[3] ? h('span', { class: 'muted' }, s[3]) : null)),
     h('td', { class: 'c-used' }, used.length
-      ? oneLineChips(used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n, 'data-name': n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off'), 'aria-hidden': 'true' }), n)))
+      ? oneLineChips(used.map((n) => h('a', { class: 'ak-chip', href: '#/sandbox/' + n, title: 'Open ' + n, 'data-name': n }, h('span', { class: 'ph-dot ph-' + (phases[n] || 'off') + phaseMark(phases[n] || 'off'), 'aria-hidden': 'true' }), n)))
       : h('div', { class: 'ak-used' }, h('span', { class: 'none' }, 'no sandbox'))),
     h('td', { class: 'c-def' }, def),
     h('td', { class: 'c-acts' }, h('div', { class: 'ak-acts' }, verb, moreMenu('More for ' + shownName(x), items, { small: true }).el)));

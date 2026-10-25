@@ -147,6 +147,17 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(note?.defaultValue, .bool(true))
         XCTAssertEqual(note?.applies, .now)
         XCTAssertEqual(note?.editableInUI, true, "its own \"Don't say this again\" writes it")
+        // 647 (owner, the review's decision 1): the dashboard's density — comfortable by default, compact, set from the page.
+        let density = DozableSettings.definition(SettingKey.density)
+        XCTAssertEqual(density?.key, "ui.density")
+        XCTAssertEqual(density?.type, .choice(["comfortable", "compact"]))
+        XCTAssertEqual(density?.defaultValue, .string("comfortable"))
+        XCTAssertEqual(density?.applies, .now)
+        XCTAssertEqual(density?.editableInUI, true, "Settings › This UI switches it")
+        XCTAssertNil(density?.environment, "a look of the page, never the environment's")
+        XCTAssertNoThrow(try density!.validate(.string("compact")))
+        XCTAssertThrowsError(try density!.validate(.string("dense")))
+        XCTAssertThrowsError(try density!.validate(.bool(true)))
         for d in DozableSettings.schema {
             XCTAssertNoThrow(try d.validate(d.defaultValue), "\(d.key)'s default is valid")
             XCTAssertTrue(TOML.isBareKey(d.name), d.key)

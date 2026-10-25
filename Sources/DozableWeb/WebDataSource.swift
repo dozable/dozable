@@ -328,17 +328,14 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         throw m.error ?? HostError(.failed, "no reason")
     }
 
-    /// 594 W20: Restart host — ONLY when the running host is an OLDER build than this UI (the one
-    /// case the page offers it): `host stop` (its sandboxes hibernate), then a host of this UI's own
-    /// build, started the normal detached way (HostLauncher). Anything else is refused: `host stop`
-    /// on its own stays out of the browser.
+    /// Restart host — `doz host restart`: `host stop` (its sandboxes hibernate, sessions kept), then a host of this
+    /// UI's own build, started the normal detached way (HostLauncher). 594 W20 offered it only for an OLDER host;
+    /// 647 (owner: "a way to start/restart the host") offers it on the status card for any running host. Refused
+    /// with no host (Start host starts one); `host stop` on its own stays out of the browser.
     public func restartHost(onEvent: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
-        let store = self.store, ui = version
-        guard store.hostIsRunning(), let st = await hostStatus() else {
+        let store = self.store
+        guard store.hostIsRunning(), await hostStatus() != nil else {
             throw HostError(.invalid, "no host is running — Start host starts one")
-        }
-        guard WebVersion.compare(st.version, ui) == .orderedAscending else {
-            throw HostError(.invalid, "the host (\(st.version)) is not older than doz ui (\(ui)) — nothing to restart")
         }
         // 594 W22: each sandbox's hibernation reaches the operation as it happens (`onEvent`).
         let stopped = try await blocking { try HostClient.request(HostRequest(.hostStop), store: store, autostart: false, onEvent: onEvent) }

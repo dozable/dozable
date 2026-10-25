@@ -5,7 +5,7 @@
 // exactly as it ran (a script verbatim, monospace), every file it writes (path and contents; a long one folded), how it
 // went and its output — then the checks (command, what it expects, what it got) and the trim. Text only (textContent):
 // every line is guest or recipe text, inert.
-import { h } from '../dom/h.js';
+import { h, markChildren } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 
 function secs(s) {
@@ -14,7 +14,7 @@ function secs(s) {
 }
 const pre = (lines, cls) => h('pre', { class: 'bl-code' + (cls ? ' ' + cls : '') }, lines.join('\n'));
 function fold(summary, body, open) {
-  const d = h('details', { class: 'disclosure bl-fold' }, h('summary', null, icon('chevron-down'), summary), body);
+  const d = markChildren(h('details', { class: 'disclosure bl-fold' }, h('summary', null, icon('chevron-down'), summary), body), 'd-part', 'SUMMARY');
   if (open) d.open = true;
   return d;
 }
@@ -48,7 +48,8 @@ export function buildLogNode(d) {
   const when = new Date(d.finishedAt).toLocaleString();
   const early = d.early.map((e) => h('li', null, mark(e.ok), e.label, ' ', h('span', { class: 'muted' }, secs(e.seconds)),
     e.cached ? h('span', { class: 'tag' }, 'cached') : null));
-  return h('div', { class: 'buildlog-doc', 'data-buildlog-doc': d.image },
+  // 647: the document's measure is its inner page's (`.bl-page`), not a rule on every child (`> *` matches every element).
+  return h('div', { class: 'buildlog-doc', 'data-buildlog-doc': d.image }, h('div', { class: 'bl-page' },
     h('header', { class: 'bl-head' },
       h('h2', null, 'How ' + d.image + ' was built'),
       h('p', { class: 'bl-sub' }, (d.state === 'done' ? 'Built' : d.state === 'failed' ? 'Failed' : d.state) + ' in ' + secs(d.seconds) + ' · ' + when + (d.error && d.state !== 'done' ? ' — ' + d.error : '')),
@@ -62,5 +63,5 @@ export function buildLogNode(d) {
     d.checks.length ? h('section', { class: 'bl-checks' }, h('h3', null, 'Checks'), h('ul', { class: 'bl-check-list' }, ...d.checks.map(checkNode))) : null,
     d.closing.length ? h('section', { class: 'bl-closing' }, h('h3', null, 'After the steps'),
       h('ul', { class: 'bl-early' }, ...d.closing.map((e) => h('li', null, mark(e.ok), e.label, ' ', h('span', { class: 'muted' }, secs(e.seconds))))),
-      d.trimCommand ? h('div', { class: 'bl-cmd' }, h('div', { class: 'bl-label' }, 'The trim, as root'), pre([d.trimCommand])) : null) : null);
+      d.trimCommand ? h('div', { class: 'bl-cmd' }, h('div', { class: 'bl-label' }, 'The trim, as root'), pre([d.trimCommand])) : null) : null));
 }

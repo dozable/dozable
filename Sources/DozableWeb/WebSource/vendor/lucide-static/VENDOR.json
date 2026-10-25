@@ -37,6 +37,18 @@
       "serve": "icon"
     },
     {
+      "file": "bell.svg",
+      "fromTarball": "package/icons/bell.svg",
+      "sha256": "c4131f22b333dba83468ef7fd15c3cd3be2ed9fe99246f9ddbbcf58e2098aa8c",
+      "serve": "icon"
+    },
+    {
+      "file": "bug.svg",
+      "fromTarball": "package/icons/bug.svg",
+      "sha256": "e62de3abcbbe5a375ca9c61a011819b2982fde4b715758af6abd77944128c0fb",
+      "serve": "icon"
+    },
+    {
       "file": "box.svg",
       "fromTarball": "package/icons/box.svg",
       "sha256": "500c9c5b333b9d2f824ae09807f9a354d60935092b58fa6903366f938dea389b",

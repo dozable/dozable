@@ -1,5 +1,6 @@
 // components/rules-step — Workspace rules (599g): the onboarding's and the New Sandbox wizard's step.
 import { h } from '../dom/h.js';
+import { choiceCard } from './choice.js';
 import { icon } from '../dom/icons.js';
 import { btn } from './button.js';
 
@@ -11,7 +12,7 @@ import { btn } from './button.js';
 //   rulesStep({ mode: 'onboarding'|'sandbox', guide, value, onPick(value), folder: {rules: [...]}, onLookAgain })
 export function rulesStep(opts) {
   const g = opts.guide, mode = opts.mode || 'onboarding';
-  const points = h('ul', { class: 'rules-points' }, g.points.map((p) =>
+  const points = h('ul', { class: 'rules-points d-part' }, g.points.map((p) =>
     h('li', null, p.term ? [h('code', null, p.term), ' — ' + p.text] : p.text)));
   let folder = null;
   if (mode === 'sandbox') {
@@ -29,7 +30,7 @@ export function rulesStep(opts) {
   const radios = g.modes.map((m) => {
     const input = h('input', { type: 'radio', name: 'rules-mode-' + mode, value: m.value });
     input.checked = m.value === opts.value;
-    const label = h('label', { class: 'wiz-choice' + (input.checked ? ' chosen' : ''), 'data-rules-mode': m.value }, input,
+    const label = choiceCard({ class: 'wiz-choice' + (input.checked ? ' chosen' : ''), 'data-rules-mode': m.value }, input,
       h('span', null, h('strong', null, m.label), m.recommended ? h('span', { class: 'tag' }, 'recommended') : null,
         h('div', { class: 'muted' }, m.detail)));
     input.addEventListener('change', () => {

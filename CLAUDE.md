@@ -73,8 +73,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `WebSource/app.js` | the entry — imports every module, the shell's own wiring (quick add, sign out, nav icons, the rail), `startApp`, `provide({…})` (every call up the layers), `expose({…})` (the probes' names), then the bootstrap |
 | `WebSource/app/dom/` | `h.js` (`h`, `$` — text only), `icons.js` (`icon`, `iconFor`, `withIcon`, `setButton`, the glyph maps) |
 | `WebSource/app/core/` | `state.js` (THE `state` object — one export), `hooks.js` (`upcall`/`provide`/`expose`), `format.js`, `util.js`, `api.js` (fetch + CSRF, `HttpError`), `settings.js`, `agents.js`, `sandboxes.js` (phase, busy, verbs), `measure.js`, `operations.js` (`act`, `actOrThrow`, `trackOp`, transitions, waits), `wizards.js` (`WIZ`), `terminals.js` (`terminals`, `termUI`, `sview`), `session.js` (bootstrap, renewal, the worker, the sign-in inside the page), `reconnect.js` (605: calm reconnect, the paused overlay, a newer build, moved), `router.js` (`route`, `routePage`, `refresh`), `events.js` (SSE `connect`) |
-| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
-| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts` |
+| `WebSource/app/components/` | `blocks.js` (card, table, panel, meter, chip, stat, `pageIndex`, determinate), `button.js` (`btn`), `callout.js`, `menus.js` (`menuButton`, `moreMenu`), `keyboard.js`, `notices.js` (toast, page notices, status slots, banners), `notes.js` (647: the notifications in the top-right corner — cards, pills, bell), `page-title.js` (647: the sticky title bar and table heads), `pills.js`, `dialog.js` (`dialog`, `confirmAction`), `stepper.js`, `modal.js` (the wizards' modal), `nav.js`, `host.js`, `terminal.js` (one pane: the frame protocol, socket, cover, paste, saved screen, boot log), `lifecycle.js`, `workspace-chooser.js`, `image-picker.js`, `permissions.js`, `accounts.js`, `access-step.js` (`renderAccessStep`), `rules-step.js`, `prep-card.js`, `base-strip.js` (the setup's base strip + popover), `create-dialog.js`, `quick-add.js` |
+| `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
 | `Sources/DozableHost/ImageTree.swift`; `Sources/DozableCLI/TemplateCommands.swift`; `Sources/doz-vmtest/TemplatesSuite.swift` | the lineage (`image-tree`, built from `DiskAccounting`; `doz image ls --tree`, Images › Lineage); templates (`template-create`) and `duplicate` (`Sandbox.duplicate`); `make test-vm-templates` |
@@ -456,7 +456,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `WebActionTests.testEveryActionIsExactlyOneAllowedHostOp` pins the set; `exec`, `attach`, `key-set`,
   `account-add` and `host-stop` are never reachable AS AN ACTION (591: `attach` is reachable only
   through the ticketed terminal socket below; `host-stop` only inside `host-restart`, which
-  `HostWebData.restartHost` refuses unless the running host is an OLDER build than the UI). Destructive ones (reset, rm,
+  `HostWebData.restartHost` refuses only when no host runs — 647, owner: the status card restarts any running host; 594
+  W20 offered it only for an OLDER one). Destructive ones (reset, rm,
   point revert/rm, image rm, account rm) carry `confirm` equal to the name. Shutdown keeps the disk,
   so it carries no `confirm`: the page asks with a plain dialog that can stop asking
   (the setting `ui.confirm_shutdown`, doz.toml — no longer localStorage). 617 (owner: "same simplified delete
@@ -575,7 +576,13 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`ui.theme` sets `data-theme`); never a literal colour outside `:root` (the terminal chrome is `--term-*`;
     `frame.css` has its own `--term-bg`). Type `--fs-*` (13 px is THE UI size), space `--sp-*`, radii `--r-*`,
     elevations `--shadow-*`, layers `--z-*`. A comment in a stylesheet never contains `*/` (a path like
-    `changes/603-*/…` closed one and dropped the whole token block).
+    `changes/603-*/…` closed one and dropped the whole token block). 647: surfaces by ROLE — `--shell` (the frame:
+    sidebar, tab strips), `--bg` (the page), `--surface` (content), `--well` (code, commands); `--surface-3` is a track
+    only. A hover is `--state-hover` laid over its surface (`--state-press`, `--state-selected` + the 2 px `--indicator`);
+    separators `--line` (rows, panels), `--sep` (between areas), `--line-strong` (a control's edge). Space by ROLE —
+    `--row-py`, `--th-h`, `--cell-px`, `--nav-*-h`, `--strip-h`, `--tab-py`, `--page-py/px`, `--work-py/px`, `--gap`,
+    `--panel-p`, `--ctl-px`: the setting `ui.density` (comfortable | compact; `core/settings.js` sets
+    `data-density="compact"` on `<html>`) redefines them and the `--ctl-*` heights, never the type.
   - **One button family**: `btn(label, fn, {primary, quiet, danger, small, lg, iconOnly, icon})` — ONE primary per
     view (the verb that moves things forward: Start/Wake/Resume, Next, Create; a running sandbox has none);
     icon-only only where the icon is unambiguous (it gets aria-label + title). Menus: `menuButton(trigger, items)`
@@ -586,12 +593,18 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     classes stay on elements as hooks. **A failure is never only a toast**: it is said where
     the action was started and stays until dismissed or fixed — the dialog's `.dlg-error`, the sandbox's status
     line (`[data-op-for]`, `failureFor(name, text)`, `opFailed`), a step's/row's own slot (`wizFail`,
-    `settingFailed`, `state.permErr`), else the page notices (`pageFailure` → `#notice`). `toast()` is for
-    successes; `toast(text, true)` routes to the page notices.
+    `settingFailed`, `state.permErr`), else the page notices (`pageFailure`). `toast()` is for
+    successes; `toast(text, true)` routes to the page notices. 647 (owner): toasts, page notices and banners are ONE
+    store of notes (`components/notes.js`: `addNote`/`dropNote`, `state.notes`) drawn in `#notes` — fixed in the
+    top-right corner, OUTSIDE the shell (so never inert under a wizard or a pause, and in front of the paused overlay)
+    — as `ui.notifications` says: cards | pills | bell. Cards keep a bell in the header (owner: "the cards but with a permanent bell"; its click shows and hides the stack, a new note shows it again, and with none it opens an empty stack with History); a passing card's countdown strip (`.note-timer`) is a Web Animation driven from the note's own timer (an Animation survives the repaint's re-insert, a CSS one restarts), and the pointer on ANY card holds every countdown and turns the stack solid with Dismiss all (`.notes.is-held`, decided by a document `mouseover` — the cards are re-inserted at each repaint, so their own enter/leave would be lost). Every note shown is kept with how it ended (`state.noteHistory`, this tab's session storage, ≤ 200; `watchNotes` tells its page) — Notifications (`views/notifications.js`). `notices.js` keeps its API (`toast`, `pageFailure`,
+    `dropPageNotice`, `banner` — which returns the note; reconnect marks it with `tag` — `dropBanner`). The Debug page
+    (`views/debug.js`, `#/debug`) makes every kind with sample words; a new kind of notice gets a sample there.
   - **Never `append`/`replaceChildren` a `null`** — the DOM writes it as the text "null" (the Split menu's bug);
     `h()` skips nulls, those do not.
-  - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav > a[data-view]` stay direct
-    children; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
+  - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
+    stylesheet and `paintNav` key on that, never on `#nav > a`: All sandboxes sits in its `.nav-all` row with the tree's
+    caret and ⋯; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
     pane; the inspector's tabs `INSP_TABS` (635: no Sessions tab — the sessions are Home's; 644: Files after Overview), the chosen tab per sandbox
     in `sview(name).inspTab` (page memory, no setting); its width in this browser's storage. **Home** (635,
@@ -614,7 +627,27 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     `ui.grid_live_tiles`). The sidebar's session lines carry a screen icon (`components/nav-peek.js`, `ui.nav_thumbnails`):
     500 ms resting on it opens the session's picture beside the sidebar (one watch terminal); open, another line switches
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
-    redrawn spinner never jumps back. The sidebar's foot has the light / dark switch (sets `ui.theme`).
+    redrawn spinner never jumps back. The status bar's right end has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
+    border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the STATUS BAR (`footer#statusbar`, owner:
+    "a status bar at the bottom", then "move the bottom status bar to only appear (also fixed) in the sidebar": the sidebar is the window's height and never scrolls itself — `.side-head` at its top, the status bar at its foot, only `#nav` scrolls; `--status-h`; inert under a wizard and a pause) starts with ONE line (`.foot-status`:
+    two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
+    whose card (`.foot-card`) holds the rows. 647 (owner, after stage 4): the card is interactive — the host's row has Restart
+    / Start (`paintHostCard`, `components/host.js`, built only when what it says changes), `#foot-mismatch` says when the host
+    and the UI are different builds, the updates row (`paintUpdates`) shows `state.update` / `state.updateCheck` with Check
+    (`POST /api/v1/updates/check`, `WebUpdateCheck`: forced, the checker's own rules — a development build says it is never
+    updated); it stays open while the pointer or focus is in it and is pinned by a click. No header row above
+    the page (owner: "make the header in the navbar only"; `--header-h` is 0 wider than 760 px): the sidebar's head
+    (`.side-head`) has the menu (`#nav-menu` → `navMenuClick`: below 980 px `navRail`, the whole sidebar over the page; wider
+    it collapses the sidebar to the rail and back — the rail is the class `body.rail` (`applyRail`: below 980 px, or
+    collapsed, browser storage `doz.nav.collapsed`), never a media query), the brand and `#store-path`; the notifications
+    keep a fixed top-right corner (`--corner-w`). Each page's title bar STICKS (`components/page-title.js` marks the h1's
+    `.head`, or the h1, `.page-title` after every render — a view needs nothing; it must sit directly in the page's root,
+    as sticky holds only in its parent) and keeps `--title-h` / `--stack-h` on `#view`: a page's sticky tools or index sit
+    under the title, every table's `thead th` under both — so `.panel` CLIPS its overflow (a scrolling box would hold the
+    heads), except on a phone. The DOCUMENT scrolls, never `main` (a route's `window.scrollTo(0, 0)`). Below 760 px a header
+    row (`#topbar`, `--header-h`) has its own menu (`#top-menu`), the brand, `#top-keys` (from `paintAccountsBadge`) and
+    Quick add, and the sidebar is a drawer (inert with the rest under a wizard and a pause). Sandboxes: All sessions, then All sandboxes,
+    whose click on its own page (or caret) folds the tree (`#nav.tree-folded`, browser storage `doz.nav.tree`).
     A WATCH terminal (every thumbnail) is laid out at its SESSION's size, never its own: the bridge reads the session's
     cols × rows from its holder's list once attached and every 5 s (`checkWatchSize`), the state message carries them,
     and the frame (`{t:'size'}`, watch only) drops its fit, resizes to them and scales to fit — laid out smaller, a
@@ -638,6 +671,17 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `:where` — both found and kept apart): `probes/607-*/run-cascade.sh` compares every element's computed style
   (the 603 harness's states, light/dark, 1280/900 px, every interactive element forced into :hover, :focus and
   :active) of the sheet before against a candidate — keep it at 0 differences. A new rule goes in its layer's block.
+- **The sheet's rules are checked** (647): `make css-lint` (`Scripts/css-lint.swift`, part of `make test`) refuses `:has()`,
+  a universal right-most key (`*`, `> *`, a lone `::placeholder`), `text-transform: uppercase` but on an access code's
+  input, a literal colour outside `:root`, a selector list defined twice, blank runs and a rule outside its layer, and
+  literal px spacing (padding, margin, gap: a `--sp-*` step or a role token; 1 px is a hairline). A state the page knows is a CLASS the component sets — `.tab-wrap.is-active`/`.is-home`
+  (the strip), `.menu-wrap.is-open` and `.menu.has-pairs` (`components/menus.js`), `.wiz-choice.is-checked`/`.is-disabled`
+  (`choiceCard`, `components/choice.js`), `.head.has-title`, a phase dot's shape `.mark-ring`/`.mark-square`/
+  `.mark-turning` (`phaseMark`, `dom/icons.js`), `.nav-sbx.menu-hover`/`.menu-focus`, `.nav-sess-row.has-peek`; a rule
+  about a container's children keys on their class (`markChildren(el, 'w-item')`, `dom/h.js`) or an inner wrapper
+  (`.bl-page`). `make css-perf` (`Scripts/css-perf.mjs`: a real headless Chrome, a scratch store and profile; standalone)
+  walks a fixed path five times and compares the style recalculation and the selector statistics with
+  `Tests/Fixtures/css-perf-baseline.json`; `make css-perf ARGS=--write-baseline` records a new one.
 - **The UI watches the host** (`WebHostWatch` — pure, unit-tested): before each overview the
   monitor PROBES without starting anything (`hostProbe`: the lock, a stale `host.pid` = killed, records
   left live, the last host's own exit line in `host.log` — `HostExitReason`), because the overview
@@ -647,11 +691,11 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   a host that holds its lock (it may be stopping: an open page must never undo `doz host stop`), and a
   terminal's REattach waits for a host rather than start one. "Start host" is the `host-start` action
   = the CLI's `ping` with autostart (HostLauncher, detached); `host stop` stays out of the browser
-  except W20's guarded Restart host. The mismatch note (`WebVersionNote`, semver with pre-release
+  except Restart host (`host-restart`: stop with progress, then a start — `doz host restart`). The mismatch note (`WebVersionNote`, semver with pre-release
   order — `WebVersion`) advises the OLDER side.
 - **`doz ui` gone = the page paused** (594 W21; CALM first — see the 605 section): after 1.5 s of failed reconnects (never on a blip)
-  everything but `#banners` is `inert` under `#ui-overlay` (alertdialog, focus inside, Try now — the
-  one retry control); the banner strip stays in front (z-order) and live — the banner says what
+  everything but the notes (`#notes`, 647) is `inert` under `#ui-overlay` (alertdialog, focus inside, Try now — the
+  one retry control); the notes stay in front (z-order) and live — the banner says what
   happened, the overlay that the page is paused. The overlay is BUILT on `hello`: its icon is a
   `<use>` of the served sprite, which a page without its server cannot fetch. A rotated link turns
   it into "This page was signed out". The HOST stopping stays a banner (the page still works).
@@ -820,7 +864,13 @@ its subcommands still parse) — remove it in a later release, saying so.
   change `replaceState`s it (no route).
 - **All sessions (the grid) holds engines only on screen**: a tile is a WATCH terminal (same ticket,
   socket and frame), laid out at 960 × 560 and CSS-scaled; an `IntersectionObserver` attaches and
-  detaches, and at most `ui.grid_live_tiles` are live. A non-running sandbox is a static tile — no
+  detaches, and at most `ui.grid_live_tiles` (default 12 = `SOCKET_CEILING`: every tile on screen) are live. 647 (owner:
+  "scrolling is not smooth when thumbnail positions come into view"; a frame per picture loads and compiles the engine on
+  the page's thread — the probe `probes/647-*/thumb-scroll/` measured 48–94 frames made and dropped per scroll): All
+  sessions and All sandboxes never make, attach or drop a picture while the document scrolls (`whenScrollRests`,
+  `components/session-thumb.js`), make at most `MAKE_PER_PASS` engines a pass (the next in idle time), and a picture off
+  screen but NEAR it (a second observer, `NEAR_MARGIN`: a screen each way) keeps its engine — only its socket goes
+  (`thumbFreeze`). A non-running sandbox is a static tile — no
   terminal, so an open grid never keeps a host alive. Sessions are listed (`deckhold ls` in the guest)
   on entry, Refresh, and `changed` at most every 10 s — never on the 3 s poll.
 - **Operations is its own page** (no block on top of other pages); the nav badge counts running
@@ -2381,6 +2431,7 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
 make build     # swift build — Xcode 27 needs the --build-system native pin the Makefile probes for
 make test      # unit tests: no VM, no entitlement. Never --parallel. (web-assets-check first)
 make web-assets        # 590: regenerate Sources/DozableWeb/Resources/Web after editing WebSource/ (commit it)
+make css-lint          # 647: the stylesheet's rules (in make test); make css-perf: its cost in headless Chrome vs the baseline
 make audit     # Scripts/audit.sh
 make test-vm   # the VM integration suite — see below
 make cli       # 585: build + sign .build/debug/doz
