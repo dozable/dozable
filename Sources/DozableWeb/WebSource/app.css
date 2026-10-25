@@ -1008,8 +1008,9 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .notes-history { font-size: var(--fs-sm); }
 /* A passing note's countdown: a strip along its foot, drawn by an Animation from the note's own timer (notes.js). */
 .callout.note.passing { position: relative; overflow: hidden; }
-.note-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--tone-t); }
-.note-timer-bar { display: block; height: 100%; background: var(--tone); transform-origin: left center; }
+/* One quiet tint for every tone (owner: "more subtle … the same tint, not based on the icon colour"): no track, a 2 px line. */
+.note-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
+.note-timer-bar { display: block; height: 100%; background: var(--line-strong); transform-origin: left center; }
 .notes-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); height: var(--header-h); max-width: var(--notes-row-max); min-width: 0; }
 .notes-pop { margin-top: var(--sp-0); width: min(420px, calc(100vw - var(--sp-6))); }
 .notes-list { max-height: calc(100vh - var(--header-h) - var(--status-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
