@@ -1574,7 +1574,7 @@ h1.page-title { display: flex; align-items: center; }
   .panel { overflow-x: auto; }
   /* A panel that scrolls sideways would hold its heads inside itself, so they do not stick; relative, not static, so a
      head's hidden label (.sr-only, absolute) stays inside the panel — static, it was placed against the page and widened it. */
-  #view thead th { position: relative; }
+  #view thead th { position: relative; top: auto; }   /* top: the sticky offset would MOVE a relative head */
 }
 
 /* ── 603: the wizards (New sandbox, onboarding) — a modal over the page, the full width of the window up to
