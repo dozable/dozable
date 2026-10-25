@@ -178,9 +178,9 @@ export async function viewResources() {
 }
 function renderResources() {
   if (state.view !== 'resources' || !state.measured.resources) return;
-  const top = $('main').scrollTop;
+  const top = window.scrollY;
   $('view').replaceChildren(resourcesNode(state.measured.resources));
-  $('main').scrollTop = top;
+  window.scrollTo(0, top);
 }
 function resourcesNode(r) {
   const del = btn('Delete selected…', () => resDelete([...state.resSel], false), { danger: true, icon: 'trash-2' });

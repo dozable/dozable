@@ -91,7 +91,7 @@ export async function showSandbox() {
       $('sbx-bar').replaceChildren(h('div', { class: 'sbx-title' }, h('h1', null, name)));
       $('sbx-details').replaceChildren();
     }
-    $('main').scrollTop = 0;
+    window.scrollTo(0, 0);
   }
   renderTerminals();
   // What arriving does needs the sandbox's detail: it runs once, after whichever refresh loads it first

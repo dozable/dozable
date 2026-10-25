@@ -721,17 +721,39 @@ name: todo-app</pre></details>
   <h2>Notifications — in the header, three ways</h2>
   <p>647 (owner: “always show notifications in the header, stacked from the right … implement all three, switch with a setting”): every toast, page notice and banner
     is a <strong>note</strong> (<code>components/notes.js</code>), drawn in <code>#notes</code> — fixed over the header’s right end, outside the shell, so it is never inert under
-    a wizard or a pause and stays in front of the paused overlay. A note is a callout (banner variant, compact). A success goes by itself after 8 s (held under the
-    pointer); a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — a column hanging below the
-    header, newest on top; <strong>pills</strong> (<code>.note-pill</code>) — one line each in the header row, the newest at the right, the rest under <code>+N</code>
+    a wizard or a pause and stays in front of the paused overlay. A note is a callout (banner variant, compact). A success goes by itself after 8 s;
+    a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — the bell in the header row (always: owner,
+    “the cards but with the addition of a permanent notification bell”; its click opens the history) and a column hanging below it (<code>.notes-stack</code>), newest on top;
+    a success (<code>.passing</code>) has a countdown strip along its foot (<code>.note-timer</code> — an Animation driven by the note’s own timer, so a repaint never restarts it);
+    the pointer on ANY card holds every countdown and the stack turns solid on <code>--shell</code> with its count, History and Dismiss all (<code>.notes.is-held</code>);
+    <strong>pills</strong> (<code>.note-pill</code>) — one line each in the header row, the newest at the right, the rest under <code>+N</code>
     (<code>.note-more</code>), a click opens its card; <strong>bell</strong> (<code>.note-bell</code>) — a count (its colour the worst tone), the newest beside it for 5 s
-    (<code>.note-flash</code>), a click opens the list with Clear all. The Debug page (<code>#/debug</code>) makes every kind.</p>
+    (<code>.note-flash</code>), a click opens the list with History and Clear all. Every note shown is kept for the tab: the Notifications page (<code>#/notifications</code>).
+    The Debug page (<code>#/debug</code>) makes every kind.</p>
+  <h3>Cards — at rest, and with the pointer on a card</h3>
   <div class="pair"><div class="scheme">
-    <div class="notes mode-cards" style="position:static;align-items:stretch;max-width:none">
-      <div class="notes-col">
-        <div class="callout ok compact banner note toast" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
-        <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
-        <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+    <div class="notes mode-cards" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none"><button type="button" class="btn sm quiet icon-only note-bell" aria-label="3 notifications — open the history" title="Notification history"><i data-i="bell"></i><span class="note-count bad">3</span></button></div>
+      <div class="notes-stack" style="margin-right:0">
+        <div class="notes-col">
+          <div class="callout ok compact banner note toast passing" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div><div class="note-timer" aria-hidden="true"><i class="note-timer-bar" style="transform:scaleX(0.62)"></i></div></div>
+          <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+          <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        </div>
+        <div class="notes-stack-foot"><span class="muted">3 notifications</span><a href="#" class="notes-history">History</a><button type="button" class="btn sm"><i data-i="x"></i>Dismiss all</button></div>
+      </div>
+    </div>
+  </div></div>
+  <div class="pair"><div class="scheme">
+    <div class="notes mode-cards is-held" style="position:static;max-width:none">
+      <div class="notes-row" style="max-width:none"><button type="button" class="btn sm quiet icon-only note-bell" aria-label="3 notifications — open the history" title="Notification history"><i data-i="bell"></i><span class="note-count bad">3</span></button></div>
+      <div class="notes-stack" style="margin-right:0">
+        <div class="notes-col">
+          <div class="callout ok compact banner note toast passing" role="status"><i data-i="check"></i><div class="c-body">todo-app started in 3.2 s</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div><div class="note-timer" aria-hidden="true"><i class="note-timer-bar" style="transform:scaleX(0.4)"></i></div></div>
+          <div class="callout warn compact banner note b-warn" role="status"><i data-i="triangle-alert"></i><div class="c-body">The doz host stopped (idle for 15 min) — your sandboxes were hibernated: <a href="#">todo-app</a></div><div class="c-acts"><button type="button" class="btn sm primary"><i data-i="play"></i>Start host</button><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+          <div class="callout bad compact banner note" role="alert"><i data-i="circle-x"></i><div class="c-body">Start api-tests: the image could not be prepared — the network did not answer</div><div class="c-acts"><button type="button" class="btn sm quiet icon-only b-x" aria-label="Dismiss"><i data-i="x"></i></button></div></div>
+        </div>
+        <div class="notes-stack-foot"><span class="muted">3 notifications</span><a href="#" class="notes-history">History</a><button type="button" class="btn sm"><i data-i="x"></i>Dismiss all</button></div>
       </div>
     </div>
   </div></div>
@@ -752,6 +774,17 @@ name: todo-app</pre></details>
         <button type="button" class="btn sm quiet icon-only note-bell" aria-label="6 notifications"><i data-i="bell"></i><span class="note-count bad">6</span></button>
       </div>
     </div>
+  </div></div>
+  <h3>The Notifications page — the history</h3>
+  <p><code>views/notifications.js</code>: every note this tab showed (<code>state.noteHistory</code>, kept in the tab’s session storage, 200 at most), newest first; a filter
+    (All · Showing · Failures · Warnings · Successes); the ones showing have Dismiss and an inset edge in their tone (<code>.nh-row.is-live</code>), the others say how they
+    ended — dismissed, went by itself, no longer true, replaced, too many at once.</p>
+  <div class="pair"><div class="scheme">
+    <div class="panel"><ul class="nh-list">
+      <li class="nh-row bad is-live"><span class="nh-icon"><i data-i="circle-x"></i></span><span class="nh-t">14:02:11</span><span class="nh-text">Start api-tests: the image could not be prepared — the network did not answer</span><span class="nh-end"><span class="nh-live">Showing</span><button type="button" class="btn sm quiet"><i data-i="x"></i>Dismiss</button></span></li>
+      <li class="nh-row ok"><span class="nh-icon"><i data-i="circle-check"></i></span><span class="nh-t">14:01:52</span><span class="nh-text">todo-app started in 3.2 s</span><span class="nh-end"><span class="muted">Went by itself</span></span></li>
+      <li class="nh-row warn"><span class="nh-icon"><i data-i="triangle-alert"></i></span><span class="nh-t">13:47:05</span><span class="nh-text">The doz host stopped (idle for 15 min)</span><span class="nh-end"><span class="muted">Dismissed</span></span></li>
+    </ul></div>
   </div></div>
 </section>
 

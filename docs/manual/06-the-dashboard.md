@@ -184,17 +184,24 @@ Notifications tell you what happened to the host:
 ## Notifications
 
 Everything the dashboard tells you appears at the right end of the header: a success (it goes by
-itself after a few seconds; pointing at it holds it), a failure or a warning that has no closer place
-(it stays until you close it, or until it is no longer true), and the news about the host and the
-dashboard itself. Every one is also kept in **Activity › Messages** for this tab. The setting
+itself after a few seconds), a failure or a warning that has no closer place (it stays until you close
+it, or until it is no longer true), and the news about the host and the dashboard itself. The setting
 `ui.notifications` (**Settings › This UI**) chooses how they look:
 
-- **Cards** (the default) — a column hanging below the header, the newest on top, each with its full
-  text and buttons.
+- **Cards** (the default) — a bell in the header with the count, and a column hanging below it, the
+  newest on top, each with its full text and buttons. A success has a strip along its foot counting
+  down the seconds it has left. Point at any card and every countdown waits, and the column turns
+  solid with **Dismiss all**; move away and they go on from where they were. The bell opens the
+  history.
 - **Pills** — one line each in the header, the newest at the right; the ones that don't fit fold into
   **+N**. Click a pill for its full text and buttons.
 - **Bell** — a count; the newest shows beside it for a few seconds. Click the bell for the list, with
   **Clear all**.
+
+**Notifications** (in the sidebar, under Activity) is the history: every notification this tab has
+shown, newest first, with the time — the ones showing now with **Dismiss**, and for the others how they
+ended (dismissed, went by itself, no longer true). Filter it by Showing, Failures, Warnings or
+Successes; **Clear history** forgets the ended ones. It lasts until the tab is closed.
 
 The **Debug** page (in the sidebar, under Setup) makes each kind of notification with sample words, so
 you can see how each looks in each style. Nothing on it asks the host or changes a sandbox.

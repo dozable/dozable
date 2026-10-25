@@ -503,7 +503,7 @@ public struct DozableSettings: Sendable {
                   applies: .now),
             // 647 (owner: "implement all three, switch with a setting"): where the dashboard's notifications show in its header.
             .init("ui", "notifications", .choice(["cards", "pills", "bell"]), .string("cards"),
-                  "Where the UI shows its notifications, at the right of its header: cards (a column hanging below the header, each with its full text and buttons), pills (one line each in the header, the newest at the right; click one for the rest), or bell (a count; the newest shows beside it for a few seconds; click for the list). Successes go by themselves; a failure stays until you close it.",
+                  "Where the UI shows its notifications, at the right of its header: cards (a bell in the header, and a column hanging below it, each with its full text and buttons and, for a success, a countdown that waits while the pointer is on any card), pills (one line each in the header, the newest at the right; click one for the rest), or bell (a count; the newest shows beside it for a few seconds; click for the list). Successes go by themselves; a failure stays until you close it. The Notifications page lists every one this tab showed.",
                   applies: .now),
             .init("ui", "details_open", .bool, .bool(true),
                   "A sandbox's page shows its details panel (restore points, network, keys) beside the terminals; false: collapsed.",

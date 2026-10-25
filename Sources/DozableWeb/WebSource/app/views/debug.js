@@ -16,7 +16,7 @@ function someSandbox() { const s = state.overview && state.overview.sandboxes[0]
 const fake = () => btn('Open', () => toast('(Debug) the button of a sample notice'), { small: true, quiet: true });
 
 const SAMPLES = [
-  { group: 'Successes — they go by themselves after 8 s (held while the pointer is on one)', items: [
+  { group: 'Successes — they go by themselves after 8 s (every countdown waits while the pointer is on a card)', items: [
     { label: 'A success', run: () => toast(someSandbox() + ' started in 3.2 s') },
     { label: 'A session’s notice', run: () => toast('hello copied 42 chars to the Mac’s clipboard', false, 'info', { cls: 'bridge', attrs: { 'data-bridge': 'debug' } }) },
     { label: 'Copied', run: () => toast('Copied the address') },
@@ -83,5 +83,6 @@ export async function viewDebug() {
         h('div', { class: 'debug-acts' }, ...g.items.map((it) => btn(it.label, it.run, { small: true, icon: 'bell' }))))),
       h('div', { class: 'debug-group' }, h('h3', null, 'All at once'),
         h('div', { class: 'debug-acts' }, btn('Six at once', burst, { small: true, icon: 'layers' }),
-          btn('Dismiss all', () => clearNotes(), { small: true, quiet: true, icon: 'x' }))))));
+          btn('Dismiss all', () => clearNotes(), { small: true, quiet: true, icon: 'x' }),
+          btn('Open the history', () => { location.hash = '#/notifications'; }, { small: true, quiet: true, icon: 'history' }))))));
 }

@@ -62,6 +62,7 @@ import './app/components/workspace-chooser.js';
 import { viewAccounts } from './app/views/accounts.js';
 import { renderActivity, viewActivity } from './app/views/activity.js';
 import { viewDebug } from './app/views/debug.js';
+import { viewNotifications } from './app/views/notifications.js';
 import { viewDevices } from './app/views/devices.js';
 import { viewDoctor } from './app/views/doctor.js';
 import { viewImages } from './app/views/images.js';
@@ -96,7 +97,7 @@ $('sign-out').addEventListener('click', async () => {
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
 const NAV_ICONS = { devices: 'user-round', overview: 'box', sessions: 'layout-grid', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
-                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', try: 'play', debug: 'bug' };
+                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', try: 'play', debug: 'bug', notifications: 'bell' };
 for (const a of document.querySelectorAll('#nav a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
   a.title = a.querySelector('.lbl').textContent;       // the rail's tooltip (the label stays readable to assistive tech)
@@ -183,7 +184,7 @@ provide({
   gridRefresh, hostChanged, lifecycle, modalInert, opFailed, openWizardModal, pageFailure,
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
-  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor,
+  renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
   viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewResources, viewSettings,
   viewTry, wizardStopPolling,
 });
