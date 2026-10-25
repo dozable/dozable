@@ -50,7 +50,7 @@ import './app/components/menus-23bc819d6d81d035.js';
 import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal-61340421a3c51a53.js';
 import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav-a8918a9db72791c1.js';
 import { paintNotes } from './app/components/notes-478ce99f8bd51141.js';
-import { watchPageTitle } from './app/components/page-title-f6270e78b5aff97d.js';
+import { watchPageTitle } from './app/components/page-title-b07e56c4587e1e16.js';
 import { banner, dropBanner, failureFor, opFailed, pageFailure, paintRowOps, toast } from './app/components/notices-b9b2a3550693d815.js';
 import './app/components/permissions-e49cffa2c0d6b8da.js';
 import { paintTransition } from './app/components/pills-b636cb0f8711101d.js';

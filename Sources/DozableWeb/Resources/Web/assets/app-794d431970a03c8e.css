@@ -1556,6 +1556,7 @@ td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
   margin: calc(-1 * var(--page-py)) calc(-1 * var(--page-px)) var(--sp-3); padding: var(--sp-2) calc(var(--corner-w) + var(--sp-3)) var(--sp-2) var(--page-px);
   transition: box-shadow var(--dur-1) var(--ease); }
 h1.page-title { display: flex; align-items: center; }
+.title-wrap { display: contents; }     /* a plain wrapper around the bar: no box, so the bar sticks through the whole page */
 .page-title.is-stuck { box-shadow: 0 var(--bw) 0 var(--sep); }
 @media (max-width: 760px) {
   .page-title { padding-right: var(--page-px); }
