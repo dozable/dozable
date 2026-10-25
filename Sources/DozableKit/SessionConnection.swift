@@ -59,6 +59,16 @@ public final class SessionConnection: @unchecked Sendable, Identifiable {
     /// 612: a status watcher — WATCH instead of HELLO: no size, not a viewer, STATUS frames only.
     public let isStatusWatch: Bool
     private var _sawStatus = false
+    /// 648: the holder announced GRID in its WATCH answer (`grid=1`) — only then is a GRID frame sent on it.
+    private var _gridCapable = false
+    /// 648: GRID requests sent and not yet answered, in order (deckhold answers in order). One that timed out
+    /// stays here without its waiter, so its late answer is consumed instead of being taken for the next one's.
+    private var gridWaiters: [GridWaiter] = []
+    private final class GridWaiter: @unchecked Sendable {
+        var resume: CheckedContinuation<Data?, Never>?
+    }
+    /// 648: at most this many GRID requests outstanding on one connection; more are answered nil at once.
+    public static let maximumPendingGrids = 4
 
     init(session: String, size: TermSize) {
         self.session = session
@@ -79,6 +89,43 @@ public final class SessionConnection: @unchecked Sendable, Identifiable {
     /// 612: whether the holder ever answered WATCH. A watcher that ends WITHOUT one met a holder too old to
     /// know it (a session started before an update keeps its own deckhold) — do not ask that session again.
     public var sawStatus: Bool { lock.lock(); defer { lock.unlock() }; return _sawStatus }
+
+    /// 648: whether this connection's holder answers GRID (it said `grid=1` when it answered WATCH).
+    public var gridCapable: Bool { lock.lock(); defer { lock.unlock() }; return _gridCapable }
+
+    /// 648: the session's screen as cells — one GRID frame on this (status watcher's) connection, answered in order.
+    /// `gen` is the caller's last (0: none): an equal one is answered `.unchanged`. nil: no answer within `timeout`,
+    /// the connection closed, a holder that never announced GRID (it would DROP this connection — the session's status
+    /// watcher — at an unknown frame), too many requests outstanding, or an answer that does not decode.
+    public func requestGrid(gen: UInt32, timeout: Duration = .seconds(1)) async -> ScreenGrid.Answer? {
+        let waiter = GridWaiter()
+        let payload: Data? = await withCheckedContinuation { (c: CheckedContinuation<Data?, Never>) in
+            lock.lock()
+            guard !closed, _gridCapable, gridWaiters.count < Self.maximumPendingGrids else {
+                lock.unlock()
+                c.resume(returning: nil)
+                return
+            }
+            waiter.resume = c
+            gridWaiters.append(waiter)
+            inputContinuation.yield(DeckholdFrame.gridRequest(gen).encoded)
+            lock.unlock()
+            Task { [weak self] in
+                try? await Task.sleep(for: timeout)
+                self?.expire(waiter)
+            }
+        }
+        guard let payload else { return nil }
+        return try? ScreenGrid.decode(payload)
+    }
+
+    private func expire(_ w: GridWaiter) {
+        lock.lock()
+        let c = w.resume
+        w.resume = nil
+        lock.unlock()
+        c?.resume(returning: nil)
+    }
 
     /// True once the connection has ended or detached.
     public var isClosed: Bool { lock.lock(); defer { lock.unlock() }; return closed }
@@ -130,6 +177,7 @@ public final class SessionConnection: @unchecked Sendable, Identifiable {
             return
         }
         var last: SessionOutput?
+        var answered: [(CheckedContinuation<Data?, Never>, Data)] = []
         for f in frames {
             switch f {
             case .snapshot(let d): outputContinuation.yield(.snapshot(d))
@@ -137,13 +185,22 @@ public final class SessionConnection: @unchecked Sendable, Identifiable {
             case .exit(let code): last = .ended(exitCode: code)
             case .noSession: last = .ended(exitCode: nil)
             case .status(let s):
+                // 648: the first STATUS is the WATCH answer — a holder that knows GRID starts it with `grid=1`.
+                if !_sawStatus, isStatusWatch, DeckholdFrame.announcesGrid(s) { _gridCapable = true }
                 _sawStatus = true
                 outputContinuation.yield(.status(ProgramStatus.parse(frame: s)))
-            case .info, .hello, .data, .resize, .watch: break
+            case .grid(let d):
+                // 648: the oldest request's answer (one that timed out takes its answer with it).
+                if !gridWaiters.isEmpty {
+                    let w = gridWaiters.removeFirst()
+                    if let c = w.resume { w.resume = nil; answered.append((c, d)) }
+                }
+            case .info, .hello, .data, .resize, .watch, .gridRequest: break
             }
             if last != nil { break }
         }
         lock.unlock()
+        for (c, d) in answered { c.resume(returning: d) }
         if let last { finish(last) }
     }
 
@@ -160,7 +217,10 @@ public final class SessionConnection: @unchecked Sendable, Identifiable {
         inputContinuation.finish()          // → the pipe's stdin closes → it exits
         let cb = _onClose
         _onClose = nil
+        let waiting = gridWaiters.compactMap { w -> CheckedContinuation<Data?, Never>? in defer { w.resume = nil }; return w.resume }
+        gridWaiters.removeAll()
         lock.unlock()
+        for c in waiting { c.resume(returning: nil) }
         cb?(self)
     }
 }
@@ -185,6 +245,7 @@ final class ScreenCollector: Writer, @unchecked Sendable {
     private var decoder = DeckholdFrameDecoder()
     private var snapshot: Data?
     private var dump: String?
+    private var grid: Data?
     private var exitCode: Int32?
     private var noSession = false
     private var done = false
@@ -199,9 +260,10 @@ final class ScreenCollector: Writer, @unchecked Sendable {
                     switch f {
                     case .snapshot(let d): if snapshot == nil { snapshot = d }
                     case .info(let s): dump = s
+                    case .grid(let d): if grid == nil { grid = d }          // 648: asked only of a holder that announced it
                     case .exit(let c): exitCode = c
                     case .noSession: noSession = true
-                    case .output, .hello, .data, .resize, .watch, .status: break
+                    case .output, .hello, .data, .resize, .watch, .status, .gridRequest: break
                     }
                 }
             } catch {
@@ -223,7 +285,9 @@ final class ScreenCollector: Writer, @unchecked Sendable {
         lock.lock(); defer { lock.unlock() }
         if let exitCode, snapshot == nil { return Sandbox.CapturedScreen(exitCode: exitCode) }
         guard !noSession, let snapshot, let dump else { return nil }
-        return Sandbox.CapturedScreen(snapshot: snapshot, dump: dump)
+        var grid: ScreenGrid?
+        if let g = self.grid, case .grid(let s)? = try? ScreenGrid.decode(g) { grid = s }
+        return Sandbox.CapturedScreen(snapshot: snapshot, dump: dump, grid: grid)
     }
 }
 

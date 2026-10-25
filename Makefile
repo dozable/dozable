@@ -101,8 +101,8 @@ test-safety:
 	grep -qE '^path = "/' "$$f" 2>/dev/null && grep -qE '^projects_dir = "/' "$$f" 2>/dev/null || \
 	  printf '[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s"\n' "$(TEST_SCRATCH)-store" "$(TEST_SCRATCH)-projects" > "$$f"
 
-test: test-safety web-assets-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check and the CSS check
-	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS)
+test: test-safety web-assets-check css-lint ## Unit tests — no VM, no entitlement (never --parallel); first, the web assets' drift check and the CSS check (FILTER=Suite runs the matching tests only)
+	swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) $(if $(FILTER),--filter '$(FILTER)',)
 
 # 647: the dashboard's stylesheet. css-lint (no browser, in `make test`) keeps the rules of app.css — no :has(), no
 # universal right-most key, no capitals-only labels, no literal colour outside :root, no literal px spacing, no twin

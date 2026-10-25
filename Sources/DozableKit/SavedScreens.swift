@@ -11,6 +11,8 @@ import Foundation
 //         NAME.vt                   0600  the SNAPSHOT as the guest sent it (VT; ≤ `maximumVTBytes`)
 //         NAME.txt                  0600  the active screen as plain text, control characters removed
 //         NAME.json                 0600  `SavedScreenInfo`: when, why, size, command
+//         NAME.grid.json            0600  648: the screen as cells (`ScreenGrid`), when the holder answers GRID —
+//                                         what a dashboard thumbnail paints in colour (else it paints NAME.txt)
 //
 // Saved screens exist ONLY for sessions that are still alive in a sandbox you can wake back into
 // (paused, asleep, hibernated). The owner's amendment (2026-09-30): "when i shutdown the new sandbox,
@@ -42,9 +44,12 @@ public struct SavedScreenInfo: Codable, Sendable, Equatable {
     public var vtBytes: Int
     /// The snapshot was longer than `SavedScreens.maximumVTBytes`: its oldest scrollback was dropped.
     public var truncated: Bool
+    /// 648: a grid (`NAME.grid.json`) was saved with it (nil: an older capture's — none).
+    public var grid: Bool?
 
     public init(session: String, savedAt: Date, reason: String, phase: String = "running", cols: UInt16? = nil, rows: UInt16? = nil,
-                screen: String? = nil, command: String = "", pid: Int? = nil, bytesOut: UInt64 = 0, vtBytes: Int = 0, truncated: Bool = false) {
+                screen: String? = nil, command: String = "", pid: Int? = nil, bytesOut: UInt64 = 0, vtBytes: Int = 0, truncated: Bool = false,
+                grid: Bool? = nil) {
         self.session = session
         self.savedAt = savedAt
         self.reason = reason
@@ -57,6 +62,7 @@ public struct SavedScreenInfo: Codable, Sendable, Equatable {
         self.bytesOut = bytesOut
         self.vtBytes = vtBytes
         self.truncated = truncated
+        self.grid = grid
     }
 }
 
@@ -65,11 +71,14 @@ public struct SavedScreen: Sendable, Equatable {
     public var info: SavedScreenInfo
     public var vt: Data
     public var text: String
+    /// 648: the screen as cells, when one was saved (validated as it is read).
+    public var grid: ScreenGrid?
 
-    public init(info: SavedScreenInfo, vt: Data, text: String) {
+    public init(info: SavedScreenInfo, vt: Data, text: String, grid: ScreenGrid? = nil) {
         self.info = info
         self.vt = vt
         self.text = text
+        self.grid = grid
     }
 }
 
@@ -105,10 +114,14 @@ public enum SavedScreens {
 
     public static func directory(_ layout: StoreLayout) -> URL { layout.screensDirectory }
 
-    static func files(_ layout: StoreLayout, _ session: String) -> (vt: URL, text: URL, info: URL) {
+    static func files(_ layout: StoreLayout, _ session: String) -> (vt: URL, text: URL, info: URL, grid: URL) {
         let d = directory(layout)
-        return (d.appendingPathComponent("\(session).vt"), d.appendingPathComponent("\(session).txt"), d.appendingPathComponent("\(session).json"))
+        return (d.appendingPathComponent("\(session).vt"), d.appendingPathComponent("\(session).txt"), d.appendingPathComponent("\(session).json"),
+                d.appendingPathComponent("\(session).grid.json"))
     }
+
+    /// 648: a saved grid file larger than this is not read (a 1000×500 grid of 4 KiB rows is ~2 MiB as JSON).
+    public static let maximumGridBytes = 4 << 20
 
     static let encoder: JSONEncoder = {
         let e = JSONEncoder()
@@ -141,7 +154,7 @@ public enum SavedScreens {
         let d = directory(layout)
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: d.path) else { return [] }
         var out: [SavedScreenInfo] = []
-        for n in names where n.hasSuffix(".json") {
+        for n in names where n.hasSuffix(".json") && !n.hasSuffix(".grid.json") {
             let session = String(n.dropLast(5))
             guard (try? GuestCommand.validateSessionName(session)) != nil,
                   let data = try? Data(contentsOf: d.appendingPathComponent(n)),
@@ -159,12 +172,23 @@ public enum SavedScreens {
               info.session == session else { return nil }
         let vt = (try? Data(contentsOf: f.vt)) ?? Data()
         let text = (try? String(contentsOf: f.text, encoding: .utf8)) ?? ""
-        return SavedScreen(info: info, vt: vt.count > maximumVTBytes ? Data(vt.suffix(maximumVTBytes)) : vt, text: text)
+        return SavedScreen(info: info, vt: vt.count > maximumVTBytes ? Data(vt.suffix(maximumVTBytes)) : vt, text: text,
+                           grid: info.grid == true ? readGrid(f.grid) : nil)
+    }
+
+    /// 648: a saved grid, validated (sizes, colours, runs in their row; text inert again) — nil when absent or not one.
+    static func readGrid(_ url: URL) -> ScreenGrid? {
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: url.path),
+              let size = attrs[.size] as? NSNumber, size.intValue <= maximumGridBytes,
+              let data = try? Data(contentsOf: url) else { return nil }
+        return (try? JSONDecoder().decode(ScreenGrid.self, from: data))?.validated()
     }
 
     /// Write one session's screen: the directory 0700, each file 0600, each atomically (a crash leaves
     /// the previous file or the new one, never half of one). The VT is capped (`cappedVT`).
-    public static func write(_ layout: StoreLayout, info: SavedScreenInfo, vt: Data, text: String) throws {
+    /// 648: `grid` — the screen as cells (`NAME.grid.json`); none removes an earlier capture's, so a grid is never
+    /// older than the text beside it.
+    public static func write(_ layout: StoreLayout, info: SavedScreenInfo, vt: Data, text: String, grid: ScreenGrid? = nil) throws {
         try GuestCommand.validateSessionName(info.session)
         try ensureDirectory(layout)
         let f = files(layout, info.session)
@@ -172,8 +196,11 @@ public enum SavedScreens {
         var i = info
         i.vtBytes = capped.count
         i.truncated = truncated
+        let g = grid?.validated()
+        i.grid = g != nil ? true : nil
         try writePrivate(capped, to: f.vt)
         try writePrivate(Data(inertScreenText(text).utf8), to: f.text)
+        if let g { try writePrivate(try JSONEncoder().encode(g), to: f.grid) } else { try? FileManager.default.removeItem(at: f.grid) }
         try writePrivate(try encoder.encode(i), to: f.info)
     }
 
@@ -183,7 +210,7 @@ public enum SavedScreens {
         var gone: [String] = []
         for i in list(layout) where !(keeping?.contains(i.session) ?? false) {
             let f = files(layout, i.session)
-            for u in [f.vt, f.text, f.info] { try? FileManager.default.removeItem(at: u) }
+            for u in [f.vt, f.text, f.info, f.grid] { try? FileManager.default.removeItem(at: u) }
             gone.append(i.session)
         }
         if keeping == nil { try? FileManager.default.removeItem(at: directory(layout)) }
