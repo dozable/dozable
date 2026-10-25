@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -397,6 +397,9 @@ deckhold-snapshot-check: ## 610: deckhold's SNAPSHOT replayed on a fresh emulato
 
 deckhold-status-check: ## 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input discarded, cut at every offset + a seeded fuzz (on the Mac, the pinned ghostty)
 	ONLY=status Guest/deckhold/test/run.sh
+
+deckhold-grid-check: ## 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen (unchanged answers unchanged), the limits, WATCH/INFO announce it, a seeded fuzz (on the Mac, the pinned ghostty)
+	ONLY=grid Guest/deckhold/test/run.sh $(or $(ITERATIONS),2000)
 
 deckhold-verify: ## Rebuild deckhold from scratch and check the committed bytes match (slow: pinned Zig + ghostty)
 	FORCE=1 Guest/deckhold/build.sh

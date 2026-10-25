@@ -78,13 +78,34 @@
  *                   in `clients`, never decides who answers a query). An older holder drops a client
  *                   that sends it (an unknown frame): the watcher then sees its pipe end with no
  *                   STATUS frame at all.
+ *        'G' GRID   {gen u32} (648) — the screen as cells (`send_grid`), answered with ONE 'G' frame, in
+ *                   order with every other answer. `gen` is the asker's last gen (0 = it has none). Allowed
+ *                   on any client — a WATCH client is the host's transport — and never makes it a viewer.
+ *                   ANNOUNCED, never assumed: an older holder DROPS a client on an unknown frame (that would
+ *                   end the host's status watcher), so a holder that knows GRID says so — its WATCH answer
+ *                   (the first 'T' frame) starts with the field `grid=1`, and its INFO line has a `grid=1`
+ *                   field (before the status fields and the command) — and a client sends 'G' only then.
  *   H→C  'S' SNAPSHOT  VT bytes that reproduce the holder's screen on a blank terminal
  *        'D' DATA      the program's raw output
  *        'X' EXIT      {code u32}
  *        'I' INFO      one text line
  *        'N' NOSESSION (no payload) — sent by `deckhold pipe` only: no such session, never was
  *        'T' STATUS    (612) text: the root record's fields as in INFO
- *                      (`status=<report body>\tstatus_age=<seconds>`), or empty: no record
+ *                      (`status=<report body>\tstatus_age=<seconds>`), or empty: no record. 648: the
+ *                      answer to WATCH (the first) is prefixed `grid=1` (+ a tab before any status field);
+ *                      an older host's parser ignores a field it does not know.
+ *        'G' GRID      (648) binary, big-endian: u8 version (1), u32 gen (the holder's now), u8 changed —
+ *                      0 unchanged (gen = the asked one: nothing follows), 2 none (larger than 1000×500 or
+ *                      the 4 MiB cap: nothing follows), 1 a grid follows: u16 cols, u16 rows, u8 cursor
+ *                      visible, u16 cursor x, u16 cursor y, rgb fg (3 bytes), rgb bg (3) — the defaults —
+ *                      then for each of `rows` rows: u16 run count, and per run: u16 col, u16 cells, u8 flags
+ *                      (1 bold, 2 italic, 4 underline, 8 faint, 16 inverse — already applied to the colours),
+ *                      u8 has-fg + rgb (3, zero when not), u8 has-bg + rgb (3), u16 text length + the UTF-8
+ *                      text. A run is cells of one style from `col`: each cell's grapheme, a blank cell a
+ *                      space, a wide character's tail cell nothing (`cells` counts every column it covers).
+ *                      A run with the default colours, only spaces and no underline/inverse is left out; a
+ *                      row's text stops at 4096 bytes (the runs past it are left out). `gen` moves with
+ *                      every read of the program's output, every resize.
  * The protocol only ever grows by appending frame types; INFO lines only gain `key=value` fields placed
  * before the command (an older parser takes an unknown field for the command, which comes last).
  *
@@ -157,7 +178,7 @@
 #define CLIENT_OUT_LIMIT (16u << 20)   /* a viewer this far behind is dropped; it reattaches */
 #define RESNAP_DELAY_MS 120            /* a resize is followed by a fresh snapshot once it settles */
 
-enum { F_HELLO = 'H', F_DATA = 'D', F_RESIZE = 'R', F_QUERY = 'Q', F_DUMP = 'P', F_WATCH = 'W',
+enum { F_HELLO = 'H', F_DATA = 'D', F_RESIZE = 'R', F_QUERY = 'Q', F_DUMP = 'P', F_WATCH = 'W', F_GRID = 'G',
        F_SNAPSHOT = 'S', F_EXIT = 'X', F_INFO = 'I', F_NOSESSION = 'N', F_STATUS = 'T' };
 
 /* ── small helpers ──────────────────────────────────────────────────────────────────────── */
@@ -281,7 +302,18 @@ static struct {
     GhosttyTerminalScreen screen;   /* active screen after the last vt_write */
     uint64_t bytes_in;
     char cmdline[256];
+    /* 648: the GRID — a change counter (never 0: 0 is "the asker has none") and one render state, made at the
+     * first GRID and updated on demand (never on the output path). */
+    uint32_t gen;
+    GhosttyRenderState rs;
+    GhosttyRenderStateRowIterator rit;
+    GhosttyRenderStateRowCells rcells;
 } S;
+
+/* 648: the screen changed (or may have): a GRID asked with the previous gen answers with a new grid. */
+static void grid_moved(void) {
+    if (++S.gen == 0) S.gen = 1;
+}
 
 static void logf_(const char *fmt, ...) {
     if (!S.log) return;
@@ -646,6 +678,7 @@ static void resize_to(uint16_t cols, uint16_t rows) {
     ghostty_terminal_resize(S.term, cols, rows, 8, 16);     /* → reflow (primary screen) */
     logf_("resize %ux%u → %ux%u", S.cols, S.rows, cols, rows);
     S.cols = cols; S.rows = rows;
+    grid_moved();
 }
 
 static bool select_rows(GhosttyPointTag tag, uint32_t y0, uint32_t y1, GhosttySelection *sel) {
@@ -864,6 +897,7 @@ static void info_line(struct buf *out) {
              scr == GHOSTTY_TERMINAL_SCREEN_ALTERNATE ? "alt" : "primary", history, (unsigned long long)S.bytes_in);
     struct buf s = {0};
     buf_str(&s, line);
+    buf_str(&s, "\tgrid=1");          /* 648: this holder answers GRID (a field before the command — see WIRE) */
     ps_fields(&s, true);              /* 612: the program's status — BEFORE the command, which is the last field */
     buf_str(&s, "\t");
     buf_str(&s, S.cmdline);
@@ -901,6 +935,193 @@ static void dump_screen(struct buf *out) {
     buf_str(&s, tail);
     frame(out, F_INFO, s.p, (uint32_t)s.len);
     buf_free(&s);
+}
+
+/* ── the GRID (648) ───────────────────────────────────────────────────────────────────────────
+ *
+ * The active screen as cells — what a dashboard thumbnail paints (on a canvas, no terminal engine): runs of one
+ * style, resolved colours, the cursor. Built from libghostty-vt's RENDER STATE (the API a renderer uses: rows and
+ * cells of the viewport, each cell's resolved fg/bg, its grapheme as UTF-8, the cursor in viewport cells), kept
+ * in S and updated only when a GRID is asked — never on the output path. The wire format is in WIRE above. */
+
+#define GRID_MAX_COLS 1000
+#define GRID_MAX_ROWS 500
+#define GRID_ROW_TEXT 4096              /* bytes of text a row; the runs past it are left out */
+#define GRID_MAX_PAYLOAD (4u << 20)     /* a bigger grid is answered "none" (it would never fit a thumbnail) */
+enum { GRID_UNCHANGED = 0, GRID_FOLLOWS = 1, GRID_NONE = 2 };
+enum { GF_BOLD = 1, GF_ITALIC = 2, GF_UNDERLINE = 4, GF_FAINT = 8, GF_INVERSE = 16 };
+
+static void put8(struct buf *b, uint8_t v) { buf_add(b, &v, 1); }
+static void put16(struct buf *b, uint16_t v) { uint8_t p[2] = { (uint8_t)(v >> 8), (uint8_t)v }; buf_add(b, p, 2); }
+static void put32(struct buf *b, uint32_t v) {
+    uint8_t p[4] = { (uint8_t)(v >> 24), (uint8_t)(v >> 16), (uint8_t)(v >> 8), (uint8_t)v };
+    buf_add(b, p, 4);
+}
+static void put_rgb(struct buf *b, GhosttyColorRgb c) { uint8_t p[3] = { c.r, c.g, c.b }; buf_add(b, p, 3); }
+static void put_color(struct buf *b, bool has, GhosttyColorRgb c) {
+    put8(b, has ? 1 : 0);
+    if (!has) memset(&c, 0, sizeof c);
+    put_rgb(b, c);
+}
+
+/* One run being built: its style, where it starts, how many cells, its text. */
+struct grid_run {
+    bool open;
+    uint16_t col, cells;
+    uint8_t flags;
+    bool has_fg, has_bg;
+    GhosttyColorRgb fg, bg;
+    struct buf text;
+    bool blank;                         /* only spaces so far */
+};
+
+static bool rgb_eq(GhosttyColorRgb a, GhosttyColorRgb b) { return a.r == b.r && a.g == b.g && a.b == b.b; }
+
+/* Close `r` into `row` (counting it in *runs) — unless it is invisible on a default screen, or the row's text is
+ * full (then it and every later run of the row are left out: *full). */
+static void grid_close(struct grid_run *r, struct buf *row, uint16_t *runs, size_t *row_text, bool *full) {
+    if (!r->open) return;
+    r->open = false;
+    /* Trailing spaces on the default background draw nothing: dropped (a row's blank tail joins its last run). */
+    if (!r->has_bg && !(r->flags & (GF_UNDERLINE | GF_INVERSE)))
+        while (r->text.len && r->cells > 1 && r->text.p[r->text.len - 1] == ' ') { r->text.len--; r->cells--; }
+    bool invisible = !r->has_fg && !r->has_bg && r->blank && !(r->flags & (GF_UNDERLINE | GF_INVERSE));
+    if (invisible || *full) { r->text.len = 0; return; }
+    if (*row_text + r->text.len > GRID_ROW_TEXT) { *full = true; r->text.len = 0; return; }
+    *row_text += r->text.len;
+    put16(row, r->col);
+    put16(row, r->cells);
+    put8(row, r->flags);
+    put_color(row, r->has_fg, r->fg);
+    put_color(row, r->has_bg, r->bg);
+    put16(row, (uint16_t)r->text.len);
+    if (r->text.len) buf_add(row, r->text.p, r->text.len);
+    (*runs)++;
+    r->text.len = 0;
+}
+
+/* The grid as GRID's binary answer (`payload` gets everything after the version/gen/changed header). Returns
+ * false when the screen cannot be read or is larger than the contract allows. */
+static bool grid_build(struct buf *payload) {
+    if (!S.rs && ghostty_render_state_new(NULL, &S.rs) != GHOSTTY_SUCCESS) return false;
+    if (!S.rit && ghostty_render_state_row_iterator_new(NULL, &S.rit) != GHOSTTY_SUCCESS) return false;
+    if (!S.rcells && ghostty_render_state_row_cells_new(NULL, &S.rcells) != GHOSTTY_SUCCESS) return false;
+    if (ghostty_render_state_update(S.rs, S.term) != GHOSTTY_SUCCESS) return false;
+    uint16_t cols = 0, rows = 0;
+    ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_COLS, &cols);
+    ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_ROWS, &rows);
+    if (!cols || !rows || cols > GRID_MAX_COLS || rows > GRID_MAX_ROWS) return false;
+    GhosttyRenderStateColors colors = GHOSTTY_INIT_SIZED(GhosttyRenderStateColors);
+    if (ghostty_render_state_colors_get(S.rs, &colors) != GHOSTTY_SUCCESS) return false;
+    bool visible = false, in_view = false;
+    uint16_t cx = 0, cy = 0;
+    ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_CURSOR_VISIBLE, &visible);
+    ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_HAS_VALUE, &in_view);
+    if (visible && in_view) {
+        ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_X, &cx);
+        ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_CURSOR_VIEWPORT_Y, &cy);
+    }
+    put16(payload, cols);
+    put16(payload, rows);
+    put8(payload, visible && in_view ? 1 : 0);
+    put16(payload, cx);
+    put16(payload, cy);
+    put_rgb(payload, colors.foreground);
+    put_rgb(payload, colors.background);
+
+    if (ghostty_render_state_get(S.rs, GHOSTTY_RENDER_STATE_DATA_ROW_ITERATOR, &S.rit) != GHOSTTY_SUCCESS) return false;
+    struct buf row = {0};
+    struct grid_run r = {0};
+    uint16_t y = 0;
+    bool ok = true;
+    while (y < rows && ghostty_render_state_row_iterator_next(S.rit)) {
+        row.len = 0;
+        uint16_t runs = 0;
+        size_t row_text = 0;
+        bool full = false;
+        r.open = false;
+        r.text.len = 0;
+        if (ghostty_render_state_row_get(S.rit, GHOSTTY_RENDER_STATE_ROW_DATA_CELLS, &S.rcells) != GHOSTTY_SUCCESS) { ok = false; break; }
+        uint16_t x = 0;
+        while (x < cols && ghostty_render_state_row_cells_next(S.rcells)) {
+            GhosttyCell raw = 0;
+            GhosttyCellWide wide = GHOSTTY_CELL_WIDE_NARROW;
+            if (ghostty_render_state_row_cells_get(S.rcells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_RAW, &raw) == GHOSTTY_SUCCESS)
+                ghostty_cell_get(raw, GHOSTTY_CELL_DATA_WIDE, &wide);
+            if (wide == GHOSTTY_CELL_WIDE_SPACER_TAIL && r.open) {   /* the wide character's second column: no text */
+                r.cells++;
+                x++;
+                continue;
+            }
+            GhosttyStyle st = GHOSTTY_INIT_SIZED(GhosttyStyle);
+            ghostty_render_state_row_cells_get(S.rcells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_STYLE, &st);
+            GhosttyColorRgb fg = {0}, bg = {0};
+            bool has_fg = ghostty_render_state_row_cells_get(S.rcells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_FG_COLOR, &fg) == GHOSTTY_SUCCESS;
+            bool has_bg = ghostty_render_state_row_cells_get(S.rcells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_BG_COLOR, &bg) == GHOSTTY_SUCCESS;
+            uint8_t flags = (uint8_t)((st.bold ? GF_BOLD : 0) | (st.italic ? GF_ITALIC : 0) | (st.underline ? GF_UNDERLINE : 0) |
+                                      (st.faint ? GF_FAINT : 0));
+            if (st.inverse) {           /* applied here: the colours are what is seen */
+                GhosttyColorRgb f = has_bg ? bg : colors.background, b = has_fg ? fg : colors.foreground;
+                fg = f; bg = b;
+                has_fg = has_bg = true;
+                flags |= GF_INVERSE;
+            }
+            uint8_t g[64];
+            size_t glen = 0;
+            if (wide != GHOSTTY_CELL_WIDE_SPACER_HEAD && wide != GHOSTTY_CELL_WIDE_SPACER_TAIL && !st.invisible) {
+                GhosttyBuffer gb = { .ptr = g, .cap = sizeof g, .len = 0 };
+                GhosttyResult gr = ghostty_render_state_row_cells_get(S.rcells, GHOSTTY_RENDER_STATE_ROW_CELLS_DATA_GRAPHEMES_UTF8, &gb);
+                if (gr == GHOSTTY_SUCCESS) glen = gb.len;
+                else if (gr == GHOSTTY_OUT_OF_SPACE) { memcpy(g, "\xEF\xBF\xBD", 3); glen = 3; }   /* U+FFFD */
+            }
+            bool same = r.open && r.flags == flags && r.has_fg == has_fg && r.has_bg == has_bg &&
+                        (!has_fg || rgb_eq(r.fg, fg)) && (!has_bg || rgb_eq(r.bg, bg));
+            if (!same) {
+                grid_close(&r, &row, &runs, &row_text, &full);
+                r = (struct grid_run){ .open = true, .col = x, .flags = flags, .has_fg = has_fg, .has_bg = has_bg,
+                                       .fg = has_fg ? fg : (GhosttyColorRgb){0}, .bg = has_bg ? bg : (GhosttyColorRgb){0},
+                                       .text = r.text, .blank = true };
+            }
+            if (glen) {
+                buf_add(&r.text, g, glen);
+                if (!(glen == 1 && g[0] == ' ')) r.blank = false;
+            } else {
+                buf_add(&r.text, " ", 1);
+            }
+            r.cells++;
+            x++;
+        }
+        grid_close(&r, &row, &runs, &row_text, &full);
+        put16(payload, runs);
+        if (row.len) buf_add(payload, row.p, row.len);
+        y++;
+        if (payload->len > GRID_MAX_PAYLOAD) { ok = false; break; }
+    }
+    for (; ok && y < rows; y++) put16(payload, 0);          /* never seen: the render state has every row */
+    buf_free(&row);
+    buf_free(&r.text);
+    return ok;
+}
+
+/* Answer a GRID asked with `asked` (the asker's last gen; 0: it has none). */
+static void send_grid(struct buf *out, uint32_t asked) {
+    struct buf a = {0};
+    put8(&a, 1);
+    put32(&a, S.gen);
+    if (asked != 0 && asked == S.gen) {
+        put8(&a, GRID_UNCHANGED);
+    } else {
+        struct buf g = {0};
+        if (S.term && grid_build(&g)) {
+            put8(&a, GRID_FOLLOWS);
+            buf_add(&a, g.p, g.len);
+        } else {
+            put8(&a, GRID_NONE);
+        }
+        buf_free(&g);
+    }
+    frame(out, F_GRID, a.p, (uint32_t)a.len);
+    buf_free(&a);
 }
 
 static void drop_client(int i) {
@@ -945,8 +1166,17 @@ static bool client_frames(struct client *c) {
             break;
         case F_WATCH:                 /* 612: a status watcher — the current root record now, then every change */
             c->watch = true;
-            ps_frame(&c->out);
+            {   /* 648: the answer announces GRID (`grid=1`); an older host's parser ignores the field */
+                struct buf s = {0};
+                buf_str(&s, "grid=1");
+                ps_fields(&s, true);
+                frame(&c->out, F_STATUS, s.p, (uint32_t)s.len);
+                buf_free(&s);
+            }
             logf_("watch fd %d", c->fd);
+            break;
+        case F_GRID:                  /* 648: the screen as cells — never makes the client a viewer */
+            send_grid(&c->out, n >= 4 ? be32(p) : 0);
             break;
         default:
             return false;
@@ -996,6 +1226,7 @@ static bool pump_master(void) {
         S.bytes_in += (uint64_t)n;
         ps_scan(b, (size_t)n);        /* 612: OSC 7501 — reads the bytes, changes none of them */
         ghostty_terminal_vt_write(S.term, b, (size_t)n);
+        grid_moved();                 /* 648: every read written to the emulator (a clear, a reset included) */
         GhosttyTerminalScreen scr = GHOSTTY_TERMINAL_SCREEN_PRIMARY;
         ghostty_terminal_get(S.term, GHOSTTY_TERMINAL_DATA_ACTIVE_SCREEN, &scr);
         bool left_alt = S.screen == GHOSTTY_TERMINAL_SCREEN_ALTERNATE && scr == GHOSTTY_TERMINAL_SCREEN_PRIMARY;
@@ -1079,6 +1310,7 @@ static int serve(int argc, char **argv, const char *name, uint16_t cols, uint16_
     if (ghostty_terminal_new(NULL, &S.term, to) != GHOSTTY_SUCCESS) { logf_("ghostty_terminal_new failed"); return 1; }
     ghostty_terminal_set(S.term, GHOSTTY_TERMINAL_OPT_WRITE_PTY, (const void *)on_write_pty);
     S.screen = GHOSTTY_TERMINAL_SCREEN_PRIMARY;
+    S.gen = 1;                          /* 648: never 0 — a GRID asked with 0 always gets the grid */
 
     struct winsize ws = { .ws_row = rows, .ws_col = cols };
     S.child = forkpty(&S.master, NULL, NULL, &ws);
