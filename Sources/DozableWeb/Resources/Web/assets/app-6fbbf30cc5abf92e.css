@@ -255,15 +255,18 @@ dialog.dlg.bootlog-dialog { width: min(1100px, calc(100vw - 32px)); max-width: n
 .grid-view.tiles-medium { --s: 0.42; }
 .grid-view.tiles-large { --s: 0.62; }
 .grid-status { margin-left: auto; font-variant-numeric: tabular-nums; }
-.tiles { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
-.tile { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
-.tile-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); max-width: calc(960px * var(--s)); }
+/* 648: the tiles fill the row — as many columns of at least the tile size as fit, each stretched to share the rest. */
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(960px * var(--s)), 1fr)); gap: var(--sp-4); }
+.tiles > .empty { grid-column: 1 / -1; }
+.tile { min-width: 0; border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.tile-head { display: flex; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); min-width: 0; }
 .tile-head > .icon { width: 13px; height: 13px; flex: none; color: var(--ink-2); }
-.tile-title { font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tile-phase { color: var(--ink-2); white-space: nowrap; }
+/* The session's name keeps its room; the phase line gives way first. */
+.tile-title { flex: 0 1 auto; min-width: 4em; font-weight: var(--fw-strong); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-phase { flex: 0 4 auto; min-width: 0; color: var(--ink-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tile-tag:empty { display: none; }
 .tile-act { margin-left: auto; }
-.tile-body { position: relative; width: calc(960px * var(--s)); height: calc(560px * var(--s)); background: var(--term-bg); overflow: hidden; }
+.tile-body { position: relative; width: 100%; aspect-ratio: 960 / 560; background: var(--term-bg); overflow: hidden; }
 .tile-paint { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
 .tile-paint[hidden] { display: none; }
 .tile-note { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--sp-1); padding: var(--sp-3);
@@ -1513,7 +1516,8 @@ a.name:hover { text-decoration: underline; }
 .ov-bulk > .btn.danger { margin-left: auto; }
 tr.has-strip > td { border-bottom: 0; }
 tr.ov-strip > td { padding-top: 0; }
-.ov-strip-box { display: flex; gap: var(--sp-3); overflow-x: auto; padding-bottom: var(--sp-1); }
+/* 648: the pictures wrap — every one is shown (a row that scrolled sideways widened the table past the panel). */
+.ov-strip-box { display: flex; flex-wrap: wrap; gap: var(--sp-3); padding-bottom: var(--sp-1); }
 .ov-th { display: flex; flex-direction: column; gap: var(--sp-1); flex: none; width: 160px; min-width: 0; }
 .ov-th .home-thumb { width: 160px; height: 93px; }
 .ov-th-name { display: flex; align-items: center; gap: var(--sp-1); font-size: var(--fs-xs); color: var(--ink-2); min-width: 0; }

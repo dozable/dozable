@@ -7,9 +7,9 @@ import { api } from '../core/api-0560a03cb0de25ef.js';
 import { actOrThrow, beginTransition, cancelTransition, waitOp } from '../core/operations-773ff6e3f3377064.js';
 import { state } from '../core/state-dde742b9b2d6390c.js';
 import { startWithBootView } from '../components/lifecycle-9fa26d46167a3033.js';
-import { renderNavSandboxes } from '../components/nav-340ca7ea3ee5a12d.js';
+import { renderNavSandboxes } from '../components/nav-a981b3b6e03515e6.js';
 import { paintStartProgress } from '../components/start-progress-c1b970a0efee96d0.js';
-import { drawPendingTry } from './sandbox-e6190db8acf225aa.js';
+import { drawPendingTry } from './sandbox-3270d72bc5747d0c.js';
 
 /// plan: the host's plan; agent/title: the tool; account: the setup's account choice (kept for Back); back: 'onboarding'
 /// when the setup wizard made it (else Back reopens the Quick try's setup); before(): close what is open, in this frame.

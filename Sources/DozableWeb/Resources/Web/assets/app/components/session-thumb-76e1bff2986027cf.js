@@ -6,7 +6,7 @@
 import { h } from '../dom/h-f853cc7eb6672c45.js';
 import { when } from '../core/format-b2e68384da8d2f36.js';
 import { feedSubscribe, isVisible, savedPicture, watchVisible } from './grid-feed-769790d62f20eaae.js';
-import { picture } from './screen-paint-bd353254fc3b5d05.js';
+import { picture } from './screen-paint-4b93429b1ddb7307.js';
 import { bootTerm, closeTerminal, newTerm, paintCover, requestGrid } from './terminal-1539c4919cc0399c.js';
 
 /// The virtual size a peek's terminal is laid out at (then scaled by CSS).
