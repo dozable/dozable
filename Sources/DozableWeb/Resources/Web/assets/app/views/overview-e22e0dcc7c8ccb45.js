@@ -12,9 +12,9 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { card, meter, panel } from '../components/blocks-6b2d43608253a84f.js';
 import { btn } from '../components/button-f435595b4098d043.js';
 import { dialog } from '../components/dialog-ee9a9a31b03dc349.js';
-import { hostCard } from '../components/host-2f4df4fc800f0cf0.js';
+import { hostCard } from '../components/host-03f5ea2d43e9ccda.js';
 import { rowLifecycle } from '../components/lifecycle-87e9fb4a433fa867.js';
-import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-ff6366e8c8d63067.js';
+import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-57a56fefe6caeeae.js';
 import { hoverPeek } from '../components/nav-peek-34ab71d7965e7bb2.js';
 import { paintRowOps } from '../components/notices-0fbf2b02156017c5.js';
 import { sandboxPill } from '../components/pills-6658427f4c95d0b6.js';
@@ -22,7 +22,7 @@ import { quickAddButton } from '../components/quick-add-8ff4b3bdfa6cee73.js';
 import { livePrefs, liveControls as sharedLiveControls, liveTurn, paintLiveStatus, SOCKET_CEILING } from '../components/live-controls-305fb327d72d27db.js';
 import { dropThumbTerm, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw } from '../components/session-thumb-0c64fbcabc25cfb4.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-22bb637b74fb3ecc.js';
-import { newSandboxWizard } from './new-sandbox-e98b9c4b1ff98886.js';
+import { newSandboxWizard } from './new-sandbox-545813536ccf9e2d.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 

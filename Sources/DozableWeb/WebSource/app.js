@@ -50,6 +50,7 @@ import './app/components/menus.js';
 import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal.js';
 import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav.js';
 import { paintNotes } from './app/components/notes.js';
+import { watchPageTitle } from './app/components/page-title.js';
 import { banner, dropBanner, failureFor, opFailed, pageFailure, paintRowOps, toast } from './app/components/notices.js';
 import './app/components/permissions.js';
 import { paintTransition } from './app/components/pills.js';
@@ -119,11 +120,15 @@ $('theme-toggle').addEventListener('click', () => {
 new MutationObserver(paintThemeToggle).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeToggle);
 paintThemeToggle();
-// 647 (owner): the header, full width — the menu (below 980 px: the whole sidebar over the page; below 760 px a drawer),
-// the brand and the store; below 760 px a key alert and Quick add. The notifications sit over its right end (#notes).
-$('nav-menu').replaceChildren(icon('list'));
-$('nav-menu').addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+// 647 (owner: "make the header in the navbar only"): the sidebar's head — the menu (wider than 980 px it collapses the
+// sidebar to the rail; below, the whole sidebar over the page), the brand and the store. Below 760 px the header row
+// (#topbar) has its own menu for the drawer, a key alert and Quick add. The notifications keep the top-right corner.
+for (const id of ['nav-menu', 'top-menu']) {
+  $(id).replaceChildren(icon('list'));
+  $(id).addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+}
 applyRail();                       // 647: the rail below 980 px, or wider when collapsed (this browser remembers)
+watchPageTitle();                  // 647: a page's title bar and its tables' column heads stick as it scrolls
 $('top-keys').replaceChildren(icon('key-round'));
 $('top-quick-add').replaceChildren(icon('plus'));
 $('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });

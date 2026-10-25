@@ -37,7 +37,7 @@ import { btn as baseBtn } from '../components/button-f435595b4098d043.js';
 import { callout } from '../components/callout-045a1af4db6ce704.js';
 import { confirmAction } from '../components/dialog-ee9a9a31b03dc349.js';
 import { moreMenu } from '../components/menus-23bc819d6d81d035.js';
-import { paintAccountsBadge } from '../components/nav-ff6366e8c8d63067.js';
+import { paintAccountsBadge } from '../components/nav-57a56fefe6caeeae.js';
 import { toast } from '../components/notices-0fbf2b02156017c5.js';
 
 /// The one button family, with data-* hooks for the probes (opts.data).
@@ -132,10 +132,10 @@ export async function viewAccounts() {
   const keys = rows.filter((x) => !isLogin(x) || !loginDown(x) || x.state === 'expired' || (x.usedBy || []).length);
   const all = ov.sandboxes || [];
   const sandboxes = all.filter((s) => s.agent);
-  const head = h('div', { class: 'ak-head' },
-    h('div', null, h('h1', null, 'Accounts & keys'),
-      h('p', { class: 'sub' }, 'The keys and sign-ins your sandboxes’ tools use. They stay on this Mac: a sandbox only ever sees a placeholder, and this page never shows a key.')),
-    keys.length ? btn('Add a key', () => openAddKey(a, null), { primary: true, icon: 'plus' }) : null);
+  // The title and its one action are the page's title bar (it sticks as the page scrolls); the line under it is not.
+  const head = [h('div', { class: 'head ak-head' }, h('h1', null, 'Accounts & keys'),
+    keys.length ? btn('Add a key', () => openAddKey(a, null), { primary: true, icon: 'plus' }) : null),
+  h('p', { class: 'sub ak-sub' }, 'The keys and sign-ins your sandboxes’ tools use. They stay on this Mac: a sandbox only ever sees a placeholder, and this page never shows a key.')];
   const foot = h('p', { class: 'ak-foot' }, 'Pasting a key here can be turned off in Settings (', h('code', null, 'ui.allow_secret_entry'), '); in a terminal: ',
     h('code', null, 'doz account add'), '.');
   if (!keys.length) return h('div', { class: 'ak-page', 'data-accounts': 'empty' }, head, emptyPage(a), foot);

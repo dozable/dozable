@@ -648,18 +648,27 @@ name: todo-app</pre></details>
 </section>
 
 <section>
-  <h2>The header and the sidebar</h2>
-  <p>647 (owner): a <strong>header</strong> runs the full width above the sidebar and the page (<code>#topbar</code>, <code>--header-h</code>): the menu (at every width —
-    wider than 980 px it collapses the sidebar to the icon rail and back, <code>body.rail</code>, remembered in this browser; narrower it shows the whole sidebar),
-    the brand and the store; below 760 px a key button only while a key needs you (<code>.topbar-keys</code>) and Quick add. The header and the sidebar are the frame —
-    on <code>--shell</code>, with no line of their own (the step from <code>--shell</code> to <code>--bg</code> separates them from the page). Notifications sit over
-    the header’s right end (below).</p>
+  <h2>The sidebar’s head, the page’s title bar and the bell’s corner</h2>
+  <p>647 (owner: “i dont like the height that it takes away from the main page. make the header in the navbar only”): there is no header row above the page
+    (<code>--header-h</code> is 0 wider than 760 px). The sidebar’s head (<code>.side-head</code>) holds the menu (wider than 980 px it collapses the sidebar to the icon rail
+    and back, <code>body.rail</code>, remembered in this browser; narrower it shows the whole sidebar), the brand and the store (<code>#store-path</code>); in the rail only the
+    menu. The sidebar is the frame — on <code>--shell</code>, with no line of its own. The notifications keep a fixed corner at the top right (<code>#notes</code>,
+    <code>--corner-w</code>). Each page’s title bar (<code>.page-title</code> — its <code>.head</code>, or its h1 alone; <code>components/page-title.js</code> marks it after
+    each render) runs edge to edge at the top, <code>--title-bar-h</code> tall like the bell’s row, leaves the corner free, and STICKS as the page scrolls, with a line under it
+    once stuck (<code>.is-stuck</code>). A page’s sticky tools or index sit under it (<code>--title-h</code>), and every table’s column heads under all of that
+    (<code>#view thead th</code>, <code>--stack-h</code>) — so a panel clips its overflow instead of scrolling it (a phone’s still scrolls sideways).</p>
   <div class="pair"><div class="scheme">
-    <header class="topbar" style="position:static">
-      <button type="button" class="btn sm quiet icon-only nav-menu" aria-label="Collapse the sidebar"><i data-i="list"></i></button>
-      <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span>
-      <span class="topbar-gap"></span>
-    </header>
+    <div style="display:flex;background:var(--bg)">
+      <div class="side" style="position:static;height:auto;width:220px;flex:none">
+        <div class="side-head"><button type="button" class="btn sm quiet icon-only nav-menu" aria-label="Collapse the sidebar"><i data-i="list"></i></button>
+          <span class="brand-mark" aria-hidden="true">z</span><span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store">~/doz-store</span></span></div>
+      </div>
+      <div style="position:relative;flex:1;min-width:0;padding:var(--page-py) var(--page-px) 0">
+        <div class="head page-title is-stuck" style="position:static"><h1>Images</h1><div class="actions"><button type="button" class="btn sm"><i data-i="refresh-cw"></i>Refresh</button></div></div>
+        <div class="panel"><table><thead><tr><th>Image</th><th>Status</th><th>Size</th></tr></thead><tbody><tr><td>claude-code</td><td>up to date</td><td>1.2 GB</td></tr></tbody></table></div>
+        <div class="notes mode-cards" style="position:absolute;top:0;right:var(--sp-3)"><div class="notes-row"><button type="button" class="btn sm quiet icon-only note-bell" aria-label="2 notifications" title="Notifications"><i data-i="bell"></i><span class="note-count">2</span></button></div></div>
+      </div>
+    </div>
   </div></div>
   <p>The current page, sandbox or session is <strong>selected</strong>, one way everywhere: <code>--state-selected</code> and the 2 px <code>--indicator</code> on its leading
     edge (<code>#nav a[data-view].active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code>
@@ -708,10 +717,11 @@ name: todo-app</pre></details>
         <button type="button" class="btn sm quiet icon-only" aria-label="Dark mode"><i data-i="moon"></i></button></div>
     </footer>
   </div></div>
-  <p>Below 980 px the sidebar is a 52 px icon rail and the header’s menu (<code>#nav-menu</code>) shows it all over the page, under the header. Below 760 px the rail goes:
-    the menu opens the sidebar as a drawer over a scrim; the header keeps the brand (not the store), the key and Quick add.</p>
+  <p>Below 980 px the sidebar is a 52 px icon rail and its menu (<code>#nav-menu</code>) shows it all over the page. Below 760 px the rail goes and a phone’s
+    header row comes (<code>#topbar</code>, <code>--header-h</code>): its menu (<code>#top-menu</code>) opens the sidebar as a drawer over a scrim; the brand, the key while one
+    needs you (<code>.topbar-keys</code>) and Quick add. The notifications sit in it, left of those two; the title bar sticks under it.</p>
   <div class="pair"><div class="scheme">
-    <header class="topbar" style="position:static;width:390px;max-width:100%">
+    <header class="topbar" style="position:static;display:flex;width:390px;max-width:100%">
       <button type="button" class="btn sm quiet icon-only nav-menu" style="display:inline-flex" aria-label="Show the menu"><i data-i="list"></i></button>
       <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
       <span class="topbar-gap"></span>
@@ -722,16 +732,16 @@ name: todo-app</pre></details>
 </section>
 
 <section>
-  <h2>Notifications — in the header, three ways</h2>
+  <h2>Notifications — in the top right corner, three ways</h2>
   <p>647 (owner: “always show notifications in the header, stacked from the right … implement all three, switch with a setting”): every toast, page notice and banner
-    is a <strong>note</strong> (<code>components/notes.js</code>), drawn in <code>#notes</code> — fixed over the header’s right end, outside the shell, so it is never inert under
+    is a <strong>note</strong> (<code>components/notes.js</code>), drawn in <code>#notes</code> — fixed in the top right corner (the phone’s header row’s right end), outside the shell, so it is never inert under
     a wizard or a pause and stays in front of the paused overlay. A note is a callout (banner variant, compact). A success goes by itself after 8 s;
-    a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — the bell in the header row (always: owner,
+    a failure or a banner stays until dismissed or no longer true. <code>ui.notifications</code> chooses: <strong>cards</strong> — the bell in the corner (always: owner,
     “the cards but with the addition of a permanent notification bell”; its click shows and hides the stack — <code>.is-open</code> while shown — and a new note shows it
     again; with none, it opens an empty stack, <code>.notes-stack.is-empty</code>, with History) and a column hanging below it (<code>.notes-stack</code>), newest on top;
     a success (<code>.passing</code>) has a countdown strip along its foot (<code>.note-timer</code> — an Animation driven by the note’s own timer, so a repaint never restarts it);
     the pointer on ANY card holds every countdown and the stack turns solid on <code>--shell</code> with its count, History and Dismiss all (<code>.notes.is-held</code>);
-    <strong>pills</strong> (<code>.note-pill</code>) — one line each in the header row, the newest at the right, the rest under <code>+N</code>
+    <strong>pills</strong> (<code>.note-pill</code>) — one line each along the top, the newest at the right, the rest under <code>+N</code>
     (<code>.note-more</code>), a click opens its card; <strong>bell</strong> (<code>.note-bell</code>) — a count (its colour the worst tone), the newest beside it for 5 s
     (<code>.note-flash</code>), a click opens the list with History and Clear all. Every note shown is kept for the tab: the Notifications page (<code>#/notifications</code>).
     The Debug page (<code>#/debug</code>) makes every kind.</p>

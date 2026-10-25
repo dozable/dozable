@@ -255,13 +255,15 @@ export function navMenuClick() {
   applyRail();
 }
 function paintMenuButton() {
-  const b = $('nav-menu');
-  if (!b) return;
   const narrow = narrowMQ.matches, open = document.body.classList.contains('nav-open'), rail = document.body.classList.contains('rail');
   const label = narrow ? (open ? 'Hide the menu' : 'Show the menu') : (rail ? 'Expand the sidebar' : 'Collapse the sidebar');
-  b.setAttribute('aria-expanded', narrow ? String(open) : String(!rail));
-  b.setAttribute('aria-label', label);
-  b.title = label;
+  for (const id of ['nav-menu', 'top-menu']) {           // the sidebar's head; the phone's header row
+    const b = $(id);
+    if (!b) continue;
+    b.setAttribute('aria-expanded', narrow ? String(open) : String(!rail));
+    b.setAttribute('aria-label', label);
+    b.title = label;
+  }
 }
 narrowMQ.addEventListener('change', applyRail);
 export function paintResTotal(r) {

@@ -67,18 +67,19 @@ run, instead of the browser's error page; it comes back by itself, on the view i
 
 ![The Sandboxes page](images/dashboard-sandboxes.png)
 
-A header runs across the top of the window: the Dozable mark, its name and the store it shows; its
-right end is where notifications appear (see [Notifications](#notifications)). Below it, the sidebar
-groups the pages under five headings — **Sandboxes** (All sessions, All sandboxes and each sandbox),
+The sidebar starts with the menu button, the Dozable mark, its name and the store it shows. The top
+right corner of the window is where notifications appear (see [Notifications](#notifications)). Each
+page's title stays at the top as the page scrolls, and a table's column headings stay under it. The
+sidebar groups the pages under five headings — **Sandboxes** (All sessions, All sandboxes and each sandbox),
 **Try** (Quick try), **Store** (Images, Resources), **Activity** (Operations, Activity, Metrics) and
 **Setup** (Accounts & keys, Settings, Devices, Doctor, Onboarding, Debug). The page, sandbox or session
 you are on is tinted, with a line at its left edge. Click **All sandboxes** while its page is shown (or
 its caret) to fold the list of sandboxes under it, and again to show it; this browser remembers. The
-menu button at the left of the header collapses the sidebar to a column of icons (hover one for its
-name) and expands it again; this browser remembers. In a window narrower than about 980 px the sidebar
-is always the column of icons, and the menu button shows the whole sidebar over the page. On a phone (narrower than about
-760 px) the column goes too: the menu button opens the sidebar as a drawer, a key button appears in the
-header while a key needs you, and **+** is Quick add.
+menu button collapses the sidebar to a column of icons (hover one for its name) and expands it again;
+this browser remembers. In a window narrower than about 980 px the sidebar is always the column of
+icons, and the menu button shows the whole sidebar over the page. On a phone (narrower than about
+760 px) the column goes too: a header row across the top holds the menu button, which opens the
+sidebar as a drawer, a key button while a key needs you, and **+** for Quick add.
 
 | page | what it's for |
 |---|---|
@@ -183,18 +184,18 @@ Notifications tell you what happened to the host:
 
 ## Notifications
 
-Everything the dashboard tells you appears at the right end of the header: a success (it goes by
+Everything the dashboard tells you appears in the top right corner: a success (it goes by
 itself after a few seconds), a failure or a warning that has no closer place (it stays until you close
 it, or until it is no longer true), and the news about the host and the dashboard itself. The setting
 `ui.notifications` (**Settings › This UI**) chooses how they look:
 
-- **Cards** (the default) — a bell in the header with the count, and a column hanging below it, the
+- **Cards** (the default) — a bell in the corner with the count, and a column hanging below it, the
   newest on top, each with its full text and buttons. A success has a strip along its foot counting
   down the seconds it has left. Point at any card and every countdown waits, and the column turns
   solid with **Dismiss all**; move away and they go on from where they were. Click the bell to hide
   the cards, and again to show them; a new notification shows them again. With none showing, the
   bell opens an empty column with the **History** link.
-- **Pills** — one line each in the header, the newest at the right; the ones that don't fit fold into
+- **Pills** — one line each along the top, the newest at the right; the ones that don't fit fold into
   **+N**. Click a pill for its full text and buttons.
 - **Bell** — a count; the newest shows beside it for a few seconds. Click the bell for the list, with
   **Clear all**.
@@ -266,7 +267,7 @@ dashboard can switch this off but never on.
 | `ui.port` | `0` | The port on 127.0.0.1: `0` = the last one when free, or a fixed port 1024–65535 (for an installed app). |
 | `ui.theme` | `auto` | `auto` follows macOS; `light`; `dark`. The sun / moon at the right of the status bar sets it. |
 | `ui.density` | `comfortable` | `compact`: tighter rows, tabs, controls and page margins — the text stays the same size. **Settings › This UI** switches it at once. |
-| `ui.notifications` | `cards` | How notifications look at the right of the header: `cards`, `pills` or `bell` (see [Notifications](#notifications)). **Settings › This UI** and the Debug page switch it at once. |
+| `ui.notifications` | `cards` | How notifications look in the top right corner: `cards`, `pills` or `bell` (see [Notifications](#notifications)). **Settings › This UI** and the Debug page switch it at once. |
 | `ui.nav_thumbnails` | `true` | A session line in the sidebar shows a screen icon on hover; resting on it for half a second shows the session's live picture. |
 | `ui.terminals` | `true` | Terminals in the browser. `false`: none open (Open in Terminal still works). |
 | `ui.terminal_font_size` | `13` | Font size of a browser terminal (9–32). |

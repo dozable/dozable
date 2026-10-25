@@ -21,8 +21,8 @@ import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../com
 import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb-0c64fbcabc25cfb4.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal-fde82d74cacccd71.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs-9c59e07edff89ebb.js';
-import { openSavedTerminal } from './sandbox-layout-e728fe148d437c42.js';
-import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-d0cab526254f0b70.js';
+import { openSavedTerminal } from './sandbox-layout-76746814aca26248.js';
+import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals-113db0fdf0cd6706.js';
 
 /// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
 /// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.

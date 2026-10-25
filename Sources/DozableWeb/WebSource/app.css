@@ -35,7 +35,9 @@
   /* 647: space by ROLE — what ui.density (data-density="compact" on <html>) redefines; the structure and the type stay.
      comfortable (these) · compact (below) */
   --row-py: 7px;  --row-min: 36px;  --th-h: 32px;  --cell-px: 10px;        /* a list or table row, a column head, a cell's side */
-  --header-h: 44px;                                                         /* 647: the header row, full width */
+  --header-h: 0px;                                                          /* 647: the header row — a phone's only (below) */
+  --title-bar-h: 52px;                                                      /* 647: a page's title bar, stuck to the top as it scrolls */
+  --corner-w: calc(var(--ctl-sm) + var(--sp-3) * 2);                       /* 647: the notification bell's corner, top right */
   --status-h: 28px;                                                         /* 647: the status bar, full width at the foot */
   --nav-h: 30px;  --nav-child-h: 26px;  --nav-sess-h: 24px;                 /* the sidebar: a page, a sandbox, a session */
   --strip-h: 34px;  --tab-py: 6px;                                          /* a tab strip and its tabs */
@@ -140,7 +142,7 @@
    element too, so the style guide can show both side by side. */
 :root[data-density="compact"], [data-density="compact"] {
   --row-py: 3px;  --row-min: 28px;  --th-h: 26px;  --cell-px: 8px;
-  --header-h: 38px;  --status-h: 24px;
+  --header-h: 0px;  --title-bar-h: 44px;  --status-h: 24px;
   --nav-h: 26px;  --nav-child-h: 22px;  --nav-sess-h: 21px;
   --strip-h: 28px;  --tab-py: 3px;
   --page-py: 14px;  --page-px: 20px;
@@ -150,8 +152,8 @@
 }
 /* A phone's page margin (both densities: there is no room to give back). */
 @media (max-width: 760px) {
-  :root { --page-py: 16px; --page-px: 16px; }
-  :root[data-density="compact"], [data-density="compact"] { --page-py: 12px; --page-px: 12px; }
+  :root { --page-py: 16px; --page-px: 16px; --header-h: 44px; }
+  :root[data-density="compact"], [data-density="compact"] { --page-py: 12px; --page-px: 12px; --header-h: 38px; }
 }
 @media (prefers-reduced-motion: reduce) { :root { --dur-1: 0ms; --dur-2: 0ms; } }
 }
@@ -658,7 +660,6 @@ ul.prep-steps .prep-done-transfer { color: var(--ink-2); }
 .res-sw-clean { background: var(--data-shared); }
 .res-sw-shared { background: var(--data-free); border: 1px solid var(--line); }
 .res-toolbar { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin: var(--sp-2) 0 0; }
-.res-group .panel { overflow-x: auto; }
 .res-check { width: 28px; }
 .res-name { min-width: 180px; }
 .res-name-line { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
@@ -998,7 +999,7 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 /* cards: the bell in the header row, the stack hanging below it. The pointer on any card holds every countdown and makes
    the stack opaque, with its count, History and Dismiss all (.is-held, set by notes.js). */
 .notes-stack { pointer-events: auto; display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-0) calc(-1 * var(--sp-2)) 0 0;
-  padding: var(--sp-2); max-height: calc(100vh - var(--header-h) - var(--status-h) - var(--sp-3)); border-radius: var(--r-lg);
+  padding: var(--sp-2); max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--status-h) - var(--sp-3)); border-radius: var(--r-lg);
   transition: background-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease); }
 .notes-stack .notes-col { min-height: 0; overflow-y: auto; }
 .notes-stack-foot { display: none; align-items: center; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-sm); }
@@ -1013,9 +1014,9 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 /* One quiet tint for every tone (owner: "more subtle … the same tint, not based on the icon colour"): no track, a 2 px line. */
 .note-timer { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; }
 .note-timer-bar { display: block; height: 100%; background: var(--line-strong); transform-origin: left center; }
-.notes-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); height: var(--header-h); max-width: var(--notes-row-max); min-width: 0; }
+.notes-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); height: var(--title-bar-h); max-width: var(--notes-row-max); min-width: 0; }
 .notes-pop { margin-top: var(--sp-0); width: min(420px, calc(100vw - var(--sp-6))); }
-.notes-list { max-height: calc(100vh - var(--header-h) - var(--status-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
+.notes-list { max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--status-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
   border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-3); }
 .notes-list .callout.note { box-shadow: none; }
 .notes-none { margin: 0; padding: var(--sp-2) var(--sp-1); font-size: var(--fs-sm); }
@@ -1142,12 +1143,23 @@ dialog.dlg form { display: flex; flex-direction: column; max-height: calc(100vh 
    647: the sidebar is the frame — on --shell with no line of its own (the surface step separates it from the page); the
    current page, sandbox or session is SELECTED (--state-selected + the 2 px indicator, never a raised card); the foot is
    one line (two status dots and the version, a hover card with the rest); below 760 px a top bar and a drawer. ── */
-/* 647 (owner: "add a header row at the top (full width) and move the app icon and path into it"): the header — above the
-   sidebar and the page, on --shell like the sidebar (one L-shaped frame): the menu (below 980 px), the brand, the store;
-   below 760 px a key that needs you and Quick add. The notifications sit over its right end (#notes, components). */
-.topbar { display: flex; align-items: center; gap: var(--sp-3); height: var(--header-h); padding: 0 var(--sp-4) 0 var(--sp-5); background: var(--shell);
+/* 647 (owner, after the full-width header: "i dont like the height that it takes away from the main page. make the header
+   in the navbar only"): the brand, the store and the menu are the sidebar's head (.side-head); the notifications keep a
+   fixed corner at the top right (#notes) and each page's title bar sticks as it scrolls (.page-title, views). The header
+   row (#topbar) is a phone's only — below 760 px, where the sidebar is a drawer: the menu, the brand, a key that needs
+   you and Quick add. */
+.topbar { display: none; align-items: center; gap: var(--sp-3); height: var(--header-h); padding: 0 var(--sp-4); background: var(--shell);
   position: sticky; top: 0; z-index: calc(var(--z-sticky) + 1); min-width: 0; }
 .topbar .nav-menu { display: inline-flex; margin-left: calc(-1 * var(--sp-2)); }
+.side-head { display: flex; align-items: center; gap: var(--sp-3); min-height: var(--title-bar-h); margin: calc(-1 * var(--sp-3)) 0 calc(-1 * var(--sp-2)); padding: 0 var(--sp-1); min-width: 0; flex: none; }
+.side-head .nav-menu { margin-left: calc(-1 * var(--sp-1)); }
+.side-brand { display: flex; flex-direction: column; min-width: 0; line-height: var(--lh-tight); }
+body.rail .side-head { justify-content: center; padding: 0; }
+body.rail .side-head .nav-menu { margin: 0; }
+body.rail .side-head .brand-mark, body.rail .side-brand { display: none; }
+body.rail.nav-open .side-head { justify-content: flex-start; padding: 0 var(--sp-1); }
+body.rail.nav-open .side-head .brand-mark { display: grid; }
+body.rail.nav-open .side-brand { display: flex; }
 .brand-mark { width: 24px; height: 24px; border-radius: var(--r-md); background: var(--ink); color: var(--bg); display: grid; place-items: center;
   font-weight: 700; font-style: italic; font-size: var(--fs-md); flex: none; }
 .brand-name { font-weight: var(--fw-strong); flex: none; }
@@ -1348,9 +1360,9 @@ body.rail.nav-open #nav-operations .trail .nav-badge:not([hidden]) { display: in
 @media (max-width: 760px) {
   body.rail .shell { grid-template-columns: minmax(0, 1fr); }
   body.rail .shell > main { grid-column: 1; }
-  .topbar { padding: 0 var(--sp-4) 0 var(--sp-4); }
-  .topbar .brand-store { display: none; }
+  .topbar { display: flex; }
   .topbar-acts { display: flex; }
+  .notes-row { height: var(--header-h); }
   .notes { --notes-right: calc(var(--sp-4) + var(--ctl-sm) * 2 + var(--sp-3)); --notes-row-max: calc(100vw - 210px); }
   .notes-stack { margin-right: calc(var(--sp-1) - var(--notes-right)); }
   body.rail:not(.nav-open) .side { display: none; }
@@ -1463,7 +1475,12 @@ dl.facts dd { margin: 0; overflow-wrap: anywhere; }
 /* ── 603 step 7: tables — sentence-case headers in ink-2 (32 px), rows 36 px, numbers right and tabular; a row that
    opens something is a link in its first cell and clickable as a whole; its actions: the one likely next verb as a
    quiet button, the rest in ⋯ — one line. Long identifiers truncate (the whole of it as the tooltip). ── */
-.panel { background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg); overflow-x: auto; }
+/* 647 (owner: "table sticky headers … under it"): a page's column heads stick under its title bar (and its sticky tools
+   or index — `--stack-h`, components/page-title.js). A sticky head holds only in a box that does not scroll, so a panel
+   CLIPS its overflow instead of scrolling it (and keeps its round corners); a phone's panel still scrolls sideways. The
+   line under a stuck head is drawn by the head itself (a collapsed border stays with the table). */
+.panel { background: var(--surface); border: var(--bw) solid var(--line); border-radius: var(--r-lg); overflow-x: clip; }
+#view thead th { position: sticky; top: var(--stack-h, 0px); z-index: 1; box-shadow: inset 0 calc(-1 * var(--bw)) 0 var(--line); }
 table { width: 100%; border-collapse: collapse; font-size: var(--fs-md); }
 th, td { text-align: left; padding: var(--row-py) var(--cell-px); border-bottom: var(--bw) solid var(--line); vertical-align: middle; }
 th { height: var(--th-h); padding-top: 0; padding-bottom: 0; font: var(--fw-medium) var(--fs-sm)/1.2 var(--font); color: var(--ink-2); white-space: nowrap; background: var(--surface); }
@@ -1530,6 +1547,20 @@ td.row-acts-cell .row-acts { justify-content: flex-end; flex-wrap: nowrap; }
   .images-t th:nth-child(10), .images-t td:nth-child(10) { display: none; } }
 }
 @layer views {
+
+/* 647 (owner: "when the page is vertically scrolling, fix the page / panel title as a sticky header"): a page's title bar
+   (`.page-title` — its .head, or its h1 alone; components/page-title.js marks it) runs edge to edge of the page at the
+   top, as tall as the notification corner beside it, and sticks there as the page scrolls — a line under it once it is
+   stuck (`.is-stuck`). Its right end leaves the bell's corner free. */
+.page-title { position: sticky; top: var(--header-h); z-index: calc(var(--z-sticky) + 1); background: var(--bg); min-height: var(--title-bar-h);
+  margin: calc(-1 * var(--page-py)) calc(-1 * var(--page-px)) var(--sp-3); padding: var(--sp-2) calc(var(--corner-w) + var(--sp-3)) var(--sp-2) var(--page-px);
+  transition: box-shadow var(--dur-1) var(--ease); }
+h1.page-title { display: flex; align-items: center; }
+.page-title.is-stuck { box-shadow: 0 var(--bw) 0 var(--sep); }
+@media (max-width: 760px) {
+  .page-title { padding-right: var(--page-px); }
+  .panel { overflow-x: auto; }
+}
 
 /* ── 603: the wizards (New sandbox, onboarding) — a modal over the page, the full width of the window up to
    --wm-max; its header (title, ✕, the step strip) and footer (the actions) stay put while the body scrolls.
@@ -1614,18 +1645,18 @@ details.disclosure > .d-part { margin-top: var(--sp-2); }
 
 /* ── 603 step 9: long pages — a sticky index of the page's sections (with a figure each on Resources), groups
    that fold (Resources, kept in this browser), and the Settings filter. ── */
-.page-index { position: sticky; top: var(--header-h); z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--sp-0) var(--sp-1); padding: var(--sp-2) 0; margin: var(--sp-3) 0 var(--sp-1);
+.page-index { position: sticky; top: calc(var(--header-h) + var(--title-h, 0px)); z-index: var(--z-sticky); display: flex; flex-wrap: wrap; gap: var(--sp-0) var(--sp-1); padding: var(--sp-2) 0; margin: var(--sp-3) 0 var(--sp-1);
   background: var(--bg); border-bottom: var(--bw) solid var(--line); }
 .page-index a { display: inline-flex; align-items: center; gap: var(--sp-1); min-height: var(--ctl-sm); padding: 0 var(--sp-3); border-radius: var(--r-sm); color: var(--ink);
   text-decoration: none; font-size: var(--fs-sm); white-space: nowrap; }
 .page-index a:hover { background: var(--state-hover); }
 .page-index a .muted { font-variant-numeric: tabular-nums; }
-.page-tools { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-3); position: sticky; top: var(--header-h); z-index: var(--z-sticky); background: var(--bg); }
+.page-tools { display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-1) 0 var(--sp-3); position: sticky; top: calc(var(--header-h) + var(--title-h, 0px)); z-index: var(--z-sticky); background: var(--bg); }
 .page-tools .page-index { position: static; margin: 0; }
 .filter-field { display: flex; align-items: center; gap: var(--sp-2); max-width: 420px; position: relative; }
 .filter-field .icon { position: absolute; left: 8px; color: var(--ink-2); pointer-events: none; }
 .filter-field input { flex: 1; padding-left: var(--sp-8); }
-.set-head, .res-group { scroll-margin-top: 96px; }
+.set-head, .res-group { scroll-margin-top: calc(var(--stack-h, 0px) + var(--sp-3)); }
 .res-head h2 { display: inline-flex; align-items: center; gap: var(--sp-1); }
 .res-head .res-toggle { margin-left: calc(-1 * var(--sp-1)); }
 .filter-none[hidden], .setting[hidden], .set-head[hidden], .panel[hidden] { display: none; }
@@ -1857,9 +1888,8 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
    default (the radio column of each provider's table), add a key for a tool. Every part of the page — the title and Add
    a key too — lies in ONE 960 px column. A provider is a heading line over one table (no card of its own). ── */
 .ak-page { max-width: 960px; }
-.ak-head { display: flex; gap: var(--sp-4); align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
-.ak-head h1 { margin: 0 0 var(--sp-0); }
-.ak-head .sub { margin: 0; max-width: 64ch; }
+.ak-head h1 { margin: 0; }
+.ak-sub { margin: 0 0 var(--sp-4); max-width: 64ch; }
 .ak-tools { display: flex; gap: var(--sp-3); align-items: center; flex-wrap: wrap; margin: var(--sp-5) 0 var(--sp-4); }
 .ak-tools .filter-field { flex: 1 1 220px; max-width: 340px; }
 .ak-count { margin-left: auto; color: var(--ink-2); font-size: var(--fs-sm); font-variant-numeric: tabular-nums; }

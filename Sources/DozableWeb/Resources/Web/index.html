@@ -13,14 +13,13 @@
   <title>Dozable</title>
   <meta name="doz-ghostty-wasm" content="/assets/vendor-ghostty-vt-d6f0326f1874ad2c.wasm">
   <meta name="doz-icons" content="/assets/vendor-lucide-icons-8c4115a429f5ea8a.svg">
-  <link rel="stylesheet" href="/assets/app-e9b2d8052c1bf2a1.css">
-  <script type="module" src="/assets/app-a274f89b7dd36c1f.js"></script>
+  <link rel="stylesheet" href="/assets/app-7eb41807268b4b8f.css">
+  <script type="module" src="/assets/app-665f15f2e27289ea.js"></script>
 </head>
 <body>
   <header class="topbar" id="topbar">
-    <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
+    <button type="button" class="btn sm quiet icon-only nav-menu" id="top-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
     <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
-    <span class="brand-store" id="store-path">—</span>
     <span class="topbar-gap"></span>
     <span class="topbar-acts">
       <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
@@ -29,6 +28,11 @@
   </header>
   <div class="shell">
     <aside class="side" aria-label="Sections">
+      <div class="side-head">
+        <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Collapse the sidebar" aria-expanded="true" aria-controls="nav"></button>
+        <span class="brand-mark" aria-hidden="true">z</span>
+        <span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store" id="store-path">—</span></span>
+      </div>
       <nav id="nav" aria-label="Pages">
         <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
         <a href="#/sessions" data-view="sessions"><span class="lbl">All sessions</span></a>

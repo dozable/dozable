@@ -18,9 +18,8 @@
 </head>
 <body>
   <header class="topbar" id="topbar">
-    <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
+    <button type="button" class="btn sm quiet icon-only nav-menu" id="top-menu" aria-label="Show the menu" aria-expanded="false" aria-controls="nav"></button>
     <span class="brand-mark" aria-hidden="true">z</span><b class="brand-name">Dozable</b>
-    <span class="brand-store" id="store-path">—</span>
     <span class="topbar-gap"></span>
     <span class="topbar-acts">
       <a class="btn sm quiet icon-only topbar-keys" id="top-keys" href="#/accounts" hidden></a>
@@ -29,6 +28,11 @@
   </header>
   <div class="shell">
     <aside class="side" aria-label="Sections">
+      <div class="side-head">
+        <button type="button" class="btn sm quiet icon-only nav-menu" id="nav-menu" aria-label="Collapse the sidebar" aria-expanded="true" aria-controls="nav"></button>
+        <span class="brand-mark" aria-hidden="true">z</span>
+        <span class="side-brand"><b class="brand-name">Dozable</b><span class="brand-store" id="store-path">—</span></span>
+      </div>
       <nav id="nav" aria-label="Pages">
         <div class="nav-group"><span class="ng-label">Sandboxes</span><button type="button" class="btn sm quiet icon-only nav-quick" id="nav-quick-add" data-quick-add title="Quick add: a sandbox with every default, started and opened" aria-label="Quick add a sandbox"></button></div>
         <a href="#/sessions" data-view="sessions"><span class="lbl">All sessions</span></a>

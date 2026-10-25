@@ -42,14 +42,15 @@ import { btn } from './app/components/button-f435595b4098d043.js';
 import { callout } from './app/components/callout-045a1af4db6ce704.js';
 import './app/components/create-dialog-030e9a03f6fb1747.js';
 import './app/components/dialog-ee9a9a31b03dc349.js';
-import { hostChanged, paintUpdates, renderHostFoot } from './app/components/host-2f4df4fc800f0cf0.js';
+import { hostChanged, paintUpdates, renderHostFoot } from './app/components/host-03f5ea2d43e9ccda.js';
 import './app/components/image-picker-7c0d878c6f87eb0e.js';
 import './app/components/keyboard-fef22a2ed99de61c.js';
 import { lifecycle } from './app/components/lifecycle-87e9fb4a433fa867.js';
 import './app/components/menus-23bc819d6d81d035.js';
-import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal-bf6966b1cd01f0c4.js';
-import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav-ff6366e8c8d63067.js';
+import { closeWizardModal, modalInert, openWizardModal } from './app/components/modal-4615290d19159752.js';
+import { applyRail, navMenuClick, navRail, paintNav, paintResTotal, refreshNav, renderNavSandboxes } from './app/components/nav-57a56fefe6caeeae.js';
 import { paintNotes } from './app/components/notes-e55206dbcad515db.js';
+import { watchPageTitle } from './app/components/page-title-f6270e78b5aff97d.js';
 import { banner, dropBanner, failureFor, opFailed, pageFailure, paintRowOps, toast } from './app/components/notices-0fbf2b02156017c5.js';
 import './app/components/permissions-e49cffa2c0d6b8da.js';
 import { paintTransition } from './app/components/pills-6658427f4c95d0b6.js';
@@ -59,27 +60,27 @@ import './app/components/rules-step-f6e11413ec922aa2.js';
 import './app/components/stepper-42382a875b43605e.js';
 import { closeTerminal, focusTerm, openTerminal, paintCover, reattachTerminals, sendInput } from './app/components/terminal-fde82d74cacccd71.js';
 import './app/components/workspace-chooser-22bb637b74fb3ecc.js';
-import { viewAccounts } from './app/views/accounts-8d733454d3a40927.js';
+import { viewAccounts } from './app/views/accounts-5a6029a7ae741717.js';
 import { renderActivity, viewActivity } from './app/views/activity-e18fdfc0b030760f.js';
-import { viewDebug } from './app/views/debug-a3a87cc576b87409.js';
+import { viewDebug } from './app/views/debug-fc7a722f00981864.js';
 import { viewNotifications } from './app/views/notifications-3735af0b8fe5a103.js';
 import { viewDevices } from './app/views/devices-9b43c8f5b94d2a58.js';
 import { viewDoctor } from './app/views/doctor-3e80600071f4c17e.js';
 import { viewImages } from './app/views/images-a19123992348fe91.js';
 import { viewMetrics } from './app/views/metrics-b29113fd5e153563.js';
-import { newSandboxWizard, viewNew } from './app/views/new-sandbox-e98b9c4b1ff98886.js';
-import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-4627772da50c0d9f.js';
+import { newSandboxWizard, viewNew } from './app/views/new-sandbox-545813536ccf9e2d.js';
+import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-834453c5fcd9780b.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-54d1f68d30f0afdc.js';
-import { viewOverview } from './app/views/overview-8e9a9681536a24a0.js';
+import { viewOverview } from './app/views/overview-e22e0dcc7c8ccb45.js';
 import { viewResources } from './app/views/resources-8758c7bc73374260.js';
-import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-d9d146ab6951d2fc.js';
+import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-1f8ae87d94995742.js';
 import './app/views/sandbox-dialogs-9c59e07edff89ebb.js';
-import { persistLayout } from './app/views/sandbox-layout-e728fe148d437c42.js';
+import { persistLayout } from './app/views/sandbox-layout-76746814aca26248.js';
 import './app/views/sandbox-network-2d0930a3fc1055c5.js';
-import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-d0cab526254f0b70.js';
-import { paintHome } from './app/views/sandbox-home-66dd99d48cd24dd1.js';
-import { refreshSandbox, showSandbox } from './app/views/sandbox-0bddcdee1efd4aa6.js';
-import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-da3e592c9e8182f8.js';
+import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-113db0fdf0cd6706.js';
+import { paintHome } from './app/views/sandbox-home-933c662b27b7771c.js';
+import { refreshSandbox, showSandbox } from './app/views/sandbox-ac78cd75b75524b0.js';
+import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-ed3c679feaed120f.js';
 import { viewSettings } from './app/views/settings-da11318063107fa9.js';
 import './app/views/shortcuts-f0237bec9856ab31.js';
 
@@ -119,11 +120,15 @@ $('theme-toggle').addEventListener('click', () => {
 new MutationObserver(paintThemeToggle).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', paintThemeToggle);
 paintThemeToggle();
-// 647 (owner): the header, full width — the menu (below 980 px: the whole sidebar over the page; below 760 px a drawer),
-// the brand and the store; below 760 px a key alert and Quick add. The notifications sit over its right end (#notes).
-$('nav-menu').replaceChildren(icon('list'));
-$('nav-menu').addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+// 647 (owner: "make the header in the navbar only"): the sidebar's head — the menu (wider than 980 px it collapses the
+// sidebar to the rail; below, the whole sidebar over the page), the brand and the store. Below 760 px the header row
+// (#topbar) has its own menu for the drawer, a key alert and Quick add. The notifications keep the top-right corner.
+for (const id of ['nav-menu', 'top-menu']) {
+  $(id).replaceChildren(icon('list'));
+  $(id).addEventListener('click', (ev) => { ev.stopPropagation(); navMenuClick(); });
+}
 applyRail();                       // 647: the rail below 980 px, or wider when collapsed (this browser remembers)
+watchPageTitle();                  // 647: a page's title bar and its tables' column heads stick as it scrolls
 $('top-keys').replaceChildren(icon('key-round'));
 $('top-quick-add').replaceChildren(icon('plus'));
 $('top-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
