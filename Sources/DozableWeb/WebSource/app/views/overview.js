@@ -19,23 +19,17 @@ import { hoverPeek } from '../components/nav-peek.js';
 import { paintRowOps } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
 import { quickAddButton } from '../components/quick-add.js';
-import { livePrefs, liveControls as sharedLiveControls, liveTurn, paintLiveStatus, SOCKET_CEILING } from '../components/live-controls.js';
-import { dropThumbTerm, MAKE_PER_PASS, NEAR_MARGIN, openSockets, paintThumb, thumbFrame, thumbFreeze, thumbGoLive, thumbTerm, thumbThaw,
-  whenIdle, whenScrollRests } from '../components/session-thumb.js';
+import { thumbFrame } from '../components/session-thumb.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
 import { newSandboxWizard } from './new-sandbox.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 
 /// 642 (owner): the page as drawn — patched in place on a refresh while it is shown, so a sandbox's row of session
-/// pictures is never rebuilt (moving or rebuilding a picture's frame reloads its engine). `strips`: each sandbox's.
-const OV = { root: null, top: null, listHead: null, bulk: null, thead: null, tbody: null, list: [], strips: new Map(), io: null };
+/// pictures is never rebuilt. `strips`: each sandbox's.
+const OV = { root: null, top: null, listHead: null, bulk: null, thead: null, tbody: null, list: [], strips: new Map() };
 /// 642 (owner): the sandboxes ticked in the left margin, for the bulk controls (this page only).
 const SEL = new Set();
-/// At most this many live pictures (and never past ui.grid_live_tiles), never past SOCKET_CEILING of the UI's 16 sockets.
-/// Past the live cap a running session shows its last captured screen (no socket) — up to SAVED_MAX pictures in all.
-/// 647 (owner: "open live sessions to every visible tile"): every picture on screen, up to the ceiling.
-const LIVE_MAX = SOCKET_CEILING, SAVED_MAX = 48;
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {
@@ -91,8 +85,7 @@ function mainRow(s) {
   const box = h('input', { type: 'checkbox', 'aria-label': 'Select ' + s.name, 'data-ov-select': s.name,
     on: { click: (ev) => ev.stopPropagation(), change: (ev) => { if (ev.target.checked) SEL.add(s.name); else SEL.delete(s.name); repaintSelection(); } } });
   box.checked = SEL.has(s.name);
-  return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = '#/sandbox/' + s.name; },
-    pointerenter: () => setHover(s.name), pointerleave: () => setHover(null) } },
+  return h('tr', { class: 'click', 'data-sandbox-row': s.name, on: { click: () => { location.hash = '#/sandbox/' + s.name; } } },
     h('td', { class: 'ov-sel', on: { click: (ev) => ev.stopPropagation() } }, box),
     // Owner, 2026-10-23: the tool's mark beside the name, and where its workspace is (from ~).
     h('td', null, h('div', { class: 'ov-name' }, s.icon && s.icon.d ? mark(s.icon, 'ov-mark') : icon('box'),
@@ -130,19 +123,8 @@ function tableHead() {
 // grid of small ones in its Sessions cell. Resting on one shows it larger (components/nav-peek.js). ─────────────────
 function subRows() { try { return localStorage.getItem('doz.overview.thumbs') !== 'off'; } catch (_) { return true; } }
 function listHeadEl() {
-  return h('div', { class: 'head has-title ov-list-head' }, h('h2', null, 'All sandboxes'), h('div', { class: 'actions' }, liveControls(), thumbsToggle()));
+  return h('div', { class: 'head has-title ov-list-head' }, h('h2', null, 'All sandboxes'), h('div', { class: 'actions' }, thumbsToggle()));
 }
-function redrawListHead() {
-  if (!OV.listHead || !OV.listHead.isConnected) return;
-  const lh = listHeadEl();
-  OV.listHead.replaceWith(lh);
-  OV.listHead = lh;
-}
-/// 642 (owner): Live − N + (how many pictures are live at once) · Cycle (they take turns) · − S s + (each turn).
-function liveControls() {
-  return sharedLiveControls(LIVE, (what) => { if (what !== 'limit') { stopCycle(); OV.turn = 0; } redrawListHead(); schedule(); });
-}
-function paintCycleStatus() { paintLiveStatus(OV.listHead, LIVE, OV.cand || 0); }
 function thumbsToggle() {
   const box = h('input', { type: 'checkbox', 'data-ov-thumbs': '',
     on: { change: (ev) => {
@@ -163,7 +145,6 @@ function layoutGrid(st, n) {
   const colsN = Math.ceil(Math.sqrt(n)), rows = Math.ceil(n / colsN);
   const tw = Math.floor(Math.min((CELL_W - (colsN - 1) * CELL_GAP) / colsN, ((CELL_H - (rows - 1) * CELL_GAP) / rows) * 4 / 3));
   st.box.style.setProperty('--tw', tw + 'px');
-  st.box.style.setProperty('--ts', String(tw / 960));
   st.box.style.gridTemplateColumns = 'repeat(' + colsN + ', ' + tw + 'px)';
   st.box.title = n + ' session' + (n === 1 ? '' : 's');
 }
@@ -192,7 +173,7 @@ function patchRows(list) {
     if (!st) {
       st = { name: s.name, thumbs: new Map(), phase: s.phase, busy: false,
         box: h('div', { class: rows ? 'ov-strip-box' : 'ov-grid', role: 'list', 'aria-label': s.name + '’s sessions' }) };
-      if (rows) st.tr = h('tr', { class: 'ov-strip', 'data-ov-strip': s.name, on: { pointerenter: () => setHover(s.name), pointerleave: () => setHover(null) } },
+      if (rows) st.tr = h('tr', { class: 'ov-strip', 'data-ov-strip': s.name },
         h('td', { class: 'ov-sel' }), h('td', { colspan: String(cols() - 1) }, st.box));
       OV.strips.set(s.name, st);
     }
@@ -207,7 +188,7 @@ function patchRows(list) {
     st.phase = s.phase;
     st.busy = !!s.busy || opRunningFor(s.name);
     const keep = new Set(sessions.map((x) => x.name));
-    for (const [k, th] of st.thumbs) if (!keep.has(k)) { dropThumbTerm(th.term); unwatch(th.el); th.wrap.remove(); st.thumbs.delete(k); }
+    for (const [k, th] of st.thumbs) if (!keep.has(k)) { th.source.drop(); th.wrap.remove(); st.thumbs.delete(k); }
     for (const x of sessions) {
       let th = st.thumbs.get(x.name);
       if (!th) {
@@ -221,7 +202,6 @@ function patchRows(list) {
           : h('div', { class: 'ov-tile', role: 'listitem', 'data-ov-thumb': x.name }, th.el);
         st.thumbs.set(x.name, th);
         st.box.append(th.wrap);
-        watch(th.el);
       }
       th.row = x;
     }
@@ -229,20 +209,10 @@ function patchRows(list) {
   }
   schedule();
 }
-/// Two observers: on screen (`visible` — it may be live) and near it (`near` — 647: it keeps its engine).
-function observer(key, field, rootMargin) {
-  if (!OV[key]) OV[key] = new IntersectionObserver((entries) => {
-    for (const e of entries) for (const st of OV.strips.values()) for (const th of st.thumbs.values()) if (th.el === e.target) th[field] = e.isIntersecting;
-    schedule();
-  }, { rootMargin });
-  return OV[key];
-}
-function watch(el) { observer('io', 'visible', '60px').observe(el); observer('nearIo', 'near', NEAR_MARGIN).observe(el); }
-function unwatch(el) { observer('io', 'visible', '60px').unobserve(el); observer('nearIo', 'near', NEAR_MARGIN).unobserve(el); }
 function dropStrip(name) {
   const st = OV.strips.get(name);
   if (!st) return;
-  for (const th of st.thumbs.values()) { dropThumbTerm(th.term); unwatch(th.el); }
+  for (const th of st.thumbs.values()) th.source.drop();
   if (st.tr) st.tr.remove();
   else if (st.box.parentNode) st.box.parentNode.replaceChildren(h('span', { class: 'muted' }, '—'));
   OV.strips.delete(name);
@@ -251,90 +221,27 @@ function dropStrip(name) {
 }
 function dropStrips() { for (const n of [...OV.strips.keys()]) dropStrip(n); }
 
-// The pictures: live only while the page is shown and the picture is on screen; capped (as the sandbox Home's are).
+// The pictures (648: painted — components/session-thumb.js): EVERY picture is live — a running sandbox's from the host's
+// feed, polled only while it is on screen and this page is shown; a sleeping one's from its saved screen; never a
+// shut-down one's. No engine, no socket: nothing to cap, nothing to take turns.
 let scheduled = false;
 function schedule() {
   if (scheduled) return;
   scheduled = true;
-  setTimeout(() => whenScrollRests(() => { scheduled = false; placeThumbs(); }), 40);   // 647: never while it scrolls
+  setTimeout(() => { scheduled = false; placeThumbs(); }, 40);
 }
-function shown() {
-  return !!OV.root && OV.root.isConnected && state.view === 'overview' && !state.modal && document.visibilityState === 'visible' && setting('ui.terminals', true);
-}
-/// 642 (owner): how many pictures are live at once (this browser; ui.grid_live_tiles until changed), whether the live
-/// ones take turns, and how long each turn is.
-const LIVE = livePrefs('overview', LIVE_MAX);
-function liveLimit() { return LIVE.limit(); }
-function cycleOn() { return LIVE.cycle(); }
-function startCycle() { if (!OV.cycleTimer) OV.cycleTimer = setInterval(() => { OV.turn = (OV.turn || 0) + 1; schedule(); }, LIVE.hold() * 1000); }
-function stopCycle() { clearInterval(OV.cycleTimer); OV.cycleTimer = null; }
-/// 642 (owner): the sandbox under the pointer — its pictures are live first.
-function setHover(name) { if (OV.hover !== name) { OV.hover = name; schedule(); } }
-
 function placeThumbs() {
-  const on = shown();
-  const all = [];
-  for (const st of OV.strips.values()) for (const th of st.thumbs.values()) all.push([st, th]);
-  // The hovered sandbox's pictures first: they take the live slots before any other.
-  if (OV.hover) all.sort((a, b) => (b[0].name === OV.hover) - (a[0].name === OV.hover));
-  const want = (st, th) => (th.row.saved ? 'saved' : st.phase === 'running' && !st.busy ? 'live' : null);
-  for (const [st, th] of all) {
-    const w = want(st, th);
-    // 647: off screen but near it keeps its engine (a live one lets go of its socket below).
-    if (th.term && (!on || !th.near || !w || (w === 'saved' && th.kind !== 'saved'))) { dropThumbTerm(th.term); th.term = null; th.kind = null; }
+  if (!OV.root || !OV.root.isConnected || state.view !== 'overview') { dropStrips(); return; }
+  if (state.modal) return;                                       // a wizard over the page: the pictures stay as they are
+  const on = setting('ui.terminals', true);
+  for (const st of OV.strips.values()) for (const th of st.thumbs.values()) {
+    const running = st.phase === 'running' && !st.busy;
+    th.source.want(!on ? null : th.row.saved ? { kind: 'saved', sandbox: st.name, session: th.session, savedAt: th.row.savedAt || null }
+      : running ? { kind: 'live', sandbox: st.name, session: th.session } : null);
   }
-  if (!on) { stopCycle(); if (!OV.root || !OV.root.isConnected) dropStrips(); return; }
-  const cap = liveLimit();
-  // Cycling: more running pictures on screen than live slots — the hovered sandbox's keep theirs, the rest take turns.
-  const cand = all.filter(([st, th]) => th.visible && want(st, th) === 'live').map(([, th]) => th);
-  const cycling = cycleOn() && cap > 0 && cand.length > cap;
-  if (cycling) startCycle(); else stopCycle();
-  // The pictures that hold a live slot now: the hovered sandbox's first; then, cycling, the next of the rest in turn —
-  // else those already live, then the first in the page's order.
-  const firm = all.filter(([st, th]) => st.name === OV.hover && cand.includes(th)).map(([, th]) => th);
-  const turn = liveTurn(cand, firm, cap, cycling, OV.turn, (th) => th.kind === 'live');
-  OV.cand = cand.length;
-  paintCycleStatus();
-  // A live picture whose turn is over (or past the limit) lets go of its socket and keeps its last frame.
-  let live = 0;
-  for (const [, th] of all) {
-    if (!th.term || th.kind !== 'live') continue;
-    if (turn.has(th)) live++;
-    else { thumbFreeze(th.term); th.kind = 'frozen'; }
-  }
-  let savedN = all.filter(([, th]) => th.term && th.kind !== 'live').length;
-  // 647: at most MAKE_PER_PASS engines made a pass; the rest in the next one, in idle time.
-  let made = 0, more = false;
-  const make = (st, th, saved, kind) => {
-    if (made >= MAKE_PER_PASS) { more = true; return false; }
-    th.term = thumbTerm(st.name, th.session, saved, th.screen); th.kind = kind; made++;
-    return true;
-  };
-  for (const [st, th] of all) {
-    const w = want(st, th);
-    let plate = '';
-    if (!w) plate = 'no picture';
-    else if (!th.visible) plate = '';
-    else if (w === 'live') {
-      const room = turn.has(th) && live < cap && openSockets() < SOCKET_CEILING;
-      if (th.term && th.kind !== 'live' && room) { if (th.kind === 'frozen') thumbThaw(th.term); else thumbGoLive(th.term); th.kind = 'live'; live++; }
-      else if (!th.term) {
-        if (room) { if (make(st, th, null, 'live')) live++; }
-        // Past the live cap: its last captured screen (host.screen_capture_minutes — no socket), live once there is room.
-        else if (savedN < SAVED_MAX) { if (make(st, th, { savedAt: th.row.savedAt || null, savedReason: 'periodic' }, 'still')) savedN++; }
-        else plate = 'Not live — Open';
-      }
-    } else if (w === 'saved' && !th.term) {
-      if (savedN < SAVED_MAX) { if (make(st, th, th.row, 'saved')) savedN++; }
-      else plate = 'Show';
-    }
-    paintThumb(th, th.term ? (th.kind === 'still' ? 'saved' : th.kind) : null, plate);
-  }
-  if (more) whenIdle(schedule);
 }
-// Leaving the page (or hiding the tab) lets every picture go.
+// Leaving the page lets every picture go.
 window.addEventListener('hashchange', () => setTimeout(schedule, 0));
-document.addEventListener('visibilitychange', schedule);
 
 // ── 642 (owner): the bulk controls — on the ticked sandboxes, or all of them when none is ticked ─────────────────────
 /// Each control: the verb it asks of a sandbox in its phase (null: not for that one).

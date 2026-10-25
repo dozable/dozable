@@ -84,6 +84,27 @@
     for (const list of document.querySelectorAll('.marks')) list.textContent = 'the icon registry could not be read (' + e.message + ')';
   }
 
+  // 648: the painted session pictures — the dashboard's own painter (components/screen-paint.js) on sample screens read by
+  // its own VT reader (core/vt-grid.js); every <canvas data-sg-paint="NAME"> gets that sample.
+  try {
+    const WEB = ROOT + 'Sources/DozableWeb/WebSource/app/';
+    const { vtToGrid } = await import(WEB + 'core/vt-grid.js');
+    const { paintGrid } = await import(WEB + 'components/screen-paint.js');
+    const E = '\x1b[';
+    const samples = {
+      agent: vtToGrid(E + '38;2;217;119;87m╭' + '─'.repeat(78) + '╮\r\n│ ' + E + '1;39m✻ Welcome to Claude Code' + E + '38;2;217;119;87m' + ' '.repeat(53) + '│\r\n╰' + '─'.repeat(78) + '╯' + E + '0m\r\n\r\n'
+        + E + '90m> Add a filter to the todo list' + E + '0m\r\n\r\n' + E + '32m●' + E + '0m Editing src/components/TodoList.tsx\r\n  ⎿  ' + E + '42;30m+ const [filter, setFilter] = useState("all")' + E + '0m\r\n'
+        + '     ' + E + '41;30m- const items = todos' + E + '0m\r\n' + '\r\n'.repeat(12) + E + '90m' + '─'.repeat(80) + E + '0m\r\n> ' + E + '7m ' + E + '0m', 80, 24),
+      shell: vtToGrid(E + '32muser@todo-app' + E + '0m:' + E + '34m/workspace' + E + '0m$ git status\r\nOn branch main\r\nChanges not staged for commit:\r\n'
+        + E + '31m\tmodified:   src/components/TodoList.tsx' + E + '0m\r\n\r\n' + E + '32muser@todo-app' + E + '0m:' + E + '34m/workspace' + E + '0m$ ', 80, 24),
+      server: vtToGrid(E + '1;36m  VITE v5.4.2' + E + '0m  ready in 312 ms\r\n\r\n  ' + E + '32m➜' + E + '0m  Local:   ' + E + '36mhttp://localhost:5173/' + E + '0m\r\n  '
+        + E + '32m➜' + E + '0m  Network: use --host to expose\r\n\r\n' + E + '2m12:04:31' + E + '22m ' + E + '36m[vite]' + E + '0m hmr update /src/components/TodoList.tsx', 80, 24),
+    };
+    const paintAll = () => { for (const c of document.querySelectorAll('canvas[data-sg-paint]')) if (samples[c.dataset.sgPaint]) paintGrid(c, samples[c.dataset.sgPaint]); };
+    paintAll();
+    new ResizeObserver(paintAll).observe(document.body);
+  } catch (e) { console.warn('the painted pictures could not be drawn', e); }
+
   for (const e of document.querySelectorAll('[data-token]')) {
     e.textContent = getComputedStyle(document.documentElement).getPropertyValue(e.dataset.token).trim().replace(/\s+/g, ' ');
   }
