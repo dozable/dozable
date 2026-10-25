@@ -17,7 +17,8 @@ import DozableKit
 /// was started before an update keeps its own deckhold) drops a WATCH: that session is not asked again until
 /// it restarts or the sandbox runs again.
 extension HostCore {
-    private static func key(_ sandbox: String, _ session: String) -> String { sandbox + "\u{0}" + session }
+    /// The key of `statusWatches` and its companions (648: `HostCore+Grids` asks over the same watchers).
+    static func key(_ sandbox: String, _ session: String) -> String { sandbox + "\u{0}" + session }
 
     /// Open a watcher on `session` unless one runs, is being opened, or its holder cannot answer.
     func watchStatus(_ name: String, session: String) async {

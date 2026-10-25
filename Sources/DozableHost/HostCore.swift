@@ -103,6 +103,10 @@ public actor HostCore {
     var statusRetries: [String: Int] = [:]
     /// 635: the registry epoch each status watcher was opened under (keyed like `statusWatches`).
     var statusWatchEpochs: [String: UInt64] = [:]
+    /// 648: `session-grids` requests under way per sandbox (`HostCore+Grids`: at most `gridRequestsPerSandbox`).
+    var gridsInFlight: [String: Int] = [:]
+    /// 648, TESTS ONLY: whether a sandbox runs, instead of asking it (a unit test has no VM). nil: ask the sandbox.
+    var gridRunsForTests: (@Sendable (String) -> Bool)?
     /// 635: every sandbox's sessions from the host's own events (`SessionRegistry`, `HostCore+Sessions`).
     var sessionRegistry = SessionRegistry()
     /// 599d: GitHub tokens given with `doz key set NAME --github` from stdin — in this host's MEMORY only
@@ -705,6 +709,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await fileOpen(r))            // 644
         case .editors:
             return try JSONValue(encoding: await editors())                  // 646
+        case .sessionGrids:
+            return try JSONValue(encoding: try await sessionGrids(r))        // 648
         case .filesTree:
             let m = try get(r.name)
             return try JSONValue(encoding: FileTreeState.read(store, m.name) ?? FileTreeState(expanded: []))
