@@ -94,6 +94,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableHost/WorkspaceFileList.swift`, `HostCore+Files.swift`, `FileWatch.swift`; `Sources/DozableCLI/FileCommands.swift` (`FilesCommand`); `Sources/DozableWeb/WebFiles.swift`; `Sources/doz-vmtest/FilesSuite.swift` | 643: the file watcher — a folder's listing (the Mac for a shared workspace, the guest for an isolated one; the rules applied), the host op `files-list`, the FSEvents watch (coalescer, target, hub — CoreServices, audit), `doz files`, the files routes + their SSE stream; `FilesTests`, `WebFilesTests`, `make test-cli-files` |
 | `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
 | `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open Workspace — a shared workspace (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the host op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
+| `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1104,7 +1105,11 @@ may use it too.
   deckhold counts it as a viewer, so it does not answer a program's terminal query itself — accepted.
 - **Stored as text, not an image**: `NAME.vt` (the SNAPSHOT: VT that redraws the screen, capped at
   2 MiB keeping the newest lines after a soft reset), `NAME.txt` (DUMP's text, every control
-  character removed — what the CLI prints) and `NAME.json` (`SavedScreenInfo`). 0600 files in a 0700
+  character removed — what the CLI prints) and `NAME.json` (`SavedScreenInfo`). 648: and `NAME.grid.json` (the screen
+  as cells, `ScreenGrid` — what a tile paints in colour; `SavedScreenInfo.grid`, `SessionScreen.grid`, `WebSavedScreen.grid`)
+  when the holder's `ls` line announced GRID (`grid=1`): the capture is then HELLO 0×0 + GRID 0 + DUMP
+  (`captureWithGridRequest`) — never to an older holder, which would drop the capture at the GRID; a capture without
+  one REMOVES an earlier grid (never older than the text beside it); validated again when read. 0600 files in a 0700
   `screens/`, written atomically, and never into a sandbox directory that is gone. A capture drops the
   screens of sessions the guest no longer runs. Duplicate, fork, restore points and templates copy
   disks BY NAME — never the screens (`SavedScreensTests`).
@@ -1551,7 +1556,9 @@ may use it too.
   /tmp ran without asking). `probes/617-*/stageF/grok-status-run.sh` and `grok-blocked-run.sh` are the VM proofs.
 - **What deckhold exposes is the ROOT record**: in `deckhold ls`'s INFO (`status=<canonical report body>\tstatus_age=S`,
   BEFORE the command — an older parser takes an unknown field for the command, which comes last) and as STATUS
-  ('T') frames to a client that sent WATCH ('W'). Frame types are only ever appended (the header comment). An
+  ('T') frames to a client that sent WATCH ('W'). Frame types are only ever appended (the header comment). 648: the
+  WATCH answer announces GRID (`grid=1`), and the watcher is also the transport of `session-grids` (see "GRID only to
+  a holder that ANNOUNCED it"). An
   older holder (a session started before an update keeps its binary) drops a WATCH client: the host's watcher then
   ends with no STATUS frame (`SessionConnection.sawStatus`) and that session is not asked again until the next run.
 - **The host holds it in memory** (`HostCore+Status`): one watcher per session of a RUNNING sandbox
@@ -2360,6 +2367,25 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   last. `make deckhold-snapshot-check` (`Guest/deckhold/test/`: deckhold.c itself against a Mac build of the SAME
   ghostty commit) replays every snapshot on a fresh emulator and compares cell by cell (fixed cases + a seeded fuzz of
   screens × size changes; 0.30.1's source failed ~45 %). Run it on any change to `send_snapshot` or the ghostty pin.
+- **GRID only to a holder that ANNOUNCED it** (648, painted thumbnails). deckhold's `'G'` GRID `{gen u32}` is answered
+  with the screen as cells (binary, WIRE in deckhold.c: version, gen, changed 0/1/2, then cols, rows, cursor, default
+  colours and per row runs of `col, cells, flags, fg?, bg?, text`) built from libghostty-vt's RENDER STATE (one in `S`,
+  updated only when asked — never on the output path). `S.gen` starts at 1, never wraps to 0, moves with every read of
+  the program's output and every resize; an asked gen of 0 always gets the grid. An OLDER holder (a session started
+  before an update keeps its binary) DROPS a client on an unknown frame — on the status watcher that would end the
+  session's status — so a holder that knows GRID says so: its WATCH answer (the first `'T'`) starts with `grid=1`
+  (`SessionConnection.gridCapable`; an older host's STATUS parser ignores the field) and its `ls` INFO line carries
+  `grid=1` before the status and the command (`SessionInfo.grid` — the capture's check). `requestGrid` refuses
+  without it. The host op **`session-grids`** (`HostCore+Grids`, read-only: in-process every item is `no-host`): ≤ 64
+  `{sandbox, session, gen}` across any sandboxes, ONE GRID frame each on the status watcher the host already holds —
+  no new guest exec, no attach, no viewer — RUNNING sandboxes only (never a wake), ≤ 2 requests under way per sandbox,
+  ≤ 4 outstanding frames per watcher, 1 s each; answers `grid` | `unchanged` | `unavailable` + a fixed reason, in order.
+  The text is untrusted: `ScreenGrid.decode` checks every length and bound and makes it inert (C0/C1/DEL and bidi
+  controls → U+FFFD; 4 KiB a row; ≤ 1000×500). The web route **`POST /api/v1/grids`** (`WebGrids.swift`: CSRF, strict
+  `{items: [{sandbox, session, gen}]}`, `WebExposure` read) answers `{items: [{sandbox, session, state, grid?,
+  reason?}]}` (`reason` in plain words) through a RUNNING host only — with none every item is unavailable, nothing is
+  autostarted and nothing loaded in-process (the page polls twice a second). `make deckhold-grid-check` (every row's
+  text is the holder's screen, a fuzz), `ScreenGridTests`, `SessionGridsTests`, `WebGridsTests`, `make test-cli-grids`.
 - **A wake brings this build's deckhold** (`Sandbox.refreshDeckhold` in `.applyGuestFixes`): deckhold is copied in at
   a fresh boot; a wake compares the guest's `sha256sum` with this build's and, when they differ, stages it beside
   (`GuestCommand.deckholdStagingPath`) and RENAMES it over (only when the staged copy is exactly this build's). A
@@ -2456,6 +2482,9 @@ make test-vm-agentwrite # the agent (a non-root image user) writes shared worksp
 make dozview / dozview-verify # 599g: rebuild the guest view daemon (pinned Zig) / check the committed bytes
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
+make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
+make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing
+make test FILTER=Suite # the matching unit tests only (swift test --filter)
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the host and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
 make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a host killed mid-stop)
 make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)
