@@ -76,6 +76,9 @@ public enum WebRoute: Equatable, Sendable {
     case filesOpen(String)              // POST /api/v1/sandboxes/{name}/files/open   ({path, reveal?, app?})
     // 646 — the editors files/open's `app` takes on this Mac (read; mac-screen — only the Mac's own browser opens with one).
     case editors                        // GET  /api/v1/editors
+    // 648 — the dashboard's tiles painted from their screens (WebGrids.swift): the host's `session-grids` (a read; POST
+    // because it carries the pictures asked, with their gens; never starts a host).
+    case grids                          // POST /api/v1/grids   ({items: [{sandbox, session, gen}]} ≤ 64)
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -182,6 +185,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["workspace", "choose"]: return .workspaceChoose
         case (.post, 1) where rest[0] == "quick-add": return .quickAdd
         case (.post, 1) where rest[0] == "plan": return .plan
+        case (.post, 1) where rest[0] == "grids": return .grids
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite

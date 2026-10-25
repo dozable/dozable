@@ -343,6 +343,8 @@ public enum SettingKey {
     public static let detailsOpen = "ui.details_open"
     public static let gridLiveTiles = "ui.grid_live_tiles"
     public static let gridTileSize = "ui.grid_tile_size"
+    /// 648: how often the painted session pictures are brought up to date.
+    public static let gridRefreshMs = "ui.grid_refresh_ms"
     public static let progress = "ui.progress"
     /// 637: colour in the CLI — auto, always, never.
     public static let color = "ui.color"
@@ -523,10 +525,14 @@ public struct DozableSettings: Sendable {
                   "Also serve the dashboard to the other browsers of your network (every network interface of this Mac and Tailscale, never a sandbox's network) on the same port: each gets in once with an invite (doz ui share). false (the default): this Mac only. Where it listens and your reverse proxy: the serve.* settings.",
                   env: "DOZ_UI_LAN", flag: "doz ui --lan | --no-lan", applies: .uiRestart, ui: false),
             .init("ui", "grid_live_tiles", .int(1...12), .int(12),
-                  "All sessions and All sandboxes: at most this many pictures on screen show their session live at once (each is a socket — the dashboard keeps 4 of its 16 for the pages); the rest take turns or show their last screen. A sleeping sandbox's saved screens hold no socket and do not count. A sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and never more than this.",
+                  "No longer used — every session picture is live (painted from its screen, no terminal per picture). Kept so that an older settings file still reads without a warning.",
                   applies: .now),
             .init("ui", "grid_tile_size", .choice(["small", "medium", "large"]), .string("medium"),
                   "All sessions: the size of a tile.",
+                  applies: .now),
+            // 648 (owner: "keep at 500ms but make it a setting"): the one feed's period and Home's tab poll.
+            .init("ui", "grid_refresh_ms", .int(200...10_000), .int(500),
+                  "How often the session pictures (All sessions, All sandboxes, a sandbox's Home) are brought up to date, in milliseconds. Only pictures on screen are asked for, only while the browser tab is shown, and a screen that did not change costs almost nothing. Lower looks livelier and costs more.",
                   applies: .now),
             .init("ui", "progress", .choice(["animated", "plain"]), .string("animated"),
                   "How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a terminal: animated (a spinner on the step under way, download bars, the output's last lines) or plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR: always plain.",

@@ -114,17 +114,21 @@
 # (boolean; env DOZ_UI_LAN; flag doz ui --lan | --no-lan; applies when doz ui starts again (doz ui restart))
 # lan = false
 
-# All sessions and All sandboxes: at most this many pictures on screen show their session live at
-# once (each is a socket — the dashboard keeps 4 of its 16 for the pages); the rest take turns or
-# show their last screen. A sleeping sandbox's saved screens hold no socket and do not count. A
-# sandbox's Home shows at most 4 live pictures in its list (as many as this in its grid), and
-# never more than this.
+# No longer used — every session picture is live (painted from its screen, no terminal per
+# picture). Kept so that an older settings file still reads without a warning.
 # (integer 1–12; applies at once (the UI re-reads it))
 # grid_live_tiles = 12
 
 # All sessions: the size of a tile.
 # (small | medium | large; applies at once (the UI re-reads it))
 # grid_tile_size = "medium"
+
+# How often the session pictures (All sessions, All sandboxes, a sandbox's Home) are brought up to
+# date, in milliseconds. Only pictures on screen are asked for, only while the browser tab is
+# shown, and a screen that did not change costs almost nothing. Lower looks livelier and costs
+# more.
+# (integer 200–10000; applies at once (the UI re-reads it))
+# grid_refresh_ms = 500
 
 # How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a
 # terminal: animated (a spinner on the step under way, download bars, the output's last lines) or

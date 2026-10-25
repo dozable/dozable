@@ -15,7 +15,9 @@
 //                  {t:'live', mode}                       593: a SAVED screen becomes the live session
 //                                                          (interactive | watch) — only from saved
 //                  {t:'top'}                              593: scroll to the first line (a Boot log)
+//                  {t:'grid', gen}                        648: the screen as a GRID, unless it is still `gen`
 //   frame → page   {t:'ready'} · {t:'opened', cols, rows} · {t:'data', s} (keys, reports)
+//                  {t:'grid', grid} · {t:'grid', same: true}   648: the answer (core/grid.js has the shape)
 //                  {t:'resize', cols, rows} · {t:'title', s} · {t:'paste', text, bracketed}
 //                  {t:'paste-too-big', bytes} · {t:'failed'} (the engine did not load)
 //                  {t:'key'}                              593: a key was pressed on a SAVED screen —
@@ -115,7 +117,7 @@ async function init(wasm, m, fontSize) {
   fit.observeResize();
   if (pendingSize) { const s = pendingSize; pendingSize = null; sessionSize(s.cols, s.rows); }
   term.onData((s) => { if (mode === 'interactive') toPage({ t: 'data', s }); });
-  term.onResize((d) => toPage({ t: 'resize', cols: d.cols, rows: d.rows }));
+  term.onResize((d) => { screenGen = (screenGen % 0xffffffff) + 1; toPage({ t: 'resize', cols: d.cols, rows: d.rows }); });
   term.onTitleChange((s) => toPage({ t: 'title', s: String(s).slice(0, 120) }));
   guard(document.documentElement);
   mouseGuard(document.documentElement);
@@ -191,6 +193,7 @@ function sendReport(button, cell, release) {
 
 /// The wheel (the engine calls this first; true = handled, its own handler does nothing).
 function onWheel(ev) {
+  screenGen = (screenGen % 0xffffffff) + 1;                            // 648: the viewport may move
   const interactive = mode === 'interactive';
   if (interactive && tracking() && !ev.shiftKey) {
     const cell = cellAt(ev);
@@ -315,15 +318,85 @@ function valid(m) {
     case 'focus': case 'keep-scrollback': case 'top': return !!term && Object.keys(m).length === 1;
     case 'size': return (mode === 'watch' || mode === 'saved') && Number.isInteger(m.cols) && m.cols >= 2 && m.cols <= 1000
                         && Number.isInteger(m.rows) && m.rows >= 1 && m.rows <= 500 && Object.keys(m).length === 3;
+    case 'grid': return !!term && Number.isInteger(m.gen) && m.gen >= 0 && m.gen <= 0xffffffff && Object.keys(m).length === 2;
     default: return false;
   }
+}
+
+// ── 648: the screen as a GRID (the page's painted pictures — Home's picture of a session that has a tab). `gen` moves
+// with every change this frame makes to the screen (a write, a resize, a mode); a question with the current gen is
+// answered {t:'grid', same: true}. Built from the engine's render state: the viewport's cells with their resolved
+// colours (black background = the default), its default colours, the cursor. Text is made inert here too.
+let screenGen = 1;
+const GRID_ROW_TEXT = 4096;
+// The C0/C1 controls, DEL and the bidi controls never leave this frame as text.
+const NOT_INERT = /[\u0000-\u001f\u007f-\u009f‪-‮⁦-⁩]/g;
+const hex2 = (n) => (n & 255).toString(16).padStart(2, '0');
+const hex = (r, g, b) => '#' + hex2(r) + hex2(g) + hex2(b);
+function screenGrid() {
+  const w = term.wasmTerm;
+  w.update();
+  const { cols, rows } = w.getDimensions();
+  if (!(cols >= 1 && cols <= 1000 && rows >= 1 && rows <= 500)) return null;
+  const colours = w.getColors();
+  const dfg = hex(colours.foreground.r, colours.foreground.g, colours.foreground.b);
+  const dbg = hex(colours.background.r, colours.background.g, colours.background.b);
+  const cur = w.getCursor();
+  const cells = w.getViewport();                       // a pool the next call reuses: read it now
+  const lines = [];
+  for (let y = 0; y < rows; y++) {
+    const runs = [];
+    let run = null, used = 0;
+    for (let x = 0; x < cols; x++) {
+      const c = cells[y * cols + x];
+      if (!c) break;
+      if (c.width === 0) { if (run) run[5]++; continue; }            // a wide character's tail
+      const inv = (c.flags & 16) !== 0;
+      let fr = c.fg_r, fgc = c.fg_g, fb = c.fg_b, br = c.bg_r, bgc = c.bg_g, bb = c.bg_b;
+      const defaultBg = br === 0 && bgc === 0 && bb === 0;
+      if (inv) { [fr, fgc, fb, br, bgc, bb] = [defaultBg ? colours.background.r : br, defaultBg ? colours.background.g : bgc, defaultBg ? colours.background.b : bb, fr, fgc, fb]; }
+      let fg = hex(fr, fgc, fb), bg = inv || !defaultBg ? hex(br, bgc, bb) : null;
+      if (fg === dfg) fg = null;
+      if (bg === dbg) bg = null;
+      const flags = (c.flags & 1 ? 1 : 0) | (c.flags & 2 ? 2 : 0) | (c.flags & 4 ? 4 : 0) | (c.flags & 128 ? 8 : 0) | (inv ? 16 : 0);
+      let ch = ' ';
+      if (!(c.flags & 32)) {                                          // invisible text is drawn as blanks
+        if (c.grapheme_len > 0) ch = quietly(() => w.getGraphemeString(y, x), ' ') || ' ';
+        else if (c.codepoint) ch = String.fromCodePoint(c.codepoint);
+      }
+      if (run && run[2] === fg && run[3] === bg && run[4] === flags) { run[1] += ch; run[5]++; }
+      else { run = [x, ch, fg, bg, flags, 1]; runs.push(run); }
+    }
+    const kept = [];
+    for (const r of runs) {
+      if (!r[3] && !(r[4] & 4)) {                                     // blank default cells are left out
+        const lead = r[1].length - r[1].trimStart().length, trail = r[1].length - r[1].trimEnd().length;
+        if (lead === r[1].length) continue;
+        r[0] += lead; r[5] -= lead + trail; r[1] = r[1].slice(lead, r[1].length - trail);
+      }
+      r[1] = r[1].replace(NOT_INERT, '�');
+      if (used + r[1].length > GRID_ROW_TEXT) r[1] = r[1].slice(0, Math.max(0, GRID_ROW_TEXT - used));
+      used += r[1].length;
+      if (r[5] > 0 && r[0] + r[5] <= cols) kept.push(r);
+    }
+    lines.push(kept);
+  }
+  const cursor = cur && cur.visible && cur.x >= 0 && cur.x < cols && cur.y >= 0 && cur.y < rows ? { x: cur.x, y: cur.y } : null;
+  return { cols, rows, gen: screenGen, fg: dfg, bg: dbg, cursor, lines };
+}
+function answerGrid(asked) {
+  if (asked === screenGen) { toPage({ t: 'grid', same: true }); return; }
+  const g = quietly(screenGrid, null);
+  if (g) toPage({ t: 'grid', grid: g });
 }
 window.addEventListener('message', (ev) => {
   if (ev.source !== window.parent || !valid(ev.data)) { frameStats.dropped++; return; }
   const m = ev.data;
+  if (m.t !== 'grid' && m.t !== 'focus' && m.t !== 'paste') screenGen = (screenGen % 0xffffffff) + 1;   // 648: the screen may change
   switch (m.t) {
     case 'init': init(m.wasm, m.mode, m.fontSize).catch(() => toPage({ t: 'failed' })); break;
     case 'write': term.write(new Uint8Array(m.data)); break;
+    case 'grid': answerGrid(m.gen); break;
     case 'paste': if (mode === 'interactive') term.paste(m.text); break;
     case 'size': sessionSize(m.cols, m.rows); break;
     case 'focus': term.focus(); break;

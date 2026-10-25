@@ -202,7 +202,7 @@ doz builder start [--yes]      # container system start --enable-kernel-install 
 | `files editors` | What `files open --app` takes here: the known editors installed (found by bundle id, read-only), then `bridges.open_apps`. `--json`: `[{id, name}]`. |
 | (the `files` changes) | A shared workspace is changed on this Mac in any state — nothing started or woken, no host started — only inside the shared folder (a link never followed, a path out refused), with its workspace rules as the sandbox has them (a hidden item is not there; a locked or read-only one, or a folder holding one, is not changed; a new name the rules would hide, lock or make read-only is refused). An isolated sandbox is changed from inside as the image's user while it runs, refused otherwise. `--json`: what changed, and which folders' listings did. |
 | `sessions NAME` | The sandbox's terminal sessions. |
-| `sessions restart NAME SESSION [--fresh] [-d]` | End the session's program and start the same one again, in the same session and folder (an agent's own session continues its conversation; `--fresh`: a new one), then attach. Running sandboxes only. |
+| `sessions restart NAME SESSION [--fresh] [-d]` | End the session's program and start the same one again, in the same session and folder (every Claude Code session continues its own conversation, a Codex or pi sandbox's own session the folder's newest; `--fresh`: a new one), then attach. Running sandboxes only. |
 | `sessions end NAME SESSION` | End the session's program (hung up, then terminated, then killed). |
 | `ls` · `inspect NAME` | Every sandbox: image, phase, RAM held, disk, sessions, network · everything as JSON. |
 

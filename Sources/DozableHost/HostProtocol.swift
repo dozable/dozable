@@ -134,7 +134,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// (`SessionEnded`). A running sandbox only: it never wakes one.
     case sessionEnd = "session-end"
     /// 608: end it and open the SAME session again — the program, folder and user it was opened with
-    /// (`sessions.json`); an agent's default session continues its conversation unless `fresh`
+    /// (`sessions.json`); an agent's session continues its conversation unless `fresh` (648: each Claude Code session its own; else the default session only)
     /// (`SessionRestarted`). Serialised with open-session.
     case sessionRestart = "session-restart"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
@@ -176,12 +176,18 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// its disks, restore points, workspace, settings, account, policy and kept UI state go with it. Answered with its
     /// `SandboxInfo` under the new name. Changes the store: needs the host, like `rm`.
     case rename
+    /// 648: the pictures of running sessions as cells (`grids`: ≤ 64 `SessionGridRequest`s, any sandboxes) —
+    /// `[SessionGridAnswer]` in the order asked: `grid`, `unchanged` (the asked gen is current) or `unavailable` (why).
+    /// ONLY over the status watchers the host already holds (one GRID frame each — never a new guest exec), RUNNING
+    /// sandboxes only (never a wake or a start), and only to a holder that announced GRID. Read-only: in-process (no
+    /// host) every item is unavailable — there is no watcher.
+    case sessionGrids = "session-grids"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -427,6 +433,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var app: String?
     /// 644 `files-tree-set`: the open folders (nil clears them).
     public var fileTree: FileTreeState?
+    /// 648 `session-grids`: the pictures asked (≤ 64, any sandboxes).
+    public var grids: [SessionGridRequest]?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -926,6 +934,8 @@ public struct SessionScreen: Codable, Equatable, Sendable {
     /// The SNAPSHOT: VT bytes that redraw the screen on a blank terminal (guest bytes — render them in a
     /// terminal engine, never print them to one).
     public var vt: Data
+    /// 648: the screen as cells (inert text), when the capture had one — nil for an older one (paint the text).
+    public var grid: ScreenGrid? = nil
 
     public init(name: String, _ s: SavedScreen) {
         self.name = name
@@ -939,6 +949,68 @@ public struct SessionScreen: Codable, Equatable, Sendable {
         truncated = s.info.truncated
         text = s.text
         vt = s.vt
+        grid = s.grid
+    }
+}
+
+// MARK: 648 — painted thumbnails: `session-grids`
+
+/// One picture asked of `session-grids`: a session of a sandbox and the asker's last gen (0: none).
+public struct SessionGridRequest: Codable, Equatable, Sendable {
+    public var sandbox: String
+    public var session: String
+    public var gen: UInt32
+
+    public init(sandbox: String, session: String, gen: UInt32 = 0) {
+        self.sandbox = sandbox
+        self.session = session
+        self.gen = gen
+    }
+}
+
+/// One answer of `session-grids`, in the order asked.
+public struct SessionGridAnswer: Codable, Equatable, Sendable {
+    public enum State: String, Codable, Sendable { case grid, unchanged, unavailable }
+    /// Why there is no picture — a fixed word (`SessionGridAnswer.reasons`).
+    public enum Reason: String, Codable, Sendable, CaseIterable {
+        /// No such sandbox.
+        case notFound = "not-found"
+        /// The sandbox is not running (asleep, paused, off…): nothing is woken; its saved screen is the picture.
+        case notRunning = "not-running"
+        /// The host has no status watcher on the session whose holder announced GRID (an older deckhold, a session
+        /// the host does not know yet, one that ended).
+        case noWatcher = "no-watcher"
+        /// Too many requests for that sandbox right now.
+        case busy
+        /// The holder did not answer within a second.
+        case timeout
+        /// The screen is larger than a grid may be (1000×500, 4 MiB).
+        case tooLarge = "too-large"
+        /// No host runs (said by the web layer; the host never answers it).
+        case noHost = "no-host"
+        /// Not a session name.
+        case invalid
+    }
+
+    public var sandbox: String
+    public var session: String
+    public var state: State
+    /// The holder's gen now (`grid` and `unchanged`).
+    public var gen: UInt32?
+    public var grid: ScreenGrid?
+    public var reason: Reason?
+
+    public init(sandbox: String, session: String, state: State, gen: UInt32? = nil, grid: ScreenGrid? = nil, reason: Reason? = nil) {
+        self.sandbox = sandbox
+        self.session = session
+        self.state = state
+        self.gen = gen
+        self.grid = grid
+        self.reason = reason
+    }
+
+    public static func unavailable(_ r: SessionGridRequest, _ why: Reason) -> SessionGridAnswer {
+        SessionGridAnswer(sandbox: r.sandbox, session: r.session, state: .unavailable, reason: why)
     }
 }
 

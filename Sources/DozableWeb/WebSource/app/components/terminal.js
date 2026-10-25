@@ -11,6 +11,7 @@ import { bootViewOnStart, setting, terminalsAllowed } from '../core/settings.js'
 import { state } from '../core/state.js';
 import { INPUT_CHUNK, PASTE_CONFIRM_BYTES, PASTE_MAX_BYTES, sview, terminals, termUI } from '../core/terminals.js';
 import { isInt, quietly, utf8 } from '../core/util.js';
+import { validGrid } from '../core/grid.js';
 import { bridgeNotice, failureFor } from './notices.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
@@ -64,8 +65,24 @@ function validFrameMessage(m) {
     case 'paste-too-big': return n === 2 && isInt(m.bytes, 0, Number.MAX_SAFE_INTEGER);
     case 'key': return n === 1;
     case 'link': return n === 2 && typeof m.url === 'string' && m.url.length <= 2048;
+    // 648: the screen as a grid (Home's picture of a session that has a tab), or that it did not change.
+    case 'grid': return n === 2 && (m.same === true || (m.grid !== undefined && validGrid(m.grid)));
     default: return false;
   }
+}
+/// 648: the frame's screen as a GRID for Home's picture of this tab's session — `gen`: the last one painted. Resolves
+/// with the grid, 'same' (unchanged), or null (no engine, no answer within a second). One question at a time per tab.
+export function requestGrid(t, gen) {
+  if (!t || t.closed || !t.booted || !t.frame) return Promise.resolve(null);
+  if (t.gridAsk) return t.gridAsk.promise;
+  const ask = {};
+  ask.promise = new Promise((resolve) => {
+    ask.resolve = (v) => { clearTimeout(ask.timer); if (t.gridAsk === ask) t.gridAsk = null; resolve(v); };
+    ask.timer = setTimeout(() => ask.resolve(null), 1000);
+  });
+  t.gridAsk = ask;
+  toFrame(t, { t: 'grid', gen: isInt(gen, 0, 0xffffffff) ? gen : 0 });
+  return ask.promise;
 }
 window.addEventListener('message', (ev) => {
   const t = [...terminals.values()].find((x) => x.frame && x.frame.contentWindow === ev.source);
@@ -85,6 +102,7 @@ window.addEventListener('message', (ev) => {
     case 'paste-too-big': failureFor(t.sandbox, 'That paste is too big — a terminal takes at most 1 MiB at once'); break;
     case 'key': savedKey(t); break;
     case 'link': openLink(t, m.url); break;
+    case 'grid': if (t.gridAsk) t.gridAsk.resolve(m.same ? 'same' : m.grid); break;
   }
 });
 
@@ -355,7 +373,7 @@ function onTerminalMessage(t, ev) {
 }
 
 function onTerminalClose(t, ws, ev) {
-  if (ws === t.frozenWs) { t.frozenWs = null; return; }   // 642: a picture let go of its socket on purpose (freezeTerm)
+  if (ws === t.frozenWs) { t.frozenWs = null; return; }   // 642: a parked tab let go of its socket on purpose (freezeTerm)
   if (t.ws === ws) t.ws = null;
   clearInterval(t.pinger);
   if (t.closed || t.ended || t.errorText) return;
@@ -672,19 +690,13 @@ export function goLive(t) {
   connectTerminal(t);
 }
 
-/// 642 (owner: thumbnails cycled through a few live connections): a live watch picture lets go of its socket and keeps
-/// its last frame — `thawTerm` attaches it again (the attach's SNAPSHOT redraws it in place).
-export function freezeTerm(t) {
+/// 642: a terminal lets go of its socket and keeps its last frame (a parked tab, below); a reattach redraws it in place.
+function freezeTerm(t) {
   if (!t || !t.ws) return;
   const ws = t.ws;
   t.frozenWs = ws; t.ws = null;
   clearInterval(t.pinger);
   try { ws.close(1000, 'closed'); } catch (_) { /* already closing */ }
-}
-export function thawTerm(t) {
-  if (!t || t.ws || t.thawing || t.closed || !t.booted) return;
-  t.thawing = true;
-  connectTerminal(t).finally(() => { t.thawing = false; });
 }
 
 /// 642 (owner: "do the proper fix"): the tabs of a sandbox whose page is not shown let go of their sockets (the UI has

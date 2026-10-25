@@ -18,18 +18,14 @@ import { lifecycle, sessionsWhyNot } from '../components/lifecycle.js';
 import { moreMenu } from '../components/menus.js';
 import { failureFor } from '../components/notices.js';
 import { endSessionDialog, restartSessionDialog, sessionMenuItems } from '../components/session-actions.js';
-import { dropThumbTerm, liveCap, openSockets, paintThumb, thumbFrame, thumbGoLive, thumbTerm } from '../components/session-thumb.js';
+import { thumbFrame } from '../components/session-thumb.js';
 import { bootLogDialog, focusTerm, openConsoleTerminal, openDefaultTerminal, openTerminal } from '../components/terminal.js';
 import { openInTerminal, runDetachedDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal } from './sandbox-layout.js';
 import { newShellTerminal, openBuildLog, renderTerminals } from './sandbox-terminals.js';
 
-/// At most this many live pictures on Home (and never past ui.grid_live_tiles), and never when this page already holds
-/// SOCKET_CEILING of the UI's 16 terminal sockets — the rest are kept for real tabs.
-const HOME_LIVE_MAX = 4, SAVED_MAX = 8, SOCKET_CEILING = 12;
-
-/// Each sandbox's Home: its document and the parts that hold a picture (never rebuilt — moving or rebuilding an
-/// iframe reloads its engine), keyed by session.
+/// Each sandbox's Home: its document and the parts that hold a picture (built once and painted in place), keyed by
+/// session.
 const HOMES = new Map();
 
 function homeOf(name) {
@@ -43,15 +39,11 @@ function homeOf(name) {
   const logs = h('section', { class: 'home-sect', 'data-home-logs': '' });
   const folder = h('section', { class: 'home-sect', 'data-home-folder': '' });
   // 635 (owner): the sessions as a list (the agent's card, then rows) or as a grid of their live pictures — the same
-  // elements, laid out by CSS (`.as-grid`), so a picture's frame is never rebuilt by the switch.
+  // elements, laid out by CSS (`.as-grid`); a picture is painted again at its new size.
   const tiles = h('div', { class: 'home-tiles' }, cardBox, rowsBox);
   const doc = h('div', { class: 'home-doc' + (gridView() ? ' as-grid' : ''), role: 'tabpanel', 'aria-label': 'Home of ' + name, 'data-home': name },
     h('section', { class: 'home-sect', 'data-home-sessions': '' }, head, lead, tiles, endedBox), logs, folder);
-  home = { name, doc, head, lead, cardBox, rowsBox, endedBox, logs, folder, card: null, empty: null, rows: new Map(), io: null };
-  home.io = new IntersectionObserver((entries) => {
-    for (const e of entries) for (const th of thumbsOf(home)) if (th.el === e.target) th.visible = e.isIntersecting;
-    schedule(name);
-  }, { root: doc, rootMargin: '60px' });
+  home = { name, doc, head, lead, cardBox, rowsBox, endedBox, logs, folder, card: null, empty: null, rows: new Map() };
   HOMES.set(name, home);
   return home;
 }
@@ -144,7 +136,7 @@ export function paintHome(name) {
     if (home.empty) { home.empty.remove(); home.empty = null; }
     paintCard(home, name, ownRow, { title: ownTitle, isAgent: !!title, running, why, v });
   } else {
-    if (home.card) { dropThumbTerm(home.card.thumb.term); home.card.thumb.term = null; home.io.unobserve(home.card.thumb.el); home.card.el.remove(); home.card = null; }
+    if (home.card) { home.card.thumb.source.drop(); home.card.el.remove(); home.card = null; }
     const start = i.phase === 'off' || i.phase === 'failed'
       ? btn('Start ' + ownTitle, () => lifecycle('start', name), { icon: 'play', title: 'Boot ' + name + ' and open ' + ownTitle })
       : btn('Start ' + ownTitle, () => openDefaultTerminal(name), { icon: 'play', title: why || 'Start the image’s own session (' + own + ')' });
@@ -161,11 +153,11 @@ export function paintHome(name) {
   // ── the other sessions: a row each (live, or saved), in a stable order ──
   const others = (i.phase === 'running' ? live : saved).filter((r) => r.name !== own);
   const keep = new Set(others.map((r) => r.name));
-  for (const [k, r] of home.rows) if (!keep.has(k)) { dropThumbTerm(r.thumb.term); home.io.unobserve(r.thumb.el); r.el.remove(); home.rows.delete(k); }
+  for (const [k, r] of home.rows) if (!keep.has(k)) { r.thumb.source.drop(); r.el.remove(); home.rows.delete(k); }
   let prev = null;
   for (const row of others) {
     let r = home.rows.get(row.name);
-    if (!r) { r = makeRow(name, row.name); home.rows.set(row.name, r); home.io.observe(r.thumb.el); }
+    if (!r) { r = makeRow(name, row.name); home.rows.set(row.name, r); }
     paintRow(r, name, row, why);
     const next = prev ? prev.nextSibling : home.rowsBox.firstChild;
     if (next !== r.el) home.rowsBox.insertBefore(r.el, next);
@@ -191,7 +183,6 @@ function paintCard(home, name, row, o) {
     el.append(thumb.el, t, meta, msg, acts, note);
     home.card = { el, thumb, t, meta, msg, acts, note, session: row.name, row };
     home.cardBox.prepend(el);
-    home.io.observe(thumb.el);
   }
   const c = home.card;
   c.row = row;
@@ -291,65 +282,42 @@ function paintFolder(home, i) {
   home.folder.replaceChildren(h('div', { class: 'head has-title' }, h('h2', null, 'Folder')), h('dl', { class: 'home-facts' }, ...facts));
 }
 
-// ── the pictures: live only while Home is shown and the row is on screen; capped ─────────────────────────────────
+// ── the pictures (648: painted — components/session-thumb.js). Every session has one, however many: a session with a
+// tab here is mirrored from that tab's own frame, one without from the host's feed; a sleeping sandbox's from its saved
+// screen. They are asked for only while Home is the shown tab of a visible page and the picture is on screen (a hidden
+// Home is not on screen), and nothing is asked of a sandbox that does not run. ─────────────────────────────────────
 const scheduled = new Set();
 function schedule(name) {
   if (scheduled.has(name)) return;
   scheduled.add(name);
   setTimeout(() => { scheduled.delete(name); placeThumbs(name); }, 40);
 }
-function homeShown(name) {
-  const hp = homePane(name);
-  return !!hp && state.view === 'sandbox' && state.param === name && !state.modal && sview(name).selected[0] === hp.id
-    && document.visibilityState === 'visible';
-}
 function placeThumbs(name) {
   const home = HOMES.get(name);
   if (!home) return;
-  const shown = homeShown(name) && setting('ui.terminals', true);
   const s = state.sbx;
   const info = s && s.name === name && s.d ? s.d.info : null;
-  const running = !!info && info.phase === 'running' && !info.busy;
-  const thumbs = thumbsOf(home);
-  const cap = liveCap(gridView() ? SOCKET_CEILING : HOME_LIVE_MAX);   // the grid: as many as ui.grid_live_tiles allows
-  // Let go first (off screen, not shown, the wrong kind), so the cap counts only what stays.
-  for (const th of thumbs) {
-    const want = wantOf(th, running);
-    if (th.term && (!shown || !th.visible || !want || (want === 'saved' && th.kind !== 'saved'))) { dropThumbTerm(th.term); th.term = null; th.kind = null; }
-  }
-  let live = thumbs.filter((th) => th.term && th.kind === 'live').length;
-  let savedN = thumbs.filter((th) => th.term && th.kind !== 'live').length;
-  for (const th of thumbs) {
-    const want = wantOf(th, running);
-    let plate = '';
-    if (!shown || !want) plate = want ? '' : 'no picture';
-    else if (!th.visible) plate = '';
-    else if (want === 'live') {
-      // Room: under the cap, and a socket free (every open tab of every sandbox holds one of the UI's 16).
-      const room = live < cap && openSockets() < SOCKET_CEILING;
-      if (th.term && th.kind !== 'live' && room) { thumbGoLive(th.term); th.kind = 'live'; live++; }
-      else if (!th.term) {
-        if (room) { th.term = thumbTerm(name, th.session, null, th.screen); th.kind = 'live'; live++; }
-        // 642 (owner: "why are these thumbnails not live"): no room — its last captured screen (no socket), live once
-        // there is room.
-        else if (savedN < SAVED_MAX) { th.term = thumbTerm(name, th.session, { savedAt: th.row.savedAt || null, savedReason: 'periodic' }, th.screen); th.kind = 'still'; savedN++; }
-        else plate = 'Not live — Open';
-      }
-    } else if (want === 'saved' && !th.term) {
-      if (savedN < SAVED_MAX) { th.term = thumbTerm(name, th.session, th.row, th.screen); th.kind = 'saved'; savedN++; }
-      else plate = 'Show';
-    }
-    paintThumb(th, th.term ? (th.kind === 'still' ? 'saved' : th.kind) : null, plate);
+  // The sandbox page's detail is of another sandbox (or not read yet): this Home's pictures stay as they are.
+  if (!info) return;
+  const running = info.phase === 'running' && !info.busy;
+  let live = 0;
+  for (const th of thumbsOf(home)) {
+    th.source.want(specOf(name, th, running));
+    if (th.source.spec && th.source.spec.kind === 'live') live++;
   }
   home.doc.dataset.live = String(live);
 }
-function wantOf(th, running) {
+/// The picture a thumbnail shows: the session's tab when it has one here (the tab's own frame), else the feed; saved.
+function specOf(name, th, running) {
   const r = th.row;
   if (!r || r.ended) return null;
-  if (r.saved) return 'saved';
-  return running ? 'live' : null;
+  if (r.saved) return { kind: 'saved', sandbox: name, session: th.session, savedAt: r.savedAt || null };
+  if (!running || !setting('ui.terminals', true)) return null;
+  const tab = pageTerminals(name).find((t) => t.session === th.session && !t.saved && !t.ended && !t.closed && t.booted && t.frame
+    && (t.mode === 'interactive' || t.mode === 'watch'));
+  return { kind: 'live', sandbox: name, session: th.session, tab: tab || null };
 }
-/// Leaving the page (or its tab hidden): every picture of every Home lets go.
+/// Tabs change (opened, closed, booted): Home's pictures follow on its next paint; and when the page's tab comes back.
 function placeAll() { for (const name of HOMES.keys()) schedule(name); }
 window.addEventListener('hashchange', () => setTimeout(placeAll, 0));
 document.addEventListener('visibilitychange', placeAll);

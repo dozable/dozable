@@ -1,17 +1,20 @@
-// components/session-thumb — A session's screen, small: a live (watch) or saved terminal laid out at its own geometry
-// and scaled. All sessions' tiles (593) and the sandbox Home's thumbnails (635) both draw theirs with it.
+// components/session-thumb — A session's screen, small. 648: every picture on All sessions, All sandboxes and a sandbox's
+// Home is PAINTED on a canvas from a grid (components/screen-paint.js) — no terminal engine, no frame, no socket: a
+// running session's from the host's feed (components/grid-feed.js), or on Home from its own tab's frame when it has
+// one; a sleeping sandbox's from its saved screen. Only Larger on hover and the sidebar's peek are a real (watch)
+// terminal still: `thumbTerm`, laid out at its session's geometry and scaled.
 import { h } from '../dom/h.js';
 import { when } from '../core/format.js';
-import { setting } from '../core/settings.js';
-import { terminals } from '../core/terminals.js';
-import { bootTerm, closeTerminal, freezeTerm, goLive, newTerm, paintCover, thawTerm } from './terminal.js';
+import { feedSubscribe, isVisible, refreshMs, savedPicture, watchVisible } from './grid-feed.js';
+import { picture } from './screen-paint.js';
+import { bootTerm, closeTerminal, newTerm, paintCover, requestGrid } from './terminal.js';
 
-/// The virtual size a thumbnail's terminal is laid out at (then scaled by CSS): the grid's tile size.
+/// The virtual size a peek's terminal is laid out at (then scaled by CSS).
 export const THUMB_COLS_PX = 960, THUMB_ROWS_PX = 560;
 
-/// Attach a terminal for `session` into `screen` (an element laid out at 960 × 560): a WATCH terminal (no size of its
-/// own, nothing typed — a viewer that never resizes the session), or its SAVED screen when `saved` is given (no socket:
-/// it keeps no host alive). Not a tab of any page (`grid`). Returns the terminal.
+/// A WATCH terminal for `session` in `screen` (an element laid out at 960 × 560) — no size of its own, nothing typed, a
+/// viewer that never resizes the session — or its SAVED screen when `saved` is given (no socket: it keeps no host
+/// alive). Not a tab of any page (`grid`). The sidebar's peek and Larger on hover. Returns the terminal.
 export function thumbTerm(sandbox, session, saved, screen) {
   const t = newTerm(sandbox, session, 'watch');
   t.grid = true;
@@ -21,68 +24,133 @@ export function thumbTerm(sandbox, session, saved, screen) {
   bootTerm(t, 13);
   return t;
 }
-
 /// Let it go: its socket closes, its frame and engine instance go.
 export function dropThumbTerm(t) { if (t) closeTerminal(t.id); }
 
-/// A saved thumbnail whose sandbox runs again becomes the live one in place (the frame leaves saved mode).
-export function thumbGoLive(t) { if (t && t.saved) goLive(t); }
-
-/// 642: a live thumbnail lets go of its socket and keeps its last frame; and attaches again.
-export function thumbFreeze(t) { freezeTerm(t); }
-export function thumbThaw(t) { thawTerm(t); }
-
-/// How many sockets this page holds now (every terminal with one) — the server allows 16 per UI.
-export function openSockets() { return [...terminals.values()].filter((t) => t.ws).length; }
-
-/// The live thumbnails a page may hold at once: ui.grid_live_tiles, at most `max`.
-export function liveCap(max) { return Math.max(1, Math.min(max, Number(setting('ui.grid_live_tiles', 12)) || 12)); }
-
-// 647 (owner: "scrolling is not smooth when thumbnail positions come into view … make sure that they are not blocking the
-// UI"): a picture's engine is a frame that loads and compiles the terminal engine — work on the page's own thread. So a
-// page of pictures (All sessions, All sandboxes) never makes, attaches or lets go of one while the document scrolls: its
-// pass waits until the scroll has rested; it makes at most MAKE_PER_PASS engines a pass, the next pass in idle time; and a
-// picture that scrolls off keeps its engine (only its socket goes) while it is NEAR — within a screen of the view — so
-// scrolling back shows it at once instead of loading it again.
-const SCROLL_REST_MS = 150;
-export const MAKE_PER_PASS = 2;
-/// The margin of the observer that says a picture is near: a screen above and below the view.
-export const NEAR_MARGIN = '100% 0px';
-let scrolledAt = 0;
-window.addEventListener('scroll', () => { scrolledAt = performance.now(); }, { passive: true });
-/// Run `fn` once the document is not scrolling — at once when it is not.
-export function whenScrollRests(fn) {
-  const wait = SCROLL_REST_MS - (performance.now() - scrolledAt);
-  if (wait > 0) setTimeout(() => whenScrollRests(fn), wait);
-  else fn();
+// ── a painted picture's source ───────────────────────────────────────────────
+/// What a picture shows, and from where (`want(spec)`):
+///   null                                         nothing (its plain background)
+///   {kind: 'live', sandbox, session}             the host's feed; when it cannot give it, the session's last saved
+///                                                 screen (state `last`), else none
+///   {kind: 'live', sandbox, session, tab}        on Home: the tab's own frame (a terminal record), polled while the
+///                                                 picture is on screen — the feed once the tab is gone
+///   {kind: 'saved', sandbox, session, savedAt}   its saved screen, fetched once it is on screen
+/// `onState({kind, savedAt?, reason?})` — kind live | saved | last | pending | none | null — after each change.
+export function pictureSource(canvas, onState) {
+  const pic = picture(canvas);
+  const s = { canvas, pic, spec: null, key: '', sub: null, tabGen: 0, asking: false, unwatch: null, state: null };
+  const set = (state) => { s.state = state; onState(state); };
+  const stop = () => {
+    if (s.sub) { s.sub.drop(); s.sub = null; }
+    if (s.unwatch) { s.unwatch(); s.unwatch = null; }
+    tabPolls.delete(s);
+  };
+  // When the live screen cannot be had: the session's last saved one (a running session's periodic capture), else none.
+  const fallback = (key, reason) => {
+    savedPicture(s.spec.sandbox, s.spec.session, null).then((got) => {
+      if (s.key !== key) return;
+      if (got) { pic.show(got.grid, 'saved:' + got.savedAt); set({ kind: 'last', savedAt: got.savedAt, reason }); }
+      else set({ kind: 'none', reason });
+    });
+  };
+  s.want = (spec) => {
+    const key = spec ? [spec.kind, spec.sandbox, spec.session, spec.tab ? spec.tab.id : '', spec.savedAt || ''].join('|') : '';
+    if (key === s.key) return;
+    stop();
+    s.key = key; s.spec = spec;
+    if (!spec) { pic.clear(); set({ kind: null }); return; }
+    if (spec.kind === 'live' && spec.tab) {
+      s.tabGen = 0;
+      s.unwatch = watchVisible(canvas, (v) => { if (v) pollTabs(); });
+      tabPolls.add(s);
+      startTabPolls();
+      if (!s.state || s.state.kind !== 'live') set({ kind: 'pending' });
+    } else if (spec.kind === 'live') {
+      s.sub = feedSubscribe(spec.sandbox, spec.session, canvas, (r) => {
+        if (s.key !== key) return;
+        if (r.state === 'grid') { pic.show(r.grid, 'host'); set({ kind: 'live' }); }
+        else fallback(key, r.reason);
+      });
+      if (!s.state || s.state.kind !== 'live') set({ kind: 'pending' });
+    } else {
+      let asked = false;
+      s.unwatch = watchVisible(canvas, (v) => {
+        if (!v || asked) return;
+        asked = true;
+        savedPicture(spec.sandbox, spec.session, spec.savedAt).then((got) => {
+          if (s.key !== key) return;
+          if (got) { pic.show(got.grid, 'saved:' + (got.savedAt || spec.savedAt)); set({ kind: 'saved', savedAt: got.savedAt || spec.savedAt }); }
+          else set({ kind: 'none', reason: 'no saved screen' });
+        });
+      });
+      if (!s.state || s.state.kind !== 'saved') set({ kind: 'pending' });
+    }
+  };
+  s.set = set;
+  s.drop = () => { stop(); s.key = ''; s.spec = null; pic.drop(); };
+  return s;
 }
-/// Run `fn` in the browser's idle time (soon, whatever).
-export function whenIdle(fn) {
-  if (typeof requestIdleCallback === 'function') requestIdleCallback(() => fn(), { timeout: 300 });
-  else setTimeout(fn, 16);
+
+// Home's pictures of sessions with a tab: ONE timer for all of them, every ui.grid_refresh_ms (the feed's period) while
+// any is on screen and the browser tab is visible; each asks its tab's frame for the screen unless it is still the gen it
+// painted. The timer re-arms itself, so a changed setting applies at the next pass.
+const tabPolls = new Set();
+let tabTimer = null;
+function startTabPolls() { if (!tabTimer) tabTimer = setTimeout(tabPass, refreshMs()); }
+function tabPass() {
+  tabTimer = null;
+  pollTabs();
+  if (tabPolls.size) startTabPolls();
+}
+function pollTabs() {
+  if (!tabPolls.size) return;
+  if (document.visibilityState !== 'visible') return;
+  for (const s of [...tabPolls]) {
+    const tab = s.spec && s.spec.tab;
+    if (!tab) continue;
+    // The tab is gone (closed, or it ended): the host's feed from now on.
+    if (tab.closed || tab.ended) { s.want({ kind: 'live', sandbox: s.spec.sandbox, session: s.spec.session }); continue; }
+    if (s.asking || !isVisible(s.canvas) || !s.canvas.isConnected) continue;
+    s.asking = true;
+    const key = s.key;
+    requestGrid(tab, s.tabGen).then((r) => {
+      s.asking = false;
+      if (s.key !== key || !r || r === 'same') return;
+      s.tabGen = r.gen;
+      s.pic.show(r, 'tab:' + tab.id);
+      if (!s.state || s.state.kind !== 'live') s.set({ kind: 'live' });
+    });
+  }
 }
 
-/// A thumbnail's frame: a button (a click is Open, or Show) holding the scaled screen, a plate for when it is not
-/// drawn, and a badge (live · saved). Text only.
+// ── a thumbnail: a button holding the picture, a plate for when there is none, and a badge ───────────────────────
+/// A thumbnail's frame: a button (a click is Open, or Show) holding the painted picture (a canvas), a plate for when it
+/// shows nothing, and a badge (live · saved · last screen). Text only. `th.source` is its `pictureSource`.
 export function thumbFrame(label, onClick, big) {
-  const screen = h('div', { class: 'thumb-screen' });
+  const canvas = h('canvas', { class: 'thumb-paint', 'aria-hidden': 'true' });
   const plate = h('span', { class: 'th-plate' });
   const badge = h('span', { class: 'th-badge', hidden: true });
   const el = h('button', { type: 'button', class: 'home-thumb' + (big ? ' big' : ''), 'aria-label': label, title: label,
-    on: { click: (ev) => { ev.stopPropagation(); onClick(); } } }, screen, plate, badge);
-  return { el, screen, plate, badge, term: null, kind: null, visible: false };
+    on: { click: (ev) => { ev.stopPropagation(); onClick(); } } }, canvas, plate, badge);
+  const th = { el, canvas, plate, badge, kind: null, plateText: '' };
+  th.source = pictureSource(canvas, (st) => paintThumb(th, st));
+  return th;
 }
 
-/// Say what a thumbnail shows: its kind (live | saved | frozen — 642: its last live frame, between turns | null) and,
-/// when it shows nothing, why.
-export function paintThumb(th, kind, plateText) {
-  th.el.dataset.kind = kind || 'none';
+/// Say what a thumbnail shows (`st` from its source): live · saved N ago · last screen, or nothing with why (the plate).
+export function paintThumb(th, st) {
+  const kind = st ? st.kind : null;
+  th.kind = kind;
+  const drawn = kind === 'live' || kind === 'saved' || kind === 'last';
+  th.el.dataset.kind = drawn ? kind : kind === 'pending' ? 'pending' : 'none';
   th.el.classList.toggle('saved', kind === 'saved');
-  th.plate.hidden = !!th.term;
-  th.plate.textContent = th.term ? '' : (plateText || '');
-  th.badge.hidden = !th.term;
+  const plateText = drawn || kind === 'pending' ? '' : (st && st.reason) || th.plateText || 'no picture';
+  th.plate.hidden = !plateText;
+  th.plate.textContent = plateText;
+  th.badge.hidden = !drawn;
+  if (!drawn) { th.badge.replaceChildren(); return; }
   // 642 (owner): a saved screen says how long ago it was saved.
-  const at = kind === 'saved' && th.term && th.term.saved ? th.term.saved.savedAt : null;
-  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'frozen' ? ['th-frozen', 'paused'] : ['th-saved', at ? 'saved ' + when(at) : 'saved'];
-  if (th.term) th.badge.replaceChildren(h('span', { class: cls, 'aria-hidden': 'true' }), word);
+  const [cls, word] = kind === 'live' ? ['th-live', 'live'] : kind === 'last' ? ['th-frozen', 'last screen']
+    : ['th-saved', st.savedAt ? 'saved ' + when(st.savedAt) : 'saved'];
+  th.badge.replaceChildren(h('span', { class: cls, 'aria-hidden': 'true' }), word);
 }

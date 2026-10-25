@@ -145,7 +145,10 @@ the viewer's size, then the program's own bytes. That is why a session survives 
 (which severs every exec's stdio) — the viewer simply reattaches. Programs are started **without**
 `sh -c` and with every signal reset to default (BusyBox `sh` leaks an ignored SIGQUIT, which a
 program cannot trap). The wire protocol and the snapshot image spec are documented in
-[`Guest/deckhold/deckhold.c`](Guest/deckhold/deckhold.c).
+[`Guest/deckhold/deckhold.c`](Guest/deckhold/deckhold.c). A status watcher (`watchStatus(name)`) can
+also ask for the screen as cells — `requestGrid(gen:)` → `ScreenGrid` (runs of styled text, resolved
+colours, the cursor; the text made inert) — but only of a holder that announced it (`gridCapable`): an
+older holder drops a client on a frame it does not know.
 
 **NAT subnets.** A `.nat` sandbox whose spec names no `subnet` gets a free vmnet /24 of its
 own from 192.168.100–199.0/24 — never one a network interface of the Mac is already on (the LAN, a

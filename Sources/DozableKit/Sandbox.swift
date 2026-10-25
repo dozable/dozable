@@ -2133,7 +2133,8 @@ public actor Sandbox {
             }
             guard ContinuousClock.now < deadline else { report.failed.append(s.name); continue }
             do {
-                guard let shot = try await Self.captureScreen(on: container, session: s.name,
+                // 648: a holder whose `ls` line announced GRID is asked for it in the same request.
+                guard let shot = try await Self.captureScreen(on: container, session: s.name, grid: s.grid,
                                                               timeout: SavedScreens.perSessionTimeoutSeconds) else {
                     report.failed.append(s.name)
                     continue
@@ -2148,7 +2149,7 @@ public actor Sandbox {
                 let info = SavedScreenInfo(session: s.name, savedAt: Date(), reason: reason, cols: d.cols ?? s.size?.cols,
                                            rows: d.rows ?? s.size?.rows, screen: d.screen ?? s.screen, command: s.command,
                                            pid: s.pid, bytesOut: s.bytesOut)
-                try SavedScreens.write(layout, info: info, vt: shot.snapshot, text: d.text)
+                try SavedScreens.write(layout, info: info, vt: shot.snapshot, text: d.text, grid: shot.grid)
                 report.captured.append(s.name)
             } catch {
                 report.failed.append(s.name)
@@ -2171,17 +2172,20 @@ public actor Sandbox {
         var dump = ""
         /// Set when the session had already ended (no screen).
         var exitCode: Int32?
+        /// 648: the screen as cells, when the holder announced GRID and answered it.
+        var grid: ScreenGrid?
     }
 
     /// One capture: `deckhold pipe` as a non-terminal exec, written `DeckholdFrame.captureRequest`
     /// (HELLO 0×0 — the session keeps its size, nothing is typed — then DUMP); read until the DUMP's
     /// answer, then its stdin closes and the pipe exits. Nil: the session does not exist (or answered
     /// nothing in time). The exec is always deleted (deletion closes its vminitd client).
-    static func captureScreen(on container: LinuxContainer, session: String, timeout: Int64) async throws -> CapturedScreen? {
+    /// 648: `grid` (the holder's `ls` line said `grid=1`) — `captureWithGridRequest`, the GRID between the two.
+    static func captureScreen(on container: LinuxContainer, session: String, grid: Bool = false, timeout: Int64) async throws -> CapturedScreen? {
         let collector = ScreenCollector()
         let (input, cont) = AsyncStream<Data>.makeStream(bufferingPolicy: .unbounded)
         collector.onDone = { cont.finish() }
-        cont.yield(DeckholdFrame.captureRequest)
+        cont.yield(grid ? DeckholdFrame.captureWithGridRequest : DeckholdFrame.captureRequest)
         let p = try await container.exec("s-\(UUID().uuidString.prefix(12).lowercased())") { cfg in
             cfg.arguments = GuestCommand.pipe(name: session)
             cfg.environmentVariables = GuestCommand.environment()

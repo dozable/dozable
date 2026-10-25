@@ -132,6 +132,48 @@ final class SessionRestartTests: XCTestCase {
         XCTAssertTrue(AgentImages.codexLauncherScript.contains("exec|e|resume|fork)"))
     }
 
+    /// 648: every Claude session resumes ITS conversation — found from Claude Code's record of the process — never the
+    /// folder's newest (two sessions in one folder would both reopen one). The guest check runs under /bin/sh here.
+    func testEachClaudeSessionResumesItsOwnConversation() throws {
+        XCTAssertNil(SessionResume.exactCheck(for: .codex, pid: 7), "no per-process record: the default session's --last only")
+        XCTAssertNil(SessionResume.exactCheck(for: .pi, pid: 7))
+        XCTAssertNil(SessionResume.exactCheck(for: .claudeCode, pid: nil))
+        XCTAssertNil(SessionResume.exactCheck(for: .claudeCode, pid: 0))
+        let script = try XCTUnwrap(SessionResume.exactCheck(for: .claudeCode, pid: 7390))
+
+        let home = FileManager.default.temporaryDirectory.appendingPathComponent("doz-resume-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: home) }
+        let id = "dea19ba5-93a9-4f78-b84e-955b0234cec4"
+        try FileManager.default.createDirectory(at: home.appendingPathComponent(".claude/sessions"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: home.appendingPathComponent(".claude/projects/-workspace"), withIntermediateDirectories: true)
+        // Claude Code 2.1.304's record, as found in a sandbox.
+        try #"{"pid":7390,"sessionId":"\#(id)","cwd":"/workspace","startedAt":1792956399473,"kind":"interactive"}"#
+            .write(to: home.appendingPathComponent(".claude/sessions/7390.json"), atomically: true, encoding: .utf8)
+        func run() throws -> String {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/bin/sh")
+            p.arguments = ["-c", script]
+            p.environment = ["HOME": home.path, "PATH": "/usr/bin:/bin"]
+            let out = Pipe()
+            p.standardOutput = out
+            try p.run()
+            p.waitUntilExit()
+            return String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        }
+        XCTAssertEqual(try run(), "", "a conversation with no transcript yet is not resumed (claude --resume would refuse it)")
+        try "{}\n".write(to: home.appendingPathComponent(".claude/projects/-workspace/\(id).jsonl"), atomically: true, encoding: .utf8)
+        let out = try run()
+        XCTAssertEqual(out, "resume-id \(id)\n")
+        XCTAssertEqual(SessionResume.exactArguments(for: .claudeCode, checkOutput: out), ["--resume", id])
+        // Only a UUID ever reaches the argv; only Claude Code's answer is read.
+        XCTAssertEqual(SessionResume.exactArguments(for: .claudeCode, checkOutput: "resume-id ; rm -rf /\n"), [])
+        XCTAssertEqual(SessionResume.exactArguments(for: .claudeCode, checkOutput: "resume-id --dangerous\n"), [])
+        XCTAssertEqual(SessionResume.exactArguments(for: .codex, checkOutput: out), [])
+        // Another process's record is not this one's.
+        let other = try XCTUnwrap(SessionResume.exactCheck(for: .claudeCode, pid: 7474))
+        XCTAssertTrue(other.contains("sessions/7474.json"))
+    }
+
     func testTheResultsTravel() throws {
         let r = SessionRestarted(name: "x", session: "codex", ended: "hangup", resumed: true, command: "codex resume --last", notice: nil)
         XCTAssertEqual(try HostWire.decoder.decode(SessionRestarted.self, from: HostWire.encoder.encode(r)), r)

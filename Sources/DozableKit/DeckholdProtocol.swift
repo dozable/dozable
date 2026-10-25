@@ -9,6 +9,9 @@ public enum DeckholdFrame: Equatable, Sendable {
     case resize(TermSize)
     /// 612: become a status watcher — answered with STATUS frames, never DATA (deckhold's 'W').
     case watch
+    /// 648: the screen as cells, asked with the asker's last gen (0: none) — deckhold's 'G'. Sent ONLY to a holder
+    /// that announced it (`grid=1` in its WATCH answer or its `ls` line): an older holder drops the client.
+    case gridRequest(UInt32)
     // holder → client
     case snapshot(Data)
     case output(Data)
@@ -17,6 +20,8 @@ public enum DeckholdFrame: Equatable, Sendable {
     case noSession
     /// 612: the program's root status record as text (`ProgramStatus.parse(frame:)`), or "" — none.
     case status(String)
+    /// 648: a GRID answer, as sent (`ScreenGrid.decode` reads it).
+    case grid(Data)
 
     /// Frames larger than this are a protocol error (deckhold drops such a client too).
     public static let maxPayload = 1 << 24
@@ -25,6 +30,17 @@ public enum DeckholdFrame: Equatable, Sendable {
     /// program is not resized, nothing is typed) — answered with a SNAPSHOT — then DUMP, answered with
     /// the screen as plain text, after which deckhold closes this client.
     public static let captureRequest: Data = hello(TermSize(cols: 0, rows: 0)).encoded + Data([UInt8(ascii: "P"), 0, 0, 0, 0])
+
+    /// 648: the capture of a holder that announced GRID (its `ls` line's `grid=1`): HELLO 0×0, GRID (gen 0: the grid
+    /// whatever it is), DUMP — answered in that order (SNAPSHOT, GRID, the text). Never sent to an older holder: it
+    /// would drop the client at the GRID and the capture would get no text either.
+    public static let captureWithGridRequest: Data = hello(TermSize(cols: 0, rows: 0)).encoded + gridRequest(0).encoded
+        + Data([UInt8(ascii: "P"), 0, 0, 0, 0])
+
+    /// 648: whether a STATUS frame's text (the WATCH answer) announces GRID — a `grid=1` field.
+    public static func announcesGrid(_ statusText: String) -> Bool {
+        statusText.split(separator: "\t").contains("grid=1")
+    }
 
     public var typeByte: UInt8 {
         switch self {
@@ -37,6 +53,7 @@ public enum DeckholdFrame: Equatable, Sendable {
         case .noSession: UInt8(ascii: "N")
         case .watch: UInt8(ascii: "W")
         case .status: UInt8(ascii: "T")
+        case .gridRequest, .grid: UInt8(ascii: "G")
         }
     }
 
@@ -46,8 +63,10 @@ public enum DeckholdFrame: Equatable, Sendable {
         switch self {
         case .hello(let s), .resize(let s):
             payload.append(contentsOf: [UInt8(s.cols >> 8), UInt8(s.cols & 0xFF), UInt8(s.rows >> 8), UInt8(s.rows & 0xFF)])
-        case .data(let d), .output(let d), .snapshot(let d):
+        case .data(let d), .output(let d), .snapshot(let d), .grid(let d):
             payload = d
+        case .gridRequest(let gen):
+            payload.append(contentsOf: [UInt8(gen >> 24), UInt8((gen >> 16) & 0xFF), UInt8((gen >> 8) & 0xFF), UInt8(gen & 0xFF)])
         case .exit(let code):
             let u = UInt32(bitPattern: code)
             payload.append(contentsOf: [UInt8(u >> 24), UInt8((u >> 16) & 0xFF), UInt8((u >> 8) & 0xFF), UInt8(u & 0xFF)])
@@ -96,6 +115,7 @@ public struct DeckholdFrameDecoder: Sendable {
             case UInt8(ascii: "I"): frames.append(.info(String(decoding: payload, as: UTF8.self)))
             case UInt8(ascii: "N"): frames.append(.noSession)
             case UInt8(ascii: "T"): frames.append(.status(String(decoding: payload, as: UTF8.self)))
+            case UInt8(ascii: "G"): frames.append(.grid(payload))
             default: throw DecodeError.unknownType(type)
             }
         }
@@ -121,6 +141,8 @@ public struct SessionInfo: Sendable, Equatable {
     public var exitCode: Int32?
     /// 612: what the program says it is doing (OSC 7501's root record), when it said anything.
     public var status: ProgramStatus?
+    /// 648: its holder answers GRID (`grid=1` in its line) — only then may a GRID frame be sent to it.
+    public var grid = false
 
     public var isEnded: Bool { exitCode != nil }
 
@@ -138,7 +160,7 @@ public struct SessionInfo: Sendable, Equatable {
     }
 
     /// Parses `deckhold ls` output. Live: `NAME\tpid=…\tsize=CxR\tclients=…\tscreen=…\thistory=…\tbytes=…\tCMD`
-    /// (612: `status=…\tstatus_age=…` before CMD when the program reported a status);
+    /// (612: `status=…\tstatus_age=…` before CMD when the program reported a status; 648: `grid=1` before those);
     /// ended: `NAME\tended=CODE`; a dead socket: `NAME\t(stale socket)` (skipped).
     public static func parseList(_ text: String) -> [SessionInfo] {
         var out: [SessionInfo] = []
@@ -152,8 +174,10 @@ public struct SessionInfo: Sendable, Equatable {
             guard f[1].hasPrefix("pid=") else { continue }
             var info = SessionInfo(name: name)
             var status: [String: String] = [:]
-            for field in f.dropFirst() {
+            for (i, field) in f.enumerated().dropFirst() {
                 let kv = field.split(separator: "=", maxSplits: 1).map(String.init)
+                // 648: `grid=1` is a field only before the last one (the command, which may say anything).
+                if kv.first == "grid", i < f.count - 1 { info.grid = kv.count > 1 && kv[1] == "1"; continue }
                 switch kv.first {
                 case "pid": info.pid = kv.count > 1 ? Int(kv[1]) : nil
                 case "size":

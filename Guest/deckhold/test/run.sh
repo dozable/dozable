@@ -6,8 +6,12 @@
 # Also its OSC 7501 consumer (status-check.c, 612): the query answered, the records' rules and limits, invalid
 # input discarded, the same state however the reads are cut — run first, it takes a second.
 #
+# And its GRID (grid-check.c, 648): the screen as cells — every row's text the holder's own, colours, flags, the
+# cursor, the gen, the limits, the announcement on the wire, a seeded fuzz.
+#
 # Usage: Guest/deckhold/test/run.sh [fuzz-iterations] [seed]      (make deckhold-snapshot-check)
 #        ONLY=status Guest/deckhold/test/run.sh                    (make deckhold-status-check)
+#        ONLY=grid Guest/deckhold/test/run.sh [fuzz-iterations]    (make deckhold-grid-check)
 set -euo pipefail
 HERE="$(cd "$(dirname "$0")" && pwd)"
 PKG="$(cd "$HERE/../../.." && pwd)"
@@ -31,6 +35,11 @@ fi
 OUT="$HERE/out"
 mkdir -p "$OUT"
 # The Mac's own clang and libc++: this harness runs here, nothing of it goes into the guest binary.
+if [ "${ONLY:-}" = grid ]; then
+  cc -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -I"$XC/Headers" \
+    "$HERE/grid-check.c" "$XC/libghostty-vt.a" -lc++ -o "$OUT/grid-check"
+  exec "$OUT/grid-check" "$@"
+fi
 cc -O1 -g -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -I"$XC/Headers" \
   "$HERE/status-check.c" "$XC/libghostty-vt.a" -lc++ -o "$OUT/status-check"
 "$OUT/status-check"
