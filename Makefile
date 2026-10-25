@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -297,6 +297,9 @@ test-cli-points: cli vmtest-host ## 594 W25–W27: restore point names never cut
 
 test-vm-status: cli vmtest-host ## 612: what the agent is doing (OSC 7501) — a FAKE agent in a lab asks, deckhold answers, it reports working → blocked → done → working → error: the host's status per step (sessions, ls, events, doz ls/sessions), no viewer and a viewer (the bytes unchanged), sleep and hibernate with their wakes, the exit, host.log without the program's text, shutdown (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-status --doz $(CLI_BIN)
+
+test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints coloured text; session-grids (over the host's status watcher) returns its grid with those colours; the same gen answers unchanged, new output a new grid; asleep it answers not-running and stays asleep, its saved screen carries the grid; no host: no answer, none started (scratch store)
+	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-grids --doz $(CLI_BIN)
 
 test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a host restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-sessions --doz $(CLI_BIN)

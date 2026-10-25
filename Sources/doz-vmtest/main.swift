@@ -975,6 +975,10 @@ Task {
             // 612: what the agent is doing — OSC 7501 through deckhold, the host and the CLI (StatusSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliStatusSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-grids":
+            // 648: the screens as cells — session-grids over the status watchers, the saved grid (GridsSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliGridsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-sessions":
             // 608: sessions survive every wake; End / Restart session (SessionsSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

@@ -226,6 +226,7 @@ int main(int argc, char **argv) {
     const struct run *wide = at_cell(&g, 2, 9);
     check(wide && strstr(wide->text, "\xe6\xbc\xa2!") && at_cell(&g, 2, 10) == wide && at_cell(&g, 2, 11) == wide,
           "a wide character: one grapheme, two columns, then the next");
+    check(wide && wide->col == 4 && !strncmp(wide->text, "wide:", 5), "a default run starts at its first visible cell (the gap is dropped)");
     { const struct run *last = g.nruns[2] ? &g.runs[2][g.nruns[2] - 1] : NULL;
       check(last && last->col + last->cells == 12, "…the run's cells count the tail column; the blank tail of a row is dropped"); }
     const struct run *blue = at_cell(&g, 3, 0);

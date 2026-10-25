@@ -103,7 +103,8 @@
  *                      u8 has-fg + rgb (3, zero when not), u8 has-bg + rgb (3), u16 text length + the UTF-8
  *                      text. A run is cells of one style from `col`: each cell's grapheme, a blank cell a
  *                      space, a wide character's tail cell nothing (`cells` counts every column it covers).
- *                      A run with the default colours, only spaces and no underline/inverse is left out; a
+ *                      A run with the default colours, only spaces and no underline/inverse is left out (and
+ *                      such a run's spaces at either end are dropped, its col/cells following); a
  *                      row's text stops at 4096 bytes (the runs past it are left out). `gen` moves with
  *                      every read of the program's output, every resize.
  * The protocol only ever grows by appending frame types; INFO lines only gain `key=value` fields placed
@@ -982,9 +983,14 @@ static bool rgb_eq(GhosttyColorRgb a, GhosttyColorRgb b) { return a.r == b.r && 
 static void grid_close(struct grid_run *r, struct buf *row, uint16_t *runs, size_t *row_text, bool *full) {
     if (!r->open) return;
     r->open = false;
-    /* Trailing spaces on the default background draw nothing: dropped (a row's blank tail joins its last run). */
-    if (!r->has_bg && !(r->flags & (GF_UNDERLINE | GF_INVERSE)))
+    /* Spaces on the default background draw nothing: dropped at either end (a row's blank tail joins its last run;
+     * the gap between two styles starts the next one), the run's column and cells following. */
+    if (!r->has_bg && !(r->flags & (GF_UNDERLINE | GF_INVERSE))) {
         while (r->text.len && r->cells > 1 && r->text.p[r->text.len - 1] == ' ') { r->text.len--; r->cells--; }
+        size_t lead = 0;
+        while (lead < r->text.len && r->cells > 1 && r->text.p[lead] == ' ') { lead++; r->cells--; r->col++; }
+        if (lead) buf_drop(&r->text, lead);
+    }
     bool invisible = !r->has_fg && !r->has_bg && r->blank && !(r->flags & (GF_UNDERLINE | GF_INVERSE));
     if (invisible || *full) { r->text.len = 0; return; }
     if (*row_text + r->text.len > GRID_ROW_TEXT) { *full = true; r->text.len = 0; return; }
