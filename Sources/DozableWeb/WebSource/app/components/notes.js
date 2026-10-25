@@ -9,7 +9,8 @@ import { callout } from './callout.js';
 // 647 (owner: "always show notifications in the header, stacked from the right … implement all three, switch with a
 // setting"). Every toast, page notice and banner is a NOTE here (`notices.js` makes them); `#notes` (fixed, over the
 // header's right end — outside the shell, so a wizard's or a pause's inert parts never take it) draws them:
-//   cards — the bell in the header (always — owner, after the first look: "the cards but with a permanent bell") and a
+//   cards — the bell in the header (always — owner, after the first look: "the cards but with a permanent bell"; it shows
+//           and hides the cards, and a new note shows them again) and a
 //           column hanging below it, newest on top, each with its full text and buttons; a passing one has a countdown
 //           strip; the pointer on ANY card holds every countdown, and the stack turns opaque with Dismiss all;
 //   pills — one line each IN the header row, the newest at the right, the rest folded into "+N"; a click opens its card;
@@ -26,6 +27,7 @@ const els = new WeakMap();           // a note's card, built once (its body's no
 let open = null;                     // 'list', a note's id (pills: its card), or null
 let flash = null, flashTimer = null; // bell: the newest note, shown beside it for a few seconds
 let held = false;                    // the pointer is on a card: every countdown waits
+let cardsShown = true;               // cards: the bell shows and hides the stack; a new note shows it again
 const listeners = new Set();
 
 export function notesMode() {
@@ -84,6 +86,7 @@ export function addNote(n) {
   anims.delete(n.id);
   if (!note.sticky) arm(note.id, note.ttl || TTL);
   if (!old || textOf(old) !== textOf(note)) {
+    cardsShown = true;
     flash = note.id;
     clearTimeout(flashTimer);
     flashTimer = setTimeout(() => { flash = null; if (notesMode() === 'bell') paintNotes(); }, FLASH_MS);
@@ -102,7 +105,7 @@ export function dropNote(id, quiet, how = 'resolved') {
   ended(id, how);
   if (open === id) open = null;
   if (flash === id) flash = null;
-  if (!state.notes.size) setHeld(false);
+  if (!state.notes.size) { setHeld(false); cardsShown = false; }   // the bell then opens an empty stack
   if (!quiet) paintNotes(); else tell();
 }
 export function noteById(id) { return state.notes.get(id) || null; }
@@ -175,7 +178,7 @@ function card(n) {
   return el;
 }
 function toggle(what) { open = open === what ? null : what; paintNotes(); }
-const historyLink = () => h('a', { href: '#/notifications', class: 'notes-history', 'data-notes-history': '', on: { click: () => { open = null; } } }, 'History');
+const historyLink = () => h('a', { href: '#/notifications', class: 'notes-history', 'data-notes-history': '', on: { click: () => { open = null; if (!state.notes.size) cardsShown = false; } } }, 'History');
 function list(notes, opts = {}) {
   return h('div', { class: 'notes-pop notes-list', role: 'region', 'aria-label': 'Notifications' },
     notes.length ? h('div', { class: 'notes-col' }, ...notes.map(card)) : h('p', { class: 'muted notes-none' }, 'No notifications.'),
@@ -186,8 +189,8 @@ function bellButton(notes, opts) {
   const n = notes.length;
   const worst = notes.some((x) => x.tone === 'bad') ? 'bad' : notes.some((x) => x.tone === 'warn') ? 'warn' : '';
   return h('button', { type: 'button', class: 'btn sm quiet icon-only note-bell' + (opts.open ? ' is-open' : ''), 'data-notes-bell': '',
-    'aria-label': (n ? n + ' notification' + (n === 1 ? '' : 's') : 'No notifications') + (opts.history ? ' — open the history' : ''),
-    title: opts.history ? 'Notification history' : 'Notifications', 'aria-expanded': opts.history ? null : opts.open ? 'true' : 'false',
+    'aria-label': n ? n + ' notification' + (n === 1 ? '' : 's') : 'No notifications',
+    title: 'Notifications', 'aria-expanded': opts.open ? 'true' : 'false',
     on: { click: opts.click } }, icon('bell'), n ? h('span', { class: 'note-count' + (worst ? ' ' + worst : '') }, String(n)) : null);
 }
 
@@ -205,12 +208,14 @@ export function paintNotes() {
   tell();
 }
 function paintCards(box, notes) {
-  const bell = bellButton(notes, { history: true, click: () => { location.hash = '#/notifications'; } });
+  // The bell shows and hides the cards (owner: "make the notification bell icon toggle the cards"); with none, it opens
+  // an empty stack with the History link.
+  const bell = bellButton(notes, { open: cardsShown, click: () => { cardsShown = !cardsShown; if (!cardsShown) setHeld(false); paintNotes(); } });
   const n = notes.length;
-  const stack = n ? h('div', { class: 'notes-stack', role: 'region', 'aria-label': 'Notifications' },
-    h('div', { class: 'notes-col' }, ...notes.slice().reverse().map(card)),
-    h('div', { class: 'notes-stack-foot' }, h('span', { class: 'muted' }, n + ' notification' + (n === 1 ? '' : 's')), historyLink(),
-      btn('Dismiss all', () => clearNotes(), { small: true, icon: 'x' }))) : null;
+  const stack = cardsShown ? h('div', { class: 'notes-stack' + (n ? '' : ' is-empty'), role: 'region', 'aria-label': 'Notifications' },
+    n ? h('div', { class: 'notes-col' }, ...notes.slice().reverse().map(card)) : h('p', { class: 'muted notes-none' }, 'No notifications.'),
+    h('div', { class: 'notes-stack-foot' }, h('span', { class: 'muted' }, n ? n + ' notification' + (n === 1 ? '' : 's') : ''), historyLink(),
+      n ? btn('Dismiss all', () => clearNotes(), { small: true, icon: 'x' }) : null)) : null;
   box.replaceChildren(...[h('div', { class: 'notes-row' }, bell), stack].filter(Boolean));   // (never a null: it writes "null")
 }
 function paintPills(box, notes) {

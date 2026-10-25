@@ -191,8 +191,9 @@ it, or until it is no longer true), and the news about the host and the dashboar
 - **Cards** (the default) — a bell in the header with the count, and a column hanging below it, the
   newest on top, each with its full text and buttons. A success has a strip along its foot counting
   down the seconds it has left. Point at any card and every countdown waits, and the column turns
-  solid with **Dismiss all**; move away and they go on from where they were. The bell opens the
-  history.
+  solid with **Dismiss all**; move away and they go on from where they were. Click the bell to hide
+  the cards, and again to show them; a new notification shows them again. With none showing, the
+  bell opens an empty column with the **History** link.
 - **Pills** — one line each in the header, the newest at the right; the ones that don't fit fold into
   **+N**. Click a pill for its full text and buttons.
 - **Bell** — a count; the newest shows beside it for a few seconds. Click the bell for the list, with

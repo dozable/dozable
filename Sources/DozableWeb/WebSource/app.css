@@ -1005,6 +1005,8 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .notes-stack-foot .muted { margin-right: auto; font-variant-numeric: tabular-nums; }
 .notes.is-held .notes-stack { background: var(--shell); box-shadow: var(--shadow-3), 0 0 0 var(--bw) var(--line-strong); }
 .notes.is-held .notes-stack-foot { display: flex; }
+.notes-stack.is-empty { background: var(--shell); box-shadow: var(--shadow-3), 0 0 0 var(--bw) var(--line-strong); }
+.notes-stack.is-empty .notes-stack-foot { display: flex; }
 .notes-history { font-size: var(--fs-sm); }
 /* A passing note's countdown: a strip along its foot, drawn by an Animation from the note's own timer (notes.js). */
 .callout.note.passing { position: relative; overflow: hidden; }
