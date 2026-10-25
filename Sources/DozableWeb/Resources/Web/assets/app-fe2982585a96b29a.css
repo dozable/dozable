@@ -38,7 +38,7 @@
   --header-h: 0px;                                                          /* 647: the header row — a phone's only (below) */
   --title-bar-h: 52px;                                                      /* 647: a page's title bar, stuck to the top as it scrolls */
   --corner-w: calc(var(--ctl-sm) + var(--sp-3) * 2);                       /* 647: the notification bell's corner, top right */
-  --status-h: 28px;                                                         /* 647: the status bar, full width at the foot */
+  --status-h: 28px;                                                         /* 647: the status bar, pinned at the sidebar's foot */
   --nav-h: 30px;  --nav-child-h: 26px;  --nav-sess-h: 24px;                 /* the sidebar: a page, a sandbox, a session */
   --strip-h: 34px;  --tab-py: 6px;                                          /* a tab strip and its tabs */
   --page-py: 24px;  --page-px: 32px;                                        /* a page's margin */
@@ -161,7 +161,7 @@
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
 /* 603 step 2: ONE UI size (13 px) for tables, controls and body text; 14 for prose and section titles. */
-body { font: var(--fw-regular) var(--fs-md)/var(--lh) var(--font); -webkit-font-smoothing: antialiased; padding-bottom: var(--status-h); }
+body { font: var(--fw-regular) var(--fs-md)/var(--lh) var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); text-underline-offset: 2px; }
 a:hover { color: var(--accent-hover); }
 }
@@ -228,7 +228,7 @@ h3 { font-size: var(--fs-md); font-weight: var(--fw-strong); }
    canvas inside .term-host (its colours are the terminal theme, dark in both modes). The cover sits
    over it, translucent, and TAKES NO CLICKS except its one button: a click focuses the terminal and
    the next key wakes the sandbox (SandboxLab's PaneCover). */
-main.main-terms { padding: var(--work-py) var(--work-px); display: flex; flex-direction: column; height: calc(100vh - var(--header-h) - var(--status-h)); }
+main.main-terms { padding: var(--work-py) var(--work-px); display: flex; flex-direction: column; height: calc(100vh - var(--header-h)); }
 .terms:not([hidden]) { display: flex; flex-direction: column; gap: var(--gap); flex: 1; min-height: 0; min-width: 0; }
 
 /* A terminal pane with nothing in it. */
@@ -999,7 +999,7 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 /* cards: the bell in the header row, the stack hanging below it. The pointer on any card holds every countdown and makes
    the stack opaque, with its count, History and Dismiss all (.is-held, set by notes.js). */
 .notes-stack { pointer-events: auto; display: flex; flex-direction: column; gap: var(--sp-2); margin: var(--sp-0) calc(-1 * var(--sp-2)) 0 0;
-  padding: var(--sp-2); max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--status-h) - var(--sp-3)); border-radius: var(--r-lg);
+  padding: var(--sp-2); max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--sp-3)); border-radius: var(--r-lg);
   transition: background-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease); }
 .notes-stack .notes-col { min-height: 0; overflow-y: auto; }
 .notes-stack-foot { display: none; align-items: center; justify-content: flex-end; gap: var(--sp-3); font-size: var(--fs-sm); }
@@ -1016,7 +1016,7 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 .note-timer-bar { display: block; height: 100%; background: var(--line-strong); transform-origin: left center; }
 .notes-row { display: flex; align-items: center; justify-content: flex-end; gap: var(--sp-2); height: var(--title-bar-h); max-width: var(--notes-row-max); min-width: 0; }
 .notes-pop { margin-top: var(--sp-0); width: min(420px, calc(100vw - var(--sp-6))); }
-.notes-list { max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--status-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
+.notes-list { max-height: calc(100vh - var(--title-bar-h) - var(--header-h) - var(--sp-5)); overflow-y: auto; padding: var(--sp-2); border: var(--bw) solid var(--line-strong);
   border-radius: var(--r-lg); background: var(--surface); box-shadow: var(--shadow-3); }
 .notes-list .callout.note { box-shadow: none; }
 .notes-none { margin: 0; padding: var(--sp-2) var(--sp-1); font-size: var(--fs-sm); }
@@ -1168,10 +1168,14 @@ body.rail.nav-open .side-brand { display: flex; }
 .topbar-acts { display: none; align-items: center; gap: var(--sp-1); flex: none; }
 .topbar-keys { color: var(--bad); }
 .topbar-keys[hidden] { display: none; }
-.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - var(--header-h) - var(--status-h)); }
-.side { background: var(--shell); padding: var(--sp-3) var(--sp-3) var(--sp-3); display: flex; flex-direction: column; gap: var(--sp-4);
-  position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h) - var(--status-h)); overflow-y: auto; min-width: 0; z-index: var(--z-sticky); }
-#nav { display: flex; flex-direction: column; gap: 1px; }
+.shell { display: grid; grid-template-columns: 220px minmax(0, 1fr); min-height: calc(100vh - var(--header-h)); }
+/* 647 (owner: "fix the header in the left nav sidebar. move the bottom status bar to only appear (also fixed) in the
+   sidebar"): the sidebar is the window's height and never scrolls itself — its head stays at the top, the status bar at
+   its foot, and only the pages between them (#nav) scroll. */
+.side { background: var(--shell); padding: var(--sp-3) var(--sp-3) 0; display: flex; flex-direction: column; gap: var(--sp-4);
+  position: sticky; top: var(--header-h); height: calc(100vh - var(--header-h)); overflow: hidden; min-width: 0; z-index: var(--z-sticky); }
+#nav { display: flex; flex-direction: column; gap: 1px; flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  margin: 0 calc(-1 * var(--sp-3)); padding: 0 var(--sp-3) var(--sp-3); scrollbar-width: thin; }
 .nav-group { display: flex; align-items: center; min-height: 26px; padding: var(--sp-3) var(--sp-3) var(--sp-0); font: var(--fw-medium) var(--fs-xs)/1 var(--font); color: var(--ink-2); }
 .nav-group:first-child { padding-top: var(--sp-0); }
 .nav-group .nav-quick { margin: calc(-1 * var(--sp-2)) calc(-1 * var(--sp-0)) calc(-1 * var(--sp-2)) auto; }
@@ -1264,14 +1268,21 @@ a.nav-sess.saved { font-style: italic; }
 .nav-peek-pop .np-label { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-0) 0; font-size: var(--fs-sm); color: var(--ink-2); }
 .nav-peek-pop .np-label b { color: var(--ink); font-weight: var(--fw-medium); }
 .nav-peek-pop .np-label .icon { width: 13px; height: 13px; }
-/* 647 (owner: "add a status bar at the bottom - full width; move the version / status dots and popup there"): the status
-   bar, fixed along the foot of the window under the sidebar and the page (the body keeps --status-h free for it). At its
-   left ONE line: a dot for doz ui and one for the host, then the version (or what is wrong: `paintFootLine`,
-   core/session.js); its hover or focus shows the card above it, and a click pins it open. The card is interactive (owner:
-   "make the footer popup interactive"): the host's row has Restart (or Start), a line says when the host and this dashboard
-   are different builds, the updates row has Check. Sign out and the light / dark switch (635, owner) at its right. */
-.statusbar { position: fixed; left: 0; right: 0; bottom: 0; height: var(--status-h); z-index: calc(var(--z-sticky) + 1); display: flex; align-items: center;
-  gap: var(--sp-2); padding: 0 var(--sp-3); background: var(--shell); border-top: var(--bw) solid var(--sep); font-size: var(--fs-sm); color: var(--ink-2); }
+/* 647: the status bar — pinned at the sidebar's foot (owner: "move the bottom status bar to only appear (also fixed) in the
+   sidebar"; it was full width along the window's foot). ONE line: a dot for doz ui and one for the host, then the version
+   (or what is wrong: `paintFootLine`, core/session.js); its hover or focus shows the card above it, and a click pins it
+   open. The card is interactive (owner: "make the footer popup interactive"): the host's row has Restart (or Start), a
+   line says when the host and this dashboard are different builds, the updates row has Check. Sign out and the light /
+   dark switch (635, owner) at its right. In the rail: the two dots over the two switches. */
+.statusbar { flex: none; height: var(--status-h); display: flex; align-items: center; gap: var(--sp-1); margin: 0 calc(-1 * var(--sp-3));
+  padding: 0 var(--sp-2); border-top: var(--bw) solid var(--sep); font-size: var(--fs-sm); color: var(--ink-2); }
+body.rail .statusbar { flex-direction: column; height: auto; padding: var(--sp-1) 0; gap: var(--sp-1); }
+body.rail .statusbar .foot-sum { display: none; }
+body.rail .statusbar .foot-acts { flex-direction: column; margin-left: 0; }
+body.rail.nav-open .statusbar { flex-direction: row; height: var(--status-h); padding: 0 var(--sp-2); gap: var(--sp-1); }
+body.rail.nav-open .statusbar .foot-sum { display: block; }
+body.rail.nav-open .statusbar .foot-acts { flex-direction: row; margin-left: auto; }
+body.rail:not(.nav-open) .foot-card { left: calc(52px - var(--sp-2)); bottom: var(--sp-3); }
 .foot-status { display: flex; align-items: center; gap: var(--sp-1); flex: 0 1 auto; min-width: 0; height: calc(var(--status-h) - var(--sp-1)); padding: 0 var(--sp-2); border: 0;
   border-radius: var(--r-sm); background: none; color: var(--ink-2); font: inherit; text-align: left; cursor: pointer; }
 .foot-status:hover, .foot-status[aria-expanded="true"] { background: var(--state-hover); }
@@ -1283,7 +1294,7 @@ a.nav-sess.saved { font-style: italic; }
 .live.warn .dot, .foot-status .dot.warn { background: var(--warn); }
 .live.info .dot { background: var(--info); }
 .live.stale .dot, .foot-status .dot.stale { opacity: 0.45; }
-/* Fixed above the bar, at its left. */
+/* Fixed above the bar, at the sidebar's left (it may reach over the page). */
 .foot-card { position: fixed; left: var(--sp-3); bottom: calc(var(--status-h) + var(--sp-1)); width: 300px; z-index: var(--z-menu); display: none; gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-3); border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-2); }
 /* The pointer crosses the gap between the line and the card without closing it. */
@@ -1331,7 +1342,7 @@ a.nav-sess.saved { font-style: italic; }
    (647, owner: "make it always collapsible"; `applyRail`, components/nav.js, this browser remembers it). */
 body.rail .shell { grid-template-columns: 52px minmax(0, 1fr); }
 body.rail .shell > main { grid-column: 2; }
-body.rail .side { padding: var(--sp-3) var(--sp-3); align-items: stretch; overflow-x: hidden; }
+body.rail .side { padding: var(--sp-3) var(--sp-3) 0; align-items: stretch; }
 body.rail .nav-group .ng-label, body.rail .nav-group .nav-quick, body.rail .nav-sbx-more, body.rail .nav-tree-caret, body.rail #nav .trail, body.rail .nav-children { display: none; }
 body.rail .nav-group { padding: 0; min-height: 0; border-top: var(--bw) solid var(--line); margin: var(--sp-2) 0; }
 body.rail .nav-group:first-child { display: none; }
@@ -1343,8 +1354,8 @@ body.rail #nav-accounts .trail .nav-badge { min-width: 15px; height: 15px; paddi
 /* The rail's foot: the two dots over the switches; the card opens beside the rail. */
 /* Below 980 px the header's menu shows the whole sidebar over the page, under the header, until a link, Escape or a
    click outside closes it. */
-body.rail.nav-open .side { position: fixed; left: 0; top: var(--header-h); height: calc(100vh - var(--header-h) - var(--status-h)); width: 232px; z-index: var(--z-menu);
-  background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-3) var(--sp-3) var(--sp-3); }
+body.rail.nav-open .side { position: fixed; left: 0; top: var(--header-h); height: calc(100vh - var(--header-h)); width: 232px; z-index: var(--z-menu);
+  background: var(--shell); box-shadow: var(--shadow-3); padding: var(--sp-3) var(--sp-3) 0; }
 body.rail.nav-open .nav-group .ng-label, body.rail.nav-open .nav-group .nav-quick, body.rail.nav-open .nav-sbx-more, body.rail.nav-open #nav .trail, body.rail.nav-open .nav-children,
 body.rail.nav-open .nav-tree-caret { display: flex; }
 body.rail.nav-open .nav-tree-caret { display: grid; }

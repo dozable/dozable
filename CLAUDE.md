@@ -629,7 +629,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     it at once. Every `spin` animation is pinned to the page clock (`startTime = 0` on `animationstart`, app.js) so a
     redrawn spinner never jumps back. The status bar's right end has the light / dark switch (sets `ui.theme`). 647: the sidebar is on `--shell` with no
     border; a selected page/sandbox/session is `--state-selected` + the inset `--indicator`; the STATUS BAR (`footer#statusbar`, owner:
-    "a status bar at the bottom - full width"; fixed, `--status-h`, the body pads for it; inert under a wizard and a pause) starts with ONE line (`.foot-status`:
+    "a status bar at the bottom", then "move the bottom status bar to only appear (also fixed) in the sidebar": the sidebar is the window's height and never scrolls itself — `.side-head` at its top, the status bar at its foot, only `#nav` scrolls; `--status-h`; inert under a wizard and a pause) starts with ONE line (`.foot-status`:
     two dots + the version or what is wrong, `paintFootLine` in `core/session.js` — call it after painting `#live`/`#host-live`)
     whose card (`.foot-card`) holds the rows. 647 (owner, after stage 4): the card is interactive — the host's row has Restart
     / Start (`paintHostCard`, `components/host.js`, built only when what it says changes), `#foot-mismatch` says when the host

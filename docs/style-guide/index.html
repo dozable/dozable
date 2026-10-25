@@ -674,8 +674,8 @@ name: todo-app</pre></details>
     edge (<code>#nav a[data-view].active</code>, <code>a.nav-child.active</code>, <code>a.nav-sess.active</code>) — never a raised card. A hover is <code>--state-hover</code>
     (here on Settings). Sandboxes: <strong>All sessions</strong>, then <strong>All sandboxes</strong> heading the tree (<code>.nav-all</code>): a click on it while its page is
     shown, or its caret (<code>.nav-tree-caret</code>), folds the tree (<code>#nav.tree-folded</code>); its ⋯ (Expand all, Collapse all — <code>.nav-sbx-more</code>) shows on
-    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>status bar</strong> (<code>footer.statusbar</code>, 647 — owner: “add a status bar at the bottom - full width; move the version / status dots and popup there”)
-    runs along the foot of the window under the sidebar and the page (<code>--status-h</code>; the body keeps that height free). At its left one line (<code>.foot-status</code>): a dot for
+    its hover or focus (here). A folded sandbox is one line with its session count (api-tests). The <strong>status bar</strong> (<code>footer.statusbar</code>, 647 — owner: “move the bottom status bar to only appear (also fixed) in the sidebar”: the sidebar never scrolls itself — its head stays at the top, the status bar at its foot, only <code>#nav</code> between them scrolls; in the rail, the two dots over the two switches, the card beside the rail)
+    is <code>--status-h</code> tall. At its left one line (<code>.foot-status</code>): a dot for
     doz ui and one for the host, then the version — or what is wrong (<code>paintFootLine</code>, <code>core/session.js</code>). Its hover or focus shows the card above it
     (<code>.foot-card</code>, shown pinned below — a click pins it), which is <strong>interactive</strong>: the host’s row has Restart (Start while none runs), a line says when the
     host and the dashboard are different builds (<code>#foot-mismatch</code>), and the updates row has Check. Sign out and the light / dark switch are at its right end.
