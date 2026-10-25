@@ -6,15 +6,15 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "74c35cdd49ba081dae2f704b79438d1b16e9f33aa13b3941626bed4d22010f58"
+      "sha256" : "f49f0d27b81fc6034f12d947f589b2823247474dfc441d79fb965aab865cf212"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
       "mimeType" : "text/css; charset=utf-8",
-      "publicPath" : "/assets/app-4b76780928bd7167.css",
-      "resourcePath" : "assets/app-4b76780928bd7167.css",
-      "sha256" : "4b76780928bd7167d6a004176ebf0e11427045942402c1528a4803d6e8ba7ae4"
+      "publicPath" : "/assets/app-66175b6f6c6f4b08.css",
+      "resourcePath" : "assets/app-66175b6f6c6f4b08.css",
+      "sha256" : "66175b6f6c6f4b08cf6cf93072c935d4aae767b33ed6b75dae39a01aa33f354d"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",

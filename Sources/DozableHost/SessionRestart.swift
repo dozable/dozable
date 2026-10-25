@@ -89,6 +89,31 @@ public enum SessionResume {
     public static func check(for agent: AgentKind?) -> String? {
         agent?.recipe?.resumeCheck
     }
+
+    /// 648 (owner: restart keeps the conversation "for all"): the conversation THIS session's program holds, found before
+    /// it is ended — so every agent session resumes its own, not the folder's newest (two sessions in one folder would
+    /// both have continued the same one). Claude Code records each process in ~/.claude/sessions/<pid>.json with its
+    /// `sessionId`; the guest check (as the session's user) prints `resume-id <id>` only when that conversation has a
+    /// transcript to resume (~/.claude/projects/*/<id>.jsonl — a session that never talked has none). nil: the agent keeps
+    /// no such record (Codex, pi, the recipe agents) — only its default session continues, the folder's newest.
+    public static func exactCheck(for agent: AgentKind?, pid: Int?) -> String? {
+        guard agent == .claudeCode, let pid, pid > 0 else { return nil }
+        return """
+        f="$HOME/.claude/sessions/\(pid).json"; [ -f "$f" ] || exit 0
+        id=$(sed -n 's/.*"sessionId":"\\([0-9a-f-]*\\)".*/\\1/p' "$f" | head -n 1); [ -n "$id" ] || exit 0
+        for p in "$HOME"/.claude/projects/*/"$id".jsonl; do [ -f "$p" ] && { echo "resume-id $id"; exit 0; }; done
+        """
+    }
+
+    /// The arguments that resume conversation `id` (the guest's answer to `exactCheck`, checked here: a UUID only).
+    public static func exactArguments(for agent: AgentKind?, checkOutput: String) -> [String] {
+        guard agent == .claudeCode else { return [] }
+        for line in checkOutput.split(whereSeparator: \.isNewline) where line.hasPrefix("resume-id ") {
+            let id = String(line.dropFirst("resume-id ".count)).trimmingCharacters(in: .whitespaces)
+            if UUID(uuidString: id) != nil { return ["--resume", id.lowercased()] }
+        }
+        return []
+    }
 }
 
 /// `session-end`'s answer.
@@ -160,20 +185,31 @@ extension HostCore {
             throw HostError(.notFound, "session \(session) was not opened by this doz (or before 0.30.0), so its program is not known — doz sessions end \(m.name) \(session), then doz run \(m.name) --session \(session) -- CMD")
         }
         let previous = (try? await m.sandbox.sessions())?.first { $0.name == session }
-        // The agent's default session continues its conversation (unless asked for a fresh one).
+        // An agent's session continues its conversation (unless asked for a fresh one). 648: every session running the
+        // agent's own program, each its OWN conversation where the agent records which process holds which
+        // (`SessionResume.exactCheck`, read before the program ends); else, the default session only, the folder's newest.
         var resume: [String] = []
         var notes: [String] = []
         let agent = m.config.imageChoice?.agent
-        if isDefault, argv == m.config.defaultSession.argv, r.fresh != true {
-            resume = SessionResume.arguments(for: agent)
-            if !resume.isEmpty, let check = SessionResume.check(for: agent) {
-                let ctx = Self.execContext(config: m.config, environment: [:], workdir: record?.workdir, user: record?.user)
-                let out = try? await m.sandbox.exec(["sh", "-c", check], environment: ctx.environment, workingDirectory: ctx.workdir,
+        if argv == m.config.defaultSession.argv, r.fresh != true {
+            let ctx = Self.execContext(config: m.config, environment: [:], workdir: record?.workdir, user: record?.user)
+            if let exact = SessionResume.exactCheck(for: agent, pid: previous?.pid) {
+                let out = try? await m.sandbox.exec(["sh", "-c", exact], environment: ctx.environment, workingDirectory: ctx.workdir,
                                                     user: ctx.user, timeoutSeconds: 10)
-                if out?.output.contains("resumable") != true {
-                    resume = []
-                    notes.append("no earlier conversation in this folder — \(agent?.title ?? "the agent") starts a new one")
+                resume = SessionResume.exactArguments(for: agent, checkOutput: out?.output ?? "")
+            }
+            if resume.isEmpty, isDefault {
+                resume = SessionResume.arguments(for: agent)
+                if !resume.isEmpty, let check = SessionResume.check(for: agent) {
+                    let out = try? await m.sandbox.exec(["sh", "-c", check], environment: ctx.environment, workingDirectory: ctx.workdir,
+                                                        user: ctx.user, timeoutSeconds: 10)
+                    if out?.output.contains("resumable") != true {
+                        resume = []
+                        notes.append("no earlier conversation in this folder — \(agent?.title ?? "the agent") starts a new one")
+                    }
                 }
+            } else if resume.isEmpty, !SessionResume.arguments(for: agent).isEmpty {
+                notes.append("no conversation of its own was found — \(agent?.title ?? "the agent") starts a new one")
             }
         }
         if let keys = record?.environmentKeys, !keys.isEmpty {

@@ -103,7 +103,7 @@ struct SessionsEnd: AsyncParsableCommand {
 
 struct SessionsRestart: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "restart",
-        abstract: "Restart a session: end its program and start the same one again, in the same folder. An agent's own session continues its last conversation (Claude Code, Codex, pi) — only the turn in progress is lost.",
+        abstract: "Restart a session: end its program and start the same one again, in the same folder. An agent's session continues its conversation — each Claude Code session its own; Codex's and pi's own session the folder's newest — only the turn in progress is lost.",
         discussion: """
             A running sandbox only — this never wakes one. --fresh starts a new conversation instead. \
             Afterwards it attaches, as doz run does, when stdin and stdout are a terminal; from a script \

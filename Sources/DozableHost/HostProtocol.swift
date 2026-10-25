@@ -134,7 +134,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// (`SessionEnded`). A running sandbox only: it never wakes one.
     case sessionEnd = "session-end"
     /// 608: end it and open the SAME session again — the program, folder and user it was opened with
-    /// (`sessions.json`); an agent's default session continues its conversation unless `fresh`
+    /// (`sessions.json`); an agent's session continues its conversation unless `fresh` (648: each Claude Code session its own; else the default session only)
     /// (`SessionRestarted`). Serialised with open-session.
     case sessionRestart = "session-restart"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project

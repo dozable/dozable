@@ -484,8 +484,12 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   gone (`doz-end hangup|terminate|kill|not-running|stuck`). A restart reopens through `openSessionLocked` from
   `<sandbox>/sessions.json` (`SessionRecords`: argv as CHOSEN — before pi's prompt file, tmux and a resume —
   workdir, user, variable NAMES only; ≤ 64; 0600; cleared with the sessions: shutdown, reset, died-with-host;
-  fields only ever added). No record: the default session's argv, else refused. The default session of an agent
-  image (argv == the default) gets `SessionResume.arguments` as `extraArguments` (never recorded): Claude Code
+  fields only ever added). No record: the default session's argv, else refused. 648 (owner: "do for all"): EVERY
+  session running the agent's own program (argv == the default) first gets its OWN conversation where the agent records
+  which process holds which — Claude Code's `~/.claude/sessions/<pid>.json` `sessionId`, read before the program ends
+  (`SessionResume.exactCheck`: only with a transcript in `~/.claude/projects/*/<id>.jsonl`; `exactArguments`: a UUID
+  only) → `--resume <id>`. Otherwise the default session of an agent image gets `SessionResume.arguments` as
+  `extraArguments` (never recorded): Claude Code
   `--continue` (only after `SessionResume.check` finds ~/.claude/projects/<cwd, non-alnum→'-'>/*.jsonl — it
   refuses without one), Codex `resume --last` (0.160.1: newest in the cwd, else a new one; `--all` would ignore
   the folder), pi `--continue` (newest else new); `fresh` = none. CLI `doz sessions end|restart NAME SESSION`

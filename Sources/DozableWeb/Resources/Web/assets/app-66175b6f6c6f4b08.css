@@ -1509,7 +1509,7 @@ a.name:hover { text-decoration: underline; }
    sandbox a row of its sessions' pictures (Session thumbnails, on by default). */
 .ov-sel { width: 1%; padding-right: 0; }
 .ov-sel input { margin: 0; vertical-align: middle; }
-.ov-list-head .ov-toggle { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; }
+.ov-toggle { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-sm); color: var(--ink-2); cursor: pointer; }
 .ov-list-head .actions { flex-wrap: wrap; gap: var(--sp-4); }
 .ov-bulk { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; margin: 0 0 var(--sp-3); }
 .ov-bulk .ob-what { font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
