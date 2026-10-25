@@ -101,7 +101,14 @@ async function init(wasm, m, fontSize) {
   // too little for a boot log. 4 MiB.
   term = new GhosttyWeb.Terminal({ ghostty: engine, fontSize, fontFamily: 'ui-monospace, "SF Mono", Menlo, monospace',
                                    theme: THEME, cursorBlink: false, disableStdin: mode === 'watch', scrollback: 4 * 1024 * 1024 });
-  term.open(host);
+  // 648: a read-only screen (a thumbnail, a watch, a saved screen) never takes the focus as it loads. The engine's open()
+  // focuses its element whatever the mode, and a frame that takes the focus makes the browser scroll the PAGE to bring
+  // it into view — the dashboard jumped ~400 px each time a picture loaded after a scroll (the 647 thumb-scroll trace).
+  // The engine is vendored byte for byte, so its focus is held here, around open() — and until the second focus its
+  // focus() defers with setTimeout(0) has run (a timer set after it runs after it); a click still focuses a frame.
+  const realFocus = HTMLElement.prototype.focus;
+  if (mode !== 'interactive') HTMLElement.prototype.focus = function () {};
+  try { term.open(host); } finally { setTimeout(() => { HTMLElement.prototype.focus = realFocus; }, 0); }
   fit = new GhosttyWeb.FitAddon();
   term.loadAddon(fit);
   fit.fit();
@@ -114,7 +121,7 @@ async function init(wasm, m, fontSize) {
   mouseGuard(document.documentElement);
   term.attachCustomWheelEventHandler(onWheel);
   toPage({ t: 'opened', cols: term.cols, rows: term.rows });
-  if (mode !== 'saved') term.focus();
+  if (mode === 'interactive') term.focus();
 }
 
 /// 593: a key on a saved screen — announced (at most every 2 s), never typed: modifiers alone and the
