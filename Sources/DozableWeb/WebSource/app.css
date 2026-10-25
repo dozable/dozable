@@ -1560,6 +1560,7 @@ h1.page-title { display: flex; align-items: center; }
 @media (max-width: 760px) {
   .page-title { padding-right: var(--page-px); }
   .panel { overflow-x: auto; }
+  #view thead th { position: static; }   /* a panel that scrolls sideways would hold its heads inside itself */
 }
 
 /* ── 603: the wizards (New sandbox, onboarding) — a modal over the page, the full width of the window up to

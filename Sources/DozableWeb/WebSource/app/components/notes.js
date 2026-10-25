@@ -27,7 +27,7 @@ const els = new WeakMap();           // a note's card, built once (its body's no
 let open = null;                     // 'list', a note's id (pills: its card), or null
 let flash = null, flashTimer = null; // bell: the newest note, shown beside it for a few seconds
 let held = false;                    // the pointer is on a card: every countdown waits
-let cardsShown = true;               // cards: the bell shows and hides the stack; a new note shows it again
+let cardsShown = false;              // cards: the bell shows and hides the stack; a new note shows it again
 const listeners = new Set();
 
 export function notesMode() {
