@@ -119,7 +119,7 @@ function paintPills(box, notes) {
     'aria-expanded': open === 'list' ? 'true' : 'false', title: rest.length + ' more', on: { click: () => toggle('list') } }, '+' + rest.length) : null;
   const pop = open === 'list' ? list(rest.slice().reverse())
     : open ? h('div', { class: 'notes-pop' }, card(state.notes.get(open))) : null;
-  box.replaceChildren(h('div', { class: 'notes-row' }, more, ...shown.map(pill)), pop);
+  box.replaceChildren(...[h('div', { class: 'notes-row' }, more, ...shown.map(pill)), pop].filter(Boolean));   // (never a null: it writes "null")
 }
 function pill(n) {
   const t = textOf(n), on = open === n.id;
@@ -140,7 +140,7 @@ function paintBell(box, notes) {
     on: { click: () => toggle('list') } }, icon('bell'), n ? h('span', { class: 'note-count' + (worst ? ' ' + worst : '') }, String(n)) : null);
   const flashEl = f ? h('button', { type: 'button', class: 'note-flash ' + toneOf(f), title: textOf(f), on: { click: () => toggle('list') } },
     icon(f.icon || TONE_ICON[toneOf(f)]), h('span', { class: 'np-text' }, textOf(f))) : null;
-  box.replaceChildren(h('div', { class: 'notes-row' }, flashEl, bell), open === 'list' ? list(notes.slice().reverse(), { clear: true }) : null);
+  box.replaceChildren(...[h('div', { class: 'notes-row' }, flashEl, bell), open === 'list' ? list(notes.slice().reverse(), { clear: true }) : null].filter(Boolean));
 }
 // A click outside, or Escape, closes an open list or card. (The path, not the target: a click inside has repainted the
 // box by the time it reaches the document, so its target is no longer in it.)

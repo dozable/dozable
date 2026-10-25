@@ -157,7 +157,6 @@
 @layer base {
 * { box-sizing: border-box; }
 html, body { margin: 0; background: var(--bg); color: var(--ink); }
-html { scroll-padding-top: calc(var(--header-h) + var(--sp-3)); }   /* 647: a jump to a section lands below the sticky header */
 /* 603 step 2: ONE UI size (13 px) for tables, controls and body text; 14 for prose and section titles. */
 body { font: var(--fw-regular) var(--fs-md)/var(--lh) var(--font); -webkit-font-smoothing: antialiased; }
 a { color: var(--accent); text-underline-offset: 2px; }
@@ -1026,7 +1025,7 @@ input[type="checkbox"][role="switch"]:disabled { opacity: 0.5; cursor: not-allow
 /* bell: a count over the bell; the newest note beside it for a few seconds. */
 .note-bell { position: relative; }
 .note-bell.is-open { background: var(--state-selected); }
-.note-count { position: absolute; top: calc(-1 * var(--sp-0)); right: calc(-1 * var(--sp-0)); min-width: 16px; height: 16px; padding: 0 var(--sp-0); border-radius: var(--r-pill);
+.note-count { position: absolute; top: calc(-1 * var(--sp-1)); right: calc(-1 * var(--sp-2)); min-width: 16px; height: 16px; padding: 0 var(--sp-0); border-radius: var(--r-pill);
   background: var(--ink-2); color: var(--bg); font: var(--fw-strong) var(--fs-xs)/16px var(--font); text-align: center; font-variant-numeric: tabular-nums; }
 .note-count.warn { background: var(--warn); }
 .note-count.bad { background: var(--bad); }
@@ -1252,7 +1251,8 @@ a.nav-sess.saved { font-style: italic; }
 .live.warn .dot, .foot-status .dot.warn { background: var(--warn); }
 .live.info .dot { background: var(--info); }
 .live.stale .dot, .foot-status .dot.stale { opacity: 0.45; }
-.foot-card { position: absolute; left: 0; bottom: calc(100% + var(--sp-1)); width: 300px; z-index: var(--z-menu); display: none; gap: var(--sp-2);
+/* Fixed, not absolute: the sidebar scrolls (overflow), which would clip a card wider than it. */
+.foot-card { position: fixed; left: var(--sp-3); bottom: calc(var(--sp-3) + var(--ctl-sm) + var(--sp-1)); width: 300px; z-index: var(--z-menu); display: none; gap: var(--sp-2);
   padding: var(--sp-3) var(--sp-3); border: var(--bw) solid var(--line-strong); border-radius: var(--r-md); background: var(--surface); box-shadow: var(--shadow-2); }
 /* The pointer crosses the gap between the line and the card without closing it. */
 .foot-card::after { content: ""; position: absolute; left: 0; right: 0; top: 100%; height: calc(var(--sp-1) + 2px); }
