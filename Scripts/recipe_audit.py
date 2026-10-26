@@ -743,7 +743,14 @@ def propose(net, report, recipes, currency, compile_cmd=("make", "recipes")):
         print("propose: nothing to rewrite")
         return 1 if problems else 0
     print("propose: compiling (%s) …" % " ".join(compile_cmd))
+    sys.stdout.flush()
     rc = subprocess.call(list(compile_cmd), cwd=REPO)
+    if rc != 0:
+        # The first run after a YAML edit WRITES compiled/*.json, but its test binary still embeds the old JSON, so
+        # RecipeSourceTests' "the YAML is the recipe Dozable runs" fails once; the second run builds with the new files.
+        print("propose: the first compile wrote the new JSON — compiling again with it embedded …")
+        sys.stdout.flush()
+        rc = subprocess.call(list(compile_cmd), cwd=REPO)
     if rc != 0:
         print("propose: make recipes failed (%d)" % rc)
         return rc

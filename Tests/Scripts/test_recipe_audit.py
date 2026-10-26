@@ -394,6 +394,37 @@ class ProposeTests(unittest.TestCase):
         finally:
             shutil.rmtree(tmp)
 
+    def test_a_first_compile_that_fails_is_run_once_more(self):
+        # make recipes after a YAML edit writes the JSON, then fails once on the old embedded data; the second run passes.
+        tmp = tempfile.mkdtemp()
+        try:
+            os.makedirs(os.path.join(tmp, "acme"))
+            with open(os.path.join(tmp, "acme", "tool.yaml"), "w") as f:
+                f.write("schema: 2\nargs:\n  version:\n    default: 1.0.0\ncapabilities:\n- config:\n    integrity: %s\n" % sri(TOOL))
+            new = b"tool-1.1.0 tarball"
+            tgz = "https://registry.npmjs.org/tool/-/tool-1.1.0.tgz"
+            net = FakeNet({ra.npm_url("tool", "1.0.0"): NPM_TOOL, ra.npm_url("tool", "1.1.0"): {"dist": {"integrity": sri(new), "tarball": tgz}}, tgz: new})
+            rec = recipe("tool", "npm", "1.0.0", {"package": "tool", "integrity": sri(TOOL)})
+            cur = ({"tool": {"agent": "tool", "latest": "1.1.0"}}, "2026-10-26")
+            rep = ra.audit(net, [rec], cur, "", "2026-10-26")
+            count = os.path.join(tmp, "runs")
+            # Fails the first time (no count file yet), passes the second.
+            cmd = ("/bin/sh", "-c", 'if [ -e "$0" ]; then exit 0; else : > "$0"; exit 1; fi', count)
+            saved = ra.AGENTS
+            ra.AGENTS = tmp
+            try:
+                self.assertEqual(ra.propose(net, rep, [rec], cur, compile_cmd=cmd), 0)
+                always = ("/bin/sh", "-c", "exit 3")
+                rec2 = recipe("tool", "npm", "1.0.0", {"package": "tool", "integrity": sri(new)})
+                with open(os.path.join(tmp, "acme", "tool.yaml"), "w") as f:
+                    f.write("schema: 2\nargs:\n  version:\n    default: 1.0.0\ncapabilities:\n- config:\n    integrity: %s\n" % sri(new))
+                rep2 = ra.audit(net, [rec2], cur, "", "2026-10-26")
+                self.assertEqual(ra.propose(net, rep2, [rec2], cur, compile_cmd=always), 3, "a compile that fails twice is the answer")
+            finally:
+                ra.AGENTS = saved
+        finally:
+            shutil.rmtree(tmp)
+
 
 class NetworkGuardTests(unittest.TestCase):
     def test_the_real_net_cannot_reach_anything_here(self):
