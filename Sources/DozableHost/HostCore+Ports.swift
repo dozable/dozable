@@ -97,6 +97,7 @@ extension HostCore {
             if let mp = row.macPort, mp != p.port { row.moved = true }
             if running { row.serving = portServing[m.name].map { $0.ports.contains(p.port) } }
             if w.origin == "recipe", let serve = recipeServe(m), !serve.isEmpty { row.serveHint = serve.joined(separator: " ") }
+            if w.origin == "recipe", p.isHTTP, let s = p.signIn { row.signIn = s.command }       // 666
             return row
         }
     }
@@ -128,6 +129,44 @@ extension HostCore {
             out.insert(port)
         }
         return out
+    }
+
+    /// 666: `port-open` — open a running sandbox's web port in this Mac's browser, signed in when its recipe declares a
+    /// sign-in command (`PortSignIn`: run as the session's user, with a session's environment; the link never leaves this
+    /// process). A port without one is opened as it is. Never starts or wakes anything: its ports listen while it runs.
+    func portOpen(_ r: HostRequest) async throws -> PortOpened {
+        let m = try get(r.name)
+        guard let port = r.openPort else { throw HostError(.invalid, "which port? (doz open \(m.name) PORT)") }
+        guard let w = wantedPorts(m).first(where: { $0.port.port == port }), w.port.isHTTP else {
+            throw HostError(.notFound, "\(m.name) forwards no web port \(port)")
+        }
+        let phase = await effectivePhase(m)
+        guard phase == .running else {
+            throw HostError(.invalidPhase, "\(m.name) is \(PhaseName.label(phase)) — its ports listen while it runs")
+        }
+        await bindPorts(m.name)                                    // a forward that failed earlier is tried again
+        guard let f = portTable.forwards(of: m.name)[port], !f.isStopped else {
+            throw HostError(.unavailable, "\(w.port.title) (port \(port)) is not listening on this Mac: \(portTable.failures(of: m.name)[port] ?? "no forward")")
+        }
+        let macPort = f.macPort
+        guard w.origin == "recipe", let s = w.port.signIn else {
+            let plain = PortForwarding.url(macPort: macPort, path: w.port.path)
+            guard let u = URL(string: plain), PortSignIn.openOnMac(u, signedIn: false) else { throw HostError(.failed, "this Mac could not open \(plain)") }
+            return PortOpened(sandbox: m.name, port: port, title: w.port.title, url: plain, signedIn: false)
+        }
+        let ctx = Self.execContext(config: m.config,
+                                   environment: recipeEnvironment(Self.withClaudePermissions([:], imageSpec: m.config.spec.imageSpec?.name), m),
+                                   workdir: nil, user: nil)
+        let sandbox = m.sandbox
+        let outcome = await PortSignIn.run(s, title: w.port.title, guestPort: port, macPort: macPort, path: w.port.path,
+                                           exec: { argv, seconds in
+                                               try await sandbox.exec(argv, environment: ctx.environment, workingDirectory: ctx.workdir,
+                                                                      user: ctx.user, timeoutSeconds: Int64(seconds))
+                                           },
+                                           open: { url, signedIn in PortSignIn.openOnMac(url, signedIn: signedIn) })
+        note(m.name, outcome.line)
+        if !outcome.opened { throw HostError(.failed, outcome.line) }
+        return PortOpened(sandbox: m.name, port: port, title: w.port.title, url: outcome.url, signedIn: outcome.signedIn, problem: outcome.problem)
     }
 
     /// The `ports` operation: list, add (`portAdd`) or remove (`portRemove`).

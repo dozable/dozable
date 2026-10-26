@@ -272,7 +272,12 @@ capabilities:
       title: OpenCode web
       path: /
       auth: token
-      token_hint: run opencode pair in the sandbox — it prints a one-time link (5 minutes) that signs this Mac's browser in; when this Mac's port is not 49374, change 49374 in the link to it
+      token_hint: Open signs this Mac's browser in by itself; by hand, run opencode pair in the sandbox — it prints a one-time link (5 minutes); when this Mac's port is not 49374, change 49374 in the link to it
+      sign_in:
+        argv:
+        - opencode
+        - pair
+        link_path: /auth/connect/
     serve:
     - opencode
     - service

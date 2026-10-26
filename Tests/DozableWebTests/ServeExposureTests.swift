@@ -17,7 +17,7 @@ final class ServeExposureTests: XCTestCase {
             .accountAdd, .sandboxKey("s"), .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
-            .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve,
+            .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
         ]
         for r in all { _ = covered(r) }
         return all
@@ -32,7 +32,7 @@ final class ServeExposureTests: XCTestCase {
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
-             .dotfilesResolve:
+             .dotfilesResolve, .portOpen:
             return true
         }
     }
@@ -42,7 +42,7 @@ final class ServeExposureTests: XCTestCase {
         var t: [String: (WebRejection?, WebRejection?, WebRejection?)] = [:]
         for r in samples { t[ServeExposureTests.label(r)] = (nil, nil, nil) }
         for secret in ["accountAdd", "sandboxKey", "accessGithubKey"] { t[secret] = (nil, .secretOverHTTP, nil) }
-        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors"] { t[screen] = (nil, .macScreen, .macScreen) }
+        for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen"] { t[screen] = (nil, .macScreen, .macScreen) }
         t["serveProbe"] = (.notFound, nil, nil)
         return t
     }()

@@ -942,6 +942,7 @@ name: todo-app</pre></details>
     <div class="sbx-title" data-sg-chips-denied><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Node.js · Gemini CLI</span><button type="button" class="chip-kv"><span class="k">Network</span>locked</button><span class="menu-wrap chip-wrap"><button type="button" class="tag warn denied-chip">4 denied</button></span></span></div>
     <div class="sbx-title" data-sg-chips-ports><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · AIChat</span><a class="btn sm" href="#" title="AIChat web — the sandbox’s port 8000 at http://127.0.0.1:8000/"><i data-i="link"></i>Open AIChat web</a></span></div>
     <div class="sbx-title" data-sg-chips-ports-idle><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · Fabric</span><button type="button" class="btn sm" disabled title="Not serving yet — start it in a session (fabric --serve)"><i data-i="link"></i>Open Fabric REST API</button></span></div>
+    <div class="sbx-title" data-sg-chips-ports-signin><span class="chips sbx-meta"><span class="chip-kv"><span class="k">Image</span>Debian · OpenCode 2</span><button type="button" class="btn sm" data-port-signin title="OpenCode web — the sandbox’s port 49374 at http://127.0.0.1:49374/ · Open signs this Mac’s browser in (it runs opencode pair in the sandbox)"><i data-i="link"></i>Open OpenCode web</button><button type="button" class="btn sm" disabled><span class="mini-spin" aria-hidden="true"></span><span class="btn-label">Signing in…</span></button></span></div>
   </div></div>
   <p><b>Queued.</b> Beyond what runs at once (starts, wakes, resumes, sleeps, hibernations and shut-downs: <code>ui.batch_concurrency</code>;
     the rest: eight), an operation is accepted and waits its turn — still running to the page (the sandbox is busy, its verbs disabled), with
@@ -954,7 +955,9 @@ name: todo-app</pre></details>
     <code>127.0.0.1</code>. From another device (<code>doz ui --lan</code>) it is a plain outline tag “TITLE (on the Mac)” instead — that device’s 127.0.0.1 is not the Mac.
     The Overview tab lists every forward with its state (listening, stopped, failed and why). While nothing in the sandbox listens on the port the
     button is there but DISABLED, its tooltip how to start it — the recipe’s own command when it has one (“Not serving yet — start it in a session
-    (fabric --serve)”); the details’ list says the same.</p>
+    (fabric --serve)”); the details’ list says the same. A port whose recipe says how to sign in (OpenCode web) is the same button, not a link:
+    pressed, it says “Signing in…” with the small spinner while the Mac opens the page signed in (the host runs the sign-in; the link never
+    reaches the page), then a toast; a sign-in that failed still opened the page, and why is said in the sandbox’s status line.</p>
   <p>Accounts &amp; keys (<code>views/accounts.js</code>) is built around four tasks, in ONE 960px column (<code>.ak-page</code> — the title and Add a key
     too). <b>Fix a failing key:</b> “Needs you” (<code>.ak-needs</code>) is one block, a line per problem (<code>.ak-need</code>, <code>bad</code> /
     <code>warn</code>, <code>quiet</code> when it breaks no sandbox), worst first — the more sandboxes it breaks the earlier — each saying what is wrong,

@@ -176,6 +176,8 @@ class Harness:
             "DOZ_TEST_NO_MAC_LOGIN": "1", "DOZ_TEST_CREDENTIALS": "memory",
             "DOZ_TEST_CODEX_HOME": os.path.join(self.root, "codex-home"), "DOZ_TEST_BASE_REGISTRY": "pinned",
             "DOZ_PROGRESS": "plain", "NO_COLOR": "1",
+            # 666: the opener seam — nothing opens on this Mac; a sign-in from Open is recorded elided and played as a browser.
+            "DOZ_TEST_OPEN_URL": os.path.join(self.root, "opened.log"),
         })
         if not self.env.get("DOZ_KERNEL_CACHE"):
             self.env.pop("DOZ_KERNEL_CACHE", None)
@@ -583,6 +585,27 @@ class Harness:
                 fail("ports: GET 127.0.0.1:%d%s (%s, the sandbox's %d) got no HTTP answer: %s %s" % (row["mac_port"], path, p["title"], p["port"], line, tail.strip()[-200:]))
             else:
                 got.append("%d→%d %s" % (p["port"], row["mac_port"], line))
+            # 666: a port that signs in — Open runs the recipe's sign_in in the sandbox and opens the link it printed at the
+            # forward; the opener seam plays the browser (status codes and cookie names only — never the link).
+            if p.get("sign_in"):
+                seam = self.env["DOZ_TEST_OPEN_URL"]
+                before = open(seam).read() if os.path.exists(seam) else ""
+                code, out = self.doz("open", name, str(p["port"]), "--json", timeout=60)
+                try:
+                    opened = json.loads(out[out.index("{"):])
+                except ValueError:
+                    opened = {}
+                said, deadline = "", time.time() + 20
+                while time.time() < deadline and "signed-in-browser" not in said:
+                    time.sleep(0.5)
+                    said = (open(seam).read() if os.path.exists(seam) else "")[len(before):]
+                browser = next((l for l in said.splitlines() if l.startswith("signed-in-browser ")), "")
+                status = browser.split(" ")[2] if browser.startswith("signed-in-browser link ") else ""
+                if code != 0 or not opened.get("signed_in") or not status[:1] in ("2", "3"):
+                    fail("ports: %s's sign-in (%s): doz open → %s; the browser: %s" % (p["title"], " ".join(p["sign_in"]["argv"]),
+                         (opened.get("problem") or out.strip()[-200:]), browser or "nothing opened"))
+                else:
+                    got.append("%d sign-in: %s" % (p["port"], browser[len("signed-in-browser "):]))
         res["ports"] = got
 
 

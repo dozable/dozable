@@ -75,9 +75,12 @@ public struct PortForwardRow: Codable, Equatable, Sendable {
     public var serving: Bool?
     /// The recipe's command that serves it (`ports@1 serve`), to start in a session — said while nothing serves.
     public var serveHint: String?
+    /// 666: Open signs the Mac's browser in by itself — the command it runs in the sandbox for a one-time link
+    /// (`opencode pair`; display only, never its output). nil: Open opens the page as it is.
+    public var signIn: String?
     enum CodingKeys: String, CodingKey {
         case port, title, path, `protocol`, origin, state, url, moved, why, auth, serving
-        case macPort = "mac_port", tokenHint = "token_hint", serveHint = "serve_hint"
+        case macPort = "mac_port", tokenHint = "token_hint", serveHint = "serve_hint", signIn = "sign_in"
     }
     public init(port: Int, title: String, path: String, protocol: String, origin: String, state: String, macPort: Int? = nil,
                 url: String? = nil, moved: Bool? = nil, why: String? = nil, auth: String? = nil, tokenHint: String? = nil) {

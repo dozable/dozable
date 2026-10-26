@@ -914,6 +914,11 @@ public final class DozableWebServer: @unchecked Sendable {
             // 644: the Mac's screen (WebExposure: mac-screen); CSRF-checked above; a strict body.
             try Self.requireJSONBody(md)
             return json(["message": try await data.openFile(name, try WebFileOpen.decode(body))])
+        case .portOpen(let name):
+            // 666: the Mac's screen (WebExposure: mac-screen); CSRF-checked above; a strict body. The host opens the port —
+            // signed in when its recipe says how — and answers the plain URL only.
+            try Self.requireJSONBody(md)
+            return json(try await data.openPort(name, port: try WebPortOpen.decode(body)))
         case .editors:
             // 646: read-only (LaunchServices asked, nothing launched); mac-screen like files/open, which it serves.
             return json(try await data.editors())

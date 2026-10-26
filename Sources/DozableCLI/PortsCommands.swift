@@ -42,7 +42,13 @@ enum PortsText {
         }
         Out.stdout(Out.table(rows))
         if a.phase != "running" { Out.stdout("\n\(a.sandbox) is \(a.phase) — its ports listen while it runs (\(PortsText.wakeHint(a))).\n") }
-        for p in a.ports where p.auth == "token" { Out.stdout("\n\(p.title) asks for a token: \(p.tokenHint ?? "see its output").\n") }
+        for p in a.ports where p.auth == "token" {
+            if let s = p.signIn {
+                Out.stdout("\n\(p.title) asks for a sign-in: doz open \(a.sandbox) \(p.port) signs this Mac's browser in (it runs \(s) in the sandbox).\n")
+            } else {
+                Out.stdout("\n\(p.title) asks for a token: \(p.tokenHint ?? "see its output").\n")
+            }
+        }
     }
 }
 
@@ -98,7 +104,10 @@ struct OpenCommand: AsyncParsableCommand {
         abstract: "Open a sandbox's web port in this Mac's browser (its first web port, or PORT).",
         discussion: """
         Opens the forward's URL (http://127.0.0.1:MACPORT/PATH). It starts nothing: a sandbox that is not running \
-        says so (its ports listen while it runs). --print prints the URL instead.
+        says so (its ports listen while it runs). When the image's recipe says how to sign in to the page (OpenCode \
+        web: opencode pair), it signs this Mac's browser in: the sign-in command runs in the sandbox and its one-time \
+        link is opened at this Mac's port — the link is never printed, logged or kept. If that fails, the page opens \
+        as it is and doz says why. --print prints the plain URL instead (it does not sign in).
         """)
     @OptionGroup var g: GlobalOptions
     @Argument(help: "The sandbox.") var name: String
@@ -122,8 +131,33 @@ struct OpenCommand: AsyncParsableCommand {
         guard let s = row.url, let url = URL(string: s) else {
             throw HostError(.unavailable, "\(row.title) (port \(row.port)) is not listening: \(row.why ?? row.state)")
         }
-        if g.json { Out.json(row); if !print { _ = BrowserBridge.open(url, callback: nil) }; return }
-        if print { Out.stdout(s + "\n"); return }
+        if print {
+            if g.json { Out.json(row) } else { Out.stdout(s + "\n") }
+            if row.signIn != nil, !g.quiet { Out.stderr("(the page as it is — doz open \(name) \(row.port) opens it signed in)\n") }
+            return
+        }
+        // 666: a port whose recipe says how to sign in — the HOST runs the sign-in and opens the link (it never comes here).
+        if let command = row.signIn {
+            var r = HostRequest(.portOpen, name: name)
+            r.openPort = row.port
+            let m = try rawCall(r, g, autostart: false)
+            if m.ok == true {
+                let o = try decode(m.result ?? .null, PortOpened.self, g)
+                if g.json { Out.json(o); return }
+                if o.signedIn {
+                    Out.stdout("opened \(o.title) — \(o.url), signed in (a one-time link from \(command))\n")
+                } else {
+                    Out.stdout("opened \(o.title) — \(o.url), without signing in\n")
+                    if !g.quiet { Out.stderr("could not sign in: \(o.problem ?? "no link") — \(row.tokenHint ?? "sign in on the page")\n") }
+                }
+                return
+            }
+            let e = m.error ?? HostError(.failed, "the host gave no reason")
+            // An older host cannot read the request: open the page as before.
+            guard e.code == .invalid, e.message.contains("cannot read") else { throw fail(e, g) }
+            if !g.quiet { Out.stderr("the running host cannot sign in (an older build) — opening the page as it is\n") }
+        }
+        if g.json { Out.json(row); _ = BrowserBridge.open(url, callback: nil); return }
         guard BrowserBridge.open(url, callback: nil) else { throw HostError(.failed, "this Mac could not open \(s)") }
         Out.stdout("opened \(row.title) — \(s)\n")
         if row.auth == "token" { Out.stdout("it asks for a token: \(row.tokenHint ?? "see its output")\n") }

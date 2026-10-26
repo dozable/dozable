@@ -147,6 +147,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 617 (RP-1): a sandbox's web-port forwards — listed, or one added (`portAdd`) or removed (`portRemove`); answered
     /// with `PortsAnswer`. Listeners live in the host, so this always needs it.
     case ports
+    /// 666: open a RUNNING sandbox's web port (`openPort`) in this Mac's browser — signed in when its recipe declares a
+    /// sign-in command (`ports@1 sign_in`): the host runs it in the sandbox as the session's user and opens the link it
+    /// printed at the forward; the link never leaves the host (`PortOpened` carries the plain URL only). A failed
+    /// sign-in opens the plain URL and says why. Needs the host (the forwards live there).
+    case portOpen = "port-open"
     /// 617 (owner: "try now … a blank modal with a considerable delay"): `plan` for many requests at once
     /// (`planRequests`, ≤ 128) — the store's facts read ONCE (the image list alone costs ~0.6 s), answered with
     /// `[CreatePlan]` in the same order. The Quick try's readiness. Read-only.
@@ -377,6 +382,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// 617 (RP-1) `ports`: a forward to add (kept in the sandbox's record) or a guest port to stop forwarding.
     public var portAdd: PortForwardEntry?
     public var portRemove: Int?
+    /// 666 `port-open`: the guest port to open.
+    public var openPort: Int?
     public var configDir: String?
     public var keychainService: String?
     public var policy: String?
@@ -629,6 +636,25 @@ public struct PortsAnswer: Codable, Equatable, Sendable {
     public var note: String?
     public init(sandbox: String, phase: String, ports: [PortForwardRow], note: String? = nil) {
         self.sandbox = sandbox; self.phase = phase; self.ports = ports; self.note = note
+    }
+}
+
+/// 666: `port-open`'s answer. `url` is the forward's plain address (`http://127.0.0.1:MACPORT/PATH`) — never the sign-in
+/// link, which only the host ever holds. `problem`: why it could not sign in (it then opened `url`); nil when it signed in
+/// or the port declares no sign-in.
+public struct PortOpened: Codable, Equatable, Sendable {
+    public var sandbox: String
+    public var port: Int
+    public var title: String
+    public var url: String
+    public var signedIn: Bool
+    public var problem: String?
+    enum CodingKeys: String, CodingKey {
+        case sandbox, port, title, url, problem
+        case signedIn = "signed_in"
+    }
+    public init(sandbox: String, port: Int, title: String, url: String, signedIn: Bool, problem: String? = nil) {
+        self.sandbox = sandbox; self.port = port; self.title = title; self.url = url; self.signedIn = signedIn; self.problem = problem
     }
 }
 
