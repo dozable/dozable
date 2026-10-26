@@ -156,8 +156,11 @@ public enum RecipeCatalogueSelection {
     nonisolated(unsafe) public static var startChoice: RecipeCatalogueChoice?
 
     /// `DozableEntry`'s first step: choose, install, seal — before anything reads a recipe.
-    public static func chooseAtStart(args: [String], version: String, executable: String) -> RecipeCatalogueChoice {
+    /// 653: `extras` runs between Dozable's own choice and the seal — the recipes that are not Dozable's
+    /// (`RecipeExtras.chooseAtStart`).
+    public static func chooseAtStart(args: [String], version: String, executable: String, extras: () -> Void = {}) -> RecipeCatalogueChoice {
         let c = choose(args: args, version: version, executable: executable)
+        extras()
         RecipeCatalogue.seal()
         startChoice = c
         return c

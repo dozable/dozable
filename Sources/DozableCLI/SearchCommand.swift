@@ -67,7 +67,9 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
     case "supported":
         // 618: a family's major says which it is and the others ("recommended; also @1").
         let fam = AgentRecipes.recipe(e.id).flatMap { AgentRef.choicesLine($0) }.map { " (\($0))" } ?? ""
-        var s = "\(e.title)\(fam) — supported" + (e.checked.map { " · checked \($0)" } ?? "")
+        // 653: a recipe that is not Dozable's says whose it is — never mixed silently with Dozable's.
+        let from = e.origin.map { " [\($0.label)]" } ?? ""
+        var s = "\(e.title)\(fam)\(from) — supported" + (e.checked.map { " · checked \($0)" } ?? "")
         if let p = e.keys.first?.provider {
             let title = KeyProviders.provider(p)?.title ?? p
             s += " · key: \(title)" + (local?.haveKey.map { " (you have \($0)" + (local?.source.map { ", \($0)" } ?? "") + ")" } ?? " (none yet — doz try asks)")
@@ -91,7 +93,7 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
 /// release download or a hash-locked PyPI set is never looked up (`AgentRecipe.pinnedOnlyKinds`): its line says the pin,
 /// never "not checked yet" — no check is coming.
 func latestLine(_ l: DirectoryIndex.Latest?, agent: String? = nil) -> String {
-    if l == nil, let id = agent, let r = AgentRecipes.recipe(id), AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) {
+    if l == nil, let id = agent, let r = AgentRecipes.recipe(id), r.isPinnedOnly {
         return "pinned \(r.install.pinned.version) — Dozable installs exactly this release; a newer one comes with a Dozable update"
     }
     guard let l else { return "latest: not checked yet (the host checks hourly while it runs)" }
@@ -126,6 +128,7 @@ func categoryLine(kind: String, categories: [String]?) -> String {
 func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     var s = "\(e.title)" + (e.publisher.map { " · \($0)" } ?? "") + (e.homepage.map { " · \($0)" } ?? "") + "\n"
     if e.status != "supported" { return s + "  \(e.status): \(e.reason ?? "")\n" + (e.lifecycle.map { "  standing: \(standingLine($0))\n" } ?? "") }
+    if let o = e.origin { s += "  from: \(o.label) — not Dozable's (doz recipe show \(e.id))\n" }
     s += "  \(latestLine(e.latest, agent: e.id))\n"
     if let l = e.lifecycle, !l.isCurrent { s += "  standing: \(standingLine(l))\n" }
     if let i = e.install { s += "  installs: \(i.kind) \(i.source ?? "") \(i.version) (checksum-verified; its default base: \(e.defaultBase ?? "?"))\n" }
@@ -189,7 +192,9 @@ struct SearchCommand: AsyncParsableCommand {
 
     func run() async throws {
         // 617: the measured latest of each agent (the host's hourly check; a look never asks the registry).
+        // 653: the written index is Dozable's directory — your recipes and the community ones are never in it.
         let built = DirectoryIndex.build(version: DozableCommand.version,
+                                         recipes: index == nil ? AgentRecipes.published : AgentRecipes.published.filter(\.origin.isDozable),
                                          latest: AgentCurrency.all(store: g.dozableStore).compactMapValues(\.indexLatest))
         if let path = index {
             let url = URL(fileURLWithPath: (path as NSString).expandingTildeInPath)

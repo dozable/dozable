@@ -302,7 +302,11 @@ public enum DozableEntry {
         let args = Array(CommandLine.arguments.dropFirst())
         // The recipes this process uses — chosen ONCE, before anything reads one (the embedded set, or a verified
         // recipe catalogue; RecipeCatalogueClient.swift). Never swapped afterwards.
-        let recipes = RecipeCatalogueSelection.chooseAtStart(args: args, version: DozableCommand.version, executable: HostLauncher.executablePath)
+        // 653: then the recipes that are not Dozable's — yours and the community catalogues you added (the snapshot the last
+        // host start chose; a host's own start chooses it anew — RecipeExtras.swift).
+        let recipes = RecipeCatalogueSelection.chooseAtStart(args: args, version: DozableCommand.version, executable: HostLauncher.executablePath) {
+            RecipeExtras.chooseAtStart(args: args, version: DozableCommand.version, compile: RecipeSource.compile)
+        }
         if let p = recipes.problem, recipes.reportNow, !args.contains(where: { ["--json", "-q", "--quiet"].contains($0) }), isatty(STDERR_FILENO) == 1 {
             Out.stderr("doz: \(p) — using \(recipes.source.describe(dozVersion: DozableCommand.version))\n")
         }

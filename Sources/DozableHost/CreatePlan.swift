@@ -121,6 +121,32 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     public var version: PlanVersion? = nil
     /// What the create will send.
     public var create: CreateOptions
+    /// 653: whose recipe it is when it is not Dozable's (yours, a community catalogue's) — and what its bake runs and
+    /// reaches. nil: Dozable's own.
+    public var recipe: PlanRecipe? = nil
+}
+
+/// 653: a recipe that is not Dozable's, said before anything is made.
+public struct PlanRecipe: Codable, Equatable, Sendable {
+    /// `mine` | `community`.
+    public var kind: String
+    public var source: String?
+    /// "yours", "community · NAME".
+    public var label: String
+    /// "your own recipe (~/…/mine/x.yaml)", "a community recipe from NAME (URL, key SHA256:…, confirmed DATE)".
+    public var whose: String
+    /// The sha256 of the bytes it came from (the version a CLI asks about once).
+    public var sha256: String?
+    /// What its bake installs and reaches, what it may reach when it runs.
+    public var lines: [String]
+
+    public static func of(_ r: AgentRecipe) -> PlanRecipe? {
+        guard let label = r.origin.label else { return nil }
+        let p = RecipeExtrasPaths.at()
+        return PlanRecipe(kind: r.origin.kind, source: r.origin.source, label: label, whose: RecipeExtras.whose(r, p),
+                          sha256: p.flatMap { RecipeExtras.snapshotEntry(id: r.id, $0)?.file.sha256 },
+                          lines: RecipeExtras.bakeLines(r) + ["its bake runs under the bake policy: only the hosts above and its package registry"])
+    }
 }
 
 /// 618: what release a create installs, and a family's majors to choose from.
@@ -416,6 +442,7 @@ public enum CreatePlanner {
                               problems: problems, create: o)
         plan.model = planModel
         plan.version = Self.version(choice: choice, given: o, release: specVersion)
+        plan.recipe = choice?.agent.recipe.flatMap(PlanRecipe.of)          // 653
         return plan
     }
 

@@ -172,7 +172,8 @@ struct TryCommand: AsyncParsableCommand {
             let key = l?.haveKey.map { "key: \($0)" + (l?.source.map { " (\($0))" } ?? "") } ?? "no key yet — you'll be asked"
             let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"
             let fam = AgentRecipes.recipe(e.id).flatMap { AgentRef.choicesLine($0) }.map { " (\($0))" } ?? ""
-            s += String(format: "  %2d. %@%@ — %@ · %@ · %@\n", i + 1, e.title, fam, e.publisher ?? "", key, image)
+            let from = e.origin.map { " [\($0.label)]" } ?? ""          // 653: yours, or a community catalogue's
+            s += String(format: "  %2d. %@%@%@ — %@ · %@ · %@\n", i + 1, e.title, fam, from, e.publisher ?? "", key, image)
             // 617: its latest release (and how old), and its standing with its maker.
             s += "      " + latestLine(e.latest, agent: e.id) + "\n"
             if let l = e.lifecycle, !l.isCurrent { s += "      " + standingLine(l) + "\n" }

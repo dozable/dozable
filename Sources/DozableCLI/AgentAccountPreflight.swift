@@ -13,6 +13,7 @@ import DozableHost
 /// `o.account`, checked (and chosen or added on a terminal) for a create of a built-in agent image. A
 /// template's agent is checked by the host alone (the same message, without the offer).
 func preflightAgentAccount(_ o: inout CreateOptions, _ g: GlobalOptions) throws {
+    try confirmRecipeTrust(image: o.image, g)              // 653: whose recipe — said, or asked once per version
     guard AgentImages.credentials(o.image) != nil else { return }
     let section = DozableSettings.imageSection(imageSpecName: o.image)
     let network = o.network ?? DozableSettings.load().string(SettingKey.network(section))
