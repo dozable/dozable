@@ -333,6 +333,19 @@ final class RecipeCatalogueTests: XCTestCase {
         XCTAssertTrue(again.problem?.contains("is not newer than 1") == true, again.problem ?? "")
     }
 
+    func testAfterAnUpgradeAnOlderCatalogueIsPassedOverQuietly() throws {
+        let files = try Self.treeFiles()
+        try cache(files, try manifest(files, serial: 1, minimumDoz: "0.37.24", sourceVersion: "0.37.24"), as: "current.json")
+        let newer = RecipeCatalogueSelection.choose(args: ["ls"], version: "0.37.25", executable: "/x/doz", env: env(), guarded: true)
+        XCTAssertTrue(newer.source.isEmbedded, "a build never uses recipes older than its own")
+        XCTAssertNil(newer.problem, "nothing wrong to say")
+        XCTAssertFalse(newer.reportNow)
+        RecipeCatalogue.resetForTests()
+        let older = RecipeCatalogueSelection.choose(args: ["ls"], version: "0.37.20", executable: "/x/doz", env: env(), guarded: true)
+        XCTAssertTrue(older.source.isEmbedded, "a doz older than its minimum keeps its own")
+        XCTAssertNil(older.problem)
+    }
+
     func testTheSeamsOwnFileIsUsedDirectly() throws {
         var files = try Self.treeFiles()
         try Self.edit(&files, "agents/grok.json") { $0["description"] = "from a site" }

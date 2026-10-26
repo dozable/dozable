@@ -299,6 +299,30 @@ start and a short task called, each with a determination the unit tests check th
   bytes, with the update feed's key (`Distribution.updatePublicKey`) — the prefix keeps a feed signature from ever
   passing as an index's. Phase 1 writes it unsigned and fetches nothing.
 
+## The recipe catalogue — recipe data that is not compiled in
+
+The recipes, key providers, gateways, tags, known entries and icons compiled into a build are its **embedded set**. A
+**recipe catalogue** is the same data published as signed data of its own, so a new or updated recipe reaches installed
+builds without a release (`Sources/DozableKit/RecipeCatalogue.swift`; the client half, the cache and the refresh, is
+`Sources/DozableHost/RecipeCatalogueClient.swift`).
+
+- **Where:** `https://updates.dozable.com/v1/recipes.json` (`Distribution.recipeCatalogueURL`) beside the update feed,
+  naming its files under `v1/recipes/<serial>/` with each file's sha256 and size. `/v1/` is the format.
+- **Signed** with the update feed's key (`Distribution.updatePublicKey`), over a domain-separated message
+  (`RecipeCatalogueManifest.message`, starting `dozable-recipe-catalogue-v1\n`) — a feed entry's signature can never pass
+  as a catalogue's, nor the other way round.
+- **One set per process, chosen at its start:** `RecipeCatalogue.active` is the embedded set unless the process's entry
+  adopted a catalogue (`RecipeCatalogue.adopt`, then `seal()`); every reader of recipe data (`AgentRecipes`,
+  `KeyProviders`, `Gateways`, `CapabilityTags`, `Categories`, `KnownThings`, `AgentIcons`) reads the active set. Nothing
+  is swapped under a running process. DozableKit is handed the bytes — it never reads settings or the network for this.
+- **What a catalogue may change:** it adds or updates entries by id and never removes one this build has. The built-in
+  agents (Claude Code, pi, Codex) are never replaced. The merged set must pass every validator the embedded set passes,
+  or the whole catalogue is ignored. Each catalogue names the oldest doz that reads it (`minimum_doz`) and the version of
+  the tree it was made from (`source_version` — a build never uses one made from an older tree than its own).
+- **Embedding DozableKit elsewhere:** do nothing and the embedded set is used. To use a catalogue, verify the manifest
+  yourself (`RecipeCatalogueManifest.verify(publicKey:)`) and call `RecipeCatalogue.adopt(manifest, files:)` once, before
+  anything reads a recipe.
+
 ## The icon registry (`Recipes/icons/`)
 
 ONE registry of vendor and product marks, beside the recipes (owner: "b&w only initially — support for colour later"):
@@ -320,7 +344,7 @@ ONE registry of vendor and product marks, beside the recipes (owner: "b&w only i
   and OpenAI require approval for their marks and forbid altering them (colour included); xAI publishes no licence for
   its logos in another maker's app; pi's MIT licence covers its code, not a mark.
 - **Adding one:** add the entry to `icons.json` (a lettermark: its `lettermark` spec and an EMPTY file `NAME.svg`), add
-  the `.embedInCode("Recipes/icons/NAME.svg")` line to Package.swift and the file to `AgentIcons.files`, then run
+  the `.embedInCode("Recipes/icons/NAME.svg")` line to Package.swift and the file to `AgentIcons.embeddedFiles`, then run
   `AgentIconsTests`: it draws an empty lettermark file and fails once (review it, commit, re-run). An official mark:
   make the maker's SVG one `currentColor` path (nothing else changed), set `allowed: official`, `source` and `terms`.
   `AgentIconsTests` checks the folder, the manifest and the package agree, every file's shape, and every recipe resolving.

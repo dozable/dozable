@@ -95,6 +95,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableHost/WorkspaceFileChange.swift`; `HostCore+Files.swift`; `Sources/DozableCLI/FileCommands.swift` (`doz files` group); `Sources/DozableWeb/WebFiles.swift` (`WebFileTree`, `WebFileOpen`); `WebSource/app/views/sandbox-files.js` | 644: the file explorer panel — the changes on the Mac (confined, descriptor-relative, the rules) and in an isolated guest, the kept open folders (`FileTreeState`), `files-open`; the Files tab; `FileChangeTests` |
 | `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open Workspace — a shared workspace (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the host op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
 | `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
+| `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's hourly refresh; the publisher and its end-to-end test |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1913,8 +1914,9 @@ may use it too.
   (`Tests/Fixtures/kit-v3/`, vendored at a pinned commit), the mapping lossless. Edit the YAML, run `make recipes`,
   commit both; never edit `compiled/` by hand. Decoded once, validated, unknown keys refused; an invalid
   built-in recipe is a test failure. `AgentKind` is a recipe-backed struct (the same raw strings); `allCases` is the
-  four that were the enum, then the recipe agents in file order. `AgentRecipes.registerForTests` is the only way to
-  add one at run time — no environment variable loads a recipe.
+  four that were the enum, then the recipe agents in file order (then a recipe catalogue's new ones, in path order).
+  Besides a signed recipe catalogue chosen at a process's start (below), `AgentRecipes.registerForTests` is the only
+  way to add one at run time — no environment variable loads a recipe outside a guarded test run's catalogue seam.
 - **Published or not** (629, owner: "withdraw most of the recipes … set to 'unpublished'"): `directory@1` `published: false`
   (gateways.json's too) — `AgentRecipes.published` / `Gateways.published` / `ModelSources.isPublished` feed EVERY list a
   person picks from and the per-recipe work (recipe-check `all`/`--changed`, profiles, agent-currency via
@@ -1923,6 +1925,55 @@ may use it too.
   `ModelSources.ids`, `offeredSources`, the settings schema) stays the validator and the resolver of every STORED name — an
   existing sandbox, image, account and setting keep working. Tests of an unpublished tool's mechanics use
   `AgentRecipes.publishEverythingForTests` (a seam, like `registerForTests`); `UnpublishedRecipesTests` pins the set.
+- **The recipe catalogue** (652, owner: "decoupling the known recipes from the cli build"; `Sources/DozableKit/RecipeCatalogue.swift`,
+  `Sources/DozableHost/RecipeCatalogueClient.swift`): the recipe data as SIGNED DATA beside the update feed —
+  `Distribution.recipeCatalogueURL` (`https://updates.dozable.com/v1/recipes.json`, the ONE constant) + the files it
+  names under `v1/recipes/<serial>/` (a new serial is a new folder). `/v1/` is the format (`format: 1`; a new one is
+  `/v2/` beside it); the manifest is decoded strictly (an unknown field = a newer doz). Rules that each matter:
+  - **The key**: Dozable's update key (`Distribution.updatePublicKey`) — NO other key; ONE Ed25519 signature over a
+    DOMAIN-SEPARATED message (`RecipeCatalogueManifest.message`: `dozable-recipe-catalogue-v1\n` + format, product,
+    serial, date, minimum_doz, source_version, base + `file: PATH SHA256 SIZE` per file, sorted). A feed entry's message
+    starts `dozer-sandbox update v1\n`, so neither can verify as the other (tests replay both ways);
+    `update-key.swift sign-catalogue` signs ONLY a message with the catalogue's prefix.
+  - **ONE recipe set per process, chosen at its start, never swapped**: every loader that read `PackageResources.*`
+    (`AgentRecipes.compiled`, `KeyProviders.file`, `Gateways.all`, `CapabilityTags.all`, `Categories.file`,
+    `KnownThings.all`, `AgentIcons.all`/`files`) reads `RecipeCatalogue.active` — `RecipeSet.embedded` (lazy, part by
+    part, today's `fatalError`s) unless `DozableEntry.main`'s FIRST statement (`RecipeCatalogueSelection.chooseAtStart`)
+    adopted a catalogue, then `RecipeCatalogue.seal()` (an adopt after it is a precondition failure). DozableKit never
+    reads the settings or the network for it — DozableHost decides. Only tests swap (`RecipeCatalogue.resetForTests`).
+  - **The choice**: a guarded test run only with its seam (`DOZ_TEST_RECIPE_CATALOGUE`), a development build
+    (`InstallMethod.development`) only with the seam (a recipe edited in the tree must win), else `<settings dir>/recipes/
+    current.json` — and in the HOST's own start (`isHostStart`: `doz host … --foreground`, what the launcher runs) the
+    waiting `next.json`, promoted when it passes. So a command always uses what the running host uses; a new catalogue
+    applies from the next host start (an idle host with one waiting exits, like a changed program). Used only when: it
+    verifies, `minimum_doz` ≤ this doz, `source_version` ≥ this doz (THE floor: never recipes older than the build's
+    own), a next's serial above the current's, every file present with its sha256 and size — and the MERGED set passes
+    every validator the embedded set passes (`RecipeCatalogue.validateActive`). Any failure: the WHOLE catalogue is
+    ignored, recorded in `state.json` (`refused`, `refusedSerials`) and said once (stderr on a terminal, never
+    `--json`/`-q`; the host log; `doz doctor`'s `recipes` line always).
+  - **The merge**: by id — recipes, providers, keyless sources, gateways, tags, kinds, categories, icon entries; the
+    catalogue's entry wins, this build's others STAY (a catalogue never removes: every stored name keeps resolving;
+    withdraw with `published: false`); a known entry whose id a recipe now has is dropped. Catalogue files are decoded
+    strictly (`RecipeCatalogue.strict`) and their schemas must equal this build's.
+  - **The built-in three are NEVER replaced**: a catalogue's copy of claude-code/pi/codex is ignored, a catalogue that
+    adds any other `builtin` recipe is refused; the publisher leaves them out. `RecipePinTests` stays the proof.
+  - **The refresh** (`RecipeCatalogueRefresh`, the host's loop): at most hourly (a failure waits the hour too),
+    conditional GET; 404 = none published (keep, silent — the client must work before the first publish); offline
+    silent; a newer one's files fetched one by one, sha256-checked, renamed into `files/<serial>/`, then `next.json`
+    atomically; a too-old doz or an older tree's catalogue is skipped silently. Seams: `DOZ_TEST_RECIPE_CATALOGUE` =
+    `offline` | an http(s) URL (http only from 127.0.0.1) | an absolute path to a site's recipes.json (used directly,
+    no cache); `DOZ_TEST_UPDATE_KEY` is the trusted key for it ONLY in a guarded run.
+  - **Statistics**: `UsageSchema.agent(image:)` returns only ids THIS build lists in `UsageSchema.agents` — a
+    catalogue-only recipe is counted nowhere until a release lists it (the Worker never sees an id it rejects).
+  - **Publishing**: `make publish-recipes [MIN_DOZ=] [DRY_RUN=1] [PUSH=1]` (`Scripts/publish-recipes.sh`,
+    `recipe-catalogue.py`): the committed compiled data less the built-in three, the next serial (unchanged data =
+    nothing), signed with the keychain key (`UPDATE_KEY_FILE` only with `TEST_PUBLISH=1`, `RECIPES_DIR` likewise),
+    checked against the key doz carries, then THIS build's doz must use it (a guarded run, the file seam) — only then
+    `UPDATES_DIR` is written and committed; pushed ONLY with `PUSH=1`. The first live publish waits for the owner.
+  - **Tests**: `RecipeCatalogueTests` (format, signature both ways, minimum doz, floor, serial, merge, built-ins,
+    refused whole, statistics, the choice, the refresh); `make test-recipe-catalogue` (`Scripts/test-recipe-catalogue.sh`:
+    publish an edited tree with a throwaway key → a local server → a real host's refresh, 404 then the catalogue → the
+    next host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed).
 - **The built-in three (Claude Code, pi, Codex) keep every byte**: their recipes are `builtin` and only DESCRIBE them
   (credentials, sessions, resume, settings keys, prompt); their install steps and launchers stay `AgentImages`' Swift.
   `RecipePinTests` (Codex included) must stay green; `RecipeAgentsTests.test_builtinRecipesDescribeTheirImages` proves
@@ -2535,6 +2586,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
+make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) → local server → the host's refresh → the next start uses it; tampered refused
 make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH

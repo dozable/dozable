@@ -174,6 +174,12 @@ public enum RecipeCatalogueSelection {
         args.first == "host" && args.contains("--foreground")
     }
 
+    /// A catalogue that is fine but not for THIS build (it needs a newer doz, or this doz's own recipes are newer) — passed
+    /// over quietly: after an upgrade the cached one is simply older than the build, which is no problem to say.
+    public static func isNotForThisBuild(_ problem: String) -> Bool {
+        problem.hasPrefix("it needs doz") || problem.hasPrefix("it was made from")
+    }
+
     /// Why this doz may not use `m` (nil: it may): signed with `key`, readable by this doz, not older than its own.
     public static func problem(_ m: RecipeCatalogueManifest, key: Data?, version: String) -> String? {
         do { try m.check() } catch { return RecipeCatalogue.reason(error) }
@@ -234,11 +240,13 @@ public enum RecipeCatalogueSelection {
                 continue
             }
             do {
-                if let p = problem(m, key: key, version: version) { throw SandboxError.invalidSpec(p) }
-                if c.isNext, m.serial <= inUse { throw SandboxError.invalidSpec("serial \(m.serial) is not newer than \(inUse)") }
-                guard let files = RecipeCatalogueCache.readFiles(m, from: cache.filesDir(serial: m.serial)) else {
-                    throw SandboxError.invalidSpec("a file it names is missing from \(cache.filesDir(serial: m.serial).path)")
+                if let p = problem(m, key: key, version: version) {
+                    if isNotForThisBuild(p) { continue }            // not this build's: its own recipes, nothing said
+                    throw SandboxError.invalidSpec(p)
                 }
+                if c.isNext, m.serial <= inUse { throw SandboxError.invalidSpec("serial \(m.serial) is not newer than \(inUse)") }
+                // A file missing is no verdict (a host start may be promoting a newer one this moment): passed over.
+                guard let files = RecipeCatalogueCache.readFiles(m, from: cache.filesDir(serial: m.serial)) else { continue }
                 choice.source = try RecipeCatalogue.adopt(m, files: files)
                 if c.isNext {
                     if rename(cache.nextURL.path, cache.currentURL.path) == 0 {
@@ -366,7 +374,7 @@ public enum RecipeCatalogueRefresh {
             return .unchanged
         }
         if let p = RecipeCatalogueSelection.problem(m, key: key, version: version) {
-            if p.hasPrefix("it needs doz") || p.hasPrefix("it was made from") {
+            if RecipeCatalogueSelection.isNotForThisBuild(p) {
                 state.etag = resp.value(forHTTPHeaderField: "ETag")
                 state.lastModified = resp.value(forHTTPHeaderField: "Last-Modified")
                 return .unchanged
