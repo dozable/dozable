@@ -527,6 +527,18 @@ extension RecipeDocument {
 
     func recipeUnchecked() throws -> AgentRecipe {
         let i = install, l = launch, d = directory
+        var r = try recipeModel(i, l, d)
+        r.vendor = vendor          // 654: kept beside the model (not a coding key)
+        return r
+    }
+
+    /// `VENDOR` of `VENDOR/PRODUCT` (nil: an id without one — never a checked document).
+    public var vendor: String? {
+        let parts = id.split(separator: "/", omittingEmptySubsequences: false)
+        return parts.count == 2 && !parts[0].isEmpty ? String(parts[0]) : nil
+    }
+
+    private func recipeModel(_ i: Install, _ l: Launch, _ d: Directory) throws -> AgentRecipe {
         let prompt = agentContext.map { a in
             AgentRecipe.Prompt(kind: a.dozable.kind, dir: Self.toModelPath(a.directory), file: a.dozable.kind == "skill" ? nil : a.filename,
                                manifest: a.dozable.manifest, launcherArg: a.dozable.launcherArg)

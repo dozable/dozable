@@ -10,7 +10,17 @@ import Foundation
 /// NAME is a recipe's id or alias, or a family's name. Only what a person TYPES goes through here (try/new/create/up, a
 /// project file's `agent:`, the web plan, search) — a stored name never does: a sandbox, an image, a setting and a
 /// statistics id keep the recipe's own id, so an existing sandbox never changes major. `@` qualifies only a tool's
-/// name (`NAME:PATH` stays `doz get/put/cp`'s). Vendor and directory parts (617.B5) are later; the grammar leaves room.
+/// name (`NAME:PATH` stays `doz get/put/cp`'s).
+///
+/// 654 (617.B5, owner: "like a Docker image reference"): the same name may say whose recipe it is —
+///
+///   · `VENDOR/PRODUCT[@…]`          Dozable's recipe (`anthropic/claude-code`, `anomalyco/opencode@1`);
+///   · `SOURCE/VENDOR/PRODUCT[@…]`   SOURCE `dozable`, `mine` (your own) or a community source's name.
+///
+/// PRODUCT is the recipe's id or its family's name (never an alias: the short names are the top-level list). The rest
+/// resolves exactly as above; the qualification only CONFIRMS — ids are unique, so it never chooses between recipes — and
+/// a vendor or source that is not the recipe's is refused with the name that does mean it. A first part with a dot is a
+/// directory host: not served yet (doz.sh, a later step), and no digest either.
 public struct AgentRef: Equatable, Sendable {
     /// The recipe a create uses.
     public var recipe: AgentRecipe
@@ -20,16 +30,21 @@ public struct AgentRef: Equatable, Sendable {
     public var name: String
     /// What was asked for after `@` (nil: none).
     public var qualifier: String?
+    /// 654: what came before the name when it was qualified — `anthropic`, `mine/acme`, `dozable/anomalyco` (nil: a plain name).
+    public var prefix: String? = nil
 
     public var family: AgentRecipe.Family? { recipe.family }
-    /// "opencode", "opencode@1", "opencode@2.0.28".
-    public var text: String { qualifier.map { "\(name)@\($0)" } ?? name }
+    /// "opencode", "opencode@1", "opencode@2.0.28" — 654: with its qualification as typed ("anomalyco/opencode@1").
+    public var text: String { (prefix.map { $0 + "/" } ?? "") + bare }
+    /// The name without its qualification ("opencode@1").
+    public var bare: String { qualifier.map { "\(name)@\($0)" } ?? name }
     /// What a file written for later records (a plan's doz_project.yaml, `doz init`, New Sandbox): a family's name keeps
     /// the major it resolved to (`opencode` → `opencode@2`), so the file never changes major when the recommendation
-    /// moves; a member's own id becomes the family's name (`opencode2` → `opencode@2`). Anything else: `text`.
+    /// moves; a member's own id becomes the family's name (`opencode2` → `opencode@2`). Anything else: `text`. 654: a
+    /// qualified name keeps its qualification (`anomalyco/opencode` → `anomalyco/opencode@2`).
     public var pinned: String {
         guard let f = family else { return text }
-        return "\(name)@\(qualifier ?? String(f.major))"
+        return (prefix.map { $0 + "/" } ?? "") + "\(name)@\(qualifier ?? String(f.major))"
     }
 
     /// A reference that cannot be served — said with the choices there are.
@@ -79,6 +94,7 @@ public struct AgentRef: Equatable, Sendable {
 
     /// `resolve` without the 629 refusal — only to say WHY a typed name is refused, never to serve one.
     public static func resolveAny(_ s: String, in recipes: [AgentRecipe]) throws -> AgentRef? {
+        if s.contains("/") { return try resolveQualified(s, in: recipes) }
         guard let (name, q) = split(s) else {
             if s.contains("@") { throw Problem(description: "\(s) is not a tool's name — NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28)") }
             return nil
@@ -130,6 +146,108 @@ public struct AgentRef: Equatable, Sendable {
             throw Problem(description: "\(r.title) is installed at the release its recipe pins (\(r.install.pinned.version)) — not \(q)")
         }
         return AgentRef(recipe: r, exact: q, name: shown, qualifier: q)
+    }
+
+    // MARK: 654 — qualified names
+
+    /// The longest qualified reference taken (a source, a vendor, a product and a release, with room).
+    public static let maxQualifiedLength = 160
+
+    /// A vendor's slug: lower-case letters, digits and dashes, starting and ending with a letter or digit (the recipe
+    /// file's `VENDOR/`), at most 40.
+    public static func isVendor(_ s: String) -> Bool {
+        s.count <= 40 && s.range(of: "^[a-z0-9]([a-z0-9-]*[a-z0-9])?$", options: .regularExpression) != nil
+    }
+
+    /// The parts of a qualified reference (nil: not that shape). `source` nil: none typed.
+    public struct Qualified: Equatable, Sendable {
+        public var source: String?
+        public var vendor: String
+        public var product: String
+        public var qualifier: String?
+        /// What came before the product as typed (`anthropic`, `mine/acme`).
+        public var prefix: String { (source.map { $0 + "/" } ?? "") + vendor }
+    }
+
+    static let grammarHelp = "VENDOR/PRODUCT (anthropic/claude-code) or SOURCE/VENDOR/PRODUCT (mine/acme/tool), each with @MAJOR or @VERSION if you like"
+
+    /// `[SOURCE/]VENDOR/PRODUCT[@…]` split and checked, each refusal in its own words.
+    public static func parseQualified(_ s: String) throws -> Qualified {
+        let t = s.trimmingCharacters(in: .whitespaces).lowercased()
+        guard t.count <= maxQualifiedLength else { throw Problem(description: "\(s.prefix(40))… is longer than a tool's name can be (\(maxQualifiedLength) characters)") }
+        let at = t.firstIndex(of: "@")
+        let path = at.map { String(t[..<$0]) } ?? t
+        let q = at.map { String(t[t.index(after: $0)...]) }
+        let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        if let first = parts.first, first.contains(".") {
+            throw Problem(description: "\(s): \(first) is a recipe directory — directories are not served yet; name a recipe as \(grammarHelp)")
+        }
+        if let q, q.hasPrefix("sha256:") || q.hasPrefix("sha512:") {
+            throw Problem(description: "\(s): a digest comes with the recipe directory, not yet — after @ comes a major or a release")
+        }
+        if path.contains(":") || (q?.contains(":") ?? false) {
+            throw Problem(description: "\(s): after a tool's name comes @ (\(path.split(separator: ":").first.map(String.init) ?? path)@2), never : — NAME:PATH is doz get, put and cp's")
+        }
+        guard (2...3).contains(parts.count) else { throw Problem(description: "\(s) is not a tool's name — \(grammarHelp)") }
+        let source = parts.count == 3 ? parts[0] : nil
+        let vendor = parts[parts.count - 2], product = parts[parts.count - 1]
+        if let source, !RecipeOrigin.isSourceName(source) { throw Problem(description: "\(s): \(source.isEmpty ? "an empty source" : source) is not a recipe source — dozable, mine or a community source's name (doz recipe source ls)") }
+        guard isVendor(vendor) else { throw Problem(description: "\(s): \(vendor.isEmpty ? "an empty vendor" : vendor) is not a vendor's name — lower-case letters, digits and dashes (\(grammarHelp))") }
+        guard product.range(of: "^[a-z0-9][a-z0-9-]{0,39}$", options: .regularExpression) != nil else {
+            throw Problem(description: "\(s): \(product.isEmpty ? "no product" : product) is not a tool's name — \(grammarHelp)")
+        }
+        if let q, q.isEmpty { throw Problem(description: "\(s): nothing after @ — a major (\(path)@1) or a release") }
+        if let q, q.contains("/") || q.contains("@") { throw Problem(description: "\(s): after @ comes a major (\(path)@1) or a release, once") }
+        return Qualified(source: source, vendor: vendor, product: product, qualifier: q)
+    }
+
+    /// `[SOURCE/]VENDOR/PRODUCT[@…]` → the recipe, through `resolveAny`'s own NAME[@…] rules; the qualification must be
+    /// the recipe's (its vendor, its origin — `dozable` when no source is typed).
+    static func resolveQualified(_ s: String, in recipes: [AgentRecipe]) throws -> AgentRef? {
+        let p = try parseQualified(s)
+        let at = p.qualifier.map { "@" + $0 } ?? ""
+        let ofVendor = recipes.filter { $0.vendor == p.vendor }
+        // The product: a recipe's own id or a family's name (an alias is a short name, not a product).
+        guard ofVendor.contains(where: { $0.id == p.product || $0.family?.family == p.product }) else {
+            if let other = recipes.first(where: { $0.id == p.product || $0.family?.family == p.product }) {
+                throw Problem(description: "\(s): \(p.product) is not \(p.vendor)'s — its name is \(qualifiedName(other, product: p.product))\(at)")
+            }
+            if let r = recipes.first(where: { ($0.aliases ?? []).contains(p.product) }) {
+                throw Problem(description: "\(s): \(p.product) is a short name (doz try \(p.product)) — with its vendor it is \(qualifiedName(r))\(at)")
+            }
+            if ofVendor.isEmpty { throw Problem(description: "\(s): no tool here is \(p.vendor)'s (doz search lists every tool with its full name)") }
+            let names = ofVendor.filter { $0.family.map(\.isRecommended) ?? true }.map { qualifiedName($0, product: $0.family?.family ?? $0.id) }
+            throw Problem(description: "\(s): \(p.vendor) has no tool called \(p.product) — \(p.vendor)'s: \(names.sorted().joined(separator: ", "))")
+        }
+        guard var ref = try resolveAny(p.product + at, in: recipes) else { return nil }
+        let r = ref.recipe
+        // A family's majors share one vendor (validated), so this holds; said plainly should a recipe set ever differ.
+        guard r.vendor == p.vendor else { throw Problem(description: "\(s): \(r.title) is \(r.vendor ?? "no vendor")'s — \(qualifiedName(r))\(at)") }
+        let want = p.source ?? "dozable"
+        guard want == r.origin.sourceWord else {
+            let whose = r.origin.isDozable ? "Dozable's" : (r.origin.label ?? r.origin.kind)
+            throw Problem(description: "\(s): \(r.title) is \(whose) — \(qualifiedName(r, product: p.product))\(at)")
+        }
+        ref.prefix = p.prefix
+        return ref
+    }
+
+    /// A recipe's qualified name — the one that means exactly it when typed: `VENDOR/` + `typed(r)` for Dozable's
+    /// (`anthropic/claude-code`, `anomalyco/opencode` for the recommended major, `anomalyco/opencode@1` for another), with
+    /// its source first for any other (`mine/acme/tool`, `NAME/vendor/tool`). `product`: that name instead of `typed(r)`
+    /// (a refusal says the name as it was typed). No vendor (a test's recipe): the name alone.
+    public static func qualifiedName(_ r: AgentRecipe, product: String? = nil) -> String {
+        let n = product ?? typed(r)
+        guard let v = r.vendor else { return n }
+        return r.origin.isDozable ? "\(v)/\(n)" : "\(r.origin.sourceWord)/\(v)/\(n)"
+    }
+
+    /// The reference a sandbox records (display only): always with its source, and the release when known —
+    /// `dozable/anomalyco/opencode@2.0.29` (a family's name with the release, as `recorded`), `dozable/anthropic/claude-code`.
+    public static func fullyQualified(_ r: AgentRecipe, version: String? = nil) -> String {
+        let src = r.vendor.map { "\(r.origin.sourceWord)/\($0)/" } ?? ""
+        guard let v = version?.split(separator: "+").first.map(String.init), !v.isEmpty else { return src + typed(r) }
+        return src + "\(r.family?.family ?? r.id)@\(v)"
     }
 
     static func noMajor(_ name: String, _ q: String, _ family: [AgentRecipe]) -> Problem {

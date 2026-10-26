@@ -119,10 +119,13 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         public var categories: [String]? = nil
         /// 653: where a recipe came from when it is not Dozable's — yours, or a community catalogue's (absent: Dozable's).
         public var origin: OriginRef? = nil
+        /// 654: an agent's qualified name — `anthropic/claude-code`; yours `mine/VENDOR/PRODUCT`, a community source's
+        /// `NAME/VENDOR/PRODUCT` (`AgentRef.qualifiedName`). Additive: absent for a provider, a base and a coming one.
+        public var qualified: String? = nil
 
         enum CodingKeys: String, CodingKey {
             case kind, id, title, publisher, aliases, status, reason, checked, since, limits, keys, reach, install, terms, homepage, auth, gateways, tags, agents
-            case lifecycle, latest, icon, categories, origin
+            case lifecycle, latest, icon, categories, origin, qualified
             case catalogKind = "catalog_kind"
             case defaultBase = "default_base", tryCommand = "try"
         }
@@ -283,7 +286,8 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gatewaySupport.filter { ModelSources.isPublished($0.gateway) }.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason, offered: r.offersGateway($0.gateway)) },
                      tags: r.shownTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
-                     icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories, origin: OriginRef(r.origin))
+                     icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories, origin: OriginRef(r.origin),
+                     qualified: r.vendor == nil ? nil : AgentRef.qualifiedName(r))
     }
 
     // MARK: bytes

@@ -135,6 +135,10 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// 653: where it came from — Dozable's own (default), the person's own, or a community catalogue. NOT a coding key: a
     /// recipe's JSON and every bake key stay as they were; the set it is adopted into sets it (`RecipeCatalogue.adoptExtras`).
     public var origin: RecipeOrigin = .dozable
+    /// 654: its vendor's slug — the VENDOR of its file's `VENDOR/PRODUCT` id (`anthropic`, `earendil-works`), the middle of
+    /// its qualified name (`AgentRef.qualifiedName`). NOT a coding key, like `origin`: the document carries it, so a
+    /// recipe's JSON and every bake key stay as they were. nil: a recipe made without a document (tests).
+    public var vendor: String? = nil
 
     public struct Family: Codable, Sendable, Equatable {
         /// What a person types (`opencode`): the recommended major's recipe.
@@ -1241,6 +1245,8 @@ public enum AgentRecipes {
                     throw bad("\(r.id) pins \(r.install.pinned.version), not a release of major \(r.family!.major)")
                 }
                 guard r.catalogKind == members[0].catalogKind else { throw bad("its majors are one kind of tool") }
+                // 654: one vendor — `VENDOR/FAMILY` names the family, whichever major.
+                guard r.vendor == members[0].vendor else { throw bad("its majors are one vendor's") }
             }
         }
     }
