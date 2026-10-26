@@ -107,6 +107,10 @@ struct Doctor: AsyncParsableCommand {
                                                                 : "the sound kernel beside this doz is damaged (sha256 differs) — reinstall doz")
                                        + "; a host started from here asks macOS for the microphone as \(who)"))
         }
+        // The recipes this doz uses: its own, or a verified recipe catalogue — and one waiting, or the last refused.
+        let recipeLine = RecipeCatalogueSelection.describe(version: DozableCommand.version)
+        out.append(DoctorCheck(check: "recipes", status: recipeLine.contains("last problem:") ? .warn : .ok,
+                               detail: String(recipeLine.dropFirst("recipes: ".count))))
         // 594 W28: an agent image an older doz made, or a newer agent release — said, never rebuilt by itself.
         let settings = DozableSettings.load()
         for image in ["claude-code", "pi", "codex"] {

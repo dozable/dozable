@@ -32,11 +32,14 @@ public struct KnownThing: Codable, Sendable, Equatable {
 public enum KnownThings {
     struct File: Codable { var schema: Int; var known: [KnownThing] }
 
-    public static let all: [KnownThing] = {
+    static func embedded() -> [KnownThing] {
         do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.known_json)).known } catch {
             fatalError("617: the built-in known.json does not decode: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's known entries (`RecipeCatalogue.active`).
+    public static var all: [KnownThing] { RecipeCatalogue.active.known }
 
     /// Each entry well formed — and no known entry for an id a recipe now has (the recipe wins; the entry must go).
     public static func validate(_ known: [KnownThing], recipes: [AgentRecipe] = AgentRecipes.all) throws {

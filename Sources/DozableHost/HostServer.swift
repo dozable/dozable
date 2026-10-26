@@ -29,6 +29,12 @@ public final class HostServer: @unchecked Sendable {
     private var lockFD: Int32 = -1
     private var stopping = false
     private var signalSources: [DispatchSourceSignal] = []
+    private var _recipeCatalogueWaiting = false
+    /// A newer recipe catalogue was downloaded (it applies at the next host start).
+    var recipeCatalogueWaiting: Bool {
+        get { lock.withLock { _recipeCatalogueWaiting } }
+        set { lock.withLock { _recipeCatalogueWaiting = newValue } }
+    }
 
     init(store: DozableStore, idleTimeoutMinutes: Double, version: String) {
         self.store = store
@@ -93,6 +99,12 @@ public final class HostServer: @unchecked Sendable {
         let exe = ExecutableIdentity.of(path: HostLauncher.executablePath)
         await server.core.setExecutable(exe)
         HostLog.line("running from \(exe?.path ?? HostLauncher.executablePath)\(exe?.cdhash.map { " (cdhash \($0.prefix(12)))" } ?? "")")
+        // The recipes this host (and every command while it runs) uses — chosen once, at this process's start.
+        let recipes = RecipeCatalogueSelection.startChoice
+        HostLog.line("recipes: \(RecipeCatalogue.source.describe(dozVersion: version))"
+                     + (recipes?.promoted == true ? " — the catalogue downloaded earlier, applied now" : "")
+                     + (recipes?.notLooked.map { " (\($0))" } ?? ""))
+        if let p = recipes?.problem { HostLog.line(p) }
         await server.core.load()
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
@@ -122,6 +134,20 @@ public final class HostServer: @unchecked Sendable {
             while true {
                 await server.core.refreshAgentVersions()
                 try? await Task.sleep(for: .seconds(3600))
+            }
+        }
+        // The recipe catalogue: a newer one looked for at most hourly while a host runs; it applies at the next start.
+        Task.detached {
+            while true {
+                let outcome = await RecipeCatalogueRefresh.refresh(version: version, executable: HostLauncher.executablePath)
+                switch outcome {
+                case .downloaded(let serial):
+                    HostLog.line("recipe catalogue \(serial) downloaded and verified — it applies at the next host start")
+                    server.recipeCatalogueWaiting = true
+                case .refused(let why, let reportNow): if reportNow { HostLog.line(why) }
+                default: break
+                }
+                try? await Task.sleep(for: .seconds(RecipeCatalogueRefresh.interval))
             }
         }
         HostLog.line("listening on \(store.socket.path)")
@@ -175,6 +201,11 @@ public final class HostServer: @unchecked Sendable {
             // sandboxes asleep keep their snapshots — a failed wake's too, e1af862.)
             if let change = await core.executableChange(), live.isEmpty, lock.withLock({ connections == 0 && !stopping }) {
                 HostLog.line("my program changed (\(change.rawValue)) and nothing is running — exiting so the next command runs the installed build")
+                await shutdown(prepare: false, reply: nil)
+            }
+            // A newer recipe catalogue waits: the same — the next command's host starts with it.
+            if live.isEmpty, lock.withLock({ _recipeCatalogueWaiting && connections == 0 && !stopping }) {
+                HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's host uses it")
                 await shutdown(prepare: false, reply: nil)
             }
             let exit: Bool = lock.withLock {

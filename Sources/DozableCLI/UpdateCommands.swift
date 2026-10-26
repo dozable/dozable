@@ -300,6 +300,12 @@ struct HostRestart: AsyncParsableCommand {
 public enum DozableEntry {
     public static func main() async -> Never {
         let args = Array(CommandLine.arguments.dropFirst())
+        // The recipes this process uses — chosen ONCE, before anything reads one (the embedded set, or a verified
+        // recipe catalogue; RecipeCatalogueClient.swift). Never swapped afterwards.
+        let recipes = RecipeCatalogueSelection.chooseAtStart(args: args, version: DozableCommand.version, executable: HostLauncher.executablePath)
+        if let p = recipes.problem, recipes.reportNow, !args.contains(where: { ["--json", "-q", "--quiet"].contains($0) }), isatty(STDERR_FILENO) == 1 {
+            Out.stderr("doz: \(p) — using \(recipes.source.describe(dozVersion: DozableCommand.version))\n")
+        }
         let usage = UsageHook(args)
         usage.before()
         do {

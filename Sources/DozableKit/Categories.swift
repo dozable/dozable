@@ -21,11 +21,14 @@ public struct CatalogWord: Codable, Sendable, Equatable {
 public enum Categories {
     struct File: Codable { var schema: Int; var kinds: [CatalogWord]; var categories: [CatalogWord] }
 
-    static let file: File = {
+    static func embeddedFile() -> File {
         do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.tags_json)) } catch {
             fatalError("617: the built-in tags.json has no kinds and categories: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's vocabulary (`RecipeCatalogue.active`).
+    static var file: File { RecipeCatalogue.active.categories }
 
     /// `coding-agent`, `ai-tool` — the lists' two sections, in this order.
     public static var kinds: [CatalogWord] { file.kinds }
