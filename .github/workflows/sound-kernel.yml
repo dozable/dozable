@@ -1,0 +1,88 @@
+# The sound kernel (667) — built FROM SOURCE on the Dozable Mac and checked against the pin.
+#
+# `make sound-kernel` (Scripts/sound-kernel.sh): the pinned kernel's embedded config + Guest/sound-kernel/sound.conf →
+# Guest/sound-kernel/build-in-guest.sh in a throwaway ubuntu:22.04 VM (Linux 6.18.15 and kata 3.28.0's patch,
+# both sha256-pinned; built TWICE in one fixed directory, byte-identical or it fails) → the image's sha256 must be
+# SoundKernel.sha256 (Sources/DozableKit/Audio.swift) and its .config Guest/sound-kernel/sound.config. The kernel,
+# its SHA256SUMS, config, config delta and build log are published as this run's artefact `sound-kernel-<sha256 prefix>`
+# (Guest/sound-kernel/PROVENANCE.md says how to fetch it). Releases are NOT changed by this workflow: it only builds and
+# checks — how a release carries the kernel is release.sh's (SOUND_KERNEL).
+#
+#   workflow_dispatch                       any time (e.g. to fetch a CI-built kernel for a release)
+#   push to main / pull_request, paths      when the recipe, the pin, the script or this file changes — never on every
+#                                           PR: one run takes ~7.5 min (measured 2026-10-27: 447 s on an M1 Max with
+#                                           6 CPUs for the VM, the ubuntu image pulled; two kernel builds of ~2m40s each)
+#
+# Runs only on a Mac labelled doz-ci (the Mac kept for Dozable alone): it boots a VM. The build VM's store is a
+# PERSISTENT cache there ($HOME/Library/Caches/DozableKit-ci/sound-kernel-store — the ubuntu image is kept, the sandbox
+# never is); the pinned kernel's cache is ci.yml's. Network: Docker Hub, Ubuntu's apt mirrors, cdn.kernel.org,
+# raw.githubusercontent.com.
+#
+# PUBLIC-REPO SAFETY (as ci.yml): a fork's pull request never reaches the self-hosted Mac (the guard on the job), no
+# pull_request_target anywhere, read-only token (`contents: read`; no step pushes or opens a PR). `make audit` checks it.
+name: Sound kernel
+
+on:
+  pull_request:
+    paths:
+      - 'Guest/sound-kernel/**'
+      - 'Sources/DozableKit/Audio.swift'
+      - 'Scripts/sound-kernel.sh'
+      - '.github/workflows/sound-kernel.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'Guest/sound-kernel/**'
+      - 'Sources/DozableKit/Audio.swift'
+      - 'Scripts/sound-kernel.sh'
+      - '.github/workflows/sound-kernel.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sound-kernel-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  sound-kernel:
+    name: Build the sound kernel from source and check the pin
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, doz-ci]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          set-safe-directory: false    # the runner's ~/.gitconfig is a relative symlink (as ci.yml)
+
+      - name: make sound-kernel (serialised with the other builds on this Mac)
+        shell: bash
+        run: |
+          set -euo pipefail
+          CACHE="$HOME/Library/Caches/DozableKit-ci"
+          mkdir -p "$CACHE/sound-kernel-store"
+          RUN="make sound-kernel KERNEL_CACHE=\"$CACHE/kernels\" SOUND_KERNEL_STORE=\"$CACHE/sound-kernel-store\" SOUND_KERNEL_OUT=\"$RUNNER_TEMP/sound-kernel\""
+          LOCK="$HOME/Developer/bin/ci-build-lock"
+          T0=$(date +%s)
+          if [ -x "$LOCK" ]; then "$LOCK" --name "$GITHUB_REPOSITORY#sound-kernel" -- bash -c "$RUN" 2>&1 | tee "$RUNNER_TEMP/sound-kernel.log"
+          else echo "! $LOCK missing — unserialised"; bash -c "$RUN" 2>&1 | tee "$RUNNER_TEMP/sound-kernel.log"; fi
+          {
+            echo "### The sound kernel, built from source"
+            echo '```'
+            grep -E '^(ok|x) |^time: |reproducible' "$RUNNER_TEMP/sound-kernel.log" || true
+            echo "job: $(( $(date +%s) - T0 )) s (with the doz-vmtest build and the wait for the lock)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          SHA=$(cut -d' ' -f1 "$RUNNER_TEMP/sound-kernel/SHA256SUMS")
+          echo "ARTEFACT=sound-kernel-${SHA:0:12}" >> "$GITHUB_ENV"
+
+      # Also when the check failed (named so): what was built, and its log, is the evidence.
+      - name: The kernel as an artefact
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ARTEFACT || 'sound-kernel-NOT-THE-PIN' }}
+          path: ${{ runner.temp }}/sound-kernel/
+          if-no-files-found: warn
+          retention-days: 90

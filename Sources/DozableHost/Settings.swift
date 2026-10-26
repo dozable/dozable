@@ -402,6 +402,8 @@ public enum SettingKey {
     public static let dotfiles = "sandbox.dotfiles"
     /// 667: sound — `off`, `speakers` (the Mac's speakers) or `on` (speakers and the Mac's microphone). Per sandbox.
     public static let audio = "sandbox.audio"
+    /// 667: when doz asks macOS about the microphone — `first_recording` (default) or `first_start` (`MicrophoneAsk`).
+    public static let microphoneAsk = "sandbox.microphone_ask"
     /// 599e: "Use GitHub as you" for NEW sandboxes — `off`, `read` or `push` (the Access step's choice).
     public static let defaultGithub = "defaults.github"
     /// 594 (owner ruling): the web UI may take an API key or a setup token (a masked field).
@@ -674,8 +676,12 @@ public struct DozableSettings: Sendable {
                   flag: "doz create --dotfiles URL|PATH|none", applies: .nextCreate),
             // 667 (owner: "sound as a real per-sandbox setting"; 604's experiment was the --audio flag alone).
             .init("sandbox", "audio", .choice(SoundMode.allCases.map(\.rawValue)), .string("off"),
-                  "Sound in new sandboxes: off, speakers (programs in the sandbox play through this Mac's speakers) or on (the speakers and this Mac's microphone). A sandbox with sound has a sound device and boots Dozable's sound kernel (Linux with ALSA and virtio-snd added), so it is chosen when the sandbox is created; a sandbox's own choice (doz create --sound speakers|on, or --audio for on; New sandbox › Sound) wins over this. Between speakers and on a sandbox can change later (doz config set --sandbox NAME sandbox.audio on), from its next start (a wake keeps what it slept with). The microphone: doz asks macOS once, when a sandbox with the microphone starts and macOS has not answered, and a sandbox records from it only if macOS allowed it before that start (until then it records silence) — macOS asks on behalf of the app that started doz (Terminal, your editor). Programs use ALSA's default device; doz-sound in the sandbox tries both.",
+                  "Sound in new sandboxes: off, speakers (programs in the sandbox play through this Mac's speakers) or on (the speakers and this Mac's microphone). A sandbox with sound has a sound device and boots Dozable's sound kernel (Linux with ALSA and virtio-snd added), so it is chosen when the sandbox is created; a sandbox's own choice (doz create --sound speakers|on, or --audio for on; New sandbox › Sound) wins over this. Between speakers and on a sandbox can change later (doz config set --sandbox NAME sandbox.audio on), from its next start (a wake keeps what it slept with). The microphone: a sandbox records from it only if macOS allowed it before the sandbox started (until then it records silence); doz asks macOS once, when sandbox.microphone_ask says — on behalf of the app that started doz (Terminal, your editor). Programs use ALSA's default device; doz-sound in the sandbox tries both.",
                   flag: "doz create --sound off|speakers|on (--audio = on)", applies: .nextCreate),
+            // 667 (owner, 2026-10-27: "make it configurable (default to when first records)").
+            .init("sandbox", "microphone_ask", .choice(MicrophoneAsk.allCases.map(\.rawValue)), .string(MicrophoneAsk.firstRecording.rawValue),
+                  "When doz asks macOS about this Mac's microphone for a sandbox whose sound is on, while macOS has not answered yet (it asks once, on behalf of the app that started doz): first_recording (when a program in such a sandbox first records — that recording is silent, because a running sandbox keeps the microphone it started with; once you allow it, Shut Down and Start the sandbox, and doz says so in its terminals and on the dashboard) or first_start (when such a sandbox starts: it waits for your answer, at most a minute, so its first recording already has the microphone). Nothing is asked once macOS has an answer; System Settings › Privacy & Security › Microphone changes it.",
+                  applies: .nextStartOrWake),
             .init("defaults", "github", .choice(["off", "read", "push"]), .string("off"),
                   "\"Use GitHub as you\" for new sandboxes: off, read (git and gh signed in as you on GitHub, read-only) or push (also push and make changes) — the Access step's choice (doz access set --github). A sandbox can differ: doz create --github, github: in doz_project.yaml, or its permissions later (doz net allow|deny NAME github:as-you). Proxied sandboxes only.",
                   flag: "doz create --github off|read|push", applies: .nextCreate),

@@ -122,7 +122,9 @@ struct Doctor: AsyncParsableCommand {
         do {
             let carried = MacAudio.bundledSoundKernel()
             let ok = carried.map(SoundKernel.isVerified) ?? false
-            let mode = DozableSettings.load().resolve(SettingKey.audio).value.plain
+            let settings = DozableSettings.load()
+            let mode = settings.resolve(SettingKey.audio).value.plain
+            let ask = MicrophoneAsk.of(settings.resolve(SettingKey.microphoneAsk).value)     // 667
             let access = MicrophoneAccess.current()
             let permission = access.status()
             let who = MacAudio.responsibleApp()?.description ?? "an app macOS did not name"
@@ -131,7 +133,7 @@ struct Doctor: AsyncParsableCommand {
                 : "the sound kernel beside this doz is damaged (sha256 differs) — reinstall doz"
             let status: DoctorCheck.Status = carried != nil && !ok ? .warn : (ok && permission == .denied && mode == SoundMode.on.rawValue ? .warn : .ok)
             out.append(DoctorCheck(check: "sound", status: status,
-                                   detail: "sandbox.audio = \(mode) for new sandboxes; \(kernel); the microphone for \(who): \(permission.sentence)"
+                                   detail: "sandbox.audio = \(mode) for new sandboxes; \(kernel); the microphone for \(who): \(permission.sentence(ask: ask))"
                                        + (access.seamed ? " (test seam)" : "")))
         }
         // The recipes this doz uses: its own, or a verified recipe catalogue — and one waiting, or the last refused.

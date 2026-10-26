@@ -90,7 +90,7 @@ public enum MacAudio {
         guard rpid > 0 else { return nil }
         var buf = [CChar](repeating: 0, count: 4 * Int(MAXPATHLEN))
         guard proc_pidpath(rpid, &buf, UInt32(buf.count)) > 0 else { return nil }
-        let path = String(cString: buf)
+        let path = String(decoding: buf.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
         // The OUTERMOST .app on the path (an IDE's helper apps sit inside its own bundle).
         var app: URL?
         var u = URL(fileURLWithPath: path)

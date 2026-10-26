@@ -440,16 +440,27 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   `build-in-guest.sh` (reproducible: fixed KBUILD_* and the SAME build
   directory — the vDSO's build-id hashes it), the complete `sound.config`, kata's patch, `PROVENANCE.md` (the written
   offer). A new kernel gets a NEW file name: a sandbox that slept under the old one finds it for its restore.
+  `make sound-kernel` (`Scripts/sound-kernel.sh`: the pinned kernel's config → `doz-vmtest spike-build` in a throwaway
+  ubuntu:22.04 VM → sha256 == `SoundKernel.sha256` and config == `sound.config`, ~7.5 min) is the check; CI runs it
+  (`.github/workflows/sound-kernel.yml`, doz-ci, dispatch + paths) and publishes the kernel as an artifact.
 - **The microphone is the Mac's only when macOS has ALREADY said yes** (`MicrophoneDecision`, `settleMicrophone` before
   every boot): otherwise the input stream has NO source (`AudioDevice`: the device is the same, the guest records
   silence) and Virtualization never asks macOS. That removes 604's "VM stops when paused with the question pending" and
   "a recording opened before Allow stays stuck" by construction. **The source is in VZ's SAVED STATE** (a restore with
   another source fails "file format is not compatible" — measured both ways): `PersistedSandbox.microphoneSource`
   records it at a cold boot and every restore uses it (nil = an older build's VM: the real source); a new decision
-  waits for the next cold boot, and only a cold boot asks macOS. doz asks (`AVCaptureDevice.requestAccess`, the ONE
-  AVFoundation file `Microphone.swift` — audit) when a sandbox with `on` starts and macOS has no answer, waiting at most
-  `microphoneQuestionWait`. **Tests never reach the real permission**: `MicrophoneAccess.current` is the seam in every
-  guarded run and XCTest (`DOZ_TEST_MICROPHONE`, `DOZ_TEST_MICROPHONE_ANSWER`).
+  waits for the next cold boot. doz asks (`AVCaptureDevice.requestAccess`, the ONE AVFoundation file `Microphone.swift`
+  — audit) when `sandbox.microphone_ask` says (`MicrophoneAsk`, owner 2026-10-27): `first_recording` (default) — the
+  host watches a RUNNING `on` sandbox whose VM has a silent microphone while macOS is undecided
+  (`HostCore.watchForRecording`: one guest stream, `DozSound.recordingWatchScript`, reads
+  `/proc/asound/card*/pcm*c/sub*/status` once a second — a sound sandbox's container has `/proc/asound` UNMASKED,
+  `Sandbox.maskedPaths(sound:)` — and prints `doz-recording` when a capture substream RUNS; ended by `finishInput` before
+  every non-boot lifecycle op, on leaving running and at quit), then asks (one question at a time,
+  `microphoneAsking`) and says — a note + a `microphone` viewer notice — that THIS recording stays silent and Shut Down
+  + Start gives the Mac's microphone (`MicrophoneDecision.answeredAtRecording`); `first_start` — a cold boot asks and
+  waits at most `microphoneQuestionWait`. **Tests never reach the real permission**: `MicrophoneAccess.current` is the
+  seam in every guarded run and XCTest (`DOZ_TEST_MICROPHONE`, `DOZ_TEST_MICROPHONE_ANSWER` — the seam remembers its
+  answer, as macOS does).
 - **macOS asks about the microphone for the host's RESPONSIBLE app** (the app that started doz — survives the detached
   double spawn), named in host.log, `host status` `microphoneApp`, `doctor` and doz-sound's hint.
 - **604's "a stream open across a restore stalls" no longer happens** (667, three runs: playback and capture held
@@ -2768,6 +2779,7 @@ make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly
 make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozable-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)
 make dozview / dozview-verify # 599g: rebuild the guest view daemon (pinned Zig) / check the committed bytes
 make tmux / tmux-verify # 658: rebuild the guest tmux 3.8 (pinned Zig, sha256-pinned tmux/libevent/ncurses) / check the committed bytes
+make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz

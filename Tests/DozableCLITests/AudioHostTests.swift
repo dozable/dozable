@@ -119,6 +119,64 @@ final class AudioHostTests: XCTestCase {
         XCTAssertEqual(kept, .denied, "a decided answer is not asked again")
     }
 
+    // MARK: 667 — when doz asks (owner, 2026-10-27: "make it configurable (default to when first records)")
+
+    func testWhenDozAsksIsASettingThatDefaultsToTheFirstRecording() throws {
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.microphoneAsk))
+        XCTAssertEqual(d.defaultValue, .string("first_recording"))
+        XCTAssertEqual(try d.parse("first_start"), .string("first_start"))
+        XCTAssertThrowsError(try d.parse("never"))
+        XCTAssertFalse(DozableSettings.perSandbox.contains(SettingKey.microphoneAsk), "macOS's answer is the Mac's, not a sandbox's")
+        XCTAssertEqual(MicrophoneAsk.of(.string("first_start")), .firstStart)
+        XCTAssertEqual(MicrophoneAsk.of(.string("??")), .firstRecording, "unreadable: the default")
+        XCTAssertEqual(MicrophoneAsk.of(d.defaultValue), .firstRecording)
+    }
+
+    /// Asking at the first recording: a start never asks, the decision says when doz will, and what doz says after the
+    /// answer is the truth about the VM — that recording stays silent until a Shut Down and Start.
+    func testAskingAtTheFirstRecordingIsSaidPlainly() {
+        guard case .silent(let atRecording) = MicrophoneDecision.decide(wanted: true, permission: .undecided, app: "Terminal", ask: .firstRecording),
+              case .silent(let atStart) = MicrophoneDecision.decide(wanted: true, permission: .undecided, app: "Terminal", ask: .firstStart)
+        else { return XCTFail("undecided is silent either way") }
+        XCTAssertTrue(atRecording.contains("first records") && atRecording.contains("Shut Down and Start"), atRecording)
+        XCTAssertTrue(atStart.contains("answer its question"), atStart)
+        XCTAssertEqual(MicrophoneDecision.decide(wanted: true, permission: .allowed, app: nil, ask: .firstRecording), .mac)
+        let allowed = MicrophoneDecision.answeredAtRecording(.allowed, sandbox: "s1", app: "Terminal")
+        XCTAssertTrue(allowed.contains("this recording is silent") && allowed.contains("Shut Down and Start s1"), allowed)
+        let denied = MicrophoneDecision.answeredAtRecording(.denied, sandbox: "s1", app: "Terminal")
+        XCTAssertTrue(denied.contains("denied") && denied.contains("Privacy & Security"), denied)
+        let none = MicrophoneDecision.answeredAtRecording(nil, sandbox: "s1", app: nil)
+        XCTAssertTrue(none.contains("did not answer") && none.contains("the app that started doz"), none)
+        XCTAssertTrue(MicrophonePermission.undecided.sentence(ask: .firstRecording).contains("first records"))
+        XCTAssertTrue(MicrophonePermission.undecided.sentence(ask: .firstStart).contains("first starts"))
+    }
+
+    /// The host watches a running sandbox for its first recording ONLY when that is when it asks: the microphone
+    /// wanted, first_recording, macOS undecided, and a VM not already built with the Mac's microphone.
+    func testTheWatchRunsOnlyWhenARecordingWouldAsk() {
+        XCTAssertTrue(HostCore.watchesForRecording(mode: .on, ask: .firstRecording, permission: .undecided, builtWithMac: false))
+        XCTAssertTrue(HostCore.watchesForRecording(mode: .on, ask: .firstRecording, permission: .undecided, builtWithMac: nil))
+        XCTAssertFalse(HostCore.watchesForRecording(mode: .speakers, ask: .firstRecording, permission: .undecided, builtWithMac: false))
+        XCTAssertFalse(HostCore.watchesForRecording(mode: .on, ask: .firstStart, permission: .undecided, builtWithMac: false))
+        for p in [MicrophonePermission.allowed, .denied, .restricted] {
+            XCTAssertFalse(HostCore.watchesForRecording(mode: .on, ask: .firstRecording, permission: p, builtWithMac: false), "\(p): nothing to ask")
+        }
+        XCTAssertFalse(HostCore.watchesForRecording(mode: .on, ask: .firstRecording, permission: .undecided, builtWithMac: true))
+    }
+
+    /// Like macOS, the seam keeps the answer to its question: a later look (the next cold boot) sees it.
+    func testTheSeamRemembersItsAnswer() async {
+        let seam = MicrophoneAccess.seam(["DOZ_TEST_MICROPHONE": "undecided", "DOZ_TEST_MICROPHONE_ANSWER": "allowed"])
+        XCTAssertEqual(seam.status(), .undecided)
+        let answer = await seam.request(.seconds(1))
+        XCTAssertEqual(answer, .allowed)
+        XCTAssertEqual(seam.status(), .allowed)
+        let unanswered = MicrophoneAccess.seam(["DOZ_TEST_MICROPHONE": "undecided"])
+        let none = await unanswered.request(.milliseconds(10))
+        XCTAssertNil(none)
+        XCTAssertEqual(unanswered.status(), .undecided)
+    }
+
     func testTheResponsibleAppIsNamedWhenMacOSKnowsIt() {
         // Whatever runs the tests (a terminal, an editor) — named, with a path, or nil; never a crash.
         if let app = MacAudio.responsibleApp() {

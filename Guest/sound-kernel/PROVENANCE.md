@@ -16,8 +16,23 @@ this folder at `libexec/doz/licences/sound-kernel/`. Nothing downloads it; the h
 | the change | [`sound.conf`](sound.conf): four options — ALSA and virtio-snd. `olddefconfig` resolves what they select; **no option outside sound differs** (the delta: 14 options set, all `SOUND`/`SND*`) |
 | the complete config | [`sound.config`](sound.config) — the `.config` this image was built with |
 | toolchain | `gcc (Ubuntu 11.4.0-1ubuntu1~22.04.3) 11.4.0`, GNU ld 2.38 — the compiler kata's own kernel names in its config; in an `ubuntu:22.04` arm64 VM |
-| the recipe | [`build-in-guest.sh`](build-in-guest.sh) (in the VM, as root; inputs in `/out`: `base.config` + `sound.conf`). Dozable runs it with `doz-vmtest spike-build` (workspace probe `probes/667-*/build-sound-kernel.sh`); any arm64 Ubuntu 22.04 does |
-| reproducible | yes — 2026-10-27: two builds from two extractions in the same directory (`/root/b/linux-6.18.15`), byte-identical. The build's timestamp, user, host and number are fixed (`KBUILD_BUILD_*`); the DIRECTORY is part of the recipe — the vDSO's GNU build-id hashes its debug information, which names it (the same build in `/root/b1` and `/root/b2` differed in that note only) |
+| the recipe | [`build-in-guest.sh`](build-in-guest.sh) (in the VM, as root; inputs in `/out`: `base.config` + `sound.conf`). `make sound-kernel` ([`Scripts/sound-kernel.sh`](../../Scripts/sound-kernel.sh)) runs all of it on a Mac: the pinned kernel's config, the build in a throwaway `ubuntu:22.04` sandbox (`doz-vmtest spike-build`), then the check that the result IS this file (its sha256 and its config); any arm64 Ubuntu 22.04 runs the recipe itself |
+| reproducible | yes — 2026-10-27: two builds from two extractions in the same directory (`/root/b/linux-6.18.15`), byte-identical. The build's timestamp, user, host and number are fixed (`KBUILD_BUILD_*`); the DIRECTORY is part of the recipe — the vDSO's GNU build-id hashes its debug information, which names it (the same build in `/root/b1` and `/root/b2` differed in that note only). Rebuilt since by `make sound-kernel` on this Mac and in CI: the same sha256 |
+| CI | [`.github/workflows/sound-kernel.yml`](../../.github/workflows/sound-kernel.yml) builds it from source on Dozable's own Mac runner (`doz-ci`) — on demand, and when this folder, the pin or the script changes — checks it against the pin and publishes it as the run's artefact `sound-kernel-8d71cc61a0e5` (the kernel, `SHA256SUMS`, its config, the config delta, the build log; kept 90 days) |
+
+### Fetching the CI-built kernel
+
+From the newest green run of the **Sound kernel** workflow (`gh` signed in to the repository):
+
+```sh
+RUN=$(gh run list --repo dozable/dozable --workflow sound-kernel.yml --status success --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run download "$RUN" --repo dozable/dozable --name sound-kernel-8d71cc61a0e5 --dir sound-kernel
+(cd sound-kernel && shasum -a 256 -c SHA256SUMS)     # vmlinux-6.18.15-186-sound2: OK
+```
+
+Then `make release … SOUND_KERNEL=sound-kernel/vmlinux-6.18.15-186-sound2` carries it, or `DOZ_TEST_SOUND_KERNEL` points a
+development build at it. Nothing in doz downloads it: the host takes only a file whose sha256 is the pin. No CI run
+handy? `make sound-kernel` builds the same bytes on any Apple-silicon Mac.
 | tested | `AudioTests` (the pin, the device), the workspace probe `probes/667-*/remeasure.sh` (a real sandbox: a playback and a capture stream held open across pause, sleep, hibernate and a new host process) |
 
 ## Source offer

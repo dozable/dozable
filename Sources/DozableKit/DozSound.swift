@@ -59,6 +59,36 @@ public enum DozSound {
         """
     }
 
+    /// 667: what the host's recording watcher prints once a program in the guest records.
+    public static let recordingMarker = "doz-recording"
+
+    /// 667 (`sandbox.microphone_ask = first_recording`): the guest half of "doz asks macOS when a program first
+    /// records". Run as root by the host (`Sandbox.openGuestStream`, `sh -c`), only while it matters: a sandbox whose
+    /// sound is on, whose VM started with a silent microphone, while macOS has no answer. Once a second it reads the
+    /// state of each capture substream of the sound card (`/proc/asound/cardN/pcmMc/subK/status` — a sound sandbox's
+    /// container has `/proc/asound` unmasked, `Sandbox`); RUNNING (or XRUN/DRAINING/PAUSED — started) means a program
+    /// records: it prints `recordingMarker` and ends. A container that still masks it (one booted by an older build)
+    /// falls back to a look for an open capture device in `/proc/*/fd`. Every 5 s it writes a `.` — a dead stream
+    /// (the host went away) ends it — and it ends when the host closes its stdin (`finishInput`: the sandbox is about
+    /// to pause, sleep or stop, or the answer came). POSIX sh, builtins but `sleep` (+ `ls`/`grep` in the fallback).
+    public static let recordingWatchScript = #"""
+    ( i=0
+      while :; do
+        for f in /proc/asound/card*/pcm*c/sub*/status; do
+          [ -r "$f" ] || continue
+          l=; read -r l < "$f" 2>/dev/null
+          case "$l" in "state: RUNNING"*|"state: XRUN"*|"state: DRAINING"*|"state: PAUSED"*) echo doz-recording; exit 0 ;; esac
+        done
+        if [ ! -e /proc/asound/version ] && ls -l /proc/[0-9]*/fd 2>/dev/null | grep -q '/dev/snd/pcmC[0-9]*D[0-9]*c'; then echo doz-recording; exit 0; fi
+        i=$((i + 1)); if [ $((i % 5)) = 0 ]; then printf . || exit 0; fi
+        kill -0 $$ 2>/dev/null || exit 0
+        sleep 1
+      done ) &
+    cat > /dev/null
+    kill $! 2>/dev/null
+    exit 0
+    """#
+
     /// The script itself.
     public static let script = #"""
     #!/bin/sh

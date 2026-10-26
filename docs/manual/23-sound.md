@@ -31,7 +31,8 @@ A sandbox with sound boots its own Linux kernel: the same one every sandbox uses
 driver added. It ships with doz (never downloaded), and `doz doctor` says whether this doz carries it. It is
 kata-containers' kernel 6.18.15-186 (kata 3.28.0: its config and patch, unchanged) with four options added —
 `CONFIG_SOUND`, `CONFIG_SND`, `CONFIG_SND_VIRTIO`, `CONFIG_SND_PROC_FS` — and nothing else; its recipe, the complete config and the source offer are in Dozable's source (`Guest/sound-kernel/`)
-and in a release's `licences/sound-kernel/`.
+and in a release's `licences/sound-kernel/`. It is built from source reproducibly — anyone can check it: `make
+sound-kernel` builds it (twice, in a throwaway Ubuntu sandbox) and compares its sha256 with the one doz pins.
 
 ## Inside the sandbox
 
@@ -52,18 +53,37 @@ Any program that uses ALSA's default device works the same way.
 ## The microphone and macOS
 
 macOS asks about the microphone for the **app that started doz** — Terminal, iTerm, your editor — not for doz
-itself. doz settles that question **before** a sandbox records:
+itself. It asks once; after that its answer stands until you change it in System Settings › Privacy & Security ›
+Microphone.
 
-- When a sandbox with `on` starts and macOS has not been asked, doz asks — macOS shows its question ("Terminal
-  would like to access the microphone") — and the start waits for your answer (at most a minute).
-- A sandbox records from the Mac's microphone only if macOS allowed it before the sandbox started. Otherwise — not
-  asked yet, denied, or the question left unanswered — it records **silence**, and `doz-sound` says why. After you
-  allow it, Shut Down and Start the sandbox: a wake keeps the microphone it went to sleep with.
-- `doz doctor` says macOS's answer and which app it is for; the sandbox's Home in the dashboard says what its
-  microphone is. To change your answer: System Settings › Privacy & Security › Microphone.
+**A sandbox records from the Mac's microphone only if macOS allowed it before the sandbox started.** The microphone
+is part of the sandbox's virtual machine, fixed when it starts and kept through Pause, Sleep and Hibernate (a wake
+keeps the microphone it went to sleep with). Otherwise — not asked yet, denied, or the question left unanswered — the
+sandbox records **silence**, and `doz-sound` says why.
 
-Because the question is settled first, pausing, sleeping or hibernating a sandbox is always safe, whatever macOS's
-answer.
+When doz asks is a setting, `sandbox.microphone_ask`:
+
+| value | doz asks macOS | then |
+|---|---|---|
+| `first_recording` (the default) | when a program in a sandbox with `on` first records | that recording is silent: once you allow it, **Shut Down and Start** the sandbox — doz says so in the sandbox's terminals and on the dashboard |
+| `first_start` | when a sandbox with `on` starts | the start waits for your answer (at most a minute), so the first recording already has the microphone |
+
+```sh
+doz config set sandbox.microphone_ask first_start
+```
+
+With `first_recording`, a sandbox whose sound is `on` starts with a silent microphone while macOS has no answer, and
+doz watches it for a program that records (a recording stream of its sound card that runs — `arecord`, `doz-sound`,
+any ALSA program). The first one makes doz ask: macOS shows its question ("Terminal would like to access the
+microphone"), and doz says in the sandbox's terminals and on the dashboard that this recording is silent and that,
+once you allow it, Shut Down and Start makes the sandbox record from the Mac. Nothing is asked again once macOS has
+answered.
+
+`doz doctor` says macOS's answer, which app it is for and when doz asks; the sandbox's Home in the dashboard says what
+its microphone is.
+
+Because nothing records from the Mac's microphone until macOS has said yes, pausing, sleeping or hibernating a
+sandbox is always safe, whatever macOS's answer.
 
 ## Across pause, sleep and hibernation
 

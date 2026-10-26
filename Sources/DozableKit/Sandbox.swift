@@ -1308,6 +1308,11 @@ public actor Sandbox {
             // A proxied sandbox asks its shim (127.0.0.1:53), which asks the Mac.
             cfg.dns = DNS(nameservers: spec.isProxied ? ["127.0.0.1"] : spec.dnsServers)
             cfg.bootLog = BootLog.file(path: bootLog)
+            // 667: a sound sandbox sees its card's state in /proc/asound (the OCI default masks it — written for
+            // containers that share a host's kernel and sound card; this VM's card is its own). The host's watch for
+            // the first recording reads it (`DozSound.recordingWatchScript`). Not a VM input: the container's mounts
+            // are made by the guest at a cold boot; a restore adopts the container as it was.
+            if spec.audio == true { cfg.maskedPaths = Self.maskedPaths(sound: true) }
         }
         container = c
         if persisted != nil {
@@ -1847,6 +1852,10 @@ public actor Sandbox {
     /// 667: the source the running VM was built with (nil: no sound VM built in this process yet).
     public nonisolated var microphoneBuilt: Bool? { microphoneBuiltBox.withLock { $0 } }
     private nonisolated let microphoneBuiltBox = LockedBox<Bool?>(nil)
+    /// 667: the container's masked paths — the OCI defaults, but a sound sandbox's /proc/asound is visible.
+    public static func maskedPaths(sound: Bool) -> [String] {
+        LinuxContainer.defaultMaskedPaths().filter { !(sound && $0 == "/proc/asound") }
+    }
 
     // MARK: 599g — workspace rules
 

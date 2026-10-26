@@ -155,4 +155,44 @@ final class AudioTests: XCTestCase {
         XCTAssertEqual(SoundKernel.sha256.count, 64)
         XCTAssertGreaterThan(SoundKernel.size, 16_000_000)
     }
+
+    // MARK: 667 — the watch for the first recording
+
+    /// A sound sandbox's container sees /proc/asound (its card's state — the watch reads it); every other mask stays.
+    func testOnlyASoundSandboxSeesProcAsound() {
+        let plain = Sandbox.maskedPaths(sound: false), sound = Sandbox.maskedPaths(sound: true)
+        XCTAssertTrue(plain.contains("/proc/asound"), "the OCI default masks it")
+        XCTAssertFalse(sound.contains("/proc/asound"))
+        XCTAssertEqual(Set(plain).subtracting(sound), ["/proc/asound"], "nothing else is unmasked")
+        XCTAssertEqual(Set(sound).subtracting(plain), [])
+    }
+
+    /// The guest half: POSIX sh, reads the capture substreams' state, falls back to an open capture device, and ends
+    /// when its stdin closes (the host's stop) — never left behind.
+    func testTheRecordingWatchIsPlainShAndEndsWithItsInput() throws {
+        let s = DozSound.recordingWatchScript
+        XCTAssertTrue(s.contains("/proc/asound/card*/pcm*c/sub*/status"))
+        XCTAssertTrue(s.contains("\"state: RUNNING\""))
+        XCTAssertTrue(s.contains(DozSound.recordingMarker))
+        XCTAssertTrue(s.contains("/dev/snd/pcmC[0-9]*D[0-9]*c"), "the fallback for a container that masks /proc/asound")
+        XCTAssertTrue(s.contains("cat > /dev/null") && s.contains("kill $!"), "ends when the host closes its input")
+        XCTAssertFalse(s.contains("read -t") || s.contains("[[") || s.contains("inotify"), "POSIX sh and builtins (dash, busybox)")
+        // Syntax, then: with its input closed it ends at once (here, on the Mac, there is no /proc: it records nothing).
+        let syntax = Process()
+        syntax.executableURL = URL(fileURLWithPath: "/bin/sh")
+        syntax.arguments = ["-n", "-c", s]
+        try syntax.run(); syntax.waitUntilExit()
+        XCTAssertEqual(syntax.terminationStatus, 0)
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", s]
+        p.standardInput = FileHandle.nullDevice
+        let out = Pipe()
+        p.standardOutput = out
+        let t0 = Date()
+        try p.run(); p.waitUntilExit()
+        XCTAssertEqual(p.terminationStatus, 0)
+        XCTAssertLessThan(Date().timeIntervalSince(t0), 3, "stdin at its end: it ends")
+        XCTAssertFalse(String(decoding: out.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self).contains(DozSound.recordingMarker))
+    }
 }
