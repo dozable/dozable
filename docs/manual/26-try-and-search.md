@@ -229,6 +229,36 @@ doz create my-app --agent opencode@1      # the same in new, create and up — a
 - An exact release that does not exist, or a major that does not, is refused with the choices there are
   (`opencode has opencode@1 (recommended) and opencode@2 — not @9`).
 
+## A tool's full name
+
+Every tool also has a full name: its vendor and its product, like a container image's (`anthropic/claude-code`,
+`openai/codex`, `earendil-works/pi`, `anomalyco/opencode`). The short names (`claude`, `pi`, `codex`) stay the everyday
+ones; the full name says whose tool you mean, and works everywhere a short one does:
+
+```sh
+doz try anthropic/claude-code               # the same as doz try claude
+doz try anomalyco/opencode@1                # with a major or a release, as above
+doz create my-app --agent openai/codex      # new, create, up, --image, doz_project.yaml's agent:, the dashboard's plan
+doz search anomalyco/opencode2              # search finds it by its full name
+doz try mine/acme/tool                      # one of your own recipes: mine/VENDOR/PRODUCT
+doz try hub/acme/tool                       # a community source's: SOURCE/VENDOR/PRODUCT
+```
+
+- **Whose recipe.** A name without a source is Dozable's recipe (`dozable/anthropic/claude-code` says it in full). Your own
+  recipes are `mine/VENDOR/PRODUCT`, a community source's `NAME/VENDOR/PRODUCT` — the source's name as you added it. Their
+  plain id still works too. A full name that is not the recipe's is refused with the one that is
+  (`acme/tool: Acme Tool is yours — mine/acme/tool`; `openai/claude-code: claude-code is not openai's — its name is
+  anthropic/claude-code`).
+- **The product** is the tool's own name, not a short one: `anthropic/claude` is refused, naming
+  `anthropic/claude-code`. A tool with majors is named by its family's name (`anomalyco/opencode`, the recommended
+  major) or with `@MAJOR`.
+- **Where you see it**: `doz search` puts each tool's full name beside its title (and `--details` on its own line), the
+  `doz try` list too, `--dry-run` says the recipe a sandbox is made from (`recipe: dozable/anthropic/claude-code@2.1.299`),
+  the sandbox records it (`doz ls --json`: `recipeRef`) and its Guide says it under This sandbox. In the
+  dashboard, Quick try shows it as **Full name** in a tool's details.
+- **Not yet**: recipe directories other than this Dozable's (a first part with a dot, `doz.sh/…`, is refused: directories
+  are not served yet), digests, and `:` after a name (`NAME:PATH` is `doz get`, `put` and `cp`'s — a release is `@`).
+
 ## One set of choices
 
 `doz new`, `doz create`, `doz up` and `doz try` take the same choice options, named after the keys of
@@ -236,7 +266,7 @@ doz create my-app --agent opencode@1      # the same in new, create and up — a
 
 | option | what it chooses |
 |---|---|
-| `--agent`, `--base`, `--dockerfile` | the agent and its base (`--image` is the shorthand for both); a tool's major or release: `--agent opencode@1` |
+| `--agent`, `--base`, `--dockerfile` | the agent and its base (`--image` is the shorthand for both); a tool's major or release: `--agent opencode@1`; its full name: `--agent anthropic/claude-code` |
 | `--permissions` | what the agent may do: `standard`, `locked`, `open`, `+web`, `-error-reports`, `site:HOST` (`--allow` is the same) |
 | `--network` | `agent`, `locked`, `open`, `bake`, `nat` or `none` |
 | `--account`, `--key` | the account, and custom keys beside it |

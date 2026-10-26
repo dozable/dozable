@@ -159,6 +159,9 @@ public struct PlanVersion: Codable, Equatable, Sendable {
     public var title: String
     /// Every major of its family, oldest first (empty: not a family).
     public var majors: [Major] = []
+    /// 654: the recipe it is made from, fully qualified — `dozable/anomalyco/opencode2@2.0.29` (the release when known);
+    /// what the sandbox records (`SandboxConfig.recipeRef`).
+    public var recipe: String? = nil
     public struct Major: Codable, Equatable, Sendable {
         public var major: Int
         public var title: String
@@ -450,14 +453,16 @@ public enum CreatePlanner {
     static func version(choice: ImageChoice?, given o: CreateOptions, release: String?) -> PlanVersion? {
         guard let r = choice?.agent.recipe else { return nil }
         let v = o.agentVersion ?? release?.split(separator: "+").first.map(String.init)      // what was asked, else what it gets
+        let full = AgentRef.fullyQualified(r, version: v)          // 654
         guard let f = r.family else {
-            return PlanVersion(version: v, ref: o.agentRef ?? r.id, title: r.title)
+            return PlanVersion(version: v, ref: o.agentRef ?? r.id, title: r.title, recipe: full)
         }
         let majors = AgentRef.members(f.family).map { m in
             PlanVersion.Major(major: m.family!.major, title: m.family!.title, ref: "\(f.family)@\(m.family!.major)",
                               recommended: m.family!.isRecommended, chosen: m.id == r.id, pinned: m.install.pinned.version)
         }
-        return PlanVersion(version: v, ref: o.agentRef ?? (f.isRecommended ? f.family : "\(f.family)@\(f.major)"), title: f.title, majors: majors)
+        return PlanVersion(version: v, ref: o.agentRef ?? (f.isRecommended ? f.family : "\(f.family)@\(f.major)"), title: f.title, majors: majors,
+                           recipe: full)
     }
 
     // MARK: the command

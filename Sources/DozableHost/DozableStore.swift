@@ -135,6 +135,9 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 618: what it was made as — `opencode@2.0.29`: a family's (or tool's) name and the exact release. Display only: the
     /// sandbox keeps its image and recipe whatever the family recommends later (it never changes major).
     public var agentRef: String?
+    /// 654: the fully qualified recipe it was made from — `dozable/anthropic/claude-code@2.1.299`, `mine/acme/tool@1.0.0`
+    /// (its source, vendor, product and release). Display only, like `agentRef`; absent before 654 and for no agent.
+    public var recipeRef: String?
     /// 617 (models@1): the model chosen for a recipe agent, by model source (`--model` with `--provider`/`--gateway`) —
     /// used while the sandbox's account is of that source; the source's default model otherwise. Absent before 617.
     public var models: [String: String]?

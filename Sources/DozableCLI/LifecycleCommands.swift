@@ -12,7 +12,7 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "lab (Alpine + bash), claude-code, pi, codex, a base × agent image (python-claude-code, go-codex, go, …), or a template (doz image ls). Shorthand for --agent/--base.")
     var image: String?
 
-    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex), gemini (Gemini CLI), grok (Grok Build) or none (a shell only). Default claude-code. A tool's major or exact release: NAME@MAJOR (opencode@1), NAME@VERSION (opencode@2.0.28).")
+    @Option(name: .long, help: "The agent — claude-code, pi, codex (OpenAI Codex), gemini (Gemini CLI), grok (Grok Build) or none (a shell only). Default claude-code. A tool's major or exact release: NAME@MAJOR (opencode@1), NAME@VERSION (opencode@2.0.28). With its vendor: VENDOR/PRODUCT (anthropic/claude-code; mine/VENDOR/PRODUCT for your own recipe) — doz search shows each tool's full name.")
     var agent: String?
 
     @Option(name: .long, help: "A recommended base (doz base ls): node, python, go, rust, java, ruby, dotnet, debian, ubuntu, alpine. Default node.")
@@ -147,7 +147,8 @@ struct ChoiceOptions: ParsableArguments {
     /// NAME@VERSION. nil: neither names one (a base, a template, none).
     func agentReference() throws -> AgentRef? {
         if let x = agent, !["none", "shell"].contains(x) { return try Self.resolveAgent(x) }
-        if agent == nil, let i = image, i.contains("@") || !AgentRef.members(i.lowercased()).isEmpty { return try Self.resolveAgent(i) }
+        // 654: and a qualified name (`--image anthropic/claude-code`).
+        if agent == nil, let i = image, i.contains("@") || i.contains("/") || !AgentRef.members(i.lowercased()).isEmpty { return try Self.resolveAgent(i) }
         return nil
     }
 
@@ -211,7 +212,7 @@ struct ChoiceOptions: ParsableArguments {
         o.isolated = isolated ? true : nil
         if let ref {
             o.agentVersion = ref.exact
-            if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+            if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.agentSudo = agentSudo
         if audio, BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611

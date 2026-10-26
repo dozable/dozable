@@ -2194,6 +2194,20 @@ may use it too.
   how to get the other. Quick try: ONE card per family, a Version choice in its setup that RE-PLANS only (the catalog's
   `family` + `ref`); New Sandbox: one chip, its majors under it. `AgentRefTests`, `FamilyVersionsTests`,
   `MajorChoiceTests`, `WebTryTests`; workspace `probes/618-*/browser-try-version.mjs`.
+- **Qualified names** (654, 617.B5, owner: "like a Docker image reference"): `AgentRef` also takes
+  `[SOURCE/]VENDOR/PRODUCT[@MAJOR|@VERSION]` — VENDOR is the recipe file's (`AgentRecipe.vendor`, set from the document's
+  `VENDOR/PRODUCT` id, OUTSIDE the coding keys like `origin`: no JSON or bake key moves, `RecipePinTests`); PRODUCT the
+  recipe's id or its family's name (never an alias); SOURCE `dozable` (implied when absent — `VENDOR/PRODUCT` alone
+  NEVER means yours or a community's, so a community recipe cannot pose as `anthropic/…`), `mine`, or a community
+  source's name (`RecipeOrigin.reservedSourceNames`: no source may be called `dozable`/`mine`). It resolves through
+  618's code; the qualification only CONFIRMS (ids are unique) and a wrong vendor/source is refused with the name that
+  is right. A first part with a dot (a directory host) is refused ("not served yet" — step 17), so are digests and `:`.
+  `AgentRef.prefix` keeps the qualification in `text`/`pinned` (a project file written from one keeps it).
+  Shown: `AgentRef.qualifiedName` (= vendor + `typed(r)`) in `doz search` (+ `DirectoryIndex.Entry.qualified`), `doz try`'s
+  list, `doz recipe show`, Quick try's details ("Full name", `WebTryCatalog.Agent.qualified`); `AgentRef.fullyQualified`
+  in the plan (`PlanVersion.recipe`, `--dry-run`'s `recipe:` line), the Guide's `recipe` fact, and
+  `SandboxConfig.recipeRef`/`SandboxInfo.recipeRef` (display only, every recipe agent's sandbox from 654).
+  `QualifiedNameTests` (the grammar), `QualifiedChoiceTests`; workspace `probes/654-*/`.
 - **OpenCode 2** (`opencode2`, npm `@opencode/cli` + `@opencode/cli-linux-arm64`, glibc; models@1 native: xAI, OpenAI,
   Anthropic, OpenRouter, Vercel — the model through `{env:DOZ_MODEL}` in its opencode.json): its first command starts a
   **background server** (`opencode serve --service`, re-parented to PID 1, 127.0.0.1:49374) that keeps the environment

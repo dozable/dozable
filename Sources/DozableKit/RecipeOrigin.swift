@@ -42,4 +42,16 @@ public struct RecipeOrigin: Codable, Equatable, Hashable, Sendable {
     public static func isSourceName(_ s: String) -> Bool {
         s.range(of: "^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$", options: .regularExpression) != nil
     }
+
+    /// 654: the SOURCE words of a qualified name (`dozable/…`, `mine/…`) — never a community source's name.
+    public static let reservedSourceNames: Set<String> = ["dozable", "mine"]
+
+    /// 654: the first part of a qualified name for a recipe of this origin (`dozable`, `mine`, the source's name).
+    public var sourceWord: String {
+        switch kind {
+        case "mine": return "mine"
+        case "community": return source ?? "community"
+        default: return "dozable"
+        }
+    }
 }

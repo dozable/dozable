@@ -28,9 +28,13 @@ func renderPlan(_ p: CreatePlan) -> String {
     ][p.imageState.state, default: p.imageState.state]
     s += "  makes \(p.name): \(image)\n"
     // 653: a recipe that is not Dozable's — whose it is, what its bake installs and reaches.
+    // 654: the recipe's full name (source, vendor, product, release) first.
+    let full = p.version?.recipe.map { $0 + " — " } ?? ""
     if let r = p.recipe {
-        s += "  recipe: \(r.whose) — not Dozable's\n"
+        s += "  recipe: \(full)\(r.whose) — not Dozable's\n"
         for l in r.lines { s += "    \(l)\n" }
+    } else if let f = p.version?.recipe {
+        s += "  recipe: \(f)\n"
     }
     // 618: the release it installs; a family's major and how to get the other.
     if let v = p.version {

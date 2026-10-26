@@ -74,11 +74,18 @@ run recipe ls
 check "  … doz recipe ls: myopen yours, in use, checked" bash -c "grep -E '^myopen +yours +in use +static' '$R/out' >/dev/null"
 check "  … and mytool refused (it is not filled in)" bash -c "grep -E '^mytool +yours +refused' '$R/out' >/dev/null"
 run search myopen
-check "doz search labels it [yours]" bash -c "[ $rc = 0 ] && grep -q 'My OpenCode \[yours\] — supported' '$R/out'"
+check "doz search labels it [yours] (654: beside its full name)" bash -c "[ $rc = 0 ] && grep -q 'My OpenCode · mine/local/myopen \[yours\] — supported' '$R/out'"
 run try
 check "doz try's list labels it [yours]" bash -c "[ $rc = 64 ] && grep -q '\[yours\]' '$R/out'"
 run try myopen --dry-run
-check "the plan says whose recipe it is and what its bake installs" bash -c "grep -q 'recipe: your own recipe' '$R/out' && grep -q 'installs: npm-platform-binary opencode-ai' '$R/out'"
+check "the plan says whose recipe it is and what its bake installs" bash -c "grep -q 'recipe: mine/local/myopen.* — your own recipe' '$R/out' && grep -q 'installs: npm-platform-binary opencode-ai' '$R/out'"
+# 654: its full name — with its source; without one, a name means Dozable's recipe.
+run try mine/local/myopen --dry-run
+check "654: doz try mine/local/myopen plans it" bash -c "[ $rc = 0 ] && grep -q 'recipe: mine/local/myopen' '$R/out'"
+run try local/myopen --dry-run
+check "654: … local/myopen (no source) is refused, naming mine/local/myopen" bash -c "[ $rc != 0 ] && grep -q 'yours — mine/local/myopen' '$R/out'"
+run recipe show mine/local/myopen
+check "654: doz recipe show takes and shows the full name" bash -c "[ $rc = 0 ] && head -1 '$R/out' | grep -q 'mine/local/myopen'"
 sed -e 's#^id: local/myopen#id: local/opencode#' -e 's#com.dozable/myopen@#com.dozable/opencode@#' -e 's#model:myopen#model:opencode2x#' "$RECIPES/mine/myopen.yaml" > "$R/clash.yaml"
 run recipe add "$R/clash.yaml"
 check "doz recipe add of a recipe with Dozable's id is refused (not-dozable)" bash -c "[ $rc != 0 ] && grep -q '✕ not-dozable' '$R/out' && [ ! -e '$RECIPES/mine/opencode.yaml' ]"
@@ -110,9 +117,11 @@ check "a wrong fingerprint: refused, nothing fetched" bash -c "[ $rc != 0 ] && !
 run recipe source add "$URL" --key "$PUB" --name example --fingerprint "$FP"
 check "confirmed: fetched and verified, in use (no host runs)" bash -c "[ $rc = 0 ] && grep -q 'catalogue 1 downloaded and verified' '$R/out' && grep -q 'in use from now' '$R/out' && grep -q 'GET /one/v1/recipes.json' '$R/server.log'"
 run search comtool
-check "doz search labels it [community · example]" bash -c "[ $rc = 0 ] && grep -q 'Com Tool \[community · example\] — supported' '$R/out'"
+check "doz search labels it [community · example] (654: beside its full name)" bash -c "[ $rc = 0 ] && grep -q 'Com Tool · example/example/comtool \[community · example\] — supported' '$R/out'"
 run try
-check "doz try's list labels it [community · example]" grep -q 'Com Tool \[community · example\]' "$R/out"
+check "doz try's list labels it [community · example]" grep -q 'Com Tool · example/example/comtool \[community · example\]' "$R/out"
+run recipe source add "$URL" --key "$PUB" --name mine --fingerprint "$FP"
+check "654: a source may not be called mine" bash -c "[ $rc != 0 ] && grep -q 'a word of recipe names' '$R/out'"
 run recipe source ls
 check "doz recipe source ls: example, its key fingerprint, in use, catalogue 1" bash -c "grep -q '^example — $URL' '$R/out' && grep -q \"key $FP\" '$R/out' && grep -q 'in use · catalogue 1 · recipes: comtool' '$R/out'"
 printf 'xai-FAKE-COMMUNITYTEST-0123456789abcdef\n' | "$DOZ" account add k1 --provider xai --no-verify --store "$STORE" >/dev/null 2>&1 || true
@@ -138,7 +147,7 @@ check "  … added, and said it would not be used (comtool is another recipe's)"
 run recipe source ls
 check "  … doz recipe source ls: other refused whole, example still in use" bash -c "grep -A2 '^other — ' '$R/out' | grep -q 'refused: comtool.json: comtool is already another recipe' && grep -A2 '^example — ' '$R/out' | grep -q 'in use'"
 run search comtool
-check "  … comtool is still example's" grep -q 'Com Tool \[community · example\]' "$R/out"
+check "  … comtool is still example's" grep -q 'Com Tool · example/example/comtool \[community · example\]' "$R/out"
 
 # ── 4. a tampered serial is refused whole ────────────────────────────────────
 sed -i '' 's#^description: .*#description: OpenCode, catalogue two.#' "$R/pub/comtool.yaml"
