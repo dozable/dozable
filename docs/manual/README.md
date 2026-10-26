@@ -28,6 +28,7 @@ both.
 | [The dashboard on your other devices](25-doz-serve.md) | use the dashboard from another computer, a tablet or a phone on your network (`doz ui --lan`) — and behind your own HTTPS reverse proxy |
 | [Images and bases](08-images-and-bases.md) | pick a language base, use your own Dockerfile, rebuild an out-of-date image |
 | [Agents and accounts](09-agents-and-accounts.md) | use Claude Code or pi, add accounts, change what the agent is told |
+| [Claude Code with other models](32-claude-code-other-models.md) | run Claude Code through a gateway (OpenRouter) or a model server on your Mac (Ollama, LM Studio, llama-server …) — `--gateway`, `--provider local --local-port` — and what a sandbox can reach on your Mac |
 | [Trying agents, and what Dozable supports](26-try-and-search.md) | try an agent in one command (`doz try`), check what Dozable runs (`doz search`), see a plan before anything is made (`--dry-run`) |
 | [More agents](27-more-agents.md) | run Antigravity CLI, Grok Build or Gemini CLI with an API key — what each may reach, what is kept out, whether it is current |
 | [Other AI tools](28-ai-tools.md) | AI tools that are not coding agents (Fabric, …) — tried like an agent, each on an API key |
