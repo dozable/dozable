@@ -8,10 +8,14 @@
 # (Guest/sound-kernel/PROVENANCE.md says how to fetch it). Releases are NOT changed by this workflow: it only builds and
 # checks — how a release carries the kernel is release.sh's (SOUND_KERNEL).
 #
-#   workflow_dispatch                       any time (e.g. to fetch a CI-built kernel for a release)
-#   push to main / pull_request, paths      when the recipe, the pin, the script or this file changes — never on every
-#                                           PR: one run takes ~7.5 min (measured 2026-10-27: 447 s on an M1 Max with
-#                                           6 CPUs for the VM, the ubuntu image pulled; two kernel builds of ~2m40s each)
+#   workflow_dispatch                       any time (e.g. to fetch a CI-built kernel for a release) — GitHub offers it
+#                                           once this file is on main
+#   push to main or a feature/** branch     when the recipe, the pin, the script or this file changes — never on every
+#   (paths)                                 push or PR: one run takes ~7.5 min (measured 2026-10-27: 447 s on an M1 Max
+#                                           with 6 CPUs for the VM, the ubuntu image pulled; two kernel builds of ~2m40s
+#                                           each). A push, not pull_request: a branch's PR is covered by its pushes (a
+#                                           fork's PR never reaches the self-hosted Mac), and a branch can prove the
+#                                           workflow before it is on main (where dispatch needs it)
 #
 # Runs only on a Mac labelled doz-ci (the Mac kept for Dozable alone): it boots a VM. The build VM's store is a
 # PERSISTENT cache there ($HOME/Library/Caches/DozableKit-ci/sound-kernel-store — the ubuntu image is kept, the sandbox
@@ -23,14 +27,8 @@
 name: Sound kernel
 
 on:
-  pull_request:
-    paths:
-      - 'Guest/sound-kernel/**'
-      - 'Sources/DozableKit/Audio.swift'
-      - 'Scripts/sound-kernel.sh'
-      - '.github/workflows/sound-kernel.yml'
   push:
-    branches: [main]
+    branches: [main, 'feature/**']
     paths:
       - 'Guest/sound-kernel/**'
       - 'Sources/DozableKit/Audio.swift'
@@ -43,7 +41,7 @@ permissions:
 
 concurrency:
   group: sound-kernel-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 jobs:
   sound-kernel:
