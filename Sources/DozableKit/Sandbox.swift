@@ -166,6 +166,8 @@ public actor Sandbox {
             setPhase(.running)
             // 599h: the tools layer — after the network is up; shown as steps the first time, quiet after; never fatal.
             await applyToolsLayer()
+            // 657: the person's dotfiles — at the first start (the guest has not got this commit yet); never fatal.
+            await applyDotfiles()
             note(String(format: "ready in %.1f s total", seconds(since: t0)))
         } catch {
             note("start FAILED: \(error.localizedDescription)")
@@ -973,6 +975,8 @@ public actor Sandbox {
             await refreshDeckhold()
             // 599h: the tools layer, re-checked quietly (a setting switched on while it slept arrives now).
             await applyToolsLayer()
+            // 657: dotfiles moved on while it slept (`doz dotfiles NAME --update`) arrive now; nothing when the guest has them.
+            await applyDotfiles()
         case .remountShares:
             let tags = (identity?.shareTags ?? [:]).map { (tag: $0.value, guestPath: $0.key) }.sorted { $0.guestPath < $1.guestPath }
             guard !tags.isEmpty else { return }
@@ -1641,6 +1645,104 @@ public actor Sandbox {
             note(String(format: "tools layer re-checked%@: %@ (%.0f ms)", report.changed || report.failed ? "" : " (no change)", report.summary, ms))
         }
         return report
+    }
+
+    // MARK: 657 — the person's dotfiles
+
+    /// What this sandbox applies (the host sets it from its pin). nil (the default): no dotfiles — an image's
+    /// preparation VM, a helper, a sandbox without any.
+    public nonisolated var dotfiles: DotfilesInput? { dotfilesBox.withLock { $0 } }
+    public nonisolated func setDotfiles(_ d: DotfilesInput?) { dotfilesBox.withLock { $0 = d } }
+    private nonisolated let dotfilesBox = LockedBox<DotfilesInput?>(nil)
+    /// The last apply (in this process, else the one recorded in `<sandbox>/dotfiles-run.json`).
+    public nonisolated var lastDotfilesRun: DotfilesRun? {
+        dotfilesRunBox.withLock { $0 } ?? (try? Data(contentsOf: dotfilesRunFile)).flatMap { try? Self.runDecoder.decode(DotfilesRun.self, from: $0) }
+    }
+    private nonisolated let dotfilesRunBox = LockedBox<DotfilesRun?>(nil)
+    public nonisolated var dotfilesRunFile: URL { layout.sandboxDirectory.appendingPathComponent("dotfiles-run.json") }
+    public nonisolated static var runDecoder: JSONDecoder { let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601; return d }
+    nonisolated static var runEncoder: JSONEncoder {
+        let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601; e.outputFormatting = [.prettyPrinted, .sortedKeys]; return e
+    }
+
+    /// `--update`: apply the (new) pin now, shown as steps. Never throws.
+    @discardableResult
+    public func applyDotfilesNow() async -> DotfilesRun? {
+        await acquire(); defer { release() }
+        return await applyDotfiles(force: true)
+    }
+
+    /// Apply the dotfiles when the guest has not got this pin's commit yet (`force`: whatever it has) — at a start
+    /// (after the tools layer) and a wake's background steps. As the image's user; the files on an exec's stdin (a tar
+    /// — no guest network, works in a VM a new host adopted). Shown as steps, the script's output's tail as notes
+    /// (the boot log keeps both); never fatal.
+    @discardableResult
+    func applyDotfiles(force: Bool = false) async -> DotfilesRun? {
+        guard phase == .running, let container, let input = dotfiles else { return nil }
+        let user = spec.imageSpec?.user ?? "root"
+        let home = spec.imageSpec?.home ?? "/root"
+        let pin = input.pin
+        // `--update` on a sandbox that did not run: its pin moved on (resolvedAt) after the last apply recorded here — apply
+        // again even at the same commit (a second of slack: the run's time is kept to the second).
+        let updatedSince = lastDotfilesRun.map { $0.at.addingTimeInterval(1) < pin.resolvedAt } ?? false
+        if !force && !updatedSince {
+            do {
+                let r = try await Self.exec(on: container, ["sh", "-c", DotfilesLayer.checkScript(home: home)], environment: ["HOME": home],
+                                            workingDirectory: "/", privileged: false, timeout: 15, user: user)
+                if DotfilesLayer.appliedCommit(r.output) == pin.commit { return nil }
+            } catch {
+                note("dotfiles: could not look at the guest (\(error.localizedDescription)) — next start or wake")
+                return nil
+            }
+        }
+        let label = "dotfiles: \(DotfilesSource.label(pin.source)) at \(pin.shortCommit)"
+        let t0 = ContinuousClock.now
+        broadcaster.yield(.stepStarted(label))
+        let payload: DotfilesPayload
+        switch await input.fetch() {
+        case .success(let p): payload = p
+        case .failure(let e):
+            broadcaster.yield(.stepFailed(label, milliseconds: milliseconds(since: t0), error: e.message))
+            return recordDotfiles(DotfilesRun(source: pin.source, commit: pin.commit, at: Date(), method: "none", ok: false, failure: e.message))
+        }
+        var env = spec.imageSpec?.sessionEnvironment ?? [:]
+        env["HOME"] = home
+        env["USER"] = user
+        let script = DotfilesLayer.applyScript(plan: payload.plan, commit: pin.commit, home: home)
+        let run: DotfilesRun
+        do {
+            let r = try await Self.exec(on: container, ["sh", "-c", script], environment: env, workingDirectory: "/", privileged: false,
+                                        timeout: Int64(DotfilesLayer.scriptTimeoutSeconds + 60), user: user, stdin: payload.archive)
+            run = DotfilesLayer.results(r.output, pin: pin, plan: payload.plan)
+        } catch {
+            run = DotfilesRun(source: pin.source, commit: pin.commit, at: Date(), method: payload.plan.method, script: payload.plan.script,
+                              ok: false, failure: error.localizedDescription)
+        }
+        // The script's output (its last lines, inert) as notes: the boot log keeps notes as lines (an output line is
+        // only the boot view's moving tail).
+        if !run.output.isEmpty {
+            note("dotfiles: \(payload.plan.script ?? "the script")'s output (its last \(run.output.count) lines; all of it in ~/\(DotfilesLayer.guestLogRelative)):")
+            for line in run.output { note("dotfiles │ " + line) }
+        }
+        if run.ok {
+            // The step's own end (its label as started), then what it did as a line of its own.
+            broadcaster.yield(.step(label, milliseconds: milliseconds(since: t0)))
+            broadcaster.yield(.step("dotfiles: " + run.summary, milliseconds: 0))
+        } else {
+            broadcaster.yield(.stepFailed(label, milliseconds: milliseconds(since: t0), error: run.summary))
+        }
+        note("dotfiles: \(pin.source) at \(pin.shortCommit) — \(run.summary)")
+        return recordDotfiles(run)
+    }
+
+    @discardableResult
+    private func recordDotfiles(_ run: DotfilesRun) -> DotfilesRun {
+        dotfilesRunBox.withLock { $0 = run }
+        if FileManager.default.fileExists(atPath: layout.sandboxDirectory.path), let d = try? Self.runEncoder.encode(run) {
+            try? d.write(to: dotfilesRunFile, options: .atomic)
+            chmod(dotfilesRunFile.path, 0o600)
+        }
+        return run
     }
 
     /// The Mac's agent socket while the SSH agent is forwarded (nil: not forwarded).

@@ -109,6 +109,9 @@ access
 access/show
 access/set
 tools
+dotfiles
+dotfiles/show
+dotfiles/trust
 ignore
 ignore/check
 ignore/show

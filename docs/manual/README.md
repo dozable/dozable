@@ -37,6 +37,7 @@ both.
 | [Signing in from a sandbox](11-signing-in-from-a-sandbox.md) | let a tool in a sandbox sign in through your Mac's browser |
 | [GitHub as you](18-github.md) | let git and gh in a sandbox use your GitHub login — read-only or with push — without the token entering it |
 | [The tools layer](19-the-tools-layer.md) | know which tools Dozable puts in a sandbox for its settings (gh, the ssh client, tmux …) and check them |
+| [Your dotfiles](31-dotfiles.md) | have your shell setup (your dotfiles repository, or a folder on your Mac) in every sandbox — what runs, what is never touched, trust, `doz dotfiles` |
 | [Workspace rules](20-workspace-rules.md) | keep the agent out of some files in your shared folder (`.dozignore`), or let it read but not change them (`.dozreadonly`) |
 | [The workspace view](21-the-workspace-view.md) | `dozview`, the small program in the sandbox every workspace goes through: why (programs keep their folder across a wake), what it costs, `workspace.view`, the rules it enforces, its two processes, sleep and wake, how to look inside. |
 | [Prompts for your agent](22-prompts-for-your-agent.md) | prompts to paste into Claude Code, Codex or Cursor on your Mac: install, set up, and three uses — a risky change, jailing an untrusted agent, a project with secrets |

@@ -124,6 +124,9 @@ public struct CreatePlan: Codable, Equatable, Sendable {
     /// 653: whose recipe it is when it is not Dozable's (yours, a community catalogue's) — and what its bake runs and
     /// reaches. nil: Dozable's own.
     public var recipe: PlanRecipe? = nil
+    /// 657: the dotfiles it will get (the source as a person reads it — the create's own, else the setting); nil: none.
+    /// Its commit is the head when it is made (the CLI asks about that commit; `dotfiles-resolve` says it ahead).
+    public var dotfiles: String? = nil
 }
 
 /// 653: a recipe that is not Dozable's, said before anything is made.
@@ -446,6 +449,9 @@ public enum CreatePlanner {
         plan.model = planModel
         plan.version = Self.version(choice: choice, given: o, release: specVersion)
         plan.recipe = choice?.agent.recipe.flatMap(PlanRecipe.of)          // 653
+        // 657: the dotfiles it gets — its own choice (`none`: none), else the setting.
+        let dotfiles = (o.dotfiles ?? f.settings.string(SettingKey.dotfiles)).flatMap { try? DotfilesSource.normalized($0, home: TestSafety.realHome.path) }
+        plan.dotfiles = dotfiles.map(HostCore.dotfilesDisplay)
         return plan
     }
 
@@ -511,6 +517,7 @@ public enum CreatePlanner {
         if let m = o.model { a += ["--model", m] }
         for k in o.keys ?? [] { a += ["--key", k] }
         if let s = o.agentSudo { a.append(s ? "--agent-sudo" : "--no-agent-sudo") }
+        if let d = o.dotfiles { a += ["--dotfiles", d] }          // 657
         for (key, flag) in settingFlags {
             guard let v = o.settings?[key] else { continue }
             if key == SettingKey.tmux { a.append(v == .bool(true) ? "--tmux" : "--no-tmux") } else { a += [flag, v.plain] }
@@ -562,6 +569,7 @@ public enum CreatePlanner {
         p.keys = o.keys
         p.modelSource = o.modelSource             // 618: project keys now
         p.model = o.model
+        p.dotfiles = o.dotfiles                   // 657
         let (words, github) = splitGitHub(o.allow ?? [])
         p.github = github
         let sites = words.filter { $0.hasPrefix("site:") }

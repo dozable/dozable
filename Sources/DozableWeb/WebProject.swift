@@ -81,6 +81,8 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     /// 618: `model_source` / `model` — where the model comes from and which model (checked by the project's own rule).
     public var modelSource: String?
     public var model: String?
+    /// 657: `dotfiles` — kept through the dashboard (no control of its own in the wizard; the review shows it).
+    public var dotfiles: String?
 
     static let settingFields: [(field: String, setting: String)] = [
         ("sshAgent", SettingKey.sshAgent), ("clipboard", SettingKey.clipboard), ("browserBridge", SettingKey.browserBridge),
@@ -113,6 +115,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         sessions = p.sessions.isEmpty ? nil : p.sessions.map { Session(name: $0.name, command: $0.command) }
         modelSource = p.modelSource
         model = p.model
+        dotfiles = p.dotfiles
     }
 
     /// The project these choices make (each value checked by its own rule; the whole by the parser).
@@ -151,6 +154,8 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         if let m = model, !ModelSelection.isModelID(m) { throw invalid("model: a model id — letters, digits and . _ : / @ + -") }
         p.modelSource = modelSource
         p.model = model
+        if let d = dotfiles, let why = DotfilesSource.problem(d) { throw invalid("dotfiles: \(why)") }
+        p.dotfiles = dotfiles
         return p
     }
 }
@@ -202,7 +207,7 @@ struct WebProjectRequest {
     var replace: String?
 
     static let explicitKeys: Set<String> = Set<String>(["cpus", "memory", "network", "permissions", "account", "github", "agent_sudo", "image",
-                                                                         "model_source", "model"])
+                                                                         "model_source", "model", "dotfiles"])
         .union(DozableProject.settingKeys.map(\.key))
 
     static func decode(_ body: Data, allowed: Set<String>) throws -> WebProjectRequest {
@@ -218,7 +223,7 @@ struct WebProjectRequest {
             guard let fd = form as? [String: Any] else { throw WebAction.Invalid("form: an object") }
             let known: Set<String> = ["name", "image", "agent", "base", "dockerfile", "account", "github", "sshAgent", "network", "permissions", "cpus",
                                       "memory", "clipboard", "browserBridge", "openFiles", "tmux", "ignoreMode", "workspaceView", "agentSudo", "agentPrompt", "agentPromptMode", "sessions",
-                                      "modelSource", "model"]
+                                      "modelSource", "model", "dotfiles"]
             let unknown = Set(fd.keys).subtracting(known)
             guard unknown.isEmpty else { throw WebAction.Invalid("form: no \(unknown.sorted().joined(separator: ", "))") }
             do { r.form = try JSONDecoder().decode(WebProjectForm.self, from: JSONSerialization.data(withJSONObject: fd)) } catch {
@@ -270,6 +275,7 @@ enum WebProject {
             if p.account != nil { e.append("account") }
             if p.github != nil { e.append("github") }
             if p.agentSudo != nil { e.append("agent_sudo") }
+            if p.dotfiles != nil { e.append("dotfiles") }
             for k in DozableProject.settingKeys where p.settings[k.setting] != nil { e.append(k.key) }
             out.explicit = e
         } catch {

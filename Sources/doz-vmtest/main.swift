@@ -947,6 +947,10 @@ Task {
             // 599h: the tools layer — gh, the ssh client + host keys, packages; every base (seams only).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliToolsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-dotfiles":
+            // 657: your dotfiles — local scratch repositories, applied at the first start, Dozable's own untouched, --update.
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliDotfilesSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-access":
             // 599e: the Access step — onboarding confirms each credential, skips failures, never blocks (no VM).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

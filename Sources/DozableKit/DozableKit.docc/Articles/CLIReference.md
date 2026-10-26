@@ -451,6 +451,29 @@ apt/apk through the proxy, only when missing. A sandbox's first start shows each
 (`tools: gh 2.102.0 — for GitHub as you`); later starts and wakes re-check quietly (a setting turned on
 while it slept is delivered then); never fatal. An image's preparation never runs it.
 
+### Dotfiles
+
+```bash
+doz config set sandbox.dotfiles https://github.com/you/dotfiles   # every NEW sandbox gets them (or a folder on this Mac)
+doz new --dotfiles ~/dotfiles      # this sandbox's own (create, try and up take it too; none: without)
+doz dotfiles NAME                  # what is applied, at which commit, what it does, the last run (--json)
+doz dotfiles NAME --update         # move to the newest commit and apply it (now when running, else at the next start or wake)
+doz dotfiles trust [SOURCE] [--commit C]   # say yes ahead (for scripts): asked once per repository + commit otherwise
+```
+
+Your **dotfiles** — a git repository over https or a folder on this Mac that is one — fetched ON THE MAC with its own
+`git` (a private repository uses the Mac's git login; no credential ever enters the sandbox) into the store's
+`dotfiles/`, at a commit recorded per sandbox. Only the files of that commit go in (a tar on an exec's stdin, no guest
+network), to `~/.local/share/doz/dotfiles`. At the sandbox's first start, as its user: the repository's install script
+runs — the first of `install.sh`, `install`, `bootstrap.sh`, `bootstrap`, `script/bootstrap`, `setup.sh`, `setup`,
+`script/setup`, at most 5 minutes, its output in the boot log — or, with none, every dotfile and dot-folder at its top is
+linked into `~`: never over a file that is there (only over the image's stock copy from `/etc/skel`, kept as
+`NAME.doz-stock`), never over Dozable's own (`~/.claude*`, `~/.codex`, `~/.pi`, `~/.config/opencode`, `~/.agents`, the
+agents' launchers in `~/.local/bin`, `~/.local/state/doz`). A folder holding one of those (`.config`, `.local`) is linked
+entry by entry. The guest remembers the commit it applied: later starts and wakes do nothing until `--update`. It is code
+that runs in the sandbox, so doz asks once per repository and commit; off a terminal (and with `--yes`) it refuses,
+naming `doz dotfiles trust`.
+
 ### A credential the guest brings itself
 
 ```bash

@@ -148,6 +148,9 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// (recipe or added) had last — preferred again at the next start. Absent before 617.
     public var ports: [PortForwardEntry]?
     public var portMacPorts: [String: Int]?
+    /// 657: the person's dotfiles — where from and the commit it got (resolved at create; `doz dotfiles NAME --update`
+    /// moves it). Absent: none (every sandbox before 657).
+    public var dotfiles: DotfilesPin?
 
     public init(name: String, image: String, spec: SandboxSpec, workspace: String?, createdAt: Date = Date(),
                 credentialSources: [String: String] = [:], diedWithHostAt: Date? = nil) {

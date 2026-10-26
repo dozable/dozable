@@ -97,6 +97,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
 | `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's hourly refresh; the publisher and its end-to-end test |
 | `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a host start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
+| `Sources/DozableKit/Dotfiles.swift`; `Sources/DozableHost/Dotfiles+Host.swift`; `Sources/DozableCLI/DotfilesCommand.swift`; `Sources/DozableWeb/WebDotfiles.swift`; `Sources/doz-vmtest/DotfilesSuite.swift` | 657: the person's dotfiles — the source, the pin, the plan (the install script or the links, Dozable's protected paths), the guest scripts and a run's result; the Mac's git cache (`<store>/dotfiles`), the trust record, the ops `dotfiles` / `dotfiles-resolve` / `dotfiles-update`; `doz dotfiles` and the create's trust question; the dashboard's projection and `POST /api/v1/dotfiles/resolve`; `make test-cli-dotfiles` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1781,6 +1782,54 @@ may use it too.
   real tarball in the vmtest store; a local server serves it — tests never reach github.com), the workspace
   probe `probes/599h-*/run-wizard-probe.sh`.
 
+### Dotfiles — the person's own shell setup in every sandbox
+
+- **One setting, a pin per sandbox** (657): `sandbox.dotfiles` (`SettingType.dotfiles`: an https git URL — no
+  credentials, query or fragment — or a folder on the Mac, absolute or `~/…`; `""` = none, the default; NOT in
+  `perSandbox`). A sandbox's own: `CreateOptions.dotfiles` (`--dotfiles URL|PATH|none` on create/new/try/up,
+  `dotfiles:` in doz_project.yaml — YAML's `no` reads as none). `HostCore.create` resolves it (own, else the setting)
+  and records `SandboxConfig.dotfiles` (`DotfilesPin`: normalised source + commit) — the commit the CLI had the person
+  trust (`dotfilesCommit`), else the head. A fetch that fails fails the create, naming `--dotfiles none`. The pin is
+  the truth afterwards: changing the setting moves no sandbox; `doz dotfiles NAME --update` does (the pin's source,
+  else the setting).
+- **Fetched on the Mac, never in the guest**: `DotfilesCache` runs `/usr/bin/git` (no prompt, `GIT_ASKPASS=false`; in
+  a guarded run never this Mac's git config) into `<store>/dotfiles/<16 hex>/repo.git` — `fetch --depth=1 SOURCE HEAD`
+  (a folder through `file://`; a non-git folder refused with what to do), a pinned commit fetched by id or the whole
+  history, `refs/doz/<commit>` keeps it. The files enter as `git archive <commit>^{tree}` (a tree: no pax header naming
+  the commit — busybox tar reads it) on an exec's STDIN (≤ 64 MiB) — `copyIn` would not work in a VM a new host adopted.
+- **Applied per sandbox, as the image's user** (`Sandbox.applyDotfiles`, after the tools layer in `start()` and in
+  `.applyGuestFixes`): one cheap check exec (`~/.local/share/doz/dotfiles.commit`); only when it differs from the pin
+  (or `--update`: `applyDotfilesNow` on a running one, forced; on one that does not run, the pin's `resolvedAt` is newer
+  than the last run recorded in its folder — applied again at its next start or wake, even at the same commit) are the
+  files sent, unpacked to `~/.local/share/doz/dotfiles` (staged,
+  swapped), OUR links whose file is gone dropped, then the plan: the first of Codespaces' scripts
+  (`DotfilesLayer.scriptNames`, `timeout 300`, stdin /dev/null, cwd the files, output to `dotfiles.log`, its last 40 lines
+  as `dotfiles │` NOTES — the boot log renders notes as lines, an `.output` is only the boot view's tail), else the link
+  pass. The marker is written either way (a failing script is not re-run at every wake; `--update` re-runs). The run is
+  `<sandbox>/dotfiles-run.json` (`DotfilesRun`) → `SandboxInfo.dotfiles` (`DotfilesState`: applied | failed | pending).
+  Never fatal. Images and bake keys are untouched (`RecipePinTests`).
+- **The link pass never overwrites, never touches Dozable's** (`DotfilesLayer.plan`, pure): top-level dot entries only;
+  `.git`/`.github`/`.gitignore`… skipped, submodules skipped, odd names skipped; `protectedPaths` (`.claude*`, `.codex`,
+  `.pi`, `.config/opencode`, `.agents`, `.local/state/doz`, `.local/share/doz`, the launchers `.local/bin/<claude, codex,
+  pi, every recipe's install.binary>`, every recipe's `state.persist` under `~`, and a share under the home) — a folder
+  that HOLDS one (`.config`, `.local`, `.local/bin`) is descended into and its entries linked one by one. In the guest an
+  existing file is KEPT — except one byte-identical to `/etc/skel/NAME` (Debian's stock `.bashrc`), which is moved to
+  `NAME.doz-stock` and replaced (a departure from the brief's "never overwrite", owner to confirm: without it `.bashrc`
+  never applies on a Debian base). Every name single-quoted. An install script is NOT policed — trust is the guard.
+- **Trust, like 653's community recipes**: `confirmDotfilesTrust` (in `preflightAgentAccount(&o)` and QuickMake) asks
+  the host to `dotfiles-resolve` (fetches; the head, its subject, the plan, a dirty folder), says what will run, and asks
+  once per source + commit (`DotfilesTrust`, `<settings dir>/dotfiles-trusted.json`, 0600); no terminal: exit 5 naming
+  `doz dotfiles trust SOURCE --commit C`. `--update` asks again for a new commit. The dashboard asks nothing: New
+  Sandbox's review SHOWS the repository, its commit and what runs (`POST /api/v1/dotfiles/resolve`, a change: `{}` = the
+  setting, or `{source}` — https only; a Mac folder is never named by a page), the Settings route refuses a Mac folder.
+- **Surfaces**: `doz dotfiles NAME [--update] [--json]`, `doz dotfiles trust [SOURCE] [--commit C]`, `doz ls --json`'s
+  `dotfiles`, the sandbox Home's Folder facts, the agent's facts (`dotfiles.facts`, a closed variable; no line without
+  dotfiles), the plan (`CreatePlan.dotfiles`, `--dotfiles` in its command and `dotfiles:` in its yaml).
+- **Tests**: `DotfilesTests` (the rules, the plan, the parsers — and the apply script run by this Mac's `/bin/sh` on a
+  scratch home), `DotfilesHostTests` (a LOCAL scratch repository; never the owner's), `WebDotfilesTests`,
+  `ServeExposureTests`; `make test-cli-dotfiles` (local scratch repositories, a scratch git config; prepares
+  claude-code).
+
 ### Access — every credential a purposeful choice, each confirmed
 
 - **One step, three places**: `doz onboard`'s "2. Access" (`AccessStep` in `AccessCommands.swift`, shared with
@@ -2667,6 +2716,7 @@ make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a 
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH
 make test-cli-openfiles # 599b: workspace files opened on the Mac through the opener seam — every refusal, isolated, off, --app, URLs as before
+make test-cli-dotfiles # 657: your dotfiles in real VMs — local scratch repositories, the install script and the link pass, Dozable's own untouched, trust refused off a terminal, --update, never applied twice (prepares claude-code)
 make test-cli-files  # 643: doz files — listed/watched on the Mac (no host, rules, a link out refused, nothing woken); isolated listed inside while running
 make test-vm-cwd     # BUG cwd-after-wake: a program's cwd in /workspace across sleep, hibernate and a new-process restore (the raw share as the control); the passthrough view's cost
 make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly) across boot/pause/sleep/hibernate/new-process restore, reload, folding, kills (scratch store); then test-vm-agentwrite

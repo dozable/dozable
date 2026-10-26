@@ -279,6 +279,13 @@ function paintFolder(home, i) {
   } else {
     fact('Folder', 'isolated — no folder of this Mac is shared');
   }
+  // 657: its dotfiles — where from, the commit, how the last apply went.
+  const d = i.dotfiles;
+  if (d) {
+    const how = d.state === 'applied' ? 'applied' + (d.summary ? ' — ' + d.summary : '')
+      : d.state === 'failed' ? 'did not apply: ' + (d.summary || 'see doz dotfiles ' + i.name) : 'applied at its next start or wake';
+    fact('Dotfiles', h('span', { 'data-dotfiles': d.state }, h('code', null, tildePath(d.source)), ' at ', h('code', null, d.commit), ' — ' + how));
+  }
   home.folder.replaceChildren(h('div', { class: 'head has-title' }, h('h2', null, 'Folder')), h('dl', { class: 'home-facts' }, ...facts));
 }
 

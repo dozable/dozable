@@ -77,6 +77,7 @@ public enum AgentPrompt {
         ("mac.open", "one short line: what open/xdg-open can show the user on their Mac (URLs, /workspace documents and folders) — only what is on; empty when nothing is"),
         ("github.facts", "one short line: git and gh signed in as the user on GitHub (read-only or with push) and the forwarded SSH agent — empty when neither is on"),
         ("github.description", "a paragraph: how the user's GitHub login reaches the sandbox (a placeholder; the proxy), what read-only refuses, push, SSH — or that it is off and how to ask"),
+        ("dotfiles.facts", "one short line: the user's dotfiles applied in this home (their repository, the commit, the install script or the links) — empty when it has none"),
         ("mac.hostname", "the Mac's name"),
         ("doz.version", "the doz that rendered it"),
     ]
@@ -95,6 +96,7 @@ public enum AgentPrompt {
     - Clipboard: {{clipboard.description}}
     - {{mac.open}}
     - {{github.facts}}
+    - {{dotfiles.facts}}
     - The user may pause, sleep or hibernate this VM between your turns; your processes, files and sessions survive it.
     - More — what persists (root disk, state disk, restore points), the network policy, what you cannot do from inside — is in the `doz` skill.
     """
@@ -203,8 +205,10 @@ public enum AgentPrompt {
                               base: String? = nil, apk: Bool = false, clipboard: Bool = true,
                               browser: Bool = true, openFiles: Bool = true, openApps: [String] = [],
                               github: GitHubAccess.Mode? = nil, sshAgent: Bool = false, tools: ToolsReport? = nil,
-                              workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil) -> [String: String] {
+                              workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil, dotfiles: DotfilesState? = nil) -> [String: String] {
         var v: [String: String] = [:]
+        // 657: the user's dotfiles in this home — one line, only when it has some.
+        v["dotfiles.facts"] = dotfiles.map(Self.dotfilesFacts) ?? ""
         // 599i: Codex's own state, and its provider (OpenAI) — Claude Code and pi read exactly as before.
         let codex = agent == "codex"
         v["agent.state"] = codex ? "`~/.codex`" : "`~/.claude`, `~/.pi/agent`"
@@ -357,6 +361,20 @@ public enum AgentPrompt {
         return v
     }
 
+    /// 657: the facts line for a sandbox's dotfiles.
+    static func dotfilesFacts(_ d: DotfilesState) -> String {
+        let what = "the user's dotfiles (\(d.display) at commit \(d.commit.prefix(12)))"
+        switch d.state {
+        case "applied":
+            let how = d.script.map { "their \($0) ran" } ?? "linked into ~ — never over a file that was there"
+            return "Dotfiles: \(what) are applied in this home — \(how); the files are in ~/\(DotfilesLayer.guestDirectoryRelative). The shell setup is the user's own — change it only when asked."
+        case "failed":
+            return "Dotfiles: \(what) did not apply cleanly (\(d.summary ?? "the user can see why with doz dotfiles on the Mac")); the shell may lack some of the user's setup — not yours to fix unless asked."
+        default:
+            return "Dotfiles: \(what) are applied at this sandbox's next start."
+        }
+    }
+
     // MARK: rendering
 
     /// `{{ name }}` → its value. Unknown names are an error, naming the variable and `source`.
@@ -448,7 +466,7 @@ public enum AgentPrompt {
     public static func report(config: SandboxConfig, policy: NetworkPolicy?, account: String?, version: String,
                               settings: DozableSettings = .load(), hostname: String = macHostname(),
                               credentialProblem: String? = nil, sudoInstalled: Bool? = nil, tools: ToolsReport? = nil,
-                              workspaceRules: WorkspaceRuleMode? = nil) -> AgentPromptReport? {
+                              workspaceRules: WorkspaceRuleMode? = nil, dotfiles: DotfilesState? = nil) -> AgentPromptReport? {
         guard let agent = agent(of: config.spec), let imageSpec = config.spec.imageSpec else { return nil }
         let network: NetworkMode = policy.map { .proxied($0) } ?? config.spec.network
         // 594 W28: sudo only when it is on AND the guest has it (a disk from an older image may not).
@@ -467,7 +485,7 @@ public enum AgentPrompt {
                           openApps: WorkspaceFiles.appNames(settings.string(SettingKey.openApps) ?? "") ?? [],
                           github: AgentPermissions.gitHubMode(policy?.permissions),
                           sshAgent: policy != nil && HostCore.sandboxValue(config, SettingKey.sshAgent, settings: settings) == .string("on"),
-                          tools: tools, workspaceRules: workspaceRules, agent: agent)
+                          tools: tools, workspaceRules: workspaceRules, agent: agent, dotfiles: dotfiles)
         var r = AgentPromptReport(enabled: settings.bool(SettingKey.agentPrompt), agent: agent, text: nil, error: nil, layers: [],
                                   skill: nil, promptPath: guestPromptPath,
                                   // 617: a context-file agent's facts file (Gemini CLI's extension, Grok Build's rules).
@@ -573,7 +591,8 @@ extension HostCore {
         AgentPrompt.report(config: m.config, policy: m.sandbox.egress?.policy,
                            account: m.sandbox.egress == nil ? nil : accountName(m), version: version,
                            credentialProblem: credentialProblem(m), sudoInstalled: sudoInstalled, tools: m.sandbox.lastToolsReport,
-                           workspaceRules: m.sandbox.activeViews.values.first(where: { !$0.isPassthrough })?.mode)
+                           workspaceRules: m.sandbox.activeViews.values.first(where: { !$0.isPassthrough })?.mode,
+                           dotfiles: dotfilesState(m))
     }
 
     /// Write (or, when off, remove) the facts file and the skill in the guest — a utility exec as

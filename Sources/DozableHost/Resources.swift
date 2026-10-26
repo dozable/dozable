@@ -324,6 +324,7 @@ public enum Resources {
             return "image:lab@\(key)"
         case "content", "state.json": return "cache:downloads"
         case "tools": return "cache:tools"                       // 599h: the tools layer's downloads (gh)
+        case "dotfiles": return "cache:dotfiles"                 // 657: the dotfiles repositories this Mac's git fetched
         case "serve": return "store"                             // 606: doz serve's devices, audit log, port
         case "build-logs": return "store"                        // 617: each image's last build log
         case "initfs.ext4": return "initfs"
@@ -504,6 +505,14 @@ public enum Resources {
                              detail: "gh \(ToolsLayer.ghVersion) (linux-arm64, sha256 checked) — copied into sandboxes with GitHub as you",
                              sizeBytes: l.size, freedBytes: l.freed, usedBy: [], deletable: true, recreatable: true,
                              later: "downloaded again (once) when a sandbox with GitHub as you next starts or wakes", cleanable: true, path: "tools"))
+        }
+        if byLeaf["cache:dotfiles"] != nil {
+            // 657: the dotfiles repositories fetched on this Mac — each sandbox's pinned commit is fetched again when needed.
+            let l = leaf("cache:dotfiles")
+            add(ResourceItem(id: "cache:dotfiles", group: "caches", name: "dotfiles",
+                             detail: "your dotfiles repositories, fetched on this Mac with its git — their files are copied into sandboxes from here",
+                             sizeBytes: l.size, freedBytes: l.freed, usedBy: [], deletable: true, recreatable: true,
+                             later: "fetched again (each sandbox's own commit) when one next needs them", cleanable: false, path: "dotfiles"))
         }
         for id in byLeaf.keys.filter({ $0.hasPrefix("base:") }).sorted() {
             let key = String(id.dropFirst(5))
@@ -751,6 +760,8 @@ public enum Resources {
                     for n in ["content", "state.json"] { try removeIfPresent(root.appendingPathComponent(n)) }
                 case "cache:tools":
                     try removeIfPresent(root.appendingPathComponent("tools"))
+                case "cache:dotfiles":
+                    try removeIfPresent(root.appendingPathComponent("dotfiles"))
                 case "initfs":
                     try removeIfPresent(root.appendingPathComponent("initfs.ext4"))
                 default:

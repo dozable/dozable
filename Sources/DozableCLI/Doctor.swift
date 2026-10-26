@@ -96,6 +96,27 @@ struct Doctor: AsyncParsableCommand {
             out.append(DoctorCheck(check: "tools layer", status: .ok,
                                    detail: "gh \(ToolsLayer.ghVersion) not downloaded yet — the first sandbox with GitHub as you fetches it (~14 MB, once)"))
         }
+        // 657: the person's dotfiles — the setting, what this Mac's cache holds, a sandbox whose last apply failed.
+        do {
+            let source = DozableSettings.load().string(SettingKey.dotfiles) ?? ""
+            let cached = DotfilesCache(root: store.root.appendingPathComponent("dotfiles")).cached().count
+            let failed = store.sandboxNames().compactMap { name -> String? in
+                let f = store.layout(name).sandboxDirectory.appendingPathComponent("dotfiles-run.json")
+                guard let d = try? Data(contentsOf: f), let r = try? Sandbox.runDecoder.decode(DotfilesRun.self, from: d), !r.ok else { return nil }
+                return "\(name): \(r.summary)"
+            }
+            var isDir: ObjCBool = false
+            let normalized = try? DotfilesSource.normalized(source, home: TestSafety.realHome.path)
+            if let n = normalized ?? nil, DotfilesSource.isLocal(n), !(fm.fileExists(atPath: n, isDirectory: &isDir) && isDir.boolValue) {
+                out.append(DoctorCheck(check: "dotfiles", status: .warn, detail: "sandbox.dotfiles is \(DisplayPath.tilde(n)), which is not a folder on this Mac — a new sandbox cannot be made with it (--dotfiles none, or doz config set sandbox.dotfiles …)"))
+            } else if !failed.isEmpty {
+                out.append(DoctorCheck(check: "dotfiles", status: .warn, detail: "the last apply failed in " + failed.joined(separator: "; ") + " — doz dotfiles NAME says more; --update applies them again"))
+            } else {
+                out.append(DoctorCheck(check: "dotfiles", status: .ok, detail: (normalized ?? nil).map {
+                    "\(DotfilesSource.isLocal($0) ? DisplayPath.tilde($0) : $0) for every new sandbox (\(cached) repositor\(cached == 1 ? "y" : "ies") fetched on this Mac)"
+                } ?? "none set — doz config set sandbox.dotfiles URL|PATH puts yours in every new sandbox"))
+            }
+        }
         // EXPERIMENTAL: audio sandboxes — the sound kernel this doz carries, and who macOS asks about the microphone.
         do {
             let carried = MacAudio.bundledSoundKernel()
