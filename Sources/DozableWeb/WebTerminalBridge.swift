@@ -82,8 +82,9 @@ final class WebTerminalHub: @unchecked Sendable {
         }
         guard let operations else { return false }
         do {
+            // 650: a person's own (ahead of any batch); a resume from pause never waits in the lifecycle lane.
             _ = try operations.start(.lifecycle(op, name: name),
-                                     firstLine: "a key typed in a terminal — \(op == .resume ? "resuming" : "waking")")
+                                     firstLine: "a key typed in a terminal — \(op == .resume ? "resuming" : "waking")", phase: phase)
             return true
         } catch {
             return false                 // already under way, or too many operations: nothing to add

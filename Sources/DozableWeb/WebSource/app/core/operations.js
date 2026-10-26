@@ -31,6 +31,25 @@ export async function act(body) {
   }
 }
 
+// ── 650: the queue — an operation beyond what may run at once is accepted and QUEUED: still `running` (busy, its buttons
+// disabled), with `queued` and its `position`; its text says "queued — N ahead". A queued one can be cancelled (nothing
+// was sent to the host for it). ────────────────────────────────────────────────────────────────────────────────────
+/// The sandbox's queued operation — while nothing of it runs for real (a running one is the news then).
+export function queuedOpFor(name) {
+  const running = [...state.ops.values()].filter((o) => o.sandbox === name && o.state === 'running');
+  return running.length && running.every((o) => o.queued) ? running[0] : null;
+}
+/// Withdraw queued operations. The server answers which it withdrew; each one's end arrives as its `op` event.
+export async function cancelOps(ids) {
+  if (!ids.length) return null;
+  try {
+    return await api('operations/cancel', { method: 'POST', json: { ids } });
+  } catch (e) {
+    toast('Cancel: ' + (e.message || String(e)), true);
+    return null;
+  }
+}
+
 // ── transitions (593 follow-up — owner: "when i clicked on the button to start the sandbox, it briefly
 // flashed a button that it was "Shut Down" before the boot sequence"). The moment a lifecycle action is
 // asked for, its sandbox is IN that transition on this page: the phase pill says so ("Booting…", with a
@@ -78,7 +97,11 @@ export function trackOp(op) {
   // let the older news overwrite the end (it left the page thinking it still ran).
   if (before && before.state !== 'running' && op.state === 'running') return;
   state.ops.set(op.id, op);
-  if (state.ops.size > 60) state.ops.delete(state.ops.keys().next().value);
+  // 650: the oldest ENDED ones go — a batch may queue more than the page keeps, and a waiting one must never be lost.
+  if (state.ops.size > 60) {
+    const old = [...state.ops.values()].find((o) => o.state !== 'running');
+    if (old) state.ops.delete(old.id);
+  }
   // 617: whoever waits for this operation's end hears it NOW (an event, not a poll — see waitOp).
   if (op.state !== 'running') settleOpWaiters(op);
   renderOps();
@@ -86,6 +109,8 @@ export function trackOp(op) {
   // A new operation: re-render, so its sandbox's buttons are disabled while it runs.
   // (Not for a removal: the page it would refetch is about to be gone.)
   if (!before && op.state === 'running' && op.action !== 'rm') refresh(false);
+  // 650: its turn came (or it was queued): the pills and the bulk bar say so.
+  else if (before && op.state === 'running' && !!before.queued !== !!op.queued) refresh(false);
   if (op.state !== 'running' && (!before || before.state === 'running')) {
     endTransition(op.sandbox, op.action, op.state === 'failed');
     if (op.state === 'failed') opFailed(op);

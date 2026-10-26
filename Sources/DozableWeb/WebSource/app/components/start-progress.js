@@ -13,7 +13,7 @@
 import { h } from '../dom/h.js';
 import { busyMark, icon, isWaitStep } from '../dom/icons.js';
 import { upcall } from '../core/hooks.js';
-import { transitionOf } from '../core/operations.js';
+import { cancelOps, transitionOf } from '../core/operations.js';
 import { sandboxImage } from '../core/sandboxes.js';
 import { state } from '../core/state.js';
 import { pageTerminals } from '../core/terminals.js';
@@ -118,6 +118,14 @@ function pendingPanel(name, o) {
 
 function panelFor(name, o, p) {
   if (o.pending) return pendingPanel(name, o);
+  // 650: accepted and waiting its turn (nothing sent to the host yet) — where, and a way to withdraw it.
+  if (o.queued) {
+    return h('div', { class: 'start-progress', 'data-start-progress': name, 'data-start-queued': '', role: 'status', 'aria-live': 'polite' },
+      h('div', { class: 'sp-box' },
+        h('h3', null, 'Starting ' + name + ' — waiting its turn'),
+        h('div', { class: 'sp-stepline' }, o.text + ' · other starts and wakes run first'),
+        h('div', { class: 'sp-acts' }, btn('Cancel', () => cancelOps([o.id]), { small: true, quiet: true, title: 'Withdraw it — nothing was done yet' }))));
+  }
   const prog = o.progress || { steps: [], tail: [] };
   const failed = o.state === 'failed';
   const now = shortStep(prog.current || (p && p.step));

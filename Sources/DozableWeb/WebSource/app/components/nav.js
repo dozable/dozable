@@ -1,8 +1,9 @@
 // components/nav — The sidebar: a child per sandbox (593), the rail, the Resources total.
 import { upcall } from '../core/hooks.js';
 import { $, h } from '../dom/h.js';
-import { icon, mark, phaseMark } from '../dom/icons.js';
+import { icon, mark, phaseMark, QUEUED_GLYPH } from '../dom/icons.js';
 import { api } from '../core/api.js';
+import { queuedOpFor } from '../core/operations.js';
 import { bytes } from '../core/format.js';
 import { state } from '../core/state.js';
 import { brokenCount } from './account-problems.js';
@@ -110,6 +111,10 @@ function sandboxLineMenu(s) {
 }
 /// The sandbox's phase as a dot (its shape says whether it holds RAM); 642 (owner): a hibernated one, a crescent moon.
 function phaseGlyph(s) {
+  // 650: an operation of it waits its turn — the waiting mark, saying where it stands.
+  const q = queuedOpFor(s.name);
+  if (q) { const g = icon(QUEUED_GLYPH); g.setAttribute('class', 'icon ph-moon ph-queued'); g.removeAttribute('aria-hidden');
+    g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel + ', ' + q.action + ' ' + q.text); return g; }
   if (s.phase === 'hibernated') { const g = icon('moon'); g.setAttribute('class', 'icon ph-moon ph-hibernated'); g.removeAttribute('aria-hidden');
     g.setAttribute('role', 'img'); g.setAttribute('aria-label', s.phaseLabel); return g; }
   return h('span', { class: 'ph-dot ph-' + s.phase + phaseMark(s.phase), role: 'img', 'aria-label': s.phaseLabel });

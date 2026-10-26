@@ -1,8 +1,8 @@
 // components/pills — Pills: a phase, a status, a sandbox in transition.
 import { upcall } from '../core/hooks.js';
 import { h } from '../dom/h.js';
-import { icon, PHASE_GLYPH } from '../dom/icons.js';
-import { TRANSITION_LABEL, transitionOf } from '../core/operations.js';
+import { icon, PHASE_GLYPH, QUEUED_GLYPH } from '../dom/icons.js';
+import { queuedOpFor, TRANSITION_LABEL, transitionOf } from '../core/operations.js';
 import { state } from '../core/state.js';
 import { terminals } from '../core/terminals.js';
 import { startStage } from './start-progress.js';
@@ -24,6 +24,9 @@ export function phasePill(phase, label, busy) {
 const STATUS_GLYPH = { ok: 'check', warn: 'triangle-alert', fail: 'x', off: 'power' };
 export function statusPill(s) { return h('span', { class: 'pill st-' + s }, STATUS_GLYPH[s] ? icon(STATUS_GLYPH[s]) : null, s); }
 function transitionPill(t, name) {
+  // 650: accepted and waiting its turn — a clock-like mark, not a spinner (nothing runs yet).
+  const q = queuedOpFor(name);
+  if (q) return h('span', { class: 'pill ph-busy', 'data-pill-for': name, 'data-transition': 'queued', title: q.text }, icon(QUEUED_GLYPH), 'Queued');
   return h('span', { class: 'pill ph-busy', 'data-pill-for': name, 'data-transition': t.action },
     h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), ' ' + (t.action === 'start' ? startStage(name) : TRANSITION_LABEL[t.action]));   // 617: preparing, then booting
 }

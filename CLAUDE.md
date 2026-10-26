@@ -486,9 +486,28 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   masked field — through the one typed route `POST /api/v1/accounts`, never an action, while
   `ui.allow_secret_entry` (see the 594 section); and a sandbox's own key through `POST
   /api/v1/sandboxes/NAME/key`.
-- **An action is an operation**: 202 at once, the host call in `WebOperations` (≤ 8 running), its
-  progress and outcome as SSE `op` events. The outcome is a line written from the result — never
-  the result passed through.
+- **An action is an operation**: 202 at once, the host call in `WebOperations` (beyond its lane's width it is
+  QUEUED, never refused — below), its progress and outcome as SSE `op` events. The outcome is a line written from
+  the result — never the result passed through.
+- **The lifecycle queue** (650, owner: All sandboxes woke 12 at once, each slow from the contention, and past 8 the rest
+  were refused). Two lanes in `WebOperations`, each FIFO: start / wake / resume / sleep / hibernate / shutdown run at most
+  `ui.batch_concurrency` (1–8, default 3, read whenever a place frees) at once; every other action at most 8; a `pause`
+  and a resume of a sandbox the monitor last saw PAUSED (`WebOperations.lane`: the overview's phase, cached in
+  `reconcile`; the terminal's keystroke wake passes the phase it knows; unknown → the lane, the safe side) never wait.
+  A queued operation is `state: "running"` (the page reads running as "under way" in ~40 places) with `queued: true` and
+  `position` (1-based in its lane), its text "queued — N ahead" / "queued — next"; every move is an `op` event; at its
+  turn `queued` is cleared and `startedAt` reset. A person's own request (anything but the page's bulk controls, which
+  send the envelope field `batch: true` — `WebAction.decodeRequest`; `decode` still refuses it) goes ahead of every batch
+  one, and a person's repeat of a QUEUED batch operation moves that one ahead (the same id); any other repeat is still
+  409. Refused (503 `too-many-operations`) only past `WebOperations.maxQueued` (256) waiting. `POST
+  /api/v1/operations/cancel` (a typed route, not a `WebAction` — it sends no HostOp; CSRF; strict `{ids}` 1–256; the
+  same `WebExposure` decision as actions) withdraws QUEUED ones only → `{cancelled, notQueued}`; a cancelled one ends
+  `interrupted` "cancelled before its turn — nothing was done". The ring forgets only ENDED operations beyond 50; a
+  queued one read back after a `doz ui` restart was never sent: it ends `interrupted` "doz ui restarted before its turn
+  — it was not started" and `reconcile` never resolves it. The host and the CLI are unchanged (a request already sent
+  cannot be withdrawn). The page: the waiting mark is `QUEUED_GLYPH` (`hourglass`: the vendored Lucide set has no
+  clock), the pill "Queued", the status line + Cancel (`paintRowOps`), the start panel's waiting state, Operations' row
+  + Cancel, the bulk bar's "N queued · Cancel all", the nav's mark. `WebOperationsQueueTests`, `WebActionHTTPTests`.
 - **Open in Terminal** writes a one-shot `.command` file (0700, in a 0700 per-user directory; it
   runs `rm -f -- "$0"` then `exec '<doz>' attach NAME [SESSION] --store '<store>'`, names
   allowlisted, paths quoted) and `open`s it, so the user's DEFAULT app for `.command` files runs it

@@ -524,11 +524,34 @@ final class WebActionTests: XCTestCase {
         XCTAssertNil(WebCSV.cell(nil))
     }
 
+    /// 650: `batch` rides on the action request's envelope (any action may carry it, as a Bool) and nowhere else — the
+    /// action itself is unchanged, and the sub-routes that reuse the decoder (the preview, Terminal) refuse it.
+    func testTheBatchMarkIsTheEnvelopesOnly() throws {
+        let r = try WebAction.decodeRequest(Data(#"{"action":"wake","sandbox":"demo","batch":true}"#.utf8))
+        XCTAssertEqual(r.action, .lifecycle(.wake, name: "demo"))
+        XCTAssertTrue(r.batch)
+        XCTAssertFalse(try WebAction.decodeRequest(Data(#"{"action":"wake","sandbox":"demo"}"#.utf8)).batch)
+        XCTAssertFalse(try WebAction.decodeRequest(Data(#"{"action":"wake","sandbox":"demo","batch":false}"#.utf8)).batch)
+        XCTAssertTrue(try WebAction.decodeRequest(Data(#"{"action":"rm","sandbox":"demo","confirm":"demo","batch":true}"#.utf8)).batch)
+        for bad in [#"{"action":"wake","sandbox":"demo","batch":"yes"}"#, #"{"action":"wake","sandbox":"demo","batch":1}"#,
+                    #"{"action":"wake","sandbox":"demo","batch":null}"#, #"{"action":"wake","sandbox":"demo","priority":true}"#] {
+            XCTAssertThrowsError(try WebAction.decodeRequest(Data(bad.utf8)), bad)
+        }
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"wake","sandbox":"demo","batch":true}"#.utf8)), "not beside a sub-route's action")
+    }
+
     // MARK: routes
 
     func testThePhase2RoutesAreTypedToo() {
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/actions"), .actions)
         XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/operations"), .operations)
+        // 650: cancel is a typed POST of its own (no HostOp); nothing near it is a route.
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/operations/cancel"), .operationsCancel)
+        XCTAssertEqual(WebExposure.kind(.operationsCancel), .change)
+        for (m, t) in [(WebHTTPMethod.get, "/api/v1/operations/cancel"), (.post, "/api/v1/operations"), (.post, "/api/v1/operations/x"),
+                       (.delete, "/api/v1/operations/cancel"), (.post, "/api/v1/operations/cancel/x")] {
+            XCTAssertNil(WebRoute.parse(method: m, target: t), t)
+        }
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/sandboxes/demo/network/preview"), .policyPreview("demo"))
         XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/sandboxes/demo/terminal"), .terminal("demo"))
         for t in ["/api/v1/actions/start", "/api/v1/sandboxes/demo/start", "/api/v1/sandboxes/demo/exec", "/api/v1/sandboxes/Demo/terminal",
