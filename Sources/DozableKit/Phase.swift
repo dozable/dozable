@@ -124,7 +124,8 @@ public enum LifecycleStep: Equatable, Sendable {
     case resyncClock
     /// 594 W34: best effort, never fails the operation — one root exec of `GuestCommand.guestFixes`
     /// (debconf, /etc/hosts, the open-URL shim, the time zone, the agent's sudo): what a fresh boot
-    /// applies, for a sandbox that is only ever woken. A failure is noted.
+    /// applies, for a sandbox that is only ever woken. A failure is noted. 651: plus this build's deckhold
+    /// and the tools layer; run after the wake is reported done (`LifecyclePlanner.afterWake`).
     case applyGuestFixes
     /// Re-mount every virtio-fs share (virtio-fs does not survive a VM stop).
     case remountShares
@@ -132,7 +133,7 @@ public enum LifecycleStep: Equatable, Sendable {
     case deleteSnapshot
     /// 583: best effort, never fails the operation — inflate the memory balloon over the guest's free
     /// pages (and keep it inflated), so the host drops the RAM a restore faulted in but the guest
-    /// never touched (`Sandbox.returnFreeMemory()`).
+    /// never touched (`Sandbox.returnFreeMemory()`). 651: after the wake is reported done.
     case returnFreeMemory
     /// 583: deflate the balloon before the VM is paused for a snapshot — a snapshot of an inflated
     /// balloon does not restore.
@@ -188,8 +189,9 @@ public enum LifecyclePlanner {
             return [.resumeVM, .deleteSnapshot, .persistState]
         case (.resume, .asleep), (.wake, .asleep):
             // Wake from Sleep (resume in place); `resume` from Sleep is the pre-rename spelling and
-            // still works. W34: a wake applies the guest fixes.
-            return [.resumeVM, .applyGuestFixes, .deleteSnapshot, .persistState]
+            // still works. W34: a wake applies the guest fixes — 651: after it is reported done
+            // (`afterWake`).
+            return [.resumeVM, .deleteSnapshot, .persistState]
         case (.sleep, .running):
             return [.captureScreens, .restoreGuestMemory, .pauseVM, .saveSnapshot, .persistState]
         case (.sleep, .paused):
@@ -203,7 +205,10 @@ public enum LifecyclePlanner {
         case (.hibernate, .asleep):
             return [.detachSessions(.sandboxSleeping), .stopVMDirect, .persistState]
         case (.wake, .hibernated):
-            return [.restoreSnapshot, .resyncClock, .applyGuestFixes, .remountShares, .deleteSnapshot, .returnFreeMemory, .persistState]
+            // 651: done once the guest runs with its clock re-synced and its shares re-mounted (programs
+            // need the shares); the snapshot goes at once (it is valid only while paused). The rest is
+            // `afterWake`.
+            return [.restoreSnapshot, .resyncClock, .remountShares, .deleteSnapshot, .persistState]
         case (.shutDown, _):
             // 593 (owner, 2026-09-30): no capture — the sessions end with the VM, and every saved screen
             // goes with them. From off there is nothing to stop and nothing changes.
@@ -217,6 +222,36 @@ public enum LifecyclePlanner {
         default:
             return nil
         }
+    }
+
+    /// 651: the steps a wake runs AFTER it is reported done — in the background, still holding the sandbox's
+    /// lifecycle gate (`Sandbox.runAfterWake`), so a later lifecycle operation, a restore point, a capture
+    /// or a quit waits for them, and a session open waits too (it re-applies only part of the guest
+    /// fixes). Best effort: a failure is a note, never a failed wake. Empty for every other operation.
+    public static func afterWake(_ op: LifecycleOperation, from phase: Phase) -> [LifecycleStep] {
+        switch (op, phase) {
+        case (.resume, .asleep), (.wake, .asleep):
+            return [.applyGuestFixes]
+        case (.wake, .hibernated):
+            // The balloon last: a pending sleep or hibernate would only deflate it again (`skippedWhenWaiting`).
+            return [.applyGuestFixes, .returnFreeMemory]
+        default:
+            return []
+        }
+    }
+
+    /// 651: a restore into a NEW process (the host restarted while the sandbox slept): after the VM is
+    /// rebuilt and the snapshot restored and adopted — the same split as a wake from hibernation.
+    public static let adoption: [LifecycleStep] = [.resyncClock, .remountShares, .deleteSnapshot, .persistState]
+    public static let afterAdoption: [LifecycleStep] = afterWake(.wake, from: .hibernated)
+
+    /// 651: the after-wake steps a lifecycle operation that is WAITING for them makes pointless, so they
+    /// are skipped at a step boundary: one that puts the sandbox away again (sleep, hibernate, a quit) or
+    /// ends it (shut down, reset, delete) — the next wake applies them again — skips all of them; a pause
+    /// only the balloon (a resume from Pause re-applies nothing, so the guest fixes still run).
+    public static func skippedWhenWaiting(_ step: LifecycleStep, pauseWaiting: Bool, putAwayWaiting: Bool) -> Bool {
+        if putAwayWaiting { return true }
+        return pauseWaiting && step == .returnFreeMemory
     }
 
     /// Shut Down from `phase`, or nil when there is nothing running to stop. Every variant keeps the

@@ -45,7 +45,15 @@ prepared disk; Delete removes everything the sandbox has on disk. A disk that wa
 unmounted — `Sandbox.discardRestorableState(for:)` (a hibernated VM is stopped without unmounting it),
 a failed restore, a crash while running — is replayed from its **journal** on the next cold boot, or,
 on a journal-less disk, checked with `e2fsck` first (see **Journal** below). Hibernate and Stop
-`sync` the guest first, so a discarded hibernation loses nothing written before it. Guest: `exec(argv)`
+`sync` the guest first, so a discarded hibernation loses nothing written before it.
+
+**Wake.** `wake()` (and `restoreAfterCrash()`) returns as soon as the guest runs with its clock re-synced, its shares
+re-mounted and the snapshot deleted. The rest — the guest fixes (/etc/hosts, debconf, the shims, the time zone, the
+agent's sudo, git and the SSH agent), this build's deckhold, the tools layer and the memory balloon — runs right after,
+in a task of the sandbox that still holds its lifecycle gate (`LifecyclePlanner.afterWake`): any later lifecycle call,
+restore point, capture or `prepareForExit` waits for it (one that would undo it — a sleep, a hibernate, a stop — skips
+what is left at a step boundary), `openSession` and `exec` wait for it, and a failure is a note, never a failed wake.
+`afterWakeSettled()` waits for it; the event stream ends it with `.afterWakeDone`. Guest: `exec(argv)`
 (no shell unless you pass one), `sessions()` (`deckhold ls`), `screenText(name)` (`deckhold dump`),
 `bootConsole()`.
 
@@ -122,7 +130,8 @@ guest page it has ever touched, and restoring a snapshot touches them all: woken
 1 GiB Lab held **1,273 MiB** (cold-booted: 213) and a 2 GiB claude-code **2,340 MiB** (cold: 645).
 Every VM now has a virtio memory balloon, and `wake()` inflates it over the guest's free pages,
 leaving the guest `defaultFreeReserveMiB` free (¼ of the allocation, ≥ 256 MiB): woken, the Lab holds
-**~585 MiB** and claude-code **~1,310 MiB** (−54% / −44%), for **+25–40 ms** of wake. The balloon
+**~585 MiB** and claude-code **~1,310 MiB** (−54% / −44%). It is inflated after `wake()` returns, in the
+background (with the guest fixes — see "Wake"), so it costs the wake nothing; `afterWakeSettled()` waits for it. The balloon
 stays inflated (deflating would charge the pages again); the guest's page cache and processes are
 untouched, and a guest that needs more still gets it (VZ deflates on guest OOM — a 512 MiB
 allocation above the reserve took ~0.35–0.5 s instead of ~0.12 s). `returnFreeMemory(keepingFreeMiB:)`

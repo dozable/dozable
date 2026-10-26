@@ -560,7 +560,8 @@ public struct HostEvent: Codable, Equatable, Sendable {
             error = why
         case .output(let s): self.init(kind: .output, sandbox: sandbox, text: s)
         // 617: a step's whole output is the preparation's build log, never a client's event (runPreparation takes it).
-        case .status, .stepOutput, .bakePlan: return nil
+        // 651: the end of a wake's background steps — the host's boot log reads it (HostCore.handleEvent).
+        case .status, .stepOutput, .bakePlan, .afterWakeDone: return nil
         }
     }
 

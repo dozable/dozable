@@ -1241,7 +1241,10 @@ the others say when they apply (the next sandbox created, the next session, or a
   `--follow` it keeps printing as it boots (the web UI's boot view shows the same lines).
 - **Boot logs.** Every boot of a sandbox — each Start (a cold boot), each wake, a restore after a
   crash — is kept: doz's timed steps exactly as the boot view showed them, that boot's kernel
-  console, when it started, how long it took and whether it failed (and why). The last
+  console, when it started, how long it took and whether it failed (and why). A wake is done once
+  the sandbox runs with its clock and folders back; what it does after that (its guest fixes, the
+  memory it hands back) is in the same boot log, as "after the wake, in the background", and the
+  time shown is the wake's. A restore after a host restart lists its parts ("restore: …"). The last
   `host.boot_logs_kept` (5) are kept per sandbox, in its directory (readable only by you); they stay
   across a reset and go with `doz rm`.
   - `doz console NAME --list` — the kept boots: when, what, how long, ✓ or ✗.

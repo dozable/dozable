@@ -210,6 +210,8 @@ final class BootRecorder: @unchecked Sendable {
     let consoleOffset: UInt64
     private let lock = NSLock()
     private var events: [HostEvent] = []
+    /// 651: set at the end of a wake's background steps — nothing after it belongs to this boot.
+    private var sealed = false
 
     init(kind: String, bootLog: URL, now: Date = Date()) {
         id = BootLogs.newID(now)
@@ -224,8 +226,12 @@ final class BootRecorder: @unchecked Sendable {
         case .connection, .console, .host: return
         default: break
         }
-        lock.withLock { if events.count < BootLogs.maximumEvents { events.append(e) } }
+        lock.withLock { if !sealed, events.count < BootLogs.maximumEvents { events.append(e) } }
     }
+
+    /// 651: stop recording (the wake's background steps are over).
+    func seal() { lock.withLock { sealed = true } }
+    var isSealed: Bool { lock.withLock { sealed } }
 
     var snapshot: [HostEvent] { lock.withLock { events } }
 

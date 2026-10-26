@@ -97,9 +97,50 @@ final class LifecycleTests: XCTestCase {
     }
 
     /// Wake resyncs the clock and re-mounts shares, after the restore and before the snapshot goes.
+    /// 651: that is when it is DONE — the guest fixes and the balloon run after, in the background.
     func test_wakeRestoresThenResyncsClockAndRemountsShares() {
-        XCTAssertEqual(plan(.wake, .hibernated), [.restoreSnapshot, .resyncClock, .applyGuestFixes, .remountShares, .deleteSnapshot, .returnFreeMemory, .persistState])
+        XCTAssertEqual(plan(.wake, .hibernated), [.restoreSnapshot, .resyncClock, .remountShares, .deleteSnapshot, .persistState])
+        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .hibernated), [.applyGuestFixes, .returnFreeMemory])
         XCTAssertNil(plan(.wake, .running))
+    }
+
+    /// 651: what a wake does after it is reported done — only a wake has any, and none of it is on the critical path.
+    func test_afterWakeStepsAreOffTheCriticalPath() {
+        for op in LifecycleOperation.allCases {
+            for p in Phase.allCases {
+                let after = LifecyclePlanner.afterWake(op, from: p)
+                let wakes = (op == .wake && (p == .asleep || p == .hibernated)) || (op == .resume && p == .asleep)
+                XCTAssertEqual(!after.isEmpty, wakes, "\(op) from \(p)")
+                guard let steps = plan(op, p) else { XCTAssertTrue(after.isEmpty, "\(op) from \(p): not allowed, nothing after"); continue }
+                for s in after { XCTAssertFalse(steps.contains(s), "\(op) from \(p): \(s) runs after, not in the wake") }
+                // What a wake is done with: the guest runs with its clock and shares; nothing best effort holds it up.
+                XCTAssertFalse(steps.contains(.applyGuestFixes) || steps.contains(.returnFreeMemory), "\(op) from \(p)")
+            }
+        }
+        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .asleep), [.applyGuestFixes])
+        XCTAssertEqual(LifecyclePlanner.afterWake(.resume, from: .asleep), LifecyclePlanner.afterWake(.wake, from: .asleep))
+        XCTAssertTrue(LifecyclePlanner.afterWake(.resume, from: .paused).isEmpty, "W34: a resume from Pause stays ~1 ms")
+        // The balloon is the last thing a wake does, so a pending sleep/hibernate can drop it at a step boundary.
+        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .hibernated).last, .returnFreeMemory)
+    }
+
+    /// 651: a restore into a new process is the same split — done after the clock, the shares and the snapshot.
+    func test_adoptionSplitsLikeAWakeFromHibernation() {
+        XCTAssertEqual(LifecyclePlanner.adoption, [.resyncClock, .remountShares, .deleteSnapshot, .persistState])
+        XCTAssertEqual(LifecyclePlanner.afterAdoption, LifecyclePlanner.afterWake(.wake, from: .hibernated))
+        XCTAssertEqual(Array(plan(.wake, .hibernated)!.dropFirst()), LifecyclePlanner.adoption, "the restore itself is the boot's")
+    }
+
+    /// 651: a lifecycle call waiting for the after-wake steps cuts them short only where that loses nothing.
+    func test_waitingOperationsSkipOnlyWhatTheyUndo() {
+        let after = LifecyclePlanner.afterWake(.wake, from: .hibernated)
+        for s in after {
+            XCTAssertFalse(LifecyclePlanner.skippedWhenWaiting(s, pauseWaiting: false, putAwayWaiting: false), "\(s): nobody waits")
+            XCTAssertTrue(LifecyclePlanner.skippedWhenWaiting(s, pauseWaiting: false, putAwayWaiting: true), "\(s): the next wake applies it again")
+        }
+        // A resume from Pause applies no guest fixes, so a waiting pause keeps them; the balloon it would only undo.
+        XCTAssertFalse(LifecyclePlanner.skippedWhenWaiting(.applyGuestFixes, pauseWaiting: true, putAwayWaiting: false))
+        XCTAssertTrue(LifecyclePlanner.skippedWhenWaiting(.returnFreeMemory, pauseWaiting: true, putAwayWaiting: false))
     }
 
     /// Sleep to disk saves before it severs anything, detaches sessions before the VZ stop, and
@@ -117,7 +158,8 @@ final class LifecycleTests: XCTestCase {
         XCTAssertEqual(plan(.pause, .running), [.captureScreens, .pauseVM])
         XCTAssertNil(plan(.pause, .paused))
         XCTAssertEqual(plan(.resume, .paused), [.resumeVM, .deleteSnapshot, .persistState])
-        XCTAssertEqual(plan(.resume, .asleep), [.resumeVM, .applyGuestFixes, .deleteSnapshot, .persistState])
+        XCTAssertEqual(plan(.resume, .asleep), [.resumeVM, .deleteSnapshot, .persistState])
+        XCTAssertEqual(LifecyclePlanner.afterWake(.resume, from: .asleep), [.applyGuestFixes], "W34, 651: after the wake")
         XCTAssertFalse(plan(.resume, .paused)!.contains(.applyGuestFixes), "W34: a resume from Pause stays ~1 ms — no guest call")
         XCTAssertNil(plan(.resume, .hibernated), "on disk needs a wake, not a resume")
         XCTAssertEqual(plan(.sleep, .running), [.captureScreens, .restoreGuestMemory, .pauseVM, .saveSnapshot, .persistState])
@@ -134,7 +176,9 @@ final class LifecycleTests: XCTestCase {
             XCTAssertNotNil(deflate, "\(op)")
             XCTAssertLessThan(deflate ?? .max, steps.firstIndex(of: .pauseVM) ?? save, "\(op): deflate while the guest runs")
         }
-        XCTAssertEqual(plan(.wake, .hibernated)?.firstIndex(of: .returnFreeMemory).map { $0 > 0 }, true)
+        // 651: the wake inflates it after it is done, never before the guest runs.
+        XCTAssertFalse(plan(.wake, .hibernated)!.contains(.returnFreeMemory))
+        XCTAssertTrue(LifecyclePlanner.afterWake(.wake, from: .hibernated).contains(.returnFreeMemory))
     }
 
     func test_phaseProperties() {
@@ -321,7 +365,7 @@ final class PersistedSandboxTests: XCTestCase {
     // MARK: the 2026-09-25 vocabulary (Pause/Suspend · Sleep · Hibernate · Wake · Shut Down · Start/Cold Boot)
 
     func test_wakeFromSleepResumesInPlace_andResumeStillWorksFromSleep() {
-        XCTAssertEqual(LifecyclePlanner.plan(.wake, from: .asleep), [.resumeVM, .applyGuestFixes, .deleteSnapshot, .persistState])
+        XCTAssertEqual(LifecyclePlanner.plan(.wake, from: .asleep), [.resumeVM, .deleteSnapshot, .persistState])
         XCTAssertEqual(LifecyclePlanner.plan(.resume, from: .asleep), LifecyclePlanner.plan(.wake, from: .asleep), "resume from Sleep is the old spelling of wake")
         XCTAssertNil(LifecyclePlanner.plan(.wake, from: .running))
         XCTAssertNil(LifecyclePlanner.plan(.wake, from: .paused), "a paused sandbox resumes, it does not wake")

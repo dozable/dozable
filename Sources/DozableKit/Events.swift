@@ -68,6 +68,9 @@ public enum SandboxEvent: Sendable, Equatable {
     case bakePlan(BakePlan)
     /// The readouts changed (RAM held, snapshot size, busy).
     case status(SandboxStatus)
+    /// 651: the steps a wake runs after it was reported done (`LifecyclePlanner.afterWake`) are over — everything
+    /// this sandbox emitted before it belongs to that wake (the host's boot log ends here). Never a client's event.
+    case afterWakeDone
 }
 
 /// A snapshot of a sandbox's live readouts (`Sandbox.status`): phase, whether an operation is in
