@@ -591,7 +591,7 @@ extension HostCore {
         }
         let s = store
         if AgentVersions.known(r.id, version: v, store: s) != nil { return nil }
-        if AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) {
+        if r.isPinnedOnly {
             return "\(r.title) is installed at the release its recipe pins (\(r.install.pinned.version)) — not \(v)"
         }
         guard agentRegistry.lookup != nil || agentRegistry.manifest != nil else {

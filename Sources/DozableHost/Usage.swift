@@ -365,6 +365,8 @@ public enum UsageSchema {
     /// recipe catalogue brings is counted nowhere until a release lists it, so no message carries an id it would refuse.
     public static func agent(image: String) -> String? {
         guard let id = ImageChoice.parse(image)?.agent.rawValue, agents.contains(id) else { return nil }
+        // 653: never the id of a recipe that is not Dozable's (yours, a community one) — nothing is counted in its place.
+        if let r = AgentRecipes.recipe(id), !r.origin.isDozable { return nil }
         return id
     }
 

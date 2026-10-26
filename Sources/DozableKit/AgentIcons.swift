@@ -176,7 +176,9 @@ public enum AgentIcons {
 
     /// A recipe's mark: its product, else its product's (or publisher's) vendor, else a lettermark of its title.
     public static func resolve(_ r: AgentRecipe) -> ResolvedIcon {
-        resolve(icon: r.icon, publisher: r.publisher, title: r.title)
+        // 653: a recipe that is not Dozable's never wears a maker's mark (its publisher is only what it says) — a lettermark.
+        guard r.origin.isDozable else { return generated(r.title) }
+        return resolve(icon: r.icon, publisher: r.publisher, title: r.title)
     }
 
     public static func resolve(icon: String?, publisher: String?, title: String) -> ResolvedIcon {

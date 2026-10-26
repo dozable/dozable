@@ -117,12 +117,27 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         /// 617 (owner): an agent's section — `coding-agent` | `ai-tool` — and its categories (declared; a coming one's too).
         public var catalogKind: String? = nil
         public var categories: [String]? = nil
+        /// 653: where a recipe came from when it is not Dozable's — yours, or a community catalogue's (absent: Dozable's).
+        public var origin: OriginRef? = nil
 
         enum CodingKeys: String, CodingKey {
             case kind, id, title, publisher, aliases, status, reason, checked, since, limits, keys, reach, install, terms, homepage, auth, gateways, tags, agents
-            case lifecycle, latest, icon, categories
+            case lifecycle, latest, icon, categories, origin
             case catalogKind = "catalog_kind"
             case defaultBase = "default_base", tryCommand = "try"
+        }
+    }
+
+    /// 653: a recipe's origin as a reader shows it.
+    public struct OriginRef: Codable, Sendable, Equatable {
+        /// `mine` | `community`.
+        public var kind: String
+        public var source: String?
+        /// "yours", "community · NAME".
+        public var label: String
+        public init?(_ o: RecipeOrigin) {
+            guard let l = o.label else { return nil }
+            kind = o.kind; source = o.source; label = l
         }
     }
 
@@ -259,7 +274,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
         }
         let model = (r.network.model.hosts ?? []).map { HostPaths(host: $0.host, paths: $0.paths) }
         return Entry(kind: "agent", id: r.id, title: r.title, publisher: r.publisher, aliases: (r.aliases ?? []).sorted(), status: "supported",
-                     reason: nil, checked: r.checked, since: r.isBuiltin ? nil : "0.34.0", limits: limits,
+                     reason: nil, checked: r.checked, since: r.isBuiltin || !r.origin.isDozable ? nil : "0.34.0", limits: limits,
                      keys: r.credentials.map { KeyRef(provider: $0.provider, accounts: $0.accounts) },
                      reach: Reach(model: model, update: r.network.update.map { HostPaths(host: $0.host, paths: $0.paths) }, excluded: r.network.excluded),
                      install: Install(kind: r.install.kind, version: r.install.pinned.version, source: r.install.package),
@@ -268,7 +283,7 @@ public struct DirectoryIndex: Codable, Sendable, Equatable {
                                                          freeTierNote: $0.freeTierNote, account: $0.account, note: $0.note, checked: $0.checked) },
                      gateways: r.gatewaySupport.filter { ModelSources.isPublished($0.gateway) }.map { GatewayFact(gateway: $0.gateway, level: $0.level, reason: $0.reason, offered: r.offersGateway($0.gateway)) },
                      tags: r.shownTags.map { TagFact(tag: $0.tag, level: $0.level) }, agents: nil, lifecycle: r.lifecycle,
-                     icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories)
+                     icon: IconRef(AgentIcons.resolve(r)), catalogKind: r.catalogKind, categories: r.categories, origin: OriginRef(r.origin))
     }
 
     // MARK: bytes

@@ -189,12 +189,18 @@ public struct RecipeCatalogueManifest: Codable, Equatable, Sendable {
         return m
     }
 
+    /// 653: a COMMUNITY catalogue's product — the same format, signed with its publisher's own key, carrying recipes only.
+    /// A Dozable catalogue is never read as a community one, nor the other way round.
+    public static let communityProductName = "doz-community-recipes"
+    static let communityPathPattern = #"^agents/[a-z0-9][a-z0-9-]*\.json$"#
+
     /// Its shape, before anything else is believed: the format, the closed set of paths (sorted, once each), digests,
-    /// sizes and limits, the required files.
-    public func check() throws {
+    /// sizes and limits, the required files. 653: `community` — a community catalogue's: its own product, `agents/` only.
+    public func check(community: Bool = false) throws {
         func bad(_ s: String) -> Error { SandboxError.invalidSpec("the catalogue: \(s)") }
+        let wantProduct = community ? Self.communityProductName : Self.productName
         guard format == Self.currentFormat else { throw bad("format \(format) — this doz reads format \(Self.currentFormat)") }
-        guard product == Self.productName else { throw bad("it is for \(product), not \(Self.productName)") }
+        guard product == wantProduct else { throw bad("it is for \(product), not \(wantProduct)") }
         guard serial >= 1 else { throw bad("serial \(serial)") }
         guard date.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"#, options: .regularExpression) != nil else { throw bad("date is not ISO 8601 UTC") }
         for v in [minimumDoz, sourceVersion] where v.range(of: Self.versionPattern, options: .regularExpression) == nil {
@@ -207,14 +213,16 @@ public struct RecipeCatalogueManifest: Codable, Equatable, Sendable {
         }
         var total = 0
         for f in files {
-            guard f.path.range(of: Self.pathPattern, options: .regularExpression) != nil else { throw bad("\(f.path) is not a recipe data file") }
+            guard f.path.range(of: community ? Self.communityPathPattern : Self.pathPattern, options: .regularExpression) != nil else {
+                throw bad("\(f.path) is not a recipe data file" + (community ? " (a community catalogue carries agents/<id>.json only)" : ""))
+            }
             guard f.sha256.range(of: "^[0-9a-f]{64}$", options: .regularExpression) != nil else { throw bad("\(f.path): sha256 is 64 lower-case hex") }
             guard f.size > 0, f.size <= Self.maxFileBytes else { throw bad("\(f.path): size 1 B to \(Self.maxFileBytes >> 10) KiB") }
             total += f.size
         }
         guard total <= Self.maxTotalBytes else { throw bad("over \(Self.maxTotalBytes >> 20) MiB in all") }
         let paths = Set(files.map(\.path))
-        for r in Self.requiredFiles where !paths.contains(r) { throw bad("no \(r)") }
+        if !community { for r in Self.requiredFiles where !paths.contains(r) { throw bad("no \(r)") } }
         guard paths.contains(where: { $0.hasPrefix("agents/") }) else { throw bad("no agent") }
     }
 
@@ -227,9 +235,9 @@ public struct RecipeCatalogueManifest: Codable, Equatable, Sendable {
         return Data(s.utf8)
     }
 
-    /// Well formed AND signed by `publicKey` (a 32-byte Ed25519 key).
-    public func verify(publicKey: Data) -> Bool {
-        guard (try? check()) != nil, let key = try? Curve25519.Signing.PublicKey(rawRepresentation: publicKey),
+    /// Well formed AND signed by `publicKey` (a 32-byte Ed25519 key). 653: `community` — as a community catalogue.
+    public func verify(publicKey: Data, community: Bool = false) -> Bool {
+        guard (try? check(community: community)) != nil, let key = try? Curve25519.Signing.PublicKey(rawRepresentation: publicKey),
               let sig = Data(base64Encoded: signature), sig.count == 64 else { return false }
         return key.isValidSignature(sig, for: message)
     }
@@ -307,8 +315,119 @@ public enum RecipeCatalogue {
     /// An error as one plain sentence (a check's own words, not the enum's).
     public static func reason(_ e: Error) -> String {
         if case SandboxError.invalidSpec(let s) = e { return s }
-        if e is DecodingError { return "it is not the JSON this doz reads" }
+        if let d = e as? DecodingError {
+            // 653: where — a person fixing their own recipe needs the field.
+            func at(_ c: DecodingError.Context) -> String {
+                let path = c.codingPath.map { $0.intValue.map { "[\($0)]" } ?? "." + $0.stringValue }.joined().trimmingCharacters(in: CharacterSet(charactersIn: "."))
+                return path.isEmpty ? "" : " (at \(path))"
+            }
+            switch d {
+            case .keyNotFound(let k, let c): return "it is not the JSON this doz reads: \(k.stringValue) is missing\(at(c))"
+            case .typeMismatch(_, let c), .valueNotFound(_, let c), .dataCorrupted(let c): return "it is not the JSON this doz reads\(at(c))"
+            @unknown default: return "it is not the JSON this doz reads"
+            }
+        }
         return e.localizedDescription
+    }
+
+    // MARK: - 653: recipes that are not Dozable's
+
+    /// One source of non-Dozable recipes, adopted whole or not at all: one of the person's own files, a community
+    /// catalogue, or a recipe kept after its removal (unpublished — `published: false` — so its sandboxes keep working).
+    public struct ExtraSource: Sendable {
+        public var origin: RecipeOrigin
+        /// What it is called when it is refused ("yours: mytool.yaml", "community example").
+        public var name: String
+        /// Each recipe's compiled document (`agents/<id>.json` / a YAML compiled), by the name it came under.
+        public var documents: [(name: String, data: Data)]
+        /// false: kept after removal — adopted unpublished (offered nowhere; every stored name still resolves).
+        public var published: Bool
+        public init(origin: RecipeOrigin, name: String, documents: [(name: String, data: Data)], published: Bool = true) {
+            self.origin = origin; self.name = name; self.documents = documents; self.published = published
+        }
+    }
+
+    /// What became of one extra source.
+    public struct ExtraOutcome: Codable, Equatable, Sendable {
+        public var origin: RecipeOrigin
+        public var name: String
+        /// The recipe ids adopted (empty when refused).
+        public var ids: [String]
+        public var published: Bool
+        /// Why the whole source was refused (nil: adopted).
+        public var refused: String?
+    }
+
+    nonisolated(unsafe) private static var _extras: [ExtraOutcome] = []
+
+    /// What `adoptExtras` did in this process.
+    public static var extras: [ExtraOutcome] {
+        lock.lock(); defer { lock.unlock() }
+        return _extras
+    }
+
+    /// Every id and alias of Dozable's own recipes in the active set (embedded, or merged with Dozable's catalogue).
+    public static var dozableNames: Set<String> {
+        Set(active.recipes.filter(\.origin.isDozable).flatMap { [$0.id] + ($0.aliases ?? []) })
+    }
+
+    /// At a process's START, after Dozable's set is chosen and before `seal()`: add the recipes that are not Dozable's,
+    /// source by source, in the order given (yours, then each community source in the order it was added, then the kept
+    /// ones). Each source is adopted WHOLE or not at all: every recipe must meet the community requirements, no id or alias
+    /// may be Dozable's or an earlier source's, and the set with it must pass every validator — else the previous set
+    /// stays and the source is refused, with the reason. Only recipes are added: providers, gateways, tags, known entries'
+    /// vocabulary and marks stay Dozable's.
+    @discardableResult
+    public static func adoptExtras(_ sources: [ExtraSource]) -> [ExtraOutcome] {
+        lock.lock()
+        let sealed = _sealed
+        lock.unlock()
+        precondition(!sealed, "the recipe set is chosen once, at the start — never swapped under a running process")
+        var outcomes: [ExtraOutcome] = []
+        let dozable = dozableNames
+        for s in sources {
+            let before = active
+            var taken = Set(before.recipes.flatMap { [$0.id] + ($0.aliases ?? []) })
+            var adopted: [AgentRecipe] = []
+            var refusal: String?
+            for (name, data) in s.documents {
+                let (results, recipe) = CommunityRequirements.check(data, others: before.recipes + adopted, dozableIDs: dozable)
+                if let f = CommunityRequirements.firstFailure(results) { refusal = "\(name): \(f)"; break }
+                guard var r = recipe else { refusal = "\(name): it does not read"; break }
+                let names = [r.id] + (r.aliases ?? [])
+                if let n = names.first(where: taken.contains) { refusal = "\(name): \(n) is already another recipe's (\(owner(of: n, in: before.recipes + adopted)))"; break }
+                taken.formUnion(names)
+                r.origin = s.origin
+                if !s.published { r.published = false }
+                adopted.append(r)
+            }
+            if refusal == nil, !adopted.isEmpty {
+                let names = Set(adopted.flatMap { [$0.id] + ($0.aliases ?? []) })
+                let recipes = before.recipes + adopted
+                let known = before.known.filter { !names.contains($0.id) && !($0.aliases ?? []).contains(where: names.contains) }
+                let candidate = RecipeSet(source: before.source, recipes: Once(value: recipes), providers: before.providersPart,
+                                          gateways: before.gatewaysPart, capabilityTags: before.capabilityTagsPart,
+                                          categories: before.categoriesPart, known: Once(value: known), icons: before.iconsPart,
+                                          iconFiles: before.iconFilesPart)
+                install(candidate)
+                do { try validateActive() } catch {
+                    install(before === RecipeSet.embedded ? nil : before)
+                    refusal = reason(error)
+                }
+            }
+            outcomes.append(ExtraOutcome(origin: s.origin, name: s.name, ids: refusal == nil ? adopted.map(\.id) : [],
+                                         published: s.published, refused: refusal))
+        }
+        lock.lock()
+        _extras = outcomes
+        lock.unlock()
+        return outcomes
+    }
+
+    /// "Dozable's", "yours", "community NAME" — who has a name.
+    static func owner(of name: String, in recipes: [AgentRecipe]) -> String {
+        guard let r = recipes.first(where: { $0.id == name || ($0.aliases ?? []).contains(name) }) else { return "another source's" }
+        return r.origin.label ?? "Dozable's"
     }
 
     /// After the choice: no other set, for the life of the process.
@@ -322,6 +441,7 @@ public enum RecipeCatalogue {
     public static func resetForTests() {
         lock.lock()
         _sealed = false
+        _extras = []
         lock.unlock()
         install(nil)
     }
