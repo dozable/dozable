@@ -38,19 +38,33 @@
                 "reason" : "Vercel AI Gateway — when the sandbox's key is Vercel AI Gateway's"
               },
               {
+                "exact_paths" : [
+                  "/console/api/v2/config"
+                ],
                 "host" : "opencode.ai",
                 "paths" : [
                   "/zen/v1/chat/completions",
                   "/zen/v1/responses",
+                  "/zen/v1/messages",
+                  "/zen/v1/models/",
+                  "/zen/go/v1/chat/completions",
+                  "/zen/go/v1/responses",
+                  "/zen/go/v1/messages",
                   "/inference/openai/v1/chat/completions",
-                  "/inference/openai/v1/responses"
+                  "/inference/openai/v1/responses",
+                  "/inference/anthropic/v1/messages",
+                  "/inference/google/v1beta/models/",
+                  "/inference/go/openai/v1/chat/completions",
+                  "/inference/go/openai/v1/responses",
+                  "/inference/go/anthropic/v1/messages",
+                  "/inference/go/google/v1beta/models/"
                 ],
-                "reason" : "OpenCode Zen's free models — no key; only its model requests (/zen/v1 up to 2.0.31, /inference/openai/v1 from 2.0.32), nothing else of opencode.ai (no Console sign-in)"
+                "reason" : "OpenCode Zen and OpenCode Go — its model requests only (/zen/v1 and /zen/go/v1 up to 2.0.31, /inference from 2.0.32), with an OpenCode key or, for the free models, none; and with a key, the one read of the key's OpenCode Console settings (GET /console/api/v2/config). Nothing else of opencode.ai (no Console sign-in)"
               }
             ],
             "id" : "model:opencode2",
             "phrase" : "talk to your AI model",
-            "summary" : "OpenCode 2's model — the provider or gateway its key is for (xAI, OpenAI, Anthropic, OpenRouter or Vercel AI Gateway), with an API key; or OpenCode Zen's free models, with no key. Needed for OpenCode to answer.",
+            "summary" : "OpenCode 2's model — the provider or gateway its key is for (xAI, OpenAI, Anthropic, OpenCode, OpenRouter or Vercel AI Gateway), with an API key; or OpenCode Zen's free models, with no key. Needed for OpenCode to answer.",
             "title" : "Talk to its model provider"
           },
           "update" : [
@@ -224,6 +238,16 @@
             "provider" : "xai"
           },
           {
+            "accounts" : [
+              "key"
+            ],
+            "checked" : "2026-10-26",
+            "keys_page" : "https://opencode.ai/auth",
+            "kind" : "api-key",
+            "note" : "An OpenCode key (OPENCODE_API_KEY) — one key for OpenCode Zen (pay as you go: opencode/…) and OpenCode Go (the subscription: opencode-go/…).",
+            "provider" : "opencode"
+          },
+          {
             "account" : "an OpenCode Zen, Anthropic, OpenAI or GitHub Copilot account",
             "checked" : "2026-10-14",
             "in_sandbox" : false,
@@ -283,6 +307,7 @@
       "config" : {
         "default" : "xai",
         "models" : {
+          "opencode" : "opencode-go/kimi-k2.7-code",
           "xai" : "grok-build-0.1"
         },
         "native" : [
@@ -322,6 +347,13 @@
               "DOZ_MODEL" : "opencode/${{ dozable.model }}"
             },
             "source" : "opencode-zen"
+          },
+          {
+            "docs" : "https://opencode.ai/docs/zen/",
+            "env" : {
+              "DOZ_MODEL" : "${{ dozable.model }}"
+            },
+            "source" : "opencode"
           }
         ]
       },
@@ -362,7 +394,7 @@
             "tag" : "headless"
           }
         ],
-        "terms" : "Your xAI API key — a key from console.x.ai; or no key, with OpenCode Zen's free models (each model's data terms are in its docs)."
+        "terms" : "Your xAI API key — a key from console.x.ai; or your OpenCode key (OpenCode Zen or OpenCode Go); or no key, with OpenCode Zen's free models (each model's data terms are in its docs)."
       },
       "type" : "com.dozable/directory@1"
     },

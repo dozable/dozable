@@ -33,7 +33,7 @@ capabilities:
       model:
         id: model:opencode2
         title: Talk to its model provider
-        summary: OpenCode 2's model — the provider or gateway its key is for (xAI, OpenAI, Anthropic, OpenRouter or Vercel AI Gateway), with an API key; or OpenCode Zen's free models, with no key. Needed for OpenCode to answer.
+        summary: OpenCode 2's model — the provider or gateway its key is for (xAI, OpenAI, Anthropic, OpenCode, OpenRouter or Vercel AI Gateway), with an API key; or OpenCode Zen's free models, with no key. Needed for OpenCode to answer.
         phrase: talk to your AI model
         hosts:
         - host: api.x.ai
@@ -50,9 +50,22 @@ capabilities:
           paths:
           - /zen/v1/chat/completions
           - /zen/v1/responses
+          - /zen/v1/messages
+          - /zen/v1/models/
+          - /zen/go/v1/chat/completions
+          - /zen/go/v1/responses
+          - /zen/go/v1/messages
           - /inference/openai/v1/chat/completions
           - /inference/openai/v1/responses
-          reason: OpenCode Zen's free models — no key; only its model requests (/zen/v1 up to 2.0.31, /inference/openai/v1 from 2.0.32), nothing else of opencode.ai (no Console sign-in)
+          - /inference/anthropic/v1/messages
+          - /inference/google/v1beta/models/
+          - /inference/go/openai/v1/chat/completions
+          - /inference/go/openai/v1/responses
+          - /inference/go/anthropic/v1/messages
+          - /inference/go/google/v1beta/models/
+          exact_paths:
+          - /console/api/v2/config
+          reason: OpenCode Zen and OpenCode Go — its model requests only (/zen/v1 and /zen/go/v1 up to 2.0.31, /inference from 2.0.32), with an OpenCode key or, for the free models, none; and with a key, the one read of the key's OpenCode Console settings (GET /console/api/v2/config). Nothing else of opencode.ai (no Console sign-in)
       update: []
       excluded: []
 - type: com.docker.sandbox/credential@1
@@ -157,6 +170,13 @@ capabilities:
       keys_page: https://console.x.ai/
       note: OpenCode 2 works with many providers; Dozable offers it on an xAI key (XAI_API_KEY, model xai/grok-build-0.1) for now.
       checked: '2026-10-14'
+    - kind: api-key
+      provider: opencode
+      accounts:
+      - key
+      keys_page: https://opencode.ai/auth
+      note: "An OpenCode key (OPENCODE_API_KEY) — one key for OpenCode Zen (pay as you go: opencode/…) and OpenCode Go (the subscription: opencode-go/…)."
+      checked: '2026-10-26'
     - kind: vendor-sign-in
       account: an OpenCode Zen, Anthropic, OpenAI or GitHub Copilot account
       in_sandbox: false
@@ -214,8 +234,13 @@ capabilities:
       env:
         DOZ_MODEL: 'opencode/${{ dozable.model }}'
       docs: https://opencode.ai/docs/zen/
+    - source: opencode
+      env:
+        DOZ_MODEL: '${{ dozable.model }}'
+      docs: https://opencode.ai/docs/zen/
     models:
       xai: grok-build-0.1
+      opencode: opencode-go/kimi-k2.7-code
 - type: com.dozable/currency@1
   config:
     checked: '2026-10-14'
@@ -239,7 +264,7 @@ capabilities:
       - opencode run "…"
       source: https://opencode.ai/v2/docs/cli/commands
       checked: '2026-10-14'
-    terms: Your xAI API key — a key from console.x.ai; or no key, with OpenCode Zen's free models (each model's data terms are in its docs).
+    terms: Your xAI API key — a key from console.x.ai; or your OpenCode key (OpenCode Zen or OpenCode Go); or no key, with OpenCode Zen's free models (each model's data terms are in its docs).
 - type: com.dozable/ports@1
   config:
     ports:

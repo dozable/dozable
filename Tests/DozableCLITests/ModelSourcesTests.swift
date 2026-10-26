@@ -35,14 +35,17 @@ final class ModelSourcesTests: XCTestCase {
     // MARK: the data
 
     func testEveryProviderAndGatewayIsAModelSourceWithEndpoints() throws {
-        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "google-stitch", "openrouter", "vercel-ai-gateway", "opencode-zen"])
-        XCTAssertEqual(ModelSources.keyed, ["anthropic", "openai", "xai", "google", "google-stitch", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway", "opencode-zen"])
+        XCTAssertEqual(ModelSources.keyed, ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(ModelSources.ids.filter(ModelSources.isGateway), ["openrouter", "vercel-ai-gateway"])
         // Google Stitch's key is a service's (a hosted design tool), not a model's: it serves no shape, so no recipe is
         // ever offered it as a model source — only the Stitch CLI, whose credential it is.
         XCTAssertTrue(ModelSources.endpoints("google-stitch").isEmpty)
         XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("google-stitch") }.map(\.id), ["stitch"])
-        for id in ModelSources.ids where id != "google-stitch" {
+        // 656: OpenCode's key serves no shape either — it is offered by a native entry only (OpenCode 2's).
+        XCTAssertTrue(ModelSources.endpoints("opencode").isEmpty)
+        XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("opencode") }.map(\.id), ["opencode2"])
+        for id in ModelSources.ids where id != "google-stitch" && id != "opencode" {
             XCTAssertFalse(ModelSources.endpoints(id).isEmpty, "\(id) serves a shape")
             for e in ModelSources.endpoints(id) {
                 let host = try XCTUnwrap(URL(string: e.baseUrl)?.host)
@@ -295,7 +298,9 @@ final class ModelSourcesTests: XCTestCase {
         XCTAssertEqual(ModelSources.accountKind("opencode-zen"), "none")
         XCTAssertEqual(ModelSources.hosts("opencode-zen"), ["opencode.ai"])
         XCTAssertEqual(ModelSources.keyHosts("opencode-zen"), [], "no key ever goes there")
-        XCTAssertFalse(KeyProviders.keyBindings.contains { $0.hosts.contains("opencode.ai") })
+        // 656: OpenCode's own key goes to opencode.ai — path-confined and swap-only; a key-less request carries no placeholder.
+        XCTAssertEqual(KeyProviders.keyBindings.filter { $0.hosts.contains("opencode.ai") }.map(\.id), ["key:opencode"])
+        XCTAssertTrue(KeyProviders.keyBindings.filter { $0.hosts.contains("opencode.ai") }.allSatisfy { $0.swapOnly == true && $0.paths != nil })
         XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("opencode-zen") }.map(\.id), ["opencode2"],
                        "OpenCode 2 only: a shape alone never offers a key-less source")
         let oc = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
@@ -306,8 +311,11 @@ final class ModelSourcesTests: XCTestCase {
         // Its model permission reaches opencode.ai only on the inference paths (no Console, no device sign-in).
         let zen = try XCTUnwrap(oc.network.model.hosts?.first { $0.host == "opencode.ai" })
         // 619: OpenCode 2.0.32 moved Zen from /zen/v1 to /inference/openai/v1 (a Locked try's first answer was refused).
-        XCTAssertEqual(zen.paths, ["/zen/v1/chat/completions", "/zen/v1/responses",
-                                   "/inference/openai/v1/chat/completions", "/inference/openai/v1/responses"])
+        // 656: and OpenCode's key's paths (Zen and Go, each API shape, both bases) plus the one Console read.
+        XCTAssertEqual(Array((zen.paths ?? []).prefix(2)), ["/zen/v1/chat/completions", "/zen/v1/responses"])
+        XCTAssertTrue((zen.paths ?? []).contains("/inference/openai/v1/chat/completions"))
+        XCTAssertTrue((zen.paths ?? []).contains("/inference/openai/v1/responses"))
+        XCTAssertEqual(zen.exactPaths, ["/console/api/v2/config"])
         XCTAssertNotNil(AgentPermissions.permission("model:opencode2"))
         let pol = NetworkPolicy.permissions(AgentPermissions.normalized(["model:opencode2"]))
         for path in zen.paths ?? [] {
@@ -397,6 +405,141 @@ final class ModelSourcesTests: XCTestCase {
         r2.create?.modelSource = "opencode-zen"
         let m2 = await c.handle(r2)
         XCTAssertTrue(m2.error?.message.contains("takes no key") == true, m2.error?.message ?? "")
+    }
+
+    // MARK: 656: OpenCode's key (OpenCode Zen pay-as-you-go and OpenCode Go: one OPENCODE_API_KEY)
+
+    /// The data: one key provider for both, offered to OpenCode 2 only (a native entry), its key on opencode.ai's model
+    /// paths only (and the one Console config read), its models listed (Go then Zen), the default a Go model.
+    func testOpenCodesKeyIsOneProviderConfinedToItsPaths() throws {
+        let p = try XCTUnwrap(KeyProviders.provider("opencode"))
+        XCTAssertEqual(p.title, "OpenCode")
+        XCTAssertEqual(p.env, "OPENCODE_API_KEY", "the variable OpenCode 2.0.29 reads for both Zen and Go")
+        XCTAssertEqual(p.hosts, ["opencode.ai"])
+        XCTAssertEqual(p.swapOnly, true)
+        XCTAssertNil(p.check, "no key check without spending money or a real key's answer")
+        XCTAssertEqual(ModelSources.accountKind("opencode"), "key")
+        XCTAssertFalse(ModelSources.isKeyless("opencode"))
+        XCTAssertEqual(ModelSources.keyHosts("opencode"), ["opencode.ai"])
+        let paths = try XCTUnwrap(p.paths)
+        for x in ["/zen/v1/chat/completions", "/zen/v1/responses", "/zen/v1/messages", "/zen/v1/models/", "/zen/go/v1/chat/completions",
+                  "/zen/go/v1/responses", "/zen/go/v1/messages", "/console/api/v2/config$"] {
+            XCTAssertTrue(paths.contains(x), x)
+        }
+        XCTAssertFalse(paths.contains { $0.hasPrefix("/console") && $0 != "/console/api/v2/config$" }, "nothing else of the Console")
+        // The listed models: Go first (the default), then Zen; every id `opencode/…` or `opencode-go/…`.
+        let ms = try XCTUnwrap(p.models)
+        XCTAssertEqual(ms.first?.id, "opencode-go/kimi-k2.7-code")
+        XCTAssertTrue(ms.allSatisfy { $0.id.hasPrefix("opencode/") || $0.id.hasPrefix("opencode-go/") })
+        XCTAssertTrue(ms.contains { $0.id == "opencode/claude-sonnet-4-6" })
+        XCTAssertEqual(ModelSources.defaultModel("opencode"), "opencode-go/kimi-k2.7-code")
+        let l = ModelLists.list("opencode", record: nil)
+        XCTAssertEqual(l.kind, "listed")
+        XCTAssertEqual(l.defaultModel, "opencode-go/kimi-k2.7-code")
+        XCTAssertEqual(l.models.count, ms.count)
+        // OpenCode 2's choice: the model id already carries its source (opencode/… Zen, opencode-go/… Go).
+        let oc = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
+        XCTAssertTrue(oc.offeredSources.contains("opencode"))
+        XCTAssertEqual(oc.selection(source: "opencode")?.env, ["DOZ_MODEL": "opencode-go/kimi-k2.7-code"])
+        XCTAssertEqual(oc.selection(source: "opencode", model: "opencode/claude-sonnet-4-6")?.env, ["DOZ_MODEL": "opencode/claude-sonnet-4-6"])
+        XCTAssertEqual(oc.keyBinding(p).placeholderVariables, ["OPENCODE_API_KEY"])
+        // Its model permission: every path the key is for — the policy never refuses what the key is for; the rest of
+        // opencode.ai stays refused.
+        let pol = NetworkPolicy.permissions(AgentPermissions.normalized(["model:opencode2"]))
+        for x in paths {
+            let exact = x.hasSuffix("$"), path = exact ? String(x.dropLast()) : x + (x.hasSuffix("/") ? "m:streamGenerateContent" : "")
+            XCTAssertEqual(pol.evaluate(host: "opencode.ai", port: 443, method: exact ? "GET" : "POST", path: path).action, .allow, path)
+        }
+        XCTAssertEqual(pol.evaluate(host: "opencode.ai", port: 443, method: "GET", path: "/console/api/v2/config/x").action, .deny)
+        XCTAssertEqual(pol.evaluate(host: "opencode.ai", port: 443, method: "POST", path: "/console/auth/device/code").action, .deny)
+        XCTAssertEqual(pol.evaluate(host: "opencode.ai", port: 443, method: "POST", path: "/console/api/websearch").action, .deny)
+        // OpenCode (1) is untouched: xAI only.
+        XCTAssertFalse(try XCTUnwrap(AgentRecipes.recipe("opencode")).offeredSources.contains("opencode"))
+    }
+
+    /// The rules that keep the key confined: a recipe offered it must reach every one of its paths; a provider's paths
+    /// and extra headers need swap-only; a key-less host may be shared only with such a provider.
+    func testOpenCodesKeyRulesAreValidated() throws {
+        var oc = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
+        XCTAssertNoThrow(try oc.validate())
+        let i = try XCTUnwrap(oc.network.model.hosts?.firstIndex { $0.host == "opencode.ai" })
+        oc.network.model.hosts?[i].paths?.removeAll { $0 == "/zen/go/v1/messages" }
+        XCTAssertThrowsError(try oc.validate()) { XCTAssertTrue("\($0)".contains("/zen/go/v1/messages"), "\($0)") }
+        oc = try XCTUnwrap(AgentRecipes.recipe("opencode2"))
+        oc.network.model.hosts?[i].exactPaths = nil
+        XCTAssertThrowsError(try oc.validate(), "the Console read is an exact path in the permission")
+        func refused(_ change: (inout KeyProvider) -> Void, _ why: String, file: StaticString = #filePath, line: UInt = #line) {
+            var all = KeyProviders.all
+            let j = all.firstIndex { $0.id == "opencode" }!
+            change(&all[j])
+            XCTAssertThrowsError(try KeyProviders.validate(all), why, file: file, line: line)
+        }
+        XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
+        refused({ $0.swapOnly = nil }, "a path-confined key is swap-only")
+        refused({ $0.paths = ["/zen/v1/../console"] }, "clean paths")
+        refused({ $0.paths = ["zen/v1"] }, "absolute paths")
+        refused({ $0.paths = [] }, "some paths")
+        refused({ $0.alsoHeaders = ["Authorization"] }, "not its own header")
+        refused({ $0.alsoHeaders = ["x api key"] }, "a header name")
+        refused({ $0.models = [KeylessSource.Model(id: "bad model", name: "x", note: nil)] }, "model ids")
+        refused({ $0.docs = nil }, "listed models say where they are documented")
+        // A key-less source on a host whose provider is NOT path-confined is refused (a key could be injected there).
+        var providers = KeyProviders.all
+        let j = providers.firstIndex { $0.id == "opencode" }!
+        providers[j].paths = nil
+        XCTAssertThrowsError(try KeyProviders.validate(keyless: KeyProviders.keyless, providers: providers))
+        XCTAssertNoThrow(try KeyProviders.validate(keyless: KeyProviders.keyless, providers: KeyProviders.all))
+    }
+
+    /// The plan and the CLI's words: `--provider opencode`, a listed model, the account.
+    func testThePlanOnAnOpenCodeKey() throws {
+        var f = AccountsFile()
+        var oc = AccountRecord(name: "oc", kind: .key, plan: nil)
+        oc.provider = "opencode"
+        f.accounts.append(oc)
+        let facts = PlanFacts(settings: DozableSettings(text: ""), accounts: f, taken: [], images: [], store: DozableStore(root: root),
+                              projectsDir: "/tmp/656-oc-projects")
+        let p = CreatePlanner.plan(PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "opencode2", "--provider", "opencode"]).planChoices()),
+                                   facts: facts)
+        XCTAssertEqual(p.problems.map(\.text), [])
+        XCTAssertEqual(p.account?.name, "oc")
+        XCTAssertEqual(p.model?.source, "opencode")
+        XCTAssertEqual(p.model?.model, "opencode-go/kimi-k2.7-code")
+        XCTAssertTrue(p.model?.offered.contains { $0.id == "opencode" && $0.accountKind == "key" } == true)
+        XCTAssertEqual(p.reach.first?.text, "Model: opencode-go/kimi-k2.7-code through OpenCode (opencode.ai) — its key only ever goes there")
+        XCTAssertEqual(p.command, "doz try opencode@2 --provider opencode")
+        let z = CreatePlanner.plan(PlanRequest(purpose: "try", create: try ChoiceOptions.from(["--agent", "opencode2", "--provider", "opencode",
+                                                                                                "--model", "opencode/claude-sonnet-4-6"]).planChoices()), facts: facts)
+        XCTAssertEqual(z.model?.model, "opencode/claude-sonnet-4-6")
+        XCTAssertEqual(AgentCredentials.account(forSource: "opencode", image: "opencode2", account: nil, file: f).name, "oc")
+        XCTAssertEqual(AgentCredentials.account(forSource: "opencode", image: "opencode2", account: nil, file: AccountsFile()).problem?.fix,
+                       "doz account add NAME --provider opencode")
+        XCTAssertNotNil(AgentCredentials.account(forSource: "opencode", image: "shell-gpt", account: nil, file: f).problem, "offered to OpenCode 2 only")
+        XCTAssertTrue(AgentCredentials.requirement("opencode2").contains("an OpenCode API key"), AgentCredentials.requirement("opencode2"))
+    }
+
+    /// The host: the OpenCode key in the vault (nothing of another source), its placeholder in OPENCODE_API_KEY, the model
+    /// in OpenCode's settings; the leak guard on every source's host.
+    func testASandboxOnAnOpenCodeKey() async throws {
+        let c = await core()
+        let a = await c.handle(HostRequest.keyAccountAdd(name: "oc", provider: "opencode", secret: "sk-FAKE-OPENCODE-0123456789abcdef", verify: false))
+        XCTAssertNil(a.error, a.error?.message ?? "")
+        _ = await c.handle(HostRequest.keyAccountAdd(name: "work-xai", provider: "xai", secret: "xai-FAKE-0123456789abcdef"))
+        var r = HostRequest(.create, name: "ocs")
+        r.create = CreateOptions(image: "opencode2", network: "locked", account: "oc")
+        r.create?.modelSource = "opencode"
+        r.create?.model = "opencode/claude-sonnet-4-6"
+        let m = await c.handle(r)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let v = try await XCTUnwrapAsync(await c.vault(of: "ocs"))
+        XCTAssertTrue(v.hasSecret("key:opencode"))
+        XCTAssertFalse(v.hasSecret("key:xai"), "the store's xAI key is not there")
+        XCTAssertEqual(Set(v.sessionEnvironment().keys), ["OPENCODE_API_KEY"])
+        XCTAssertEqual(v.allBindings.first { $0.id == "key:opencode" }?.paths, KeyProviders.provider("opencode")?.paths)
+        let e = try await c.selectionEnvironment("ocs")
+        XCTAssertEqual(e["DOZ_MODEL"], "opencode/claude-sonnet-4-6")
+        let guarded = try await XCTUnwrapAsync(await c.leakGuardHosts(of: "ocs"))
+        XCTAssertTrue(guarded.isSuperset(of: ["api.x.ai", "api.anthropic.com", "openrouter.ai", "opencode.ai"]))
     }
 
     // MARK: the recipe's own rules

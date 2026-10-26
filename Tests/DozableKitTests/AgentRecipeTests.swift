@@ -29,7 +29,7 @@ final class AgentRecipeTests: XCTestCase {
         XCTAssertNoThrow(try KeyProviders.validate(KeyProviders.all))
         XCTAssertNoThrow(try KeyProviders.validate(keyless: KeyProviders.keyless, providers: KeyProviders.all))
         XCTAssertNoThrow(try Gateways.validate(Gateways.all))
-        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google", "google-stitch", "openrouter", "vercel-ai-gateway"])
+        XCTAssertEqual(KeyProviders.all.map(\.id), ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(Gateways.all.map(\.id), ["openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(AgentRecipes.all.filter(\.isBuiltin).map(\.id), ["claude-code", "pi", "codex"])
     }
