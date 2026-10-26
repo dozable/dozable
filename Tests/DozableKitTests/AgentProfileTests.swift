@@ -28,7 +28,8 @@ final class AgentProfileTests: XCTestCase {
 
     static func profiles() throws -> [Profile] {
         let dir = AgentRecipeTests.packageRoot.appendingPathComponent("profiles")
-        let files = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".json") && $0 != "currency.json" }.sorted()
+        // The two reports beside the profiles are not profiles: currency.json (agent-currency), audit.json (655, recipe-audit).
+        let files = try FileManager.default.contentsOfDirectory(atPath: dir.path).filter { $0.hasSuffix(".json") && $0 != "currency.json" && $0 != "audit.json" }.sorted()
         return try files.map { try JSONDecoder().decode(Profile.self, from: Data(contentsOf: dir.appendingPathComponent($0))) }
     }
 

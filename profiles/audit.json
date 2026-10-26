@@ -1,0 +1,378 @@
+{
+  "checked": "2026-10-26",
+  "counts": {
+    "behind": 13,
+    "changed": 0,
+    "gone": 0,
+    "ok": 11,
+    "unchecked": 0
+  },
+  "currency": "2026-10-26",
+  "recipes": [
+    {
+      "agent": "claude-code",
+      "builtin": true,
+      "ingredients": [
+        {
+          "ingredient": "latest",
+          "status": "behind",
+          "why": "2.1.310 is out (2026-10-23); the recipe pins 2.1.227 (built-in: it runs the latest; the pin is the frozen fallback)"
+        },
+        {
+          "ingredient": "pin",
+          "status": "ok",
+          "version": "2.1.227",
+          "why": "@anthropic-ai/claude-code@2.1.227 on npm, integrity as pinned"
+        }
+      ],
+      "kind": "builtin",
+      "pin": "2.1.227",
+      "published": true,
+      "qualified": "anthropic/claude-code",
+      "recorded": {
+        "auth": [
+          "api-key:anthropic",
+          "vendor-sign-in"
+        ],
+        "default_base": "node",
+        "gateways": {
+          "openrouter": "documented",
+          "vercel-ai-gateway": "documented"
+        },
+        "hosts": {
+          "allow": [
+            "api.anthropic.com",
+            "downloads.claude.ai",
+            "raw.githubusercontent.com"
+          ],
+          "update": [
+            "downloads.claude.ai",
+            "registry.npmjs.org"
+          ],
+          "vendor": [
+            "downloads.claude.ai",
+            "raw.githubusercontent.com"
+          ]
+        },
+        "lifecycle": {
+          "status": "current"
+        }
+      },
+      "status": "behind",
+      "title": "Claude Code"
+    },
+    {
+      "agent": "codex",
+      "builtin": true,
+      "ingredients": [
+        {
+          "ingredient": "latest",
+          "status": "behind",
+          "why": "0.164.0 is out (2026-10-23); the recipe pins 0.160.1 (built-in: it runs the latest; the pin is the frozen fallback)"
+        },
+        {
+          "ingredient": "pin",
+          "status": "ok",
+          "version": "0.160.1",
+          "why": "@openai/codex@0.160.1-linux-arm64 on npm, integrity as pinned"
+        }
+      ],
+      "kind": "builtin",
+      "pin": "0.160.1",
+      "published": true,
+      "qualified": "openai/codex",
+      "recorded": {
+        "auth": [
+          "api-key:openai",
+          "vendor-sign-in"
+        ],
+        "default_base": "node",
+        "gateways": {
+          "openrouter": "documented",
+          "vercel-ai-gateway": "documented"
+        },
+        "hosts": {
+          "allow": [
+            "ab.chatgpt.com",
+            "api.openai.com",
+            "chatgpt.com",
+            "files.openai.com",
+            "github.com",
+            "raw.githubusercontent.com"
+          ],
+          "model": [
+            "ab.chatgpt.com",
+            "api.openai.com",
+            "chatgpt.com"
+          ],
+          "vendor": [
+            "files.openai.com",
+            "github.com",
+            "raw.githubusercontent.com"
+          ]
+        },
+        "lifecycle": {
+          "status": "current"
+        }
+      },
+      "status": "behind",
+      "title": "Codex"
+    },
+    {
+      "agent": "opencode",
+      "builtin": false,
+      "ingredients": [
+        {
+          "ingredient": "latest",
+          "status": "behind",
+          "why": "1.19.4 is out (2026-10-22); the recipe pins 1.19.0"
+        },
+        {
+          "ingredient": "pin",
+          "status": "ok",
+          "version": "1.19.0",
+          "why": "opencode-linux-arm64@1.19.0 on npm, integrity as pinned"
+        }
+      ],
+      "kind": "npm-platform-binary",
+      "pin": "1.19.0",
+      "published": true,
+      "qualified": "anomalyco/opencode",
+      "recorded": {
+        "auth": [
+          "api-key:anthropic",
+          "api-key:google",
+          "api-key:openai",
+          "api-key:openrouter",
+          "api-key:vercel-ai-gateway",
+          "api-key:xai",
+          "vendor-sign-in"
+        ],
+        "default_base": "debian",
+        "gateways": {
+          "openrouter": "verified",
+          "vercel-ai-gateway": "verified"
+        },
+        "hosts": {
+          "allow": [
+            "ai-gateway.vercel.sh",
+            "api.anthropic.com",
+            "api.openai.com",
+            "api.x.ai",
+            "generativelanguage.googleapis.com",
+            "openrouter.ai"
+          ],
+          "model": [
+            "ai-gateway.vercel.sh",
+            "api.anthropic.com",
+            "api.openai.com",
+            "api.x.ai",
+            "generativelanguage.googleapis.com",
+            "openrouter.ai"
+          ]
+        },
+        "lifecycle": {
+          "status": "current"
+        }
+      },
+      "status": "behind",
+      "title": "OpenCode"
+    },
+    {
+      "agent": "opencode2",
+      "builtin": false,
+      "ingredients": [
+        {
+          "ingredient": "latest",
+          "status": "behind",
+          "why": "2.1.4 is out (2026-10-23); the recipe pins 2.0.29"
+        },
+        {
+          "ingredient": "pin",
+          "status": "ok",
+          "version": "2.0.29",
+          "why": "@opencode/cli-linux-arm64@2.0.29 on npm, integrity as pinned"
+        }
+      ],
+      "kind": "npm-platform-binary",
+      "pin": "2.0.29",
+      "published": true,
+      "qualified": "anomalyco/opencode2",
+      "recorded": {
+        "auth": [
+          "api-key:xai",
+          "vendor-sign-in"
+        ],
+        "default_base": "debian",
+        "gateways": {
+          "openrouter": "documented",
+          "vercel-ai-gateway": "documented"
+        },
+        "hosts": {
+          "allow": [
+            "ai-gateway.vercel.sh",
+            "api.anthropic.com",
+            "api.openai.com",
+            "api.x.ai",
+            "opencode.ai",
+            "openrouter.ai"
+          ],
+          "model": [
+            "ai-gateway.vercel.sh",
+            "api.anthropic.com",
+            "api.openai.com",
+            "api.x.ai",
+            "opencode.ai",
+            "openrouter.ai"
+          ]
+        },
+        "lifecycle": {
+          "status": "current"
+        }
+      },
+      "status": "behind",
+      "title": "OpenCode 2"
+    },
+    {
+      "agent": "pi",
+      "builtin": true,
+      "ingredients": [
+        {
+          "ingredient": "latest",
+          "status": "behind",
+          "why": "1.4.0 is out (2026-10-21); the recipe pins 0.84.1 (built-in: it runs the latest; the pin is the frozen fallback)"
+        },
+        {
+          "ingredient": "pin",
+          "status": "ok",
+          "version": "0.84.1",
+          "why": "@earendil-works/pi-coding-agent@0.84.1 on npm, integrity as pinned"
+        }
+      ],
+      "kind": "builtin",
+      "pin": "0.84.1",
+      "published": true,
+      "qualified": "earendil-works/pi",
+      "recorded": {
+        "auth": [
+          "api-key:anthropic",
+          "api-key:google",
+          "api-key:openai",
+          "api-key:openrouter",
+          "api-key:vercel-ai-gateway",
+          "api-key:xai"
+        ],
+        "default_base": "node",
+        "gateways": {
+          "openrouter": "verified",
+          "vercel-ai-gateway": "verified"
+        },
+        "hosts": {
+          "allow": [
+            "api.anthropic.com",
+            "pi.dev"
+          ],
+          "update": [
+            "pi.dev",
+            "registry.npmjs.org"
+          ],
+          "vendor": [
+            "pi.dev"
+          ]
+        },
+        "lifecycle": {
+          "status": "current"
+        }
+      },
+      "status": "behind",
+      "title": "pi"
+    }
+  ],
+  "schema": 1,
+  "shared": [
+    {
+      "ingredient": "base:alpine",
+      "status": "ok",
+      "version": "docker.io/library/alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc",
+      "why": "the pinned digest resolves and is still the tag's"
+    },
+    {
+      "ingredient": "base:debian",
+      "status": "behind",
+      "version": "docker.io/library/debian:bookworm@sha256:f37a335e82bca302e955fa39f9dfe28f1be618f016f8a2b56318e5a5111afc26",
+      "why": "the pinned digest resolves; the tag bookworm now points at sha256:854dd8ab51d6…"
+    },
+    {
+      "ingredient": "base:dotnet",
+      "status": "behind",
+      "version": "mcr.microsoft.com/dotnet/sdk:9.0@sha256:01fabc4758d1d74e39eda700c8463dae6241a61481f973683692ddcb59a5eeb7",
+      "why": "the pinned digest resolves; the tag 9.0 now points at sha256:d7cfd5938575…"
+    },
+    {
+      "ingredient": "base:go",
+      "status": "ok",
+      "version": "docker.io/library/golang:1.25-bookworm@sha256:3b4a11519ad929d1e1d261a12cff056f0c85b735253d7d861346b9c6f8b36437",
+      "why": "the pinned digest resolves and is still the tag's"
+    },
+    {
+      "ingredient": "base:java",
+      "status": "behind",
+      "version": "docker.io/library/eclipse-temurin:21-jdk@sha256:4d06038800655fe1211760cd561de70ef2ed7a47f5d69255e9834414602b7026",
+      "why": "the pinned digest resolves; the tag 21-jdk now points at sha256:23cc5734ff46…"
+    },
+    {
+      "ingredient": "base:node",
+      "status": "behind",
+      "version": "docker.io/library/node:22-bookworm@sha256:d649c27dae7ba0137b3cef5dd75baa422c08dc3d9e3fc0c23dfb172dc3cc6436",
+      "why": "the pinned digest resolves; the tag 22-bookworm now points at sha256:63538dfe497c…"
+    },
+    {
+      "ingredient": "base:python",
+      "status": "behind",
+      "version": "docker.io/library/python:3.13-bookworm@sha256:227b6570d6ee07061ae6ca2eb04dedfb6d2b34045835f343065b9869e4d427ea",
+      "why": "the pinned digest resolves; the tag 3.13-bookworm now points at sha256:a3799099b64f…"
+    },
+    {
+      "ingredient": "base:ruby",
+      "status": "behind",
+      "version": "docker.io/library/ruby:3.4-bookworm@sha256:246b2dc3f6e40bba3af18503c22997a34dbb27c9f97e198dde6dd727895115c5",
+      "why": "the pinned digest resolves; the tag 3.4-bookworm now points at sha256:9d1b22f2341d…"
+    },
+    {
+      "ingredient": "base:rust",
+      "status": "behind",
+      "version": "docker.io/library/rust:1-bookworm@sha256:93ce27a88655056a51dbdd8f5f2d7ddc071c7b0070fb288a37b5a285fc83971e",
+      "why": "the pinned digest resolves; the tag 1-bookworm now points at sha256:48b7f435b8fc…"
+    },
+    {
+      "ingredient": "base:ubuntu",
+      "status": "behind",
+      "version": "docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3",
+      "why": "the pinned digest resolves; the tag 24.04 now points at sha256:68ee22004a91…"
+    },
+    {
+      "ingredient": "native:claude-code",
+      "status": "ok",
+      "version": "2.1.227",
+      "why": "2.1.227's linux-arm64 and musl checksums are as pinned"
+    },
+    {
+      "ingredient": "runtime:node22",
+      "status": "ok",
+      "version": "22.23.3",
+      "why": "node-v22.23.3-linux-arm64.tar.xz is listed with the pinned sha256"
+    },
+    {
+      "ingredient": "runtime:node24",
+      "status": "ok",
+      "version": "24.21.0",
+      "why": "node-v24.21.0-linux-arm64.tar.xz is listed with the pinned sha256"
+    },
+    {
+      "ingredient": "runtime:python",
+      "status": "ok",
+      "version": "3.13.15+20260929",
+      "why": "cpython-3.13.15+20260929-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz is listed with the pinned sha256"
+    }
+  ]
+}

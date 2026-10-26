@@ -165,15 +165,24 @@ for f in "$PACKAGE"/Licences/*.LICENSE "$PACKAGE"/Licences/*.NOTICE; do
 done
 
 # ── 4c. (611) CI on a public repository: a fork's code never reaches a self-hosted runner ─────────
-python3 - "$PACKAGE/.github/workflows" <<'PY' || fail "CI: a self-hosted job could run a fork's pull request, or pull_request_target is used (see .github/workflows/ci.yml's header)"
+python3 - "$PACKAGE/.github/workflows" <<'PY' || fail "CI: a self-hosted job could run a fork's pull request, pull_request_target is used, or a workflow could write to the repository (see .github/workflows/ci.yml's header)"
 import os, re, sys
 GUARD = "github.event.pull_request.head.repo.full_name == github.repository"
 bad = []
 for name in sorted(os.listdir(sys.argv[1])):
     if not name.endswith((".yml", ".yaml")): continue
     text = open(os.path.join(sys.argv[1], name)).read()
+    code = re.sub(r"(?m)(^|\s)#.*$", r"\1", text)
     if re.search(r"^\s*pull_request_target\s*:", text, re.M) or "pull_request_target" in re.sub(r"#.*", "", text):
         bad.append(f"{name}: pull_request_target")
+    # 655: the token is READ-ONLY everywhere — the top level says exactly `contents: read`, nothing anywhere asks for
+    # write, and no step pushes or opens a pull request (the nightly recipe audit only reports).
+    if not re.search(r"^permissions:\n  contents: read\n(?!  )", code, re.M):
+        bad.append(f"{name}: the top-level permissions are not exactly `contents: read`")
+    if re.search(r":\s*write\b|write-all", code):
+        bad.append(f"{name}: asks for a write permission")
+    if re.search(r"\bgit\s+push\b|\bgh\s+pr\s+(create|merge)\b|create-pull-request", code):
+        bad.append(f"{name}: a step pushes or opens a pull request")
     jobs = text.split("\njobs:\n", 1)[1] if "\njobs:\n" in text else ""
     for block in re.split(r"\n(?=  [A-Za-z0-9_-]+:\n)", "\n" + jobs):
         m = re.match(r"\n?  ([A-Za-z0-9_-]+):", block)

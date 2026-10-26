@@ -2228,6 +2228,20 @@ may use it too.
   before a superseded try), the Quick try cards (`WebTryCatalog.Agent.latest/standing`, superseded last), the index
   (`Entry.lifecycle`, `Entry.latest`), the manual (26). `make agent-currency` (`Scripts/agent-currency.py`) is the
   people's report → `profiles/currency.json`, with TODO lines (a new release → re-profile; deprecated/archived → review).
+- **The ingredient audit** (655, 617.B3; RECIPE-FORMAT.md "The ingredient audit"): `make recipe-audit [RECIPES=] [PROPOSE=1]`
+  (`Scripts/recipe_audit.py`, Python 3.9 stdlib, read-only, no key, no VM) — per published recipe one row per ingredient
+  (`pin`, `requirements`, `extras[N]`, `latest`) plus the shared ones (`base:*` digests, `runtime:node22/24/python`,
+  `native:claude-code`, read from `BaseCatalogue.swift` by regex — the unit tests read the real file), each
+  `ok|changed|behind|gone|unchecked` → `profiles/audit.json` (COMMITTED like currency.json; written only for the published
+  set; `AgentProfileTests` skips it). `latest` is currency.json's data, never a second lookup — run `make agent-currency`
+  first. Only a 404/410 is `gone`; network trouble is `unchecked`; exit 1 on `changed`/`gone`. All I/O goes through ONE
+  `Net` object so the decisions are pure; `Tests/Scripts/test_recipe_audit.py` (fixtures, sockets refused) runs in `make
+  test` via `RecipeAuditScriptTests` and alone as `make test-recipe-audit`. `PROPOSE=1` rewrites a behind, non-built-in,
+  non-pypi recipe's YAML pin line by line (`rewrite_pin`: each key exactly once, else refused), verified against a
+  download (`Mismatch` = an alarm, exit 1), then `make recipes` — never commits; the proposal still needs `make
+  recipe-check` + `make profile-agents`. Nightly in the Recipes workflow (job summary + the `recipe-audit` artefact);
+  the workflow token stays `contents: read`, it opens no PR and pushes nothing — `Scripts/audit.sh` 4c fails any
+  workflow with a write permission, a `git push` or `gh pr create`.
 - **Other AI tools are recipes too** (617, RT list; the manual's 28): same shape, same rules. Two install kinds for them,
   both pinned-only (`AgentRecipe.pinnedOnlyKinds`: nothing looked up, `latest` = the pin, `AgentVersions.refreshPackage`
   returns early): `release-binary` (one program from a release download, `{version}` in the url, tar.gz/zip/raw by the

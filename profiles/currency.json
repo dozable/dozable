@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "checked": "2026-10-14",
+  "checked": "2026-10-26",
   "agents": [
     {
       "agent": "adk",
@@ -82,9 +82,9 @@
       "agent": "claude-code",
       "title": "Claude Code",
       "pin": "2.1.227",
-      "latest": "2.1.299",
-      "released": "2026-10-14",
-      "ageDays": 0,
+      "latest": "2.1.310",
+      "released": "2026-10-23",
+      "ageDays": 3,
       "freshness": "active",
       "deprecated": null,
       "github": null,
@@ -138,15 +138,15 @@
       "agent": "codex",
       "title": "Codex",
       "pin": "0.160.1",
-      "latest": "0.162.1",
-      "released": "2026-10-09",
-      "ageDays": 5,
+      "latest": "0.164.0",
+      "released": "2026-10-23",
+      "ageDays": 3,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "openai/codex",
         "archived": false,
-        "pushed": "2026-10-14"
+        "pushed": "2026-10-23"
       },
       "lifecycle": {
         "status": "current"
@@ -618,20 +618,40 @@
       "agent": "opencode",
       "title": "OpenCode",
       "pin": "1.19.0",
-      "latest": "1.19.0",
-      "released": "2026-10-11",
+      "latest": "1.19.4",
+      "released": "2026-10-22",
+      "ageDays": 4,
+      "freshness": "active",
+      "deprecated": null,
+      "github": {
+        "repo": "anomalyco/opencode",
+        "archived": false,
+        "pushed": "2026-10-26"
+      },
+      "lifecycle": {
+        "status": "current"
+      },
+      "profiledVersion": "1.19.0",
+      "error": null
+    },
+    {
+      "agent": "opencode2",
+      "title": "OpenCode 2",
+      "pin": "2.0.29",
+      "latest": "2.1.4",
+      "released": "2026-10-23",
       "ageDays": 3,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "anomalyco/opencode",
         "archived": false,
-        "pushed": "2026-10-14"
+        "pushed": "2026-10-26"
       },
       "lifecycle": {
         "status": "current"
       },
-      "profiledVersion": "1.19.0",
+      "profiledVersion": "opencode v2.0.29",
       "error": null
     },
     {
@@ -658,15 +678,15 @@
       "agent": "pi",
       "title": "pi",
       "pin": "0.84.1",
-      "latest": "1.2.0",
-      "released": "2026-10-12",
-      "ageDays": 2,
+      "latest": "1.4.0",
+      "released": "2026-10-21",
+      "ageDays": 5,
       "freshness": "active",
       "deprecated": null,
       "github": {
         "repo": "earendil-works/pi",
         "archived": false,
-        "pushed": "2026-10-14"
+        "pushed": "2026-10-25"
       },
       "lifecycle": {
         "status": "current"

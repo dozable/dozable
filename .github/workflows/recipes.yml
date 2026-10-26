@@ -5,7 +5,13 @@
 #
 #   pull_request / push to main   the recipes a change touches (all of them when the harness or shared data changed)
 #   schedule (nightly, 17:00 UTC) all of them, then `make agent-currency` and `make profile-agents DIFF=1` (a new network
-#                                 endpoint fails the run; the difference is in the job summary)
+#                                 endpoint fails the run; the difference is in the job summary), then `make recipe-audit`
+#                                 (655: every ingredient a published recipe pins — the pin and its integrity, install.extras,
+#                                 a pypi lock, behind the latest, the base images' digests, the runtimes — against the public
+#                                 registries, read-only; a pin that is `changed` or `gone` fails the run; its summary is in
+#                                 the job summary, its JSON the `recipe-audit` artefact). The audit only REPORTS: the refresh
+#                                 it can propose (`make recipe-audit PROPOSE=1`) is never run here — this workflow opens no
+#                                 pull request and pushes nothing (automatic PRs are the owner's call).
 #   "all" and "changed" mean the PUBLISHED recipes (a recipe whose directory@1 says `published: false` is checked only
 #   when named in a dispatch); Scripts/recipes_published.py reads the flag from the compiled recipes.
 #   workflow_dispatch             recipes: changed (default) | all | a list ("grok gemini")
@@ -15,7 +21,8 @@
 # baked more than 14 days ago are pruned at the end. The kernel cache is ci.yml's.
 #
 # PUBLIC-REPO SAFETY (as ci.yml): a fork's pull request never reaches the self-hosted Mac (the guard on the job), no
-# pull_request_target anywhere, read-only token. `make audit` checks both.
+# pull_request_target anywhere, read-only token (`contents: read`; no step pushes or opens a PR). `make audit` checks all
+# of it.
 name: Recipes
 
 on:
@@ -129,6 +136,23 @@ jobs:
           else bash -c "$RUN" 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || rc=1; fi
           echo '```' >> "$GITHUB_STEP_SUMMARY"
           exit $rc
+
+      # 655: no VM and no key — so it runs even when a recipe failed above (its findings are independent of theirs).
+      - name: Nightly — the recipe ingredient audit
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.recipes == 'all') }}
+        shell: bash
+        run: |
+          set -uo pipefail
+          make recipe-audit RECIPE_AUDIT_CACHE="$HOME/Library/Caches/DozableKit-ci/recipe-audit" \
+            RECIPE_AUDIT_REPORT="$RUNNER_TEMP/recipe-audit.json" RECIPE_AUDIT_SUMMARY="$GITHUB_STEP_SUMMARY"
+
+      - name: The audit report
+        if: ${{ !cancelled() && (github.event_name == 'schedule' || inputs.recipes == 'all') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: recipe-audit
+          path: ${{ runner.temp }}/recipe-audit.json
+          if-no-files-found: warn
 
       - name: The report
         if: always() && steps.which.outputs.recipes != ''
