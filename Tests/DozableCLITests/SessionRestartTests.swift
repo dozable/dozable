@@ -90,6 +90,8 @@ final class SessionRestartTests: XCTestCase {
         XCTAssertTrue(s.contains(#"kill -s "$1" -- "-$pid""#), "the program's whole process group (forkpty made it a group leader)")
         XCTAssertTrue(s.contains("[ ! -S \"$d/$n.sock\" ]"), "done = the holder's socket is gone")
         XCTAssertTrue(GuestCommand.endSession(name: "a.b").contains("doz-a_b"), "tmux's name for a session with a dot")
+        XCTAssertTrue(s.contains("for t in '\(GuestCommand.dozTmuxPath)' /usr/bin/tmux /bin/tmux tmux; do \"$t\" -S \"$s\" kill-server 2>/dev/null && break; done"),
+                      "Dozable's tmux first, else the distro's (a server answers only its own version)")
         XCTAssertEqual(Sandbox.SessionEnd(rawValue: "not-running"), .notRunning)
     }
 

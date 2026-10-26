@@ -1614,7 +1614,25 @@ public actor Sandbox {
                 ghProblem = "no gh on this Mac for it"
             }
         }
-        let script = ToolsLayer.applyScript(plan, state: state, ghCopied: ghCopied, ghProblem: ghProblem, audioApp: inputs.audioApp)
+        // tmux: Dozable's own (in this package's resources, sha256-pinned), copied in only when the guest's copy is another
+        // version — never over the network.
+        var tmuxCopied = false
+        var tmuxProblem: String?
+        if plan.items.contains(where: { $0.id == "tmux" }), state.tmux != ToolsLayer.tmuxVersion {
+            switch TmuxBinary.verified() {
+            case .success(let url):
+                do {
+                    try await container!.copyIn(from: url, to: URL(fileURLWithPath: ToolsLayer.guestTmuxPath + ".tmp"), mode: 0o755)
+                    tmuxCopied = true
+                } catch {
+                    tmuxProblem = "could not copy tmux into the guest: \(error.localizedDescription)"
+                }
+            case .failure(let f):
+                tmuxProblem = f.reason
+            }
+        }
+        let script = ToolsLayer.applyScript(plan, state: state, ghCopied: ghCopied, ghProblem: ghProblem, audioApp: inputs.audioApp,
+                                            tmuxCopied: tmuxCopied, tmuxProblem: tmuxProblem)
         let missing = ToolsLayer.missingPackages(plan, state)
         let installLabel = "tools: installing " + missing.map(\.title).joined(separator: ", ") + " with \(state.packageManager), through the proxy"
         if shout && !missing.isEmpty { broadcaster.yield(.stepStarted(installLabel)) }

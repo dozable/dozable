@@ -1726,7 +1726,8 @@ public actor HostCore {
             if live.contains(s) {
                 // The same program again (a repeated click, a retried `run`) is the session already running.
                 let running = list.first(where: { $0.name == s && !$0.isEnded })?.command
-                if let a = r.argv, running != a.joined(separator: " "), running != GuestCommand.inTmux(session: s, argv: a).joined(separator: " ") {
+                if let a = r.argv, running != a.joined(separator: " "),
+                   !GuestCommand.inTmuxForms(session: s, argv: a).contains(where: { running == $0.joined(separator: " ") }) {
                     throw HostError(.exists, "session \(s) is already running in \(m.name) — attach to it, or pick another name")
                 }
                 return SessionOpened(name: m.name, session: s, created: false)
@@ -1753,14 +1754,15 @@ public actor HostCore {
         // 594 W28: never claim sudo the guest does not have (a disk from an older image).
         // 599 (594.B2): the browser bridge's xdg-open — written at every fresh boot; here too, for a
         // sandbox that has run since before this doz (a wake keeps its old disk state). Idempotent, ~20 ms.
-        // 599 (594.B3): with tmux asked for, its configuration too, and whether the image has tmux.
-        let prepared = try? await m.sandbox.exec(["sh", "-c", GuestCommand.openShimInstall + (tmuxWanted ? "; " + GuestCommand.tmuxPrepare : "")],
+        // 599 (594.B3): with tmux asked for, its configuration too, and which tmux runs it (Dozable's, which the tools
+        // layer copies in; the distro's for a session already running in it, or when Dozable's is not there).
+        let prepared = try? await m.sandbox.exec(["sh", "-c", GuestCommand.openShimInstall + (tmuxWanted ? "; " + GuestCommand.tmuxPrepare(session: session) : "")],
                                                  timeoutSeconds: 10)
         var tmuxNotice: String?
-        let inTmux = tmuxWanted && prepared?.output.contains("tmux=yes") == true
+        let tmuxBinary = tmuxWanted ? prepared.flatMap { GuestCommand.tmuxBinary(fromPrepare: $0.output) } : nil
+        let inTmux = tmuxBinary != nil
         if tmuxWanted && !inTmux {
-            tmuxNotice = "sessions.tmux is on, but this sandbox's image has no tmux (an older doz prepared it) — \(session) runs without it; "
-                + (m.config.spec.imageSpec != nil ? "doz image bake \(m.config.image) and doz reset \(m.name) bring it" : "install it in the sandbox (apk add tmux)")
+            tmuxNotice = "sessions.tmux is on, but this sandbox has no tmux yet — \(session) runs without it; doz tools \(m.name) --apply brings Dozable's"
             note(m.name, tmuxNotice!)
         }
         let sudoInstalled: Bool? = m.config.spec.imageSpec == nil ? nil
@@ -1796,7 +1798,7 @@ public actor HostCore {
            !look.found {
             throw HostError(.notFound, Self.missingProgram(program, runsAs: look.runsAs, command: "doz run"))
         }
-        if inTmux { argv = GuestCommand.inTmux(session: session, argv: argv) }
+        if let tmuxBinary { argv = GuestCommand.inTmux(session: session, argv: argv, binary: tmuxBinary) }
         let t0 = ContinuousClock.now
         let started = Date()
         do {

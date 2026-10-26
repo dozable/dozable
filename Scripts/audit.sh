@@ -13,7 +13,8 @@
 #      and (585) swift-argument-parser for the `doz` CLI — imported only by its command targets.
 #   4. No app-brand literal (a bundle id, a product or storage directory name) survives.
 #   5. The committed deckhold binary is the one Guest/deckhold/PROVENANCE.md records.
-#   6. The committed doznet binary is the one Guest/doznet/PROVENANCE.md records (6b: dozview's, and no libfuse).
+#   6. The committed doznet binary is the one Guest/doznet/PROVENANCE.md records (6b: dozview's, and no libfuse;
+#      6c: tmux's, and its licence texts).
 #   7. (590) The web UI's committed assets are exactly what Sources/DozableWeb/WebSource builds, and
 #      its modules stay where they belong (NIOHTTP1 in DozableWeb; LaunchServices in `doz ui`).
 #   8. (592) The product's OLD name is gone: no file in the repo (sources, tests, scripts, docs, CI)
@@ -216,6 +217,16 @@ grep -qF "| sha256 (auto) | \`$VSHA\` |" "$PACKAGE/Guest/dozview/PROVENANCE.md" 
 # 599g: no libfuse in the guest view (LGPL-2.1): the raw /dev/fuse protocol only.
 grep -rqE '#include[[:space:]]*[<"]fuse(_lowlevel)?\.h[>"]|-lfuse' "$PACKAGE/Guest/dozview" && fail "Guest/dozview must not use libfuse (LGPL) — the raw /dev/fuse protocol only"
 
+# ── 6c. The committed tmux binary (sessions.tmux, the tools layer) matches its provenance ───────────
+TBIN="$PACKAGE/Sources/DozableKit/Resources/tmux"
+[[ -f "$TBIN" ]] || fail "missing the committed tmux binary ($TBIN)"
+TSHA=$(shasum -a 256 "$TBIN" | awk '{print $1}')
+grep -qF "| sha256 (auto) | \`$TSHA\` |" "$PACKAGE/Guest/tmux/PROVENANCE.md" \
+    || fail "Resources/tmux ($TSHA) is not the binary Guest/tmux/PROVENANCE.md records — run make tmux"
+for l in tmux-COPYING libevent-LICENSE ncurses-COPYING; do
+    [[ -s "$PACKAGE/Guest/tmux/LICENCES/$l" ]] || fail "Guest/tmux/LICENCES/$l is missing (the release's notices carry it)"
+done
+
 # ── 7. (590) The web UI's committed assets match their sources ───────────────
 swift "$PACKAGE/Scripts/build-web-assets.swift" --check >/dev/null || fail "Sources/DozableWeb/Resources/Web is stale — run make web-assets and commit it"
 
@@ -246,7 +257,7 @@ $STRAYF"
 printf 'ok audit: DozableKit imports only its allowlist (Foundation/Security/Virtualization/Containerization/NIO/X509),\n'
 printf '          depends only on apple/containerization (exact) + the apple/* packages it already resolves\n'
 printf '          (TLS; ArgumentParser for the CLI targets only) and Yams (exact; the CLI'"'"'s project file and recipe sources only),\n'
-printf '          carries no host brand, deckhold + doznet + dozview match their provenance (no libfuse),\n'
+printf '          carries no host brand, deckhold + doznet + dozview + tmux match their provenance (no libfuse),\n'
 printf '          the web UI (NIOHTTP1, confined) ships exactly the assets its sources build,\n'
 printf '          doz ui binds the LAN only through its LAN side (ServeCommand.swift) (dnssd confined to its announcer),\n'
 printf '          and no file carries the pre-592 product name\n'

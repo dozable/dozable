@@ -975,6 +975,10 @@ Task {
             // 599 (594.B3): sessions inside tmux.
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliTmuxSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-tmux38":
+            // Dozable's tmux 3.8 on a Debian and an Alpine base: the bridges, the theme, OSC 7501 (Tmux38Suite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliTmux38Suite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-status":
             // 612: what the agent is doing — OSC 7501 through deckhold, the host and the CLI (StatusSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

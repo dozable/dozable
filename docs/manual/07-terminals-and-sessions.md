@@ -310,7 +310,9 @@ or the sandbox shuts down.
 Limits:
 
 - the agent's message is its own text, shown as plain text and never written to Dozable's log;
-- tmux does not pass the status through, so a session running inside tmux shows none;
+- tmux does not pass the status through, so a session running inside tmux shows none: tmux (3.8 too) drops
+  the sequence, and the agents send it plain. tmux's `allow-passthrough` would not change that — it only
+  passes on a sequence a program wraps for tmux, and Claude Code and pi don't — so Dozable leaves it off;
 - a session started before an update keeps the session keeper it started with and shows no status
   until it is restarted (`doz sessions restart NAME SESSION`).
 
@@ -400,15 +402,24 @@ Ctrl-], sleep and wake (tmux and its programs are where they were), saved screen
 status bar included), browser terminals, and the clipboard and browser bridges. Each session has a
 tmux server of its own, and reopening a session finds a program tmux still holds.
 
+It is **tmux 3.8**, on every base: Dozable brings its own ([the tools layer](19-the-tools-layer.md)), so
+floating panes, the fast switcher (`Ctrl-b Tab`), auto-hiding scrollbars and `remain-on-exit failed-key`
+are there whatever tmux the image ships. tmux 3.8 also asks your terminal whether it is in light or dark
+mode and tells the programs in its panes, so an agent inside tmux picks colours for the terminal you
+attach with (Ghostty, kitty, iTerm2 and others answer; with one that doesn't, tmux guesses from its
+background colour).
+
 Limits:
 
 - tmux takes **Ctrl-b** and the mouse (in the browser, Shift+drag still selects text);
 - the kitty keyboard protocol and xterm's modifyOtherKeys don't fully pass through tmux, so a program
   that relies on them (Claude Code's richer key handling) sees less;
 - the session's exit code is tmux's (0), not the program's;
-- tmux must be in the image. The built-in images have it; on an image an older version of Dozable
-  prepared, the session runs without tmux and says how to get it (rebuild the image, then
-  `doz reset`).
+- the session's program runs in Dozable's tmux once it is in the sandbox (the first start after you turn
+  tmux on puts it there). If it is not there yet, the image's own tmux is used; with neither, the session
+  runs without tmux and says how to get it (`doz tools NAME --apply`);
+- a session that was already running in the image's tmux before Dozable's arrived keeps that tmux until it
+  ends.
 
 ## Settings
 
@@ -418,7 +429,7 @@ Limits:
 | `sandbox.clipboard` | `write` | `write`: copies reach your Mac's clipboard, with a notice. `off`: never. Per sandbox too. |
 | `sandbox.open_files` | `on` | `on`: `xdg-open PATH` opens a `/workspace` document in its app, or a folder in the Finder, on your Mac, with a notice. `off`: never. Per sandbox too. |
 | `bridges.open_apps` | `""` | The apps a sandbox may name to open a file in (`doz-open --app NAME`). Empty: default apps only. |
-| `sessions.tmux` | `false` | New sessions run inside tmux. Per sandbox too. |
+| `sessions.tmux` | `false` | New sessions run inside tmux (Dozable's tmux 3.8). Per sandbox too. |
 | `ui.terminals` | `true` | Terminals in the browser at all. |
 | `ui.terminal_font_size` | `13` | Browser terminal font size. |
 | `ui.split_default` | `shell` | What **Split** opens. |

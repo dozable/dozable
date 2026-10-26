@@ -93,6 +93,9 @@ let package = Package(
                 .copy("Resources/doznet"),
                 // 599g: workspace rules' view of a share — a filtering FUSE daemon (Guest/dozview/).
                 .copy("Resources/dozview"),
+                // tmux 3.8 for sessions.tmux on every base — static, built from pinned sources (Guest/tmux/),
+                // copied in by the tools layer.
+                .copy("Resources/tmux"),
                 // 617: the agent recipes and the key providers, compiled in (`PackageResources.<basename>_json`,
                 // no Bundle.module). ONE line per file, and every basename unique across Recipes/ — the
                 // identifier is the basename (`AgentRecipeTests` checks the list against the folder). A recipe's
