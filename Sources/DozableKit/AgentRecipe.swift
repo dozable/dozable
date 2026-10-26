@@ -711,11 +711,25 @@ public struct KeyProvider: Codable, Sendable, Equatable {
     public var endpoints: [Gateway.Endpoint]? = nil
     /// 617: a model gateway (OpenRouter, Vercel AI Gateway): its key is this provider's, its endpoints the gateway's.
     public var gateway: Bool? = nil
+    /// 656: the paths of its hosts the key may go to — prefixes, an entry ending in `$` exactly that path (OpenCode's key:
+    /// its model paths and the Console config read). Nil: the whole host. A provider with paths is swap-only; the vault
+    /// refuses its placeholder on any other path (the leak guard), whatever the network allows.
+    public var paths: [String]? = nil
+    /// 656: more headers its placeholder is swapped in IN PLACE (name and format kept) — OpenCode's Anthropic-shaped models
+    /// send the key in `x-api-key`, its Google-shaped in `x-goog-api-key`, beside the Bearer of the others.
+    public var alsoHeaders: [String]? = nil
+    /// 656: the models it is offered with, listed (no public list carries them — OpenCode Go's): the pinned tool's own
+    /// catalogue, each with a short note. A provider with endpoints has its endpoints' default; one without, the
+    /// recipe's `models@1.models` default.
+    public var models: [KeylessSource.Model]? = nil
+    /// 656: where the provider documents those models (an https page), and when the list was checked (YYYY-MM-DD).
+    public var docs: String? = nil
+    public var checked: String? = nil
 
     enum CodingKeys: String, CodingKey {
-        case id, title, hosts, inject, env, check, endpoints, gateway
+        case id, title, hosts, inject, env, check, endpoints, gateway, paths, models, docs, checked
         case alsoEnv = "also_env", builtinBinding = "builtin_binding", keyHint = "key_hint", errorShape = "error_shape"
-        case swapOnly = "swap_only"
+        case swapOnly = "swap_only", alsoHeaders = "also_headers"
     }
 
     public struct Inject: Codable, Sendable, Equatable {
@@ -738,8 +752,11 @@ public struct KeyProvider: Codable, Sendable, Equatable {
         case "openai"?: return .openai
         default:
             let header: CredentialHeader = inject.format == "Bearer %s" && inject.header.lowercased() == "authorization" ? .bearer : .apiKey(name: inject.header)
-            return CredentialBinding(id: "key:" + id, hosts: hosts, header: header, environmentVariable: env, alsoEnvironmentVariables: alsoEnv,
-                                     swapOnly: swapOnly == true ? true : nil)
+            var b = CredentialBinding(id: "key:" + id, hosts: hosts, header: header, environmentVariable: env, alsoEnvironmentVariables: alsoEnv,
+                                      swapOnly: swapOnly == true ? true : nil)
+            b.paths = paths
+            b.alsoHeaders = alsoHeaders?.map { $0.lowercased() }
+            return b
         }
     }
 
@@ -824,6 +841,35 @@ public enum KeyProviders {
                     throw SandboxError.invalidSpec("provider \(p.id): check is GET/POST https on one of its hosts, with rejected statuses")
                 }
             }
+            // 656: a path-confined key (OpenCode's) — swap-only, never a built-in binding, each path a clean absolute one.
+            if let ps = p.paths {
+                guard p.swapOnly == true, p.builtinBinding == nil, p.gateway != true, !ps.isEmpty, Set(ps).count == ps.count,
+                      ps.allSatisfy({ CredentialBinding.isCleanPath($0.hasSuffix("$") ? String($0.dropLast()) : $0) && $0.count <= 128 }) else {
+                    throw SandboxError.invalidSpec("provider \(p.id): paths are clean absolute paths (a prefix, or exact with $), once each, on a swap-only provider")
+                }
+            }
+            if let hs = p.alsoHeaders {
+                guard p.swapOnly == true, !hs.isEmpty, Set(hs.map { $0.lowercased() }).count == hs.count,
+                      hs.allSatisfy({ $0.range(of: "^[A-Za-z][A-Za-z0-9-]*$", options: .regularExpression) != nil
+                                      && $0.lowercased() != p.inject.header.lowercased() && $0.lowercased() != "authorization" }) else {
+                    throw SandboxError.invalidSpec("provider \(p.id): also_headers are header names other than its own, once each, on a swap-only provider")
+                }
+            }
+            if let ms = p.models {
+                var seen = Set<String>()
+                for m in ms {
+                    guard ModelSelection.isModelID(m.id), seen.insert(m.id).inserted, !m.name.isEmpty, m.name.count <= 80,
+                          m.note.map({ !$0.isEmpty && $0.count <= 160 }) ?? true else {
+                        throw SandboxError.invalidSpec("provider \(p.id): model \(m.id): a model id, once, a name, a short note")
+                    }
+                }
+                guard !ms.isEmpty, p.docs?.hasPrefix("https://") == true,
+                      p.checked?.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", options: .regularExpression) != nil else {
+                    throw SandboxError.invalidSpec("provider \(p.id): listed models need docs (an https URL) and checked (a date)")
+                }
+            } else if p.docs != nil || p.checked != nil {
+                throw SandboxError.invalidSpec("provider \(p.id): docs and checked describe its listed models — it has none")
+            }
             // 617: a model source — a provider's endpoints on its own hosts; a gateway's are gateways.json's, on the same hosts.
             if p.gateway == true {
                 guard p.endpoints == nil, p.builtinBinding == nil, let g = Gateways.gateway(p.id), Set(g.hosts) == Set(p.hosts), g.keyEnv == p.env else {
@@ -841,8 +887,11 @@ public enum KeyProviders {
 
     /// 618: the key-less sources — ids no provider's, hosts no provider's (a key never goes there), an endpoint on its
     /// hosts with a default model, and its listed models (the default among them), each a model id with a short note.
+    /// 656: a host may be a PATH-CONFINED, swap-only provider's (OpenCode's key on opencode.ai beside its free models): a
+    /// key-less request carries no placeholder, so nothing is ever swapped into it, and a sandbox on the key-less source
+    /// holds no binding at all.
     public static func validate(keyless: [KeylessSource], providers: [KeyProvider]) throws {
-        var ids = Set(providers.map(\.id)), hosts = Set(providers.flatMap(\.hosts))
+        var ids = Set(providers.map(\.id)), hosts = Set(providers.filter { $0.paths == nil || $0.swapOnly != true }.flatMap(\.hosts))
         for k in keyless {
             guard k.id.range(of: "^[a-z][a-z0-9-]{0,23}$", options: .regularExpression) != nil, ids.insert(k.id).inserted, k.id != "custom" else {
                 throw SandboxError.invalidSpec("keyless source id \(k.id): [a-z][a-z0-9-]*, unique among the providers and sources, not custom")

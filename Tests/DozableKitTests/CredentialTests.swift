@@ -92,6 +92,67 @@ final class CredentialTests: XCTestCase {
         guard case .reject = empty.rewrite(head: head("GET / HTTP/1.1\nHost: api.anthropic.com\nx-api-key: \(e)\n\n"), host: "api.anthropic.com") else { return XCTFail() }
     }
 
+    /// 656: OpenCode's key — swap-only, ONLY on its own paths of opencode.ai, and in place in whichever of its headers the
+    /// placeholder rides (Bearer for the OpenAI-shaped models, `x-api-key` for the Anthropic-shaped, `x-goog-api-key` for
+    /// the Google-shaped).
+    func testAPathConfinedKeyGoesOnlyToItsPathsAndIsSwappedInItsOwnHeader() throws {
+        let p = try XCTUnwrap(KeyProviders.provider("opencode"))
+        let b = p.binding
+        XCTAssertEqual(b.id, "key:opencode")
+        XCTAssertEqual(b.hosts, ["opencode.ai"])
+        XCTAssertEqual(b.swapOnly, true)
+        XCTAssertEqual(b.alsoHeaders, ["x-api-key", "x-goog-api-key"])
+        let key = "sk-FAKE-OPENCODE-0123456789"
+        let v = CredentialVault()
+        v.set(b, secret: key)
+        let t = try XCTUnwrap(v.mint(b.id))
+        func ask(_ s: String) -> CredentialDecision { v.rewrite(head: head(s), host: "opencode.ai") }
+        // Chat Completions / Responses: Bearer, swapped.
+        for path in ["/zen/v1/chat/completions", "/zen/go/v1/responses", "/inference/go/openai/v1/chat/completions"] {
+            XCTAssertEqual(ask("POST \(path) HTTP/1.1\nHost: opencode.ai\nAuthorization: Bearer \(t)\n\n"),
+                           .swapped(head("POST \(path) HTTP/1.1\nHost: opencode.ai\nAuthorization: Bearer \(key)\n\n"), binding: b.id), path)
+        }
+        // Anthropic Messages: x-api-key stays x-api-key (it is NOT moved into Authorization).
+        XCTAssertEqual(ask("POST /zen/v1/messages HTTP/1.1\nHost: opencode.ai\nx-api-key: \(t)\nanthropic-version: 2023-06-01\n\n"),
+                       .swapped(head("POST /zen/v1/messages HTTP/1.1\nHost: opencode.ai\nx-api-key: \(key)\nanthropic-version: 2023-06-01\n\n"), binding: b.id))
+        // Gemini: x-goog-api-key, the query kept.
+        XCTAssertEqual(ask("POST /zen/v1/models/gemini-3-flash:streamGenerateContent?alt=sse HTTP/1.1\nHost: opencode.ai\nX-Goog-Api-Key: \(t)\n\n"),
+                       .swapped(head("POST /zen/v1/models/gemini-3-flash:streamGenerateContent?alt=sse HTTP/1.1\nHost: opencode.ai\nX-Goog-Api-Key: \(key)\n\n"), binding: b.id))
+        // The Console config read: exactly that path.
+        XCTAssertEqual(ask("GET /console/api/v2/config HTTP/1.1\nHost: opencode.ai\nauthorization: Bearer \(t)\n\n"),
+                       .swapped(head("GET /console/api/v2/config HTTP/1.1\nHost: opencode.ai\nauthorization: Bearer \(key)\n\n"), binding: b.id))
+        // Anywhere else on opencode.ai: refused (the leak guard) — also a longer path under the exact one, a dot segment
+        // and an encoded escape out of a model path.
+        for path in ["/auth", "/console/api/v2/config/x", "/console/api/keys", "/zen/v1/messages/../../../console/api/keys",
+                     "/zen/v1/chat/completions/%2e%2e/x", "/zen/v1//chat/completions", "/zen/go/v1/usage", "/"] {
+            guard case .reject(let why) = ask("POST \(path) HTTP/1.1\nHost: opencode.ai\nAuthorization: Bearer \(t)\n\n") else {
+                return XCTFail("\(path): a placeholder off the key's paths is refused")
+            }
+            XCTAssertTrue(why.contains("model paths"), why)
+        }
+        // Never injected: the key-less "public" call (OpenCode Zen's free models) and a call with nothing pass untouched.
+        let pub = head("POST /zen/v1/chat/completions HTTP/1.1\nHost: opencode.ai\nAuthorization: Bearer public\n\n")
+        guard case .foreign(let out, _) = ask(text(pub).replacingOccurrences(of: "\r\n", with: "\n")) else { return XCTFail("flagged, passed through") }
+        XCTAssertEqual(out, pub)
+        let bare = head("GET /zen/v1/models HTTP/1.1\nHost: opencode.ai\n\n")
+        XCTAssertEqual(v.rewrite(head: bare, host: "opencode.ai"), .passThrough(bare), "swap-only: nothing added")
+        // Its placeholder anywhere else (another provider's host) is refused as before.
+        let other = CredentialVault()
+        other.set(b, secret: key)
+        other.set(.anthropic, secret: secret)
+        let t2 = try XCTUnwrap(other.mint(b.id))
+        guard case .reject = other.rewrite(head: head("POST /v1/messages HTTP/1.1\nHost: api.anthropic.com\nx-api-key: \(t2)\n\n"), host: "api.anthropic.com") else {
+            return XCTFail("another host")
+        }
+        // The clean-path rule itself.
+        XCTAssertTrue(CredentialBinding.isCleanPath("/zen/v1/models/x:streamGenerateContent"))
+        for bad in ["zen", "/a/./b", "/a/..", "/a//b", "/a%2Fb", "/a%5cb", "/a\\b", "/%2E%2E/x"] {
+            XCTAssertFalse(CredentialBinding.isCleanPath(bad), bad)
+        }
+        // A binding without paths allows every path (every other provider, unchanged).
+        XCTAssertTrue(CredentialBinding.anthropic.allows(path: "/anything/../at/all"))
+    }
+
     func testToolsOwnCredentialPassesThroughUntouched() {
         let v = vault()
         let raw = head("GET / HTTP/1.1\nHost: api.anthropic.com\nx-api-key: sk-ant-the-users-own\n\n")
