@@ -324,7 +324,7 @@ replacing (`--agent-prompt-mode replace`). Your text may use `{{variables}}` fro
 `workspace.shared`, `workspace.host_path`, `workspace.guest_path`, `workspace.description`, `workspace.rules`,
 `network.mode`, `network.allowed_hosts`, `network.description`, `network.permissions`,
 `account.name`, `agent.state`, `credentials.description`, `sandbox.sudo`, `sandbox.timezone`, `sudo.description`,
-`clipboard.description`, `browser.description`, `files.description`, `mac.open`, `github.facts`, `github.description`, `mac.hostname`, `doz.version` (the template
+`clipboard.description`, `browser.description`, `files.description`, `mac.open`, `github.facts`, `github.description`, `dotfiles.facts`, `mac.hostname`, `doz.version` (the template
 `agent-prompt.md` lists them with what each says). `doz inspect NAME --prompt` shows any mistake: an unknown variable is an error that stops the
 agent's sessions from starting until it's fixed, never silently blank.
 
