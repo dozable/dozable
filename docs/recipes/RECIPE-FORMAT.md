@@ -558,8 +558,41 @@ alone, for a quick look at every agent's first screen.
 It exits non-zero when any step fails and writes a JSON report (`RECIPE_REPORT`, default
 `$RECIPE_STORE/report.json`): per recipe pass/fail, the version, each step's duration, the states seen and the
 failures. The **Recipes** workflow (`.github/workflows/recipes.yml`) runs it on a self-hosted Mac for every change to
-a recipe, the stand-in or the harness, and every night for all of them with `make agent-currency` and
-`make profile-agents DIFF=1`.
+a recipe, the stand-in or the harness, and every night for all of them with `make agent-currency`,
+`make profile-agents DIFF=1` and `make recipe-audit`.
+
+### The ingredient audit
+
+`make recipe-check` proves a recipe works at its pin; **`make recipe-audit`** (`Scripts/recipe_audit.py`) proves that what
+the pin names is still there and still the same bytes — no VM, no key, read-only requests to the public registries. For
+every published recipe (`RECIPES="a b"`: any, unpublished included), one line per ingredient, each **ok**, **changed**,
+**behind**, **gone** or **unchecked**, with why:
+
+| Ingredient | Checked against |
+|---|---|
+| `pin` | `npm`, built-in: the version's `dist.integrity` on npm (Codex: its `-linux-arm64` version); `npm-platform-binary`: the main package at the version exists and the platform package's integrity is the pin's; `manifest-binary`: the vendor manifest's sha512 while it still names the pinned build, else the archive downloaded; `release-binary`: the download's sha512, cross-checked with GitHub's own asset digest; `pypi`: the package file the lock names is one PyPI publishes for the release, and its download's sha512 is `integrity`. |
+| `requirements` | `pypi`: every lock line's sha256 is one PyPI publishes for that release. |
+| `extras[N]` | each `install.extras` URL still serves the bytes its `sha256` names. |
+| `latest` | the newest release from `profiles/currency.json` (`make agent-currency`'s data — not looked up again): `behind` when the pin is older. A family member's newer *major* is another recipe, so it is not `behind`. |
+
+Once per run it also checks the shared ingredients: every base image's pinned digest still resolves on its registry (a
+tag that has moved on is `behind`), the Node and Python runtimes' pinned sha256 are the ones their publishers list, and
+Claude Code's native build checksums. The recipe's network hosts, auth methods, gateway levels, default base and
+lifecycle are recorded as they are, never judged (the network profiles do that).
+
+Downloads are bounded (400 MiB) and their hashes cached by URL with the server's ETag, Last-Modified and length
+(`RECIPE_AUDIT_CACHE`). A timeout, a 5xx or a rate limit is **unchecked** — only a 404/410 is **gone**. The run exits
+non-zero on any **changed** or **gone** (a pin whose bytes moved under it is a supply-chain alarm); **behind** and
+**unchecked** are information. It writes `profiles/audit.json` (the published set only; sorted and dated, so two runs
+the same day are identical) and prints a table; `RECIPE_AUDIT_SUMMARY` appends a Markdown summary,
+`RECIPE_AUDIT_REPORT` writes the JSON elsewhere too.
+
+**The refresh is proposed, never applied by itself.** `make recipe-audit PROPOSE=1` rewrites, for each **behind**
+recipe that is not built-in, the YAML's pin — `args.version.default`, the install `integrity` and each extras `sha256` —
+from the registry, verified against a download (npm's integrity against the tarball, GitHub's digest against the
+release asset, the manifest's sha512 against the archive), then runs `make recipes`. It never commits, pushes or
+publishes, and a `pypi` recipe is never proposed (its lock is resolved in a scratch VM). A proposal is committed only
+after `make recipe-check RECIPES=ID` passes and `make profile-agents AGENTS=ID` is re-run for the new release.
 
 ## Your own recipes and community catalogues
 
