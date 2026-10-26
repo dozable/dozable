@@ -447,7 +447,7 @@ public enum RecipeExtras {
         let o = startOutcomes, refused = startRefused
         guard !o.isEmpty || !refused.isEmpty else { return nil }
         let mine = o.filter { $0.origin.isMine && $0.refused == nil && $0.published }.flatMap(\.ids)
-        let community = o.filter { $0.origin.isCommunity && $0.refused == nil }
+        let community = o.filter { $0.origin.isCommunity && $0.refused == nil && $0.published }
         var parts: [String] = []
         if !mine.isEmpty { parts.append("yours: " + mine.joined(separator: ", ")) }
         for c in community { parts.append("community \(c.origin.source ?? "?"): \(c.ids.joined(separator: ", "))") }

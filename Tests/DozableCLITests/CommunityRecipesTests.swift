@@ -153,6 +153,8 @@ final class CommunityRecipesTests: XCTestCase {
         XCTAssertEqual(DirectoryIndex.entry(for: r).origin?.label, "yours")
         XCTAssertNil(DirectoryIndex.entry(for: AgentRecipes.recipe("opencode")!).origin)
         XCTAssertNil(UsageSchema.agent(image: "mytest"), "never counted")
+        XCTAssertTrue(UsageSchema.isNotDozable(image: "mytest"))
+        XCTAssertFalse(UsageSchema.isNotDozable(image: "opencode"))
         XCTAssertEqual(PlanRecipe.of(r)?.label, "yours")
     }
 

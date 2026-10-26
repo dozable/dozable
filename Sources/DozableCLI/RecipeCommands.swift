@@ -199,7 +199,7 @@ struct RecipeList: AsyncParsableCommand {
             out.append(row)
         }
         // Community, as chosen.
-        for s in u?.sources ?? [] where s.origin.isCommunity {
+        for s in u?.sources ?? [] where s.origin.isCommunity && s.published {
             let o = outcomes.first { $0.origin == s.origin }
             for f in s.files {
                 var row = RecipeRow(id: f.id, title: AgentRecipes.recipe(f.id).flatMap { $0.origin == s.origin ? $0.title : nil }, origin: "community",

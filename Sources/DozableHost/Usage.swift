@@ -363,6 +363,11 @@ public enum UsageSchema {
     }
     /// The agent of an image name — only an id THIS build lists in `agents` (what the Worker accepts): a recipe only a
     /// recipe catalogue brings is counted nowhere until a release lists it, so no message carries an id it would refuse.
+    /// 653: an image of a recipe that is not Dozable's (yours, a community one).
+    public static func isNotDozable(image: String) -> Bool {
+        guard let id = ImageChoice.parse(image)?.agent.rawValue, let r = AgentRecipes.recipe(id) else { return false }
+        return !r.origin.isDozable
+    }
     public static func agent(image: String) -> String? {
         guard let id = ImageChoice.parse(image)?.agent.rawValue, agents.contains(id) else { return nil }
         // 653: never the id of a recipe that is not Dozable's (yours, a community one) — nothing is counted in its place.
@@ -1006,6 +1011,8 @@ public enum UsageDailyBuilder {
         var created = UsageDaily.Created()
         for e in ev where e.action == "create" && e.ok != false {
             let image = e.image ?? ""
+            // 653: a sandbox of a recipe that is not Dozable's is counted nowhere — not its agent, base, account or network.
+            if UsageSchema.isNotDozable(image: image) { continue }
             if let a = UsageSchema.agent(image: image) { created.agent = bump(created.agent, a) }
             if let b = UsageSchema.base(image: image) { created.base = bump(created.base, b) }
             let detail = details(e)
