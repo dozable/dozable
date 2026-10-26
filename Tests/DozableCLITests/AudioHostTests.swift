@@ -3,8 +3,9 @@ import DozableKit
 import XCTest
 @testable import DozableHost
 
-/// EXPERIMENTAL (604) — audio sandboxes in the host: `--audio` reaches the spec (and only it), the sound kernel is
-/// never taken unverified, and the host can name the app macOS asks about the microphone for.
+/// 604 → 667 — sound in the host: `--audio` reaches the spec (and only it), the sound kernel is never taken
+/// unverified, and the host can name the app macOS asks about the microphone for. 667: the per-sandbox setting, the
+/// microphone's decision (seamed — no test ever reaches macOS's real permission) and the create's resolution.
 final class AudioHostTests: XCTestCase {
     var root: URL!
     var store: DozableStore { DozableStore(root: root.appendingPathComponent("store")) }
@@ -42,6 +43,80 @@ final class AudioHostTests: XCTestCase {
         XCTAssertThrowsError(try MacAudio.installSoundKernel(into: cache, environment: ["DOZ_TEST_SOUND_KERNEL": fake.path])) { e in
             XCTAssertTrue(HostError.from(e).message.contains("not the pinned file"), HostError.from(e).message)
         }
+    }
+
+    // MARK: 667 — the setting, the microphone
+
+    func testTheSoundModeAtCreateAndAfter() {
+        let off = TOMLValue.string("off"), speakers = TOMLValue.string("speakers"), on = TOMLValue.string("on")
+        // The flag wins, then the sandbox's own value, then the setting.
+        XCTAssertEqual(SoundMode.atCreate(flag: .on, own: speakers, setting: off), .on)
+        XCTAssertEqual(SoundMode.atCreate(flag: nil, own: speakers, setting: on), .speakers)
+        XCTAssertEqual(SoundMode.atCreate(flag: nil, own: off, setting: on), .off)
+        XCTAssertEqual(SoundMode.atCreate(flag: nil, own: nil, setting: on), .on)
+        XCTAssertEqual(SoundMode.atCreate(flag: nil, own: nil, setting: off), .off)
+        XCTAssertEqual(SoundMode.atCreate(flag: nil, own: .string("loud"), setting: .string("??")), .off, "nothing readable: no sound")
+        // A sandbox's: no device is off whatever the value; with it, on or else speakers (off keeps the device).
+        XCTAssertEqual(SoundMode.of(hasDevice: false, value: on), .off)
+        XCTAssertEqual(SoundMode.of(hasDevice: true, value: on), .on)
+        XCTAssertEqual(SoundMode.of(hasDevice: true, value: speakers), .speakers)
+        XCTAssertEqual(SoundMode.of(hasDevice: true, value: off), .speakers)
+        XCTAssertTrue(SoundMode.on.wantsMicrophone && SoundMode.on.hasDevice)
+        XCTAssertFalse(SoundMode.speakers.wantsMicrophone)
+        XCTAssertTrue(SoundMode.speakers.hasDevice)
+        XCTAssertFalse(SoundMode.off.hasDevice)
+    }
+
+    func testASandboxMovesOnlyBetweenSpeakersAndOn() {
+        XCTAssertNil(SoundMode.changeProblem(hasDevice: true, to: .speakers, sandbox: "s"))
+        XCTAssertNil(SoundMode.changeProblem(hasDevice: true, to: .on, sandbox: "s"))
+        XCTAssertNil(SoundMode.changeProblem(hasDevice: false, to: .off, sandbox: "s"))
+        XCTAssertTrue(SoundMode.changeProblem(hasDevice: true, to: .off, sandbox: "s")?.contains("created with sound") == true)
+        XCTAssertTrue(SoundMode.changeProblem(hasDevice: false, to: .on, sandbox: "s")?.contains("chosen when a sandbox is created") == true)
+    }
+
+    func testTheSettingIsPerSandboxAndOffByDefault() throws {
+        XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.audio))
+        let d = try XCTUnwrap(DozableSettings.definition(SettingKey.audio))
+        XCTAssertEqual(d.defaultValue, .string("off"))
+        XCTAssertEqual(try d.parse("speakers"), .string("speakers"))
+        XCTAssertThrowsError(try d.parse("loud"))
+        XCTAssertTrue(DozableProject.settingKeys.contains { $0.key == "audio" && $0.setting == SettingKey.audio }, "audio: in doz_project.yaml")
+    }
+
+    /// The microphone is the Mac's ONLY when macOS has already said yes — never while its question is open (604: a
+    /// recording stuck before Allow; the VM stopped by a pause with the question pending).
+    func testTheMicrophoneIsTheMacsOnlyWhenAllowed() {
+        XCTAssertEqual(MicrophoneDecision.decide(wanted: true, permission: .allowed, app: "Terminal"), .mac)
+        for p in [MicrophonePermission.denied, .undecided, .restricted] {
+            let d = MicrophoneDecision.decide(wanted: true, permission: p, app: "Terminal")
+            XCTAssertFalse(d.isMac, "\(p)")
+            if case .silent(let why) = d { XCTAssertFalse(why.isEmpty) }
+        }
+        if case .silent(let why) = MicrophoneDecision.decide(wanted: true, permission: .denied, app: "Terminal") {
+            XCTAssertTrue(why.contains("Terminal") && why.contains("Privacy & Security"), why)
+        }
+        for p in MicrophonePermission.allCases {
+            XCTAssertFalse(MicrophoneDecision.decide(wanted: false, permission: p, app: nil).isMac, "speakers only: never the microphone (\(p))")
+        }
+    }
+
+    /// No test ever reaches macOS's real microphone permission: a guarded run (and every XCTest) gets the seam.
+    func testATestNeverReachesTheRealPermission() async {
+        XCTAssertTrue(MicrophoneAccess.current([:]).seamed, "inside XCTest: the seam")
+        XCTAssertTrue(MicrophoneAccess.current(["DOZ_TEST_GUARD": "1"]).seamed)
+        let none = MicrophoneAccess.seam([:])
+        XCTAssertEqual(none.status(), .undecided)
+        let asked = await none.request(.milliseconds(10))
+        XCTAssertNil(asked, "no answer seamed: the question goes unanswered")
+        let allowed = MicrophoneAccess.seam(["DOZ_TEST_MICROPHONE": "allowed"])
+        XCTAssertEqual(allowed.status(), .allowed)
+        let answered = MicrophoneAccess.seam(["DOZ_TEST_MICROPHONE": "undecided", "DOZ_TEST_MICROPHONE_ANSWER": "allowed"])
+        let answer = await answered.request(.seconds(1))
+        XCTAssertEqual(answer, .allowed)
+        let denied = MicrophoneAccess.seam(["DOZ_TEST_MICROPHONE": "denied", "DOZ_TEST_MICROPHONE_ANSWER": "allowed"])
+        let kept = await denied.request(.seconds(1))
+        XCTAssertEqual(kept, .denied, "a decided answer is not asked again")
     }
 
     func testTheResponsibleAppIsNamedWhenMacOSKnowsIt() {

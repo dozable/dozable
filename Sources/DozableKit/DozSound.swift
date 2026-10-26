@@ -1,13 +1,14 @@
 import Foundation
 
-// EXPERIMENTAL (604) — the audio sandbox's part of the tools layer: ALSA's command-line tools, an /etc/asound.conf
-// whose `default` reaches the virtio card's playback AND capture devices (they are separate PCMs on this card, and
-// ALSA's built-in default is device 0 — the capture device when both exist), and `doz-sound`, a TEMPORARY script
-// to record and play through the Mac's microphone and speakers. POSIX sh + busybox/coreutils + awk + od only, so it
-// runs on the Alpine lab and the Debian/Ubuntu-based images alike (no sox).
+// 604/667 — a sound sandbox's part of the tools layer: ALSA's command-line tools, an /etc/asound.conf whose `default`
+// reaches the virtio card's playback AND capture devices (they are separate PCMs on this card, and ALSA's built-in
+// default is device 0 — the capture device when both exist), and `doz-sound`, a small script to try the Mac's
+// microphone and speakers. POSIX sh + busybox/coreutils + awk + od only, so it runs on the Alpine lab and the
+// Debian/Ubuntu-based images alike (no sox).
 public enum DozSound {
     public static let path = "/usr/local/bin/doz-sound"
-    public static let stamp = "doz:doz-sound:v2"
+    /// v3 (667): says why the microphone is silent (the host's decision, `MIC` in its conf); no Shut Down advice.
+    public static let stamp = "doz:doz-sound:v3"
     public static let confPath = "/etc/doz/doz-sound.conf"
     public static let asoundPath = "/etc/asound.conf"
     public static let asoundStamp = "doz:asound:v2"
@@ -37,25 +38,33 @@ public enum DozSound {
         """
     }
 
+    /// The microphone's state for doz-sound's conf: "mac", or why this boot's microphone is silent, made safe for a
+    /// single-quoted shell value.
+    static func safeMicrophone(_ s: String?) -> String {
+        let t = (s ?? "mac").replacingOccurrences(of: "'", with: "’")
+            .filter { $0.isLetter || $0.isNumber || " ._-()›,:—=/&’".contains($0) }
+        return t.isEmpty ? "mac" : String(t.prefix(300))
+    }
+
     /// Root shell: install doz-sound (when its stamp is not there) and write its conf (always — the Mac app it names
-    /// follows the host). Says `doz-tool doz-sound …`.
-    static func installScript(app: String?, say: (String, String, String) -> String) -> String {
+    /// and the microphone's state follow the host). Says `doz-tool doz-sound …`.
+    static func installScript(app: String?, microphone: String? = nil, say: (String, String, String) -> String) -> String {
         let b64 = Data(script.utf8).base64EncodedString()
-        let conf = "MAC_APP='\(safeAppName(app))'"
+        let usage = "doz-sound info | test | rec FILE [SECONDS] | play FILE"
         return """
-        mkdir -p /etc/doz && printf '%s\\n' "\(conf)" > '\(confPath)'; \
-        if grep -qs '\(stamp)' '\(path)'; then \(say("doz-sound", "ok", "TEMPORARY: doz-sound info | test | rec FILE [SECONDS] | play FILE"))\
+        mkdir -p /etc/doz && printf '%s\\n' "MAC_APP='\(safeAppName(app))'" "MIC='\(safeMicrophone(microphone))'" > '\(confPath)'; \
+        if grep -qs '\(stamp)' '\(path)'; then \(say("doz-sound", "ok", usage))\
         else mkdir -p /usr/local/bin && printf '%s' '\(b64)' | base64 -d > '\(path).tmp' && chmod 0755 '\(path).tmp' && mv -f '\(path).tmp' '\(path)' && \
-        \(say("doz-sound", "installed", "TEMPORARY: doz-sound info | test | rec FILE [SECONDS] | play FILE"))fi;
+        \(say("doz-sound", "installed", usage))fi;
         """
     }
 
-    /// The TEMPORARY script itself.
+    /// The script itself.
     public static let script = #"""
     #!/bin/sh
-    # doz:doz-sound:v2 — TEMPORARY. Dozable's EXPERIMENTAL audio sandboxes: record and play through the Mac's
-    # microphone and speakers (virtio-snd → ALSA). Written by Dozable's tools layer; it goes when the experiment does.
-    #   doz-sound info                card, devices, the default
+    # doz:doz-sound:v3 — try a Dozable sandbox's sound: record and play through the Mac's microphone and speakers
+    # (virtio-snd → ALSA). Written by Dozable's tools layer. Any program that uses ALSA's default works the same way.
+    #   doz-sound info                card, devices, the default, the microphone
     #   doz-sound test                a quiet 0.8 s tone, then 3 s from the microphone (its level), played back
     #   doz-sound rec FILE [SECONDS]  record a WAV (default 5 s)
     #   doz-sound play FILE           play a WAV
@@ -63,14 +72,18 @@ public enum DozSound {
     # A recording that gets no audio ends within seconds (never hangs) and says why.
     set -u
     MAC_APP="the app that started doz"
+    MIC=mac
     [ -r /etc/doz/doz-sound.conf ] && . /etc/doz/doz-sound.conf
     T=$(mktemp -d 2>/dev/null || echo /tmp/doz-sound.$$); mkdir -p "$T"; trap 'rm -rf "$T"' EXIT INT TERM
     die() { echo "doz-sound: $*" >&2; exit 1; }
     command -v aplay >/dev/null 2>&1 || die "aplay is missing — the tools layer installs alsa-utils (doz tools NAME --apply on the Mac)"
-    aplay -l 2>/dev/null | grep -q '^card' || die "no sound card here — this sandbox was not created with --audio (or its kernel is not the sound kernel)"
+    aplay -l 2>/dev/null | grep -q '^card' || die "no sound card here — this sandbox was created without sound (doz create --audio, or sandbox.audio)"
     noaudio() {
-      echo "doz-sound: no audio from the Mac's microphone — macOS permission? (System Settings › Privacy & Security › Microphone: allow $MAC_APP, then try again)." >&2
-      echo "doz-sound: until that is settled, Shut Down this sandbox rather than pause, sleep or hibernate it (a capture waiting on macOS can make the VM stop)." >&2
+      if [ "$MIC" != mac ]; then
+        echo "doz-sound: this sandbox's microphone is silent: $MIC." >&2
+      else
+        echo "doz-sound: no audio from the Mac's microphone — is the Mac's input muted, or another input chosen (System Settings › Sound › Input)?" >&2
+      fi
     }
     # level FILE.wav → "dBFS non-zero total glitches"   (glitches: lone -32768 samples the device inserts; not counted)
     level() { tail -c +45 "$1" | od -An -v -td2 | awk '{for(i=1;i<=NF;i++){v=$i;n++;if(v==-32768){g++;continue};if(v!=0)z++;x=v/32768;s+=x*x;m++}} END{if(m==0){printf "none 0 %d %d\n",n,g;exit};r=sqrt(s/m);printf "%.1f %d %d %d\n",(r>0?20*log(r)/log(10):-999),z,n,g}'; }
@@ -99,7 +112,8 @@ public enum DozSound {
       info)
         echo "kernel: $(uname -r)"; aplay -l 2>/dev/null | grep '^card' | sed 's/^/playback: /'; arecord -l 2>/dev/null | grep '^card' | sed 's/^/capture:  /'
         echo "default: $(grep -E '^pcm.!default' /etc/asound.conf 2>/dev/null || echo 'ALSA built-in (no /etc/asound.conf)')"
-        echo "the Mac's microphone is asked for on behalf of: $MAC_APP" ;;
+        echo "the Mac's microphone is asked for on behalf of: $MAC_APP"
+        [ "$MIC" = mac ] && echo "microphone: the Mac's" || echo "microphone: silent — $MIC" ;;
       test)
         echo "playing a quiet 440 Hz tone (0.8 s)…"; tone "$T/tone.raw" 0.8; wav "$T/tone.raw" "$T/tone.wav"
         timeout 20 aplay -q -D default "$T/tone.wav" || die "playback failed"

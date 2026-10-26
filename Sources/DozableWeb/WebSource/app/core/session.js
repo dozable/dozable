@@ -54,6 +54,7 @@ export function adopt(info) {
   state.usageStats = usageStatsOf(info.usageStats);
   state.signupPage = typeof info.signupPage === 'string' && /^https:\/\//.test(info.signupPage) ? info.signupPage : '';
   state.chatgptSignIn = info.chatgptSignIn !== false;   // a public build has no ChatGPT sign-in of its own
+  state.sound = info.sound === true;                    // 667: this doz can give a sandbox sound
   const mac = state.serve ? (state.serve.mac || 'the Mac') : null;
   setHomes(info.homes);
   const sp = $('store-path');

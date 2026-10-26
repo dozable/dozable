@@ -88,6 +88,11 @@ public struct PersistedSandbox: Codable, Sendable, Equatable {
     /// 583: the VM has a virtio memory balloon (every VM a 583+ build boots). nil or false: an
     /// older record, whose snapshot must be restored into a VM without one.
     public var memoryBalloon: Bool?
+    /// 667: a sound sandbox's VM was built with the Mac's microphone as its input stream's source (true) or none
+    /// (false). Virtualization refuses to restore a snapshot into a VM whose source differs ("the file format is not
+    /// compatible with this version of the OS" — measured both ways), so a restore uses this, and a new decision waits
+    /// for the next cold boot. nil: no sound, or recorded by an older build — whose sound VMs always had the source.
+    public var microphoneSource: Bool?
     /// 587: the root / state disk has an ext4 journal (read from its superblock at boot). A journaled
     /// disk that was not cleanly unmounted is replayed by the kernel, not e2fsck'd. nil: an older
     /// record — treated as no journal.

@@ -89,6 +89,8 @@ public struct DozableProject: Equatable, Sendable {
          "# ignore_mode: lock          # what .dozignore does to the paths it lists: lock (listed, no access) or hide (not there). At the next start or wake"),
         ("workspace_view", SettingKey.workspaceView,
          "# workspace_view: on         # on: /workspace through the live view (programs keep their folder across a wake); off: shared directly. At the next start"),
+        ("audio", SettingKey.audio,
+         "# audio: off                 # sound: speakers (the Mac's), or on (+ the Mac's microphone, once macOS allows it). When the sandbox is made"),
     ]
 
     /// The keys, in the order the file lists them, with what each says.

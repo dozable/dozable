@@ -42,7 +42,8 @@ settings that name a folder on your Mac, are shown read-only there — change th
 ### Per sandbox
 
 `sandbox.clipboard`, `sandbox.browser_bridge`, `sandbox.open_files`, `sandbox.ssh_agent`,
-`sessions.tmux` and `sandbox.agent_sudo` can also be set for one sandbox:
+`sessions.tmux`, `sandbox.agent_sudo` and `sandbox.audio` can also be set for one sandbox (sound only between
+`speakers` and `on` — whether it has sound at all is chosen when it is made; see [Sound](23-sound.md)):
 
 ```sh
 doz config show --sandbox my-app                          # its values, and whose value each is
@@ -51,8 +52,8 @@ doz config get --sandbox my-app sessions.tmux
 doz config unset --sandbox my-app sandbox.clipboard       # follow the setting again
 ```
 
-Or when you create it (`doz create --clipboard off --browser-bridge off --open-files off --ssh-agent on --tmux --no-agent-sudo`),
-or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`).
+Or when you create it (`doz create --clipboard off --browser-bridge off --open-files off --ssh-agent on --tmux --no-agent-sudo --sound on`),
+or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`, `audio:`).
 
 "Use GitHub as you" is a permission, not a setting: `doz net allow NAME github:as-you` (and
 `github:push`), `doz create --github read|push`, `github:` in `doz_project.yaml` — see
@@ -307,6 +308,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `sandbox.open_files` | `on` | on \| off | at once | `doz create --open-files on\|off` | Open workspace files on this Mac: xdg-open PATH (and open PATH, doz-open PATH) in a sandbox opens a document from its /workspace in the Mac's default app — an html page in your browser, markdown in your editor — or a folder (the workspace itself, open .) in the Finder, and doz-open --reveal PATH shows a file selected in its folder; a notice every time (at most 3 in 10 s). Only the shared folder's own files (a link or .. that leads out is refused), only documents (html, md, pdf, images, txt, csv, json, yaml, xml…) — never an app or package folder, a script, an installer or an executable. An isolated sandbox has no file to open. An app other than the default only when it is in bridges.open_apps. off: nothing opens (said). A sandbox's own choice (doz config set --sandbox NAME, open_files in doz_project.yaml) wins over this. |
 | `sandbox.ssh_agent` | `off` | off \| on | at once | `doz create --ssh-agent on\|off` | Forward this Mac's SSH agent into the sandbox (proxied sandboxes): ssh and git over SSH there can ask your agent to sign — your keys never enter the sandbox — and only github.com:22 is reachable over SSH. A notice on first use. While it is on, the agent can authenticate as you to github.com. A sandbox's own choice (doz create --ssh-agent on, ssh_agent in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
 | `sandbox.dotfiles` | `""` | a git repository's https:// URL, or a folder on this Mac that is one ("" = none) | new sandboxes | `doz create --dotfiles URL\|PATH\|none` | Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login, so a private one works and no credential enters the sandbox) or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at, recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap, script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot log), or, with none, every dotfile and dot-folder at the top of the repository is linked into the home — never over a file that is there (only over the image's stock copy, kept as NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once per repository and commit before it is applied — it is code that runs in the sandbox. "" (the default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml) wins over this. |
+| `sandbox.audio` | `off` | off \| speakers \| on | new sandboxes | `doz create --sound off\|speakers\|on (--audio = on)` | Sound in new sandboxes: off, speakers (programs in the sandbox play through this Mac's speakers) or on (the speakers and this Mac's microphone). A sandbox with sound has a sound device and boots Dozable's sound kernel (Linux with ALSA and virtio-snd added), so it is chosen when the sandbox is created; a sandbox's own choice (doz create --sound speakers\|on, or --audio for on; New sandbox › Sound) wins over this. Between speakers and on a sandbox can change later (doz config set --sandbox NAME sandbox.audio on), from its next start (a wake keeps what it slept with). The microphone: doz asks macOS once, when a sandbox with the microphone starts and macOS has not answered, and a sandbox records from it only if macOS allowed it before that start (until then it records silence) — macOS asks on behalf of the app that started doz (Terminal, your editor). Programs use ALSA's default device; doz-sound in the sandbox tries both. |
 
 ### `[sessions]`
 

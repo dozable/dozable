@@ -83,11 +83,13 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     public var model: String?
     /// 657: `dotfiles` — kept through the dashboard (no control of its own in the wizard; the review shows it).
     public var dotfiles: String?
+    /// 667: `audio` — off, speakers or on (the wizard's Sound choice, on the Bridges step).
+    public var audio: String?
 
     static let settingFields: [(field: String, setting: String)] = [
         ("sshAgent", SettingKey.sshAgent), ("clipboard", SettingKey.clipboard), ("browserBridge", SettingKey.browserBridge),
         ("openFiles", SettingKey.openFiles), ("tmux", SettingKey.tmux), ("ignoreMode", SettingKey.ignoreMode),
-        ("workspaceView", SettingKey.workspaceView),
+        ("workspaceView", SettingKey.workspaceView), ("audio", SettingKey.audio),
     ]
 
     public init(_ p: DozableProject) {
@@ -109,6 +111,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         if case .bool(let b)? = p.settings[SettingKey.tmux] { tmux = b }
         ignoreMode = p.settings[SettingKey.ignoreMode]?.plain
         workspaceView = p.settings[SettingKey.workspaceView]?.plain
+        audio = p.settings[SettingKey.audio]?.plain
         agentSudo = p.agentSudo
         agentPrompt = p.agentPrompt
         agentPromptMode = p.agentPromptMode
@@ -141,7 +144,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
             p.memoryMiB = v
         }
         for (field, key) in [("sshAgent", sshAgent), ("clipboard", clipboard), ("browserBridge", browserBridge), ("openFiles", openFiles),
-                             ("ignoreMode", ignoreMode), ("workspaceView", workspaceView)] {
+                             ("ignoreMode", ignoreMode), ("workspaceView", workspaceView), ("audio", audio)] {
             guard let v = key, let s = Self.settingFields.first(where: { $0.field == field }), let d = DozableSettings.definition(s.setting) else { continue }
             do { p.settings[s.setting] = try d.parse(v) } catch let e as SettingsError { throw invalid("\(field): \(e.message)") }
         }
@@ -223,7 +226,7 @@ struct WebProjectRequest {
             guard let fd = form as? [String: Any] else { throw WebAction.Invalid("form: an object") }
             let known: Set<String> = ["name", "image", "agent", "base", "dockerfile", "account", "github", "sshAgent", "network", "permissions", "cpus",
                                       "memory", "clipboard", "browserBridge", "openFiles", "tmux", "ignoreMode", "workspaceView", "agentSudo", "agentPrompt", "agentPromptMode", "sessions",
-                                      "modelSource", "model", "dotfiles"]
+                                      "modelSource", "model", "dotfiles", "audio"]
             let unknown = Set(fd.keys).subtracting(known)
             guard unknown.isEmpty else { throw WebAction.Invalid("form: no \(unknown.sorted().joined(separator: ", "))") }
             do { r.form = try JSONDecoder().decode(WebProjectForm.self, from: JSONSerialization.data(withJSONObject: fd)) } catch {

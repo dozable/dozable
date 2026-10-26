@@ -34,16 +34,19 @@ public struct ToolInputs: Codable, Equatable, Sendable {
     public var ssh: Bool
     /// `sessions.tmux` is on.
     public var tmux: Bool
-    /// EXPERIMENTAL (604): an audio sandbox — alsa-utils, /etc/asound.conf and the TEMPORARY `doz-sound`. nil (every
-    /// other sandbox): nothing, and the inputs encode exactly as before.
+    /// 604/667: a sandbox with sound — alsa-utils, /etc/asound.conf and `doz-sound`. nil (every other sandbox):
+    /// nothing, and the inputs encode exactly as before.
     public var audio: Bool?
-    /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for (the host's responsible app), named in
-    /// doz-sound's permission hint.
+    /// 604: the Mac app macOS asks about the microphone for (the host's responsible app), named in doz-sound's hint.
     public var audioApp: String?
-    public init(github: Bool = false, ssh: Bool = false, tmux: Bool = false, audio: Bool = false, audioApp: String? = nil) {
+    /// 667: "mac" when this boot's microphone is the Mac's, else why it is silent (a sentence) — doz-sound says it.
+    public var microphone: String?
+    public init(github: Bool = false, ssh: Bool = false, tmux: Bool = false, audio: Bool = false, audioApp: String? = nil,
+                microphone: String? = nil) {
         self.github = github; self.ssh = ssh; self.tmux = tmux
         self.audio = audio ? true : nil
         self.audioApp = audio ? audioApp : nil
+        self.microphone = audio ? microphone : nil
     }
 }
 
@@ -171,11 +174,11 @@ public enum ToolsLayer {
                                   source: "built into Dozable (static, from sha256-pinned sources), copied in"))
         }
         if inputs.audio == true {
-            items.append(ToolItem(id: "alsa-utils", title: "alsa-utils", reason: "for audio (experimental)", kind: "package",
+            items.append(ToolItem(id: "alsa-utils", title: "alsa-utils", reason: "for sound", kind: "package",
                                   source: "apt/apk through the proxy, when missing", package: "alsa-utils", command: "aplay"))
-            items.append(ToolItem(id: "asound-conf", title: "the sound card as ALSA's default", reason: "for audio (experimental)", kind: "file",
+            items.append(ToolItem(id: "asound-conf", title: "the sound card as ALSA's default", reason: "for sound", kind: "file",
                                   source: "written by Dozable in \(DozSound.asoundPath)"))
-            items.append(ToolItem(id: "doz-sound", title: "doz-sound (temporary)", reason: "for audio (experimental)", kind: "file",
+            items.append(ToolItem(id: "doz-sound", title: "doz-sound", reason: "for sound", kind: "file",
                                   source: "written by Dozable in \(DozSound.path)"))
         }
         for (id, cmd) in [("git", "git"), ("curl", "curl"), ("ca-certificates", caBundle)] {
@@ -231,7 +234,7 @@ public enum ToolsLayer {
     /// `ghCopied`, tmux to `<guestTmuxPath>.tmp` when `tmuxCopied`). One `doz-tool ID STATE DETAIL` line per tool.
     /// Never fails the caller.
     public static func applyScript(_ plan: ToolPlan, state: GuestState, ghCopied: Bool, ghProblem: String?, audioApp: String? = nil,
-                                   tmuxCopied: Bool = false, tmuxProblem: String? = nil) -> String {
+                                   microphone: String? = nil, tmuxCopied: Bool = false, tmuxProblem: String? = nil) -> String {
         var s = "log='\(guestLog)'; mkdir -p '\(guestStateDirectory)' 2>/dev/null; "
         func say(_ id: String, _ st: String, _ detail: String) -> String {
             "echo 'doz-tool \(id) \(st) \(detail.replacingOccurrences(of: "'", with: "’"))'; "
@@ -259,9 +262,9 @@ public enum ToolsLayer {
                 s += "if \(check); then \(say(item.id, "installed", "from \(state.packageManager)"))else \(say(item.id, "failed", "\(state.packageManager) could not install \(item.package ?? item.id) — see \(guestLog)"))fi; "
             }
         }
-        // EXPERIMENTAL (604): an audio sandbox's ALSA default and doz-sound (after the packages: they need aplay).
+        // 604/667: a sound sandbox's ALSA default and doz-sound (after the packages: they need aplay).
         if plan.items.contains(where: { $0.id == "asound-conf" }) { s += DozSound.asoundScript(say: say) }
-        if plan.items.contains(where: { $0.id == "doz-sound" }) { s += DozSound.installScript(app: audioApp, say: say) }
+        if plan.items.contains(where: { $0.id == "doz-sound" }) { s += DozSound.installScript(app: audioApp, microphone: microphone, say: say) }
         // gh: Dozable's copy (in place when copied), or nothing to do, or a reason. Also linked as /usr/local/bin/gh
         // (every PATH has it: `doz exec`, scripts) — only when that name is free or already Dozable's link.
         let link = "if [ ! -e '\(ghLink)' ] && [ ! -L '\(ghLink)' ] || [ \"$(readlink '\(ghLink)')\" = '\(guestGhPath)' ]; then ln -sf '\(guestGhPath)' '\(ghLink)'; fi; "

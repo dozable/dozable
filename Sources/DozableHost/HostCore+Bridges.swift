@@ -66,6 +66,11 @@ extension HostCore {
                     // A person's text (`off`, `true`) is parsed as the CLI would; a typed value is checked.
                     if case .string(let t) = raw { v = try d.parse(t) } else { v = try d.validate(raw) }
                 } catch { throw HostError(.invalid, "\(error)") }
+                // 667: sound's device is chosen at create — a sandbox moves only between speakers and on.
+                if key == SettingKey.audio, case .string(let s) = v, let mode = SoundMode(rawValue: s),
+                   let problem = SoundMode.changeProblem(hasDevice: m.config.spec.audio == true, to: mode, sandbox: m.name) {
+                    throw HostError(.invalid, problem)
+                }
                 if key == SettingKey.agentSudo, case .bool(let b) = v { m.config.agentSudo = b } else { m.config.settings = (m.config.settings ?? [:]).merging([key: v]) { _, n in n } }
                 changed = "\(key) = \(v.plain) for \(m.name)"
             }

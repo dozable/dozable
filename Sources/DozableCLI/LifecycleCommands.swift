@@ -113,8 +113,12 @@ struct ChoiceOptions: ParsableArguments {
         if let m = model { o.model = m }
     }
 
-    // EXPERIMENTAL (604): an audio sandbox.
-    @Flag(name: .long, help: ArgumentHelp("EXPERIMENTAL: give the sandbox the Mac's microphone and speakers (a sound device and its own kernel; doz-sound inside to record and play). macOS asks about the microphone for the app that started doz.",
+    // 604 → 667: sound — the setting sandbox.audio for this sandbox; --audio is --sound on.
+    @Option(name: .long, help: ArgumentHelp("off, speakers or on: sound — programs in the sandbox play through this Mac's speakers, and with on record from its microphone once macOS allows it (doz asks at the first start; macOS asks for the app that started doz). A sound device and Dozable's sound kernel, so chosen now (default: the setting sandbox.audio, off).",
+                                            visibility: BuildFlavor.current.isPublic ? .hidden : .default))
+    var sound: String?
+
+    @Flag(name: .long, help: ArgumentHelp("The same as --sound on: the Mac's speakers and microphone.",
                                           visibility: BuildFlavor.current.isPublic ? .hidden : .default))
     var audio = false
 
@@ -218,7 +222,8 @@ struct ChoiceOptions: ParsableArguments {
             if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.agentSudo = agentSudo
-        if audio, BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
+        if audio, sound != nil { throw ValidationError("--audio or --sound, not both (--audio is --sound on)") }
+        if audio || (sound != nil && sound != SoundMode.off.rawValue), BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
         o.audio = audio ? true : nil
         // 597 (P6): --allow web,site:api.example.com,-error-reports
         var words = allow.flatMap { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }.filter { !$0.isEmpty }
@@ -271,6 +276,7 @@ struct ChoiceOptions: ParsableArguments {
         if let tmux { s[SettingKey.tmux] = .bool(tmux) }
         try take(SettingKey.ignoreMode, ignoreMode, "--ignore-mode")
         try take(SettingKey.workspaceView, workspaceView, "--workspace-view")
+        try take(SettingKey.audio, sound, "--sound")            // 667
         return s.isEmpty ? nil : s
     }
 
@@ -303,7 +309,7 @@ struct ChoiceOptions: ParsableArguments {
         image != nil || cpus != nil || memory != nil || workspace != nil || network != nil || subnet != nil || account != nil || agentPrompt != nil || isolated || agentSudo != nil
             || agent != nil || base != nil || dockerfile != nil || !allow.isEmpty
             || clipboard != nil || browserBridge != nil || openFiles != nil || tmux != nil || github != nil || sshAgent != nil
-            || ignoreMode != nil || workspaceView != nil || dotfiles != nil
+            || ignoreMode != nil || workspaceView != nil || dotfiles != nil || sound != nil || audio
     }
 }
 

@@ -249,7 +249,8 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// `doz create --prepare`: prepare the image the sandbox's first start would wait for, now (started
     /// or joined, its progress on the request's stream) — without booting the sandbox.
     public var prepare: Bool?
-    /// EXPERIMENTAL (604): an audio sandbox — the Mac's microphone and speakers (`SandboxSpec.audio`).
+    /// 604: sound with the microphone (`--audio`, the same as `settings["sandbox.audio"] = on`). 667: the host
+    /// resolves the sandbox's sound (`resolveSound`) and sets this when it has the device (`SandboxSpec.audio`).
     public var audio: Bool?
     /// 617 (D6): custom key accounts to attach (`--key NAME`, repeatable); each host must be allowed.
     public var keys: [String]?
@@ -707,6 +708,10 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var agentRef: String? = nil
     /// 654: the fully qualified recipe it was made from (`dozable/anthropic/claude-code@2.1.299`); nil: not recorded.
     public var recipeRef: String? = nil
+    /// 667: its sound — `speakers` or `on` (nil: none, the default) — and, once a boot decided it, its microphone:
+    /// `mac` (the Mac's) or why it is silent.
+    public var sound: String? = nil
+    public var microphone: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
     /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
@@ -745,6 +750,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case ports                                        // 617 (RP-1)
         case sessionList, sessionMore                     // 635
         case dotfiles                                     // 657
+        case sound, microphone                            // 667
     }
 
     public init(from decoder: Decoder) throws {
@@ -791,6 +797,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         sessionList = try c.decodeIfPresent([SessionBrief].self, forKey: .sessionList)
         sessionMore = try c.decodeIfPresent(Int.self, forKey: .sessionMore)
         dotfiles = try c.decodeIfPresent(DotfilesState.self, forKey: .dotfiles)
+        sound = try c.decodeIfPresent(String.self, forKey: .sound)
+        microphone = try c.decodeIfPresent(String.self, forKey: .microphone)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -833,6 +841,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(createdFolder, forKey: .createdFolder)
         try c.encodeIfPresent(agentRef, forKey: .agentRef)
         try c.encodeIfPresent(recipeRef, forKey: .recipeRef)
+        try c.encodeIfPresent(sound, forKey: .sound)                    // 667
+        try c.encodeIfPresent(microphone, forKey: .microphone)
         try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)

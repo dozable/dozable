@@ -1166,16 +1166,29 @@ public actor Sandbox {
         }
         // A cold boot builds a new VM, with a memory balloon; a restore keeps what the snapshot had.
         if persisted == nil { identity.memoryBalloon = true }
+        // 667: so does the microphone's source — a cold boot takes the host's decision, a restore the one it slept with
+        // (VZ refuses a different source); an older build's sound VM always had the Mac's microphone.
+        if spec.audio == true {
+            if persisted == nil { identity.microphoneSource = microphone }
+            let source = identity.microphoneSource ?? true
+            microphoneBuiltBox.withLock { $0 = source }
+            if persisted != nil, source != microphone {
+                note(source ? "restoring with the microphone it slept with (the Mac's) — a cold boot (Shut Down, Start) takes macOS's answer now"
+                            : "restoring with the silent microphone it slept with — Shut Down and Start it to get the Mac's microphone")
+            }
+        }
+        let microphoneSource = spec.audio == true && (identity.microphoneSource ?? true)
         // 591: a restore boots the VM from what was RECORDED where this build controls it — the
         // balloon (above) and the kernel file the snapshot was taken under (a later build may pin a
         // newer kernel). A kernel this Mac no longer has refuses the wake; the snapshot is kept.
-        // EXPERIMENTAL (604): an audio sandbox's VM boots the sound kernel (verified, from the kernel cache — the
-        // host puts it there); everything above (bakes, image keys) used the pinned kernel.
+        // 604/667: a sound sandbox's VM boots the sound kernel (verified, from the kernel cache — the host puts it
+        // there); everything above (bakes, image keys) used the pinned kernel. A restore still finds the kernel it
+        // slept under (below), so a cold boot is the only one that needs this build's.
         var bootKernelURL = kernelURL
         if spec.audio == true {
             let sound = SoundKernel.path(inCache: kernelProvider.cacheDirectory)
             guard SoundKernel.isVerified(sound) else {
-                throw SandboxError.invalidSpec("\(spec.name) is an audio sandbox (experimental), and its sound kernel \(SoundKernel.fileName) is missing or damaged in \(kernelProvider.cacheDirectory.path) — a doz that carries it puts it there when the sandbox starts")
+                throw SandboxError.invalidSpec("\(spec.name) has sound, and its sound kernel \(SoundKernel.fileName) is missing or damaged in \(kernelProvider.cacheDirectory.path) — a doz that carries it puts it there when the sandbox starts")
             }
             bootKernelURL = sound
         }
@@ -1261,7 +1274,8 @@ public actor Sandbox {
         let vmm = DozableVMM(
             inner: VZVirtualMachineManager(kernel: vmKernel, initialFilesystem: initfs, group: SharedEventLoop.group),
             identity: PinnedIdentity(machineIdentifier: identity.machineIdentifier, macAddress: identity.macAddress,
-                                     memoryBalloon: identity.memoryBalloon == true, audio: spec.audio == true, kernelSHA256: vmKernelSHA,
+                                     memoryBalloon: identity.memoryBalloon == true, audio: spec.audio == true,
+                                     microphone: microphoneSource, kernelSHA256: vmKernelSHA,
                                      expected: persisted?.vmLayout, sandboxName: spec.name, recorder: recorder),
             adopt: persisted != nil ? (snapshot: layout.snapshot, flag: flag, containerID: spec.name) : nil,
             report: report)
@@ -1632,7 +1646,7 @@ public actor Sandbox {
             }
         }
         let script = ToolsLayer.applyScript(plan, state: state, ghCopied: ghCopied, ghProblem: ghProblem, audioApp: inputs.audioApp,
-                                            tmuxCopied: tmuxCopied, tmuxProblem: tmuxProblem)
+                                            microphone: inputs.microphone, tmuxCopied: tmuxCopied, tmuxProblem: tmuxProblem)
         let missing = ToolsLayer.missingPackages(plan, state)
         let installLabel = "tools: installing " + missing.map(\.title).joined(separator: ", ") + " with \(state.packageManager), through the proxy"
         if shout && !missing.isEmpty { broadcaster.yield(.stepStarted(installLabel)) }
@@ -1823,6 +1837,16 @@ public actor Sandbox {
     public nonisolated var timeZone: GuestTimeZone? { timeZoneBox.withLock { $0 } }
     public nonisolated func setTimeZone(_ tz: GuestTimeZone?) { timeZoneBox.withLock { $0 = tz } }
     private nonisolated let timeZoneBox = LockedBox<GuestTimeZone?>(nil)
+
+    /// 667: a sound sandbox's microphone is the Mac's — read at a COLD boot. The host sets it true only when macOS has
+    /// already allowed the microphone and the sandbox's sound includes it; otherwise the guest records silence
+    /// (`AudioDevice`). A restore keeps the source the VM slept with (`PersistedSandbox.microphoneSource`).
+    public nonisolated var microphone: Bool { microphoneFlag.value }
+    public nonisolated func setMicrophone(_ on: Bool) { microphoneFlag.value = on }
+    private nonisolated let microphoneFlag = LockedFlag(false)
+    /// 667: the source the running VM was built with (nil: no sound VM built in this process yet).
+    public nonisolated var microphoneBuilt: Bool? { microphoneBuiltBox.withLock { $0 } }
+    private nonisolated let microphoneBuiltBox = LockedBox<Bool?>(nil)
 
     // MARK: 599g — workspace rules
 
