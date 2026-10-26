@@ -65,6 +65,8 @@ export function phaseMark(phase) {
 /// An operation's action → its glyph (the lifecycle verbs; the rest have none).
 export const OP_GLYPH = { start: 'play', pause: 'pause', resume: 'play', sleep: ICON_SLEEP, hibernate: ICON_HIBERNATE, wake: 'sun',
                    shutdown: 'power', reset: 'rotate-ccw', rm: 'trash-2', duplicate: 'copy', 'template-create': 'layout-template' };
+/// 650: an operation accepted and waiting its turn (the vendored Lucide set has no clock; the hourglass says "waiting").
+export const QUEUED_GLYPH = 'hourglass';
 /// 635 (owner): Open in Terminal — the terminal glyph with an arrow out of its top-right corner.
 export const ICON_OPEN_IN_TERMINAL = 'square-terminal^arrow-up-right';
 /// `name`, or a pair `a+b`: a glyph drawn as two icons side by side (both hidden, one tight group); or `a^b`: glyph `a`

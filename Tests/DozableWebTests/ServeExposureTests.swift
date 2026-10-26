@@ -11,7 +11,7 @@ final class ServeExposureTests: XCTestCase {
         let all: [WebRoute] = [
             .index, .asset("/assets/x.js"), .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd,
             .overview, .sandbox("s"), .sandboxSessions("s"), .sandboxNetwork("s"), .sandboxTools("s"), .images, .imageTree, .accounts,
-            .metrics(WebMetricsQuery.parse(nil)!), .metricsCSV(WebMetricsQuery.parse(nil)!), .events, .doctor, .stream, .actions, .operations,
+            .metrics(WebMetricsQuery.parse(nil)!), .metricsCSV(WebMetricsQuery.parse(nil)!), .events, .doctor, .stream, .actions, .operations, .operationsCancel,
             .policyPreview("s"), .terminal("s"), .terminalTicket("s"), .terminalSocket("s"), .settings, .settingsChange, .sessionScreen("s", "shell"),
             .terminalLayout("s"), .terminalLayoutSet("s"), .bootLogs("s"), .bootLog("s", 1), .buildLog("s"), .onboarding, .onboardingConfig, .preparations,
             .accountAdd, .sandboxKey("s"), .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
@@ -27,7 +27,7 @@ final class ServeExposureTests: XCTestCase {
         switch r {
         case .index, .asset, .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd, .overview,
              .sandbox, .sandboxSessions, .sandboxNetwork, .sandboxTools, .images, .imageTree, .accounts, .metrics, .metricsCSV, .events, .doctor,
-             .stream, .actions, .operations, .policyPreview, .terminal, .terminalTicket, .terminalSocket, .settings, .settingsChange,
+             .stream, .actions, .operations, .operationsCancel, .policyPreview, .terminal, .terminalTicket, .terminalSocket, .settings, .settingsChange,
              .sessionScreen, .terminalLayout, .terminalLayoutSet, .bootLogs, .bootLog, .buildLog, .onboarding, .onboardingConfig, .preparations,
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,

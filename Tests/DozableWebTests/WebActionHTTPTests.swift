@@ -130,13 +130,53 @@ final class WebActionHTTPTests: XCTestCase {
         XCTAssertTrue(ops.contains("demo is off"))
     }
 
-    func testOperationsAreBounded() throws {
+    /// 650: beyond what may run at once an action is QUEUED (202, still "running", `queued` and its place) — never refused
+    /// (the bound of 256 queued is `WebOperationsQueueTests`'); a batch's wakes wait behind a person's own.
+    func testOperationsBeyondTheirLaneAreQueuedNotRefused() throws {
         fake.hold = true
-        for i in 0..<8 { XCTAssertEqual(try post("/api/v1/actions", #"{"action":"pause","sandbox":"s\#(i)"}"#).status, 202) }
-        let over = try post("/api/v1/actions", #"{"action":"pause","sandbox":"s9"}"#)
-        XCTAssertEqual(over.status, 503)
-        XCTAssertTrue(over.text.contains("too-many-operations"))
+        for i in 0..<8 { XCTAssertEqual(try post("/api/v1/actions", #"{"action":"tools-apply","sandbox":"s\#(i)"}"#).status, 202) }
+        let ninth = try post("/api/v1/actions", #"{"action":"tools-apply","sandbox":"s9"}"#)
+        XCTAssertEqual(ninth.status, 202, ninth.text)
+        XCTAssertEqual(json(ninth)["state"] as? String, "running")
+        XCTAssertEqual(json(ninth)["queued"] as? Bool, true)
+        XCTAssertEqual(json(ninth)["position"] as? Int, 1)
+        // The lifecycle lane (ui.batch_concurrency: 3 by default): a batch's fourth waits; a person's own goes first.
+        for i in 0..<4 { XCTAssertEqual(try post("/api/v1/actions", #"{"action":"wake","sandbox":"w\#(i)","batch":true}"#).status, 202) }
+        let own = try post("/api/v1/actions", #"{"action":"wake","sandbox":"mine"}"#)
+        XCTAssertEqual(json(own)["position"] as? Int, 1, own.text)
+        XCTAssertEqual(try post("/api/v1/actions", #"{"action":"wake","sandbox":"x","batch":"yes"}"#).status, 400)
+        XCTAssertEqual(try post("/api/v1/actions", #"{"action":"wake","sandbox":"x","priority":true}"#).status, 400, "still strict")
         fake.hold = false
+    }
+
+    /// 650: cancel — a typed route (no HostOp), CSRF-checked, strictly {ids}; only a queued operation is withdrawn.
+    func testCancelWithdrawsAQueuedOperationOnly() throws {
+        fake.hold = true
+        var ids: [String] = []
+        for i in 0..<4 {
+            let r = try post("/api/v1/actions", #"{"action":"wake","sandbox":"w\#(i)","batch":true}"#)
+            ids.append(try XCTUnwrap(json(r)["id"] as? String))
+        }
+        let body = #"{"ids":["\#(ids[3])","\#(ids[0])"]}"#
+        XCTAssertEqual(try post("/api/v1/operations/cancel", body, headers: ["Cookie": cookie, "Origin": origin, "Content-Type": "application/json"]).status,
+                       403, "no CSRF")
+        XCTAssertEqual(try get("/api/v1/operations/cancel", ["Cookie": cookie]).status, 404, "POST only")
+        for bad in [#"{}"#, #"{"ids":[]}"#, #"{"ids":"x"}"#, #"{"ids":[1]}"#, #"{"ids":["a","a"]}"#, #"{"ids":["a b"]}"#,
+                    #"{"ids":["a"],"all":true}"#, #"[]"#] {
+            let r = try post("/api/v1/operations/cancel", bad)
+            XCTAssertEqual(r.status, 400, bad)
+            XCTAssertEqual((json(r)["error"] as? [String: Any])?["code"] as? String, "invalid")
+        }
+        let r = try post("/api/v1/operations/cancel", body)
+        XCTAssertEqual(r.status, 200, r.text)
+        XCTAssertEqual(json(r)["cancelled"] as? [String], [ids[3]])
+        XCTAssertEqual(json(r)["notQueued"] as? [String], [ids[0]], "a running one is answered back unchanged")
+        let ops = try get("/api/v1/operations", ["Cookie": cookie]).text
+        XCTAssertTrue(ops.contains("cancelled before its turn — nothing was done"), ops)
+        fake.hold = false
+        let deadline = Date().addingTimeInterval(5)
+        while try get("/api/v1/operations", ["Cookie": cookie]).text.contains("\"state\":\"running\"") && Date() < deadline { usleep(20_000) }
+        XCTAssertEqual(fake.performed.compactMap(\.name).sorted(), ["w0", "w1", "w2"], "the cancelled one never reached the host")
     }
 
     /// 590 bug 2: a double-clicked action is one operation — the repeat is 409 while the first runs;

@@ -131,7 +131,9 @@ public final class DozableWebServer: @unchecked Sendable {
         tickets = WebTerminalTicketStore()
         terminals = WebTerminalHub()
         monitor = WebMonitor(data: data, hub: hub, terminals: terminals, pollInterval: pollInterval)
-        operations = WebOperations(data: data, hub: hub, monitor: monitor, file: operationsFile)
+        // 650: the lifecycle lane's width — `ui.batch_concurrency`, read whenever a place may free (applies at once).
+        operations = WebOperations(data: data, hub: hub, monitor: monitor, file: operationsFile,
+                                   laneWidth: { [settings] in settings.int(SettingKey.batchConcurrency) })
         let ops = operations
         monitor.overviewHook.set { ops.reconcile($0) }
         let (terminals, monitor) = (self.terminals, self.monitor)
@@ -849,8 +851,13 @@ public final class DozableWebServer: @unchecked Sendable {
                 }
                 return json(try operations.start(try WebProject.createAction(folder: folder, settings: settings.current)), status: 202)
             }
-            let action = try WebAction.decode(body)
-            return json(try operations.start(action), status: 202)
+            // 650: the page's bulk controls send `batch: true` — such an operation waits behind a person's own.
+            let request = try WebAction.decodeRequest(body)
+            return json(try operations.start(request.action, priority: !request.batch), status: 202)
+        case .operationsCancel:
+            // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).
+            try Self.requireJSONBody(md)
+            return json(operations.cancel(try WebOperationsCancel.decode(body).ids))
         case .policyPreview(let name):
             try Self.requireJSONBody(md)
             guard case .netPolicy(_, let edit) = try WebAction.decode(Self.withAction("net-policy", sandbox: name, body)) else {

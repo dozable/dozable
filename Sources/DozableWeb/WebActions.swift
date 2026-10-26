@@ -379,13 +379,30 @@ public enum WebAction: Equatable, Sendable {
 
     public static var actionNames: [String] { fields.keys.sorted() }
 
+    /// 650: `POST /api/v1/actions`'s body — the action, and the envelope's `batch` (true from the page's bulk controls:
+    /// such an operation waits behind a person's own; any action may carry it, and it is the only field beside the
+    /// action's own).
+    public struct Request: Equatable, Sendable {
+        public var action: WebAction
+        public var batch: Bool
+    }
+
+    public static func decodeRequest(_ body: Data) throws -> Request { try decode(body, allowBatch: true) }
+
     /// Decode a request body. Throws `Invalid` with a fixed message (the value is never echoed).
-    public static func decode(_ body: Data) throws -> WebAction {
+    public static func decode(_ body: Data) throws -> WebAction { try decode(body, allowBatch: false).action }
+
+    private static func decode(_ body: Data, allowBatch: Bool) throws -> Request {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw Invalid("the body must be a JSON object")
         }
         guard let verb = d["action"] as? String, let allowed = fields[verb] else { throw Invalid("unknown action") }
-        let extra = Set(d.keys).subtracting(allowed).subtracting(["action"])
+        var batch = false
+        if allowBatch, let v = d["batch"] {
+            guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw Invalid("batch: true or false") }
+            batch = b
+        }
+        let extra = Set(d.keys).subtracting(allowed).subtracting(allowBatch ? ["action", "batch"] : ["action"])
         guard extra.isEmpty else { throw Invalid("unexpected field(s) for \(verb): \(extra.sorted().joined(separator: ", "))") }
         let f = Fields(d)
         let a: WebAction
@@ -544,7 +561,7 @@ public enum WebAction: Equatable, Sendable {
         if let target = a.confirmationTarget {
             guard let c = d["confirm"] as? String, c == target else { throw Invalid("\(verb) is destructive: confirm it (the name)") }
         }
-        return a
+        return Request(action: a, batch: batch)
     }
 
     /// Typed field readers — each enforces the rule the CLI or the library would.
@@ -800,6 +817,40 @@ public struct WebOperation: Codable, Equatable, Sendable {
     /// (StepWording), the one under way with when it began, and a short live tail of its output — what the sandbox
     /// page's progress panel draws in the terminal area until the session is there.
     public var progress: WebOpProgress? = nil
+    /// 650: accepted and waiting its turn (`state` stays "running" — under way, to every page): nothing was sent to the
+    /// host yet. `position`: its place in its lane, 1 = next.
+    public var queued: Bool? = nil
+    public var position: Int? = nil
+}
+
+/// 650: `POST /api/v1/operations/cancel` — strictly `{ids: [String]}`, 1–256 operation ids, each once. Not an action:
+/// it sends nothing to the host (it withdraws what was not sent yet).
+public struct WebOperationsCancel: Equatable, Sendable {
+    public var ids: [String]
+
+    public static func decode(_ body: Data) throws -> WebOperationsCancel {
+        guard let d = (try? JSONSerialization.jsonObject(with: body)) as? [String: Any], Set(d.keys) == ["ids"] else {
+            throw WebAction.Invalid("the body is {ids}")
+        }
+        guard let a = d["ids"] as? [Any], (1...WebOperations.maxQueued).contains(a.count) else {
+            throw WebAction.Invalid("ids: a list of 1–\(WebOperations.maxQueued) operation ids")
+        }
+        var out: [String] = []
+        for x in a {
+            guard let s = x as? String, (1...64).contains(s.count),
+                  s.allSatisfy({ $0.isASCII && ($0.isLetter || $0.isNumber || $0 == "-" || $0 == "_") }), !out.contains(s) else {
+                throw WebAction.Invalid("ids: operation ids as Operations lists them, each once")
+            }
+            out.append(s)
+        }
+        return WebOperationsCancel(ids: out)
+    }
+}
+
+/// 650: what a cancel did — the ids withdrawn, and those that were not waiting (running, ended or unknown: unchanged).
+public struct WebOperationsCancelled: Codable, Equatable, Sendable {
+    public var cancelled: [String]
+    public var notQueued: [String]
 }
 
 public struct WebOpProgress: Codable, Equatable, Sendable {
