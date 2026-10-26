@@ -1,8 +1,8 @@
 // views/operations — Operations (593): its own page, and the nav badge.
 import { $, h } from '../dom/h.js';
-import { busyMark, icon, isWaitStep, OP_GLYPH } from '../dom/icons.js';
+import { busyMark, icon, isWaitStep, OP_GLYPH, QUEUED_GLYPH } from '../dom/icons.js';
 import { clock, ms } from '../core/format.js';
-import { act, opEnded, prepRunning } from '../core/operations.js';
+import { act, cancelOps, opEnded, prepRunning } from '../core/operations.js';
 import { state } from '../core/state.js';
 import { panel, table } from '../components/blocks.js';
 import { btn } from '../components/button.js';
@@ -13,7 +13,8 @@ export function renderOps() {
   const badge = $('ops-badge');
   badge.hidden = running === 0;
   badge.replaceChildren(h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), String(running));
-  badge.title = running + ' running';
+  const queued = [...state.ops.values()].filter((o) => o.state === 'running' && o.queued).length;     // 650: counted, and said
+  badge.title = queued ? (running - queued) + ' running · ' + queued + ' queued' : running + ' running';
   if (state.view === 'operations') state.opsSeenAt = Date.now();
   const unseen = [...state.ops.values()].some((o) => o.state === 'failed' && opEnded(o) > state.opsSeenAt);
   $('ops-alert').hidden = !unseen;
@@ -43,19 +44,25 @@ export function renderOperations() {
   filter.addEventListener('change', () => { state.opsFilter = filter.value; renderOperations(); });
   const list = all.filter((o) => !state.opsFilter || o.sandbox === state.opsFilter);
   const rows = list.map((o) => {
-    const secs = o.state === 'running' ? Math.max(0, Math.round((Date.now() - new Date(o.startedAt).getTime()) / 1000)) + ' s' : (o.milliseconds ? ms(o.milliseconds) : '—');
-    return h('tr', { class: 'op-row op-' + o.state, 'data-op': o.id },
-      h('td', null, o.state === 'running' ? busyMark(isWaitStep(o.text)) : h('span', { class: 'op-state', title: o.state }, o.state === 'done' ? '✓' : o.state === 'interrupted' ? '–' : '✕')),
+    // 650: a queued one has not started — no time of its own yet; its mark waits, and it may be cancelled.
+    const queued = o.state === 'running' && o.queued;
+    const secs = queued ? '—' : o.state === 'running' ? Math.max(0, Math.round((Date.now() - new Date(o.startedAt).getTime()) / 1000)) + ' s' : (o.milliseconds ? ms(o.milliseconds) : '—');
+    return h('tr', { class: 'op-row op-' + (queued ? 'queued' : o.state), 'data-op': o.id },
+      h('td', null, queued ? h('span', { class: 'wait-mark', title: 'queued' }, icon(QUEUED_GLYPH))
+        : o.state === 'running' ? busyMark(isWaitStep(o.text)) : h('span', { class: 'op-state', title: o.state }, o.state === 'done' ? '✓' : o.state === 'interrupted' ? '–' : '✕')),
       h('td', { class: 'op-action' }, OP_GLYPH[o.action] ? icon(OP_GLYPH[o.action]) : null, o.action), h('td', null, o.sandbox ? h('a', { href: '#/sandbox/' + o.sandbox }, o.sandbox) : '—'),
       h('td', null, clock(o.startedAt)), h('td', { class: 'num' }, secs),
       // 594 W22: an operation of several parts (Restart host) lists each finished one.
-      h('td', { class: 'op-text' }, o.text, o.lines && o.lines.length ? h('ul', { class: 'op-lines' }, o.lines.map((l) => h('li', null, l))) : null));
+      h('td', { class: 'op-text' }, o.text, o.lines && o.lines.length ? h('ul', { class: 'op-lines' }, o.lines.map((l) => h('li', null, l))) : null,
+        queued ? btn('Cancel', () => cancelOps([o.id]), { small: true, quiet: true, title: 'Withdraw it — nothing was done yet' }) : null));
   });
+  const waiting = all.filter((o) => o.state === 'running' && o.queued).map((o) => o.id);
   // (replaceChildren writes a null as the text "null" — h() skips it, replaceChildren does not.)
   box.replaceChildren(h('h1', null, 'Operations'),
     ...(state.preps.length ? [preparationsSection()] : []),
     h('p', { class: 'sub' }, 'What this UI asked the host to do, newest first: live progress while it runs, then its result. A failure also raises a message.'),
-    h('div', { class: 'toolbar' }, filter, list.length + ' of ' + all.length),
+    h('div', { class: 'toolbar' }, filter, list.length + ' of ' + all.length,
+      waiting.length ? btn('Cancel ' + waiting.length + ' queued', () => cancelOps(waiting), { small: true, quiet: true, icon: 'x', title: 'Withdraw every operation still waiting its turn' }) : null),
     panel(table(['', 'Action', 'Sandbox', 'Started', 'Took', 'Progress / result'], rows, [4]), 'Nothing yet — actions you take show here.'));
 }
 function preparationsSection() {

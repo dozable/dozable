@@ -1,11 +1,11 @@
 // views/overview — Sandboxes (the overview).
 import { upcall } from '../core/hooks.js';
 import { h } from '../dom/h.js';
-import { icon, mark } from '../dom/icons.js';
+import { icon, mark, QUEUED_GLYPH } from '../dom/icons.js';
 import { tildePath } from '../core/paths.js';
 import { api } from '../core/api.js';
 import { bytes, mib } from '../core/format.js';
-import { act } from '../core/operations.js';
+import { act, cancelOps } from '../core/operations.js';
 import { opRunningFor, PRIMARY_VERB, VERBS, verbsFor } from '../core/sandboxes.js';
 import { setting } from '../core/settings.js';
 import { state } from '../core/state.js';
@@ -30,6 +30,8 @@ const refresh = upcall('refresh');
 const OV = { root: null, top: null, listHead: null, bulk: null, thead: null, tbody: null, list: [], strips: new Map() };
 /// 642 (owner): the sandboxes ticked in the left margin, for the bulk controls (this page only).
 const SEL = new Set();
+/// 650: the operations the bulk controls started (each marked `batch`: it waits behind a person's own).
+const BATCH = new Set();
 
 // ── views ───────────────────────────────────────────────────────────────────
 export async function viewOverview() {
@@ -269,14 +271,20 @@ function bulkBar() {
     el.dataset.ovBulk = b.key;
     return el;
   });
+  // 650: what of the batches started here still waits its turn — said, with one Cancel for them all.
+  const waiting = [...BATCH].map((id) => state.ops.get(id)).filter((o) => o && o.state === 'running' && o.queued);
+  for (const id of [...BATCH]) { const o = state.ops.get(id); if (!o || o.state !== 'running') BATCH.delete(id); }
   return h('div', { class: 'ov-bulk', 'data-ov-bulk-bar': '' },
     h('span', { class: 'ob-what' }, n ? n + ' selected' : 'All ' + OV.list.length + ' sandboxes'),
     n ? h('button', { type: 'button', class: 'btn sm quiet', on: { click: () => { SEL.clear(); repaintSelection(); } } }, 'Clear') : null,
     h('span', { class: 'btn-group', role: 'group', 'aria-label': n ? 'For the selected sandboxes' : 'For every sandbox' }, buttons.slice(0, 4)),
+    waiting.length ? h('span', { class: 'ob-queued', 'data-ov-queued': String(waiting.length) },
+      h('span', { class: 'wait-mark', 'aria-hidden': 'true' }, icon(QUEUED_GLYPH)), waiting.length + ' queued',
+      btn('Cancel all', () => cancelOps(waiting.map((o) => o.id)), { small: true, quiet: true, title: 'Withdraw every one still waiting — nothing was done for them yet' })) : null,
     buttons[4]);
 }
 function runBulk(b, jobs) {
-  const go = () => Promise.all(jobs.map(([name, verb]) => act({ action: verb, sandbox: name })));
+  const go = () => Promise.all(jobs.map(([name, verb]) => act({ action: verb, sandbox: name, batch: true }).then((op) => { if (op) BATCH.add(op.id); }))).then(() => repaintSelection());
   if (!b.danger) { go(); return; }
   dialog('Shut down ' + jobs.length + ' sandbox' + (jobs.length === 1 ? '' : 'es') + '?', 'Running programs end in ' + jobs.map(([x]) => x).join(', ')
     + '; each disk is kept. Start cold-boots the same disk.', [], 'Shut down', async () => { await go(); }, { danger: true });

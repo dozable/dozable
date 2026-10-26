@@ -345,6 +345,8 @@ public enum SettingKey {
     public static let gridTileSize = "ui.grid_tile_size"
     /// 648: how often the painted session pictures are brought up to date.
     public static let gridRefreshMs = "ui.grid_refresh_ms"
+    /// 650: how many lifecycle operations (start, wake, sleep …) the dashboard runs at once; the rest wait their turn.
+    public static let batchConcurrency = "ui.batch_concurrency"
     public static let progress = "ui.progress"
     /// 637: colour in the CLI — auto, always, never.
     public static let color = "ui.color"
@@ -533,6 +535,11 @@ public struct DozableSettings: Sendable {
             // 648 (owner: "keep at 500ms but make it a setting"): the one feed's period and Home's tab poll.
             .init("ui", "grid_refresh_ms", .int(200...10_000), .int(500),
                   "How often the session pictures (All sessions, All sandboxes, a sandbox's Home) are brought up to date, in milliseconds. Only pictures on screen are asked for, only while the browser tab is shown, and a screen that did not change costs almost nothing. Lower looks livelier and costs more.",
+                  applies: .now),
+            // 650 (owner: waking 12 at once made each slow, and past 8 the rest were refused): the dashboard's lifecycle
+            // lane. Part B measures the default.
+            .init("ui", "batch_concurrency", .int(1...8), .int(3),
+                  "How many starts, wakes, resumes, sleeps, hibernations and shut-downs the dashboard runs at once; the others wait their turn, shown as queued with a Cancel. One you start on a single sandbox (or by typing in its terminal) goes ahead of those started for many at once. A pause, and a resume from a pause, never wait. A change applies as soon as one ends.",
                   applies: .now),
             .init("ui", "progress", .choice(["animated", "plain"]), .string("animated"),
                   "How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a terminal: animated (a spinner on the step under way, download bars, the output's last lines) or plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR: always plain.",

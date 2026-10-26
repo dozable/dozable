@@ -46,6 +46,8 @@ public enum WebRoute: Equatable, Sendable {
     // phase 2 — actions (every one: exact Origin + X-Doz-CSRF + a JSON body)
     case actions                   // POST /api/v1/actions   ({"action": <closed enum>, …} → one HostOp)
     case operations                // GET  /api/v1/operations (the UI's recent operations)
+    // 650 — withdraw operations still QUEUED (CSRF; strict {ids}). Not an action: it sends no host operation.
+    case operationsCancel          // POST /api/v1/operations/cancel  ({ids: [id, …]} 1–256)
     case policyPreview(String)     // POST /api/v1/sandboxes/{name}/network/preview (changes nothing)
     case terminal(String)          // POST /api/v1/sandboxes/{name}/terminal (Terminal.app, fixed script)
     // 591 — browser terminals (591.01-DESIGN.md §4): a one-use ticket, then the socket it opens.
@@ -178,6 +180,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.delete, 1) where rest[0] == "session": return .sessionEnd
         case (.post, 2) where rest == ["session", "renew"]: return .sessionRenew
         case (.post, 1) where rest[0] == "actions": return .actions
+        case (.post, 2) where rest == ["operations", "cancel"]: return .operationsCancel
         case (.post, 1) where rest[0] == "settings": return .settingsChange
         case (.post, 2) where rest == ["onboarding", "config"]: return .onboardingConfig
         case (.post, 1) where rest[0] == "accounts": return .accountAdd

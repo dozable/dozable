@@ -130,6 +130,13 @@
 # (integer 200–10000; applies at once (the UI re-reads it))
 # grid_refresh_ms = 500
 
+# How many starts, wakes, resumes, sleeps, hibernations and shut-downs the dashboard runs at once;
+# the others wait their turn, shown as queued with a Cancel. One you start on a single sandbox (or
+# by typing in its terminal) goes ahead of those started for many at once. A pause, and a resume
+# from a pause, never wait. A change applies as soon as one ends.
+# (integer 1–8; applies at once (the UI re-reads it))
+# batch_concurrency = 3
+
 # How a start, wake or bake shows its progress — in the web UI's boot view and in the CLI on a
 # terminal: animated (a spinner on the step under way, download bars, the output's last lines) or
 # plain (one line per step, and a summary line per download). Not a terminal, --json or NO_COLOR:

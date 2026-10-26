@@ -49,7 +49,8 @@ public enum WebExposure {
              .onboarding, .preparations, .resources, .bases, .access, .tryCatalog, .tryList, .models, .files, .filesWatch, .filesTree,
              .grids:                    // 648: a read (POST only because it carries the pictures asked)
             return .read
-        case .actions, .policyPreview, .terminalTicket, .terminalSocket, .settingsChange, .terminalLayoutSet, .filesTreeSet, .onboardingConfig,
+        case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are
+             .terminalSocket, .settingsChange, .terminalLayoutSet, .filesTreeSet, .onboardingConfig,
              .workspaceCheck, .quickAdd, .plan, .projectOpen, .projectPreview, .projectWrite, .resourcesPreview, .accessCheck, .signup, .updatesCheck:
             return .change
         case .accountAdd, .sandboxKey, .accessGithubKey:

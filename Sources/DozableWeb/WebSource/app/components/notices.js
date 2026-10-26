@@ -1,8 +1,10 @@
 // components/notices — Notices: toasts (successes), the page notices, a sandbox's status line — a failure is never only a toast (603).
 // 647: toasts, page notices and banners are the header's notes (components/notes.js), shown the way ui.notifications says.
 import { h } from '../dom/h.js';
-import { opEnded } from '../core/operations.js';
+import { icon, QUEUED_GLYPH } from '../dom/icons.js';
+import { cancelOps, opEnded } from '../core/operations.js';
 import { state } from '../core/state.js';
+import { btn } from './button.js';
 import { callout } from './callout.js';
 import { addNote, dropNote } from './notes.js';
 import { paintStartProgress } from './start-progress.js';
@@ -84,15 +86,18 @@ export function paintRowOps() {
     const name = el.dataset.opFor;
     const ops = [...state.ops.values()].filter((o) => o.sandbox === name);
     // While something runs, the OLDEST running operation (a start that others wait behind) — its
-    // steps are the news; otherwise the newest outcome.
+    // steps are the news; otherwise the newest outcome. 650: one under way for real before one still queued.
     const running = ops.filter((o) => o.state === 'running');
-    let o = running.length ? running[0] : ops[ops.length - 1];
+    const live = running.filter((o) => !o.queued);
+    let o = live.length ? live[0] : running.length ? running[0] : ops[ops.length - 1];
     const fail = state.sbxFail.get(name);
     const oAt = o ? opEnded(o) : 0;
     let kind = 'none', text = '';
-    if (o && o.state === 'running') {
+    const more = running.length > 1 ? ' · then ' + running.filter((x) => x !== o).map((x) => x.action).join(', ') : '';
+    if (o && o.state === 'running' && o.queued) {
+      kind = 'queued'; text = o.action + ' · ' + o.text + more;      // "wake · queued — 2 ahead", and a Cancel
+    } else if (o && o.state === 'running') {
       const secs = Math.max(0, Math.round((Date.now() - new Date(o.startedAt).getTime()) / 1000));
-      const more = running.length > 1 ? ' · then ' + running.slice(1).map((x) => x.action).join(', ') : '';
       kind = 'running'; text = o.action + ' · ' + secs + ' s — ' + o.text + more;
     } else if (fail && (!o || fail.at >= oAt)) {
       kind = 'failed'; text = fail.text; o = null;
@@ -106,12 +111,20 @@ export function paintRowOps() {
     // 617 (owner): on the sandbox's own page, while the build panel shows the start, the slot says nothing more about
     // it (the panel is the progress). A failure and the "off → running in N s" result still show here; a row on the
     // Sandboxes page keeps its running line (no panel there).
-    if (kind === 'running' && el.dataset.banner && [...document.querySelectorAll('[data-start-progress]')].some((p) => p.dataset.startProgress === name)) {
+    if ((kind === 'running' || kind === 'queued') && el.dataset.banner && [...document.querySelectorAll('[data-start-progress]')].some((p) => p.dataset.startProgress === name)) {
       kind = 'none'; text = '';
     }
-    const key = kind + '|' + text;
+    const key = kind + '|' + text + (kind === 'queued' ? '|' + o.id : '');
     if (el.dataset.painted === key) continue;
     el.dataset.painted = key;
+    // 650: a queued operation — the waiting mark, where it stands, and a quiet Cancel (nothing was sent for it yet).
+    if (kind === 'queued') {
+      const id = o.id;
+      el.className = (el.dataset.banner ? 'op-banner' : 'row-op') + ' op-queued';
+      el.replaceChildren(h('span', { class: 'wait-mark', 'aria-hidden': 'true' }, icon(QUEUED_GLYPH)), h('span', { class: 'op-text' }, text),
+        btn('Cancel', () => cancelOps([id]), { small: true, quiet: true, title: 'Withdraw it — nothing was done yet' }));
+      continue;
+    }
     if (!el.dataset.banner) {
       el.textContent = kind === 'none' ? '' : (kind === 'running' ? '… ' : kind === 'done' ? '✓ ' : kind === 'interrupted' ? '– ' : '✕ ') + text;
       el.className = 'row-op' + (kind === 'none' ? ' empty-op' : ' op-' + kind);
