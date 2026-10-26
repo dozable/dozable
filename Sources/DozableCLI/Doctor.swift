@@ -111,6 +111,11 @@ struct Doctor: AsyncParsableCommand {
         let recipeLine = RecipeCatalogueSelection.describe(version: DozableCommand.version)
         out.append(DoctorCheck(check: "recipes", status: recipeLine.contains("last problem:") ? .warn : .ok,
                                detail: String(recipeLine.dropFirst("recipes: ".count))))
+        // 653: yours and the community catalogues' (a line of its own — the one above stays Dozable's).
+        if let x = RecipeExtras.describe() {
+            let waits = RecipeExtrasPaths.at().map(RecipeExtras.pending) == true ? " · a change waits for the next host start (doz host restart)" : ""
+            out.append(DoctorCheck(check: "recipes, not Dozable's", status: x.contains(" refused: ") ? .warn : .ok, detail: x + waits))
+        }
         // 594 W28: an agent image an older doz made, or a newer agent release — said, never rebuilt by itself.
         let settings = DozableSettings.load()
         for image in ["claude-code", "pi", "codex"] {

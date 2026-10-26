@@ -31,6 +31,7 @@ both.
 | [Trying agents, and what Dozable supports](26-try-and-search.md) | try an agent in one command (`doz try`), check what Dozable runs (`doz search`), see a plan before anything is made (`--dry-run`) |
 | [More agents](27-more-agents.md) | run Antigravity CLI, Grok Build or Gemini CLI with an API key — what each may reach, what is kept out, whether it is current |
 | [Other AI tools](28-ai-tools.md) | AI tools that are not coding agents (Fabric, …) — tried like an agent, each on an API key |
+| [Your own recipes, and community catalogues](30-your-own-recipes.md) | write a recipe of your own (`doz recipe new`), check it against the minimum requirements for a community recipe — for real with `--full` — and add catalogues others publish, by their URL and key |
 | [Codex](24-codex.md) | run OpenAI's Codex on your ChatGPT plan (Dozable's own sign-in) or an OpenAI key — the token never enters the sandbox |
 | [Web ports](29-web-ports.md) | open a web page a tool serves in a sandbox (a playground, your dev server) in your Mac's browser — `doz ports`, `doz open` |
 | [Signing in from a sandbox](11-signing-in-from-a-sandbox.md) | let a tool in a sandbox sign in through your Mac's browser |

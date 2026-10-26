@@ -33,6 +33,9 @@ struct QuickMake {
     /// and open its session.
     func make(_ planned: CreatePlan, rebuild: Bool) async throws -> QuickMade {
         var o = planned.create
+        // 653: a recipe that is not Dozable's — said (yours) or asked once per version (a community one) BEFORE its image
+        // is prepared below (the bake runs its install).
+        try confirmRecipeTrust(image: planned.image, g)
         // --rebuild: an out-of-date image is rebuilt first (a quick make asks nothing, so without it the current image is used).
         if rebuild { o.rebuild = true }
         // 617 (owner, 2026-10-15): what the person meets at the first start that Dozable leaves to them — said first.

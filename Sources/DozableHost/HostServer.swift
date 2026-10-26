@@ -105,6 +105,8 @@ public final class HostServer: @unchecked Sendable {
                      + (recipes?.promoted == true ? " — the catalogue downloaded earlier, applied now" : "")
                      + (recipes?.notLooked.map { " (\($0))" } ?? ""))
         if let p = recipes?.problem { HostLog.line(p) }
+        // 653: the recipes that are not Dozable's (yours, the community catalogues) — chosen at this start too.
+        if let x = RecipeExtras.describe() { HostLog.line("recipes not Dozable's: \(x)") }
         await server.core.load()
         do {
             server.listenFD = try UnixSocket.listen(store.socket.path)
@@ -146,6 +148,16 @@ public final class HostServer: @unchecked Sendable {
                     server.recipeCatalogueWaiting = true
                 case .refused(let why, let reportNow): if reportNow { HostLog.line(why) }
                 default: break
+                }
+                // 653: and each community catalogue you added — it too applies at the next start.
+                for (name, o) in await CommunityRefresh.refreshAll(version: version) {
+                    switch o {
+                    case .downloaded(let serial):
+                        HostLog.line("community recipes \(name): catalogue \(serial) downloaded and verified — it applies at the next host start")
+                        server.recipeCatalogueWaiting = true
+                    case .refused(let why, let reportNow): if reportNow { HostLog.line("community recipes \(name): \(why)") }
+                    default: break
+                    }
                 }
                 try? await Task.sleep(for: .seconds(RecipeCatalogueRefresh.interval))
             }

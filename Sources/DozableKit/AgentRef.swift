@@ -126,7 +126,7 @@ public struct AgentRef: Equatable, Sendable {
             }
             r = base
         }
-        if AgentRecipe.pinnedOnlyKinds.contains(r.install.kind), q != r.install.pinned.version {
+        if r.isPinnedOnly, q != r.install.pinned.version {
             throw Problem(description: "\(r.title) is installed at the release its recipe pins (\(r.install.pinned.version)) — not \(q)")
         }
         return AgentRef(recipe: r, exact: q, name: shown, qualifier: q)

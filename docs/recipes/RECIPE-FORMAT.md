@@ -16,7 +16,8 @@ list, Kit's own capability types where Kit has one, and Dozable's additions kept
 
 **Contents:** [an example](#an-example) · [the top level](#the-top-level) · [capabilities](#capabilities) ·
 [templating](#templating) · [strictness](#strictness) · [versioning](#versioning) ·
-[Kit v3, and exporting to it](#kit-v3-and-exporting-to-it) · [adding a recipe](#adding-a-recipe)
+[Kit v3, and exporting to it](#kit-v3-and-exporting-to-it) · [adding a recipe](#adding-a-recipe) ·
+[your own recipes and community catalogues](#your-own-recipes-and-community-catalogues)
 
 ## An example
 
@@ -557,3 +558,59 @@ It exits non-zero when any step fails and writes a JSON report (`RECIPE_REPORT`,
 failures. The **Recipes** workflow (`.github/workflows/recipes.yml`) runs it on a self-hosted Mac for every change to
 a recipe, the stand-in or the harness, and every night for all of them with `make agent-currency` and
 `make profile-agents DIFF=1`.
+
+## Your own recipes and community catalogues
+
+The same format serves recipes that are not Dozable's: a person's own (`<settings dir>/recipes/mine/ID.yaml`, made with
+`doz recipe new` or `doz recipe add FILE`) and the recipes of a **community catalogue** (added by its URL and its
+publisher's Ed25519 key with `doz recipe source add`, the key's fingerprint confirmed before anything is fetched). The
+user manual's "Your own recipes, and community catalogues" walks through both; this section is the contract.
+
+**Origins.** Every recipe has one — Dozable's, yours, or a community source's — shown with it everywhere ("yours",
+"community · NAME"). It is not part of the file: the same YAML is Dozable's in this tree and yours in your settings
+folder. A recipe that is not Dozable's:
+
+- may never use an id or alias of Dozable's set (the embedded recipes or Dozable's signed catalogue) — it is refused,
+  never used to shadow Dozable's; a community source offering an id already taken (by yours, or by a source added
+  earlier) is refused whole;
+- installs exactly its pinned release (`latest` means the pin; nothing is looked up), wears no mark from the icon
+  registry (a lettermark is drawn), and is never counted in usage statistics;
+- is kept, unpublished, when it is removed, so the sandboxes made from it keep working — and its id stays theirs.
+
+**The minimum requirements for a community recipe** (`CommunityRequirements` in DozableKit — a closed list; every
+recipe that is not Dozable's must meet all of them to be used; `doz recipe check` prints them item by item):
+
+| id | requirement |
+|---|---|
+| `document` | a schema 2 recipe, read strictly (this page's [strictness](#strictness)) |
+| `validators` | every rule Dozable's own recipes pass — its own, and among all recipes (ids, aliases, model permissions, families) |
+| `not-dozable` | its id and aliases are none of Dozable's |
+| `not-builtin` | not a built-in agent (`install@1` `builtin` is Dozable's own installer) |
+| `about` | `author`, `sourceUrl` (https), `licenses` and `description` filled in — none empty, none `TODO` |
+| `plain-text` | no control (C0, DEL, C1) or bidirectional-control character in any string; `displayName` ≤ 60 characters, `description` ≤ 300, `author` ≤ 80 |
+| `pinned` | an exact version (never `latest`), an `integrity`, every `extras` entry with its sha256 |
+| `guide` | a `guide@1` and a `launch@1.check` |
+| `no-credential` | no variable the recipe sets is a credential's name; no key-shaped value anywhere in it |
+| `no-quiet` | no `dozable.quiet` hosts (a refusal hidden from the person); `excluded` only narrows and is allowed |
+| `reach-shown` | no `dozable.vendor` hosts (a hidden permission): what it reaches is its model and update hosts, shown in the plan |
+| `no-mark` | no `directory@1` `icon` |
+| `no-family` | no `family@1` |
+
+**The full check** (`doz recipe check ID --full`) is `make recipe-check`'s core, run by an installed `doz` (it cannot
+assume Python): this executable as child processes in a scratch store under the guarded test environment, fake keys,
+and a Swift stand-in model provider (`StandInProvider`: xAI, Google, Anthropic, OpenAI and the two gateways, over TLS
+with a throwaway CA) behind the existing provider seams. It builds the image at its pin, takes a fresh Locked try,
+reads its first screen, runs `verify` (before and after the turn), the check turn (the stand-in must see the fake key,
+swapped in by the proxy), the guide's later steps, and checks the guest for keys and the leak guard. It does not
+check OSC 7501 states, web ports, model sources other than the default, tool-call-only answers, Google Stitch or OpenCode
+Zen — those stay `make recipe-check`'s. A pass is recorded with the sha256 of the bytes that passed.
+
+**A community catalogue** is the [recipe catalogue](../DOZABLEKIT.md) format (`format: 1`, the same signed message
+prefix) with `"product": "doz-community-recipes"` and ONLY `agents/<id>.json` files (each a compiled recipe — `doz recipe
+show FILE --document`); no providers, gateways, tags, known entries or icons (those stay Dozable's). It is signed with
+its publisher's own Ed25519 key — never Dozable's (refused as a source key). `minimum_doz` is honoured; `source_version`
+is informational. A doz verifies the signature with the key the person confirmed, checks every file's sha256 and size,
+and uses it whole or not at all. To publish one: `swift Scripts/update-key.swift community-key FILE` once (it prints the
+public key and its fingerprint), then `make publish-recipes COMMUNITY=1 RECIPES_DIR=<your YAML> UPDATE_KEY_FILE=FILE
+UPDATES_DIR=<your site>` — it compiles, signs, has `doz recipe source verify` accept it, and only then writes
+`v1/recipes.json` and `v1/recipes/<serial>/` (never pushed without `PUSH=1`).

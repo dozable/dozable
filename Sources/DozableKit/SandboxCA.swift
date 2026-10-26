@@ -107,6 +107,32 @@ public final class SandboxCA: @unchecked Sendable {
         return (pem, leafKey.pemRepresentation)
     }
 
+    /// 653: ONE leaf naming every host in `hosts` (the stand-in provider of `doz recipe check --full` answers for several
+    /// providers on one port), valid 1 hour back to 2 days ahead. Never cached.
+    public func leaf(forHosts hosts: [String], now: Date = Date()) throws -> (certificatePEM: String, keyPEM: String) {
+        let leafKey = P256.Signing.PrivateKey()
+        let names: [GeneralName] = hosts.map { h in
+            IPv4CIDR.parseAddress(h) != nil ? .ipAddress(ASN1OctetStringShim.bytes(h)) : .dnsName(h.lowercased())
+        }
+        let caKeyID = (try? certificate.extensions.subjectKeyIdentifier)??.keyIdentifier
+            ?? SubjectKeyIdentifier(hash: certificate.publicKey).keyIdentifier
+        let cert = try Certificate(
+            version: .v3, serialNumber: Certificate.SerialNumber(),
+            publicKey: Certificate.PublicKey(leafKey.publicKey),
+            notValidBefore: now.addingTimeInterval(-3600), notValidAfter: now.addingTimeInterval(2 * 86400),
+            issuer: certificate.subject,
+            subject: try DistinguishedName { CommonName(hosts.first?.lowercased() ?? "stand-in") },
+            extensions: try Certificate.Extensions {
+                Critical(BasicConstraints.notCertificateAuthority)
+                Critical(KeyUsage(digitalSignature: true))
+                try ExtendedKeyUsage([.serverAuth])
+                SubjectAlternativeNames(names)
+                AuthorityKeyIdentifier(keyIdentifier: caKeyID)
+            },
+            issuerPrivateKey: Certificate.PrivateKey(key))
+        return (try cert.serializeAsPEM().pemString, leafKey.pemRepresentation)
+    }
+
     static func der(_ c: Certificate) throws -> [UInt8] {
         let pem = try c.serializeAsPEM().pemString
         let b64 = pem.split(separator: "\n").filter { !$0.hasPrefix("-----") }.joined()

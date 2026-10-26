@@ -28,6 +28,7 @@ import { startQuickMade } from './quick-make.js';
 import { planCommand, reachList } from '../components/plan-view.js';
 import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source.js';
 import { prepCard } from '../components/prep-card.js';
+import { recipeWhoseNodes, sourcePill } from '../components/source-pill.js';
 
 const AGENT_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const VIEW_KEY = 'doz.tryView';
@@ -248,7 +249,8 @@ function resultItem(a) {
   const b = h('button', { type: 'button', role: 'option', class: 'qt-item' + (a.current === false ? ' superseded' : '') + (a.kind === 'coming' ? ' coming' : ''),
     'aria-selected': String(sel), tabindex: sel ? '0' : '-1', 'data-try-agent': a.id, ...(a.kind === 'coming' ? { 'data-try-coming': a.id } : {}) },
     mark(a.icon),
-    h('span', { class: 'tp' }, h('span', { class: 't' }, a.title), h('span', { class: 'p' }, a.publisher)),
+    // 653: a recipe that is not Dozable's says whose it is, on its card.
+    h('span', { class: 'tp' }, h('span', { class: 't' }, a.title, sourcePill(a.origin)), h('span', { class: 'p' }, a.publisher)),
     h('span', { class: 'v' }, sub),
     a.ready ? h('span', { class: 'ready', title: 'Its key is here: ready to start' }, icon('circle-check')) : h('span', { class: 'ready-gap' }));
   b.addEventListener('click', () => select(a.id, { detail: true }));
@@ -364,7 +366,7 @@ function detailNodes() {
   }
   if (!a) return [back, h('div', { class: 'qt-empty' }, h('p', null, 'Nothing selected.'))];
   const head = h('div', { class: 'qt-head' }, mark(a.icon, 'lg'),
-    h('div', null, h('h2', { 'data-try-title': '' }, a.title), h('div', { class: 'p' }, a.publisher + (a.kind === 'agent' ? ' · ' + (a.openSource ? 'open source' : 'closed source') : ''))));
+    h('div', null, h('h2', { 'data-try-title': '' }, a.title, sourcePill(a.origin)), h('div', { class: 'p' }, a.publisher + (a.kind === 'agent' ? ' · ' + (a.openSource ? 'open source' : 'closed source') : ''))));
   if (a.kind === 'coming') {
     return [back, head, callout('info', { body: 'Coming — ' + a.reason }),
       h('p', { class: 'muted' }, 'Dozable cannot run it yet. ', h('code', null, 'doz search ' + a.id), ' says when that changes.')];
@@ -397,6 +399,7 @@ function detailNodes() {
     a.description ? h('p', { class: 'qt-desc', 'data-try-description': '' }, a.description) : null,
     standing,
     sect('Versions', versions),
+    shown.plan && shown.plan.recipe ? sect('Whose recipe', ...recipeWhoseNodes(shown.plan.recipe)) : null,    // 653
     sect('What it can reach', shown.plan ? reachList(shown.plan.reach) : planning('what it can reach')),
     sect('The same, in a terminal', shown.plan ? planCommand(shown.plan) : planning('its command')),
     h('div', { class: 'qt-foot' }, h('span', { class: 'qt-gap' }), h('span', { class: 'qt-note' }, 'Enter'), tryBtn)].filter(Boolean);   // (replaceChildren writes a null as "null")
@@ -609,6 +612,8 @@ function paintSetup() {
     h('div', { class: 'dlg-head' }, mark(a.icon), h('h2', { class: 'h-title', id: 'try-setup-title' }, 'Try ' + nameOf(a)), close),
     h('div', { class: 'dlg-body' },
       h('p', { class: 'sub' }, 'A fresh sandbox, ' + plan.name + ': a new empty folder of its own, a network for its model, packages and GitHub only, your key never inside.'),
+      // 653: whose recipe it is when not Dozable's — and what its bake installs and reaches — first, before anything is chosen.
+      ...(plan.recipe ? [sect('Whose recipe', ...recipeWhoseNodes(plan.recipe))] : []),
       ...(familyOf(a).length > 1 ? [sect('Version', ...versionNodes(a))] : []),
       ...(plan.model && plan.model.offered && plan.model.offered.length ? sourceSections(a, plan, missing) : keyOnly(a) ? oneSourceSection(a, plan, missing) : [sect('Key', ...keyNodes(a, plan, missing))]),
       sect('Image', h('div', { class: 'try-prep', 'data-try-prep': '' }, ...prepNodes({ ...a, plan }))),

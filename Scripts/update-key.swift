@@ -14,6 +14,10 @@
 //   swift Scripts/update-key.swift verify-catalogue MESSAGE --signature B64 --public-key B64
 //   swift Scripts/update-key.swift test-key FILE     # a THROWAWAY keypair for tests: FILE holds the private key (base64),
 //                                                    # the public key is printed. Never the real key.
+//   swift Scripts/update-key.swift community-key FILE
+//                                                    # a COMMUNITY publisher's own key (never Dozable's): FILE (0600) holds
+//                                                    # the private key; the public key and its fingerprint are printed
+//   swift Scripts/update-key.swift public-of FILE    # the public key of a key file (base64)
 //
 // THE KEY. Dozable's own — never Deckosaurus's — and never rotated: every installed doz carries the public key compiled
 // in (`Distribution.updatePublicKey`, Sources/DozableHost/Updates.swift) and refuses an entry it did not sign. Losing the
@@ -159,6 +163,24 @@ case "test-key":
     guard FileManager.default.createFile(atPath: path, contents: Data((k.rawRepresentation.base64EncodedString() + "\n").utf8),
                                          attributes: [.posixPermissions: 0o600]) else { die("cannot write \(path)") }
     print(k.publicKey.rawRepresentation.base64EncodedString())
+case "community-key":
+    // 653: a community catalogue's publisher signs with a key of their own; a doz confirms its fingerprint before use.
+    guard let path = args.dropFirst().first else { die("community-key FILE") }
+    guard !FileManager.default.fileExists(atPath: path) else { die("\(path) exists — not overwritten") }
+    let k = Curve25519.Signing.PrivateKey()
+    guard FileManager.default.createFile(atPath: path, contents: Data((k.rawRepresentation.base64EncodedString() + "\n").utf8),
+                                         attributes: [.posixPermissions: 0o600]) else { die("cannot write \(path)") }
+    let raw = k.publicKey.rawRepresentation
+    let fp = "SHA256:" + Data(SHA256.hash(data: raw)).base64EncodedString().replacingOccurrences(of: "=", with: "")
+    print("""
+    public key:  \(raw.base64EncodedString())
+    fingerprint: \(fp)
+    The private key is in \(path) (0600) — keep it, and a backup, offline. Publish the public key and its fingerprint where
+    people can compare them (doz recipe source add URL --key KEY shows the fingerprint and asks).
+    """)
+case "public-of":
+    guard let path = args.dropFirst().first else { die("public-of FILE") }
+    print(fileKey(path).publicKey.rawRepresentation.base64EncodedString())
 case "sign-entry":
     let o = options(args.dropFirst())
     let key: Curve25519.Signing.PrivateKey
@@ -201,5 +223,5 @@ case "verify-entry":
           let pub = try? Curve25519.Signing.PublicKey(rawRepresentation: raw) else { die("--signature and --public-key (base64)") }
     if pub.isValidSignature(sig, for: entryMessage(o)) { print("valid") } else { print("INVALID"); exit(1) }
 default:
-    die("generate | public | export FILE | sign-entry … | verify-entry … | sign-catalogue FILE … | verify-catalogue FILE … | test-key FILE")
+    die("generate | public | export FILE | sign-entry … | verify-entry … | sign-catalogue FILE … | verify-catalogue FILE … | test-key FILE | community-key FILE | public-of FILE")
 }

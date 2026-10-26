@@ -213,7 +213,7 @@ public struct SettingDefinition: Sendable {
             return v
         case (.version, .string(let s)):
             // 617: a pinned-only recipe (pypi, release-binary) takes its own pin too, which may have two parts (llm 0.36).
-            let pin = AgentRecipes.all.first { !$0.isBuiltin && $0.versionSettingKey == key && AgentRecipe.pinnedOnlyKinds.contains($0.install.kind) }?.install.pinned.version
+            let pin = AgentRecipes.all.first { !$0.isBuiltin && $0.versionSettingKey == key && $0.isPinnedOnly }?.install.pinned.version
             guard s == "latest" || SettingType.isExactVersion(s) || s == pin else { throw SettingsError("\(key) is latest, or an exact version like 2.1.227") }
             return v
         case (.timeZone, .string(let s)):

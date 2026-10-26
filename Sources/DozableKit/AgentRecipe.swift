@@ -132,6 +132,9 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// person picks a tool and refused for a NEW sandbox by name (`AgentRef.resolve`). nil: published.
     public var published: Bool? = nil
     public var isPublished: Bool { published != false || AgentRecipes.everythingPublishedForTests }
+    /// 653: where it came from — Dozable's own (default), the person's own, or a community catalogue. NOT a coding key: a
+    /// recipe's JSON and every bake key stay as they were; the set it is adopted into sets it (`RecipeCatalogue.adoptExtras`).
+    public var origin: RecipeOrigin = .dozable
 
     public struct Family: Codable, Sendable, Equatable {
         /// What a person types (`opencode`): the recommended major's recipe.
@@ -254,6 +257,10 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
 
     /// 617: install kinds whose release is the recipe's pin only — nothing is looked up for them (`latest` is the pin).
     public static let pinnedOnlyKinds: Set<String> = ["pypi", "release-binary"]
+
+    /// Its release is its pin only (`latest` is the pin, nothing looked up): a pinned-only kind, or — 653 — any recipe
+    /// that is not Dozable's (the bytes that passed the community check are the bytes installed).
+    public var isPinnedOnly: Bool { Self.pinnedOnlyKinds.contains(install.kind) || !origin.isDozable }
 
     public struct Pin: Codable, Sendable, Equatable {
         public var version: String

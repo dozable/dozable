@@ -177,7 +177,7 @@ extension WebTryCatalog {
                           providerTitle: r.provider.flatMap { KeyProviders.provider($0)?.title },
                           base: BaseCatalogue.base(r.defaultBase)?.title, plan: p, card: card)
             // A pinned-only tool is never looked up: no "Its newest" line ("Dozable installs" already says its pin).
-            a.latest = AgentRecipe.pinnedOnlyKinds.contains(r.install.kind) && currency[r.id]?.latest == nil ? nil : currency[r.id]?.line
+            a.latest = r.isPinnedOnly && currency[r.id]?.latest == nil ? nil : currency[r.id]?.line
             if let l = r.lifecycle, !l.isCurrent { a.standing = l.note ?? l.status; a.supersededBy = l.by }
             a.icon = AgentIcons.resolve(r)
             a.aliases = (r.aliases ?? []).sorted()
@@ -196,6 +196,7 @@ extension WebTryCatalog {
             a.catalogKind = r.catalogKind
             a.categories = r.categories ?? []
             a.family = r.family.map(FamilyInfo.init)           // 618
+            a.origin = r.origin.title.map { Agent.Origin(kind: r.origin.kind, title: $0) }       // 653
             a.ref = AgentRef.typed(r)
             // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).

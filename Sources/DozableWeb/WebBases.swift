@@ -94,6 +94,8 @@ public struct WebBases: Codable, Equatable, Sendable {
         public var musl: Bool
         /// 618: the major it is of a family — the picker shows a family once, with a Version choice.
         public var family: WebTryCatalog.FamilyInfo? = nil
+        /// 653: whose recipe it is when not Dozable's — the chip's pill ("Yours", "Community · NAME").
+        public var origin: WebTryCatalog.Agent.Origin? = nil
     }
     public var catalog: [CatalogAgent] = WebBases.catalogAgents
     public var kinds: [WebTryCatalog.Word] = Categories.kinds.map { WebTryCatalog.Word(id: $0.id, title: $0.title, meaning: $0.meaning) }
@@ -103,7 +105,8 @@ public struct WebBases: Codable, Equatable, Sendable {
         AgentKind.published.compactMap { k in
             guard let r = k.recipe else { return nil }
             return CatalogAgent(id: r.id, title: r.title, kind: r.catalogKind ?? "coding-agent", categories: r.categories ?? [],
-                                defaultBase: r.defaultBase, musl: r.platforms.musl, family: r.family.map(WebTryCatalog.FamilyInfo.init))
+                                defaultBase: r.defaultBase, musl: r.platforms.musl, family: r.family.map(WebTryCatalog.FamilyInfo.init),
+                                origin: r.origin.title.map { WebTryCatalog.Agent.Origin(kind: r.origin.kind, title: $0) })
         }
     }
 }
