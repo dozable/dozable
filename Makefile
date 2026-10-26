@@ -65,7 +65,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency test-cli-access test-cli-tools tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -84,7 +84,7 @@ build: ## Build every product (and the VM test host)
 # `make test-vm-claude DOZ_TEST_REAL_MAC=1` (e.g. to add this Mac's own Claude login, read-only).
 TEST_SCRATCH ?= $(or $(TMPDIR),/tmp/)doz-test
 TEST_XDG     ?= $(TEST_SCRATCH)-xdg
-TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates kernel pullbench prev-cli recipes
+TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue kernel pullbench prev-cli recipes
 ifneq ($(DOZ_TEST_REAL_MAC),1)
 $(TEST_TARGETS): export DOZ_TEST_GUARD := 1
 $(TEST_TARGETS): export DOZ_TEST_NO_MAC_LOGIN := 1
@@ -276,6 +276,15 @@ promote: ## 611: move a published build to a wider channel — never rebuilds (B
 
 test-updates: cli ## 611: the update pipeline end to end with a TEST key (no network): release-shaped tarballs → publish → promote → a local feed server → doz update --check/notify/auto (tarball swap, a fake brew, channels, a downgrade refused, a tampered entry)
 	@Scripts/test-updates.sh "$(CLI_BIN)"
+
+# The recipe catalogue (Sources/DozableKit/RecipeCatalogue.swift): the tree's recipe data, signed with the update key,
+# beside the feed in UPDATES_DIR (v1/recipes.json + v1/recipes/<serial>/). This build's doz must use it before anything
+# is written; nothing is pushed without PUSH=1. MIN_DOZ= the oldest doz that reads every file.
+publish-recipes: cli ## The tree's recipe data as a signed recipe catalogue in UPDATES_DIR (MIN_DOZ=, DRY_RUN=1; PUSH=1 pushes — the owner's word first)
+	@UPDATES_DIR="$(UPDATES_DIR)" MIN_DOZ="$(MIN_DOZ)" DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" DOZ="$(CLI_BIN)" Scripts/publish-recipes.sh
+
+test-recipe-catalogue: cli ## The recipe catalogue end to end with a TEST key (no network): publish an edited tree → a local server → a real host's refresh (404, then a catalogue) → a new host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed
+	@Scripts/test-recipe-catalogue.sh "$(CLI_BIN)"
 
 test-cli: cli vmtest-host ## 585 CLI suite: the signed doz from separate processes (up/exec/run/attach, lifecycle, points, two sandboxes, kill -9 host, idle exit); 594: onboarding, init/up, the agent prompt, uninstall (stores /tmp/dzo-PID-*)
 	perl -e 'alarm shift; exec @ARGV' 10800 $(VMTEST_BIN) cli --doz $(CLI_BIN) --store "$(CLITEST_STORE)"

@@ -475,7 +475,9 @@ and a date stays a string. Anchors, aliases and merge keys are refused, so a rec
 `schema: 2` promises the shape `schema/dozable-recipe-2.schema.json` describes. Within schema 2:
 
 - A new **optional** field, or a new capability type, may be added. An older Dozable refuses a recipe that uses it,
-  because unknown keys are errors. Dozable's own recipes ship with Dozable, so they always match.
+  because unknown keys are errors. Dozable's own recipes ship with Dozable, so they always match — and a **recipe
+  catalogue** (recipes published without a release, docs/DOZABLEKIT.md, *The recipe catalogue*) names the oldest doz
+  that reads every file in it (`minimum_doz`): an older doz keeps its own recipes rather than refuse one.
 - A field is never renamed, removed or given a new meaning. That needs `schema: 3`, with a new schema file beside
   this one.
 - Kit's capability versions (`network-policy@1`, …) are Kit's. When Kit moves one (`network-policy@2` exists), a
@@ -510,7 +512,7 @@ final.
 3. **Its mark:** add a product (and its vendor, if new) to the icon registry, `Recipes/icons/icons.json`, and name
    it in `directory@1`'s `icon` (docs/DOZABLEKIT.md, *The icon registry*).
 4. **Embed it:** add `.embedInCode("Recipes/compiled/PRODUCT.json")` to Package.swift, and the file to the two lists
-   in `AgentRecipes` (`compiled` and `compiledFiles`, AgentRecipe.swift). `AgentKind` follows the recipes by itself.
+   in `AgentRecipes` (`embedded()` and `compiledFiles`, AgentRecipe.swift). `AgentKind` follows the recipes by itself.
 5. **`make recipes`** writes `Recipes/compiled/PRODUCT.json`. Commit both files.
 6. **Profile its network:** `make profile-agents AGENTS=PRODUCT` records every endpoint its first start calls
    (`profiles/PRODUCT.json`). Decide each one, then allow it (vendor, model), keep it out (`excluded`), or turn it off
@@ -518,6 +520,10 @@ final.
 7. **Its currency:** `make agent-currency` records its latest release and how fresh it is.
 8. **Test:** `make test` checks the schema, the loader, the Kit view, the profile decisions and the first-run
    settings. `make recipe-check RECIPES=PRODUCT` proves it builds, starts and answers in a real sandbox (below).
+9. **Ship it** with the next release — or, between releases, in a recipe catalogue: `make publish-recipes` signs the
+   tree's committed compiled data, checks that this build's doz uses it, and writes it beside the update feed
+   (pushed only with `PUSH=1`). Installed doz pick it up at their host's next start. The built-in agents (Claude Code,
+   pi, Codex) never come from a catalogue.
 
 ## Checking a recipe
 

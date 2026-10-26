@@ -433,3 +433,24 @@ new is allowed (`make profile-agents` in the source tree; `make agent-currency` 
 the day it came out, how long ago, and **active** (a release in the last 3 months), **quiet** (none for 3),
 **stale** (none for 6) or **deprecated** by its maker — and its **standing**: current, or superseded by another
 agent. See [Is it current?](26-try-and-search.md#is-it-supported-doz-search).
+
+## New agents without a new doz — the recipe catalogue
+
+Every agent Dozable runs is described by a **recipe**, and each version of doz carries its own set. Dozable can also
+publish its recipes on their own, as a **recipe catalogue** beside its updates (`updates.dozable.com`), so a new agent
+or a fix to one reaches you without a new release of doz:
+
+- **Signed.** doz uses a catalogue only when it is signed with Dozable's own key — the one that signs its updates — and
+  every file in it is exactly what was signed. Anything else is ignored, whole.
+- **Checked like the built-in recipes.** A catalogue that fails any check doz runs on its own recipes is ignored whole
+  (never used in part), and `doz doctor` says why. A catalogue can add agents and update them; it never takes one away,
+  so a sandbox you made keeps working.
+- **Claude Code, pi and Codex are always your doz's own** — a catalogue never changes them.
+- **When it applies.** While doz's host runs it looks for a newer catalogue at most once an hour, quietly (offline is
+  fine). A new one applies when the host next starts — by itself once nothing is running, or `doz host restart`. A doz
+  older than a catalogue needs keeps its own recipes, and doz never uses a catalogue older than the recipes it carries.
+- **Where you see it.** `doz doctor`'s `recipes` line says what this doz uses: `embedded (doz 0.37.24)` — its own — or
+  `catalogue 3 from 2026-10-26`, and whether a newer one is waiting.
+
+Until Dozable publishes a catalogue, every doz simply uses its own recipes. A build you make yourself from the source
+always uses its own.

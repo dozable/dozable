@@ -78,8 +78,12 @@ public enum AgentIcons {
         return f.icons
     }
 
+    /// The active recipe set's files, by name (`RecipeCatalogue.active` — the compiled-in ones unless a catalogue was
+    /// chosen at start).
+    public static var files: [String: [UInt8]] { RecipeCatalogue.active.iconFiles }
+
     /// The compiled-in files, by name (Package.swift embeds each; `AgentIconsTests` ties this list to the folder).
-    public static let files: [String: [UInt8]] = [
+    static let embeddedFiles: [String: [UInt8]] = [
         "anthropic.svg": PackageResources.anthropic_svg, "openai.svg": PackageResources.openai_svg,
         "google.svg": PackageResources.google_svg, "xai.svg": PackageResources.xai_svg,
         "claude-code.svg": PackageResources.claude_code_svg, "codex.svg": PackageResources.codex_svg,
@@ -125,15 +129,18 @@ public enum AgentIcons {
         "stitch.svg": PackageResources.stitch_svg,
     ]
 
-    public static let all: [IconEntry] = {
+    static func embedded() -> [IconEntry] {
         do {
             let icons = try decodeManifest(Data(PackageResources.icons_json))
-            try validate(icons, files: files)
+            try validate(icons, files: embeddedFiles)
             return icons
         } catch {
             fatalError("617: the built-in icons.json does not decode or validate: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's registry (`RecipeCatalogue.active`).
+    public static var all: [IconEntry] { RecipeCatalogue.active.icons }
 
     public static func entry(_ id: String) -> IconEntry? { all.first { $0.id == id } }
 

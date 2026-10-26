@@ -755,13 +755,17 @@ public struct KeyProvider: Codable, Sendable, Equatable {
 public enum KeyProviders {
     struct File: Codable { var schema: Int; var providers: [KeyProvider]; var keyless: [KeylessSource]? }
 
-    static let file: File = {
+    /// The compiled-in providers.json (the embedded recipe set's).
+    static func embeddedFile() -> File {
         do {
             return try JSONDecoder().decode(File.self, from: Data(PackageResources.providers_json))
         } catch {
             fatalError("617: the built-in providers.json does not decode: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's (`RecipeCatalogue.active` — the embedded one unless a catalogue was chosen at start).
+    static var file: File { RecipeCatalogue.active.providers }
 
     public static var all: [KeyProvider] { file.providers }
 
@@ -885,11 +889,14 @@ public struct RecipeTag: Codable, Sendable, Equatable {
 public enum CapabilityTags {
     struct File: Codable { var schema: Int; var tags: [CapabilityTag] }
 
-    public static let all: [CapabilityTag] = {
+    static func embedded() -> [CapabilityTag] {
         do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.tags_json)).tags } catch {
             fatalError("617: the built-in tags.json does not decode: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's vocabulary (`RecipeCatalogue.active`).
+    public static var all: [CapabilityTag] { RecipeCatalogue.active.capabilityTags }
 
     public static func tag(_ id: String) -> CapabilityTag? { all.first { $0.id == id } }
 
@@ -999,11 +1006,14 @@ public struct Gateway: Codable, Sendable, Equatable {
 public enum Gateways {
     struct File: Codable { var schema: Int; var gateways: [Gateway] }
 
-    public static let all: [Gateway] = {
+    static func embedded() -> [Gateway] {
         do { return try JSONDecoder().decode(File.self, from: Data(PackageResources.gateways_json)).gateways } catch {
             fatalError("617: the built-in gateways.json does not decode: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's gateways (`RecipeCatalogue.active`).
+    public static var all: [Gateway] { RecipeCatalogue.active.gateways }
 
     public static func gateway(_ id: String) -> Gateway? { all.first { $0.id == id } }
 
@@ -1035,7 +1045,7 @@ public enum Gateways {
 
 public enum AgentRecipes {
     /// The compiled-in recipes, in this order: the three that existed, then the new ones (AgentKind.allCases' order).
-    static let compiled: [AgentRecipe] = {
+    static func embedded() -> [AgentRecipe] {
         let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
                                           ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json), ("zeroclaw.json", PackageResources.zeroclaw_json), ("aichat.json", PackageResources.aichat_json), ("tgpt.json", PackageResources.tgpt_json),
@@ -1071,7 +1081,11 @@ public enum AgentRecipes {
         } catch {
             fatalError("617: a built-in agent recipe does not decode: \(error)")
         }
-    }()
+    }
+
+    /// The active recipe set's recipes (`RecipeCatalogue.active` — the embedded ones unless a catalogue was chosen at
+    /// start; the built-in three are always this build's).
+    static var compiled: [AgentRecipe] { RecipeCatalogue.active.recipes }
 
     /// The names of the compiled-in files (a test ties them to `Recipes/` and Package.swift).
     public static let compiledFiles = ["claude-code.json", "pi.json", "codex.json", "antigravity.json", "gemini.json", "grok.json", "fabric.json", "openclaw.json", "nanobot.json", "gptme.json", "llm.json", "shell-gpt.json", "zeroclaw.json", "aichat.json", "tgpt.json", "opencode.json", "smolagents.json", "adk.json", "promptfoo.json", "clai.json", "copilot.json", "qwen-code.json", "goose.json", "kilo.json", "mistral-vibe.json", "droid.json", "dirac.json", "kimi-code.json", "cline.json", "openhands.json", "letta-code.json", "docker-agent.json", "nanocoder.json", "mini-swe-agent.json", "open-interpreter.json", "crush.json", "mimo-code.json", "codewhale.json", "maki.json", "omp.json", "tau.json", "stitch.json", "opencode2.json"]
@@ -1082,14 +1096,16 @@ public enum AgentRecipes {
 
     /// Every recipe this build knows (and, in tests, the ones registered).
     public static var all: [AgentRecipe] {
+        let c = compiled
         lock.lock(); defer { lock.unlock() }
-        return compiled + registered
+        return c + registered
     }
 
-    /// Bumped by every registration — what caches derived from the recipes check.
+    /// Bumped by every registration (and every recipe set installed) — what caches derived from the recipes check.
     public static var generation: Int {
+        let installs = RecipeCatalogue.generation
         lock.lock(); defer { lock.unlock() }
-        return _generation
+        return _generation + installs
     }
 
     public static func recipe(_ id: String) -> AgentRecipe? { all.first { $0.id == id } }

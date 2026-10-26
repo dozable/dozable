@@ -160,8 +160,9 @@ class Harness:
         with open(os.path.join(self.root, "xdg/doz/doz.toml"), "w") as f:
             f.write('[store]\npath = "%s"\n\n[defaults]\nprojects_dir = "%s/projects"\n' % (self.store, self.root))
         self.env = dict(os.environ)
+        # Kept: the kernel's, and a recipe catalogue's seam + its test key (a check of a catalogue's copy of a recipe).
         for k in list(self.env):
-            if k.startswith("DOZ_") and k not in ("DOZ_KERNEL_CACHE", "DOZ_KERNEL"):
+            if k.startswith("DOZ_") and k not in ("DOZ_KERNEL_CACHE", "DOZ_KERNEL", "DOZ_TEST_RECIPE_CATALOGUE", "DOZ_TEST_UPDATE_KEY"):
                 del self.env[k]
         self.env.update({
             "XDG_CONFIG_HOME": os.path.join(self.root, "xdg"), "DO_NOT_TRACK": "1", "DOZ_TEST_GUARD": "1",

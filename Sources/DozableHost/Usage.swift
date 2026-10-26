@@ -361,7 +361,12 @@ public enum UsageSchema {
         if c.isDockerfile { return "dockerfile" }
         return BaseCatalogue.base(c.base) != nil ? c.base : nil
     }
-    public static func agent(image: String) -> String? { ImageChoice.parse(image)?.agent.rawValue }
+    /// The agent of an image name — only an id THIS build lists in `agents` (what the Worker accepts): a recipe only a
+    /// recipe catalogue brings is counted nowhere until a release lists it, so no message carries an id it would refuse.
+    public static func agent(image: String) -> String? {
+        guard let id = ImageChoice.parse(image)?.agent.rawValue, agents.contains(id) else { return nil }
+        return id
+    }
 
     /// A version as doz stamps it (`0.33.0`, `0.33.0-rc.1`); nil for anything else.
     public static func version(_ s: String) -> String? {

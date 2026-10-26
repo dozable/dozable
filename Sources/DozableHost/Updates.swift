@@ -31,6 +31,8 @@ import Foundation
 public enum Distribution {
     /// The feed (see above: the earlier host redirects here, forever).
     public static let feedURL = "https://updates.dozable.com/v1/feed.json"
+    /// The recipe catalogue beside it (`RecipeCatalogue.swift`): signed with the same key, its files under `v1/recipes/`.
+    public static let recipeCatalogueURL = "https://updates.dozable.com/v1/recipes.json"
     /// The Homebrew tap: `brew install <tap>/doz` (the repository `<org>/homebrew-<name>`).
     public static let tap = "dozable/tap"
     /// Earlier names of the same tap. GitHub redirects a moved repository, so a Mac that tapped one keeps it under

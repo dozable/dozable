@@ -8,6 +8,10 @@
 //   swift Scripts/update-key.swift sign-entry --version V --build N --archive NAME --sha256 HEX --size BYTES [--key-file F]
 //                                                    # the entry's signature (base64) on stdout — `make publish` runs it
 //   swift Scripts/update-key.swift verify-entry … --signature B64 --public-key B64
+//   swift Scripts/update-key.swift sign-catalogue MESSAGE [--key-file F]
+//                                                    # the recipe catalogue's signature (`make publish-recipes`) — only a
+//                                                    # message that starts "dozable-recipe-catalogue-v1\n" is signed
+//   swift Scripts/update-key.swift verify-catalogue MESSAGE --signature B64 --public-key B64
 //   swift Scripts/update-key.swift test-key FILE     # a THROWAWAY keypair for tests: FILE holds the private key (base64),
 //                                                    # the public key is printed. Never the real key.
 //
@@ -31,6 +35,9 @@
 // signed: promoting a build (canary → beta → stable) never needs the key — the same signed bytes move.
 import CryptoKit
 import Foundation
+
+/// The recipe catalogue's domain (RecipeCatalogueManifest.messagePrefix) — a feed entry's message starts otherwise.
+let catalogueMessagePrefix = "dozable-recipe-catalogue-v1\n"
 
 let service = "dozersandbox.com update signing"
 let account = "ed25519"
@@ -163,6 +170,30 @@ case "sign-entry":
     o2["key-file"] = nil
     let sig = try key.signature(for: entryMessage(o2))
     print(sig.base64EncodedString())
+case "sign-catalogue":
+    // The recipe catalogue's message (Scripts/recipe-catalogue.py writes it; `RecipeCatalogueManifest.message` in doz
+    // builds the same): only a message with the catalogue's own prefix is signed, so this can never sign a feed entry.
+    let rest = Array(args.dropFirst())
+    guard let path = rest.first else { die("sign-catalogue MESSAGE-FILE [--key-file F]") }
+    let o = options(rest.dropFirst())
+    guard let msg = FileManager.default.contents(atPath: path), msg.starts(with: Data(catalogueMessagePrefix.utf8)) else {
+        die("\(path) is not a recipe catalogue's message (it starts \(catalogueMessagePrefix.debugDescription))")
+    }
+    let key: Curve25519.Signing.PrivateKey
+    if let f = o["key-file"] { key = fileKey(f) } else {
+        guard let k = keychainKey() else { die("no update-signing key in the login keychain — tests pass --key-file") }
+        key = k
+    }
+    print(try key.signature(for: msg).base64EncodedString())
+case "verify-catalogue":
+    let rest = Array(args.dropFirst())
+    guard let path = rest.first, let msg = FileManager.default.contents(atPath: path), msg.starts(with: Data(catalogueMessagePrefix.utf8)) else {
+        die("verify-catalogue MESSAGE-FILE --signature B64 --public-key B64")
+    }
+    let o = options(rest.dropFirst())
+    guard let s = o["signature"], let sig = Data(base64Encoded: s), let p = o["public-key"], let raw = Data(base64Encoded: p),
+          let pub = try? Curve25519.Signing.PublicKey(rawRepresentation: raw) else { die("--signature and --public-key (base64)") }
+    if pub.isValidSignature(sig, for: msg) { print("valid") } else { print("INVALID"); exit(1) }
 case "verify-entry":
     var o = options(args.dropFirst())
     guard let s = o.removeValue(forKey: "signature"), let sig = Data(base64Encoded: s),
@@ -170,5 +201,5 @@ case "verify-entry":
           let pub = try? Curve25519.Signing.PublicKey(rawRepresentation: raw) else { die("--signature and --public-key (base64)") }
     if pub.isValidSignature(sig, for: entryMessage(o)) { print("valid") } else { print("INVALID"); exit(1) }
 default:
-    die("generate | public | export FILE | sign-entry … | verify-entry … | test-key FILE")
+    die("generate | public | export FILE | sign-entry … | verify-entry … | sign-catalogue FILE … | verify-catalogue FILE … | test-key FILE")
 }
