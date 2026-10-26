@@ -80,6 +80,8 @@ public protocol DozableWebData: Sendable {
     func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport
     /// 599h: a sandbox's tools layer — the plan and the last apply (the host's `tools`; a host must run).
     func tools(_ name: String) async throws -> ToolsLayerReport
+    /// 657: a dotfiles source's head and what applying it does (the host's `dotfiles-resolve` — it fetches on the Mac).
+    func dotfilesResolve(_ source: String?) async throws -> DotfilesResolved
     /// 617: the host's read-only `plan` for a try or a new sandbox (in-process when no host runs).
     func plan(_ r: PlanRequest) async throws -> WebPlan
     /// 617: many plans on one reading of the store (the Quick try's readiness); nil: that one could not be planned.
@@ -106,6 +108,7 @@ public protocol DozableWebData: Sendable {
 
 extension DozableWebData {
     public func tools(_ name: String) async throws -> ToolsLayerReport { throw HostError(.notImplemented, "tools") }
+    public func dotfilesResolve(_ source: String?) async throws -> DotfilesResolved { throw HostError(.notImplemented, "dotfiles") }
     public func plan(_ r: PlanRequest) async throws -> WebPlan { throw HostError(.notImplemented, "plan") }
     public func models(_ source: String) async throws -> WebModelList { throw HostError(.notImplemented, "models") }
     public func files(_ name: String, path: String?) async throws -> WebFileList { throw HostError(.notImplemented, "files") }
@@ -266,6 +269,16 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         let m = try await blocking { try HostClient.request(request, store: store, autostart: true) }
         guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
         return try (m.result ?? .null).decode(AccessReport.self)
+    }
+
+    public func dotfilesResolve(_ source: String?) async throws -> DotfilesResolved {
+        let store = self.store
+        var r = HostRequest(.dotfilesResolve)
+        r.dotfilesSource = source
+        let request = r
+        let m = try await blocking { try HostClient.request(request, store: store, autostart: true) }
+        guard m.ok == true else { throw m.error ?? HostError(.failed, "the host gave no reason") }
+        return try (m.result ?? .null).decode(DotfilesResolved.self)
     }
 
     public func tools(_ name: String) async throws -> ToolsLayerReport {

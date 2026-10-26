@@ -51,7 +51,8 @@ public enum WebExposure {
             return .read
         case .actions, .operationsCancel, .policyPreview, .terminalTicket,     // 650: a cancel is decided as the actions are
              .terminalSocket, .settingsChange, .terminalLayoutSet, .filesTreeSet, .onboardingConfig,
-             .workspaceCheck, .quickAdd, .plan, .projectOpen, .projectPreview, .projectWrite, .resourcesPreview, .accessCheck, .signup, .updatesCheck:
+             .workspaceCheck, .quickAdd, .plan, .projectOpen, .projectPreview, .projectWrite, .resourcesPreview, .accessCheck, .signup, .updatesCheck,
+             .dotfilesResolve:          // 657: fetches on the Mac (starts the host) — a change, like accessCheck
             return .change
         case .accountAdd, .sandboxKey, .accessGithubKey:
             return .secretEntry

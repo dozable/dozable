@@ -95,7 +95,7 @@ function nwSet(key, value) {
 /// What the page sends: the name and the image always; the other choices only when set on purpose (or by the file).
 function nwPayload() {
   const nw = state.nw, f = nw.form, out = { name: f.name, image: f.image };
-  for (const k of ['agent', 'base', 'dockerfile', 'agentPrompt', 'agentPromptMode', 'sessions']) if (f[k] !== undefined && f[k] !== null && f[k] !== '') out[k] = f[k];
+  for (const k of ['agent', 'base', 'dockerfile', 'agentPrompt', 'agentPromptMode', 'sessions', 'dotfiles']) if (f[k] !== undefined && f[k] !== null && f[k] !== '') out[k] = f[k];
   for (const [key, field] of Object.entries(NW_FIELD)) if (nw.explicit.has(key) && f[field] !== undefined && f[field] !== null) out[field] = f[field];
   return { folder: nw.open.folder, form: out, explicit: [...nw.explicit] };
 }
@@ -642,12 +642,34 @@ function nwReview() {
         fact('Access', nwAnswer('access')),
         fact('Workspace rules', nwAnswer('rules')),
         fact('Bridges', nwAnswer('bridges') + ' · files ' + (f.openFiles || setting('sandbox.open_files', 'on'))),
-        fact('Session', nwAnswer('session') + ' · sudo ' + ((f.agentSudo ?? setting('sandbox.agent_sudo', true)) ? 'yes' : 'no'))),
+        fact('Session', nwAnswer('session') + ' · sudo ' + ((f.agentSudo ?? setting('sandbox.agent_sudo', true)) ? 'yes' : 'no')),
+        nwDotfilesFact()),
       callout('info', { compact: true, attrs: { 'data-nw-what': '' }, body: ['Writing the file, then making the sandbox as ', h('code', null, 'doz up'),
         ' would there, starting it and setting up its tools; then it opens.', willPrepare ? ' The first start prepares the ' + f.image + ' image (minutes, needs network).' : ''] }),
       planBox, diffBox, disclosure),
     extra: go,
   };
+}
+/// 657: the dotfiles it gets — the file's own, else the setting — with the commit and what runs, as the host reads them
+/// now (it fetches on the Mac). A folder on the Mac that only the file names is said without its commit (doz up says it).
+function nwDotfilesFact() {
+  const nw = state.nw, f = nw.form;
+  const own = f.dotfiles, chosen = own !== undefined && own !== null && own !== '' ? own : setting('sandbox.dotfiles', '');
+  if (!chosen || chosen === 'none') return [h('dt', null, 'Dotfiles'), h('dd', { 'data-nw-dotfiles': 'none' }, 'none')];
+  const dd = h('dd', { 'data-nw-dotfiles': '' }, h('code', null, tildePath(chosen)), ' — reading it…');
+  const local = chosen.startsWith('/') || chosen.startsWith('~');
+  if (local && own) {
+    dd.replaceChildren(h('code', null, tildePath(chosen)), ' — a folder on this Mac: its commit is said and asked about when it is made');
+  } else {
+    if (!nw.dotfiles || nw.dotfiles.for !== chosen) {
+      nw.dotfiles = { for: chosen, p: api('dotfiles/resolve', { method: 'POST', json: own ? { source: own } : {} }) };
+    }
+    nw.dotfiles.p.then((r) => {
+      dd.replaceChildren(h('code', null, r.source), ' at ', h('code', { 'data-nw-dotfiles-commit': r.commit }, r.commit),
+        r.subject ? ' (' + r.subject + ')' : '', ' — ' + r.applies + ', at its first start.', r.dirty ? ' Changes not committed are not included.' : '');
+    }).catch((e) => { dd.replaceChildren(h('code', null, tildePath(chosen)), ' — ' + (e.message || String(e))); });
+  }
+  return [h('dt', null, 'Dotfiles'), dd];
 }
 function nwDiffNode(lines) {
   return h('pre', { class: 'nw-diff', 'data-nw-diff': '' }, lines.map((l) => h('div', { class: l.startsWith('+ ') ? 'add' : l.startsWith('- ') ? 'del' : 'same' }, l)));

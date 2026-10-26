@@ -19,8 +19,8 @@ const SETTING_SECTIONS = {
   'images.lab': 'New lab sandboxes', 'images.claude-code': 'New claude-code sandboxes', 'images.pi': 'New pi sandboxes', 'images.codex': 'New codex sandboxes', kernel: 'The kernel',
   resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', workspace: 'Workspace rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
 };
-// An empty app list means none (default apps only), not "automatic".
-function shownValue(v, type) { return typeof v === 'string' ? (v === '' ? (type === 'apps' ? '""  (none)' : '""  (automatic)') : v) : String(v); }
+// An empty app list (or dotfiles) means none, not "automatic".
+function shownValue(v, type) { return typeof v === 'string' ? (v === '' ? (type === 'apps' || type === 'dotfiles' ? '""  (none)' : '""  (automatic)') : v) : String(v); }
 export async function viewSettings() {
   adoptSettings(await api('settings'));
   const rep = state.settings.report;
@@ -160,7 +160,9 @@ function settingControl(r) {
     });
   } else {
     // The open-files bridge's app list is names, comma-separated (empty: only each file's default app).
-    const placeholder = r.type === 'apps' ? 'e.g. Typora, Visual Studio Code (empty: default apps only)' : '"" = automatic';
+    // Dotfiles from here are a repository's URL (a folder on the Mac is set on the Mac: doz config set).
+    const placeholder = r.type === 'apps' ? 'e.g. Typora, Visual Studio Code (empty: default apps only)'
+      : r.type === 'dotfiles' ? 'your dotfiles repository’s https address (empty: none)' : '"" = automatic';
     input = h('input', { type: 'text', spellcheck: 'false', autocomplete: 'off', 'aria-label': r.key, placeholder });
     input.value = String(r.value);
     input.addEventListener('change', () => changeSetting(r.key, input.value.trim()));

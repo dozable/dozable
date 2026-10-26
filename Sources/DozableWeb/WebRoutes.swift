@@ -127,6 +127,8 @@ public enum WebRoute: Equatable, Sendable {
     case access                    // GET  /api/v1/access
     case accessCheck               // POST /api/v1/access/check  ({items?, choices?: {github?, githubSource?, ssh?}})
     case accessGithubKey           // POST /api/v1/access/github-key  ({secret} | {remove: true})
+    // 657 — what a source of dotfiles is at now (the host fetches it on the Mac): New Sandbox's review.
+    case dotfilesResolve           // POST /api/v1/dotfiles/resolve  ({} | {source: https URL})
     // 606 — doz serve: this browser and the server (read), the devices and the recent remote activity (read),
     // a new invite (link + code + QR), a device revoked or renamed; and the doctor's probe (no session: a one-use
     // token doz serve issued over serve.sock — answered only by doz serve). In doz ui (the Mac) the device routes
@@ -197,6 +199,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 2) where rest == ["dockerfile", "choose"]: return .dockerfileChoose
         case (.post, 2) where rest == ["access", "check"]: return .accessCheck
         case (.post, 2) where rest == ["access", "github-key"]: return .accessGithubKey
+        case (.post, 2) where rest == ["dotfiles", "resolve"]: return .dotfilesResolve
         case (.post, 1) where rest[0] == "signup": return .signup
         case (.post, 2) where rest == ["updates", "check"]: return .updatesCheck
         case (.post, 2) where rest == ["serve", "share"]: return .serveShare

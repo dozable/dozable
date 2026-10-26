@@ -28,7 +28,7 @@ import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sand
 import { networkPanel } from './sandbox-network-3cde852e160cee30.js';
 import { filesPanel, syncFiles } from './sandbox-files-7bc25928d57e42fd.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-ad6697d23bdf5f6a.js';
-import { paintHome } from './sandbox-home-1c11d9975dc05197.js';
+import { paintHome } from './sandbox-home-b5fe3b6be71f15ea.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────

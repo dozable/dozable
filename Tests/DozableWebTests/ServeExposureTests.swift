@@ -17,7 +17,7 @@ final class ServeExposureTests: XCTestCase {
             .accountAdd, .sandboxKey("s"), .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
-            .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids,
+            .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -31,7 +31,8 @@ final class ServeExposureTests: XCTestCase {
              .sessionScreen, .terminalLayout, .terminalLayoutSet, .bootLogs, .bootLog, .buildLog, .onboarding, .onboardingConfig, .preparations,
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
-             .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids:
+             .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
+             .dotfilesResolve:
             return true
         }
     }
@@ -66,6 +67,22 @@ final class ServeExposureTests: XCTestCase {
         XCTAssertTrue(WebRejection.macScreen.message.contains("Mac's own screen"))
         XCTAssertEqual(WebRejection.deviceRevoked.status, 401)
         XCTAssertEqual(WebRejection.tooManyAttempts.status, 429)
+    }
+
+    /// 657: what a dotfiles source is at now — POST only, `{}` or `{source: https URL}` (a folder on the Mac is never named
+    /// by a page), a change (the host fetches on the Mac).
+    func testTheDotfilesResolveRoute() throws {
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/dotfiles/resolve"), .dotfilesResolve)
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/dotfiles/resolve"))
+        XCTAssertEqual(WebExposure.kind(.dotfilesResolve), .change)
+        XCTAssertNil(try WebDotfilesResolve.decode(Data("{}".utf8)).source)
+        XCTAssertEqual(try WebDotfilesResolve.decode(Data(#"{"source":"https://github.com/you/dotfiles"}"#.utf8)).source, "https://github.com/you/dotfiles")
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data(#"{"source":"/Users/me/secret-repo"}"#.utf8)), "a Mac folder from a page")
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data(#"{"source":"~/dots"}"#.utf8)))
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data(#"{"source":"https://u:p@github.com/a/b"}"#.utf8)))
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data(#"{"source":"none"}"#.utf8)))
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data(#"{"source":"https://github.com/a/b","x":1}"#.utf8)))
+        XCTAssertThrowsError(try WebDotfilesResolve.decode(Data("[]".utf8)))
     }
 
     /// 647: Check for updates — POST only, a body of {} and nothing else, a change (it asks the network).

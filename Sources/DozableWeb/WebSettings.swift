@@ -106,6 +106,10 @@ public final class WebSettingsStore: @unchecked Sendable {
         if r.source == .env { throw HostError(.invalidPhase, "\(d.key) is set by $\(d.environment ?? "?") in the environment of this doz ui — change it there") }
         if r.source == .flag { throw HostError(.invalidPhase, "\(d.key) is set on the command line of this doz ui") }
         if let e = s.fileError { throw HostError(.invalidPhase, "\(e) — fix it (or remove it) first; the UI does not overwrite it") }
+        // 657: dotfiles from the page are a repository's URL — a folder on the Mac is a host path, set on the Mac.
+        if d.type == .dotfiles, case .string(let v)? = change.value, DotfilesSource.isLocal(v.trimmingCharacters(in: .whitespaces)) {
+            throw HostError(.invalid, "\(d.key): a folder on the Mac is set on the Mac — doz config set \(d.key) PATH (here: a repository's https:// URL)")
+        }
         // 594: the browser can take secret entry away, never grant it (a reset would grant it: the default is on).
         if d.key == SettingKey.allowSecretEntry, change.value != .bool(false), s.resolve(d.key).value == .bool(false) {
             throw HostError(.invalid, "\(d.key) can be turned on only from a terminal: doz config set \(d.key) true")

@@ -984,6 +984,10 @@ public final class DozableWebServer: @unchecked Sendable {
             } catch {
                 throw HostError(.failed, k.scrub(error.localizedDescription))
             }
+        case .dotfilesResolve:
+            // 657: CSRF (above), a strict body; the host fetches on the Mac (with its own git login).
+            try Self.requireJSONBody(md)
+            return json(WebDotfilesResolved(try await data.dotfilesResolve(try WebDotfilesResolve.decode(body).source)))
         case .access:
             return json(try await data.access(check: nil))
         case .accessCheck:

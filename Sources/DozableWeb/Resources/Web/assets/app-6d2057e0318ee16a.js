@@ -68,20 +68,20 @@ import { viewDevices } from './app/views/devices-665fe3a751709b5c.js';
 import { viewDoctor } from './app/views/doctor-59281cae1c5404f5.js';
 import { viewImages } from './app/views/images-99ae0475f6c1e534.js';
 import { viewMetrics } from './app/views/metrics-15fb73c7ebdcda85.js';
-import { newSandboxWizard, viewNew } from './app/views/new-sandbox-146f1ebe0eb33fe8.js';
-import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-5c5631f414233a25.js';
+import { newSandboxWizard, viewNew } from './app/views/new-sandbox-e664bd14226e5227.js';
+import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/views/onboarding-f3d7af80314633a5.js';
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-7ee2d5f3de69de81.js';
-import { viewOverview } from './app/views/overview-f43c897f2ffd2634.js';
+import { viewOverview } from './app/views/overview-b9bd54cd93eee214.js';
 import { viewResources } from './app/views/resources-28e7f27e86595b1e.js';
-import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-20b4d08b74a1d987.js';
+import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-dd66bbde26b06612.js';
 import './app/views/sandbox-dialogs-8d0b31dd72c225b0.js';
 import { persistLayout } from './app/views/sandbox-layout-ec2078249c8fac43.js';
 import './app/views/sandbox-network-3cde852e160cee30.js';
 import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-ad6697d23bdf5f6a.js';
-import { paintHome } from './app/views/sandbox-home-1c11d9975dc05197.js';
-import { refreshSandbox, showSandbox } from './app/views/sandbox-145582058473eaa4.js';
+import { paintHome } from './app/views/sandbox-home-b5fe3b6be71f15ea.js';
+import { refreshSandbox, showSandbox } from './app/views/sandbox-73a3bb198b5feb4e.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-726a0bb3c7bdb4ee.js';
-import { viewSettings } from './app/views/settings-b90f3f13832a4235.js';
+import { viewSettings } from './app/views/settings-d796f9af961f2ef0.js';
 import './app/views/shortcuts-55b7e266bba6eba4.js';
 
 // 599c: Quick add in the sidebar, beside Sandboxes.
