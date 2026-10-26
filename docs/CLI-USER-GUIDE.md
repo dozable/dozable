@@ -302,7 +302,10 @@ doz new [--image I] [--name N] [--isolated] [-d]
   PATH`). Dozable adds its developer baseline and the agent on top — Claude Code as its standalone
   native build on a base without Node (no Node is added for it), pi with Node under `/opt/node`. The
   image is named `<base>-<agent>` (`python-claude-code`; `debian` for no agent); `claude-code`, `pi`
-  and `lab` are Node · Claude Code, Node · pi and Alpine · none, as before.
+  and `lab` are Node · Claude Code, Node · pi and Alpine · none, as before. An agent may also be named
+  in full — its vendor and product, like a container image (`--agent anthropic/claude-code`,
+  `--agent anomalyco/opencode@1`; your own recipe `mine/VENDOR/PRODUCT`): `doz search` shows each
+  tool's full name, and the manual's "A tool's full name" has the rules.
 - **A Dockerfile** is built with Apple's `container build` — `doz builder status` says whether it is
   installed and running; `doz builder install` opens Apple's signed installer package in macOS
   Installer (you approve it; doz never uses sudo); `doz builder start` starts its services (they

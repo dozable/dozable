@@ -106,7 +106,7 @@ Every key is required. Kit's own names, with Kit's meaning:
 |---|---|---|
 | `schema` | This format's version: `2`. | `2` |
 | `kind` | Kit's kind. A recipe is the agent a sandbox runs: `workload`. | `workload` |
-| `id` | `VENDOR/PRODUCT`: the file's path under `Recipes/agents/`. `PRODUCT` is the agent's id (`doz try PRODUCT`), `[a-z][a-z0-9-]*`. | `anthropic/claude-code` |
+| `id` | `VENDOR/PRODUCT`: the file's path under `Recipes/agents/`. `PRODUCT` is the agent's id (`doz try PRODUCT`), `[a-z][a-z0-9-]*`; `VENDOR` is its vendor's slug, `[a-z0-9]` and dashes. Together they are the tool's full name (`doz try anthropic/claude-code`; your own `mine/VENDOR/PRODUCT`, a community source's `NAME/VENDOR/PRODUCT`). | `anthropic/claude-code` |
 | `displayName` | The agent's name as people read it. | `Claude Code` |
 | `description` | One sentence. | `Anthropic's coding agent in your terminal.` |
 | `author` | Kit's `author`: the publisher's name. | `Anthropic` |
@@ -336,6 +336,8 @@ background server), each major is a recipe of its own, and `com.dozable/family@1
 
 - `NAME` is the family's recommended major, `NAME@MAJOR` a major, `NAME@VERSION` an exact release of the major it
   belongs to (`AgentRef`). A member named by its own id (`opencode2`) is that major.
+- With its vendor: `VENDOR/FAMILY` (`anomalyco/opencode`), `VENDOR/FAMILY@MAJOR`, `VENDOR/ID` (a member's own id is
+  that major) — the members of a family share one vendor (validated).
 - The family's name is the id of one of its members — the one that predates the family. Its sandboxes, image, settings
   and statistics keep that id, so an existing sandbox never changes major. No other recipe or alias may use the name.
 - Each member pins a release of its own major. Its `latest` stays within that major: when the package's `latest` tag is
@@ -575,7 +577,11 @@ folder. A recipe that is not Dozable's:
   earlier) is refused whole;
 - installs exactly its pinned release (`latest` means the pin; nothing is looked up), wears no mark from the icon
   registry (a lettermark is drawn), and is never counted in usage statistics;
-- is kept, unpublished, when it is removed, so the sandboxes made from it keep working — and its id stays theirs.
+- is kept, unpublished, when it is removed, so the sandboxes made from it keep working — and its id stays theirs;
+- is named in full with its source first: `mine/VENDOR/PRODUCT` (yours), `NAME/VENDOR/PRODUCT` (a community source's —
+  the name it was added as; `dozable` and `mine` are never a source's name). `VENDOR/PRODUCT` alone always means
+  Dozable's recipe, so a community recipe cannot pass as one by choosing a vendor's slug. Its `id`'s `VENDOR` must be well
+  formed like any recipe's (the `document` requirement).
 
 **The minimum requirements for a community recipe** (`CommunityRequirements` in DozableKit — a closed list; every
 recipe that is not Dozable's must meet all of them to be used; `doz recipe check` prints them item by item):

@@ -157,7 +157,7 @@ workspace_view: on          # off: share the folder directly (programs in it los
 | `version` | `1` | — | — |
 | `name` | the sandbox: 1–40 of `a-z 0-9 -` | the folder's name | — |
 | `image` | `claude-code`, `pi`, `lab`, a base × agent image (`python-claude-code`, `go-pi`, `debian`, …) or a template | `defaults.image` | when the sandbox is made |
-| `agent` | `claude-code`, `pi`, `codex`, `antigravity`, `gemini`, `grok` (any tool `doz search` lists) or `none` — instead of `image`, with `base` or `dockerfile`; a tool's major or exact release: `opencode@1`, `opencode@2.0.28` ([A tool's major version](26-try-and-search.md#a-tools-major-version)) | `claude-code` | when made |
+| `agent` | `claude-code`, `pi`, `codex`, `antigravity`, `gemini`, `grok` (any tool `doz search` lists) or `none` — instead of `image`, with `base` or `dockerfile`; a tool's major or exact release: `opencode@1`, `opencode@2.0.28` ([A tool's major version](26-try-and-search.md#a-tools-major-version)); its full name: `anthropic/claude-code`, `mine/acme/tool` ([A tool's full name](26-try-and-search.md#a-tools-full-name)) | `claude-code` | when made |
 | `base` | a recommended base: `node`, `python`, `go`, `rust`, `java`, `ruby`, `dotnet`, `debian`, `ubuntu`, `alpine` | `node` | when made |
 | `dockerfile` | your own Dockerfile, relative to the folder or absolute (see [Images and bases](08-images-and-bases.md#your-own-dockerfile)) | — | when made |
 | `cpus` | 1–64 | `defaults.cpus` (2) | when made |
