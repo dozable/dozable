@@ -2018,7 +2018,7 @@ may use it too.
   `DOZ_<SHORT>_PERMISSIONS=ask` or root, passthrough arguments run as they are, first-run settings written ONLY when
   absent), its persist dirs and session environment. A recipe names no credential (validated). Its version resolves
   from the MAIN npm package (Grok's platform package's own `latest` tag is stale).
-- **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google`,
+- **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google|opencode|…`,
   `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
   (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never
   `GEMINI_API_KEY_AUTH_MECHANISM`). A key agent's sandbox NEVER gets an Anthropic binding (`applyKeyAccount`). The key
@@ -2217,6 +2217,19 @@ may use it too.
   prints a one-use link; change 49374 in it when this Mac's port moved). Proved: only its model is called (Open, every
   request decrypted, its own update/models checks on), no plugin or Code Mode download, its first screen is a session.
   `RecipeServiceTests`; workspace `probes/618-*/` (service-restart.sh, verify-*.sh).
+  **Its OpenCode key** (656, owner: "yes" to OpenCode Console and OpenCode Go keys): ONE provider `opencode` — 2.0.29's
+  bundle reads `OPENCODE_API_KEY` for both Zen (`opencode/…`, pay as you go) and Go (`opencode-go/…`, the subscription)
+  (workspace `probes/656-*/read-bundle.py`, facts-2.0.29.json). The key is CONFINED: `swap_only` + providers.json
+  `paths` (its model paths under `/zen/v1/`, `/zen/go/v1/`, `/inference/…`, per shape, and EXACTLY
+  `GET /console/api/v2/config` — the Console settings read OpenCode makes at start with an env key; refused, every start
+  showed a refusal) → `CredentialBinding.paths`: the vault rejects its placeholder on any other path or an unclean one
+  (`isCleanPath`), whatever the network allows. `also_headers` (x-api-key, x-goog-api-key) swaps the placeholder IN
+  PLACE for the Anthropic/Google-shaped models (otherwise it would be moved into Authorization). No endpoints (offered
+  by the native entry only); `models` listed in providers.json (the pin's catalogue, Go first = the default
+  `opencode-go/kimi-k2.7-code`; `ModelSources.defaultModel`); no key check (none exists that costs nothing and is
+  verified); a recipe offered it must name every path in its model permission (`validateModels`). The key-less
+  `opencode-zen` shares opencode.ai (allowed only beside a path-confined swap-only provider). The stand-in answers it
+  (`FAKE_OPENCODE_KEY`); recipe-check's `opencode` selection adds the path leak check and a 0-refusal Locked try.
 - **Is it current?** (owner: "record the latest version and how old it is and is it current"). MEASURED: the host checks
   every agent's latest release hourly while it runs (`HostCore.refreshAgentVersions` → `AgentVersions.refresh`, the same
   cache as a preparation's) and, once per new latest, when it came out and npm's deprecation (`NpmRegistry.releaseInfo`:

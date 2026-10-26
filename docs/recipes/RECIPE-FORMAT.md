@@ -382,7 +382,7 @@ schema's enum and this table together (`CategoriesTests` holds them to each othe
 
 ## Model sources: providers and gateways
 
-A **model source** is where a key goes: a provider (`anthropic`, `openai`, `xai`, `google`) or a gateway
+A **model source** is where a key goes: a provider (`anthropic`, `openai`, `xai`, `google`, `opencode`) or a gateway
 (`openrouter`, `vercel-ai-gateway`) — or a source that takes no key (`opencode-zen`, below). Each is a key provider in `Recipes/providers.json` — its hosts, the header its key
 rides in, the variable its placeholder is in, its check — and each lists its **endpoints**: the API shapes it serves
 (`openai-chat`, `openai-responses`, `anthropic-messages`, `gemini`), the base URL of each, and a default model (a
@@ -444,6 +444,19 @@ recipe is offered (in a fresh try with that source's fake key) and puts that sou
   refused. Its hosts go in the recipe's model permission path by path (only the requests the tool makes for a model:
   `/zen/v1/chat/completions` and `/zen/v1/responses` for OpenCode 2, and `/inference/openai/v1/…` the same two from
   2.0.32, which moved them), so nothing else of that site is reachable.
+- **A key confined to paths** (`opencode`: OpenCode's key — one `OPENCODE_API_KEY` for OpenCode Zen's `opencode/…` and
+  OpenCode Go's `opencode-go/…` models) is a provider with `paths`: the paths of its hosts the key may go to (prefixes;
+  an entry ending in `$` is that path exactly). It must be `swap_only` — the key only ever replaces a placeholder the
+  request carries, never added to one without — and the proxy refuses its placeholder on any other path of the host (or
+  a path with a dot segment or an encoded `/`, `.` or `\`), whatever the network allows. `also_headers` names the other
+  headers its placeholder is swapped in, in place (OpenCode's Anthropic-shaped models send the key in `x-api-key`, its
+  Google-shaped in `x-goog-api-key`; the rest in `Authorization: Bearer`). It serves no shape, so a recipe is offered
+  it only by a `native` entry, and that recipe's model permission must name every one of its paths (validated). Its
+  `models` (with `docs` and `checked`) are listed like a key-less source's — no public list carries OpenCode Go's — the
+  first the default. Such a provider may share a host with a key-less source (OpenCode Zen's free models carry no
+  placeholder, so nothing is swapped into them). OpenCode 2's paths are its model requests under `/zen/v1/`,
+  `/zen/go/v1/` and (from 2.0.32) `/inference/…`, per API shape, plus `GET /console/api/v2/config` — the one read of
+  the key's OpenCode Console settings it makes when it starts (workspace `probes/656-*/read-bundle.py`).
 
 ## Templating
 
