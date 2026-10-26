@@ -144,6 +144,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 618: the KEY-LESS model source it was made with (`--provider opencode-zen`: OpenCode Zen's free models) — used
     /// while it has no account (an account added later wins: its source is the account's). Absent otherwise.
     public var modelSource: String?
+    /// 660: the ONE port of this Mac this sandbox may reach — the model server it was made with (`--local-port`),
+    /// reached as `mac.dozable.internal:PORT` (`EgressProxy.macModelPort`). Absent: none (every port of this Mac's
+    /// loopback refused, as for every sandbox).
+    public var localModelPort: Int?
     /// 617 (RP-1): the web ports forwarded beside the recipe's own (`doz ports add`), and the Mac port each guest port
     /// (recipe or added) had last — preferred again at the next start. Absent before 617.
     public var ports: [PortForwardEntry]?

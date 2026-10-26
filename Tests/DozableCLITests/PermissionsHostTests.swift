@@ -179,11 +179,12 @@ final class PermissionsHostTests: XCTestCase {
         // The default: Standard for the base.
         let (py, _) = try DozableImages.spec(name: "a1", options: CreateOptions(image: "python-claude-code"), store: store, environment: [:])
         // 617: and the agent's own vendor sites (hidden), added at create.
-        XCTAssertEqual(py.network.policy?.permissions, standardPy + ["vendor:claude-code"])
+        // 660: and its other model sources (hidden), as pi's.
+        XCTAssertEqual(py.network.policy?.permissions, standardPy + ["vendor:claude-code", "sources:claude-code"])
         XCTAssertEqual(py.network.policy?.preset, "agent")
         // --network locked.
         let (lk, _) = try DozableImages.spec(name: "a2", options: CreateOptions(image: "go-claude-code", network: "locked"), store: store, environment: [:])
-        XCTAssertEqual(lk.network.policy?.permissions, ["model", "vendor:claude-code"])
+        XCTAssertEqual(lk.network.policy?.permissions, ["model", "vendor:claude-code", "sources:claude-code"])
         // --allow words on top, and a site.
         var o = CreateOptions(image: "python-claude-code")
         o.allow = ["web", "-error-reports", "site:api.example.com"]

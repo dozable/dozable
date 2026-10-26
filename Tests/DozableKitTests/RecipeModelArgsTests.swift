@@ -68,11 +68,12 @@ final class RecipeModelArgsTests: XCTestCase {
         var noModel = base
         noModel.models?.native?[0].env = [:]
         XCTAssertThrowsError(try noModel.validate(), "every models@1 entry sets DOZ_MODEL")
-        var builtin = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
+        var builtin = try XCTUnwrap(AgentRecipes.recipe("codex"))
         builtin.launch.modelArgs = ["-m", "$DOZ_MODEL"]
         XCTAssertThrowsError(try builtin.validate(), "an agent with models@1")
-        // 618: pi's are the host's to put on its session (its launcher is Dozable's own, unchanged).
+        // 618: pi's are the host's to put on its session (its launcher is Dozable's own, unchanged). 660: Claude Code's too.
         XCTAssertEqual(AgentRecipes.recipe("pi")?.launch.modelArgs, ["--model", "$DOZ_MODEL"])
+        XCTAssertEqual(AgentRecipes.recipe("claude-code")?.launch.modelArgs, ["--model", "$DOZ_MODEL"])
     }
 
     func testOnlyARecipeThatDeclaresThemGetsThem() {

@@ -11,7 +11,7 @@ import { state } from '../core/state-dde742b9b2d6390c.js';
 import { isRemote } from '../core/session-add710eeef8afb00.js';
 import { renderAccessStep } from '../components/access-step-03b93b6824a16a57.js';
 import { accountChooser, accountForm, sourceOf } from '../components/accounts-2d1cef38c8f2a2bb.js';
-import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-1eeea5cb67cf902a.js';
+import { LOCAL, localNodes, modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source-8abc9d37bb9a8d28.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { createDialog } from '../components/create-dialog-26e5ce2a900844a0.js';
@@ -36,7 +36,7 @@ import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 // diff and a yes), then makes the sandbox as `doz up` would and opens it with the boot view, as Quick add does.
 const NW_FIELD = { cpus: 'cpus', memory: 'memory', network: 'network', permissions: 'permissions', account: 'account', github: 'github',
                    agent_sudo: 'agentSudo', ssh_agent: 'sshAgent', clipboard: 'clipboard', browser_bridge: 'browserBridge', open_files: 'openFiles', tmux: 'tmux',
-                   ignore_mode: 'ignoreMode', model_source: 'modelSource', model: 'model' };
+                   ignore_mode: 'ignoreMode', model_source: 'modelSource', model: 'model', local_port: 'localPort' };
 export function newSandboxWizard(start = {}) {
   // 603: a draft left by the browser's Back is resumed, never silently replaced (a new start asks first).
   const go = () => { if (location.hash === '#/new') renderModal(true); else location.hash = '#/new'; };
@@ -369,9 +369,14 @@ function nwModelSource(agent, ids) {
   const keyless = new Set(acc.keylessSources || []);          // 618: OpenCode Zen's free models — no key, no account
   const sources = ids.map((id) => ({ id, title: titles[id] || id, gateway: gateways.has(id), defaultModel: models[id] || null,
                                      accountKind: keyless.has(id) ? 'none' : id === 'anthropic' ? 'api-key' : id === 'openai' ? 'openai-key' : 'key' }));
-  const keysOf = (id) => acc.accounts.filter((x) => sourceOf(x) === id).sort((x, y) => (y.isDefault ? 1 : 0) - (x.isDefault ? 1 : 0));
+  // 660: Claude Code's own provider keeps its own accounts (this Mac's login, a setup token, an API key — the chooser
+  // it always had); a model server on this Mac takes a port and a model, no key.
+  const ownAccounts = agent === 'claude-code';
+  const isOwn = (id) => ownAccounts && id === ids[0];
+  const keysOf = (id) => acc.accounts.filter((x) => (isOwn(id) ? ['mac', 'setup-token', 'api-key'].includes(x.kind) : sourceOf(x) === id))
+    .sort((x, y) => (y.isDefault ? 1 : 0) - (x.isDefault ? 1 : 0));
   const chosen = f.modelSource || ids[0];
-  if (!f.account || f.account === 'default' || !keysOf(chosen).some((x) => x.name === f.account)) {
+  if (!isOwn(chosen) && chosen !== LOCAL && (!f.account || f.account === 'default' || !keysOf(chosen).some((x) => x.name === f.account))) {
     const k = keysOf(chosen)[0];
     if (k && k.name !== f.account) nwSet('account', k.name);
   }
@@ -380,6 +385,15 @@ function nwModelSource(agent, ids) {
     const src = f.modelSource || ids[0];
     const need = (id) => {
       const s = sources.find((x) => x.id === id), keys = keysOf(id);
+      if (id === LOCAL) {
+        return localNodes({ port: f.localPort || null, model: f.model || '', servers: acc.localServers || [], host: acc.localHost,
+          onPort: (n) => { nwSet('local_port', n); paint(); }, onModel: (m) => { nwSet('model', m); paint(); } });
+      }
+      if (isOwn(id)) {
+        const acct = accountChooser({ accounts: acc, agent: () => agent, defaultValue: 'default', value: f.account || null,
+                                      onChange: () => { nwSet('account', acct.get() || 'default'); } });
+        return [acct.el];
+      }
       if (keyless.has(id)) return noKeyNodes(s);
       if (keys.length && !nw.addingKey) {
         if (keys.length === 1) {
@@ -407,16 +421,17 @@ function nwModelSource(agent, ids) {
     const list = sourceList({ tool, sources, chosen: src, keysOf, needFor: need,
       onChoose: (id) => {
         nwSet('model_source', id === ids[0] ? null : id); nwSet('model', null); nw.addingKey = false;
-        const k = keysOf(id)[0];
+        if (id !== LOCAL) nwSet('local_port', null);                 // 660
+        const k = isOwn(id) || id === LOCAL ? null : keysOf(id)[0];
         nwSet('account', k ? k.name : 'default');
         paint();
       } });
-    const ready = keyless.has(src) || keysOf(src).length > 0;
+    const ready = src !== LOCAL && (keyless.has(src) || isOwn(src) || keysOf(src).length > 0);
     const s = sources.find((x) => x.id === src);
     box.replaceChildren(h('div', { class: 'qt-sect' }, h('h3', null, 'Where ' + tool + ' gets its model'),
       ids.length > 1 ? h('p', { class: 'muted ms-lead' }, 'Its own provider is chosen; any other — or a gateway — works the same way.') : null, ...list),
       ready ? h('div', { class: 'qt-sect' }, h('h3', null, 'Model'),
-        modelPicker({ source: src, title: s.title, gateway: s.gateway, current: f.model || s.defaultModel,
+        modelPicker({ source: src, title: s.title, gateway: s.gateway, current: f.model || (isOwn(src) ? null : s.defaultModel),
           onPick: (id, isDefault) => { nwSet('model', isDefault ? null : id); paint(); } })) : null,
       h('small', { class: 'muted' }, 'The key the Mac’s proxy uses for it — the sandbox only ever sees a placeholder. Written to doz_project.yaml as model_source and model.'));
   };
@@ -425,6 +440,13 @@ function nwModelSource(agent, ids) {
     el: box,
     collect() {
       const src = f.modelSource || ids[0];
+      // 660: a model server on this Mac needs its port and a model; Claude Code's own provider may be made with none.
+      if (src === LOCAL) {
+        if (!f.localPort) throw new Error('Which port does the model server on this Mac listen on? (Ollama 11434, LM Studio 1234)');
+        if (!f.model) throw new Error('Which model of the server on this Mac? Its own name for it (ollama list, LM Studio’s list).');
+        return;
+      }
+      if (isOwn(src)) return;
       if (!keyless.has(src) && !keysOf(src).length) throw new Error('Save ' + (/^[AEIOUx]/.test(titles[src] || src) ? 'an ' : 'a ') + (titles[src] || src) + ' key, or choose a source that has one.');
     },
   };

@@ -35,7 +35,13 @@ final class ModelSourcesTests: XCTestCase {
     // MARK: the data
 
     func testEveryProviderAndGatewayIsAModelSourceWithEndpoints() throws {
-        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway", "opencode-zen"])
+        // 660: and last, a model server on this Mac (`local`) — key-less, no endpoint of its own (its base URL is the
+        // sandbox's port), offered by a native entry only.
+        XCTAssertEqual(ModelSources.ids, ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway", "opencode-zen", "local"])
+        XCTAssertTrue(ModelSources.isKeyless("local") && ModelSources.isLocal("local"))
+        XCTAssertTrue(ModelSources.endpoints("local").isEmpty && ModelSources.hosts("local").isEmpty, "never a policy host")
+        XCTAssertEqual(ModelSources.accountKind("local"), "none")
+        XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("local") }.map(\.id), ["claude-code"])
         XCTAssertEqual(ModelSources.keyed, ["anthropic", "openai", "xai", "google", "google-stitch", "opencode", "openrouter", "vercel-ai-gateway"])
         XCTAssertEqual(ModelSources.ids.filter(ModelSources.isGateway), ["openrouter", "vercel-ai-gateway"])
         // Google Stitch's key is a service's (a hosted design tool), not a model's: it serves no shape, so no recipe is
@@ -45,7 +51,7 @@ final class ModelSourcesTests: XCTestCase {
         // 656: OpenCode's key serves no shape either — it is offered by a native entry only (OpenCode 2's).
         XCTAssertTrue(ModelSources.endpoints("opencode").isEmpty)
         XCTAssertEqual(AgentRecipes.all.filter { $0.offeredSources.contains("opencode") }.map(\.id), ["opencode2"])
-        for id in ModelSources.ids where id != "google-stitch" && id != "opencode" {
+        for id in ModelSources.ids where id != "google-stitch" && id != "opencode" && id != "local" {
             XCTAssertFalse(ModelSources.endpoints(id).isEmpty, "\(id) serves a shape")
             for e in ModelSources.endpoints(id) {
                 let host = try XCTUnwrap(URL(string: e.baseUrl)?.host)
@@ -73,8 +79,8 @@ final class ModelSourcesTests: XCTestCase {
                        "Google through its OpenAI-compatible endpoint")
         XCTAssertEqual(sgpt.selection(source: "vercel-ai-gateway", model: "anthropic/claude-sonnet-4.6")?.env["DEFAULT_MODEL"], "anthropic/claude-sonnet-4.6")
         XCTAssertNil(sgpt.selection(source: "anthropic"), "not offered")
-        // An agent without models@1: its one provider, no selection (the built-in three included).
-        for id in ["claude-code", "codex", "gemini"] {
+        // An agent without models@1: its one provider, no selection (Codex included; 660: Claude Code declares models@1).
+        for id in ["codex", "gemini"] {
             let r = try XCTUnwrap(AgentRecipes.recipe(id))
             XCTAssertNil(r.models)
             XCTAssertEqual(r.offeredSources, r.credentials.map(\.provider))
@@ -266,8 +272,8 @@ final class ModelSourcesTests: XCTestCase {
         XCTAssertEqual(none, [])
         let watched = try await XCTUnwrapAsync(await c.leakGuardHosts(of: "p"))
         XCTAssertTrue(watched.contains("openrouter.ai"), "its other sources are watched: an Anthropic placeholder sent there is refused")
-        // Claude Code and Codex: never.
-        XCTAssertNil(AgentCredentials.sources("claude-code"))
+        // Codex: never. 660: Claude Code — Anthropic (its own accounts), the gateways, a model server on this Mac.
+        XCTAssertEqual(AgentCredentials.sources("claude-code"), ["anthropic", "openrouter", "vercel-ai-gateway", "local"])
         XCTAssertNil(AgentCredentials.sources("codex"))
     }
 
@@ -605,9 +611,122 @@ final class ModelSourcesTests: XCTestCase {
         n.gateways = sgpt.gateways
         XCTAssertThrowsError(try n.validate(), "verified, but not offered")
         XCTAssertFalse(n.offersGateway("openrouter"))
-        // Without models@1 nothing is offered, whatever the entries document (the built-ins).
+        // Without models@1 nothing is offered, whatever the entries document (Codex). 660: Claude Code is, through models@1.
+        XCTAssertFalse(try XCTUnwrap(AgentRecipes.recipe("codex")).throughGateway)
+        XCTAssertTrue(try XCTUnwrap(AgentRecipes.recipe("claude-code")).throughGateway)
+    }
+
+    // MARK: 660 — Claude Code through a gateway, or a model server on this Mac
+
+    func testClaudeCodesSourcesAndWhatEachChoiceSets() throws {
         let cc = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
-        XCTAssertFalse(cc.throughGateway)
+        XCTAssertEqual(cc.offeredSources, ["anthropic", "openrouter", "vercel-ai-gateway", "local"])
+        // Anthropic: its own client and its own model — only DOZ_MODEL (the launcher's --model is put on only when chosen).
+        let a = try XCTUnwrap(cc.selection(source: "anthropic"))
+        XCTAssertNil(a.baseURL)
+        XCTAssertEqual(a.env, ["DOZ_MODEL": "claude-sonnet-4-6"])
+        XCTAssertEqual(a.keyEnv, [])
+        // A gateway: its Anthropic endpoint, the key's placeholder in ANTHROPIC_AUTH_TOKEN, the model everywhere.
+        let g = try XCTUnwrap(cc.selection(source: "openrouter", model: "z-ai/glm-5"))
+        XCTAssertEqual(g.shape, "anthropic-messages")
+        XCTAssertEqual(g.env["ANTHROPIC_BASE_URL"], "https://openrouter.ai/api")
+        for k in ["ANTHROPIC_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+                  "CLAUDE_CODE_SUBAGENT_MODEL", "DOZ_MODEL"] { XCTAssertEqual(g.env[k], "z-ai/glm-5", k) }
+        XCTAssertEqual(g.env["CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS"], "1")
+        XCTAssertNil(g.env["ANTHROPIC_API_KEY"], "never a key's variable in the recipe's env")
+        XCTAssertEqual(g.keyEnv, ["ANTHROPIC_AUTH_TOKEN"])
+        let b = cc.keyBinding(try XCTUnwrap(KeyProviders.provider("openrouter")))
+        XCTAssertEqual(b.hosts, ["openrouter.ai"])
+        XCTAssertEqual(b.placeholderVariables, ["OPENROUTER_API_KEY", "ANTHROPIC_AUTH_TOKEN"])
+        // A model server on this Mac: no selection without a port; with one, this Mac's one name and that port.
+        XCTAssertNil(cc.selection(source: "local", model: "qwen3-coder"))
+        XCTAssertNil(cc.selection(source: "local", model: "qwen3-coder", localPort: 80), "a privileged port is never named")
+        let l = try XCTUnwrap(cc.selection(source: "local", model: "qwen3-coder", localPort: 11434))
+        XCTAssertEqual(l.baseURL, "http://mac.dozable.internal:11434")
+        XCTAssertEqual(l.env["ANTHROPIC_BASE_URL"], "http://mac.dozable.internal:11434")
+        XCTAssertEqual(l.env["ANTHROPIC_DEFAULT_HAIKU_MODEL"], "qwen3-coder")
+        XCTAssertEqual(l.keyEnv, ["ANTHROPIC_AUTH_TOKEN"])
+        // Its accounts: the Anthropic source keeps its own three; a gateway's key; never another provider's.
+        XCTAssertEqual(AgentCredentials.source(of: .mac, provider: nil, image: "claude-code"), "anthropic")
+        XCTAssertEqual(AgentCredentials.source(of: .setupToken, provider: nil, image: "claude-code"), "anthropic")
+        XCTAssertNil(AgentCredentials.source(of: .mac, provider: nil, image: "pi"), "pi never takes a Claude subscription")
+        XCTAssertNil(AgentCredentials.source(of: .mac, provider: nil, image: "shell-gpt"))
+        // Its default stays the Anthropic default — never fallen into a gateway's.
+        XCTAssertEqual(AgentCredentials.defaultAccount(for: "claude-code", anthropic: "mac", openai: nil, providers: ["openrouter": "or"],
+                                                       kinds: ["mac": .mac, "or": .key]), "mac")
+        XCTAssertEqual(AgentCredentials.defaultAccount(for: "claude-code", anthropic: "none", openai: nil, providers: ["openrouter": "or"],
+                                                       kinds: ["or": .key]), "none")
+        XCTAssertFalse(AgentCredentials.needsAccount("claude-code"))
+        XCTAssertNil(AgentCredentials.createProblem(image: "claude-code", account: "mac", defaultAccount: "mac", kinds: ["mac": .mac]))
+        // The local source's own checks.
+        XCTAssertNil(HostCore.localSourceProblem(source: "local", port: 11434, model: "qwen3-coder"))
+        XCTAssertTrue(HostCore.localSourceProblem(source: "local", port: nil, model: "m")?.text.contains("which port") == true)
+        XCTAssertTrue(HostCore.localSourceProblem(source: "local", port: 11434, model: nil)?.fix == "--model NAME")
+        XCTAssertNotNil(HostCore.localSourceProblem(source: "openrouter", port: 11434, model: nil), "a port is for the local source only")
+        XCTAssertNil(HostCore.localSourceProblem(source: "openrouter", port: nil, model: nil))
+    }
+
+    func testClaudeCodeOnAModelServerOnThisMac() async throws {
+        let c = await core()
+        var r = HostRequest(.create, name: "lm")
+        r.create = CreateOptions(image: "claude-code", network: "locked")
+        r.create?.modelSource = "local"
+        r.create?.model = "qwen3-coder"
+        var m = await c.handle(r)
+        XCTAssertTrue(m.error?.message.contains("which port") == true, m.error?.message ?? "")
+        r.create?.localPort = 11434
+        m = await c.handle(r)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let e = try await c.selectionEnvironment("lm")
+        XCTAssertEqual(e["ANTHROPIC_BASE_URL"], "http://mac.dozable.internal:11434")
+        XCTAssertEqual(e["ANTHROPIC_MODEL"], "qwen3-coder")
+        XCTAssertEqual(e["ANTHROPIC_AUTH_TOKEN"], MacModelServer.noKeyWord, "a fixed word, never a key")
+        let args = try await c.builtinModelArguments(of: "lm")
+        XCTAssertEqual(args, ["--model", "qwen3-coder"])
+        // No key of any source in its vault; the one port of this Mac in its proxy.
+        let v = try await XCTUnwrapAsync(await c.vault(of: "lm"))
+        XCTAssertFalse(v.hasSecret("anthropic") || v.hasSecret("claude-oauth") || v.hasSecret("key:openrouter"))
+        XCTAssertTrue(v.sessionEnvironment().isEmpty, "no placeholder of any key")
+        let port = try await c.macPortOf("lm")
+        XCTAssertEqual(port, 11434)
+        // A sandbox made without one opens nothing of this Mac; a port without the local source is refused.
+        var plain = HostRequest(.create, name: "cc")
+        plain.create = CreateOptions(image: "claude-code", network: "locked")
+        let made = await c.handle(plain)
+        XCTAssertNil(made.error, made.error?.message ?? "")
+        let none = try await c.macPortOf("cc")
+        XCTAssertNil(none)
+        let e2 = try await c.selectionEnvironment("cc")
+        XCTAssertNil(e2["ANTHROPIC_BASE_URL"], "Claude Code on Anthropic: unchanged")
+        let own = try await c.builtinModelArguments(of: "cc")
+        XCTAssertEqual(own, [], "its own model unless one is chosen")
+        var stray = HostRequest(.create, name: "st")
+        stray.create = CreateOptions(image: "claude-code", network: "locked")
+        stray.create?.localPort = 11434
+        let refused = await c.handle(stray)
+        XCTAssertTrue(refused.error?.message.contains("--local-port is for a model server") == true, refused.error?.message ?? "")
+    }
+
+    func testClaudeCodeThroughAGateway() async throws {
+        let c = await core()
+        _ = await c.handle(HostRequest.keyAccountAdd(name: "or", provider: "openrouter", secret: "sk-or-v1-FAKE0123456789abcdef"))
+        var r = HostRequest(.create, name: "gw")
+        r.create = CreateOptions(image: "claude-code", network: "locked")
+        r.create?.modelSource = "openrouter"
+        r.create?.model = "anthropic/claude-sonnet-4.6"
+        let m = await c.handle(r)
+        XCTAssertNil(m.error, m.error?.message ?? "")
+        let v = try await XCTUnwrapAsync(await c.vault(of: "gw"))
+        XCTAssertTrue(v.hasSecret("key:openrouter"))
+        XCTAssertFalse(v.hasSecret("anthropic") || v.hasSecret("claude-oauth"), "never beside an Anthropic credential")
+        XCTAssertEqual(Set(v.sessionEnvironment().keys), ["OPENROUTER_API_KEY", "ANTHROPIC_AUTH_TOKEN"], "the placeholder where Claude Code reads it")
+        let e = try await c.selectionEnvironment("gw")
+        XCTAssertEqual(e["ANTHROPIC_BASE_URL"], "https://openrouter.ai/api")
+        XCTAssertNil(e["ANTHROPIC_AUTH_TOKEN"], "the placeholder is the vault's (minted per session), never the recipe's")
+        let watched = try await XCTUnwrapAsync(await c.leakGuardHosts(of: "gw"))
+        XCTAssertTrue(watched.contains("api.anthropic.com"), "a placeholder sent to Anthropic is refused")
+        let port = try await c.macPortOf("gw")
+        XCTAssertNil(port)
     }
 }
 
@@ -621,6 +740,8 @@ extension HostCore {
     func builtinModelArguments(of name: String) throws -> [String] { builtinModelArguments(try get(name)) }
     func permissionsOf(_ name: String) throws -> [String]? { try get(name).config.spec.network.policy?.permissions }
     func credentialProblemOf(_ name: String) throws -> String? { credentialProblem(try get(name)) }
+    /// 660: the one port of this Mac its proxy routes (nil: none).
+    func macPortOf(_ name: String) throws -> UInt16? { try get(name).sandbox.egress?.macModelPort }
 }
 
 extension RecipeHostTests {

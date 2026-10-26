@@ -117,6 +117,20 @@ struct Doctor: AsyncParsableCommand {
                 } ?? "none set — doz config set sandbox.dotfiles URL|PATH puts yours in every new sandbox"))
             }
         }
+        // 660: each sandbox that uses a model server on this Mac — does something answer on its one port?
+        do {
+            let rows = store.sandboxNames().compactMap { name -> (String, Int)? in
+                SandboxConfig.read(store.configFile(name))?.localModelPort.map { (name, $0) }
+            }
+            if !rows.isEmpty {
+                let silent = rows.filter { !MacModelServer.answers(port: $0.1) }
+                let list = rows.map { "\($0.0) → 127.0.0.1:\($0.1)" }.joined(separator: ", ")
+                out.append(DoctorCheck(check: "models on this Mac", status: silent.isEmpty ? .ok : .warn,
+                                       detail: silent.isEmpty ? "\(list) (each sandbox reaches only its own port)"
+                                           : "nothing answers on " + silent.map { "port \($0.1) (\($0.0))" }.joined(separator: ", ")
+                                             + " — start the model server on this Mac (ollama serve, LM Studio's server) before Claude Code asks it"))
+            }
+        }
         // EXPERIMENTAL: audio sandboxes — the sound kernel this doz carries, and who macOS asks about the microphone.
         do {
             let carried = MacAudio.bundledSoundKernel()

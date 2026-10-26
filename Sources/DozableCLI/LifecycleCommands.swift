@@ -91,8 +91,11 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must be allowed (--allow site:HOST).")
     var key: [String] = []
 
-    @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default. opencode-zen (OpenCode 2): OpenCode Zen's free models, no key and no account.")
+    @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default. opencode-zen (OpenCode 2): OpenCode Zen's free models, no key and no account. local (Claude Code): a model server on this Mac — with --local-port and --model, no key.")
     var provider: String?
+
+    @Option(name: .long, help: "With --provider local: the port of the model server on this Mac (Ollama 11434, LM Studio 1234, llama-server 8080, LiteLLM 4000) — the ONE port of this Mac the sandbox reaches, as mac.dozable.internal:PORT. Nothing else on this Mac's localhost is reachable from a sandbox.")
+    var localPort: Int?
 
     @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter (one key, many models). Its account is then a key of that gateway.")
     var gateway: String?
@@ -111,6 +114,12 @@ struct ChoiceOptions: ParsableArguments {
         if let p = provider, ModelSources.isGateway(p) { throw ValidationError("\(p) is a gateway: --gateway \(p)") }
         if let s = provider ?? gateway { o.modelSource = s }
         if let m = model { o.model = m }
+        // 660: a model server on this Mac — its port (checked with the rest by the host and the plan).
+        if let p = localPort {
+            guard provider.map(ModelSources.isLocal) == true else { throw ValidationError("--local-port is for a model server on this Mac: --provider local --local-port \(p)") }
+            if let why = MacModelServer.portProblem(p) { throw ValidationError("--local-port: \(why)") }
+            o.localPort = p
+        }
     }
 
     // EXPERIMENTAL (604): an audio sandbox.

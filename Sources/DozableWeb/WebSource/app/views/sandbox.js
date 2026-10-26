@@ -309,6 +309,9 @@ function sandboxParts(name, d, net, accounts) {
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
+        // 660: where its agent gets its model, when not its own provider's own pick ("via OpenRouter · model X").
+        i.modelLine ? chip('Model', h('span', { 'data-model-line': '' }, i.modelLine),
+          { title: i.localModelPort ? 'Only port ' + i.localModelPort + ' of this Mac is reachable from ' + name + ' (its model server); nothing else on this Mac’s localhost' : 'Where its agent gets its model' }) : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),

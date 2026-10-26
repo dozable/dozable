@@ -47,7 +47,14 @@ func renderPlan(_ p: CreatePlan) -> String {
     }
     // 617 (models@1): the model and where it goes; the other providers and gateways it can use, and how.
     if let m = p.model {
-        s += "  model: \(m.model) through \(m.title)\n"
+        // 660: a built-in agent on its own provider picks its own model unless one is chosen; a server on this Mac by port.
+        if m.own == true {
+            s += "  model: its own choice, through \(m.title) (--model to pick one)\n"
+        } else if ModelSources.isLocal(m.source) {
+            s += "  model: \(m.model.isEmpty ? "(name it: --model)" : m.model) on this Mac's port \(m.localPort.map(String.init) ?? "(--local-port)")\n"
+        } else {
+            s += "  model: \(m.model) through \(m.title)\n"
+        }
         let others = m.offered.filter { $0.id != m.source }
         if !others.isEmpty {
             s += "  can also use: " + others.map { "\($0.gateway ? "--gateway" : "--provider") \($0.id)" }.joined(separator: " · ") + " (and --model)\n"

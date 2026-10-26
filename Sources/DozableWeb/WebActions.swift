@@ -334,7 +334,7 @@ public enum WebAction: Equatable, Sendable {
     static let fields: [String: Set<String>] = {
         var f: [String: Set<String>] = [
             "create": ["sandbox", "image", "cpus", "memoryMiB", "workspace", "isolated", "network", "subnet", "account", "rebuild", "dockerfile", "permissions", "sites",
-                       "modelSource", "model"],
+                       "modelSource", "model", "localPort"],
             "open-session": ["sandbox", "session", "argv"],
             "point-take": ["sandbox", "point", "note"],
             "point-revert": ["sandbox", "point", "confirm"],
@@ -421,6 +421,8 @@ public enum WebAction: Equatable, Sendable {
                 guard ModelSelection.isModelID(m) else { throw Invalid("model: a model id (letters, digits and . _ : / @ + -)") }
                 return m
             }
+            // 660: a model server on this Mac — its port (the host refuses it for any other source).
+            o.localPort = try f.int("localPort", MacModelServer.ports)
             // 597 (P4): the form's switches — exactly these permissions; its sites on top.
             if d["permissions"] != nil, !(d["permissions"] is NSNull) {
                 let p = try f.permissionWords("permissions")

@@ -23,6 +23,8 @@ public struct WebPlanQuery: Equatable, Sendable {
     /// 617 (models@1): the model source (a provider or gateway) and the model the setup chose — nil: the defaults.
     public var source: String?
     public var model: String?
+    /// 660: a model server on this Mac — its port (the one port of this Mac the sandbox reaches).
+    public var localPort: Int?
     /// 634: the First sandbox's project folder on this Mac (nil: a new empty folder of its own) — absolute or `~/…`; the
     /// planner says what it would do with it (a folder Dozable refuses is a plan problem, never made here).
     public var workspace: String?
@@ -31,8 +33,8 @@ public struct WebPlanQuery: Equatable, Sendable {
         guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any] else {
             throw WebAction.Invalid("the body must be a JSON object")
         }
-        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account", "source", "model", "workspace"]) else {
-            throw WebAction.Invalid("only purpose, name, agent, base, isolated, account, source, model and workspace")
+        guard Set(d.keys).isSubset(of: ["purpose", "name", "agent", "base", "isolated", "account", "source", "model", "localPort", "workspace"]) else {
+            throw WebAction.Invalid("only purpose, name, agent, base, isolated, account, source, model, localPort and workspace")
         }
         var q = WebPlanQuery()
         if let v = d["purpose"], !(v is NSNull) {
@@ -86,6 +88,14 @@ public struct WebPlanQuery: Equatable, Sendable {
             guard let s = v as? String, ModelSelection.isModelID(s) else { throw WebAction.Invalid("model: a model id (letters, digits and . _ : / @ + -)") }
             q.model = s
         }
+        if let v = d["localPort"], !(v is NSNull) {
+            // 660: a whole number in the ports a person may name (never a bool's 1).
+            guard let n = v as? Int, CFGetTypeID(v as CFTypeRef) != CFBooleanGetTypeID(), MacModelServer.portProblem(n) == nil else {
+                throw WebAction.Invalid("localPort: a port of this Mac, \(MacModelServer.ports.lowerBound)–\(MacModelServer.ports.upperBound)")
+            }
+            guard q.source.map(ModelSources.isLocal) == true else { throw WebAction.Invalid("localPort: with source local") }
+            q.localPort = n
+        }
         if q.purpose == "try" || q.purpose == "first", q.agent == nil || q.agent == "none" { throw WebAction.Invalid("agent: a try is of an agent") }
         if q.workspace != nil, q.isolated { throw WebAction.Invalid("workspace or isolated, not both") }
         return q
@@ -109,6 +119,7 @@ public struct WebPlanQuery: Equatable, Sendable {
         if let account { o.account = account }
         o.modelSource = source
         o.model = model
+        o.localPort = localPort                                         // 660
         // 634: a base named by the page (New sandbox's picker) is kept; none: a try goes on the store's base.
         return PlanRequest(purpose: purpose, name: name, create: o, baseChosen: base != nil ? true : nil)
     }
@@ -205,7 +216,8 @@ extension WebTryCatalog {
             a.usableAccounts = accounts.filter { w in
                 AccountKind(rawValue: w.kind).map { AgentCredentials.accepts(p?.create?.image ?? r.id, $0, provider: w.provider) } ?? false
             }.map { w in Agent.Usable(name: w.name, kind: w.kind, source: w.sourceLabel, isDefault: w.isDefault,
-                                      modelSource: AccountKind(rawValue: w.kind).flatMap { AgentCredentials.source(of: $0, provider: w.provider) }) }
+                                      // 660: image-aware — Claude Code's Mac login and setup tokens are its Anthropic source's.
+                                      modelSource: AccountKind(rawValue: w.kind).flatMap { AgentCredentials.source(of: $0, provider: w.provider, image: p?.create?.image ?? r.id) }) }
             agents.append(a)
         }
         // 617: a superseded or retired agent comes after the current ones (still selectable).

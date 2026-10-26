@@ -222,7 +222,9 @@ final class AgentRecipeTests: XCTestCase {
         XCTAssertEqual(level("grok", "headless"), "verified")
         XCTAssertTrue(AgentRecipes.recipe("codex")!.hasTag("multi-vendor-models"))
         XCTAssertFalse(AgentRecipes.recipe("gemini")!.hasTag("multi-vendor-models"))
-        XCTAssertEqual(AgentRecipes.all.filter { $0.models == nil && $0.hasTag("gateway:openrouter") }.map(\.id), ["claude-code", "codex"])
+        // 660: Claude Code is offered OpenRouter through models@1 now (its Anthropic-shaped endpoint).
+        XCTAssertEqual(AgentRecipes.all.filter { $0.models == nil && $0.hasTag("gateway:openrouter") }.map(\.id), ["codex"])
+        XCTAssertTrue(AgentRecipes.recipe("claude-code")!.offersGateway("openrouter"))
         XCTAssertEqual(AgentRecipes.all.filter { $0.models != nil }.filter { $0.hasTag("gateway:openrouter") }.map(\.id),
                        AgentRecipes.all.filter { $0.offeredSources.contains("openrouter") && $0.models != nil }.map(\.id), "617: offered = the tag")
     }

@@ -331,6 +331,8 @@ extension HostCore {
         sb.egress?.openaiUpstreamForTests = OpenAISeam.upstream()
         // 617 PROFILING SEAM: the network profiler's scratch host logs every request (DOZ_TEST_PROFILE_NETWORK=1).
         sb.egress?.inspectEverythingForProfiling = ProviderSeam.profiling()
+        // 660: the one port of this Mac it was made with (its model server) — nil for every other sandbox.
+        sb.egress?.macModelPort = m.config.localModelPort.flatMap { MacModelServer.portProblem($0) == nil ? UInt16($0) : nil }
         // 599i: Codex uses OpenAI accounts only — its own path; the Anthropic bindings stay empty.
         if AgentCredentials.codexFlow(sb.spec.imageSpec?.name) {
             applyOpenAIAccount(m, resolvedAccount(m, file))

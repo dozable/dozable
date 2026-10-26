@@ -289,6 +289,13 @@ function byProvider(a, rows, phases) {
     out.push(h('div', { class: 'ak-more' }, h('span', null, 'No key yet:'),
       ...without.map((p) => btn(p === 'custom' ? 'Your own service' : title(a, p), () => openAddKey(a, p), { small: true, quiet: true, icon: 'plus' }))));
   }
+  // 660: a model server on this Mac needs no key — said here, chosen per sandbox (its port) in Try and New sandbox.
+  const servers = (a.localServers || []).filter((s) => s.native).map((s) => s.title);
+  if (servers.length) {
+    out.push(h('p', { class: 'muted ms-small', 'data-ak-local': '' }, icon('cpu'), ' A model server on this Mac (' + servers.slice(0, 4).join(', ') + ' …) needs no key: ',
+      'Claude Code reaches it by its port, as ', h('code', null, (a.localHost || 'mac.dozable.internal') + ':PORT'),
+      ' — only that port, nothing else on this Mac. Choose it in Try or New sandbox.'));
+  }
   return out;
 }
 

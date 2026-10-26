@@ -11,9 +11,48 @@ import { btn } from './button-8109d54546d946d3.js';
 /// A model id a person may type (`ModelSelection.isModelID`): letters, digits and . _ : / @ + -.
 export const MODEL_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@+-]{0,127}$/;
 
+/// 660: a model server on this Mac (`MacModelServer.sourceID`).
+export const LOCAL = 'local';
+
+/// 660: a port a person may name for it (`MacModelServer.ports`).
+export function isLocalPort(n) { return Number.isInteger(n) && n >= 1024 && n <= 65535; }
+
+/// 660: what the `local` source needs under its row — the port on this Mac (the known servers one click each), the
+/// model by the server's own name, and what the sandbox may reach (that port only, by one name; nothing else of this
+/// Mac). model: the plan's model; port: its port (null: none yet); servers: [{title, port, native, reason}]; host:
+/// the name the sandbox uses; onPort(n), onModel(id) re-plan.
+export function localNodes({ port, model, servers, host, onPort, onModel }) {
+  const portField = h('input', { type: 'number', min: '1024', max: '65535', inputmode: 'numeric', class: 'ms-port', 'data-ms-local-port': '',
+    'aria-label': 'The port of the model server on this Mac', placeholder: '11434' });
+  if (port) portField.value = String(port);
+  const takePort = () => { const n = Number(portField.value); if (isLocalPort(n) && n !== port) onPort(n); };
+  portField.addEventListener('change', takePort);
+  portField.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); takePort(); } });
+  const known = (servers || []).filter((s) => s.native);
+  const chips = h('div', { class: 'chips', 'data-ms-local-servers': '' },
+    ...known.map((s) => btn(s.title + ' · ' + s.port, () => onPort(s.port), { small: true, quiet: s.port !== port, icon: s.port === port ? 'check' : 'cpu' })));
+  const modelField = h('input', { type: 'text', spellcheck: 'false', autocomplete: 'off', 'data-ms-local-model': '',
+    'aria-label': 'The model, by the server’s own name for it', placeholder: 'its name for the model — ollama list, LM Studio’s list' });
+  if (model) modelField.value = model;
+  const takeModel = () => { const v = modelField.value.trim(); if (MODEL_ID.test(v) && v !== model) onModel(v); };
+  modelField.addEventListener('change', takeModel);
+  modelField.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); takeModel(); } });
+  const notYet = (servers || []).filter((s) => !s.native);
+  return [
+    h('div', { class: 'ms-keyline', 'data-ms-no-key': LOCAL }, icon('circle-check'),
+      h('span', null, 'No key — nothing of yours goes to it. The sandbox reaches only this port of your Mac, as ',
+        h('code', null, (host || 'mac.dozable.internal') + ':' + (port || 'PORT')), '; nothing else on this Mac.')),
+    h('div', { class: 'ms-field' }, h('span', null, 'Port on this Mac'), h('div', { class: 'try-paste ms-portrow' }, portField, chips)),
+    h('label', { class: 'ms-field' }, h('span', null, 'Model'), modelField),
+    notYet.length ? h('p', { class: 'muted ms-small', 'data-ms-local-not-yet': '' },
+      'Not yet: ' + notYet.map((s) => s.title + ' — ' + (s.reason || 'needs a translator')).join(' · ')) : null,
+  ];
+}
+
 /// One row's words: a gateway reaches many makers' models; a provider its own (the default named).
 function what(s, own, tool) {
   if (s.gateway) return 'one key, models from many makers';
+  if (s.id === LOCAL) return 'Ollama, LM Studio, llama.cpp … by its port — no key';     // 660
   if (s.accountKind === 'none') return 'free models';
   return (s.defaultModel ? 'default ' + s.defaultModel : 'its own models') + (own ? ' · ' + tool + '’s own' : '');
 }

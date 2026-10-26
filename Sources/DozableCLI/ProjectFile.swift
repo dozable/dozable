@@ -186,6 +186,12 @@ extension DozableProject {
                 let s = try scalarString(v, key)
                 guard ModelSelection.isModelID(s) else { throw bad(v, "model: a model id — letters, digits and . _ : / @ + - (doz models)") }
                 p.model = s
+            case "local_port":
+                // 660: the model server on this Mac (with model_source: local — checked in problem()).
+                guard let n = v.int, MacModelServer.portProblem(n) == nil else {
+                    throw bad(v, "local_port: a port of this Mac, \(MacModelServer.ports.lowerBound)–\(MacModelServer.ports.upperBound)")
+                }
+                p.localPort = n
             case "dotfiles":
                 // 657: a git repository's https:// URL, a folder on the Mac, or none (YAML's bare `no`/`off`: none).
                 let s = v.bool == false ? "none" : try scalarString(v, key)

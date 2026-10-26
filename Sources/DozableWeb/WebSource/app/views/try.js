@@ -26,7 +26,7 @@ import { renderModal, wizardCloseRequest } from '../components/modal.js';
 import { pageFailure, toast } from '../components/notices.js';
 import { startQuickMade } from './quick-make.js';
 import { planCommand, reachList } from '../components/plan-view.js';
-import { modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source.js';
+import { LOCAL, localNodes, modelPicker, noKeyNodes, resetModelSearch, sourceCommand, sourceList } from '../components/model-source.js';
 import { prepCard } from '../components/prep-card.js';
 import { recipeWhoseNodes, sourcePill } from '../components/source-pill.js';
 
@@ -421,7 +421,7 @@ function detailNodes() {
 // 617 (owner: "add OpenAI and Anthropic AND gateway support"): an agent whose recipe speaks several APIs (models@1) gets
 // a Model section — the provider or gateway (its key only ever goes there) and the model (empty: that source's
 // default) — and the key part follows the source chosen: its accounts, or a paste saved as that source's key.
-const SETUP = { d: null, a: null, plan: null, account: null, source: null, model: '', busy: false, error: '', adding: false };
+const SETUP = { d: null, a: null, plan: null, account: null, source: null, model: '', localPort: null, busy: false, error: '', adding: false };
 
 /// The accounts the agent can use — of the model source chosen, when it has a choice — the provider's default first.
 function usable(a) {
@@ -434,7 +434,8 @@ async function replan(account) {
   const a = SETUP.a;
   SETUP.account = account || null;
   SETUP.plan = await api('plan', { method: 'POST', json: { purpose: 'try', agent: a.ref || a.id, ...(account ? { account } : {}),
-    ...(SETUP.source ? { source: SETUP.source } : {}), ...(SETUP.model ? { model: SETUP.model } : {}) } });
+    ...(SETUP.source ? { source: SETUP.source } : {}), ...(SETUP.model ? { model: SETUP.model } : {}),
+    ...(SETUP.source === LOCAL && SETUP.localPort ? { localPort: SETUP.localPort } : {}) } });
 }
 
 /// The source chosen (the plan's): its entry of the offered list.
@@ -489,10 +490,21 @@ function sourceSections(a, plan, missing) {
     needFor: (id) => sourceNeed(plan, m.offered.find((x) => x.id === id), keysOf(id)), notOffered });
   const out = [sect('Where ' + tool + ' gets its model',
     ...(m.offered.length > 1 ? [h('p', { class: 'muted ms-lead' }, 'Its own provider is chosen; any other — or a gateway — works the same way.')] : []), ...list)];
-  if (!missing) {
-    out.push(sect('Model', modelPicker({ source: m.source, title: m.title, gateway: m.gateway, current: m.model, onPick: chooseModel })));
+  // 660: a server on this Mac takes its model by name (under its row); a built-in agent on its own provider picks its own
+  // model unless one is chosen here.
+  if (!missing && m.source !== LOCAL) {
+    out.push(sect('Model', ...(m.own ? [h('p', { class: 'muted ms-lead', 'data-ms-own': '' }, tool + ' picks its own model — choose one to fix it.')] : []),
+      modelPicker({ source: m.source, title: m.title, gateway: m.gateway, current: m.own ? null : m.model, onPick: chooseModel })));
   }
   return out;
+}
+
+/// 660: the `local` row's port, model and reach (components/model-source.js `localNodes`).
+function localNeed(plan) {
+  const m = plan.model;
+  return localNodes({ port: m.localPort || SETUP.localPort, model: SETUP.model || (m.source === LOCAL ? m.model : ''), servers: m.localServers, host: m.localHost,
+    onPort: async (n) => { SETUP.localPort = n; SETUP.error = ''; await replan(null).catch((e) => { SETUP.error = e.message || String(e); }); paintSetup(); },
+    onModel: async (id) => { SETUP.model = id; SETUP.error = ''; await replan(null).catch((e) => { SETUP.error = e.message || String(e); }); paintSetup(); } });
 }
 
 /// 618: a tool with ONE source and no choice of model (Grok Build: an xAI key, checked by the tool at start-up) — the same
@@ -515,6 +527,10 @@ function oneSourceSection(a, plan, missing) {
 /// What the chosen source needs: the key it uses (a choice when there are several, another one added), else a paste.
 function sourceNeed(plan, src, keys) {
   if (!src) return [];
+  if (src.id === LOCAL) return localNeed(plan);                      // 660: a model server on this Mac — by port, no key
+  // 660: Claude Code's own provider with no account yet keeps its own card (this Mac's login, a setup token, an API key).
+  const a = SETUP.a;
+  if (!keys.length && a && a.id === 'claude-code' && a.card && src.id === a.provider) return keyNodes(a, plan, keyProblem(plan));
   if (src.accountKind === 'none') return noKeyNodes(src);          // 618: OpenCode Zen's free models — no key
   const acc = plan.account;
   if (keys.length && !SETUP.adding) {
@@ -563,6 +579,7 @@ async function chooseSource(id) {
   const m = SETUP.plan && SETUP.plan.model;
   SETUP.source = m && m.offered[0] && m.offered[0].id === id ? null : id;
   SETUP.model = ''; SETUP.error = ''; SETUP.adding = false;
+  if (id !== LOCAL) SETUP.localPort = null;                         // 660
   const keys = keysBySource(SETUP.a)(id);
   SETUP.source = SETUP.source || (keys.length ? null : id);
   await replan(keys.length ? keys[0].name : null).catch((e) => { SETUP.error = e.message || String(e); });
@@ -771,7 +788,11 @@ function planFacts(a, p) {
     ...fact('Version', nameOf(a) + ' · ' + ((p.version && p.version.version) || a.version || '—')),
     ...fact('Base', a.base || '—'),
     // 617 (models@1): the model and where its key goes; the network line then names no single host.
-    ...(p.model ? fact('Model', keyProblem(p) ? p.model.title + ' — once its key is saved' : p.model.model + ' through ' + p.model.title) : []),
+    ...(p.model ? fact('Model', keyProblem(p) ? p.model.title + ' — once its key is saved'
+      // 660: its own choice on its own provider; a server on this Mac by its port.
+      : p.model.own ? nameOf(a) + '’s own choice, through ' + p.model.title
+      : p.model.source === LOCAL ? (p.model.model || '(name it)') + ' on this Mac’s port ' + (p.model.localPort || '(choose one)')
+      : p.model.model + ' through ' + p.model.title) : []),
     // 635 (owner: "switch both to standard"): Standard — its model, packages and GitHub; the Network tab changes it.
     ...fact('Network', STANDARD_WORDS),
     ...fact('Folder', lines('folder')[0] || '—'),

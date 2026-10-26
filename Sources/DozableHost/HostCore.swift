@@ -493,6 +493,8 @@ public actor HostCore {
         i.agentRef = m.config.agentRef            // 618
         i.recipeRef = m.config.recipeRef          // 654
         i.extraKeys = m.config.extraKeys
+        i.modelLine = modelLine(m)                // 660
+        i.localModelPort = m.config.localModelPort
         // 617 (RP-1): whether something serves each port — read in the background, never on this call's path.
         if phase == .running, !readOnly, !wantedPorts(m).isEmpty,
            portServing[m.name].map({ Date().timeIntervalSince($0.checked) > 15 }) ?? true {
@@ -988,6 +990,8 @@ public actor HostCore {
             if let p = r.problem { throw HostError(.invalid, p.text + " — " + p.fix) }
             if let n = r.name { o.account = n }
         }
+        // 660: a model server on this Mac — its port (the one port of this Mac the sandbox reaches) and its model.
+        if let p = Self.localSourceProblem(source: modelSource, port: o.localPort, model: o.model) { throw HostError(.invalid, p.text + " — " + p.fix) }
         // 594: the agent's credential prerequisite, before anything is made (pi: an API-key account).
         if spec.network.policy != nil {
             let (def, kinds) = accountKinds()
@@ -1047,6 +1051,7 @@ public actor HostCore {
         }
         if let model = o.model, let source = modelSource { cfg.models = [source: model] }     // 617 (models@1)
         if let source = modelSource, ModelSources.isKeyless(source) { cfg.modelSource = source; cfg.account = nil }   // 618: no key, no account
+        if let source = modelSource, ModelSources.isLocal(source) { cfg.localModelPort = o.localPort }                 // 660
         // 618: what it was made as — the family's (or tool's) name and the exact release (`opencode@2.0.29`).
         if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }), r.family != nil || o.agentRef != nil {
             cfg.agentRef = AgentRef.recorded(r, version: spec.imageSpec?.agent?.version)
@@ -1639,8 +1644,34 @@ public actor HostCore {
     func recipeEnvironment(_ env: [String: String], _ m: Managed) -> [String: String] {
         var e = Self.withRecipeEnvironment(env, imageSpec: m.config.spec.imageSpec?.name, permissions: m.sandbox.egress?.policy.permissions)
         // 617 (models@1): the chosen model source's settings (base URL, model), never over the caller's own value.
-        for (k, v) in modelSelection(m)?.env ?? [:] where e[k] == nil { e[k] = v }
+        let sel = modelSelection(m)
+        for (k, v) in sel?.env ?? [:] where e[k] == nil { e[k] = v }
+        // 660: a model server on this Mac takes no key — a tool that insists on one gets a fixed, non-secret word.
+        if let sel, ModelSources.isLocal(sel.source) { for k in sel.keyEnv where e[k] == nil { e[k] = MacModelServer.noKeyWord } }
         return e
+    }
+
+    /// 660: "via OpenRouter · model X" / "via this Mac's port 11434 · model X" — nil on the agent's own provider with
+    /// its own model (a built-in agent on its default source, none chosen), or no model sources.
+    func modelLine(_ m: Managed) -> String? {
+        guard let sel = modelSelection(m), let r = m.config.imageChoice?.agent.recipe else { return nil }
+        let chosen = m.config.models?[sel.source] != nil
+        if r.isBuiltin, sel.source == r.models?.default, !chosen { return nil }
+        let via = ModelSources.isLocal(sel.source) ? "via this Mac's port \(m.config.localModelPort.map(String.init) ?? "?")" : "via \(ModelSources.title(sel.source))"
+        return sel.model.isEmpty ? via : "\(via) · model \(sel.model)"
+    }
+
+    /// 660: what is missing for a model server on this Mac (nil: nothing, or another source): its port, and a model —
+    /// a local server has no default Dozable can know.
+    static func localSourceProblem(source: String?, port: Int?, model: String?) -> (text: String, fix: String)? {
+        guard let source, ModelSources.isLocal(source) else {
+            return port == nil ? nil : ("--local-port is for a model server on this Mac", "--provider local --local-port \(port!)")
+        }
+        if let p = MacModelServer.portProblem(port) { return (p, "--local-port 11434") }
+        guard let model, ModelSelection.isModelID(model) else {
+            return ("which model of the server on this Mac? (its own name for it: `ollama list`, LM Studio's model list)", "--model NAME")
+        }
+        return nil
     }
 
     /// 617 (models@1): what this sandbox's recipe agent is set to use — the source of its account (its default source
@@ -1651,9 +1682,9 @@ public actor HostCore {
         guard let r = image.flatMap({ ImageChoice.parse($0) })?.agent.recipe, r.models != nil,
               var source = AgentCredentials.sources(image)?.first else { return nil }
         if case .record(let a) = resolvedAccount(m, accountStore.load()), AgentCredentials.accepts(image, a),
-           let s = AgentCredentials.source(of: a) { source = s }
+           let s = AgentCredentials.source(of: a, image: image) { source = s }
         else if let k = keylessSource(m) { source = k }
-        return r.selection(source: source, model: m.config.models?[source])
+        return r.selection(source: source, model: m.config.models?[source], localPort: m.config.localModelPort)     // 660
     }
 
     /// 618: the key-less source this sandbox uses (OpenCode Zen's free models): the one it was made with, while it has no

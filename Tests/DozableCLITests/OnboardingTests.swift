@@ -540,7 +540,11 @@ final class OnboardingTests: XCTestCase {
         XCTAssertNotNil(or, "OpenRouter is offered: \(ids)")
         XCTAssertEqual(or?.gateway, true)
         XCTAssertEqual(or?.accountKind, "key")
-        XCTAssertTrue(or?.tools.contains("OpenCode") == true && or?.tools.contains("Claude Code") == false, "\(or?.tools ?? [])")
+        // 660: Claude Code goes through OpenRouter too now (its Anthropic-shaped endpoint).
+        XCTAssertTrue(or?.tools.contains("OpenCode") == true && or?.tools.contains("Claude Code") == true, "\(or?.tools ?? [])")
+        let local = k.first { $0.id == "local" }
+        XCTAssertEqual(local?.keyless, true, "a model server on this Mac: no key")
+        XCTAssertEqual(local?.tools, ["Claude Code"])
         XCTAssertTrue(k.first { $0.id == "anthropic" }?.tools.contains("Claude Code") == true)
         XCTAssertTrue(k.first { $0.id == "openai" }?.tools.contains("Codex") == true)
         XCTAssertFalse(ids.contains("vercel-ai-gateway"), "an unpublished gateway is not offered")

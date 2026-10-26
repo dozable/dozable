@@ -35,6 +35,12 @@ struct ModelsCommand: AsyncParsableCommand {
             if ModelSources.isGateway(x) { throw ValidationError("\(x) is a gateway: --gateway \(x)") }
             guard ModelSources.ids.contains(x) else { throw ValidationError("--provider: " + ModelSources.ids.filter { !ModelSources.isGateway($0) }.joined(separator: ", ")) }
         }
+        // 660: a model server on this Mac lists its own models (its own command); here, the servers known to work.
+        if let x = provider, ModelSources.isLocal(x) {
+            if g.json { Out.json(MacModelServer.servers); return }
+            Out.stdout(Self.renderLocalServers())
+            return
+        }
         var r = HostRequest(.models)
         r.modelsSource = gateway ?? provider
         r.modelsRefresh = refresh ? true : nil
@@ -47,6 +53,17 @@ struct ModelsCommand: AsyncParsableCommand {
         }
         if g.json { Out.json(shown); return }
         Out.stdout(renderModelLists(shown, searched: !words.isEmpty))
+    }
+
+    /// 660: the model servers on this Mac Claude Code can use (and the ones that need a translator).
+    static func renderLocalServers() -> String {
+        var t = [["SERVER", "PORT", "ANTHROPIC API", "DOCS"]]
+        for s in MacModelServer.servers {
+            t.append([s.title, String(s.port), s.native ? "yes" + (s.since.map { " (since \($0))" } ?? "") : "not yet — needs a translator", s.source])
+        }
+        return "\(MacModelServer.title): its models are its own (ollama list, LM Studio's list) — give one with --model, and its port with --local-port\n"
+            + Out.table(t)
+            + "The sandbox reaches only that port, as http://\(MacModelServer.hostName):PORT; nothing else on this Mac's localhost. No key.\n"
     }
 }
 

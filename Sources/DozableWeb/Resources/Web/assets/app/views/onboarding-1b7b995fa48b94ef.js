@@ -19,13 +19,13 @@ import { baseFraction, basePrep, baseStrip, stripPhase } from '../components/bas
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { wizHead, wizMount } from '../components/modal-666a5dc0858510b4.js';
-import { haveList, keyPill } from '../components/model-source-1eeea5cb67cf902a.js';
+import { haveList, keyPill } from '../components/model-source-8abc9d37bb9a8d28.js';
 import { refreshNav } from '../components/nav-e9f91482c19964f8.js';
 import { pageFailure, toast } from '../components/notices-327963db0c99209e.js';
 import { rulesStep } from '../components/rules-step-3f5b3888eba73fc0.js';
 import { stepperNode } from '../components/stepper-7c3bf700447c8338.js';
 import { renderOps } from './operations-7ee2d5f3de69de81.js';
-import { startQuickMade } from './quick-make-ecb11e91f5d778cf.js';
+import { startQuickMade } from './quick-make-47f99f2aba99acde.js';
 
 // The First sandbox's tools (the four published coding agents), in this order; a family by its recommended major.
 const FIRST_TOOLS = ['claude-code', 'pi', 'opencode', 'codex'];

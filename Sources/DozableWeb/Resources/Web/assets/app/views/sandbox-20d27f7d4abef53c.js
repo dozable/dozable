@@ -25,7 +25,7 @@ import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../component
 import { ISOLATED_NOTE } from '../components/workspace-chooser-f6d26726a9253cbd.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-8d0b31dd72c225b0.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-ec2078249c8fac43.js';
-import { networkPanel } from './sandbox-network-3cde852e160cee30.js';
+import { networkPanel } from './sandbox-network-88d12fa54e24b548.js';
 import { filesPanel, syncFiles } from './sandbox-files-7bc25928d57e42fd.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-ad6697d23bdf5f6a.js';
 import { paintHome } from './sandbox-home-b5fe3b6be71f15ea.js';
@@ -309,6 +309,9 @@ function sandboxParts(name, d, net, accounts) {
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
+        // 660: where its agent gets its model, when not its own provider's own pick ("via OpenRouter · model X").
+        i.modelLine ? chip('Model', h('span', { 'data-model-line': '' }, i.modelLine),
+          { title: i.localModelPort ? 'Only port ' + i.localModelPort + ' of this Mac is reachable from ' + name + ' (its model server); nothing else on this Mac’s localhost' : 'Where its agent gets its model' }) : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
