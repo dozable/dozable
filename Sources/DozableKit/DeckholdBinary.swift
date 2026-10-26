@@ -59,3 +59,44 @@ public enum DoznetBinary {
         DeckholdBinary.locate(resource: resourceName, override: environmentOverride, environment: environment)
     }
 }
+
+/// Finds the committed guest `tmux` (sessions.tmux — `Guest/tmux/`, copied in by the tools layer) the same way, and
+/// accepts it only when its bytes are the pinned ones (`ToolsLayer.tmuxSHA256`). `$DOZ_TMUX` overrides (a local
+/// rebuild, a test) and is taken as it is.
+public enum TmuxBinary {
+    public static let resourceName = "tmux"
+    public static let environmentOverride = "DOZ_TMUX"
+
+    public static func locate(environment: [String: String] = ProcessInfo.processInfo.environment) -> URL? {
+        DeckholdBinary.locate(resource: resourceName, override: environmentOverride, environment: environment)
+    }
+
+    /// The file to copy in, or why there is none.
+    public static func verified(environment: [String: String] = ProcessInfo.processInfo.environment) -> Result<URL, CheckFailure> {
+        guard let url = locate(environment: environment) else {
+            return .failure(CheckFailure("this build of Dozable has no tmux of its own"))
+        }
+        if let o = environment[environmentOverride], !o.isEmpty { return .success(url) }
+        let sum: String? = lock.withLock {
+            if let c = checked, c.path == url.path { return c.sum }
+            guard let data = try? Data(contentsOf: url) else { return nil }
+            let s = ToolsCache.sha256(data)
+            checked = (url.path, s)
+            return s
+        }
+        return check(url, sum: sum)
+    }
+
+    /// `url` when `sum` (its sha256) is the pin.
+    static func check(_ url: URL, sum: String?) -> Result<URL, CheckFailure> {
+        guard let sum else { return .failure(CheckFailure("could not read Dozable's tmux (\(url.path))")) }
+        guard sum == ToolsLayer.tmuxSHA256 else {
+            return .failure(CheckFailure("Dozable's tmux is not the pinned build (sha256 \(sum.prefix(16))…) — not used"))
+        }
+        return .success(url)
+    }
+
+    /// The last file hashed (one hash per process: the bundle does not change under a running doz).
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var checked: (path: String, sum: String)?
+}

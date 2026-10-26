@@ -37,6 +37,9 @@ DOZNET_RES := Sources/DozableKit/Resources/doznet
 DOZVIEW_OUT := Guest/dozview/out/dozview
 DOZVIEW_RES := Sources/DozableKit/Resources/dozview
 
+TMUX_OUT := Guest/tmux/out/tmux
+TMUX_RES := Sources/DozableKit/Resources/tmux
+
 # ── The doz CLI (585) ──────────────────────────────────────────────────────
 # `make cli` builds the debug binary and signs it with the virtualization entitlement (an unsigned
 # doz runs every command but cannot boot a VM). `make install-cli PREFIX=~/.local` builds
@@ -65,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -404,6 +407,9 @@ test-cli-quickadd: cli vmtest-host ## 599c: doz new — what it chose, created +
 test-cli-tmux: cli vmtest-host ## 599 (594.B3): sessions.tmux — a lab shell and Claude Code inside tmux (within deckhold): attach/detach, hibernate/wake, saved screens, a copy and xdg-open through tmux, no tmux in the image (prepares claude-code; network)
 	perl -e 'alarm shift; exec @ARGV' 2400 $(VMTEST_BIN) cli-tmux --doz $(CLI_BIN)
 
+test-cli-tmux38: cli vmtest-host ## Dozable's tmux 3.8 (the tools layer) on a Debian and an Alpine base (prepares both; network): the session in tmux 3.8, the conf on 3.8 and the distro's tmux, a copy (OSC 52, xclip) and xdg-open through it (seams), the theme reported to a pane, OSC 7501 measured, a session in the distro's older tmux kept and ended
+	perl -e 'alarm shift; exec @ARGV' 3600 $(VMTEST_BIN) cli-tmux38 --doz $(CLI_BIN)
+
 pullbench: vmtest-host ## 594 D12: pull the node base with 3 vs 6 concurrent layer downloads into fresh stores (network; ROUNDS=3)
 	$(VMTEST_BIN) pullbench --rounds $(or $(ROUNDS),3)
 
@@ -448,6 +454,15 @@ dozview: ## Rebuild the dozview guest binary (599g: the workspace rules' view), 
 dozview-verify: ## Rebuild dozview from scratch and check the committed bytes match
 	FORCE=1 Guest/dozview/build.sh
 	@cmp $(DOZVIEW_OUT) $(DOZVIEW_RES) && echo "ok dozview: the committed binary is exactly what the pinned source builds"
+
+tmux: ## Rebuild the guest tmux (3.8, static, from sha256-pinned sources with the pinned Zig), install it as the committed resource, refresh PROVENANCE.md
+	Guest/tmux/build.sh
+	cp $(TMUX_OUT) $(TMUX_RES)
+	@Scripts/tmux-provenance.sh
+
+tmux-verify: ## Rebuild the guest tmux from its pinned sources, from scratch, and check the committed bytes match
+	FORCE=1 Guest/tmux/build.sh
+	@cmp $(TMUX_OUT) $(TMUX_RES) && echo "ok tmux: the committed binary is exactly what the pinned sources build"
 
 docs-drift-check: ## 589: the CLI reference's documented command names vs real `doz --help` (cheap; names only); the user manual's commands, flags, settings and links (docs/manual)
 	@JOBS=$(JOBS) SWIFT_BUILD_SYSTEM="$(SWIFT_BUILD_SYSTEM)" Scripts/docs-drift-check.sh

@@ -6,6 +6,7 @@ Guest/deckhold/out/
 /*.xcodeproj
 Guest/doznet/out/
 Guest/dozview/out/
+Guest/tmux/out/
 
 # The built docs site — reproducible from DozableKit.docc + source in under two minutes (`make docs`);
 # not committed.

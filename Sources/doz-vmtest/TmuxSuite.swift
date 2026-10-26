@@ -25,7 +25,7 @@ func cliTmuxSuite(binary: String) async {
     check(r.code == 0, "up tm --image lab --tmux --detach (the lab image now has tmux: exit \(r.code))")
     check(t.run(["config", "get", "--sandbox", "tm", "sessions.tmux"]).out.hasPrefix("true"), "tm's own sessions.tmux: true")
     r = t.run(["sessions", "tm"])
-    check(r.out.contains("tmux -L doz-shell"), "its shell session runs inside tmux (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines).suffix(160)))")
+    check(r.out.contains("\(GuestCommand.dozTmuxPath) -L doz-shell"), "its shell session runs inside Dozable's tmux (\(r.out.trimmingCharacters(in: .whitespacesAndNewlines).suffix(160)))")
 
     do {
         let c = try PTYClient(t, ["attach", "tm"])
@@ -72,9 +72,10 @@ func cliTmuxSuite(binary: String) async {
     check(!t.run(["sessions", "tm"]).out.contains("doz-plain"), "…runs without tmux")
     // tmux asked for but not in the image: the session runs without it, and says so.
     check(t.run(["config", "set", "--sandbox", "tm", "sessions.tmux", "true"]).code == 0, "sessions.tmux true again")
-    check(t.run(["exec", "tm", "--", "rm", "-f", "/usr/bin/tmux"]).code == 0, "tmux removed from tm (as an older image would lack it)")
+    check(t.run(["exec", "tm", "--", "rm", "-f", "/usr/bin/tmux", GuestCommand.dozTmuxPath, "/usr/local/bin/tmux"]).code == 0,
+          "every tmux removed from tm (Dozable's and the image's)")
     r = t.run(["run", "tm", "--session", "nt", "-d", "--", "sleep", "600"])
-    check(r.code == 0 && r.err.contains("this sandbox's image has no tmux"), "no tmux in the image: said, and the session runs (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines).prefix(160)))")
+    check(r.code == 0 && r.err.contains("this sandbox has no tmux yet"), "no tmux at all: said, and the session runs (\(r.err.trimmingCharacters(in: .whitespacesAndNewlines).prefix(160)))")
     check(t.run(["create", "tm2", "--image", "lab", "--isolated", "--tmux"], timeout: 120).code == 0
           && t.run(["config", "get", "--sandbox", "tm2", "sessions.tmux"]).out.hasPrefix("true"), "doz create --tmux → its own sessions.tmux")
     t.run(["rm", "tm2", "--yes"], timeout: 120)

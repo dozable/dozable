@@ -12,13 +12,18 @@ every base (Debian, Ubuntu, Alpine, your own Dockerfile) and never rebuilds an i
 | `gh` (GitHub CLI) | **GitHub as you** is on | downloaded **once** to this Mac (a pinned version, its sha256 checked), then copied into the sandbox — the sandbox's network is not used. Removed again when GitHub as you is turned off. |
 | ssh client | **SSH agent forwarding** is on | `apt` or `apk`, through the proxy, when the image lacks it |
 | github.com's host keys | **SSH agent forwarding** is on | GitHub's published keys, built into Dozable, written to `/etc/ssh/ssh_known_hosts` — so `ssh -T git@github.com` never asks "are you sure?". Removed when forwarding is turned off. |
-| `tmux` | **sessions.tmux** is on | `apt` or `apk`, through the proxy, when missing |
+| `tmux` 3.8 | **sessions.tmux** is on | **built into Dozable** (a static build, from source files whose checksums are pinned), copied into the sandbox — no download, and the same tmux on every base, whatever the distribution ships (Debian 12 has 3.3a, Ubuntu 24.04 and Alpine 3.20 have 3.4). Kept when you turn tmux off: a session still running in it is ended with it. |
 | `git`, `curl`, ca-certificates | always | `apt` or `apk`, through the proxy, when missing (every Dozable image already has them; a plain lab sandbox may not) |
 
 `gh` lives at `/usr/local/lib/doz/bin/gh` (first on every session's `PATH`) and is linked as
 `/usr/local/bin/gh` unless something else is already there. A `gh` you installed yourself is never touched.
 It is signed in through the same placeholder as git: `gh auth status` shows your login, and `gh repo
 view`, `gh pr list` and the rest work — read-only unless **Push to GitHub** is on.
+
+Dozable's `tmux` lives at `/usr/local/lib/doz/bin/tmux` and is linked as `/usr/local/bin/tmux` unless something
+else is already there, so `tmux ls` or `tmux attach` in a sandbox talks to a session's tmux with the same version.
+The image's own tmux (the one in `/usr/bin`) is left as it is. A session that was already running in it when
+Dozable's tmux arrived keeps it until it ends.
 
 ## When it runs
 
@@ -65,7 +70,7 @@ safe: it is downloaded again the next time a sandbox needs it).
 
 ## Limits and notes
 
-- gh is pinned (2.102.0) and updated with Dozable, not by itself.
+- gh is pinned (2.102.0) and updated with Dozable, not by itself. So is tmux (3.8).
 - Packages come from your image's own mirrors (Debian, Ubuntu, Alpine) — allowed by the **Install
   software › System packages** permission, on in Standard. With a network that can't reach them
   (`--network none`), a missing package is reported, not installed.

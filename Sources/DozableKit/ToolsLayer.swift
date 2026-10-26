@@ -13,7 +13,12 @@ import Foundation
 //   ssh client            SSH agent forwarding on — openssh-client from apt/apk (through the proxy) when missing.
 //   github.com host keys  SSH agent forwarding on — GitHub's published keys, pinned here, in a managed block of
 //                         /etc/ssh/ssh_known_hosts (removed when off), so `ssh -T git@github.com` never prompts.
-//   tmux                  sessions.tmux on — from apt/apk when missing.
+//   tmux                  sessions.tmux on — Dozable's own tmux 3.8 (Guest/tmux/: static, built reproducibly from
+//                         sha256-pinned sources, committed as Resources/tmux), COPIED in like gh to
+//                         /usr/local/lib/doz/bin/tmux and linked /usr/local/bin/tmux when that name is free, so a
+//                         session runs the same tmux on every base (the distros ship 3.3a–3.6a). KEPT when the setting
+//                         turns off: a running session's tmux server may be it, and only a client of its own version
+//                         can end it. The distro's tmux (the baseline bakes it) is never touched.
 //   git, curl, ca-certificates   always — from apt/apk when missing (every catalogue base bakes them; the
 //                         lab and an old image may not).
 //
@@ -110,6 +115,11 @@ public enum ToolsLayer {
         URL(string: base + (base == ghDownloadBase ? "/v\(ghVersion)/" : "/") + ghTarball)!
     }
 
+    /// tmux — Dozable's own build (`Guest/tmux/build.sh`, `Guest/tmux/PROVENANCE.md`), in the package's resources.
+    public static let tmuxVersion = "3.8"
+    /// sha256 of `Resources/tmux` — the copy is refused when the bundled file is not these bytes (`TmuxBinary`).
+    public static let tmuxSHA256 = "48b1ee2b533b1fce7bb01de64ab4bfabe6150d9c22e043daaf5deebc503b7ed9"
+
     /// GitHub's published SSH host keys (https://api.github.com/meta `ssh_keys`; docs: "GitHub's SSH key
     /// fingerprints") — public, pinned here so the guest never trusts a key on first use.
     public static let githubHostKeys = [
@@ -123,6 +133,10 @@ public enum ToolsLayer {
     public static let guestGhPath = GuestCommand.openShimDirectory + "/gh"
     /// A link on every PATH (`doz exec`, scripts) — made only where nothing else is.
     public static let ghLink = "/usr/local/bin/gh"
+    public static let guestTmuxPath = GuestCommand.dozTmuxPath
+    /// Ahead of the distro's /usr/bin/tmux on every PATH (`doz exec`, a login shell) — so a person's `tmux ls` talks
+    /// to the session's server with a client of the same version. Made only where nothing else is.
+    public static let tmuxLink = "/usr/local/bin/tmux"
     /// The layer's state in the guest: its existence marks the first apply done; `gh.version` is the copy's.
     public static let guestStateDirectory = "/var/lib/doz/tools"
     public static let knownHostsPath = "/etc/ssh/ssh_known_hosts"
@@ -153,8 +167,8 @@ public enum ToolsLayer {
             removals.append("github-known-hosts")
         }
         if inputs.tmux {
-            items.append(ToolItem(id: "tmux", title: "tmux", reason: "for tmux sessions", kind: "package",
-                                  source: "apt/apk through the proxy, when missing", package: "tmux", command: "tmux"))
+            items.append(ToolItem(id: "tmux", title: "tmux \(tmuxVersion)", reason: "for tmux sessions", kind: "binary", version: tmuxVersion,
+                                  source: "built into Dozable (static, from sha256-pinned sources), copied in"))
         }
         if inputs.audio == true {
             items.append(ToolItem(id: "alsa-utils", title: "alsa-utils", reason: "for audio (experimental)", kind: "package",
@@ -177,6 +191,7 @@ public enum ToolsLayer {
     public static let checkScript = """
         if [ -d '\(guestStateDirectory)' ]; then echo first=0; else echo first=1; fi
         [ -x '\(guestGhPath)' ] && v=$(cat '\(guestStateDirectory)/gh.version' 2>/dev/null) && echo "gh=$v"
+        [ -x '\(guestTmuxPath)' ] && v=$(cat '\(guestStateDirectory)/tmux.version' 2>/dev/null) && echo "tmux=$v"
         for c in git curl ssh tmux; do command -v "$c" >/dev/null 2>&1 && echo "have=$c"; done
         [ -s '\(caBundle)' ] && echo have=ca-certificates
         command -v aplay >/dev/null 2>&1 && echo have=alsa-utils
@@ -189,6 +204,8 @@ public enum ToolsLayer {
     public struct GuestState: Equatable, Sendable {
         public var first = true
         public var gh: String?
+        /// Dozable's tmux in the guest (its version), not the distro's (`have=tmux`).
+        public var tmux: String?
         public var have: Set<String> = []
         public var packageManager = "none"
 
@@ -197,6 +214,7 @@ public enum ToolsLayer {
             for line in out.split(separator: "\n").map(String.init) {
                 if line == "first=0" { s.first = false }
                 else if line.hasPrefix("gh=") { s.gh = String(line.dropFirst(3)) }
+                else if line.hasPrefix("tmux=") { s.tmux = String(line.dropFirst(5)) }
                 else if line.hasPrefix("have=") { s.have.insert(String(line.dropFirst(5))) }
                 else if line.hasPrefix("pm=") { s.packageManager = String(line.dropFirst(3)) }
             }
@@ -210,8 +228,10 @@ public enum ToolsLayer {
     }
 
     /// Root shell: apply `plan` to a guest in `state` (gh already copied to `<guestGhPath>.tmp` when
-    /// `ghCopied`). One `doz-tool ID STATE DETAIL` line per tool. Never fails the caller.
-    public static func applyScript(_ plan: ToolPlan, state: GuestState, ghCopied: Bool, ghProblem: String?, audioApp: String? = nil) -> String {
+    /// `ghCopied`, tmux to `<guestTmuxPath>.tmp` when `tmuxCopied`). One `doz-tool ID STATE DETAIL` line per tool.
+    /// Never fails the caller.
+    public static func applyScript(_ plan: ToolPlan, state: GuestState, ghCopied: Bool, ghProblem: String?, audioApp: String? = nil,
+                                   tmuxCopied: Bool = false, tmuxProblem: String? = nil) -> String {
         var s = "log='\(guestLog)'; mkdir -p '\(guestStateDirectory)' 2>/dev/null; "
         func say(_ id: String, _ st: String, _ detail: String) -> String {
             "echo 'doz-tool \(id) \(st) \(detail.replacingOccurrences(of: "'", with: "’"))'; "
@@ -259,6 +279,20 @@ public enum ToolsLayer {
         if plan.removals.contains("gh") {
             s += "if [ -e '\(guestGhPath)' ]; then rm -f '\(guestGhPath)' '\(guestStateDirectory)/gh.version'; "
                 + "[ \"$(readlink '\(ghLink)' 2>/dev/null)\" = '\(guestGhPath)' ] && rm -f '\(ghLink)'; \(say("gh", "removed", "GitHub as you is off"))fi; "
+        }
+        // tmux: Dozable's copy (moved into place when copied — a rename, so a server running the old file keeps it), or
+        // nothing to do, or a reason. Linked as /usr/local/bin/tmux only when that name is free or already Dozable's.
+        if plan.items.contains(where: { $0.id == "tmux" }) {
+            let tlink = "if [ ! -e '\(tmuxLink)' ] && [ ! -L '\(tmuxLink)' ] || [ \"$(readlink '\(tmuxLink)')\" = '\(guestTmuxPath)' ]; then ln -sf '\(guestTmuxPath)' '\(tmuxLink)'; fi; "
+            if tmuxCopied {
+                s += "if mv -f '\(guestTmuxPath).tmp' '\(guestTmuxPath)' && chmod 0755 '\(guestTmuxPath)' && [ \"$('\(guestTmuxPath)' -V 2>/dev/null)\" = 'tmux \(tmuxVersion)' ]; then "
+                    + "printf '%s' '\(tmuxVersion)' > '\(guestStateDirectory)/tmux.version'; mkdir -p /usr/local/bin; \(tlink)\(say("tmux", "installed", "tmux \(tmuxVersion), built into Dozable"))"
+                    + "else rm -f '\(guestTmuxPath)' '\(guestTmuxPath).tmp' '\(guestStateDirectory)/tmux.version'; \(say("tmux", "failed", "the copied tmux does not run here"))fi; "
+            } else if state.tmux == tmuxVersion {
+                s += "mkdir -p /usr/local/bin; \(tlink)" + say("tmux", "ok", "tmux \(tmuxVersion)")
+            } else {
+                s += say("tmux", "skipped", tmuxProblem ?? "not in this build of Dozable")
+            }
         }
         // github.com's host keys: a managed block (replaced as a whole; removed when off).
         let dropBlock = "[ -f '\(knownHostsPath)' ] && sed -i '/^# doz:github-known-hosts:/,/^# doz:github-known-hosts:v[0-9]* end$/d' '\(knownHostsPath)'"

@@ -490,8 +490,9 @@ doz-open --app Typora notes.md       # a named app — only one listed in bridge
 
 `doz tools NAME` lists the tools Dozable manages in a sandbox because of its settings — `gh` (GitHub as you;
 pinned, downloaded once to the store's `tools/` with its sha256 checked, copied in over the host→guest
-path, removed when off), an ssh client + github.com's published host keys (SSH agent forwarding), tmux
-(`sessions.tmux`), and always git, curl and ca-certificates (apt/apk through the proxy when missing) — each
+path, removed when off), an ssh client + github.com's published host keys (SSH agent forwarding), tmux 3.8
+(`sessions.tmux`; Dozable's own static build, sha256-pinned and copied in to `/usr/local/lib/doz/bin/tmux`, linked
+`/usr/local/bin/tmux` when free — the same tmux on every base; kept when off), and always git, curl and ca-certificates (apt/apk through the proxy when missing) — each
 with why and its state; `--apply` sets them up again now. On every base, no image rebuild; the first start
 shows each as a progress line (`tools: gh 2.102.0 — for GitHub as you`), later starts and wakes re-check
 quietly, a failure is never fatal. The New Sandbox wizard's last step, **Setting up tools**, shows the same
@@ -532,14 +533,16 @@ everything else is unchanged: `doz attach` and **Ctrl-]**, sleep and wake (tmux 
 are where they were), saved screens (tmux's screen, status bar included), browser terminals, and the
 clipboard and browser bridges (a copy and an `xdg-open` from inside tmux reach the Mac). Each session
 has a tmux server of its own (`tmux -L doz-SESSION`), and reopening a session finds a program tmux
-still holds.
+still holds. It is tmux 3.8 on every base (the tools layer brings it): floating panes, the switcher,
+auto-hiding scrollbars, and the terminal's light or dark theme reported to the programs in its panes.
 
 Limits: tmux takes Ctrl-b and the mouse (in `doz ui`, Shift+drag still selects text); the kitty
 keyboard protocol and xterm's modifyOtherKeys do not fully pass through tmux, so a program that relies
 on them (Claude Code's richer key handling) sees less; the session's exit code is tmux's (0), not the
-program's. tmux must be in the image: the built-in images this doz prepares have it; a sandbox on an
-image an older doz prepared runs the session without it and says how to get it (`doz image bake`,
-then `doz reset`).
+program's; what the agent is doing (OSC 7501) does not pass through tmux (it drops the plain sequence the
+agents send), so a session in tmux shows no status. A session that was running in the image's own tmux
+before Dozable's arrived keeps it until it ends; with no tmux at all, the session runs without it and says
+how to get it (`doz tools NAME --apply`).
 
 ## Agents and keys
 

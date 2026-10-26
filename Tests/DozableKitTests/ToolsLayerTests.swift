@@ -9,7 +9,7 @@ import XCTest
 final class ToolsLayerTests: XCTestCase {
     private func ids(_ p: ToolPlan) -> [String] { p.items.map(\.id) }
 
-    func testThePlanFollowsTheSettings() {
+    func testThePlanFollowsTheSettings() throws {
         let none = ToolsLayer.plan(ToolInputs())
         XCTAssertEqual(ids(none), ["git", "curl", "ca-certificates"], "always the basics")
         XCTAssertEqual(none.removals, ["gh", "github-known-hosts"], "Dozable's own tools go when their setting is off")
@@ -22,7 +22,12 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(gh.version, ToolsLayer.ghVersion)
         XCTAssertEqual(all.items.first { $0.id == "ssh" }?.package, "openssh-client")
         XCTAssertEqual(all.items.first { $0.id == "ssh" }?.reason, "for SSH agent forwarding")
-        XCTAssertEqual(all.items.first { $0.id == "tmux" }?.reason, "for tmux sessions")
+        let tmux = try XCTUnwrap(all.items.first { $0.id == "tmux" })
+        XCTAssertEqual(tmux.reason, "for tmux sessions")
+        XCTAssertEqual(tmux.kind, "binary", "Dozable's own tmux, copied in — never the distro's package")
+        XCTAssertEqual(tmux.title, "tmux \(ToolsLayer.tmuxVersion)")
+        XCTAssertNil(tmux.package)
+        XCTAssertFalse(ToolsLayer.plan(ToolInputs()).removals.contains("tmux"), "kept when off: a running server may be it")
         XCTAssertEqual(ids(ToolsLayer.plan(ToolInputs(ssh: true))), ["ssh", "github-known-hosts", "git", "curl", "ca-certificates"])
         XCTAssertEqual(ToolsLayer.plan(ToolInputs(ssh: true)).removals, ["gh"])
     }
@@ -33,10 +38,17 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertEqual(s.gh, ToolsLayer.ghVersion)
         XCTAssertEqual(s.packageManager, "apk")
         let plan = ToolsLayer.plan(ToolInputs(github: true, ssh: true, tmux: true))
-        XCTAssertEqual(ToolsLayer.missingPackages(plan, s).map(\.id), ["tmux", "curl"])
+        XCTAssertEqual(ToolsLayer.missingPackages(plan, s).map(\.id), ["curl"], "tmux is not a package any more")
         let fresh = ToolsLayer.GuestState.parse("first=1\npm=none\n")
         XCTAssertTrue(fresh.first)
         XCTAssertNil(fresh.gh)
+        XCTAssertNil(fresh.tmux)
+        // Dozable's tmux (its recorded version) is not the distro's (`have=tmux`).
+        let t = ToolsLayer.GuestState.parse("first=0\nhave=tmux\ntmux=\(ToolsLayer.tmuxVersion)\npm=apt\n")
+        XCTAssertEqual(t.tmux, ToolsLayer.tmuxVersion)
+        XCTAssertTrue(t.have.contains("tmux"))
+        XCTAssertNil(ToolsLayer.GuestState.parse("have=tmux\n").tmux)
+        XCTAssertTrue(ToolsLayer.checkScript.contains("[ -x '\(ToolsLayer.guestTmuxPath)' ] && v=$(cat '\(ToolsLayer.guestStateDirectory)/tmux.version'"))
         // The check is a plain shell script that never fails.
         XCTAssertTrue(ToolsLayer.checkScript.hasSuffix("exit 0"))
     }
@@ -72,6 +84,51 @@ final class ToolsLayerTests: XCTestCase {
         XCTAssertTrue(ToolsLayer.applyScript(off, state: bare, ghCopied: false, ghProblem: nil).contains("doz-tool git failed missing, and this base has neither apt-get nor apk"))
         // No single quote can break out of a quoted string (the details are guest text in single quotes).
         XCTAssertTrue(ToolsLayer.applyScript(plan, state: bare, ghCopied: false, ghProblem: "it's offline").contains("it’s offline"))
+    }
+
+    // MARK: tmux — Dozable's own
+
+    func testTmuxIsCopiedInCheckedAndLinkedOnlyWhenFree() {
+        let plan = ToolsLayer.plan(ToolInputs(tmux: true))
+        var s = ToolsLayer.GuestState.parse("first=1\nhave=git\nhave=curl\nhave=ca-certificates\nhave=tmux\npm=apt\n")
+        var script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil, tmuxCopied: true)
+        XCTAssertFalse(script.contains("apt-get"), "nothing to install: the distro's tmux is not asked for")
+        XCTAssertTrue(script.contains("mv -f '\(ToolsLayer.guestTmuxPath).tmp' '\(ToolsLayer.guestTmuxPath)'"), "moved into place (a rename: a running server keeps its file)")
+        XCTAssertTrue(script.contains("[ \"$('\(ToolsLayer.guestTmuxPath)' -V 2>/dev/null)\" = 'tmux \(ToolsLayer.tmuxVersion)' ]"), "it must run and be this version")
+        XCTAssertTrue(script.contains("> '\(ToolsLayer.guestStateDirectory)/tmux.version'"))
+        XCTAssertTrue(script.contains("doz-tool tmux installed tmux \(ToolsLayer.tmuxVersion), built into Dozable"))
+        XCTAssertTrue(script.contains("doz-tool tmux failed the copied tmux does not run here"))
+        XCTAssertTrue(script.contains("if [ ! -e '\(ToolsLayer.tmuxLink)' ] && [ ! -L '\(ToolsLayer.tmuxLink)' ] || [ \"$(readlink '\(ToolsLayer.tmuxLink)')\" = '\(ToolsLayer.guestTmuxPath)' ]; then ln -sf"),
+                      "linked only where nothing else is, or already Dozable's")
+        script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil, tmuxProblem: "this build of Dozable has no tmux of its own")
+        XCTAssertTrue(script.contains("doz-tool tmux skipped this build of Dozable has no tmux of its own"))
+        s.tmux = ToolsLayer.tmuxVersion
+        script = ToolsLayer.applyScript(plan, state: s, ghCopied: false, ghProblem: nil)
+        XCTAssertTrue(script.contains("doz-tool tmux ok tmux \(ToolsLayer.tmuxVersion)"))
+        XCTAssertFalse(script.contains("mv -f '\(ToolsLayer.guestTmuxPath).tmp'"))
+        // Off: nothing about tmux (kept — see the plan).
+        XCTAssertFalse(ToolsLayer.applyScript(ToolsLayer.plan(ToolInputs()), state: s, ghCopied: false, ghProblem: nil).contains("doz-tool tmux"))
+        XCTAssertEqual(ToolsLayer.results("doz-tool tmux installed tmux 3.8, built into Dozable\n", plan: plan).first?.state, "installed")
+    }
+
+    /// The committed binary is the pinned one, recorded in its provenance; a file that is not refused.
+    func testTheCommittedTmuxIsThePin() throws {
+        let pkg = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let bin = try Data(contentsOf: pkg.appendingPathComponent("Sources/DozableKit/Resources/tmux"))
+        XCTAssertEqual(ToolsCache.sha256(bin), ToolsLayer.tmuxSHA256, "Resources/tmux is the pinned build (make tmux; update the pin)")
+        XCTAssertEqual(Array(bin.prefix(4)), [0x7F, 0x45, 0x4C, 0x46], "an ELF")
+        XCTAssertEqual(bin[18], 0xB7, "aarch64")
+        let prov = try String(contentsOf: pkg.appendingPathComponent("Guest/tmux/PROVENANCE.md"), encoding: .utf8)
+        XCTAssertTrue(prov.contains("| sha256 (auto) | `\(ToolsLayer.tmuxSHA256)` |"))
+        let build = try String(contentsOf: pkg.appendingPathComponent("Guest/tmux/build.sh"), encoding: .utf8)
+        XCTAssertTrue(build.contains("TMUX_VERSION=\"\(ToolsLayer.tmuxVersion)\""), "the build and the pin name the same version")
+        if case .success = TmuxBinary.check(URL(fileURLWithPath: "/x"), sum: String(repeating: "0", count: 64)) { XCTFail("another file was accepted") }
+        if case .success = TmuxBinary.check(URL(fileURLWithPath: "/x"), sum: nil) { XCTFail("an unreadable file was accepted") }
+        XCTAssertEqual(try? TmuxBinary.check(URL(fileURLWithPath: "/x"), sum: ToolsLayer.tmuxSHA256).get(), URL(fileURLWithPath: "/x"))
+        // The bundle's copy (the test runner finds the resource bundle beside it) passes the check.
+        if TmuxBinary.locate(environment: [:]) != nil {
+            XCTAssertNotNil(try? TmuxBinary.verified(environment: [:]).get(), "the bundled tmux is the pin")
+        }
     }
 
     func testTheResults() {

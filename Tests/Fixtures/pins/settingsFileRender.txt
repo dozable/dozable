@@ -401,10 +401,11 @@
 # Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep
 # and wake, browser terminals and Ctrl-] detach keep working): tmux's windows, panes and copy
 # mode, its status bar and prefix key (Ctrl-b). tmux takes the mouse, and the kitty keyboard
-# protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's.
-# Needs tmux in the image (the built-in images this doz prepares have it; on an image an older doz
-# prepared the session runs without it, and says so). A sandbox's own choice (doz create --tmux,
-# tmux: true in doz_project.yaml, doz config set --sandbox) wins over this.
+# protocol and modifyOtherKeys do not fully pass through it; the session's exit code is tmux's. It
+# is Dozable's own tmux 3.8, copied into the sandbox on every base (the image's tmux is left as it
+# is), so tmux reports your terminal's light or dark theme to the programs in it; a session
+# already running in the image's tmux keeps it until it ends. A sandbox's own choice (doz create
+# --tmux, tmux: true in doz_project.yaml, doz config set --sandbox) wins over this.
 # (boolean; flag doz create --tmux / --no-tmux; applies to sessions opened from now on)
 # tmux = false
 

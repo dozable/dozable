@@ -71,6 +71,15 @@ done
         "  and Go's regexp/syntax, path and path/filepath (BSD-3-Clause, Copyright 2009 The Go Authors) — texts above." \
         "- dozview's and doz's case-folding tables are derived from the Unicode Character Database (Unicode License v3):" \
         "  Copyright © 1991-2025 Unicode, Inc. — https://www.unicode.org/license.txt"
+    # tmux (for sessions.tmux): third-party code, built from pinned sources (Guest/tmux/PROVENANCE.md).
+    for l in "tmux 3.8 (ISC) — https://github.com/tmux/tmux:tmux-COPYING" \
+             "libevent 2.1.13-stable (BSD-3-Clause), linked into tmux — https://libevent.org:libevent-LICENSE" \
+             "ncurses 6.6 (X11-style MIT), linked into tmux — https://invisible-island.net/ncurses/:ncurses-COPYING"; do
+        printf '\n\n================================================================================\n'
+        printf 'The guest tmux: %s\n' "${l%:*}"
+        printf '================================================================================\n\n'
+        cat "Guest/tmux/LICENCES/${l##*:}"
+    done
     for v in Sources/DozableWeb/WebSource/vendor/*/; do
         name="$(basename "$v")"
         lf="$(python3 -c "import json,sys; d=json.load(open('$v/VENDOR.json')); print(d.get('licenceFile','LICENSE'), d.get('licence',''), d.get('version',''))")"

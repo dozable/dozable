@@ -168,12 +168,27 @@ final class SessionBridgeTests: XCTestCase {
 
     func testASessionInTmuxHasItsOwnServerAndKeepsDozsFeatures() throws {
         XCTAssertEqual(GuestCommand.inTmux(session: "claude", argv: ["claude", "--x"]),
-                       ["tmux", "-L", "doz-claude", "-f", GuestCommand.tmuxConfPath, "new-session", "-A", "-s", "claude", "claude", "--x"])
+                       ["/usr/local/lib/doz/bin/tmux", "-L", "doz-claude", "-f", GuestCommand.tmuxConfPath, "new-session", "-A", "-s", "claude", "claude", "--x"],
+                       "Dozable's tmux, by its path (the tools layer copies it in)")
         XCTAssertEqual(GuestCommand.inTmux(session: "a.b", argv: ["sh"])[2], "doz-a_b", "tmux refuses a . in a name")
+        XCTAssertEqual(GuestCommand.inTmux(session: "s", argv: ["sh"], binary: "/usr/bin/tmux")[0], "/usr/bin/tmux")
         for line in ["set -g mouse on", "set -s set-clipboard on", "terminal-features ',*:clipboard'", "set -g set-titles on"] {
             XCTAssertTrue(GuestCommand.tmuxConf.contains(line), line)
         }
-        XCTAssertTrue(GuestCommand.tmuxPrepare.hasSuffix("then echo tmux=yes; else echo tmux=no; fi"))
+        // Which tmux runs a session: Dozable's, the distro's (by its path), a bare one from an older doz, or none.
+        XCTAssertEqual(GuestCommand.tmuxBinary(fromPrepare: "noise\ntmux=doz\n"), GuestCommand.dozTmuxPath)
+        XCTAssertEqual(GuestCommand.tmuxBinary(fromPrepare: "tmux=sys:/usr/bin/tmux\n"), "/usr/bin/tmux")
+        XCTAssertEqual(GuestCommand.tmuxBinary(fromPrepare: "tmux=yes\n"), "tmux")
+        XCTAssertNil(GuestCommand.tmuxBinary(fromPrepare: "tmux=no\n"))
+        XCTAssertNil(GuestCommand.tmuxBinary(fromPrepare: "tmux=sys:relative/tmux\n"), "only an absolute path")
+        XCTAssertNil(GuestCommand.tmuxBinary(fromPrepare: "tmux=sys:/a b\n"))
+        let prep = GuestCommand.tmuxPrepare(session: "a.b")
+        XCTAssertTrue(prep.contains("/tmp/tmux-*/doz-a_b"), "this session's server, any user's")
+        XCTAssertTrue(prep.contains("list-sessions -F '#{version}'"), "a running server's version decides")
+        XCTAssertTrue(prep.contains("'/usr/share/terminfo/x/xterm-256color'") && prep.contains("'/etc/terminfo/x/xterm-256color'"),
+                      "Dozable's tmux only where the session's terminal is described")
+        XCTAssertTrue(prep.hasSuffix("if [ \"$use\" = doz ]; then echo tmux=doz; elif [ -n \"$sys\" ]; then echo \"tmux=sys:$sys\"; else echo tmux=no; fi"))
+        XCTAssertEqual(GuestCommand.inTmuxForms(session: "c", argv: ["claude"]).map { $0[0] }, [GuestCommand.dozTmuxPath, "tmux", "/usr/bin/tmux", "/bin/tmux"])
         XCTAssertTrue(AgentImages.devBaselinePackages.contains("tmux") && DozableImages.labPackages.contains("tmux"))
         XCTAssertTrue(DozableSettings.perSandbox.contains(SettingKey.tmux))
         XCTAssertEqual(DozableSettings.definition(SettingKey.tmux)?.defaultValue, .bool(false), "off by default")

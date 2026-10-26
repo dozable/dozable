@@ -624,7 +624,8 @@ public enum GuestCommand {
     /// 608: end session NAME's program the way a terminal hangup does, then harder — a ROOT script.
     /// The program deckhold runs is its own session and process-group leader (forkpty), so its group is
     /// signalled: SIGHUP (≤ `hupSeconds`), then SIGTERM (≤ `termSeconds`), then SIGKILL (≤ 2 s). A tmux
-    /// server of the session (`-L doz-NAME`, any user's) is killed first — otherwise the next
+    /// server of the session (`-L doz-NAME`, any user's) is killed first — by Dozable's tmux, else the distro's
+    /// (a server only answers a client of its own version: one started before Dozable's tmux was there) — otherwise the next
     /// `new-session -A` would attach the OLD program again. Done = the holder's socket is gone (deckhold
     /// removes it when its program has exited, after telling every viewer EXIT). Prints ONE
     /// `doz-end hangup|terminate|kill|not-running|stuck` line. The name is validated by the caller.
@@ -634,7 +635,7 @@ public enum GuestCommand {
         n='\(name)'; d=${DECKHOLD_DIR:-/run/deckhold}
         pid=$(\(deckholdPath) ls 2>/dev/null | awk -F'\\t' -v n="$n" '$1==n && $2 ~ /^pid=/ { sub(/^pid=/, "", $2); print $2; exit }')
         if [ -z "$pid" ] || [ ! -S "$d/$n.sock" ]; then echo 'doz-end not-running'; exit 0; fi
-        for s in /tmp/tmux-*/doz-\(tn); do [ -S "$s" ] && tmux -S "$s" kill-server 2>/dev/null; done
+        for s in /tmp/tmux-*/doz-\(tn); do [ -S "$s" ] || continue; for t in '\(dozTmuxPath)' /usr/bin/tmux /bin/tmux tmux; do "$t" -S "$s" kill-server 2>/dev/null && break; done; done
         gone() { [ ! -S "$d/$n.sock" ]; }
         hit() { kill -s "$1" -- "-$pid" 2>/dev/null || kill -s "$1" "$pid" 2>/dev/null; }
         waitgone() { i=0; while [ $i -lt $(($1 * 10)) ]; do gone && return 0; sleep 0.1; i=$((i + 1)); done; gone; }
@@ -663,19 +664,57 @@ public enum GuestCommand {
     if-shell 'test -e /usr/share/terminfo/t/tmux-256color -o -e /lib/terminfo/t/tmux-256color -o -e /etc/terminfo/t/tmux-256color' 'set -g default-terminal tmux-256color'
     """
 
-    /// Root shell: write the configuration; then say whether tmux is there (`tmux=yes|no` on stdout).
-    public static var tmuxPrepare: String {
+    /// Dozable's own tmux (`Guest/tmux/`, the tools layer copies it in while `sessions.tmux` is on): the same tmux on
+    /// every base, whatever the distro ships (Debian 12's 3.3a, Ubuntu 24.04's and Alpine 3.20's 3.4).
+    public static let dozTmuxPath = openShimDirectory + "/tmux"
+    /// Where the terminfo of the session's terminal (`xterm-256color`, deckhold's TERM) is looked for — the
+    /// directories Dozable's tmux was built to read (Alpine keeps it in the first, Debian and Ubuntu in the third).
+    public static let dozTmuxTerminfoDirectories = ["/etc/terminfo", "/lib/terminfo", "/usr/share/terminfo", "/usr/lib/terminfo"]
+
+    /// Root shell, at each tmux session's start: write the configuration; then say which tmux runs session NAME, on
+    /// stdout — `tmux=doz` (Dozable's runs here and finds the terminal's terminfo), `tmux=sys:PATH` (the distro's:
+    /// Dozable's is not there or cannot run, or a server of this session is ALREADY running an older tmux — a session
+    /// started before Dozable's tmux was there keeps its own: tmux answers only a client of its own version), or
+    /// `tmux=no`. `tmux=yes` is what a doz before Dozable's tmux printed (the first tmux on PATH).
+    public static func tmuxPrepare(session: String) -> String {
         let quoted = "'" + tmuxConf.replacingOccurrences(of: "'", with: "'\\''") + "\n'"
+        let tn = session.replacingOccurrences(of: ".", with: "_")
+        let ti = dozTmuxTerminfoDirectories.map { "'\($0)/x/xterm-256color'" }.joined(separator: " ")
         return "{ mkdir -p '\(openShimDirectory)' && printf '%s' \(quoted) > '\(tmuxConfPath)' && chmod 0644 '\(tmuxConfPath)'; } 2>/dev/null; "
-            + "if command -v tmux >/dev/null 2>&1; then echo tmux=yes; else echo tmux=no; fi"
+            + "dz='\(dozTmuxPath)'; sys=''; "
+            + "for p in $(printf '%s' \"$PATH\" | tr ':' ' ') /usr/bin /bin; do [ -x \"$p/tmux\" ] || continue; "
+            + "[ \"$(readlink -f \"$p/tmux\" 2>/dev/null)\" = \"$dz\" ] && continue; sys=\"$p/tmux\"; break; done; "
+            + "use=''; if [ -x \"$dz\" ] && \"$dz\" -V >/dev/null 2>&1; then for f in \(ti); do [ -e \"$f\" ] && use=doz; done; fi; "
+            + "if [ \"$use\" = doz ] && [ -n \"$sys\" ]; then for s in /tmp/tmux-*/doz-\(tn); do [ -S \"$s\" ] || continue; "
+            + "v=$(\"$dz\" -S \"$s\" list-sessions -F '#{version}' 2>/dev/null | head -n 1); "
+            + "[ -n \"$v\" ] || v=$(\"$sys\" -S \"$s\" list-sessions -F '#{version}' 2>/dev/null | head -n 1); "
+            + "[ -n \"$v\" ] && [ \"$v\" != \"$(\"$dz\" -V | cut -d' ' -f2)\" ] && use=sys; done; fi; "
+            + "if [ \"$use\" = doz ]; then echo tmux=doz; elif [ -n \"$sys\" ]; then echo \"tmux=sys:$sys\"; else echo tmux=no; fi"
+    }
+
+    /// The tmux `tmuxPrepare`'s answer names (nil: none — the session runs without it).
+    public static func tmuxBinary(fromPrepare output: String) -> String? {
+        for line in output.split(separator: "\n").map(String.init) {
+            if line == "tmux=doz" { return dozTmuxPath }
+            if line == "tmux=yes" { return "tmux" }
+            if line.hasPrefix("tmux=sys:"), case let p = String(line.dropFirst("tmux=sys:".count)), p.hasPrefix("/"),
+               !p.contains(where: { $0 == "'" || $0 == " " || $0.isNewline }) { return p }
+        }
+        return nil
     }
 
     /// `argv` inside tmux: its own server per session (`-L doz-NAME` — the session's environment, not
     /// another's), attached to the tmux session `NAME` or making it (`-A`, so a reopened session finds a
-    /// program tmux still holds).
-    public static func inTmux(session: String, argv: [String]) -> [String] {
+    /// program tmux still holds). `binary`: which tmux (`tmuxBinary(fromPrepare:)`) — Dozable's by its path.
+    public static func inTmux(session: String, argv: [String], binary: String = dozTmuxPath) -> [String] {
         let name = session.replacingOccurrences(of: ".", with: "_")          // tmux refuses . and : in a name
-        return ["tmux", "-L", "doz-\(name)", "-f", tmuxConfPath, "new-session", "-A", "-s", name] + argv
+        return [binary, "-L", "doz-\(name)", "-f", tmuxConfPath, "new-session", "-A", "-s", name] + argv
+    }
+
+    /// Every way a session of `argv` may have been started inside tmux (Dozable's tmux, the distro's by its path, a
+    /// bare `tmux` from a doz before Dozable's tmux) — the "already running" check accepts any of them.
+    public static func inTmuxForms(session: String, argv: [String]) -> [[String]] {
+        [dozTmuxPath, "tmux", "/usr/bin/tmux", "/bin/tmux"].map { inTmux(session: session, argv: argv, binary: $0) }
     }
 
     /// 594 W34 (the owner's claude-sandbox-3 still asked apt's keyboard question on rc.11: W31's
