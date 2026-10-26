@@ -128,7 +128,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Every VM has a memory balloon; a snapshot is never taken with it inflated**. A device is a
   VM input: `PinnedIdentity.memoryBalloon` comes from `PersistedSandbox.memoryBalloon` on a restore
   (nil = an older build's VM — restore it WITHOUT one) and is true on every cold boot. `wake()`
-  inflates it over free guest pages and it STAYS inflated (VZ charges the pages again on deflate —
+  inflates it over free guest pages — 651: AFTER the wake is reported done, the last of its background
+  steps (see "A wake is done when the guest runs") — and it STAYS inflated (VZ charges the pages again on deflate —
   measured). `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
   a paused one (resume → deflate → pause): a snapshot of an inflated balloon fails to restore
   (`VZErrorDomain 12 invalid argument`). Progress is read from the guest's `/proc/meminfo`
@@ -148,6 +149,21 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **Wake re-syncs the guest clock and re-mounts every share.** The re-mount lists the fresh virtio-fs
   root (READDIRPLUS) before binding: the "fresh" mount reuses the live superblock, and without the
   listing the bind picks up a stale dentry — the suite's SECOND wake lost `/work`.
+- **A wake is done when the guest runs** (651, owner: "move them off the critical path"): `wake()` /
+  `restoreAfterCrash()` return — the phase running, the host's answer sent — once the guest runs with its
+  clock re-synced, its shares re-mounted (programs need them) and the snapshot deleted. The rest
+  (`LifecyclePlanner.afterWake` / `afterAdoption`: `.applyGuestFixes` — the guest fixes, `refreshDeckhold`, the
+  tools layer — then `.returnFreeMemory`) runs in `Sandbox.runAfterWake`, a task of the actor that OWNS the
+  lifecycle gate the wake took (`perform` hands it over instead of releasing it), so every later lifecycle call,
+  restore point, capture, rename and `prepareForExit` waits for it — never a snapshot mid-balloon or inflated. A
+  waiting sleep/hibernate/stop/reset/delete/quit skips what is left at a step boundary (the next wake applies it
+  again), a waiting pause only the balloon (`skippedWhenWaiting`). Best effort: a failure is a note, never a failed
+  wake. `openSession` and the public `exec` wait for it (`afterWakeSettled()`) — open-session re-applies only the
+  open-URL shim and (agent images) the sudo rule, not /etc/hosts, debconf, git, the SSH agent or this build's
+  deckhold — and the host's open-session waits anyway (`refreshWorkspaceViews` takes the gate); an attach does
+  not wait. The event stream ends it with `SandboxEvent.afterWakeDone` (never a client's event): the host's boot
+  log keeps recording until then (`Managed.bootTail`, `BootRecorder.seal`) and is written after it — its time is
+  the wake's to its end, the background steps one "after the wake, in the background" step. `LifecycleTests`.
 - **Connections are identified by object, never by a file descriptor number,** and a closed
   connection never delivers or sends a byte (the 576 recycled-fd Stop bug).
 - **Crash restore = identical VM + adoption.** The machine identifier and the NIC's MAC are pinned
@@ -231,7 +247,8 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   (`prepareGuest`, from `Sandbox.agentSudo`), every wake (W34: `GuestCommand.guestFixes` — the live-safe
   part of `prepareGuest`: /etc/hosts, debconf Noninteractive, the open-URL shim, the time zone, the sudo
   rule — run as ONE root exec by `LifecycleStep.applyGuestFixes` after a wake from sleep, from
-  hibernation and a restore after a host restart; never on a resume from Pause; best effort, a failure
+  hibernation and a restore after a host restart — 651: after the wake is reported done, in its background
+  steps, which a session open waits for; never on a resume from Pause; best effort, a failure
   is noted; NOT the deckhold socket reset or the bind mounts) and every agent session start (`deliverAgentPrompt`), so a
   toggle needs no rebake. The value: `SandboxConfig.agentSudo` (`--[no-]agent-sudo`, `agent_sudo` in
   doz_project.yaml, synced by `doz up` through `agent-prompt`'s `agentSudo`/`clearAgentSudo`) else the
@@ -1183,7 +1200,10 @@ may use it too.
   duration, result, failure). `<sandbox>/boots/b-<epoch ms>/{boot.json,events.jsonl,console.log}`,
   0700/0600, written atomically (a temporary directory renamed), never into a removed sandbox; the
   newest `host.boot_logs_kept` (5) are kept. Kept across reset, gone with `rm`, never copied by
-  duplicate/fork/templates. Recording never fails a boot.
+  duplicate/fork/templates. Recording never fails a boot. 651: a wake's boot log also holds its background steps
+  (recorded until `.afterWakeDone`, written then; its time is the wake's), and a restore into a new process
+  times its parts as `restore: …` steps (kernel, image store, kernel sha256, vmnet, container object, VZ
+  configuration, VZ restore, VZ resume, the proxy listener) — the extra over an in-process wake.
 - **One renderer**: `BootLogs.render` replays the events through `ProgressBoard` +
   `ProgressTerminal.format` — the boot view's finished lines (✓/✗ with times) — then the console made
   inert (every control character removed). The CLI (`doz console --steps`, plain off a terminal) and
@@ -1745,7 +1765,7 @@ may use it too.
   `/usr/local/lib/doz/bin/gh`, linked `/usr/local/bin/gh` only when free; REMOVED when off (only Dozable's copy
   and link). Packages (openssh-client, tmux, git, curl, ca-certificates) — apt/apk through the proxy, only
   when missing. github.com's keys — a managed block in `/etc/ssh/ssh_known_hosts`.
-- **When**: `Sandbox.start()` after the boot, and `applyGuestFixes` (wakes); the FIRST apply in a sandbox (no
+- **When**: `Sandbox.start()` after the boot, and `applyGuestFixes` (wakes — after the wake is reported done); the FIRST apply in a sandbox (no
   `/var/lib/doz/tools`) is loud (`tools: …` steps), later ones quiet (a note; the host tells viewers on a
   change/failure). Never fatal. `toolInputs == nil` (the default) = no layer: preparation VMs and helpers
   never run it — the host sets inputs for every managed sandbox (`applyToolInputs`, beside `applyGitHub`;
@@ -2426,7 +2446,8 @@ inspector). `Sources/DozableHost/WorkspaceFileChange.swift`, `HostCore+Files.swi
   reason?}]}` (`reason` in plain words) through a RUNNING host only — with none every item is unavailable, nothing is
   autostarted and nothing loaded in-process (the page polls twice a second). `make deckhold-grid-check` (every row's
   text is the holder's screen, a fuzz), `ScreenGridTests`, `SessionGridsTests`, `WebGridsTests`, `make test-cli-grids`.
-- **A wake brings this build's deckhold** (`Sandbox.refreshDeckhold` in `.applyGuestFixes`): deckhold is copied in at
+- **A wake brings this build's deckhold** (`Sandbox.refreshDeckhold` in `.applyGuestFixes` — 651: after the wake is
+  reported done; a session open waits for it, so a session opened after the wake still runs the new one): deckhold is copied in at
   a fresh boot; a wake compares the guest's `sha256sum` with this build's and, when they differ, stages it beside
   (`GuestCommand.deckholdStagingPath`) and RENAMES it over (only when the staged copy is exactly this build's). A
   session's running holder keeps its own binary (the old inode) until it restarts (`doz sessions restart`) or ends;

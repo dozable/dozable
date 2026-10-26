@@ -334,6 +334,8 @@ func memorySuite() async throws {
     let t0 = Date()
     try await sb.wake()
     let wakeMs = Date().timeIntervalSince(t0) * 1000
+    // 651: the balloon is inflated after the wake is reported done, in the background.
+    await sb.afterWakeSettled()
     let held = await sb.memoryReturnedMiB
     let ballooned = await footprint()
     info(String(format: "helper footprint: cold-booted %.0f MiB · woken without the balloon %.0f · woken %.0f (%llu MiB held; wake %.0f ms)",

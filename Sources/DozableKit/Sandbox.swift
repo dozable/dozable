@@ -31,6 +31,11 @@ public actor Sandbox {
     let broadcaster = EventBroadcaster<SandboxEvent>()
     private var gateHeld = false
     private var gateWaiters: [CheckedContinuation<Void, Never>] = []
+    /// 651: the steps a wake runs after it was reported done (`LifecyclePlanner.afterWake`), under way — they
+    /// hold the gate the wake handed them, so every later lifecycle call waits for them.
+    private var afterWakeTask: Task<Void, Never>?
+    /// 651: lifecycle calls waiting at the gate that make after-wake steps pointless (`skippedWhenWaiting`).
+    private var pauseWaiting = 0, putAwayWaiting = 0
 
     private var container: LinuxContainer?
     private var instance: (any VirtualMachineInstance)?
@@ -173,7 +178,9 @@ public actor Sandbox {
     /// identical VM from the persisted spec and identity, restore the snapshot, and adopt the
     /// restored guest. Sessions come back where they were.
     public func restoreAfterCrash() async throws {
-        await acquire(); defer { release() }
+        await acquire()
+        var handedOff = false
+        defer { if !handedOff { release() } }
         guard phase == .off else { throw SandboxError.invalidPhase(operation: "restore", phase: phase) }
         guard let persisted = PersistedSandbox.read(from: layout.persistedState), persisted.isRestorable(layout: layout) else {
             throw SandboxError.noSnapshot
@@ -195,10 +202,13 @@ public actor Sandbox {
                 }
             }
             setPhase(.running)
-            for step in [LifecycleStep.resyncClock, .applyGuestFixes, .remountShares,.deleteSnapshot, .returnFreeMemory, .persistState] {
+            for step in LifecyclePlanner.adoption {
                 try await run(step, target: .running)
             }
             note(String(format: "restored after a crash in %.2f s — sessions are where they were", seconds(since: t0)))
+            // 651: the guest fixes and the balloon after the restore is reported done, holding the gate.
+            handedOff = true
+            startAfterWake(LifecyclePlanner.afterAdoption)
         } catch {
             abandonBoot()
             note("restore FAILED: \(error.localizedDescription) — the snapshot is kept; Shut Down discards it")
@@ -680,7 +690,10 @@ public actor Sandbox {
 
     @discardableResult
     public func prepareForExit(settle: Duration = .seconds(3)) async -> ExitOutcome {
+        // 651: a quit hibernates — a wake's after-steps still under way are cut short at a step boundary.
+        putAwayWaiting += 1
         await acquire(); defer { release() }
+        putAwayWaiting -= 1
         if phase == .running {
             let wait = Self.exitSettleDelay(sinceLastSessionStart: lastSessionStart.map { ContinuousClock.now - $0 }, settle: settle)
             if wait > .zero {
@@ -728,7 +741,15 @@ public actor Sandbox {
     }
 
     private func perform(_ op: LifecycleOperation) async throws {
-        await acquire(); defer { release() }
+        // 651: while it waits at the gate, a wake's after-steps that it makes pointless are skipped.
+        let pausing = op == .pause, puttingAway = [.sleep, .hibernate, .shutDown, .resetToImage, .delete].contains(op)
+        if pausing { pauseWaiting += 1 }
+        if puttingAway { putAwayWaiting += 1 }
+        await acquire()
+        if pausing { pauseWaiting -= 1 }
+        if puttingAway { putAwayWaiting -= 1 }
+        var handedOff = false
+        defer { if !handedOff { release() } }
         // Decide from the phase observed NOW — before anything marks the sandbox busy. (The 576
         // POC once read it after going busy, and Stop skipped stopping the VM.)
         let from = phase
@@ -752,7 +773,65 @@ public actor Sandbox {
             }
         }
         setPhase(target)
+        // 651: the wake is done — the rest runs in the background, holding the gate this call took.
+        let after = LifecyclePlanner.afterWake(op, from: from)
+        if !after.isEmpty {
+            handedOff = true
+            startAfterWake(after)
+        }
     }
+
+    /// 651: run a wake's after-steps in a task of this actor that OWNS the lifecycle gate the wake took (the caller
+    /// does not release it): every later lifecycle call, restore point, capture or quit queues behind them — so no
+    /// snapshot is ever taken mid-balloon or with it inflated — and `afterWakeSettled()` lets a session open wait.
+    private func startAfterWake(_ steps: [LifecycleStep]) {
+        afterWakeTask = Task { await self.runAfterWake(steps) }
+    }
+
+    private func runAfterWake(_ steps: [LifecycleStep]) async {
+        let t0 = ContinuousClock.now
+        var ran: [String] = [], skipped: [String] = []
+        for step in steps {
+            guard phase == .running else { break }
+            let name = Self.afterWakeLabel(step)
+            if LifecyclePlanner.skippedWhenWaiting(step, pauseWaiting: pauseWaiting > 0, putAwayWaiting: putAwayWaiting > 0) {
+                skipped.append(name)
+                continue
+            }
+            // Best effort: both steps note their own failures; anything else is a note too — never a failed wake.
+            do { try await run(step, target: .running) } catch {
+                note("after the wake: \(name) — \(error.localizedDescription) (the wake is unaffected)")
+            }
+            ran.append(name)
+        }
+        if !skipped.isEmpty {
+            note("skipped \(skipped.joined(separator: " and ")) after the wake — another operation was waiting (the next wake applies them)")
+        }
+        if !ran.isEmpty {
+            broadcaster.yield(.step("after the wake, in the background: \(ran.joined(separator: ", "))", milliseconds: milliseconds(since: t0)))
+        }
+        broadcaster.yield(.afterWakeDone)
+        afterWakeTask = nil
+        release()
+    }
+
+    static func afterWakeLabel(_ step: LifecycleStep) -> String {
+        switch step {
+        case .applyGuestFixes: "guest fixes, deckhold, tools layer"
+        case .returnFreeMemory: "memory balloon"
+        default: "\(step)"
+        }
+    }
+
+    /// 651: returns once the steps a wake runs after it was reported done are over (at once when none run) — what a
+    /// session open waits for: the guest fixes (sudo rule, shims, /etc/hosts, git, the SSH agent) and this build's
+    /// deckhold are in place before a program starts.
+    public func afterWakeSettled() async {
+        if let t = afterWakeTask { await t.value }
+    }
+
+    /// 651: a wake's after-steps are under way.
+    public var afterWakePending: Bool { afterWakeTask != nil }
 
     /// Stop is best effort at every step: whatever state the VM is in, it ends stopped and the
     /// runtime files are gone.
@@ -990,15 +1069,20 @@ public actor Sandbox {
         try fm.createDirectory(at: layout.sandboxDirectory, withIntermediateDirectories: true)
         guard let deckhold = DeckholdBinary.locate() else { throw SandboxError.deckholdMissing }
         let broadcaster = self.broadcaster
-        let kernelURL = try await kernelProvider.resolve(override: spec.kernelPath) { e in
-            switch e {
-            case .step(let s, let ms): broadcaster.yield(.step(s, milliseconds: ms))
-            case .note(let s): broadcaster.yield(.note(s))
-            case .progress(let s, let done, let total): broadcaster.yield(.progress(s, completedBytes: done, totalBytes: total))
+        // 651: a restore into a new process says where its time goes, part by part (an in-process wake only
+        // restores; this one builds the whole VM first).
+        let restoring = persisted != nil
+        let kernelURL = try await measured(restoring, "restore: kernel resolved and verified") {
+            try await kernelProvider.resolve(override: spec.kernelPath) { e in
+                switch e {
+                case .step(let s, let ms): broadcaster.yield(.step(s, milliseconds: ms))
+                case .note(let s): broadcaster.yield(.note(s))
+                case .progress(let s, let done, let total): broadcaster.yield(.progress(s, completedBytes: done, totalBytes: total))
+                }
             }
         }
         let kernel = Kernel(path: kernelURL, platform: .linuxArm)
-        let store = try ImageStore(path: spec.storeRoot)
+        let store = try await measured(restoring, "restore: image store opened") { try ImageStore(path: spec.storeRoot) }
         let firstRun = !fm.fileExists(atPath: layout.initfs.path)
         if firstRun { note("first start in this store: downloading images (one-time, needs network)…") }
         try await timed("guest init image ready (vminit\(firstRun ? ": pulled + built its disk" : ", cached"))") {
@@ -1014,7 +1098,8 @@ public actor Sandbox {
             }
             return c
         }
-        let wantedRoot: String = try custom.map { "custom:\($0.key)" } ?? spec.imageSpec.map {
+        // 651: only a cold boot reads it (two sha256s of the kernel and deckhold) — never a restore.
+        let wantedRoot: String = restoring ? "" : try custom.map { "custom:\($0.key)" } ?? spec.imageSpec.map {
             "\($0.name)@\($0.bakeKey(kernelSHA256: try KernelProvider.sha256(of: kernelURL), deckholdSHA256: try KernelProvider.sha256(of: deckhold)).prefix(12))"
         } ?? StoreLayout.goldenKey(for: spec)
         if let persisted {
@@ -1091,7 +1176,9 @@ public actor Sandbox {
             bootKernelURL = sound
         }
         var vmKernel = Kernel(path: bootKernelURL, platform: .linuxArm)
-        let currentKernelSHA = bootKernelURL == kernelURL ? try KernelProvider.sha256(of: kernelURL) : SoundKernel.sha256
+        let currentKernelSHA = try await measured(restoring, "restore: kernel sha256 (the recorded layout's check)") {
+            bootKernelURL == kernelURL ? try KernelProvider.sha256(of: kernelURL) : SoundKernel.sha256
+        }
         var vmKernelSHA = currentKernelSHA
         if let persisted, let recorded = persisted.vmLayout {
             guard let k = VMLayout.kernelForRestore(recorded: recorded, current: bootKernelURL, currentSHA256: currentKernelSHA,
@@ -1138,6 +1225,7 @@ public actor Sandbox {
 
         var iface: (any Interface)?
         var readdress: (address: String, gateway: String)?
+        let netT0 = ContinuousClock.now
         if spec.networking {
             var net: VmnetNetwork
             if let existing = network, persisted == nil || existing.subnet.description == identity.subnet {
@@ -1155,20 +1243,28 @@ public actor Sandbox {
             identity.subnet = net.subnet.description
             if let old = network, old.subnet != net.subnet { SubnetPool.release(old.subnet.description) }
             network = net
+            if restoring { broadcaster.yield(.step("restore: vmnet network and interface", milliseconds: milliseconds(since: netT0))) }
         }
 
         let flag = AdoptionFlag(persisted != nil)
         let initfs = Containerization.Mount.block(format: "ext4", source: layout.initfs.path, destination: "/", options: ["ro"])
         let recorder = VMLayoutRecorder()
+        var report: (@Sendable (String, Double) -> Void)? = nil
+        if restoring {
+            let b = broadcaster
+            report = { label, ms in b.yield(SandboxEvent.step("restore: " + label, milliseconds: ms)) }
+        }
         let vmm = DozableVMM(
             inner: VZVirtualMachineManager(kernel: vmKernel, initialFilesystem: initfs, group: SharedEventLoop.group),
             identity: PinnedIdentity(machineIdentifier: identity.machineIdentifier, macAddress: identity.macAddress,
                                      memoryBalloon: identity.memoryBalloon == true, audio: spec.audio == true, kernelSHA256: vmKernelSHA,
                                      expected: persisted?.vmLayout, sandboxName: spec.name, recorder: recorder),
-            adopt: persisted != nil ? (snapshot: layout.snapshot, flag: flag, containerID: spec.name) : nil)
+            adopt: persisted != nil ? (snapshot: layout.snapshot, flag: flag, containerID: spec.name) : nil,
+            report: report)
         let spec = self.spec
         let bootLog = layout.bootLog
         let stateDisk = layout.stateDisk
+        let containerT0 = ContinuousClock.now
         let c = try LinuxContainer(
             spec.name,
             // 587: `discard` — a block the guest frees is punched out of the host file at once
@@ -1197,6 +1293,7 @@ public actor Sandbox {
         }
         container = c
         if persisted != nil {
+            broadcaster.yield(.step("restore: container object built", milliseconds: milliseconds(since: containerT0)))
             try await timed("restored the VM from its snapshot into this process (pinned machine id)") { try await c.create() }
             try await timed("adopted the restored container") { try await c.start() }
             flag.adopting = false
@@ -1221,7 +1318,9 @@ public actor Sandbox {
         instance = inst
         handle = h
         balloonHeld = 0
+        let egressT0 = ContinuousClock.now
         try listenForEgress()
+        if restoring, egress != nil { broadcaster.yield(.step("restore: the proxy's vsock listener", milliseconds: milliseconds(since: egressT0))) }
         if persisted == nil {
             if let v = vzInstance(of: inst) {
                 for m in v.mounts[spec.name] ?? [] where m.type == "virtiofs" { identity.shareTags[m.destination] = m.source }
@@ -1850,6 +1949,8 @@ public actor Sandbox {
     /// Run `argv` in the guest (no shell unless you pass one) and collect its output.
     public func exec(_ argv: [String], environment: [String: String] = [:], workingDirectory: String = "/",
                      privileged: Bool = false, user: String? = nil, timeoutSeconds: Int64 = 120) async throws -> ExecResult {
+        // 651: a command sees the guest as a wake leaves it (sudo rule, shims, hosts, git) — after its background steps.
+        await afterWakeSettled()
         guard phase == .running else { throw SandboxError.notRunning(phase) }
         return try await execInContainer(argv, environment: guestEnvironment(environment, placeholders: true), workingDirectory: workingDirectory,
                                          privileged: privileged, timeout: timeoutSeconds, user: user)
@@ -1918,6 +2019,9 @@ public actor Sandbox {
                             scrollbackBytes: Int? = nil) async throws {
         try GuestCommand.validateSessionName(name)
         precondition(!argv.isEmpty, "a session needs a program")
+        // 651: a program started right after a wake gets the guest fixes and this build's deckhold — the wake's
+        // background steps finish first.
+        await afterWakeSettled()
         let (env, cwd, runAs) = Self.sessionContext(imageSpec: spec.imageSpec, environment: guestEnvironment(environment, placeholders: true),
                                                     workingDirectory: workingDirectory, user: user)
         guard phase == .running else { throw SandboxError.notRunning(phase) }
@@ -2251,6 +2355,15 @@ public actor Sandbox {
             broadcaster.yield(.stepFailed(label, milliseconds: milliseconds(since: t0), error: error.localizedDescription))
             throw error
         }
+    }
+
+    /// 651: `body`, and — when `on` — one finished step with its time (no live "started" line): the parts of a
+    /// restore into a new process, so its boot log shows where the time goes.
+    func measured<T>(_ on: Bool, _ label: String, _ body: () async throws -> T) async throws -> T {
+        let t0 = ContinuousClock.now
+        let v = try await body()
+        if on { broadcaster.yield(.step(label, milliseconds: milliseconds(since: t0))) }
+        return v
     }
 
     private func fileSize(_ url: URL) -> Int {

@@ -70,6 +70,9 @@ public actor HostCore {
         var sessionRows: [String: Int64] = [:]
         /// 593: the boot being recorded (a cold boot, a wake, a restore after a crash), if one is.
         var boot: BootRecorder?
+        /// 651: a wake's boot that is over but still records the events of the wake's background steps (the
+        /// guest fixes, the balloon) — kept once they end (`Sandbox.afterWakeSettled`, `.afterWakeDone`).
+        var bootTail: BootRecorder?
         init(sandbox: Sandbox, config: SandboxConfig) {
             self.sandbox = sandbox
             self.config = config
@@ -286,8 +289,11 @@ public actor HostCore {
             if p == .running { Task { await self.bindPorts(name, settle: true) } }
             if [.off, .asleep, .hibernated, .failed].contains(p) { unbindPorts(name, why: PhaseName.label(p)) }
         }
+        // 651: everything a wake's background steps emitted came before this — that boot log ends here.
+        if case .afterWakeDone = e { managed[name]?.bootTail?.seal() }
         if let he = HostEvent(e, sandbox: name) {
             managed[name]?.boot?.record(he)
+            managed[name]?.bootTail?.record(he)
             hub.yield(he)
             if he.kind != .progress, he.kind != .output { HostLog.line(he.line) }   // 593: a bake's output is live only
         }
@@ -339,11 +345,35 @@ public actor HostCore {
     /// actor asynchronously). Never fails the operation.
     func endBoot(_ m: Managed, error: Error?) async {
         guard let rec = m.boot else { return }
+        // 651: a wake is reported done before its background steps (the guest fixes, the balloon) run. Its boot log
+        // keeps their events too — written when they end; its time is the wake's, to here. Nothing waits for it.
+        if error == nil, await m.sandbox.afterWakePending {
+            let ended = Date()
+            m.boot = nil
+            m.bootTail = rec
+            Task { await self.finishBootTail(m, rec, wakeEnded: ended) }
+            return
+        }
         for _ in 0..<8 { await Task.yield() }
         try? await Task.sleep(for: .milliseconds(50))
         m.boot = nil
+        writeBoot(m, rec, error: error, ended: Date())
+    }
+
+    /// 651: the wake's background steps are over — keep its boot log (their events in it, up to `.afterWakeDone`).
+    private func finishBootTail(_ m: Managed, _ rec: BootRecorder, wakeEnded: Date) async {
+        await m.sandbox.afterWakeSettled()
+        // The end mark comes through the sandbox's event stream, which reaches this actor a little later.
+        let deadline = ContinuousClock.now + .seconds(2)
+        while !rec.isSealed, ContinuousClock.now < deadline { try? await Task.sleep(for: .milliseconds(20)) }
+        rec.seal()
+        if m.bootTail === rec { m.bootTail = nil }
+        writeBoot(m, rec, error: nil, ended: wakeEnded)
+    }
+
+    private func writeBoot(_ m: Managed, _ rec: BootRecorder, error: Error?, ended: Date) {
         let console = rec.console(m.sandbox.bootLogURL)
-        let info = rec.info(result: error == nil ? "ok" : "failed", error: error.map { explain($0).message }, console: console.count)
+        let info = rec.info(result: error == nil ? "ok" : "failed", error: error.map { explain($0).message }, console: console.count, now: ended)
         let keep = DozableSettings.load().int(SettingKey.bootLogsKept)
         do { try BootLogs.write(m.sandbox.layout, info: info, events: rec.snapshot, console: console, keep: keep) } catch {
             note(m.name, "could not keep the boot log: \(error.localizedDescription)")
@@ -354,7 +384,7 @@ public actor HostCore {
     func bootLog(_ r: HostRequest) throws -> JSONValue {
         let m = try get(r.name)
         let layout = m.sandbox.layout
-        let live = m.boot
+        let live = m.boot ?? m.bootTail          // 651: a wake whose background steps still run is not kept yet
         var boots = BootLogs.list(layout)
         if let live { boots.insert(live.info(result: "running", error: nil, console: live.console(m.sandbox.bootLogURL).count), at: 0) }
         for i in boots.indices { boots[i].number = i + 1 }

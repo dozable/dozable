@@ -129,14 +129,18 @@ struct DozableVMM: VirtualMachineManager {
     let identity: PinnedIdentity
     /// Non-nil in adopt mode: the snapshot to restore, and the flag the agent wrapper reads.
     let adopt: (snapshot: URL, flag: AdoptionFlag, containerID: String)?
+    /// 651: told each part's time (label, ms) — a restore into a new process says where its time goes.
+    var report: (@Sendable (String, Double) -> Void)? = nil
 
     func create(config: some VMCreationConfig) async throws -> any VirtualMachineInstance {
         var c = config.configuration
         c.extensions.append(identity)
+        let t0 = ContinuousClock.now
         let vm = try inner.create(config: StandardVMConfig(configuration: c))
+        report?("VM configured (VZ configuration validated, virtual machine made)", milliseconds(since: t0))
         guard let adopt else { return vm }
         guard let vz = vm as? VZVirtualMachineInstance else { throw SandboxError.vmUnavailable }
-        return AdoptingInstance(inner: vz, snapshot: adopt.snapshot, flag: adopt.flag, containerID: adopt.containerID)
+        return AdoptingInstance(inner: vz, snapshot: adopt.snapshot, flag: adopt.flag, containerID: adopt.containerID, report: report)
     }
 }
 
@@ -154,6 +158,7 @@ struct AdoptingInstance: VirtualMachineInstance {
     let snapshot: URL
     let flag: AdoptionFlag
     let containerID: String
+    var report: (@Sendable (String, Double) -> Void)? = nil
 
     var state: VirtualMachineInstanceState { inner.state }
     var mounts: [String: [AttachedFilesystem]] { inner.mounts }
@@ -167,8 +172,12 @@ struct AdoptingInstance: VirtualMachineInstance {
 
     func start() async throws {
         let h = VMHandle(vm: inner.vzVirtualMachine, queue: inner.vmQueue)
+        let t0 = ContinuousClock.now
         try await vz(h, .restore(snapshot))
+        report?("VZ restored the VM state from disk", milliseconds(since: t0))
+        let t1 = ContinuousClock.now
         try await vz(h, .resume)
+        report?("VZ resumed", milliseconds(since: t1))
     }
     func stop() async throws { try await inner.stop() }
     func pause() async throws { try await inner.pause() }
