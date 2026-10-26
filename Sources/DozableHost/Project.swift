@@ -59,6 +59,9 @@ public struct DozableProject: Equatable, Sendable {
     /// 618: where the model comes from (a provider or gateway the agent is offered) and the model (an id) — when made.
     public var modelSource: String?
     public var model: String?
+    /// 657: this sandbox's dotfiles — a git repository's https:// URL, a folder on the Mac (absolute or ~/…), or `none`.
+    /// nil: the setting `sandbox.dotfiles` decides. When the sandbox is made.
+    public var dotfiles: String?
 
     public init(name: String, image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, network: String? = nil, account: String? = nil) {
         self.name = name
@@ -109,6 +112,7 @@ public struct DozableProject: Equatable, Sendable {
         ("keys", "custom keys attached beside the account (doz account add NAME --custom …), each of its hosts allowed — when the sandbox is made"),
         ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
+        ("dotfiles", "your dotfiles: a git repository's https:// URL, a folder on your Mac (absolute or ~/…), or none (default: the setting sandbox.dotfiles) — applied at its first start; doz dotfiles NAME --update moves it on"),
     ] + settingKeys.map { k in
         (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
     }
@@ -156,6 +160,7 @@ public struct DozableProject: Equatable, Sendable {
         if let m = memoryMiB, !(256...262_144).contains(m) { return "memory: 256 MiB – 256 GiB" }
         if let n = network, !["agent", "bake", "locked", "open", "nat", "none"].contains(n) { return "network: agent, bake, locked, open, nat or none" }
         if let g = github, Self.gitHubWords(g) == nil { return "github: off, read or push" }
+        if let d = dotfiles, let why = DotfilesSource.problem(d) { return "dotfiles: \(why)" }
         if let w = permissions {
             guard SettingType.permissionWords(w.joined(separator: ",")) != nil else {
                 return "permissions: standard, locked, open, or permissions like +web,-error-reports (doz net permissions)"
@@ -327,6 +332,8 @@ public struct DozableProject: Equatable, Sendable {
         out += github.map { "github: \($0)\n" }
             ?? "# github: off                # read: git and gh signed in as you on GitHub (read-only); push: also push. When the sandbox is made\n"
         if let k = keys, !k.isEmpty { out += "keys: [\(k.map(quoted).joined(separator: ", "))]   # custom keys — when made\n" }
+        out += dotfiles.map { "dotfiles: \(quoted($0))\n" }
+            ?? "# dotfiles: https://github.com/you/dotfiles   # your dotfiles (or a folder on your Mac, or none) — applied at its first start\n"
         for k in Self.settingKeys {
             out += settings[k.setting].map { "\(k.key): \($0.plain)\n" } ?? k.comment + "\n"
         }
@@ -361,6 +368,7 @@ public struct DozableProject: Equatable, Sendable {
         if let k = keys, !k.isEmpty { o.keys = k }
         o.modelSource = modelSource                  // 618
         o.model = model
+        o.dotfiles = dotfiles                        // 657
         o.project = file.path
         // 596 (B6): a Dockerfile relative to this folder (its folder is the build context).
         if let d = dockerfile {
@@ -403,6 +411,7 @@ public struct DozableProject: Equatable, Sendable {
         // 599e: the GitHub default is the Access step's (defaults.github).
         if !explicit.contains("github"), github == (settings.string(SettingKey.defaultGithub) ?? "off") { github = nil }
         if !explicit.contains("agent_sudo"), agentSudo == settings.bool(SettingKey.agentSudo) { agentSudo = nil }
+        if !explicit.contains("dotfiles"), let d = dotfiles, d == (settings.string(SettingKey.dotfiles) ?? "") { dotfiles = nil }
         for k in Self.settingKeys where !explicit.contains(k.key) {
             if let v = self.settings[k.setting], v == settings.resolve(k.setting).value { self.settings[k.setting] = nil }
         }

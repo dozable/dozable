@@ -74,6 +74,9 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "on or off: /workspace through Dozable's live view of the folder, so programs working there keep their folder across a wake from hibernation or a host restart (on, the default: the setting workspace.view), or shared directly — a little faster, but such a wake cuts them off.")
     var workspaceView: String?
 
+    @Option(name: .long, help: "Your dotfiles: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login), a folder on this Mac that is a git repository, or none. Applied at the first start, as the sandbox's user: its install script runs, or its dotfiles are linked into the home. doz asks once per repository and commit (default: the setting sandbox.dotfiles).")
+    var dotfiles: String?
+
     @Flag(name: .long, help: "When the image is out of date (an older doz's recipe, or a newer agent release): rebuild it first (~2 min, needs network; existing sandboxes are not affected).")
     var rebuild = false
 
@@ -232,7 +235,20 @@ struct ChoiceOptions: ParsableArguments {
         }
         try applyPrompt(to: &o)
         o.settings = try sandboxSettings()
+        o.dotfiles = try dotfilesChoice()         // 657
         return o
+    }
+
+    /// 657: `--dotfiles` checked — a relative folder made absolute (this command's working folder's).
+    func dotfilesChoice() throws -> String? {
+        guard var d = dotfiles?.trimmingCharacters(in: .whitespaces) else { return nil }
+        if d.isEmpty { d = DotfilesSource.none }
+        if !DotfilesSource.isNone(d), !d.lowercased().hasPrefix("https://"), !DotfilesSource.isLocal(d),
+           FileManager.default.fileExists(atPath: d) {
+            d = URL(fileURLWithPath: d, relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)).standardizedFileURL.path
+        }
+        if let why = DotfilesSource.problem(d) { throw ValidationError("--dotfiles: \(why)") }
+        return d
     }
 
     /// 599d: `off` / `read` / `push` → permission words for `--allow` (and `github:` in doz_project.yaml).
@@ -287,7 +303,7 @@ struct ChoiceOptions: ParsableArguments {
         image != nil || cpus != nil || memory != nil || workspace != nil || network != nil || subnet != nil || account != nil || agentPrompt != nil || isolated || agentSudo != nil
             || agent != nil || base != nil || dockerfile != nil || !allow.isEmpty
             || clipboard != nil || browserBridge != nil || openFiles != nil || tmux != nil || github != nil || sshAgent != nil
-            || ignoreMode != nil || workspaceView != nil
+            || ignoreMode != nil || workspaceView != nil || dotfiles != nil
     }
 }
 
@@ -714,6 +730,7 @@ struct Up: AsyncParsableCommand {
                 try create.applyPrompt(to: &o)
                 if !create.key.isEmpty { o.keys = create.key }          // 617: custom keys given here win over the file's
                 try create.applyModelSource(to: &o)                       // 617 (models@1)
+                if let d = try create.dotfilesChoice() { o.dotfiles = d }  // 657: --dotfiles wins over the file's
                 if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 await ModelNote.check(o, g)                               // 618
                 // 594: doz_project.yaml's image and account are checked like any create.

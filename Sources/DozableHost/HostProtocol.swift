@@ -182,12 +182,20 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// sandboxes only (never a wake or a start), and only to a holder that announced GRID. Read-only: in-process (no
     /// host) every item is unavailable — there is no watcher.
     case sessionGrids = "session-grids"
+    /// 657: a sandbox's dotfiles (`DotfilesReport`: the source, the pinned commit, the plan, the last apply). Read-only.
+    case dotfiles
+    /// 657: fetch a dotfiles source on the Mac (`dotfilesSource`; nil: the setting) and say its head — `DotfilesResolved`
+    /// (the commit, its subject, what applying it does). Fetches into the store's cache: needs the host.
+    case dotfilesResolve = "dotfiles-resolve"
+    /// 657: move a sandbox's dotfiles to `dotfilesCommit` (nil: its source's head) and apply them — now when it runs (as
+    /// steps), else at its next start or wake.
+    case dotfilesUpdate = "dotfiles-update"
 
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -252,6 +260,10 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// 618: an exact release of the agent (`NAME@VERSION`) for this sandbox only, over its `images.<id>_version` setting —
     /// checked like a pin before anything is made (the registry has it, its integrity, its major: AgentRef).
     public var agentVersion: String?
+    /// 657: this sandbox's dotfiles — a git repository's https:// URL, a folder on the Mac, or `none` (nil: the setting
+    /// `sandbox.dotfiles`); and the commit the CLI had the person trust (nil: the host takes the branch's head).
+    public var dotfiles: String?
+    public var dotfilesCommit: String?
     /// 618: what the person typed, resolved (`opencode`, `opencode@1`, `opencode@2.0.28`) — recorded with the release it
     /// made (`SandboxConfig.agentRef`); nil: the image named the agent.
     public var agentRef: String?
@@ -435,6 +447,10 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var fileTree: FileTreeState?
     /// 648 `session-grids`: the pictures asked (≤ 64, any sandboxes).
     public var grids: [SessionGridRequest]?
+    /// 657 `dotfiles-resolve`: the source (nil: the setting `sandbox.dotfiles`); `dotfiles-update`: the commit the person
+    /// trusted (nil: the head, resolved by the host).
+    public var dotfilesSource: String?
+    public var dotfilesCommit: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -699,6 +715,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     /// how many more there are beyond the list. nil: none.
     public var sessionList: [SessionBrief]? = nil
     public var sessionMore: Int? = nil
+    /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
+    public var dotfiles: DotfilesState? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -726,6 +744,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case recipeRef                                    // 654
         case ports                                        // 617 (RP-1)
         case sessionList, sessionMore                     // 635
+        case dotfiles                                     // 657
     }
 
     public init(from decoder: Decoder) throws {
@@ -771,6 +790,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
         sessionList = try c.decodeIfPresent([SessionBrief].self, forKey: .sessionList)
         sessionMore = try c.decodeIfPresent(Int.self, forKey: .sessionMore)
+        dotfiles = try c.decodeIfPresent(DotfilesState.self, forKey: .dotfiles)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -819,6 +839,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(agentWorking, forKey: .agentWorking)
         try c.encodeIfPresent(sessionList, forKey: .sessionList)
         try c.encodeIfPresent(sessionMore, forKey: .sessionMore)
+        try c.encodeIfPresent(dotfiles, forKey: .dotfiles)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,

@@ -186,6 +186,11 @@ extension DozableProject {
                 let s = try scalarString(v, key)
                 guard ModelSelection.isModelID(s) else { throw bad(v, "model: a model id — letters, digits and . _ : / @ + - (doz models)") }
                 p.model = s
+            case "dotfiles":
+                // 657: a git repository's https:// URL, a folder on the Mac, or none (YAML's bare `no`/`off`: none).
+                let s = v.bool == false ? "none" : try scalarString(v, key)
+                if let why = DotfilesSource.problem(s) { throw bad(v, "dotfiles: \(why)") }
+                p.dotfiles = s.isEmpty ? "none" : s
             case "keys":
                 // 617: custom key accounts — a list of names (or one name).
                 let names: [String]

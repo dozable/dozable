@@ -61,6 +61,8 @@ public enum SettingType: Sendable, Equatable {
     case originList
     /// 606: addresses or networks, comma-separated (`127.0.0.1, 192.168.1.0/24, fd00::/8`); `""` = none.
     case addressList
+    /// 657: a dotfiles repository — an https:// git URL or a folder on this Mac (`DotfilesSource`); `""` = none.
+    case dotfiles
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -106,6 +108,7 @@ public enum SettingType: Sendable, Equatable {
         case .serveBind: "lan | loopback | the Mac's addresses, comma-separated"
         case .originList: "origins like https://doz.home.example, comma-separated (\"\" = none)"
         case .addressList: "addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated (\"\" = none)"
+        case .dotfiles: "a git repository's https:// URL, or a folder on this Mac that is one (\"\" = none)"
         }
     }
 
@@ -234,6 +237,9 @@ public struct SettingDefinition: Sendable {
         case (.addressList, .string(let s)):
             guard ServeSettingValues.isAddressList(s) else { throw SettingsError("\(key) is addresses or networks like 127.0.0.1 or 192.168.1.0/24, separated by commas, or \"\"") }
             return v
+        case (.dotfiles, .string(let s)):
+            if let why = DotfilesSource.problem(s) { throw SettingsError("\(key): \(why)") }
+            return v
         case (.appList, .string(let s)):
             guard WorkspaceFiles.appNames(s) != nil else {
                 throw SettingsError("\(key) is app names separated by commas (at most 16, each 1–64 characters, no / or ;), or \"\"")
@@ -257,7 +263,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -392,6 +398,8 @@ public enum SettingKey {
     public static let ignoreMode = "workspace.ignore_mode"
     /// 608: every share through the live view (on) or the plain share without rules (off).
     public static let workspaceView = "workspace.view"
+    /// 657: the person's dotfiles — a git repository (https) or a folder on this Mac; "" = none.
+    public static let dotfiles = "sandbox.dotfiles"
     /// 599e: "Use GitHub as you" for NEW sandboxes — `off`, `read` or `push` (the Access step's choice).
     public static let defaultGithub = "defaults.github"
     /// 594 (owner ruling): the web UI may take an API key or a setup token (a masked field).
@@ -658,6 +666,10 @@ public struct DozableSettings: Sendable {
             .init("workspace", "view", .choice(["on", "off"]), .string("on"),
                   "How a sandbox's workspace folder reaches it. on: through Dozable's live view of the folder, so a program working in /workspace (an agent, a shell) keeps its folder when the sandbox wakes from hibernation or after a host restart. The view costs a little: the first scan of a big folder after a start or a wake is slower (e.g. git status on a large repository, or find), later ones are about as fast as without it. off: the folder is shared directly (a little faster) — but a program working inside /workspace loses its folder at such a wake and must be restarted (Codex says \"invalid cwd\"). A folder with a .dozignore or .dozreadonly always uses the view. Changes take effect at the sandbox's next start. A sandbox's own choice (doz create --workspace-view, workspace_view in doz_project.yaml, doz config set --sandbox NAME) wins over this.",
                   flag: "doz create --workspace-view on|off", applies: .nextStart),
+            // 657 (owner: "the user's dotfiles … so that every shell experience in each VM is familiar").
+            .init("sandbox", "dotfiles", .dotfiles, .string(""),
+                  "Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login, so a private one works and no credential enters the sandbox) or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at, recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap, script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot log), or, with none, every dotfile and dot-folder at the top of the repository is linked into the home — never over a file that is there (only over the image's stock copy, kept as NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once per repository and commit before it is applied — it is code that runs in the sandbox. \"\" (the default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml) wins over this.",
+                  flag: "doz create --dotfiles URL|PATH|none", applies: .nextCreate),
             .init("defaults", "github", .choice(["off", "read", "push"]), .string("off"),
                   "\"Use GitHub as you\" for new sandboxes: off, read (git and gh signed in as you on GitHub, read-only) or push (also push and make changes) — the Access step's choice (doz access set --github). A sandbox can differ: doz create --github, github: in doz_project.yaml, or its permissions later (doz net allow|deny NAME github:as-you). Proxied sandboxes only.",
                   flag: "doz create --github off|read|push", applies: .nextCreate),
@@ -923,6 +935,7 @@ public struct DozableSettings: Sendable {
             case .serveBind: kind = "bind"
             case .originList: kind = "origins"
             case .addressList: kind = "addresses"
+            case .dotfiles: kind = "dotfiles"
             }
             var note: String?
             switch r.source {

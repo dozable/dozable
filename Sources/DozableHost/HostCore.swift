@@ -218,6 +218,7 @@ public actor HostCore {
             installCredentialHooks(m)
             applyAccount(m)
             applyGitHub(m)                                  // 599d
+            applyDotfilesInput(m)                           // 657
         }
         return m
     }
@@ -502,6 +503,7 @@ public actor HostCore {
         i.ports = ports.isEmpty ? nil : ports
         statusFields(m.name, into: &i)                                 // 612: from memory, never the guest
         sessionListFields(m, phase: phase, into: &i)                   // 635: from memory and its files, never the guest
+        i.dotfiles = dotfilesState(m)                                   // 657: from its record and its last run's file
         i.workspaceRules = workspaceRulesInfo(m, phase: phase)       // 599g: two stats when there are no rules
         i.workspaceView = Self.workspaceViewState(running: phase == .running, workspace: m.config.workspace != nil,
                                                   active: Array(m.sandbox.activeViews.values), fallbacks: m.sandbox.viewFallbacks,
@@ -749,6 +751,12 @@ public actor HostCore {
             let m = try get(r.name)
             try FileTreeState.write(r.fileTree, store, m.name)
             return try JSONValue(encoding: FileTreeState.read(store, m.name) ?? FileTreeState(expanded: []))
+        case .dotfiles:                                                 // 657
+            return try JSONValue(encoding: await dotfilesReport(try get(r.name)))
+        case .dotfilesResolve:
+            return try JSONValue(encoding: await resolveDotfiles(r.dotfilesSource))
+        case .dotfilesUpdate:
+            return try JSONValue(encoding: await updateDotfiles(r, emit: emit))
         case .tools, .toolsApply:
             let m = try get(r.name)
             let phase = await m.sandbox.status.phase
@@ -1050,6 +1058,8 @@ public actor HostCore {
         // 634 (owner: "drop the special status of a try … but keep the ability to easily delete"): a folder Dozable made
         // now, for ANY sandbox, is recorded — its delete removes it while it is empty (never a folder that was there).
         if let p = prepared, p.created { cfg.createdFolder = p.path }
+        // 657: the person's dotfiles — fetched on this Mac now, the commit recorded; applied at the first start.
+        cfg.dotfiles = try await dotfilesPinForCreate(o, name: name, emit: emit)
         try cfg.write(store.configFile(name))
         let m = try adopt(cfg)
         var createDetail = ["network": cfg.networkName]

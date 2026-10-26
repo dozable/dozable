@@ -36,6 +36,7 @@ struct QuickMake {
         // 653: a recipe that is not Dozable's — said (yours) or asked once per version (a community one) BEFORE its image
         // is prepared below (the bake runs its install).
         try confirmRecipeTrust(image: planned.image, g)
+        try confirmDotfilesTrust(&o, g)          // 657: the dotfiles it gets — said, or asked once per commit
         // --rebuild: an out-of-date image is rebuilt first (a quick make asks nothing, so without it the current image is used).
         if rebuild { o.rebuild = true }
         // 617 (owner, 2026-10-15): what the person meets at the first start that Dozable leaves to them — said first.

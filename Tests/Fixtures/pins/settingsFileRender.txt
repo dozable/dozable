@@ -381,6 +381,21 @@
 # (off | on; flag doz create --ssh-agent on|off; applies at once (the UI re-reads it))
 # ssh_agent = "off"
 
+# Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched
+# on this Mac with its own git login, so a private one works and no credential enters the sandbox)
+# or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at,
+# recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the
+# repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap,
+# script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot
+# log), or, with none, every dotfile and dot-folder at the top of the repository is linked into
+# the home — never over a file that is there (only over the image's stock copy, kept as
+# NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once
+# per repository and commit before it is applied — it is code that runs in the sandbox. "" (the
+# default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml)
+# wins over this.
+# (a git repository's https:// URL, or a folder on this Mac that is one ("" = none); flag doz create --dotfiles URL|PATH|none; applies to sandboxes created from now on (the host reads it at create))
+# dotfiles = ""
+
 [sessions]
 
 # Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep

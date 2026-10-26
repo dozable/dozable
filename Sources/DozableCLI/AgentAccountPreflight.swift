@@ -14,6 +14,7 @@ import DozableHost
 /// template's agent is checked by the host alone (the same message, without the offer).
 func preflightAgentAccount(_ o: inout CreateOptions, _ g: GlobalOptions) throws {
     try confirmRecipeTrust(image: o.image, g)              // 653: whose recipe — said, or asked once per version
+    try confirmDotfilesTrust(&o, g)                        // 657: the dotfiles it gets — said, or asked once per commit
     guard AgentImages.credentials(o.image) != nil else { return }
     let section = DozableSettings.imageSection(imageSpecName: o.image)
     let network = o.network ?? DozableSettings.load().string(SettingKey.network(section))
