@@ -490,6 +490,7 @@ public actor HostCore {
         i.credentialProblem = credentialProblem(m)
         i.createdFolder = m.config.createdFolder
         i.agentRef = m.config.agentRef            // 618
+        i.recipeRef = m.config.recipeRef          // 654
         i.extraKeys = m.config.extraKeys
         // 617 (RP-1): whether something serves each port — read in the background, never on this call's path.
         if phase == .running, !readOnly, !wantedPorts(m).isEmpty,
@@ -1041,6 +1042,10 @@ public actor HostCore {
         // 618: what it was made as — the family's (or tool's) name and the exact release (`opencode@2.0.29`).
         if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }), r.family != nil || o.agentRef != nil {
             cfg.agentRef = AgentRef.recorded(r, version: spec.imageSpec?.agent?.version)
+        }
+        // 654: and the recipe it came from, fully qualified (`dozable/anomalyco/opencode2@2.0.29`) — every recipe agent's.
+        if let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }) {
+            cfg.recipeRef = AgentRef.fullyQualified(r, version: spec.imageSpec?.agent?.version)
         }
         // 634 (owner: "drop the special status of a try … but keep the ability to easily delete"): a folder Dozable made
         // now, for ANY sandbox, is recorded — its delete removes it while it is empty (never a folder that was there).

@@ -121,10 +121,11 @@ final class GuideTests: XCTestCase {
         let g = try XCTUnwrap(SandboxGuide.make(r, version: nil, source: "google", model: "gemini-2.5-flash", account: "google", accountKind: .key,
                                                 network: "its model only (Locked)", workspace: "/Users/me/try-fabric"))
         XCTAssertEqual(g.session, "shell")
-        XCTAssertEqual(g.facts.map(\.id), ["version", "model", "network", "folder", "settings"])
+        XCTAssertEqual(g.facts.map(\.id), ["version", "recipe", "model", "network", "folder", "settings"])
         XCTAssertEqual(g.facts[0].value, "Fabric 1.4.518 (Dozable's pin)")
-        XCTAssertEqual(g.facts[1].value, "Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder")
-        XCTAssertEqual(g.facts[3].value, "/workspace = /Users/me/try-fabric")
+        XCTAssertEqual(g.facts[1].value, "dozable/danielmiessler/fabric@1.4.518", "654: the recipe's full name")
+        XCTAssertEqual(g.facts[2].value, "Google AI (Gemini API) · gemini-2.5-flash — your key google stays on the Mac; the sandbox holds a placeholder")
+        XCTAssertEqual(g.facts[4].value, "/workspace = /Users/me/try-fabric")
         XCTAssertTrue(g.what.contains("a command-line tool"))
         let text = g.plainText()
         XCTAssertTrue(text.contains("This sandbox\n") && !text.contains("This try") && text.contains("Start here\n  1. Check it answers.\n       echo hello | fabric \"say ok\""))
@@ -133,8 +134,8 @@ final class GuideTests: XCTestCase {
                                                      account: "mac", accountKind: .mac, network: "x", workspace: nil))
         XCTAssertEqual(claude.session, "screen")
         XCTAssertEqual(claude.facts[0].value, "Claude Code 2.1.300")
-        XCTAssertTrue(claude.facts[1].value.contains("your Claude Code login on this Mac"))
-        XCTAssertTrue(claude.facts[3].value.contains("isolated"))
+        XCTAssertTrue(claude.facts[2].value.contains("your Claude Code login on this Mac"))
+        XCTAssertTrue(claude.facts[4].value.contains("isolated"))
     }
 
     func core() async -> HostCore {

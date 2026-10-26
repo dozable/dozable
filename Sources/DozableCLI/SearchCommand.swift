@@ -69,7 +69,9 @@ func searchLine(_ h: SearchHit, local: SearchLocal?, base: String?) -> String {
         let fam = AgentRecipes.recipe(e.id).flatMap { AgentRef.choicesLine($0) }.map { " (\($0))" } ?? ""
         // 653: a recipe that is not Dozable's says whose it is — never mixed silently with Dozable's.
         let from = e.origin.map { " [\($0.label)]" } ?? ""
-        var s = "\(e.title)\(fam)\(from) — supported" + (e.checked.map { " · checked \($0)" } ?? "")
+        // 654: its full name beside its title (anthropic/claude-code, mine/acme/tool).
+        let full = e.qualified.map { " · \($0)" } ?? ""
+        var s = "\(e.title)\(full)\(fam)\(from) — supported" + (e.checked.map { " · checked \($0)" } ?? "")
         if let p = e.keys.first?.provider {
             let title = KeyProviders.provider(p)?.title ?? p
             s += " · key: \(title)" + (local?.haveKey.map { " (you have \($0)" + (local?.source.map { ", \($0)" } ?? "") + ")" } ?? " (none yet — doz try asks)")
@@ -128,6 +130,7 @@ func categoryLine(kind: String, categories: [String]?) -> String {
 func searchDetails(_ e: DirectoryIndex.Entry) -> String {
     var s = "\(e.title)" + (e.publisher.map { " · \($0)" } ?? "") + (e.homepage.map { " · \($0)" } ?? "") + "\n"
     if e.status != "supported" { return s + "  \(e.status): \(e.reason ?? "")\n" + (e.lifecycle.map { "  standing: \(standingLine($0))\n" } ?? "") }
+    if let q = e.qualified { s += "  full name: \(q)\n" }                  // 654
     if let o = e.origin { s += "  from: \(o.label) — not Dozable's (doz recipe show \(e.id))\n" }
     s += "  \(latestLine(e.latest, agent: e.id))\n"
     if let l = e.lifecycle, !l.isCurrent { s += "  standing: \(standingLine(l))\n" }
@@ -166,7 +169,7 @@ struct SearchCommand: AsyncParsableCommand {
         """)
 
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "An agent, a key provider or a base (an id, an alias, a title or the start of one); tag:TAG terms filter by capability.")
+    @Argument(help: "An agent, a key provider or a base (an id, an alias, a title or the start of one; an agent's full name, VENDOR/PRODUCT); tag:TAG terms filter by capability.")
     var terms: [String] = []
     @Option(name: .long, help: "Only agents with this tag (repeatable): a kind — coding-agent, ai-tool — a category — \(Categories.all.map(\.id).filter { $0 != "coding-agent" }.joined(separator: ", ")) — or a capability: \(CapabilityTags.all.map(\.id).joined(separator: ", ")).")
     var tag: [String] = []
@@ -179,8 +182,11 @@ struct SearchCommand: AsyncParsableCommand {
     var index: String?
     @Flag(name: .long, help: ArgumentHelp("With --index: replace FILE.", visibility: .hidden)) var force = false
 
-    /// 618: `opencode@1` / `opencode@2.0.28` search for that major's recipe (a term without @ is searched as it is).
-    var resolvedTerms: [String] { terms.map { t in t.contains("@") ? ((try? AgentRef.resolve(t)).flatMap { $0?.recipe.id } ?? t) : t } }
+    /// 618: `opencode@1` / `opencode@2.0.28` search for that major's recipe (a term without @ is searched as it is). 654: so
+    /// does a qualified name (`anomalyco/opencode2`, `mine/acme/tool`).
+    var resolvedTerms: [String] {
+        terms.map { t in t.contains("@") || t.contains("/") ? ((try? AgentRef.resolve(t)).flatMap { $0?.recipe.id } ?? t) : t }
+    }
 
     func validate() throws {
         let known = Set(CapabilityTags.all.map(\.id) + Categories.kinds.map(\.id) + Categories.all.map(\.id))

@@ -47,7 +47,21 @@ struct RecipeTarget {
 
 func recipeTarget(_ s: String, _ p: RecipeExtrasPaths, _ g: GlobalOptions) throws -> RecipeTarget {
     let expanded = (s as NSString).expandingTildeInPath
-    let isFile = s.contains("/") || s.hasSuffix(".yaml") || s.hasSuffix(".yml") || s.hasSuffix(".json")
+    let suffixed = s.hasSuffix(".yaml") || s.hasSuffix(".yml") || s.hasSuffix(".json")
+    // 654: a qualified name (`mine/acme/tool`, `NAME/vendor/tool`) — not a file that is there: the recipe by its id, then
+    // its vendor and origin must be the ones named.
+    if s.contains("/"), !suffixed, !s.hasPrefix("."), !s.hasPrefix("~"), !FileManager.default.fileExists(atPath: expanded),
+       let q = try? AgentRef.parseQualified(s) {
+        let t = try recipeTarget(q.product, p, g)
+        let vendor = (try? RecipeDocument.decode(t.compiled))?.vendor
+        let want = q.source ?? "dozable"
+        guard vendor == q.vendor, want == t.origin.sourceWord else {
+            let right = vendor.map { "\(t.origin.sourceWord)/\($0)/\(t.id)" } ?? t.id
+            throw fail(HostError(.notFound, "\(s): \(t.id) is \(t.origin.label ?? "Dozable's") — its name is \(right)"), g)
+        }
+        return t
+    }
+    let isFile = s.contains("/") || suffixed
     if isFile {
         guard let bytes = try? Data(contentsOf: URL(fileURLWithPath: expanded)) else { throw fail(HostError(.notFound, "\(s): no such file"), g) }
         guard bytes.count <= 256 << 10 else { throw fail(HostError(.invalid, "\(s) is larger than 256 KiB — not a recipe"), g) }
@@ -446,7 +460,7 @@ struct RecipeAdd: AsyncParsableCommand {
 struct RecipeShow: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "show", abstract: "One recipe of yours or of a community source: whose, what its bake installs and reaches, its check.")
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "An id (yours or a community source's) or a YAML file.") var recipe: String
+    @Argument(help: "An id (yours or a community source's), its full name (mine/VENDOR/PRODUCT, SOURCE/VENDOR/PRODUCT) or a YAML file.") var recipe: String
     @Flag(name: .long, help: "Print the compiled document (JSON) — what a community catalogue carries as agents/ID.json.") var document = false
 
     func run() async throws {
@@ -459,13 +473,16 @@ struct RecipeShow: AsyncParsableCommand {
         }
         let (results, r) = recipeStaticCheck(t)
         let checks = RecipeExtras.checks(p).filter { $0.id == t.id }
+        // 654: its qualified name — `mine/VENDOR/PRODUCT`, `SOURCE/VENDOR/PRODUCT`.
+        let full = (try? RecipeDocument.decode(t.compiled))?.vendor.map { "\(t.origin.sourceWord)/\($0)/\(t.id)" }
         if g.json {
-            Out.json(["id": .string(t.id), "origin": .string(t.origin.kind), "source": t.origin.source.map(JSONValue.string) ?? .null,
+            Out.json(["id": .string(t.id), "name": full.map(JSONValue.string) ?? .null, "origin": .string(t.origin.kind),
+                      "source": t.origin.source.map(JSONValue.string) ?? .null,
                       "sha256": .string(t.sha256), "meets": .bool(results.allSatisfy(\.passed)),
                       "checked": .array(checks.filter { $0.sha256 == t.sha256 }.map { .string($0.level) })] as [String: JSONValue])
             return
         }
-        var lines = ["\(r?.title ?? t.id) (\(t.id))"]
+        var lines = ["\(r?.title ?? t.id) (\(t.id)\(full.map { " · " + $0 } ?? ""))"]
         if let r { lines.append("  " + recipeWhose(r.origin.isDozable ? { var x = r; x.origin = t.origin; return x }() : r, p)) }
         if let path = t.path { lines.append("  file: \(DisplayPath.tilde(path))") }
         lines.append("  sha256: \(t.sha256)")
@@ -492,7 +509,7 @@ struct RecipeCheck: AsyncParsableCommand {
         Exit 0: it meets them · 1: it does not.
         """)
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "An id (yours or a community source's) or a YAML file.") var recipe: String
+    @Argument(help: "An id (yours or a community source's), its full name (mine/VENDOR/PRODUCT, SOURCE/VENDOR/PRODUCT) or a YAML file.") var recipe: String
     @Flag(name: .long, help: "Also build and try it for real, in a scratch store (minutes the first time; needs the network for the build).") var full = false
     @Option(name: .long, help: "The scratch folder for --full (default: a short folder under $TMPDIR; built images are kept there for the next run).") var scratch: String?
 
@@ -625,6 +642,10 @@ struct RecipeSourceAdd: AsyncParsableCommand {
         if k == Distribution.updatePublicKey { throw fail(HostError(.invalid, "that is Dozable's own key — it signs Dozable's recipes, never a community catalogue"), g) }
         let n = name ?? RecipeExtras.defaultName(url)
         guard RecipeOrigin.isSourceName(n) else { throw fail(HostError(.invalid, "\(n): a source's name is a-z, 0-9 and dashes (--name)"), g) }
+        // 654: `dozable/…` and `mine/…` are the qualified names of Dozable's recipes and yours.
+        guard !RecipeOrigin.reservedSourceNames.contains(n) else {
+            throw fail(HostError(.invalid, "\(n) is a word of recipe names (\(n)/VENDOR/PRODUCT) — call the source something else (--name)"), g)
+        }
         var all = CommunitySources.load(p)
         if all.sources.contains(where: { $0.name == n }) { throw fail(HostError(.exists, "a source called \(n) exists — doz recipe source rm \(n) first, or --name"), g) }
         if !g.json { Out.stdout("The publisher's key fingerprint: \(fp)\n") }

@@ -31,7 +31,7 @@ struct TryCommand: AsyncParsableCommand {
         """)
 
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "The agent: an id or an alias (doz search lists them). None: a numbered list to pick from.") var thing: String?
+    @Argument(help: "The agent: an id or an alias, NAME@MAJOR, or its full name VENDOR/PRODUCT (doz search lists them). None: a numbered list to pick from.") var thing: String?
     @OptionGroup var choices: ChoiceOptions
     @Option(name: .long, help: "With no agent: list only those with this tag (repeatable) — coding-agent, ai-tool, or a category (terminal-tool, personal-agent, framework …; doz search --help lists them).")
     var tag: [String] = []
@@ -60,7 +60,8 @@ struct TryCommand: AsyncParsableCommand {
     func run() async throws {
         // Which agent.
         let given = thing ?? choices.agent
-        if let t = thing, let a = choices.agent, (try? AgentRef.resolve(t))?.text != (try? AgentRef.resolve(a))?.text {
+        // 654: compared without a qualification (anthropic/claude-code and --agent claude-code agree).
+        if let t = thing, let a = choices.agent, (try? AgentRef.resolve(t))?.bare != (try? AgentRef.resolve(a))?.bare {
             throw fail(HostError(.invalid, "\(t) or --agent \(a) — not both"), g)
         }
         // 617: the dashboard's Quick try, on that agent.
@@ -173,7 +174,8 @@ struct TryCommand: AsyncParsableCommand {
             let image = l?.image == "unprepared" ? "prepares ~1–3 min" : "ready"
             let fam = AgentRecipes.recipe(e.id).flatMap { AgentRef.choicesLine($0) }.map { " (\($0))" } ?? ""
             let from = e.origin.map { " [\($0.label)]" } ?? ""          // 653: yours, or a community catalogue's
-            s += String(format: "  %2d. %@%@%@ — %@ · %@ · %@\n", i + 1, e.title, fam, from, e.publisher ?? "", key, image)
+            let full = e.qualified.map { " · \($0)" } ?? ""             // 654: its full name
+            s += String(format: "  %2d. %@%@%@%@ — %@ · %@ · %@\n", i + 1, e.title, full, fam, from, e.publisher ?? "", key, image)
             // 617: its latest release (and how old), and its standing with its maker.
             s += "      " + latestLine(e.latest, agent: e.id) + "\n"
             if let l = e.lifecycle, !l.isCurrent { s += "      " + standingLine(l) + "\n" }

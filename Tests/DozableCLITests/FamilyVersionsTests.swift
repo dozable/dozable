@@ -96,6 +96,9 @@ final class FamilyVersionsTests: XCTestCase {
         XCTAssertNil(gm.error, gm.error?.message ?? "")
         let cfg = try XCTUnwrap(SandboxConfig.read(store.configFile("oc-28")))
         XCTAssertEqual(cfg.agentRef, "opencode@2.0.28")
+        XCTAssertEqual(cfg.recipeRef, "dozable/anomalyco/opencode@2.0.28", "654: the recipe, fully qualified")
+        let row = try XCTUnwrap(gm.result).decode(SandboxInfo.self)
+        XCTAssertEqual(row.recipeRef, "dozable/anomalyco/opencode@2.0.28")
         XCTAssertEqual(cfg.spec.imageSpec?.agent?.version, "2.0.28")
         XCTAssertEqual(cfg.image, "opencode2")
     }
@@ -124,6 +127,12 @@ final class FamilyVersionsTests: XCTestCase {
         XCTAssertFalse(v.contains("Dozable's pin"), "2.0.28 is not the pin: " + v)
         XCTAssertTrue(v.contains("OpenCode 1: doz try opencode"), v)
         XCTAssertFalse(v.lowercased().contains("latest"))
+        // 654: the recipe's full name — the recipe's own when the sandbox recorded none (made before 654), else the record.
+        XCTAssertEqual(g.facts.first { $0.id == "recipe" }?.value, "dozable/anomalyco/opencode@2.0.28")
+        let recorded = try XCTUnwrap(SandboxGuide.make(o2, version: "2.0.28", source: nil, model: nil, account: "x", accountKind: .key,
+                                                       network: "x", workspace: nil, recipeRef: "dozable/anomalyco/opencode@2.0.27"))
+        XCTAssertEqual(recorded.facts.first { $0.id == "recipe" }?.value, "dozable/anomalyco/opencode@2.0.27")
+        XCTAssertTrue(recorded.plainText().contains("Recipe: dozable/anomalyco/opencode@2.0.27"))
     }
 
     func testAMajorWithoutAnExactRecordsTheReleaseItGot() async throws {
@@ -138,5 +147,6 @@ final class FamilyVersionsTests: XCTestCase {
         let cfg = try XCTUnwrap(SandboxConfig.read(store.configFile("oc1")))
         XCTAssertEqual(cfg.image, "opencode", "OpenCode 1 keeps its id: an existing sandbox never changes major")
         XCTAssertEqual(cfg.agentRef, "opencode@" + AgentRecipes.recipe("opencode")!.install.pinned.version)
+        XCTAssertEqual(cfg.recipeRef, "dozable/anomalyco/opencode@" + AgentRecipes.recipe("opencode")!.install.pinned.version)
     }
 }

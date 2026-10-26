@@ -344,7 +344,7 @@ public struct DozableProject: Equatable, Sendable {
         // 618: `agent: opencode@1` / `opencode@2.0.28` — its exact release, and what the file said.
         if let a = agent, let ref = try? AgentRef.resolve(a) {
             o.agentVersion = ref.exact
-            if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+            if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.settings = settings.isEmpty ? nil : settings
         // 599f: permissions: words on Standard (a preset word replaces it); 599d: github: → its two permissions.

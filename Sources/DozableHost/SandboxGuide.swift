@@ -45,7 +45,7 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
 
     /// The guide of `recipe` in a sandbox with these facts (pure — the host and the tests call it).
     public static func make(_ r: AgentRecipe, version: String?, source: String?, model: String?, account: String?, accountKind: AccountKind?,
-                            network: String, workspace: String?) -> SandboxGuide? {
+                            network: String, workspace: String?, recipeRef: String? = nil) -> SandboxGuide? {
         guard let g = r.guide else { return nil }
         let shell = r.launch.session == "shell"
         let what = r.catalogKind == "coding-agent" ? "a coding agent" : shell ? "a command-line tool" : "an AI tool"
@@ -62,6 +62,8 @@ public struct SandboxGuide: Codable, Equatable, Sendable {
             if !others.isEmpty { versionLine += " — " + others.joined(separator: " · ") }
         }
         facts.append(Fact(id: "version", label: "Version", value: versionLine))
+        // 654: the recipe's full name — what the sandbox recorded when it was made, else the recipe's (an older sandbox).
+        facts.append(Fact(id: "recipe", label: "Recipe", value: recipeRef ?? AgentRef.fullyQualified(r, version: v)))
         let keyLine: String = {
             guard let account else { return "no key yet — the sandbox has no account" }
             if accountKind == .mac { return "your Claude Code login on this Mac — the sandbox holds a placeholder" }
@@ -129,7 +131,7 @@ extension HostCore {
             }
         }()
         return SandboxGuide.make(r, version: m.config.spec.imageSpec?.agent?.version, source: source, model: sel?.model, account: account, accountKind: kind,
-                                 network: network, workspace: m.config.workspace)
+                                 network: network, workspace: m.config.workspace, recipeRef: m.config.recipeRef)
     }
 }
 

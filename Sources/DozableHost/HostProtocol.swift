@@ -689,6 +689,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var createdFolder: String? = nil
     /// 618: what it was made as — `opencode@2.0.29` (a family's or tool's name and its release); nil: not recorded.
     public var agentRef: String? = nil
+    /// 654: the fully qualified recipe it was made from (`dozable/anthropic/claude-code@2.1.299`); nil: not recorded.
+    public var recipeRef: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
     /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
@@ -721,6 +723,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case extraKeys                                    // 617
         case createdFolder                                // 634
         case agentRef                                     // 618
+        case recipeRef                                    // 654
         case ports                                        // 617 (RP-1)
         case sessionList, sessionMore                     // 635
     }
@@ -764,6 +767,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         extraKeys = try c.decodeIfPresent([String].self, forKey: .extraKeys)
         createdFolder = try c.decodeIfPresent(String.self, forKey: .createdFolder)
         agentRef = try c.decodeIfPresent(String.self, forKey: .agentRef)
+        recipeRef = try c.decodeIfPresent(String.self, forKey: .recipeRef)
         ports = try c.decodeIfPresent([PortForwardRow].self, forKey: .ports)
         sessionList = try c.decodeIfPresent([SessionBrief].self, forKey: .sessionList)
         sessionMore = try c.decodeIfPresent(Int.self, forKey: .sessionMore)
@@ -808,6 +812,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(extraKeys, forKey: .extraKeys)
         try c.encodeIfPresent(createdFolder, forKey: .createdFolder)
         try c.encodeIfPresent(agentRef, forKey: .agentRef)
+        try c.encodeIfPresent(recipeRef, forKey: .recipeRef)
         try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
