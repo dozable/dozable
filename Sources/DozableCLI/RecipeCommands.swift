@@ -268,7 +268,7 @@ struct RecipeNew: AsyncParsableCommand {
     static func copy(_ src: AgentRecipe, as id: String) throws -> String {
         var r = src
         r.id = id
-        r.title = src.title + " (\(id))"
+        r.title = "My " + src.title
         r.publisher = "TODO who maintains this recipe"
         r.homepage = "https://example.com/TODO"
         r.description = "TODO one sentence: what it is"

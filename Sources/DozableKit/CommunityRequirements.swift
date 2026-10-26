@@ -24,6 +24,7 @@ public enum CommunityRequirements {
         ("not-dozable", "its id and aliases are none of Dozable's recipes"),
         ("not-builtin", "not a built-in agent (Dozable's own installer)"),
         ("about", "author, sourceUrl (https), licenses and description filled in"),
+        ("plain-text", "plain text only: no control or direction characters anywhere; a name of at most 60 characters, a description of at most 300"),
         ("pinned", "every download pinned with its integrity, installed at exactly that release"),
         ("guide", "a guide (guide@1) and a check turn (launch@1.check)"),
         ("no-credential", "no credential named: no variable a credential lives in, no key-shaped value"),
@@ -71,6 +72,14 @@ public enum CommunityRequirements {
         if !filled(doc.description) { missing.append("description") }
         if !filled(doc.displayName) { missing.append("displayName") }
         set("about", missing.isEmpty, "fill in " + missing.joined(separator: ", "))
+        // plain-text — what a person reads of it (its name, description, guide, notes) is shown as text everywhere: a
+        // terminal, the dashboard. Nothing that could move a cursor, recolour a line or reorder words, and short names.
+        var unplain: [String] = []
+        if let s = controlCharacter(data) { unplain.append("a control or direction character (\(s))") }
+        if doc.displayName.count > 60 { unplain.append("displayName is \(doc.displayName.count) characters") }
+        if doc.description.count > 300 { unplain.append("description is \(doc.description.count) characters") }
+        if doc.author.count > 80 { unplain.append("author is \(doc.author.count) characters") }
+        set("plain-text", unplain.isEmpty, unplain.joined(separator: "; "))
         // pinned
         var loose: [String] = []
         if r.install.pinned.version.lowercased() == "latest" { loose.append("its version is latest") }
@@ -117,6 +126,24 @@ public enum CommunityRequirements {
         for e in (r.models?.shapes ?? []).map(\.env) + (r.models?.native ?? []).map(\.env) { keys.formUnion(e.keys) }
         for f in r.launch.firstRun ?? [] where f.file.hasSuffix("/.env") { keys.formUnion(f.set.keys) }
         return keys.filter(BakeEnvironment.isCredential).sorted()
+    }
+
+    /// The first control (C0, DEL, C1) or bidi-control character in any string of the document, named (nil: none).
+    static func controlCharacter(_ data: Data) -> String? {
+        guard let o = try? JSONSerialization.jsonObject(with: data) else { return nil }
+        func walk(_ x: Any) -> String? {
+            if let s = x as? String {
+                for u in s.unicodeScalars where u.value < 0x20 || (0x7F...0x9F).contains(u.value) || [0x200E, 0x200F, 0x061C].contains(u.value)
+                    || (0x202A...0x202E).contains(u.value) || (0x2066...0x2069).contains(u.value) {
+                    return String(format: "U+%04X", u.value)
+                }
+                return nil
+            }
+            if let d = x as? [String: Any] { for (k, v) in d { if let f = walk(k) ?? walk(v) { return f } } }
+            if let a = x as? [Any] { for v in a { if let f = walk(v) { return f } } }
+            return nil
+        }
+        return walk(o)
     }
 
     /// Shapes of real keys (and of Dozable's own placeholders) — never in a recipe.

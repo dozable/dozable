@@ -57,7 +57,7 @@ check "doz recipe new with one of Dozable's ids is refused" bash -c "[ $rc != 0 
 run recipe new myopen --from opencode
 check "doz recipe new myopen --from opencode writes a copy" bash -c "[ $rc = 0 ] && grep -q '^id: local/myopen' '$RECIPES/mine/myopen.yaml'"
 run recipe check myopen
-check "  … the copy fails only on what is yours to fill in (about)" bash -c "[ $rc = 1 ] && grep -q '✕ about' '$R/out' && grep -q '1 of 12 failed' '$R/out'"
+check "  … the copy fails only on what is yours to fill in (about)" bash -c "[ $rc = 1 ] && grep -q '✕ about' '$R/out' && grep -q '1 of 13 failed' '$R/out'"
 python3 - "$RECIPES/mine/myopen.yaml" <<'PY'
 import re, sys
 p = sys.argv[1]; s = open(p).read()
@@ -74,7 +74,7 @@ run recipe ls
 check "  … doz recipe ls: myopen yours, in use, checked" bash -c "grep -E '^myopen +yours +in use +static' '$R/out' >/dev/null"
 check "  … and mytool refused (it is not filled in)" bash -c "grep -E '^mytool +yours +refused' '$R/out' >/dev/null"
 run search myopen
-check "doz search labels it [yours]" bash -c "[ $rc = 0 ] && grep -q 'myopen) \[yours\] — supported' '$R/out'"
+check "doz search labels it [yours]" bash -c "[ $rc = 0 ] && grep -q 'My OpenCode \[yours\] — supported' '$R/out'"
 run try
 check "doz try's list labels it [yours]" bash -c "[ $rc = 64 ] && grep -q '\[yours\]' '$R/out'"
 run try myopen --dry-run

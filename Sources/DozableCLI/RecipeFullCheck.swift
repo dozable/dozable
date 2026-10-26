@@ -146,7 +146,7 @@ struct RecipeFullCheck {
         // 1. build — at the pin (a recipe that is not Dozable's always installs its pin).
         guard step("build at the pin \(r.install.pinned.version)", {
             let (code, out) = run.doz(["image", "bake", r.id, "--yes", "-q"], timeout: 2400)
-            guard code == 0 else { return failed("doz image bake \(r.id) exited \(code): \(Self.tail(out, 600))") }
+            guard code == 0 else { return failed("doz image bake \(r.id) exited \(code): \(Self.tail(out))") }
             let (_, ls) = run.doz(["image", "ls", "--json"], timeout: 120)
             let row = (Self.jsonArray(ls) ?? []).first { $0["name"] as? String == r.id }
             report.version = row?["version"] as? String
@@ -160,11 +160,12 @@ struct RecipeFullCheck {
         // 2. a fresh try — Locked (the strictest: it must be refused nothing it needs).
         var name = ""
         let before = Set((Self.jsonArray(run.doz(["ls", "--json"], timeout: 120).1) ?? []).compactMap { $0["name"] as? String })
-        guard step("a fresh try (Locked)", {
+        guard step("a fresh try (Locked, isolated)", {
             let sel = r.models == nil ? [] : [["openrouter", "vercel-ai-gateway"].contains(source) ? "--gateway" : "--provider", source, "--account", "rc-\(source)"]
-            let (code, out) = run.doz(["try", r.id] + sel + ["--network", "locked", "-d", "-q"], timeout: 1500)
+            // Isolated: the scratch folder may be where no workspace is made (a system location), and the check needs none.
+            let (code, out) = run.doz(["try", r.id] + sel + ["--network", "locked", "--isolated", "-d", "-q"], timeout: 1500)
             let after = (Self.jsonArray(run.doz(["ls", "--json"], timeout: 120).1) ?? []).compactMap { $0["name"] as? String }
-            guard code == 0, let n = after.first(where: { !before.contains($0) }) else { return failed("doz try \(r.id) exited \(code): \(Self.tail(out, 600))") }
+            guard code == 0, let n = after.first(where: { !before.contains($0) }) else { return failed("doz try \(r.id) exited \(code): \(Self.tail(out))") }
             name = n
             return true
         }) else { return report }
@@ -337,7 +338,7 @@ struct RecipeFullCheck {
         return ok
     }
 
-    static func tail(_ s: String, _ n: Int) -> String { String(s.trimmingCharacters(in: .whitespacesAndNewlines).suffix(n)) }
+    static func tail(_ s: String, _ n: Int = 600) -> String { String(s.trimmingCharacters(in: .whitespacesAndNewlines).suffix(n)) }
     static func jsonObject(_ s: String) -> [String: Any]? {
         guard let i = s.firstIndex(of: "{") else { return nil }
         return (try? JSONSerialization.jsonObject(with: Data(s[i...].utf8))) as? [String: Any]
