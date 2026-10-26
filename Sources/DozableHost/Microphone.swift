@@ -155,7 +155,7 @@ public enum MicrophoneDecision: Equatable, Sendable {
         case .denied: return .silent("the Mac's microphone is denied for \(who) — System Settings › Privacy & Security › Microphone, then Shut Down and Start the sandbox")
         case .restricted: return .silent("the Mac's microphone is restricted on this Mac (a device policy)")
         case .undecided where ask == .firstRecording:
-            return .silent("macOS has not been asked about the microphone for \(who) yet — doz asks when a program here first records; that recording stays silent, and once you allow it, Shut Down and Start the sandbox to record from the Mac's microphone")
+            return .silent("macOS has not been asked about the microphone for \(who) yet — doz asks when a program here first records. That recording stays silent: once you allow it, Shut Down and Start the sandbox to record from the Mac's microphone")
         case .undecided: return .silent("macOS has not answered about the microphone for \(who) — answer its question (or allow \(who) in System Settings › Privacy & Security › Microphone), then Shut Down and Start the sandbox")
         }
     }

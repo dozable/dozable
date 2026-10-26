@@ -396,27 +396,18 @@
 # (a git repository's https:// URL, or a folder on this Mac that is one ("" = none); flag doz create --dotfiles URL|PATH|none; applies to sandboxes created from now on (the host reads it at create))
 # dotfiles = ""
 
-# Sound in new sandboxes: off, speakers (programs in the sandbox play through this Mac's speakers)
-# or on (the speakers and this Mac's microphone). A sandbox with sound has a sound device and
-# boots Dozable's sound kernel (Linux with ALSA and virtio-snd added), so it is chosen when the
-# sandbox is created; a sandbox's own choice (doz create --sound speakers|on, or --audio for on;
-# New sandbox › Sound) wins over this. Between speakers and on a sandbox can change later (doz
-# config set --sandbox NAME sandbox.audio on), from its next start (a wake keeps what it slept
-# with). The microphone: a sandbox records from it only if macOS allowed it before the sandbox
-# started (until then it records silence); doz asks macOS once, when sandbox.microphone_ask says —
-# on behalf of the app that started doz (Terminal, your editor). Programs use ALSA's default
-# device; doz-sound in the sandbox tries both.
+# Sound in new sandboxes: off, speakers (this Mac's speakers) or on (its speakers and microphone).
+# A sandbox with sound has a sound device and boots Dozable's sound kernel, so it is chosen at
+# create; its own choice (doz create --sound, New sandbox › Sound) wins over this. Later a sandbox
+# can move between speakers and on (doz config set --sandbox NAME sandbox.audio on), from its next
+# start. It records from the Mac's microphone only if macOS allowed it before the sandbox started
+# (else silence); sandbox.microphone_ask says when doz asks.
 # (off | speakers | on; flag doz create --sound off|speakers|on (--audio = on); applies to sandboxes created from now on (the host reads it at create))
 # audio = "off"
 
-# When doz asks macOS about this Mac's microphone for a sandbox whose sound is on, while macOS has
-# not answered yet (it asks once, on behalf of the app that started doz): first_recording (when a
-# program in such a sandbox first records — that recording is silent, because a running sandbox
-# keeps the microphone it started with; once you allow it, Shut Down and Start the sandbox, and
-# doz says so in its terminals and on the dashboard) or first_start (when such a sandbox starts:
-# it waits for your answer, at most a minute, so its first recording already has the microphone).
-# Nothing is asked once macOS has an answer; System Settings › Privacy & Security › Microphone
-# changes it.
+# When doz asks macOS about the microphone for a sandbox whose sound is on, while macOS has no
+# answer: first_recording (when a program in it first records — that recording is silent; allow,
+# then Shut Down and Start the sandbox) or first_start (when it starts, waiting for your answer).
 # (first_recording | first_start; applies at each sandbox's next start or wake)
 # microphone_ask = "first_recording"
 

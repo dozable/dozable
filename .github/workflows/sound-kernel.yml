@@ -11,9 +11,10 @@
 #   workflow_dispatch                       any time (e.g. to fetch a CI-built kernel for a release) — GitHub offers it
 #                                           once this file is on main
 #   push to main or a feature/** branch     when the recipe, the pin, the script or this file changes — never on every
-#   (paths)                                 push or PR: one run takes ~7.5 min (measured 2026-10-27: 447 s on an M1 Max
-#                                           with 6 CPUs for the VM, the ubuntu image pulled; two kernel builds of ~2m40s
-#                                           each). A push, not pull_request: a branch's PR is covered by its pushes (a
+#   (paths)                                 push or PR: one run takes ~9.5 min (measured 2026-10-27, run 40402287841 on
+#                                           m1max2: the job 9m23s — doz-vmtest built cold ~2m40s, then 374 s in the
+#                                           build VM with 8 CPUs: apt, downloads, two kernel builds of 2m00s each; on
+#                                           this Mac with 6 CPUs: 447 s). A push, not pull_request: a branch's PR is covered by its pushes (a
 #                                           fork's PR never reaches the self-hosted Mac), and a branch can prove the
 #                                           workflow before it is on main (where dispatch needs it)
 #
