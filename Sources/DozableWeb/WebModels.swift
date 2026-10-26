@@ -1384,7 +1384,7 @@ public struct WebAccounts: Codable, Equatable, Sendable {
             sourceTitles[id] = ModelSources.title(id)
             if ModelSources.isGateway(id), ModelSources.isPublished(id) { gatewaySources.append(id) }
             if ModelSources.isKeyless(id) { keylessSources.append(id) }
-            if let m = ModelSources.endpoints(id).first?.defaultModel { sourceModels[id] = m }
+            if let m = ModelSources.defaultModel(id) { sourceModels[id] = m }
         }
         for kind in AgentKind.published where kind != .none {
             guard let r = kind.recipe else { continue }

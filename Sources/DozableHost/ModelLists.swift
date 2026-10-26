@@ -234,6 +234,15 @@ public enum ModelLists {
             l.docs = k.docs
             return l
         }
+        // 656: a provider whose models are listed in providers.json (OpenCode's: the pinned tool's own catalogue).
+        if let p = KeyProviders.provider(source), let ms = p.models {
+            var l = ModelList(source: source, title: p.title, gateway: false, kind: "listed", fetchedAt: nil,
+                              defaultModel: ModelSources.defaultModel(source),
+                              models: ms.map { ModelInfo(id: $0.id, name: $0.name, maker: p.title, note: $0.note) })
+            l.checked = p.checked
+            l.docs = p.docs
+            return l
+        }
         if fetched(source), let r = record, !r.models.isEmpty {
             return ModelList(source: source, title: ModelSources.title(source), gateway: ModelSources.isGateway(source), kind: "fetched",
                              fetchedAt: r.fetchedAt, defaultModel: def, models: r.models)

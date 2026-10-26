@@ -79,7 +79,7 @@ will not run without an xAI key or sign-in, so another provider's or gateway's k
 ## OpenCode (open source)
 
 An open-source terminal agent that works with many model providers (`doz try opencode`). Dozable offers it on the
-key of the provider or gateway you choose: **Anthropic**, **OpenAI**, **xAI** (the default), **Google AI**, **OpenRouter** or **Vercel AI Gateway**; on xAI the model is `xai/grok-build-0.1`.
+key of the provider or gateway you choose: **Anthropic**, **OpenAI**, **xAI** (the default), **Google AI**, **OpenRouter** or **Vercel AI Gateway** — and OpenCode 2 also on an **OpenCode** key (below); on xAI the model is `xai/grok-build-0.1`.
 
 - **Installed** from the npm registry's linux-arm64 package, integrity-checked. Debian and Node bases (not Alpine yet).
 - **Key:** an API key of that provider or gateway (`doz account add NAME --provider xai` — or `openrouter`, `vercel-ai-gateway`, `google`; `--api-key` for Anthropic, `--openai-key` for OpenAI); the sandbox only gets a placeholder.
@@ -91,13 +91,22 @@ key of the provider or gateway you choose: **Anthropic**, **OpenAI**, **xAI** (t
   chooses one (default `big-pickle`). Only OpenCode's model requests to `opencode.ai` are allowed — not its Console or
   its sign-in. A key you add with OpenCode's own `/connect` is stored inside the sandbox; a key added in Dozable stays on
   your Mac.
+- **An OpenCode key (OpenCode 2):** one key serves **OpenCode Zen** (pay as you go — models `opencode/…`) and
+  **OpenCode Go** (the subscription — models `opencode-go/…`): `doz account add oc --provider opencode` (a key from
+  opencode.ai/auth; Dozable cannot check it without spending, so it is not checked), then
+  `doz try opencode --provider opencode`, or **OpenCode** in the try setup. The default model is
+  `opencode-go/kimi-k2.7-code`; `--model opencode/claude-sonnet-4-6` (or any other in `doz models --provider opencode`)
+  picks a Zen model. The sandbox gets only a placeholder in `OPENCODE_API_KEY`; the key goes ONLY to OpenCode's model
+  requests on `opencode.ai` and to the one read of your key's OpenCode Console settings that OpenCode makes when it
+  starts (`GET /console/api/v2/config`) — a placeholder sent anywhere else on `opencode.ai` is refused, whatever the
+  network allows.
 - **Set up for you:** its auto-update, session sharing, language-server downloads and the online model list off; the
   model set in `~/.config/opencode/opencode.json` (written only when it is not there yet). Its plugin kit is not
   downloaded into `~/.config/opencode` when it first starts (it is only for plugins you write; `cd ~/.config/opencode
   && npm install @opencode-ai/plugin` adds it). OpenCode asks no approval questions by default.
 - **May reach:** the API of the provider or gateway it was given (any of those it can use, so you can switch), and, for
-  OpenCode 2, OpenCode Zen's model requests on `opencode.ai` (`/zen/v1/chat/completions`, `/zen/v1/responses`, and
-  from OpenCode 2.0.32 `/inference/openai/v1/chat/completions`, `/inference/openai/v1/responses`).
+  OpenCode 2, OpenCode Zen's and OpenCode Go's model requests on `opencode.ai` (under `/zen/v1/` and `/zen/go/v1/`, and
+  from OpenCode 2.0.32 under `/inference/`) and, with an OpenCode key, `GET /console/api/v2/config`.
 - **Use:** `opencode` (its TUI), or `opencode run "…"` for one answer.
 
 ## GitHub Copilot CLI (GitHub)

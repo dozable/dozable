@@ -56,6 +56,13 @@ public struct CredentialBinding: Sendable, Codable, Equatable, Identifiable {
     /// 599d: true — the secret is only ever SWAPPED for a placeholder the request carries, never added
     /// to a request without one (GitHub: an anonymous clone stays anonymous unless git asked for a login).
     public var swapOnly: Bool?
+    /// 656: the paths of its hosts the secret may go to — prefixes, an entry ending in `$` exactly that path (OpenCode's
+    /// key: its model paths and its Console config read). Nil: anywhere on its hosts. The vault refuses a placeholder of
+    /// it on any other path, or on a path with a dot segment or an encoded `/`, `.` or `\` (the leak guard).
+    public var paths: [String]?
+    /// 656: more headers (lower-case) the placeholder is swapped in IN PLACE — the field keeps its name and format
+    /// (`x-api-key: KEY` stays `x-api-key`), where a placeholder in another header is otherwise moved into the binding's.
+    public var alsoHeaders: [String]?
 
     public init(id: String, hosts: [String], header: CredentialHeader, environmentVariable: String? = nil,
                 alsoEnvironmentVariables: [String]? = nil, swapOnly: Bool? = nil) {
@@ -102,6 +109,22 @@ public struct CredentialBinding: Sendable, Codable, Equatable, Identifiable {
                                                   swapOnly: true)
 
     public func covers(_ host: String) -> Bool { hosts.contains(host.lowercased()) }
+
+    /// 656: whether the secret may go to `path` (the request target without its query) — always without `paths`.
+    public func allows(path: String?) -> Bool {
+        guard let paths else { return true }
+        guard let path, Self.isCleanPath(path) else { return false }
+        return paths.contains { EgressRule.pathMatches($0, path) }
+    }
+
+    /// 656: an absolute path with no dot segment, no empty segment, no backslash and no percent-encoded `/`, `.` or `\` —
+    /// so a prefix match means what it says (`/zen/v1/messages/../../console` is never under `/zen/v1/messages`).
+    public static func isCleanPath(_ p: String) -> Bool {
+        guard p.hasPrefix("/"), !p.contains("\\"), !p.contains("//") else { return false }
+        let lower = p.lowercased()
+        if ["%2e", "%2f", "%5c"].contains(where: lower.contains) { return false }
+        return !p.split(separator: "/", omittingEmptySubsequences: false).contains { $0 == "." || $0 == ".." }
+    }
 }
 
 /// What the proxy does with a credential the guest supplied itself (588) — a real-looking key or
@@ -575,6 +598,10 @@ public final class CredentialVault: @unchecked Sendable {
             guard let b = bindings[bid], b.covers(h) else {
                 return .decided(.reject("a credential placeholder for \(bindings[bid]?.hosts.joined(separator: ",") ?? bid), sent to \(h)"))
             }
+            // 656: a path-confined key (OpenCode's) goes to its own paths of the host only.
+            guard b.allows(path: parsed?.pathOnly) else {
+                return .decided(.reject("a credential placeholder for \(h)'s model paths, sent to \(h)\(parsed?.pathOnly ?? "")"))
+            }
             if secrets[bid] == nil {
                 if let n = notices[bid] ?? _noSecretNotice { return .decided(.refuse(401, n)) }
                 return .decided(.reject("a placeholder for \(bid), which has no secret on this Mac right now"))
@@ -588,7 +615,7 @@ public final class CredentialVault: @unchecked Sendable {
         let forHost = bindings.values.filter { $0.covers(h) }.sorted { $0.id < $1.id }
         // 588: EVERY auth header any binding of this host uses (plus Authorization) counts as "a
         // credential is present" — a guest `x-api-key` must never get our bearer token beside it.
-        var authHeaders = Set(forHost.map(\.header.headerName))
+        var authHeaders = Set(forHost.map(\.header.headerName) + forHost.flatMap { $0.alsoHeaders ?? [] })
         if !forHost.isEmpty { authHeaders.insert("authorization") }
         let present = (parsed?.fields ?? []).filter { authHeaders.contains($0.name) }
         let foreignField = present.first { f in
@@ -630,6 +657,18 @@ public final class CredentialVault: @unchecked Sendable {
                 ?? "the credential doz holds for this sandbox (\(binding.id)) expired at \(Self.clock(exp)) and has not been renewed"))
         }
         let name = binding.header.headerName
+        // 656: the placeholder in one of the binding's other headers (OpenCode's Anthropic-shaped models: `x-api-key`) is
+        // swapped where it is — the field keeps its name and format.
+        if let also = binding.alsoHeaders, let parsed,
+           let f = parsed.fields.first(where: { f in also.contains(f.name) && tokens.contains { t in
+               String(decoding: head[f.valueRange], as: UTF8.self).contains(t) && bindingFor(token: t) == binding.id } }) {
+            let value = String(decoding: head[f.valueRange], as: UTF8.self)
+            var swapped = value
+            for t in tokens where bindingFor(token: t) == binding.id { swapped = swapped.replacingOccurrences(of: t, with: secret) }
+            var out = head
+            out.replaceSubrange(f.valueRange, with: Array(swapped.utf8))
+            return .decided(.swapped(out, binding: binding.id))
+        }
         if let field = parsed?.field(named: name) {
             let value = String(decoding: head[field.valueRange], as: UTF8.self)
             guard let t = tokens.first(where: { Self.searchable(value, field: name).contains($0) }), bindingFor(token: t) == binding.id else {

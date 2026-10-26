@@ -200,6 +200,7 @@
       "qualified": "anomalyco/opencode2",
       "recorded": {
         "auth": [
+          "api-key:opencode",
           "api-key:xai",
           "vendor-sign-in"
         ],

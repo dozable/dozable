@@ -2,7 +2,7 @@
 # Start Scripts/fake-provider.py in DIR (617): a throwaway CA, a leaf for every host it fakes, the server in the
 # background. Used by the network profiler (profile-agents.sh) and `make recipe-check` (recipe-check.py).
 #   fake-provider-up.sh DIR      → DIR/{ca.pem, port, pid, requests.log, fake.out}; prints "PORT"
-# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY, FAKE_STITCH_KEY (the fake
+# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY, FAKE_STITCH_KEY, FAKE_OPENCODE_KEY (the fake
 # keys it accepts), FAKE_PORT.
 # A server already running from DIR (its pid alive) is left as it is. Never a real key.
 set -u

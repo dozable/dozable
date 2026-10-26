@@ -115,7 +115,7 @@ extension AgentRecipe {
     public func selection(source: String, model: String? = nil) -> ModelSelection? {
         guard let m = models, offeredSources.contains(source) else { return nil }
         if let n = m.native?.first(where: { $0.source == source }) {
-            let chosen = model ?? m.models?[source] ?? ModelSources.endpoints(source).first?.defaultModel ?? ""
+            let chosen = model ?? m.models?[source] ?? ModelSources.defaultModel(source) ?? ""
             return ModelSelection(source: source, shape: nil, baseURL: nil, model: chosen,
                                   env: ModelSelection.fill(n.env, baseURL: nil, model: chosen), keyEnv: n.keyEnv ?? [])
         }
@@ -162,6 +162,20 @@ extension AgentRecipe {
         let reach = Set((network.model.hosts ?? []).map(\.host))
         for s in offered where !isBuiltin {
             for h in ModelSources.hosts(s) where !reach.contains(h) { throw bad("its model permission does not reach \(h) (\(s))") }
+            // 656: a path-confined key (OpenCode's): every path it is for is in the permission — so what the key is for is
+            // never refused, and nothing is allowed for the key that the permission does not name.
+            if let p = KeyProviders.provider(s), let paths = p.paths {
+                for h in p.hosts {
+                    let entries = (network.model.hosts ?? []).filter { $0.host == h }
+                    let prefixes = Set(entries.flatMap { $0.paths ?? [] }), exact = Set(entries.flatMap { $0.exactPaths ?? [] })
+                    // An entry without any path condition reaches the whole host.
+                    if entries.contains(where: { $0.paths == nil && $0.exactPaths == nil }) { continue }
+                    for x in paths {
+                        let ok = x.hasSuffix("$") ? exact.contains(String(x.dropLast())) : prefixes.contains(x)
+                        if !ok { throw bad("its model permission does not reach \(h)\(x) (\(s)'s key is for it)") }
+                    }
+                }
+            }
         }
     }
 
@@ -250,6 +264,12 @@ public enum ModelSources {
         guard let p = KeyProviders.provider(id) else { return [] }
         let all = p.gateway == true ? (Gateways.gateway(id)?.endpoints ?? []) : (p.endpoints ?? [])
         return all.filter { $0.defaultModel != nil }
+    }
+
+    /// 656: a source's default model — its first endpoint's, else (a provider offered only natively with listed models,
+    /// OpenCode's) its first listed model. A recipe's `models@1.models` default comes before either.
+    public static func defaultModel(_ id: String) -> String? {
+        endpoints(id).first?.defaultModel ?? KeyProviders.provider(id)?.models?.first?.id
     }
 
     /// The hosts its key may go to (the proxy's binding); a key-less source's, the hosts it answers on (no key goes there).
