@@ -7,11 +7,16 @@
 # DOZ_FAKE_OK; every other tool is refused, so nothing is ever generated). 618: and OpenCode Zen's free models
 # (opencode.ai/zen/v1, what OpenCode 2 calls, and the docs' opencode.ai/inference/openai/v1: Chat Completions and
 # Responses; its public model list) — KEY-LESS: a request that
-# carries any credential but OpenCode's own "public" is refused (401), so a key that leaked there would show.
+# carries any credential but OpenCode's own "public" is refused (401), so a key that leaked there would show. 656: and
+# OpenCode's KEYED shape (FAKE_OPENCODE_KEY: OpenCode Zen and OpenCode Go under /zen/v1, /zen/go/v1 and the later
+# /inference/… bases — Chat Completions and Responses with the key as a Bearer, Anthropic Messages with it in x-api-key,
+# Gemini's stream with it in x-goog-api-key — and the Console settings read GET /console/api/v2/config, answered 404 "no
+# settings" with the key, 401 without).
 # Python 3.9+ stdlib only.
 # Usage: python3 fake-provider.py LEAF.pem LEAF.key REQUESTS.log PORTFILE   (Scripts/fake-provider-up.sh makes the CA,
 #        the leaf and starts it)
-# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY, FAKE_STITCH_KEY — the (fake)
+# Env: FAKE_XAI_KEY, FAKE_GOOGLE_KEY, FAKE_ANTHROPIC_KEY, FAKE_OPENAI_KEY, FAKE_OPENROUTER_KEY, FAKE_VERCEL_KEY, FAKE_STITCH_KEY,
+#      FAKE_OPENCODE_KEY — the (fake)
 #      real keys the proxy must swap in;
 #      anything else is answered in that provider's own refusal shape. FAKE_PORT — a fixed port (default: any).
 # A request whose body holds DOZ_SLOW is answered after 6 s (so a status poller, a `doz exec` every ~1 s, sees `working`).
@@ -23,6 +28,12 @@ leaf, key, logf, portf = sys.argv[1:5]
 XAI, GOOGLE = os.environ.get("FAKE_XAI_KEY", ""), os.environ.get("FAKE_GOOGLE_KEY", "")
 ANTHROPIC, OPENAI = os.environ.get("FAKE_ANTHROPIC_KEY", ""), os.environ.get("FAKE_OPENAI_KEY", "")
 STITCH = os.environ.get("FAKE_STITCH_KEY", "")
+OPENCODE = os.environ.get("FAKE_OPENCODE_KEY", "")
+# 656: OpenCode's model bases (2.0.29: /zen/v1, /zen/go/v1; from 2.0.32: /inference/…) — the key-less free models only on
+# the first and its later OpenAI base.
+OPENCODE_BASES = ("/zen/go/v1", "/zen/v1", "/inference/go/openai/v1", "/inference/go/anthropic/v1", "/inference/go/google/v1beta",
+                  "/inference/openai/v1", "/inference/anthropic/v1", "/inference/google/v1beta")
+OPENCODE_KEYLESS_BASES = ("/zen/v1", "/inference/openai/v1")
 # 617 (models@1): the gateways — each serves the OpenAI shapes and Anthropic's Messages under its own base URLs, on its
 # own key (gateways.json: openrouter.ai/api/v1 + /api, ai-gateway.vercel.sh/v1 + /).
 GATEWAYS = {"openrouter.ai": ("/api", os.environ.get("FAKE_OPENROUTER_KEY", "")),
@@ -252,19 +263,37 @@ class H(http.server.BaseHTTPRequestHandler):
             return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, msg)
         return self.send(404, {"error": {"message": "not here", "code": 404}})
 
-    # ── 618: OpenCode Zen's free models (opencode.ai), no key ────────────────────────────────────────────────────────
+    # ── 618: OpenCode Zen's free models (opencode.ai), no key — 656: and OpenCode's key (Zen and Go) ───────────────────
     def zen(self, auth, body):
         p = self.path.split("?")[0]
-        if any(v not in ("Bearer public", "public") for v in auth.values()):
-            return self.send(401, {"error": {"message": "a key-less source got a credential", "code": 401}})
+        keyless = all(v in ("Bearer public", "public") for v in auth.values())
+        keyed = bool(OPENCODE) and bool(auth) and all(v in (OPENCODE, "Bearer " + OPENCODE) for v in auth.values())
+        if not keyless and not keyed:
+            return self.send(401, {"error": {"message": "a key-less source got a credential, or not OpenCode's key", "code": 401}})
+        if p == "/console/api/v2/config":                                   # the Console settings read (with a key only)
+            if not keyed:
+                return self.send(401, {"_tag": "Unauthorized"})
+            return self.send(404, {"error": "no settings"})
         if self.command == "GET" and p in ("/inference/v1/models", "/zen/v1/models"):
             return self.send(200, {"object": "list", "data": [{"id": "big-pickle", "object": "model", "created": 0, "owned_by": "opencode"}]})
-        if self.command == "POST" and p in ("/inference/openai/v1/chat/completions", "/zen/v1/chat/completions"):
+        base = next((b for b in OPENCODE_BASES if p.startswith(b + "/")), None)
+        if base is None or (keyless and base not in OPENCODE_KEYLESS_BASES):
+            return self.send(404, {"error": {"message": "not here", "code": 404}})
+        rest = p[len(base):]
+        if self.command == "POST" and rest == "/chat/completions":
             return self.chat(body)
-        if self.command == "POST" and p in ("/inference/openai/v1/responses", "/zen/v1/responses"):
+        if self.command == "POST" and rest == "/responses":
             req = json.loads(body or b"{}")
             done, stream = responses_sse(req.get("model", "big-pickle"), call=responses_call(req))
             return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, done)
+        if self.command == "POST" and rest == "/messages" and keyed:
+            req = json.loads(body or b"{}")
+            msg, stream = anthropic_message(req.get("model", "claude-fake"), call=anthropic_call(req))
+            return self.send(200, stream, "text/event-stream") if req.get("stream") else self.send(200, msg)
+        if self.command == "POST" and rest.startswith("/models/") and ":streamGenerateContent" in rest and keyed:
+            ev = {"candidates": [{"content": {"role": "model", "parts": [{"text": ANSWER}]}, "finishReason": "STOP", "index": 0}],
+                  "usageMetadata": {"promptTokenCount": 1, "candidatesTokenCount": 1, "totalTokenCount": 2}}
+            return self.send(200, ("data: " + json.dumps(ev) + "\r\n\r\n").encode(), "text/event-stream")
         return self.send(404, {"error": {"message": "not here", "code": 404}})
 
     def do_GET(self):

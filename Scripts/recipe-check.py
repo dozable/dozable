@@ -54,6 +54,7 @@ KEYS = {
     "openrouter": "sk-or-v1-FAKERECIPECHECK-0123456789abcdef0123456789abcdef",
     "vercel-ai-gateway": "vck_FAKERECIPECHECK0123456789abcdefghijklmnop",
     "google-stitch": "AQ.FAKERECIPECHECK-0123456789abcdefghijklmnop",
+    "opencode": "sk-FAKERECIPECHECK-opencode-0123456789abcdefghijkl",
 }
 ACCOUNT_ARGS = {
     "xai": ["--provider", "xai"],
@@ -63,6 +64,7 @@ ACCOUNT_ARGS = {
     "openrouter": ["--provider", "openrouter"],
     "vercel-ai-gateway": ["--provider", "vercel-ai-gateway", "--no-verify"],
     "google-stitch": ["--provider", "google-stitch", "--no-verify"],
+    "opencode": ["--provider", "opencode", "--no-verify"],
 }
 # A source's host and how a key rides on it — for the leak guard (a placeholder sent where it does not belong).
 LEAK_TARGET = {
@@ -73,7 +75,12 @@ LEAK_TARGET = {
     "openrouter": ("openrouter.ai", "Authorization: Bearer %s", "/api/v1/models"),
     "vercel-ai-gateway": ("ai-gateway.vercel.sh", "Authorization: Bearer %s", "/v1/models"),
     "google-stitch": ("stitch.googleapis.com", "x-goog-api-key: %s", "/mcp"),
+    "opencode": ("opencode.ai", "Authorization: Bearer %s", "/zen/v1/chat/completions"),
 }
+# 656: a key confined to PATHS of its host (providers.json `paths`: OpenCode's) — the leak guard is also checked on a path
+# of that host the key is not for (the network opened for the whole host: the vault, not the policy, must refuse it), and
+# its Locked try is refused nothing (its model permission names every path the key is for).
+PATH_LEAK = {"opencode": "/auth"}
 GATEWAYS = ("openrouter", "vercel-ai-gateway")
 # 618: the model sources that take NO key (providers.json `keyless`) — the try has no account; the stand-in answers only a
 # request with no credential (OpenCode's own "public" at most); the guest holds no placeholder; the Locked try is refused
@@ -215,7 +222,7 @@ class Harness:
             os.remove(pidf)
         fenv = dict(os.environ, FAKE_XAI_KEY=KEYS["xai"], FAKE_GOOGLE_KEY=KEYS["google"], FAKE_ANTHROPIC_KEY=KEYS["anthropic"],
                     FAKE_OPENAI_KEY=KEYS["openai"], FAKE_OPENROUTER_KEY=KEYS["openrouter"], FAKE_VERCEL_KEY=KEYS["vercel-ai-gateway"],
-                    FAKE_STITCH_KEY=KEYS["google-stitch"])
+                    FAKE_STITCH_KEY=KEYS["google-stitch"], FAKE_OPENCODE_KEY=KEYS["opencode"])
         p = subprocess.run(["/bin/sh", os.path.join(REPO, "Scripts/fake-provider-up.sh"), self.fake], capture_output=True, text=True, env=fenv)
         if p.returncode != 0:
             raise SystemExit("recipe-check: the fake provider did not start: " + p.stderr)
@@ -446,6 +453,19 @@ class Harness:
             hosts = {(q.get("host") or "").split(":")[0] for q in seen}
             if r.models and LEAK_TARGET[source][0] not in hosts:
                 fail("smoke: no request reached %s (the chosen source) — it went to %s" % (LEAK_TARGET[source][0], ", ".join(sorted(hosts)) or "nothing"))
+            if source in PATH_LEAK:
+                # 656: what the confined key was used for (method + path), and the Locked try refused nothing.
+                res["key_paths"] = sorted({q.get("method", "") + " " + (q.get("path") or "").split("?")[0] for q in seen
+                                           if KEYS[source] in json.dumps(q.get("auth") or {})})
+                code, out = self.doz("net", "log", name, "--json", timeout=120)
+                try:
+                    log = json.loads(out[out.index("["):])
+                except ValueError:
+                    log = []
+                denied = [x for x in log if x.get("verdict") == "denied"]
+                res["refusals"] = len(denied)
+                if denied:
+                    fail("smoke: the try was refused %d request(s): %s" % (len(denied), ", ".join(sorted({(x.get("host") or "") + (x.get("path") or "") for x in denied}))[:300]))
         step("smoke", smoke)
 
         # 4b. the guide (617.11): its first step IS the check turn (the loader holds them equal); every later step with a
@@ -491,8 +511,13 @@ class Harness:
             targets = [next(p for p in ("xai", "google") if p != source)]
             if r.models:
                 targets.append(next(g for g in GATEWAYS if g != source))
+            # 656: a path-confined key's placeholder on another path of its own host.
+            if source in PATH_LEAK:
+                targets.append(source)
             for other in targets:
                 host, header, path = LEAK_TARGET[other]
+                if other == source:
+                    path = PATH_LEAK[source]
                 self.doz("net", "allow", name, "site:" + host, "--yes", timeout=120)
                 n0 = len(self.requests())
                 code, out = self.doz("exec", name, "--", "sh", "-c",
@@ -501,7 +526,9 @@ class Harness:
                 # Only requests to THAT host: the agent's own calls to its chosen source go on meanwhile (pi lists
                 # OpenRouter's models in the background — GET openrouter.ai/api/v1/models/user, the key rightly swapped
                 # in), and counting them failed pi · openrouter in every full run.
+                # (On the key's own host only the probe's path: the agent's own keyed calls there are right.)
                 leaked = [q for q in self.requests()[n0:] if q.get("host") == host
+                          and (other != source or (q.get("path") or "").split("?")[0] == path)
                           and ("doz_cred_" in json.dumps(q.get("auth") or {})
                                or any(k in json.dumps(q.get("auth") or {}) for k in KEYS.values()))]
                 got = out.strip()[-3:]
