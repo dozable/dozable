@@ -6,6 +6,9 @@
         UNSIGNED manifest STAGE/manifest.json and the message to sign STAGE/message.txt. The serial is the published
         one (SITE/v1/recipes.json) + 1 — or the published one when nothing changed (prints "unchanged <serial>").
         Prints "new <serial>" otherwise.
+    prepare --community --agents DIR --site SITE --stage STAGE --min-doz V --source-version V --date D
+        653: a COMMUNITY catalogue — every DIR/<id>.json (a compiled recipe: `doz recipe show FILE --document`) as
+        agents/<id>.json, nothing else, product "doz-community-recipes".
     finish --stage STAGE --signature B64
         Writes STAGE/v1/recipes.json: the manifest with its signature.
 
@@ -63,8 +66,19 @@ def entries(files):
     return [{"path": p, "sha256": hashlib.sha256(files[p]).hexdigest(), "size": len(files[p])} for p in sorted(files)]
 
 
+def collect_community(agents):
+    """653: a community catalogue carries recipes only."""
+    out = {}
+    for name in sorted(os.listdir(agents)):
+        if name.endswith(".json"):
+            out["agents/" + name] = open(os.path.join(agents, name), "rb").read()
+    if not out:
+        fail("no compiled recipe (*.json) in %s" % agents)
+    return out
+
+
 def prepare(a):
-    files = collect(a.recipes)
+    files = collect_community(a.agents) if a.community else collect(a.recipes)
     published = None
     pub_path = os.path.join(a.site, "v1", "recipes.json")
     if os.path.exists(pub_path):
@@ -76,7 +90,7 @@ def prepare(a):
         return
     serial = (published or {}).get("serial", 0) + 1
     base = "recipes/%d/" % serial
-    m = {"format": 1, "product": "doz-recipes", "serial": serial, "date": a.date, "minimum_doz": a.min_doz,
+    m = {"format": 1, "product": "doz-community-recipes" if a.community else "doz-recipes", "serial": serial, "date": a.date, "minimum_doz": a.min_doz,
          "source_version": a.source_version, "base": base, "files": files_list, "signature": ""}
     if os.path.exists(a.stage):
         shutil.rmtree(a.stage)
@@ -102,7 +116,9 @@ def main():
     p = argparse.ArgumentParser()
     sub = p.add_subparsers(dest="cmd", required=True)
     pr = sub.add_parser("prepare")
-    pr.add_argument("--recipes", required=True)
+    pr.add_argument("--recipes")
+    pr.add_argument("--community", action="store_true")
+    pr.add_argument("--agents")
     pr.add_argument("--site", required=True)
     pr.add_argument("--stage", required=True)
     pr.add_argument("--min-doz", required=True)
@@ -112,6 +128,8 @@ def main():
     fi.add_argument("--stage", required=True)
     fi.add_argument("--signature", required=True)
     a = p.parse_args()
+    if a.cmd == "prepare" and not (a.agents if a.community else a.recipes):
+        fail("prepare needs --recipes (or --community --agents DIR)")
     {"prepare": prepare, "finish": finish}[a.cmd](a)
 
 
