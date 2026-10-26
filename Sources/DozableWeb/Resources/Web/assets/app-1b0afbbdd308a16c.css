@@ -2272,3 +2272,15 @@ dialog.dlg.ak-flow[open] { display: flex; flex-direction: column; max-height: ca
 }
 @media (max-width: 520px) { .ob-try .qt-results { grid-template-columns: minmax(0, 1fr); } }
 }
+@layer components {
+/* 653: whose recipe — a pill beside a tool's name when it is not Dozable's (yours, a community catalogue's), and the
+   setup's "Whose recipe" section (whose it is, what its bake installs and reaches). */
+.src-pill { display: inline-flex; align-items: center; gap: var(--sp-1); margin-left: var(--sp-2); padding: 0 var(--sp-2); height: 18px;
+  border-radius: var(--r-pill); font-size: var(--fs-xs); font-weight: var(--fw-medium); line-height: 1; vertical-align: middle; white-space: nowrap;
+  color: var(--accent); background: var(--accent-tint); }
+.src-pill.is-community { color: var(--warn); background: var(--warn-tint); }
+.src-pill .icon { width: 12px; height: 12px; }
+.src-whose { margin: 0 0 var(--sp-2); overflow-wrap: anywhere; }
+.src-whose .src-pill { margin-left: 0; }
+.src-lines { margin: 0; padding-left: var(--sp-5); color: var(--ink-2); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+}

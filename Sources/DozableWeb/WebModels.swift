@@ -1185,9 +1185,21 @@ public struct WebPlan: Codable, Equatable, Sendable {
     /// 618: the release it installs and what it is made as (`opencode@1`) — the setup's Version row.
     public struct Version: Codable, Equatable, Sendable { public var version: String?; public var ref: String; public var title: String }
     public var version: Version?
+    /// 653: a recipe that is not Dozable's — whose it is, what its bake installs and reaches (the setup's "Whose recipe").
+    /// Text the host wrote from the recipe, which met the community requirements (plain text); capped here again.
+    public struct Recipe: Codable, Equatable, Sendable {
+        public var kind: String
+        public var label: String
+        public var whose: String
+        public var lines: [String]
+    }
+    public var recipe: Recipe? = nil
 
     public init(_ p: CreatePlan) {
         version = p.version.map { Version(version: $0.version, ref: $0.ref, title: $0.title) }
+        recipe = p.recipe.map { r in
+            Recipe(kind: r.kind, label: String(r.label.prefix(60)), whose: String(r.whose.prefix(400)), lines: r.lines.prefix(8).map { String($0.prefix(300)) })
+        }
         name = p.name
         image = Image(name: p.imageState.name, title: p.imageState.title, state: p.imageState.state)
         workspace = p.workspace
@@ -1273,6 +1285,13 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         /// — the plan's `agent`. One card per family (its recommended major); the setup's Version choice re-plans by `ref`.
         public var family: FamilyInfo? = nil
         public var ref: String? = nil
+        /// 653: whose recipe it is when it is not Dozable's — `kind` `mine` | `community`, the pill's words ("Yours",
+        /// "Community · NAME"). nil: Dozable's.
+        public var origin: Origin? = nil
+        public struct Origin: Codable, Equatable, Sendable {
+            public var kind: String
+            public var title: String
+        }
         public struct Usable: Codable, Equatable, Sendable {
             public var name: String
             public var kind: String

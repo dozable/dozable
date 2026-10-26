@@ -196,6 +196,10 @@
     <div class="sg-row">
       <span class="tag">plain</span><span class="tag info">info</span><span class="tag ok">current</span><span class="tag warn">superseded</span><span class="tag bad">refused</span><span class="tag outline">headless</span>
     </div>
+    <div class="sg-row" title="Whose recipe a tool is when it is not Dozable's — sourcePill(origin), components/source-pill.js">
+      <span>My OpenCode<span class="src-pill is-mine" data-recipe-source="mine"><i data-i="user-round"></i>Yours</span></span>
+      <span>Com Tool<span class="src-pill is-community" data-recipe-source="community"><i data-i="link"></i>Community · example</span></span>
+    </div>
     <div class="sg-row">
       <span class="ag-chip ag-working"><span class="ag-mark"></span>working</span>
       <span class="ag-chip ag-blocked"><span class="ag-mark"></span>needs you</span>
@@ -395,7 +399,11 @@ name: todo-app</pre></details>
     <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
     sentence says what happens (“Yes, reset demo”), the button disabled until it is ticked and named by the verb, its icon by the verb (trash for Remove and Delete,
     <code>rotate-ccw</code> for Reset, <code>history</code> for Revert) — never a name to type. Removing or resetting a sandbox, deleting or reverting to a restore point,
-    removing an account, an image or a template, deleting a try.</p>
+    removing an account, an image or a template, deleting a try.
+    <b>A recipe that is not Dozable's</b> (the person's own, or a community catalogue's) carries its pill (<code>.src-pill</code>, <code>.is-mine</code> /
+    <code>.is-community</code>) on its card, in its details and in New Sandbox's chip, and its setup opens with a <b>Whose recipe</b> section
+    (<code>recipeWhoseNodes</code>: whose it is — its file, or the catalogue's URL, key fingerprint and when it was confirmed — then what its bake installs and
+    reaches, as plain lines).</p>
   <div class="pair"><div class="scheme">
     <dialog class="dlg try-setup" open><form method="dialog">
       <div class="dlg-head"><span data-mark="pi" class="mark"></span><h2 class="h-title">Try pi</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
@@ -403,6 +411,14 @@ name: todo-app</pre></details>
         <div class="qt-sect"><h3>Key</h3><p class="try-key"><i data-i="circle-check"></i> <strong>anthropic</strong> — keychain — the sandbox only ever sees a placeholder.</p></div>
         <div class="qt-sect"><h3>Image</h3><div class="try-prep">Node.js · pi — ready.</div></div>
         <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-pi</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Folder</dt><dd>A new empty folder (not one of yours)</dd></dl></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
+    </form></dialog>
+    <dialog class="dlg try-setup" open><form method="dialog">
+      <div class="dlg-head"><span class="mark"></span><h2 class="h-title">Try Com Tool</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">A fresh sandbox, try-comtool: a new empty folder of its own, a network for its model, packages and GitHub only, your key never inside.</p>
+        <div class="qt-sect"><h3>Whose recipe</h3><p class="src-whose" data-recipe-whose><span class="src-pill is-community" data-recipe-source="community"><i data-i="link"></i>Community · example</span> a community recipe from example (https://recipes.example.com/v1/recipes.json, key SHA256:3q2+7w…, confirmed 2026-10-26)</p>
+          <ul class="src-lines" data-recipe-lines><li>installs: npm-platform-binary opencode-ai + opencode-linux-arm64 1.19.0 (integrity sha512-XD1qcVN4jE…)</li><li>its bake reaches: the base's package registries</li><li>it may reach: api.x.ai, openrouter.ai (its model)</li><li>its bake runs under the bake policy: only the hosts above and its package registry</li></ul></div>
+        <div class="qt-sect"><h3>Image</h3><div class="try-prep">Debian · Com Tool — prepared on first use.</div></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <dialog class="dlg try-setup" open><form method="dialog">

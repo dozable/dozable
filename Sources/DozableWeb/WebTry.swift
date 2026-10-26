@@ -196,6 +196,7 @@ extension WebTryCatalog {
             a.catalogKind = r.catalogKind
             a.categories = r.categories ?? []
             a.family = r.family.map(FamilyInfo.init)           // 618
+            a.origin = r.origin.title.map { Agent.Origin(kind: r.origin.kind, title: $0) }       // 653
             a.ref = AgentRef.typed(r)
             // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).

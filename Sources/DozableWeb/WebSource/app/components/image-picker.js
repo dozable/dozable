@@ -8,6 +8,7 @@ import { actOrThrow, waitOps } from '../core/operations.js';
 import { isRemote } from '../core/session.js';
 import { btn } from './button.js';
 import { callout } from './callout.js';
+import { sourcePill } from './source-pill.js';
 
 export function imagePicker({ images = [], bases = null, value = 'claude-code', dockerfile = '', onChange = () => {}, onDockerfile = () => {} }) {
   const catalogue = bases ? bases.bases : [];
@@ -50,9 +51,10 @@ export function imagePicker({ images = [], bases = null, value = 'claude-code', 
   const chipOf = (a) => { const f = familyOf(a); return f.length ? (f.find((x) => x.family.recommended) || f[0]).id : a; };
   const agentSegs = {};
   const agentCtl = h('div', { class: 'segmented agent-chips', role: 'group', 'aria-label': 'Agent', 'data-agent-choice': '' },
-    [...agentList.filter((x) => !x.family || x.family.recommended).map((x) => [x.id, x.family ? x.title.replace(/ \d+$/, '') : x.title]), ['none', 'none']]
-      .map(([a, label]) => (agentSegs[a] = h('button', { type: 'button', class: 'seg', 'data-agent': a,
-        on: { click: () => { section = sectionOf(a); choose(a); } } }, label))));
+    [...agentList.filter((x) => !x.family || x.family.recommended).map((x) => [x.id, x.family ? x.title.replace(/ \d+$/, '') : x.title, x.origin]), ['none', 'none']]
+      // 653: a recipe that is not Dozable's carries its pill ("Yours", "Community · NAME").
+      .map(([a, label, origin]) => (agentSegs[a] = h('button', { type: 'button', class: 'seg', 'data-agent': a,
+        on: { click: () => { section = sectionOf(a); choose(a); } } }, label, sourcePill(origin)))));
   const versionCtl = h('div', { class: 'segmented agent-versions', role: 'group', 'aria-label': 'Version', 'data-agent-version': '' });
   // Base kind.
   const kindSegs = {};
