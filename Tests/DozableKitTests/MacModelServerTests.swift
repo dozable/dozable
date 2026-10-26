@@ -21,6 +21,15 @@ final class MacModelServerTests: XCTestCase {
         XCTAssertTrue(MacModelServer.isLoopbackOrUnspecified([0, 0, 0, 0]))
         XCTAssertTrue(MacModelServer.isLoopbackOrUnspecified([UInt8](repeating: 0, count: 15) + [1]))
         XCTAssertFalse(MacModelServer.isLoopbackOrUnspecified([198, 18, 255, 254]))
+        // IPv4-mapped IPv6 (::ffff:a.b.c.d) is its IPv4 address: ::ffff:127.x.x.x IS this Mac's loopback.
+        let mapped = { (v4: [UInt8]) in [UInt8](repeating: 0, count: 10) + [0xFF, 0xFF] + v4 }
+        XCTAssertTrue(MacModelServer.isLoopbackOrUnspecified(mapped([127, 0, 0, 1])), "::ffff:127.0.0.1")
+        XCTAssertTrue(MacModelServer.isLoopbackOrUnspecified(mapped([127, 1, 2, 3])), "::ffff:127.1.2.3")
+        XCTAssertTrue(MacModelServer.isLoopbackOrUnspecified(mapped([0, 0, 0, 0])), "::ffff:0.0.0.0")
+        XCTAssertFalse(MacModelServer.isLoopbackOrUnspecified(mapped([93, 184, 216, 34])), "a mapped public address stays allowed")
+        XCTAssertFalse(MacModelServer.isLoopbackOrUnspecified([0x20, 0x01, 0x0d, 0xb8] + [UInt8](repeating: 0, count: 11) + [1]), "2001:db8::1")
+        XCTAssertTrue(MacModelServer.resolvesToLoopback("::ffff:127.0.0.1"))
+        XCTAssertFalse(MacModelServer.resolvesToLoopback("::ffff:192.0.2.1"))
         XCTAssertTrue(MacModelServer.resolvesToLoopback("localhost"))
         XCTAssertTrue(MacModelServer.resolvesToLoopback("127.0.0.1"))
         XCTAssertFalse(MacModelServer.resolvesToLoopback("192.0.2.1"))
@@ -58,6 +67,7 @@ final class MacModelServerTests: XCTestCase {
         defer { close(listener) }
         XCTAssertEqual(Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000), -1, "by address: never")
         XCTAssertEqual(Wire.connectTCP("localhost", port, timeoutMS: 1000), -1, "by name: never")
+        XCTAssertEqual(Wire.connectTCP("::ffff:127.0.0.1", port, timeoutMS: 1000), -1, "an IPv4-mapped loopback: never")
         let ok = Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000, allowLoopback: true)
         XCTAssertGreaterThanOrEqual(ok, 0)
         if ok >= 0 { close(ok) }

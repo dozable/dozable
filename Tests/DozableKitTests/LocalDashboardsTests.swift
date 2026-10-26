@@ -13,6 +13,15 @@ final class LocalDashboardsTests: XCTestCase {
         XCTAssertTrue(LocalDashboards.refuses(host: "localhost", port: 7443))
         XCTAssertTrue(LocalDashboards.refuses(host: "::1", port: 7443))
         XCTAssertTrue(LocalDashboards.refuses(host: "0.0.0.0", port: 7443), "the unspecified address reaches this Mac too")
+        // IPv4-mapped IPv6 is its IPv4 address (by name resolution and by the raw bytes).
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:127.0.0.1", port: 7443))
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:127.1.2.3", port: 7443))
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:0.0.0.0", port: 7443))
+        XCTAssertFalse(LocalDashboards.refuses(host: "::ffff:198.51.100.7", port: 7443), "a mapped address of another host: allowed")
+        let mapped = { (v4: [UInt8]) in [UInt8](repeating: 0, count: 10) + [0xFF, 0xFF] + v4 }
+        XCTAssertTrue(LocalDashboards.isThisMac(mapped([127, 0, 0, 1])))
+        XCTAssertTrue(LocalDashboards.isThisMac(mapped([0, 0, 0, 0])))
+        XCTAssertFalse(LocalDashboards.isThisMac(mapped([198, 51, 100, 7])))
         // Each of this Mac's own interface addresses.
         var list: UnsafeMutablePointer<ifaddrs>?
         XCTAssertEqual(getifaddrs(&list), 0)

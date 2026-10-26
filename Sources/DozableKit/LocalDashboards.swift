@@ -60,6 +60,8 @@ public enum LocalDashboards {
 
     /// Loopback, unspecified, or an address of one of this Mac's interfaces.
     static func isThisMac(_ ip: [UInt8]) -> Bool {
+        // An IPv4-mapped IPv6 address is its IPv4 address (`bytes` already maps one; this keeps the rule whoever calls it).
+        if ip.count == 16, ip[0..<10].allSatisfy({ $0 == 0 }), ip[10] == 0xFF, ip[11] == 0xFF { return isThisMac(Array(ip[12..<16])) }
         if ip.count == 4, ip[0] == 127 || ip == [0, 0, 0, 0] { return true }
         if ip.count == 16, ip == [UInt8](repeating: 0, count: 15) + [1] || ip.allSatisfy({ $0 == 0 }) { return true }
         var list: UnsafeMutablePointer<ifaddrs>?

@@ -99,6 +99,8 @@ public enum MacModelServer {
     /// sandbox reaches except through the named port.
     static func isLoopbackOrUnspecified(_ ip: [UInt8]) -> Bool {
         if ip.count == 4 { return ip[0] == 127 || ip == [0, 0, 0, 0] }
+        // An IPv4-mapped IPv6 address (::ffff:a.b.c.d) is its IPv4 address — ::ffff:127.0.0.1 IS the loopback on macOS.
+        if ip.count == 16, ip[0..<10].allSatisfy({ $0 == 0 }), ip[10] == 0xFF, ip[11] == 0xFF { return isLoopbackOrUnspecified(Array(ip[12..<16])) }
         if ip.count == 16 { return ip == [UInt8](repeating: 0, count: 15) + [1] || ip.allSatisfy { $0 == 0 } }
         return false
     }
