@@ -65,7 +65,8 @@ public enum CommunityRequirements {
         set("not-builtin", !r.isBuiltin && r.install.kind != "builtin", "a built-in agent is Dozable's own")
         // about
         var missing: [String] = []
-        func filled(_ s: String) -> Bool { !s.trimmingCharacters(in: .whitespaces).isEmpty && s.range(of: "todo", options: .caseInsensitive) == nil }
+        // `doz recipe new` leaves the word TODO to fill in; a recipe for a to-do tool may say "todo" in its own words
+        func filled(_ s: String) -> Bool { !s.trimmingCharacters(in: .whitespaces).isEmpty && s.range(of: #"\bTODO\b"#, options: .regularExpression) == nil }
         if !filled(doc.author) { missing.append("author") }
         if !filled(doc.sourceUrl) || !doc.sourceUrl.hasPrefix("https://") { missing.append("sourceUrl (https)") }
         if doc.licenses.isEmpty || !doc.licenses.allSatisfy(filled) { missing.append("licenses") }

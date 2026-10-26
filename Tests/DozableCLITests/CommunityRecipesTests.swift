@@ -78,6 +78,12 @@ final class CommunityRecipesTests: XCTestCase {
         XCTAssertEqual(CommunityRequirements.verdict(Array(r.values)), "meets the minimum requirements for a community recipe")
     }
 
+    func testATodoToolsOwnWordsAreNotAPlaceholder() throws {
+        var o = try Self.good()
+        o["description"] = "A todo list your agent keeps — Todoist-style, in the terminal."
+        XCTAssertEqual(try results(o)["about"]?.passed, true)
+    }
+
     func testEachRequirementFailsForTheRecipeThatBreaksIt() throws {
         func failing(_ item: String, only: Bool = true, _ mutate: (inout Doc) -> Void) throws {
             var o = try Self.good()
