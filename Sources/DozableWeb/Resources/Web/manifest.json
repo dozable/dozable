@@ -6,7 +6,15 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "f6a6b610fe36799e89ca0886ee366f765d443fea5175cdee457835cf6c919658"
+      "sha256" : "c85164dce4f32d44e5b8410cc521c28e92983590091db4bc11225517b5ff560c"
+    },
+    {
+      "cachePolicy" : "public, max-age=31536000, immutable",
+      "class" : "page",
+      "mimeType" : "application/javascript; charset=utf-8",
+      "publicPath" : "/assets/app-07d328acce837e80.js",
+      "resourcePath" : "assets/app-07d328acce837e80.js",
+      "sha256" : "07d328acce837e8030d94f92b3c9c6408e94cc0022f7db0da3baa65ea44ccaff"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -15,14 +23,6 @@
       "publicPath" : "/assets/app-1b0afbbdd308a16c.css",
       "resourcePath" : "assets/app-1b0afbbdd308a16c.css",
       "sha256" : "1b0afbbdd308a16cf1418769580d9e824e10463a134eb2c33555cf99ae9efe43"
-    },
-    {
-      "cachePolicy" : "public, max-age=31536000, immutable",
-      "class" : "page",
-      "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app-3f4009cf199888ec.js",
-      "resourcePath" : "assets/app-3f4009cf199888ec.js",
-      "sha256" : "3f4009cf199888ec44a5f23e0dc97bfa31da20beb70bd002098c9aeddbb1d4fe"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -756,9 +756,9 @@
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
       "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app/views/try-af8d57af9e19491f.js",
-      "resourcePath" : "assets/app/views/try-af8d57af9e19491f.js",
-      "sha256" : "af8d57af9e19491f5d33240d55b38bf6645b96a75546d42984734a8e2b19dbfa"
+      "publicPath" : "/assets/app/views/try-20b4d08b74a1d987.js",
+      "resourcePath" : "assets/app/views/try-20b4d08b74a1d987.js",
+      "sha256" : "20b4d08b74a1d987001101d832a9391945720a58bf6c2c6c125ac04eed604868"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",

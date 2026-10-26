@@ -51,8 +51,9 @@ public struct WebPlanQuery: Equatable, Sendable {
             q.name = s
         }
         if let v = d["agent"], !(v is NSNull) {
-            // 618: NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28) — refused with a fixed message.
-            guard let s = v as? String, s.count <= 60 else { throw WebAction.Invalid("agent: an agent this Dozable has (doz search lists them), or NAME@MAJOR / NAME@VERSION") }
+            // 618: NAME, NAME@MAJOR (opencode@1) or NAME@VERSION (opencode@2.0.28) — refused with a fixed message. 654: or
+            // its qualified name ([SOURCE/]VENDOR/PRODUCT[@…]).
+            guard let s = v as? String, s.count <= AgentRef.maxQualifiedLength else { throw WebAction.Invalid("agent: an agent this Dozable has (doz search lists them), or NAME@MAJOR / NAME@VERSION") }
             // 629: an unpublished tool is refused in its own words (it is a NEW sandbox's).
             if s != "none", let r = (try? AgentRef.resolveAny(s, in: AgentRecipes.all)) ?? nil, let p = AgentRecipes.unpublishedProblem(r.recipe) {
                 throw WebAction.Invalid("agent: " + p)
@@ -100,7 +101,7 @@ public struct WebPlanQuery: Equatable, Sendable {
             // 618: its exact release, and what was asked (the Quick try's Version choice: opencode@1).
             if let ref {
                 o.agentVersion = ref.exact
-                if ref.qualifier != nil || ref.family != nil { o.agentRef = ref.text }
+                if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
             }
         }
         if isolated { o.isolated = true }
@@ -198,6 +199,7 @@ extension WebTryCatalog {
             a.family = r.family.map(FamilyInfo.init)           // 618
             a.origin = r.origin.title.map { Agent.Origin(kind: r.origin.kind, title: $0) }       // 653
             a.ref = AgentRef.typed(r)
+            a.qualified = r.vendor == nil ? nil : AgentRef.qualifiedName(r)      // 654
             // 617 (owner: a key added in "What you need" did not work): the accounts this agent can use — the setup
             // plans with one when the provider's default is one it cannot (Claude Code's Mac login for pi).
             a.usableAccounts = accounts.filter { w in

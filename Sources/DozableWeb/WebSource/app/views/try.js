@@ -381,7 +381,11 @@ function detailNodes() {
     ? callout('warn', { attrs: { 'data-try-standing': a.id }, title: by ? 'Superseded by ' + by.title : 'Not current with its maker',
       body: h('span', null, (a.standing || '').replace(/^Superseded by [^—]*—\s*/, '') + ' ', by ? h('button', { type: 'button', class: 'linkish', on: { click: () => select(by.id, { detail: true }) } }, 'See ' + by.title) : null) })
     : null;
+  const shown = chosenOf(a);                                    // 618: the major chosen in its setup
+  // 654: its full name — vendor/product (yours and a community source's with their source first): the chosen major's.
+  const full = shown.qualified || a.qualified;
   const versions = h('dl', { class: 'qt-plan' },
+    ...(full ? [h('dt', null, 'Full name'), h('dd', { 'data-try-qualified': '' }, h('code', null, full))] : []),
     h('dt', null, 'Dozable installs'), h('dd', { 'data-try-latest': a.id }, (a.version || '—') + (a.age ? ' · released ' + ago(a.age) : '')),
     a.latest ? h('dt', null, 'Its newest') : null, a.latest ? h('dd', { class: 'muted' }, a.latest.replace(/^latest:?\s*/, '')) : null,
     h('dt', null, 'Base'), h('dd', null, a.base || '—'),
@@ -389,7 +393,6 @@ function detailNodes() {
     ...(familyOf(a).length > 1 ? [h('dt', null, 'Majors'), h('dd', { 'data-try-majors': '' },
       familyOf(a).map((x) => x.family.title + (x.version ? ' ' + x.version : '') + (x.family.recommended ? ' (recommended)' : '')).join(' · ')
         + ' — Try lets you choose')] : []));
-  const shown = chosenOf(a);                                    // 618: the major chosen in its setup
   const tryBtn = btn('Try ' + nameOf(shown) + '…', () => openSetup(a), { primary: true, lg: true, icon: 'rocket', title: 'Set it up and start it (Enter)' });
   tryBtn.dataset.tryOpen = '';
   // The list alone (no plan yet): what it can reach and its command follow with the plans; Try waits for them.

@@ -1285,6 +1285,8 @@ public struct WebTryCatalog: Codable, Equatable, Sendable {
         /// — the plan's `agent`. One card per family (its recommended major); the setup's Version choice re-plans by `ref`.
         public var family: FamilyInfo? = nil
         public var ref: String? = nil
+        /// 654: its full name (`anomalyco/opencode2`, `mine/acme/tool`) — the details' "Full name" row.
+        public var qualified: String? = nil
         /// 653: whose recipe it is when it is not Dozable's — `kind` `mine` | `community`, the pill's words ("Yours",
         /// "Community · NAME"). nil: Dozable's.
         public var origin: Origin? = nil

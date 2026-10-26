@@ -73,7 +73,7 @@ import { renderWizard, viewOnboarding, wizardStopPolling, wizGo } from './app/vi
 import { acknowledgeOps, renderOperations, renderOps, viewOperations } from './app/views/operations-7ee2d5f3de69de81.js';
 import { viewOverview } from './app/views/overview-f43c897f2ffd2634.js';
 import { viewResources } from './app/views/resources-28e7f27e86595b1e.js';
-import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-af8d57af9e19491f.js';
+import { backToTrySetup, renderTryPrep, viewTry } from './app/views/try-20b4d08b74a1d987.js';
 import './app/views/sandbox-dialogs-8d0b31dd72c225b0.js';
 import { persistLayout } from './app/views/sandbox-layout-ec2078249c8fac43.js';
 import './app/views/sandbox-network-3cde852e160cee30.js';
