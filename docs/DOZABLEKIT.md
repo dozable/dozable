@@ -322,6 +322,16 @@ builds without a release (`Sources/DozableKit/RecipeCatalogue.swift`; the client
 - **Embedding DozableKit elsewhere:** do nothing and the embedded set is used. To use a catalogue, verify the manifest
   yourself (`RecipeCatalogueManifest.verify(publicKey:)`) and call `RecipeCatalogue.adopt(manifest, files:)` once, before
   anything reads a recipe.
+- **Recipes that are not Dozable's** (a person's own, a community catalogue's): `RecipeCatalogue.adoptExtras(_:)`, after
+  `adopt` and before `seal()`, adds them source by source, each WHOLE or not at all — every recipe must meet the
+  community requirements (`CommunityRequirements.check`, a closed list), no id or alias may be Dozable's or an earlier
+  source's, and the set with it must pass every validator. Only recipes are added (providers, gateways, tags and marks
+  stay Dozable's). Each carries its `AgentRecipe.origin` (outside its coding keys: its JSON and bake keys are unchanged),
+  installs exactly its pin (`isPinnedOnly`), and is drawn with a lettermark. A community catalogue is this format with
+  `"product": "doz-community-recipes"` and recipes only, signed with its publisher's key
+  (`RecipeCatalogueManifest.verify(publicKey:community: true)`). The doz CLI's files, snapshot and commands are
+  `Sources/DozableHost/RecipeExtras.swift` and `doz recipe` (docs/recipes/RECIPE-FORMAT.md, "Your own recipes and
+  community catalogues").
 
 ## The icon registry (`Recipes/icons/`)
 

@@ -96,6 +96,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableHost/EditorApps.swift` (+ `MacDefaultApp.appPath`); `FilesOpen --app`, `FilesEditors`; `WebEditor`, `GET /api/v1/editors`; `WebSource/app/components/open-with.js` | 646: Open Workspace — a shared workspace (or a folder or file in it) in an editor: the known editors found by bundle id, `bridges.open_apps`, the host op `editors`; the terminal strip's Open folder menu and the Files tab's Open in <editor>; `EditorAppsTests` |
 | `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
 | `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's hourly refresh; the publisher and its end-to-end test |
+| `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a host start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -1974,6 +1975,39 @@ may use it too.
     refused whole, statistics, the choice, the refresh); `make test-recipe-catalogue` (`Scripts/test-recipe-catalogue.sh`:
     publish an edited tree with a throwaway key → a local server → a real host's refresh, 404 then the catalogue → the
     next host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed).
+- **Recipes that are not Dozable's** (653, owner: "allow the end-user to create their own with the option to verify as
+  meeting the minimum requirements for a community recipe"; RECIPE-FORMAT.md "Your own recipes and community catalogues"):
+  - **Origins**: `AgentRecipe.origin` (Dozable's, `mine`, `community(NAME)`) is OUTSIDE the coding keys — a recipe's JSON and
+    every bake key are unchanged (`RecipePinTests`). Shown everywhere a recipe is ("yours", "community · NAME"): `doz search`,
+    `doz try`'s list, the plan (`CreatePlan.recipe`, `PlanRecipe`), the dashboard's Quick try cards/details/setup and New
+    Sandbox's chips (`components/source-pill.js`). `doz search --index` writes Dozable's only.
+  - **The merge**: `RecipeCatalogue.adoptExtras` runs after 652's choice and before `seal()` (`DozableEntry` →
+    `RecipeExtras.chooseAtStart`), source by source, WHOLE or not at all: every recipe meets `CommunityRequirements` (a closed
+    list — `doz recipe check` prints it), no id/alias of Dozable's set or an earlier source's, every validator passes.
+    Order: yours → kept (removed, unpublished) → community sources in the order added; a kept id stays its sandboxes' (another
+    source offering it is refused — never put under an existing sandbox). Only recipes are added. A non-Dozable recipe is
+    `isPinnedOnly` (its pin, never a looked-up latest — every former `pinnedOnlyKinds.contains` site uses it), drawn with a
+    lettermark, never counted (`UsageSchema.agent(image:)`).
+  - **One snapshot per host start** (`<settings>/recipes/in-use/`): a host's start (and a `doz recipe` command when no host
+    runs for its store) rebuilds it — your YAML compiled (the CLI hands in `RecipeSource.compile`; Yams stays in the CLI), the
+    confirmed community caches promoted (652's cache layout per source, `community/<name>/`), the kept ones — and every process
+    adopts it. So a command uses what the running host uses; a change applies from the next host start.
+  - **Community sources**: `sources.json` (URL, Ed25519 key, `SHA256:` fingerprint, when confirmed). Nothing is fetched before
+    the fingerprint is confirmed (a terminal question, or `--fingerprint`); Dozable's own key is refused as a source key; https
+    only (http from 127.0.0.1 in a guarded run). A community catalogue is 652's format with `product: doz-community-recipes`
+    and `agents/` only, signed with its publisher's key; the host refreshes each hourly beside Dozable's (`CommunityRefresh`).
+  - **Trust**: the CLI asks once per recipe version (`trusted.json`, by id + sha256) before a COMMUNITY recipe's sandbox is made
+    (`confirmRecipeTrust`: QuickMake before its image is prepared, `preflightAgentAccount`); no terminal → exit 5 naming
+    `doz recipe trust ID`. Your own are said, never asked. The dashboard shows "Whose recipe" first in the try setup.
+  - **The full check** (`doz recipe check --full`, `RecipeFullCheck`): this executable as child processes in a scratch store
+    under the guarded test environment, fake keys, `StandInProvider` (a Swift TLS stand-in, SandboxCA's multi-host leaf) behind
+    the provider/OpenAI seams; build at the pin, a fresh Locked isolated try, the first screen (openpty), verify, the check
+    turn (the fake key seen), the guide's steps, keys + the leak guard. NOT OSC 7501, web ports, other model sources, tool-call
+    answers. Passes recorded by sha256 in `checks.json`.
+  - **Publishing**: `make publish-recipes COMMUNITY=1 RECIPES_DIR= UPDATE_KEY_FILE= UPDATES_DIR=` (`update-key.swift
+    community-key` makes a key); `doz recipe source verify` must accept it first; never pushed without `PUSH=1`.
+  - **Tests**: `CommunityRecipesTests`; `make test-community-recipes`; the workspace probes `probes/653-*/` (`full-check.sh`,
+    `browser-community-labels.mjs`).
 - **The built-in three (Claude Code, pi, Codex) keep every byte**: their recipes are `builtin` and only DESCRIBE them
   (credentials, sessions, resume, settings keys, prompt); their install steps and launchers stay `AgentImages`' Swift.
   `RecipePinTests` (Codex included) must stay green; `RecipeAgentsTests.test_builtinRecipesDescribeTheirImages` proves
@@ -2587,6 +2621,7 @@ make test-cli-permissions # 597: agent permissions — net show/allow/deny/permi
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) → local server → the host's refresh → the next start uses it; tampered refused
+make test-community-recipes # 653: your own recipes and community catalogues end to end (throwaway keys, a local server): check fails then passes, labels, Dozable's id refused, confirm before fetch, a clash refused whole, tampered refused, removal keeps a sandbox
 make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)
 make test-cli-github # 599d: GitHub as the user through seams (a fake GitHub, a fake gh, a throwaway ssh-agent): swap, read-only, push, no leak, identity, key source, off, SSH

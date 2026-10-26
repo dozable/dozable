@@ -338,6 +338,39 @@ hidden paste of a key. `--account none` is an explicit choice. The web forms off
 that fit (the key field in the form when none do); an existing sandbox whose account does not fit
 shows a banner with a picker, and its agent is told that no credential is attached.
 
+### Your own recipes and community catalogues
+
+A recipe is the YAML file that says how a tool is installed, run and what it may reach (the format:
+`docs/recipes/RECIPE-FORMAT.md`). Besides Dozable's own, you can use recipes of your own and recipes from
+community catalogues — each labelled everywhere it is shown ("yours", "community · NAME"), and none may use the name
+of one of Dozable's own recipes.
+
+```bash
+doz recipe new mytool                            # a file to fill in: ~/.config/doz/recipes/mine/mytool.yaml
+doz recipe new mytool --from opencode            # or a copy of one of Dozable's, renamed; fill in its maker, link and description
+doz recipe check mytool                          # the minimum requirements for a community recipe, item by item; one verdict (exit 0/1)
+doz recipe check mytool --full                   # also built and tried for real: a scratch store, fake keys, a stand-in model provider
+doz recipe add ./tool.yaml                       # copy a file in as one of yours (after it passes the check)
+doz recipe ls [--all]                            # yours and every source's: from, in use or refused (why), checked
+doz recipe show mytool [--document]              # whose, what its bake installs and reaches, its check; --document: its compiled JSON
+doz recipe rm mytool                             # kept unpublished so its sandboxes keep working (--forget drops it)
+doz recipe source add https://example.com/v1/recipes.json --key BASE64   # shows the key's fingerprint and asks first
+doz recipe source add URL --key KEY --fingerprint SHA256:…              # confirmed without a question (scripts)
+doz recipe source ls                             # each catalogue: URL, key fingerprint, the catalogue in use, its recipes
+doz recipe source rm example                     # its recipes kept unpublished for the sandboxes made from them
+doz recipe source verify ./v1/recipes.json --key KEY                    # a publisher's check before publishing
+doz recipe trust comtool                         # say yes to a community recipe's current version ahead (scripts)
+```
+
+A change is used at once when no host runs for the store, else from the next host start (`doz host restart`) — a
+command always uses what the running host uses. Nothing is fetched from a community catalogue before you confirm its
+key's fingerprint; a catalogue (signed with its publisher's own key) is used whole or not at all, and one that offers
+a name already taken is refused. Before a sandbox of a community recipe is made, its plan says whose it is and what its
+bake installs and reaches, and the CLI asks once per version of it (`doz recipe trust` answers ahead); your own recipes
+are said, never asked. A recipe that is not Dozable's always installs exactly its pinned release, wears no maker's mark,
+and is never counted in usage statistics. What the full check proves, and what it does not, is in `doz recipe check
+--help`.
+
 ### Access
 
 Every credential sandboxes may use as you, in one place — the onboarding's Access step, again

@@ -11,6 +11,15 @@ upgrade
 new
 try
 search
+recipe
+recipe/ls
+recipe/new
+recipe/add
+recipe/show
+recipe/check
+recipe/trust
+recipe/rm
+recipe/source
 models
 guide
 create
