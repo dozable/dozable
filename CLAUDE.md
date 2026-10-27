@@ -24,7 +24,7 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
 | Product | Targets | Depends on |
 |---|---|---|
 | `DozableKit` | `DozableKit` (+ resources `deckhold`, `doznet`, `dozview`, `tmux`); test-only C target `DozMatch` (`Guest/dozview/match`) | `apple/containerization` **exact** `0.47.0`: `Containerization`, `ContainerizationArchive` (the kernel tarball), `ContainerizationExtras`, `ContainerizationOCI`, `ContainerizationOS`; since 580 `swift-nio` (`NIOCore`, `NIOEmbedded`; 583 `NIOPosix`), `swift-nio-ssl` (`NIOSSL`), `swift-certificates` (`X509`), `swift-asn1` — apple/* packages containerization already resolves (README "Dependencies") |
-| `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the host + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement) |
+| `doz` (executable, 585) | `doz` → `DozableCLI` (commands) → `DozableHost` (the host + its client); 637: `DozableCLI` → `DozableTUI` (terminal components, the colour switch — Foundation + Darwin only, audit) | `DozableKit`; `swift-argument-parser` (`ArgumentParser`) in `DozableCLI`/`doz` ONLY; the system `SQLite3` in `DozableHost` (metrics); `jpsim/Yams` **exact** `6.2.2` in `DozableCLI` ONLY (`doz_project.yaml` — the audit enforces the pin and the confinement); 667: the system's `AVFoundation` in `DozableHost/Microphone.swift` ONLY (the microphone's permission — never a capture; audit) |
 | — (not a product) | `DozableWeb` — `doz ui`'s server and page (645: one server — this Mac's browser and, with the LAN option, the network's) | `DozableHost`; `swift-nio` `NIOCore`/`NIOPosix`/**`NIOHTTP1`**/**`NIOWebSocket`** (both ONLY here — the audit enforces it); the system's **`dnssd`** (Bonjour) in `WebBonjour.swift` ONLY (audit); resource `Resources/Web` (generated, committed). `DozableCLI`'s `UICommand.swift` alone imports `CoreServices` (LaunchServices opens the browser) |
 | — (not a product) | `doz-vmtest` — the entitled VM test host | `DozableKit`, `DozableHost` (the `cli` mode decodes `--json` with its types) |
 
@@ -99,6 +99,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's hourly refresh; the publisher and its end-to-end test |
 | `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a host start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
 | `Sources/DozableKit/Dotfiles.swift`; `Sources/DozableHost/Dotfiles+Host.swift`; `Sources/DozableCLI/DotfilesCommand.swift`; `Sources/DozableWeb/WebDotfiles.swift`; `Sources/doz-vmtest/DotfilesSuite.swift` | 657: the person's dotfiles — the source, the pin, the plan (the install script or the links, Dozable's protected paths), the guest scripts and a run's result; the Mac's git cache (`<store>/dotfiles`), the trust record, the ops `dotfiles` / `dotfiles-resolve` / `dotfiles-update`; `doz dotfiles` and the create's trust question; the dashboard's projection and `POST /api/v1/dotfiles/resolve`; `make test-cli-dotfiles` |
+| `Sources/DozableKit/Audio.swift`, `DozSound.swift`; `Sources/DozableHost/MacAudio.swift`, `Microphone.swift`, `HostCore+Sound.swift`; `Guest/sound-kernel/` | 667: sound — the sound kernel's pin, the device (microphone source only when allowed); `SoundMode` (`sandbox.audio`), macOS's microphone permission and its seam, the per-boot decision; the kernel's reproducible recipe and source offer; `AudioTests`, `AudioHostTests` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
@@ -423,19 +424,52 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 - **virtio-fs caches:** deleting a file on the HOST that the guest has cached is not visible at once
   — tests use fresh file names (this cost an afternoon of chasing a non-bug).
 
-### EXPERIMENTAL audio sandboxes
+### Sound (604 experimental → 667)
 
-- **`doz create --audio` only**: `SandboxSpec.audio` (nil = no audio: no device, the pinned kernel, and the spec and
-  `ToolInputs` encode byte-identically — `AudioTests`). `PinnedIdentity.audio` adds the virtio-snd device (Mac mic in,
-  speakers out); `VMLayout` records it, so a mismatched restore is refused. The VM boots `SoundKernel` (kata
-  6.18.15-186 + sound.conf, sha256 pinned in `Audio.swift`) from the kernel CACHE — the host copies it there, verified,
-  at create and before every boot (`MacAudio.installSoundKernel`); bakes and image keys keep the pinned kernel. Never
-  downloaded: `release.sh` ships it (`SOUND_KERNEL`, sha256-checked, `libexec/doz/kernels/`); dev: `DOZ_TEST_SOUND_KERNEL`.
-- **The tools layer** (audio only): alsa-utils, `/etc/asound.conf` (stamp v2: `default` = asym of the card's
-  playback/capture devices — NOT dmix, which stalls on this card), and the TEMPORARY `doz-sound` (`DozSound.swift`).
+- **`sandbox.audio` = off | speakers | on, per sandbox** (`SoundMode`, `HostCore+Sound.swift`): `doz create --sound
+  MODE` (`--audio` = on), New sandbox › Bridges › Sound, `audio:` in doz_project.yaml, else the setting. The DEVICE is
+  chosen at create (`resolveSound` → `SandboxSpec.audio`); afterwards only speakers ↔ on (`SoundMode.changeProblem`).
+  `SandboxSpec.audio` nil = no sound: no device, the pinned kernel, and the spec and `ToolInputs` encode byte-identically
+  (`AudioTests`). `PinnedIdentity.audio` adds the virtio-snd device; `VMLayout` records it, so a mismatched restore is
+  refused. The VM boots `SoundKernel` (`vmlinux-6.18.15-186-sound2`, sha256 pinned in `Audio.swift`) from the kernel
+  CACHE — the host copies it there, verified, at create and before every boot (`MacAudio.installSoundKernel`); bakes
+  and image keys keep the pinned kernel. Never downloaded: `release.sh` ships it (`SOUND_KERNEL`, sha256-checked,
+  `libexec/doz/kernels/`, its source offer in `licences/sound-kernel/`); dev: `DOZ_TEST_SOUND_KERNEL`. A public build
+  has none (`BuildFlavor.audioMissing`).
+- **The kernel is OURS (GPL-2.0)**: `Guest/sound-kernel/` — `sound.conf` (four options, nothing outside sound),
+  `build-in-guest.sh` (reproducible: fixed KBUILD_* and the SAME build
+  directory — the vDSO's build-id hashes it), the complete `sound.config`, kata's patch, `PROVENANCE.md` (the written
+  offer). A new kernel gets a NEW file name: a sandbox that slept under the old one finds it for its restore.
+  `make sound-kernel` (`Scripts/sound-kernel.sh`: the pinned kernel's config → `doz-vmtest spike-build` in a throwaway
+  ubuntu:22.04 VM → sha256 == `SoundKernel.sha256` and config == `sound.config`, ~7.5 min) is the check; CI runs it
+  (`.github/workflows/sound-kernel.yml`, doz-ci, dispatch + paths) and publishes the kernel as an artifact.
+- **The microphone is the Mac's only when macOS has ALREADY said yes** (`MicrophoneDecision`, `settleMicrophone` before
+  every boot): otherwise the input stream has NO source (`AudioDevice`: the device is the same, the guest records
+  silence) and Virtualization never asks macOS. That removes 604's "VM stops when paused with the question pending" and
+  "a recording opened before Allow stays stuck" by construction. **The source is in VZ's SAVED STATE** (a restore with
+  another source fails "file format is not compatible" — measured both ways): `PersistedSandbox.microphoneSource`
+  records it at a cold boot and every restore uses it (nil = an older build's VM: the real source); a new decision
+  waits for the next cold boot. doz asks (`AVCaptureDevice.requestAccess`, the ONE AVFoundation file `Microphone.swift`
+  — audit) when `sandbox.microphone_ask` says (`MicrophoneAsk`, owner 2026-10-27): `first_recording` (default) — the
+  host watches a RUNNING `on` sandbox whose VM has a silent microphone while macOS is undecided
+  (`HostCore.watchForRecording`: one guest stream, `DozSound.recordingWatchScript`, reads
+  `/proc/asound/card*/pcm*c/sub*/status` once a second — a sound sandbox's container has `/proc/asound` UNMASKED,
+  `Sandbox.maskedPaths(sound:)` — and prints `doz-recording` when a capture substream RUNS; ended by `finishInput` before
+  every non-boot lifecycle op, on leaving running and at quit), then asks (one question at a time,
+  `microphoneAsking`) and says — a note + a `microphone` viewer notice — that THIS recording stays silent and Shut Down
+  + Start gives the Mac's microphone (`MicrophoneDecision.answeredAtRecording`); `first_start` — a cold boot asks and
+  waits at most `microphoneQuestionWait`. **Tests never reach the real permission**: `MicrophoneAccess.current` is the
+  seam in every guarded run and XCTest (`DOZ_TEST_MICROPHONE`, `DOZ_TEST_MICROPHONE_ANSWER` — the seam remembers its
+  answer, as macOS does).
 - **macOS asks about the microphone for the host's RESPONSIBLE app** (the app that started doz — survives the detached
-  double spawn), named in host.log, `host status` `microphoneApp`, `doctor` and doz-sound's hint. Known defects: VZ can
-  stop the VM on pause/save while a capture waits on an unanswered prompt; an open stream stalls after a restore.
+  double spawn), named in host.log, `host status` `microphoneApp`, `doctor` and doz-sound's hint.
+- **604's "a stream open across a restore stalls" no longer happens** (667, three runs: playback and capture held
+  open across pause, sleep, hibernate and a new host process, default and 10 ms periods, kept real time —
+  workspace `probes/667-*/remeasure.sh`). Nothing re-syncs streams at a wake; the remedy built and dropped is in the
+  667 plan, if it ever comes back.
+- **The tools layer** (sound only): alsa-utils, `/etc/asound.conf` (stamp v2: `default` = asym of the card's
+  playback/capture devices — NOT dmix, which stalls on this card), and `doz-sound` v3 (`DozSound.swift`; its conf
+  carries `MIC` — "mac" or why the microphone is silent).
 
 ### The web layer (`doz ui`)
 
@@ -2745,6 +2779,7 @@ make test-vm-ignore  # 599g: workspace rules (.dozignore lock/hide, .dozreadonly
 make test-vm-agentwrite # the agent (a non-root image user) writes shared workspaces through the view: Dozable-made, 755/644, 700/600, rules; git; rules still refused; sleep/hibernate (also run by test-vm-cwd)
 make dozview / dozview-verify # 599g: rebuild the guest view daemon (pinned Zig) / check the committed bytes
 make tmux / tmux-verify # 658: rebuild the guest tmux 3.8 (pinned Zig, sha256-pinned tmux/libevent/ncurses) / check the committed bytes
+make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz

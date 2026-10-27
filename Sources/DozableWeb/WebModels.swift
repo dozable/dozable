@@ -287,8 +287,13 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var icon: ResolvedIcon?
     /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
     public var dotfiles: WebDotfiles?
+    /// 667: its sound (`speakers` / `on`; nil: none) and its microphone (`mac`, or why it is silent; nil: not booted yet).
+    public var sound: String?
+    public var microphone: String?
 
     public init(_ i: SandboxInfo) {
+        sound = i.sound
+        microphone = i.microphone
         dotfiles = i.dotfiles.map(WebDotfiles.init)
         icon = ImageChoice.parse(i.image).flatMap { $0.agent == .none ? nil : $0.agent.recipe }.map(AgentIcons.resolve)
         sessionList = i.sessionList.map { $0.map(WebSessionBrief.init) }
@@ -1514,6 +1519,8 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     public var serve: WebServeSessionInfo? = nil
     /// 611: this build has Dozable's own ChatGPT sign-in (a public build does not: the page never offers it).
     public var chatgptSignIn: Bool = true
+    /// 667: this doz can give a sandbox sound (it carries the sound kernel): New sandbox offers Sound.
+    public var sound: Bool = false
     /// 611: a newer doz (the banner), or one an automatic update installed that this doz ui is older than.
     public var update: WebUpdateNotice? = nil
     /// This build has the sign-up (an official build): the setup wizard offers Stay in touch. Else the page shows

@@ -28,7 +28,7 @@ import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sand
 import { networkPanel } from './sandbox-network.js';
 import { filesPanel, syncFiles } from './sandbox-files.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
-import { paintHome } from './sandbox-home.js';
+import { paintHome, soundLine } from './sandbox-home.js';
 import { tildePath } from '../core/paths.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -309,6 +309,9 @@ function sandboxParts(name, d, net, accounts) {
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
+        // 667: sound — the speakers, and whether the microphone is the Mac's.
+        i.sound ? chip('Sound', i.sound === 'on' ? (i.microphone === 'mac' ? 'speakers + mic' : 'speakers · mic silent') : 'speakers',
+          { title: soundLine(name, i).replace(/^./, (c) => c.toUpperCase()), data: { 'data-sound-chip': i.sound } }) : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
@@ -361,6 +364,10 @@ function sandboxParts(name, d, net, accounts) {
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
           : i.workspace ? h('p', { class: 'muted', 'data-workspace-rules-none': '' },
             'Workspace rules: none — the folder is shared as is. A .dozignore or .dozreadonly in it keeps the agent away from some files.') : null),
+      // 667: its sound — the speakers, and the microphone as its last boot decided it.
+      i.sound ? h('div', { 'data-sound': i.sound }, h('div', { class: 'insp-lbl' }, 'Sound'),
+        h('div', null, i.sound === 'on' ? 'The Mac’s speakers and microphone' : 'The Mac’s speakers — no microphone'),
+        h('p', { class: 'muted', 'data-microphone': i.microphone || '' }, soundLine(name, i).replace(/^./, (c) => c.toUpperCase()))) : null,
       i.ports ? h('div', { 'data-ports': name }, h('div', { class: 'insp-lbl' }, 'Web ports'), portRows(name, i),
         h('p', { class: 'muted' }, running ? 'Each listens on this Mac’s 127.0.0.1 only. Add another: doz ports add ' + name + ' PORT.'
           : 'They listen while it runs — on this Mac’s 127.0.0.1 only.')) : null,

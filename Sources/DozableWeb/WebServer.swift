@@ -718,6 +718,7 @@ public final class DozableWebServer: @unchecked Sendable {
         var info = WebSessionInfo(csrf: s.csrfToken, expiresAt: s.expiresAt, serverRun: serverRun, store: data.storePath, version: version)
         info.homes = DisplayPath.homes()
         info.chatgptSignIn = BuildFlavor.current.chatgptSignIn          // 611
+        info.sound = !BuildFlavor.current.isPublic && MacAudio.bundledSoundKernel() != nil   // 667
         info.update = updateNotice
         info.signup = Usage.isOfficial
         info.usageStats = usageStatsStep.map(WebUsageStats.init)

@@ -396,6 +396,21 @@
 # (a git repository's https:// URL, or a folder on this Mac that is one ("" = none); flag doz create --dotfiles URL|PATH|none; applies to sandboxes created from now on (the host reads it at create))
 # dotfiles = ""
 
+# Sound in new sandboxes: off, speakers (this Mac's speakers) or on (its speakers and microphone).
+# A sandbox with sound has a sound device and boots Dozable's sound kernel, so it is chosen at
+# create; its own choice (doz create --sound, New sandbox › Sound) wins over this. Later a sandbox
+# can move between speakers and on (doz config set --sandbox NAME sandbox.audio on), from its next
+# start. It records from the Mac's microphone only if macOS allowed it before the sandbox started
+# (else silence); sandbox.microphone_ask says when doz asks.
+# (off | speakers | on; flag doz create --sound off|speakers|on (--audio = on); applies to sandboxes created from now on (the host reads it at create))
+# audio = "off"
+
+# When doz asks macOS about the microphone for a sandbox whose sound is on, while macOS has no
+# answer: first_recording (when a program in it first records — that recording is silent; allow,
+# then Shut Down and Start the sandbox) or first_start (when it starts, waiting for your answer).
+# (first_recording | first_start; applies at each sandbox's next start or wake)
+# microphone_ask = "first_recording"
+
 [sessions]
 
 # Run each new session inside tmux (within Dozable's own session holder, so saved screens, sleep

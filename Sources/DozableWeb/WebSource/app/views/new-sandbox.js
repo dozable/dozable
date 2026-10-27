@@ -36,7 +36,7 @@ import { tildePath } from '../core/paths.js';
 // diff and a yes), then makes the sandbox as `doz up` would and opens it with the boot view, as Quick add does.
 const NW_FIELD = { cpus: 'cpus', memory: 'memory', network: 'network', permissions: 'permissions', account: 'account', github: 'github',
                    agent_sudo: 'agentSudo', ssh_agent: 'sshAgent', clipboard: 'clipboard', browser_bridge: 'browserBridge', open_files: 'openFiles', tmux: 'tmux',
-                   ignore_mode: 'ignoreMode', model_source: 'modelSource', model: 'model' };
+                   ignore_mode: 'ignoreMode', model_source: 'modelSource', model: 'model', audio: 'audio' };
 export function newSandboxWizard(start = {}) {
   // 603: a draft left by the browser's Back is resumed, never silently replaced (a new start asks first).
   const go = () => { if (location.hash === '#/new') renderModal(true); else location.hash = '#/new'; };
@@ -112,7 +112,9 @@ function nwAnswer(id) {
     case 'rules': return f.ignoreMode || setting('workspace.ignore_mode', 'lock');
     case 'permissions': return nwNetwork(f) + (nwPermissionNet(nwNetwork(f)) ? ' · ' + (f.permissions || setting('defaults.permissions', 'standard')) : '');
     case 'resources': return (f.cpus || setting('defaults.cpus', 2)) + ' CPUs · ' + (f.memory || 'default memory');
-    case 'bridges': return 'clipboard ' + (f.clipboard || setting('sandbox.clipboard', 'write')) + ' · browser ' + (f.browserBridge || setting('sandbox.browser_bridge', 'on'));
+    case 'bridges': { const sound = f.audio || setting('sandbox.audio', 'off');
+      return 'clipboard ' + (f.clipboard || setting('sandbox.clipboard', 'write')) + ' · browser ' + (f.browserBridge || setting('sandbox.browser_bridge', 'on'))
+        + (state.sound && sound !== 'off' ? ' · sound ' + sound : ''); }
     case 'session': return (f.tmux ?? setting('sessions.tmux', false)) ? 'in tmux' : 'no tmux';
     default: return null;
   }
@@ -575,7 +577,11 @@ function nwBridges() {
       nwSelect('browser_bridge', 'Browser', [['on', 'on — links opened in the sandbox open in the Mac’s browser'], ['off', 'off']],
         f.browserBridge || setting('sandbox.browser_bridge', 'on')),
       nwSelect('open_files', 'Workspace files', [['on', 'on — documents opened in the sandbox open on the Mac, with a notice'], ['off', 'off']],
-        f.openFiles || setting('sandbox.open_files', 'on'))),
+        f.openFiles || setting('sandbox.open_files', 'on')),
+      // 667: sound — a device and the sound kernel, so chosen here (only when this doz carries the kernel).
+      state.sound ? nwSelect('audio', 'Sound', [['off', 'off'], ['speakers', 'speakers — programs play through the Mac’s speakers'],
+        ['on', 'on — the speakers and the Mac’s microphone (macOS asks once, at the first start)']],
+        f.audio || setting('sandbox.audio', 'off')) : null),
   };
 }
 function nwSession() {

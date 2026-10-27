@@ -400,6 +400,10 @@ public enum SettingKey {
     public static let workspaceView = "workspace.view"
     /// 657: the person's dotfiles — a git repository (https) or a folder on this Mac; "" = none.
     public static let dotfiles = "sandbox.dotfiles"
+    /// 667: sound — `off`, `speakers` (the Mac's speakers) or `on` (speakers and the Mac's microphone). Per sandbox.
+    public static let audio = "sandbox.audio"
+    /// 667: when doz asks macOS about the microphone — `first_recording` (default) or `first_start` (`MicrophoneAsk`).
+    public static let microphoneAsk = "sandbox.microphone_ask"
     /// 599e: "Use GitHub as you" for NEW sandboxes — `off`, `read` or `push` (the Access step's choice).
     public static let defaultGithub = "defaults.github"
     /// 594 (owner ruling): the web UI may take an API key or a setup token (a masked field).
@@ -670,6 +674,14 @@ public struct DozableSettings: Sendable {
             .init("sandbox", "dotfiles", .dotfiles, .string(""),
                   "Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login, so a private one works and no credential enters the sandbox) or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at, recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap, script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot log), or, with none, every dotfile and dot-folder at the top of the repository is linked into the home — never over a file that is there (only over the image's stock copy, kept as NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once per repository and commit before it is applied — it is code that runs in the sandbox. \"\" (the default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml) wins over this.",
                   flag: "doz create --dotfiles URL|PATH|none", applies: .nextCreate),
+            // 667 (owner: "sound as a real per-sandbox setting"; 604's experiment was the --audio flag alone).
+            .init("sandbox", "audio", .choice(SoundMode.allCases.map(\.rawValue)), .string("off"),
+                  "Sound in new sandboxes: off, speakers (this Mac's speakers) or on (its speakers and microphone). A sandbox with sound has a sound device and boots Dozable's sound kernel, so it is chosen at create; its own choice (doz create --sound, New sandbox › Sound) wins over this. Later a sandbox can move between speakers and on (doz config set --sandbox NAME sandbox.audio on), from its next start. It records from the Mac's microphone only if macOS allowed it before the sandbox started (else silence); sandbox.microphone_ask says when doz asks.",
+                  flag: "doz create --sound off|speakers|on (--audio = on)", applies: .nextCreate),
+            // 667 (owner, 2026-10-27: "make it configurable (default to when first records)").
+            .init("sandbox", "microphone_ask", .choice(MicrophoneAsk.allCases.map(\.rawValue)), .string(MicrophoneAsk.firstRecording.rawValue),
+                  "When doz asks macOS about the microphone for a sandbox whose sound is on, while macOS has no answer: first_recording (when a program in it first records — that recording is silent; allow, then Shut Down and Start the sandbox) or first_start (when it starts, waiting for your answer).",
+                  applies: .nextStartOrWake),
             .init("defaults", "github", .choice(["off", "read", "push"]), .string("off"),
                   "\"Use GitHub as you\" for new sandboxes: off, read (git and gh signed in as you on GitHub, read-only) or push (also push and make changes) — the Access step's choice (doz access set --github). A sandbox can differ: doz create --github, github: in doz_project.yaml, or its permissions later (doz net allow|deny NAME github:as-you). Proxied sandboxes only.",
                   flag: "doz create --github off|read|push", applies: .nextCreate),
@@ -729,7 +741,7 @@ public struct DozableSettings: Sendable {
     /// `doz create`, `doz_project.yaml`) — the sandbox's value wins over the file's.
     public static let perSandbox: [String] = [SettingKey.clipboard, SettingKey.browserBridge, SettingKey.openFiles, SettingKey.sshAgent,
                                               SettingKey.tmux, SettingKey.agentSudo, SettingKey.ignoreMode,
-                                              SettingKey.workspaceView]
+                                              SettingKey.workspaceView, SettingKey.audio]
 
     /// What cannot be set here, by design, and why — printed in the file and the docs.
     public static let notSettable: [String] = [

@@ -11,16 +11,18 @@
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
 #   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
-#   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound   PRIVATE builds only: the audio sandboxes' kernel
+#   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound2  PRIVATE builds only: the sound sandboxes' kernel
+#   doz-<version>/libexec/doz/licences/sound-kernel/   with it: its source offer (Guest/sound-kernel/)
 #
 # PUBLIC=1 (the default — every real release from 0.31.0 on) builds the PUBLIC flavor (`-DDOZ_PUBLIC_BUILD`,
-# Sources/DozableHost/BuildFlavor.swift): no experimental sound kernel in the tarball (doz create --audio says this
-# build does not include it) and no Dozable's own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex
-# login and OpenAI API keys stay). It checks both in the packed tarball.
+# Sources/DozableHost/BuildFlavor.swift): no sound kernel in the tarball (doz create --sound says this build does not
+# include it) and no Dozable's own ChatGPT sign-in (doz account add --chatgpt says so; the Mac's Codex login and OpenAI
+# API keys stay). It checks both in the packed tarball.
 #
-# PUBLIC=0 (a private rc only) builds the full flavor. Its EXPERIMENTAL sound kernel (kata 6.18.15-186 + a
-# sound.conf) is NOT in git (16 MB): SOUND_KERNEL=<file> names it and it must have the sha256 pinned in
-# Sources/DozableKit/Audio.swift (SoundKernel.sha256) or the release stops; NO_SOUND_KERNEL=1 ships without it.
+# PUBLIC=0 (a private rc only) builds the full flavor. Its sound kernel (kata 6.18.15-186 + Guest/sound-kernel/sound.conf,
+# built reproducibly by Guest/sound-kernel/build-in-guest.sh) is NOT in git (16 MB): SOUND_KERNEL=<file> names it and it
+# must have the sha256 pinned in Sources/DozableKit/Audio.swift (SoundKernel.sha256) or the release stops;
+# NO_SOUND_KERNEL=1 ships without it.
 #
 # SIGNING. With SIGN_IDENTITY (a "Developer ID Application: …" identity, from a gitignored
 # Makefile.config — see Makefile.config.example) the executable and every Mac (Mach-O) binary in its
@@ -173,6 +175,14 @@ run ln -s ../libexec/doz/doz "$STAGE/bin/doz"
 # 611: the licences a binary distribution must carry — LICENSE, NOTICE and every dependency's licence + NOTICE, from
 # the exact checkouts this build used (it fails when a resolved package has no licence file).
 run Scripts/third-party-licences.sh "$STAGE/libexec/doz/licences"
+# 667: a release that carries the sound kernel (GPL-2.0, built by Dozable) carries its source offer beside the other
+# notices: the provenance and written offer, the recipe, the config fragment, the complete config and kata's patch.
+if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
+    run mkdir -p "$STAGE/libexec/doz/licences/sound-kernel"
+    for f in PROVENANCE.md sound.conf sound.config build-in-guest.sh extract-config.py patches; do
+        run cp -R "Guest/sound-kernel/$f" "$STAGE/libexec/doz/licences/sound-kernel/"
+    done
+fi
 
 # 3. Sign: every Mac binary in the resources first (none today — the guest binaries are Linux ELF and
 #    are left alone), then the executable with the virtualization entitlement.
@@ -236,7 +246,7 @@ if [[ -z "$DRY_RUN" ]]; then
     fi
     if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
         [[ "$(shasum -a 256 "$STAGE/libexec/doz/kernels/$SOUND_KERNEL_NAME" | cut -d' ' -f1)" == "$SOUND_KERNEL_SHA" ]] || fail "the staged sound kernel's sha256 is wrong"
-        say "  sound kernel (experimental): kernels/$SOUND_KERNEL_NAME, sha256 ${SOUND_KERNEL_SHA:0:12}…"
+        say "  sound kernel: kernels/$SOUND_KERNEL_NAME, sha256 ${SOUND_KERNEL_SHA:0:12}… (its source offer in licences/sound-kernel/)"
     fi
 fi
 
@@ -284,6 +294,11 @@ if [[ -z "$DRY_RUN" ]]; then
     [[ "$("$packed/bin/doz" --version)" == "$VERSION" ]] || fail "the doz unpacked from the tarball says $("$packed/bin/doz" --version), not $VERSION"
     [[ -L "$packed/bin/doz" ]] || fail "bin/doz in the tarball is not a link"
     for f in LICENSE NOTICE THIRD-PARTY-LICENSES.txt; do [[ -s "$packed/libexec/doz/licences/$f" ]] || fail "the tarball has no licences/$f"; done
+    if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then   # 667: the sound kernel's source offer goes with it
+        for f in PROVENANCE.md sound.conf sound.config build-in-guest.sh; do
+            [[ -s "$packed/libexec/doz/licences/sound-kernel/$f" ]] || fail "the tarball carries the sound kernel but not licences/sound-kernel/$f (its source offer)"
+        done
+    fi
     rm -rf "$unpack"
     say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION"
     (cd "$OUT" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
