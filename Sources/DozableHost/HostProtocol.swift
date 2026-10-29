@@ -268,6 +268,10 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// 618: what the person typed, resolved (`opencode`, `opencode@1`, `opencode@2.0.28`) — recorded with the release it
     /// made (`SandboxConfig.agentRef`); nil: the image named the agent.
     public var agentRef: String?
+    /// 669 (659 §4): which of these values its project file (`doz_project.yaml`) gave — per-sandbox setting keys
+    /// (`sandbox.clipboard`, `approvals`) and the when-made ones (`cpus`, `memory_mib`, `network`, `version`) — so the
+    /// sandbox records `from: project` for them (`SandboxConfig.settingsFrom`, `recipeSettings`). nil: none.
+    public var fromProject: [String]?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
@@ -420,6 +424,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var setting: String?
     public var settingValue: TOMLValue?
     public var clearSetting: Bool?
+    /// 669: `project` when the value is its project file's (`doz up` syncing `doz_project.yaml`); nil: the sandbox's own.
+    public var settingFrom: String?
     /// 599e `access`: confirm live (true), and which credentials (`claude`, `github`, `ssh`; nil: all).
     public var check: Bool?
     public var items: [String]?

@@ -1048,7 +1048,14 @@ public actor HostCore {
         cfg.dockerfile = dockerfile?.dockerfile
             ?? cfg.imageChoice.flatMap { $0.isDockerfile ? Dockerfiles.record($0.base, store)?.dockerfile : nil }
         // 599: its own values of the per-sandbox settings (the clipboard and browser bridges, tmux).
-        if let s = o.settings, !s.isEmpty { cfg.settings = try Self.checkedSandboxSettings(s) }
+        // 669: `approvals` too; each recorded as the sandbox's own, or its project's (`from: project`).
+        if let s = o.settings, !s.isEmpty {
+            cfg.settings = try Self.checkedSandboxSettings(s, image: spec.imageSpec?.name)
+            let project = Set(o.fromProject ?? []).intersection(s.keys)
+            if !project.isEmpty { cfg.settingsFrom = Dictionary(uniqueKeysWithValues: project.map { ($0, "project") }) }
+        }
+        // 669: its recipe's when-made values (version, memory, network), with where each came from.
+        cfg.recipeSettings = Self.recordedRecipeSettings(o, spec: spec, settings: .load())
         // 617 (D6): custom keys beside the account — each a custom key account, each of its hosts allowed on purpose.
         if let keys = o.keys, !keys.isEmpty {
             guard let policy = spec.network.policy else { throw HostError(.invalid, "--key needs a proxied network: a custom key lives in the host's proxy") }
@@ -1600,14 +1607,18 @@ public actor HostCore {
     /// 591: the settings' `claude.permissions` reaches the guest's claude launcher as
     /// `DOZ_CLAUDE_PERMISSIONS` — only in a claude-code sandbox, only when it is not the default
     /// (`skip`), and never over the caller's own `-e DOZ_CLAUDE_PERMISSIONS=…`.
-    static func withClaudePermissions(_ env: [String: String], imageSpec: String?,
+    static func withClaudePermissions(_ env: [String: String], imageSpec: String?, own: TOMLValue? = nil,
                                       settings: @autoclosure () -> DozableSettings = .load()) -> [String: String] {
         // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way. 617: every
         // agent whose recipe has a permissions setting — its launcher's DOZ_<SHORT>_PERMISSIONS (gemini.permissions →
         // DOZ_GEMINI_PERMISSIONS); pi has none.
-        // 669: `recipes.V.P.approvals` (its 0.37 name `claude.permissions`).
+        // 669: `recipes.V.P.approvals` (its 0.37 name `claude.permissions`), and above it the sandbox's own `approvals`
+        // (its project's, synced by doz up) — the caller's `-e` (a flag, for one session) above both.
         guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = SettingKey.approvals(r.id),
-              env[r.permissionsVariable] == nil, let mode = settings().string(key), mode != "skip" else { return env }
+              env[r.permissionsVariable] == nil else { return env }
+        let mode: String?
+        if case .string(let s)? = own { mode = s } else { mode = settings().string(key) }
+        guard let mode, mode != "skip" else { return env }
         var e = env
         e[r.permissionsVariable] = mode
         return e
@@ -1831,7 +1842,7 @@ public actor HostCore {
         do {
             let sink = Self.sandboxValue(m.config, SettingKey.clipboard).plain != "off"
             try await m.sandbox.openSession(session, argv: argv,
-                                            environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                            environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]),
                                                                                 on: sink), m)),
                                             workingDirectory: r.workdir ?? workdir,
                                             user: r.user, size: size)
@@ -1872,7 +1883,7 @@ public actor HostCore {
         let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
-        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name), m),
+        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
                                    workdir: r.workdir, user: r.user)
         let t0 = ContinuousClock.now
         let res: ExecResult

@@ -884,6 +884,33 @@ public struct DozableSettings: Sendable {
                                               SettingKey.tmux, SettingKey.agentSudo, SettingKey.ignoreMode,
                                               SettingKey.workspaceView, SettingKey.audio]
 
+    /// 669 (659 Q7): every key a sandbox (and its project) can have its own value of — Dozable's own per-sandbox
+    /// settings, and `approvals`: its recipe's (`recipes.V.P.approvals`), kept under the one word because a sandbox's
+    /// recipe never changes.
+    public static var sandboxKeys: [String] { perSandbox + [SettingKey.sandboxApprovals] }
+
+    /// 669: a per-sandbox key's definition — `approvals` is the recipe's of `image` (an image whose agent has no
+    /// prompts to skip: nil); with no image, any recipe's (they are one type: skip | ask), to check a value.
+    public static func sandboxDefinition(_ key: String, image: String? = nil) -> SettingDefinition? {
+        guard key == SettingKey.sandboxApprovals else { return perSandbox.contains(key) ? definition(key) : nil }
+        guard let image else { return definition(SettingKey.claudePermissions) }
+        return approvalsKey(image: image).flatMap(definition)
+    }
+
+    /// 669: the approvals setting of an image's agent (`recipes.anthropic.claude-code.approvals`); nil: none.
+    public static func approvalsKey(image: String?) -> String? {
+        guard let image, let r = (ImageChoice.parse(image)?.agent ?? AgentKind(rawValue: image))?.recipe else { return nil }
+        return SettingKey.approvals(r.id)
+    }
+
+    /// 669: a per-sandbox key's value for a sandbox of `image`: flag (a session's own `-e`), its own (`sandbox`, or
+    /// `project` when doz up synced it), then this Mac's, then the default — one `resolve`.
+    public func resolveForSandbox(_ key: String, image: String?, own: TOMLValue?, from: String?) -> ResolvedSetting? {
+        let k = key == SettingKey.sandboxApprovals ? Self.approvalsKey(image: image) : key
+        guard let k, Self.definition(k) != nil else { return nil }
+        return from == "project" ? resolve(k, project: own) : resolve(k, sandbox: own)
+    }
+
     /// What cannot be set here, by design, and why — printed in the file and the docs.
     public static let notSettable: [String] = [
         "the web UI's limits: session lifetime (14 days unused), link lifetime (5 min), request body, connection and stream caps",

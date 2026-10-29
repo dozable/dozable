@@ -206,12 +206,13 @@ extension DozableProject {
                 p.keys = names
             default:
                 // 599: a per-sandbox setting, checked against the setting's own type.
-                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozableSettings.definition(sk.setting) {
+                // 669: `approvals` (skip | ask) is checked as any recipe's approvals setting.
+                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozableSettings.sandboxDefinition(sk.setting) {
                     let text: String
                     // YAML reads `off` as a boolean: only a boolean setting takes it as one (`clipboard: off` is the choice).
                     if d.type == .bool, let b = v.bool { text = b ? "true" : "false" } else { text = try scalarString(v, key) }
                     do { p.settings[sk.setting] = try d.parse(text) } catch let e as SettingsError {
-                        throw bad(v, "\(key): \(e.message.replacingOccurrences(of: sk.setting, with: key))")
+                        throw bad(v, "\(key): \(e.message.replacingOccurrences(of: d.key, with: key))")
                     }
                 }
             }

@@ -87,6 +87,14 @@ public struct DozableStore: Sendable, Equatable {
     }
 }
 
+/// 669: one value a sandbox recorded when it was made, and where it came from (`flag`, `project`, `mac`, `recipe`,
+/// `default`).
+public struct RecordedSetting: Codable, Equatable, Sendable {
+    public var value: TOMLValue
+    public var from: String
+    public init(value: TOMLValue, from: String) { self.value = value; self.from = from }
+}
+
 /// What `doz create` records for a sandbox (`<sandbox>/doz.json`). The spec is the
 /// library's; the rest is the CLI's own: which image it was made from, its network preset, where
 /// its credentials come from (never the secret), and what happened to it.
@@ -125,6 +133,13 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// clipboard and browser bridges, tmux) — a key absent follows the setting. (`sandbox.agent_sudo`
     /// keeps its own field above.)
     public var settings: [String: TOMLValue]?
+    /// 669 (659 §4, §6): where each of `settings` came from — `project` (its doz_project.yaml: at create, and synced by
+    /// every doz up); a key absent here is the sandbox's own (`sandbox`), as every value of a doz.json before 669 reads.
+    /// A sibling of `settings` rather than inside it, so an older doz still reads this file (its `settings` is flat).
+    public var settingsFrom: [String: String]?
+    /// 669: the values of its recipe's settings that are fixed when it is made (`version`, `memory_mib`, `network`),
+    /// as resolved at create, each with the layer that gave it. Absent before 669 (shown "recorded").
+    public var recipeSettings: [String: RecordedSetting]?
     /// 617 (D6): custom key accounts attached beside the account (`--key NAME`), each swapped only on its own hosts,
     /// only while the policy allows them. Absent for every sandbox before 617.
     public var extraKeys: [String]?

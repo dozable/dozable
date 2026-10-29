@@ -296,6 +296,17 @@ func cliOnboardingSuite(binary: String) async {
     check(c.run(["exec", "cc", "--", "claude", "--version"]).out.contains(recorded ?? "?"), "claude --version in the sandbox: \(recorded ?? "?")")
     check(c.run(["exec", "cc", "--", "sh", "-c", "echo $DISABLE_AUTOUPDATER$DISABLE_UPDATES"]).out == "11\n",
           "Claude Code's updater is off in the sandbox (DISABLE_AUTOUPDATER, DISABLE_UPDATES)")
+    // 669 (659 item 7): approvals per sandbox reach the launcher's variable at the next session; -e still wins.
+    print("cli: approvals per sandbox — the launcher's DOZ_CLAUDE_PERMISSIONS")
+    let echoPerms = ["--", "sh", "-c", "echo \"[$DOZ_CLAUDE_PERMISSIONS]\""]
+    check(c.run(["exec", "cc"] + echoPerms).out == "[]\n", "the recipe's default (skip): nothing set")
+    r = c.run(["config", "set", "--sandbox", "cc", "approvals", "ask"])
+    check(r.code == 0 && r.out.contains("approvals = ask for cc (its own)"), "config set --sandbox cc approvals ask: \(r.out)\(r.err)")
+    check(c.run(["exec", "cc"] + echoPerms).out == "[ask]\n", "the sandbox's own value reaches the session")
+    check(c.run(["exec", "cc", "-e", "DOZ_CLAUDE_PERMISSIONS=skip"] + echoPerms).out == "[skip]\n", "-e on exec wins for that one run")
+    check(c.run(["config", "show", "--sandbox", "cc"]).out.contains("approvals"), "config show --sandbox lists it")
+    r = c.run(["config", "unset", "--sandbox", "cc", "approvals"])
+    check(r.code == 0 && c.run(["exec", "cc"] + echoPerms).out == "[]\n", "unset: it follows this Mac again")
     c.run(["rm", "cc", "--yes"])
 
     // 594 (owner: "there are some legit requests that should be allowed"): the agent preset holds what
