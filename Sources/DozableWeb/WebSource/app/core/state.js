@@ -22,6 +22,9 @@ export const state = {
   signedOut: false,
   metricsFilter: { image: '', days: '', steps: false },
   settings: null,          // 591: {report, byKey} from GET /api/v1/settings
+  recipe: null,            // 669: #/settings/recipes[/V/P] — '' the Recipes section, 'V/P' one recipe's page; null otherwise
+  recipeQuery: '',         // 669: Settings › Recipes' search of the catalogue
+  recipeBrowse: false,     // 669: Browse — every recipe of the catalogue listed
   tr: null,                // 617: the Quick try modal's state (views/try.js)
   tryAgent: null,          // 617: the agent of #/try/AGENT
   preps: [],               // 594: the host's image preparations (SSE `preparations`, GET /api/v1/preparations)

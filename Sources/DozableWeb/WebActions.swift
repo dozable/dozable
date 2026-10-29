@@ -84,6 +84,9 @@ public enum WebAction: Equatable, Sendable {
     /// Owner, 2026-10-23: Rename… (the sidebar's ⋯ on a sandbox's line, the sandbox page's ⋯) — the CLI's `doz rename`. Nothing
     /// is lost, so no `confirm`; the host refuses unless the sandbox is shut down.
     case rename(name: String, newName: String)
+    /// 669 (659 item 13): one per-sandbox setting of a sandbox — its own value, or (nil) "Follow the Mac": it follows
+    /// the layers below again (`doz config set|unset --sandbox NAME KEY`).
+    case sandboxSetting(name: String, key: String, value: String?)
 
     public static let lifecycleOps: [String: HostOp] = [
         "start": .start, "wake": .wake, "pause": .pause, "resume": .resume, "sleep": .sleep, "hibernate": .hibernate,
@@ -100,7 +103,7 @@ public enum WebAction: Equatable, Sendable {
              .pointFork(let n, _, _), .pointRemove(let n, _), .pointSaveImage(let n, _, _, _), .netPolicy(let n, _), .keyPolicy(let n, _),
              .keyRemove(let n, _), .accountUse(let n, _), .templateCreate(let n, _, _, _), .duplicate(let n, _, _, _), .toolsApply(let n),
              .sessionEnd(let n, _), .sessionRestart(let n, _, _), .filesMkdir(let n, _), .filesNew(let n, _), .filesMove(let n, _, _),
-             .filesRemove(let n, _, _), .rename(let n, _):
+             .filesRemove(let n, _, _), .rename(let n, _), .sandboxSetting(let n, _, _):
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
@@ -148,6 +151,7 @@ public enum WebAction: Equatable, Sendable {
         case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
         case .filesRemove(let n, let p, _): return "files-rm \(n) \(p)"
         case .rename(let n, let new): return "rename \(n) to \(new)"
+        case .sandboxSetting(let n, let k, let v): return v.map { "\(k) = \($0) for \(n)" } ?? "\(n) follows the Mac's \(k)"
         default: break
         }
         let r = hostRequest
@@ -320,6 +324,11 @@ public enum WebAction: Equatable, Sendable {
             var r = HostRequest(.rename, name: n)
             r.newName = new
             return r
+        case .sandboxSetting(let n, let k, let v):
+            var r = HostRequest(.sandboxSettings, name: n)
+            r.setting = k
+            if let v { r.settingValue = .string(v) } else { r.clearSetting = true }
+            return r
         }
     }
 
@@ -372,6 +381,7 @@ public enum WebAction: Equatable, Sendable {
             "files-move": ["sandbox", "path", "to"],
             "files-rm": ["sandbox", "path", "recursive", "confirm"],
             "rename": ["sandbox", "newName"],
+            "sandbox-setting": ["sandbox", "key", "value", "clear"],
         ]
         for (verb, op) in lifecycleOps { f[verb] = [.reset, .rm].contains(op) ? ["sandbox", "confirm"] : ["sandbox"] }
         return f
@@ -554,6 +564,15 @@ public enum WebAction: Equatable, Sendable {
             let name = try f.sandbox("sandbox"), new = try f.sandbox("newName")
             guard name != new else { throw Invalid("newName: a different name") }
             a = .rename(name: name, newName: new)
+        case "sandbox-setting":
+            // 669: a per-sandbox key (closed list) and a plain word — the host checks the value against the setting's type.
+            guard let key = try f.string("key", max: 64), DozableSettings.sandboxKeys.contains(key) else {
+                throw Invalid("key: a per-sandbox setting (\(DozableSettings.sandboxKeys.joined(separator: ", ")))")
+            }
+            let value = try f.matching("value", "^[a-z0-9_-]{1,32}$", "a setting's word, 1–32 of a-z 0-9 _ -")
+            let clear = try f.flag("clear") == true
+            guard (value != nil) != clear else { throw Invalid("value, or clear: true — one of them") }
+            a = .sandboxSetting(name: try f.sandbox("sandbox"), key: key, value: value)
         default:
             guard let op = lifecycleOps[verb] else { throw Invalid("unknown action") }
             a = .lifecycle(op, name: try f.sandbox("sandbox"))

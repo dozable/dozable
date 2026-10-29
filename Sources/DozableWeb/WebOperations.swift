@@ -445,6 +445,9 @@ final class WebOperations: @unchecked Sendable {
                 ?? "saved the template \(image)"
         case .rename(let name, let new):
             return "renamed \(name) to \((try? v.decode(SandboxInfo.self))?.name ?? new)"
+        case .sandboxSetting(let name, let key, let value):
+            // 669: the host's own words (`changed`), else what was asked.
+            return (try? v.decode(SandboxSettingsReport.self))?.changed ?? (value.map { "\(key) = \($0) for \(name)" } ?? "\(key) of \(name) follows the setting again")
         case .duplicate(let name, let new, _, let o):
             return "duplicated \(name) as \(new) (state disk \(o.copyState == true ? "copied" : "fresh")) — start it to boot"
         case .imageBake(let i):

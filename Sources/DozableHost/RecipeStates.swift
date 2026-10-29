@@ -72,7 +72,7 @@ public enum RecipeStates {
             let sb = sandboxes[r.id] ?? [], im = images[r.id] ?? []
             let state = !sb.isEmpty ? RecipeStateRow.inUse : (!im.isEmpty || !mac.isEmpty) ? RecipeStateRow.installed : RecipeStateRow.available
             return RecipeStateRow(id: r.id, qualified: r.qualifiedID, title: r.title, subject: r.subjectWords,
-                                  source: r.origin.label ?? "Dozable", state: state, notInstalled: im.isEmpty && !mac.isEmpty,
+                                  source: r.origin.label ?? "Dozable", state: state, notInstalled: sb.isEmpty && im.isEmpty && !mac.isEmpty,
                                   sandboxes: sb.sorted(), images: im, imageBytes: im.reduce(0) { $0 + $1.allocatedBytes },
                                   isDefault: r.id == defaultImage, macValues: mac, section: r.settingsSection, published: r.isPublished)
         }
@@ -81,6 +81,24 @@ public enum RecipeStates {
     /// The recipe whose agent a sandbox runs (a template follows the image it was saved from); nil: none (the lab, a base).
     public static func agentID(_ cfg: SandboxConfig) -> String? {
         (cfg.spec.imageSpec.flatMap { ImageChoice.parse($0.name) } ?? ImageChoice.parse(cfg.image))?.agent.recipe?.id
+    }
+
+    /// 669 (659 item 16): what uninstalling a recipe would do — its baked images as Resources names them (`image:NAME`,
+    /// deleted through the same `resources-rm` path), or why it is refused: a sandbox runs it (named).
+    public static func uninstallPlan(_ row: RecipeStateRow) -> (refusal: String?, ids: [String]) {
+        if !row.sandboxes.isEmpty {
+            return ("\(row.qualified) is in use by \(row.sandboxes.joined(separator: ", ")) — remove \(row.sandboxes.count == 1 ? "that sandbox" : "those sandboxes") first (doz rm NAME)", [])
+        }
+        return (nil, row.images.map { "image:\($0.name)" })
+    }
+
+    /// 669: this Mac's values of a recipe, removed from doz.toml (`--forget-settings`) — the file's other values kept.
+    @discardableResult
+    public static func forgetSettings(_ id: String, settings: DozableSettings) throws -> DozableSettings {
+        var values = settings.fileValues
+        for d in DozableSettings.recipeDefinitions(id) { values[d.key] = nil }
+        guard values != settings.fileValues else { return settings }
+        return try settings.writingAll(values)
     }
 
     /// "Recipes in use: Claude Code, Codex · installed: pi" — `doz config show`'s line.

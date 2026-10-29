@@ -882,6 +882,8 @@ public final class DozableWebServer: @unchecked Sendable {
             throw WebRejection.upgradeRequired            // answered in respond(); never dispatched
         case .settings:
             return json(settings.report())
+        case .recipes:
+            return json(settings.recipes(store: DozableStore(root: URL(fileURLWithPath: data.storePath))))
         case .settingsChange:
             try Self.requireJSONBody(md)
             return json(try settings.apply(try WebSettingChange.decode(body)))

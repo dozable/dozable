@@ -64,7 +64,27 @@ final class WebActionTests: XCTestCase {
         "files-rm": #"{"action":"files-rm","sandbox":"web","path":"/workspace/old","recursive":true,"confirm":"/workspace/old"}"#,
         // Owner, 2026-10-23: Rename… (the sidebar's ⋯, the page's ⋯).
         "rename": #"{"action":"rename","sandbox":"web","newName":"website"}"#,
+        // 669: a sandbox's own value of a per-sandbox setting, or "Follow the Mac" (clear).
+        "sandbox-setting": #"{"action":"sandbox-setting","sandbox":"web","key":"approvals","value":"ask"}"#,
     ]
+
+    /// 669: `sandbox-setting` — a per-sandbox key (closed list), a plain word or clear, nothing else; one sandbox-settings op.
+    func testSandboxSetting() throws {
+        let a = try decode(Self.samples["sandbox-setting"]!)
+        XCTAssertEqual(a, .sandboxSetting(name: "web", key: "approvals", value: "ask"))
+        XCTAssertEqual(a.hostRequest.op, .sandboxSettings)
+        XCTAssertEqual(a.hostRequest.setting, "approvals")
+        XCTAssertEqual(a.hostRequest.settingValue, .string("ask"))
+        XCTAssertEqual(a.sandbox, "web")
+        let clear = try decode(#"{"action":"sandbox-setting","sandbox":"web","key":"sandbox.clipboard","clear":true}"#)
+        XCTAssertEqual(clear.hostRequest.clearSetting, true)
+        XCTAssertNil(clear.hostRequest.settingValue)
+        invalid(#"{"action":"sandbox-setting","sandbox":"web","key":"ui.theme","value":"dark"}"#)              // not per sandbox
+        invalid(#"{"action":"sandbox-setting","sandbox":"web","key":"approvals"}"#)                          // a value or clear
+        invalid(#"{"action":"sandbox-setting","sandbox":"web","key":"approvals","value":"ask","clear":true}"#)
+        invalid(#"{"action":"sandbox-setting","sandbox":"web","key":"approvals","value":"a b"}"#)
+        invalid(#"{"action":"sandbox-setting","sandbox":"web","key":"approvals","value":"ask","confirm":"web"}"#)
+    }
 
     /// Owner, 2026-10-23: `rename` — two sandbox names by the rule, different, nothing else; no confirm (nothing is lost).
     func testRename() throws {
@@ -118,6 +138,8 @@ final class WebActionTests: XCTestCase {
         .filesMkdir, .filesNew, .filesMove, .filesRm,
         // Owner, 2026-10-23: a shut-down sandbox's new name (nothing is lost).
         .rename,
+        // 669: a sandbox's own value of a per-sandbox setting, or Follow the Mac (doz config set|unset --sandbox).
+        .sandboxSettings,
         .create, .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm, .openSession,
         .pointTake, .pointRevert, .pointFork, .pointRm, .pointSaveImage, .imageBake, .imageRm, .netPolicy,
         .keyPolicy, .keyRm, .accountUse, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountRemove,

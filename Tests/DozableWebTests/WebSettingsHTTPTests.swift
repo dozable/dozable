@@ -79,6 +79,29 @@ final class WebSettingsHTTPTests: XCTestCase {
 
     func row(_ r: SettingsReport, _ key: String) throws -> SettingRow { try XCTUnwrap(r.settings.first { $0.key == key }) }
 
+    /// 669 (659 item 12): Settings › Recipes — every recipe with its state and its settings (each with its source); a value
+    /// set on this Mac moves an uninstalled recipe into the Installed group, tagged "not installed".
+    func testTheRecipesRouteListsEveryRecipeWithItsStateAndSettings() throws {
+        XCTAssertEqual(try request("/api/v1/recipes").status, 401)
+        let (cookie, csrf) = try signIn()
+        var r = try request("/api/v1/recipes", ["Cookie": cookie])
+        XCTAssertEqual(r.status, 200, r.text)
+        var list = try JSONDecoder().decode(WebRecipes.self, from: r.body)
+        XCTAssertEqual(list.recipes.count, AgentRecipes.all.count)
+        let cc = try XCTUnwrap(list.recipes.first { $0.qualified == "anthropic/claude-code" })
+        XCTAssertEqual(cc.state, "available", "an empty store: nothing installed or in use")
+        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network"])
+        XCTAssertTrue(cc.settings.allSatisfy { $0.source == .recipe })
+        XCTAssertEqual(list.recipes.first { $0.id == "pi" }?.subject, "coding harness")
+        XCTAssertEqual(try change(#"{"key":"recipes.xai.grok.approvals","value":"ask"}"#, cookie, csrf).status, 200, "an unpublished recipe's key is still taken")
+        r = try request("/api/v1/recipes", ["Cookie": cookie])
+        list = try JSONDecoder().decode(WebRecipes.self, from: r.body)
+        let grok = try XCTUnwrap(list.recipes.first { $0.id == "grok" })
+        XCTAssertEqual(grok.state, "installed")
+        XCTAssertTrue(grok.notInstalled)
+        XCTAssertEqual(grok.settings.first { $0.name == "approvals" }?.source, .mac)
+    }
+
     // MARK: -
 
     func testTheReportListsEverySettingWithItsSourceAndNeedsASession() throws {

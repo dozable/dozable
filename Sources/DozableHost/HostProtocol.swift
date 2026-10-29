@@ -907,6 +907,9 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     public var guide: SandboxGuide? = nil
     /// 635: the default session's program — what a new agent session (claude-2, …) runs.
     public var defaultArgv: [String]? = nil
+    /// 669 (659 item 13): its settings — what it overrides (its own, its project's), what it follows, and its recipe's
+    /// values as recorded when it was made (`doz config show --sandbox NAME`).
+    public var settings: SandboxSettingsReport? = nil
 }
 
 /// One guest session (`deckhold ls`).

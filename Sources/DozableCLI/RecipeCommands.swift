@@ -19,7 +19,7 @@ struct RecipeCommand: AsyncParsableCommand {
         next host start (doz host restart).
         """,
         subcommands: [RecipeList.self, RecipeNew.self, RecipeAdd.self, RecipeShow.self, RecipeCheck.self, RecipeTrust.self, RecipeRemove.self,
-                      RecipeSourceCommand.self],
+                      RecipeUninstall.self, RecipeSourceCommand.self],
         defaultSubcommand: RecipeList.self)
 }
 
@@ -151,34 +151,56 @@ struct RecipeRow: Codable, Equatable {
     /// `mine` | `community`.
     var origin: String
     var source: String?
-    /// `in use` | `waits for the next host start` | `refused` | `removed — kept for its sandboxes`.
+    /// `in use` | `waits for the next host start` | `refused` | `removed — kept for its sandboxes` (whether this doz uses the
+    /// recipe file; the STATUS column since 669).
     var state: String
     var why: String?
     /// `full` | `static` | nil — a pass for the bytes in use.
     var checked: String?
     var changedSinceCheck: Bool?
     var sha256: String?
+    /// 669: its state on this Mac — `available`, `installed` (a baked image) or `in use` (a sandbox runs it).
+    var installState: String? = nil
 }
 
 struct RecipeList: AsyncParsableCommand {
-    static let configuration = CommandConfiguration(commandName: "ls", abstract: "Your recipes and every community source's: where from, whether in use, whether checked.")
+    static let configuration = CommandConfiguration(commandName: "ls",
+        abstract: "Your recipes and every community source's: where from, their state on this Mac, whether the file is used, whether checked (--installed: every recipe installed or in use).")
     @OptionGroup var g: GlobalOptions
     @Flag(name: .long, help: "Also the removed ones kept for the sandboxes made from them.") var all = false
+    @Flag(name: .long, help: "Every recipe that is installed (a baked image of it) or in use (a sandbox runs it) — Dozable's included.") var installed = false
 
     func run() async throws {
         let p = try recipePaths(g)
-        let rows = Self.rows(p, all: all)
-        if g.json { Out.json(rows); return }
-        if rows.isEmpty {
-            Out.stdout("No recipes of yours or from a community catalogue. doz recipe new ID makes one; doz recipe source add URL --key KEY adds a catalogue.\n")
+        // 669 (659 item 16): each recipe's state on this Mac.
+        let states = Dictionary(RecipeStates.all(store: g.dozableStore).map { ($0.id, $0) }) { a, _ in a }
+        if installed {
+            let rows = states.values.filter { $0.state != RecipeStateRow.available }
+                .sorted { ($0.state == RecipeStateRow.inUse ? 0 : 1, $0.id) < ($1.state == RecipeStateRow.inUse ? 0 : 1, $1.id) }
+            if g.json { Out.json(rows); return }
+            if rows.isEmpty { Out.stdout("No recipe is installed or in use on this Mac. doz try AGENT installs one.\n"); return }
+            var table = [["ID", "FROM", "STATE", "SANDBOXES", "IMAGES"]]
+            for r in rows {
+                table.append([r.qualified + (r.isDefault ? " ★" : ""), r.source, r.state + (r.notInstalled ? " (not installed: your settings)" : ""),
+                              r.sandboxes.isEmpty ? "—" : r.sandboxes.joined(separator: ", "),
+                              r.images.isEmpty ? "—" : "\(r.images.count) · \(DozableImages.formatBytes(r.imageBytes))"])
+            }
+            Out.stdout(Out.table(table))
             return
         }
-        var table = [["ID", "FROM", "STATE", "CHECKED"]]
+        var rows = Self.rows(p, all: all)
+        for i in rows.indices { rows[i].installState = states[rows[i].id]?.state ?? RecipeStateRow.available }
+        if g.json { Out.json(rows); return }
+        if rows.isEmpty {
+            Out.stdout("No recipes of yours or from a community catalogue. doz recipe new ID makes one; doz recipe source add URL --key KEY adds a catalogue. doz recipe ls --installed lists every recipe installed on this Mac.\n")
+            return
+        }
+        var table = [["ID", "FROM", "STATE", "STATUS", "CHECKED"]]
         for r in rows {
             let from = r.origin == "mine" ? "yours" : "community · \(r.source ?? "?")"
-            let state = r.state + (r.why.map { ": \($0)" } ?? "")
+            let status = r.state + (r.why.map { ": \($0)" } ?? "")
             let checked = r.checked.map { $0 + (r.changedSinceCheck == true ? " (changed since)" : "") } ?? "—"
-            table.append([r.id, from, state, checked])
+            table.append([r.id, from, r.installState ?? RecipeStateRow.available, status, checked])
         }
         Out.stdout(Out.table(table))
         if RecipeExtras.pending(p) { Out.stdout("A change waits for the next host start — doz host restart.\n") }
@@ -238,6 +260,49 @@ struct RecipeList: AsyncParsableCommand {
             }
         }
         return out
+    }
+}
+
+// MARK: - 669: doz recipe uninstall
+
+/// 669 (659 item 16): a recipe's baked images removed — through Resources' own path (`resources-rm`, the plan shown
+/// first) — refused while a sandbox runs it; its settings on this Mac kept unless `--forget-settings`. The recipe stays
+/// in its catalogue (available), listed as "not installed" while it carries this Mac's values.
+struct RecipeUninstall: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "uninstall",
+        abstract: "Remove a recipe's baked images from this Mac (refused while a sandbox runs it); its settings are kept unless --forget-settings.")
+    @OptionGroup var g: GlobalOptions
+    @Argument(help: "The recipe: its id (claude-code), a major (opencode@2) or its full name (anthropic/claude-code).") var id: String
+    @Flag(name: .long, help: "Also remove its settings on this Mac (its [recipes.VENDOR.PRODUCT] block in doz.toml).") var forgetSettings = false
+    @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
+    @Flag(name: .long, help: "Say what would be removed; remove nothing.") var dryRun = false
+
+    func run() async throws {
+        let r = try settingsRecipe(id, g)
+        guard let row = RecipeStates.all(store: g.dozableStore).first(where: { $0.id == r.id }) else {
+            throw fail(HostError(.notFound, "no recipe \(id)"), g)
+        }
+        let (refusal, ids) = RecipeStates.uninstallPlan(row)
+        if let refusal { throw fail(HostError(.invalidPhase, refusal), g) }
+        let settings = DozableSettings.load()
+        let held = DozableSettings.recipeDefinitions(r.id).filter { settings.fileValues[$0.key] != nil }
+        if ids.isEmpty, !(forgetSettings && !held.isEmpty) {
+            let why = held.isEmpty ? "" : " — its settings on this Mac are kept (--forget-settings removes them)"
+            if g.json { Out.json(row) } else { Out.stdout("\(r.qualifiedID) has no baked image on this Mac: nothing to uninstall\(why)\n") }
+            return
+        }
+        if !ids.isEmpty { try await runResourcesPlan(ids: ids, clean: false, dryRun: dryRun, yes: yes, g) }
+        if forgetSettings, !held.isEmpty {
+            if dryRun {
+                if !g.json { Out.stdout("would remove its settings on this Mac: \(held.map(\.key).joined(separator: ", "))\n") }
+            } else {
+                if ids.isEmpty { try confirm("Remove \(r.qualifiedID)'s settings on this Mac (\(held.count))?", yes: yes, g) }
+                do { try RecipeStates.forgetSettings(r.id, settings: settings) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
+                if !g.json { Out.stdout("removed its settings on this Mac: \(held.map(\.key).joined(separator: ", "))\n") }
+            }
+        } else if !held.isEmpty, !g.json, !dryRun {
+            Out.stdout("kept its settings on this Mac (\(held.map(\.name).joined(separator: ", "))): it is listed as not installed — --forget-settings removes them\n")
+        }
     }
 }
 
