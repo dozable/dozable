@@ -94,7 +94,7 @@ sidebar as a drawer, a key button while a key needs you, and **+** for Quick add
 | **Activity** | What the host is doing, live. |
 | **Onboarding** | The setup wizard, again (in a window over the page, as **New sandbox** is). |
 | **Doctor** | `doz doctor`'s checks, with **Run onboarding again**. |
-| **Settings** | Every setting, its value, default and description, and where its value came from; change it in place. **Filter** finds a setting by its key (`ui.theme`), its name or a word of its description; the strip under it jumps to a section, **Access** first. Folders on your Mac are never typed here: the projects folder has **Choose…**, your Mac's own folder picker; the others are set with `doz config set`. |
+| **Settings** | Every setting, its value, default and description, and where its value came from (a badge: recipe · default · Mac · project · sandbox · env · flag); change it in place. **Recipes** comes first: the recipes in use (a sandbox runs the agent) and installed (a baked image of it is here), each with its sandboxes, baked images and the values you set; search the catalogue for the rest. A recipe's page has its settings, its baked images, its sandboxes and **Uninstall**. **Filter** finds a setting by its key (`ui.theme`), its name or a word of its description, and a recipe by its name; the strip under it jumps to a section. Folders on your Mac are never typed here: the projects folder has **Choose…**, your Mac's own folder picker; the others are set with `doz config set`. A sandbox's own values are on its page, **Config › Settings** (what it overrides, with **Follow the Mac**). |
 
 ### A sandbox's page
 

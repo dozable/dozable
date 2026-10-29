@@ -108,7 +108,7 @@
                 "min": { "type": "integer" },
                 "max": { "type": "integer" },
                 "default": { "type": ["boolean", "integer", "string"] },
-                "summary": { "type": "string", "minLength": 1, "maxLength": 600 },
+                "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
                 "applies": { "enum": ["now", "next-session", "next-create"] }
               }
             } }

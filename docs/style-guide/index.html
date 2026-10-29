@@ -200,11 +200,43 @@
       <span>My OpenCode<span class="src-pill is-mine" data-recipe-source="mine"><i data-i="user-round"></i>Yours</span></span>
       <span>Com Tool<span class="src-pill is-community" data-recipe-source="community"><i data-i="link"></i>Community · example</span></span>
     </div>
+    <div class="sg-row" title="Where a setting's value comes from — sourceTag(source), components/setting-source.js (the CLI's SOURCE column says the same words)">
+      <span class="tag src src-recipe">recipe</span><span class="tag src src-default">default</span><span class="tag src src-mac">Mac</span><span class="tag src src-project">project</span><span class="tag src src-sandbox">sandbox</span><span class="tag src src-env">env DOZ_STORE</span><span class="tag src src-flag">flag</span>
+    </div>
     <div class="sg-row">
       <span class="ag-chip ag-working"><span class="ag-mark"></span>working</span>
       <span class="ag-chip ag-blocked"><span class="ag-mark"></span>needs you</span>
       <span class="ag-chip ag-done"><span class="ag-mark"></span>done</span>
       <span class="ag-chip ag-error"><span class="ag-mark"></span>error</span>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Settings › Recipes — a recipe’s row, a sandbox’s overrides</h2>
+  <p>A recipe’s row (views/settings.js <code>recipeRow</code>): its mark, its name and subject, its full name, its sandboxes and baked images, ★ for the default image’s agent, whose recipe, and the values set on this Mac as chips with their badge. A sandbox’s Settings block (views/sandbox.js <code>settingsBlock</code>): its own and its project’s values first, the Mac’s beside each.</p>
+  <div class="pair"><div class="scheme">
+    <div class="panel recipes-panel">
+      <div class="recipe-group">In use · 1</div>
+      <div class="recipe-list">
+        <a class="recipe-row" href="#"><span data-mark="claude-code" class="mark recipe-mark"></span>
+          <span class="recipe-main"><span class="recipe-name">Claude Code<span class="muted"> · agent</span></span><span class="recipe-q">anthropic/claude-code</span>
+            <span class="recipe-meta">2 sandboxes · docs, work · 1 baked image · 1.2 GiB <span class="tag info">★ default</span><span class="tag outline">Dozable</span></span>
+            <span class="recipe-chips"><span class="chip-set"><code>version</code> 2.1.290 <span class="tag src src-mac">Mac</span></span></span></span>
+          <span class="recipe-count muted">1 set on this Mac</span><i data-i="chevron-right"></i></a>
+      </div>
+      <div class="recipe-group">Installed · 1</div>
+      <div class="recipe-list">
+        <a class="recipe-row" href="#"><span data-mark="pi" class="mark recipe-mark"></span>
+          <span class="recipe-main"><span class="recipe-name">pi<span class="muted"> · coding harness</span></span><span class="recipe-q">earendil-works/pi</span>
+            <span class="recipe-meta">no baked image <span class="tag outline">Dozable</span><span class="tag warn">not installed</span></span></span>
+          <span class="recipe-count muted">1 set on this Mac</span><i data-i="chevron-right"></i></a>
+      </div>
+    </div>
+    <div class="panel sbx-settings">
+      <div class="ovr"><div class="ovr-group">Overrides · 1</div>
+        <div class="ovr-row"><span class="k"><code>approvals</code><span class="muted"> · its recipe</span></span><span class="v">ask <span class="tag src src-sandbox">sandbox</span></span>
+          <span class="note">The Mac says skip. <a href="#">Follow the Mac</a></span></div></div>
     </div>
   </div></div>
 </section>

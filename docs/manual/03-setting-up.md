@@ -238,7 +238,7 @@ again**; the choices themselves are the settings `defaults.github`, `github.cred
 | `sandbox.ssh_agent` | `off` | Forward this Mac's ssh-agent into sandboxes (github.com only). |
 | `workspace.ignore_mode` | `lock` | What a `.dozignore` does to the paths it lists: `lock` or `hide`. The Workspace rules step's choice. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take an API key or setup token in a masked field. `false`: it shows the `doz account add` command instead. The dashboard can turn this off, never on. |
-| `images.claude_code_version` · `images.pi_version` | `latest` | Which agent version an image is prepared with. See [Agents and accounts](09-agents-and-accounts.md#agent-versions). |
+| `recipes.anthropic.claude-code.version` · `recipes.earendil-works.pi.version` | `latest` | Which agent version its image is baked with. See [Agents and accounts](09-agents-and-accounts.md#agent-versions). |
 
 ## Limits and notes
 
@@ -254,7 +254,7 @@ again**; the choices themselves are the settings `defaults.github`, `github.cred
 |---|---|
 | A required check fails | Read its message; `doz doctor` shows every check with what to do. |
 | Preparation fails part way | `doz onboard --status` shows the failed step. Run `doz onboard` again: it continues with what's missing (a download resumes). |
-| "latest" can't be resolved (offline) | Set an exact agent version: `doz config set images.claude_code_version 2.1.227`. |
+| "latest" can't be resolved (offline) | Set an exact agent version: `doz config set recipes.anthropic.claude-code.version 2.1.227`. |
 | The wizard shows commands instead of a key field | `ui.allow_secret_entry` is off: use `doz account add NAME --api-key` in a terminal. |
 | GitHub *not confirmed: gh is not logged in* | Run `gh auth login` on the Mac, then `doz access` — or give a token: `doz access set --github-key`. |
 | SSH *not confirmed: no ssh-agent* or *no keys* | Start an agent and `ssh-add` your key on the Mac, then `doz access`. Or turn it off: `doz access set --ssh-agent off`. |

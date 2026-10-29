@@ -6,6 +6,23 @@ own page: [Codex](24-codex.md). This page covers which
 agent can use which account, how to add accounts, the agent's versions and its `sudo`, and what the
 agent is told about where it runs.
 
+## The words
+
+| word | means |
+|---|---|
+| **recipe** | the definition: how to build, launch and configure one agent (`anthropic/claude-code`). Settings › Recipes lists the ones on this Mac. |
+| **agent** | what a recipe installs and a sandbox runs: you install the Claude Code recipe and run its agent, Claude Code. |
+| a recipe's **subject** | what a recipe calls its own agent, shown beside its name — pi is a *coding harness*, Fabric an *agentic tool*. Without one it is simply an agent. |
+| **managed tools** | `gh`, tmux, the ssh client and GitHub's host keys: tools Dozable supports natively, each with its own settings, added to a sandbox and never baked — see [Managed tools](19-the-tools-layer.md). |
+| **baked image** | base → developer base → baked image: one per base × recipe, made once and cloned for each sandbox. |
+
+A recipe on this Mac is **in use** (a sandbox runs its agent) or **installed** (a baked image of it is
+here); the rest are **available** in the catalogue (`doz search`, Quick try). `doz recipe ls --installed`
+lists the first two, and `doz recipe uninstall ID` removes a recipe's baked images (refused while a
+sandbox runs it; your settings for it are kept unless `--forget-settings`). Each recipe's settings — its
+agent's `version`, `approvals`, `memory_mib` and `network` — are in [the settings](15-settings-reference.md)
+under `[recipes.VENDOR.PRODUCT]`.
+
 ## Concepts
 
 - **The agent runs as a normal user** (`agent`) in `/workspace`. Its own settings, logins and
@@ -45,7 +62,10 @@ Claude Code starts ready to work: its first-run screens are done, the working fo
 it runs without asking permission for each command (the VM and its network are the boundary). It
 also shows your real plan ("Claude Max") and picks the same default model as on your Mac.
 
-To have it ask first, set `claude.permissions` to `ask`, or for one session:
+To have it ask first, set its recipe's `approvals` to `ask` — on this Mac
+(`doz config set --agent claude-code approvals ask`), for one sandbox
+(`doz config set --sandbox NAME approvals ask`, or `doz create NAME --approvals ask`), or in a project
+(`approvals: ask` in `doz_project.yaml`) — or for one session:
 `doz run NAME -e DOZ_CLAUDE_PERMISSIONS=ask -- claude`. A `claude` run as root always asks.
 
 Inside a sandbox Claude Code never updates itself; the image decides its version (below).
@@ -270,15 +290,15 @@ GitHub, xAI, Google). Sessions opened after attaching get its variable.
 
 ## Agent versions
 
-An agent image installs its agent at one exact version, chosen by `images.claude_code_version` and
-`images.pi_version`:
+An agent image installs its agent at one exact version, chosen by `recipes.anthropic.claude-code.version` and
+`recipes.earendil-works.pi.version`:
 
-- **`latest`** (the default) is resolved **when the image is prepared** — never while a sandbox runs —
+- **`latest`** (the default) is resolved **when its image is baked** — never while a sandbox runs —
   and installed at that exact version, integrity-checked.
 - **A newer release is only announced** (`doz image ls`, `doz doctor`, the Images page, `doz create`):
   "Claude Code 2.1.290 is available (image has 2.1.285)". Rebuild when it suits you:
   `doz image bake claude-code`, then `doz reset NAME` for the sandboxes you want on it.
-- **An exact version** (`doz config set images.claude_code_version 2.1.227`) never asks the internet,
+- **An exact version** (`doz config set recipes.anthropic.claude-code.version 2.1.227`) never asks the internet,
   so it works offline.
 
 ## Sudo inside the sandbox
@@ -337,8 +357,8 @@ touched.
 |---|---|---|
 | `defaults.account` | `mac` | The account of a store that hasn't chosen one. |
 | `host.keepalive` | `false` | Keep-alive for a store that hasn't chosen (`doz account keepalive`). |
-| `claude.permissions` | `skip` | Claude Code's own permission prompts in a sandbox: `skip` or `ask`. |
-| `images.claude_code_version` · `images.pi_version` · `images.codex_version` | `latest` | The agent version an image is prepared with. |
+| `recipes.anthropic.claude-code.approvals` | `skip` | Claude Code's own permission prompts in a sandbox: `skip` or `ask`. |
+| `recipes.anthropic.claude-code.version` · `recipes.earendil-works.pi.version` · `recipes.openai.codex.version` | `latest` | The agent version its image is baked with. |
 | `sandbox.agent_sudo` | `true` | The agent's passwordless sudo. Per sandbox too. |
 | `agent.prompt` | `true` | Give the agent its facts block and the `doz` skill. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token. |

@@ -36,7 +36,7 @@ sound-kernel` builds it (twice, in a throwaway Ubuntu sandbox) and compares its 
 
 ## Inside the sandbox
 
-The tools layer ([The tools layer](19-the-tools-layer.md)) sets a sandbox with sound up at every start and wake:
+Dozable's managed tools ([Managed tools](19-the-tools-layer.md)) sets a sandbox with sound up at every start and wake:
 ALSA's tools (`aplay`, `arecord`), an `/etc/asound.conf` that makes the sound card ALSA's default (one program
 at a time can play, and one can record — a second gets "Device or resource busy"), and `doz-sound`:
 

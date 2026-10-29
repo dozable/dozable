@@ -60,7 +60,7 @@ public enum RecipeSettings {
             guard seen.insert(o.name).inserted else { return "settings@1: \(o.name) twice" }
             guard types.contains(o.type) else { return "settings@1 \(o.name): type is bool, int or choice" }
             guard appliesWords.contains(o.applies) else { return "settings@1 \(o.name): applies is \(appliesWords.joined(separator: ", "))" }
-            guard !o.summary.isEmpty, o.summary.count <= 600 else { return "settings@1 \(o.name): a summary of 1–600 characters" }
+            guard !o.summary.isEmpty, o.summary.count <= 500 else { return "settings@1 \(o.name): a summary of at most 500 characters" }
             switch (o.type, o.default) {
             case ("bool", .bool):
                 guard o.choices == nil, o.min == nil, o.max == nil else { return "settings@1 \(o.name): a bool has no choices or range" }

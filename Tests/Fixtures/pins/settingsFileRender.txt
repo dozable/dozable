@@ -315,8 +315,8 @@
 
 [resources]
 
-# Clean up (the Resources page, doz resources clean) removes a prepared image no sandbox was
-# created from in this many days; it is prepared again when next needed.
+# Clean up (the Resources page, doz resources clean) removes a baked image no sandbox was created
+# from in this many days; it is baked again when next needed.
 # (integer 1–3650; applies at once (the UI re-reads it))
 # clean_unused_days = 30
 

@@ -99,6 +99,8 @@ struct Setting: Decodable {
     let key: String, section: String, name: String, typeName: String, description: String, applies: String
     let environment: String?, flag: String?
     let defaultValue: JSONValue
+    /// 669: a recipe's own setting (its agent's id), and the names a key had before 0.37.34.
+    let agent: String?, aliases: [String]?
     var whenShort: String {
         switch applies {
         case "now": "at once"
@@ -133,18 +135,38 @@ guard let report = try? JSONDecoder().decode(Report.self, from: Data(configJSON.
     FileHandle.standardError.write(Data("doz config show --json did not parse:\n\(configJSON.prefix(400))\n".utf8)); exit(1)
 }
 let keys = Set(report.settings.map(\.key))
+/// 669: Dozable's own keys — the ones the reference lists one by one (a recipe's are listed once, by option).
+let ownKeys = Set(report.settings.filter { $0.agent == nil }.map(\.key))
+/// 669: a 0.37 name of a key (still read and taken): a name the manual may use.
+let aliasKeys = Set(report.settings.flatMap { $0.aliases ?? [] })
 
 func settingsTable() -> String {
     var s = ""
     var sections: [String] = []
-    for r in report.settings where !sections.contains(r.section) { sections.append(r.section) }
+    let cell = { (t: String) in t.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ") }
+    func row(_ r: Setting, key: String) -> String {
+        let over = [r.environment.map { "`$\($0)`" }, r.flag.map { "`\($0)`" }].compactMap { $0 }.joined(separator: ", ")
+        return "| `\(key)` | \(r.defaultValue.shown) | \(cell(r.typeName)) | \(r.whenShort) | \(cell(over.isEmpty ? "—" : over)) | \(cell(r.description)) |\n"
+    }
+    let own = report.settings.filter { $0.agent == nil }
+    for r in own where !sections.contains(r.section) { sections.append(r.section) }
     for sec in sections {
         s += "\n### `[\(sec)]`\n\n| key | default | values | applies | overridden by | what it does |\n|---|---|---|---|---|---|\n"
-        for r in report.settings where r.section == sec {
-            let cell = { (t: String) in t.replacingOccurrences(of: "|", with: "\\|").replacingOccurrences(of: "\n", with: " ") }
-            let over = [r.environment.map { "`$\($0)`" }, r.flag.map { "`\($0)`" }].compactMap { $0 }.joined(separator: ", ")
-            s += "| `\(r.key)` | \(r.defaultValue.shown) | \(cell(r.typeName)) | \(r.whenShort) | \(cell(over.isEmpty ? "—" : over)) | \(cell(r.description)) |\n"
-        }
+        for r in own where r.section == sec { s += row(r, key: r.key) }
+    }
+    // 669 (659 item 14): every recipe's own settings, once — by option, as Claude Code's (and Codex's keep_alive).
+    s += "\n### `[recipes.VENDOR.PRODUCT]` — every recipe's own\n\n"
+    s += "Every recipe's agent has these, each recipe with its own defaults (`doz config show --agent ID` lists one; the descriptions are Claude Code's). "
+    s += "A recipe may declare more of its own: Codex's `keep_alive`.\n\n"
+    s += "| key | default | values | applies | overridden by | what it does |\n|---|---|---|---|---|---|\n"
+    for r in report.settings where r.agent == "claude-code" { s += row(r, key: "recipes.VENDOR.PRODUCT." + r.name) }
+    for r in report.settings where r.agent == "codex" && r.name == "keep_alive" { s += row(r, key: r.key) }
+    // The names before 0.37.34, by pattern (every recipe's), and the built-in three's own.
+    s += "\n### The names before 0.37.34 (still read, and taken by `doz config`)\n\n| old name | now |\n|---|---|\n"
+    s += "| `images.ID_version` | `recipes.VENDOR.PRODUCT.version` |\n| `ID.permissions` | `recipes.VENDOR.PRODUCT.approvals` |\n"
+    s += "| `images.ID.memory_mib`, `images.ID.network` | `recipes.VENDOR.PRODUCT.memory_mib`, `.network` (Claude Code's, `images.claude-code.memory_mib` and `images.claude-code.network`, also seed `defaults.memory_mib`, `defaults.network`) |\n"
+    for r in report.settings where ["claude-code", "pi", "codex"].contains(r.agent ?? "") {
+        for a in r.aliases ?? [] where !a.hasPrefix("images.\(r.agent!).") { s += "| `\(a)` | `\(r.key)` |\n" }
     }
     return s + "\n"
 }
@@ -185,7 +207,7 @@ for (name, text) in pages {
         for m in keyRX.matches(in: frag, range: NSRange(frag.startIndex..., in: frag)) {
             guard let r = Range(m.range(at: 1), in: frag) else { continue }
             let k = String(frag[r])
-            if keys.contains(k) || promptVariables.contains(k) || notKeys.contains(k) { continue }
+            if keys.contains(k) || aliasKeys.contains(k) || promptVariables.contains(k) || notKeys.contains(k) { continue }
             problem("\(name): `\(k)` is not a setting (doz config show) nor an agent prompt variable")
         }
     }
@@ -196,7 +218,7 @@ if let agents = pages["09-agents-and-accounts.md"] {
     }
 }
 if let ref = pages[settingsPage] {
-    for k in keys.sorted() where !ref.contains("`\(k)`") { problem("\(settingsPage): `\(k)` is missing") }
+    for k in ownKeys.sorted() where !ref.contains("`\(k)`") { problem("\(settingsPage): `\(k)` is missing") }
 }
 
 // MARK: 3. commands and flags

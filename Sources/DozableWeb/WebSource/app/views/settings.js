@@ -232,7 +232,8 @@ async function viewRecipe(qualified) {
 /// the box says forget them (each reset on this Mac). Refused while a sandbox runs it (the button is disabled, saying why).
 function uninstallDialog(r) {
   const set = r.settings.filter((s) => s.source === 'mac');
-  const what = r.images.length ? 'Its ' + plural(r.images.length, 'baked image', 'baked images') + ' (' + bytes(r.imageBytes) + ') are deleted; the next sandbox of it bakes one again.' : 'It has no baked image.';
+  const what = r.images.length === 1 ? 'Its baked image (' + bytes(r.imageBytes) + ') is deleted; the next sandbox of it bakes one again.'
+    : r.images.length ? 'Its ' + r.images.length + ' baked images (' + bytes(r.imageBytes) + ') are deleted; the next sandbox of it bakes one again.' : 'It has no baked image.';
   const fields = set.length ? [{ name: 'forget', type: 'checkbox', label: 'Also forget my settings for it on this Mac (' + set.map((s) => s.name).join(', ') + ')', value: false }] : [];
   dialog('Uninstall ' + r.title, what + ' Its sandboxes: none. Without the box below, your settings for it stay, and it is listed as not installed.', fields, 'Uninstall',
     async (v) => {

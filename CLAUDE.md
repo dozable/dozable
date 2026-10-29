@@ -340,7 +340,14 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   values uncommented; atomic, 0600 in a 0700 dir); the reader is our own strict TOML subset (strings,
   bools, ints; anything else refused with its line). An unknown key or bad value is a warning (the
   default applies); a file that does not parse is ignored whole and NEVER overwritten. Precedence
-  everywhere: flag > env > file > default, and every value carries its source. The web route
+  everywhere (669): flag > env > sandbox > project > mac (the file) > default (a recipe's own, source `recipe`, or
+  Dozable's), and every value carries its source (`SettingSource`; its JSON still reads `file` as `mac`). 669: a
+  recipe's settings are GENERATED per recipe under `recipes.VENDOR.PRODUCT.NAME` (`DozableSettings.recipeSchema`:
+  version, approvals, memory_mib, network + its `com.dozable/settings@1` options) and written only while one is set;
+  their 0.37 names are aliases (read, taken by `doz config`), moved by the first write, which keeps a one-off
+  `doz.toml.0.37.bak` (`writingAll`). A sandbox's own values: `SandboxConfig.settings` stays FLAT (an older doz reads
+  it), `settingsFrom` says which are the project's, `recipeSettings` records the when-made ones with `from`. A
+  recipe's state (in use / installed / available) is `RecipeStates`, from the store alone. The web route
   (`/api/v1/settings`) takes one `{key, value}` or `{key, reset: true}`, strictly decoded, CSRF-checked;
   the UI never sets a host path (`store.path`, `kernel.*`) nor a value the environment or a flag
   sets. NOT settable (security): the web limits and checks, tickets, paste caps, guest-binary
