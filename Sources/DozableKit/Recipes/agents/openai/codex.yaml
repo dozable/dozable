@@ -218,3 +218,11 @@ capabilities:
     - "Files it makes are in /workspace — your folder on the Mac."
     - "Restart its session from the session's ⋯ menu; End stops it."
     docs: https://github.com/openai/codex
+- type: com.dozable/settings@1
+  config:
+    options:
+    - name: keep_alive
+      type: bool
+      default: false
+      applies: now
+      summary: "Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so."

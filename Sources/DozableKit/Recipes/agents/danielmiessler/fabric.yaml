@@ -199,6 +199,7 @@ capabilities:
   config:
     checked: '2026-10-14'
 - type: com.dozable/directory@1
+  description: agentic tool
   config:
     published: false
     kind: ai-tool

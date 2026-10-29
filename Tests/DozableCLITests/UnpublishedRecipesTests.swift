@@ -88,8 +88,8 @@ final class UnpublishedRecipesTests: XCTestCase {
         let plain = DozableSettings(text: "")
         XCTAssertEqual(plain.report().settings.map(\.key), DozableSettings.schema.map(\.key), "doz config show: the whole schema")
         let rep = plain.report(offered: true)
-        XCTAssertFalse(rep.settings.contains { $0.key == "images.grok_version" })
-        XCTAssertTrue(rep.settings.contains { $0.key == "images.opencode_version" })
+        XCTAssertFalse(rep.settings.contains { $0.key == "recipes.xai.grok.version" })
+        XCTAssertTrue(rep.settings.contains { $0.key == "recipes.anomalyco.opencode.version" })
         let choices = try XCTUnwrap(rep.settings.first { $0.key == SettingKey.defaultImage }?.choices)
         XCTAssertEqual(choices, ["lab", "claude-code", "pi", "codex", "opencode", "opencode2"])
         // Stored: an unpublished agent's key and defaults.image still parse, apply and are listed — no warning.
@@ -98,7 +98,7 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertEqual(held.string(SettingKey.defaultImage), "grok")
         XCTAssertEqual(held.string("images.grok_version"), "1.0.52")
         let r2 = held.report(offered: true)
-        XCTAssertTrue(r2.settings.contains { $0.key == "images.grok_version" }, "a set agent's settings are listed")
+        XCTAssertTrue(r2.settings.contains { $0.key == "recipes.xai.grok.version" }, "a set agent's settings are listed")
         XCTAssertTrue(r2.settings.first { $0.key == SettingKey.defaultImage }?.choices?.contains("grok") == true, "and the value it has")
         XCTAssertNotNil(DozableSettings.definition("images.gemini_version"), "the schema stays complete")
         // Onboarding (634): it chooses the store's base, never an image — the body names no agent at all.
@@ -145,7 +145,7 @@ final class UnpublishedRecipesTests: XCTestCase {
         XCTAssertEqual(ImageChoice.parse("python-gemini")?.agent.rawValue, "gemini")
         XCTAssertNotNil(AgentRecipes.recipe("grok"))
         XCTAssertNotNil(AgentRecipes.matching("agy"))
-        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "debian-grok"), "grok")
+        XCTAssertEqual(DozableSettings.imageKeys(imageSpecName: "debian-grok").memory, "recipes.xai.grok.memory_mib")
         // An existing sandbox's sources (a Vercel key included), its account and selection.
         XCTAssertTrue(AgentCredentials.sources("opencode2")?.contains("vercel-ai-gateway") == true)
         XCTAssertNotNil(AgentRecipes.recipe("opencode2")?.selection(source: "vercel-ai-gateway"))

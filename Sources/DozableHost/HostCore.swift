@@ -1605,7 +1605,8 @@ public actor HostCore {
         // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way. 617: every
         // agent whose recipe has a permissions setting — its launcher's DOZ_<SHORT>_PERMISSIONS (gemini.permissions →
         // DOZ_GEMINI_PERMISSIONS); pi has none.
-        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = r.permissionsSettingKey,
+        // 669: `recipes.V.P.approvals` (its 0.37 name `claude.permissions`).
+        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = SettingKey.approvals(r.id),
               env[r.permissionsVariable] == nil, let mode = settings().string(key), mode != "skip" else { return env }
         var e = env
         e[r.permissionsVariable] = mode

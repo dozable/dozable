@@ -91,7 +91,8 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertFalse(rep.exists)
         // 629: an unpublished agent's own settings are listed only once one of them is set.
         XCTAssertEqual(rep.settings.map(\.key), DozableSettings.schema.filter { $0.agent.map(AgentRecipes.isPublished) ?? true }.map(\.key))
-        XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
+        // 669: a recipe's own setting comes from its recipe's default, the rest from Dozable's.
+        XCTAssertTrue(rep.settings.allSatisfy { $0.source == ($0.agent == nil ? .default : .recipe) && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
         // The projects folder reports the effective default (the old folder when this Mac has it).
         XCTAssertEqual(try row(rep, SettingKey.projectsDir).value, .string(Workspace.unsetProjectsDir()))
         XCTAssertEqual(try row(rep, "ui.boot_view_on_start").value, .bool(false))
@@ -106,7 +107,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(r.status, 200, r.text)
         var rep = try report(r)
         XCTAssertEqual(try row(rep, "ui.boot_view_on_start").value, .bool(true))
-        XCTAssertEqual(try row(rep, "ui.boot_view_on_start").source, .file)
+        XCTAssertEqual(try row(rep, "ui.boot_view_on_start").source, .mac)
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\nboot_view_on_start = true\n"), "the file shows the uncommented value")
         XCTAssertTrue(text.contains("\n# confirm_shutdown = true\n"), "the rest stays commented at its default")
@@ -142,7 +143,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(r.status, 200, r.text)
         rep = try report(r)
         XCTAssertEqual(try row(rep, "ui.density").value, .string("compact"))
-        XCTAssertEqual(try row(rep, "ui.density").source, .file)
+        XCTAssertEqual(try row(rep, "ui.density").source, .mac)
         XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\ndensity = \"compact\"\n"))
         // A reload reads it back.
         rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))

@@ -225,7 +225,7 @@ struct Doctor: AsyncParsableCommand {
             return DoctorCheck(check: "codex login", status: .ok, detail: "this Mac's Codex is signed in (ChatGPT)\(exp) · Codex sandboxes can use it as mac · renews while Codex runs on this Mac"
                                + (keep ? " · keep-alive on" : ""))
         case .expired:
-            return DoctorCheck(check: "codex login", status: .warn, detail: "this Mac's Codex login has expired — run codex on the Mac (it renews it), or turn on codex.keep_alive")
+            return DoctorCheck(check: "codex login", status: .warn, detail: "this Mac's Codex login has expired — run codex on the Mac (it renews it), or turn on Codex's keep_alive (doz config set --agent codex keep_alive true)")
         case .signedOut:
             return DoctorCheck(check: "codex login", status: .ok, detail: "this Mac's Codex is not signed in — Codex sandboxes need another account (doz account add NAME --chatgpt)")
         case .keyring, .apiKey, .unreadable:

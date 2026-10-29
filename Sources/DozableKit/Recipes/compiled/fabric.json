@@ -327,6 +327,7 @@
         ],
         "terms" : "Your API key of the provider or gateway you choose (Google AI by default). Its patterns come with it (baked at the pin)."
       },
+      "description" : "agentic tool",
       "type" : "com.dozable/directory@1"
     },
     {

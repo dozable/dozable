@@ -15,8 +15,8 @@ import { pageFailure, toast } from '../components/notices-d10c90d5c289bead.js';
 import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-b41dba2ec9d89fa4.js';
 
 const SETTING_SECTIONS = {
-  ui: 'This UI', host: 'The host', store: 'The store', claude: 'Claude Code', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
-  'images.lab': 'New lab sandboxes', 'images.claude-code': 'New claude-code sandboxes', 'images.pi': 'New pi sandboxes', 'images.codex': 'New codex sandboxes', kernel: 'The kernel',
+  ui: 'This UI', host: 'The host', store: 'The store', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
+  'images.lab': 'New lab sandboxes', kernel: 'The kernel',
   resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', workspace: 'Workspace rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
 };
 // An empty app list (or dotfiles) means none, not "automatic".
@@ -85,9 +85,9 @@ export async function viewSettings() {
   return node;
 }
 function settingRow(r) {
-  const source = h('span', { class: 'tag src src-' + r.source, title: r.source === 'file' ? 'set in the file' : r.source === 'default' ? 'not set: the default' : (r.note || '') },
-    r.source === 'env' ? 'env ' + r.environment : r.source);
-  const reset = r.editable && r.source === 'file'
+  const source = sourceBadge(r);
+  // 669: "Default" resets this Mac's value only (the file's line commented out).
+  const reset = r.editable && (r.source === 'mac' || r.source === 'file')
     ? btn('Default', () => changeSetting(r.key, null), { small: true, title: 'Comment it out in the file: the default (' + shownValue(r.defaultValue, r.type) + ') applies' }) : null;
   // 602: a control that is a block of its own (the permissions checklist) goes UNDER the text, full
   // width — beside it, its max-content width squeezed the description to one word per line.
@@ -100,6 +100,16 @@ function settingRow(r) {
     h('div', { class: 'setting-control' }, settingControl(r), reset));
   if (state.settingErr.has(r.key)) paintSettingError(row, r.key);
   return row;
+}
+/// 669 (659 §0): where a value came from, as a badge — recipe · default · Mac · project · sandbox · env · flag ("file"
+/// is an older host's word for Mac).
+const SOURCE_WORDS = { mac: 'Mac', file: 'Mac', recipe: 'recipe', default: 'default', project: 'project', sandbox: 'sandbox', flag: 'flag' };
+const SOURCE_TITLES = { mac: 'set on this Mac (doz.toml)', file: 'set on this Mac (doz.toml)', recipe: 'not set: the recipe’s own default',
+  default: 'not set: Dozable’s default', project: 'set by the project (doz_project.yaml)', sandbox: 'this sandbox’s own value' };
+export function sourceBadge(r) {
+  const s = r.source === 'file' ? 'mac' : r.source;
+  return h('span', { class: 'tag src src-' + s, 'data-source': s, title: r.migratedFrom ? 'read under its old name ' + r.migratedFrom : (SOURCE_TITLES[s] || r.note || '') },
+    s === 'env' ? 'env ' + r.environment : (SOURCE_WORDS[s] || s));
 }
 function settingControl(r) {
   // 599c: the projects folder — chosen in the Mac's own folder picker (the server writes what was chosen;

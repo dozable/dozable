@@ -395,18 +395,18 @@ public struct DozableProject: Equatable, Sendable {
     /// network setting, else the image's own default (an agent image: agent; lab: bake).
     public func effectiveNetwork(settings: DozableSettings) -> String {
         if let n = network { return n }
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
-        return settings.string(SettingKey.network(section)) ?? (section == "lab" ? "bake" : "agent")
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
+        return settings.string(keys.network) ?? (image == "lab" ? "bake" : "agent")
     }
 
     /// 599f: what the file sets differently from the settings' defaults is kept; a value EQUAL to its
     /// default (as the wizard and `doz init` pre-fill it) is left out, so the file follows the settings.
     /// `explicit` names the keys the person set on purpose (or the existing file set): those are kept.
     public mutating func dropDefaults(settings: DozableSettings, explicit: Set<String>) {
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
         if !explicit.contains("cpus"), cpus == settings.int(SettingKey.cpus) { cpus = nil }
-        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(SettingKey.memory(section))) { memoryMiB = nil }
-        if !explicit.contains("network"), network == settings.string(SettingKey.network(section)) { network = nil }
+        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(keys.memory)) { memoryMiB = nil }
+        if !explicit.contains("network"), network == settings.string(keys.network) { network = nil }
         if !explicit.contains("permissions"), let p = permissions,
            p == (SettingType.permissionWords(settings.string(SettingKey.permissions) ?? "standard") ?? ["standard"]) { permissions = nil }
         if !explicit.contains("account"), account == "default" { account = nil }

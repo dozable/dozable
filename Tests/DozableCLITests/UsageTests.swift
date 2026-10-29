@@ -219,7 +219,7 @@ final class UsageTests: XCTestCase {
         XCTAssertFalse(on(env: ["DO_NOT_TRACK": "1"], flag: true).on, "DO_NOT_TRACK wins over the flag")
         let off = DozableSettings(text: "[telemetry]\nsend_anonymous_usage_stats = false\n")
         XCTAssertFalse(on(settings: off).on)
-        XCTAssertEqual(on(settings: off).settingSource, .file)
+        XCTAssertEqual(on(settings: off).settingSource, .mac)
         XCTAssertTrue(on(settings: off, flag: true).on, "--send-anonymous-usage-stats for one command")
         XCTAssertFalse(on(settings: none, flag: false).on)
         XCTAssertEqual(on(settings: none, flag: false).settingSource, .flag)

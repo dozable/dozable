@@ -808,7 +808,7 @@ func cliConfigChecks(_ h: CLIHarness) {
     check(r.code == 0 && r.out == "true\n", "config get: true")
     let report = h.run(["config", "show", "--json"])
     let rep = try? JSONDecoder().decode(SettingsReport.self, from: report.outData)
-    check(rep?.settings.first { $0.key == "ui.boot_view_on_start" }?.source == .file, "config show --json: source file")
+    check(rep?.settings.first { $0.key == "ui.boot_view_on_start" }?.source == .mac, "config show --json: source mac (669: was file)")
     check(rep?.settings.first { $0.key == "host.idle_timeout_minutes" }?.source == .env, "DOZ_HOST_IDLE (the harness's) shows as source env")
     check(rep?.settings.first { $0.key == "store.path" }?.source == .env, "DOZ_STORE shows as source env")
     let flagged = h.run(["config", "get", "store.path", "--store", "/tmp/elsewhere", "--json"])

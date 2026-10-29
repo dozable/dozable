@@ -1,12 +1,13 @@
 # Dozable settings (doz.toml)
 #
 # Every setting is listed with its default, commented out: `# key = default`. Uncomment a line
-# to set it. An agent or tool's own settings appear once one of them is set (see [images]).
+# to set it. A recipe's own settings appear once one of them is set (see the end of the header).
 # `doz config set KEY VALUE` and the UI's Settings page write this file for you;
 # they regenerate it from the settings list, so comments you add are not kept.
 #
-# Precedence: a command-line flag, then the environment variable named, then this file, then
-# the default. `doz config show` prints every value and where it came from.
+# Precedence: a command-line flag, then the environment variable named, then a sandbox's own
+# value, then its project's (doz_project.yaml), then this file, then the default (a recipe's
+# own, or Dozable's). `doz config show` prints every value and where it came from.
 #
 # Not settable, by design:
 #   - the web UI's limits: session lifetime (14 days unused), link lifetime (5 min), request body, connection and stream caps
@@ -14,6 +15,10 @@
 #   - the browser terminal's safety: one-use 30 s tickets, the 1 MiB paste cap and the unsafe-paste confirmation
 #   - the guest binaries (DOZ_DECKHOLD / DOZ_DOZNET are developer overrides, environment only)
 #   - credentials: keys and tokens live in the Keychain or the host's memory, never in this file (ui.allow_secret_entry only decides whether the web UI may take one)
+#
+# A recipe's own settings (its agent's version, approvals, memory_mib, network) are written in a
+# [recipes.VENDOR.PRODUCT] block only once one of them is set: `doz config show --agent ID` lists
+# them, `doz config set --agent ID NAME VALUE` writes them.
 
 [ui]
 
@@ -211,33 +216,21 @@
 # (path ("" = automatic); env DOZ_STORE; flag --store; applies to the next doz command (a running doz ui keeps its store))
 # path = "~/Library/Application Support/doz"
 
-[claude]
-
-# Claude Code in a claude-code sandbox: skip its permission prompts (the sandbox is the boundary),
-# or ask as on a Mac.
-# (skip | ask; flag -e DOZ_CLAUDE_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
-# permissions = "skip"
-
-[codex]
-
-# Codex in a codex sandbox: skip its approvals and its own Linux sandbox (the VM is the boundary),
-# or ask as on a Mac.
-# (skip | ask; flag -e DOZ_CODEX_PERMISSIONS=… on run/exec; applies to sessions opened from now on)
-# permissions = "skip"
-
-# Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about
-# to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no
-# model call — which renews the login the way Codex itself does. Off: the login renews only while
-# Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox
-# says so.
-# (boolean; applies at once (the UI re-reads it))
-# keep_alive = false
-
 [defaults]
 
 # CPUs of a new sandbox.
 # (integer 1–64; flag doz create --cpus; applies to sandboxes created from now on (the host reads it at create))
 # cpus = 2
+
+# Memory (MiB) of a new sandbox whose image has no agent (a base alone: python, go). A recipe's
+# sandboxes have their recipe's own (doz config show --agent ID), the lab its own (images.lab).
+# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
+# memory_mib = 2048
+
+# The network of a new sandbox whose image has no agent: agent, bake, locked, open (proxied
+# presets), nat or none.
+# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
+# network = "agent"
 
 # The vmnet subnet of a new --network nat sandbox.
 # (IPv4 subnet, a.b.c.d/nn ("" = a free one); env DOZ_SUBNET; flag doz create --subnet; applies to sandboxes created from now on (the host reads it at create))
@@ -469,70 +462,15 @@
 # (gh | key | off; applies at once (the UI re-reads it))
 # credentials = "gh"
 
-[images]
-
-# Each agent or tool's own settings (images.ID_version, ID.permissions, [images.ID]) are written
-# here only once one of them is set: `doz config show --agent ID` lists them, `doz config set KEY
-# VALUE` writes them.
-
-# The Claude Code the claude-code image is prepared with: latest (asked of the npm registry when
-# the image is prepared, then installed at that exact version, integrity-checked; a newer one is
-# only said — doz image bake claude-code rebuilds when you choose) or an exact version like
-# 2.1.227. A sandbox keeps the version it was created with; doz reset NAME moves it to the image's
-# current one.
-# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
-# claude_code_version = "latest"
-
-# The pi coding agent the pi image is prepared with: latest or an exact version, as
-# images.claude_code_version.
-# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
-# pi_version = "latest"
-
-# The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or
-# an exact version like 0.160.1, as images.claude_code_version.
-# (latest, or an exact version like 2.1.227; applies to sandboxes created from now on (the host reads it at create))
-# codex_version = "latest"
-
 [images.lab]
 
-# Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from).
+# Memory (MiB) of a new lab sandbox (a template follows the image it was saved from).
 # (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
 # memory_mib = 1024
 
 # The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none.
 # (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
 # network = "bake"
-
-[images.claude-code]
-
-# Memory (MiB) of a new claude-code sandbox (a custom image follows the image it was saved from).
-# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
-# memory_mib = 2048
-
-# The network of a new claude-code sandbox: agent, bake, locked, open (proxied presets), nat or
-# none.
-# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
-# network = "agent"
-
-[images.pi]
-
-# Memory (MiB) of a new pi sandbox (a custom image follows the image it was saved from).
-# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
-# memory_mib = 2048
-
-# The network of a new pi sandbox: agent, bake, locked, open (proxied presets), nat or none.
-# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
-# network = "agent"
-
-[images.codex]
-
-# Memory (MiB) of a new codex sandbox (a custom image follows the image it was saved from).
-# (integer 256–262144; flag doz create --memory; applies to sandboxes created from now on (the host reads it at create))
-# memory_mib = 2048
-
-# The network of a new codex sandbox: agent, bake, locked, open (proxied presets), nat or none.
-# (agent | bake | locked | open | nat | none; flag doz create --network; applies to sandboxes created from now on (the host reads it at create))
-# network = "agent"
 
 [kernel]
 

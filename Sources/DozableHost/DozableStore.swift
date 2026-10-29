@@ -272,8 +272,8 @@ public enum DozableImages {
             imageSpec = c.imageSpec
             imageName = "custom:\(c.name)"
         }
-        let section = DozableSettings.imageSection(imageSpecName: imageSpec?.name)
-        var network = try networkMode(o.network ?? settings.string(SettingKey.network(section)) ?? defaultNetwork(image, imageSpec: imageSpec))
+        let keys = DozableSettings.imageKeys(imageSpecName: imageSpec?.name)
+        var network = try networkMode(o.network ?? settings.string(keys.network) ?? defaultNetwork(image, imageSpec: imageSpec))
         let catalogueBase = imageSpec.flatMap({ ImageChoice.parse($0.name) }).flatMap({ BaseCatalogue.base($0.base) })
         if case .proxied(let p) = network, let preset = p.preset, ["locked", "agent", "open"].contains(preset) {
             // 597 (P1, P4, P5): a proxied sandbox's agent gets PERMISSIONS, stored by name — the preset
@@ -284,7 +284,7 @@ public enum DozableImages {
             if let exact = o.permissions {
                 for w in exact where !AgentPermissions.isValid(w) { throw HostError(.invalid, "no permission \(w) — doz net permissions") }
                 names = AgentPermissions.normalized(exact)
-            } else if o.network != nil || settings.resolve(SettingKey.network(section)).source != .default {
+            } else if o.network != nil || ![.default, .recipe].contains(settings.resolve(keys.network).source) {
                 // A network named (the flag, or the image's own setting): exactly that preset.
                 names = AgentPermissions.preset(preset, base: baseID) ?? []
             } else {
@@ -319,7 +319,7 @@ public enum DozableImages {
         let subnet = o.subnet ?? settings.string(SettingKey.natSubnet)
         var spec = SandboxSpec(name: name, storeRoot: store.root, kernelPath: kernelPath, kernelCacheDirectory: kernelCache,
                                cpus: o.cpus ?? settings.int(SettingKey.cpus),
-                               memoryMiB: o.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section))), rootfsMiB: 1024,
+                               memoryMiB: o.memoryMiB ?? UInt64(settings.int(keys.memory)), rootfsMiB: 1024,
                                // 594: fd, as in the agent images (tools an agent looks for).
                                bakePackages: imageSpec == nil && customKey == nil ? DozableImages.labPackages : [],
                                shares: shares, subnet: network == .nat ? subnet : nil,
