@@ -88,7 +88,7 @@ import './app/views/shortcuts-65d243744e58e024.js';
 $('nav-quick-add').replaceChildren(icon('plus'));
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 // 617 (owner): TRY is a section of its own — its + opens the Quick try. 669 (owner): the section is RECIPES — the
-// recipes on this Mac, then Quick try; its + still opens the Quick try.
+// recipes installed on this Mac, then Quick try; its + still opens the Quick try.
 $('nav-try-add').replaceChildren(icon('plus'));
 $('nav-try-add').addEventListener('click', (ev) => { ev.preventDefault(); location.hash = '#/try'; });
 $('sign-out').addEventListener('click', async () => {

@@ -69,8 +69,11 @@ public struct WebBases: Codable, Equatable, Sendable {
     /// switches them on too) — `[]`, `["github:as-you"]` or both GitHub ids.
     public var github: [String] = []
 
+    /// 669 (owner: "why is … a long list with what appears to be per-recipe?"): the SHARED permissions only — never a recipe
+    /// agent's own model permission, nor a hidden update/vendor/sources one: those are the agent's, added at create
+    /// (`AgentPermissions.agentPermissions`) whatever a form or `defaults.permissions` says, so a switch for them does nothing.
     public static var permissionRows: [WebPermissions.Row] {
-        AgentPermissions.all.map { p in
+        AgentPermissions.basePermissions.filter { $0.hidden != true }.map { p in
             WebPermissions.Row(id: p.id, title: p.title, summary: p.summary, on: false, locked: p.locked, warning: p.warning, group: p.group,
                                hosts: p.hosts.map { PermissionPolicy.hostLabel($0, permission: p.id) }, standard: false)
         }
