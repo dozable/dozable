@@ -11,9 +11,10 @@ import { renderAccessStep } from '../components/access-step-8995a3263bb587ac.js'
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { pageFailure, toast } from '../components/notices-3fe56a3dbeb21a8c.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-d78e9f8a6bbc4870.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from '../components/permissions-b54aee277d8012b8.js';
 import { dialog } from '../components/dialog-6d072078840e0e8c.js';
 import { sourceBadge, sourceLegend, sourceTag } from '../components/setting-source-42701c4a247e8ecb.js';
+import { settingMatrix } from '../components/setting-matrix-081c4e6b4d177c5a.js';
 import { mark } from '../dom/icons-9b284ea0ffb2ad04.js';
 import { bytes, plural } from '../core/format-b2e68384da8d2f36.js';
 import { actOrThrow } from '../core/operations-03d7dd105dcc61d2.js';
@@ -350,31 +351,7 @@ function settingControl(r, inputId) {
     }));
     input.addEventListener('change', () => changeSetting(r.key, input.value));
   } else if (r.type === 'permissions') {
-    // 597 (P4): the default permissions of new sandboxes — the same switches (on a base with no
-    // language of its own; a base's ecosystem joins Standard for it), saved as words on Standard.
-    input = h('div', { class: 'perm-setting', 'data-perm-setting': '' }, h('span', { class: 'muted' }, '…'));
-    api('bases').then((b) => {
-      const std = new Set(b.standard[''] || []);
-      let on = new Set(b.defaults[''] || []);
-      const all = b.permissions.map((x) => x.id).filter((x) => !isAgentModel(x));
-      const words = () => {
-        const same = (a, c) => a.size === c.size && [...a].every((x) => c.has(x));
-        if (same(on, std)) return 'standard';
-        if (same(on, new Set(['model']))) return 'locked';
-        if (same(on, new Set(all.filter((x) => !x.startsWith('github:'))))) return 'open';   // Open never includes your GitHub login
-        return [...all.filter((x) => on.has(x) && !std.has(x)).map((x) => '+' + x), ...all.filter((x) => !on.has(x) && std.has(x)).map((x) => '-' + x)].join(',');
-      };
-      const paint = () => input.replaceChildren(h('code', { 'data-perm-words': '' }, words()),
-        permissionSwitches(b.permissions, on, (id, v) => {
-          const apply = () => {
-            const inst = b.permissions.filter((x) => x.group === 'install').map((x) => x.id);
-            for (const x of id === 'install' ? inst : [id]) { if (v) on.add(x); else on.delete(x); }
-            changeSetting(r.key, words());
-          };
-          if (id === 'web' && v) confirmWeb(async () => apply()); else apply();
-        }, { hosts: false }));
-      paint();
-    }).catch(() => input.replaceChildren(h('code', null, String(r.value))));
+    input = permissionsControl(r);
   } else if (r.type === 'int') {
     input = h('input', { type: 'number', min: String(r.min), max: String(r.max), step: '1', 'aria-label': r.key });
     input.value = String(r.value);
@@ -393,6 +370,85 @@ function settingControl(r, inputId) {
     input.addEventListener('change', () => changeSetting(r.key, input.value.trim()));
   }
   return input;
+}
+/// 597 (P4) → 669 (owner: VS Code's "Type Checking Mode"): the default permissions of new sandboxes as a MATRIX — the shared
+/// permissions down, Locked · Standard · Open across (Custom too when the value is one), a tick where the preset includes
+/// it, the current column marked — then the drop-down that picks the preset. Custom shows the switches (on a base with no
+/// language of its own; a base's ecosystem joins Standard for it), saved as words on Standard. The presets here are the
+/// ones the saved words are computed from, so the matrix and the words always agree.
+const customOpen = new Set();   // the keys whose switches the person opened with Custom (kept across the page's re-render)
+function permissionsControl(r) {
+  const box = h('div', { class: 'perm-setting', 'data-perm-setting': '' }, h('span', { class: 'muted' }, '…'));
+  api('bases').then((b) => {
+    const perms = b.permissions.filter((x) => !isAgentModel(x.id));
+    const all = perms.map((x) => x.id);
+    const on = new Set(b.defaults[''] || []);
+    const PRESETS = {
+      standard: new Set(b.standard[''] || []),
+      locked: new Set(['model']),
+      open: new Set(all.filter((x) => !x.startsWith('github:'))),   // Open never includes your GitHub login
+    };
+    const std = PRESETS.standard;
+    const same = (a, c) => a.size === c.size && [...a].every((x) => c.has(x));
+    const presetOf = (s) => Object.keys(PRESETS).find((k) => same(s, PRESETS[k])) || null;
+    const words = () => presetOf(on)
+      || [...all.filter((x) => on.has(x) && !std.has(x)).map((x) => '+' + x), ...all.filter((x) => !on.has(x) && std.has(x)).map((x) => '-' + x)].join(',');
+    // The matrix's rows: each shared permission, but the languages' packages as ONE row (system packages keep their own:
+    // Standard has them).
+    const langs = perms.filter((x) => x.group === 'install' && x.id !== 'install:system');
+    const rows = [];
+    for (const p of perms) {
+      if (p.id === 'install:system') rows.push({ id: p.id, title: 'Install system packages', note: 'apt / apk', ids: [p.id] });
+      else if (p.group === 'install') {
+        if (p === langs[0]) rows.push({ id: 'install', title: 'Install language packages', note: langs.map((x) => x.title).join(' · '), ids: langs.map((x) => x.id) });
+      } else rows.push({ id: p.id, title: p.title, ids: [p.id] });
+    }
+    for (const row of rows) row.attrs = { 'data-perm-row': row.id };
+    const paint = () => {
+      const now = presetOf(on) || 'custom';
+      const sets = { ...PRESETS, custom: on };
+      const columns = [{ id: 'locked', title: 'Locked' }, { id: 'standard', title: 'Standard' }, { id: 'open', title: 'Open' }];
+      if (now === 'custom') columns.push({ id: 'custom', title: 'Custom' });
+      const matrix = settingMatrix({ label: 'What each preset lets the agent do', rows, columns, current: now,
+        cell: (row, col) => {
+          const n = row.ids.filter((x) => sets[col.id].has(x)).length;
+          return n === row.ids.length ? true : n ? n + ' of ' + row.ids.length : false;
+        } });
+      const custom = now === 'custom' || customOpen.has(r.key);
+      const sel = h('select', { 'aria-label': r.key, 'data-perm-preset': '' },
+        [['locked', 'Locked'], ['standard', 'Standard'], ['open', 'Open'], ['custom', 'Custom']].map(([v, l]) => h('option', { value: v }, l)));
+      sel.value = custom ? 'custom' : now;
+      sel.addEventListener('change', () => {
+        const v = sel.value;
+        if (v === 'custom') { customOpen.add(r.key); paint(); return; }
+        if (v === now) { customOpen.delete(r.key); paint(); return; }
+        if (v === 'open') {
+          // Open lets the agent browse the web: asked first; a Cancel puts the drop-down back.
+          let ok = false;
+          confirmWeb(async () => { ok = true; customOpen.delete(r.key); await changeSetting(r.key, 'open'); })
+            .addEventListener('close', () => { if (!ok) paint(); });
+          return;
+        }
+        customOpen.delete(r.key);
+        changeSetting(r.key, v);
+      });
+      // (never a null into replaceChildren: the DOM writes it as the text "null")
+      box.replaceChildren(...[matrix,
+        h('p', { class: 'muted perm-matrix-note' }, 'A base’s own language packages (pip on a Python base, npm on a Node one) join Standard for that base. ',
+          'Use GitHub as you and Push to GitHub are in no preset: choose them in Custom, or per sandbox.'),
+        h('div', { class: 'perm-preset' }, sel, h('span', { class: 'muted' }, 'saved as ', h('code', { 'data-perm-words': '' }, words()))),
+        custom ? permissionSwitches(b.permissions, on, (id, v) => {
+          const apply = () => {
+            const inst = b.permissions.filter((x) => x.group === 'install').map((x) => x.id);
+            for (const x of id === 'install' ? inst : [id]) { if (v) on.add(x); else on.delete(x); }
+            changeSetting(r.key, words());
+          };
+          if (id === 'web' && v) confirmWeb(async () => apply()); else apply();
+        }, { hosts: false }) : null].filter(Boolean));
+    };
+    paint();
+  }).catch(() => box.replaceChildren(h('code', null, String(r.value))));
+  return box;
 }
 /// 647: ui.density as a segmented control (Comfortable | Compact) — applied to the page at once, then saved (the theme
 /// switch's way); a failed save puts the page back and says so in the row.
@@ -453,6 +509,7 @@ async function chooseProjectsDir() {
   refresh(false);
 }
 async function changeSetting(key, value) {
+  if (value === null) customOpen.delete(key);   // Default: back to the preset, the switches put away
   try {
     if (value === null) await resetSetting(key); else await saveSetting(key, value);
     state.settingErr.delete(key);

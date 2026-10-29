@@ -353,7 +353,10 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   sets. NOT settable (security): the web limits and checks, tickets, paste caps, guest-binary
   overrides, credentials; `ui.terminals` can only take away. Tests use a scratch XDG_CONFIG_HOME
   (the Makefile's test targets export one; the CLI harness sets its own under its store); the web
-  server's default `WebSettingsStore(environment: [:])` reads no file.
+  server's default `WebSettingsStore(environment: [:])` reads no file. 669: every control the Settings page draws
+  (`settingControl`) has its specimen in the style guide's "Setting controls — every pattern" — a new setting type or a
+  new control gets one there in the same commit; a preset-style setting is `settingMatrix` (`components/setting-matrix.js`,
+  `defaults.permissions`'s Locked · Standard · Open matrix + its drop-down; Custom shows `permissionSwitches`).
 - **A host never lives in a client's process tree** (an earlier incident, 2026-09-29: a host auto-started by
   `doz ui` was the UI's CHILD — own session, but its descendant; a tool that stopped the UI's tree
   SIGTERMed the host mid-hibernate and a sandbox lost its programs). `HostLauncher.spawn` is the ONE

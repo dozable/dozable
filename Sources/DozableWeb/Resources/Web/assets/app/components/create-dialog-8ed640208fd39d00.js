@@ -10,7 +10,7 @@ import { accountChooser } from './accounts-73f838b9cb149e06.js';
 import { callout } from './callout-f30e3ad8767a987a.js';
 import { dialog } from './dialog-6d072078840e0e8c.js';
 import { imagePicker, pickerNameHint } from './image-picker-01b1af7a6483ed88.js';
-import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-d78e9f8a6bbc4870.js';
+import { confirmWeb, isAgentModel, permissionSwitches } from './permissions-b54aee277d8012b8.js';
 import { workspaceChooser } from './workspace-chooser-a0962944605ba369.js';
 
 export async function createDialog(quick = null) {

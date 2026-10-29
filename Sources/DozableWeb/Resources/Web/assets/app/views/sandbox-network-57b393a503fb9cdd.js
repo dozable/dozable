@@ -9,7 +9,7 @@ import { state } from '../core/state-2d94fd2b00c043b7.js';
 import { panel, table } from '../components/blocks-6b2d43608253a84f.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
-import { confirmGitHub, confirmWeb, permissionSwitches, PRESET_LABEL } from '../components/permissions-d78e9f8a6bbc4870.js';
+import { confirmGitHub, confirmWeb, permissionSwitches, PRESET_LABEL } from '../components/permissions-b54aee277d8012b8.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refreshSandbox = upcall('refreshSandbox');
 

@@ -262,6 +262,119 @@
 </section>
 
 <section>
+  <h2>Setting controls — every pattern</h2>
+  <p>669: THE catalogue of what a setting’s control looks like — one specimen per control views/settings.js <code>settingControl(r)</code> draws, with the <code>SettingType</code>(s) (<code>Sources/DozableHost/Settings.swift</code>) that produce it. Every one sits in the same block (<code>settingRow</code>: title, description, control, meta). A new setting type or a new control gets its specimen here, in the same commit (CLAUDE.md, “Settings are ONE closed schema”).</p>
+
+  <h3>Text</h3>
+  <p class="sg-when">A free value typed in a field (up to 420 px), saved on change. <code>.titleTemplate</code>, <code>.timeZone</code>, <code>.version</code>, <code>.subnet</code>, <code>.serveBind</code>, <code>.originList</code>, <code>.addressList</code>, <code>.dotfiles</code> (an https address from here) — the server checks the value; <code>""</code> says “automatic” or “none” in the meta.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">Inside every sandbox: </span><strong class="set-title">Timezone</strong></span><span class="tag src src-default">default</span><code class="set-key">sandbox.timezone</code></div></div>
+      <div class="setting-control"><input type="text" spellcheck="false" placeholder="&quot;&quot; = automatic" value="mac"></div><div class="set-desc">The sandbox’s time zone: mac follows this Mac’s, or an IANA name like Australia/Sydney.</div><div class="muted setting-meta">default <code>mac</code> · applies at the next start</div></div>
+  </div></div></div>
+
+  <h3>Number — a whole number with a range</h3>
+  <p class="sg-when"><code>.int(min…max)</code>: a number field (120 px) with its range as <code>min</code>/<code>max</code>; a value outside it is refused in the row (see “A row with an error”).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">CPUs</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">defaults.cpus</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+      <div class="setting-control"><input type="number" min="1" max="64" step="1" value="4"></div><div class="set-desc">Virtual CPUs of a new sandbox.</div><div class="muted setting-meta">default <code>2</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>Choice — a drop-down</h3>
+  <p class="sg-when"><code>.choice([…])</code>: a select (320 px), one option per word. <code>defaults.image</code> offers only the published agents (and the value it has).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Split default</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.split_default</code></div></div>
+      <div class="setting-control"><select><option>shell</option><option>watch</option></select></div><div class="set-desc">What a terminal’s Split opens.</div><div class="muted setting-meta">default <code>shell</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>Choice — a segmented control</h3>
+  <p class="sg-when">A <code>.choice</code> of 2–3 short modes the page shows at once: <code>ui.density</code> (Comfortable | Compact) and <code>ui.notifications</code> (Cards | Pills | Bell) — applied to the page, then saved.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Density</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.density</code></div></div>
+      <div class="setting-control"><div class="segmented" role="group" aria-label="ui.density"><button type="button" class="seg active" aria-pressed="true">Comfortable</button><button type="button" class="seg" aria-pressed="false">Compact</button></div></div><div class="set-desc">How much room the dashboard’s rows and controls take.</div><div class="muted setting-meta">default <code>comfortable</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>Boolean — a checkbox before the description</h3>
+  <p class="sg-when"><code>.bool</code>: VS Code’s checkbox, the description its label (<code>.is-bool</code>).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-bool"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Confirm shutdown</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.confirm_shutdown</code></div></div>
+      <div class="setting-control"><input type="checkbox" id="sg-sc-bool" checked></div><label class="set-desc" for="sg-sc-bool">Shut Down asks first.</label><div class="muted setting-meta">default <code>true</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>A host folder — Choose…</h3>
+  <p class="sg-when"><code>.path</code>, only <code>defaults.projects_dir</code>: the value as code and Choose…, which opens this Mac’s own folder picker (the page never sends a path; no Choose… on a remote device).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Projects dir</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.projects_dir</code></div></div>
+      <div class="setting-control"><div class="path-setting"><code class="setting-value">~/Developer/doz</code><button type="button" class="btn sm"><i data-i="folder"></i>Choose…</button></div></div><div class="set-desc">Where a new sandbox’s project folder is made.</div><div class="muted setting-meta">default <code>~/Developer/doz</code> · applies to sandboxes created from now on<div>a host path — Choose… (this Mac’s folder picker), or doz config set defaults.projects_dir PATH</div></div></div>
+  </div></div></div>
+
+  <h3>Read-only — a host path, the environment, a flag</h3>
+  <p class="sg-when">Not editable here: the value as code and the meta saying why and where to change it. Any other <code>.path</code> (<code>store.path</code>, <code>kernel.*</code>), the LAN’s settings (set on the Mac), and ANY value the environment or the command line sets (its badge says which — <code>env NAME</code>, <code>flag</code>).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">The store: </span><strong class="set-title">Path</strong></span><span class="tag src src-flag">flag</span><code class="set-key">store.path</code></div></div>
+      <div class="setting-control"><code class="setting-value">/tmp/scratch-store</code></div><div class="set-desc">Where the sandboxes, images and logs live.</div><div class="muted setting-meta">default <code>~/Library/Application Support/doz</code> · applies at the next host start<div>set on this process’s command line (--store)</div></div></div>
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">The kernel: </span><strong class="set-title">Path</strong></span><span class="tag src src-default">default</span><code class="set-key">kernel.path</code></div></div>
+      <div class="setting-control"><code class="setting-value">""  (automatic)</code></div><div class="set-desc">A kernel of your own for every sandbox.</div><div class="muted setting-meta">default <code>""  (automatic)</code> · applies at the next start<div>a host path — set it with: doz config set kernel.path PATH</div></div></div>
+  </div></div></div>
+
+  <h3>App list</h3>
+  <p class="sg-when"><code>.appList</code>, <code>bridges.open_apps</code>: Mac app names, comma-separated, in a text field whose placeholder says so; empty means none (each file’s default app).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">Bridges: </span><strong class="set-title">Open apps</strong></span><span class="tag src src-default">default</span><code class="set-key">bridges.open_apps</code></div></div>
+      <div class="setting-control"><input type="text" spellcheck="false" placeholder="e.g. Typora, Visual Studio Code (empty: default apps only)"></div><div class="set-desc">The Mac apps a sandbox may open a file with, beside each file’s default app.</div><div class="muted setting-meta">default <code>""  (none)</code> · applies at once</div></div>
+  </div></div></div>
+
+  <h3>Presets — the matrix (and its drop-down)</h3>
+  <p class="sg-when"><code>.permissions</code>, <code>defaults.permissions</code> (VS Code’s “Type Checking Mode”): components/setting-matrix.js <code>settingMatrix({rows, columns, cell, current})</code> — the features down, the presets across, a tick (<code>check</code>, <code>--ok</code>) where one includes it, “2 of 6” for a part of a grouped row; the current column <code>.is-current</code> (<code>--state-selected</code>, the indicator on its head, the word “current”); its own box scrolls sideways when it must, never the page. Under it the drop-down Locked / Standard / Open / Custom (Open asks first: it allows the web). Any other preset-style setting uses the same component.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting setting-wide"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Permissions</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.permissions</code></div></div>
+      <div class="setting-control"><div class="perm-setting">
+        <div class="set-matrix-box"><table class="set-matrix" aria-label="What each preset lets the agent do">
+          <thead><tr><th scope="col" class="sm-feat">Feature</th><th scope="col" class="sm-col"><span class="sm-col-title">Locked</span></th><th scope="col" class="sm-col is-current"><span class="sm-col-title">Standard</span><span class="sm-cur">current</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Open</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Talk to its AI model</span></th><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install system packages</span><span class="sm-note">apt / apk</span></th><td class="sm-cell"></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install language packages</span><span class="sm-note">Node (npm) · Python (PyPI) · Go (modules) · Rust (crates.io)</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Use GitHub as you</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell"></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Browse the web</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+          </tbody></table></div>
+        <p class="muted perm-matrix-note">A base’s own language packages join Standard for that base. Use GitHub as you and Push to GitHub are in no preset.</p>
+        <div class="perm-preset"><select aria-label="defaults.permissions"><option>Locked</option><option selected>Standard</option><option>Open</option><option>Custom</option></select><span class="muted">saved as <code>standard</code></span></div>
+      </div></div><div class="set-desc">What a new sandbox’s agent may do: standard, locked, open, or standard with changes like +web,-error-reports.</div><div class="muted setting-meta">default <code>standard</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>Presets — Custom: the permissions checklist</h3>
+  <p class="sg-when">A value that is no preset (<code>+web</code>, <code>-error-reports</code>) adds a <b>Custom</b> column, current, with the person’s set; Custom in the drop-down (or such a value) shows components/permissions.js <code>permissionSwitches</code> under it — a switch per shared permission, Install software with a sub-switch per ecosystem — whose flips save the words on Standard. Default puts the preset back and the switches away.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting setting-wide is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Permissions</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">defaults.permissions</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+      <div class="setting-control"><div class="perm-setting">
+        <div class="set-matrix-box"><table class="set-matrix" aria-label="What each preset lets the agent do">
+          <thead><tr><th scope="col" class="sm-feat">Feature</th><th scope="col" class="sm-col"><span class="sm-col-title">Locked</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Standard</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Open</span></th><th scope="col" class="sm-col is-current"><span class="sm-col-title">Custom</span><span class="sm-cur">current</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Talk to its AI model</span></th><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install language packages</span><span class="sm-note">Node (npm) · Python (PyPI) · Go (modules) · Rust (crates.io)</span></th><td class="sm-cell"></td><td class="sm-cell"></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current"><span class="sm-some">2 of 4</span></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Browse the web</span></th><td class="sm-cell"></td><td class="sm-cell"></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td></tr>
+          </tbody></table></div>
+        <div class="perm-preset"><select aria-label="defaults.permissions"><option>Locked</option><option>Standard</option><option>Open</option><option selected>Custom</option></select><span class="muted">saved as <code>+install:node,+install:python,+web</code></span></div>
+        <div class="perm-list">
+          <div class="perm perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked disabled><span class="perm-title">Talk to its AI model<span class="muted"> — always</span></span></label><div class="perm-summary muted">Needed for the agent to work.</div></div>
+          <div class="perm perm-group perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Install software</span></label><div class="perm-summary muted">Install packages for your project — per ecosystem:</div>
+            <div class="perm perm-sub perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Node (npm)</span></label><div class="perm-summary muted">Install npm packages for your project.</div></div>
+            <div class="perm perm-sub"><label class="perm-main"><input type="checkbox" role="switch"><span class="perm-title">Go (modules)</span></label><div class="perm-summary muted">Install Go modules for your project.</div></div></div>
+          <div class="perm perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Browse the web</span></label><div class="perm-summary muted">Read any website.<span class="perm-warn"> The agent could send your code anywhere — use with care.</span></div></div>
+        </div>
+      </div></div><div class="set-desc">What a new sandbox’s agent may do.</div><div class="muted setting-meta">default <code>standard</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>A row with an error</h3>
+  <p class="sg-when">Any control: a change that could not be saved (a number out of range, a value the server refused, the folder picker failing) is said IN its row — a compact bad callout under it (<code>.setting-error</code>, <code>settingFailed</code>), kept across the page’s re-render until dismissed or fixed; never only a toast.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Memory (MiB)</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.memory_mib</code></div></div>
+      <div class="setting-control"><input type="number" min="256" max="262144" step="1" value="2048"></div><div class="set-desc">Memory of a new sandbox.</div><div class="muted setting-meta">default <code>2048</code> · applies to sandboxes created from now on</div>
+      <div class="callout bad compact setting-error" role="alert"><i data-i="circle-x"></i><div class="c-body">defaults.memory_mib is a whole number, 256–262144</div><div class="c-acts"><button class="btn sm quiet icon-only" type="button" aria-label="Dismiss"><i data-i="x"></i></button></div></div></div>
+  </div></div></div>
+</section>
+
+<section>
   <h2>Callouts — the one notice surface</h2>
   <div class="pair"><div class="scheme">
     <div class="callout info" role="status"><i data-i="info"></i><div class="c-body">Writing the file, then making the sandbox as <code>doz up</code> would there.</div></div>

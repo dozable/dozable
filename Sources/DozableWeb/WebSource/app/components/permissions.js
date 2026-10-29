@@ -48,9 +48,9 @@ export function permissionSwitches(rows, on, change, opts = {}) {
   }
   return h('div', { class: 'perm-list', 'data-permissions': '' }, out);
 }
-/// "Browse the web" (and Open) warn first.
+/// "Browse the web" (and Open) warn first. Returns the dialog (a caller that must undo its choice on Cancel listens for `close`).
 export function confirmWeb(then) {
-  dialog('Let the agent browse the web?', 'The agent could send your code anywhere — use with care. Every connection is still proxied and logged, and you can switch it off again.',
+  return dialog('Let the agent browse the web?', 'The agent could send your code anywhere — use with care. Every connection is still proxied and logged, and you can switch it off again.',
     [], 'Allow the web', async () => { await then(); }, { danger: true });
 }
 /// The user's GitHub login: said plainly before it is switched on.

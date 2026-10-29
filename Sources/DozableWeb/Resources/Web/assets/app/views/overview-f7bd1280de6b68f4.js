@@ -18,10 +18,10 @@ import { inTabOrder, renderNavSandboxes, sessionGlyph } from '../components/nav-
 import { hoverPeek } from '../components/nav-peek-ea9ef4157799036d.js';
 import { paintRowOps } from '../components/notices-3fe56a3dbeb21a8c.js';
 import { sandboxPill } from '../components/pills-a9d7d9ecb0cab5a8.js';
-import { quickAddButton } from '../components/quick-add-b5b39c813cca24f5.js';
+import { quickAddButton } from '../components/quick-add-0eec98ed7b8800cc.js';
 import { thumbFrame } from '../components/session-thumb-15c86e68709456d7.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser-a0962944605ba369.js';
-import { newSandboxWizard } from './new-sandbox-146da2ec71ca2237.js';
+import { newSandboxWizard } from './new-sandbox-ab8bacd03ef4e716.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const refresh = upcall('refresh');
 

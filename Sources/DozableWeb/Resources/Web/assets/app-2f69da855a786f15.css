@@ -571,7 +571,7 @@ td.op-action { display: flex; align-items: center; gap: var(--sp-2); }
 .setting-control input[type="text"] { width: min(100%, 420px); }
 .setting-control select { width: min(100%, 320px); }
 .setting-control input[type="number"] { width: min(100%, 120px); }
-/* 602: a block control (the permissions checklist) takes the column's whole width. */
+/* 602: a block control (the permissions matrix and its checklist) takes the column's whole width. */
 .setting-wide .setting-control { display: block; }
 .setting-wide .perm-setting { min-width: 0; }
 
@@ -789,6 +789,27 @@ dialog.dlg.has-picker { width: min(780px, calc(100vw - 32px)); }
 .perm-field .perm-list { border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--sp-1); max-height: 320px; overflow: auto; }
 .perm-field[hidden] { display: none; }
 .perm-setting { display: flex; flex-direction: column; gap: var(--sp-2); min-width: 320px; }
+.perm-matrix-note { margin: 0; font-size: var(--fs-sm); max-width: 80ch; }
+.perm-preset { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); }
+/* 669 (owner: VS Code's "Type Checking Mode"): a preset setting's matrix (components/setting-matrix.js) — the features down,
+   the presets across, a tick where one includes it, the current column marked (`--state-selected` + the indicator on its
+   head, and the word "current"). Its own box scrolls sideways at a phone's width: never the page. */
+.set-matrix-box { position: relative; width: fit-content; max-width: 100%; overflow-x: auto; border: var(--bw) solid var(--line);
+  border-radius: var(--r-md); background: var(--surface); }
+table.set-matrix { width: auto; }
+.set-matrix th, .set-matrix td { padding: var(--sp-2) var(--sp-3); }
+/* min(…, vw): at a phone's width the three presets still fit beside the features (a fourth, Custom, scrolls). */
+.set-matrix .sm-feat { min-width: min(168px, 30vw); text-align: left; white-space: normal; vertical-align: middle; }
+.set-matrix tbody .sm-feat { font: var(--fw-regular) var(--fs-md)/var(--lh-prose) var(--font); color: var(--ink); height: auto; }
+.set-matrix .sm-col, .set-matrix .sm-cell { min-width: min(72px, 15vw); padding-left: var(--sp-2); padding-right: var(--sp-2); text-align: center; }
+.set-matrix .sm-col { height: auto; vertical-align: bottom; }
+.set-matrix .is-current { background: var(--state-selected); }
+.sm-col-title, .sm-title { display: block; }
+.sm-cur { display: block; font-size: var(--fs-xs); font-weight: var(--fw-regular); color: var(--ink-2); }
+.sm-note { display: block; max-width: 44ch; font-size: var(--fs-sm); color: var(--ink-2); overflow-wrap: anywhere; }
+.set-matrix tbody tr:last-child th { border-bottom: 0; }
+.sm-cell.is-yes .icon { color: var(--ok); width: 16px; height: 16px; vertical-align: middle; }
+.sm-some { font-size: var(--fs-sm); color: var(--ink-2); white-space: nowrap; }
 /* 599c: the projects folder's Choose…. */
 .path-setting { display: flex; align-items: center; gap: var(--sp-3); flex-wrap: wrap; justify-content: flex-end; }
 /* 599f: the New Sandbox wizard (#/new). */
@@ -1638,6 +1659,10 @@ h1.page-title { display: flex; align-items: center; }
      head's hidden label (.sr-only, absolute) stays inside the panel — static, it was placed against the page and widened it. */
   #view thead th { position: relative; top: auto; }   /* top: the sticky offset would MOVE a relative head */
 }
+/* 669: a setting's matrix sits in its own scrolling box, inside a setting — its heads never stick to the page (sticky in a
+   box that scrolls, the page's offset would push them down the table). The current column's head carries the indicator. */
+.set-matrix th { position: relative; top: auto; }
+.set-matrix th.is-current { box-shadow: inset 0 2px 0 var(--indicator); color: var(--ink); }
 
 /* ── 603: the wizards (New sandbox, onboarding) — a modal over the page, the full width of the window up to
    --wm-max; its header (title, ✕, the step strip) and footer (the actions) stay put while the body scrolls.
