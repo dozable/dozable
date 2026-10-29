@@ -688,7 +688,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`views/debug.js`, `#/debug`) makes every kind with sample words; a new kind of notice gets a sample there.
   - **Never `append`/`replaceChildren` a `null`** — the DOM writes it as the text "null" (the Split menu's bug);
     `h()` skips nulls, those do not.
-  - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
+  - **Structure**: the sidebar's five groups (Sandboxes, Recipes — 669: On this Mac `#/recipes[/V/P]`, then Quick try —, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
     stylesheet and `paintNav` key on that, never on `#nav > a`: All sandboxes sits in its `.nav-all` row with the tree's
     caret and ⋯; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
@@ -2419,7 +2419,7 @@ may use it too.
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
 - **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal over the app, like onboarding (owner: the
   app visible behind the scrim; larger, less margin); Esc/Close return to where it was opened; the app inert; opened from
-  the nav's TRY section — its one item and the + on its heading; `views/try.js`, `WebTry.swift`). The details pane is
+  the nav's RECIPES section — its Quick try item and the + on its heading; `views/try.js`, `WebTry.swift`). The details pane is
   INFORMATION ONLY (description, versions, tags, what it can reach, the command — what a published recipe page shows);
   **Try** opens the SETUP (`dialog.dlg.try-setup`, `openSetup`): the key, what is not offered, the image, the plan and
   Start. The setup PLANS WITH the account it uses (`POST plan {account}`; the catalog's `usableAccounts` —

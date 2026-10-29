@@ -26,14 +26,18 @@ const SETTING_SECTIONS = {
 };
 // An empty app list (or dotfiles) means none, not "automatic".
 function shownValue(v, type) { return typeof v === 'string' ? (v === '' ? (type === 'apps' || type === 'dotfiles' ? '""  (none)' : '""  (automatic)') : v) : String(v); }
-export async function viewSettings() {
-  // 669: a recipe's own page (#/settings/recipes/V/P).
+/// 669 (owner: "move it to the left nav"): the Recipes page (#/recipes) and a recipe's own (#/recipes/V/P).
+export async function viewRecipes() {
   if (state.recipe) return viewRecipe(state.recipe);
   const [report, recipes] = await Promise.all([api('settings'), api('recipes').catch(() => null)]);
   adoptSettings(report);
+  return h('div', { class: 'settings-page recipes-page' }, h('h1', null, 'Recipes'), recipesSection(recipes));
+}
+export async function viewSettings() {
+  adoptSettings(await api('settings'));
   const rep = state.settings.report;
   const sections = [];
-  // 669: a recipe's settings are on its own page (Settings › Recipes), never in Dozable's sections.
+  // 669: a recipe's settings are on its own page (Recipes, in the sidebar), never in Dozable's sections.
   for (const r of rep.settings.filter((x) => !x.agent)) {
     let s = sections.find((x) => x.name === r.section);
     if (!s) sections.push(s = { name: r.section, rows: [] });
@@ -46,23 +50,22 @@ export async function viewSettings() {
   renderAccessStep(accessBox, { mode: 'settings', claude: true });
   // 603 (E13): a filter over what the page already has (a key, a name, a description) and an index of the
   // sections; Access stays first.
-  const filter = h('input', { type: 'search', class: 'page-filter', 'data-settings-filter': '', placeholder: 'Filter — a key like ui.theme, a recipe like claude, or a word',
+  const filter = h('input', { type: 'search', class: 'page-filter', 'data-settings-filter': '', placeholder: 'Filter — a key like ui.theme, or a word',
     'aria-label': 'Filter the settings', autocomplete: 'off', spellcheck: 'false' });
   filter.value = state.settingsFilter || '';
   const secId = (name) => 'set-' + name.replace(/[^a-z0-9]+/gi, '-');
-  const listed = recipes ? recipes.recipes.filter((r) => r.state !== 'available') : [];
-  const index = pageIndex([['recipes', 'Recipes ' + listed.length], ['access', 'Access'], ...sections.map((sec) => [secId(sec.name), SETTING_SECTIONS[sec.name] || sec.name])]);
+  const index = pageIndex([['access', 'Access'], ...sections.map((sec) => [secId(sec.name), SETTING_SECTIONS[sec.name] || sec.name])]);
   const node = h('div', { class: 'settings-page' }, h('h1', null, 'Settings'),
     h('p', { class: 'sub' }, 'Written to ', h('code', null, rep.path || 'no file (neither XDG_CONFIG_HOME nor HOME is set)'),
       rep.exists ? '' : ' — not written yet: the first change writes it, with every setting listed at its default',
       '. A command-line flag wins, then the environment, then a sandbox’s own value, then its project’s (', h('code', null, 'doz_project.yaml'),
       '), then this Mac’s (this file), then the default — a recipe’s own, or Dozable’s; ', h('code', null, 'doz config show'), ' prints the same.'),
+    h('p', { class: 'sub' }, 'A recipe’s own settings (its agent’s version, approvals, memory, network) are on its page: ', h('a', { href: '#/recipes' }, 'Recipes'), '.'),
     sourceLegend(),
     rep.error ? callout('bad', { cls: 'notice', title: 'The settings file does not read', body: rep.error + ' — nothing in it applies, and the UI will not overwrite it. Fix it (or remove it) first.' }) : null,
     warnings.length ? callout('warn', { cls: 'notice', body: h('ul', { class: 'plain' }, warnings.map((w) => h('li', null, w))) }) : null,
     h('div', { class: 'page-tools' }, h('label', { class: 'filter-field' }, icon('search'), filter), index),
     h('p', { class: 'muted filter-none', 'data-filter-none': '', hidden: true }, 'No setting matches.'),
-    recipesSection(recipes),
     h('h2', { id: 'access', class: 'set-head' }, 'Access'),
     h('p', { class: 'sub' }, 'What sandboxes may use as you. Change a choice in the settings below (',
       h('code', null, 'defaults.github'), ', ', h('code', null, 'github.credentials'), ', ', h('code', null, 'sandbox.ssh_agent'),
@@ -88,16 +91,6 @@ export async function viewSettings() {
       const box = node.querySelector('.panel.settings[data-section="' + el.dataset.section + '"]');
       el.hidden = !!q && (!box || ![...box.querySelectorAll('.setting')].some((x) => !x.hidden));
     }
-    // 669: a listed recipe by its name, full name or subject ("claude" lands on Claude Code's row).
-    let recipeHit = false;
-    for (const row of node.querySelectorAll('.recipe-row[data-recipe-search]')) {
-      const hit = !q || row.dataset.recipeSearch.includes(q);
-      row.hidden = !hit;
-      recipeHit = recipeHit || (hit && !!q);
-    }
-    const rs = node.querySelector('[data-recipes-section]');
-    if (rs) rs.hidden = !!q && !recipeHit;
-    any = any || recipeHit;
     // Access and the index stand aside while filtering (the matching rows are the page).
     for (const el of node.querySelectorAll('#access, [data-settings-access], #access + .sub')) el.hidden = !!q;
     node.querySelector('[data-filter-none]').hidden = !q || any;
@@ -124,11 +117,11 @@ function settingRow(r) {
   if (state.settingErr.has(r.key)) paintSettingError(row, r.key);
   return row;
 }
-// ── 669: Settings › Recipes (659 §0, layout A) ───────────────────────────────
+// ── 669: Recipes (659 §0; owner: its own place in the sidebar, beside Quick try) ──
 // The recipes on this Mac, grouped by state: In use (a sandbox runs its agent), then Installed (a baked image of it, or
 // this Mac's values with none: "not installed"). The rest of the catalogue only through the search and Browse. A row
-// opens the recipe's page (#/settings/recipes/V/P): its settings, its baked images, its sandboxes, Uninstall.
-function recipeHash(r) { return '#/settings/recipes/' + r.qualified; }
+// opens the recipe's page (#/recipes/V/P): its settings, its baked images, its sandboxes, Uninstall.
+function recipeHash(r) { return '#/recipes/' + r.qualified; }
 function shown(v) { return typeof v === 'string' ? (v === '' ? '""' : v) : String(v); }
 function recipeRow(r) {
   const set = r.settings.filter((s) => s.source === 'mac');
@@ -154,7 +147,7 @@ function recipeRow(r) {
 function recipesSection(data) {
   const box = h('div', { 'data-recipes-section': '' });
   if (!data) {
-    box.append(h('h2', { id: 'recipes', class: 'set-head' }, 'Recipes'), callout('warn', { cls: 'notice', body: 'The recipes could not be read.' }));
+    box.append(callout('warn', { cls: 'notice', body: 'The recipes could not be read.' }));
     return box;
   }
   const all = data.recipes;
@@ -172,9 +165,9 @@ function recipesSection(data) {
     search.addEventListener('input', () => { state.recipeQuery = search.value; paint(); const n = box.querySelector('[data-recipe-catalogue]'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
     const browse = btn(state.recipeBrowse ? 'Hide the catalogue' : 'Browse', () => { state.recipeBrowse = !state.recipeBrowse; paint(); }, { small: true, icon: 'list' });
     box.replaceChildren(
-      h('h2', { id: 'recipes', class: 'set-head' }, 'Recipes ', h('code', { class: 'muted' }, '[recipes.*]')),
-      h('p', { class: 'sub' }, 'The recipes on this Mac: in use (a sandbox runs its agent) and installed (a baked image of it). A recipe’s settings come with it; open one to change them on this Mac, see its baked images and its sandboxes, or uninstall it. A project (',
-        h('code', null, 'approvals:'), ' in doz_project.yaml) or one sandbox can set its own.'),
+      h('p', { class: 'sub' }, 'The recipes on this Mac: in use (a sandbox runs its agent) and installed (a baked image of it). A recipe’s settings come with it (',
+        h('code', null, '[recipes.*]'), ' in doz.toml); open one to change them on this Mac, see its baked images and its sandboxes, or uninstall it. A project (',
+        h('code', null, 'approvals:'), ' in doz_project.yaml) or one sandbox can set its own. ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of any recipe.'),
       h('div', { class: 'panel recipes-panel' },
         group('In use', inUse, 'No sandbox runs a recipe’s agent.'),
         group('Installed', installed, 'No other recipe has a baked image on this Mac.'),
@@ -192,8 +185,8 @@ async function viewRecipe(qualified) {
   const [report, data] = await Promise.all([api('settings'), api('recipes')]);
   adoptSettings(report);
   const r = data.recipes.find((x) => x.qualified === qualified);
-  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Where' }, h('a', { href: '#/settings' }, 'Settings'), icon('chevron-right'),
-    h('a', { href: '#/settings/recipes' }, 'Recipes'), icon('chevron-right'), h('span', null, r ? r.title : qualified));
+  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Where' },
+    h('a', { href: '#/recipes' }, 'Recipes'), icon('chevron-right'), h('span', null, r ? r.title : qualified));
   if (!r) return h('div', { class: 'settings-page' }, crumbs, callout('warn', { cls: 'notice', title: 'No such recipe', body: qualified + ' is not in this Mac’s catalogue.' }));
   const stateWord = r.state === 'in use' ? 'In use' : r.state === 'installed' ? (r.notInstalled ? 'Not installed (your settings)' : 'Installed') : 'Available';
   const facts = h('div', { class: 'recipe-facts' },

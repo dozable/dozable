@@ -12,7 +12,7 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
   viewOperations = upcall('viewOperations'), viewOverview = upcall('viewOverview'),
-  viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
+  viewRecipes = upcall('viewRecipes'), viewResources = upcall('viewResources'), viewSettings = upcall('viewSettings'), viewDevices = upcall('viewDevices'), viewDebug = upcall('viewDebug'),
   viewNotifications = upcall('viewNotifications'),
   wizardStopPolling = upcall('wizardStopPolling');
 
@@ -23,13 +23,14 @@ const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
 // stay as they are). A deep link opens the modal over Sandboxes.
 export const MODAL_VIEWS = new Set(['new', 'onboarding', 'try']);
 export function route() {
-  // 669: #/settings/recipes — Settings at its Recipes section; #/settings/recipes/VENDOR/PRODUCT (a recipe that is not
-  // Dozable's: SOURCE/VENDOR/PRODUCT) — that recipe's page.
-  const rm = /^#\/settings\/recipes(?:\/([a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40}){1,2}))?$/.exec(location.hash);
+  // 669: #/recipes — the Recipes page; #/recipes/VENDOR/PRODUCT (a recipe that is not Dozable's: SOURCE/VENDOR/PRODUCT)
+  // — that recipe's page. Its first address, #/settings/recipes[/…], still leads there.
+  if (/^#\/settings\/recipes(\/|$)/.test(location.hash)) { location.replace('#/recipes' + location.hash.slice('#/settings/recipes'.length)); return; }
+  const rm = /^#\/recipes(?:\/([a-z0-9-]{1,40}(?:\/[a-z0-9-]{1,40}){1,2}))?$/.exec(location.hash);
   state.recipe = rm ? (rm[1] || '') : null;
   if (rm) {
     if (state.modal) closeWizardModal();
-    state.view = 'settings'; state.param = null; state.session = null; state.bgHash = location.hash;
+    state.view = 'recipes'; state.param = null; state.session = null; state.bgHash = location.hash;
     routePage();
     return;
   }
@@ -96,7 +97,7 @@ export async function refresh(scrollTop) {
   refreshing = true;
   try {
     const views = { overview: viewOverview, images: viewImages, resources: viewResources, operations: viewOperations, accounts: viewAccounts,
-                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, devices: viewDevices, debug: viewDebug, notifications: viewNotifications };
+                    metrics: viewMetrics, activity: viewActivity, doctor: viewDoctor, settings: viewSettings, recipes: viewRecipes, devices: viewDevices, debug: viewDebug, notifications: viewNotifications };
     const fn = views[state.view] || viewOverview;
     const node = await fn();
     if (node && !state.signedOut) {

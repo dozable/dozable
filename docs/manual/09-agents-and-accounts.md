@@ -10,7 +10,7 @@ agent is told about where it runs.
 
 | word | means |
 |---|---|
-| **recipe** | the definition: how to build, launch and configure one agent (`anthropic/claude-code`). Settings › Recipes lists the ones on this Mac. |
+| **recipe** | the definition: how to build, launch and configure one agent (`anthropic/claude-code`). The dashboard's **Recipes › On this Mac** lists the ones on this Mac. |
 | **agent** | what a recipe installs and a sandbox runs: you install the Claude Code recipe and run its agent, Claude Code. |
 | a recipe's **subject** | what a recipe calls its own agent, shown beside its name — pi is a *coding harness*, Fabric an *agentic tool*. Without one it is simply an agent. |
 | **managed tools** | `gh`, tmux, the ssh client and GitHub's host keys: tools Dozable supports natively, each with its own settings, added to a sandbox and never baked — see [Managed tools](19-the-tools-layer.md). |

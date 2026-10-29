@@ -4,7 +4,7 @@ Every sandbox starts from a **baked image**: a disk with a Linux system, a devel
 usually, the agent a recipe installs. The layers are base → developer base → baked image, one baked image
 per base × recipe. You choose an image when you create a sandbox; Dozable bakes it the first time it's
 needed (the CLI and the dashboard call that *preparing* it) and then makes each sandbox an instant copy of it.
-A recipe with at least one baked image on this Mac is *installed* — Settings › Recipes lists it, with its
+A recipe with at least one baked image on this Mac is *installed* — the dashboard's **Recipes › On this Mac** lists it, with its
 baked images and their size.
 
 ## Concepts
