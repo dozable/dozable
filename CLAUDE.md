@@ -688,7 +688,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`views/debug.js`, `#/debug`) makes every kind with sample words; a new kind of notice gets a sample there.
   - **Never `append`/`replaceChildren` a `null`** — the DOM writes it as the text "null" (the Split menu's bug);
     `h()` skips nulls, those do not.
-  - **Structure**: the sidebar's five groups (Sandboxes, Recipes — 669: Installed `#/recipes[/V/P]`, then Quick try —, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
+  - **Structure**: the sidebar's five groups (Sandboxes, Recipes — 669: Installed `#/recipes[/V/P]`, Browse `#/browse`, then Quick try —, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
     stylesheet and `paintNav` key on that, never on `#nav > a`: All sandboxes sits in its `.nav-all` row with the tree's
     caret and ⋯; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost

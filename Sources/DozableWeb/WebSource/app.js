@@ -81,14 +81,14 @@ import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWi
 import { paintHome } from './app/views/sandbox-home.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions.js';
-import { viewRecipes, viewSettings } from './app/views/settings.js';
+import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings.js';
 import './app/views/shortcuts.js';
 
 // 599c: Quick add in the sidebar, beside Sandboxes.
 $('nav-quick-add').replaceChildren(icon('plus'));
 $('nav-quick-add').addEventListener('click', (ev) => { ev.preventDefault(); quickAdd(ev.currentTarget); });
 // 617 (owner): TRY is a section of its own — its + opens the Quick try. 669 (owner): the section is RECIPES — the
-// recipes installed on this Mac, then Quick try; its + still opens the Quick try.
+// recipes installed on this Mac, Browse (the whole catalogue), then Quick try; its + still opens the Quick try.
 $('nav-try-add').replaceChildren(icon('plus'));
 $('nav-try-add').addEventListener('click', (ev) => { ev.preventDefault(); location.hash = '#/try'; });
 $('sign-out').addEventListener('click', async () => {
@@ -99,7 +99,7 @@ $('sign-out').addEventListener('click', async () => {
 // ── start ───────────────────────────────────────────────────────────────────
 // The static page's own controls get their icons here (index.html holds no SVG).
 const NAV_ICONS = { devices: 'user-round', overview: 'box', sessions: 'layout-grid', images: 'layers', resources: 'cylinder', operations: 'list-checks', accounts: 'key-round',
-                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', recipes: 'monitor', try: 'play', debug: 'bug', notifications: 'bell' };
+                    metrics: 'chart-line', activity: 'activity', onboarding: 'rocket', doctor: 'stethoscope', settings: 'settings', recipes: 'monitor', browse: 'search', try: 'play', debug: 'bug', notifications: 'bell' };
 for (const a of document.querySelectorAll('#nav a[data-view]')) {
   if (NAV_ICONS[a.dataset.view]) a.prepend(icon(NAV_ICONS[a.dataset.view]));
   a.title = a.querySelector('.lbl').textContent;       // the rail's tooltip (the label stays readable to assistive tech)
@@ -191,7 +191,7 @@ provide({
   paintCover, paintHome, paintNav, paintNotes, paintResTotal, paintRowOps, paintSplitButton, paintTabs, paintTransition, paintUpdates,
   persistLayout, reattachTerminals, refresh, refreshNav, refreshSandbox, renderActivity, renderHostFoot, renderOps,
   renderTerminals, renderTryPrep, renderWizard, showSandbox, signedOut, startApp, syncConsoleTab, syncBuildLogTab, paintStartProgress, toast, viewAccounts, viewActivity, viewDebug, viewDevices, viewDoctor, viewNotifications,
-  viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewRecipes, viewResources, viewSettings,
+  viewImages, viewMetrics, viewNew, viewOnboarding, viewOperations, viewOverview, viewBrowse, viewRecipes, viewResources, viewSettings,
   viewTry, wizardStopPolling,
 });
 // The browser probes' names. The one script's top-level names were globals, and the workspace's browser probes

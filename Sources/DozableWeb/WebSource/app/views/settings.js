@@ -119,11 +119,11 @@ function settingRow(r) {
 }
 // ── 669: Recipes (659 §0; owner: its own place in the sidebar, beside Quick try) ──
 // The recipes on this Mac, grouped by state: In use (a sandbox runs its agent), then Installed (a baked image of it, or
-// this Mac's values with none: "not installed"). The rest of the catalogue only through the search and Browse. A row
+// this Mac's values with none: "not installed"). The rest of the catalogue is Recipes › Browse (#/browse). A row
 // opens the recipe's page (#/recipes/V/P): its settings, its baked images, its sandboxes, Uninstall.
 function recipeHash(r) { return '#/recipes/' + r.qualified; }
 function shown(v) { return typeof v === 'string' ? (v === '' ? '""' : v) : String(v); }
-function recipeRow(r) {
+function recipeRow(r, withState) {
   const set = r.settings.filter((s) => s.source === 'mac');
   const meta = [];
   if (r.state === 'in use') meta.push(plural(r.sandboxes.length, 'sandbox', 'sandboxes') + ' · ' + r.sandboxes.slice(0, 3).join(', ') + (r.sandboxes.length > 3 ? ', …' : ''));
@@ -131,6 +131,8 @@ function recipeRow(r) {
   else if (r.state !== 'available') meta.push('no baked image');
   if (r.state === 'available') meta.push('in the catalogue');
   const tags = [h('span', { class: 'tag outline' }, r.source)];
+  // Browse: one on this Mac says so.
+  if (withState && r.state !== 'available') tags.unshift(h('span', { class: 'tag ' + (r.state === 'in use' ? 'ok' : 'info'), 'data-recipe-state': r.state }, r.state === 'in use' ? 'in use' : 'installed'));
   if (r.isDefault) tags.unshift(h('span', { class: 'tag info', title: 'your default image’s agent (defaults.image)' }, '★ default'));
   if (r.notInstalled) tags.push(h('span', { class: 'tag warn', title: 'it carries your settings on this Mac, but no baked image' }, 'not installed'));
   if (!r.published) tags.push(h('span', { class: 'tag', title: 'not offered for a new sandbox in this version' }, 'unpublished'));
@@ -151,33 +153,43 @@ function recipesSection(data) {
     return box;
   }
   const all = data.recipes;
-  const paint = () => {
-    const inUse = all.filter((r) => r.state === 'in use'), installed = all.filter((r) => r.state === 'installed');
-    const q = state.recipeQuery.trim().toLowerCase();
-    const available = all.filter((r) => r.state === 'available');
-    const found = q ? available.filter((r) => [r.title, r.qualified, r.id, r.subject].join(' ').toLowerCase().includes(q))
-      : state.recipeBrowse ? available : null;
-    const group = (title, rows, empty) => [h('div', { class: 'recipe-group' }, title + ' · ' + rows.length),
-      rows.length ? h('div', { class: 'recipe-list' }, rows.map(recipeRow)) : h('div', { class: 'recipe-empty muted' }, empty)];
-    const search = h('input', { type: 'search', class: 'page-filter', 'data-recipe-catalogue': '', placeholder: 'Search the catalogue — a name, a vendor, what it is',
-      'aria-label': 'Search the recipe catalogue', autocomplete: 'off', spellcheck: 'false' });
-    search.value = state.recipeQuery;
-    search.addEventListener('input', () => { state.recipeQuery = search.value; paint(); const n = box.querySelector('[data-recipe-catalogue]'); n.focus(); n.setSelectionRange(n.value.length, n.value.length); });
-    const browse = btn(state.recipeBrowse ? 'Hide the catalogue' : 'Browse', () => { state.recipeBrowse = !state.recipeBrowse; paint(); }, { small: true, icon: 'list' });
-    box.replaceChildren(
-      h('p', { class: 'sub' }, 'The recipes on this Mac: in use (a sandbox runs its agent) and installed (a baked image of it). A recipe’s settings come with it (',
-        h('code', null, '[recipes.*]'), ' in doz.toml); open one to change them on this Mac, see its baked images and its sandboxes, or uninstall it. A project (',
-        h('code', null, 'approvals:'), ' in doz_project.yaml) or one sandbox can set its own. ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of any recipe.'),
-      h('div', { class: 'panel recipes-panel' },
-        group('In use', inUse, 'No sandbox runs a recipe’s agent.'),
-        group('Installed', installed, 'No other recipe has a baked image on this Mac.'),
-        h('div', { class: 'recipe-tools' }, h('label', { class: 'filter-field' }, icon('search'), search), browse),
-        found ? [h('div', { class: 'recipe-group' }, (q ? 'In the catalogue: “' + q + '”' : 'The catalogue') + ' · ' + found.length),
-                 found.length ? h('div', { class: 'recipe-list' }, found.map(recipeRow)) : h('div', { class: 'recipe-empty muted' }, 'No recipe matches. Every installed one is listed above.')]
-          : h('div', { class: 'recipe-empty muted' }, plural(available.length, 'more recipe', 'more recipes') + ' in the catalogue — search to find one, or Browse.')));
-  };
-  paint();
+  const inUse = all.filter((r) => r.state === 'in use'), installed = all.filter((r) => r.state === 'installed');
+  const available = all.filter((r) => r.state === 'available');
+  const group = (title, rows, empty) => [h('div', { class: 'recipe-group' }, title + ' · ' + rows.length),
+    rows.length ? h('div', { class: 'recipe-list' }, rows.map((r) => recipeRow(r, false))) : h('div', { class: 'recipe-empty muted' }, empty)];
+  box.append(
+    h('p', { class: 'sub' }, 'The recipes on this Mac: in use (a sandbox runs its agent) and installed (a baked image of it). A recipe’s settings come with it (',
+      h('code', null, '[recipes.*]'), ' in doz.toml); open one to change them on this Mac, see its baked images and its sandboxes, or uninstall it. A project (',
+      h('code', null, 'approvals:'), ' in doz_project.yaml) or one sandbox can set its own. ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of any recipe.'),
+    h('div', { class: 'panel recipes-panel' },
+      group('In use', inUse, 'No sandbox runs a recipe’s agent.'),
+      group('Installed', installed, 'No other recipe has a baked image on this Mac.'),
+      h('div', { class: 'recipe-empty muted' }, plural(available.length, 'more recipe', 'more recipes') + ' in the catalogue — ', h('a', { href: '#/browse' }, 'Browse'), '.')));
   return box;
+}
+/// 669 (owner: "move the recipe Browser … to its own page Recipes > Browse"): every recipe of the catalogue, searched by
+/// its name, full name, id or subject; one on this Mac says so. A row opens the recipe's page.
+export async function viewBrowse() {
+  const data = await api('recipes').catch(() => null);
+  if (!data) return h('div', { class: 'settings-page recipes-page' }, h('h1', null, 'Browse recipes'), callout('warn', { cls: 'notice', body: 'The recipes could not be read.' }));
+  const all = [...data.recipes].sort((a, b) => a.title.localeCompare(b.title));
+  const list = h('div', { class: 'recipe-list' });
+  const count = h('div', { class: 'recipe-group' });
+  const search = h('input', { type: 'search', class: 'page-filter', 'data-recipe-catalogue': '', placeholder: 'Search recipes — a name, a vendor, what it is',
+    'aria-label': 'Search the recipes', autocomplete: 'off', spellcheck: 'false' });
+  search.value = state.recipeQuery;
+  const paint = () => {
+    const q = state.recipeQuery.trim().toLowerCase();
+    const found = q ? all.filter((r) => [r.title, r.qualified, r.id, r.subject].join(' ').toLowerCase().includes(q)) : all;
+    count.textContent = (q ? 'Matching “' + q + '”' : 'Every recipe') + ' · ' + found.length;
+    list.replaceChildren(...(found.length ? found.map((r) => recipeRow(r, true)) : [h('div', { class: 'recipe-empty muted' }, 'No recipe matches.')]));
+  };
+  search.addEventListener('input', () => { state.recipeQuery = search.value; paint(); });
+  paint();
+  return h('div', { class: 'settings-page recipes-page', 'data-recipe-browse': '' }, h('h1', null, 'Browse recipes'),
+    h('p', { class: 'sub' }, 'Every recipe in the catalogue. Open one to see what it installs and its settings; ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of it.'),
+    h('div', { class: 'page-tools' }, h('label', { class: 'filter-field' }, icon('search'), search)),
+    h('div', { class: 'panel recipes-panel' }, count, list));
 }
 /// 669 (item 12): one recipe's page — its state, its settings (each with its badge; "Default" resets this Mac's value
 /// only), its baked images, its sandboxes, Uninstall.
@@ -185,8 +197,10 @@ async function viewRecipe(qualified) {
   const [report, data] = await Promise.all([api('settings'), api('recipes')]);
   adoptSettings(report);
   const r = data.recipes.find((x) => x.qualified === qualified);
-  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Where' },
-    h('a', { href: '#/recipes' }, 'Recipes'), icon('chevron-right'), h('span', null, r ? r.title : qualified));
+  // An available recipe (reached from Browse) leads back to Browse; one on this Mac to Installed.
+  const back = !r || r.state === 'available' ? ['#/browse', 'Browse'] : ['#/recipes', 'Installed'];
+  const crumbs = h('nav', { class: 'crumbs', 'aria-label': 'Where' }, h('span', null, 'Recipes'), icon('chevron-right'),
+    h('a', { href: back[0] }, back[1]), icon('chevron-right'), h('span', null, r ? r.title : qualified));
   if (!r) return h('div', { class: 'settings-page' }, crumbs, callout('warn', { cls: 'notice', title: 'No such recipe', body: qualified + ' is not in this Mac’s catalogue.' }));
   const stateWord = r.state === 'in use' ? 'In use' : r.state === 'installed' ? (r.notInstalled ? 'Not installed (your settings)' : 'Installed') : 'Available';
   const facts = h('div', { class: 'recipe-facts' },
