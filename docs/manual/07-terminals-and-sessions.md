@@ -402,7 +402,7 @@ Ctrl-], sleep and wake (tmux and its programs are where they were), saved screen
 status bar included), browser terminals, and the clipboard and browser bridges. Each session has a
 tmux server of its own, and reopening a session finds a program tmux still holds.
 
-It is **tmux 3.8**, on every base: Dozable brings its own ([the tools layer](19-the-tools-layer.md)), so
+It is **tmux 3.8**, on every base: Dozable brings its own (one of its [managed tools](19-the-tools-layer.md)), so
 floating panes, the fast switcher (`Ctrl-b Tab`), auto-hiding scrollbars and `remain-on-exit failed-key`
 are there whatever tmux the image ships. tmux 3.8 also asks your terminal whether it is in light or dark
 mode and tells the programs in its panes, so an agent inside tmux picks colours for the terminal you

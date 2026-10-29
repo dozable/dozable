@@ -340,13 +340,23 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   values uncommented; atomic, 0600 in a 0700 dir); the reader is our own strict TOML subset (strings,
   bools, ints; anything else refused with its line). An unknown key or bad value is a warning (the
   default applies); a file that does not parse is ignored whole and NEVER overwritten. Precedence
-  everywhere: flag > env > file > default, and every value carries its source. The web route
+  everywhere (669): flag > env > sandbox > project > mac (the file) > default (a recipe's own, source `recipe`, or
+  Dozable's), and every value carries its source (`SettingSource`; its JSON still reads `file` as `mac`). 669: a
+  recipe's settings are GENERATED per recipe under `recipes.VENDOR.PRODUCT.NAME` (`DozableSettings.recipeSchema`:
+  version, approvals, memory_mib, network + its `com.dozable/settings@1` options) and written only while one is set;
+  their 0.37 names are aliases (read, taken by `doz config`), moved by the first write, which keeps a one-off
+  `doz.toml.0.37.bak` (`writingAll`). A sandbox's own values: `SandboxConfig.settings` stays FLAT (an older doz reads
+  it), `settingsFrom` says which are the project's, `recipeSettings` records the when-made ones with `from`. A
+  recipe's state (in use / installed / available) is `RecipeStates`, from the store alone. The web route
   (`/api/v1/settings`) takes one `{key, value}` or `{key, reset: true}`, strictly decoded, CSRF-checked;
   the UI never sets a host path (`store.path`, `kernel.*`) nor a value the environment or a flag
   sets. NOT settable (security): the web limits and checks, tickets, paste caps, guest-binary
   overrides, credentials; `ui.terminals` can only take away. Tests use a scratch XDG_CONFIG_HOME
   (the Makefile's test targets export one; the CLI harness sets its own under its store); the web
-  server's default `WebSettingsStore(environment: [:])` reads no file.
+  server's default `WebSettingsStore(environment: [:])` reads no file. 669: every control the Settings page draws
+  (`settingControl`) has its specimen in the style guide's "Setting controls — every pattern" — a new setting type or a
+  new control gets one there in the same commit; a preset-style setting is `settingMatrix` (`components/setting-matrix.js`,
+  `defaults.permissions`'s Locked · Standard · Open matrix + its drop-down; Custom shows `permissionSwitches`).
 - **A host never lives in a client's process tree** (an earlier incident, 2026-09-29: a host auto-started by
   `doz ui` was the UI's CHILD — own session, but its descendant; a tool that stopped the UI's tree
   SIGTERMed the host mid-hibernate and a sandbox lost its programs). `HostLauncher.spawn` is the ONE
@@ -681,7 +691,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
     (`views/debug.js`, `#/debug`) makes every kind with sample words; a new kind of notice gets a sample there.
   - **Never `append`/`replaceChildren` a `null`** — the DOM writes it as the text "null" (the Split menu's bug);
     `h()` skips nulls, those do not.
-  - **Structure**: the sidebar's five groups (Sandboxes, Try, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
+  - **Structure**: the sidebar's five groups (Sandboxes, Recipes — 669: Installed `#/recipes[/V/P]`, Browse `#/browse`, then Quick try —, Store, Activity, Setup) are static markup in `index.html` (`#nav a[data-view]` — the
     stylesheet and `paintNav` key on that, never on `#nav > a`: All sandboxes sits in its `.nav-all` row with the tree's
     caret and ⋯; the rail below 980 px). The sandbox page: `lifecycleBar` (the group + Shut down) + ⋯ + the status
     slot + the details toggle; the terminal strip's actions (`termUI.acts`, `paintStripActs`) on the rightmost
@@ -2412,7 +2422,7 @@ may use it too.
   it that way (`KitchenTests.testTheKeyboardThreadIsStoppable`). `run` still exits.
 - **The dashboard's Quick try** (`#/try`, `#/try/AGENT` — the wizards' modal over the app, like onboarding (owner: the
   app visible behind the scrim; larger, less margin); Esc/Close return to where it was opened; the app inert; opened from
-  the nav's TRY section — its one item and the + on its heading; `views/try.js`, `WebTry.swift`). The details pane is
+  the nav's RECIPES section — its Quick try item and the + on its heading; `views/try.js`, `WebTry.swift`). The details pane is
   INFORMATION ONLY (description, versions, tags, what it can reach, the command — what a published recipe page shows);
   **Try** opens the SETUP (`dialog.dlg.try-setup`, `openSetup`): the key, what is not offered, the image, the plan and
   Start. The setup PLANS WITH the account it uses (`POST plan {account}`; the catalog's `usableAccounts` —

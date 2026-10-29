@@ -82,42 +82,44 @@ final class SettingsTests: XCTestCase {
         XCTAssertLessThan(before.utf8.count, 32 * 1024)
         XCTAssertLessThan(before.utf8.count * 20, TOML.maximumBytes)
         for d in DozableSettings.schema where d.agent != nil {
-            if d.section == "images" {
-                XCTAssertFalse(before.contains("\n# \(d.name) = "), "\(d.key) is not listed")
-            } else {
-                XCTAssertFalse(before.contains("[\(d.section)]"), "no section of \(d.agent!)'s: \(d.section)")
-            }
+            XCTAssertFalse(before.contains("[\(d.section)]"), "no section of \(d.agent!)'s: \(d.section)")
         }
         XCTAssertTrue(before.contains("doz config show --agent ID"), "one line says where they are listed")
     }
 
     /// Setting an agent's value brings its whole block into the file; unsetting its last one takes the block out again.
     /// A value set by hand for any agent is read as before.
+    /// 669: a recipe's block is `[recipes.VENDOR.PRODUCT]` — exactly that recipe's, its other keys commented.
     func testAnAgentsBlockAppearsWhenOneOfItsSettingsIsSetAndGoesWithTheLast() throws {
         let grok = DozableSettings.schema.filter { $0.agent == "grok" }.map(\.key)
-        XCTAssertEqual(Set(grok), ["images.grok_version", "grok.permissions", "images.grok.memory_mib", "images.grok.network"])
+        XCTAssertEqual(Set(grok), ["recipes.xai.grok.version", "recipes.xai.grok.approvals", "recipes.xai.grok.memory_mib", "recipes.xai.grok.network"])
         var s = DozableSettings.load(environment: env)
-        s = try s.writing("grok.permissions", .string("ask"))
+        s = try s.writing("recipes.xai.grok.approvals", .string("ask"))
         var text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertTrue(text.contains("\n[grok]\n"))
-        XCTAssertTrue(text.contains("\npermissions = \"ask\"\n"))
-        XCTAssertTrue(text.contains("[images.grok]\n"), "its whole block: memory and network too")
-        XCTAssertTrue(text.contains("\n# grok_version = \"latest\"\n"))
-        XCTAssertFalse(text.contains("[gemini]"), "another agent stays out")
-        XCTAssertEqual(DozableSettings.load(environment: env).fileValues["grok.permissions"], .string("ask"))
-        s = try s.writing("images.grok.memory_mib", .int(4096))
-        s = try s.writing("grok.permissions", nil)
+        XCTAssertTrue(text.contains("\n[recipes.xai.grok]\n"))
+        XCTAssertTrue(text.contains("\napprovals = \"ask\"\n"))
+        XCTAssertTrue(text.contains("\n# memory_mib = 2048\n"), "its whole block: memory and network too, commented")
+        XCTAssertTrue(text.contains("\n# version = \"latest\"\n"))
+        XCTAssertEqual(text.components(separatedBy: "\n[recipes.").count, 2, "exactly one recipe's block")
+        XCTAssertEqual(DozableSettings.load(environment: env).fileValues["recipes.xai.grok.approvals"], .string("ask"))
+        s = try s.writing("recipes.xai.grok.memory_mib", .int(4096))
+        s = try s.writing("recipes.xai.grok.approvals", nil)
         text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertTrue(text.contains("[images.grok]\n"), "still one value set")
-        XCTAssertTrue(text.contains("# permissions = \"skip\""))
-        _ = try s.writing("images.grok.memory_mib", nil)
+        XCTAssertTrue(text.contains("[recipes.xai.grok]\n"), "still one value set")
+        XCTAssertTrue(text.contains("# approvals = \"skip\""))
+        _ = try s.writing("recipes.xai.grok.memory_mib", nil)
         text = try String(contentsOf: file, encoding: .utf8)
-        XCTAssertFalse(text.contains("[grok]") || text.contains("[images.grok]") || text.contains("grok_version"), "the last one unset: the block is gone")
-        // By hand: a value for an agent not in the file is read and applies.
-        try write("[gemini]\npermissions = \"ask\"\n")
+        XCTAssertFalse(text.contains("[recipes.xai.grok]"), "the last one unset: the block is gone")
+        // By hand: a value for a recipe not in the file is read and applies — under its new name or its 0.37 one.
+        try write("[recipes.google.gemini]\napprovals = \"ask\"\n")
         let hand = DozableSettings.load(environment: env)
-        XCTAssertEqual(hand.fileValues["gemini.permissions"], .string("ask"))
+        XCTAssertEqual(hand.fileValues["recipes.google.gemini.approvals"], .string("ask"))
         XCTAssertTrue(hand.warnings.isEmpty)
+        try write("[gemini]\npermissions = \"ask\"\n")
+        let old = DozableSettings.load(environment: env)
+        XCTAssertEqual(old.fileValues["recipes.google.gemini.approvals"], .string("ask"))
+        XCTAssertEqual(old.resolve("gemini.permissions").source, .mac)
+        XCTAssertTrue(old.warnings.isEmpty, old.warnings.joined(separator: "\n"))
     }
 
     func testRenderRoundTrips() throws {
@@ -170,7 +172,8 @@ final class SettingsTests: XCTestCase {
         for d in DozableSettings.schema where d.agent == nil {
             XCTAssertTrue(text.contains("\n# \(d.name) = \(TOML.render(d.defaultValue))\n"), "\(d.key) is listed at its default")
         }
-        XCTAssertTrue(text.contains("[images.claude-code]"))
+        XCTAssertTrue(text.contains("[images.lab]"))
+        XCTAssertFalse(text.contains("[images.claude-code]") || text.contains("\n[recipes."), "669: no recipe's block while none of its values is set")
         XCTAssertTrue(text.contains("Not settable"))
         let s = DozableSettings(text: text)
         XCTAssertNil(s.fileError)
@@ -180,7 +183,7 @@ final class SettingsTests: XCTestCase {
 
     func testOnlySetValuesAreUncommentedAndTheyRoundTrip() throws {
         let values: [String: TOMLValue] = ["ui.boot_view_on_start": .bool(false), "defaults.cpus": .int(4),
-                                           "images.pi.network": .string("locked"), "store.path": .string("~/stores/a \"b\"")]
+                                           "recipes.earendil-works.pi.network": .string("locked"), "store.path": .string("~/stores/a \"b\"")]
         let text = DozableSettings.render(values: values)
         XCTAssertTrue(text.contains("\nboot_view_on_start = false\n"))
         XCTAssertFalse(text.contains("# boot_view_on_start ="))
@@ -231,7 +234,7 @@ final class SettingsTests: XCTestCase {
         var e = env
         var s = DozableSettings.load(environment: e)
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").value, .int(30))
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .file)
+        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .mac)
         XCTAssertEqual(s.resolve("ui.theme").source, .default)
         XCTAssertEqual(s.idleTimeoutMinutes(flag: nil), 30)
         e["DOZ_HOST_IDLE"] = "7"
@@ -247,7 +250,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .env)
         e["DOZ_HOST_IDLE"] = "soon"
         s = DozableSettings.load(environment: e)
-        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .file, "an environment value that does not parse is skipped")
+        XCTAssertEqual(s.resolve("host.idle_timeout_minutes").source, .mac, "an environment value that does not parse is skipped")
         let flagged = s.resolve("store.path", flag: .string("/from/flag"))
         XCTAssertEqual(flagged.source, .flag)
         XCTAssertEqual(flagged.value, .string("/from/flag"))
@@ -294,8 +297,8 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(flags.memoryMiB, 512)
         XCTAssertEqual(flags.network, .proxied(.bake))
         XCTAssertEqual(flags.kernelCacheDirectory?.path, "/env-k", "the environment wins over the file")
-        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: nil), "lab")
-        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "pi"), "pi")
+        XCTAssertEqual(DozableSettings.imageKeys(imageSpecName: nil).memory, "images.lab.memory_mib")
+        XCTAssertEqual(DozableSettings.imageKeys(imageSpecName: "pi").network, "recipes.earendil-works.pi.network")
     }
 
     func testClaudePermissionsReachOnlyAClaudeCodeSessionAndNeverOverTheCallers() throws {
@@ -348,7 +351,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(s.fileExists)
         s = try s.writing("ui.boot_view_on_start", .bool(true))
         XCTAssertTrue(s.fileExists)
-        XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .file)
+        XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .mac)
         XCTAssertTrue(s.bool(SettingKey.bootViewOnStart))
         var st = stat()
         XCTAssertEqual(stat(file.path, &st), 0)

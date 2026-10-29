@@ -650,6 +650,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var guide: WebGuide?
     /// 635: the default session's program — the tab bar's New <agent> session opens another with it.
     public var defaultArgv: [String]?
+    /// 669 (659 item 13): the Config tab's Settings block — what it overrides, what it follows, what was recorded.
+    public var settings: [WebSandboxSetting]?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -674,6 +676,38 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         project = d.project
         guide = d.guide.map(WebGuide.init)
         defaultArgv = d.defaultArgv
+        settings = d.settings?.settings.map(WebSandboxSetting.init)
+    }
+}
+
+/// 669: one of a sandbox's settings, field by field (`SandboxSettingRow`) — never a secret: the schema has none.
+public struct WebSandboxSetting: Codable, Equatable, Sendable {
+    public var key: String
+    public var value: TOMLValue
+    /// `sandbox` · `project` (its own) · `mac` · `recipe` · `default` · `env` (what it follows) — or, recorded, where it
+    /// came from when it was made (`flag` too, `recorded` before 669).
+    public var source: String
+    /// This Mac's value now, and its source.
+    public var macValue: TOMLValue
+    public var macSource: String?
+    /// The doz.toml key it stands for (`approvals` → `recipes.anthropic.claude-code.approvals`).
+    public var settingKey: String?
+    public var recorded: Bool
+    public var typeName: String
+    public var description: String
+    public var choices: [String]?
+
+    public init(_ r: SandboxSettingRow) {
+        key = r.key
+        value = r.value
+        source = r.source
+        macValue = r.settingValue
+        macSource = r.settingSource
+        settingKey = r.settingKey
+        recorded = r.recorded == true
+        typeName = r.typeName
+        description = r.description
+        choices = r.choices
     }
 }
 

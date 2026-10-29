@@ -16,6 +16,15 @@ public struct SandboxSettingRow: Codable, Equatable, Sendable {
     public var settingValue: TOMLValue
     public var typeName: String
     public var description: String
+    /// 669: where `settingValue` comes from (`mac`, `recipe`, `default`, `env`).
+    public var settingSource: String? = nil
+    /// 669: the doz.toml key a sandbox-level key stands for (`approvals` → `recipes.anthropic.claude-code.approvals`).
+    public var settingKey: String? = nil
+    /// 669: a value fixed when the sandbox was made (its recipe's version, memory, network) — recorded, not changeable
+    /// here; `source` is where it came from then (`flag`, `project`, `mac`, `recipe`, or `recorded` before 669).
+    public var recorded: Bool? = nil
+    /// 669: a choice's words (the page's control).
+    public var choices: [String]? = nil
 }
 
 public struct SandboxSettingsReport: Codable, Equatable, Sendable {
@@ -29,12 +38,15 @@ extension HostCore {
     // MARK: per-sandbox settings
 
     /// Values for `CreateOptions.settings`: only per-sandbox keys (not `sandbox.agent_sudo`, which has
-    /// its own field), each checked against its type.
-    static func checkedSandboxSettings(_ s: [String: TOMLValue]) throws -> [String: TOMLValue] {
+    /// its own field), each checked against its type. 669: `approvals` too, for an image whose agent has prompts to skip.
+    static func checkedSandboxSettings(_ s: [String: TOMLValue], image: String? = nil) throws -> [String: TOMLValue] {
         var out: [String: TOMLValue] = [:]
         for (k, v) in s {
-            guard k != SettingKey.agentSudo, DozableSettings.perSandbox.contains(k), let d = DozableSettings.definition(k) else {
-                throw HostError(.invalid, "\(k) is not a per-sandbox setting (they are: \(DozableSettings.perSandbox.joined(separator: ", ")))")
+            if k == SettingKey.sandboxApprovals, DozableSettings.sandboxDefinition(k, image: image) == nil {
+                throw HostError(.invalid, "approvals: \(image ?? "this image") has no approval prompts to skip or ask")
+            }
+            guard k != SettingKey.agentSudo, DozableSettings.sandboxKeys.contains(k), let d = DozableSettings.sandboxDefinition(k, image: image) else {
+                throw HostError(.invalid, "\(k) is not a per-sandbox setting (they are: \(DozableSettings.sandboxKeys.joined(separator: ", ")))")
             }
             do { out[k] = try d.validate(v) } catch { throw HostError(.invalid, "\(error)") }
         }
@@ -48,16 +60,44 @@ extension HostCore {
         return settings().resolve(key).value
     }
 
+    /// 669 (659 §4, §6): the values of its recipe's settings a new sandbox is made with, as resolved, each with the layer
+    /// that gave it — a flag on the command (or the project's file, `fromProject`), this Mac's value, the recipe's own.
+    static func recordedRecipeSettings(_ o: CreateOptions, spec: SandboxSpec, settings: DozableSettings) -> [String: RecordedSetting]? {
+        guard let r = spec.imageSpec.flatMap({ ImageChoice.parse($0.name)?.agent.recipe }) else { return nil }
+        let project = Set(o.fromProject ?? [])
+        func given(_ name: String, _ chosen: Bool) -> String? { chosen ? (project.contains(name) ? "project" : "flag") : nil }
+        func setting(_ name: String) -> String {
+            guard let k = SettingKey.recipe(r.id, name) else { return SettingSource.recipe.rawValue }
+            return settings.resolve(k).source.rawValue
+        }
+        var out: [String: RecordedSetting] = [:]
+        if let v = spec.imageSpec?.agent?.version {
+            out[RecipeSettings.version] = RecordedSetting(value: .string(v), from: given(RecipeSettings.version, o.agentVersion != nil) ?? setting(RecipeSettings.version))
+        }
+        out[RecipeSettings.memory] = RecordedSetting(value: .int(Int(spec.memoryMiB)), from: given(RecipeSettings.memory, o.memoryMiB != nil) ?? setting(RecipeSettings.memory))
+        out[RecipeSettings.network] = RecordedSetting(value: .string(o.network ?? DozableImages.networkName(spec.network)),
+                                                      from: given(RecipeSettings.network, o.network != nil) ?? setting(RecipeSettings.network))
+        return out
+    }
+
     func sandboxSettings(_ r: HostRequest) throws -> SandboxSettingsReport {
         let m = try get(r.name)
+        let image = m.config.spec.imageSpec?.name
         var changed: String?
-        if let key = r.setting {
-            guard DozableSettings.perSandbox.contains(key), let d = DozableSettings.definition(key) else {
-                throw HostError(.invalid, "\(key) is not a per-sandbox setting (they are: \(DozableSettings.perSandbox.joined(separator: ", ")))")
+        if var key = r.setting {
+            // 669: a recipe's approvals by its full key is this sandbox's `approvals` (its recipe's own).
+            if key != SettingKey.sandboxApprovals, DozableSettings.canonicalKey(key) == DozableSettings.approvalsKey(image: image) { key = SettingKey.sandboxApprovals }
+            if key == SettingKey.sandboxApprovals, DozableSettings.sandboxDefinition(key, image: image) == nil {
+                throw HostError(.invalid, "approvals: \(m.name)'s agent has no approval prompts to skip or ask")
+            }
+            guard DozableSettings.sandboxKeys.contains(key), let d = DozableSettings.sandboxDefinition(key, image: image) else {
+                throw HostError(.invalid, "\(key) is not a per-sandbox setting (they are: \(DozableSettings.sandboxKeys.joined(separator: ", ")))")
             }
             if r.clearSetting == true {
                 if key == SettingKey.agentSudo { m.config.agentSudo = nil } else { m.config.settings?[key] = nil }
                 if m.config.settings?.isEmpty == true { m.config.settings = nil }
+                m.config.settingsFrom?[key] = nil
+                if m.config.settingsFrom?.isEmpty == true { m.config.settingsFrom = nil }
                 changed = "\(key) follows the setting again"
             } else {
                 guard let raw = r.settingValue else { throw HostError(.invalid, "\(key): which value? (or clear it)") }
@@ -72,6 +112,9 @@ extension HostCore {
                     throw HostError(.invalid, problem)
                 }
                 if key == SettingKey.agentSudo, case .bool(let b) = v { m.config.agentSudo = b } else { m.config.settings = (m.config.settings ?? [:]).merging([key: v]) { _, n in n } }
+                // 669: whose value it is now — the project's (doz up syncing doz_project.yaml) or the sandbox's own.
+                if r.settingFrom == "project" { m.config.settingsFrom = (m.config.settingsFrom ?? [:]).merging([key: "project"]) { _, n in n } }
+                else { m.config.settingsFrom?[key] = nil; if m.config.settingsFrom?.isEmpty == true { m.config.settingsFrom = nil } }
                 changed = "\(key) = \(v.plain) for \(m.name)"
             }
             if !readOnly {
@@ -82,15 +125,46 @@ extension HostCore {
                 note(m.name, "\(changed ?? key) — \(d.applies.note)")
             }
         }
-        let settings = DozableSettings.load()
-        let rows = DozableSettings.perSandbox.compactMap { key -> SandboxSettingRow? in
-            guard let d = DozableSettings.definition(key) else { return nil }
-            let s = settings.resolve(key)
-            let own: TOMLValue? = key == SettingKey.agentSudo ? m.config.agentSudo.map { .bool($0) } : m.config.settings?[key]
-            return SandboxSettingRow(key: key, value: own ?? s.value, source: own != nil ? "sandbox" : s.source.rawValue,
-                                     sandboxValue: own, settingValue: s.value, typeName: d.type.name, description: d.summary)
+        return Self.sandboxSettingsReport(m.config, changed: changed)
+    }
+
+    /// 669 (659 §8, item 13): a sandbox's settings — each per-sandbox one (its approvals included) with its value and
+    /// whose it is (`sandbox`, `project`, else the Mac's source), and its recipe's when-made values as recorded.
+    static func sandboxSettingsReport(_ cfg: SandboxConfig, changed: String? = nil, settings: DozableSettings = .load()) -> SandboxSettingsReport {
+        let image = cfg.spec.imageSpec?.name
+        var rows = DozableSettings.sandboxKeys.compactMap { key -> SandboxSettingRow? in
+            guard let d = DozableSettings.sandboxDefinition(key, image: image) else { return nil }
+            let s = settings.resolve(d.key)
+            let own: TOMLValue? = key == SettingKey.agentSudo ? cfg.agentSudo.map { .bool($0) } : cfg.settings?[key]
+            let whose = own == nil ? s.source.rawValue : (cfg.settingsFrom?[key] == "project" ? "project" : "sandbox")
+            var row = SandboxSettingRow(key: key, value: own ?? s.value, source: whose,
+                                        sandboxValue: own, settingValue: s.value, typeName: d.type.name, description: d.summary)
+            row.settingSource = s.source.rawValue
+            row.settingKey = d.key == key ? nil : d.key
+            row.choices = { if case .choice(let c) = d.type { return c }; return nil }()
+            return row
         }
-        return SandboxSettingsReport(sandbox: m.name, settings: rows, changed: changed)
+        // The recipe's when-made values: recorded at create (a doz.json before 669: the spec's, "recorded").
+        if let r = image.flatMap({ ImageChoice.parse($0)?.agent.recipe }) {
+            for name in [RecipeSettings.version, RecipeSettings.memory, RecipeSettings.network] {
+                guard let k = SettingKey.recipe(r.id, name), let d = DozableSettings.definition(k) else { continue }
+                let rec = cfg.recipeSettings?[name]
+                var spec: TOMLValue? = TOMLValue.string(cfg.networkName)
+                if name == RecipeSettings.version {
+                    spec = cfg.spec.imageSpec?.agent.map { TOMLValue.string($0.version) }
+                } else if name == RecipeSettings.memory {
+                    spec = TOMLValue.int(Int(cfg.spec.memoryMiB))
+                }
+                guard let value = rec?.value ?? spec else { continue }
+                let s = settings.resolve(k)
+                var row = SandboxSettingRow(key: k, value: value, source: rec?.from ?? "recorded", sandboxValue: nil, settingValue: s.value,
+                                            typeName: d.type.name, description: d.summary)
+                row.settingSource = s.source.rawValue
+                row.recorded = true
+                rows.append(row)
+            }
+        }
+        return SandboxSettingsReport(sandbox: cfg.name, settings: rows, changed: changed)
     }
 
     /// The per-sandbox value, by sandbox name (nil: no such sandbox).

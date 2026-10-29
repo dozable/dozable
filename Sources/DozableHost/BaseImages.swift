@@ -177,7 +177,7 @@ extension DozableImages {
             native = AgentVersions.knownNative(r.version, store: store)
             if native == nil {
                 throw HostError(.unavailable, "Claude Code \(r.version)'s native build (for a base without Node) is not known here yet — its checksums come from downloads.claude.ai: "
-                                + "try again online, or set images.claude_code_version to \(NativeClaudeBuild.pinned.version) (built in)")
+                                + "try again online, or set \(SettingKey.claudeCodeVersion) to \(NativeClaudeBuild.pinned.version) (built in)")
             }
         }
         do {

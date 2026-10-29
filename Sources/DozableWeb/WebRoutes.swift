@@ -56,6 +56,8 @@ public enum WebRoute: Equatable, Sendable {
     // 591 settings — doz.toml: the report, and ONE typed change (closed schema, CSRF).
     case settings                  // GET  /api/v1/settings
     case settingsChange            // POST /api/v1/settings  ({key, value} | {key, reset: true})
+    // 669 — Settings › Recipes: every recipe's state on this Mac and its settings (read; from the store, never a host).
+    case recipes                   // GET  /api/v1/recipes
     // 593 §9 — session memory (WebSessionMemory.swift): a saved screen (read), the terminal layout
     // (read, and ONE typed CSRF-checked change).
     case sessionScreen(String, String)  // GET  /api/v1/sandboxes/{name}/sessions/{session}/screen
@@ -235,6 +237,7 @@ public enum WebRoute: Equatable, Sendable {
             case "doctor": return .doctor
             case "stream": return .stream
             case "settings": return .settings
+            case "recipes": return .recipes
             case "onboarding": return .onboarding
             case "preparations": return .preparations
             case "resources": return .resources

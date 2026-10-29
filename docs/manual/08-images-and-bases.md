@@ -1,13 +1,16 @@
 # Images and bases
 
-Every sandbox starts from an **image**: a prepared disk with a Linux system, a developer toolkit and,
-usually, an AI agent. You choose an image when you create a sandbox; Dozable prepares it the first time
-it's needed and then makes each sandbox an instant copy of it.
+Every sandbox starts from a **baked image**: a disk with a Linux system, a developer toolkit and,
+usually, the agent a recipe installs. The layers are base → developer base → baked image, one baked image
+per base × recipe. You choose an image when you create a sandbox; Dozable bakes it the first time it's
+needed (the CLI and the dashboard call that *preparing* it) and then makes each sandbox an instant copy of it.
+A recipe with at least one baked image on this Mac is *installed* — the dashboard's **Recipes › Installed** lists it, with its
+baked images and their size.
 
 ## Concepts
 
 - **An image is two choices: an agent and a base.**
-  - The **agent**: **Claude Code**, **pi**, **Codex** ([Codex](24-codex.md)), or **none** (a shell only).
+  - The **agent** (what a recipe installs): **Claude Code**, **pi**, **Codex** ([Codex](24-codex.md)), or **none** (a shell only).
   - The **base**: the Linux system underneath — one of the **recommended bases** (below), **your own
     Dockerfile**, or a **template** you saved from a sandbox.
 - **Image names** follow the pair: `<base>-<agent>`, for example `python-claude-code` or `go-pi`, and
@@ -172,11 +175,11 @@ make new sandboxes from it. It never includes the agent's state disk (logins, hi
 |---|---|---|
 | `defaults.image` | `lab` | The image used when you don't name one (onboarding sets it to `claude-code`). |
 | `defaults.base` | `node` | The store's base: quick-made sandboxes' tools go on it (see [The store's base](#the-stores-base)). |
-| `images.claude_code_version` | `latest` | The Claude Code version an image is prepared with: `latest` (resolved at preparation) or an exact version like `2.1.227`. |
-| `images.pi_version` | `latest` | The same for pi. |
-| `images.lab.memory_mib` · `images.claude-code.memory_mib` · `images.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image. |
-| `images.lab.network` · `images.claude-code.network` · `images.pi.network` | `bake` · `agent` · `agent` | Network of a new sandbox of each image. |
-| `resources.clean_unused_days` | `30` | Clean up removes a prepared image no sandbox was made from in this many days. |
+| `recipes.anthropic.claude-code.version` | `latest` | The Claude Code version its image is baked with: `latest` (resolved when it is baked) or an exact version like `2.1.227`. |
+| `recipes.earendil-works.pi.version` | `latest` | The same for pi. |
+| `images.lab.memory_mib` · `recipes.anthropic.claude-code.memory_mib` · `recipes.earendil-works.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image. |
+| `images.lab.network` · `recipes.anthropic.claude-code.network` · `recipes.earendil-works.pi.network` | `bake` · `agent` · `agent` | Network of a new sandbox of each image. |
+| `resources.clean_unused_days` | `30` | Clean up removes a baked image no sandbox was made from in this many days. |
 
 ## Limits
 

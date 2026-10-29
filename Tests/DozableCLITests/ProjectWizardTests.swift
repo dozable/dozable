@@ -98,7 +98,7 @@ final class ProjectWizardTests: XCTestCase {
         let s = DozableSettings(text: "")
         var p = DozableProject(name: "x", image: "claude-code")
         p.cpus = s.int(SettingKey.cpus)
-        p.memoryMiB = UInt64(s.int(SettingKey.memory("claude-code")))
+        p.memoryMiB = UInt64(s.int(DozableSettings.imageKeys(imageSpecName: "claude-code").memory))
         p.network = "agent"
         p.permissions = ["standard"]
         p.account = "default"

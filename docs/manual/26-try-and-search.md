@@ -133,7 +133,7 @@ Every agent and tool comes with a **guide**: what it is, the facts of your sandb
   checked the recipe. The first step is always the one Dozable checks the recipe with, so it is known to work.
 - **In a terminal**, `doz guide NAME` prints the same (`--json` as data). `doz try` prints "Start here" before it
   attaches to a tool whose session is a shell, and the first login shell in such a sandbox shows the steps once.
-- **Fabric** comes with its patterns (some 260, from its own release, checksum-verified when the image is prepared):
+- **Fabric** comes with its patterns (some 260, from its own release, checksum-verified when its image is baked):
   `fabric -l` lists them, `fabric -p summarize` uses one — nothing to download first.
 
 ## Is it supported? `doz search`

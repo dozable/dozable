@@ -177,6 +177,10 @@ workspace_view: on          # off: share the folder directly (programs in it los
 | `ssh_agent` | `on` or `off` | `sandbox.ssh_agent` (off) | at once |
 | `github` | `off`, `read` or `push` ([GitHub as you](18-github.md)) | off | when made (later: `doz net allow NAME github:as-you`) |
 | `tmux` | `true` or `false` | `sessions.tmux` (false) | the next session |
+| `approvals` | `skip` or `ask`: the agent's own approval prompts | its recipe's `approvals` (skip) | the next session |
+
+A value the file sets is recorded in its sandbox as the project's (the dashboard's badge: **project**), and
+`doz up` applies it again. `doz config set --project DIR KEY VALUE` changes the file for you.
 
 The schema is closed: an unknown key, a key given twice, a wrong type or a value out of range is an
 error that names the line. One YAML document, no anchors or aliases, at most 64 KiB.

@@ -87,6 +87,6 @@ public enum QuickAdd {
     /// The image's network setting, for `requirement` (nil for an image without an agent).
     public static func network(image: String, settings: DozableSettings) -> String? {
         guard AgentCredentials.kinds(image) != nil else { return nil }
-        return settings.string(SettingKey.network(DozableSettings.imageSection(imageSpecName: image)))
+        return settings.string(DozableSettings.imageKeys(imageSpecName: image).network)
     }
 }

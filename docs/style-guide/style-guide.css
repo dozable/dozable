@@ -10,6 +10,7 @@
   .sg > section { margin-top: 40px; }
   .sg > section > h2 { font-size: var(--fs-xl); margin: 0 0 4px; }
   .sg > section > p { color: var(--ink-2); max-width: 92ch; margin: 0 0 12px; }
+  .sg > section > h3 { font-size: var(--fs-lg); margin: 28px 0 4px; }   /* a catalogue's entry (Setting controls) */
   .pair { display: grid; grid-template-columns: 1fr 1fr; border: var(--bw) solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
   .pair.wide { grid-template-columns: 1fr; }
   .scheme { background: var(--bg); color: var(--ink); padding: 26px 16px 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; position: relative; }

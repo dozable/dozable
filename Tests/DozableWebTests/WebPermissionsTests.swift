@@ -45,7 +45,11 @@ final class WebPermissionsTests: XCTestCase {
 
     func testTheBasesAnswerCarriesTheSwitchesAndStandardPerBase() {
         let rows = WebBases.permissionRows
-        XCTAssertEqual(rows.map(\.id), AgentPermissions.all.map(\.id))
+        // 669: the shared switches only — no recipe agent's own permission (its sandbox gets it at create).
+        XCTAssertEqual(rows.map(\.id), AgentPermissions.basePermissions.map(\.id))
+        let own = Set(AgentPermissions.all.map(\.id)).subtracting(AgentPermissions.basePermissions.map(\.id))
+        XCTAssertFalse(own.isEmpty, "the recipes add permissions of their own")
+        XCTAssertTrue(own.isDisjoint(with: rows.map(\.id)), "none of them is a switch: \(own.intersection(rows.map(\.id)))")
         XCTAssertTrue(rows.first { $0.id == "model" }!.locked)
         XCTAssertNotNil(rows.first { $0.id == "web" }!.warning)
         XCTAssertEqual(WebBases.standardByBase["python"], AgentPermissions.preset("agent", base: "python"))

@@ -217,7 +217,7 @@ is the program. Its sha512 is checked against `integrity`; it is placed under `/
 | `resume`, `resume_check` | Arguments that continue its last conversation after a restart, and a check that there is one. |
 | `verify` | Checks after preparation: `{argv, expect}`; `expect` may hold `${{ kit.args.version }}`. |
 | `check` | Required. One headless turn `make recipe-check` runs in a fresh try: `{argv, expect, exit?, timeout?}` — `argv` runs as the agent through its launcher (approval prompts off), with fake keys and a stand-in model that answers `DOZ_FAKE_OK`; its output must contain `expect`, it must exit `exit` (default 0) within `timeout` seconds (default 240). `screen` (optional, `{expect?, refuse?, allow?, wait?}`): what the default session's first screen must show (`expect`, regular expressions) and must not (`refuse`, on top of the generic setup/sign-in/consent list), the lines the generic list excuses (`allow` — a ready screen's own banner), how long it settles (`wait`, default 15 s), and keys typed first (`keys`: `enter`, `esc`, `up`, `down`, `tab`, `space` — only for a choice nothing skips that is not the person's decision, to reach the screen checked: Antigravity CLI's colour scheme before its terms). See "Checking a recipe" below. |
-| `settings` | Its settings keys, when not the defaults (`images.ID_version`, `ID.permissions`). |
+| `settings` | Its settings keys before 0.37.34, when not the defaults (`images.ID_version`, `ID.permissions`): since then the names doz.toml still reads as aliases of `recipes.VENDOR.PRODUCT.version` / `.approvals`. |
 
 **`com.dozable/auth@1`** — `methods`: the ways a person lets it reach its model, recommended first. Each is
 `{kind, provider?, account?, accounts?, keys_page?, free_tier?, free_tier_note?, in_sandbox?, gateways?, note?,
@@ -244,6 +244,32 @@ agent's releases are is measured on each Mac, never recorded here.
 `icon` (a product in the icon registry), `default_base`, `platforms {glibc, musl}`, `limits` (`{musl?, base?,
 reason}`), `tags` (`{tag, level, evidence?, source?, notes?, checked?}` — the tags no other field can derive),
 `terms`, `licence` (the licence in words, when it is not just the SPDX id), `published` (absent: published).
+
+**The subject** (optional) — what the recipe's agent is, in 1–5 lower-case words, shown beside its name: `coding
+harness` (pi), `agentic tool` (Fabric), `agentic fortune teller`. Without one, its agent is "agent", and generic copy
+always says "agent". It is the Kit `description` of the `com.dozable/directory@1` entry:
+
+```yaml
+- type: com.dozable/directory@1
+  description: coding harness
+  config:
+    kind: coding-agent
+```
+
+That field is Kit's own, and every schema 2 reader already takes it, so a doz from before the subject still accepts a
+catalogue whose recipes carry one (no `minimum_doz` needed). The schema checks its shape (`^[a-z][a-z0-9]*( [a-z0-9][a-z0-9-]*){0,4}$`,
+at most 40 characters).
+
+**`com.dozable/settings@1`** (optional, at most one) — the agent's own settings beyond the ones every recipe has.
+Every recipe's agent has `version`, `approvals` (when it has approval prompts to skip), `memory_mib` and `network`,
+generated for it; their doz.toml keys are `recipes.VENDOR.PRODUCT.NAME` (`[recipes.anthropic.claude-code]`, a recipe
+that is not Dozable's one part longer: `[recipes.mine.VENDOR.PRODUCT]`). A recipe declares more only when its agent
+needs one of its own: `options`, 1–8 of `{name, type, default, summary, applies, choices?, min?, max?}` — `type` is
+`bool`, `int` (with `min` and `max`) or `choice` (with its `choices`), closed; `applies` is `now`, `next-session` or
+`next-create`; a name is never one of the four every recipe has. Each is set on the Mac (`doz config set --agent ID
+NAME VALUE`). Codex's `keep_alive` is the one today. A new capability type: an older doz refuses a recipe that has
+one, so a catalogue recipe uses it only with the catalogue's `minimum_doz` raised (a built-in recipe ships with its
+doz).
 
 **`published: false`** unpublishes a recipe: it stays in the build and valid (its YAML is checked like any other), and
 everything STORED of it keeps working — a sandbox, its image (a rebuild included), its settings, its account — but it

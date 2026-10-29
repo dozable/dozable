@@ -23,6 +23,7 @@ import { sandboxPill } from '../components/pills.js';
 import { renameItem } from '../components/rename-dialog.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
+import { sourceTag } from '../components/setting-source.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
@@ -396,6 +397,7 @@ function sandboxParts(name, d, net, accounts) {
       foreign.length ? h('h2', null, 'Credentials the guest brought itself (fingerprints only)') : null,
       foreign.length ? panel(table(['Kind', 'Fingerprint', 'Header'], foreign)) : null),
     panel_('config',
+      ...settingsBlock(name, d),
       head('Configuration'),
       h('div', { class: 'panel' }, h('div', { class: 'panel-body' }, h('dl', { class: 'facts' },
         fact('Memory', mib(d.memoryMiB)), fact('Root disk', mib(d.rootfsMiB)), fact('State disk', mib(d.stateDiskMiB)),
@@ -433,6 +435,47 @@ function inspResizeStart(ev) {
   document.body.classList.add('resizing');
   document.addEventListener('pointermove', move);
   document.addEventListener('pointerup', up);
+}
+/// 669 (659 item 13): the sandbox's settings — what it overrides first (its own and its project's), each with the Mac's
+/// value beside it and, for its own live value, "Follow the Mac" (it follows the layers below again); what it follows
+/// folded below; its recipe's values as recorded when it was made. The CLI's twin: doz config show --sandbox NAME.
+function settingsBlock(name, d) {
+  const rows = d.settings || [];
+  if (!rows.length) return [];
+  const shownValue = (v) => typeof v === 'string' ? (v === '' ? '""' : v) : String(v);
+  const isOverride = (s) => s.recorded ? (s.source === 'project' || s.source === 'flag') : (s.source === 'sandbox' || s.source === 'project');
+  const overrides = rows.filter(isOverride), follows = rows.filter((s) => !isOverride(s));
+  const row = (s, over) => {
+    const recipe = s.key.startsWith('recipes.') || !!s.settingKey;
+    const short = s.key.startsWith('recipes.') ? s.key.split('.').pop() : s.key;
+    const notes = [];
+    if (s.recorded) notes.push(s.source === 'project' ? 'From its project, recorded at create.' : s.source === 'flag' ? 'Chosen when it was made, recorded at create.' : 'Recorded at create.');
+    else if (s.source === 'project') notes.push('From its project (doz_project.yaml), synced at each doz up.');
+    if (over && JSON.stringify(s.macValue) !== JSON.stringify(s.value)) notes.push('The Mac says ' + shownValue(s.macValue) + (s.recorded ? ' for new sandboxes.' : '.'));
+    const follow = over && !s.recorded && s.source === 'sandbox'
+      ? h('a', { href: '#', 'data-follow-mac': s.key, on: { click: (ev) => { ev.preventDefault(); followMac(name, s.key); } } }, 'Follow the Mac') : null;
+    return h('div', { class: 'ovr-row', 'data-setting': s.key, 'data-source': s.source },
+      h('span', { class: 'k' }, h('code', null, short), recipe ? h('span', { class: 'muted' }, ' · its recipe') : null),
+      h('span', { class: 'v' }, shownValue(s.value), ' ', sourceTag(s.source)),
+      notes.length || follow ? h('span', { class: 'note' }, notes.join(' '), follow ? ' ' : null, follow) : null);
+  };
+  return [
+    h('div', { class: 'head has-title' }, h('h2', null, 'Settings')),
+    h('p', { class: 'muted' }, 'Its own values and its project’s win over this Mac’s. ', h('code', null, 'doz config show --sandbox ' + name)),
+    h('div', { class: 'panel sbx-settings', 'data-sbx-settings': name },
+      h('div', { class: 'ovr' }, h('div', { class: 'ovr-group' }, 'Overrides · ' + overrides.length),
+        overrides.length ? overrides.map((s) => row(s, true)) : h('div', { class: 'ovr-row muted' }, 'None: it follows this Mac’s values.')),
+      h('details', { class: 'follows' }, h('summary', null, 'Follows · ' + follows.length), h('div', { class: 'ovr' }, follows.map((s) => row(s, false))))),
+  ];
+}
+/// 669: "Follow the Mac" — the sandbox's own value cleared (the typed action sandbox-setting).
+async function followMac(name, key) {
+  try {
+    await actOrThrow({ action: 'sandbox-setting', sandbox: name, key, clear: true });
+  } catch (e) {
+    pageFailure(e.message || String(e));
+  }
+  refreshSandbox();
 }
 /// 594 (D15/D16): what the agent is told about where it runs, as its NEXT session gets it.
 function promptPanel(d) {

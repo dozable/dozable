@@ -118,10 +118,47 @@ public enum SettingType: Sendable, Equatable {
     }
 }
 
-/// Where an effective value came from.
-public enum SettingSource: String, Codable, Sendable {
-    case flag, env, file
+/// Where an effective value came from. 669 (659 §4): one precedence for every setting — the first layer that says
+/// something wins: a flag, the environment, the sandbox's own value, its project's (`doz_project.yaml`), this Mac's
+/// (`doz.toml`), then the default: a recipe's own for its agent's settings (`recipe`), Dozable's for the rest. `mac` was
+/// `file` before 669; the JSON still reads `file` (one release).
+public enum SettingSource: String, Sendable, CaseIterable {
+    case flag, env, sandbox, project, mac
+    /// 669: a recipe's own default (its agent's settings).
+    case recipe
     case `default`
+
+    /// The badge's word (the dashboard's, the CLI's SOURCE column).
+    public var word: String { self == .mac ? "Mac" : rawValue }
+}
+
+extension SettingSource: Codable {
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        guard let s = raw == "file" ? .mac : SettingSource(rawValue: raw) else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "no setting source \(raw)"))
+        }
+        self = s
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
+/// 669 (659 §3): the four kinds of setting — where each may be set.
+public enum SettingClass: String, Codable, Sendable {
+    /// How this Mac, the host, the CLI and the dashboard behave: the Mac only (and env, flag).
+    case mac = "M"
+    /// A new sandbox's default: read once when it is made (Mac, project), then recorded in it.
+    case newSandbox = "N"
+    /// A Mac-wide value one sandbox may override, read while it runs: Mac, project, sandbox.
+    case perSandbox = "S"
+    /// A recipe's agent's own: the recipe's default, Mac, project, sandbox.
+    case recipe = "R"
+
+    /// Whether a sandbox or a project can have its own value of a setting of this kind.
+    public var hasSandboxLayers: Bool { self != .mac }
 }
 
 /// When a changed value takes effect.
@@ -172,14 +209,18 @@ public struct SettingDefinition: Sendable {
     public let applies: SettingApplies
     /// False: the web UI shows it read-only (host paths — the UI never names one).
     public let editableInUI: Bool
-    /// A recipe agent's own setting (its id): generated from its recipe, and written into doz.toml only once that
-    /// agent has a value set there (`render`). nil: one of Dozable's own, always listed.
+    /// A recipe's own setting (its agent's id): generated from its recipe, and written into doz.toml only once that
+    /// recipe has a value set there (`render`). nil: one of Dozable's own, always listed. 669: the built-in three's too.
     public let agent: String?
+    /// 669: the names it had before 669 (`images.claude_code_version`, `claude.permissions`) — read, and taken by
+    /// `doz config`, as this key; never written again.
+    public let aliases: [String]
 
     public var key: String { "\(section).\(name)" }
 
     init(_ section: String, _ name: String, _ type: SettingType, _ defaultValue: TOMLValue, _ summary: String,
-         env: String? = nil, flag: String? = nil, applies: SettingApplies, ui: Bool = true, agent: String? = nil) {
+         env: String? = nil, flag: String? = nil, applies: SettingApplies, ui: Bool = true, agent: String? = nil,
+         aliases: [String] = []) {
         self.section = section
         self.name = name
         self.type = type
@@ -190,7 +231,19 @@ public struct SettingDefinition: Sendable {
         self.applies = applies
         editableInUI = ui
         self.agent = agent
+        self.aliases = aliases
     }
+
+    /// 669: which of the four kinds it is.
+    public var settingClass: SettingClass {
+        if agent != nil { return .recipe }
+        if DozableSettings.perSandbox.contains(key) { return .perSandbox }
+        if DozableSettings.newSandboxKeys.contains(key) { return .newSandbox }
+        return .mac
+    }
+
+    /// 669: where its default comes from — the recipe's own (`recipe`) or Dozable's (`default`).
+    public var defaultSource: SettingSource { agent != nil ? .recipe : .default }
 
     /// Check a typed value (from the file, the UI or the CLI). Throws a message that never echoes
     /// more than the value's type.
@@ -216,7 +269,7 @@ public struct SettingDefinition: Sendable {
             return v
         case (.version, .string(let s)):
             // 617: a pinned-only recipe (pypi, release-binary) takes its own pin too, which may have two parts (llm 0.36).
-            let pin = AgentRecipes.all.first { !$0.isBuiltin && $0.versionSettingKey == key && $0.isPinnedOnly }?.install.pinned.version
+            let pin = agent.flatMap(AgentRecipes.recipe).flatMap { !$0.isBuiltin && $0.isPinnedOnly ? $0.install.pinned.version : nil }
             guard s == "latest" || SettingType.isExactVersion(s) || s == pin else { throw SettingsError("\(key) is latest, or an exact version like 2.1.227") }
             return v
         case (.timeZone, .string(let s)):
@@ -293,6 +346,8 @@ public struct ResolvedSetting: Sendable {
     public let source: SettingSource
     /// What the file sets, when it sets a valid value (even when a flag or the environment wins).
     public let fileValue: TOMLValue?
+    /// 669: the file's value was read under this old name (`images.claude_code_version`); the next write moves it.
+    public var migratedFrom: String? = nil
     public var key: String { definition.key }
 }
 
@@ -321,6 +376,15 @@ public struct SettingRow: Codable, Equatable, Sendable {
     public var editable: Bool
     /// Why it is read-only in the UI, when it is.
     public var note: String?
+    /// 669: M (Mac), N (a new sandbox's default), S (per sandbox, live) or R (a recipe's agent's).
+    public var kind: SettingClass? = nil
+    /// 669: a recipe's own setting — the recipe (`anthropic/claude-code`) and its agent's id.
+    public var recipe: String? = nil
+    public var agent: String? = nil
+    /// 669: read from the file under this name from before 669 (the next write moves it).
+    public var migratedFrom: String? = nil
+    /// 669: the names it had before 669 (still taken by doz config).
+    public var aliases: [String]? = nil
 }
 
 public struct SettingsReport: Codable, Equatable, Sendable {
@@ -330,6 +394,8 @@ public struct SettingsReport: Codable, Equatable, Sendable {
     public var error: String?
     public var settings: [SettingRow]
     public var notSettable: [String]
+    /// 669: one line per value read under its old name (the next write moves it to its new one).
+    public var notes: [String]? = nil
 }
 
 /// The names of the settings, for the code that reads them.
@@ -361,8 +427,11 @@ public enum SettingKey {
     public static let bootLogsKept = "host.boot_logs_kept"
     public static let keepalive = "host.keepalive"
     public static let storePath = "store.path"
-    public static let claudePermissions = "claude.permissions"
     public static let cpus = "defaults.cpus"
+    /// 669 (659 Q8): a new sandbox's memory and network when its image has no agent (a python or go base) — Dozable's
+    /// own, seeded by the migration from claude-code's, which such an image followed before.
+    public static let defaultMemory = "defaults.memory_mib"
+    public static let defaultNetwork = "defaults.network"
     public static let natSubnet = "defaults.nat_subnet"
     /// 594: the image `doz up`/`doz init`/the UI's create form use when none is named; the account
     /// a store that has not chosen one defaults to (`doz account default` wins once it has).
@@ -431,26 +500,35 @@ public enum SettingKey {
     public static let updatesChannel = "updates.channel"
     /// Anonymous usage statistics of an official build (on by default; a build from the repository sends nothing).
     public static let sendUsageStats = "telemetry.send_anonymous_usage_stats"
-    /// `images.<lab|claude-code|pi>.memory_mib` / `.network`.
-    public static func memory(_ image: String) -> String { "images.\(image).memory_mib" }
-    public static func network(_ image: String) -> String { "images.\(image).network" }
-    /// 594 (owner: "install (optionally) latest claude code (default true)"): the agent's version an
-    /// image is prepared with — `latest` (resolved at preparation time) or an exact one.
-    public static let claudeCodeVersion = "images.claude_code_version"
-    public static let piVersion = "images.pi_version"
-    /// 599i: Codex — its version, and whether its approvals and own sandbox are skipped (the VM is the sandbox).
-    public static let codexVersion = "images.codex_version"
-    public static let codexPermissions = "codex.permissions"
-    /// rc.3: run the Mac's own codex near its login's expiry while a sandbox uses it (`mac` for Codex).
-    public static let codexKeepAlive = "codex.keep_alive"
-    public static func agentVersion(_ image: String) -> String? {
-        switch image {
-        case "claude-code": claudeCodeVersion
-        case "pi": piVersion
-        case "codex": codexVersion
-        default: AgentRecipes.recipe(image).flatMap { $0.isBuiltin ? nil : $0.versionSettingKey }       // 617: images.gemini_version
-        }
+    /// The lab's memory and network (`images.lab.*` — the lab is Dozable's own image, not a recipe's).
+    public static let labMemory = "images.lab.memory_mib"
+    public static let labNetwork = "images.lab.network"
+
+    /// 669: a recipe's own setting — `recipes.VENDOR.PRODUCT.OPTION` (nil: no such recipe).
+    public static func recipe(_ agent: String, _ option: String) -> String? {
+        AgentRecipes.recipe(agent).map { "\($0.settingsSection).\(option)" }
     }
+    /// 594 (owner: "install (optionally) latest claude code (default true)"): the agent's version an image is prepared
+    /// with — `latest` (resolved at preparation time) or an exact one. 669: `recipes.anthropic.claude-code.version`
+    /// (before: `images.claude_code_version`, an alias now).
+    public static func agentVersion(_ image: String) -> String? { recipe(image, RecipeSettings.version) }
+    /// 669: whether an agent's approval prompts are skipped (`claude.permissions` before) — nil for an agent with none.
+    public static func approvals(_ agent: String) -> String? {
+        AgentRecipes.recipe(agent).flatMap { $0.permissionsSettingKey == nil ? nil : "\($0.settingsSection).\(RecipeSettings.approvals)" }
+    }
+    public static var claudeCodeVersion: String { agentVersion("claude-code")! }
+    public static var piVersion: String { agentVersion("pi")! }
+    /// 599i: Codex — its version, and whether its approvals and own sandbox are skipped (the VM is the sandbox).
+    public static var codexVersion: String { agentVersion("codex")! }
+    public static var claudePermissions: String { approvals("claude-code")! }
+    public static var codexPermissions: String { approvals("codex")! }
+    /// rc.3: run the Mac's own codex near its login's expiry while a sandbox uses it (`mac` for Codex). 669: Codex's
+    /// recipe declares it (`com.dozable/settings@1`); `codex.keep_alive` before.
+    public static var codexKeepAlive: String { recipe("codex", "keep_alive")! }
+
+    /// 669: the per-sandbox form of a recipe's approvals (`doz config set --sandbox NAME approvals ask`, `approvals:` in
+    /// doz_project.yaml): a sandbox's recipe never changes, so its own value is kept under this one word.
+    public static let sandboxApprovals = RecipeSettings.approvals
 }
 
 public struct DozableSettings: Sendable {
@@ -464,19 +542,84 @@ public struct DozableSettings: Sendable {
     /// Every setting, in file order. CLOSED: a key not here is unknown everywhere (file, CLI, UI). 617: still a fixed
     /// list per build — the keys of the recipe agents (`images.<id>_version`, `<id>.permissions`, `images.<id>.*`) are
     /// generated from the compiled-in recipes (and, in tests, a registered one).
-    public static var schema: [SettingDefinition] {
+    public static var schema: [SettingDefinition] { indexed.schema }
+
+    /// The schema with its lookups: key → definition, an old name → its key.
+    struct Indexed {
+        let schema: [SettingDefinition]
+        let byKey: [String: Int]
+        let aliases: [String: String]
+    }
+    static var indexed: Indexed {
         let g = AgentRecipes.generation
         schemaLock.lock(); defer { schemaLock.unlock() }
-        if let c = schemaCache, c.generation == g { return c.schema }
+        if let c = schemaCache, c.generation == g { return c.indexed }
         let s = buildSchema()
-        schemaCache = (g, s)
-        return s
+        var byKey: [String: Int] = [:], aliases: [String: String] = [:]
+        for (i, d) in s.enumerated() { byKey[d.key] = i }
+        for d in s { for a in d.aliases where byKey[a] == nil { aliases[a] = d.key } }
+        let x = Indexed(schema: s, byKey: byKey, aliases: aliases)
+        schemaCache = (g, x)
+        return x
     }
-    nonisolated(unsafe) private static var schemaCache: (generation: Int, schema: [SettingDefinition])?
+    nonisolated(unsafe) private static var schemaCache: (generation: Int, indexed: Indexed)?
     private static let schemaLock = NSLock()
 
-    /// The recipe agents (not the built-in three): their settings are generated.
+    /// The recipe agents (not the built-in three).
     static var recipeAgents: [AgentRecipe] { AgentRecipes.all.filter { !$0.isBuiltin } }
+
+    /// 669: the settings of a new sandbox that it records when it is made (class N, 659 §3).
+    public static let newSandboxKeys: Set<String> = [SettingKey.cpus, SettingKey.natSubnet, SettingKey.permissions, SettingKey.defaultGithub,
+                                                     SettingKey.dotfiles, SettingKey.labMemory, SettingKey.labNetwork,
+                                                     SettingKey.defaultMemory, SettingKey.defaultNetwork]
+
+    /// 669: a 0.37 name of a key (`images.claude_code_version`) → its key; a key → itself; nil: unknown.
+    public static func canonicalKey(_ key: String) -> String? {
+        let x = indexed
+        return x.byKey[key] != nil ? key : x.aliases[key]
+    }
+
+    /// 669: the old names the migration ALSO seeds a Dozable key from — a base with no agent followed claude-code's
+    /// memory and network before 669, and keeps what it had (659 Q8).
+    static let seeds = ["images.claude-code.memory_mib": SettingKey.defaultMemory, "images.claude-code.network": SettingKey.defaultNetwork]
+
+    /// 669: every recipe's own settings (659 §3), generated from the active recipe set, under `recipes.VENDOR.PRODUCT`:
+    /// version, approvals (a recipe with prompts to skip), memory and network, then what its `settings@1` declares.
+    /// Each keeps its 0.37 name as an alias.
+    static func recipeSchema(_ r: AgentRecipe) -> [SettingDefinition] {
+        let sec = r.settingsSection
+        var s: [SettingDefinition] = []
+        let pin = r.install.pinned.version
+        let latest = r.isPinnedOnly && !r.isBuiltin
+            ? "latest means its pin (\(pin)): this kind is prepared at its pin only"
+            : "latest (looked up when its image is baked, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake rebuilds when you choose)"
+        s.append(.init(sec, RecipeSettings.version, .version, .string("latest"),
+                       "The \(r.title) a new sandbox of this recipe gets (and every base's baked image of it): \(latest), or an exact version like \(pin). A sandbox keeps the version it was made with; doz reset NAME moves it to the current one.",
+                       flag: "doz create --agent \(r.id)@VERSION", applies: .nextCreate, agent: r.id, aliases: [r.versionSettingKey]))
+        if let old = r.permissionsSettingKey {
+            s.append(.init(sec, RecipeSettings.approvals, .choice(["skip", "ask"]), .string("skip"),
+                           "\(r.title)'s own approval prompts: skip them (the sandbox is the boundary) or ask, as on a Mac. A sandbox (doz config set --sandbox NAME approvals ask) or its project (approvals: in doz_project.yaml) can choose its own.",
+                           flag: "-e \(r.permissionsVariable)=… on run/exec, --approvals on create", applies: .nextSession, agent: r.id, aliases: [old]))
+        }
+        s.append(.init(sec, RecipeSettings.memory, .int(256...262_144), .int(2048),
+                       "Memory (MiB) of a new sandbox of this recipe (a template follows the image it was saved from).",
+                       flag: "doz create --memory", applies: .nextCreate, agent: r.id, aliases: ["images.\(r.id).memory_mib"]))
+        s.append(.init(sec, RecipeSettings.network, .choice(networks), .string("agent"),
+                       "The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none.",
+                       flag: "doz create --network", applies: .nextCreate, agent: r.id, aliases: ["images.\(r.id).network"]))
+        for o in r.ownSettings ?? [] {
+            let type: SettingType, value: TOMLValue
+            switch (o.type, o.default) {
+            case ("bool", .bool(let b)): type = .bool; value = .bool(b)
+            case ("int", .number(let n)): type = .int((o.min ?? 0)...(o.max ?? 0)); value = .int(Int(n))
+            case ("choice", .string(let w)): type = .choice(o.choices ?? [w]); value = .string(w)
+            default: continue          // RecipeSettings.problem refused it when the recipe was read
+            }
+            s.append(.init(sec, o.name, type, value, o.summary, applies: SettingApplies(rawValue: o.applies) ?? .now,
+                           agent: r.id, aliases: ["\(r.id).\(o.name)"]))
+        }
+        return s
+    }
 
     static func buildSchema() -> [SettingDefinition] {
         var s: [SettingDefinition] = [
@@ -592,18 +735,16 @@ public struct DozableSettings: Sendable {
             .init("store", "path", .path, .string("~/Library/Application Support/doz"),
                   "The store: images, kernels, sandboxes and the host's files.",
                   env: "DOZ_STORE", flag: "--store", applies: .nextCommand, ui: false),
-            .init("claude", "permissions", .choice(["skip", "ask"]), .string("skip"),
-                  "Claude Code in a claude-code sandbox: skip its permission prompts (the sandbox is the boundary), or ask as on a Mac.",
-                  flag: "-e DOZ_CLAUDE_PERMISSIONS=… on run/exec", applies: .nextSession),
-            .init("codex", "permissions", .choice(["skip", "ask"]), .string("skip"),
-                  "Codex in a codex sandbox: skip its approvals and its own Linux sandbox (the VM is the boundary), or ask as on a Mac.",
-                  flag: "-e DOZ_CODEX_PERMISSIONS=… on run/exec", applies: .nextSession),
-            .init("codex", "keep_alive", .bool, .bool(false),
-                  "Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so.",
-                  applies: .now),
             .init("defaults", "cpus", .int(1...64), .int(2),
                   "CPUs of a new sandbox.",
                   flag: "doz create --cpus", applies: .nextCreate),
+            // 669 (659 Q8): a base image with no agent (python, go) had claude-code's memory and network; now Dozable's own.
+            .init("defaults", "memory_mib", .int(256...262_144), .int(2048),
+                  "Memory (MiB) of a new sandbox whose image has no agent (a base alone: python, go). A recipe's sandboxes have their recipe's own (doz config show --agent ID), the lab its own (images.lab).",
+                  flag: "doz create --memory", applies: .nextCreate),
+            .init("defaults", "network", .choice(networks), .string("agent"),
+                  "The network of a new sandbox whose image has no agent: agent, bake, locked, open (proxied presets), nat or none.",
+                  flag: "doz create --network", applies: .nextCreate),
             .init("defaults", "nat_subnet", .subnet, .string(""),
                   "The vmnet subnet of a new --network nat sandbox.",
                   env: "DOZ_SUBNET", flag: "doz create --subnet", applies: .nextCreate),
@@ -634,7 +775,7 @@ public struct DozableSettings: Sendable {
                   "Official builds send anonymous usage statistics: at most once a day, counts and ranges about how Dozable itself is used (commands by name, failures by exit code, which agents, bases and network presets new sandboxes use, setup sizes as ranges, start and wake times rounded to 50 ms, how long sandboxes ran and slept as ranges, which features were used, this Mac's macOS version, chip family, memory and cores as ranges) with a random install id — never a name, path, host, command argument, file or anything from inside a sandbox. false (or DO_NOT_TRACK=1, or --no-send-anonymous-usage-stats on one command) sends nothing and records nothing. doz telemetry show prints exactly what would be sent. Builds from the open-source repository send nothing whatever this says.",
                   env: "DOZ_SEND_ANONYMOUS_USAGE_STATS", flag: "--no-send-anonymous-usage-stats / --send-anonymous-usage-stats", applies: .nextCommand),
             .init("resources", "clean_unused_days", .int(1...3650), .int(30),
-                  "Clean up (the Resources page, doz resources clean) removes a prepared image no sandbox was created from in this many days; it is prepared again when next needed.",
+                  "Clean up (the Resources page, doz resources clean) removes a baked image no sandbox was created from in this many days; it is baked again when next needed.",
                   applies: .now),
             .init("sandbox", "agent_sudo", .bool, .bool(true),
                   "The agent (the image's user in claude-code and pi sandboxes) has passwordless sudo inside its sandbox, so it can install system packages (sudo apt-get install …). The VM, the network policy and the absent credentials are the boundary — root inside reaches no more than the agent does. Applied at every boot and every agent session start (no image is rebuilt); a sandbox's own choice (doz create --no-agent-sudo, agent_sudo in doz_project.yaml) wins over this.",
@@ -689,59 +830,86 @@ public struct DozableSettings: Sendable {
                   "Where \"Use GitHub as you\" (a permission, off by default) gets your GitHub login: gh (this Mac's gh login, read when used — gh auth token — and kept in memory a few minutes, never written anywhere; gh auth logout revokes it), key (only a token you give a sandbox with doz key set NAME --github — a fine-grained token limited to some repositories is best), or off (never, even with the permission on). The sandbox only ever sees a placeholder; Dozable's proxy puts the real token in on the way to GitHub.",
                   applies: .now),
         ]
-        s.append(.init("images", "claude_code_version", .version, .string("latest"),
-                       "The Claude Code the claude-code image is prepared with: latest (asked of the npm registry when the image is prepared, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake claude-code rebuilds when you choose) or an exact version like 2.1.227. A sandbox keeps the version it was created with; doz reset NAME moves it to the image's current one.",
-                       applies: .nextCreate))
-        s.append(.init("images", "pi_version", .version, .string("latest"),
-                       "The pi coding agent the pi image is prepared with: latest or an exact version, as images.claude_code_version.",
-                       applies: .nextCreate))
-        s.append(.init("images", "codex_version", .version, .string("latest"),
-                       "The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or an exact version like 0.160.1, as images.claude_code_version.",
-                       applies: .nextCreate))
-        // 617: each recipe agent's version, and whether its own approval prompts are skipped (the VM is the boundary).
-        for r in recipeAgents {
-            let v = r.versionSettingKey.split(separator: ".", maxSplits: 1).map(String.init)
-            s.append(.init(v[0], v[1], .version, .string("latest"),
-                           "The \(r.title) the \(r.id) image (and every base's \(r.title) image) is prepared with: latest or an exact version like \(r.install.pinned.version), as images.claude_code_version.",
-                           applies: .nextCreate, agent: r.id))
-        }
-        if let at = s.firstIndex(where: { $0.key == SettingKey.codexKeepAlive }) {
-            let perms: [SettingDefinition] = recipeAgents.compactMap { r in
-                guard let k = r.permissionsSettingKey else { return nil }
-                let p = k.split(separator: ".", maxSplits: 1).map(String.init)
-                return .init(p[0], p[1], .choice(["skip", "ask"]), .string("skip"),
-                             "\(r.title) in \("aeiou".contains(r.id.prefix(1)) ? "an" : "a") \(r.id) sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac.",
-                             flag: "-e \(r.permissionsVariable)=… on run/exec", applies: .nextSession, agent: r.id)
-            }
-            s.insert(contentsOf: perms, at: at + 1)
-        }
-        let builtinImages: Set<String> = ["lab", "claude-code", "pi", "codex"]
-        for (image, memory, network) in [("lab", 1024, "bake"), ("claude-code", 2048, "agent"), ("pi", 2048, "agent"), ("codex", 2048, "agent")]
-            + recipeAgents.map({ ($0.id, 2048, "agent") }) {
-            let agent = builtinImages.contains(image) ? nil : image
-            s.append(.init("images.\(image)", "memory_mib", .int(256...262_144), .int(memory),
-                           "Memory (MiB) of a new \(image) sandbox (a custom image follows the image it was saved from).",
-                           flag: "doz create --memory", applies: .nextCreate, agent: agent))
-            s.append(.init("images.\(image)", "network", .choice(networks), .string(network),
-                           "The network of a new \(image) sandbox: agent, bake, locked, open (proxied presets), nat or none.",
-                           flag: "doz create --network", applies: .nextCreate, agent: agent))
-        }
+        // The lab is Dozable's own image: its memory and network stay Dozable's settings.
+        s.append(.init("images.lab", "memory_mib", .int(256...262_144), .int(1024),
+                       "Memory (MiB) of a new lab sandbox (a template follows the image it was saved from).",
+                       flag: "doz create --memory", applies: .nextCreate))
+        s.append(.init("images.lab", "network", .choice(networks), .string("bake"),
+                       "The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none.",
+                       flag: "doz create --network", applies: .nextCreate))
         s.append(.init("kernel", "path", .path, .string(""),
                        "An explicit Linux kernel for new sandboxes (\"\": the pinned kernel, fetched into the cache).",
                        env: "DOZ_KERNEL", applies: .nextCreate, ui: false))
         s.append(.init("kernel", "cache", .path, .string(""),
                        "Where the pinned kernel is cached (\"\": the store's own); share one between stores.",
                        env: "DOZ_KERNEL_CACHE", applies: .nextCreate, ui: false))
+        // 669: every recipe's own settings — the built-in three's too (no hand-written key is left for them).
+        for r in AgentRecipes.all { s += recipeSchema(r) }
         return s
     }
 
-    public static func definition(_ key: String) -> SettingDefinition? { schema.first { $0.key == key } }
+    /// The definition of a key — or of a 0.37 name of one (669: `images.claude_code_version` is
+    /// `recipes.anthropic.claude-code.version`).
+    public static func definition(_ key: String) -> SettingDefinition? {
+        let x = indexed
+        if let i = x.byKey[key] { return x.schema[i] }
+        return x.aliases[key].flatMap { x.byKey[$0] }.map { x.schema[$0] }
+    }
+
+    /// 669: one recipe's settings (its agent's id).
+    public static func recipeDefinitions(_ agent: String) -> [SettingDefinition] { schema.filter { $0.agent == agent } }
+
+    /// 669: the recipe a person names for its settings (`--agent`): its id or an alias (`claude`), an `AgentRef`
+    /// (`opencode@2`), or its qualified name (`anthropic/claude-code`). An unpublished recipe's settings stay reachable
+    /// (a stored value of it must be), so this never refuses one.
+    public static func recipe(named s: String) -> AgentRecipe? {
+        let t = s.lowercased()
+        if let r = AgentRecipes.recipe(t) ?? AgentRecipes.matching(t) { return r }
+        if let r = AgentRecipes.all.first(where: { $0.qualifiedID == t }) { return r }
+        return (try? AgentRef.resolveAny(t, in: AgentRecipes.all))?.recipe
+    }
+
+    /// 669: a recipe's option as a key (`--agent claude-code version` → `recipes.anthropic.claude-code.version`); a full
+    /// key (or a 0.37 name) of that recipe is taken too.
+    public static func recipeKey(_ r: AgentRecipe, _ name: String) -> String? {
+        let mine = recipeDefinitions(r.id)
+        if let d = mine.first(where: { $0.name == name }) { return d.key }
+        if let k = canonicalKey(name), mine.contains(where: { $0.key == k }) { return k }
+        return nil
+    }
 
     /// 599: the settings a sandbox can also have its own value of (`doz config set --sandbox NAME KEY V`,
     /// `doz create`, `doz_project.yaml`) — the sandbox's value wins over the file's.
     public static let perSandbox: [String] = [SettingKey.clipboard, SettingKey.browserBridge, SettingKey.openFiles, SettingKey.sshAgent,
                                               SettingKey.tmux, SettingKey.agentSudo, SettingKey.ignoreMode,
                                               SettingKey.workspaceView, SettingKey.audio]
+
+    /// 669 (659 Q7): every key a sandbox (and its project) can have its own value of — Dozable's own per-sandbox
+    /// settings, and `approvals`: its recipe's (`recipes.V.P.approvals`), kept under the one word because a sandbox's
+    /// recipe never changes.
+    public static var sandboxKeys: [String] { perSandbox + [SettingKey.sandboxApprovals] }
+
+    /// 669: a per-sandbox key's definition — `approvals` is the recipe's of `image` (an image whose agent has no
+    /// prompts to skip: nil); with no image, any recipe's (they are one type: skip | ask), to check a value.
+    public static func sandboxDefinition(_ key: String, image: String? = nil) -> SettingDefinition? {
+        guard key == SettingKey.sandboxApprovals else { return perSandbox.contains(key) ? definition(key) : nil }
+        guard let image else { return definition(SettingKey.claudePermissions) }
+        return approvalsKey(image: image).flatMap(definition)
+    }
+
+    /// 669: the approvals setting of an image's agent (`recipes.anthropic.claude-code.approvals`); nil: none.
+    public static func approvalsKey(image: String?) -> String? {
+        guard let image, let r = (ImageChoice.parse(image)?.agent ?? AgentKind(rawValue: image))?.recipe else { return nil }
+        return SettingKey.approvals(r.id)
+    }
+
+    /// 669: a per-sandbox key's value for a sandbox of `image`: flag (a session's own `-e`), its own (`sandbox`, or
+    /// `project` when doz up synced it), then this Mac's, then the default — one `resolve`.
+    public func resolveForSandbox(_ key: String, image: String?, own: TOMLValue?, from: String?) -> ResolvedSetting? {
+        let k = key == SettingKey.sandboxApprovals ? Self.approvalsKey(image: image) : key
+        guard let k, Self.definition(k) != nil else { return nil }
+        return from == "project" ? resolve(k, project: own) : resolve(k, sandbox: own)
+    }
 
     /// What cannot be set here, by design, and why — printed in the file and the docs.
     public static let notSettable: [String] = [
@@ -781,6 +949,18 @@ public struct DozableSettings: Sendable {
     /// What `defaults.projects_dir` means while unset: `~/doz-workspaces` (`Workspace.unsetProjectsDir`;
     /// tests inject another).
     public let unsetProjectsDir: String
+    /// 669: the values read under a 0.37 name — key → that name (`recipes.anthropic.claude-code.version` →
+    /// `images.claude_code_version`). The first write after the upgrade moves them (`writingAll`).
+    public let migrated: [String: String]
+    /// 669: the file still has lines under a 0.37 name (moved, or kept because the new name disagrees).
+    public let hasOldNames: Bool
+    /// The file's text as it was read (the one-off `doz.toml.0.37.bak` of the first write after the upgrade).
+    let text: String?
+    /// 669: set on what `writingAll` returns when that write moved the file's 0.37 names: what it said.
+    public internal(set) var migrationNotice: String? = nil
+
+    /// 669: the one-off copy of the file the first write after the upgrade leaves beside it.
+    public static let backupName = "doz.toml.0.37.bak"
 
     /// Read the file named by `environment` (defaults only when there is none).
     public static func load(environment: [String: String] = ProcessInfo.processInfo.environment) -> DozableSettings {
@@ -806,21 +986,58 @@ public struct DozableSettings: Sendable {
         self.unsetProjectsDir = unsetProjectsDir
         self.url = url
         self.environment = environment
+        self.text = text
         var values: [String: TOMLValue] = [:]
         var unknown: [TOMLEntry] = []
         var warnings: [String] = []
+        var migrated: [String: String] = [:]
+        var oldNames = false
         var fileError = readError
         if let text {
             do {
-                for e in try TOML.parse(text) {
-                    guard let d = Self.definition(e.path) else {
-                        unknown.append(e)
-                        warnings.append("line \(e.line): unknown setting \(e.path) — ignored")
+                let entries = try TOML.parse(text)
+                let x = Self.indexed
+                // The keys under their own names first: a 0.37 name never overrides its new one (669, 659 §5).
+                var old: [TOMLEntry] = []
+                for e in entries {
+                    guard let i = x.byKey[e.path] else {
+                        if x.aliases[e.path] != nil { old.append(e) } else {
+                            unknown.append(e)
+                            warnings.append("line \(e.line): unknown setting \(e.path) — ignored")
+                        }
                         continue
                     }
-                    do { values[d.key] = try d.validate(e.value) } catch let err as SettingsError {
+                    do { values[e.path] = try x.schema[i].validate(e.value) } catch let err as SettingsError {
                         warnings.append("line \(e.line): \(err.message) — ignored, the default applies")
                     } catch {}
+                }
+                // 669: a 0.37 name (`images.claude_code_version`, `claude.permissions`) is read as its new key, sourced
+                // from the Mac, with a note; the first write moves it. Both set and different: the new one wins, the old
+                // line is kept as it was, and a warning names both.
+                let own = Set(values.keys)
+                for e in old {
+                    oldNames = true
+                    guard let key = x.aliases[e.path], let d = Self.definition(key) else { continue }
+                    let v: TOMLValue
+                    do { v = try d.validate(e.value) } catch let err as SettingsError {
+                        warnings.append("line \(e.line): \(e.path) (now \(key)): \(err.message) — ignored, the default applies")
+                        continue
+                    } catch { continue }
+                    if own.contains(key) {
+                        if values[key] != v {
+                            unknown.append(e)
+                            warnings.append("line \(e.line): \(e.path) = \(v.plain) is the old name of \(key), which this file sets to \(values[key]!.plain) — \(key) wins; the old line is kept as it was")
+                        }
+                    } else {
+                        values[key] = v
+                        migrated[key] = e.path
+                    }
+                    // 659 Q8: a base with no agent keeps the memory and network it followed (claude-code's).
+                    if let seed = Self.seeds[e.path], !own.contains(seed), values[seed] == nil,
+                       let sd = Self.definition(seed), let sv = try? sd.validate(v) {
+                        values[seed] = sv
+                        migrated[seed] = e.path
+                    }
                 }
             } catch let e as TOMLError {
                 fileError = "\(url?.lastPathComponent ?? Self.fileName) \(e.description)"
@@ -831,35 +1048,51 @@ public struct DozableSettings: Sendable {
         if let fileError {
             values = [:]
             unknown = []
+            migrated = [:]
+            oldNames = false
             warnings.insert("\(fileError) — the file is ignored until it is fixed (or removed)", at: 0)
         }
         fileValues = values
         self.unknown = unknown
         self.warnings = warnings
         self.fileError = fileError
+        self.migrated = migrated
+        hasOldNames = oldNames
         fileExists = text != nil || readError != nil
+    }
+
+    /// 669: one line per value read under its 0.37 name.
+    public var migrationNotes: [String] {
+        migrated.sorted { $0.key < $1.key }.map { "\($0.value) is now \($0.key) — read under its old name; the next write of doz.toml moves it" }
     }
 
     // MARK: resolution
 
-    /// A setting's effective value: `flag`, else its environment variable, else the file, else the default.
-    /// An environment value that does not parse is skipped (as if unset). A fractional environment
-    /// value of an integer setting (`DOZ_HOST_IDLE=0.5`) is kept as its text — the host reads it so.
-    public func resolve(_ key: String, flag: TOMLValue? = nil) -> ResolvedSetting {
+    /// A setting's effective value (669, 659 §4 — one precedence for every setting): `flag`, else its environment
+    /// variable, else the sandbox's own value, else its project's, else the file (this Mac's), else the default — the
+    /// recipe's own (`recipe`) or Dozable's (`default`). A setting of the Mac's kind (class M) has no sandbox or project
+    /// layer: those are ignored for it. An environment value that does not parse is skipped (as if unset). A fractional
+    /// environment value of an integer setting (`DOZ_HOST_IDLE=0.5`) is kept as its text — the host reads it so. A 0.37
+    /// name of a key resolves that key.
+    public func resolve(_ key: String, flag: TOMLValue? = nil, sandbox: TOMLValue? = nil, project: TOMLValue? = nil) -> ResolvedSetting {
         guard let d = Self.definition(key) else { preconditionFailure("unknown setting \(key)") }
-        let file = fileValues[key]
-        if let flag { return ResolvedSetting(definition: d, value: flag, source: .flag, fileValue: file) }
+        let file = fileValues[d.key]
+        let from = migrated[d.key]
+        func r(_ v: TOMLValue, _ s: SettingSource) -> ResolvedSetting {
+            ResolvedSetting(definition: d, value: v, source: s, fileValue: file, migratedFrom: s == .mac ? from : nil)
+        }
+        if let flag { return r(flag, .flag) }
         if let name = d.environment, let raw = environment[name], !raw.isEmpty {
-            if let v = try? d.parse(raw) { return ResolvedSetting(definition: d, value: v, source: .env, fileValue: file) }
-            if case .int = d.type, let x = Double(raw), x >= 0 {
-                return ResolvedSetting(definition: d, value: .string(raw), source: .env, fileValue: file)
-            }
+            if let v = try? d.parse(raw) { return r(v, .env) }
+            if case .int = d.type, let x = Double(raw), x >= 0 { return r(.string(raw), .env) }
         }
-        if let file { return ResolvedSetting(definition: d, value: file, source: .file, fileValue: file) }
-        if key == SettingKey.projectsDir {
-            return ResolvedSetting(definition: d, value: .string(unsetProjectsDir), source: .default, fileValue: nil)
+        if d.settingClass.hasSandboxLayers {
+            if let sandbox { return r(sandbox, .sandbox) }
+            if let project { return r(project, .project) }
         }
-        return ResolvedSetting(definition: d, value: d.defaultValue, source: .default, fileValue: nil)
+        if let file { return r(file, .mac) }
+        if d.key == SettingKey.projectsDir { return r(.string(unsetProjectsDir), .default) }
+        return r(d.defaultValue, d.defaultSource)
     }
 
     /// Every setting, resolved, in file order.
@@ -893,25 +1126,17 @@ public struct DozableSettings: Sendable {
         return Double(int(SettingKey.idleTimeout))
     }
 
-    /// The images section a sandbox's defaults come from: its imageSpec's (a custom image follows the
-    /// image it was saved from), `lab` without one.
-    /// 596: a base × agent image follows its AGENT's section (`python-pi` → `pi`; no agent → `claude-code`'s
-    /// memory and network — a toolchain wants more than the lab's 1 GiB).
-    public static func imageSection(imageSpecName: String?) -> String {
-        switch imageSpecName {
-        case nil: "lab"
-        case "claude-code": "claude-code"
-        case "pi": "pi"
-        case "codex": "codex"
-        case let n?:
-            switch ImageChoice.parse(n)?.agent {
-            case .pi?: "pi"
-            case .codex?: "codex"
-            // 617: a recipe agent's own section (images.gemini, images.grok).
-            case let a? where !a.isBuiltin: a.rawValue
-            default: "claude-code"
-            }
+    /// The keys a new sandbox's memory and network come from, by its imageSpec (a custom image follows the image it
+    /// was saved from): the lab's own (`images.lab.*`) without one; 596: a base × agent image follows its AGENT —
+    /// 669: its recipe's (`recipes.V.P.memory_mib`); a base with no agent (python, go) Dozable's `defaults.*` (it
+    /// followed claude-code's before 669, and the migration seeds them from it).
+    public static func imageKeys(imageSpecName: String?) -> (memory: String, network: String) {
+        guard let n = imageSpecName else { return (SettingKey.labMemory, SettingKey.labNetwork) }
+        let agent = ImageChoice.parse(n)?.agent ?? AgentKind(rawValue: n)
+        if let r = agent?.recipe, let m = SettingKey.recipe(r.id, RecipeSettings.memory), let w = SettingKey.recipe(r.id, RecipeSettings.network) {
+            return (m, w)
         }
+        return (SettingKey.defaultMemory, SettingKey.defaultNetwork)
     }
 
     // MARK: reporting (doz config show --json, the UI's Settings page)
@@ -953,7 +1178,7 @@ public struct DozableSettings: Sendable {
             switch r.source {
             case .env: note = "set by $\(d.environment ?? "?") in this process's environment — change it there (the file's value, if any, is overridden)"
             case .flag: note = "set on this process's command line (\(d.flag ?? "a flag"))"
-            case .file, .default: break
+            case .mac, .default, .recipe, .sandbox, .project: break
             }
             if !d.editableInUI, note == nil {
                 // 599c: the projects folder has the web UI's Choose… (the Mac's folder picker) too.
@@ -967,35 +1192,57 @@ public struct DozableSettings: Sendable {
                               source: r.source, fileValue: r.fileValue, type: kind, typeName: d.type.name, choices: choices,
                               min: lo, max: hi, description: d.summary, environment: d.environment, flag: d.flag,
                               applies: d.applies, appliesNote: d.applies.note,
-                              editable: d.editableInUI && r.source != .env && r.source != .flag && fileError == nil, note: note)
+                              editable: d.editableInUI && r.source != .env && r.source != .flag && fileError == nil, note: note,
+                              kind: d.settingClass, recipe: d.agent.flatMap(AgentRecipes.recipe)?.qualifiedID, agent: d.agent,
+                              migratedFrom: r.migratedFrom, aliases: d.aliases.isEmpty ? nil : d.aliases)
         }
         return SettingsReport(path: url?.path, exists: fileExists, warnings: warnings, error: fileError, settings: rows,
-                              notSettable: Self.notSettable)
+                              notSettable: Self.notSettable, notes: migrated.isEmpty ? nil : migrationNotes)
     }
 
     // MARK: writing
 
     /// Set (`value`) or clear (nil) one key and write the file. Refuses an unknown key, a bad value,
     /// or a file that does not parse (it is the person's, and would be lost).
+    /// 669: a key may be given by its 0.37 name (it is written under its new one).
     @discardableResult
     public func writing(_ key: String, _ value: TOMLValue?) throws -> DozableSettings {
         guard let d = Self.definition(key) else { throw SettingsError("unknown setting \(key) — doz config show lists them") }
         var values = fileValues
-        if let value { values[key] = try d.validate(value) } else { values[key] = nil }
+        if let value { values[d.key] = try d.validate(value) } else { values[d.key] = nil }
         return try writingAll(values)
     }
 
     /// Write the file as the schema generates it, with these values (and the unknown keys kept).
+    /// 669 (659 §5, M1): the first write after the upgrade of a file with 0.37 names first keeps the file as it was in
+    /// `doz.toml.0.37.bak` beside it (once, 0600 — never over one that is there), then writes the new shape, and says so
+    /// (`migrationNotice`). A read never writes; a file that does not parse is never touched.
     @discardableResult
     public func writingAll(_ values: [String: TOMLValue]) throws -> DozableSettings {
         guard let url else { throw SettingsError("no settings file: neither XDG_CONFIG_HOME nor HOME is set") }
         if let fileError { throw SettingsError("\(fileError) — fix it or remove it first; it was not changed") }
+        var notice: String?
+        if hasOldNames, let text {
+            let bak = url.deletingLastPathComponent().appendingPathComponent(Self.backupName)
+            var st = stat()
+            if lstat(bak.path, &st) != 0 { try Self.writeAtomically(text, to: bak) }
+            let n = Set(migrated.values).count
+            notice = "doz.toml moved \(n) setting\(n == 1 ? "" : "s") to \(n == 1 ? "its" : "their") new name\(n == 1 ? "" : "s") ([recipes.*]) — the old file is \(Self.backupName)"
+        }
         try Self.writeAtomically(Self.render(values: values, unknown: unknown), to: url)
-        return Self.load(environment: environment)
+        var now = Self.load(environment: environment)
+        now.migrationNotice = notice
+        return now
     }
 
-    /// The comment that stands for every recipe agent's settings not written out (`render`).
-    static let agentSettingsNote = "Each agent or tool's own settings (images.ID_version, ID.permissions, [images.ID]) are written here only once one of them is set: `doz config show --agent ID` lists them, `doz config set KEY VALUE` writes them."
+    /// 669: how many settings a file with these values lists — Dozable's own, and each recipe's block with a value set.
+    public static func listedCount(values: [String: TOMLValue]) -> Int {
+        let active = Set(schema.compactMap { d in d.agent.flatMap { values[d.key] != nil ? $0 : nil } })
+        return schema.filter { d in d.agent.map(active.contains) ?? true }.count
+    }
+
+    /// The comment that stands for every recipe's settings not written out (`render`).
+    static let agentSettingsNote = "A recipe's own settings (its agent's version, approvals, memory_mib, network) are written in a [recipes.VENDOR.PRODUCT] block only once one of them is set: `doz config show --agent ID` lists them, `doz config set --agent ID NAME VALUE` writes them."
 
     /// The file's text: a header, then every section and setting of the schema, each with its
     /// description and its default commented out, unless `values` sets it. 617 (owner: the file grew ~1.5 KiB per
@@ -1007,17 +1254,19 @@ public struct DozableSettings: Sendable {
         # Dozable settings (doz.toml)
         #
         # Every setting is listed with its default, commented out: `# key = default`. Uncomment a line
-        # to set it. An agent or tool's own settings appear once one of them is set (see [images]).
+        # to set it. A recipe's own settings appear once one of them is set (see the end of the header).
         # `doz config set KEY VALUE` and the UI's Settings page write this file for you;
         # they regenerate it from the settings list, so comments you add are not kept.
         #
-        # Precedence: a command-line flag, then the environment variable named, then this file, then
-        # the default. `doz config show` prints every value and where it came from.
+        # Precedence: a command-line flag, then the environment variable named, then a sandbox's own
+        # value, then its project's (doz_project.yaml), then this file, then the default (a recipe's
+        # own, or Dozable's). `doz config show` prints every value and where it came from.
         #
         # Not settable, by design:
 
         """
         for n in notSettable { out += "#   - \(n)\n" }
+        out += "#\n" + wrapComment(agentSettingsNote)
         let all = schema
         let active = Set(all.compactMap { d in d.agent.flatMap { values[d.key] != nil ? $0 : nil } })
         let shown = all.filter { d in d.agent.map(active.contains) ?? true }
@@ -1026,10 +1275,8 @@ public struct DozableSettings: Sendable {
         for section in sections {
             let defs = shown.filter { $0.section == section }
             let extra = unknown.filter { $0.section == section }
-            let notesAgents = section == "images"
-            guard !defs.isEmpty || !extra.isEmpty || notesAgents else { continue }
+            guard !defs.isEmpty || !extra.isEmpty else { continue }
             out += "\n[\(section)]\n"
-            if notesAgents { out += "\n" + wrapComment(agentSettingsNote) }
             for d in defs {
                 out += "\n" + wrapComment(d.summary)
                 var facts: [String] = [d.type.name]

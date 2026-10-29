@@ -808,7 +808,7 @@ func cliConfigChecks(_ h: CLIHarness) {
     check(r.code == 0 && r.out == "true\n", "config get: true")
     let report = h.run(["config", "show", "--json"])
     let rep = try? JSONDecoder().decode(SettingsReport.self, from: report.outData)
-    check(rep?.settings.first { $0.key == "ui.boot_view_on_start" }?.source == .file, "config show --json: source file")
+    check(rep?.settings.first { $0.key == "ui.boot_view_on_start" }?.source == .mac, "config show --json: source mac (669: was file)")
     check(rep?.settings.first { $0.key == "host.idle_timeout_minutes" }?.source == .env, "DOZ_HOST_IDLE (the harness's) shows as source env")
     check(rep?.settings.first { $0.key == "store.path" }?.source == .env, "DOZ_STORE shows as source env")
     let flagged = h.run(["config", "get", "store.path", "--store", "/tmp/elsewhere", "--json"])
@@ -823,6 +823,25 @@ func cliConfigChecks(_ h: CLIHarness) {
     try? ((try? String(contentsOf: file, encoding: .utf8)) ?? "").appending("\n[later]\nthing = 1\n").write(to: file, atomically: true, encoding: .utf8)
     r = h.run(["config", "show"])
     check(r.code == 0 && r.err.contains("unknown setting later.thing"), "an unknown key: a warning on stderr, exit 0")
+    // 669 (659 items 3, 4, 6, 10, 11): Dozable's own and one line for the recipes; --all every key; a recipe by --agent;
+    // a 0.37 name taken and said; the first write after the upgrade keeps doz.toml.0.37.bak.
+    check(!r.out.contains("recipes.") && r.out.contains("Recipes in use:"), "config show: Dozable's own, and the recipes in one line")
+    check(h.run(["config", "show", "--all"]).out.contains("recipes.anthropic.claude-code.version"), "config show --all: every recipe's keys")
+    let all = (try? JSONDecoder().decode(SettingsReport.self, from: h.run(["config", "show", "--json"]).outData))?.settings.count
+    check(all == DozableSettings.schema.count, "config show --json keeps every key (\(all ?? 0))")
+    r = h.run(["config", "show", "--agent", "anthropic/claude-code"])
+    check(r.code == 0 && r.out.contains("RECIPE DEFAULT") && r.out.contains("approvals"), "config show --agent anthropic/claude-code: its options")
+    r = h.run(["config", "set", "--agent", "claude", "version", "2.1.290"])
+    check(r.code == 0 && r.out.contains("recipes.anthropic.claude-code.version") && r.out.contains("(this Mac)"), "config set --agent claude version: \(r.out)")
+    check(((try? String(contentsOf: file, encoding: .utf8)) ?? "").contains("\n[recipes.anthropic.claude-code]\nversion = \"2.1.290\"\n")
+          || ((try? String(contentsOf: file, encoding: .utf8)) ?? "").contains("\nversion = \"2.1.290\"\n"), "its block in doz.toml")
+    r = h.run(["config", "get", "images.claude_code_version"])
+    check(r.code == 0 && r.out == "2.1.290\n" && r.err.contains("is now recipes.anthropic.claude-code.version"), "an old name still works and says the new one")
+    try? "[images]\npi_version = \"latest\"\n[claude]\npermissions = \"ask\"\n".write(to: file, atomically: true, encoding: .utf8)
+    r = h.run(["config", "init"])
+    let moved = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
+    check(r.code == 0 && r.err.contains("doz.toml.0.37.bak") && FileManager.default.fileExists(atPath: file.deletingLastPathComponent().appendingPathComponent("doz.toml.0.37.bak").path)
+          && moved.contains("\napprovals = \"ask\"\n") && !moved.contains("[claude]"), "the first write moves the 0.37 names and keeps doz.toml.0.37.bak")
     try? FileManager.default.removeItem(at: xdg)
 }
 

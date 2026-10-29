@@ -326,6 +326,20 @@
         ]
       },
       "type" : "com.dozable/guide@1"
+    },
+    {
+      "config" : {
+        "options" : [
+          {
+            "applies" : "now",
+            "default" : false,
+            "name" : "keep_alive",
+            "summary" : "Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so.",
+            "type" : "bool"
+          }
+        ]
+      },
+      "type" : "com.dozable/settings@1"
     }
   ],
   "description" : "OpenAI's open-source coding agent.",

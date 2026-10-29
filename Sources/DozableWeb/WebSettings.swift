@@ -90,6 +90,9 @@ public final class WebSettingsStore: @unchecked Sendable {
 
     public func report() -> SettingsReport { current.report(flags: flags, offered: true) }   // 629: the published agents' settings
 
+    /// 669: Settings › Recipes — every recipe's state on this Mac and its settings (read from the store, never a host).
+    public func recipes(store: DozableStore) -> WebRecipes { WebRecipe.list(store: store, settings: current, flags: flags) }
+
     /// Apply one change: refused when the UI may not set that key, or the environment or a flag sets
     /// it here, or the file does not parse (it is the person's — never overwritten).
     public func apply(_ change: WebSettingChange) throws -> SettingsReport {
