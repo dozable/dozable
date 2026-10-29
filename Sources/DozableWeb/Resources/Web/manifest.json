@@ -6,15 +6,7 @@
       "mimeType" : "text/html; charset=utf-8",
       "publicPath" : "/",
       "resourcePath" : "index.html",
-      "sha256" : "9ed53d561ec45b3c174bd97efe8cf4fc0415f6a7b20195bb010cd9263b533c9e"
-    },
-    {
-      "cachePolicy" : "public, max-age=31536000, immutable",
-      "class" : "page",
-      "mimeType" : "text/css; charset=utf-8",
-      "publicPath" : "/assets/app-11a082836400a46c.css",
-      "resourcePath" : "assets/app-11a082836400a46c.css",
-      "sha256" : "11a082836400a46c56ddbc864c915945676af48a0ad4c191d163f891d578e199"
+      "sha256" : "33b9c08638c297176018325f2f320f1baa00901738839366d0737de6a7f6032c"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -27,10 +19,18 @@
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
+      "mimeType" : "text/css; charset=utf-8",
+      "publicPath" : "/assets/app-ba28f55ac34070f9.css",
+      "resourcePath" : "assets/app-ba28f55ac34070f9.css",
+      "sha256" : "ba28f55ac34070f951b4ed177ab75ba239f0bfff972c3fdf17ffabdad307947b"
+    },
+    {
+      "cachePolicy" : "public, max-age=31536000, immutable",
+      "class" : "page",
       "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app-9d3cbb792a5d330e.js",
-      "resourcePath" : "assets/app-9d3cbb792a5d330e.js",
-      "sha256" : "9d3cbb792a5d330e54047df66dfdb5116a359bfad1fde25baca86c37be71eb27"
+      "publicPath" : "/assets/app-ed4273671c815792.js",
+      "resourcePath" : "assets/app-ed4273671c815792.js",
+      "sha256" : "ed4273671c81579299e786d5e5aae9a38d5ece50b449a99a7c954b6db72531ae"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",
@@ -748,9 +748,9 @@
       "cachePolicy" : "public, max-age=31536000, immutable",
       "class" : "page",
       "mimeType" : "application/javascript; charset=utf-8",
-      "publicPath" : "/assets/app/views/settings-4425ecd99d5e3d27.js",
-      "resourcePath" : "assets/app/views/settings-4425ecd99d5e3d27.js",
-      "sha256" : "4425ecd99d5e3d275c93f5a778217264dd3cda0a6dc8f70b87cebe4a1ed2a56b"
+      "publicPath" : "/assets/app/views/settings-87299019f6aa8a64.js",
+      "resourcePath" : "assets/app/views/settings-87299019f6aa8a64.js",
+      "sha256" : "87299019f6aa8a6462aebd724bf72328fef8c40ea5b1fe86ef7c4d6e1f5d4606"
     },
     {
       "cachePolicy" : "public, max-age=31536000, immutable",

@@ -8,7 +8,6 @@ import { state } from '../core/state.js';
 import { isInt } from '../core/util.js';
 import { isRemote } from '../core/session.js';
 import { renderAccessStep } from '../components/access-step.js';
-import { pageIndex } from '../components/blocks.js';
 import { btn } from '../components/button.js';
 import { callout } from '../components/callout.js';
 import { pageFailure, toast } from '../components/notices.js';
@@ -23,6 +22,7 @@ const SETTING_SECTIONS = {
   ui: 'This UI', host: 'The host', store: 'The store', defaults: 'New sandboxes', agent: 'The agent', sandbox: 'Inside every sandbox',
   'images.lab': 'New lab sandboxes', kernel: 'The kernel',
   resources: 'Resources', sessions: 'Sessions', bridges: 'Bridges', workspace: 'Workspace rules', github: 'GitHub', images: 'Images', telemetry: 'Usage statistics',
+  updates: 'Updates', serve: 'Other devices (LAN)',
 };
 // An empty app list (or dotfiles) means none, not "automatic".
 function shownValue(v, type) { return typeof v === 'string' ? (v === '' ? (type === 'apps' || type === 'dotfiles' ? '""  (none)' : '""  (automatic)') : v) : String(v); }
@@ -33,6 +33,13 @@ export async function viewRecipes() {
   adoptSettings(report);
   return h('div', { class: 'settings-page recipes-page' }, h('h1', null, 'Recipes'), recipesSection(recipes), sourceLegend());
 }
+/// 669 (owner: "redo the entire layout of Settings to be how VSCode does it … and make the section navigation to the left
+/// only when there is enough width"): the search across the top (sticky under the title), then the sections' table of
+/// contents on the left — only when the PAGE (not the window: the sidebar may be a rail or not) is at least SETTINGS_WIDE
+/// wide, `.is-wide` on the page set by a ResizeObserver — and the settings, each a block: its title, its description, its
+/// control under them. Narrower, no table of contents at all.
+const SETTINGS_WIDE = 960;
+let settingsWasWide = false;   // the last page's answer, so a re-render starts with it (no flash before the observer)
 export async function viewSettings() {
   adoptSettings(await api('settings'));
   const rep = state.settings.report;
@@ -48,72 +55,140 @@ export async function viewSettings() {
   // below: defaults.github, github.credentials, sandbox.ssh_agent; the Claude account: Accounts).
   const accessBox = h('div', { class: 'panel access-panel', 'data-settings-access': '' });
   renderAccessStep(accessBox, { mode: 'settings', claude: true });
-  // 603 (E13): a filter over what the page already has (a key, a name, a description) and an index of the
-  // sections; Access stays first.
-  const filter = h('input', { type: 'search', class: 'page-filter', 'data-settings-filter': '', placeholder: 'Filter — a key like ui.theme, or a word',
-    'aria-label': 'Filter the settings', autocomplete: 'off', spellcheck: 'false' });
+  // 603 (E13): a search over what the page already has (a key, a name, a section, a description); 669: across the top.
+  const filter = h('input', { type: 'search', class: 'page-filter', 'data-settings-filter': '', placeholder: 'Search settings — a key like ui.theme, or a word',
+    'aria-label': 'Search the settings', autocomplete: 'off', spellcheck: 'false' });
   filter.value = state.settingsFilter || '';
   const secId = (name) => 'set-' + name.replace(/[^a-z0-9]+/gi, '-');
-  const index = pageIndex([['access', 'Access'], ...sections.map((sec) => [secId(sec.name), SETTING_SECTIONS[sec.name] || sec.name])]);
-  const node = h('div', { class: 'settings-page' }, h('h1', null, 'Settings'),
-    h('p', { class: 'sub' }, 'Written to ', h('code', null, rep.path || 'no file (neither XDG_CONFIG_HOME nor HOME is set)'),
+  const label = (name) => SETTING_SECTIONS[name] || name;
+  // The sections in page order: Access, Dozable's, then what is not settable. Each [id, title, its block's content, the
+  // words a search of the section itself matches].
+  const secs = [
+    ['access', 'Access', [
+      h('p', { class: 'sub' }, 'What sandboxes may use as you. Change a choice in the settings below (',
+        h('code', null, 'defaults.github'), ', ', h('code', null, 'github.credentials'), ', ', h('code', null, 'sandbox.ssh_agent'),
+        ') or with ', h('code', null, 'doz access set'), '; the Claude account on the Accounts page.'),
+      accessBox], 'access credentials'],
+    ...sections.map((sec) => [secId(sec.name), label(sec.name),
+      [h('div', { class: 'settings set-rows', 'data-section': sec.name }, sec.rows.map((r) => settingRow(r, { prefix: label(sec.name) })))], null, sec.name]),
+    ['set-not-settable', 'Not settable', [h('ul', { class: 'plain set-plain' }, rep.notSettable.map((n) => h('li', null, n)))],
+      'not settable by design ' + rep.notSettable.join(' ').toLowerCase(), 'not-settable'],
+  ];
+  const blocks = secs.map(([id, title, body, words, section]) => h('section', { class: 'set-sec', 'data-sec': id, 'data-section': section || null, 'data-words': words || null },
+    h('h2', { id, class: 'set-head' }, title, section && section !== 'not-settable' ? h('code', { class: 'set-head-key' }, '[' + section + ']') : null), body));
+  // The table of contents: a link per section; the one in view is marked (bold + the indicator, as the sidebar's).
+  const toc = h('nav', { class: 'set-toc', 'aria-label': 'Sections' }, secs.map(([id, title]) =>
+    h('a', { href: '#' + (location.hash.slice(1) || '/'), 'data-toc': id, on: { click: (ev) => { ev.preventDefault(); goTo(id); } } }, title)));
+  const none = h('p', { class: 'muted filter-none', 'data-filter-none': '', hidden: true }, 'No setting matches.');
+  const node = h('div', { class: 'settings-page vs-settings' + (settingsWasWide ? ' is-wide' : ''), 'data-settings-page': '' }, h('h1', null, 'Settings'),
+    h('p', { class: 'sub set-sub' }, 'Written to ', h('code', null, rep.path || 'no file (neither XDG_CONFIG_HOME nor HOME is set)'),
       rep.exists ? '' : ' — not written yet: the first change writes it, with every setting listed at its default',
-      '. A command-line flag wins, then the environment, then a sandbox’s own value, then its project’s (', h('code', null, 'doz_project.yaml'),
-      '), then this Mac’s (this file), then the default — a recipe’s own, or Dozable’s; ', h('code', null, 'doz config show'), ' prints the same.'),
-    h('p', { class: 'sub' }, 'A recipe’s own settings (its agent’s version, approvals, memory, network) are on its page: ', h('a', { href: '#/recipes' }, 'Recipes'), '.'),
+      '. A flag wins, then the environment, a sandbox’s own value, its project’s (', h('code', null, 'doz_project.yaml'),
+      '), this Mac’s, then the default; ', h('code', null, 'doz config show'), ' prints the same. A recipe’s own settings are on its page: ',
+      h('a', { href: '#/recipes' }, 'Recipes'), '.'),
     sourceLegend(),
     rep.error ? callout('bad', { cls: 'notice', title: 'The settings file does not read', body: rep.error + ' — nothing in it applies, and the UI will not overwrite it. Fix it (or remove it) first.' }) : null,
     warnings.length ? callout('warn', { cls: 'notice', body: h('ul', { class: 'plain' }, warnings.map((w) => h('li', null, w))) }) : null,
-    h('div', { class: 'page-tools' }, h('label', { class: 'filter-field' }, icon('search'), filter), index),
-    h('p', { class: 'muted filter-none', 'data-filter-none': '', hidden: true }, 'No setting matches.'),
-    h('h2', { id: 'access', class: 'set-head' }, 'Access'),
-    h('p', { class: 'sub' }, 'What sandboxes may use as you. Change a choice in the settings below (',
-      h('code', null, 'defaults.github'), ', ', h('code', null, 'github.credentials'), ', ', h('code', null, 'sandbox.ssh_agent'),
-      ') or with ', h('code', null, 'doz access set'), '; the Claude account on the Accounts page.'),
-    accessBox,
-    sections.flatMap((sec) => [
-      h('h2', { id: secId(sec.name), class: 'set-head', 'data-section': sec.name }, SETTING_SECTIONS[sec.name] || sec.name, ' ', h('code', { class: 'muted' }, '[' + sec.name + ']')),
-      h('div', { class: 'panel settings', 'data-section': sec.name }, sec.rows.map(settingRow)),
-    ]),
-    h('h2', { class: 'set-head', 'data-section': 'not-settable' }, 'Not settable, by design'),
-    h('div', { class: 'panel', 'data-section': 'not-settable' }, h('ul', { class: 'plain' }, rep.notSettable.map((n) => h('li', null, n)))));
+    h('div', { class: 'page-tools set-search' }, h('label', { class: 'filter-field' }, icon('search'), filter)),
+    h('div', { class: 'set-body' }, toc, h('div', { class: 'set-list' }, none, blocks)));
+  let pinned = null;     // the section a click chose — kept while it is on screen (a short last section never reaches the top)
+  let shownOnce = false; // the node is built before the router inserts it: only a node that WAS on the page is gone for good
+  const mark = (id) => { for (const a of toc.querySelectorAll('a[data-toc]')) a.classList.toggle('is-current', a.dataset.toc === id); };
+  const current = () => {
+    if (!node.isConnected) { if (shownOnce) window.removeEventListener('scroll', current); return; }
+    shownOnce = true;
+    if (!node.classList.contains('is-wide')) return;
+    const shown = blocks.filter((b) => !b.hidden);
+    if (pinned) {
+      const b = shown.find((x) => x.dataset.sec === pinned), r = b && b.getBoundingClientRect();
+      if (r && r.top < window.innerHeight && r.bottom > 0) { mark(pinned); return; }
+      pinned = null;
+    }
+    const line = node.querySelector('.set-search').getBoundingClientRect().bottom + 24;
+    let at = shown[0];
+    for (const b of shown) if (b.getBoundingClientRect().top <= line) at = b;
+    mark(at ? at.dataset.sec : null);
+  };
+  function goTo(id) {
+    const t = node.querySelector('#' + CSS.escape(id));
+    if (!t) return;
+    pinned = id;
+    t.scrollIntoView({ block: 'start' });
+    current();
+  }
+  window.addEventListener('scroll', current, { passive: true });
+  const wide = new ResizeObserver(() => {
+    if (!node.isConnected) { if (shownOnce) wide.disconnect(); return; }
+    const w = node.getBoundingClientRect().width >= SETTINGS_WIDE;
+    settingsWasWide = w;
+    node.classList.toggle('is-wide', w);
+    current();
+  });
+  wide.observe(node);
   const apply = () => {
     const q = filter.value.trim().toLowerCase();
     state.settingsFilter = filter.value;
     let any = false;
     for (const row of node.querySelectorAll('.setting[data-key]')) {
       const r = state.settings.byKey[row.dataset.key];
-      const hit = !q || [r.key, r.name, r.description, r.section].some((t) => String(t || '').toLowerCase().includes(q));
+      const hit = !q || [r.key, r.name, humanName(r.name), r.description, r.section, label(r.section)].some((t) => String(t || '').toLowerCase().includes(q));
       row.hidden = !hit;
       any = any || hit;
     }
-    for (const el of node.querySelectorAll('[data-section]')) {
-      const box = node.querySelector('.panel.settings[data-section="' + el.dataset.section + '"]');
-      el.hidden = !!q && (!box || ![...box.querySelectorAll('.setting')].some((x) => !x.hidden));
+    // A section with no match stands aside, and so does its entry in the table of contents; Access and Not settable match
+    // on their own words.
+    for (const b of blocks) {
+      const rows = [...b.querySelectorAll('.setting[data-key]')];
+      const hit = !q || (rows.length ? rows.some((x) => !x.hidden) : String(b.dataset.words || '').includes(q));
+      b.hidden = !hit;
+      if (hit && !rows.length && q) any = true;
+      const a = toc.querySelector('a[data-toc="' + b.dataset.sec + '"]');
+      if (a) a.hidden = !hit;
     }
-    // Access and the index stand aside while filtering (the matching rows are the page).
-    for (const el of node.querySelectorAll('#access, [data-settings-access], #access + .sub')) el.hidden = !!q;
-    node.querySelector('[data-filter-none]').hidden = !q || any;
+    none.hidden = !q || any;
+    current();
   };
   filter.addEventListener('input', apply);
   filter.addEventListener('keydown', (ev) => { if (ev.key === 'Escape' && filter.value) { ev.stopPropagation(); filter.value = ''; apply(); } });
   apply();
   return node;
 }
-function settingRow(r) {
+// 669: a setting's name as words — `confirm_shutdown` → "Confirm shutdown", `memory_mib` → "Memory (MiB)" (the key itself is
+// shown beside it: the docs and `doz config set KEY` use keys).
+const NAME_WORDS = { ui: 'UI', lan: 'LAN', cpus: 'CPUs', nat: 'NAT', ssh: 'SSH', mib: '(MiB)', ms: '(ms)', tmux: 'tmux', id: 'ID', url: 'URL' };
+function humanName(name) {
+  const parts = String(name).split(/[._]+/).filter(Boolean);
+  if (!parts.length) return String(name);
+  return parts.map((w, i) => NAME_WORDS[w] || (i === 0 ? w[0].toUpperCase() + w.slice(1) : w)).join(' ');
+}
+/// One setting as a block (669, like VS Code's): its title — the section as a prefix (on Settings), the name in bold, its
+/// source badge, its key, and "Default" when this Mac sets it —, the description, then the control under them at a modest
+/// width (a checkbox sits before the description instead); what it defaults to and when a change applies, muted. A value
+/// this Mac, the environment or a flag sets is MODIFIED: a bar at the row's left (`.is-modified`).
+function settingRow(r, opts = {}) {
   const source = sourceBadge(r);
   // 669: "Default" resets this Mac's value only (the file's line commented out).
   const reset = r.editable && (r.source === 'mac' || r.source === 'file')
-    ? btn('Default', () => changeSetting(r.key, null), { small: true, title: 'Comment it out in the file: the default (' + shownValue(r.defaultValue, r.type) + ') applies' }) : null;
-  // 602: a control that is a block of its own (the permissions checklist) goes UNDER the text, full
-  // width — beside it, its max-content width squeezed the description to one word per line.
-  const row = h('div', { class: r.type === 'permissions' ? 'setting setting-wide' : 'setting', 'data-key': r.key },
+    ? btn('Default', () => changeSetting(r.key, null), { small: true, quiet: true, icon: 'rotate-ccw', title: 'Comment it out in the file: the default (' + shownValue(r.defaultValue, r.type) + ') applies' }) : null;
+  if (reset) reset.classList.add('set-reset');
+  const modified = ['mac', 'file', 'env', 'flag'].includes(r.source);
+  const checkbox = r.type === 'bool' && r.editable && r.key !== 'defaults.projects_dir';
+  const cls = ['setting'];
+  // 602: a control that is a block of its own (the permissions checklist) takes the column's whole width.
+  if (r.type === 'permissions') cls.push('setting-wide');
+  if (checkbox) cls.push('is-bool');
+  if (modified) cls.push('is-modified');
+  const inputId = 'setting-' + r.key.replace(/[^a-z0-9]+/gi, '-');
+  const control = settingControl(r, inputId);
+  const row = h('div', { class: cls.join(' '), 'data-key': r.key },
     h('div', { class: 'setting-main' },
-      h('div', { class: 'setting-name' }, h('code', null, r.name), ' ', source),
-      h('div', null, r.description),
-      h('div', { class: 'muted setting-meta' }, 'default ', h('code', null, shownValue(r.defaultValue, r.type)), ' · ', r.appliesNote,
-        r.note ? h('div', null, r.note) : null)),
-    h('div', { class: 'setting-control' }, settingControl(r), reset));
+      h('div', { class: 'setting-name' },
+        h('span', { class: 'set-label' }, opts.prefix ? h('span', { class: 'set-cat' }, opts.prefix + ': ') : null, h('strong', { class: 'set-title' }, humanName(r.name))),
+        source, h('code', { class: 'set-key', title: 'doz config set ' + r.key + ' VALUE' }, r.key), reset)),
+    h('div', { class: 'setting-control' }, control),
+    checkbox ? h('label', { class: 'set-desc', for: inputId }, r.description) : h('div', { class: 'set-desc' }, r.description),
+    h('div', { class: 'muted setting-meta' }, 'default ', h('code', null, shownValue(r.defaultValue, r.type)), ' · ', r.appliesNote,
+      r.note ? h('div', null, r.note) : null));
   if (state.settingErr.has(r.key)) paintSettingError(row, r.key);
   return row;
 }
@@ -221,7 +296,7 @@ async function viewRecipe(qualified) {
       ' in doz.toml). A project or one sandbox can set its own; every value says where it came from.',
       old.length ? h('span', null, ' They used to be ', ...old.flatMap((o, i) => [i ? ', ' : '', h('code', null, o)]), ': those names still work.') : null),
     sourceLegend(),
-    h('div', { class: 'panel settings' }, r.settings.map(settingRow)),
+    h('div', { class: 'panel settings' }, r.settings.map((s) => settingRow(s))),
     h('h2', { class: 'set-head' }, 'Its baked images'),
     r.images.length
       ? h('div', { class: 'panel' }, h('div', { class: 'recipe-list' }, r.images.map((im) => h('div', { class: 'recipe-line' }, h('code', null, im.name), h('span', { class: 'muted' }, bytes(im.allocatedBytes))))))
@@ -250,7 +325,7 @@ function uninstallDialog(r) {
       refresh(false);
     }, { danger: true, confirmCheck: 'Yes, uninstall ' + r.qualified, icon: 'trash-2' });
 }
-function settingControl(r) {
+function settingControl(r, inputId) {
   // 599c: the projects folder — chosen in the Mac's own folder picker (the server writes what was chosen;
   // the page never sends a path). Not when the environment or the command line sets it.
   if (r.key === 'defaults.projects_dir' && r.source !== 'env' && r.source !== 'flag') {
@@ -263,7 +338,8 @@ function settingControl(r) {
   if (r.key === 'ui.notifications') return notificationsControl(r);
   let input;
   if (r.type === 'bool') {
-    input = h('input', { type: 'checkbox', role: 'switch', 'aria-label': r.key });
+    // 669: a checkbox before the description (VS Code's), the description its label.
+    input = h('input', { type: 'checkbox', id: inputId || null, 'aria-label': r.key });
     input.checked = r.value === true;
     input.addEventListener('change', () => changeSetting(r.key, input.checked));
   } else if (r.type === 'choice') {
@@ -361,7 +437,7 @@ function settingFailed(key, text) {
 function paintSettingError(row, key) {
   row.querySelector('.setting-error')?.remove();
   const text = state.settingErr.get(key);
-  if (text) row.querySelector('.setting-main').append(callout('bad', { compact: true, cls: 'setting-error', body: text,
+  if (text) row.append(callout('bad', { compact: true, cls: 'setting-error', body: text,
     dismiss: () => { state.settingErr.delete(key); paintSettingError(row, key); } }));
 }
 async function chooseProjectsDir() {

@@ -242,6 +242,26 @@
 </section>
 
 <section>
+  <h2>Settings — laid out like VS Code</h2>
+  <p>669 (owner: “redo the entire layout of Settings to be how VSCode does it … and make the section navigation to the left only when there is enough width”). views/settings.js <code>viewSettings</code>: a compact head, the search across the page (<code>.page-tools.set-search</code>, sticky under the title), then the table of contents (<code>.set-toc</code>: Access, every section, Not settable; the one in view <code>.is-current</code> — bold, <code>--state-selected</code> and the <code>--indicator</code>; a click scrolls to it) beside the sections (<code>.set-sec</code>, a big heading each). The table of contents shows only when the PAGE is at least 960 px wide — <code>.is-wide</code> on <code>.vs-settings</code>, set by a ResizeObserver on the page, not the window (the sidebar may be a rail); narrower there is none. A setting (<code>settingRow</code>, also a recipe’s page) is a block: its title (the section as a prefix, the name in bold, the source badge, the key, Default when this Mac sets it), the description, then the control UNDER them at a modest width (text 420 px, a choice 320, a number 120); a boolean is a checkbox before its description (<code>.is-bool</code>). A value this Mac, the environment or a flag sets is <code>.is-modified</code>: the indicator bar at its left.</p>
+  <div class="pair"><div class="scheme">
+    <div class="settings-page vs-settings is-wide">
+      <div class="page-tools set-search"><label class="filter-field"><i data-i="search"></i><input type="search" class="page-filter" placeholder="Search settings — a key like ui.theme, or a word"></label></div>
+      <div class="set-body">
+        <nav class="set-toc" aria-label="Sections"><a href="#" data-toc="access">Access</a><a href="#" class="is-current">This UI</a><a href="#">The host</a><a href="#">Not settable</a></nav>
+        <div class="set-list"><section class="set-sec"><h2 class="set-head">This UI<code class="set-head-key">[ui]</code></h2>
+          <div class="settings set-rows">
+            <div class="setting is-bool is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Confirm shutdown</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">ui.confirm_shutdown</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+              <div class="setting-control"><input type="checkbox" id="sg-confirm"></div><label class="set-desc" for="sg-confirm">Shut Down asks first.</label><div class="muted setting-meta">default <code>true</code> · applies at once (the UI re-reads it)</div></div>
+            <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Split default</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.split_default</code></div></div>
+              <div class="setting-control"><select><option>shell</option><option>watch</option></select></div><div class="set-desc">What a terminal’s Split opens.</div><div class="muted setting-meta">default <code>shell</code> · applies at once (the UI re-reads it)</div></div>
+          </div></section></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<section>
   <h2>Callouts — the one notice surface</h2>
   <div class="pair"><div class="scheme">
     <div class="callout info" role="status"><i data-i="info"></i><div class="c-body">Writing the file, then making the sandbox as <code>doz up</code> would there.</div></div>
