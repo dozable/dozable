@@ -31,7 +31,7 @@ export async function viewRecipes() {
   if (state.recipe) return viewRecipe(state.recipe);
   const [report, recipes] = await Promise.all([api('settings'), api('recipes').catch(() => null)]);
   adoptSettings(report);
-  return h('div', { class: 'settings-page recipes-page' }, h('h1', null, 'Recipes'), recipesSection(recipes));
+  return h('div', { class: 'settings-page recipes-page' }, h('h1', null, 'Recipes'), recipesSection(recipes), sourceLegend());
 }
 export async function viewSettings() {
   adoptSettings(await api('settings'));
