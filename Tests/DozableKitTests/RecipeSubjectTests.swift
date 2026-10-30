@@ -40,7 +40,15 @@ final class RecipeSubjectTests: XCTestCase {
                 XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true, f)
                 continue
             }
-            XCTAssertEqual(v.validate(t, schemaFile: Self.oldSchema), [], "\(f): the pre-669 schema refuses it")
+            var errors = v.validate(t, schemaFile: Self.oldSchema)
+            // 666: a web port's `sign_in` (ports@1) is newer than this contract, so an older doz refuses a recipe that
+            // declares one. It is excused BY NAME only — and with its capability's oneOf line, nothing else: a catalogue
+            // carrying it is published with minimum_doz at least 0.37.36 (publish-recipes' default when none is published
+            // yet: the publishing tree's VERSION), so no older doz is ever offered it.
+            let signIn = errors.filter { $0.hasSuffix(": sign_in is not allowed") }
+            let signInCaps = Set(signIn.map { $0.split(separator: "/").prefix(2).joined(separator: "/") })
+            errors.removeAll { e in signIn.contains(e) || signInCaps.contains { e == "/\($0): matches 0 of oneOf" } }
+            XCTAssertEqual(errors, [], "\(f): the pre-669 schema refuses it")
             checked += 1
         }
         XCTAssertGreaterThan(checked, 40)
