@@ -635,7 +635,12 @@ final class AccountTests: XCTestCase {
     // MARK: 594 — each agent's credentials (owner: "creating a Pi sandbox should have pre-requisites")
 
     func testTheCompatibilityTable() {
-        XCTAssertEqual(AgentCredentials.kinds("claude-code"), [.mac, .setupToken, .apiKey])
+        // 660: Claude Code's own three, and a gateway's key (OpenRouter) through models@1.
+        XCTAssertEqual(AgentCredentials.kinds("claude-code"), [.mac, .setupToken, .apiKey, .key])
+        XCTAssertTrue(AgentCredentials.accepts("claude-code", .mac) && AgentCredentials.accepts("claude-code", .setupToken))
+        XCTAssertTrue(AgentCredentials.accepts("claude-code", .key, provider: "openrouter"))
+        XCTAssertFalse(AgentCredentials.accepts("claude-code", .key, provider: "xai"), "a provider it is not offered")
+        XCTAssertFalse(AgentCredentials.accepts("claude-code", .openaiKey))
         // 618: pi takes an API key of any source it is offered (Anthropic's by default) — never a Claude subscription.
         XCTAssertEqual(AgentCredentials.kinds("pi"), [.apiKey, .openaiKey, .key], "pi: an API key only — never a Claude subscription")
         XCTAssertNil(AgentCredentials.kinds("lab"))

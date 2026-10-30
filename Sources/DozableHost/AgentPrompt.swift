@@ -205,7 +205,8 @@ public enum AgentPrompt {
                               base: String? = nil, apk: Bool = false, clipboard: Bool = true,
                               browser: Bool = true, openFiles: Bool = true, openApps: [String] = [],
                               github: GitHubAccess.Mode? = nil, sshAgent: Bool = false, tools: ToolsReport? = nil,
-                              workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil, dotfiles: DotfilesState? = nil) -> [String: String] {
+                              workspaceRules: WorkspaceRuleMode? = nil, agent: String? = nil, dotfiles: DotfilesState? = nil,
+                              modelSource: String? = nil, localModelPort: Int? = nil) -> [String: String] {
         var v: [String: String] = [:]
         // 657: the user's dotfiles in this home — one line, only when it has some.
         v["dotfiles.facts"] = dotfiles.map(Self.dotfilesFacts) ?? ""
@@ -320,6 +321,10 @@ public enum AgentPrompt {
             if p.permissions != nil, let r = ImageChoice.parse(image)?.agent.recipe {
                 for o in r.network.offWithout ?? [] where !(p.permissions ?? []).contains(o.permission) { v["network.permissions"]! += " " + o.says + "." }
             }
+            // 660: the one port of the Mac it may reach (its model server) — and nothing else of the Mac's localhost.
+            if let port = localModelPort {
+                v["network.permissions"]! += " Of the user's Mac you may reach only port \(port), as http://\(MacModelServer.hostName):\(port) (the model server you use); nothing else on the Mac's localhost is reachable."
+            }
             let allowed = p.effectiveRules.filter { $0.action == .allow }.map(\.host)
             var unique: [String] = []
             for h in allowed where !unique.contains(h) { unique.append(h) }
@@ -355,6 +360,14 @@ public enum AgentPrompt {
             v["credentials.description"] = "no account is attached, so the proxy adds none. Do not log in or ask for a key inside the sandbox — the user attaches one with `doz account use \(name) ACCOUNT` on the Mac."
         } else {
             v["credentials.description"] = "this sandbox is not proxied, so no credential is injected; do not ask the user to paste keys into it."
+        }
+        // 660: a built-in agent through another source than its own (Claude Code via OpenRouter, or a server on the Mac).
+        if network.policy != nil, credentialProblem == nil, keyAgent == nil, !codex, let s = modelSource, s != "anthropic" {
+            if ModelSources.isLocal(s) {
+                v["credentials.description"] = "no key: your model is a model server on the user's Mac (http://\(MacModelServer.hostName):\(localModelPort.map(String.init) ?? "PORT")), which takes none — the token in your environment is a fixed word, not a secret. Never log in, and never ask the user for a key."
+            } else if let account {
+                v["credentials.description"] = "the Mac's proxy puts the account's key (\(account)) into your requests to \(ModelSources.title(s)) on the way out; the key-like values in your environment are placeholders — that is expected; never log in, and never ask the user for a key."
+            }
         }
         v["mac.hostname"] = hostname.isEmpty ? "the user's Mac" : hostname
         v["doz.version"] = version
@@ -466,7 +479,8 @@ public enum AgentPrompt {
     public static func report(config: SandboxConfig, policy: NetworkPolicy?, account: String?, version: String,
                               settings: DozableSettings = .load(), hostname: String = macHostname(),
                               credentialProblem: String? = nil, sudoInstalled: Bool? = nil, tools: ToolsReport? = nil,
-                              workspaceRules: WorkspaceRuleMode? = nil, dotfiles: DotfilesState? = nil) -> AgentPromptReport? {
+                              workspaceRules: WorkspaceRuleMode? = nil, dotfiles: DotfilesState? = nil,
+                              modelSource: String? = nil) -> AgentPromptReport? {
         guard let agent = agent(of: config.spec), let imageSpec = config.spec.imageSpec else { return nil }
         let network: NetworkMode = policy.map { .proxied($0) } ?? config.spec.network
         // 594 W28: sudo only when it is on AND the guest has it (a disk from an older image may not).
@@ -485,7 +499,8 @@ public enum AgentPrompt {
                           openApps: WorkspaceFiles.appNames(settings.string(SettingKey.openApps) ?? "") ?? [],
                           github: AgentPermissions.gitHubMode(policy?.permissions),
                           sshAgent: policy != nil && HostCore.sandboxValue(config, SettingKey.sshAgent, settings: settings) == .string("on"),
-                          tools: tools, workspaceRules: workspaceRules, agent: agent, dotfiles: dotfiles)
+                          tools: tools, workspaceRules: workspaceRules, agent: agent, dotfiles: dotfiles,
+                          modelSource: modelSource, localModelPort: config.localModelPort)
         var r = AgentPromptReport(enabled: settings.bool(SettingKey.agentPrompt), agent: agent, text: nil, error: nil, layers: [],
                                   skill: nil, promptPath: guestPromptPath,
                                   // 617: a context-file agent's facts file (Gemini CLI's extension, Grok Build's rules).
@@ -592,7 +607,7 @@ extension HostCore {
                            account: m.sandbox.egress == nil ? nil : accountName(m), version: version,
                            credentialProblem: credentialProblem(m), sudoInstalled: sudoInstalled, tools: m.sandbox.lastToolsReport,
                            workspaceRules: m.sandbox.activeViews.values.first(where: { !$0.isPassthrough })?.mode,
-                           dotfiles: dotfilesState(m))
+                           dotfiles: dotfilesState(m), modelSource: modelSelection(m)?.source)
     }
 
     /// Write (or, when off, remove) the facts file and the skill in the guest — a utility exec as

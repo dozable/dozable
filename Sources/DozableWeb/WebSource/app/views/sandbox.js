@@ -310,6 +310,9 @@ function sandboxParts(name, d, net, accounts) {
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
+        // 660: where its agent gets its model, when not its own provider's own pick ("via OpenRouter · model X").
+        i.modelLine ? chip('Model', h('span', { 'data-model-line': '' }, i.modelLine),
+          { title: i.localModelPort ? 'Only port ' + i.localModelPort + ' of this Mac is reachable from ' + name + ' (its model server); nothing else on this Mac’s localhost' : 'Where its agent gets its model' }) : null,
         // 667: sound — the speakers, and whether the microphone is the Mac's.
         i.sound ? chip('Sound', i.sound === 'on' ? (i.microphone === 'mac' ? 'speakers + mic' : 'speakers · mic silent') : 'speakers',
           { title: soundLine(name, i).replace(/^./, (c) => c.toUpperCase()), data: { 'data-sound-chip': i.sound } }) : null,

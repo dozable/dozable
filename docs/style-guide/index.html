@@ -560,7 +560,9 @@ name: todo-app</pre></details>
     list (a gateway's public list, read on this Mac once a day), searchable, name · maker · context · price per million tokens, the default tagged; a key-less source's models carry their data terms as its docs state
     them (<code>.ms-note</code>, “Data: …”, never Dozable's own judgement); an id that looks like
     one may be used as typed. What is truly not offered is one quiet line (<code>.ms-notoffer</code>); a tool with one source shows one line (<code>.ms-one</code> — Grok Build: its xAI key, no choice of model). The plan
-    shows the model and “Same in Terminal”. A tool with no choice of model (Claude Code, Codex: their own sign-ins) keeps its <b>Key</b> section.
+    shows the model and “Same in Terminal”. A tool with no choice of model (Codex: its own sign-ins) keeps its <b>Key</b> section. 660: Claude Code's
+    Anthropic row keeps its own accounts (this Mac's login, a setup token, an API key) and its own model unless one is chosen; <b>A model server on
+    this Mac</b> takes a port (<code>.ms-field</code>, <code>.ms-port</code>, the known servers as <code>.chips</code>) and a model by the server's own name — no picker, no key.
     <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
     sentence says what happens (“Yes, reset demo”), the button disabled until it is ticked and named by the verb, its icon by the verb (trash for Remove and Delete,
     <code>rotate-ccw</code> for Reset, <code>history</code> for Revert) — never a name to type. Removing or resetting a sandbox, deleting or reverting to a restore point,
@@ -611,6 +613,26 @@ name: todo-app</pre></details>
           <div class="ms-foot">OpenRouter’s public model list, read on this Mac 2 hours ago · prices per million tokens</div></div></div>
         <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why">Save an OpenRouter key, or choose a source that has one</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="rocket"></i>Start</button></div>
+    </form></dialog>
+    <!-- 660: Claude Code — Anthropic (its own accounts), a gateway, or a model server on this Mac: the port (the known
+         servers one click each: .chips), the model by the server's own name (.ms-field), and what the sandbox reaches. -->
+    <dialog class="dlg try-setup" open><form method="dialog">
+      <div class="dlg-head"><span data-mark="claude-code" class="mark"></span><h2 class="h-title">Try Claude Code</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">A fresh sandbox, try-claude: a new empty folder of its own, a network for its model, packages and GitHub only, your key never inside.</p>
+        <div class="qt-sect"><h3>Where Claude Code gets its model</h3><p class="muted ms-lead">Its own provider is chosen; any other — or a gateway — works the same way.</p>
+          <div class="ms-src" role="radiogroup">
+            <div class="ms-grp">Providers</div>
+            <label class="ms-opt"><input type="radio" name="cc-ms"><span class="ms-t">Anthropic</span><span class="ms-k"><span class="pill st-ok"><i data-i="circle-check"></i>mac</span></span><span class="ms-d">default claude-sonnet-4-6 · Claude Code’s own</span></label>
+            <label class="ms-opt on"><input type="radio" name="cc-ms" checked><span class="ms-t">A model server on this Mac</span><span class="ms-k"><span class="pill st-ok"><i data-i="circle-check"></i>no key needed</span></span><span class="ms-d">Ollama, LM Studio, llama.cpp … by its port — no key</span></label>
+            <div class="ms-need"><div class="ms-keyline" data-ms-no-key="local"><i data-i="circle-check"></i><span>No key — nothing of yours goes to it. The sandbox reaches only this port of your Mac, as <code>mac.dozable.internal:11434</code>; nothing else on this Mac.</span></div>
+              <div class="ms-field"><span>Port on this Mac</span><div class="try-paste ms-portrow"><input type="number" class="ms-port" value="11434" aria-label="Port"><div class="chips"><button class="btn sm" type="button"><i data-i="check"></i>Ollama · 11434</button><button class="btn sm quiet" type="button"><i data-i="cpu"></i>LM Studio · 1234</button><button class="btn sm quiet" type="button"><i data-i="cpu"></i>llama.cpp (llama-server) · 8080</button></div></div></div>
+              <label class="ms-field"><span>Model</span><input type="text" value="qwen3-coder" placeholder="its name for the model — ollama list, LM Studio’s list"></label>
+              <p class="muted ms-small">Not yet: mlx-lm (mlx_lm.server) — it speaks OpenAI’s chat API only — Claude Code needs Anthropic’s Messages API, so it needs a translator (not yet)</p></div>
+            <div class="ms-grp">Gateways <span>— one key, models from many makers</span></div>
+            <label class="ms-opt"><input type="radio" name="cc-ms"><span class="ms-t">OpenRouter</span><span class="ms-k"><span class="pill st-off"><i data-i="circle-dot"></i>no key yet</span></span><span class="ms-d">one key, models from many makers</span></label>
+          </div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Model</dt><dd>qwen3-coder on this Mac’s port 11434</dd><dt>Same in Terminal</dt><dd><code>doz try claude-code --provider local --local-port 11434 --model qwen3-coder</code></dd></dl></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <div class="ms-picker"><div class="ms-top"><i data-i="search"></i><input type="search" placeholder="Search OpenCode Zen’s models — name, maker or id"></div>
       <div class="ms-mlist">

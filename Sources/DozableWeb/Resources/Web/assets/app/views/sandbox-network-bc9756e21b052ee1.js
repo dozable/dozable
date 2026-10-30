@@ -80,6 +80,10 @@ export function networkPanel(net) {
       (net.policy.preset ? (PRESET_LABEL[net.policy.preset] || net.policy.preset) + ' preset' : 'custom policy') + ' · anything else: ' + net.policy.defaultAction)),
     h('div', { class: 'panel' }, table(['#', 'Rule', 'Host', 'Note'], rules, [0]) || h('div', { class: 'empty' }, 'No rules.'))];
   return h('div', null,
+    // 660: the one port of this Mac it may reach — a per-sandbox allow, never a policy rule.
+    net.macPort ? callout('info', { compact: true, attrs: { 'data-net-mac-port': String(net.macPort) },
+      title: 'This Mac: port ' + net.macPort + ' only',
+      body: 'Its model server, reached as ' + net.macHost + ':' + net.macPort + ' (this Mac’s 127.0.0.1:' + net.macPort + '). Nothing else on this Mac’s localhost is reachable from a sandbox, whatever its network.' }) : null,
     // 597: the permissions first; the rules (every host they amount to) under details.
     net.permissions ? permissionsPanel(net.name, net) : null,
     net.permissions ? h('details', { class: 'net-rules', 'data-net-rules': '' }, h('summary', null, 'Details: the rules and hosts'), policyParts) : policyParts,

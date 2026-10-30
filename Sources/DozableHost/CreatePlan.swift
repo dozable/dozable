@@ -74,6 +74,13 @@ public struct PlanModel: Codable, Equatable, Sendable {
     public var shape: String?
     /// Every source it can be tried with, its default first.
     public var offered: [PlanSource]
+    /// 660: a model server on this Mac — the port chosen (nil: none yet), and the servers known to speak the agent's API
+    /// (only when `local` is offered).
+    public var localPort: Int? = nil
+    public var localServers: [MacModelServer.Server]? = nil
+    /// 660: true when the agent picks its own model (a built-in agent on its own provider, none chosen) — `model` is
+    /// then only the source's documented default, never put on its command line.
+    public var own: Bool? = nil
 }
 
 public struct PlanSource: Codable, Equatable, Sendable {
@@ -386,15 +393,33 @@ public enum CreatePlanner {
             var source = modelSource ?? r.publishedSources.first ?? r.offeredSources.first ?? ""
             if modelSource == nil, let n = account?.name, let rec = f.accounts.accounts.first(where: { $0.name == n }),
                AgentCredentials.accepts(image, rec), let s = AgentCredentials.source(of: rec) { source = s }
-            if let sel = r.selection(source: source, model: o.model.flatMap { ModelSelection.isModelID($0) ? $0 : nil }) {
+            let chosenModel = o.model.flatMap { ModelSelection.isModelID($0) ? $0 : nil }
+            // 660: a model server on this Mac has a selection only with a port; before one is given the plan still says it.
+            let sel = r.selection(source: source, model: chosenModel, localPort: o.localPort)
+                ?? (ModelSources.isLocal(source) && r.offeredSources.contains(source)
+                    ? ModelSelection(source: source, shape: nil, baseURL: nil, model: chosenModel ?? "", env: [:], keyEnv: []) : nil)
+            if let sel {
                 // 629: an unpublished gateway is not offered (a sandbox already on one keeps it: `selection` is complete).
                 let offered = r.publishedSources.compactMap { id -> PlanSource? in
+                    if ModelSources.isLocal(id) {
+                        return PlanSource(id: id, title: ModelSources.title(id), gateway: false, defaultModel: "", accountKind: "none", keyHint: nil,
+                                          baseURL: o.localPort.map { MacModelServer.baseURL(port: $0) })
+                    }
                     guard let d = r.selection(source: id) else { return nil }
                     return PlanSource(id: id, title: ModelSources.title(id), gateway: ModelSources.isGateway(id), defaultModel: d.model,
                                       accountKind: ModelSources.accountKind(id), keyHint: KeyProviders.provider(id)?.keyHint, baseURL: d.baseURL)
                 }
                 planModel = PlanModel(source: source, title: ModelSources.title(source), gateway: ModelSources.isGateway(source), model: sel.model,
                                       shape: sel.shape, offered: offered)
+                if r.isBuiltin, source == r.models?.default, chosenModel == nil { planModel?.own = true }
+                if r.offeredSources.contains(MacModelServer.sourceID) {
+                    planModel?.localServers = MacModelServer.servers
+                    if ModelSources.isLocal(source) { planModel?.localPort = o.localPort }
+                }
+            }
+            // 660: what a model server on this Mac still needs (its port, a model).
+            if let p = HostCore.localSourceProblem(source: modelSource, port: o.localPort, model: o.model) {
+                problems.append(PlanProblem(code: "invalid", text: p.text, fix: p.fix))
             }
         }
 
@@ -435,9 +460,17 @@ public enum CreatePlanner {
                 }
             }
             let hosts = ModelSources.hosts(m.source).joined(separator: ", ")
-            reach.insert(ReachLine("model", ModelSources.isKeyless(m.source)
-                ? "Model: \(m.model) through \(m.title) (\(hosts)) — no key needed: no key of yours goes there"
-                : "Model: \(m.model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
+            if ModelSources.isLocal(m.source) {
+                // 660: the one port of this Mac, said as what it is.
+                let port = m.localPort.map(String.init) ?? "PORT"
+                reach.insert(ReachLine("model", "Model: \(m.model.isEmpty ? "(name it)" : m.model) on this Mac's port \(port) (\(MacModelServer.hostName):\(port) → 127.0.0.1:\(port)) — "
+                                       + "no key; only that port of this Mac, nothing else on it"), at: 0)
+            } else {
+                let model = m.own == true ? "\(choice?.agent.recipe?.title ?? "its") own choice" : m.model
+                reach.insert(ReachLine("model", ModelSources.isKeyless(m.source)
+                    ? "Model: \(model) through \(m.title) (\(hosts)) — no key needed: no key of yours goes there"
+                    : "Model: \(model) through \(m.title) (\(hosts)) — its key only ever goes there"), at: 0)
+            }
         }
         // 634: the First sandbox's command is `doz new NAME --agent TOOL …` — the name always (doz new would name it otherwise).
         var argv = Self.argv(purpose: r.purpose, name: isFirst ? name : r.name, options: o, given: r.create, choice: choice, settings: f.settings)
@@ -514,6 +547,7 @@ public enum CreatePlanner {
         if let acc = o.account { a += ["--account", acc] }
         // 617 (models@1): the source (a gateway by its own flag) and the model.
         if let s = o.modelSource { a += [ModelSources.isGateway(s) ? "--gateway" : "--provider", s] }
+        if let p = o.localPort { a += ["--local-port", String(p)] }       // 660
         if let m = o.model { a += ["--model", m] }
         for k in o.keys ?? [] { a += ["--key", k] }
         if let s = o.agentSudo { a.append(s ? "--agent-sudo" : "--no-agent-sudo") }
@@ -570,6 +604,7 @@ public enum CreatePlanner {
         p.keys = o.keys
         p.modelSource = o.modelSource             // 618: project keys now
         p.model = o.model
+        p.localPort = o.localPort                 // 660
         p.dotfiles = o.dotfiles                   // 657
         let (words, github) = splitGitHub(o.allow ?? [])
         p.github = github

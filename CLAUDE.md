@@ -99,6 +99,7 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
 | `Sources/DozableKit/RecipeCatalogue.swift`; `Sources/DozableHost/RecipeCatalogueClient.swift`; `Scripts/publish-recipes.sh`, `recipe-catalogue.py`, `test-recipe-catalogue.sh` | 652: the recipe catalogue — the active recipe set (embedded, or a signed catalogue merged over it, chosen once at start), the manifest + its domain-separated message, the merge and checks; the cache in the settings dir, the choice, the host's hourly refresh; the publisher and its end-to-end test |
 | `Sources/DozableKit/RecipeOrigin.swift`, `CommunityRequirements.swift`, `StandInProvider.swift`; `Sources/DozableHost/RecipeExtras.swift`; `Sources/DozableCLI/RecipeCommands.swift`, `RecipeFullCheck.swift`; `components/source-pill.js`; `Scripts/test-community-recipes.sh` | 653: recipes that are not Dozable's — their origin, the community requirements, the merge (`RecipeCatalogue.adoptExtras`); your own recipes, community sources, the snapshot a host start chooses, kept/checks/trusted; `doz recipe …` and the full check (a Swift stand-in provider); the dashboard's pills; the end-to-end test |
 | `Sources/DozableKit/Dotfiles.swift`; `Sources/DozableHost/Dotfiles+Host.swift`; `Sources/DozableCLI/DotfilesCommand.swift`; `Sources/DozableWeb/WebDotfiles.swift`; `Sources/doz-vmtest/DotfilesSuite.swift` | 657: the person's dotfiles — the source, the pin, the plan (the install script or the links, Dozable's protected paths), the guest scripts and a run's result; the Mac's git cache (`<store>/dotfiles`), the trust record, the ops `dotfiles` / `dotfiles-resolve` / `dotfiles-update`; `doz dotfiles` and the create's trust question; the dashboard's projection and `POST /api/v1/dotfiles/resolve`; `make test-cli-dotfiles` |
+| `Sources/DozableKit/MacModelServer.swift`; `EgressProxy.macModelPort`/`macRoute`; `Wire.connectTCP(allowLoopback:)`; `components/model-source.js` (`localNodes`) | 660: Claude Code through a gateway or a model server on this Mac — the `local` source (`mac.dozable.internal`, one port per sandbox), the known servers, the loopback refusal; `MacModelServerTests` |
 | `Sources/DozableKit/Audio.swift`, `DozSound.swift`; `Sources/DozableHost/MacAudio.swift`, `Microphone.swift`, `HostCore+Sound.swift`; `Guest/sound-kernel/` | 667: sound — the sound kernel's pin, the device (microphone source only when allowed); `SoundMode` (`sandbox.audio`), macOS's microphone permission and its seam, the per-boot decision; the kernel's reproducible recipe and source offer; `AudioTests`, `AudioHostTests` |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
@@ -233,8 +234,18 @@ and how `LinuxContainer.create()/start()/stop()` call them. A bump is a delibera
   2.1.227's own screens, so re-check them when the pin moves — and since 594 images install
   `latest` by default, `make test-cli-onboarding` re-checks the launcher (argv, skill, a session with
   a key) on whatever the registry's latest is.
+- **This Mac's loopback is never a sandbox's** (660): a proxied sandbox's traffic leaves from the host process, so a
+  connection the proxy makes to `127.0.0.1`/`localhost`/`::1` IS the Mac's — another sandbox's forwarded web port, a
+  database, a local model server. `Wire.connectTCP` refuses a loopback or unspecified address whatever the policy (Open
+  included; the tunnel and plain-HTTP paths answer 403 `loopbackRefusal` first), like 606's dashboard ports. The ONLY
+  ways through: the proxy's guarded test seams (a fake upstream on 127.0.0.1) and `EgressProxy.macModelPort` — the one
+  port a sandbox was made with (`SandboxConfig.localModelPort`, `--provider local --local-port N`), reached as
+  `mac.dozable.internal:N` (the proxy's DNS answers a synthetic 198.18.255.254 and routes it; any other port of that
+  name is refused; no port: NXDOMAIN). Never a policy rule (no preset or edit widens it). `MacModelServerTests`, the
+  workspace's `probes/660-*/vm-proof.py`. Keep any new route to the Mac's own addresses behind the same refusal.
 - **Agent credentials (`AgentCredentials.swift`; the table is `AgentImages.credentials`):**
-  Claude Code: `mac`, `setup-token`, `api-key`; pi: `api-key` ONLY (it reads `ANTHROPIC_API_KEY`;
+  Claude Code: `mac`, `setup-token`, `api-key` (660: and through models@1 a gateway's `key` — OpenRouter — or the
+  key-less `local`; its Anthropic source keeps those three, `AgentCredentials.source(of:provider:image:)`); pi: `api-key` ONLY (it reads `ANTHROPIC_API_KEY`;
   never hand it a Claude subscription — `applyAccount` clears both bindings, with a notice, for an
   account the agent cannot use). `createProblem` runs in `HostCore.create` and `duplicate` (proxied
   networks only; an explicit `none` is allowed, the default resolving to none is not for pi), in the
@@ -2166,8 +2177,16 @@ may use it too.
   recipe agents' way in `applyMainAccount` (an Anthropic one keeps pi's own path, `doz key set` included), its other
   sources' hosts are the hidden `sources:pi` permission (added at create, like Codex's `model:openai`), and the host puts
   its `--model` on the default session (`builtinModelArguments`: off Anthropic, or a model chosen there). Its image and
-  launcher are unchanged (`RecipePinTests`). Claude Code and Codex record why a gateway is not offered (their
-  gateways entries' `limits`). A source that takes NO key (providers.json `keyless`: `opencode-zen`, OpenCode Zen's free
+  launcher are unchanged (`RecipePinTests`). Codex records why a gateway is not offered (its gateways entries'
+  `limits`). 660 (618.B4): Claude Code declares models@1 — `anthropic` native (its own three accounts, its own model unless
+  one is chosen: `launch.model_args` on the default session only then, `PlanModel.own`), the `anthropic-messages` shape
+  (OpenRouter / Vercel's Anthropic endpoint: `ANTHROPIC_BASE_URL`, the key's placeholder in `ANTHROPIC_AUTH_TOKEN`, the model
+  in `ANTHROPIC_MODEL` + every `ANTHROPIC_DEFAULT_*_MODEL` + `CLAUDE_CODE_SUBAGENT_MODEL`,
+  `CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1`) and `local` — a model server on this Mac (`MacModelServer`: id `local`,
+  key-less, offered by a native entry only, `{base_url}` = `http://mac.dozable.internal:PORT`, a model required, its
+  `key_env` given `dozable-no-key`). Claude Code's default account stays the Anthropic default (`AgentCredentials.defaultAccount`
+  never falls into a gateway); the try setup and New Sandbox keep its account chooser on the Anthropic row. The image and
+  launcher are unchanged (`RecipePinTests`). Manual 32. A source that takes NO key (providers.json `keyless`: `opencode-zen`, OpenCode Zen's free
   models — OpenCode 2 sends its own "Bearer public") is never a key provider: no binding, no placeholder, no account
   (`AgentCredentials.account(forSource:)` answers `none`; `--account` refused; `doz account add` refuses it), offered
   only by a `native` entry, its host in the recipe's model permission path by path (`/zen/v1/chat/completions`,

@@ -26,7 +26,7 @@ import { ISOLATED_NOTE } from '../components/workspace-chooser-a0962944605ba369.
 import { sourceTag } from '../components/setting-source-42701c4a247e8ecb.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-6caeb1bdc529893d.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-d64d57aacb298388.js';
-import { networkPanel } from './sandbox-network-57b393a503fb9cdd.js';
+import { networkPanel } from './sandbox-network-bc9756e21b052ee1.js';
 import { filesPanel, syncFiles } from './sandbox-files-c77ee92a19c5c1c3.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-d240bb6812154e30.js';
 import { paintHome, soundLine } from './sandbox-home-f6328745dc8b5cad.js';
@@ -310,6 +310,9 @@ function sandboxParts(name, d, net, accounts) {
         // 617 (owner: nothing pushes the terminal down): what the agent was refused is this chip's menu, not a banner.
         i.deniedConnections ? deniedChip(name, i.deniedConnections, suggestions, showTab('network')) : null,
         i.accountApplies ? chip('Account', i.account || '—') : null,
+        // 660: where its agent gets its model, when not its own provider's own pick ("via OpenRouter · model X").
+        i.modelLine ? chip('Model', h('span', { 'data-model-line': '' }, i.modelLine),
+          { title: i.localModelPort ? 'Only port ' + i.localModelPort + ' of this Mac is reachable from ' + name + ' (its model server); nothing else on this Mac’s localhost' : 'Where its agent gets its model' }) : null,
         // 667: sound — the speakers, and whether the microphone is the Mac's.
         i.sound ? chip('Sound', i.sound === 'on' ? (i.microphone === 'mac' ? 'speakers + mic' : 'speakers · mic silent') : 'speakers',
           { title: soundLine(name, i).replace(/^./, (c) => c.toUpperCase()), data: { 'data-sound-chip': i.sound } }) : null,

@@ -59,6 +59,8 @@ public struct DozableProject: Equatable, Sendable {
     /// 618: where the model comes from (a provider or gateway the agent is offered) and the model (an id) — when made.
     public var modelSource: String?
     public var model: String?
+    /// 660: `model_source: local` — the port of the model server on this Mac (the one port of it the sandbox reaches).
+    public var localPort: Int?
     /// 657: this sandbox's dotfiles — a git repository's https:// URL, a folder on the Mac (absolute or ~/…), or `none`.
     /// nil: the setting `sandbox.dotfiles` decides. When the sandbox is made.
     public var dotfiles: String?
@@ -117,6 +119,7 @@ public struct DozableProject: Equatable, Sendable {
         ("keys", "custom keys attached beside the account (doz account add NAME --custom …), each of its hosts allowed — when the sandbox is made"),
         ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
+        ("local_port", "with model_source: local — the port of the model server on this Mac (Ollama 11434, LM Studio 1234): the one port of this Mac the sandbox reaches — when the sandbox is made"),
         ("dotfiles", "your dotfiles: a git repository's https:// URL, a folder on your Mac (absolute or ~/…), or none (default: the setting sandbox.dotfiles) — applied at its first start; doz dotfiles NAME --update moves it on"),
     ] + settingKeys.map { k in
         k.setting == SettingKey.sandboxApprovals
@@ -198,11 +201,16 @@ public struct DozableProject: Equatable, Sendable {
     /// agent is offered, the model an id (`ModelSelection.isModelID`). The fix names the choices.
     public func modelProblem() -> String? {
         if let m = model, !ModelSelection.isModelID(m) { return "model: a model id — letters, digits and . _ : / @ + - (doz models)" }
+        if localPort != nil, modelSource.map(ModelSources.isLocal) != true { return "local_port: only with model_source: local" }
         guard modelSource != nil || model != nil else { return nil }
         let offered = AgentCredentials.sources(chosenImage) ?? []
         let tool = AgentKind(rawValue: ImageChoice.parse(chosenImage)?.agent.rawValue ?? "")?.recipe?.title ?? "this agent"
         guard !offered.isEmpty else { return "model_source and model: \(tool) has no choice of model (leave them out)" }
         if let s = modelSource, !offered.contains(s) { return "model_source: \(Self.modelSourceWords(offered))" }
+        // 660: a model server on this Mac needs its port and a model; a port is for nothing else.
+        if let p = HostCore.localSourceProblem(source: modelSource, port: localPort, model: model) {
+            return modelSource.map(ModelSources.isLocal) == true ? "local_port and model: \(p.text)" : "local_port: only with model_source: local"
+        }
         return nil
     }
 
@@ -283,6 +291,9 @@ public struct DozableProject: Equatable, Sendable {
             out += "model_source: \(s)          # \(Self.modelSourceWords(offered)) — when made\n"
         } else if offered.count > 1 {
             out += "# model_source: \(offered[0])     # \(Self.modelSourceWords(offered)) — when made\n"
+        }
+        if let p = localPort {
+            out += "local_port: \(p)            # the model server on this Mac: the one port of it the sandbox reaches — when made\n"
         }
         if let m = model {
             out += "model: \(quoted(m))   # a model id of that source (doz models) — when made\n"
@@ -382,6 +393,7 @@ public struct DozableProject: Equatable, Sendable {
         if let k = keys, !k.isEmpty { o.keys = k }
         o.modelSource = modelSource                  // 618
         o.model = model
+        o.localPort = localPort                      // 660
         o.dotfiles = dotfiles                        // 657
         o.project = file.path
         // 596 (B6): a Dockerfile relative to this folder (its folder is the build context).

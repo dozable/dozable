@@ -147,6 +147,10 @@
         "env" : {
 
         },
+        "model_args" : [
+          "--model",
+          "$DOZ_MODEL"
+        ],
         "no_prompts_args" : [
           "--dangerously-skip-permissions"
         ],
@@ -226,8 +230,7 @@
             },
             "level" : "documented",
             "limits" : [
-              "not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code's own account, which Dozable's Claude Code flow (this Mac's login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway",
-              "only guaranteed with Anthropic's own models, Anthropic first in the provider order",
+              "only guaranteed with Anthropic's own models, Anthropic first in the provider order — Anthropic supports Claude models only through a gateway",
               "never with a Claude subscription (mac / setup-token): the gateway key replaces it"
             ],
             "notes" : [
@@ -254,11 +257,11 @@
             },
             "level" : "documented",
             "limits" : [
-              "not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code's own account, which Dozable's Claude Code flow (this Mac's login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway",
-              "never with a Claude subscription (mac / setup-token): the gateway key replaces it"
+              "never with a Claude subscription (mac / setup-token): the gateway key replaces it — Anthropic supports Claude models only through a gateway"
             ],
             "notes" : [
-              "/claude-code is Claude Code's own compatibility endpoint; discovery puts every gateway model in /model"
+              "/claude-code is Claude Code's own compatibility endpoint; discovery puts every gateway model in /model",
+              "a Dozable try uses the gateway's general Anthropic endpoint (gateways.json)"
             ],
             "shape" : "anthropic-messages",
             "source" : "https://vercel.com/docs/ai-gateway/coding-agents"
@@ -266,6 +269,57 @@
         ]
       },
       "type" : "com.dozable/gateways@1"
+    },
+    {
+      "config" : {
+        "default" : "anthropic",
+        "native" : [
+          {
+            "docs" : "https://code.claude.com/docs/en/model-config",
+            "env" : {
+              "DOZ_MODEL" : "${{ dozable.model }}"
+            },
+            "source" : "anthropic"
+          },
+          {
+            "docs" : "https://code.claude.com/docs/en/llm-gateway",
+            "env" : {
+              "ANTHROPIC_BASE_URL" : "${{ dozable.base_url }}",
+              "ANTHROPIC_DEFAULT_HAIKU_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_DEFAULT_OPUS_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_DEFAULT_SONNET_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_MODEL" : "${{ dozable.model }}",
+              "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS" : "1",
+              "CLAUDE_CODE_SUBAGENT_MODEL" : "${{ dozable.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}"
+            },
+            "key_env" : [
+              "ANTHROPIC_AUTH_TOKEN"
+            ],
+            "source" : "local"
+          }
+        ],
+        "shapes" : [
+          {
+            "env" : {
+              "ANTHROPIC_BASE_URL" : "${{ dozable.base_url }}",
+              "ANTHROPIC_DEFAULT_HAIKU_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_DEFAULT_OPUS_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_DEFAULT_SONNET_MODEL" : "${{ dozable.model }}",
+              "ANTHROPIC_MODEL" : "${{ dozable.model }}",
+              "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS" : "1",
+              "CLAUDE_CODE_SUBAGENT_MODEL" : "${{ dozable.model }}",
+              "DOZ_MODEL" : "${{ dozable.model }}"
+            },
+            "key_env" : [
+              "ANTHROPIC_AUTH_TOKEN"
+            ],
+            "shape" : "anthropic-messages",
+            "source" : "https://code.claude.com/docs/en/llm-gateway"
+          }
+        ]
+      },
+      "type" : "com.dozable/models@1"
     },
     {
       "config" : {

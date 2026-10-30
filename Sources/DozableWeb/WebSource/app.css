@@ -1981,6 +1981,11 @@ dialog.dlg.try-setup { width: min(640px, calc(100vw - 32px)); }
 .ms-empty, .ms-typed { padding: var(--sp-3); font-size: var(--fs-sm); color: var(--ink-2); }
 .ms-typed { border-top: var(--bw) solid var(--line); }
 .ms-foot { padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); color: var(--ink-2); border-top: var(--bw) solid var(--line); background: var(--surface-2); }
+/* 660: a model server on this Mac — its port (and the known servers), its model */
+.ms-field { display: grid; gap: var(--sp-1); min-width: 0; }
+.ms-field > span { font-size: var(--fs-sm); font-weight: var(--fw-strong); }
+.ms-portrow { flex-wrap: wrap; align-items: center; }
+.try-paste .ms-port { flex: none; width: 10ch; }
 @media (max-width: 600px) {
   .ms-opt, .ms-m { grid-template-columns: 18px minmax(0, 1fr); }
   .ms-k, .ms-price { grid-row: auto; grid-column: 2; justify-self: start; text-align: left; }

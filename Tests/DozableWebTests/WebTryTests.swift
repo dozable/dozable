@@ -302,8 +302,29 @@ final class WebTryTests: XCTestCase {
         XCTAssertEqual(w.recipeDefaults["shell-gpt"], "xai1", "its default source's default")
         XCTAssertEqual(w.agents["grok"], ["key"])
         XCTAssertEqual(w.sources["grok"], ["xai"])
-        XCTAssertNil(w.sources["claude-code"], "the built-in three keep their own table")
+        // 660: Claude Code has sources now (Anthropic with its own accounts, OpenRouter, a server on this Mac); Codex keeps its table.
+        XCTAssertEqual(w.sources["claude-code"], ["anthropic", "openrouter", "vercel-ai-gateway", "local"], "(every gateway published in this test)")
+        XCTAssertNil(w.sources["codex"])
+        let cc = try XCTUnwrap(catalog.agents.first { $0.id == "claude-code" })
+        XCTAssertEqual(cc.usableAccounts.map(\.name), ["mac", "anthropic", "or1"], "its own accounts and the gateway's key — never OpenAI's or xAI's")
+        XCTAssertEqual(cc.usableAccounts.map(\.modelSource), ["anthropic", "anthropic", "openrouter"], "the Mac login is its Anthropic source's")
         XCTAssertEqual(w.sourceTitles["vercel-ai-gateway"], "Vercel AI Gateway")
+    }
+
+    /// 660: the setup's port of a model server on this Mac — strictly decoded, with the local source only; and the create
+    /// action takes it.
+    func testTheLocalPortIsDecodedStrictly() throws {
+        let q = try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"claude-code","source":"local","localPort":11434,"model":"qwen3-coder"}"#.utf8))
+        XCTAssertEqual(q.localPort, 11434)
+        XCTAssertEqual(q.request.create.localPort, 11434)
+        XCTAssertThrowsError(try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"claude-code","source":"local","localPort":80}"#.utf8)))
+        XCTAssertThrowsError(try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"claude-code","source":"local","localPort":true}"#.utf8)))
+        XCTAssertThrowsError(try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"claude-code","source":"local","localPort":"11434"}"#.utf8)))
+        XCTAssertThrowsError(try WebPlanQuery.decode(Data(#"{"purpose":"try","agent":"claude-code","localPort":11434}"#.utf8)), "a port is the local source's")
+        let a = try WebAction.decode(Data(#"{"action":"create","sandbox":"lm","image":"claude-code","modelSource":"local","model":"qwen3-coder","localPort":1234}"#.utf8))
+        guard case .create(_, let o) = a else { return XCTFail("\(a)") }
+        XCTAssertEqual(o.localPort, 1234)
+        XCTAssertThrowsError(try WebAction.decode(Data(#"{"action":"create","sandbox":"lm","image":"claude-code","localPort":22}"#.utf8)))
     }
 
     /// 617 (owner: "split them"): the sections and categories reach the page.

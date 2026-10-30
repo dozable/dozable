@@ -457,8 +457,17 @@ recipe is offered (in a fresh try with that source's fake key) and puts that sou
 - **Accounts:** an Anthropic source takes an Anthropic API-key account (`--api-key`; never a Claude subscription), an
   OpenAI source an OpenAI API-key account (`--openai-key`; never a ChatGPT sign-in), every other source a `key` account
   of that provider (`doz account add NAME --provider openrouter`).
-- A recipe without `models@1` keeps its one credential exactly as before (the built-in three; Claude Code's and Codex's
-  own account flows are untouched).
+- A recipe without `models@1` keeps its one credential exactly as before (Codex's own account flow is untouched).
+  The built-in pi declares native sources; the built-in Claude Code (660) declares `anthropic` natively — its own
+  accounts, this Mac's login and setup tokens included, and its own model unless one is chosen (`launch.model_args`,
+  put on its default session only then) — the `anthropic-messages` shape (a gateway's Anthropic endpoint, the key's
+  placeholder in `ANTHROPIC_AUTH_TOKEN`) and `local`.
+- **A model server on this Mac** (`local`, 660 — Ollama, LM Studio, llama-server, LiteLLM, vLLM, oMLX) is offered only
+  by a `native` entry, which may name `${{ dozable.base_url }}`: `http://mac.dozable.internal:PORT`, the port the
+  sandbox was made with (`--local-port`; no port, no selection). It takes no key: no account, no binding, no
+  placeholder; the entry's `key_env` names get a fixed non-secret word (`dozable-no-key`) for a tool that insists on
+  one. The proxy routes that one name and port to the Mac's `127.0.0.1:PORT` and refuses every other way to the Mac's
+  loopback, whatever the policy. It has no model list: the model is named (`--model`), required.
 - **A source that takes no key** (`opencode-zen`: OpenCode Zen's free models) is listed under `keyless` in
   `Recipes/providers.json` — its hosts, its endpoints, and the models Dozable lists for it, each with its data terms as the
   source's docs state them (its own model list has no prices, so a free model cannot be told from a paid one): the

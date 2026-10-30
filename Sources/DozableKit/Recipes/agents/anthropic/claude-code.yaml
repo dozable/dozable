@@ -104,6 +104,9 @@ capabilities:
       CLAUDE_CONFIG_DIR: /home/agent/.claude
       DISABLE_AUTOUPDATER: '1'
       DISABLE_UPDATES: '1'
+    model_args:
+    - --model
+    - $DOZ_MODEL
     status: osc7501
     resume:
     - --continue
@@ -155,8 +158,7 @@ capabilities:
         - --model
         - ${{ dozable.model }}
       limits:
-      - 'not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozable''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
-      - only guaranteed with Anthropic's own models, Anthropic first in the provider order
+      - only guaranteed with Anthropic's own models, Anthropic first in the provider order — Anthropic supports Claude models only through a gateway
       - 'never with a Claude subscription (mac / setup-token): the gateway key replaces it'
       notes:
       - ~creator/…-latest aliases also work; a [1m] suffix marks a 1M context and OpenRouter strips it
@@ -176,12 +178,51 @@ capabilities:
         - --model
         - ${{ dozable.model }}
       limits:
-      - 'not offered in a Dozable try: the gateway takes its key as a Bearer token (ANTHROPIC_AUTH_TOKEN) at ANTHROPIC_BASE_URL in place of Claude Code''s own account, which Dozable''s Claude Code flow (this Mac''s login, a setup token, an Anthropic API key) does not set — and Anthropic supports Claude models only through a gateway'
-      - 'never with a Claude subscription (mac / setup-token): the gateway key replaces it'
+      - 'never with a Claude subscription (mac / setup-token): the gateway key replaces it — Anthropic supports Claude models only through a gateway'
       notes:
       - /claude-code is Claude Code's own compatibility endpoint; discovery puts every gateway model in /model
+      - a Dozable try uses the gateway's general Anthropic endpoint (gateways.json)
       source: https://vercel.com/docs/ai-gateway/coding-agents
       checked: '2026-10-12'
+# 660: where Claude Code gets its model — Anthropic (its own accounts: this Mac's login, a setup token, an API key; its
+# own model unless one is chosen), a gateway's Anthropic endpoint (the gateway key's placeholder as its bearer token),
+# or a model server on this Mac (by port; no key). Every alias and subagent gets the chosen model, so nothing asks a
+# gateway or a server for a model it was not given.
+- type: com.dozable/models@1
+  config:
+    default: anthropic
+    shapes:
+    - shape: anthropic-messages
+      env:
+        ANTHROPIC_BASE_URL: '${{ dozable.base_url }}'
+        ANTHROPIC_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_OPUS_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_SONNET_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: '${{ dozable.model }}'
+        CLAUDE_CODE_SUBAGENT_MODEL: '${{ dozable.model }}'
+        CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: '1'
+        DOZ_MODEL: '${{ dozable.model }}'
+      key_env:
+      - ANTHROPIC_AUTH_TOKEN
+      source: https://code.claude.com/docs/en/llm-gateway
+    native:
+    - source: anthropic
+      env:
+        DOZ_MODEL: '${{ dozable.model }}'
+      docs: https://code.claude.com/docs/en/model-config
+    - source: local
+      env:
+        ANTHROPIC_BASE_URL: '${{ dozable.base_url }}'
+        ANTHROPIC_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_OPUS_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_SONNET_MODEL: '${{ dozable.model }}'
+        ANTHROPIC_DEFAULT_HAIKU_MODEL: '${{ dozable.model }}'
+        CLAUDE_CODE_SUBAGENT_MODEL: '${{ dozable.model }}'
+        CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS: '1'
+        DOZ_MODEL: '${{ dozable.model }}'
+      key_env:
+      - ANTHROPIC_AUTH_TOKEN
+      docs: https://code.claude.com/docs/en/llm-gateway
 - type: com.dozable/directory@1
   config:
     kind: coding-agent

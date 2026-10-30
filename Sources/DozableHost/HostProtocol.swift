@@ -258,6 +258,9 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// openrouter, vercel-ai-gateway) — its account is then a key of that source — and the model (`--model`).
     public var modelSource: String?
     public var model: String?
+    /// 660: the port of a model server on this Mac (`--provider local --local-port N`) — the ONE port of this Mac the
+    /// sandbox may reach (as `mac.dozable.internal:N`).
+    public var localPort: Int?
     /// 618: an exact release of the agent (`NAME@VERSION`) for this sandbox only, over its `images.<id>_version` setting —
     /// checked like a pin before anything is made (the registry has it, its integrity, its major: AgentRef).
     public var agentVersion: String?
@@ -728,6 +731,11 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var sessionMore: Int? = nil
     /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
     public var dotfiles: DotfilesState? = nil
+    /// 660: where its agent gets its model, as a person reads it — "via OpenRouter · model anthropic/claude-sonnet-4.6",
+    /// "via this Mac's port 11434 · model qwen3-coder" (nil: the agent's own provider and its own choice of model).
+    public var modelLine: String? = nil
+    /// 660: the ONE port of this Mac it may reach (its model server); nil: none.
+    public var localModelPort: Int? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -757,6 +765,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case sessionList, sessionMore                     // 635
         case dotfiles                                     // 657
         case sound, microphone                            // 667
+        case modelLine, localModelPort                    // 660
     }
 
     public init(from decoder: Decoder) throws {
@@ -805,6 +814,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         dotfiles = try c.decodeIfPresent(DotfilesState.self, forKey: .dotfiles)
         sound = try c.decodeIfPresent(String.self, forKey: .sound)
         microphone = try c.decodeIfPresent(String.self, forKey: .microphone)
+        modelLine = try c.decodeIfPresent(String.self, forKey: .modelLine)
+        localModelPort = try c.decodeIfPresent(Int.self, forKey: .localModelPort)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -856,6 +867,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(sessionList, forKey: .sessionList)
         try c.encodeIfPresent(sessionMore, forKey: .sessionMore)
         try c.encodeIfPresent(dotfiles, forKey: .dotfiles)
+        try c.encodeIfPresent(modelLine, forKey: .modelLine)
+        try c.encodeIfPresent(localModelPort, forKey: .localModelPort)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,

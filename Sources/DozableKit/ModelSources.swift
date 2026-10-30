@@ -112,12 +112,19 @@ extension AgentRecipe {
 
     /// 617: what a choice of `source` (and `model`, else the default) does — nil when the source is not offered, or the
     /// recipe has no models@1.
-    public func selection(source: String, model: String? = nil) -> ModelSelection? {
+    /// 660: `localPort` — a model server on this Mac's port (the `local` source has no selection without one).
+    public func selection(source: String, model: String? = nil, localPort: Int? = nil) -> ModelSelection? {
         guard let m = models, offeredSources.contains(source) else { return nil }
         if let n = m.native?.first(where: { $0.source == source }) {
             let chosen = model ?? m.models?[source] ?? ModelSources.defaultModel(source) ?? ""
-            return ModelSelection(source: source, shape: nil, baseURL: nil, model: chosen,
-                                  env: ModelSelection.fill(n.env, baseURL: nil, model: chosen), keyEnv: n.keyEnv ?? [])
+            // 660: its base URL is this Mac's one name and the sandbox's port.
+            var base: String?
+            if ModelSources.isLocal(source) {
+                guard let p = localPort, MacModelServer.portProblem(p) == nil else { return nil }
+                base = MacModelServer.baseURL(port: p)
+            }
+            return ModelSelection(source: source, shape: nil, baseURL: base, model: chosen,
+                                  env: ModelSelection.fill(n.env, baseURL: base, model: chosen), keyEnv: n.keyEnv ?? [])
         }
         for e in m.shapes ?? [] where !ModelSources.isKeyless(source) {
             guard let ep = ModelSources.endpoints(source).first(where: { $0.shapes.contains(e.shape) }) else { continue }
@@ -132,9 +139,14 @@ extension AgentRecipe {
     func validateModels(_ bad: (String) -> SandboxError) throws {
         guard let m = models else { return }
         // 618: a built-in agent (pi) may declare its sources — native only, at session time (nothing baked: its image is
-        // Dozable's own); Claude Code and Codex keep their own accounts.
-        if isBuiltin, (id == "claude-code" || id == "codex" || !(m.shapes ?? []).isEmpty) {
-            throw bad("models@1 of a built-in agent: pi's only, native sources only (Claude Code and Codex keep their own accounts)")
+        // Dozable's own). 660: and Claude Code — native sources and the Anthropic Messages shape (a gateway's Anthropic
+        // endpoint); its Anthropic source keeps its own accounts. Codex keeps its own flow.
+        if isBuiltin {
+            let shapes = Set((m.shapes ?? []).map(\.shape))
+            let ok = id == "claude-code" ? shapes.isSubset(of: ["anthropic-messages"]) : id != "codex" && shapes.isEmpty
+            guard ok else {
+                throw bad("models@1 of a built-in agent: pi's native sources, Claude Code's native sources and anthropic-messages (Codex keeps its own flow)")
+            }
         }
         let ids = Set(ModelSources.ids)
         guard ids.contains(m.default) else { throw bad("models default \(m.default) is not a provider or gateway") }
@@ -149,7 +161,9 @@ extension AgentRecipe {
         for n in m.native ?? [] {
             guard ids.contains(n.source), natives.insert(n.source).inserted else { throw bad("models native \(n.source): a provider or gateway, once") }
             if let u = n.docs, !u.hasPrefix("https://") { throw bad("models native \(n.source): docs is an https URL") }
-            try Self.validateSelectionEnv(n.env, keyEnv: n.keyEnv, baseURL: false, recipe: self, bad)
+            // 660: a model server on this Mac has a base URL (this Mac's one name and the sandbox's port) and no key — its
+            // key_env names get `MacModelServer.noKeyWord`, a fixed non-secret word (a tool that insists on a key).
+            try Self.validateSelectionEnv(n.env, keyEnv: n.keyEnv, baseURL: ModelSources.isLocal(n.source), recipe: self, bad)
         }
         for x in m.except ?? [] where !ids.contains(x) { throw bad("models except \(x) is not a provider or gateway") }
         let offered = offeredSources
@@ -229,7 +243,11 @@ public struct ModelSelection: Sendable, Equatable {
 /// 617: the model sources — every key provider of providers.json, in its order; a gateway's endpoints are gateways.json's.
 /// 618: then the key-less sources (providers.json `keyless`: OpenCode Zen's free models) — no key, no account.
 public enum ModelSources {
-    public static var ids: [String] { KeyProviders.all.map(\.id) + KeyProviders.keyless.map(\.id) }
+    /// 660: and last, a model server on this Mac (`local`, `MacModelServer`) — key-less, offered by a native entry only.
+    public static var ids: [String] { KeyProviders.all.map(\.id) + KeyProviders.keyless.map(\.id) + [MacModelServer.sourceID] }
+
+    /// 660: a model server on this Mac.
+    public static func isLocal(_ id: String) -> Bool { id == MacModelServer.sourceID }
 
     /// The sources that take a key (an account of one is a key of it).
     public static var keyed: [String] { KeyProviders.all.map(\.id) }
@@ -254,7 +272,8 @@ public enum ModelSources {
     }
 
     /// 618: a source that takes no key (nothing to add; a try with it has no account).
-    public static func isKeyless(_ id: String) -> Bool { keyless(id) != nil }
+    /// 660: a model server on this Mac takes no key either (nothing of the person's goes to it).
+    public static func isKeyless(_ id: String) -> Bool { keyless(id) != nil || isLocal(id) }
 
     public static func keyless(_ id: String) -> KeylessSource? { KeyProviders.keyless.first { $0.id == id } }
 
@@ -278,7 +297,9 @@ public enum ModelSources {
     /// The hosts a source's KEY may go to — none for a key-less source (the leak guard watches these).
     public static func keyHosts(_ id: String) -> [String] { KeyProviders.provider(id)?.hosts ?? [] }
 
-    public static func title(_ id: String) -> String { keyless(id)?.title ?? KeyProviders.provider(id)?.title ?? id }
+    public static func title(_ id: String) -> String {
+        isLocal(id) ? MacModelServer.title : keyless(id)?.title ?? KeyProviders.provider(id)?.title ?? id
+    }
 
     /// The account kind a source's key comes in: Anthropic an API key (`api-key`), OpenAI an OpenAI key (`openai-key`),
     /// every other a `key` of that provider. Never a subscription (a Claude login, a ChatGPT sign-in, this Mac's Codex).

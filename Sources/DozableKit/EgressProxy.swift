@@ -191,6 +191,27 @@ public final class EgressProxy: @unchecked Sendable {
     }
     private var _leakGuardHosts: Set<String> = []
 
+    /// 660: the ONE port of this Mac this sandbox was made with (the model server it uses), reached by the name
+    /// `MacModelServer.hostName` and routed to 127.0.0.1:PORT — nil: none (the name does not resolve). Not a policy rule:
+    /// no preset or edit widens it, and every other way to this Mac's loopback is refused (`Wire.connectTCP`).
+    public var macModelPort: UInt16? {
+        get { lock.lock(); defer { lock.unlock() }; return _macModelPort }
+        set { lock.lock(); _macModelPort = newValue; lock.unlock() }
+    }
+    private var _macModelPort: UInt16?
+
+    /// 660: the verdict for a connection to `MacModelServer.hostName` (nil: `host` is another name).
+    func macRoute(host: String, port: UInt16) -> NetworkPolicy.ConnectionVerdict? {
+        guard MacModelServer.isHost(host) else { return nil }
+        guard let p = macModelPort else {
+            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "no port of this Mac is open to this sandbox", ruleIndex: nil)
+        }
+        guard p == port else {
+            return NetworkPolicy.ConnectionVerdict(kind: .deny, rule: "only port \(p) of this Mac is open to this sandbox (its model server)", ruleIndex: nil)
+        }
+        return NetworkPolicy.ConnectionVerdict(kind: .allow, rule: "this Mac's port \(p) (the model server this sandbox was made with)", ruleIndex: nil)
+    }
+
     /// 599d test seam: where a GitHub host's upstream leg goes instead (nil: the real host). 599i: and the OpenAI hosts'.
     /// 617: and the key providers'.
     func upstreamOverride(for host: String) -> UpstreamOverride? {
@@ -326,6 +347,21 @@ public final class EgressProxy: @unchecked Sendable {
             return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: qtype == 1 ? [0x7F00_0001] : []),
                             name: nil, allowed: true, rule: "", summary: "the loopback")
         }
+        // 660: this Mac, by its one name — answered here (a synthetic address the proxy recognises), only for a sandbox
+        // made with a port of this Mac; never the policy's (no preset widens it).
+        if MacModelServer.isHost(bare) {
+            guard let p = macModelPort else {
+                return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 3, answers: []), name: bare,
+                                allowed: false, rule: "no port of this Mac is open to this sandbox", summary: "type \(qtype) → NXDOMAIN")
+            }
+            guard qtype == 1 else {
+                return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: []), name: bare,
+                                allowed: true, rule: "this Mac's port \(p)", summary: "type \(qtype) → no records (IPv4 only)")
+            }
+            lock.lock(); names[MacModelServer.syntheticAddress] = MacModelServer.hostName; lock.unlock()
+            return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 0, answers: [MacModelServer.syntheticAddress]), name: bare,
+                            allowed: true, rule: "this Mac's port \(p)", summary: "A → this Mac (only port \(p))")
+        }
         let pol = policy
         guard allowsName(name) else {
             return DNSReply(bytes: DNSMessage.response(to: q, questionEnd: qEnd, rcode: 3, answers: []), name: name,
@@ -399,15 +435,19 @@ public final class EgressProxy: @unchecked Sendable {
 
     /// 606: what a sandbox is told when it tries to reach one of Dozable's own dashboards on this Mac.
     static let dashboardRefusal = "Dozable's own dashboard on this Mac is never reachable from a sandbox"
+    /// 660: what a sandbox is told when it tries to reach this Mac's loopback any other way than its one named port.
+    static let loopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reachable from a sandbox — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
 
     /// A tunnel to host:port — through CONNECT (`connectReply`) or a redirected connection.
     func tunnel(_ fd: Int32, host: String, port: UInt16, kind: ConnectionRecord.Kind, leftover: [UInt8], connectReply: Bool,
                 connectTo: String? = nil) {
         let t0 = ContinuousClock.now
-        let v = connectionVerdict(host: host, port: port)
+        // 660: this Mac's one named port is its own verdict (never decrypted: nothing is bound there).
+        let mac = macRoute(host: host, port: port)
+        let v = mac ?? connectionVerdict(host: host, port: port)
         var rec = ConnectionRecord(kind: kind, host: host, port: port, verdict: .allowed, rule: v.rule, open: true)
         // A credential is only ever inserted into HTTPS; SSH (599d, port 22) is end-to-end and passes as it is.
-        let bound = (vault.boundHosts.contains(host) || leakGuardHosts.contains(host.lowercased())) && port != 22
+        let bound = mac == nil && (vault.boundHosts.contains(host) || leakGuardHosts.contains(host.lowercased())) && port != 22
         let decrypt = (bound || v.kind == .inspect) && IPv4CIDR.parseAddress(host) == nil
         if v.kind == .deny || (v.kind == .inspect && (ca == nil || !decrypt)) {
             rec.verdict = .denied
@@ -427,7 +467,8 @@ public final class EgressProxy: @unchecked Sendable {
             log.upsert(rec)
             return
         }
-        if LocalDashboards.refuses(host: connectTo ?? host, port: port) {
+        let target = mac != nil ? "127.0.0.1" : (connectTo ?? host)
+        if LocalDashboards.refuses(host: target, port: port) {
             rec.verdict = .denied
             rec.open = false
             rec.detail = Self.dashboardRefusal
@@ -435,7 +476,15 @@ public final class EgressProxy: @unchecked Sendable {
             if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.dashboardRefusal)) }
             return
         }
-        let up = Wire.connectTCP(connectTo ?? host, port)
+        if mac == nil, MacModelServer.resolvesToLoopback(target) {
+            rec.verdict = .denied
+            rec.open = false
+            rec.detail = Self.loopbackRefusal
+            log.upsert(rec)
+            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.loopbackRefusal)) }
+            return
+        }
+        let up = Wire.connectTCP(target, port, allowLoopback: mac != nil)
         rec.latencyMs = milliseconds(since: t0)
         guard up >= 0 else {
             rec.verdict = .failed
@@ -469,7 +518,10 @@ public final class EgressProxy: @unchecked Sendable {
         var path = url.path.isEmpty ? "/" : url.path
         let pathOnly = path
         if let q = url.query { path += "?" + q }
-        let v = policy.evaluate(host: host, port: port, method: h.method, path: pathOnly)
+        // 660: this Mac's one named port is its own verdict, never the policy's.
+        let mac = macRoute(host: host, port: port)
+        let v = mac.map { NetworkPolicy.Verdict(action: $0.kind == .allow ? .allow : .deny, rule: $0.rule, ruleIndex: nil) }
+            ?? policy.evaluate(host: host, port: port, method: h.method, path: pathOnly)
         var rec = ConnectionRecord(kind: .http, host: host, port: port, method: h.method, path: pathOnly, verdict: .allowed, rule: v.rule, open: true)
         if v.action == .deny {
             rec.verdict = .denied; rec.open = false
@@ -491,13 +543,20 @@ public final class EgressProxy: @unchecked Sendable {
             out += [13, 10]
         }
         out += Array("Connection: close\r\n\r\n".utf8)
-        if LocalDashboards.refuses(host: host, port: port) {
+        let target = mac != nil ? "127.0.0.1" : host
+        if LocalDashboards.refuses(host: target, port: port) {
             rec.verdict = .denied; rec.open = false; rec.detail = Self.dashboardRefusal
             log.upsert(rec)
             _ = Wire.writeAll(fd, Self.forbidden(Self.dashboardRefusal))
             return
         }
-        let up = Wire.connectTCP(host, port)
+        if mac == nil, MacModelServer.resolvesToLoopback(target) {
+            rec.verdict = .denied; rec.open = false; rec.detail = Self.loopbackRefusal
+            log.upsert(rec)
+            _ = Wire.writeAll(fd, Self.forbidden(Self.loopbackRefusal))
+            return
+        }
+        let up = Wire.connectTCP(target, port, allowLoopback: mac != nil)
         rec.latencyMs = milliseconds(since: t0)
         guard up >= 0 else {
             rec.verdict = .failed; rec.open = false; rec.detail = "could not connect from the Mac"
@@ -550,14 +609,15 @@ public final class EgressProxy: @unchecked Sendable {
     // MARK: redirected TCP
 
     func handleTransparent(_ fd: Int32, ip: String, port: UInt16) {
-        let name = name(for: ip)
+        // 660: the synthetic address is always this Mac's one name (whatever the name map forgot).
+        let name = IPv4CIDR.parseAddress(ip) == MacModelServer.syntheticAddress ? MacModelServer.hostName : name(for: ip)
         let host = name ?? ip
         if port == 443, name != nil {
             // A TLS client that ignored HTTPS_PROXY: same judgement (and injection) as CONNECT.
             tunnel(fd, host: host, port: port, kind: .tcp, leftover: [], connectReply: false, connectTo: ip)
             return
         }
-        let v = connectionVerdict(host: host, port: port)
+        let v = macRoute(host: host, port: port) ?? connectionVerdict(host: host, port: port)
         let bound = vault.boundHosts.contains(host) && port != 22          // 599d: SSH is never inspected
         if v.kind != .allow || bound {
             log.upsert(ConnectionRecord(kind: .tcp, host: host, port: port, verdict: .denied, rule: v.rule,
@@ -945,7 +1005,8 @@ final class TLSUpstream {
 
     init?(host: String, port: UInt16, context: NIOSSLContext, override: EgressProxy.UpstreamOverride? = nil) {
         // 599d test seam: another address, and ONLY the given anchors trusted (for `host`'s name).
-        let fd = Wire.connectTCP(override?.host ?? host, override?.port ?? port)
+        // 660: a guarded test seam's fake upstream may be on this Mac's loopback; a real host never is.
+        let fd = Wire.connectTCP(override?.host ?? host, override?.port ?? port, allowLoopback: override != nil)
         guard fd >= 0 else { return nil }
         self.fd = fd
         channel = EmbeddedChannel()
@@ -1123,7 +1184,10 @@ enum Wire {
     }
 
     /// TCP connect by name (the Mac's resolver) or address, with a timeout.
-    static func connectTCP(_ host: String, _ port: UInt16, timeoutMS: Int32 = 10_000) -> Int32 {
+    /// 660: `allowLoopback` — only the proxy's route to the ONE port of this Mac a sandbox was made with
+    /// (`EgressProxy.macModelPort`) and its guarded test seams (a fake upstream on 127.0.0.1); every other connection a
+    /// sandbox makes never reaches this Mac's loopback, whatever its policy.
+    static func connectTCP(_ host: String, _ port: UInt16, timeoutMS: Int32 = 10_000, allowLoopback: Bool = false) -> Int32 {
         var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP,
                              ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
         var res: UnsafeMutablePointer<addrinfo>?
@@ -1133,6 +1197,10 @@ enum Wire {
         while let a = ai {
             // 606: never one of Dozable's own dashboards on this Mac, whatever the policy says.
             if let sa = a.pointee.ai_addr, LocalDashboards.refuses(UnsafePointer(sa), port: port) { ai = a.pointee.ai_next; continue }
+            // 660: never this Mac's loopback (another sandbox's forwarded port, a local server), whatever the policy says.
+            if !allowLoopback, let sa = a.pointee.ai_addr, let b = LocalDashboards.bytes(UnsafePointer(sa)), MacModelServer.isLoopbackOrUnspecified(b) {
+                ai = a.pointee.ai_next; continue
+            }
             let fd = socket(a.pointee.ai_family, a.pointee.ai_socktype, a.pointee.ai_protocol)
             if fd >= 0 {
                 var one: Int32 = 1
