@@ -7,8 +7,8 @@ import Foundation
 ///   "sign in with ChatGPT") — it signs in with Codex's PUBLIC client id, which is Codex's to use. A public build
 ///   keeps Codex's other two ways in: the account `mac` (this Mac's own Codex login, read-only) and an OpenAI API key.
 ///   A ChatGPT account an earlier build put in a store is kept, never used: every request says why.
-/// - **The experimental sound kernel** (`doz create --audio`): not in the tarball (a GPL kernel we would have to
-///   offer source for, and v2's sound design will differ). `--audio` then says this build does not include it.
+/// - **The sound kernel** (`doz create --sound`, `--audio`, `sandbox.audio`): not in the tarball (a GPL kernel Dozable
+///   builds: a release that carries it carries its source offer, 667). `--sound` then says this build does not include it.
 ///
 /// Tests reach both modes without two builds: every decision takes a `BuildFlavor`, and a real process can be
 /// told which one it is with the TEST seam `DOZ_TEST_PUBLIC_BUILD=1|0`.
@@ -53,7 +53,8 @@ public struct BuildFlavor: Sendable, Equatable {
             + "(doz account use SANDBOX mac) or an OpenAI API key (doz account add NAME --openai-key); doz account rm \(name) removes it"
     }
 
-    /// Why `--audio` cannot be used with this build (a public build never carries the sound kernel).
+    /// Why sound (`--sound`, `--audio`, `sandbox.audio`) cannot be used with this build (a public build never carries
+    /// the sound kernel — 667 keeps that until the owner decides how public releases ship it).
     public static let audioMissing =
-        "this build of doz does not include the experimental audio support (doz create --audio) — it is not part of public releases"
+        "this build of doz does not include sound (doz create --sound / --audio) — it is not part of public releases"
 }

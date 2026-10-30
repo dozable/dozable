@@ -80,7 +80,7 @@ final class CodexMacLoginTests: XCTestCase {
         XCTAssertEqual(CodexMacLogin.read(codexHome).state, .expired)
         let s = CodexMacSession(codexHome: codexHome, keepaliveEnabled: { false })
         XCTAssertTrue(s.problem()?.contains("your Mac's Codex login has expired — run codex on the Mac") == true)
-        XCTAssertTrue(s.problem()?.contains("codex.keep_alive") == true)
+        XCTAssertTrue(s.problem()?.contains("doz config set --agent codex keep_alive true") == true)
     }
 
     /// The test guard: no fake home, no memory seam, inside XCTest → it would stop the run. Asked without the

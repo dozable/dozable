@@ -22,6 +22,8 @@ export const state = {
   signedOut: false,
   metricsFilter: { image: '', days: '', steps: false },
   settings: null,          // 591: {report, byKey} from GET /api/v1/settings
+  recipe: null,            // 669: #/recipes[/V/P] — '' the Recipes page, 'V/P' one recipe's page; null otherwise
+  recipeQuery: '',         // 669: Recipes › Browse's search (#/browse)
   tr: null,                // 617: the Quick try modal's state (views/try.js)
   tryAgent: null,          // 617: the agent of #/try/AGENT
   preps: [],               // 594: the host's image preparations (SSE `preparations`, GET /api/v1/preparations)
@@ -31,4 +33,5 @@ export const state = {
   signupPage: '',          // else: the website's form (from the server — the page names no external URL itself)
   usageStats: null,        // an official build: the setup wizard's Usage statistics step {on, fixed, key, summary, showCommand, privacyPage}
   chatgptSignIn: true,     // this build has Dozable's own ChatGPT sign-in (a public build: false — never offered)
+  sound: false,            // 667: this doz carries the sound kernel — New sandbox offers Sound
 };

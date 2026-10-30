@@ -287,12 +287,17 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var icon: ResolvedIcon?
     /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
     public var dotfiles: WebDotfiles?
+    /// 667: its sound (`speakers` / `on`; nil: none) and its microphone (`mac`, or why it is silent; nil: not booted yet).
+    public var sound: String?
+    public var microphone: String?
     /// 660: where its agent gets its model ("via OpenRouter · model X"; nil: its own provider and model), and the ONE
     /// port of this Mac it may reach (its model server).
     public var modelLine: String?
     public var localModelPort: Int?
 
     public init(_ i: SandboxInfo) {
+        sound = i.sound
+        microphone = i.microphone
         dotfiles = i.dotfiles.map(WebDotfiles.init)
         modelLine = i.modelLine
         localModelPort = i.localModelPort
@@ -651,6 +656,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var guide: WebGuide?
     /// 635: the default session's program — the tab bar's New <agent> session opens another with it.
     public var defaultArgv: [String]?
+    /// 669 (659 item 13): the Config tab's Settings block — what it overrides, what it follows, what was recorded.
+    public var settings: [WebSandboxSetting]?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -675,6 +682,38 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         project = d.project
         guide = d.guide.map(WebGuide.init)
         defaultArgv = d.defaultArgv
+        settings = d.settings?.settings.map(WebSandboxSetting.init)
+    }
+}
+
+/// 669: one of a sandbox's settings, field by field (`SandboxSettingRow`) — never a secret: the schema has none.
+public struct WebSandboxSetting: Codable, Equatable, Sendable {
+    public var key: String
+    public var value: TOMLValue
+    /// `sandbox` · `project` (its own) · `mac` · `recipe` · `default` · `env` (what it follows) — or, recorded, where it
+    /// came from when it was made (`flag` too, `recorded` before 669).
+    public var source: String
+    /// This Mac's value now, and its source.
+    public var macValue: TOMLValue
+    public var macSource: String?
+    /// The doz.toml key it stands for (`approvals` → `recipes.anthropic.claude-code.approvals`).
+    public var settingKey: String?
+    public var recorded: Bool
+    public var typeName: String
+    public var description: String
+    public var choices: [String]?
+
+    public init(_ r: SandboxSettingRow) {
+        key = r.key
+        value = r.value
+        source = r.source
+        macValue = r.settingValue
+        macSource = r.settingSource
+        settingKey = r.settingKey
+        recorded = r.recorded == true
+        typeName = r.typeName
+        description = r.description
+        choices = r.choices
     }
 }
 
@@ -1551,6 +1590,8 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     public var serve: WebServeSessionInfo? = nil
     /// 611: this build has Dozable's own ChatGPT sign-in (a public build does not: the page never offers it).
     public var chatgptSignIn: Bool = true
+    /// 667: this doz can give a sandbox sound (it carries the sound kernel): New sandbox offers Sound.
+    public var sound: Bool = false
     /// 611: a newer doz (the banner), or one an automatic update installed that this doz ui is older than.
     public var update: WebUpdateNotice? = nil
     /// This build has the sign-up (an official build): the setup wizard offers Stay in touch. Else the page shows

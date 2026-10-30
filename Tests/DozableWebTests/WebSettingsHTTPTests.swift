@@ -79,6 +79,29 @@ final class WebSettingsHTTPTests: XCTestCase {
 
     func row(_ r: SettingsReport, _ key: String) throws -> SettingRow { try XCTUnwrap(r.settings.first { $0.key == key }) }
 
+    /// 669 (659 item 12): Settings › Recipes — every recipe with its state and its settings (each with its source); a value
+    /// set on this Mac moves an uninstalled recipe into the Installed group, tagged "not installed".
+    func testTheRecipesRouteListsEveryRecipeWithItsStateAndSettings() throws {
+        XCTAssertEqual(try request("/api/v1/recipes").status, 401)
+        let (cookie, csrf) = try signIn()
+        var r = try request("/api/v1/recipes", ["Cookie": cookie])
+        XCTAssertEqual(r.status, 200, r.text)
+        var list = try JSONDecoder().decode(WebRecipes.self, from: r.body)
+        XCTAssertEqual(list.recipes.count, AgentRecipes.all.count)
+        let cc = try XCTUnwrap(list.recipes.first { $0.qualified == "anthropic/claude-code" })
+        XCTAssertEqual(cc.state, "available", "an empty store: nothing installed or in use")
+        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network"])
+        XCTAssertTrue(cc.settings.allSatisfy { $0.source == .recipe })
+        XCTAssertEqual(list.recipes.first { $0.id == "pi" }?.subject, "coding harness")
+        XCTAssertEqual(try change(#"{"key":"recipes.xai.grok.approvals","value":"ask"}"#, cookie, csrf).status, 200, "an unpublished recipe's key is still taken")
+        r = try request("/api/v1/recipes", ["Cookie": cookie])
+        list = try JSONDecoder().decode(WebRecipes.self, from: r.body)
+        let grok = try XCTUnwrap(list.recipes.first { $0.id == "grok" })
+        XCTAssertEqual(grok.state, "installed")
+        XCTAssertTrue(grok.notInstalled)
+        XCTAssertEqual(grok.settings.first { $0.name == "approvals" }?.source, .mac)
+    }
+
     // MARK: -
 
     func testTheReportListsEverySettingWithItsSourceAndNeedsASession() throws {
@@ -91,7 +114,8 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertFalse(rep.exists)
         // 629: an unpublished agent's own settings are listed only once one of them is set.
         XCTAssertEqual(rep.settings.map(\.key), DozableSettings.schema.filter { $0.agent.map(AgentRecipes.isPublished) ?? true }.map(\.key))
-        XCTAssertTrue(rep.settings.allSatisfy { $0.source == .default && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
+        // 669: a recipe's own setting comes from its recipe's default, the rest from Dozable's.
+        XCTAssertTrue(rep.settings.allSatisfy { $0.source == ($0.agent == nil ? .default : .recipe) && ($0.key == SettingKey.projectsDir || $0.value == $0.defaultValue) })
         // The projects folder reports the effective default (the old folder when this Mac has it).
         XCTAssertEqual(try row(rep, SettingKey.projectsDir).value, .string(Workspace.unsetProjectsDir()))
         XCTAssertEqual(try row(rep, "ui.boot_view_on_start").value, .bool(false))
@@ -106,7 +130,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(r.status, 200, r.text)
         var rep = try report(r)
         XCTAssertEqual(try row(rep, "ui.boot_view_on_start").value, .bool(true))
-        XCTAssertEqual(try row(rep, "ui.boot_view_on_start").source, .file)
+        XCTAssertEqual(try row(rep, "ui.boot_view_on_start").source, .mac)
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("\nboot_view_on_start = true\n"), "the file shows the uncommented value")
         XCTAssertTrue(text.contains("\n# confirm_shutdown = true\n"), "the rest stays commented at its default")
@@ -142,7 +166,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(r.status, 200, r.text)
         rep = try report(r)
         XCTAssertEqual(try row(rep, "ui.density").value, .string("compact"))
-        XCTAssertEqual(try row(rep, "ui.density").source, .file)
+        XCTAssertEqual(try row(rep, "ui.density").source, .mac)
         XCTAssertTrue(try String(contentsOf: file, encoding: .utf8).contains("\ndensity = \"compact\"\n"))
         // A reload reads it back.
         rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))

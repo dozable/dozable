@@ -23,12 +23,13 @@ import { sandboxPill } from '../components/pills.js';
 import { renameItem } from '../components/rename-dialog.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
 import { ISOLATED_NOTE } from '../components/workspace-chooser.js';
+import { sourceTag } from '../components/setting-source.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout.js';
 import { networkPanel } from './sandbox-network.js';
 import { filesPanel, syncFiles } from './sandbox-files.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals.js';
-import { paintHome } from './sandbox-home.js';
+import { paintHome, soundLine } from './sandbox-home.js';
 import { tildePath } from '../core/paths.js';
 
 // ── a sandbox's page (593): a control bar, the terminal area, a collapsible details panel ──────
@@ -312,6 +313,9 @@ function sandboxParts(name, d, net, accounts) {
         // 660: where its agent gets its model, when not its own provider's own pick ("via OpenRouter · model X").
         i.modelLine ? chip('Model', h('span', { 'data-model-line': '' }, i.modelLine),
           { title: i.localModelPort ? 'Only port ' + i.localModelPort + ' of this Mac is reachable from ' + name + ' (its model server); nothing else on this Mac’s localhost' : 'Where its agent gets its model' }) : null,
+        // 667: sound — the speakers, and whether the microphone is the Mac's.
+        i.sound ? chip('Sound', i.sound === 'on' ? (i.microphone === 'mac' ? 'speakers + mic' : 'speakers · mic silent') : 'speakers',
+          { title: soundLine(name, i).replace(/^./, (c) => c.toUpperCase()), data: { 'data-sound-chip': i.sound } }) : null,
         i.workspace ? null : h('span', { class: 'tag outline badge-isolated', 'data-isolated': '', title: ISOLATED_NOTE }, withIcon('shield', 'isolated')),
         // 617 (RP-1): its web ports, forwarded to this Mac while it runs.
         ...(running ? (i.ports || []).filter((p) => p.state === 'listening' && p.url).map((p) => portButton(name, p)) : []),
@@ -364,6 +368,10 @@ function sandboxParts(name, d, net, accounts) {
           // 599g (owner A3): a shared folder with no rule file says so, rather than nothing (isolated: nothing to say).
           : i.workspace ? h('p', { class: 'muted', 'data-workspace-rules-none': '' },
             'Workspace rules: none — the folder is shared as is. A .dozignore or .dozreadonly in it keeps the agent away from some files.') : null),
+      // 667: its sound — the speakers, and the microphone as its last boot decided it.
+      i.sound ? h('div', { 'data-sound': i.sound }, h('div', { class: 'insp-lbl' }, 'Sound'),
+        h('div', null, i.sound === 'on' ? 'The Mac’s speakers and microphone' : 'The Mac’s speakers — no microphone'),
+        h('p', { class: 'muted', 'data-microphone': i.microphone || '' }, soundLine(name, i).replace(/^./, (c) => c.toUpperCase()))) : null,
       i.ports ? h('div', { 'data-ports': name }, h('div', { class: 'insp-lbl' }, 'Web ports'), portRows(name, i),
         h('p', { class: 'muted' }, running ? 'Each listens on this Mac’s 127.0.0.1 only. Add another: doz ports add ' + name + ' PORT.'
           : 'They listen while it runs — on this Mac’s 127.0.0.1 only.')) : null,
@@ -392,6 +400,7 @@ function sandboxParts(name, d, net, accounts) {
       foreign.length ? h('h2', null, 'Credentials the guest brought itself (fingerprints only)') : null,
       foreign.length ? panel(table(['Kind', 'Fingerprint', 'Header'], foreign)) : null),
     panel_('config',
+      ...settingsBlock(name, d),
       head('Configuration'),
       h('div', { class: 'panel' }, h('div', { class: 'panel-body' }, h('dl', { class: 'facts' },
         fact('Memory', mib(d.memoryMiB)), fact('Root disk', mib(d.rootfsMiB)), fact('State disk', mib(d.stateDiskMiB)),
@@ -429,6 +438,47 @@ function inspResizeStart(ev) {
   document.body.classList.add('resizing');
   document.addEventListener('pointermove', move);
   document.addEventListener('pointerup', up);
+}
+/// 669 (659 item 13): the sandbox's settings — what it overrides first (its own and its project's), each with the Mac's
+/// value beside it and, for its own live value, "Follow the Mac" (it follows the layers below again); what it follows
+/// folded below; its recipe's values as recorded when it was made. The CLI's twin: doz config show --sandbox NAME.
+function settingsBlock(name, d) {
+  const rows = d.settings || [];
+  if (!rows.length) return [];
+  const shownValue = (v) => typeof v === 'string' ? (v === '' ? '""' : v) : String(v);
+  const isOverride = (s) => s.recorded ? (s.source === 'project' || s.source === 'flag') : (s.source === 'sandbox' || s.source === 'project');
+  const overrides = rows.filter(isOverride), follows = rows.filter((s) => !isOverride(s));
+  const row = (s, over) => {
+    const recipe = s.key.startsWith('recipes.') || !!s.settingKey;
+    const short = s.key.startsWith('recipes.') ? s.key.split('.').pop() : s.key;
+    const notes = [];
+    if (s.recorded) notes.push(s.source === 'project' ? 'From its project, recorded at create.' : s.source === 'flag' ? 'Chosen when it was made, recorded at create.' : 'Recorded at create.');
+    else if (s.source === 'project') notes.push('From its project (doz_project.yaml), synced at each doz up.');
+    if (over && JSON.stringify(s.macValue) !== JSON.stringify(s.value)) notes.push('The Mac says ' + shownValue(s.macValue) + (s.recorded ? ' for new sandboxes.' : '.'));
+    const follow = over && !s.recorded && s.source === 'sandbox'
+      ? h('a', { href: '#', 'data-follow-mac': s.key, on: { click: (ev) => { ev.preventDefault(); followMac(name, s.key); } } }, 'Follow the Mac') : null;
+    return h('div', { class: 'ovr-row', 'data-setting': s.key, 'data-source': s.source },
+      h('span', { class: 'k' }, h('code', null, short), recipe ? h('span', { class: 'muted' }, ' · its recipe') : null),
+      h('span', { class: 'v' }, shownValue(s.value), ' ', sourceTag(s.source)),
+      notes.length || follow ? h('span', { class: 'note' }, notes.join(' '), follow ? ' ' : null, follow) : null);
+  };
+  return [
+    h('div', { class: 'head has-title' }, h('h2', null, 'Settings')),
+    h('p', { class: 'muted' }, 'Its own values and its project’s win over this Mac’s. ', h('code', null, 'doz config show --sandbox ' + name)),
+    h('div', { class: 'panel sbx-settings', 'data-sbx-settings': name },
+      h('div', { class: 'ovr' }, h('div', { class: 'ovr-group' }, 'Overrides · ' + overrides.length),
+        overrides.length ? overrides.map((s) => row(s, true)) : h('div', { class: 'ovr-row muted' }, 'None: it follows this Mac’s values.')),
+      h('details', { class: 'follows' }, h('summary', null, 'Follows · ' + follows.length), h('div', { class: 'ovr' }, follows.map((s) => row(s, false))))),
+  ];
+}
+/// 669: "Follow the Mac" — the sandbox's own value cleared (the typed action sandbox-setting).
+async function followMac(name, key) {
+  try {
+    await actOrThrow({ action: 'sandbox-setting', sandbox: name, key, clear: true });
+  } catch (e) {
+    pageFailure(e.message || String(e));
+  }
+  refreshSandbox();
 }
 /// 594 (D15/D16): what the agent is told about where it runs, as its NEXT session gets it.
 function promptPanel(d) {

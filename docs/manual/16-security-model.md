@@ -189,5 +189,5 @@ fully resolved path.
 | `sandbox.ssh_agent` | `off` | Forward your Mac's ssh-agent (github.com:22 only). |
 | `sandbox.agent_sudo` | `true` | The agent's sudo inside its sandbox. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token. |
-| `claude.permissions` | `skip` | Claude Code's own permission prompts (`ask` to keep them). |
+| `recipes.anthropic.claude-code.approvals` | `skip` | Claude Code's own permission prompts (`ask` to keep them). |
 | `telemetry.send_anonymous_usage_stats` | `true` | Official builds: anonymous usage statistics (`false`, or `DO_NOT_TRACK=1`, turns them off). |

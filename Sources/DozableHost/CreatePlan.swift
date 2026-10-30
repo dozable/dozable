@@ -564,6 +564,7 @@ public enum CreatePlanner {
         (SettingKey.clipboard, "--clipboard"), (SettingKey.browserBridge, "--browser-bridge"), (SettingKey.openFiles, "--open-files"),
         (SettingKey.sshAgent, "--ssh-agent"), (SettingKey.tmux, "--tmux"), (SettingKey.ignoreMode, "--ignore-mode"),
         (SettingKey.workspaceView, "--workspace-view"),
+        (SettingKey.sandboxApprovals, "--approvals"),             // 669
     ]
 
     /// The permission words without GitHub's two, and those two as `--github`'s word (nil: not given).

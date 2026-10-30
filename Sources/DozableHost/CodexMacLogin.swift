@@ -179,7 +179,7 @@ public final class CodexMacSession: @unchecked Sendable {
     public func problem(now: Date = Date()) -> String? {
         switch current(now: now).state {
         case .ok: return nil
-        case .expired: return "your Mac's Codex login has expired — run codex on the Mac (any command that talks to OpenAI), or turn on the keep-alive: doz config set codex.keep_alive true"
+        case .expired: return "your Mac's Codex login has expired — run codex on the Mac (any command that talks to OpenAI), or turn on the keep-alive: doz config set --agent codex keep_alive true"
         case .signedOut: return "this Mac's Codex is not signed in — run codex login on the Mac, or choose another account: doz account use NAME ACCOUNT"
         case .keyring: return "this Mac's Codex keeps its login in the keyring (cli_auth_credentials_store), which Dozable cannot read yet — use doz account add NAME --chatgpt instead"
         case .apiKey: return "this Mac's Codex uses an API key, not a ChatGPT sign-in — add the key as an account: doz account add NAME --openai-key"

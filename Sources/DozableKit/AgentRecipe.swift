@@ -139,6 +139,27 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
     /// its qualified name (`AgentRef.qualifiedName`). NOT a coding key, like `origin`: the document carries it, so a
     /// recipe's JSON and every bake key stay as they were. nil: a recipe made without a document (tests).
     public var vendor: String? = nil
+    /// 669 (owner: "let the recipe describe the subject (e.g. 'agent' 'coding harness' 'agentic fortune teller')"): what
+    /// its agent is, in a few lower-case words (`coding harness`), shown beside its name. The file carries it as the Kit
+    /// `description` of its `com.dozable/directory@1` entry — a field every schema 2 reader already takes, so a doz from
+    /// before 669 still accepts a catalogue whose recipes have one. NOT a coding key, like `vendor`. nil: "agent".
+    public var subject: String? = nil
+    /// 669: its own settings beyond the ones every recipe has (`com.dozable/settings@1`: Codex's keep_alive). NOT a coding
+    /// key, like `vendor`. nil: none.
+    public var ownSettings: [RecipeSettingOption]? = nil
+
+    /// 669: what generic copy calls its agent — its subject, else "agent".
+    public var subjectWords: String { subject ?? "agent" }
+
+    /// 669: where its settings live in doz.toml — `recipes.VENDOR.PRODUCT` (bare dotted keys, which every doz.toml
+    /// reader parses); a recipe that is not Dozable's one part longer, its source first (`recipes.mine.VENDOR.PRODUCT`,
+    /// `recipes.NAME.VENDOR.PRODUCT`) — three parts always mean Dozable's, as in `AgentRef`.
+    public var settingsSection: String {
+        "recipes." + (origin.isDozable ? "" : origin.sourceWord + ".") + (vendor ?? "local") + "." + id
+    }
+
+    /// 669: `VENDOR/PRODUCT` (with its source first when it is not Dozable's) — the name its settings page is under.
+    public var qualifiedID: String { (origin.isDozable ? "" : origin.sourceWord + "/") + (vendor ?? "local") + "/" + id }
 
     public struct Family: Codable, Sendable, Equatable {
         /// What a person types (`opencode`): the recommended major's recipe.

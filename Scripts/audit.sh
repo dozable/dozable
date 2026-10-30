@@ -50,7 +50,9 @@ fail() {
 # executable's main, under #if DOZ_CLOUD — a build from the repository never has it.
 # 637: + DozableTUI (the CLI's terminal components and colour switch), which itself imports Foundation and Darwin only
 # (step 1b).
-ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI'
+# 667: + AVFoundation — macOS's microphone permission for sandboxes with sound (its status, and the question when
+# undecided); it never opens a device. Confined in step 1b to Sources/DozableHost/Microphone.swift.
+ALLOWED='Foundation|Darwin|os|CryptoKit|Security|NIOCore|NIOEmbedded|NIOPosix|NIOSSL|X509|SwiftASN1|Virtualization|Containerization|ContainerizationArchive|ContainerizationEXT4|SystemPackage|ContainerizationError|ContainerizationExtras|ContainerizationOCI|ContainerizationOS|DozableKit|DozableHost|DozableCLI|SQLite3|ArgumentParser|DozableWeb|NIOHTTP1|NIOWebSocket|CoreServices|Yams|dnssd|DozableCloud|DozableTUI|AVFoundation'
 BAD=$(grep -rhoE --include='*.swift' '^[[:space:]]*(@[A-Za-z_]+[[:space:]]+)*(public[[:space:]]+)?import[[:space:]]+[A-Za-z_][A-Za-z0-9_.]*' \
         "$PACKAGE/Sources" \
       | sed -E 's/.*import[[:space:]]+//' \
@@ -99,6 +101,13 @@ $WS"
 CS=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+CoreServices([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableCLI/UICommand.swift$|/Sources/DozableHost/MacDefaultApp.swift$|/Sources/DozableHost/FileWatch.swift$" || true)
 [[ -z "$CS" ]] || fail "CoreServices is imported outside Sources/DozableCLI/UICommand.swift, Sources/DozableHost/MacDefaultApp.swift and Sources/DozableHost/FileWatch.swift:
 $CS"
+# 667: the microphone's permission only in Microphone.swift (a status and a question — never a capture).
+AV=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+AVFoundation([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableHost/Microphone.swift$" || true)
+[[ -z "$AV" ]] || fail "AVFoundation is imported outside Sources/DozableHost/Microphone.swift:
+$AV"
+AVC=$(grep -nE 'AVCaptureSession|AVAudioEngine|AVCaptureDeviceInput|AVAudioRecorder' "$PACKAGE/Sources/DozableHost/Microphone.swift" || true)
+[[ -z "$AVC" ]] || fail "Microphone.swift opens a device — it may only read and ask the permission:
+$AVC"
 # 606: Bonjour only in doz serve's announcer.
 DN=$(grep -rlE --include='*.swift' '^[[:space:]]*import[[:space:]]+dnssd([[:space:]]|$)' "$PACKAGE/Sources" | grep -vE "/Sources/DozableWeb/WebBonjour.swift$" || true)
 [[ -z "$DN" ]] || fail "dnssd is imported outside Sources/DozableWeb/WebBonjour.swift:

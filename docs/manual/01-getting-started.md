@@ -172,7 +172,7 @@ what it was when you detach. Details: [Projects](04-projects.md) and
 
 You're now in Claude Code, inside the sandbox. Its first-run screens are done and it doesn't stop to
 ask permission for each command: inside a sandbox, the VM and its network are the boundary. (To have
-Claude ask first anyway, see `claude.permissions` in the [settings](15-settings-reference.md).)
+Claude ask first anyway, see `recipes.anthropic.claude-code.approvals` in the [settings](15-settings-reference.md).)
 
 Claude also knows where it runs. Ask it:
 

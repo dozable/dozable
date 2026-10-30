@@ -70,9 +70,11 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public static let guide = "com.dozable/guide@1"
         /// 618: one major release line of a tool whose majors are separate recipes.
         public static let family = "com.dozable/family@1"
+        /// 669: the agent's own settings beyond the ones every recipe has (RecipeSettings.swift).
+        public static let settings = "com.dozable/settings@1"
         /// Kit's own types (exported as they are, `dozable:` keys removed).
         public static let kit = [networkPolicy, credential, volume, agentContext]
-        public static let dozable = [install, launch, auth, gateways, currency, directory, models, ports, guide, family]
+        public static let dozable = [install, launch, auth, gateways, currency, directory, models, ports, guide, family, settings]
     }
 
     /// Kit's network-policy@1 (`install`/`runtime` × `allow`/`deny`), Dozable's whole network under `dozable`.
@@ -253,6 +255,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case ports(AgentRecipe.WebPorts)
         case guide(AgentRecipe.Guide)
         case family(AgentRecipe.Family)
+        case settings(RecipeSettings.Block)
     }
 
     enum CodingKeys: String, CodingKey { case type, name, optional, description, config }
@@ -283,6 +286,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case T.ports: config = .ports(try c.decode(AgentRecipe.WebPorts.self, forKey: .config))
         case T.guide: config = .guide(try c.decode(AgentRecipe.Guide.self, forKey: .config))
         case T.family: config = .family(try c.decode(AgentRecipe.Family.self, forKey: .config))
+        case T.settings: config = .settings(try c.decode(RecipeSettings.Block.self, forKey: .config))
         default:
             throw DecodingError.dataCorruptedError(forKey: .type, in: c, debugDescription: "capability type \(type) is not one this build knows")
         }
@@ -309,6 +313,7 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
         case .ports(let v): try c.encode(v, forKey: .config)
         case .guide(let v): try c.encode(v, forKey: .config)
         case .family(let v): try c.encode(v, forKey: .config)
+        case .settings(let v): try c.encode(v, forKey: .config)
         }
     }
 }
@@ -348,9 +353,12 @@ extension RecipeDocument {
         for t in [Types.networkPolicy, Types.install, Types.launch, Types.auth, Types.gateways, Types.directory] where types.filter({ $0 == t }).count != 1 {
             throw bad("exactly one \(t)")
         }
-        for t in [Types.agentContext, Types.currency, Types.models, Types.ports, Types.guide, Types.family] where types.filter({ $0 == t }).count > 1 { throw bad("at most one \(t)") }
+        for t in [Types.agentContext, Types.currency, Types.models, Types.ports, Types.guide, Types.family, Types.settings] where types.filter({ $0 == t }).count > 1 { throw bad("at most one \(t)") }
         for c in capabilities where c.optional != nil || c.name != nil { throw bad("\(c.type): optional and name are export's, not the recipe's") }
         guard launch.check != nil else { throw bad("launch@1 has no check (the smoke turn make recipe-check runs)") }
+        // 669: the subject (directory@1's description) and the agent's own settings.
+        if let s = subject, let why = RecipeSettings.subjectProblem(s) { throw bad(why) }
+        if let o = ownSettings, let why = RecipeSettings.problem(o.options) { throw bad(why) }
         let recipe = try recipeUnchecked()
         // The Kit parts Dozable derives: equal, or the file is out of date.
         let want = Self.networkRules(recipe)
@@ -402,6 +410,10 @@ extension RecipeDocument {
     var ports: AgentRecipe.WebPorts? { one { if case .ports(let v) = $0 { v } else { nil } } }
     var guide: AgentRecipe.Guide? { one { if case .guide(let v) = $0 { v } else { nil } } }
     var family: AgentRecipe.Family? { one { if case .family(let v) = $0 { v } else { nil } } }
+    /// 669: com.dozable/settings@1.
+    var ownSettings: RecipeSettings.Block? { one { if case .settings(let v) = $0 { v } else { nil } } }
+    /// 669: the recipe's subject — the Kit `description` of its directory@1 entry.
+    var subject: String? { capabilities.first { $0.type == Types.directory }?.description }
 
     /// Every string that is a template.
     var templateStrings: [String] {
@@ -529,6 +541,8 @@ extension RecipeDocument {
         let i = install, l = launch, d = directory
         var r = try recipeModel(i, l, d)
         r.vendor = vendor          // 654: kept beside the model (not a coding key)
+        r.subject = subject        // 669: the same
+        r.ownSettings = ownSettings?.options
         return r
     }
 
@@ -613,12 +627,13 @@ extension RecipeDocument {
         if r.checked != nil || r.lifecycle != nil {
             caps.append(RecipeCapability(type: T.currency, config: .currency(Currency(checked: r.checked, lifecycle: r.lifecycle))))
         }
-        caps.append(RecipeCapability(type: T.directory, config: .directory(Directory(
+        caps.append(RecipeCapability(type: T.directory, description: r.subject, config: .directory(Directory(
             aliases: r.aliases, icon: r.icon, defaultBase: r.defaultBase, platforms: r.platforms, limits: r.limits, tags: r.tags, terms: r.terms,
             licence: licenses == [r.licence] ? nil : r.licence, kind: r.catalogKind, categories: r.categories, published: r.published))))
         if let p = r.ports { caps.append(RecipeCapability(type: T.ports, config: .ports(p))) }
         if let g = r.guide { caps.append(RecipeCapability(type: T.guide, config: .guide(g))) }
         if let f = r.family { caps.append(RecipeCapability(type: T.family, config: .family(f))) }
+        if let o = r.ownSettings { caps.append(RecipeCapability(type: T.settings, config: .settings(RecipeSettings.Block(options: o)))) }
         capabilities = caps
     }
 }

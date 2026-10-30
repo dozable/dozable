@@ -283,7 +283,7 @@ newer doz fixes, without a restart.
 | key | default | what it does |
 |---|---|---|
 | `defaults.cpus` | `2` | CPUs of a new sandbox (`--cpus`). |
-| `images.lab.memory_mib` · `images.claude-code.memory_mib` · `images.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image (`--memory`); other images follow the one they're based on. |
+| `images.lab.memory_mib` · `recipes.anthropic.claude-code.memory_mib` · `recipes.earendil-works.pi.memory_mib` | `1024` · `2048` · `2048` | Memory of a new sandbox of each image (`--memory`); other images follow the one they're based on. |
 | `defaults.projects_dir` | `~/doz-workspaces` | Your projects folder: where Quick add, `doz new` and the dashboard's New sandbox make a new sandbox's own folder (`<projects_dir>/NAME`). **Settings** › **Choose…** picks it. |
 | `sandbox.timezone` | `mac` | `mac` (follow this Mac) or a zone like `Australia/Sydney`. Applies at each start or wake. |
 | `host.idle_timeout_minutes` | `5` | Minutes with nothing running before the host exits; `0` = never (`$DOZ_HOST_IDLE`). |

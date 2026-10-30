@@ -16,8 +16,7 @@ func preflightAgentAccount(_ o: inout CreateOptions, _ g: GlobalOptions) throws 
     try confirmRecipeTrust(image: o.image, g)              // 653: whose recipe — said, or asked once per version
     try confirmDotfilesTrust(&o, g)                        // 657: the dotfiles it gets — said, or asked once per commit
     guard AgentImages.credentials(o.image) != nil else { return }
-    let section = DozableSettings.imageSection(imageSpecName: o.image)
-    let network = o.network ?? DozableSettings.load().string(SettingKey.network(section))
+    let network = o.network ?? DozableSettings.load().string(DozableSettings.imageKeys(imageSpecName: o.image).network)
     // 617 (models@1): a model source chosen — a key of THAT source (the one given, its default, or added here).
     if let source = o.modelSource ?? (o.model != nil ? AgentCredentials.sources(o.image)?.first : nil) {
         if let n = network, n == "nat" || n == "none" { return }          // the host refuses it, with why

@@ -267,6 +267,13 @@ function paintLogs(home, name, i) {
     logRow('history', 'Boot logs', 'its last boots: the steps and the console', '',
       btn('Show', () => bootLogDialog(name), { small: true, quiet: true, icon: 'eye', title: 'Its kept boots' }))));
 }
+/// 667: a sound sandbox's microphone in one line — the Mac's, silent and why, or asked at its next start.
+export function soundLine(name, i) {
+  if (i.sound !== 'on') return 'its microphone records silence. With the microphone: doz config set --sandbox ' + name + ' sandbox.audio on (from its next start).';
+  if (i.microphone === 'mac') return 'its microphone is the Mac’s (macOS allows it). Programs use ALSA’s default device; doz-sound in the sandbox tries both.';
+  if (!i.microphone) return 'doz asks macOS about the microphone when it next starts; until macOS allows it, the sandbox records silence.';
+  return 'its microphone is silent: ' + i.microphone + '.';
+}
 function paintFolder(home, i) {
   const facts = [];
   const fact = (k, val) => facts.push(h('dt', null, k), h('dd', null, val));
@@ -285,6 +292,11 @@ function paintFolder(home, i) {
     const how = d.state === 'applied' ? 'applied' + (d.summary ? ' — ' + d.summary : '')
       : d.state === 'failed' ? 'did not apply: ' + (d.summary || 'see doz dotfiles ' + i.name) : 'applied at its next start or wake';
     fact('Dotfiles', h('span', { 'data-dotfiles': d.state }, h('code', null, tildePath(d.source)), ' at ', h('code', null, d.commit), ' — ' + how));
+  }
+  // 667: its sound — the speakers, and the microphone as its last boot got it.
+  if (i.sound) {
+    fact('Sound', h('span', { 'data-home-sound': i.sound, 'data-microphone': i.microphone || '' },
+      (i.sound === 'on' ? 'the Mac’s speakers and microphone' : 'the Mac’s speakers — no microphone') + ' — ' + soundLine(i.name, i)));
   }
   home.folder.replaceChildren(h('div', { class: 'head has-title' }, h('h2', null, 'Folder')), h('dl', { class: 'home-facts' }, ...facts));
 }

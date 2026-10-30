@@ -91,6 +91,11 @@ public struct DozableProject: Equatable, Sendable {
          "# ignore_mode: lock          # what .dozignore does to the paths it lists: lock (listed, no access) or hide (not there). At the next start or wake"),
         ("workspace_view", SettingKey.workspaceView,
          "# workspace_view: on         # on: /workspace through the live view (programs keep their folder across a wake); off: shared directly. At the next start"),
+        ("audio", SettingKey.audio,
+         "# audio: off                 # sound: speakers (the Mac's), or on (+ the Mac's microphone, once macOS allows it). When the sandbox is made"),
+        // 669 (659 Q7): the agent's own approval prompts — its recipe's approvals setting, for this sandbox.
+        ("approvals", SettingKey.sandboxApprovals,
+         "# approvals: skip            # the agent's own approval prompts: skip (the sandbox is the boundary) or ask. From the next session"),
     ]
 
     /// The keys, in the order the file lists them, with what each says.
@@ -117,7 +122,9 @@ public struct DozableProject: Equatable, Sendable {
         ("local_port", "with model_source: local — the port of the model server on this Mac (Ollama 11434, LM Studio 1234): the one port of this Mac the sandbox reaches — when the sandbox is made"),
         ("dotfiles", "your dotfiles: a git repository's https:// URL, a folder on your Mac (absolute or ~/…), or none (default: the setting sandbox.dotfiles) — applied at its first start; doz dotfiles NAME --update moves it on"),
     ] + settingKeys.map { k in
-        (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
+        k.setting == SettingKey.sandboxApprovals
+            ? (k.key, "skip | ask: this sandbox's agent's approval prompts (default: its recipe's approvals setting, doz config show --agent ID)")
+            : (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
     }
 
     public struct Invalid: Error, LocalizedError, Equatable {
@@ -365,6 +372,13 @@ public struct DozableProject: Equatable, Sendable {
             if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.settings = settings.isEmpty ? nil : settings
+        // 669: what this file gives is recorded `from: project` (its settings, and its when-made values).
+        var mine = Array(settings.keys)
+        if cpus != nil { mine.append("cpus") }
+        if memoryMiB != nil { mine.append(RecipeSettings.memory) }
+        if network != nil { mine.append(RecipeSettings.network) }
+        if let a = agent, (try? AgentRef.resolve(a))?.exact != nil { mine.append(RecipeSettings.version) }
+        o.fromProject = mine.isEmpty ? nil : mine.sorted()
         // 599f: permissions: words on Standard (a preset word replaces it); 599d: github: → its two permissions.
         var words: [String] = []
         if let p = permissions {
@@ -405,18 +419,18 @@ public struct DozableProject: Equatable, Sendable {
     /// network setting, else the image's own default (an agent image: agent; lab: bake).
     public func effectiveNetwork(settings: DozableSettings) -> String {
         if let n = network { return n }
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
-        return settings.string(SettingKey.network(section)) ?? (section == "lab" ? "bake" : "agent")
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
+        return settings.string(keys.network) ?? (image == "lab" ? "bake" : "agent")
     }
 
     /// 599f: what the file sets differently from the settings' defaults is kept; a value EQUAL to its
     /// default (as the wizard and `doz init` pre-fill it) is left out, so the file follows the settings.
     /// `explicit` names the keys the person set on purpose (or the existing file set): those are kept.
     public mutating func dropDefaults(settings: DozableSettings, explicit: Set<String>) {
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
         if !explicit.contains("cpus"), cpus == settings.int(SettingKey.cpus) { cpus = nil }
-        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(SettingKey.memory(section))) { memoryMiB = nil }
-        if !explicit.contains("network"), network == settings.string(SettingKey.network(section)) { network = nil }
+        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(keys.memory)) { memoryMiB = nil }
+        if !explicit.contains("network"), network == settings.string(keys.network) { network = nil }
         if !explicit.contains("permissions"), let p = permissions,
            p == (SettingType.permissionWords(settings.string(SettingKey.permissions) ?? "standard") ?? ["standard"]) { permissions = nil }
         if !explicit.contains("account"), account == "default" { account = nil }
@@ -425,7 +439,9 @@ public struct DozableProject: Equatable, Sendable {
         if !explicit.contains("agent_sudo"), agentSudo == settings.bool(SettingKey.agentSudo) { agentSudo = nil }
         if !explicit.contains("dotfiles"), let d = dotfiles, d == (settings.string(SettingKey.dotfiles) ?? "") { dotfiles = nil }
         for k in Self.settingKeys where !explicit.contains(k.key) {
-            if let v = self.settings[k.setting], v == settings.resolve(k.setting).value { self.settings[k.setting] = nil }
+            // 669: approvals is compared with its recipe's (this project's agent's) setting.
+            let key = k.setting == SettingKey.sandboxApprovals ? DozableSettings.approvalsKey(image: image) : k.setting
+            if let v = self.settings[k.setting], let key, v == settings.resolve(key).value { self.settings[k.setting] = nil }
         }
     }
 

@@ -49,6 +49,12 @@ public actor HostCore {
     nonisolated let secretSourceState = SecretSourceState()
     /// 611: what this build leaves out (a public build: no ChatGPT sign-in of its own). Tests set it.
     var buildFlavor: BuildFlavor = .current
+    /// 667: macOS's microphone permission — the Mac, or the test seam (always the seam in a guarded run).
+    var microphoneAccess: MicrophoneAccess = .current()
+    /// 667: how long a start waits for macOS's answer about the microphone before it goes on with a silent one.
+    var microphoneQuestionWait: Duration = .seconds(60)
+    /// 667: macOS's question about the microphone is open (asked at a first recording) — one at a time, for every sandbox.
+    var microphoneAsking = false
     public func setBuildFlavor(_ f: BuildFlavor) { buildFlavor = f; chatgptSessions = [:] }
     /// 599i rc.3: the reader of this Mac's own Codex login (`mac` for Codex) — made on first use.
     var codexMacReader: CodexMacSession?
@@ -73,6 +79,10 @@ public actor HostCore {
         /// 651: a wake's boot that is over but still records the events of the wake's background steps (the
         /// guest fixes, the balloon) — kept once they end (`Sandbox.afterWakeSettled`, `.afterWakeDone`).
         var bootTail: BootRecorder?
+        /// 667: what this sandbox's VM got for its microphone at its last boot (a sound sandbox only).
+        var microphone: MicrophoneDecision?
+        /// 667: the guest watch for its first recording (`sandbox.microphone_ask = first_recording`), while it runs.
+        var recordingWatch: GuestStream?
         init(sandbox: Sandbox, config: SandboxConfig) {
             self.sandbox = sandbox
             self.config = config
@@ -238,6 +248,7 @@ public actor HostCore {
                 let row = beginAction(m, "restore after crash", phaseBefore: "asleep")
                 let t0 = ContinuousClock.now
                 do {
+                    await settleMicrophone(m, ask: false)          // 667: never a question at a host's start
                     beginBoot(m, kind: "restore after crash")
                     do { try await m.sandbox.wake() } catch { await endBoot(m, error: error); throw error }
                     await endBoot(m, error: nil)
@@ -289,6 +300,9 @@ public actor HostCore {
             // 617 (RP-1): forwards listen while the sandbox runs, and only then.
             if p == .running { Task { await self.bindPorts(name, settle: true) } }
             if [.off, .asleep, .hibernated, .failed].contains(p) { unbindPorts(name, why: PhaseName.label(p)) }
+            // 667: the watch for a sound sandbox's first recording runs while it runs (sandbox.microphone_ask).
+            if p == .running { Task { await self.watchForRecording(name) } }
+            if [.off, .paused, .asleep, .hibernated, .failed].contains(p) { stopRecordingWatch(name) }
         }
         // 651: everything a wake's background steps emitted came before this — that boot log ends here.
         if case .afterWakeDone = e { managed[name]?.bootTail?.seal() }
@@ -333,8 +347,8 @@ public actor HostCore {
     /// Start recording a boot of `m` (`cold boot`, `wake`, `restore after crash`).
     func beginBoot(_ m: Managed, kind: String) {
         guard !readOnly else { return }
-        // EXPERIMENTAL (604): put the sound kernel back when it went (Resources may delete an unused one); the
-        // boot says plainly when it cannot.
+        // 604: put the sound kernel back when it went (Resources may delete an unused one); the boot says plainly
+        // when it cannot. 667: the microphone is decided before this (`settleMicrophone`).
         if m.config.spec.audio == true {
             _ = try? MacAudio.installSoundKernel(into: m.config.spec.kernelCacheDirectory ?? StoreLayout(spec: m.config.spec).kernels)
         }
@@ -345,6 +359,8 @@ public actor HostCore {
     /// `host.boot_logs_kept`. The sandbox's event stream is drained a little first (its events reach the
     /// actor asynchronously). Never fails the operation.
     func endBoot(_ m: Managed, error: Error?) async {
+        // 667: the VM is built — doz-sound's conf follows the microphone it really got (a restore keeps the old one).
+        if m.config.spec.audio == true, !readOnly { applyToolInputs(m) }
         guard let rec = m.boot else { return }
         // 651: a wake is reported done before its background steps (the guest fixes, the balloon) run. Its boot log
         // keeps their events too — written when they end; its time is the wake's, to here. Nothing waits for it.
@@ -492,6 +508,10 @@ public actor HostCore {
         i.createdFolder = m.config.createdFolder
         i.agentRef = m.config.agentRef            // 618
         i.recipeRef = m.config.recipeRef          // 654
+        if m.config.spec.audio == true {          // 667
+            i.sound = soundMode(m).rawValue
+            i.microphone = microphoneNote(m)
+        }
         i.extraKeys = m.config.extraKeys
         i.modelLine = modelLine(m)                // 660
         i.localModelPort = m.config.localModelPort
@@ -975,10 +995,11 @@ public actor HostCore {
             emit(HostEvent(kind: .note, sandbox: name, text: "rebuilding the \(img) image first (as asked) — existing sandboxes keep theirs"))
             try await follow(try preparation(for: img, requestedBy: "create \(name) --rebuild"), emit: emit)
         }
+        // 667: its sound — the flag, its own value, else the setting (`o.audio` = the device, its own `sandbox.audio`).
+        try resolveSound(&o, name: name, emit: emit)
         let (spec, image) = try DozableImages.spec(name: name, options: o, store: store)
-        // EXPERIMENTAL (604): an audio sandbox's VM boots the sound kernel — verified into the kernel cache now.
+        // 604/667: a sound sandbox's VM boots the sound kernel — verified into the kernel cache now.
         if spec.audio == true {
-            guard !buildFlavor.isPublic else { throw HostError(.invalid, BuildFlavor.audioMissing) }   // 611
             try MacAudio.installSoundKernel(into: spec.kernelCacheDirectory ?? StoreLayout(spec: spec).kernels)
         }
         // 617 (models@1): a model source chosen (`--provider`/`--gateway`; `--model` alone: the default source) — the
@@ -1031,7 +1052,14 @@ public actor HostCore {
         cfg.dockerfile = dockerfile?.dockerfile
             ?? cfg.imageChoice.flatMap { $0.isDockerfile ? Dockerfiles.record($0.base, store)?.dockerfile : nil }
         // 599: its own values of the per-sandbox settings (the clipboard and browser bridges, tmux).
-        if let s = o.settings, !s.isEmpty { cfg.settings = try Self.checkedSandboxSettings(s) }
+        // 669: `approvals` too; each recorded as the sandbox's own, or its project's (`from: project`).
+        if let s = o.settings, !s.isEmpty {
+            cfg.settings = try Self.checkedSandboxSettings(s, image: spec.imageSpec?.name)
+            let project = Set(o.fromProject ?? []).intersection(s.keys)
+            if !project.isEmpty { cfg.settingsFrom = Dictionary(uniqueKeysWithValues: project.map { ($0, "project") }) }
+        }
+        // 669: its recipe's when-made values (version, memory, network), with where each came from.
+        cfg.recipeSettings = Self.recordedRecipeSettings(o, spec: spec, settings: .load())
         // 617 (D6): custom keys beside the account — each a custom key account, each of its hosts allowed on purpose.
         if let keys = o.keys, !keys.isEmpty {
             guard let policy = spec.network.policy else { throw HostError(.invalid, "--key needs a proxied network: a custom key lives in the host's proxy") }
@@ -1272,6 +1300,9 @@ public actor HostCore {
         let row = beginAction(m, action.label, phaseBefore: before.rawValue)
         // 593: a start and a wake are BOOTS — kept (steps, console, result) for the Boot log.
         let bootKind: String? = action.label == "start" ? "cold boot" : action.label == "wake" ? "wake" : nil
+        // 667: before the VM is built; only a cold boot asks macOS (a restore keeps the source it slept with).
+        if bootKind != nil { await settleMicrophone(m, ask: bootKind == "cold boot", emit: emit) }
+        else { stopRecordingWatch(m.name) }        // 667: ended before a pause, sleep, hibernate or stop takes the VM
         if let bootKind { beginBoot(m, kind: bootKind) }
         do {
             try await action.body()
@@ -1377,6 +1408,7 @@ public actor HostCore {
                 defer { diskOpsInFlight -= 1 }
                 let row = beginAction(m, "wake", phaseBefore: p.rawValue)
                 let t0 = ContinuousClock.now
+                await settleMicrophone(m, ask: false, emit: emit)      // 667: a restore keeps its source — never asks
                 beginBoot(m, kind: "wake")
                 do { try await m.sandbox.wake() } catch {
                     await endBoot(m, error: error)
@@ -1447,6 +1479,7 @@ public actor HostCore {
         await cancelAllPreparations()
         var rows: [(name: String, m: Managed, row: Int64?, before: Phase)] = []
         for (name, m) in managed {
+            stopRecordingWatch(name)                       // 667: ended before the VM is saved
             let before = await m.sandbox.phase
             guard [.running, .paused, .asleep, .booting, .failed].contains(before) else { continue }
             rows.append((name, m, beginAction(m, "quit (hibernate)", phaseBefore: before.rawValue), before))
@@ -1579,13 +1612,18 @@ public actor HostCore {
     /// 591: the settings' `claude.permissions` reaches the guest's claude launcher as
     /// `DOZ_CLAUDE_PERMISSIONS` — only in a claude-code sandbox, only when it is not the default
     /// (`skip`), and never over the caller's own `-e DOZ_CLAUDE_PERMISSIONS=…`.
-    static func withClaudePermissions(_ env: [String: String], imageSpec: String?,
+    static func withClaudePermissions(_ env: [String: String], imageSpec: String?, own: TOMLValue? = nil,
                                       settings: @autoclosure () -> DozableSettings = .load()) -> [String: String] {
         // 599i: Codex's launcher reads DOZ_CODEX_PERMISSIONS (the setting codex.permissions) the same way. 617: every
         // agent whose recipe has a permissions setting — its launcher's DOZ_<SHORT>_PERMISSIONS (gemini.permissions →
         // DOZ_GEMINI_PERMISSIONS); pi has none.
-        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = r.permissionsSettingKey,
-              env[r.permissionsVariable] == nil, let mode = settings().string(key), mode != "skip" else { return env }
+        // 669: `recipes.V.P.approvals` (its 0.37 name `claude.permissions`), and above it the sandbox's own `approvals`
+        // (its project's, synced by doz up) — the caller's `-e` (a flag, for one session) above both.
+        guard let r = imageSpec.flatMap({ ImageChoice.parse($0) })?.agent.recipe, let key = SettingKey.approvals(r.id),
+              env[r.permissionsVariable] == nil else { return env }
+        let mode: String?
+        if case .string(let s)? = own { mode = s } else { mode = settings().string(key) }
+        guard let mode, mode != "skip" else { return env }
         var e = env
         e[r.permissionsVariable] = mode
         return e
@@ -1835,7 +1873,7 @@ public actor HostCore {
         do {
             let sink = Self.sandboxValue(m.config, SettingKey.clipboard).plain != "off"
             try await m.sandbox.openSession(session, argv: argv,
-                                            environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name),
+                                            environment: Self.withTrueColour(recipeEnvironment(Self.withClipboardSink(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]),
                                                                                 on: sink), m)),
                                             workingDirectory: r.workdir ?? workdir,
                                             user: r.user, size: size)
@@ -1876,7 +1914,7 @@ public actor HostCore {
         let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
-        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name), m),
+        let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
                                    workdir: r.workdir, user: r.user)
         let t0 = ContinuousClock.now
         let res: ExecResult
@@ -1955,7 +1993,7 @@ public actor HostCore {
                              snapshotBytes: Int64(status.snapshotBytes > 0 ? status.snapshotBytes : fileSize(m.sandbox.layout.snapshot)),
                              hasRootDisk: m.sandbox.hasRootDisk, defaultSession: m.config.defaultSession.name,
                              agentPrompt: agentPromptReport(m), project: m.config.project, guide: guide(m),
-                             defaultArgv: m.config.defaultSession.argv)
+                             defaultArgv: m.config.defaultSession.argv, settings: Self.sandboxSettingsReport(m.config))     // 669
     }
 
     func credentials(_ m: Managed) -> [CredentialRow] {

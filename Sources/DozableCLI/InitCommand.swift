@@ -211,7 +211,7 @@ struct Init: AsyncParsableCommand {
             if e.agentSudo != nil { explicit.insert("agent_sudo") }
             for k in DozableProject.settingKeys where e.settings[k.setting] != nil { explicit.insert(k.key) }
         }
-        let section = DozableSettings.imageSection(imageSpecName: img == "lab" ? nil : img)
+        let imageKeys = DozableSettings.imageKeys(imageSpecName: img == "lab" ? nil : img)
 
         // 3. Account (the agent's credential prerequisite is checked after the questions).
         step("account")
@@ -299,7 +299,7 @@ struct Init: AsyncParsableCommand {
             let c = asker.text("Virtual CPUs", default: String(p.cpus ?? settings.int(SettingKey.cpus))) { Int($0).map { (1...64).contains($0) } == true ? nil : "1–64" }
             p.cpus = Int(c)
         }
-        let memDefault = p.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section)))
+        let memDefault = p.memoryMiB ?? UInt64(settings.int(imageKeys.memory))
         if let m = memory {
             guard let v = DozableImages.parseMemory(m) else { throw invalid("--memory: \(m) is not a size (2G, 512M, 2048)") }
             p.memoryMiB = v
