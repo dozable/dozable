@@ -99,6 +99,8 @@ public protocol DozableWebData: Sendable {
     func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree
     /// 644: open a file of a shared workspace on the Mac, or show it in the Finder (`files-open`). One line for the page.
     func openFile(_ name: String, _ o: WebFileOpen) async throws -> String
+    /// 666: open a running sandbox's web port in this Mac's browser — signed in when its recipe declares how (`port-open`).
+    func openPort(_ name: String, port: Int) async throws -> WebPortOpened
     /// 646: the editors `openFile`'s `app` takes on this Mac (the host's read-only `editors`; in-process when no host runs).
     func editors() async throws -> [WebEditor]
     /// 648: the running sessions' pictures as cells (the host's `session-grids`) — NEVER starting a host: with none,
@@ -116,6 +118,7 @@ extension DozableWebData {
     public func fileTree(_ name: String) async throws -> WebFileTree { throw HostError(.notImplemented, "files") }
     public func setFileTree(_ name: String, _ state: FileTreeState) async throws -> WebFileTree { throw HostError(.notImplemented, "files") }
     public func openFile(_ name: String, _ o: WebFileOpen) async throws -> String { throw HostError(.notImplemented, "files") }
+    public func openPort(_ name: String, port: Int) async throws -> WebPortOpened { throw HostError(.notImplemented, "ports") }
     public func editors() async throws -> [WebEditor] { throw HostError(.notImplemented, "editors") }
     public func grids(_ items: [SessionGridRequest]) async -> WebGrids { .unavailable(items, WebGrids.sentence(.noHost)) }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
@@ -692,6 +695,12 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func editors() async throws -> [WebEditor] {
         try await query(HostRequest(.editors)).0.decode([EditorApps.Editor].self).map(WebEditor.init)
+    }
+
+    public func openPort(_ name: String, port: Int) async throws -> WebPortOpened {
+        var r = HostRequest(.portOpen, name: name)
+        r.openPort = port
+        return WebPortOpened(try await query(r).0.decode(PortOpened.self))
     }
 
     /// `doz attach NAME`, with `--store` when this is not the default store (shell-quoted). The UI

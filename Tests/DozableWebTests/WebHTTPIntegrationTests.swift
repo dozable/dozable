@@ -919,6 +919,15 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         lock.withLock { opened.append(o) }
         return (o.reveal ? "showed " : "opened ") + o.path + (o.app.map { " in " + $0 } ?? "")
     }
+    // 666 — a web port opened on this "Mac" (port 49374 signs in; 8000 has no sign-in; anything else is not forwarded).
+    private(set) var portsOpened: [Int] = []
+    func openPort(_ name: String, port: Int) async throws -> WebPortOpened {
+        guard name == "demo" else { throw HostError(.notFound, "no sandbox \(name)") }
+        guard port == 49374 || port == 8000 else { throw HostError(.notFound, "\(name) forwards no web port \(port)") }
+        lock.withLock { portsOpened.append(port) }
+        return WebPortOpened(PortOpened(sandbox: name, port: port, title: port == 8000 ? "AIChat web" : "OpenCode web",
+                                        url: "http://127.0.0.1:\(port)/", signedIn: port == 49374))
+    }
     // 646 — the editors this "Mac" offers.
     func editors() async throws -> [WebEditor] {
         [WebEditor(EditorApps.Editor(id: "cursor", name: "Cursor")), WebEditor(EditorApps.Editor(id: "Typora", name: "Typora"))]

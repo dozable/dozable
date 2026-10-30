@@ -57,7 +57,8 @@ public enum WebExposure {
             return .change
         case .accountAdd, .sandboxKey, .accessGithubKey:
             return .secretEntry
-        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen, .editors:   // 646: editors with files/open
+        case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen, .editors,   // 646: editors with files/open
+             .portOpen:                 // 666: opens this Mac's browser (signed in) — another computer's 127.0.0.1 is its own
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices

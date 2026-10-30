@@ -196,17 +196,45 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var tokenHint: String?
         /// What `make recipe-check` GETs (default: `path`); any HTTP status line passes.
         public var check: String?
+        /// 666: how Open signs the Mac's browser in by itself (`auth: token` only) — the command that prints a one-time
+        /// link to this port (`opencode pair`). nil: Open opens `path`, and the person signs in as `tokenHint` says.
+        public var signIn: SignIn?
         enum CodingKeys: String, CodingKey {
             case port, title, path, `protocol`, auth, check
-            case tokenHint = "token_hint"
+            case tokenHint = "token_hint", signIn = "sign_in"
         }
         public init(port: Int, title: String, path: String? = nil, protocol: String? = nil, auth: String? = nil,
-                    tokenHint: String? = nil, check: String? = nil) {
+                    tokenHint: String? = nil, check: String? = nil, signIn: SignIn? = nil) {
             self.port = port; self.title = title; self.path = path; self.protocol = `protocol`; self.auth = auth
-            self.tokenHint = tokenHint; self.check = check
+            self.tokenHint = tokenHint; self.check = check; self.signIn = signIn
         }
         public var isHTTP: Bool { (`protocol` ?? "http") == "http" }
         public var openPath: String { path ?? "/" }
+    }
+
+    /// 666 (owner: "a recipe's web port declares a sign-in command"): run in the sandbox as the session's user when Open
+    /// is pressed; the first link it prints to this port (a loopback address and the port — `link_path` narrows it) is
+    /// opened at the Mac's forward with its path, query and fragment kept. An argv — never a shell; the program is the
+    /// recipe's own. The link is a secret: it is never logged, stored, sent as an event or put in an error.
+    public struct SignIn: Codable, Sendable, Equatable {
+        public static let defaultSeconds = 15
+        public static let maximumSeconds = 15
+        /// The command (`[opencode, pair]`): its first word is the recipe's program.
+        public var argv: [String]
+        /// The link's path starts with this (`/auth/connect/`). nil: the first link to the port.
+        public var linkPath: String?
+        /// Seconds the command may take (1–15, default 15); a command still running then is a failed sign-in.
+        public var timeout: Int?
+        enum CodingKeys: String, CodingKey {
+            case argv, timeout
+            case linkPath = "link_path"
+        }
+        public init(argv: [String], linkPath: String? = nil, timeout: Int? = nil) {
+            self.argv = argv; self.linkPath = linkPath; self.timeout = timeout
+        }
+        public var seconds: Int { timeout ?? Self.defaultSeconds }
+        /// The command as a person would type it (display only).
+        public var command: String { argv.joined(separator: " ") }
     }
 
     enum CodingKeys: String, CodingKey {
@@ -1339,6 +1367,23 @@ extension AgentRecipe {
         return b
     }
 
+    /// 666: a web port's `sign_in` — an argv whose first word is this recipe's own program (so never a shell, `env` or
+    /// another program), on an http port with `auth: token` (its `token_hint` stays the way by hand), a short timeout.
+    func validateSignIn(_ s: SignIn, port p: WebPort) throws {
+        func bad(_ text: String) -> SandboxError { SandboxError.invalidSpec("recipe \(id): ports@1 \(p.port) sign_in: \(text)") }
+        guard p.isHTTP, p.auth == "token" else { throw bad("only on an http port with auth token") }
+        guard (1...8).contains(s.argv.count) else { throw bad("argv: 1–8 words") }
+        for a in s.argv where a.isEmpty || a.utf8.count > 200 || a.unicodeScalars.contains(where: { $0.value < 0x20 || $0.value == 0x7F }) {
+            throw bad("argv: each word 1–200 characters, no control characters")
+        }
+        let programs = Set([install.binary, launch.command.first, shortName].compactMap { $0 })
+        guard programs.contains(s.argv[0]) else {
+            throw bad("argv starts with \(s.argv[0]) — it runs the recipe's own program (\(programs.sorted().joined(separator: " or "))), never a shell")
+        }
+        if let l = s.linkPath, !PortForwarding.isPath(l) { throw bad("link_path \(l) — a path starts with / and has no spaces") }
+        if let t = s.timeout, !(1...SignIn.maximumSeconds).contains(t) { throw bad("timeout: 1–\(SignIn.maximumSeconds) seconds") }
+    }
+
     /// One recipe's own rules (see the file's header).
     public func validate() throws {
         func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("recipe \(id): \(s)") }
@@ -1368,6 +1413,7 @@ extension AgentRecipe {
                     throw bad("ports@1 \(p.port): \(path) — a path starts with / and has no spaces")
                 }
                 if p.auth == "token", (p.tokenHint ?? "").isEmpty { throw bad("ports@1 \(p.port): auth token says where the token is (token_hint)") }
+                if let s = p.signIn { try validateSignIn(s, port: p) }
             }
             if let s = w.serve, s.isEmpty || s.contains(where: \.isEmpty) { throw bad("ports@1 serve: a command") }
         }

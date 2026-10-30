@@ -383,12 +383,45 @@ public struct WebPort: Codable, Equatable, Sendable {
     /// A program in the sandbox listens on the port (nil: not checked); the recipe's command that serves it.
     public var serving: Bool?
     public var serveHint: String?
+    /// 666: Open signs this Mac's browser in by itself — the command the host runs in the sandbox (`opencode pair`;
+    /// words, never its output). The page's Open then asks the server (`POST …/ports/open`) instead of linking.
+    public var signIn: String?
 
     public init(_ r: PortForwardRow) {
-        serving = r.serving; serveHint = r.serveHint
+        serving = r.serving; serveHint = r.serveHint; signIn = r.signIn
         port = r.port; title = r.title; path = r.path; `protocol` = r.protocol; origin = r.origin; state = r.state
         macPort = r.macPort; moved = r.moved; why = r.why; auth = r.auth; askHint = r.tokenHint
         url = r.url.flatMap { u in u.hasPrefix("http://127.0.0.1:") ? u : nil }
+    }
+}
+
+/// 666 `POST /api/v1/sandboxes/NAME/ports/open` — `{port}`: the web port to open on the Mac. Strict: that one field.
+public enum WebPortOpen {
+    public static func decode(_ body: Data) throws -> Int {
+        guard let obj = try? JSONSerialization.jsonObject(with: body), let d = obj as? [String: Any], Set(d.keys) == ["port"],
+              let n = d["port"] as? NSNumber, CFGetTypeID(n) == CFNumberGetTypeID(), !CFNumberIsFloatType(n),
+              (1...65_535).contains(n.intValue) else {
+            throw WebAction.Invalid("the body is {port} — a port 1–65535")
+        }
+        return n.intValue
+    }
+}
+
+/// 666: what an Open did, for the page — the plain URL (never the sign-in link: the host opened it), whether it signed
+/// in, and why not; `message` is the line the page shows.
+public struct WebPortOpened: Codable, Equatable, Sendable {
+    public var port: Int
+    public var title: String
+    public var url: String
+    public var signedIn: Bool
+    public var problem: String?
+    public var message: String
+
+    public init(_ o: PortOpened) {
+        port = o.port; title = o.title; signedIn = o.signedIn; problem = o.problem
+        url = o.url.hasPrefix("http://127.0.0.1:") ? o.url : ""
+        message = o.signedIn ? "Opened \(o.title) in this Mac's browser — signed in"
+            : o.problem.map { "\(o.title): could not sign in — \($0). Opened it without signing in." } ?? "Opened \(o.title) in this Mac's browser"
     }
 }
 

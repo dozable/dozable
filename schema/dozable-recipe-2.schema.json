@@ -522,7 +522,16 @@
                   "protocol": { "enum": ["http", "ws"] },
                   "auth": { "enum": ["none", "token", "login"] },
                   "token_hint": { "type": "string" },
-                  "check": { "type": "string", "pattern": "^/[^\\s]*$" }
+                  "check": { "type": "string", "pattern": "^/[^\\s]*$" },
+                  "sign_in": {
+                    "type": "object", "additionalProperties": false, "required": ["argv"],
+                    "description": "How Open signs the Mac's browser in (auth token only): a command run in the sandbox as the session's user, whose first word is the recipe's own program (never a shell); the first link it prints to this port (a loopback host and the port; link_path narrows it) is opened at the Mac's forward. The link is never logged or stored.",
+                    "properties": {
+                      "argv": { "type": "array", "minItems": 1, "maxItems": 8, "items": { "type": "string", "minLength": 1, "maxLength": 200 } },
+                      "link_path": { "type": "string", "pattern": "^/[^\\s]*$" },
+                      "timeout": { "type": "integer", "minimum": 1, "maximum": 15 }
+                    }
+                  }
                 }
               }
             },

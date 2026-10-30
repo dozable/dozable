@@ -435,7 +435,10 @@ A forward makes a port a program listens on inside the sandbox reachable on this
 the network, while the sandbox runs; it closes when the sandbox stops, sleeps or hibernates and comes back at the next
 start or wake (and after a host restart). The Mac port is the guest's when free and 1024 or above, otherwise another
 (said, and kept). A recipe's `ports@1` declares the tool's own (AIChat's playground). Inbound only: the network policy
-and the proxy do not apply, and no credential crosses it.
+and the proxy do not apply, and no credential crosses it. A port whose recipe declares `sign_in` (OpenCode web:
+`opencode pair`) is opened signed in: the host runs the command in the sandbox and opens the one-time link it printed
+at this Mac's port — the link is never printed, logged or kept; a failed sign-in opens the page as it is and says why.
+`--print` prints the plain URL (no sign-in).
 
 ### The tools layer
 

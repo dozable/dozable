@@ -813,6 +813,8 @@ public actor HostCore {
             throw HostError(.invalid, "copy streams on its own connection (doz get / doz put)")
         case .ports:
             return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
+        case .portOpen:
+            return try JSONValue(encoding: try await portOpen(r))          // 666
         case .plan:
             guard let p = r.planRequest, PlanRequest.purposes.contains(p.purpose) else { throw HostError(.invalid, "plan: what to plan (purpose new, create, up, init, try or first)") }
             let e = await exactVersionProblem(p.create, mustCheck: false)

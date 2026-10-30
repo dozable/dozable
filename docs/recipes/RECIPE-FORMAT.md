@@ -287,7 +287,7 @@ steps (the first with a command is its check turn), tips, docs, a notice. See [T
 
 **`com.dozable/ports@1`** (optional, at most one) — the web ports the program serves inside the sandbox, each
 forwarded to the Mac's loopback (`127.0.0.1`) while the sandbox runs, with an Open button ([Web
-ports](../manual/29-web-ports.md)). `ports`: 1–16 of `{port, title, path?, protocol?, auth?, token_hint?, check?}` —
+ports](../manual/29-web-ports.md)). `ports`: 1–16 of `{port, title, path?, protocol?, auth?, token_hint?, check?, sign_in?}` —
 `port` the guest port its program listens on (its own localhost), `title` the button's label (1–40 characters),
 `path` what Open opens (default `/`), `protocol` `http` (default) or `ws` (forwarded, no button), `auth` `none`
 (default), `token` (the program prints a token — `token_hint` says where) or `login`, `check` what `make recipe-check`
@@ -305,6 +305,28 @@ no credential crosses it.
       path: /playground
     serve: [aichat, --serve]
 ```
+
+`sign_in` (optional, on an http port with `auth: token`) makes Open sign the Mac's browser in by itself:
+`{argv, link_path?, timeout?}`. `argv` (1–8 words) is run in the sandbox as the session's user, with a session's
+environment — an argv, never a shell: its first word must be the recipe's own program. The first `http(s)` link it
+prints (stdout, then stderr) whose host is a loopback name (`127.0.0.1`, `localhost`, `0.0.0.0`, `::1`) and whose port
+is this port is taken — `link_path` (a path prefix) narrows it; a link anywhere else is never used. Its path, query and
+fragment are opened at the Mac's forward (`http://127.0.0.1:MACPORT/…`), so a moved port still works. `timeout` is 1–15
+seconds (default 15): the command must print and exit within it. The link is treated as a secret: never logged,
+stored, sent as an event or put in an error, and opened through LaunchServices (never as a process argument). When the
+sign-in fails, Open says why and opens `path` as it is; `token_hint` stays the way to sign in by hand.
+
+```yaml
+    - port: 49374
+      title: OpenCode web
+      auth: token
+      token_hint: Open signs this Mac's browser in by itself; by hand, run opencode pair in the sandbox …
+      sign_in:
+        argv: [opencode, pair]
+        link_path: /auth/connect/
+```
+
+A recipe catalogue that carries a `sign_in` needs a `minimum_doz` that reads it (an older doz refuses the unknown key).
 
 
 ## The guide

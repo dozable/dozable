@@ -18,7 +18,7 @@ import { confirmAction, dialog } from '../components/dialog.js';
 import { lifecycle, lifecycleBar } from '../components/lifecycle.js';
 import { menuButton, moreMenu } from '../components/menus.js';
 import { GUIDE_TAB, guideHead, guidePanel } from '../components/try-guide.js';
-import { failureFor, pageFailure, paintRowOps } from '../components/notices.js';
+import { failureFor, pageFailure, paintRowOps, toast } from '../components/notices.js';
 import { sandboxPill } from '../components/pills.js';
 import { renameItem } from '../components/rename-dialog.js';
 import { bootLogDialog, focusTerm, openTerminal, PHASE_WORD } from '../components/terminal.js';
@@ -59,10 +59,35 @@ function portButton(name, p) {
     return h('button', { type: 'button', class: 'btn sm', disabled: true, 'data-port-open': String(p.port), 'data-port-idle': '', title: notServing(p) },
       withIcon('link', label));
   }
-  const tip = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '')
-    + (p.auth === 'token' && p.askHint ? ' · it asks for a token: ' + p.askHint : '');
+  const at = p.title + ' — the sandbox’s port ' + p.port + ' at ' + p.url + (p.moved ? ' (' + p.port + ' was taken on this Mac)' : '');
+  // 666: its recipe says how to sign in — the Mac opens it, signed in (the host runs the sign-in; the link never comes here).
+  if (p.signIn) {
+    const b = h('button', { type: 'button', class: 'btn sm', 'data-port-open': String(p.port), 'data-port-signin': '',
+      title: at + ' · Open signs this Mac’s browser in (it runs ' + p.signIn + ' in the sandbox)',
+      on: { click: (ev) => { ev.stopPropagation(); openSignedIn(name, p, b, label); } } },
+    withIcon('link', label));
+    return b;
+  }
+  const tip = at + (p.auth === 'token' && p.askHint ? ' · it asks for a token: ' + p.askHint : '');
   return h('a', { class: 'btn sm', href: p.url, target: '_blank', rel: 'noopener noreferrer', 'data-port-open': String(p.port), title: tip },
     withIcon('link', label));
+}
+/// 666: Open for a port that signs in — the server asks the host, which opens this Mac's default browser on the page,
+/// signed in; its sentence is the toast. A sign-in that failed still opened the page: said where Open was pressed.
+async function openSignedIn(name, p, b, label) {
+  if (b.disabled) return;
+  b.disabled = true;
+  b.replaceChildren(h('span', { class: 'mini-spin', 'aria-hidden': 'true' }), h('span', { class: 'btn-label' }, 'Signing in…'));
+  try {
+    const r = await api('sandboxes/' + name + '/ports/open', { method: 'POST', json: { port: p.port } });
+    if (r.signedIn) toast(r.message);
+    else failureFor(name, r.message);
+  } catch (e) {
+    failureFor(name, p.title + ': ' + (e.message || String(e)));
+  } finally {
+    b.disabled = false;
+    setButton(b, label, 'link');
+  }
 }
 /// What a port nothing serves yet says: start it in a session — the recipe's own command when it has one.
 function notServing(p) {
@@ -74,7 +99,8 @@ function portRows(name, i) {
     p.title + ' — port ' + p.port + ' → ' + (p.state === 'listening'
       ? (p.serving === false ? (p.url || '127.0.0.1:' + p.macPort) + ' — ' + notServing(p).replace(/^N/, 'n') : (p.url || '127.0.0.1:' + p.macPort))
       : p.state + (p.why ? ': ' + p.why : ''))
-      + (p.origin === 'added' ? ' (added)' : '') + (p.moved && p.state === 'listening' ? ' (moved: ' + p.port + ' was taken)' : '')));
+      + (p.origin === 'added' ? ' (added)' : '') + (p.moved && p.state === 'listening' ? ' (moved: ' + p.port + ' was taken)' : '')
+      + (p.signIn ? ' · Open signs you in (' + p.signIn + ')' : '')));
 }
 export async function showSandbox() {
   const name = state.param;

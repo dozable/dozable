@@ -78,6 +78,9 @@ public enum WebRoute: Equatable, Sendable {
     case filesTree(String)              // GET  /api/v1/sandboxes/{name}/files/tree
     case filesTreeSet(String)           // POST /api/v1/sandboxes/{name}/files/tree   ({expanded: [folder, …]})
     case filesOpen(String)              // POST /api/v1/sandboxes/{name}/files/open   ({path, reveal?, app?})
+    // 666 — a web port opened on the Mac by the host, signed in when its recipe declares a sign-in command (mac-screen:
+    // the Mac's own browser opens; the sign-in link never reaches the page).
+    case portOpen(String)               // POST /api/v1/sandboxes/{name}/ports/open   ({port})
     // 646 — the editors files/open's `app` takes on this Mac (read; mac-screen — only the Mac's own browser opens with one).
     case editors                        // GET  /api/v1/editors
     // 648 — the dashboard's tiles painted from their screens (WebGrids.swift): the host's `session-grids` (a read; POST
@@ -221,6 +224,8 @@ public enum WebRoute: Equatable, Sendable {
             return .filesTreeSet(rest[1])
         case (.post, 4) where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "files" && rest[3] == "open":
             return .filesOpen(rest[1])
+        case (.post, 4) where rest[0] == "sandboxes" && isSandboxName(rest[1]) && rest[2] == "ports" && rest[3] == "open":
+            return .portOpen(rest[1])
         default: break
         }
         guard method == .get else { return nil }
