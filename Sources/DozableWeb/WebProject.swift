@@ -81,13 +81,17 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
     /// 618: `model_source` / `model` — where the model comes from and which model (checked by the project's own rule).
     public var modelSource: String?
     public var model: String?
+    /// 660: `local_port` — a model server on this Mac's port (with `model_source: local`).
+    public var localPort: Int?
     /// 657: `dotfiles` — kept through the dashboard (no control of its own in the wizard; the review shows it).
     public var dotfiles: String?
+    /// 667: `audio` — off, speakers or on (the wizard's Sound choice, on the Bridges step).
+    public var audio: String?
 
     static let settingFields: [(field: String, setting: String)] = [
         ("sshAgent", SettingKey.sshAgent), ("clipboard", SettingKey.clipboard), ("browserBridge", SettingKey.browserBridge),
         ("openFiles", SettingKey.openFiles), ("tmux", SettingKey.tmux), ("ignoreMode", SettingKey.ignoreMode),
-        ("workspaceView", SettingKey.workspaceView),
+        ("workspaceView", SettingKey.workspaceView), ("audio", SettingKey.audio),
     ]
 
     public init(_ p: DozableProject) {
@@ -109,12 +113,14 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         if case .bool(let b)? = p.settings[SettingKey.tmux] { tmux = b }
         ignoreMode = p.settings[SettingKey.ignoreMode]?.plain
         workspaceView = p.settings[SettingKey.workspaceView]?.plain
+        audio = p.settings[SettingKey.audio]?.plain
         agentSudo = p.agentSudo
         agentPrompt = p.agentPrompt
         agentPromptMode = p.agentPromptMode
         sessions = p.sessions.isEmpty ? nil : p.sessions.map { Session(name: $0.name, command: $0.command) }
         modelSource = p.modelSource
         model = p.model
+        localPort = p.localPort
         dotfiles = p.dotfiles
     }
 
@@ -141,7 +147,7 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
             p.memoryMiB = v
         }
         for (field, key) in [("sshAgent", sshAgent), ("clipboard", clipboard), ("browserBridge", browserBridge), ("openFiles", openFiles),
-                             ("ignoreMode", ignoreMode), ("workspaceView", workspaceView)] {
+                             ("ignoreMode", ignoreMode), ("workspaceView", workspaceView), ("audio", audio)] {
             guard let v = key, let s = Self.settingFields.first(where: { $0.field == field }), let d = DozableSettings.definition(s.setting) else { continue }
             do { p.settings[s.setting] = try d.parse(v) } catch let e as SettingsError { throw invalid("\(field): \(e.message)") }
         }
@@ -154,6 +160,8 @@ public struct WebProjectForm: Codable, Equatable, Sendable {
         if let m = model, !ModelSelection.isModelID(m) { throw invalid("model: a model id — letters, digits and . _ : / @ + -") }
         p.modelSource = modelSource
         p.model = model
+        if let n = localPort, MacModelServer.portProblem(n) != nil { throw invalid("localPort: a port of this Mac, 1024–65535") }
+        p.localPort = localPort
         if let d = dotfiles, let why = DotfilesSource.problem(d) { throw invalid("dotfiles: \(why)") }
         p.dotfiles = dotfiles
         return p
@@ -207,7 +215,7 @@ struct WebProjectRequest {
     var replace: String?
 
     static let explicitKeys: Set<String> = Set<String>(["cpus", "memory", "network", "permissions", "account", "github", "agent_sudo", "image",
-                                                                         "model_source", "model", "dotfiles"])
+                                                                         "model_source", "model", "local_port", "dotfiles"])
         .union(DozableProject.settingKeys.map(\.key))
 
     static func decode(_ body: Data, allowed: Set<String>) throws -> WebProjectRequest {
@@ -223,7 +231,7 @@ struct WebProjectRequest {
             guard let fd = form as? [String: Any] else { throw WebAction.Invalid("form: an object") }
             let known: Set<String> = ["name", "image", "agent", "base", "dockerfile", "account", "github", "sshAgent", "network", "permissions", "cpus",
                                       "memory", "clipboard", "browserBridge", "openFiles", "tmux", "ignoreMode", "workspaceView", "agentSudo", "agentPrompt", "agentPromptMode", "sessions",
-                                      "modelSource", "model", "dotfiles"]
+                                      "modelSource", "model", "localPort", "dotfiles", "audio"]
             let unknown = Set(fd.keys).subtracting(known)
             guard unknown.isEmpty else { throw WebAction.Invalid("form: no \(unknown.sorted().joined(separator: ", "))") }
             do { r.form = try JSONDecoder().decode(WebProjectForm.self, from: JSONSerialization.data(withJSONObject: fd)) } catch {

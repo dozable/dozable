@@ -117,16 +117,38 @@ struct Doctor: AsyncParsableCommand {
                 } ?? "none set — doz config set sandbox.dotfiles URL|PATH puts yours in every new sandbox"))
             }
         }
-        // EXPERIMENTAL: audio sandboxes — the sound kernel this doz carries, and who macOS asks about the microphone.
+        // 660: each sandbox that uses a model server on this Mac — does something answer on its one port?
+        do {
+            let rows = store.sandboxNames().compactMap { name -> (String, Int)? in
+                SandboxConfig.read(store.configFile(name))?.localModelPort.map { (name, $0) }
+            }
+            if !rows.isEmpty {
+                let silent = rows.filter { !MacModelServer.answers(port: $0.1) }
+                let list = rows.map { "\($0.0) → 127.0.0.1:\($0.1)" }.joined(separator: ", ")
+                out.append(DoctorCheck(check: "models on this Mac", status: silent.isEmpty ? .ok : .warn,
+                                       detail: silent.isEmpty ? "\(list) (each sandbox reaches only its own port)"
+                                           : "nothing answers on " + silent.map { "port \($0.1) (\($0.0))" }.joined(separator: ", ")
+                                             + " — start the model server on this Mac (ollama serve, LM Studio's server) before Claude Code asks it"))
+            }
+        }
+        // 604 → 667: sound — the setting, the sound kernel this doz carries, and the microphone: macOS's answer for the
+        // app it asks about (a preflight: it never shows a question; the seam in a test run).
         do {
             let carried = MacAudio.bundledSoundKernel()
             let ok = carried.map(SoundKernel.isVerified) ?? false
+            let settings = DozableSettings.load()
+            let mode = settings.resolve(SettingKey.audio).value.plain
+            let ask = MicrophoneAsk.of(settings.resolve(SettingKey.microphoneAsk).value)     // 667
+            let access = MicrophoneAccess.current()
+            let permission = access.status()
             let who = MacAudio.responsibleApp()?.description ?? "an app macOS did not name"
-            out.append(DoctorCheck(check: "audio", status: .ok,
-                                   detail: "experimental — " + (ok ? "the sound kernel is here (\(SoundKernel.fileName), sha256 checked) — doz create --audio works"
-                                               : carried == nil ? "this doz carries no sound kernel — doz create --audio is not available"
-                                                                : "the sound kernel beside this doz is damaged (sha256 differs) — reinstall doz")
-                                       + "; a host started from here asks macOS for the microphone as \(who)"))
+            let kernel = ok ? "the sound kernel is here (\(SoundKernel.fileName), sha256 checked)"
+                : carried == nil ? "this doz carries no sound kernel — a sandbox cannot have sound"
+                : "the sound kernel beside this doz is damaged (sha256 differs) — reinstall doz"
+            let status: DoctorCheck.Status = carried != nil && !ok ? .warn : (ok && permission == .denied && mode == SoundMode.on.rawValue ? .warn : .ok)
+            out.append(DoctorCheck(check: "sound", status: status,
+                                   detail: "sandbox.audio = \(mode) for new sandboxes; \(kernel); the microphone for \(who): \(permission.sentence(ask: ask))"
+                                       + (access.seamed ? " (test seam)" : "")))
         }
         // The recipes this doz uses: its own, or a verified recipe catalogue — and one waiting, or the last refused.
         let recipeLine = RecipeCatalogueSelection.describe(version: DozableCommand.version)
@@ -170,7 +192,7 @@ struct Doctor: AsyncParsableCommand {
                         detail += ", parent \(pp), NOT launchd — it lives in another process's tree, and stopping that tree stops it: doz host stop, then let a command start it again"
                     }
                 }
-                if let app = st.microphoneApp { detail += ", microphone asked as \(app) (audio sandboxes)" }
+                if let app = st.microphoneApp { detail += ", microphone asked as \(app) (sandboxes with sound)" }
                 // 591: its program changed under it — overwritten in place is a failure (its VMs are refused).
                 if let note = st.executableNote {
                     status = st.executableChange == "overwritten" ? .fail : (status == .ok ? .warn : status)
@@ -217,7 +239,7 @@ struct Doctor: AsyncParsableCommand {
             return DoctorCheck(check: "codex login", status: .ok, detail: "this Mac's Codex is signed in (ChatGPT)\(exp) · Codex sandboxes can use it as mac · renews while Codex runs on this Mac"
                                + (keep ? " · keep-alive on" : ""))
         case .expired:
-            return DoctorCheck(check: "codex login", status: .warn, detail: "this Mac's Codex login has expired — run codex on the Mac (it renews it), or turn on codex.keep_alive")
+            return DoctorCheck(check: "codex login", status: .warn, detail: "this Mac's Codex login has expired — run codex on the Mac (it renews it), or turn on Codex's keep_alive (doz config set --agent codex keep_alive true)")
         case .signedOut:
             return DoctorCheck(check: "codex login", status: .ok, detail: "this Mac's Codex is not signed in — Codex sandboxes need another account (doz account add NAME --chatgpt)")
         case .keyring, .apiKey, .unreadable:

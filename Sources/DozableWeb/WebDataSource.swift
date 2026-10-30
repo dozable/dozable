@@ -478,15 +478,17 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
         }
         // 597: what the agent can do (and, with a host, what it was refused lately).
         let perms = (try? await query(HostRequest(.netPermissions, name: name)).0.decode(PermissionReport.self)).map(WebPermissions.init)
+        let macPort = info.info.localModelPort, macHost = macPort == nil ? nil : MacModelServer.hostName      // 660
         guard store.hostIsRunning() else {
             return WebNetwork(name: name, proxied: true, mode: info.info.network, policy: info.policy.map(WebPolicy.init), log: [], logTotal: 0,
                               denied: 0, logAvailable: false, note: "the connection log lives in the host, from its start — no host is running",
-                              permissions: perms)
+                              permissions: perms, macPort: macPort, macHost: macHost)
         }
         let recs = try await query(HostRequest(.netLog, name: name)).0.decode([ConnectionRecord].self)
         return WebNetwork(name: name, proxied: true, mode: info.info.network, policy: info.policy.map(WebPolicy.init),
                           log: recs.suffix(logLimit).map(WebConnection.init), logTotal: recs.count,
-                          denied: recs.filter { $0.verdict == .denied }.count, logAvailable: true, note: nil, permissions: perms)
+                          denied: recs.filter { $0.verdict == .denied }.count, logAvailable: true, note: nil, permissions: perms,
+                          macPort: macPort, macHost: macHost)
     }
 
     public func images() async throws -> [WebImage] {

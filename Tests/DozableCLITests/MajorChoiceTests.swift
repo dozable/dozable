@@ -104,16 +104,28 @@ final class MajorChoiceTests: XCTestCase {
             XCTAssertTrue("\($0)".contains("openrouter") && "\($0)".contains("doz models"), "\($0)")
         }
         XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: opencode@2\nmodel: 'a b'\n"))
-        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: anthropic\n")) {
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: codex\nmodel_source: openai\n")) {
             XCTAssertTrue("\($0)".contains("no choice of model"), "\($0)")
         }
+        // 660: Claude Code has a choice now — a gateway, or a model server on this Mac (its port and model required).
+        let local = try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: local\nlocal_port: 11434\nmodel: qwen3-coder\n")
+        XCTAssertEqual(local.localPort, 11434)
+        XCTAssertEqual(local.createOptions(folder: URL(fileURLWithPath: "/tmp/p"), file: URL(fileURLWithPath: "/tmp/p/doz_project.yaml")).localPort, 11434)
+        XCTAssertTrue(local.render().contains("local_port: 11434"), local.render())
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: local\nmodel: qwen3-coder\n")) {
+            XCTAssertTrue("\($0)".contains("local_port"), "\($0)")
+        }
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nlocal_port: 11434\n")) {
+            XCTAssertTrue("\($0)".contains("only with model_source: local"), "\($0)")
+        }
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: p\nagent: claude-code\nmodel_source: local\nlocal_port: 80\nmodel: m\n"))
         // An agent with a choice gets the keys as comments; one without does not.
         var plain = DozableProject(name: "p", image: "opencode2")
         plain.agent = "opencode@2"
         XCTAssertTrue(plain.render().contains("# model_source:"), plain.render())
-        var cc = DozableProject(name: "p", image: "claude-code")
-        cc.agent = "claude-code"
-        XCTAssertFalse(cc.render().contains("model_source"))
+        var cx = DozableProject(name: "p", image: "codex")
+        cx.agent = "codex"
+        XCTAssertFalse(cx.render().contains("model_source"))
         // The plan's file says them.
         let planned = try plan("try", ["--agent", "opencode@2", "--gateway", "openrouter", "--model", "anthropic/claude-sonnet-4.6"])
         XCTAssertTrue(planned.yaml.contains("model_source: openrouter"), planned.yaml)

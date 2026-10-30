@@ -91,8 +91,11 @@ struct ChoiceOptions: ParsableArguments {
     @Option(name: .long, help: "A custom key to attach beside the account (doz account add NAME --custom …); repeatable. Each of its hosts must be allowed (--allow site:HOST).")
     var key: [String] = []
 
-    @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default. opencode-zen (OpenCode 2): OpenCode Zen's free models, no key and no account.")
+    @Option(name: .long, help: "The model provider a tool or recipe agent uses — anthropic, openai, xai, google (doz try AGENT --dry-run lists what it can use). Its account is then a key of that provider: --account, else that provider's default. opencode-zen (OpenCode 2): OpenCode Zen's free models, no key and no account. local (Claude Code): a model server on this Mac — with --local-port and --model, no key.")
     var provider: String?
+
+    @Option(name: .long, help: "With --provider local: the port of the model server on this Mac (Ollama 11434, LM Studio 1234, llama-server 8080, LiteLLM 4000) — the ONE port of this Mac the sandbox reaches, as mac.dozable.internal:PORT. Nothing else on this Mac's localhost is reachable from a sandbox.")
+    var localPort: Int?
 
     @Option(name: .long, help: "The model gateway a tool or recipe agent goes through — openrouter (one key, many models). Its account is then a key of that gateway.")
     var gateway: String?
@@ -111,10 +114,24 @@ struct ChoiceOptions: ParsableArguments {
         if let p = provider, ModelSources.isGateway(p) { throw ValidationError("\(p) is a gateway: --gateway \(p)") }
         if let s = provider ?? gateway { o.modelSource = s }
         if let m = model { o.model = m }
+        // 660: a model server on this Mac — its port (checked with the rest by the host and the plan).
+        if let p = localPort {
+            guard provider.map(ModelSources.isLocal) == true else { throw ValidationError("--local-port is for a model server on this Mac: --provider local --local-port \(p)") }
+            if let why = MacModelServer.portProblem(p) { throw ValidationError("--local-port: \(why)") }
+            o.localPort = p
+        }
     }
 
-    // EXPERIMENTAL (604): an audio sandbox.
-    @Flag(name: .long, help: ArgumentHelp("EXPERIMENTAL: give the sandbox the Mac's microphone and speakers (a sound device and its own kernel; doz-sound inside to record and play). macOS asks about the microphone for the app that started doz.",
+    // 669 (659 Q7): the agent's own approval prompts for this sandbox — its recipe's approvals setting, its own value.
+    @Option(name: .long, help: "skip or ask: the agent's own approval prompts in this sandbox — skipped (the sandbox is the boundary) or asked, as on a Mac (default: its recipe's approvals setting, skip — doz config show --agent ID). Later: doz config set --sandbox NAME approvals ask.")
+    var approvals: String?
+
+    // 604 → 667: sound — the setting sandbox.audio for this sandbox; --audio is --sound on.
+    @Option(name: .long, help: ArgumentHelp("off, speakers or on: sound — programs in the sandbox play through this Mac's speakers, and with on record from its microphone once macOS allows it (doz asks at the first start; macOS asks for the app that started doz). A sound device and Dozable's sound kernel, so chosen now (default: the setting sandbox.audio, off).",
+                                            visibility: BuildFlavor.current.isPublic ? .hidden : .default))
+    var sound: String?
+
+    @Flag(name: .long, help: ArgumentHelp("The same as --sound on: the Mac's speakers and microphone.",
                                           visibility: BuildFlavor.current.isPublic ? .hidden : .default))
     var audio = false
 
@@ -218,7 +235,8 @@ struct ChoiceOptions: ParsableArguments {
             if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.agentSudo = agentSudo
-        if audio, BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
+        if audio, sound != nil { throw ValidationError("--audio or --sound, not both (--audio is --sound on)") }
+        if audio || (sound != nil && sound != SoundMode.off.rawValue), BuildFlavor.current.isPublic { throw ValidationError(BuildFlavor.audioMissing) }   // 611
         o.audio = audio ? true : nil
         // 597 (P6): --allow web,site:api.example.com,-error-reports
         var words = allow.flatMap { $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) } }.filter { !$0.isEmpty }
@@ -271,6 +289,12 @@ struct ChoiceOptions: ParsableArguments {
         if let tmux { s[SettingKey.tmux] = .bool(tmux) }
         try take(SettingKey.ignoreMode, ignoreMode, "--ignore-mode")
         try take(SettingKey.workspaceView, workspaceView, "--workspace-view")
+        try take(SettingKey.audio, sound, "--sound")            // 667
+        // 669: --approvals skip|ask (the host checks the agent has prompts to skip).
+        if let a = approvals {
+            guard let d = DozableSettings.sandboxDefinition(SettingKey.sandboxApprovals), let v = try? d.parse(a) else { throw ValidationError("--approvals: skip or ask") }
+            s[SettingKey.sandboxApprovals] = v
+        }
         return s.isEmpty ? nil : s
     }
 
@@ -303,7 +327,7 @@ struct ChoiceOptions: ParsableArguments {
         image != nil || cpus != nil || memory != nil || workspace != nil || network != nil || subnet != nil || account != nil || agentPrompt != nil || isolated || agentSudo != nil
             || agent != nil || base != nil || dockerfile != nil || !allow.isEmpty
             || clipboard != nil || browserBridge != nil || openFiles != nil || tmux != nil || github != nil || sshAgent != nil
-            || ignoreMode != nil || workspaceView != nil || dotfiles != nil
+            || ignoreMode != nil || workspaceView != nil || dotfiles != nil || sound != nil || audio || approvals != nil
     }
 }
 
@@ -731,6 +755,14 @@ struct Up: AsyncParsableCommand {
                 if !create.key.isEmpty { o.keys = create.key }          // 617: custom keys given here win over the file's
                 try create.applyModelSource(to: &o)                       // 617 (models@1)
                 if let d = try create.dotfilesChoice() { o.dotfiles = d }  // 657: --dotfiles wins over the file's
+                // 669: what a flag here gave is the flag's, not the project's.
+                var flagged = Set(try create.sandboxSettings()?.keys.map { $0 } ?? [])
+                if create.cpus != nil { flagged.insert("cpus") }
+                if create.memory != nil { flagged.insert(RecipeSettings.memory) }
+                if create.network != nil { flagged.insert(RecipeSettings.network) }
+                if create.image != nil || create.agent != nil { flagged.insert(RecipeSettings.version) }
+                o.fromProject = o.fromProject?.filter { !flagged.contains($0) }
+                if o.fromProject?.isEmpty == true { o.fromProject = nil }
                 if dryRun { printPlan(try await requestPlan(PlanRequest(purpose: "up", name: name, create: o), g), g); return }
                 await ModelNote.check(o, g)                               // 618
                 // 594: doz_project.yaml's image and account are checked like any create.
@@ -858,13 +890,17 @@ struct Up: AsyncParsableCommand {
             }
         }
         // 599: a per-sandbox setting changed in the file → the sandbox's own value follows it.
-        for k in DozableProject.settingKeys where cfg.settings?[k.setting] != project.settings[k.setting] {
+        // 669: recorded as the project's (`from: project`); approvals only for an agent with prompts to skip.
+        for k in DozableProject.settingKeys where cfg.settings?[k.setting] != project.settings[k.setting]
+            || (project.settings[k.setting] != nil && cfg.settingsFrom?[k.setting] != "project") {
+            if k.setting == SettingKey.sandboxApprovals, DozableSettings.approvalsKey(image: cfg.spec.imageSpec?.name) == nil { continue }
             var s = HostRequest(.sandboxSettings, name: name)
             s.setting = k.setting
+            s.settingFrom = "project"
             if let v = project.settings[k.setting] { s.settingValue = v } else { s.clearSetting = true }
             _ = try call(s, g)
-            if !g.quiet && !g.json {
-                let applies = DozableSettings.definition(k.setting)?.applies.note ?? ""
+            if !g.quiet && !g.json, cfg.settings?[k.setting] != project.settings[k.setting] {
+                let applies = DozableSettings.sandboxDefinition(k.setting)?.applies.note ?? ""
                 Out.stderr("[doz] \(k.key) \(project.settings[k.setting].map(\.plain) ?? "removed (the setting \(k.setting) decides)") in \(DozableProject.fileName) — \(applies)\n")
             }
         }

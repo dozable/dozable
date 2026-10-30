@@ -59,6 +59,8 @@ public struct DozableProject: Equatable, Sendable {
     /// 618: where the model comes from (a provider or gateway the agent is offered) and the model (an id) — when made.
     public var modelSource: String?
     public var model: String?
+    /// 660: `model_source: local` — the port of the model server on this Mac (the one port of it the sandbox reaches).
+    public var localPort: Int?
     /// 657: this sandbox's dotfiles — a git repository's https:// URL, a folder on the Mac (absolute or ~/…), or `none`.
     /// nil: the setting `sandbox.dotfiles` decides. When the sandbox is made.
     public var dotfiles: String?
@@ -89,6 +91,11 @@ public struct DozableProject: Equatable, Sendable {
          "# ignore_mode: lock          # what .dozignore does to the paths it lists: lock (listed, no access) or hide (not there). At the next start or wake"),
         ("workspace_view", SettingKey.workspaceView,
          "# workspace_view: on         # on: /workspace through the live view (programs keep their folder across a wake); off: shared directly. At the next start"),
+        ("audio", SettingKey.audio,
+         "# audio: off                 # sound: speakers (the Mac's), or on (+ the Mac's microphone, once macOS allows it). When the sandbox is made"),
+        // 669 (659 Q7): the agent's own approval prompts — its recipe's approvals setting, for this sandbox.
+        ("approvals", SettingKey.sandboxApprovals,
+         "# approvals: skip            # the agent's own approval prompts: skip (the sandbox is the boundary) or ask. From the next session"),
     ]
 
     /// The keys, in the order the file lists them, with what each says.
@@ -112,9 +119,12 @@ public struct DozableProject: Equatable, Sendable {
         ("keys", "custom keys attached beside the account (doz account add NAME --custom …), each of its hosts allowed — when the sandbox is made"),
         ("model_source", "where the model comes from: a provider or gateway the agent is offered (anthropic, openai, xai, google, openrouter — doz models); default: its own — when the sandbox is made"),
         ("model", "a model id of that source (doz models --gateway openrouter); default: the source's own — when the sandbox is made"),
+        ("local_port", "with model_source: local — the port of the model server on this Mac (Ollama 11434, LM Studio 1234): the one port of this Mac the sandbox reaches — when the sandbox is made"),
         ("dotfiles", "your dotfiles: a git repository's https:// URL, a folder on your Mac (absolute or ~/…), or none (default: the setting sandbox.dotfiles) — applied at its first start; doz dotfiles NAME --update moves it on"),
     ] + settingKeys.map { k in
-        (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
+        k.setting == SettingKey.sandboxApprovals
+            ? (k.key, "skip | ask: this sandbox's agent's approval prompts (default: its recipe's approvals setting, doz config show --agent ID)")
+            : (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
     }
 
     public struct Invalid: Error, LocalizedError, Equatable {
@@ -191,11 +201,16 @@ public struct DozableProject: Equatable, Sendable {
     /// agent is offered, the model an id (`ModelSelection.isModelID`). The fix names the choices.
     public func modelProblem() -> String? {
         if let m = model, !ModelSelection.isModelID(m) { return "model: a model id — letters, digits and . _ : / @ + - (doz models)" }
+        if localPort != nil, modelSource.map(ModelSources.isLocal) != true { return "local_port: only with model_source: local" }
         guard modelSource != nil || model != nil else { return nil }
         let offered = AgentCredentials.sources(chosenImage) ?? []
         let tool = AgentKind(rawValue: ImageChoice.parse(chosenImage)?.agent.rawValue ?? "")?.recipe?.title ?? "this agent"
         guard !offered.isEmpty else { return "model_source and model: \(tool) has no choice of model (leave them out)" }
         if let s = modelSource, !offered.contains(s) { return "model_source: \(Self.modelSourceWords(offered))" }
+        // 660: a model server on this Mac needs its port and a model; a port is for nothing else.
+        if let p = HostCore.localSourceProblem(source: modelSource, port: localPort, model: model) {
+            return modelSource.map(ModelSources.isLocal) == true ? "local_port and model: \(p.text)" : "local_port: only with model_source: local"
+        }
         return nil
     }
 
@@ -277,6 +292,9 @@ public struct DozableProject: Equatable, Sendable {
         } else if offered.count > 1 {
             out += "# model_source: \(offered[0])     # \(Self.modelSourceWords(offered)) — when made\n"
         }
+        if let p = localPort {
+            out += "local_port: \(p)            # the model server on this Mac: the one port of it the sandbox reaches — when made\n"
+        }
         if let m = model {
             out += "model: \(quoted(m))   # a model id of that source (doz models) — when made\n"
         } else if offered.count > 1 || modelSource != nil {
@@ -354,6 +372,13 @@ public struct DozableProject: Equatable, Sendable {
             if ref.qualifier != nil || ref.family != nil || ref.prefix != nil { o.agentRef = ref.text }   // 654: a qualified name too
         }
         o.settings = settings.isEmpty ? nil : settings
+        // 669: what this file gives is recorded `from: project` (its settings, and its when-made values).
+        var mine = Array(settings.keys)
+        if cpus != nil { mine.append("cpus") }
+        if memoryMiB != nil { mine.append(RecipeSettings.memory) }
+        if network != nil { mine.append(RecipeSettings.network) }
+        if let a = agent, (try? AgentRef.resolve(a))?.exact != nil { mine.append(RecipeSettings.version) }
+        o.fromProject = mine.isEmpty ? nil : mine.sorted()
         // 599f: permissions: words on Standard (a preset word replaces it); 599d: github: → its two permissions.
         var words: [String] = []
         if let p = permissions {
@@ -368,6 +393,7 @@ public struct DozableProject: Equatable, Sendable {
         if let k = keys, !k.isEmpty { o.keys = k }
         o.modelSource = modelSource                  // 618
         o.model = model
+        o.localPort = localPort                      // 660
         o.dotfiles = dotfiles                        // 657
         o.project = file.path
         // 596 (B6): a Dockerfile relative to this folder (its folder is the build context).
@@ -393,18 +419,18 @@ public struct DozableProject: Equatable, Sendable {
     /// network setting, else the image's own default (an agent image: agent; lab: bake).
     public func effectiveNetwork(settings: DozableSettings) -> String {
         if let n = network { return n }
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
-        return settings.string(SettingKey.network(section)) ?? (section == "lab" ? "bake" : "agent")
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
+        return settings.string(keys.network) ?? (image == "lab" ? "bake" : "agent")
     }
 
     /// 599f: what the file sets differently from the settings' defaults is kept; a value EQUAL to its
     /// default (as the wizard and `doz init` pre-fill it) is left out, so the file follows the settings.
     /// `explicit` names the keys the person set on purpose (or the existing file set): those are kept.
     public mutating func dropDefaults(settings: DozableSettings, explicit: Set<String>) {
-        let section = DozableSettings.imageSection(imageSpecName: image == "lab" ? nil : image)
+        let keys = DozableSettings.imageKeys(imageSpecName: image == "lab" ? nil : image)
         if !explicit.contains("cpus"), cpus == settings.int(SettingKey.cpus) { cpus = nil }
-        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(SettingKey.memory(section))) { memoryMiB = nil }
-        if !explicit.contains("network"), network == settings.string(SettingKey.network(section)) { network = nil }
+        if !explicit.contains("memory"), let m = memoryMiB, m == UInt64(settings.int(keys.memory)) { memoryMiB = nil }
+        if !explicit.contains("network"), network == settings.string(keys.network) { network = nil }
         if !explicit.contains("permissions"), let p = permissions,
            p == (SettingType.permissionWords(settings.string(SettingKey.permissions) ?? "standard") ?? ["standard"]) { permissions = nil }
         if !explicit.contains("account"), account == "default" { account = nil }
@@ -413,7 +439,9 @@ public struct DozableProject: Equatable, Sendable {
         if !explicit.contains("agent_sudo"), agentSudo == settings.bool(SettingKey.agentSudo) { agentSudo = nil }
         if !explicit.contains("dotfiles"), let d = dotfiles, d == (settings.string(SettingKey.dotfiles) ?? "") { dotfiles = nil }
         for k in Self.settingKeys where !explicit.contains(k.key) {
-            if let v = self.settings[k.setting], v == settings.resolve(k.setting).value { self.settings[k.setting] = nil }
+            // 669: approvals is compared with its recipe's (this project's agent's) setting.
+            let key = k.setting == SettingKey.sandboxApprovals ? DozableSettings.approvalsKey(image: image) : k.setting
+            if let v = self.settings[k.setting], let key, v == settings.resolve(key).value { self.settings[k.setting] = nil }
         }
     }
 

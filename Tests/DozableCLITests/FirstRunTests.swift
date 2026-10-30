@@ -11,7 +11,9 @@ final class FirstRunTests: XCTestCase {
     func kind(_ id: String) throws -> AgentKind { try XCTUnwrap(AgentKind(rawValue: id)) }
 
     func testEveryAgentGetsItsOwnSitesAtCreateAndTheyAreNeverASwitch() throws {
-        XCTAssertEqual(AgentPermissions.agentPermissions(try kind("claude-code")), ["vendor:claude-code"])
+        // 660: and Claude Code's gateways (OpenRouter, Vercel AI Gateway) — never a model server on this Mac (no host).
+        XCTAssertEqual(AgentPermissions.agentPermissions(try kind("claude-code")), ["vendor:claude-code", "sources:claude-code"])
+        XCTAssertEqual(AgentPermissions.permission("sources:claude-code")?.hosts.map(\.host), ["openrouter.ai", "ai-gateway.vercel.sh"])
         XCTAssertEqual(AgentPermissions.agentPermissions(try kind("pi")), ["vendor:pi", "sources:pi"], "618: and pi's other model sources")
         XCTAssertEqual(AgentPermissions.agentPermissions(try kind("codex")), [AgentPermissions.openAIModel, "vendor:codex"])
         for id in ["vendor:claude-code", "vendor:pi", "vendor:codex"] {

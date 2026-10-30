@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -87,7 +87,7 @@ build: ## Build every product (and the VM test host)
 # `make test-vm-claude DOZ_TEST_REAL_MAC=1` (e.g. to add this Mac's own Claude login, read-only).
 TEST_SCRATCH ?= $(or $(TMPDIR),/tmp/)doz-test
 TEST_XDG     ?= $(TEST_SCRATCH)-xdg
-TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes
+TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes sound-kernel
 ifneq ($(DOZ_TEST_REAL_MAC),1)
 $(TEST_TARGETS): export DOZ_TEST_GUARD := 1
 $(TEST_TARGETS): export DOZ_TEST_NO_MAC_LOGIN := 1
@@ -463,6 +463,9 @@ tmux: ## Rebuild the guest tmux (3.8, static, from sha256-pinned sources with th
 tmux-verify: ## Rebuild the guest tmux from its pinned sources, from scratch, and check the committed bytes match
 	FORCE=1 Guest/tmux/build.sh
 	@cmp $(TMUX_OUT) $(TMUX_RES) && echo "ok tmux: the committed binary is exactly what the pinned sources build"
+
+sound-kernel: vmtest-host ## 667: build the sound kernel from source (Guest/sound-kernel/, twice, in a throwaway ubuntu VM; network; ~8 min) into SOUND_KERNEL_OUT (default .build/sound-kernel) and check its sha256 is SoundKernel.sha256 — CI: .github/workflows/sound-kernel.yml
+	Scripts/sound-kernel.sh
 
 docs-drift-check: ## 589: the CLI reference's documented command names vs real `doz --help` (cheap; names only); the user manual's commands, flags, settings and links (docs/manual)
 	@JOBS=$(JOBS) SWIFT_BUILD_SYSTEM="$(SWIFT_BUILD_SYSTEM)" Scripts/docs-drift-check.sh

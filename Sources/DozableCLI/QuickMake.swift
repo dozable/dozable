@@ -64,7 +64,8 @@ struct QuickMake {
         // The key: the plan's account, else the card (a terminal), else the problem and how to fix it.
         if let p = planned.problems.first(where: { $0.code == "key" }) {
             guard interactive else { throw fail(HostError(.invalid, p.text), g) }
-            if recipe.isBuiltin {
+            // 660: a built-in agent through another source (Claude Code via OpenRouter) asks for that source's key too.
+            if recipe.isBuiltin, o.modelSource.map({ $0 == recipe.provider || ModelSources.isKeyless($0) }) ?? true {
                 try preflightAgentAccount(&o, g)
             } else if let s = o.modelSource, s != recipe.provider {
                 // 617 (models@1): another provider or a gateway — a key of THAT source.

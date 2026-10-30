@@ -13,6 +13,15 @@ final class LocalDashboardsTests: XCTestCase {
         XCTAssertTrue(LocalDashboards.refuses(host: "localhost", port: 7443))
         XCTAssertTrue(LocalDashboards.refuses(host: "::1", port: 7443))
         XCTAssertTrue(LocalDashboards.refuses(host: "0.0.0.0", port: 7443), "the unspecified address reaches this Mac too")
+        // IPv4-mapped IPv6 is its IPv4 address (by name resolution and by the raw bytes).
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:127.0.0.1", port: 7443))
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:127.1.2.3", port: 7443))
+        XCTAssertTrue(LocalDashboards.refuses(host: "::ffff:0.0.0.0", port: 7443))
+        XCTAssertFalse(LocalDashboards.refuses(host: "::ffff:198.51.100.7", port: 7443), "a mapped address of another host: allowed")
+        let mapped = { (v4: [UInt8]) in [UInt8](repeating: 0, count: 10) + [0xFF, 0xFF] + v4 }
+        XCTAssertTrue(LocalDashboards.isThisMac(mapped([127, 0, 0, 1])))
+        XCTAssertTrue(LocalDashboards.isThisMac(mapped([0, 0, 0, 0])))
+        XCTAssertFalse(LocalDashboards.isThisMac(mapped([198, 51, 100, 7])))
         // Each of this Mac's own interface addresses.
         var list: UnsafeMutablePointer<ifaddrs>?
         XCTAssertEqual(getifaddrs(&list), 0)
@@ -48,12 +57,15 @@ final class LocalDashboardsTests: XCTestCase {
         var len = socklen_t(MemoryLayout<sockaddr_in>.size)
         _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
         let port = UInt16(bigEndian: a.sin_port)
-        let open = Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000)
-        XCTAssertGreaterThanOrEqual(open, 0, "unprotected: it connects")
+        // 660: a sandbox's connection never reaches this Mac's loopback at all; the one route that may (a model server's
+        // named port) is still refused a dashboard's port.
+        XCTAssertEqual(Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000), -1, "the loopback: never, by default")
+        let open = Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000, allowLoopback: true)
+        XCTAssertGreaterThanOrEqual(open, 0, "unprotected, and allowed the loopback: it connects")
         if open >= 0 { close(open) }
         LocalDashboards.protect { [port] }
-        XCTAssertEqual(Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000), -1, "a dashboard's port: never")
-        XCTAssertEqual(Wire.connectTCP("localhost", port, timeoutMS: 1000), -1)
+        XCTAssertEqual(Wire.connectTCP("127.0.0.1", port, timeoutMS: 1000, allowLoopback: true), -1, "a dashboard's port: never")
+        XCTAssertEqual(Wire.connectTCP("localhost", port, timeoutMS: 1000, allowLoopback: true), -1)
     }
 
     func testNothingIsProtectedUntilTheHostSaysSo() {

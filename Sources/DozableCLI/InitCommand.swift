@@ -45,6 +45,7 @@ struct Init: AsyncParsableCommand {
     // 618: where the model comes from and which model (the file's model_source: / model:).
     @Option(name: .long, help: "A provider the agent is offered (the file's model_source:): anthropic, openai, xai, google; opencode-zen (no key).") var provider: String?
     @Option(name: .long, help: "A gateway the agent is offered (the file's model_source:): openrouter.") var gateway: String?
+    @Option(name: .long, help: "With --provider local: the port of the model server on this Mac (the file's local_port:).") var localPort: Int?
     @Option(name: .long, help: "A model id of that source (the file's model:; doz models).") var model: String?
     @Flag(name: [.short, .long], help: "Accept every default; ask nothing.") var yes = false
     @Flag(name: .long, help: "Replace an existing project file without asking.") var force = false
@@ -198,6 +199,7 @@ struct Init: AsyncParsableCommand {
         if let x = provider, ModelSources.isGateway(x) { throw invalid("\(x) is a gateway: --gateway \(x)") }
         if let s = provider ?? gateway { p.modelSource = s }
         if let m = model { p.model = m }
+        if let lp = localPort { p.localPort = lp }          // 660 (problem() checks it with model_source)
         if let e = existing {
             // What the existing file set stays set (unless answered differently below).
             if e.cpus != nil { explicit.insert("cpus") }
@@ -209,7 +211,7 @@ struct Init: AsyncParsableCommand {
             if e.agentSudo != nil { explicit.insert("agent_sudo") }
             for k in DozableProject.settingKeys where e.settings[k.setting] != nil { explicit.insert(k.key) }
         }
-        let section = DozableSettings.imageSection(imageSpecName: img == "lab" ? nil : img)
+        let imageKeys = DozableSettings.imageKeys(imageSpecName: img == "lab" ? nil : img)
 
         // 3. Account (the agent's credential prerequisite is checked after the questions).
         step("account")
@@ -297,7 +299,7 @@ struct Init: AsyncParsableCommand {
             let c = asker.text("Virtual CPUs", default: String(p.cpus ?? settings.int(SettingKey.cpus))) { Int($0).map { (1...64).contains($0) } == true ? nil : "1–64" }
             p.cpus = Int(c)
         }
-        let memDefault = p.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section)))
+        let memDefault = p.memoryMiB ?? UInt64(settings.int(imageKeys.memory))
         if let m = memory {
             guard let v = DozableImages.parseMemory(m) else { throw invalid("--memory: \(m) is not a size (2G, 512M, 2048)") }
             p.memoryMiB = v

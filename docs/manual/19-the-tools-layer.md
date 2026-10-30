@@ -1,11 +1,13 @@
-# The tools layer
+# Managed tools
 
 Some settings need a tool inside the sandbox to be useful: "GitHub as you" is best with `gh`, SSH agent
 forwarding needs an ssh client and GitHub's host keys, tmux sessions need tmux. Dozable puts them there for
-you — the **tools layer**: the tools Dozable manages in each sandbox, chosen by its settings. It works on
-every base (Debian, Ubuntu, Alpine, your own Dockerfile) and never rebuilds an image.
+you — the **managed tools**: tools Dozable supports natively, each chosen by its own settings, added to each
+sandbox and never baked into an image. They support the agent a sandbox runs (its recipe's); they are not
+it. It works on every base (Debian, Ubuntu, Alpine, your own Dockerfile) and never rebuilds an image.
+(`doz tools`, `doz doctor` and Resources still call them the *tools layer*.)
 
-## Tools Dozable provides
+## Tools Dozable manages
 
 | tool | when | how it gets there |
 |---|---|---|
@@ -27,7 +29,7 @@ Dozable's tmux arrived keeps it until it ends.
 
 ## When it runs
 
-- **The first start** of a sandbox sets the layer up and shows each tool as a step (on a terminal with `-v`, or with
+- **The first start** of a sandbox sets its managed tools up and shows each as a step (on a terminal with `-v`, or with
   `--progress plain`; by default only a tool that fails is shown):
 
   ```
@@ -43,7 +45,7 @@ Dozable's tmux arrived keeps it until it ends.
 - **In the dashboard's New sandbox wizard**, the last step is **Setting up tools**: each tool with why it
   is there, the start's progress, then ✓ or ✗. A failure never stops you — **Retry**, or **Continue
   anyway**, then **Open the sandbox**.
-- **Every later start and wake** checks the layer again, quietly: a setting you turned on while the
+- **Every later start and wake** checks them again, quietly: a setting you turned on while the
   sandbox slept is delivered then, one you turned off is removed. You see a notice only when something
   changed or failed. Changing a setting while the sandbox runs applies at once.
 - **Never fatal.** An offline Mac, a refused download or a package mirror that doesn't answer is a ✗ with
@@ -74,7 +76,7 @@ safe: it is downloaded again the next time a sandbox needs it).
 - Packages come from your image's own mirrors (Debian, Ubuntu, Alpine) — allowed by the **Install
   software › System packages** permission, on in Standard. With a network that can't reach them
   (`--network none`), a missing package is reported, not installed.
-- Images are never rebuilt for the layer, and preparing an image never runs it: what an image holds stays
+- Images are never rebuilt for the managed tools, and baking an image never adds them: a baked image holds
   exactly its recipe.
 
 See also: [GitHub as you](18-github.md), [Terminals and sessions](07-terminals-and-sessions.md),

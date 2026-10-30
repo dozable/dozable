@@ -80,10 +80,22 @@ final class RecipeSchemaTests: XCTestCase {
             ("an unknown gateway level", { editConfig(&$0, T.gateways) { c in var e = c["entries"] as! [[String: Any]]; if e.isEmpty { e = [["gateway": "openrouter"]] }; e[0]["level"] = "maybe"; c["entries"] = e } }),
             ("an unknown tag level", { editConfig(&$0, T.directory) { c in var tg = c["tags"] as! [[String: Any]]; tg[0]["level"] = "maybe"; c["tags"] = tg } }),
             ("an unknown key in a tag", { editConfig(&$0, T.directory) { c in var tg = c["tags"] as! [[String: Any]]; tg[0]["colour"] = "red"; c["tags"] = tg } }),
+            // 669: a subject is a few lower-case words; settings@1 has closed types and never redefines a common option.
+            ("a subject that is a sentence", { editCap(&$0, T.directory) { $0["description"] = "The Coding Harness." } }),
+            ("a subject of six words", { editCap(&$0, T.directory) { $0["description"] = "a b c d e f" } }),
+            ("an own setting of an unknown type", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
+                "config": ["options": [["name": "speed", "type": "float", "default": 1, "summary": "x", "applies": "now"]]]]] }),
+            ("an own setting named like a common one", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
+                "config": ["options": [["name": "version", "type": "bool", "default": false, "summary": "x", "applies": "now"]]]]] }),
+            ("an unknown key in an own setting", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
+                "config": ["options": [["name": "fast", "type": "bool", "default": false, "summary": "x", "applies": "now", "secret": true]]]]] }),
         ]
         let accepted: [(String, (inout [String: Any]) -> Void)] = [
             ("another description", { $0["description"] = "Words." }),
             ("a capability's description", { editCap(&$0, T.install) { $0["description"] = "How it is installed." } }),
+            ("a subject (669)", { editCap(&$0, T.directory) { $0["description"] = "agentic fortune teller" } }),
+            ("an own setting (669)", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
+                "config": ["options": [["name": "fast", "type": "choice", "choices": ["yes", "no"], "default": "no", "summary": "Go fast.", "applies": "next-session"]]]]] }),
             ("a check with its exit and timeout", { editConfig(&$0, T.launch) { var c = $0["check"] as? [String: Any] ?? [:]; c["exit"] = 0; c["timeout"] = 300; $0["check"] = c } }),
         ]
         var v = JSONSchemaValidator()

@@ -44,10 +44,13 @@ final class RecipeHostTests: XCTestCase {
         XCTAssertEqual(ImageChoice.parse("debian-grok")?.name, "grok", "the long form of the default pair")
         XCTAssertEqual(Workspace.baseName(image: "grok"), "grok-sandbox")
         XCTAssertEqual(Workspace.baseName(image: "python-gemini"), "python-gemini-sandbox")
-        XCTAssertEqual(DozableSettings.imageSection(imageSpecName: "python-grok"), "grok")
-        XCTAssertEqual(SettingKey.agentVersion("gemini"), "images.gemini_version")
-        for k in ["images.gemini_version", "images.grok_version", "gemini.permissions", "grok.permissions", "images.grok.memory_mib", "images.gemini.network"] {
-            XCTAssertNotNil(DozableSettings.definition(k), k)
+        XCTAssertEqual(DozableSettings.imageKeys(imageSpecName: "python-grok").network, "recipes.xai.grok.network")
+        XCTAssertEqual(SettingKey.agentVersion("gemini"), "recipes.google.gemini.version")
+        // 669: the 0.37 names stay aliases of the new keys.
+        for (k, new) in [("images.gemini_version", "recipes.google.gemini.version"), ("images.grok_version", "recipes.xai.grok.version"),
+                         ("gemini.permissions", "recipes.google.gemini.approvals"), ("grok.permissions", "recipes.xai.grok.approvals"),
+                         ("images.grok.memory_mib", "recipes.xai.grok.memory_mib"), ("images.gemini.network", "recipes.google.gemini.network")] {
+            XCTAssertEqual(DozableSettings.definition(k)?.key, new, k)
         }
         let ask = DozableSettings(text: "[gemini]\npermissions = \"ask\"\n")
         XCTAssertEqual(HostCore.withClaudePermissions([:], imageSpec: "python-gemini", settings: ask), ["DOZ_GEMINI_PERMISSIONS": "ask"])

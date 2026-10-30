@@ -183,7 +183,7 @@ public enum UsageSwitches {
             s.why = switch r.source {
             case .flag: "off for this command: --no-send-anonymous-usage-stats"
             case .env: "off: $DOZ_SEND_ANONYMOUS_USAGE_STATS"
-            case .file, .default: "off: telemetry.send_anonymous_usage_stats = false"
+            case .mac, .default, .recipe, .sandbox, .project: "off: telemetry.send_anonymous_usage_stats = false"
             }
         } else {
             s.on = true
@@ -233,7 +233,7 @@ public struct UsageStatsStep: Equatable, Sendable {
                                   fixed: "$\(DozableSettings.definition(key)?.environment ?? "DOZ_SEND_ANONYMOUS_USAGE_STATS") decides it here")
         case .flag:
             return UsageStatsStep(on: resolved, stored: stored, fixed: "the command line of this doz ui decides it")
-        case .file, .default:
+        case .mac, .default, .recipe, .sandbox, .project:
             return UsageStatsStep(on: resolved, stored: stored, fixed: nil)
         }
     }

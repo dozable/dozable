@@ -18,6 +18,7 @@ final class ServeExposureTests: XCTestCase {
             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
+            .recipes,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -32,7 +33,7 @@ final class ServeExposureTests: XCTestCase {
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
-             .dotfilesResolve, .portOpen:
+             .dotfilesResolve, .portOpen, .recipes:
             return true
         }
     }

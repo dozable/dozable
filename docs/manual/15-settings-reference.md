@@ -1,58 +1,86 @@
 # Settings reference
 
-Every setting Dozable has is in one file, **`~/.config/doz/doz.toml`** (under
-`$XDG_CONFIG_HOME` when that is set). The file lists every setting with a description and its
-default, commented out; only the values you set are uncommented. An agent or tool's own settings
-(`images.ID_version`, `ID.permissions`, `[images.ID]`) are written there only once one of them is set —
-then its whole block, defaults commented as usual — so the file stays small however many agents Dozable
-offers; `doz config show --agent ID` lists them. The dashboard's **Settings** page shows and edits the
-same file.
+This Mac's settings are in one file, **`~/.config/doz/doz.toml`** (under `$XDG_CONFIG_HOME` when that
+is set). The file lists Dozable's own settings with a description and their default, commented out;
+only the values you set are uncommented. A **recipe's** own settings — the settings of the agent it
+installs: its `version`, `approvals`, `memory_mib`, `network`, and any the recipe declares — are a
+`[recipes.VENDOR.PRODUCT]` block (`[recipes.anthropic.claude-code]`), written only while one of them is
+set, so the file stays small however many recipes there are; `doz config show --agent ID` lists them.
+The dashboard's **Settings** page shows and edits the same file, and its **Recipes** section lists the
+recipes on this Mac.
 
 ## Where a value comes from
 
 For each setting, the first of these that says something wins:
 
-1. **a command-line flag** (for the few settings that have one — `--store`, `--progress`, `--color`/`--no-color`,
-   `doz create --cpus`, …);
+1. **a command-line flag** (for the settings that have one — `--store`, `--progress`, `--color`/`--no-color`,
+   `doz create --cpus`, `doz create --approvals`, …);
 2. **its environment variable** (`DOZ_STORE`, `DOZ_PROGRESS`, `DOZ_COLOR`, `DOZ_HOST_IDLE`, `DOZ_SCREEN_CAPTURE`,
    `DOZ_BOOT_LOGS`, `DOZ_SUBNET`, `DOZ_KERNEL`, `DOZ_KERNEL_CACHE`);
-3. **the file**;
-4. **the default**.
+3. **the sandbox's own value** (a setting one sandbox can have, below);
+4. **its project's** (`doz_project.yaml`: when the sandbox is made, and again at every `doz up`);
+5. **this Mac's** (the file);
+6. **the default** — the recipe's own, for a recipe's settings; Dozable's, for the rest.
 
-`doz config show` names the source of every value. A few settings can also be **one sandbox's own**
-(below); a sandbox's own value wins over the file's.
+`doz config show` names the source of every value, and the dashboard shows the same word as a badge:
+**recipe** · **default** · **Mac** · **project** · **sandbox** · **env** · **flag**. A value fixed when a
+sandbox is made (its agent's version, memory, network, its CPUs) is recorded in it with where it came
+from; changing this Mac's value later moves no existing sandbox (`doz reset NAME` moves its version).
 
 ## Read and change settings
 
 ```sh
-doz config                                  # every setting: value, source, default
+doz config                                  # Dozable's own settings: value, source, default — and the recipes in use
+doz config show --all                       # every setting, every recipe's too
 doz config get ui.theme                     # one value (--json adds its source and default)
-doz config set ui.theme dark                # write it to the file (checked against its type first)
+doz config set ui.theme dark                # write it to this Mac's file (checked against its type first)
 doz config unset ui.theme                   # back to the default (commented out again)
 doz config init                             # write the file with every setting commented out
-doz config show --agent grok                # one agent or tool's own settings
+doz config show --agent claude-code         # one recipe's settings: value, source, the recipe's default
+doz config set --agent claude-code version 2.1.290   # one of a recipe's settings, on this Mac
 doz config path                             # where the file is
 ```
 
-In the dashboard: **Settings** lists every setting with its value, default, description and source,
-and changes it in place (**Default** puts one back). A value set by an environment variable, and the
-settings that name a folder on your Mac, are shown read-only there — change them with
-`doz config set`.
+`--agent` takes a recipe's id (`claude-code`), a major (`opencode@2`) or its full name
+(`anthropic/claude-code`).
 
-### Per sandbox
+In the dashboard: **Settings** lists Dozable's settings with their value, default, description and
+source, and changes them in place (**Default** puts this Mac's value back to the default). Its
+**Recipes** section lists the recipes in use (a sandbox runs the agent) and the ones installed (a baked
+image of it is on this Mac, or you set one of its values); search the catalogue for the rest. A
+recipe's page has its settings, its baked images, its sandboxes and **Uninstall**. A value set by an
+environment variable, and the settings that name a folder on your Mac, are shown read-only there —
+change them with `doz config set`.
+
+### Per sandbox and per project
 
 `sandbox.clipboard`, `sandbox.browser_bridge`, `sandbox.open_files`, `sandbox.ssh_agent`,
-`sessions.tmux` and `sandbox.agent_sudo` can also be set for one sandbox:
+`sessions.tmux`, `sandbox.agent_sudo`, `sandbox.audio` and its agent's **`approvals`** can also be set for
+one sandbox (sound only between `speakers` and `on` — whether it has sound at all is chosen when it is
+made; see [Sound](23-sound.md)):
 
 ```sh
-doz config show --sandbox my-app                          # its values, and whose value each is
+doz config show --sandbox my-app                          # what it overrides, what it follows, what was recorded
 doz config set --sandbox my-app sandbox.clipboard off
+doz config set --sandbox my-app approvals ask             # its agent asks before it acts, from the next session
 doz config get --sandbox my-app sessions.tmux
-doz config unset --sandbox my-app sandbox.clipboard       # follow the setting again
+doz config unset --sandbox my-app sandbox.clipboard       # follow the project, else this Mac, again
+doz config set --project ~/code/my-app approvals ask      # the project's doz_project.yaml
 ```
 
-Or when you create it (`doz create --clipboard off --browser-bridge off --open-files off --ssh-agent on --tmux --no-agent-sudo`),
-or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`).
+Or when you create it (`doz create --clipboard off --browser-bridge off --open-files off --ssh-agent on --tmux --no-agent-sudo --sound on --approvals ask`),
+or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`, `audio:`, `approvals:`).
+The sandbox page's **Config** tab shows the same: its overrides first, with this Mac's value beside each
+and **Follow the Mac**.
+
+### The names before 0.37.34
+
+The recipe settings had other names before 0.37.34 (`images.claude_code_version`, `claude.permissions`,
+`images.claude-code.memory_mib`, …; the table below lists them). They still work: the file is read with them, and
+`doz config get|set|unset` takes them and says the new name. The first change written after the upgrade
+moves them to their new names and keeps the file as it was, once, as `doz.toml.0.37.bak` beside it. A
+base with no agent (`python`, `go`) keeps the memory and network it had: `defaults.memory_mib` and
+`defaults.network`, set from Claude Code's old values.
 
 "Use GitHub as you" is a permission, not a setting: `doz net allow NAME github:as-you` (and
 `github:push`), `doz create --github read|push`, `github:` in `doz_project.yaml` — see
@@ -131,138 +159,13 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `store.path` | `~/Library/Application Support/doz` | path ("" = automatic) | next command | `$DOZ_STORE`, `--store` | The store: images, kernels, sandboxes and the host's files. |
 
-### `[claude]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `claude.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CLAUDE_PERMISSIONS=… on run/exec` | Claude Code in a claude-code sandbox: skip its permission prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[codex]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `codex.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CODEX_PERMISSIONS=… on run/exec` | Codex in a codex sandbox: skip its approvals and its own Linux sandbox (the VM is the boundary), or ask as on a Mac. |
-| `codex.keep_alive` | `false` | boolean | at once | — | Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so. |
-
-### `[antigravity]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `antigravity.permissions` | `skip` | skip \| ask | next session | `-e DOZ_AGY_PERMISSIONS=… on run/exec` | Antigravity CLI in an antigravity sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[gemini]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `gemini.permissions` | `skip` | skip \| ask | next session | `-e DOZ_GEMINI_PERMISSIONS=… on run/exec` | Gemini CLI in a gemini sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[grok]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `grok.permissions` | `skip` | skip \| ask | next session | `-e DOZ_GROK_PERMISSIONS=… on run/exec` | Grok Build in a grok sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[gptme]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `gptme.permissions` | `skip` | skip \| ask | next session | `-e DOZ_GPTME_PERMISSIONS=… on run/exec` | gptme in a gptme sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[copilot]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `copilot.permissions` | `skip` | skip \| ask | next session | `-e DOZ_COPILOT_PERMISSIONS=… on run/exec` | GitHub Copilot CLI in a copilot sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[qwen-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `qwen-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_QWEN_PERMISSIONS=… on run/exec` | Qwen Code in a qwen-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[mistral-vibe]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `mistral-vibe.permissions` | `skip` | skip \| ask | next session | `-e DOZ_VIBE_PERMISSIONS=… on run/exec` | Mistral Vibe in a mistral-vibe sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[droid]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `droid.permissions` | `skip` | skip \| ask | next session | `-e DOZ_DROID_PERMISSIONS=… on run/exec` | Factory Droid in a droid sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[dirac]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `dirac.permissions` | `skip` | skip \| ask | next session | `-e DOZ_DIRAC_PERMISSIONS=… on run/exec` | Dirac in a dirac sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[kimi-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `kimi-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_KIMI_PERMISSIONS=… on run/exec` | Kimi Code in a kimi-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[openhands]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `openhands.permissions` | `skip` | skip \| ask | next session | `-e DOZ_OPENHANDS_PERMISSIONS=… on run/exec` | OpenHands CLI in an openhands sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[docker-agent]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `docker-agent.permissions` | `skip` | skip \| ask | next session | `-e DOZ_DOCKER_AGENT_PERMISSIONS=… on run/exec` | Docker Agent in a docker-agent sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[nanocoder]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `nanocoder.permissions` | `skip` | skip \| ask | next session | `-e DOZ_NANOCODER_PERMISSIONS=… on run/exec` | Nanocoder in a nanocoder sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[mini-swe-agent]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `mini-swe-agent.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MINI_PERMISSIONS=… on run/exec` | mini-swe-agent in a mini-swe-agent sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[open-interpreter]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `open-interpreter.permissions` | `skip` | skip \| ask | next session | `-e DOZ_INTERPRETER_PERMISSIONS=… on run/exec` | Open Interpreter in an open-interpreter sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[crush]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `crush.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CRUSH_PERMISSIONS=… on run/exec` | Crush in a crush sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[mimo-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `mimo-code.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MIMO_PERMISSIONS=… on run/exec` | MiMo Code in a mimo-code sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[codewhale]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `codewhale.permissions` | `skip` | skip \| ask | next session | `-e DOZ_CODEWHALE_PERMISSIONS=… on run/exec` | CodeWhale in a codewhale sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
-### `[maki]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `maki.permissions` | `skip` | skip \| ask | next session | `-e DOZ_MAKI_PERMISSIONS=… on run/exec` | Maki in a maki sandbox: skip its approval prompts (the sandbox is the boundary), or ask as on a Mac. |
-
 ### `[defaults]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `defaults.cpus` | `2` | integer 1–64 | new sandboxes | `doz create --cpus` | CPUs of a new sandbox. |
+| `defaults.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new sandbox whose image has no agent (a base alone: python, go). A recipe's sandboxes have their recipe's own (doz config show --agent ID), the lab its own (images.lab). |
+| `defaults.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new sandbox whose image has no agent: agent, bake, locked, open (proxied presets), nat or none. |
 | `defaults.nat_subnet` | `""` | IPv4 subnet, a.b.c.d/nn ("" = a free one) | new sandboxes | `$DOZ_SUBNET`, `doz create --subnet` | The vmnet subnet of a new --network nat sandbox. |
 | `defaults.image` | `lab` | lab \| claude-code \| pi \| codex, or an agent or tool's id (doz try lists them) | new sandboxes | `doz create --image` | The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose. |
 | `defaults.base` | `node` | node \| python \| go \| rust \| java \| ruby \| dotnet \| debian \| ubuntu \| alpine | new sandboxes | `doz try --base` | The base image of this store: every tool you try (Quick try, doz try, the setup's first sandbox) is added to it as a layer when no base is named, so a second tool downloads nothing more. doz onboard sets it. New sandbox and doz_project.yaml keep a tool's own default base unless you choose one. |
@@ -294,7 +197,7 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `resources.clean_unused_days` | `30` | integer 1–3650 | at once | — | Clean up (the Resources page, doz resources clean) removes a prepared image no sandbox was created from in this many days; it is prepared again when next needed. |
+| `resources.clean_unused_days` | `30` | integer 1–3650 | at once | — | Clean up (the Resources page, doz resources clean) removes a baked image no sandbox was created from in this many days; it is baked again when next needed. |
 
 ### `[sandbox]`
 
@@ -307,6 +210,8 @@ This table is generated from `doz config show` and checked against it on every b
 | `sandbox.open_files` | `on` | on \| off | at once | `doz create --open-files on\|off` | Open workspace files on this Mac: xdg-open PATH (and open PATH, doz-open PATH) in a sandbox opens a document from its /workspace in the Mac's default app — an html page in your browser, markdown in your editor — or a folder (the workspace itself, open .) in the Finder, and doz-open --reveal PATH shows a file selected in its folder; a notice every time (at most 3 in 10 s). Only the shared folder's own files (a link or .. that leads out is refused), only documents (html, md, pdf, images, txt, csv, json, yaml, xml…) — never an app or package folder, a script, an installer or an executable. An isolated sandbox has no file to open. An app other than the default only when it is in bridges.open_apps. off: nothing opens (said). A sandbox's own choice (doz config set --sandbox NAME, open_files in doz_project.yaml) wins over this. |
 | `sandbox.ssh_agent` | `off` | off \| on | at once | `doz create --ssh-agent on\|off` | Forward this Mac's SSH agent into the sandbox (proxied sandboxes): ssh and git over SSH there can ask your agent to sign — your keys never enter the sandbox — and only github.com:22 is reachable over SSH. A notice on first use. While it is on, the agent can authenticate as you to github.com. A sandbox's own choice (doz create --ssh-agent on, ssh_agent in doz_project.yaml, doz config set --sandbox NAME) wins over this. |
 | `sandbox.dotfiles` | `""` | a git repository's https:// URL, or a folder on this Mac that is one ("" = none) | new sandboxes | `doz create --dotfiles URL\|PATH\|none` | Your dotfiles in every new sandbox: a git repository (https://github.com/you/dotfiles — fetched on this Mac with its own git login, so a private one works and no credential enters the sandbox) or a folder on this Mac that is a git repository. A sandbox gets the commit it was made at, recorded; doz dotfiles NAME --update moves it on. At its first start, as its user: the repository's install script runs (the first of install.sh, install, bootstrap.sh, bootstrap, script/bootstrap, setup.sh, setup, script/setup — at most 5 minutes, its output in the boot log), or, with none, every dotfile and dot-folder at the top of the repository is linked into the home — never over a file that is there (only over the image's stock copy, kept as NAME.doz-stock), never over Dozable's own (the agents' settings and launchers). doz asks once per repository and commit before it is applied — it is code that runs in the sandbox. "" (the default): none. A sandbox's own choice (doz create --dotfiles, dotfiles in doz_project.yaml) wins over this. |
+| `sandbox.audio` | `off` | off \| speakers \| on | new sandboxes | `doz create --sound off\|speakers\|on (--audio = on)` | Sound in new sandboxes: off, speakers (this Mac's speakers) or on (its speakers and microphone). A sandbox with sound has a sound device and boots Dozable's sound kernel, so it is chosen at create; its own choice (doz create --sound, New sandbox › Sound) wins over this. Later a sandbox can move between speakers and on (doz config set --sandbox NAME sandbox.audio on), from its next start. It records from the Mac's microphone only if macOS allowed it before the sandbox started (else silence); sandbox.microphone_ask says when doz asks. |
+| `sandbox.microphone_ask` | `first_recording` | first_recording \| first_start | next start or wake | — | When doz asks macOS about the microphone for a sandbox whose sound is on, while macOS has no answer: first_recording (when a program in it first records — that recording is silent; allow, then Shut Down and Start the sandbox) or first_start (when it starts, waiting for your answer). |
 
 ### `[sessions]`
 
@@ -333,361 +238,12 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `github.credentials` | `gh` | gh \| key \| off | at once | — | Where "Use GitHub as you" (a permission, off by default) gets your GitHub login: gh (this Mac's gh login, read when used — gh auth token — and kept in memory a few minutes, never written anywhere; gh auth logout revokes it), key (only a token you give a sandbox with doz key set NAME --github — a fine-grained token limited to some repositories is best), or off (never, even with the permission on). The sandbox only ever sees a placeholder; Dozable's proxy puts the real token in on the way to GitHub. |
 
-### `[images]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.claude_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Claude Code the claude-code image is prepared with: latest (asked of the npm registry when the image is prepared, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake claude-code rebuilds when you choose) or an exact version like 2.1.227. A sandbox keeps the version it was created with; doz reset NAME moves it to the image's current one. |
-| `images.pi_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The pi coding agent the pi image is prepared with: latest or an exact version, as images.claude_code_version. |
-| `images.codex_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenAI Codex CLI the codex image (and every base's Codex image) is prepared with: latest or an exact version like 0.160.1, as images.claude_code_version. |
-| `images.antigravity_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Antigravity CLI the antigravity image (and every base's Antigravity CLI image) is prepared with: latest or an exact version like 1.3.4+5524158944247808, as images.claude_code_version. |
-| `images.gemini_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Gemini CLI the gemini image (and every base's Gemini CLI image) is prepared with: latest or an exact version like 0.63.0, as images.claude_code_version. |
-| `images.grok_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Grok Build the grok image (and every base's Grok Build image) is prepared with: latest or an exact version like 1.0.52, as images.claude_code_version. |
-| `images.fabric_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Fabric the fabric image (and every base's Fabric image) is prepared with: latest or an exact version like 1.4.518, as images.claude_code_version. |
-| `images.openclaw_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenClaw the openclaw image (and every base's OpenClaw image) is prepared with: latest or an exact version like 2026.10.3, as images.claude_code_version. |
-| `images.nanobot_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The nanobot the nanobot image (and every base's nanobot image) is prepared with: latest or an exact version like 0.3.5, as images.claude_code_version. |
-| `images.gptme_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The gptme the gptme image (and every base's gptme image) is prepared with: latest or an exact version like 0.34.0, as images.claude_code_version. |
-| `images.llm_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The llm the llm image (and every base's llm image) is prepared with: latest or an exact version like 0.36, as images.claude_code_version. |
-| `images.shell_gpt_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The ShellGPT the shell-gpt image (and every base's ShellGPT image) is prepared with: latest or an exact version like 1.5.1, as images.claude_code_version. |
-| `images.zeroclaw_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The ZeroClaw the zeroclaw image (and every base's ZeroClaw image) is prepared with: latest or an exact version like 0.8.5, as images.claude_code_version. |
-| `images.aichat_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The AIChat the aichat image (and every base's AIChat image) is prepared with: latest or an exact version like 0.30.0, as images.claude_code_version. |
-| `images.tgpt_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The tgpt the tgpt image (and every base's tgpt image) is prepared with: latest or an exact version like 2.15.0, as images.claude_code_version. |
-| `images.opencode_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenCode the opencode image (and every base's OpenCode image) is prepared with: latest or an exact version like 1.19.0, as images.claude_code_version. |
-| `images.smolagents_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The smolagents the smolagents image (and every base's smolagents image) is prepared with: latest or an exact version like 1.26.0, as images.claude_code_version. |
-| `images.adk_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Agent Development Kit the adk image (and every base's Agent Development Kit image) is prepared with: latest or an exact version like 2.12.0, as images.claude_code_version. |
-| `images.promptfoo_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The promptfoo the promptfoo image (and every base's promptfoo image) is prepared with: latest or an exact version like 0.124.1, as images.claude_code_version. |
-| `images.clai_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The clai (Pydantic AI) the clai image (and every base's clai (Pydantic AI) image) is prepared with: latest or an exact version like 2.55.0, as images.claude_code_version. |
-| `images.copilot_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The GitHub Copilot CLI the copilot image (and every base's GitHub Copilot CLI image) is prepared with: latest or an exact version like 1.0.97, as images.claude_code_version. |
-| `images.qwen_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Qwen Code the qwen-code image (and every base's Qwen Code image) is prepared with: latest or an exact version like 0.25.1, as images.claude_code_version. |
-| `images.goose_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Goose the goose image (and every base's Goose image) is prepared with: latest or an exact version like 1.54.0, as images.claude_code_version. |
-| `images.kilo_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Kilo Code CLI the kilo image (and every base's Kilo Code CLI image) is prepared with: latest or an exact version like 7.8.8, as images.claude_code_version. |
-| `images.mistral_vibe_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Mistral Vibe the mistral-vibe image (and every base's Mistral Vibe image) is prepared with: latest or an exact version like 2.26.1, as images.claude_code_version. |
-| `images.droid_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Factory Droid the droid image (and every base's Factory Droid image) is prepared with: latest or an exact version like 0.240.1, as images.claude_code_version. |
-| `images.dirac_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Dirac the dirac image (and every base's Dirac image) is prepared with: latest or an exact version like 0.5.20, as images.claude_code_version. |
-| `images.kimi_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Kimi Code the kimi-code image (and every base's Kimi Code image) is prepared with: latest or an exact version like 2.1.1, as images.claude_code_version. |
-| `images.cline_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Cline CLI the cline image (and every base's Cline CLI image) is prepared with: latest or an exact version like 3.0.71, as images.claude_code_version. |
-| `images.openhands_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenHands CLI the openhands image (and every base's OpenHands CLI image) is prepared with: latest or an exact version like 1.16.0, as images.claude_code_version. |
-| `images.letta_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Letta Code the letta-code image (and every base's Letta Code image) is prepared with: latest or an exact version like 0.34.13, as images.claude_code_version. |
-| `images.docker_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Docker Agent the docker-agent image (and every base's Docker Agent image) is prepared with: latest or an exact version like 1.150.0, as images.claude_code_version. |
-| `images.nanocoder_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Nanocoder the nanocoder image (and every base's Nanocoder image) is prepared with: latest or an exact version like 1.31.0, as images.claude_code_version. |
-| `images.mini_swe_agent_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The mini-swe-agent the mini-swe-agent image (and every base's mini-swe-agent image) is prepared with: latest or an exact version like 2.4.6, as images.claude_code_version. |
-| `images.open_interpreter_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Open Interpreter the open-interpreter image (and every base's Open Interpreter image) is prepared with: latest or an exact version like 0.0.56, as images.claude_code_version. |
-| `images.crush_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Crush the crush image (and every base's Crush image) is prepared with: latest or an exact version like 0.98.1, as images.claude_code_version. |
-| `images.mimo_code_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The MiMo Code the mimo-code image (and every base's MiMo Code image) is prepared with: latest or an exact version like 0.1.15, as images.claude_code_version. |
-| `images.codewhale_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The CodeWhale the codewhale image (and every base's CodeWhale image) is prepared with: latest or an exact version like 0.10.1, as images.claude_code_version. |
-| `images.maki_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Maki the maki image (and every base's Maki image) is prepared with: latest or an exact version like 0.6.3, as images.claude_code_version. |
-| `images.omp_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The oh-my-pi the omp image (and every base's oh-my-pi image) is prepared with: latest or an exact version like 18.10.4, as images.claude_code_version. |
-| `images.tau_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Tau the tau image (and every base's Tau image) is prepared with: latest or an exact version like 0.4.7, as images.claude_code_version. |
-| `images.stitch_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The Google Stitch CLI the stitch image (and every base's Google Stitch CLI image) is prepared with: latest or an exact version like 0.11.1, as images.claude_code_version. |
-| `images.opencode2_version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | — | The OpenCode 2 the opencode2 image (and every base's OpenCode 2 image) is prepared with: latest or an exact version like 2.0.29, as images.claude_code_version. |
-
 ### `[images.lab]`
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `images.lab.memory_mib` | `1024` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new lab sandbox (a custom image follows the image it was saved from). |
+| `images.lab.memory_mib` | `1024` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new lab sandbox (a template follows the image it was saved from). |
 | `images.lab.network` | `bake` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new lab sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.claude-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.claude-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new claude-code sandbox (a custom image follows the image it was saved from). |
-| `images.claude-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new claude-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.pi]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.pi.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new pi sandbox (a custom image follows the image it was saved from). |
-| `images.pi.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new pi sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.codex]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.codex.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new codex sandbox (a custom image follows the image it was saved from). |
-| `images.codex.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new codex sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.antigravity]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.antigravity.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new antigravity sandbox (a custom image follows the image it was saved from). |
-| `images.antigravity.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new antigravity sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.gemini]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.gemini.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new gemini sandbox (a custom image follows the image it was saved from). |
-| `images.gemini.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new gemini sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.grok]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.grok.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new grok sandbox (a custom image follows the image it was saved from). |
-| `images.grok.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new grok sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.fabric]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.fabric.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new fabric sandbox (a custom image follows the image it was saved from). |
-| `images.fabric.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new fabric sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.openclaw]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.openclaw.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new openclaw sandbox (a custom image follows the image it was saved from). |
-| `images.openclaw.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new openclaw sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.nanobot]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.nanobot.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new nanobot sandbox (a custom image follows the image it was saved from). |
-| `images.nanobot.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new nanobot sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.gptme]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.gptme.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new gptme sandbox (a custom image follows the image it was saved from). |
-| `images.gptme.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new gptme sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.llm]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.llm.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new llm sandbox (a custom image follows the image it was saved from). |
-| `images.llm.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new llm sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.shell-gpt]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.shell-gpt.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new shell-gpt sandbox (a custom image follows the image it was saved from). |
-| `images.shell-gpt.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new shell-gpt sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.zeroclaw]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.zeroclaw.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new zeroclaw sandbox (a custom image follows the image it was saved from). |
-| `images.zeroclaw.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new zeroclaw sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.aichat]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.aichat.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new aichat sandbox (a custom image follows the image it was saved from). |
-| `images.aichat.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new aichat sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.tgpt]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.tgpt.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new tgpt sandbox (a custom image follows the image it was saved from). |
-| `images.tgpt.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new tgpt sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.opencode]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.opencode.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new opencode sandbox (a custom image follows the image it was saved from). |
-| `images.opencode.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new opencode sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.smolagents]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.smolagents.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new smolagents sandbox (a custom image follows the image it was saved from). |
-| `images.smolagents.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new smolagents sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.adk]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.adk.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new adk sandbox (a custom image follows the image it was saved from). |
-| `images.adk.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new adk sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.promptfoo]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.promptfoo.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new promptfoo sandbox (a custom image follows the image it was saved from). |
-| `images.promptfoo.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new promptfoo sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.clai]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.clai.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new clai sandbox (a custom image follows the image it was saved from). |
-| `images.clai.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new clai sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.copilot]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.copilot.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new copilot sandbox (a custom image follows the image it was saved from). |
-| `images.copilot.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new copilot sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.qwen-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.qwen-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new qwen-code sandbox (a custom image follows the image it was saved from). |
-| `images.qwen-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new qwen-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.goose]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.goose.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new goose sandbox (a custom image follows the image it was saved from). |
-| `images.goose.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new goose sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.kilo]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.kilo.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new kilo sandbox (a custom image follows the image it was saved from). |
-| `images.kilo.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new kilo sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.mistral-vibe]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.mistral-vibe.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mistral-vibe sandbox (a custom image follows the image it was saved from). |
-| `images.mistral-vibe.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mistral-vibe sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.droid]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.droid.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new droid sandbox (a custom image follows the image it was saved from). |
-| `images.droid.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new droid sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.dirac]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.dirac.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new dirac sandbox (a custom image follows the image it was saved from). |
-| `images.dirac.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new dirac sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.kimi-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.kimi-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new kimi-code sandbox (a custom image follows the image it was saved from). |
-| `images.kimi-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new kimi-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.cline]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.cline.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new cline sandbox (a custom image follows the image it was saved from). |
-| `images.cline.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new cline sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.openhands]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.openhands.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new openhands sandbox (a custom image follows the image it was saved from). |
-| `images.openhands.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new openhands sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.letta-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.letta-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new letta-code sandbox (a custom image follows the image it was saved from). |
-| `images.letta-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new letta-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.docker-agent]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.docker-agent.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new docker-agent sandbox (a custom image follows the image it was saved from). |
-| `images.docker-agent.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new docker-agent sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.nanocoder]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.nanocoder.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new nanocoder sandbox (a custom image follows the image it was saved from). |
-| `images.nanocoder.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new nanocoder sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.mini-swe-agent]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.mini-swe-agent.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mini-swe-agent sandbox (a custom image follows the image it was saved from). |
-| `images.mini-swe-agent.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mini-swe-agent sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.open-interpreter]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.open-interpreter.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new open-interpreter sandbox (a custom image follows the image it was saved from). |
-| `images.open-interpreter.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new open-interpreter sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.crush]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.crush.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new crush sandbox (a custom image follows the image it was saved from). |
-| `images.crush.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new crush sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.mimo-code]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.mimo-code.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new mimo-code sandbox (a custom image follows the image it was saved from). |
-| `images.mimo-code.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new mimo-code sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.codewhale]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.codewhale.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new codewhale sandbox (a custom image follows the image it was saved from). |
-| `images.codewhale.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new codewhale sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.maki]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.maki.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new maki sandbox (a custom image follows the image it was saved from). |
-| `images.maki.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new maki sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.omp]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.omp.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new omp sandbox (a custom image follows the image it was saved from). |
-| `images.omp.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new omp sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.tau]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.tau.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new tau sandbox (a custom image follows the image it was saved from). |
-| `images.tau.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new tau sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.stitch]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.stitch.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new stitch sandbox (a custom image follows the image it was saved from). |
-| `images.stitch.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new stitch sandbox: agent, bake, locked, open (proxied presets), nat or none. |
-
-### `[images.opencode2]`
-
-| key | default | values | applies | overridden by | what it does |
-|---|---|---|---|---|---|
-| `images.opencode2.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new opencode2 sandbox (a custom image follows the image it was saved from). |
-| `images.opencode2.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new opencode2 sandbox: agent, bake, locked, open (proxied presets), nat or none. |
 
 ### `[kernel]`
 
@@ -695,6 +251,32 @@ This table is generated from `doz config show` and checked against it on every b
 |---|---|---|---|---|---|
 | `kernel.path` | `""` | path ("" = automatic) | new sandboxes | `$DOZ_KERNEL` | An explicit Linux kernel for new sandboxes ("": the pinned kernel, fetched into the cache). |
 | `kernel.cache` | `""` | path ("" = automatic) | new sandboxes | `$DOZ_KERNEL_CACHE` | Where the pinned kernel is cached ("": the store's own); share one between stores. |
+
+### `[recipes.VENDOR.PRODUCT]` — every recipe's own
+
+Every recipe's agent has these, each recipe with its own defaults (`doz config show --agent ID` lists one; the descriptions are Claude Code's). A recipe may declare more of its own: Codex's `keep_alive`.
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `recipes.VENDOR.PRODUCT.version` | `latest` | latest, or an exact version like 2.1.227 | new sandboxes | `doz create --agent claude-code@VERSION` | The Claude Code a new sandbox of this recipe gets (and every base's baked image of it): latest (looked up when its image is baked, then installed at that exact version, integrity-checked; a newer one is only said — doz image bake rebuilds when you choose), or an exact version like 2.1.227. A sandbox keeps the version it was made with; doz reset NAME moves it to the current one. |
+| `recipes.VENDOR.PRODUCT.approvals` | `skip` | skip \| ask | next session | `-e DOZ_CLAUDE_PERMISSIONS=… on run/exec, --approvals on create` | Claude Code's own approval prompts: skip them (the sandbox is the boundary) or ask, as on a Mac. A sandbox (doz config set --sandbox NAME approvals ask) or its project (approvals: in doz_project.yaml) can choose its own. |
+| `recipes.VENDOR.PRODUCT.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new sandbox of this recipe (a template follows the image it was saved from). |
+| `recipes.VENDOR.PRODUCT.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none. |
+| `recipes.openai.codex.keep_alive` | `false` | boolean | at once | — | Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so. |
+
+### The names before 0.37.34 (still read, and taken by `doz config`)
+
+| old name | now |
+|---|---|
+| `images.ID_version` | `recipes.VENDOR.PRODUCT.version` |
+| `ID.permissions` | `recipes.VENDOR.PRODUCT.approvals` |
+| `images.ID.memory_mib`, `images.ID.network` | `recipes.VENDOR.PRODUCT.memory_mib`, `.network` (Claude Code's, `images.claude-code.memory_mib` and `images.claude-code.network`, also seed `defaults.memory_mib`, `defaults.network`) |
+| `images.claude_code_version` | `recipes.anthropic.claude-code.version` |
+| `claude.permissions` | `recipes.anthropic.claude-code.approvals` |
+| `images.pi_version` | `recipes.earendil-works.pi.version` |
+| `images.codex_version` | `recipes.openai.codex.version` |
+| `codex.permissions` | `recipes.openai.codex.approvals` |
+| `codex.keep_alive` | `recipes.openai.codex.keep_alive` |
 
 <!-- settings:end -->
 

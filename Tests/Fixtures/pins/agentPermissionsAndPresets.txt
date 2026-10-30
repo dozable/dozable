@@ -69,8 +69,9 @@ perm vendor:nanocoder locked=false hosts=registry.npmjs.org[/@nanocollective/nan
 perm vendor:open-interpreter locked=false hosts=raw.githubusercontent.com[/openai/codex/main/announcement_tip.toml]
 perm vendor:crush locked=false hosts=api.github.com[/repos/charmbracelet/crush/releases/latest]
 perm vendor:maki locked=false hosts=api.github.com[/repos/tontinton/maki/releases/latest]
+perm sources:claude-code locked=false hosts=openrouter.ai ai-gateway.vercel.sh
 perm sources:pi locked=false hosts=api.openai.com api.x.ai generativelanguage.googleapis.com openrouter.ai ai-gateway.vercel.sh
-agentPermissions claude-code ["vendor:claude-code"]
+agentPermissions claude-code ["vendor:claude-code", "sources:claude-code"]
 agentPermissions pi ["vendor:pi", "sources:pi"]
 agentPermissions none []
 agentPermissions codex ["model:openai", "vendor:codex"]

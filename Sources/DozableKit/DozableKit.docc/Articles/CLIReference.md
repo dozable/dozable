@@ -351,7 +351,10 @@ doz recipe new mytool --from opencode            # or a copy of one of Dozable's
 doz recipe check mytool                          # the minimum requirements for a community recipe, item by item; one verdict (exit 0/1)
 doz recipe check mytool --full                   # also built and tried for real: a scratch store, fake keys, a stand-in model provider
 doz recipe add ./tool.yaml                       # copy a file in as one of yours (after it passes the check)
-doz recipe ls [--all]                            # yours and every source's: from, in use or refused (why), checked
+doz recipe ls [--all]                            # yours and every source's: from, its STATE on this Mac, STATUS (in use or refused, why), checked
+doz recipe ls --installed                        # every recipe installed (a baked image) or in use (a sandbox runs it), Dozable's too
+doz recipe uninstall claude-code                 # its baked images removed (refused while a sandbox runs it); its settings kept
+doz recipe uninstall claude-code --forget-settings   # … and its settings on this Mac too
 doz recipe show mytool [--document]              # whose, what its bake installs and reaches, its check; --document: its compiled JSON
 doz recipe rm mytool                             # kept unpublished so its sandboxes keep working (--forget drops it)
 doz recipe source add https://example.com/v1/recipes.json --key BASE64   # shows the key's fingerprint and asks first
@@ -575,8 +578,8 @@ doz image rm NAME              # sandboxes already made from it keep working
 `image pull` / `push` answer "not yet" (exit 7). `image ls --tree` shows each disk's size, the
 bytes it shares with its parent (APFS clones) and its own (what removing it frees).
 
-**Agent versions.** `images.claude_code_version` and `images.pi_version` are `latest` (the default)
-or an exact version. `latest` is resolved when the image is PREPARED — one npm registry lookup
+**Agent versions.** Each recipe's `version` (`recipes.anthropic.claude-code.version`,
+`recipes.earendil-works.pi.version`; `images.claude_code_version` before) is `latest` (the default) or an exact version. `latest` is resolved when the image is PREPARED — one npm registry lookup
 (remembered for an hour, `<store>/agent-versions.json`) for the version and its sha512 integrity;
 the bake installs that exact version, integrity-checked, and the version is in the image spec and
 its bake key. A create or a first start uses the image already prepared. 594 W28 (owner ruling): an
@@ -766,22 +769,32 @@ earlier name, doz serve, is a hidden alias of `doz ui --lan` for one release (it
 ### Settings
 
 ```bash
-doz config [show]          # every setting: its effective value, its source (flag, env, file, default) and default
+doz config [show]          # Dozable's own settings: each value, its source (flag, env, mac, default) and default,
+                           # and one line: the recipes in use and installed
+doz config show --all      # every setting, every recipe's included (--json always has every one)
+doz config show --agent claude-code   # one recipe's settings: value, SOURCE, RECIPE DEFAULT
 doz config get KEY         # one value (--json: with its source and default)
-doz config set KEY VALUE   # write it to the file (checked against its type and range)
+doz config set KEY VALUE   # write it to this Mac's file (checked against its type and range)
+doz config set --agent claude-code version 2.1.290   # a recipe's option by its name
 doz config unset KEY       # back to the default (commented out again)
 doz config init            # write the file: every setting listed, commented out at its default
 doz config path            # ${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml
-doz config show|get|set|unset --sandbox NAME …   # 599: one sandbox's own value of a per-sandbox setting
+doz config show|get|set|unset --sandbox NAME …   # one sandbox's own value of a per-sandbox setting
                                                   # (sandbox.clipboard, sandbox.browser_bridge, sessions.tmux,
-                                                  #  sandbox.agent_sudo) — it wins over the file
+                                                  #  sandbox.agent_sudo, approvals …) — it wins over its project's and this Mac's
+doz config set|unset --project DIR KEY [VALUE]   # the project's doz_project.yaml (approvals, clipboard, …)
 ```
 
-One settings file, `doz.toml`, lists every setting grouped in sections (`[ui]`, `[host]`,
-`[store]`, `[claude]`, `[defaults]`, `[agent]`, `[telemetry]`, `[resources]`, `[sandbox]`, `[images.lab]`, `[images.claude-code]`, `[images.pi]`,
+One settings file, `doz.toml`, lists Dozable's own settings grouped in sections (`[ui]`, `[host]`,
+`[store]`, `[defaults]`, `[agent]`, `[telemetry]`, `[resources]`, `[sandbox]`, `[images.lab]`,
 `[kernel]`), each with a description and `# key = default` commented out; only what you set is
-uncommented. Precedence: a command-line flag, then its environment variable, then the file, then
-the default. `ui.boot_view_on_start` (default `false`) keeps the web UI on the boot console (tab zero,
+uncommented. A recipe's own settings (its agent's `version`, `approvals`, `memory_mib`, `network`, and
+any it declares) are a `[recipes.VENDOR.PRODUCT]` block, written only while one of them is set. Their
+names before 0.37.34 (`images.claude_code_version`, `claude.permissions`, `[images.claude-code]`, …) are
+still read and taken by `doz config`; the first write after the upgrade moves them and keeps the old
+file once as `doz.toml.0.37.bak`. Precedence: a command-line flag, then its environment variable, then a
+sandbox's own value, then its project's, then this file, then the default (the recipe's own, or
+Dozable's). `ui.boot_view_on_start` (default `false`) keeps the web UI on the boot console (tab zero,
 Console) after Start instead of switching to the agent's tab; the UI's **Settings** page edits the same file (a host path, or a value the environment
 sets, is read-only there). The file is written whole, atomically, `0600`; an unknown key is a
 warning, and a file that doesn't parse is ignored (and never overwritten) until it's fixed. Not

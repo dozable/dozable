@@ -186,6 +186,12 @@ extension DozableProject {
                 let s = try scalarString(v, key)
                 guard ModelSelection.isModelID(s) else { throw bad(v, "model: a model id — letters, digits and . _ : / @ + - (doz models)") }
                 p.model = s
+            case "local_port":
+                // 660: the model server on this Mac (with model_source: local — checked in problem()).
+                guard let n = v.int, MacModelServer.portProblem(n) == nil else {
+                    throw bad(v, "local_port: a port of this Mac, \(MacModelServer.ports.lowerBound)–\(MacModelServer.ports.upperBound)")
+                }
+                p.localPort = n
             case "dotfiles":
                 // 657: a git repository's https:// URL, a folder on the Mac, or none (YAML's bare `no`/`off`: none).
                 let s = v.bool == false ? "none" : try scalarString(v, key)
@@ -206,12 +212,13 @@ extension DozableProject {
                 p.keys = names
             default:
                 // 599: a per-sandbox setting, checked against the setting's own type.
-                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozableSettings.definition(sk.setting) {
+                // 669: `approvals` (skip | ask) is checked as any recipe's approvals setting.
+                if let sk = settingKeys.first(where: { $0.key == key }), let d = DozableSettings.sandboxDefinition(sk.setting) {
                     let text: String
                     // YAML reads `off` as a boolean: only a boolean setting takes it as one (`clipboard: off` is the choice).
                     if d.type == .bool, let b = v.bool { text = b ? "true" : "false" } else { text = try scalarString(v, key) }
                     do { p.settings[sk.setting] = try d.parse(text) } catch let e as SettingsError {
-                        throw bad(v, "\(key): \(e.message.replacingOccurrences(of: sk.setting, with: key))")
+                        throw bad(v, "\(key): \(e.message.replacingOccurrences(of: d.key, with: key))")
                     }
                 }
             }

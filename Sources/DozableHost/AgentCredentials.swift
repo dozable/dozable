@@ -31,6 +31,26 @@ public enum AgentCredentials {
 
     public static func source(of a: AccountRecord) -> String? { source(of: a.kind, provider: a.provider) }
 
+    /// 660: the source an account is for, for the agent of `image` — a built-in agent with model sources (Claude Code)
+    /// also takes its OWN provider's other accounts there: Claude Code's Anthropic source is this Mac's login, a setup
+    /// token or an API key, exactly as before (its credential's list). pi's stays an API key; a recipe agent's never a
+    /// subscription.
+    public static func source(of kind: AccountKind, provider: String?, image: String?) -> String? {
+        if let s = source(of: kind, provider: provider) { return s }
+        guard let image, let r = ImageChoice.parse(image)?.agent.recipe, r.isBuiltin, r.models != nil else { return nil }
+        return r.credentials.first { $0.accounts.contains(kind.rawValue) }?.provider
+    }
+
+    public static func source(of a: AccountRecord, image: String?) -> String? { source(of: a.kind, provider: a.provider, image: image) }
+
+    /// 660: the account kinds the agent of `image` takes for `source`.
+    static func sourceKinds(_ source: String, image: String?) -> [AccountKind] {
+        if let r = image.flatMap({ ImageChoice.parse($0)?.agent.recipe }), r.isBuiltin, let c = r.credentials.first(where: { $0.provider == source }) {
+            return c.accounts.compactMap(AccountKind.init(rawValue:))
+        }
+        return [AccountKind(rawValue: ModelSources.accountKind(source))].compactMap { $0 }
+    }
+
     /// 617: Codex's own account flow (this Mac's Codex login, a ChatGPT sign-in, an OpenAI key) — the built-in Codex
     /// only, never a recipe agent that is offered OpenAI.
     public static func codexFlow(_ image: String?) -> Bool {
@@ -41,14 +61,14 @@ public enum AgentCredentials {
     /// The account kinds the agent of `image` (an image spec's name: claude-code, pi) can use; nil: no
     /// agent there (the lab), so any account fits.
     public static func kinds(_ image: String?) -> Set<AccountKind>? {
-        if let s = sources(image) { return Set(s.compactMap { AccountKind(rawValue: ModelSources.accountKind($0)) }) }
+        if let s = sources(image) { return Set(s.flatMap { sourceKinds($0, image: image) }) }
         guard let image, let c = AgentImages.credentials(image) else { return nil }
         return Set(c.flatMap(\.accountKinds).compactMap(AccountKind.init(rawValue:)))
     }
 
     /// 617: whether the agent of `image` can use an account of `kind` from `provider` (only a `key` account has one).
     public static func accepts(_ image: String?, _ kind: AccountKind, provider: String? = nil) -> Bool {
-        if let s = sources(image) { return source(of: kind, provider: provider).map(s.contains) ?? false }
+        if let s = sources(image) { return source(of: kind, provider: provider, image: image).map(s.contains) ?? false }
         guard let k = kinds(image) else { return true }
         guard k.contains(kind) else { return false }
         return kind != .key || provider == Self.provider(image)
@@ -82,7 +102,11 @@ public enum AgentCredentials {
         let name = AgentImages.agentName(image) ?? image
         guard let k = kinds(image) else { return "" }
         if let s = sources(image)?.filter({ !ModelSources.isKeyless($0) }), !s.isEmpty {
-            let phrases = s.map(keyPhrase)
+            // 660: Claude Code's Anthropic source is an account (its login, a setup token or an API key), not only a key.
+            let phrases = s.map { src in
+                let k = sourceKinds(src, image: image)
+                return k.count > 1 ? "an \(ModelSources.title(src)) account (" + k.map(\.label).joined(separator: ", ") + ")" : keyPhrase(src)
+            }
             return "\(name) needs " + (phrases.count == 1 ? phrases[0] : phrases.dropLast().joined(separator: ", ") + " or " + phrases.last!)
         }
         if k == [.apiKey] { return "\(name) needs an Anthropic API key" }
@@ -105,11 +129,15 @@ public enum AgentCredentials {
     /// another's agent.
     public static func defaultAccount(for image: String?, anthropic: String, openai: String?, providers: [String: String] = [:],
                                       kinds accountKinds: [String: AccountKind] = [:]) -> String {
+        // 660: Claude Code follows the store's (Anthropic) default as before — a gateway or a server on this Mac is
+        // always chosen on purpose (`--gateway`, `--provider local`), never fallen into.
+        if let first = sources(image)?.first, sourceKinds(first, image: image).contains(.mac) { return anthropic }
         if let s = sources(image) {
             for src in s {
                 let d: String? = src == "anthropic" ? anthropic : src == "openai" ? openai : providers[src]
-                guard let d, d != "none", d != "mac" else { continue }
-                if let k = accountKinds[d], source(of: k, provider: k == .key ? src : nil) != src { continue }
+                // 660: `mac` only where the agent takes this Mac's login for that source (Claude Code's Anthropic).
+                guard let d, d != "none", d != "mac" || sourceKinds(src, image: image).contains(.mac) else { continue }
+                if let k = accountKinds[d], source(of: k, provider: k == .key ? src : nil, image: image) != src { continue }
                 return d
             }
             return "none"
@@ -134,6 +162,16 @@ public enum AgentCredentials {
         }
         if let model, !ModelSelection.isModelID(model) {
             return (nil, ("that is not a model id (letters, digits and . _ : / @ + -, at most 128)", "--model creator/name"))
+        }
+        // 660: Claude Code's own Anthropic flow — its account as before (the default, mac, a setup token, an API key).
+        if sourceKinds(source, image: image).contains(.mac) {
+            if let a = account, !["default", "none", "mac"].contains(a) {
+                guard let rec = file.accounts.first(where: { $0.name == a }) else { return (nil, ("no account \(a)", "doz account add NAME --api-key")) }
+                guard Self.source(of: rec, image: image) == source else {
+                    return (nil, ("the account \(a) is not \(agent)'s \(ModelSources.title(source)) account", "--account mac, or an Anthropic setup token or API key"))
+                }
+            }
+            return (account, nil)
         }
         // 618: a key-less source (OpenCode Zen's free models) takes no account at all — `none`.
         if ModelSources.isKeyless(source) {
@@ -194,7 +232,9 @@ public enum AgentCredentials {
         if openai, name == "mac" {
             return codexMac ? nil : "Codex can't use mac: this Mac's Codex is not signed in (run codex login on the Mac) — or add an account: \(addCommand(image))"
         }
-        let compatible = (accountKinds.filter { accepts(image, $0.value, provider: providers[$0.key]) && !((openai || key != nil) && $0.key == "mac") }.keys.sorted())
+        // 660: `mac` is Claude's login — for Claude Code (whose sources include Anthropic's own accounts) a fit, as before.
+        let takesMac = kinds(image)?.contains(.mac) == true
+        let compatible = (accountKinds.filter { accepts(image, $0.value, provider: providers[$0.key]) && !((openai || (key != nil && !takesMac)) && $0.key == "mac") }.keys.sorted())
             + (openai && codexMac ? ["mac"] : [])
         let fix = compatible.isEmpty
             ? "add one: \(addCommand(image)) (then create with --account NAME)"
@@ -220,7 +260,11 @@ public enum AgentCredentials {
         guard let image, let k = kinds(image) else { return nil }
         let agent = AgentImages.agentName(image) ?? image
         let choose: String
-        if let s = sources(image)?.filter({ !ModelSources.isKeyless($0) }), s.count > 1 {
+        if k.contains(.mac), let s = sources(image)?.filter({ !ModelSources.isKeyless($0) && $0 != "anthropic" }) {
+            // 660: Claude Code — its Anthropic accounts as before, or a gateway's key.
+            choose = "choose an account \(agent) can use (this Mac's Claude login, a setup token or an Anthropic API key"
+                + (s.isEmpty ? ")" : "; or a key of " + s.map(ModelSources.title).joined(separator: ", ") + ")")
+        } else if let s = sources(image)?.filter({ !ModelSources.isKeyless($0) }), s.count > 1 {
             choose = "choose a key account of " + s.map(ModelSources.title).joined(separator: ", ") + " (doz account add NAME \(addFlag(s[0])))"
         } else {
             choose = keyProvider(image).map { "choose a \($0.title) key account (doz account add NAME \(addFlag($0.id)))" }

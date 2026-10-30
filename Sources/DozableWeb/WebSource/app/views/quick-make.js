@@ -27,7 +27,8 @@ export async function startQuickMade({ plan, agent, title, account = null, back 
     const op = await actOrThrow({ action: 'create', sandbox: name, image: c.image,
       ...(c.network ? { network: c.network } : {}), ...(c.workspace ? { workspace: c.workspace } : { isolated: true }),
       ...(c.account ? { account: c.account } : {}),
-      ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}) });
+      ...(c.modelSource ? { modelSource: c.modelSource } : {}), ...(c.model ? { model: c.model } : {}),
+      ...(c.localPort ? { localPort: c.localPort } : {}) });
     const end = await waitOp(op.id);
     if (!end || end.state !== 'done') throw new Error((end && end.text) || name + ' was not made');
     // The nav lists it, then its own page takes over from the plan's (the start keeps the transition and the panel).

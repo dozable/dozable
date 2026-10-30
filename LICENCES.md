@@ -64,6 +64,12 @@ Static aarch64-linux-musl executables built with the pinned Zig 0.16.0 (`make de
 | musl libc (Zig 0.16.0's aarch64-linux-musl), in all three | MIT | Verified |
 | Zig 0.16.0 | MIT | build tool only — not redistributed |
 
+## The sound kernel (built by Dozable; in a release that carries it, not in git)
+
+| Component | Licence | Checked |
+|---|---|---|
+| Linux 6.18.15 as `vmlinux-6.18.15-186-sound2` — kata-containers 3.28.0's kernel (its config and patch) **modified**: + [`Guest/sound-kernel/sound.conf`](Guest/sound-kernel/sound.conf) (ALSA and virtio-snd; no option outside sound) | **GPL-2.0-only** (with the syscall note) | Verified — built reproducibly by [`Guest/sound-kernel/build-in-guest.sh`](Guest/sound-kernel/build-in-guest.sh), sha256 pinned (`SoundKernel`). Only a private build (`PUBLIC=0`) carries it, and then with its source offer in `licences/sound-kernel/` (`release.sh` checks it): the recipe, the complete config, kata's patch, and the written offer in [`Guest/sound-kernel/PROVENANCE.md`](Guest/sound-kernel/PROVENANCE.md) |
+
 ## The dashboard (vendored, served to the browser by `doz ui` / `doz serve`)
 
 | Component | Licence | Checked |
@@ -76,7 +82,7 @@ Static aarch64-linux-musl executables built with the pinned Zig 0.16.0 (`make de
 
 | Component | Licence | How |
 |---|---|---|
-| Linux `vmlinux-6.18.15-186` from [kata-containers 3.28.0](https://github.com/kata-containers/kata-containers/releases/tag/3.28.0) | **GPL-2.0-only** (with the syscall note) | `KernelProvider` downloads the upstream release archive (`kata-static-3.28.0-arm64.tar.zst`) on the Mac that runs doz and uses the kernel **unmodified**, verified by sha256. Dozable does not redistribute it: no release carries it. (A public build also carries no other kernel: the experimental sound kernel is only in private builds.) Its source: the kata-containers 3.28.0 kernel build (`tools/packaging/kernel`) on Linux 6.18.15. |
+| Linux `vmlinux-6.18.15-186` from [kata-containers 3.28.0](https://github.com/kata-containers/kata-containers/releases/tag/3.28.0) | **GPL-2.0-only** (with the syscall note) | `KernelProvider` downloads the upstream release archive (`kata-static-3.28.0-arm64.tar.zst`) on the Mac that runs doz and uses the kernel **unmodified**, verified by sha256. Dozable does not redistribute it: no release carries it. (A public build also carries no other kernel: the sound kernel above is only in private builds.) Its source: the kata-containers 3.28.0 kernel build (`tools/packaging/kernel`) on Linux 6.18.15. |
 | `ghcr.io/apple/containerization/vminit` (the guest init image) | Apache-2.0 (Apple) | pulled from its registry by Containerization |
 | The base images a sandbox uses (`node`, `debian`, `alpine`, `python`, `golang` … from Docker Hub) and the packages installed in them | their own | pulled from their registries into your store |
 | The agents installed into images: Claude Code, pi, Codex — from npm / downloads.claude.ai | their own (Claude Code is Anthropic's, under its own terms) | installed by your Mac into your sandboxes; never bundled |

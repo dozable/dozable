@@ -86,6 +86,9 @@ GATEWAYS = ("openrouter", "vercel-ai-gateway")
 # request with no credential (OpenCode's own "public" at most); the guest holds no placeholder; the Locked try is refused
 # nothing.
 KEYLESS = {"opencode-zen": "opencode.ai"}
+# 660: a model server on this Mac (`local`, by port) — no stand-in serves one yet, so a try through it is NOT checked here
+# (said in the result's notes, never silently); the 660 VM proof covers it until the stand-in can listen on the Mac.
+MAC_SERVER = ("local",)
 STATES_NEEDED = ("idle", "working", "done")
 # What a ready agent's first screen never asks (case-insensitive; a line a recipe's check.screen.allow matches is excused).
 SETUP_SCREEN = [
@@ -298,6 +301,10 @@ class Harness:
             fail("the recipe has no check block")
             return [self.finish(res, t_all)]
         sels = self.selections(r)
+        on_mac = [s for s, _ in sels if s in MAC_SERVER]
+        if on_mac:
+            sels = [x for x in sels if x[0] not in MAC_SERVER]
+            res["notes"].append("not checked: %s — a model server on this Mac, which no stand-in serves yet" % ", ".join(on_mac))
         if not sels:
             fail("no selection to check (--selections %s; the recipe offers: %s)" % (self.args.selections, r.models))
             return [self.finish(res, t_all)]

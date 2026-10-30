@@ -200,6 +200,9 @@
       <span>My OpenCode<span class="src-pill is-mine" data-recipe-source="mine"><i data-i="user-round"></i>Yours</span></span>
       <span>Com Tool<span class="src-pill is-community" data-recipe-source="community"><i data-i="link"></i>Community · example</span></span>
     </div>
+    <div class="sg-row" title="Where a setting's value comes from — sourceTag(source), components/setting-source.js (the CLI's SOURCE column says the same words)">
+      <span class="tag src src-recipe">recipe</span><span class="tag src src-default">default</span><span class="tag src src-mac">Mac</span><span class="tag src src-project">project</span><span class="tag src src-sandbox">sandbox</span><span class="tag src src-env">env DOZ_STORE</span><span class="tag src src-flag">flag</span>
+    </div>
     <div class="sg-row">
       <span class="ag-chip ag-working"><span class="ag-mark"></span>working</span>
       <span class="ag-chip ag-blocked"><span class="ag-mark"></span>needs you</span>
@@ -207,6 +210,168 @@
       <span class="ag-chip ag-error"><span class="ag-mark"></span>error</span>
     </div>
   </div></div>
+</section>
+
+<section>
+  <h2>Recipes — a recipe’s row, a sandbox’s overrides</h2>
+  <p>The sidebar’s Recipes group: Installed (<code>#/recipes</code>, its page <code>#/recipes/V/P</code>), Browse (<code>#/browse</code>, the whole catalogue with a search), then Quick try; the + on its heading opens Quick try. A recipe’s row (views/settings.js <code>recipeRow</code>): its mark, its name and subject, its full name, its sandboxes and baked images, ★ for the default image’s agent, whose recipe, and the values set on this Mac as chips with their badge. A sandbox’s Settings block (views/sandbox.js <code>settingsBlock</code>): its own and its project’s values first, the Mac’s beside each.</p>
+  <div class="pair"><div class="scheme">
+    <div class="panel recipes-panel">
+      <div class="recipe-group">In use · 1</div>
+      <div class="recipe-list">
+        <a class="recipe-row" href="#"><span data-mark="claude-code" class="mark recipe-mark"></span>
+          <span class="recipe-main"><span class="recipe-name">Claude Code<span class="muted"> · agent</span></span><span class="recipe-q">anthropic/claude-code</span>
+            <span class="recipe-meta">2 sandboxes · docs, work · 1 baked image · 1.2 GiB <span class="tag info">★ default</span><span class="tag outline">Dozable</span></span>
+            <span class="recipe-chips"><span class="chip-set"><code>version</code> 2.1.290 <span class="tag src src-mac">Mac</span></span></span></span>
+          <span class="recipe-count muted">1 set on this Mac</span><i data-i="chevron-right"></i></a>
+      </div>
+      <div class="recipe-group">Installed · 1</div>
+      <div class="recipe-list">
+        <a class="recipe-row" href="#"><span data-mark="pi" class="mark recipe-mark"></span>
+          <span class="recipe-main"><span class="recipe-name">pi<span class="muted"> · coding harness</span></span><span class="recipe-q">earendil-works/pi</span>
+            <span class="recipe-meta">no baked image <span class="tag outline">Dozable</span><span class="tag warn">not installed</span></span></span>
+          <span class="recipe-count muted">1 set on this Mac</span><i data-i="chevron-right"></i></a>
+      </div>
+    </div>
+    <div class="panel sbx-settings">
+      <div class="ovr"><div class="ovr-group">Overrides · 1</div>
+        <div class="ovr-row"><span class="k"><code>approvals</code><span class="muted"> · its recipe</span></span><span class="v">ask <span class="tag src src-sandbox">sandbox</span></span>
+          <span class="note">The Mac says skip. <a href="#">Follow the Mac</a></span></div></div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Settings — laid out like VS Code</h2>
+  <p>669 (owner: “redo the entire layout of Settings to be how VSCode does it … and make the section navigation to the left only when there is enough width”). views/settings.js <code>viewSettings</code>: a compact head, the search across the page (<code>.page-tools.set-search</code>, sticky under the title), then the table of contents (<code>.set-toc</code>: Access, every section, Not settable; the one in view <code>.is-current</code> — bold, <code>--state-selected</code> and the <code>--indicator</code>; a click scrolls to it) beside the sections (<code>.set-sec</code>, a big heading each). The table of contents shows only when the PAGE is at least 960 px wide — <code>.is-wide</code> on <code>.vs-settings</code>, set by a ResizeObserver on the page, not the window (the sidebar may be a rail); narrower there is none. A setting (<code>settingRow</code>, also a recipe’s page) is a block: its title (the section as a prefix, the name in bold, the source badge, the key, Default when this Mac sets it), the description, then the control UNDER them at a modest width (text 420 px, a choice 320, a number 120); a boolean is a checkbox before its description (<code>.is-bool</code>). A value this Mac, the environment or a flag sets is <code>.is-modified</code>: the indicator bar at its left.</p>
+  <div class="pair"><div class="scheme">
+    <div class="settings-page vs-settings is-wide">
+      <div class="page-tools set-search"><label class="filter-field"><i data-i="search"></i><input type="search" class="page-filter" placeholder="Search settings — a key like ui.theme, or a word"></label></div>
+      <div class="set-body">
+        <nav class="set-toc" aria-label="Sections"><a href="#" data-toc="access">Access</a><a href="#" class="is-current">This UI</a><a href="#">The host</a><a href="#">Not settable</a></nav>
+        <div class="set-list"><section class="set-sec"><h2 class="set-head">This UI<code class="set-head-key">[ui]</code></h2>
+          <div class="settings set-rows">
+            <div class="setting is-bool is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Confirm shutdown</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">ui.confirm_shutdown</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+              <div class="setting-control"><input type="checkbox" id="sg-confirm"></div><label class="set-desc" for="sg-confirm">Shut Down asks first.</label><div class="muted setting-meta">default <code>true</code> · applies at once (the UI re-reads it)</div></div>
+            <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Split default</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.split_default</code></div></div>
+              <div class="setting-control"><select><option>shell</option><option>watch</option></select></div><div class="set-desc">What a terminal’s Split opens.</div><div class="muted setting-meta">default <code>shell</code> · applies at once (the UI re-reads it)</div></div>
+          </div></section></div>
+      </div>
+    </div>
+  </div></div>
+</section>
+
+<section>
+  <h2>Setting controls — every pattern</h2>
+  <p>669: THE catalogue of what a setting’s control looks like — one specimen per control views/settings.js <code>settingControl(r)</code> draws, with the <code>SettingType</code>(s) (<code>Sources/DozableHost/Settings.swift</code>) that produce it. Every one sits in the same block (<code>settingRow</code>: title, description, control, meta). A new setting type or a new control gets its specimen here, in the same commit (CLAUDE.md, “Settings are ONE closed schema”).</p>
+
+  <h3>Text</h3>
+  <p class="sg-when">A free value typed in a field (up to 420 px), saved on change. <code>.titleTemplate</code>, <code>.timeZone</code>, <code>.version</code>, <code>.subnet</code>, <code>.serveBind</code>, <code>.originList</code>, <code>.addressList</code>, <code>.dotfiles</code> (an https address from here) — the server checks the value; <code>""</code> says “automatic” or “none” in the meta.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">Inside every sandbox: </span><strong class="set-title">Timezone</strong></span><span class="tag src src-default">default</span><code class="set-key">sandbox.timezone</code></div></div>
+      <div class="setting-control"><input type="text" spellcheck="false" placeholder="&quot;&quot; = automatic" value="mac"></div><div class="set-desc">The sandbox’s time zone: mac follows this Mac’s, or an IANA name like Australia/Sydney.</div><div class="muted setting-meta">default <code>mac</code> · applies at the next start</div></div>
+  </div></div></div>
+
+  <h3>Number — a whole number with a range</h3>
+  <p class="sg-when"><code>.int(min…max)</code>: a number field (120 px) with its range as <code>min</code>/<code>max</code>; a value outside it is refused in the row (see “A row with an error”).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">CPUs</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">defaults.cpus</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+      <div class="setting-control"><input type="number" min="1" max="64" step="1" value="4"></div><div class="set-desc">Virtual CPUs of a new sandbox.</div><div class="muted setting-meta">default <code>2</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>Choice — a drop-down</h3>
+  <p class="sg-when"><code>.choice([…])</code>: a select (320 px), one option per word. <code>defaults.image</code> offers only the published agents (and the value it has).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Split default</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.split_default</code></div></div>
+      <div class="setting-control"><select><option>shell</option><option>watch</option></select></div><div class="set-desc">What a terminal’s Split opens.</div><div class="muted setting-meta">default <code>shell</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>Choice — a segmented control</h3>
+  <p class="sg-when">A <code>.choice</code> of 2–3 short modes the page shows at once: <code>ui.density</code> (Comfortable | Compact) and <code>ui.notifications</code> (Cards | Pills | Bell) — applied to the page, then saved.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Density</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.density</code></div></div>
+      <div class="setting-control"><div class="segmented" role="group" aria-label="ui.density"><button type="button" class="seg active" aria-pressed="true">Comfortable</button><button type="button" class="seg" aria-pressed="false">Compact</button></div></div><div class="set-desc">How much room the dashboard’s rows and controls take.</div><div class="muted setting-meta">default <code>comfortable</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>Boolean — a checkbox before the description</h3>
+  <p class="sg-when"><code>.bool</code>: VS Code’s checkbox, the description its label (<code>.is-bool</code>).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-bool"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">This UI: </span><strong class="set-title">Confirm shutdown</strong></span><span class="tag src src-default">default</span><code class="set-key">ui.confirm_shutdown</code></div></div>
+      <div class="setting-control"><input type="checkbox" id="sg-sc-bool" checked></div><label class="set-desc" for="sg-sc-bool">Shut Down asks first.</label><div class="muted setting-meta">default <code>true</code> · applies at once (the UI re-reads it)</div></div>
+  </div></div></div>
+
+  <h3>A host folder — Choose…</h3>
+  <p class="sg-when"><code>.path</code>, only <code>defaults.projects_dir</code>: the value as code and Choose…, which opens this Mac’s own folder picker (the page never sends a path; no Choose… on a remote device).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Projects dir</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.projects_dir</code></div></div>
+      <div class="setting-control"><div class="path-setting"><code class="setting-value">~/Developer/doz</code><button type="button" class="btn sm"><i data-i="folder"></i>Choose…</button></div></div><div class="set-desc">Where a new sandbox’s project folder is made.</div><div class="muted setting-meta">default <code>~/Developer/doz</code> · applies to sandboxes created from now on<div>a host path — Choose… (this Mac’s folder picker), or doz config set defaults.projects_dir PATH</div></div></div>
+  </div></div></div>
+
+  <h3>Read-only — a host path, the environment, a flag</h3>
+  <p class="sg-when">Not editable here: the value as code and the meta saying why and where to change it. Any other <code>.path</code> (<code>store.path</code>, <code>kernel.*</code>), the LAN’s settings (set on the Mac), and ANY value the environment or the command line sets (its badge says which — <code>env NAME</code>, <code>flag</code>).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">The store: </span><strong class="set-title">Path</strong></span><span class="tag src src-flag">flag</span><code class="set-key">store.path</code></div></div>
+      <div class="setting-control"><code class="setting-value">/tmp/scratch-store</code></div><div class="set-desc">Where the sandboxes, images and logs live.</div><div class="muted setting-meta">default <code>~/Library/Application Support/doz</code> · applies at the next host start<div>set on this process’s command line (--store)</div></div></div>
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">The kernel: </span><strong class="set-title">Path</strong></span><span class="tag src src-default">default</span><code class="set-key">kernel.path</code></div></div>
+      <div class="setting-control"><code class="setting-value">""  (automatic)</code></div><div class="set-desc">A kernel of your own for every sandbox.</div><div class="muted setting-meta">default <code>""  (automatic)</code> · applies at the next start<div>a host path — set it with: doz config set kernel.path PATH</div></div></div>
+  </div></div></div>
+
+  <h3>App list</h3>
+  <p class="sg-when"><code>.appList</code>, <code>bridges.open_apps</code>: Mac app names, comma-separated, in a text field whose placeholder says so; empty means none (each file’s default app).</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">Bridges: </span><strong class="set-title">Open apps</strong></span><span class="tag src src-default">default</span><code class="set-key">bridges.open_apps</code></div></div>
+      <div class="setting-control"><input type="text" spellcheck="false" placeholder="e.g. Typora, Visual Studio Code (empty: default apps only)"></div><div class="set-desc">The Mac apps a sandbox may open a file with, beside each file’s default app.</div><div class="muted setting-meta">default <code>""  (none)</code> · applies at once</div></div>
+  </div></div></div>
+
+  <h3>Presets — the matrix (and its drop-down)</h3>
+  <p class="sg-when"><code>.permissions</code>, <code>defaults.permissions</code> (VS Code’s “Type Checking Mode”): components/setting-matrix.js <code>settingMatrix({rows, columns, cell, current})</code> — the features down, the presets across, a tick (<code>check</code>, <code>--ok</code>) where one includes it, “2 of 6” for a part of a grouped row; the current column <code>.is-current</code> (<code>--state-selected</code>, the indicator on its head, the word “current”); its own box scrolls sideways when it must, never the page. Under it the drop-down Locked / Standard / Open / Custom (Open asks first: it allows the web). Any other preset-style setting uses the same component.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting setting-wide"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Permissions</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.permissions</code></div></div>
+      <div class="setting-control"><div class="perm-setting">
+        <div class="set-matrix-box"><table class="set-matrix" aria-label="What each preset lets the agent do">
+          <thead><tr><th scope="col" class="sm-feat">Feature</th><th scope="col" class="sm-col"><span class="sm-col-title">Locked</span></th><th scope="col" class="sm-col is-current"><span class="sm-col-title">Standard</span><span class="sm-cur">current</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Open</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Talk to its AI model</span></th><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install system packages</span><span class="sm-note">apt / apk</span></th><td class="sm-cell"></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install language packages</span><span class="sm-note">Node (npm) · Python (PyPI) · Go (modules) · Rust (crates.io)</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Use GitHub as you</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell"></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Browse the web</span></th><td class="sm-cell"></td><td class="sm-cell is-current"></td><td class="sm-cell is-yes"><i data-i="check"></i></td></tr>
+          </tbody></table></div>
+        <p class="muted perm-matrix-note">A base’s own language packages join Standard for that base. Use GitHub as you and Push to GitHub are in no preset.</p>
+        <div class="perm-preset"><select aria-label="defaults.permissions"><option>Locked</option><option selected>Standard</option><option>Open</option><option>Custom</option></select><span class="muted">saved as <code>standard</code></span></div>
+      </div></div><div class="set-desc">What a new sandbox’s agent may do: standard, locked, open, or standard with changes like +web,-error-reports.</div><div class="muted setting-meta">default <code>standard</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>Presets — Custom: the permissions checklist</h3>
+  <p class="sg-when">A value that is no preset (<code>+web</code>, <code>-error-reports</code>) adds a <b>Custom</b> column, current, with the person’s set; Custom in the drop-down (or such a value) shows components/permissions.js <code>permissionSwitches</code> under it — a switch per shared permission, Install software with a sub-switch per ecosystem — whose flips save the words on Standard. Default puts the preset back and the switches away.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting setting-wide is-modified"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Permissions</strong></span><span class="tag src src-mac">Mac</span><code class="set-key">defaults.permissions</code><button type="button" class="btn quiet sm set-reset"><i data-i="rotate-ccw"></i>Default</button></div></div>
+      <div class="setting-control"><div class="perm-setting">
+        <div class="set-matrix-box"><table class="set-matrix" aria-label="What each preset lets the agent do">
+          <thead><tr><th scope="col" class="sm-feat">Feature</th><th scope="col" class="sm-col"><span class="sm-col-title">Locked</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Standard</span></th><th scope="col" class="sm-col"><span class="sm-col-title">Open</span></th><th scope="col" class="sm-col is-current"><span class="sm-col-title">Custom</span><span class="sm-cur">current</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Talk to its AI model</span></th><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Install language packages</span><span class="sm-note">Node (npm) · Python (PyPI) · Go (modules) · Rust (crates.io)</span></th><td class="sm-cell"></td><td class="sm-cell"></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current"><span class="sm-some">2 of 4</span></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Browse the web</span></th><td class="sm-cell"></td><td class="sm-cell"></td><td class="sm-cell is-yes"><i data-i="check"></i></td><td class="sm-cell is-current is-yes"><i data-i="check"></i></td></tr>
+          </tbody></table></div>
+        <div class="perm-preset"><select aria-label="defaults.permissions"><option>Locked</option><option>Standard</option><option>Open</option><option selected>Custom</option></select><span class="muted">saved as <code>+install:node,+install:python,+web</code></span></div>
+        <div class="perm-list">
+          <div class="perm perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked disabled><span class="perm-title">Talk to its AI model<span class="muted"> — always</span></span></label><div class="perm-summary muted">Needed for the agent to work.</div></div>
+          <div class="perm perm-group perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Install software</span></label><div class="perm-summary muted">Install packages for your project — per ecosystem:</div>
+            <div class="perm perm-sub perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Node (npm)</span></label><div class="perm-summary muted">Install npm packages for your project.</div></div>
+            <div class="perm perm-sub"><label class="perm-main"><input type="checkbox" role="switch"><span class="perm-title">Go (modules)</span></label><div class="perm-summary muted">Install Go modules for your project.</div></div></div>
+          <div class="perm perm-on"><label class="perm-main"><input type="checkbox" role="switch" checked><span class="perm-title">Browse the web</span></label><div class="perm-summary muted">Read any website.<span class="perm-warn"> The agent could send your code anywhere — use with care.</span></div></div>
+        </div>
+      </div></div><div class="set-desc">What a new sandbox’s agent may do.</div><div class="muted setting-meta">default <code>standard</code> · applies to sandboxes created from now on</div></div>
+  </div></div></div>
+
+  <h3>A row with an error</h3>
+  <p class="sg-when">Any control: a change that could not be saved (a number out of range, a value the server refused, the folder picker failing) is said IN its row — a compact bad callout under it (<code>.setting-error</code>, <code>settingFailed</code>), kept across the page’s re-render until dismissed or fixed; never only a toast.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">New sandboxes: </span><strong class="set-title">Memory (MiB)</strong></span><span class="tag src src-default">default</span><code class="set-key">defaults.memory_mib</code></div></div>
+      <div class="setting-control"><input type="number" min="256" max="262144" step="1" value="2048"></div><div class="set-desc">Memory of a new sandbox.</div><div class="muted setting-meta">default <code>2048</code> · applies to sandboxes created from now on</div>
+      <div class="callout bad compact setting-error" role="alert"><i data-i="circle-x"></i><div class="c-body">defaults.memory_mib is a whole number, 256–262144</div><div class="c-acts"><button class="btn sm quiet icon-only" type="button" aria-label="Dismiss"><i data-i="x"></i></button></div></div></div>
+  </div></div></div>
 </section>
 
 <section>
@@ -395,7 +560,9 @@ name: todo-app</pre></details>
     list (a gateway's public list, read on this Mac once a day), searchable, name · maker · context · price per million tokens, the default tagged; a key-less source's models carry their data terms as its docs state
     them (<code>.ms-note</code>, “Data: …”, never Dozable's own judgement); an id that looks like
     one may be used as typed. What is truly not offered is one quiet line (<code>.ms-notoffer</code>); a tool with one source shows one line (<code>.ms-one</code> — Grok Build: its xAI key, no choice of model). The plan
-    shows the model and “Same in Terminal”. A tool with no choice of model (Claude Code, Codex: their own sign-ins) keeps its <b>Key</b> section.
+    shows the model and “Same in Terminal”. A tool with no choice of model (Codex: its own sign-ins) keeps its <b>Key</b> section. 660: Claude Code's
+    Anthropic row keeps its own accounts (this Mac's login, a setup token, an API key) and its own model unless one is chosen; <b>A model server on
+    this Mac</b> takes a port (<code>.ms-field</code>, <code>.ms-port</code>, the known servers as <code>.chips</code>) and a model by the server's own name — no picker, no key.
     <b>Every destructive confirmation is ONE component</b> (<code>confirmAction</code> / <code>confirmWithCheck</code> in <code>components/dialog.js</code>): a box to tick whose
     sentence says what happens (“Yes, reset demo”), the button disabled until it is ticked and named by the verb, its icon by the verb (trash for Remove and Delete,
     <code>rotate-ccw</code> for Reset, <code>history</code> for Revert) — never a name to type. Removing or resetting a sandbox, deleting or reverting to a restore point,
@@ -446,6 +613,26 @@ name: todo-app</pre></details>
           <div class="ms-foot">OpenRouter’s public model list, read on this Mac 2 hours ago · prices per million tokens</div></div></div>
         <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Name</dt><dd>try-sgpt</dd><dt>Model</dt><dd>OpenRouter — once its key is saved</dd><dt>Network</dt><dd>Standard — its model, software packages and GitHub; nothing else unless you allow it</dd><dt>Same in Terminal</dt><dd><code>doz try opencode --gateway openrouter --model anthropic/claude-sonnet-4.6</code></dd></dl></div></div>
       <div class="dlg-foot dlg-buttons"><span class="why">Save an OpenRouter key, or choose a source that has one</span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button" disabled><i data-i="rocket"></i>Start</button></div>
+    </form></dialog>
+    <!-- 660: Claude Code — Anthropic (its own accounts), a gateway, or a model server on this Mac: the port (the known
+         servers one click each: .chips), the model by the server's own name (.ms-field), and what the sandbox reaches. -->
+    <dialog class="dlg try-setup" open><form method="dialog">
+      <div class="dlg-head"><span data-mark="claude-code" class="mark"></span><h2 class="h-title">Try Claude Code</h2><button class="btn sm quiet icon-only" type="button" aria-label="Cancel"><i data-i="x"></i></button></div>
+      <div class="dlg-body"><p class="sub">A fresh sandbox, try-claude: a new empty folder of its own, a network for its model, packages and GitHub only, your key never inside.</p>
+        <div class="qt-sect"><h3>Where Claude Code gets its model</h3><p class="muted ms-lead">Its own provider is chosen; any other — or a gateway — works the same way.</p>
+          <div class="ms-src" role="radiogroup">
+            <div class="ms-grp">Providers</div>
+            <label class="ms-opt"><input type="radio" name="cc-ms"><span class="ms-t">Anthropic</span><span class="ms-k"><span class="pill st-ok"><i data-i="circle-check"></i>mac</span></span><span class="ms-d">default claude-sonnet-4-6 · Claude Code’s own</span></label>
+            <label class="ms-opt on"><input type="radio" name="cc-ms" checked><span class="ms-t">A model server on this Mac</span><span class="ms-k"><span class="pill st-ok"><i data-i="circle-check"></i>no key needed</span></span><span class="ms-d">Ollama, LM Studio, llama.cpp … by its port — no key</span></label>
+            <div class="ms-need"><div class="ms-keyline" data-ms-no-key="local"><i data-i="circle-check"></i><span>No key — nothing of yours goes to it. The sandbox reaches only this port of your Mac, as <code>mac.dozable.internal:11434</code>; nothing else on this Mac.</span></div>
+              <div class="ms-field"><span>Port on this Mac</span><div class="try-paste ms-portrow"><input type="number" class="ms-port" value="11434" aria-label="Port"><div class="chips"><button class="btn sm" type="button"><i data-i="check"></i>Ollama · 11434</button><button class="btn sm quiet" type="button"><i data-i="cpu"></i>LM Studio · 1234</button><button class="btn sm quiet" type="button"><i data-i="cpu"></i>llama.cpp (llama-server) · 8080</button></div></div></div>
+              <label class="ms-field"><span>Model</span><input type="text" value="qwen3-coder" placeholder="its name for the model — ollama list, LM Studio’s list"></label>
+              <p class="muted ms-small">Not yet: mlx-lm (mlx_lm.server) — it speaks OpenAI’s chat API only — Claude Code needs Anthropic’s Messages API, so it needs a translator (not yet)</p></div>
+            <div class="ms-grp">Gateways <span>— one key, models from many makers</span></div>
+            <label class="ms-opt"><input type="radio" name="cc-ms"><span class="ms-t">OpenRouter</span><span class="ms-k"><span class="pill st-off"><i data-i="circle-dot"></i>no key yet</span></span><span class="ms-d">one key, models from many makers</span></label>
+          </div></div>
+        <div class="qt-sect"><h3>The plan</h3><dl class="qt-plan"><dt>Model</dt><dd>qwen3-coder on this Mac’s port 11434</dd><dt>Same in Terminal</dt><dd><code>doz try claude-code --provider local --local-port 11434 --model qwen3-coder</code></dd></dl></div></div>
+      <div class="dlg-foot dlg-buttons"><span class="why"></span><button class="btn quiet" type="button"><i data-i="x"></i>Cancel</button><button class="btn primary" type="button"><i data-i="rocket"></i>Start</button></div>
     </form></dialog>
     <div class="ms-picker"><div class="ms-top"><i data-i="search"></i><input type="search" placeholder="Search OpenCode Zen’s models — name, maker or id"></div>
       <div class="ms-mlist">

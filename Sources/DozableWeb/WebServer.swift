@@ -718,6 +718,7 @@ public final class DozableWebServer: @unchecked Sendable {
         var info = WebSessionInfo(csrf: s.csrfToken, expiresAt: s.expiresAt, serverRun: serverRun, store: data.storePath, version: version)
         info.homes = DisplayPath.homes()
         info.chatgptSignIn = BuildFlavor.current.chatgptSignIn          // 611
+        info.sound = !BuildFlavor.current.isPublic && MacAudio.bundledSoundKernel() != nil   // 667
         info.update = updateNotice
         info.signup = Usage.isOfficial
         info.usageStats = usageStatsStep.map(WebUsageStats.init)
@@ -881,6 +882,8 @@ public final class DozableWebServer: @unchecked Sendable {
             throw WebRejection.upgradeRequired            // answered in respond(); never dispatched
         case .settings:
             return json(settings.report())
+        case .recipes:
+            return json(settings.recipes(store: DozableStore(root: URL(fileURLWithPath: data.storePath))))
         case .settingsChange:
             try Self.requireJSONBody(md)
             return json(try settings.apply(try WebSettingChange.decode(body)))

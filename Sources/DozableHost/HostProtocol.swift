@@ -254,7 +254,8 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// `doz create --prepare`: prepare the image the sandbox's first start would wait for, now (started
     /// or joined, its progress on the request's stream) — without booting the sandbox.
     public var prepare: Bool?
-    /// EXPERIMENTAL (604): an audio sandbox — the Mac's microphone and speakers (`SandboxSpec.audio`).
+    /// 604: sound with the microphone (`--audio`, the same as `settings["sandbox.audio"] = on`). 667: the host
+    /// resolves the sandbox's sound (`resolveSound`) and sets this when it has the device (`SandboxSpec.audio`).
     public var audio: Bool?
     /// 617 (D6): custom key accounts to attach (`--key NAME`, repeatable); each host must be allowed.
     public var keys: [String]?
@@ -262,6 +263,9 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// openrouter, vercel-ai-gateway) — its account is then a key of that source — and the model (`--model`).
     public var modelSource: String?
     public var model: String?
+    /// 660: the port of a model server on this Mac (`--provider local --local-port N`) — the ONE port of this Mac the
+    /// sandbox may reach (as `mac.dozable.internal:N`).
+    public var localPort: Int?
     /// 618: an exact release of the agent (`NAME@VERSION`) for this sandbox only, over its `images.<id>_version` setting —
     /// checked like a pin before anything is made (the registry has it, its integrity, its major: AgentRef).
     public var agentVersion: String?
@@ -272,6 +276,10 @@ public struct CreateOptions: Codable, Equatable, Sendable {
     /// 618: what the person typed, resolved (`opencode`, `opencode@1`, `opencode@2.0.28`) — recorded with the release it
     /// made (`SandboxConfig.agentRef`); nil: the image named the agent.
     public var agentRef: String?
+    /// 669 (659 §4): which of these values its project file (`doz_project.yaml`) gave — per-sandbox setting keys
+    /// (`sandbox.clipboard`, `approvals`) and the when-made ones (`cpus`, `memory_mib`, `network`, `version`) — so the
+    /// sandbox records `from: project` for them (`SandboxConfig.settingsFrom`, `recipeSettings`). nil: none.
+    public var fromProject: [String]?
 
     public init(image: String, cpus: Int? = nil, memoryMiB: UInt64? = nil, workspace: String? = nil,
                 network: String? = nil, subnet: String? = nil, account: String? = nil) {
@@ -426,6 +434,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var setting: String?
     public var settingValue: TOMLValue?
     public var clearSetting: Bool?
+    /// 669: `project` when the value is its project file's (`doz up` syncing `doz_project.yaml`); nil: the sandbox's own.
+    public var settingFrom: String?
     /// 599e `access`: confirm live (true), and which credentials (`claude`, `github`, `ssh`; nil: all).
     public var check: Bool?
     public var items: [String]?
@@ -733,6 +743,10 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var agentRef: String? = nil
     /// 654: the fully qualified recipe it was made from (`dozable/anthropic/claude-code@2.1.299`); nil: not recorded.
     public var recipeRef: String? = nil
+    /// 667: its sound — `speakers` or `on` (nil: none, the default) — and, once a boot decided it, its microphone:
+    /// `mac` (the Mac's) or why it is silent.
+    public var sound: String? = nil
+    public var microphone: String? = nil
     /// 617 (D6): the custom keys attached beside the account.
     public var extraKeys: [String]? = nil
     /// 617 (RP-1): its web-port forwards (nil: none) — the dashboard's Open buttons.
@@ -743,6 +757,11 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var sessionMore: Int? = nil
     /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
     public var dotfiles: DotfilesState? = nil
+    /// 660: where its agent gets its model, as a person reads it — "via OpenRouter · model anthropic/claude-sonnet-4.6",
+    /// "via this Mac's port 11434 · model qwen3-coder" (nil: the agent's own provider and its own choice of model).
+    public var modelLine: String? = nil
+    /// 660: the ONE port of this Mac it may reach (its model server); nil: none.
+    public var localModelPort: Int? = nil
 
     /// 594 W28: the notice for `olderImage` (`doz ls`, the sandbox's page, create).
     public var olderImageLine: String? {
@@ -771,6 +790,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         case ports                                        // 617 (RP-1)
         case sessionList, sessionMore                     // 635
         case dotfiles                                     // 657
+        case sound, microphone                            // 667
+        case modelLine, localModelPort                    // 660
     }
 
     public init(from decoder: Decoder) throws {
@@ -817,6 +838,10 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         sessionList = try c.decodeIfPresent([SessionBrief].self, forKey: .sessionList)
         sessionMore = try c.decodeIfPresent(Int.self, forKey: .sessionMore)
         dotfiles = try c.decodeIfPresent(DotfilesState.self, forKey: .dotfiles)
+        sound = try c.decodeIfPresent(String.self, forKey: .sound)
+        microphone = try c.decodeIfPresent(String.self, forKey: .microphone)
+        modelLine = try c.decodeIfPresent(String.self, forKey: .modelLine)
+        localModelPort = try c.decodeIfPresent(Int.self, forKey: .localModelPort)
     }
 
     /// `workspace` is written even when null (with `isolated: true`), so a reader never has to guess.
@@ -859,6 +884,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(createdFolder, forKey: .createdFolder)
         try c.encodeIfPresent(agentRef, forKey: .agentRef)
         try c.encodeIfPresent(recipeRef, forKey: .recipeRef)
+        try c.encodeIfPresent(sound, forKey: .sound)                    // 667
+        try c.encodeIfPresent(microphone, forKey: .microphone)
         try c.encodeIfPresent(ports, forKey: .ports)
         try c.encodeIfPresent(sessionStatuses, forKey: .sessionStatuses)
         try c.encodeIfPresent(agentStatus, forKey: .agentStatus)
@@ -866,6 +893,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encodeIfPresent(sessionList, forKey: .sessionList)
         try c.encodeIfPresent(sessionMore, forKey: .sessionMore)
         try c.encodeIfPresent(dotfiles, forKey: .dotfiles)
+        try c.encodeIfPresent(modelLine, forKey: .modelLine)
+        try c.encodeIfPresent(localModelPort, forKey: .localModelPort)
     }
 
     public init(name: String, image: String, phase: String, busy: Bool, cpus: Int, memoryMiB: UInt64, ramHeldMiB: UInt64,
@@ -917,6 +946,9 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     public var guide: SandboxGuide? = nil
     /// 635: the default session's program — what a new agent session (claude-2, …) runs.
     public var defaultArgv: [String]? = nil
+    /// 669 (659 item 13): its settings — what it overrides (its own, its project's), what it follows, and its recipe's
+    /// values as recorded when it was made (`doz config show --sandbox NAME`).
+    public var settings: SandboxSettingsReport? = nil
 }
 
 /// One guest session (`deckhold ls`).

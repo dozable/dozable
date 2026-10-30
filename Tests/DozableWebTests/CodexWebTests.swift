@@ -16,7 +16,13 @@ final class CodexWebTests: XCTestCase {
         XCTAssertEqual(a.agents["pi"], ["api-key", "key", "openai-key"])
         XCTAssertEqual(a.sources["pi"]?.first, "anthropic")
         XCTAssertTrue(a.gatewaySources.contains("openrouter"))
-        XCTAssertEqual(a.agents["claude-code"], ["mac", "setup-token", "api-key"], "unchanged")
+        // 660: its own three first, as before — then a gateway's key (OpenRouter, through models@1).
+        XCTAssertEqual(a.agents["claude-code"], ["mac", "setup-token", "api-key", "key"])
+        XCTAssertEqual(a.sources["claude-code"], ["anthropic", "openrouter", "local"])
+        XCTAssertEqual(a.recipeDefaults["claude-code"], "mac", "Claude Code follows the Anthropic default, never a gateway's")
+        XCTAssertTrue(a.keylessSources.contains("local"))
+        XCTAssertEqual(a.localHost, "mac.dozable.internal")
+        XCTAssertTrue(a.localServers.contains { $0.title == "Ollama" && $0.port == 11434 && $0.native })
         let json = String(decoding: try JSONEncoder().encode(a), as: UTF8.self)
         XCTAssertTrue(json.contains("\"openaiDefault\":\"plan\""))
     }
@@ -45,7 +51,7 @@ final class CodexWebTests: XCTestCase {
         // 641: Add a key, by tool — every tool (a withdrawn one too: Grok Build) with its providers among the listed ones.
         XCTAssertEqual(a.toolProviders["grok"]?.first, "xai", "\(a.toolProviders["grok"] ?? [])")
         XCTAssertEqual(a.toolTitles["grok"], "Grok Build")
-        XCTAssertEqual(a.toolProviders["claude-code"], ["anthropic"])
+        XCTAssertEqual(a.toolProviders["claude-code"], ["anthropic", "openrouter"], "660: and the gateway it can go through")
         for (tool, ps) in a.toolProviders {
             XCTAssertNotNil(a.toolTitles[tool], tool)
             for p in ps { XCTAssertTrue(a.providers.contains(p), "\(tool): \(p) is a listed provider") }

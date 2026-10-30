@@ -6,7 +6,7 @@ import XCTest
 @testable import DozableHost
 
 /// 611 — the public build flavor, BOTH modes in one test run: no Dozable's own ChatGPT sign-in (the CLI, the host,
-/// an existing account kept but never used) and no experimental audio; the private flavor keeps both.
+/// an existing account kept but never used) and no sound; the private flavor keeps both.
 final class BuildFlavorTests: XCTestCase {
     private var root: URL!
     let keychain = FakeKeychain()
@@ -60,8 +60,13 @@ final class BuildFlavorTests: XCTestCase {
         XCTAssertThrowsError(try DozableCommand.parseAsRoot(["onboard", "--openai-account", "chatgpt", "--store", root.path]))
         let create = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "a", "--image", "lab", "--audio", "--store", root.path]) as? Create)
         XCTAssertThrowsError(try create.create.options()) { e in
-            XCTAssertTrue("\(e)".contains("does not include the experimental audio"), "\(e)")
+            XCTAssertTrue("\(e)".contains("does not include sound"), "\(e)")
         }
+        // 667: --sound speakers|on too; --sound off is no sound, so nothing to refuse.
+        let speakers = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "a", "--image", "lab", "--sound", "speakers", "--store", root.path]) as? Create)
+        XCTAssertThrowsError(try speakers.create.options())
+        let off = try XCTUnwrap(try DozableCommand.parseAsRoot(["create", "a", "--image", "lab", "--sound", "off", "--store", root.path]) as? Create)
+        XCTAssertNoThrow(try off.create.options())
         XCTAssertNoThrow(try DozableCommand.parseAsRoot(["account", "add", "x", "--openai-key", "--store", root.path]))
         setenv("DOZ_TEST_PUBLIC_BUILD", "0", 1)
         XCTAssertNoThrow(try DozableCommand.parseAsRoot(["account", "add", "x", "--chatgpt", "--store", root.path]), "the private build keeps it")
@@ -104,7 +109,7 @@ final class BuildFlavorTests: XCTestCase {
         r.create = o
         let pub = await core(.publicBuild)
         let m = await pub.handle(r)
-        XCTAssertTrue(m.error?.message.contains("does not include the experimental audio support") == true, m.error?.message ?? "")
+        XCTAssertTrue(m.error?.message.contains("does not include sound") == true, m.error?.message ?? "")
         let priv = await core(.privateBuild)
         let m2 = await priv.handle(r)
         XCTAssertTrue(m2.error?.message.contains("does not carry") == true, "the private build gets as far as the kernel: \(m2.error?.message ?? "")")

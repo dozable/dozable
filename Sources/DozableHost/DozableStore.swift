@@ -87,6 +87,14 @@ public struct DozableStore: Sendable, Equatable {
     }
 }
 
+/// 669: one value a sandbox recorded when it was made, and where it came from (`flag`, `project`, `mac`, `recipe`,
+/// `default`).
+public struct RecordedSetting: Codable, Equatable, Sendable {
+    public var value: TOMLValue
+    public var from: String
+    public init(value: TOMLValue, from: String) { self.value = value; self.from = from }
+}
+
 /// What `doz create` records for a sandbox (`<sandbox>/doz.json`). The spec is the
 /// library's; the rest is the CLI's own: which image it was made from, its network preset, where
 /// its credentials come from (never the secret), and what happened to it.
@@ -125,6 +133,13 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// clipboard and browser bridges, tmux) — a key absent follows the setting. (`sandbox.agent_sudo`
     /// keeps its own field above.)
     public var settings: [String: TOMLValue]?
+    /// 669 (659 §4, §6): where each of `settings` came from — `project` (its doz_project.yaml: at create, and synced by
+    /// every doz up); a key absent here is the sandbox's own (`sandbox`), as every value of a doz.json before 669 reads.
+    /// A sibling of `settings` rather than inside it, so an older doz still reads this file (its `settings` is flat).
+    public var settingsFrom: [String: String]?
+    /// 669: the values of its recipe's settings that are fixed when it is made (`version`, `memory_mib`, `network`),
+    /// as resolved at create, each with the layer that gave it. Absent before 669 (shown "recorded").
+    public var recipeSettings: [String: RecordedSetting]?
     /// 617 (D6): custom key accounts attached beside the account (`--key NAME`), each swapped only on its own hosts,
     /// only while the policy allows them. Absent for every sandbox before 617.
     public var extraKeys: [String]?
@@ -144,6 +159,10 @@ public struct SandboxConfig: Codable, Equatable, Sendable {
     /// 618: the KEY-LESS model source it was made with (`--provider opencode-zen`: OpenCode Zen's free models) — used
     /// while it has no account (an account added later wins: its source is the account's). Absent otherwise.
     public var modelSource: String?
+    /// 660: the ONE port of this Mac this sandbox may reach — the model server it was made with (`--local-port`),
+    /// reached as `mac.dozable.internal:PORT` (`EgressProxy.macModelPort`). Absent: none (every port of this Mac's
+    /// loopback refused, as for every sandbox).
+    public var localModelPort: Int?
     /// 617 (RP-1): the web ports forwarded beside the recipe's own (`doz ports add`), and the Mac port each guest port
     /// (recipe or added) had last — preferred again at the next start. Absent before 617.
     public var ports: [PortForwardEntry]?
@@ -272,8 +291,8 @@ public enum DozableImages {
             imageSpec = c.imageSpec
             imageName = "custom:\(c.name)"
         }
-        let section = DozableSettings.imageSection(imageSpecName: imageSpec?.name)
-        var network = try networkMode(o.network ?? settings.string(SettingKey.network(section)) ?? defaultNetwork(image, imageSpec: imageSpec))
+        let keys = DozableSettings.imageKeys(imageSpecName: imageSpec?.name)
+        var network = try networkMode(o.network ?? settings.string(keys.network) ?? defaultNetwork(image, imageSpec: imageSpec))
         let catalogueBase = imageSpec.flatMap({ ImageChoice.parse($0.name) }).flatMap({ BaseCatalogue.base($0.base) })
         if case .proxied(let p) = network, let preset = p.preset, ["locked", "agent", "open"].contains(preset) {
             // 597 (P1, P4, P5): a proxied sandbox's agent gets PERMISSIONS, stored by name — the preset
@@ -284,7 +303,7 @@ public enum DozableImages {
             if let exact = o.permissions {
                 for w in exact where !AgentPermissions.isValid(w) { throw HostError(.invalid, "no permission \(w) — doz net permissions") }
                 names = AgentPermissions.normalized(exact)
-            } else if o.network != nil || settings.resolve(SettingKey.network(section)).source != .default {
+            } else if o.network != nil || ![.default, .recipe].contains(settings.resolve(keys.network).source) {
                 // A network named (the flag, or the image's own setting): exactly that preset.
                 names = AgentPermissions.preset(preset, base: baseID) ?? []
             } else {
@@ -319,7 +338,7 @@ public enum DozableImages {
         let subnet = o.subnet ?? settings.string(SettingKey.natSubnet)
         var spec = SandboxSpec(name: name, storeRoot: store.root, kernelPath: kernelPath, kernelCacheDirectory: kernelCache,
                                cpus: o.cpus ?? settings.int(SettingKey.cpus),
-                               memoryMiB: o.memoryMiB ?? UInt64(settings.int(SettingKey.memory(section))), rootfsMiB: 1024,
+                               memoryMiB: o.memoryMiB ?? UInt64(settings.int(keys.memory)), rootfsMiB: 1024,
                                // 594: fd, as in the agent images (tools an agent looks for).
                                bakePackages: imageSpec == nil && customKey == nil ? DozableImages.labPackages : [],
                                shares: shares, subnet: network == .nat ? subnet : nil,

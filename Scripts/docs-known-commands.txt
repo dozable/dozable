@@ -19,6 +19,7 @@ recipe/show
 recipe/check
 recipe/trust
 recipe/rm
+recipe/uninstall
 recipe/source
 models
 guide

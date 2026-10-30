@@ -28,6 +28,7 @@ both.
 | [The dashboard on your other devices](25-doz-serve.md) | use the dashboard from another computer, a tablet or a phone on your network (`doz ui --lan`) — and behind your own HTTPS reverse proxy |
 | [Images and bases](08-images-and-bases.md) | pick a language base, use your own Dockerfile, rebuild an out-of-date image |
 | [Agents and accounts](09-agents-and-accounts.md) | use Claude Code or pi, add accounts, change what the agent is told |
+| [Claude Code with other models](32-claude-code-other-models.md) | run Claude Code through a gateway (OpenRouter) or a model server on your Mac (Ollama, LM Studio, llama-server …) — `--gateway`, `--provider local --local-port` — and what a sandbox can reach on your Mac |
 | [Trying agents, and what Dozable supports](26-try-and-search.md) | try an agent in one command (`doz try`), check what Dozable runs (`doz search`), see a plan before anything is made (`--dry-run`) |
 | [More agents](27-more-agents.md) | run Antigravity CLI, Grok Build or Gemini CLI with an API key — what each may reach, what is kept out, whether it is current |
 | [Other AI tools](28-ai-tools.md) | AI tools that are not coding agents (Fabric, …) — tried like an agent, each on an API key |
@@ -36,7 +37,7 @@ both.
 | [Web ports](29-web-ports.md) | open a web page a tool serves in a sandbox (a playground, your dev server) in your Mac's browser — `doz ports`, `doz open` |
 | [Signing in from a sandbox](11-signing-in-from-a-sandbox.md) | let a tool in a sandbox sign in through your Mac's browser |
 | [GitHub as you](18-github.md) | let git and gh in a sandbox use your GitHub login — read-only or with push — without the token entering it |
-| [The tools layer](19-the-tools-layer.md) | know which tools Dozable puts in a sandbox for its settings (gh, the ssh client, tmux …) and check them |
+| [Managed tools](19-the-tools-layer.md) | know which tools Dozable manages in a sandbox for its settings (gh, the ssh client, tmux …) and check them |
 | [Your dotfiles](31-dotfiles.md) | have your shell setup (your dotfiles repository, or a folder on your Mac) in every sandbox — what runs, what is never touched, trust, `doz dotfiles` |
 | [Workspace rules](20-workspace-rules.md) | keep the agent out of some files in your shared folder (`.dozignore`), or let it read but not change them (`.dozreadonly`) |
 | [The workspace view](21-the-workspace-view.md) | `dozview`, the small program in the sandbox every workspace goes through: why (programs keep their folder across a wake), what it costs, `workspace.view`, the rules it enforces, its two processes, sleep and wake, how to look inside. |
@@ -47,7 +48,7 @@ both.
 | [Settings reference](15-settings-reference.md) | look up any setting, its default and when it applies |
 | [Security model](16-security-model.md) | understand what protects your Mac, and what doesn't |
 | [Troubleshooting and FAQ](17-troubleshooting-and-faq.md) | fix something, or find a quick answer |
-| [Audio sandboxes (EXPERIMENTAL)](23-audio-experimental.md) | try a sandbox with your Mac's microphone and speakers |
+| [Sound](23-sound.md) | give a sandbox your Mac's speakers, and its microphone |
 
 ## Conventions
 

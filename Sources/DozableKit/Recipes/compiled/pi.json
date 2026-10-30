@@ -312,6 +312,7 @@
           }
         ]
       },
+      "description" : "coding harness",
       "type" : "com.dozable/directory@1"
     },
     {

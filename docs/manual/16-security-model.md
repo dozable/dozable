@@ -28,6 +28,11 @@ proxy, in the host on your Mac, which checks every connection — DNS included �
   They warn before you turn them on. Prefer `site:HOST` for what's really needed.
 - `--network nat` gives a sandbox a real network card, **not filtered or logged**; `--network none`
   gives it none. Use `nat` only when you mean it.
+- **Your Mac's localhost is never reachable** through the proxy (`127.0.0.1`, `localhost`, `::1`), whatever
+  the permissions — Open included: what listens there (a database, a dev server, another sandbox's web
+  port) expects only your Mac's own programs. The one exception is chosen per sandbox: a model server on
+  your Mac, by its port, reached as `mac.dozable.internal:PORT` — that port only
+  ([Claude Code with other models](32-claude-code-other-models.md)).
 
 ### 3. Credentials never enter the sandbox
 
@@ -184,5 +189,5 @@ fully resolved path.
 | `sandbox.ssh_agent` | `off` | Forward your Mac's ssh-agent (github.com:22 only). |
 | `sandbox.agent_sudo` | `true` | The agent's sudo inside its sandbox. |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token. |
-| `claude.permissions` | `skip` | Claude Code's own permission prompts (`ask` to keep them). |
+| `recipes.anthropic.claude-code.approvals` | `skip` | Claude Code's own permission prompts (`ask` to keep them). |
 | `telemetry.send_anonymous_usage_stats` | `true` | Official builds: anonymous usage statistics (`false`, or `DO_NOT_TRACK=1`, turns them off). |

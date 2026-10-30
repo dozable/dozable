@@ -287,9 +287,20 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     public var icon: ResolvedIcon?
     /// 657: its dotfiles — where from, the commit, how the last apply went (nil: none).
     public var dotfiles: WebDotfiles?
+    /// 667: its sound (`speakers` / `on`; nil: none) and its microphone (`mac`, or why it is silent; nil: not booted yet).
+    public var sound: String?
+    public var microphone: String?
+    /// 660: where its agent gets its model ("via OpenRouter · model X"; nil: its own provider and model), and the ONE
+    /// port of this Mac it may reach (its model server).
+    public var modelLine: String?
+    public var localModelPort: Int?
 
     public init(_ i: SandboxInfo) {
+        sound = i.sound
+        microphone = i.microphone
         dotfiles = i.dotfiles.map(WebDotfiles.init)
+        modelLine = i.modelLine
+        localModelPort = i.localModelPort
         icon = ImageChoice.parse(i.image).flatMap { $0.agent == .none ? nil : $0.agent.recipe }.map(AgentIcons.resolve)
         sessionList = i.sessionList.map { $0.map(WebSessionBrief.init) }
         sessionMore = i.sessionMore
@@ -678,6 +689,8 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
     public var guide: WebGuide?
     /// 635: the default session's program — the tab bar's New <agent> session opens another with it.
     public var defaultArgv: [String]?
+    /// 669 (659 item 13): the Config tab's Settings block — what it overrides, what it follows, what was recorded.
+    public var settings: [WebSandboxSetting]?
 
     public init(_ d: SandboxDetail, attachCommand: String) {
         info = WebSandboxRow(d.info)
@@ -702,6 +715,38 @@ public struct WebSandboxDetail: Codable, Equatable, Sendable {
         project = d.project
         guide = d.guide.map(WebGuide.init)
         defaultArgv = d.defaultArgv
+        settings = d.settings?.settings.map(WebSandboxSetting.init)
+    }
+}
+
+/// 669: one of a sandbox's settings, field by field (`SandboxSettingRow`) — never a secret: the schema has none.
+public struct WebSandboxSetting: Codable, Equatable, Sendable {
+    public var key: String
+    public var value: TOMLValue
+    /// `sandbox` · `project` (its own) · `mac` · `recipe` · `default` · `env` (what it follows) — or, recorded, where it
+    /// came from when it was made (`flag` too, `recorded` before 669).
+    public var source: String
+    /// This Mac's value now, and its source.
+    public var macValue: TOMLValue
+    public var macSource: String?
+    /// The doz.toml key it stands for (`approvals` → `recipes.anthropic.claude-code.approvals`).
+    public var settingKey: String?
+    public var recorded: Bool
+    public var typeName: String
+    public var description: String
+    public var choices: [String]?
+
+    public init(_ r: SandboxSettingRow) {
+        key = r.key
+        value = r.value
+        source = r.source
+        macValue = r.settingValue
+        macSource = r.settingSource
+        settingKey = r.settingKey
+        recorded = r.recorded == true
+        typeName = r.typeName
+        description = r.description
+        choices = r.choices
     }
 }
 
@@ -1018,6 +1063,9 @@ public struct WebNetwork: Codable, Equatable, Sendable {
     public var note: String?
     /// 597: what the agent can do (nil: not proxied).
     public var permissions: WebPermissions? = nil
+    /// 660: the ONE port of this Mac it may reach (its model server), and the name it uses (nil: none).
+    public var macPort: Int? = nil
+    public var macHost: String? = nil
 }
 
 public struct WebImage: Codable, Equatable, Sendable {
@@ -1194,6 +1242,19 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var gateway: Bool
         public var model: String
         public var offered: [Source]
+        /// 660: the agent picks its own model (a built-in agent on its own provider, none chosen).
+        public var own: Bool? = nil
+        /// 660: a model server on this Mac — the port chosen (nil: none yet), and the servers known to work.
+        public var localPort: Int? = nil
+        public struct LocalServer: Codable, Equatable, Sendable {
+            public var title: String
+            public var port: Int
+            public var native: Bool
+            public var reason: String?
+        }
+        public var localServers: [LocalServer]? = nil
+        /// 660: the name the sandbox reaches this Mac's server by (`mac.dozable.internal`).
+        public var localHost: String? = nil
     }
     public var model: Model?
 
@@ -1216,6 +1277,8 @@ public struct WebPlan: Codable, Equatable, Sendable {
         public var account: String?
         public var modelSource: String?
         public var model: String?
+        /// 660: a model server on this Mac's port.
+        public var localPort: Int? = nil
     }
     public var create: Create?
     /// 618: the release it installs and what it is made as (`opencode@1`) — the setup's Version row.
@@ -1247,12 +1310,17 @@ public struct WebPlan: Codable, Equatable, Sendable {
         account = p.account.map { Account(name: $0.name, kind: $0.kind, provider: $0.provider, sourceLabel: $0.sourceLabel) }
         problems = p.problems.map { Problem(code: $0.code, text: $0.text, fix: $0.fix) }
         create = Create(image: p.create.image, network: p.create.network, workspace: p.create.workspace, isolated: p.create.isolated,
-                        account: p.create.account, modelSource: p.create.modelSource, model: p.create.model)
+                        account: p.create.account, modelSource: p.create.modelSource, model: p.create.model, localPort: p.create.localPort)
         model = p.model.map { m in
-            Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,
-                  offered: m.offered.map { Model.Source(id: $0.id, title: $0.title, gateway: $0.gateway, defaultModel: $0.defaultModel,
-                                                        accountKind: $0.accountKind, keyHint: $0.keyHint,
-                                                        keysPage: WebPlan.keysPage($0.id)) })
+            var x = Model(source: m.source, title: m.title, gateway: m.gateway, model: m.model,
+                          offered: m.offered.map { Model.Source(id: $0.id, title: $0.title, gateway: $0.gateway, defaultModel: $0.defaultModel,
+                                                                accountKind: $0.accountKind, keyHint: $0.keyHint,
+                                                                keysPage: WebPlan.keysPage($0.id)) })
+            x.own = m.own                                                                         // 660
+            x.localPort = m.localPort
+            x.localServers = m.localServers?.map { Model.LocalServer(title: $0.title, port: $0.port, native: $0.native, reason: $0.reason) }
+            if m.localServers != nil { x.localHost = MacModelServer.hostName }
+            return x
         }
     }
 
@@ -1397,6 +1465,12 @@ public struct WebAccounts: Codable, Equatable, Sendable {
     /// provider a tool takes offers nothing to make). `providerTools` stays the published ones (the groups' "for …").
     public var toolProviders: [String: [String]] = [:]
     public var toolTitles: [String: String] = [:]
+    /// 660: a model server on this Mac — the servers known to work (and the ones not yet), and the name the sandbox
+    /// reaches it by; the tools that can use one (`local` among their sources).
+    public var localServers: [WebPlan.Model.LocalServer] = MacModelServer.servers.map {
+        WebPlan.Model.LocalServer(title: $0.title, port: $0.port, native: $0.native, reason: $0.reason)
+    }
+    public var localHost = MacModelServer.hostName
 
     public init(accounts: [WebAccount], defaultAccount: String, keepalive: Bool, openaiDefault: String? = nil,
                 providerDefaults: [String: String] = [:]) {
@@ -1411,7 +1485,9 @@ public struct WebAccounts: Codable, Equatable, Sendable {
         // 629: the published agents and sources only — what New Sandbox and the key forms offer.
         for kind in AgentKind.published {
             guard let r = kind.recipe, let s = AgentCredentials.sources(r.id)?.filter(ModelSources.isPublished), let k = AgentCredentials.kinds(r.id) else { continue }
-            agents[r.id] = k.map(\.rawValue).sorted()
+            // 660: a built-in agent's own kinds first, in their order (Claude Code: mac, setup-token, api-key), then the rest.
+            let own = r.isBuiltin ? (AgentImages.credentials(r.id)?.flatMap(\.accountKinds) ?? []) : []
+            agents[r.id] = own + k.map(\.rawValue).filter { !own.contains($0) }.sorted()
             sources[r.id] = s
             recipeDefaults[r.id] = AgentCredentials.defaultAccount(for: r.id, anthropic: defaultAccount, openai: openaiDefault,
                                                                    providers: providerDefaults, kinds: kinds)
@@ -1547,6 +1623,8 @@ public struct WebSessionInfo: Codable, Equatable, Sendable {
     public var serve: WebServeSessionInfo? = nil
     /// 611: this build has Dozable's own ChatGPT sign-in (a public build does not: the page never offers it).
     public var chatgptSignIn: Bool = true
+    /// 667: this doz can give a sandbox sound (it carries the sound kernel): New sandbox offers Sound.
+    public var sound: Bool = false
     /// 611: a newer doz (the banner), or one an automatic update installed that this doz ui is older than.
     public var update: WebUpdateNotice? = nil
     /// This build has the sign-up (an official build): the setup wizard offers Stay in touch. Else the page shows
