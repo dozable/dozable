@@ -2,8 +2,8 @@
 # test-recipe-catalogue.sh — `make test-recipe-catalogue`: the recipe catalogue end to end, offline, with a THROWAWAY key.
 #
 #   an edited copy of the tree's recipes (Grok Build published, its description changed; a NEW recipe, "LLM Two")
-#   → make publish-recipes into a scratch site (signed, checked by this doz) → a local server (python3 http.server on
-#   127.0.0.1) → a REAL host in a scratch store refreshes: first nothing published (404 — the embedded set stays), then
+#   → make publish-recipes into a scratch DIRECTORY_DIR (the doz.sh site: CNAME, .nojekyll, v1/index.json, signed,
+#   checked by this doz) → a local server standing in for doz.sh (python3 http.server on 127.0.0.1) → a REAL host in a scratch store refreshes: first nothing published (404 — the embedded set stays), then
 #   the catalogue (its files sha256-checked → next.json) → the next host start applies it → NEW processes use it
 #   (doz doctor, doz search); a tampered file is never used; a re-publish is idempotent; nothing is pushed.
 #
@@ -64,16 +64,31 @@ PY
 PUB="$(swift Scripts/update-key.swift test-key "$R/key")"
 export DOZ_TEST_UPDATE_KEY="$PUB"
 git init -q -b main "$R/site"
-pubr() { env TEST_PUBLISH=1 UPDATE_KEY_FILE="$R/key" UPDATE_PUBLIC_KEY="$PUB" RECIPES_DIR="$R/recipes" UPDATES_DIR="$R/site" \
+pubr() { env TEST_PUBLISH=1 UPDATE_KEY_FILE="$R/key" UPDATE_PUBLIC_KEY="$PUB" RECIPES_DIR="$R/recipes" DIRECTORY_DIR="$R/site" \
          DOZ="$DOZ" "$@" Scripts/publish-recipes.sh >"$R/publish.log" 2>&1; }
 check "embedded first: doz doctor says the build's own recipes" grep -q '^embedded (doz ' <<<"$(recipes)"
-check "UPDATE_KEY_FILE outside TEST_PUBLISH=1 is refused" bash -c "! env UPDATE_KEY_FILE='$R/key' UPDATES_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh >/dev/null 2>&1"
-check "a key doz does not trust is refused (nothing written)" bash -c "! env TEST_PUBLISH=1 UPDATE_KEY_FILE='$R/key' UPDATE_PUBLIC_KEY=$(swift Scripts/update-key.swift test-key "$R/other") RECIPES_DIR='$R/recipes' UPDATES_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh >/dev/null 2>&1 && [ ! -e '$R/site/v1/recipes.json' ]"
+check "UPDATE_KEY_FILE outside TEST_PUBLISH=1 is refused" bash -c "! env UPDATE_KEY_FILE='$R/key' DIRECTORY_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh >/dev/null 2>&1"
+check "a key doz does not trust is refused (nothing written)" bash -c "! env TEST_PUBLISH=1 UPDATE_KEY_FILE='$R/key' UPDATE_PUBLIC_KEY=$(swift Scripts/update-key.swift test-key "$R/other") RECIPES_DIR='$R/recipes' DIRECTORY_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh >/dev/null 2>&1 && [ ! -e '$R/site/v1/recipes.json' ]"
 check "publish → serial 1, checked by this doz" pubr
 check "  … v1/recipes.json and v1/recipes/1/ are written" bash -c "[ -f '$R/site/v1/recipes.json' ] && [ -f '$R/site/v1/recipes/1/agents/llm2.json' ] && [ ! -e '$R/site/v1/recipes/1/agents/claude-code.json' ]"
-check "  … committed in the site, never pushed (no PUSH=1)" bash -c "git -C '$R/site' log --oneline -1 | grep -q 'recipe catalogue 1' && grep -q 'not pushed' '$R/publish.log'"
+check "  … CNAME is doz.sh (the constant's host), .nojekyll is there, and no update feed" bash -c "[ \"\$(cat '$R/site/CNAME')\" = doz.sh ] && [ -f '$R/site/.nojekyll' ] && [ ! -e '$R/site/v1/feed.json' ]"
+check "  … v1/index.json is dozable-directory/v1 and lists llm2 and claude-code" python3 - "$R/site/v1/index.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+ids = {e["id"] for e in d["entries"] if e.get("kind") == "agent"}
+sys.exit(0 if d.get("format") == "dozable-directory/v1" and {"llm2", "claude-code"} <= ids else 1)
+PY
+check "  … committed in the site (CNAME, .nojekyll, index.json too), never pushed (no PUSH=1)" bash -c "git -C '$R/site' log --oneline -1 | grep -q 'recipe catalogue 1' && git -C '$R/site' ls-files | grep -qx CNAME && git -C '$R/site' ls-files | grep -qx v1/index.json && grep -q 'not pushed' '$R/publish.log'"
 cp "$R/site/v1/recipes.json" "$R/manifest.before"
-check "a re-publish of the same data is idempotent" bash -c "env TEST_PUBLISH=1 UPDATE_KEY_FILE='$R/key' UPDATE_PUBLIC_KEY='$PUB' RECIPES_DIR='$R/recipes' UPDATES_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh 2>&1 | grep -q 'already says this' && cmp -s '$R/manifest.before' '$R/site/v1/recipes.json'"
+check "a re-publish of the same data is idempotent" bash -c "env TEST_PUBLISH=1 UPDATE_KEY_FILE='$R/key' UPDATE_PUBLIC_KEY='$PUB' RECIPES_DIR='$R/recipes' DIRECTORY_DIR='$R/site' DOZ='$DOZ' Scripts/publish-recipes.sh 2>&1 | grep -q 'already says this' && cmp -s '$R/manifest.before' '$R/site/v1/recipes.json'"
+
+# ── the directory's own rules: never the update site, never another host's CNAME; nothing written when refused ─────
+mkdir -p "$R/feedsite/v1"; echo '{}' > "$R/feedsite/v1/feed.json"
+refused() { env TEST_PUBLISH=1 UPDATE_KEY_FILE="$R/key" UPDATE_PUBLIC_KEY="$PUB" RECIPES_DIR="$R/recipes" DOZ="$DOZ" "$@" Scripts/publish-recipes.sh >"$R/refused.log" 2>&1 && return 1; return 0; }
+check "a DIRECTORY_DIR holding the update feed is refused, nothing written" bash -c "$(declare -f refused); R='$R'; PUB='$PUB'; DOZ='$DOZ'; refused DIRECTORY_DIR='$R/feedsite' && grep -q 'holds the update feed' '$R/refused.log' && [ ! -e '$R/feedsite/v1/recipes.json' ] && [ ! -e '$R/feedsite/CNAME' ]"
+mkdir -p "$R/othersite"; echo example.org > "$R/othersite/CNAME"
+check "a CNAME naming another host is refused, nothing written" bash -c "$(declare -f refused); R='$R'; PUB='$PUB'; DOZ='$DOZ'; refused DIRECTORY_DIR='$R/othersite' && grep -q 'CNAME names example.org' '$R/refused.log' && [ ! -e '$R/othersite/v1' ] && [ \"\$(cat '$R/othersite/CNAME')\" = example.org ]"
+check "the update site's folder as DIRECTORY_DIR is refused" bash -c "$(declare -f refused); R='$R'; PUB='$PUB'; DOZ='$DOZ'; refused DIRECTORY_DIR='$R/site' UPDATES_DIR='$R/site' && grep -q 'same folder' '$R/refused.log'"
 
 # ── the local server: nothing published yet ──────────────────────────────────
 mkdir -p "$R/www/v1"
@@ -106,6 +121,14 @@ check "  … doz search finds the catalogue's NEW recipe (exit 0)" bash -c "[ $r
 check "  … and its edited copy of Grok Build (published again, its new title)" bash -c "[ $rc = 0 ] && grep -q '^Grok Build (catalogue)' '$R/grok.out'"
 "$DOZ" search claude-code --details --store "$STORE" >"$R/claude.out" 2>&1 || true
 check "  … the built-in Claude Code is this build's" grep -q '^Claude Code ' "$R/claude.out"
+
+# 670: doz.sh/VENDOR/PRODUCT is Dozable's directory — answered from the active set, no request to any server.
+n1="$(grep -c 'GET ' "$R/server.log" || true)"
+"$DOZ" search doz.sh/simonw/llm2 --store "$STORE" >"$R/dirsearch.out" 2>&1 && rc=0 || rc=$?
+check "doz search doz.sh/<vendor>/llm2 finds \"LLM Two\" (exit 0)" bash -c "[ $rc = 0 ] && grep -q 'LLM Two' '$R/dirsearch.out'"
+"$DOZ" search example.com/x/y --store "$STORE" >"$R/otherhost.out" 2>&1 && rc=0 || rc=$?
+check "doz search example.com/x/y exits 2 (not a directory)" test "$rc" = 2
+check "  … and neither search made a request to the server" bash -c "[ \"\$(grep -c 'GET ' '$R/server.log' || true)\" = '$n1' ]"
 "$DOZ" host stop --store "$STORE" >/dev/null
 
 # ── a tampered file is never used ─────────────────────────────────────────────

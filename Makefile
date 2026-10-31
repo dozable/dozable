@@ -281,10 +281,14 @@ test-updates: cli ## 611: the update pipeline end to end with a TEST key (no net
 	@Scripts/test-updates.sh "$(CLI_BIN)"
 
 # The recipe catalogue (Sources/DozableKit/RecipeCatalogue.swift): the tree's recipe data, signed with the update key,
-# beside the feed in UPDATES_DIR (v1/recipes.json + v1/recipes/<serial>/). This build's doz must use it before anything
-# is written; nothing is pushed without PUSH=1. MIN_DOZ= the oldest doz that reads every file.
-publish-recipes: cli ## The tree's recipe data as a signed recipe catalogue in UPDATES_DIR (MIN_DOZ=, DRY_RUN=1; PUSH=1 pushes — the owner's word first). COMMUNITY=1 RECIPES_DIR=<your YAML> UPDATE_KEY_FILE=<your key>: a community catalogue, signed with its publisher's own key
-	@UPDATES_DIR="$(UPDATES_DIR)" MIN_DOZ="$(MIN_DOZ)" DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" COMMUNITY="$(COMMUNITY)" DOZ="$(CLI_BIN)" Scripts/publish-recipes.sh
+# in DIRECTORY_DIR — a checkout of the recipe directory's own Pages repository (doz.sh): v1/recipes.json +
+# v1/recipes/<serial>/, v1/index.json, CNAME, .nojekyll. Never the update site. This build's doz must use it before
+# anything is written; nothing is pushed without PUSH=1. MIN_DOZ= the oldest doz that reads every file. A community
+# catalogue (COMMUNITY=1) goes to UPDATES_DIR, your own site's folder.
+DIRECTORY_DIR ?= $(or $(TMPDIR),/tmp/)doz-directory-site
+
+publish-recipes: cli ## The tree's recipe data as a signed recipe catalogue in DIRECTORY_DIR (the doz.sh site: catalogue, index.json, CNAME) (MIN_DOZ=, DRY_RUN=1; PUSH=1 pushes — the owner's word first). COMMUNITY=1 RECIPES_DIR=<your YAML> UPDATE_KEY_FILE=<your key> UPDATES_DIR=<your site>: a community catalogue, signed with its publisher's own key
+	@DIRECTORY_DIR="$(DIRECTORY_DIR)" UPDATES_DIR="$(UPDATES_DIR)" MIN_DOZ="$(MIN_DOZ)" DRY_RUN="$(DRY_RUN)" PUSH="$(PUSH)" COMMUNITY="$(COMMUNITY)" DOZ="$(CLI_BIN)" Scripts/publish-recipes.sh
 
 test-recipe-catalogue: cli ## The recipe catalogue end to end with a TEST key (no network): publish an edited tree → a local server → a real host's refresh (404, then a catalogue) → a new host start applies it → new processes use it; a tampered file never used; idempotent; nothing pushed
 	@Scripts/test-recipe-catalogue.sh "$(CLI_BIN)"
