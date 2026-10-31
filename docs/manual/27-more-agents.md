@@ -446,9 +446,11 @@ agent. See [Is it current?](26-try-and-search.md#is-it-supported-doz-search).
 ## New agents without a new doz — the recipe catalogue
 
 Every agent Dozable runs is described by a **recipe**, and each version of doz carries its own set. Dozable can also
-publish its recipes on their own, as a **recipe catalogue** beside its updates (`updates.dozable.com`), so a new agent
+publish its recipes on their own, as a **recipe catalogue** on its recipe directory, `doz.sh`, so a new agent
 or a fix to one reaches you without a new release of doz:
 
+- **Where from.** doz asks `doz.sh` for it, at most hourly, and reads every file from the same place. The request carries
+  doz's version in its user agent and nothing else. (Earlier builds asked the update site, and keep their own recipes.)
 - **Signed.** doz uses a catalogue only when it is signed with Dozable's own key — the one that signs its updates — and
   every file in it is exactly what was signed. Anything else is ignored, whole.
 - **Checked like the built-in recipes.** A catalogue that fails any check doz runs on its own recipes is ignored whole

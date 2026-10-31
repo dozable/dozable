@@ -106,7 +106,7 @@ Every key is required. Kit's own names, with Kit's meaning:
 |---|---|---|
 | `schema` | This format's version: `2`. | `2` |
 | `kind` | Kit's kind. A recipe is the agent a sandbox runs: `workload`. | `workload` |
-| `id` | `VENDOR/PRODUCT`: the file's path under `Recipes/agents/`. `PRODUCT` is the agent's id (`doz try PRODUCT`), `[a-z][a-z0-9-]*`; `VENDOR` is its vendor's slug, `[a-z0-9]` and dashes. Together they are the tool's full name (`doz try anthropic/claude-code`; your own `mine/VENDOR/PRODUCT`, a community source's `NAME/VENDOR/PRODUCT`). | `anthropic/claude-code` |
+| `id` | `VENDOR/PRODUCT`: the file's path under `Recipes/agents/`. `PRODUCT` is the agent's id (`doz try PRODUCT`), `[a-z][a-z0-9-]*`; `VENDOR` is its vendor's slug, `[a-z0-9]` and dashes. Together they are the tool's full name (`doz try anthropic/claude-code`, or `doz try doz.sh/anthropic/claude-code` — doz.sh is Dozable's recipe directory; your own `mine/VENDOR/PRODUCT`, a community source's `NAME/VENDOR/PRODUCT`). | `anthropic/claude-code` |
 | `displayName` | The agent's name as people read it. | `Claude Code` |
 | `description` | One sentence. | `Anthropic's coding agent in your terminal.` |
 | `author` | Kit's `author`: the publisher's name. | `Anthropic` |
@@ -594,8 +594,8 @@ final.
 8. **Test:** `make test` checks the schema, the loader, the Kit view, the profile decisions and the first-run
    settings. `make recipe-check RECIPES=PRODUCT` proves it builds, starts and answers in a real sandbox (below).
 9. **Ship it** with the next release — or, between releases, in a recipe catalogue: `make publish-recipes` signs the
-   tree's committed compiled data, checks that this build's doz uses it, and writes it beside the update feed
-   (pushed only with `PUSH=1`). Installed doz pick it up at their host's next start. The built-in agents (Claude Code,
+   tree's committed compiled data, checks that this build's doz uses it, and writes it to the recipe directory's site
+   (`DIRECTORY_DIR`, served as doz.sh: the catalogue, `v1/index.json`, `CNAME`; pushed only with `PUSH=1`). Installed doz pick it up at their host's next start. The built-in agents (Claude Code,
    pi, Codex) never come from a catalogue.
 
 ## Checking a recipe
