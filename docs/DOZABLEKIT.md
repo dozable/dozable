@@ -304,7 +304,8 @@ start and a short task called, each with a determination the unit tests check th
 The recipes, key providers, gateways, tags, known entries and icons compiled into a build are its **embedded set**. A
 **recipe catalogue** is the same data published as signed data of its own, so a new or updated recipe reaches installed
 builds without a release (`Sources/DozableKit/RecipeCatalogue.swift`; the client half, the cache and the refresh, is
-`Sources/DozableHost/RecipeCatalogueClient.swift`).
+`Sources/DozableHost/RecipeCatalogueClient.swift`). Why it is signed, how the key is used and what it protects (signed,
+not encrypted): [`RECIPE-SIGNING.md`](RECIPE-SIGNING.md).
 
 - **Where:** `https://doz.sh/v1/recipes.json` (`Distribution.recipeCatalogueURL`; the host is `RecipeOrigin.directoryHost`,
   Dozable's recipe directory — a GitHub Pages site of its own, not the update site), naming its files under

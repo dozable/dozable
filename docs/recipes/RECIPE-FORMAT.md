@@ -596,7 +596,7 @@ final.
 9. **Ship it** with the next release — or, between releases, in a recipe catalogue: `make publish-recipes` signs the
    tree's committed compiled data, checks that this build's doz uses it, and writes it to the recipe directory's site
    (`DIRECTORY_DIR`, served as doz.sh: the catalogue, `v1/index.json`, `CNAME`; pushed only with `PUSH=1`). Installed doz pick it up at their host's next start. The built-in agents (Claude Code,
-   pi, Codex) never come from a catalogue.
+   pi, Codex) never come from a catalogue. Why and how it is signed: [`../RECIPE-SIGNING.md`](../RECIPE-SIGNING.md).
 
 ## Checking a recipe
 
