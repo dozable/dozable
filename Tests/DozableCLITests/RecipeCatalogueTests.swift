@@ -446,7 +446,16 @@ final class RecipeCatalogueTests: XCTestCase {
         out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: env(seam: "http://example.com/v1/recipes.json"), guarded: true, fetch: s.fetch)
         XCTAssertEqual(out, .disabled("a test catalogue over http only from 127.0.0.1"))
         XCTAssertTrue(s.requests.isEmpty, "nothing asked")
-        XCTAssertEqual(URL(string: Distribution.recipeCatalogueURL)?.deletingLastPathComponent().absoluteString,
-                       URL(string: Distribution.feedURL)?.deletingLastPathComponent().absoluteString, "beside the update feed")
+    }
+
+    /// 670: the catalogue is served from Dozable's recipe directory — the host a qualified name's `doz.sh/` is — and the
+    /// update feed, key and format path are where they were.
+    func testTheCatalogueIsServedFromTheRecipeDirectory() throws {
+        let u = try XCTUnwrap(URL(string: Distribution.recipeCatalogueURL))
+        XCTAssertEqual(u.scheme, "https")
+        XCTAssertEqual(u.host, RecipeOrigin.directoryHost)
+        XCTAssertEqual(u.path, "/v1/recipes.json")
+        XCTAssertEqual(URL(string: Distribution.feedURL)?.absoluteString, "https://updates.dozable.com/v1/feed.json", "the feed is unchanged")
+        XCTAssertEqual(Distribution.updatePublicKey, "Istc57eBxex+MaRcSrmIoC2vOroeNdvY+h+N4UCeNxg=", "the same key: no other key signs a catalogue")
     }
 }

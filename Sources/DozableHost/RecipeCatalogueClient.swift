@@ -15,6 +15,8 @@ import Foundation
 //   always uses what the running host uses, and a new catalogue applies from the next host start.
 // · REFRESH: the host, at most hourly (`RecipeCatalogueRefresh`): conditional GET; 404 = none published (keep what is
 //   used, silent); offline silent; a newer one's files fetched and checked by sha256 before `next.json` is written.
+//   670: from `Distribution.recipeCatalogueURL` — doz.sh, Dozable's recipe directory; its files are read from the host
+//   the manifest came from. A CDN may delay a catalogue, never roll one back (serials only rise; the source-version floor).
 // · SEAMS: `DOZ_TEST_RECIPE_CATALOGUE` = `offline` (the cache, never the network) | an http(s) URL of a recipes.json
 //   (the host fetches it; http only from 127.0.0.1) | an absolute path to a recipes.json (every process uses THAT,
 //   beside its files — no cache, no fetch). `DOZ_TEST_UPDATE_KEY` is the trusted key — for the catalogue only in a

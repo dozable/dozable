@@ -162,11 +162,13 @@ public struct AgentRef: Equatable, Sendable {
     /// The parts of a qualified reference (nil: not that shape). `source` nil: none typed.
     public struct Qualified: Equatable, Sendable {
         public var source: String?
+        /// 670: the directory host typed in front (`doz.sh`) — Dozable's own directory, so `source` is `dozable` then.
+        public var host: String?
         public var vendor: String
         public var product: String
         public var qualifier: String?
         /// What came before the product as typed (`anthropic`, `mine/acme`).
-        public var prefix: String { (source.map { $0 + "/" } ?? "") + vendor }
+        public var prefix: String { ((host ?? source).map { $0 + "/" } ?? "") + vendor }
     }
 
     static let grammarHelp = "VENDOR/PRODUCT (anthropic/claude-code) or SOURCE/VENDOR/PRODUCT (mine/acme/tool), each with @MAJOR or @VERSION if you like"
@@ -179,17 +181,26 @@ public struct AgentRef: Equatable, Sendable {
         let path = at.map { String(t[..<$0]) } ?? t
         let q = at.map { String(t[t.index(after: $0)...]) }
         let parts = path.split(separator: "/", omittingEmptySubsequences: false).map(String.init)
+        // 670: `doz.sh/VENDOR/PRODUCT` is Dozable's directory — the same as `dozable/VENDOR/PRODUCT` and `VENDOR/PRODUCT`.
+        // It names a recipe this doz already has; nothing is fetched. No other host is a recipe directory.
+        var host: String?
         if let first = parts.first, first.contains(".") {
-            throw Problem(description: "\(s): \(first) is a recipe directory — directories are not served yet; name a recipe as \(grammarHelp)")
+            guard first == RecipeOrigin.directoryHost else {
+                throw Problem(description: "\(s): only \(RecipeOrigin.directoryHost) is a recipe directory — add a community catalogue with `doz recipe source add` and name it by its source (\(grammarHelp))")
+            }
+            guard parts.count == 3 else {
+                throw Problem(description: "\(s): a name in \(RecipeOrigin.directoryHost) is \(RecipeOrigin.directoryHost)/VENDOR/PRODUCT (\(RecipeOrigin.directoryHost)/anthropic/claude-code), each with @MAJOR or @VERSION if you like")
+            }
+            host = first
         }
         if let q, q.hasPrefix("sha256:") || q.hasPrefix("sha512:") {
-            throw Problem(description: "\(s): a digest comes with the recipe directory, not yet — after @ comes a major or a release")
+            throw Problem(description: "\(s): a digest is not a way to name a tool here — after @ comes a major or a release")
         }
         if path.contains(":") || (q?.contains(":") ?? false) {
             throw Problem(description: "\(s): after a tool's name comes @ (\(path.split(separator: ":").first.map(String.init) ?? path)@2), never : — NAME:PATH is doz get, put and cp's")
         }
         guard (2...3).contains(parts.count) else { throw Problem(description: "\(s) is not a tool's name — \(grammarHelp)") }
-        let source = parts.count == 3 ? parts[0] : nil
+        let source = host != nil ? "dozable" : (parts.count == 3 ? parts[0] : nil)
         let vendor = parts[parts.count - 2], product = parts[parts.count - 1]
         if let source, !RecipeOrigin.isSourceName(source) { throw Problem(description: "\(s): \(source.isEmpty ? "an empty source" : source) is not a recipe source — dozable, mine or a community source's name (doz recipe source ls)") }
         guard isVendor(vendor) else { throw Problem(description: "\(s): \(vendor.isEmpty ? "an empty vendor" : vendor) is not a vendor's name — lower-case letters, digits and dashes (\(grammarHelp))") }
@@ -198,7 +209,7 @@ public struct AgentRef: Equatable, Sendable {
         }
         if let q, q.isEmpty { throw Problem(description: "\(s): nothing after @ — a major (\(path)@1) or a release") }
         if let q, q.contains("/") || q.contains("@") { throw Problem(description: "\(s): after @ comes a major (\(path)@1) or a release, once") }
-        return Qualified(source: source, vendor: vendor, product: product, qualifier: q)
+        return Qualified(source: source, host: host, vendor: vendor, product: product, qualifier: q)
     }
 
     /// `[SOURCE/]VENDOR/PRODUCT[@…]` → the recipe, through `resolveAny`'s own NAME[@…] rules; the qualification must be

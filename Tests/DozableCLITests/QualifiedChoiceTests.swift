@@ -52,8 +52,16 @@ final class QualifiedChoiceTests: XCTestCase {
         XCTAssertThrowsError(try ChoiceOptions.from(["--agent", "openai/claude-code"]).planChoices()) {
             XCTAssertTrue("\($0)".contains("anthropic/claude-code"), "\($0)")
         }
-        XCTAssertThrowsError(try ChoiceOptions.from(["--image", "doz.sh/anthropic/claude-code"]).planChoices()) {
-            XCTAssertTrue("\($0)".contains("not served yet"), "\($0)")
+        // 670: Dozable's directory is `doz.sh` — the same tool as the short name, keeping what was typed; no other host is.
+        let dir = try ChoiceOptions.from(["--image", "doz.sh/anthropic/claude-code"]).planChoices()
+        XCTAssertEqual(dir.image, plain.image)
+        XCTAssertEqual(dir.agentRef, "doz.sh/anthropic/claude-code")
+        XCTAssertEqual(try ChoiceOptions.from(["--agent", "doz.sh/anthropic/claude-code"]).planChoices().image, plain.image)
+        XCTAssertThrowsError(try ChoiceOptions.from(["--image", "example.com/anthropic/claude-code"]).planChoices()) {
+            XCTAssertTrue("\($0)".contains("only doz.sh is a recipe directory"), "\($0)")
+        }
+        XCTAssertThrowsError(try ChoiceOptions.from(["--agent", "doz.sh/claude-code"]).planChoices()) {
+            XCTAssertTrue("\($0)".contains("doz.sh/VENDOR/PRODUCT"), "\($0)")
         }
         // Not a tool: as before.
         XCTAssertEqual(try ChoiceOptions.from(["--image", "lab"]).planChoices().image, "lab")
@@ -77,8 +85,31 @@ final class QualifiedChoiceTests: XCTestCase {
         XCTAssertTrue(f.yaml.contains("anomalyco/opencode@\(rec.family!.major)"), f.yaml)
     }
 
+    /// 670: the plan's command and file say what was typed; the recipe's recorded full name stays `dozable/…`.
+    func testThePlanForADirectoryName() throws {
+        let p = try plan("try", ["--agent", "doz.sh/anthropic/claude-code"])
+        XCTAssertEqual(Array(p.argv.prefix(3)), ["doz", "try", "doz.sh/anthropic/claude-code"])
+        XCTAssertTrue(p.yaml.contains("agent: doz.sh/anthropic/claude-code"), p.yaml)
+        XCTAssertTrue(try XCTUnwrap(p.version?.recipe).hasPrefix("dozable/anthropic/claude-code"))
+    }
+
+    /// 670: `doz recipe show doz.sh/VENDOR/PRODUCT` reads as `dozable/VENDOR/PRODUCT` does (Dozable's own recipes are not
+    /// shown there: its checks are Dozable's); another host is not a recipe name at all.
+    func testRecipeShowTakesADirectoryName() throws {
+        let g = try XCTUnwrap(try DozableCommand.parseAsRoot(["recipe", "show", "doz.sh/anthropic/claude-code"]) as? RecipeShow)
+        let paths = RecipeExtrasPaths(dir: root.appendingPathComponent("recipes"))
+        func message(_ name: String) -> String {
+            do { _ = try recipeTarget(name, paths, g.g); return "no refusal" } catch { return "\(error)" }
+        }
+        XCTAssertEqual(message("doz.sh/anthropic/claude-code"), message("dozable/anthropic/claude-code"))
+        XCTAssertNotEqual(message("doz.sh/anthropic/claude-code"), "no refusal")
+        XCTAssertFalse(message("example.com/anthropic/claude-code").contains("one of Dozable's own"), "another host is a missing file, not Dozable's recipe")
+    }
+
     func testAProjectFileTakesAQualifiedName() throws {
         XCTAssertNil(DozableProject.agentProblem("anthropic/claude-code"))
+        XCTAssertNil(DozableProject.agentProblem("doz.sh/anthropic/claude-code"))
+        XCTAssertEqual(try XCTUnwrap(DozableProject.agentProblem("example.com/anthropic/claude-code")).contains("only doz.sh"), true)
         XCTAssertNil(DozableProject.agentProblem("anomalyco/opencode@1"))
         let wrong = try XCTUnwrap(DozableProject.agentProblem("openai/claude-code"))
         XCTAssertTrue(wrong.contains("anthropic/claude-code"), wrong)
@@ -111,7 +142,11 @@ final class QualifiedChoiceTests: XCTestCase {
         XCTAssertEqual(q.request.create.agentRef, "anthropic/claude-code")
         let fam = try WebPlanQuery.decode(try JSONSerialization.data(withJSONObject: ["purpose": "try", "agent": "anomalyco/opencode@1"]))
         XCTAssertEqual(fam.request.create.image, "opencode")
-        for bad in ["doz.sh/anthropic/claude-code", "openai/claude-code", String(repeating: "a/", count: 90)] {
+        // 670: Dozable's directory in the web plan: the same recipe, what was typed kept.
+        let dz = try WebPlanQuery.decode(try JSONSerialization.data(withJSONObject: ["purpose": "try", "agent": "doz.sh/anthropic/claude-code"]))
+        XCTAssertEqual(dz.request.create.image, "claude-code")
+        XCTAssertEqual(dz.request.create.agentRef, "doz.sh/anthropic/claude-code")
+        for bad in ["example.com/anthropic/claude-code", "doz.sh/claude-code", "openai/claude-code", String(repeating: "a/", count: 90)] {
             XCTAssertThrowsError(try WebPlanQuery.decode(try JSONSerialization.data(withJSONObject: ["purpose": "try", "agent": bad])), bad)
         }
         let list = WebTryCatalog.list(secretEntry: false)

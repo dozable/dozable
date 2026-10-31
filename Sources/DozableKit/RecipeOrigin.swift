@@ -43,6 +43,10 @@ public struct RecipeOrigin: Codable, Equatable, Hashable, Sendable {
         s.range(of: "^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$", options: .regularExpression) != nil
     }
 
+    /// 670: Dozable's recipe directory — the host that serves the signed recipe catalogue (`Distribution.recipeCatalogueURL`;
+    /// a test ties the two, DozableKit cannot see `Distribution`). `doz.sh/VENDOR/PRODUCT` names Dozable's own recipe.
+    public static let directoryHost = "doz.sh"
+
     /// 654: the SOURCE words of a qualified name (`dozable/…`, `mine/…`) — never a community source's name.
     public static let reservedSourceNames: Set<String> = ["dozable", "mine"]
 

@@ -100,6 +100,54 @@ final class QualifiedNameTests: XCTestCase {
         XCTAssertTrue(refusal("anomalyco/opencode@9").contains("opencode@1"))
     }
 
+    // 670: `doz.sh/VENDOR/PRODUCT[@…]` — Dozable's directory: the same recipe as `dozable/VENDOR/PRODUCT` and `VENDOR/PRODUCT`,
+    // keeping what was typed. Nothing is fetched: resolution is a lookup in the recipes this doz has.
+    func testTheRecipeDirectoryIsDozablesOwn() throws {
+        XCTAssertEqual(RecipeOrigin.directoryHost, "doz.sh")
+        let plain = try ref("anthropic/claude-code"), d = try ref("doz.sh/anthropic/claude-code")
+        XCTAssertEqual(d.recipe.id, plain.recipe.id)
+        XCTAssertEqual(d.text, "doz.sh/anthropic/claude-code", "the typed text is kept")
+        XCTAssertEqual(d.bare, "claude-code")
+        XCTAssertEqual(d.prefix, "doz.sh/anthropic")
+        XCTAssertEqual(try ref("  DOZ.SH/Anthropic/Claude-Code ").recipe.id, "claude-code", "case and spaces do not matter")
+        XCTAssertEqual(try ref("doz.sh/earendil-works/pi").recipe.id, "pi")
+        XCTAssertEqual(try ref("doz.sh/openai/codex").recipe.id, "codex")
+        // The grammar's parts: Dozable's source, the host kept.
+        let q = try AgentRef.parseQualified("doz.sh/anthropic/claude-code@2")
+        XCTAssertEqual(q.source, "dozable")
+        XCTAssertEqual(q.host, "doz.sh")
+        XCTAssertEqual(q.prefix, "doz.sh/anthropic")
+        XCTAssertNil(try AgentRef.parseQualified("anthropic/claude-code").host)
+        XCTAssertNil(try AgentRef.parseQualified("dozable/anthropic/claude-code").host)
+        // A family: the recommended major, a major, an exact release; a file keeps the major AND the qualification.
+        let rec = try XCTUnwrap(AgentRef.recommended("opencode"))
+        let f = try ref("doz.sh/anomalyco/opencode")
+        XCTAssertEqual(f.recipe.id, rec.id)
+        XCTAssertEqual(f.text, "doz.sh/anomalyco/opencode")
+        XCTAssertEqual(f.pinned, "doz.sh/anomalyco/opencode@\(rec.family!.major)")
+        XCTAssertEqual(try ref("doz.sh/anomalyco/opencode@1").recipe.id, "opencode")
+        let exact = try ref("doz.sh/anomalyco/opencode@2.0.28")
+        XCTAssertEqual(exact.recipe.id, "opencode2")
+        XCTAssertEqual(exact.exact, "2.0.28")
+        XCTAssertEqual(exact.text, "doz.sh/anomalyco/opencode@2.0.28")
+        XCTAssertTrue(refusal("doz.sh/anomalyco/opencode@9").contains("opencode@1"), "the plain form's refusal for a major it does not have")
+        // What the displays say is unchanged: the recipe's own name, never a host.
+        let cc = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
+        XCTAssertEqual(AgentRef.qualifiedName(cc), "anthropic/claude-code")
+        XCTAssertEqual(AgentRef.fullyQualified(cc), "dozable/anthropic/claude-code")
+        // Yours and a community's are not in Dozable's directory: the existing origin refusal, with the name that is right.
+        let set = try withExtras()
+        let m = refusal("doz.sh/acme/tool", in: set)
+        XCTAssertTrue(m.contains("yours") && m.contains("mine/acme/tool"), m)
+        let c = refusal("doz.sh/acme/tool2", in: set)
+        XCTAssertTrue(c.contains("community · hub") && c.contains("hub/acme/tool2"), c)
+        // The old words are nowhere: the directory is served, and a digest is simply not a way to name a tool.
+        for s in ["doz.sh/claude-code", "example.com/x/y", "doz.sh/anthropic/claude-code@sha256:00", "doz.sh/a/b/c"] {
+            XCTAssertFalse(refusal(s).contains("not served yet"), s)
+            XCTAssertFalse(refusal(s).contains("not yet"), s)
+        }
+    }
+
     func testYoursAndACommunitySourcesWithTheirSource() throws {
         let set = try withExtras()
         XCTAssertEqual(try ref("mine/acme/tool", in: set).recipe.id, "tool")
@@ -133,8 +181,22 @@ final class QualifiedNameTests: XCTestCase {
 
     func testRefusals() {
         let cases: [(String, [String])] = [
-            ("doz.sh/anthropic/claude-code", ["directories are not served yet"]),
-            ("registry.example.com/claude-code", ["directories are not served yet"]),
+            ("registry.example.com/claude-code", ["only doz.sh is a recipe directory", "doz recipe source add"]),
+            ("registry.example.com/anthropic/claude-code", ["only doz.sh is a recipe directory"]),
+            ("example.com/x/y", ["only doz.sh is a recipe directory"]),
+            ("doz.sh/claude-code", ["doz.sh/VENDOR/PRODUCT"]),
+            ("doz.sh/a/b/c", ["doz.sh/VENDOR/PRODUCT"]),
+            ("doz.sh/anthropic/claude-code:2", ["never :", "anthropic/claude-code@2"]),
+            ("doz.sh/anthropic/claude-code@sha256:0123abcd", ["digest", "after @ comes a major or a release"]),
+            ("doz.sh/openai/claude-code", ["not openai's", "anthropic/claude-code"]),
+            ("doz.sh/nosuchvendor/thing", ["no tool here is nosuchvendor's"]),
+            ("doz.sh/anthropic/nosuchtool", ["anthropic has no tool called nosuchtool"]),
+            ("doz.sh/anthropic/claude-code@latest", ["after @ comes a major"]),
+            ("doz.sh/anthropic/claude-code@", ["nothing after @"]),
+            ("doz.sh/-x/claude-code", ["not a vendor's name"]),
+            ("DOZ.SH.evil.com/anthropic/claude-code", ["only doz.sh is a recipe directory"]),
+            ("doz.sh.evil.com/anthropic/claude-code", ["only doz.sh is a recipe directory"]),
+            ("mine/doz.sh/claude-code", ["not a vendor's name"]),
             ("openai/claude-code", ["not openai's", "anthropic/claude-code"]),
             ("anthropic/claude", ["short name", "anthropic/claude-code"]),
             ("mine/anthropic/claude-code", ["Dozable's", "anthropic/claude-code"]),

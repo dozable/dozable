@@ -1,10 +1,15 @@
 import CryptoKit
 import Foundation
 
-// The recipe catalogue — Dozable's recipe data as signed data of its own, beside the update feed:
+// The recipe catalogue — Dozable's recipe data as signed data of its own, served from Dozable's recipe
+// directory, doz.sh (670; the first builds asked the update site, which keeps answering them as it did):
 //
-//     https://updates.dozable.com/v1/recipes.json          (the /v1/ is the FORMAT; a new format is /v2/ beside it)
-//     https://updates.dozable.com/v1/recipes/<serial>/…    (the files it names; a new serial is a new folder)
+//     https://doz.sh/v1/recipes.json          (the /v1/ is the FORMAT; a new format is /v2/ beside it)
+//     https://doz.sh/v1/recipes/<serial>/…    (the files it names; a new serial is a new folder)
+//
+// Every file is read from the host the manifest came from and checked against the manifest's sha256 and size; the one
+// Ed25519 signature (the update key's) is what makes a catalogue trustworthy, so the CDN and TLS are not trusted for it.
+// `v1/index.json` beside it (`dozable-directory/v1`, unsigned) is for the website, never read by doz.
 //
 //     { "format": 1, "product": "doz-recipes", "serial": 3, "date": "2026-10-26T12:00:00Z",
 //       "minimum_doz": "0.37.24", "source_version": "0.37.24", "base": "recipes/3/",
