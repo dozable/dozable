@@ -304,10 +304,14 @@ start and a short task called, each with a determination the unit tests check th
 The recipes, key providers, gateways, tags, known entries and icons compiled into a build are its **embedded set**. A
 **recipe catalogue** is the same data published as signed data of its own, so a new or updated recipe reaches installed
 builds without a release (`Sources/DozableKit/RecipeCatalogue.swift`; the client half, the cache and the refresh, is
-`Sources/DozableHost/RecipeCatalogueClient.swift`).
+`Sources/DozableHost/RecipeCatalogueClient.swift`). Why it is signed, how the key is used and what it protects (signed,
+not encrypted): [`RECIPE-SIGNING.md`](RECIPE-SIGNING.md).
 
-- **Where:** `https://updates.dozable.com/v1/recipes.json` (`Distribution.recipeCatalogueURL`) beside the update feed,
-  naming its files under `v1/recipes/<serial>/` with each file's sha256 and size. `/v1/` is the format.
+- **Where:** `https://doz.sh/v1/recipes.json` (`Distribution.recipeCatalogueURL`; the host is `RecipeOrigin.directoryHost`,
+  Dozable's recipe directory — a GitHub Pages site of its own, not the update site), naming its files under
+  `v1/recipes/<serial>/` with each file's sha256 and size. `/v1/` is the format. Beside it, `v1/index.json`
+  (`dozable-directory/v1`, from `doz search --index`, unsigned) is for websites: the manifest's path set is closed, so
+  doz never reads it. A name `doz.sh/VENDOR/PRODUCT` is Dozable's own recipe (`AgentRef.parseQualified`: `Qualified.host`).
 - **Signed** with the update feed's key (`Distribution.updatePublicKey`), over a domain-separated message
   (`RecipeCatalogueManifest.message`, starting `dozable-recipe-catalogue-v1\n`) — a feed entry's signature can never pass
   as a catalogue's, nor the other way round.

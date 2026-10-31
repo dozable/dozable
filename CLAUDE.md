@@ -2055,8 +2055,10 @@ may use it too.
   `AgentRecipes.publishEverythingForTests` (a seam, like `registerForTests`); `UnpublishedRecipesTests` pins the set.
 - **The recipe catalogue** (652, owner: "decoupling the known recipes from the cli build"; `Sources/DozableKit/RecipeCatalogue.swift`,
   `Sources/DozableHost/RecipeCatalogueClient.swift`): the recipe data as SIGNED DATA beside the update feed —
-  `Distribution.recipeCatalogueURL` (`https://updates.dozable.com/v1/recipes.json`, the ONE constant) + the files it
-  names under `v1/recipes/<serial>/` (a new serial is a new folder). `/v1/` is the format (`format: 1`; a new one is
+  `Distribution.recipeCatalogueURL` (`https://doz.sh/v1/recipes.json` since 670 — Dozable's recipe directory, a GitHub Pages
+  site of its own; the host is `RecipeOrigin.directoryHost`, a test ties the two; builds before 0.37.37 asked
+  `updates.dozable.com`, where nothing is published and a 404 is "none"; the ONE constant) + the files it
+  names under `v1/recipes/<serial>/` (a new serial is a new folder), read from the host the manifest came from. `/v1/` is the format (`format: 1`; a new one is
   `/v2/` beside it); the manifest is decoded strictly (an unknown field = a newer doz). Rules that each matter:
   - **The key**: Dozable's update key (`Distribution.updatePublicKey`) — NO other key; ONE Ed25519 signature over a
     DOMAIN-SEPARATED message (`RecipeCatalogueManifest.message`: `dozable-recipe-catalogue-v1\n` + format, product,
@@ -2097,7 +2099,12 @@ may use it too.
     `recipe-catalogue.py`): the committed compiled data less the built-in three, the next serial (unchanged data =
     nothing), signed with the keychain key (`UPDATE_KEY_FILE` only with `TEST_PUBLISH=1`, `RECIPES_DIR` likewise),
     checked against the key doz carries, then THIS build's doz must use it (a guarded run, the file seam) — only then
-    `UPDATES_DIR` is written and committed; pushed ONLY with `PUSH=1`. The first live publish waits for the owner.
+    `DIRECTORY_DIR` (the doz.sh Pages repository's checkout, `Makefile.config`; never the update site: a folder holding
+    `v1/feed.json`, the same folder as `UPDATES_DIR`, or a `CNAME` naming another host is refused before anything is
+    written) is written — `v1/recipes.json`, `v1/recipes/<serial>/`, `v1/index.json` (`doz search --index` in the guarded
+    run: `dozable-directory/v1`, UNSIGNED and beside the manifest because its path set is closed — a new manifest path
+    is a `/v2/` matter), `CNAME` (the constant's host), `.nojekyll` — and committed; pushed ONLY with `PUSH=1`, which then
+    waits until the live catalogue says the serial. The first live publish waits for the owner.
   - **Tests**: `RecipeCatalogueTests` (format, signature both ways, minimum doz, floor, serial, merge, built-ins,
     refused whole, statistics, the choice, the refresh); `make test-recipe-catalogue` (`Scripts/test-recipe-catalogue.sh`:
     publish an edited tree with a throwaway key → a local server → a real host's refresh, 404 then the catalogue → the
@@ -2336,13 +2343,15 @@ may use it too.
   NEVER means yours or a community's, so a community recipe cannot pose as `anthropic/…`), `mine`, or a community
   source's name (`RecipeOrigin.reservedSourceNames`: no source may be called `dozable`/`mine`). It resolves through
   618's code; the qualification only CONFIRMS (ids are unique) and a wrong vendor/source is refused with the name that
-  is right. A first part with a dot (a directory host) is refused ("not served yet" — step 17), so are digests and `:`.
+  is right. 670: `doz.sh/VENDOR/PRODUCT[@…]` (`RecipeOrigin.directoryHost`) is Dozable's own directory = `dozable/VENDOR/PRODUCT` =
+  `VENDOR/PRODUCT` (`Qualified.host`, `source` = `dozable`; `prefix` keeps what was typed); it fetches nothing — a lookup in
+  the active set. Any other dotted first part, `doz.sh/PRODUCT` and four parts, digests and `:` are each refused in their own words.
   `AgentRef.prefix` keeps the qualification in `text`/`pinned` (a project file written from one keeps it).
   Shown: `AgentRef.qualifiedName` (= vendor + `typed(r)`) in `doz search` (+ `DirectoryIndex.Entry.qualified`), `doz try`'s
   list, `doz recipe show`, Quick try's details ("Full name", `WebTryCatalog.Agent.qualified`); `AgentRef.fullyQualified`
   in the plan (`PlanVersion.recipe`, `--dry-run`'s `recipe:` line), the Guide's `recipe` fact, and
   `SandboxConfig.recipeRef`/`SandboxInfo.recipeRef` (display only, every recipe agent's sandbox from 654).
-  `QualifiedNameTests` (the grammar), `QualifiedChoiceTests`; workspace `probes/654-*/`.
+  `QualifiedNameTests` (the grammar, doz.sh included), `QualifiedChoiceTests`; workspace `probes/654-*/`.
 - **OpenCode 2** (`opencode2`, npm `@opencode/cli` + `@opencode/cli-linux-arm64`, glibc; models@1 native: xAI, OpenAI,
   Anthropic, OpenRouter, Vercel — the model through `{env:DOZ_MODEL}` in its opencode.json): its first command starts a
   **background server** (`opencode serve --service`, re-parented to PID 1, 127.0.0.1:49374) that keeps the environment
@@ -2796,7 +2805,7 @@ make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake contai
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
-make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) → local server → the host's refresh → the next start uses it; tampered refused
+make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the host's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
 make test-community-recipes # 653: your own recipes and community catalogues end to end (throwaway keys, a local server): check fails then passes, labels, Dozable's id refused, confirm before fetch, a clash refused whole, tampered refused, removal keeps a sandbox
 make recipe-check RECIPES=all # 617: every recipe for real — build, verify, a fresh try, its check turn against a stand-in provider, keys, leak guard, OSC 7501 states (report: $RECIPE_STORE/report.json)
 make test-cli-codex # 599i: Codex through seams (a fake OpenAI over TLS, the browser seam): Dozable's own ChatGPT sign-in, the swap, the Mac's renewal, no token in the guest, an API key, Alpine (prepares codex + alpine-codex)

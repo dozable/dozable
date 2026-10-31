@@ -243,6 +243,7 @@ doz create my-app --agent openai/codex      # new, create, up, --image, doz_proj
 doz search anomalyco/opencode2              # search finds it by its full name
 doz try mine/acme/tool                      # one of your own recipes: mine/VENDOR/PRODUCT
 doz try hub/acme/tool                       # a community source's: SOURCE/VENDOR/PRODUCT
+doz try doz.sh/anthropic/claude-code        # Dozable's recipe directory, doz.sh — the same as anthropic/claude-code
 ```
 
 - **Whose recipe.** A name without a source is Dozable's recipe (`dozable/anthropic/claude-code` says it in full). Your own
@@ -257,8 +258,14 @@ doz try hub/acme/tool                       # a community source's: SOURCE/VENDO
   `doz try` list too, `--dry-run` says the recipe a sandbox is made from (`recipe: dozable/anthropic/claude-code@2.1.299`),
   the sandbox records it (`doz ls --json`: `recipeRef`) and its Guide says it under This sandbox. In the
   dashboard, Quick try shows it as **Full name** in a tool's details.
-- **Not yet**: recipe directories other than this Dozable's (a first part with a dot, `doz.sh/…`, is refused: directories
-  are not served yet), digests, and `:` after a name (`NAME:PATH` is `doz get`, `put` and `cp`'s — a release is `@`).
+- **doz.sh.** `doz.sh` is Dozable's recipe directory, where its signed recipe catalogue is published. `doz.sh/VENDOR/PRODUCT`
+  (with `@MAJOR` or `@VERSION` if you like) names the same recipe as `dozable/VENDOR/PRODUCT` and `VENDOR/PRODUCT`, and
+  wherever a name is typed — the command line, `doz_project.yaml`, the dashboard's plan, `doz recipe show` — what you typed
+  is kept. It names a recipe your doz already has: typing it fetches nothing. Your own and a community source's recipes are
+  not in it (`doz.sh/acme/tool` is refused with `mine/acme/tool`, its right name).
+- **Refused**: any other host (`example.com/…`: only doz.sh is a recipe directory — add a community catalogue with
+  `doz recipe source add` and name it by its source), `doz.sh/PRODUCT` and four-part names (a name in doz.sh is
+  `doz.sh/VENDOR/PRODUCT`), digests, and `:` after a name (`NAME:PATH` is `doz get`, `put` and `cp`'s — a release is `@`).
 
 ## One set of choices
 

@@ -71,8 +71,8 @@ check "  … filled in, it passes (exit 0)" bash -c "[ $rc = 0 ] && grep -q '^me
 SHA="$(shasum -a 256 "$RECIPES/mine/myopen.yaml" | cut -d' ' -f1)"
 check "  … the pass is recorded with the file's sha256" grep -q "$SHA" "$RECIPES/checks.json"
 run recipe ls
-check "  … doz recipe ls: myopen yours, in use, checked" bash -c "grep -E '^myopen +yours +in use +static' '$R/out' >/dev/null"
-check "  … and mytool refused (it is not filled in)" bash -c "grep -E '^mytool +yours +refused' '$R/out' >/dev/null"
+check "  … doz recipe ls: myopen yours, in use, checked" bash -c "grep -E '^myopen +yours +(available|installed|in use) +in use +static' '$R/out' >/dev/null"
+check "  … and mytool refused (it is not filled in)" bash -c "grep -E '^mytool +yours +(available|installed|in use) +refused' '$R/out' >/dev/null"
 run search myopen
 check "doz search labels it [yours] (654: beside its full name)" bash -c "[ $rc = 0 ] && grep -q 'My OpenCode · mine/local/myopen \[yours\] — supported' '$R/out'"
 run try
@@ -168,7 +168,7 @@ check "  … c1's record still lists, made from comtool" bash -c "[ $rc = 0 ] &&
 run inspect c1
 check "  … and inspects" bash -c "[ $rc = 0 ]"
 run recipe ls --all
-check "  … doz recipe ls --all: comtool removed, kept" bash -c "grep -E '^comtool +community · example +removed — kept for its sandboxes' '$R/out' >/dev/null"
+check "  … doz recipe ls --all: comtool removed, kept" bash -c "grep -E '^comtool +community · example +(available|installed|in use) +removed — kept for its sandboxes' '$R/out' >/dev/null"
 run recipe source ls
 check "  … the other source's comtool is never put under it: still refused (the id is the kept one's)" bash -c "grep -A2 '^other — ' '$R/out' | grep -q 'refused: comtool.json: comtool is already another recipe'"
 run search comtool

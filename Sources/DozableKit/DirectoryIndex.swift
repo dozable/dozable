@@ -2,7 +2,7 @@ import Foundation
 
 // 617 (616.03 §4.5, D12) — the directory index, `dozable-directory/v1`: every agent, key provider and base this Dozable
 // knows, with its honest status. ONE format, three readers: `doz search` / `doz try` (built from the compiled-in data
-// now; fetched later), the dashboard (later) and directory.dozersandbox.com (later). Generated, never hand-written.
+// now; fetched later), the dashboard (later) and doz.sh/v1/index.json (670: published beside the recipe catalogue, for the website — doz never reads it). Generated, never hand-written.
 //
 // · CLOSED and versioned: the strict decoder refuses an unknown field; a new field is `v2` beside `v1` (the update
 //   feed's rule). Every string is plain text (readers render with textContent).
