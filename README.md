@@ -119,7 +119,7 @@ make test-vm      # the VM integration suite (boots real VMs; see CLAUDE.md)
 
 An unsigned `doz` runs every command but cannot boot a VM (`doz doctor` says so). A source build is never
 updated by doz itself. [CLAUDE.md](CLAUDE.md) is the engineering guide: where the code lives, the rules that
-each cost a bug to learn, and how a change is verified.
+each cost a bug to learn, and how a change is verified; each area's detail is in `docs/engineering/`.
 
 ## Contributing
 

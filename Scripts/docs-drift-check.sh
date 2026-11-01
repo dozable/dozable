@@ -68,7 +68,8 @@ fi
 printf 'ok docs-drift-check: %d command names match the CLI exactly (top level + %s)\n' "$(wc -l < "$actual" | tr -d ' ')" "$CMD_GROUPS"
 
 # The user manual (docs/manual): its commands, flags, setting keys, settings table and links, checked
-# against this build (Scripts/manual-check.swift; --write regenerates the settings table).
+# against this build (Scripts/manual-check.swift; --write regenerates the settings table); and the engineering guide:
+# CLAUDE.md at most 500 lines, every docs/engineering page in its index, links resolve.
 if [[ -d "$PACKAGE/docs/manual" ]]; then
     (cd "$PACKAGE" && swift Scripts/manual-check.swift --doz "$BIN" --manual docs/manual)
 fi

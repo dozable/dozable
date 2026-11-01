@@ -34,7 +34,8 @@ enforced. If your change needs a new import or dependency, say why in the pull r
 silencing the audit.
 
 [CLAUDE.md](CLAUDE.md) is the engineering guide — the rules each of which cost a bug to learn, where the
-code lives, how to verify a change. It is written for people and for coding agents alike.
+code lives, how to verify a change — with each area's detail in [docs/engineering/](docs/engineering/). It is
+written for people and for coding agents alike.
 
 Security issues: please report them privately (GitHub's "Report a vulnerability" on this repository) rather
 than in a public issue.
