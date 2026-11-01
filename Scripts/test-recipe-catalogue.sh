@@ -105,7 +105,7 @@ check "  … a command still uses the embedded set" grep -q '^embedded (doz ' <<
 
 # ── published: the host's refresh downloads it; the next host start applies it ──
 cp -R "$R/site/v1/." "$R/www/v1/"
-rm -f "$CACHE/state.json"                       # the hour since the 404 has "passed"
+rm -f "$CACHE/state.json"                       # the day since the 404 has "passed"
 "$DOZ" host start --store "$STORE" >/dev/null
 check "the host's refresh fetched it → next.json (files sha256-checked)" waitfor "[ -f '$CACHE/next.json' ] && [ -f '$CACHE/files/1/agents/llm2.json' ]"
 line="$(recipes)"

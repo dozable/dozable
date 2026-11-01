@@ -401,23 +401,29 @@ final class RecipeCatalogueTests: XCTestCase {
         XCTAssertEqual(out, .unchanged, "nothing published: the embedded set stays")
         XCTAssertNil(c.next)
         out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(60), fetch: s.fetch)
-        XCTAssertEqual(out, .notDue, "at most hourly")
+        XCTAssertEqual(out, .notDue, "at most daily")
+        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(23 * 3600), fetch: s.fetch)
+        XCTAssertEqual(out, .notDue, "672: daily, not hourly")
+        XCTAssertEqual(RecipeCatalogueRefresh.interval, 86_400)
+        XCTAssertEqual(CommunityRefresh.interval, RecipeCatalogueRefresh.interval, "a community catalogue is looked for as often")
+        XCTAssertLessThan(RecipeCatalogueRefresh.tick, RecipeCatalogueRefresh.interval, "the host's loop wakes more often than a look is due")
 
         s.status = 200
-        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(3601), fetch: s.fetch)
+        let day = RecipeCatalogueRefresh.interval
+        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(day + 1), fetch: s.fetch)
         XCTAssertEqual(out, .downloaded(serial: 4))
         XCTAssertEqual(c.next?.serial, 4)
         XCTAssertNotNil(RecipeCatalogueCache.readFiles(try XCTUnwrap(c.next), from: c.filesDir(serial: 4)))
         XCTAssertEqual(c.state.etag, "\"e1\"")
 
         // The next look is conditional; the same serial again is nothing new.
-        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(7300), fetch: s.fetch)
+        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(2 * day + 2), fetch: s.fetch)
         XCTAssertEqual(out, .unchanged)
         XCTAssertEqual(s.requests.last?.value(forHTTPHeaderField: "If-None-Match"), "\"e1\"")
 
         // Offline: silent.
         s.down = true
-        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(11000), fetch: s.fetch)
+        out = await RecipeCatalogueRefresh.refresh(version: Self.dozVersion, executable: "/x/doz", env: e, guarded: true, now: now.addingTimeInterval(3 * day + 3), fetch: s.fetch)
         XCTAssertEqual(out, .offline)
     }
 

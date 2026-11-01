@@ -477,7 +477,8 @@ public enum RecipeExtras {
 
 /// A community source's look for a newer catalogue — 652's refresh, for one source: its URL, ITS key, its cache.
 public enum CommunityRefresh {
-    public static let interval: TimeInterval = 3600
+    /// At most daily, as Dozable's (672).
+    public static let interval: TimeInterval = RecipeCatalogueRefresh.interval
 
     public static func refresh(_ s: CommunitySource, _ p: RecipeExtrasPaths, version: String,
                                env: [String: String] = ProcessInfo.processInfo.environment, now: Date = Date(), force: Bool = false,

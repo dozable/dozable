@@ -13,7 +13,7 @@ import Foundation
 //   a guarded test run only with its seam; a development build only with the seam (a recipe edited in the tree wins);
 //   else `current.json` — and in the HOST's own start, the waiting `next.json`, promoted when it passes. So a CLI
 //   always uses what the running host uses, and a new catalogue applies from the next host start.
-// · REFRESH: the host, at most hourly (`RecipeCatalogueRefresh`): conditional GET; 404 = none published (keep what is
+// · REFRESH: the host, at most daily (`RecipeCatalogueRefresh`; 672 — it was hourly): conditional GET; 404 = none published (keep what is
 //   used, silent); offline silent; a newer one's files fetched and checked by sha256 before `next.json` is written.
 //   670: from `Distribution.recipeCatalogueURL` — doz.sh, Dozable's recipe directory; its files are read from the host
 //   the manifest came from. A CDN may delay a catalogue, never roll one back (serials only rise; the source-version floor).
@@ -300,14 +300,19 @@ public enum RecipeCatalogueSelection {
 
 /// The host's look for a newer catalogue.
 public enum RecipeCatalogueRefresh {
-    public static let interval: TimeInterval = 3600
+    /// 672 (owner: "make the update period daily (not hourly)"): a catalogue — Dozable's and each community one — is
+    /// looked for at most once a day. The state's `lastAttempt` keeps it daily across host restarts.
+    public static let interval: TimeInterval = 86_400
+    /// How often the host's loop wakes to ask whether one is due: so a host started 23 hours after the last look asks
+    /// within the hour, not a day later.
+    public static let tick: TimeInterval = 3600
 
     public enum Outcome: Equatable, Sendable {
         /// Not looked for (why).
         case disabled(String)
-        /// Asked within the hour.
+        /// Asked within the day.
         case notDue
-        /// Not reachable, or a server error: silent, asked again in an hour.
+        /// Not reachable, or a server error: silent, asked again the next day.
         case offline
         /// Nothing published (404), or unchanged (304), or nothing newer this doz may use.
         case unchanged
