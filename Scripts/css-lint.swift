@@ -1,6 +1,6 @@
 // css-lint.swift — the dashboard's stylesheet rules, checked without a browser (run by `make test`).
 //
-// `Sources/DozableWeb/WebSource/app.css` is in cascade layers and built from tokens (CLAUDE.md, "The web layer"). This
+// `Sources/DozableWeb/WebSource/app.css` is in cascade layers and built from tokens (docs/engineering/web.md, "The web layer"). This
 // keeps the rules that each cost something to learn — the style guide's and the dashboard review's (selector cost) — so
 // a change cannot quietly undo them:
 //   1. no `:has(` — a state the page knows is a class the component sets (`.is-active`, `.has-title`, `.is-open`, …);
