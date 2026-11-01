@@ -1,7 +1,7 @@
 # How the recipe catalogue is signed
 
 Dozable's recipes can arrive after a release: the **recipe catalogue** is published at `https://doz.sh/v1/recipes.json`
-and every running doz host looks for a newer one about once an hour. This page explains why that catalogue is signed,
+and every running doz host looks for a newer one about once a day. This page explains why that catalogue is signed,
 how the key is used, and what is (and is not) protected. The format itself is in
 [`recipes/RECIPE-FORMAT.md`](recipes/RECIPE-FORMAT.md); the code is `Sources/DozableKit/RecipeCatalogue.swift` and
 `Sources/DozableHost/RecipeCatalogueClient.swift`.
@@ -43,7 +43,7 @@ The key is an **Ed25519** key pair:
 
 ### Checking (on every Mac running doz, automatically)
 
-About once an hour the doz host downloads `v1/recipes.json` (the manifest and its signature) and:
+About once a day the doz host downloads `v1/recipes.json` (the manifest and its signature) and:
 
 1. checks the signature against the public key compiled in;
 2. checks that the serial is newer than the catalogue it has, that this doz is at least `minimum_doz`, and that the

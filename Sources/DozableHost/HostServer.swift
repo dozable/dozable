@@ -138,7 +138,8 @@ public final class HostServer: @unchecked Sendable {
                 try? await Task.sleep(for: .seconds(3600))
             }
         }
-        // The recipe catalogue: a newer one looked for at most hourly while a host runs; it applies at the next start.
+        // The recipe catalogue: a newer one looked for at most daily while a host runs (672; the loop wakes hourly to see
+        // whether a look is due); it applies at the next start.
         Task.detached {
             while true {
                 let outcome = await RecipeCatalogueRefresh.refresh(version: version, executable: HostLauncher.executablePath)
@@ -159,7 +160,7 @@ public final class HostServer: @unchecked Sendable {
                     default: break
                     }
                 }
-                try? await Task.sleep(for: .seconds(RecipeCatalogueRefresh.interval))
+                try? await Task.sleep(for: .seconds(RecipeCatalogueRefresh.tick))
             }
         }
         HostLog.line("listening on \(store.socket.path)")

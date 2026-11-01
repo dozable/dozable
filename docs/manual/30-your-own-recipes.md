@@ -63,7 +63,7 @@ you checked: `--fingerprint SHA256:…`.
 
 A catalogue is used **whole or not at all**: if it is tampered with, signed with another key, or offers a name that is
 already taken (by Dozable, by yours, or by a catalogue added earlier), none of it is used, and `doz recipe source ls`
-says why. Dozable looks for a newer catalogue hourly while its host runs.
+says why. Dozable looks for a newer catalogue once a day while its host runs.
 
 Before a sandbox of a community recipe is made, Dozable says whose recipe it is, what its image build installs and
 reaches, and asks once for each version of it. `doz recipe trust NAME` says yes ahead, for scripts. On the dashboard,
