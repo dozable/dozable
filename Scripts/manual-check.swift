@@ -8,19 +8,22 @@
 //   3. every `doz …` command in code (blocks and inline spans) names real commands and subcommands,
 //      and each of its flags is one that command's --help lists;
 //   4. every relative link and image resolves;
-//   5. no internal feature or walkthrough numbers leak into the prose.
+//   5. no internal feature or walkthrough numbers leak into the prose;
+//   6. the engineering guide (CLAUDE.md) stays at most 500 lines, every docs/engineering/*.md is in its index,
+//      and every link of the guide and of those pages resolves.
 //
-// Usage: swift Scripts/manual-check.swift --doz .build/debug/doz --manual docs/manual [--write]
+// Usage: swift Scripts/manual-check.swift --doz .build/debug/doz --manual docs/manual [--guide CLAUDE.md] [--write]
 // (Scripts/docs-drift-check.sh runs it; `--help` and `config show` need no entitlement.)
 import Foundation
 
 var args = CommandLine.arguments.dropFirst()
-var dozPath = ".build/debug/doz", manualDir = "docs/manual", write = false
+var dozPath = ".build/debug/doz", manualDir = "docs/manual", guidePath = "CLAUDE.md", write = false
 while let a = args.first {
     args = args.dropFirst()
     switch a {
     case "--doz": dozPath = args.first ?? dozPath; args = args.dropFirst()
     case "--manual": manualDir = args.first ?? manualDir; args = args.dropFirst()
+    case "--guide": guidePath = args.first ?? guidePath; args = args.dropFirst()
     case "--write": write = true
     default: FileHandle.standardError.write(Data("unknown argument \(a)\n".utf8)); exit(64)
     }
@@ -330,7 +333,68 @@ for (name, text) in pages {
     }
 }
 
-if problems.isEmpty {
+// MARK: 6. the engineering guide (673)
+
+// CLAUDE.md is read whole by every session in this repository, so it stays short: the cross-cutting rules, the short
+// code map, the index of docs/engineering/. Every page there is in the index, and every link of the guide resolves.
+let guideLimit = 500
+let guideDir = URL(fileURLWithPath: guidePath).deletingLastPathComponent()
+let engineeringDir = guideDir.appendingPathComponent("docs/engineering")
+var guideProblems: [String] = []
+var guideLines = 0, engineeringPages: [String] = []
+if let guide = try? String(contentsOfFile: guidePath, encoding: .utf8) {
+    guideLines = guide.split(separator: "\n", omittingEmptySubsequences: false).count - (guide.hasSuffix("\n") ? 1 : 0)
+    if guideLines > guideLimit {
+        guideProblems.append("\(guidePath) is \(guideLines) lines — the limit is \(guideLimit); move area detail into docs/engineering/")
+    }
+    // The index is the section "## Engineering docs …", up to the next `## ` heading.
+    var index = ""
+    if let start = guide.range(of: "\n## Engineering docs") {
+        let rest = guide[start.upperBound...]
+        index = String(rest.range(of: "\n## ").map { rest[..<$0.lowerBound] } ?? rest)
+    } else {
+        guideProblems.append("\(guidePath) has no \"## Engineering docs\" index")
+    }
+    var linked = Set<String>()
+    for m in linkRX.matches(in: index, range: NSRange(index.startIndex..., in: index)) {
+        guard let r = Range(m.range(at: 1), in: index) else { continue }
+        let target = String(index[r])
+        if target.hasPrefix("docs/engineering/") { linked.insert(String(target.dropFirst("docs/engineering/".count))) }
+    }
+    for m in linkRX.matches(in: guide, range: NSRange(guide.startIndex..., in: guide)) {
+        guard let r = Range(m.range(at: 1), in: guide) else { continue }
+        let target = String(guide[r])
+        if target.hasPrefix("http://") || target.hasPrefix("https://") || target.hasPrefix("mailto:") { continue }
+        if !FileManager.default.fileExists(atPath: guideDir.appendingPathComponent(target).standardizedFileURL.path) {
+            guideProblems.append("\(guidePath): link to \(target), which does not exist")
+        }
+    }
+    engineeringPages = ((try? FileManager.default.contentsOfDirectory(atPath: engineeringDir.path)) ?? [])
+        .filter { $0.hasSuffix(".md") }.sorted()
+    for page in engineeringPages where !linked.contains(page) {
+        guideProblems.append("docs/engineering/\(page) is not in \(guidePath)'s index of engineering docs")
+    }
+    for page in engineeringPages {
+        let text = (try? String(contentsOf: engineeringDir.appendingPathComponent(page), encoding: .utf8)) ?? ""
+        for m in linkRX.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
+            guard let r = Range(m.range(at: 1), in: text) else { continue }
+            let target = String(text[r])
+            if target.hasPrefix("http://") || target.hasPrefix("https://") || target.hasPrefix("mailto:") { continue }
+            if !FileManager.default.fileExists(atPath: engineeringDir.appendingPathComponent(target).standardizedFileURL.path) {
+                guideProblems.append("docs/engineering/\(page): link to \(target), which does not exist")
+            }
+        }
+    }
+} else {
+    guideProblems.append("cannot read \(guidePath)")
+}
+
+if problems.isEmpty && guideProblems.isEmpty {
+    print("ok engineering-guide: \(guidePath) is \(guideLines) lines (limit \(guideLimit)); its index links all \(engineeringPages.count) docs/engineering pages; links resolve")
+}
+for p in guideProblems { FileHandle.standardError.write(Data("x engineering-guide: \(p)\n".utf8)) }
+
+if problems.isEmpty && guideProblems.isEmpty {
     print("ok manual-check: \(pageNames.count) pages — \(commandsChecked) doz commands and \(flagsChecked) flags match --help, every setting (\(keys.count)) documented with its default, links resolve")
 } else {
     for p in problems { FileHandle.standardError.write(Data("x manual-check: \(p)\n".utf8)) }
