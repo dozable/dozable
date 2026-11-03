@@ -71,10 +71,11 @@ To have it ask first, set its recipe's `approvals` to `ask` — on this Mac
 Inside a sandbox Claude Code never updates itself; the image decides its version (below).
 
 Dozable also keeps your Claude Code conversations. On its own, Claude Code deletes conversations older
-than 30 days; at every session start Dozable sets `cleanupPeriodDays` to 36500 in the sandbox's
-`~/.claude/settings.json`, unless you have set your own value there — your value is never changed.
-It applies to existing sandboxes at their next session, and it needs no image rebuild. Conversations
-Claude Code already deleted are gone.
+than 30 days; Dozable sets `cleanupPeriodDays` to 36500 in the sandbox's `~/.claude/settings.json`
+once, when the sandbox is set up (its first start or wake with this version), unless you have set your
+own value there — your value is never changed. Delete or change it yourself and Dozable leaves it.
+It applies to existing sandboxes at their next start or wake, and it needs no image rebuild.
+Conversations Claude Code already deleted are gone.
 
 ## Accounts — in the terminal
 

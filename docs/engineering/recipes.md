@@ -144,9 +144,16 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   name, validated like `first_run`), with `agent_default` (what the agent does by itself), `source` and `checked`.
   **Never baked**: no `ImageSpec`/`recipeLauncherScript` reads it, so no bake key moves and no image is "older recipe"
   (`RecipePinTests`, `test_nodeImagesAreByteIdentical`, `test_builtinRecipesDescribeTheirImages` are the proof — keep them
-  unchanged). The HOST writes it: `HostCore.openSession` runs `deliverAgentHistory` right after `deliverAgentPrompt`, one
-  python3 exec as the image's user (`execContext`), best effort (a failure or a refused file is a note, the session still
-  starts). `keep` semantics only: a key is set only when absent (parents made), a present value is the person's and left
+  unchanged). Set ONCE per sandbox, in the guest set-up, exactly like the dotfiles (never at a session open — that raced an
+  agent rewriting its own file and re-added a key the person had deleted): the host hands the `Sandbox` an
+  `AgentSettingsInputs` (`AgentHistory.inputs(for:)` — the python3 script + a sha256 fingerprint of the mapping and the value;
+  `HostCore.applyAgentSettingsInput`, beside `applyDotfilesInput`), and `Sandbox.applyAgentSettings` runs after the dotfiles in
+  `start()` and in `LifecycleStep.applyGuestFixes`. One cheap check exec as the image's user reads the marker
+  `~/.local/share/doz/history.applied`; only when it differs from the fingerprint is the script run, and the marker is written
+  afterwards either way (a failing run is not retried at every wake). A key the person deletes afterwards stays deleted; a
+  changed mapping or value applies once more. The result is `<sandbox>/agent-history-run.json` (`AgentSettingsRun`: when,
+  fingerprint, applied | failed, notes); notes also go to the boot log, never fatal. A preparation VM, a bake or a helper is
+  handed nothing and never runs it (`AgentSettingsLayer`, `AgentHistoryTests`). `keep` semantics only: a key is set only when absent (parents made), a present value is the person's and left
   alone, a file that does not parse is never written (unlike the launcher's setup, which replaces one — that one is baked and
   waits for a launcher change), a missing file is made 0600 with its folders, atomic temp + rename, no rewrite when nothing
   changes. `native: keeps` + `note` is decoded and validated for an agent that keeps its conversations itself (nothing is

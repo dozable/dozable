@@ -2,8 +2,9 @@ import XCTest
 @testable import DozableKit
 @testable import DozableHost
 
-/// 674: keeping an agent's conversations — the recipe's `launch@1 history.keep` is written by the host as a python3 script
-/// at every session open (never baked). The script runs here on temp files, as `RecipeEachRunTests` runs the launcher's.
+/// 674: keeping an agent's conversations — the recipe's `launch@1 history.keep` is a python3 script the sandbox runs ONCE in
+/// its guest set-up (never baked, never at a session open), remembered by a marker. The script and the once-only layer run
+/// here on temp files, as `RecipeEachRunTests` runs the launcher's.
 final class AgentHistoryTests: XCTestCase {
     typealias History = AgentRecipe.Launch.History
 
@@ -147,6 +148,149 @@ final class AgentHistoryTests: XCTestCase {
         XCTAssertNil(AgentHistory.script(nil))
         XCTAssertNil(AgentHistory.script(AgentRecipe.Launch.History(native: "keeps", note: "It keeps them.", source: "https://example.com", checked: "2026-11-04")),
                      "keeps by itself: nothing to write")
+    }
+
+    // MARK: applied once
+
+    /// What `Sandbox.applyAgentSettings` does, with the guest's commands run on this Mac in a scratch HOME. `ran` counts the
+    /// script's runs.
+    private final class Guest: @unchecked Sendable {
+        let home: URL
+        var scriptRuns = 0
+        var failScript = false
+        init(_ home: URL) { self.home = home }
+
+        func exec(_ argv: [String]) throws -> (exitCode: Int32, output: String, error: String) {
+            let isScript = argv.first == "python3"
+            if isScript { scriptRuns += 1 }
+            let p = Process()
+            if isScript {
+                p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+                p.arguments = ["-c", failScript ? "import sys; sys.exit(3)" : argv[2]]
+            } else {
+                p.executableURL = URL(fileURLWithPath: "/bin/sh")
+                p.arguments = Array(argv.dropFirst())
+            }
+            p.environment = ["HOME": home.path]
+            let out = Pipe(), err = Pipe()
+            p.standardOutput = out
+            p.standardError = err
+            try p.run()
+            let o = out.fileHandleForReading.readDataToEndOfFile()
+            let e = err.fileHandleForReading.readDataToEndOfFile()
+            p.waitUntilExit()
+            return (p.terminationStatus, String(decoding: o, as: UTF8.self), String(decoding: e, as: UTF8.self))
+        }
+    }
+
+    private func inputs(_ h: History) throws -> AgentSettingsInputs {
+        let claude = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
+        var r = claude
+        r.launch.history = h
+        return try XCTUnwrap(AgentHistory.inputs(for: r))
+    }
+
+    private func apply(_ i: AgentSettingsInputs, _ g: Guest) async throws -> AgentSettingsRun? {
+        guard FileManager.default.isExecutableFile(atPath: "/usr/bin/python3") else { throw XCTSkip("no python3") }
+        return await AgentSettingsLayer.apply(i, home: g.home.path) { argv in try g.exec(argv) }
+    }
+
+    func testAppliedOnceThenNotAgain() async throws {
+        let home = try scratchHome()
+        let g = Guest(home)
+        let i = try inputs(history())
+        let first = try await apply(i, g)
+        XCTAssertEqual(first?.state, "applied")
+        XCTAssertEqual(first?.fingerprint, i.fingerprint)
+        XCTAssertEqual(try json(home)["cleanupPeriodDays"] as? Int, 36500)
+        XCTAssertEqual(g.scriptRuns, 1)
+        let marker = try String(contentsOf: home.appendingPathComponent(AgentSettingsLayer.markerRelative), encoding: .utf8)
+        XCTAssertEqual(marker.trimmingCharacters(in: .whitespacesAndNewlines), i.fingerprint)
+        // The marker equals the wanted fingerprint: the script is not run, the file is not touched.
+        let url = home.appendingPathComponent(".claude/settings.json")
+        let old = Date(timeIntervalSince1970: 1_700_000_000)
+        try FileManager.default.setAttributes([.modificationDate: old], ofItemAtPath: url.path)
+        let again = try await apply(i, g)
+        XCTAssertNil(again, "nothing to do: not even a record")
+        XCTAssertEqual(g.scriptRuns, 1)
+        XCTAssertEqual(try FileManager.default.attributesOfItem(atPath: url.path)[.modificationDate] as? Date, old)
+    }
+
+    func testADeletedKeyStaysDeleted() async throws {
+        let home = try scratchHome()
+        let g = Guest(home)
+        let i = try inputs(history())
+        _ = try await apply(i, g)
+        try write(#"{"theme": "dark"}"#, home)          // the person deleted the key
+        let again = try await apply(i, g)
+        XCTAssertNil(again)
+        XCTAssertNil(try json(home)["cleanupPeriodDays"], "Dozable leaves it")
+        XCTAssertEqual(g.scriptRuns, 1)
+    }
+
+    func testAChangedMappingAppliesAgain() async throws {
+        let home = try scratchHome()
+        let g = Guest(home)
+        let a = try inputs(history())
+        _ = try await apply(a, g)
+        try write(#"{}"#, home)
+        let b = try inputs(history(set: ["cleanupPeriodDays": .number(36500), "other": .bool(true)]))
+        XCTAssertNotEqual(a.fingerprint, b.fingerprint)
+        XCTAssertNotEqual(a.fingerprint, try inputs(history(set: ["cleanupPeriodDays": .number(3650)])).fingerprint, "a value is part of it")
+        XCTAssertNotEqual(a.fingerprint, AgentHistory.fingerprint(history(), value: "agent-default"), "so is the setting's value (a later step)")
+        let run = try await apply(b, g)
+        XCTAssertEqual(run?.state, "applied")
+        XCTAssertEqual(g.scriptRuns, 2)
+        let c = try json(home)
+        XCTAssertEqual(c["cleanupPeriodDays"] as? Int, 36500)
+        XCTAssertEqual(c["other"] as? Bool, true)
+    }
+
+    func testAFailedRunIsNotRetried() async throws {
+        let home = try scratchHome()
+        let g = Guest(home)
+        g.failScript = true
+        let i = try inputs(history())
+        let run = try await apply(i, g)
+        XCTAssertEqual(run?.state, "failed")
+        XCTAssertTrue(run?.notes.contains { $0.contains("exited 3") } ?? false, "\(String(describing: run?.notes))")
+        XCTAssertEqual(g.scriptRuns, 1)
+        g.failScript = false
+        let again = try await apply(i, g)
+        XCTAssertNil(again, "the marker was written anyway: not retried at every wake")
+        XCTAssertEqual(g.scriptRuns, 1)
+    }
+
+    func testTheRunIsAFileTheMacCanRead() throws {
+        let run = AgentSettingsRun(at: Date(timeIntervalSince1970: 1_700_000_000), fingerprint: "abc", state: "applied", notes: ["x"])
+        let e = JSONEncoder(); e.dateEncodingStrategy = .iso8601
+        let d = JSONDecoder(); d.dateDecodingStrategy = .iso8601
+        XCTAssertEqual(try d.decode(AgentSettingsRun.self, from: try e.encode(run)), run)
+    }
+
+    func testOnlyASandboxOfAMappedAgentIsHandedInputsAndNoOtherDoes() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("agenthistory-sb-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: root) }
+        // A preparation VM, a bake or a helper is a plain Sandbox the host never hands anything: it runs nothing.
+        let sb = try Sandbox(spec: SandboxSpec(name: "prep", storeRoot: root))
+        XCTAssertNil(sb.agentSettings)
+        XCTAssertNil(sb.lastAgentSettingsRun)
+        let claude = try XCTUnwrap(AgentRecipes.recipe("claude-code"))
+        let i = try XCTUnwrap(AgentHistory.inputs(for: claude))
+        XCTAssertEqual(i.title, claude.title)
+        XCTAssertEqual(i.fingerprint.count, 64)
+        for r in AgentRecipes.all where r.id != "claude-code" { XCTAssertNil(AgentHistory.inputs(for: r), r.id) }
+    }
+
+    /// A session open writes nothing of it (it raced a running agent's own settings file, and brought back a deleted key).
+    func testOpenSessionNoLongerWritesIt() throws {
+        let host = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            .appendingPathComponent("Sources/DozableHost")
+        guard let files = FileManager.default.enumerator(atPath: host.path) else { throw XCTSkip("no sources here") }
+        for case let f as String in files where f.hasSuffix(".swift") {
+            let text = try String(contentsOf: host.appendingPathComponent(f), encoding: .utf8)
+            XCTAssertFalse(text.contains("deliverAgentHistory"), f)
+        }
     }
 
     // MARK: the recipe's declaration

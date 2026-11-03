@@ -2,9 +2,11 @@ import Foundation
 import DozableKit
 
 /// 674: keeping an agent's conversations. Some agents delete their own history after a while (Claude Code: 30 days); the
-/// recipe's `launch@1 history.keep` names the vendor's own file and keys that mean "keep", and the HOST writes them at every
-/// session open, as the image's user — never baked, so no image, bake key or launcher changes and an existing sandbox gets
-/// it at its next session.
+/// recipe's `launch@1 history.keep` names the vendor's own file and keys that mean "keep". They are set ONCE per sandbox, in
+/// the guest set-up (`Sandbox.applyAgentSettings`: a start, a wake's background steps — like the dotfiles), as the image's
+/// user, and remembered by a marker in the guest — never at a session open (that races an agent rewriting its own file and
+/// would bring back a key the person deleted). Never baked, so no image, bake key or launcher changes and an existing
+/// sandbox gets it at its next start or wake.
 ///
 /// `keep` semantics only: a key is set ONLY when it is absent (parent objects made as needed); a value that is there, the
 /// person's own, is left alone; a file that does not parse is never written (a note says so); a missing file is made 0600
@@ -94,25 +96,33 @@ private extension RecipeValue {
     }
 }
 
-extension HostCore {
-    /// Write the recipe's history keys into the guest — a utility exec as the image's user, right after the agent prompt.
-    /// Best effort: a failure is a note, the session still starts.
-    func deliverAgentHistory(_ m: Managed) async {
-        guard m.config.spec.imageSpec != nil, let recipe = m.config.imageChoice?.agent.recipe,
-              let script = AgentHistory.script(recipe.launch.history) else { return }
-        let ctx = Self.execContext(config: m.config, environment: [:], workdir: nil, user: nil)
-        do {
-            let r = try await m.sandbox.exec(["python3", "-c", script], environment: ctx.environment, workingDirectory: ctx.workdir,
-                                             user: ctx.user, timeoutSeconds: 20)
-            if r.exitCode != 0 {
-                note(m.name, "could not keep \(recipe.title)'s conversation history (exit \(r.exitCode)): \(String(decoding: r.stderr.prefix(200), as: UTF8.self))")
-            } else {
-                for line in String(decoding: r.stdout, as: UTF8.self).split(separator: "\n") where line.hasPrefix("note: ") {
-                    note(m.name, "\(recipe.title)'s conversation history: \(line.dropFirst(6))")
-                }
-            }
-        } catch {
-            note(m.name, "could not keep \(recipe.title)'s conversation history: \(error.localizedDescription)")
+extension AgentHistory {
+    /// The value Step 1 applies (the setting that picks it is a later step).
+    public static let value = "keep"
+
+    /// What names the mapping: every entry's file and its keys with their values (sorted), and the value. A changed mapping
+    /// or value is a different fingerprint, so it applies once more.
+    public static func fingerprint(_ history: AgentRecipe.Launch.History, value: String = AgentHistory.value) -> String {
+        var parts = (history.keep ?? []).map { k in
+            k.file + "|" + k.set.keys.sorted().map { "\($0)=\(k.set[$0]!.plain)" }.joined(separator: ",")
         }
+        parts.append("value=" + value)
+        return AgentSettingsInputs.fingerprint(of: parts)
+    }
+
+    /// What a sandbox of this recipe is handed (nil: the recipe maps nothing to write).
+    public static func inputs(for recipe: AgentRecipe) -> AgentSettingsInputs? {
+        guard let history = recipe.launch.history, let script = script(history) else { return nil }
+        return AgentSettingsInputs(title: recipe.title, script: script, fingerprint: fingerprint(history))
+    }
+}
+
+extension HostCore {
+    /// Give the sandbox the agent's settings to set once in its guest set-up (a start, a wake's background steps) — like
+    /// the dotfiles. Called when it is loaded. A sandbox with no agent recipe mapping gets none.
+    func applyAgentSettingsInput(_ m: Managed) {
+        guard !readOnly else { return }
+        guard m.config.spec.imageSpec != nil, let recipe = m.config.imageChoice?.agent.recipe else { m.sandbox.setAgentSettings(nil); return }
+        m.sandbox.setAgentSettings(AgentHistory.inputs(for: recipe))
     }
 }

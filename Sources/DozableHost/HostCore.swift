@@ -229,6 +229,7 @@ public actor HostCore {
             applyAccount(m)
             applyGitHub(m)                                  // 599d
             applyDotfilesInput(m)                           // 657
+            applyAgentSettingsInput(m)                      // 674
         }
         return m
     }
@@ -1843,8 +1844,6 @@ public actor HostCore {
                 throw HostError(.invalid, "the agent prompt does not render — \(error). Fix it, or turn the prompt off: doz config set agent.prompt false")
             }
             await deliverAgentPrompt(m, report)
-            // 674: the agent's own keys that keep its conversations (Claude Code's cleanupPeriodDays) — never baked.
-            await deliverAgentHistory(m)
             if report.agent == "pi", report.enabled, report.text != nil, argv == m.config.defaultSession.argv {
                 argv += ["--append-system-prompt", AgentPrompt.guestPromptPath]
             }
