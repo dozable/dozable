@@ -87,6 +87,10 @@ final class RecipeSchemaTests: XCTestCase {
                 "config": ["options": [["name": "speed", "type": "float", "default": 1, "summary": "x", "applies": "now"]]]]] }),
             ("an own setting named like a common one", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
                 "config": ["options": [["name": "version", "type": "bool", "default": false, "summary": "x", "applies": "now"]]]]] }),
+            // 674: launch@1 history — the vendor's file and keys, with its source and the date.
+            ("a history with no source", { editConfig(&$0, T.launch) { c in var h = c["history"] as? [String: Any] ?? ["keep": [["file": "~/.a.json", "set": ["k": 1]]], "agent_default": "x", "checked": "2026-11-04"]; h["source"] = nil; c["history"] = h } }),
+            ("a history file outside the home", { editConfig(&$0, T.launch) { c in c["history"] = ["keep": [["file": "/etc/a.json", "set": ["k": 1]]], "agent_default": "x", "source": "https://e.com", "checked": "2026-11-04"] } }),
+            ("an unknown key in a history", { editConfig(&$0, T.launch) { c in c["history"] = ["keep": [["file": "~/.a.json", "set": ["k": 1]]], "agent_default": "x", "source": "https://e.com", "checked": "2026-11-04", "mode": "x"] } }),
             ("an unknown key in an own setting", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
                 "config": ["options": [["name": "fast", "type": "bool", "default": false, "summary": "x", "applies": "now", "secret": true]]]]] }),
         ]
@@ -96,6 +100,7 @@ final class RecipeSchemaTests: XCTestCase {
             ("a subject (669)", { editCap(&$0, T.directory) { $0["description"] = "agentic fortune teller" } }),
             ("an own setting (669)", { $0["capabilities"] = ($0["capabilities"] as! [[String: Any]]) + [["type": "com.dozable/settings@1",
                 "config": ["options": [["name": "fast", "type": "choice", "choices": ["yes", "no"], "default": "no", "summary": "Go fast.", "applies": "next-session"]]]]] }),
+            ("a history that keeps by itself (674)", { editConfig(&$0, T.launch) { c in c["history"] = ["native": "keeps", "note": "It keeps them.", "source": "https://e.com", "checked": "2026-11-04"] } }),
             ("a check with its exit and timeout", { editConfig(&$0, T.launch) { var c = $0["check"] as? [String: Any] ?? [:]; c["exit"] = 0; c["timeout"] = 300; $0["check"] = c } }),
         ]
         var v = JSONSchemaValidator()

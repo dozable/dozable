@@ -57,7 +57,7 @@ public enum RecipeSource {
         "off_without", "permission",
         "manifest", "file", "json", "launcher_arg",
         "builtin", "package", "platform_package", "payload", "compression", "binary", "needs_node", "npm_args", "url", "bake_hosts", "integrity",
-        "command", "no_prompts_args", "passthrough", "env", "says", "state_env", "first_run", "set", "session_env", "status", "resume", "resume_check",
+        "command", "no_prompts_args", "passthrough", "env", "says", "state_env", "first_run", "set", "session_env", "history", "keep", "native", "agent_default", "status", "resume", "resume_check",
         "verify", "argv", "expect", "settings", "permissions",
         "methods", "provider", "account", "accounts", "keys_page", "free_tier", "free_tier_note", "in_sandbox", "gateways", "note",
         "entries", "shape", "endpoint", "how", "model_args", "proxy_route", "from_host", "unmapped", "limits", "notes", "evidence", "source",

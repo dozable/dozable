@@ -40,6 +40,13 @@ final class RecipeSubjectTests: XCTestCase {
                 XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true, f)
                 continue
             }
+            // 674: `launch@1 history` is newer than this contract too; only a built-in recipe (Claude Code) has it today, and
+            // a catalogue recipe that adds it is published with minimum_doz at the release that reads it.
+            let launchCfg = caps.first { ($0["type"] as? String) == "com.dozable/launch@1" }?["config"] as? [String: Any]
+            if launchCfg?["history"] != nil {
+                XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true, f)
+                continue
+            }
             var errors = v.validate(t, schemaFile: Self.oldSchema)
             // 666: a web port's `sign_in` (ports@1) is newer than this contract, so an older doz refuses a recipe that
             // declares one. It is excused BY NAME only — and with its capability's oneOf line, nothing else: a catalogue

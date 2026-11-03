@@ -147,6 +147,19 @@
         "env" : {
 
         },
+        "history" : {
+          "agent_default" : "Claude Code deletes conversations older than 30 days",
+          "checked" : "2026-11-04",
+          "keep" : [
+            {
+              "file" : "~/.claude/settings.json",
+              "set" : {
+                "cleanupPeriodDays" : 36500
+              }
+            }
+          ],
+          "source" : "https://code.claude.com/docs/en/settings-reference#cleanupperioddays"
+        },
         "model_args" : [
           "--model",
           "$DOZ_MODEL"

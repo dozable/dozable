@@ -138,6 +138,19 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `DOZ_<SHORT>_PERMISSIONS=ask` or root, passthrough arguments run as they are, first-run settings written ONLY when
   absent), its persist dirs and session environment. A recipe names no credential (validated). Its version resolves
   from the MAIN npm package (Grok's platform package's own `latest` tag is stale).
+- **Conversation history** (674; `launch@1 history`, `Sources/DozableHost/AgentHistory.swift`, `AgentHistoryTests`): an agent
+  that deletes its own conversations after a while (Claude Code: `cleanupPeriodDays`, 30 days) gets the vendor's own keys
+  that mean "keep" — `history.keep: [{file, set}]` (1–4 entries, `~/….json`, dotted keys, scalar values, never a credential's
+  name, validated like `first_run`), with `agent_default` (what the agent does by itself), `source` and `checked`.
+  **Never baked**: no `ImageSpec`/`recipeLauncherScript` reads it, so no bake key moves and no image is "older recipe"
+  (`RecipePinTests`, `test_nodeImagesAreByteIdentical`, `test_builtinRecipesDescribeTheirImages` are the proof — keep them
+  unchanged). The HOST writes it: `HostCore.openSession` runs `deliverAgentHistory` right after `deliverAgentPrompt`, one
+  python3 exec as the image's user (`execContext`), best effort (a failure or a refused file is a note, the session still
+  starts). `keep` semantics only: a key is set only when absent (parents made), a present value is the person's and left
+  alone, a file that does not parse is never written (unlike the launcher's setup, which replaces one — that one is baked and
+  waits for a launcher change), a missing file is made 0600 with its folders, atomic temp + rename, no rewrite when nothing
+  changes. `native: keeps` + `note` is decoded and validated for an agent that keeps its conversations itself (nothing is
+  written); a catalogue recipe that uses `history` needs `minimum_doz` raised, as `sign_in` does.
 - **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google|opencode|…`,
   `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
   (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never
