@@ -10,6 +10,8 @@
 #            (workflow_dispatch `vm: true`) or when the repository variable DOZ_VM_CI is "1" —
 #            set that once the runner is verified to boot VMs (logged-in user session; network
 #            for the first kernel fetch and image pull — no `container` CLI needed).
+#   flavours (675) both release flavours, built as `make release` builds them (ad hoc, never published); then the
+#            helper smoke (`make test-cli-helper`) when the vm job's condition holds.
 #   deckhold workflow_dispatch `deckhold: true` only: rebuild the guest binary from the pinned
 #            Zig + ghostty and check it matches the committed bytes (~3.5 min cold).
 # No concurrency group: the self-hosted runner runs one job at a time, and every job here is
@@ -130,8 +132,34 @@ jobs:
           RUN='make test-vm VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store" KERNEL_CACHE="$HOME/Library/Caches/DozableKit-ci/kernels"'
           if [ -x "$LOCK" ]; then "$LOCK" --name "$GITHUB_REPOSITORY#vm" -- bash -c "$RUN"; else bash -c "$RUN"; fi
 
-  deckhold:
-    name: Rebuild deckhold and verify the committed binary
+  # 675: both release flavours — the CLI release and the helper build an app carries — built as `make release` builds
+  # them (stripped, the pinned kernel inside, every release.sh check), signed ad hoc (TEST_BUILD=1: nothing here is
+  # ever published). Then, on a runner that boots VMs (the vm job's condition), the helper is smoked as an app gets
+  # it: copied whole into a fake .app, an EMPTY store boots a lab sandbox from the kernel it carries — no download.
+  flavours:
+    name: Release flavours (CLI + helper) and the helper smoke
+    needs: package
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, doz-ci]
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          set-safe-directory: false
+      - name: The pinned kernel (a verified cache hit after the first run)
+        run: make kernel KERNEL_CACHE="$HOME/Library/Caches/DozableKit-ci/kernels" VMTEST_STORE="$RUNNER_TEMP/doz-vmtest-store"
+      - name: make release, both flavours (ad hoc, never published)
+        shell: bash
+        run: |
+          set -euo pipefail
+          LOCK="$HOME/Developer/bin/ci-build-lock"
+          V="$(cat VERSION)"
+          RUN="make release VERSION=$V TEST_BUILD=1 FLAVOUR=cli KERNEL_CACHE=$HOME/Library/Caches/DozableKit-ci/kernels && make release VERSION=$V TEST_BUILD=1 FLAVOUR=helper KERNEL_CACHE=$HOME/Library/Caches/DozableKit-ci/kernels"
+          if [ -x "$LOCK" ]; then "$LOCK" --name "$GITHUB_REPOSITORY#flavours" -- bash -c "$RUN"; else bash -c "$RUN"; fi
+          ls -l dist/*.tar.gz dist/*.dSYM.zip
+      - name: The helper smoke (an empty store boots a sandbox, no kernel download)
+        if: (github.event_name == 'workflow_dispatch' && inputs.vm) || vars.DOZ_VM_CI == '1'
+        run: make test-cli-helper
     if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'workflow_dispatch' && inputs.deckhold
     runs-on: [self-hosted, doz-ci]
     timeout-minutes: 30

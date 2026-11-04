@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-cli-helper css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -204,6 +204,9 @@ test-vm-cwd: vmtest-host ## BUG cwd-after-wake: a program whose cwd is in /works
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cwd-wake --store "$(VMTEST_STORE)"
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) agent-write --store "$(VMTEST_STORE)"
 
+test-cli-helper: ## 675: the helper build as an app gets it (dist/…-helper.tar.gz from make release FLAVOUR=helper, or HELPER_TARBALL=) — the layout, copied into a fake .app, an EMPTY store boots a lab VM with the kernel it carries (no download)
+	Scripts/helper-smoke.sh $(HELPER_TARBALL)
+
 test-vm: vmtest-host ## VM integration suite (entitled host, watchdog, scratch store; VMTEST_ARGS=lifecycle|crash)
 	perl -e 'alarm shift; exec @ARGV' $(VMTEST_TIMEOUT) $(VMTEST_BIN) $(VMTEST_ARGS) --store "$(VMTEST_STORE)"
 
@@ -250,9 +253,12 @@ PUBLIC         ?= 1
 DOZ_CLOUD_PACKAGE ?=
 DOZ_CLOUD_REF     ?=
 DIST           ?= dist
+# 675: cli (Homebrew, the tarball by hand) or helper (the build an app carries inside its bundle — docs/manual/33-*).
+FLAVOUR        ?= cli
+KERNEL_FILE    ?=
 
-release: ## 598/611: build (PUBLIC=1 by default; PUBLIC=0 a private rc) + sign (+ notarise when configured) + pack dist/doz-VERSION-macos-arm64.tar.gz and its SHA-256 (VERSION=X.Y.Z; DRY_RUN=1 prints the plan)
-	@VERSION="$(VERSION)" OUT="$(DIST)" JOBS="$(JOBS)" SWIFT_BUILD_SYSTEM="$(SWIFT_BUILD_SYSTEM)" \
+release: ## 598/611/675: build (PUBLIC=1 by default; PUBLIC=0 a private rc; FLAVOUR=helper the build an app carries) + strip (dSYM zip beside) + sign (+ notarise when configured) + pack dist/doz-VERSION-macos-arm64[-helper].tar.gz and its SHA-256, the pinned kernel inside (VERSION=X.Y.Z; KERNEL_CACHE= or KERNEL_FILE=; DRY_RUN=1 prints the plan)
+	@VERSION="$(VERSION)" OUT="$(DIST)" JOBS="$(JOBS)" SWIFT_BUILD_SYSTEM="$(SWIFT_BUILD_SYSTEM)" FLAVOUR="$(FLAVOUR)" KERNEL_FILE="$(KERNEL_FILE)" \
 	  SIGN_IDENTITY="$(SIGN_IDENTITY)" NOTARY_PROFILE="$(NOTARY_PROFILE)" HARDENED="$(HARDENED)" \
 	  PUBLIC="$(PUBLIC)" TEST_BUILD="$(TEST_BUILD)" SOUND_KERNEL="$(SOUND_KERNEL)" NO_SOUND_KERNEL="$(NO_SOUND_KERNEL)" \
 	  DRY_RUN="$(DRY_RUN)" SKIP_BUILD="$(SKIP_BUILD)" DOZ_CLOUD_PACKAGE="$(DOZ_CLOUD_PACKAGE)" DOZ_CLOUD_REF="$(DOZ_CLOUD_REF)" \

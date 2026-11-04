@@ -1,5 +1,7 @@
 .build/
 .build-remote/
+# 675: the helper build's own scratch folder (make release FLAVOUR=helper).
+.build-helper/
 .swiftpm/
 .tools/
 Guest/deckhold/out/

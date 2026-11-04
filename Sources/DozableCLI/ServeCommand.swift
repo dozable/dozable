@@ -1,3 +1,5 @@
+// 675: the dashboard — not in a build without it (the helper; HelperBuild.swift answers doz ui and doz serve).
+#if !DOZ_NO_WEB
 import ArgumentParser
 import Darwin
 import Foundation
@@ -545,3 +547,4 @@ final class TestAnchors: NSObject, URLSessionDelegate, @unchecked Sendable {
         if SecTrustEvaluateWithError(trust, nil) { completionHandler(.useCredential, URLCredential(trust: trust)) } else { completionHandler(.cancelAuthenticationChallenge, nil) }
     }
 }
+#endif

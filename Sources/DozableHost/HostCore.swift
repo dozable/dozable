@@ -939,6 +939,7 @@ public actor HostCore {
                            idleTimeoutMinutes: idleTimeoutMinutes, liveSandboxes: await liveSandboxes(), connections: connections,
                            idleSeconds: idleSeconds)
         s.executable = executable?.path
+        s.flavour = BuildFlavor.current.flavourName
         if !readOnly {
             s.parentPid = getppid()
             s.sessionID = getsid(0)

@@ -1,3 +1,5 @@
+// 675: the dashboard — not in a build without it (the helper; HelperBuild.swift answers doz ui and doz serve).
+#if !DOZ_NO_WEB
 import ArgumentParser
 import CoreServices
 import Darwin
@@ -660,3 +662,4 @@ struct UILink: AsyncParsableCommand {
         try delivery.deliver(url, g)
     }
 }
+#endif

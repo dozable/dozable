@@ -127,6 +127,41 @@ final class KernelProviderTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: url), kernelBytes)
     }
 
+    /// 675: the kernel a release carries (`libexec/doz/kernels/` beside the resolved executable — also through a `bin/doz`
+    /// link) is the FIRST seed, before Apple's copy; the cache still comes first, and the store's cache is what boots.
+    func test_theKernelAReleaseCarriesIsTheFirstSeed() async throws {
+        let a = try artifact()
+        let libexec = dir.appendingPathComponent("rel/libexec/doz")
+        try FileManager.default.createDirectory(at: libexec.appendingPathComponent("kernels"), withIntermediateDirectories: true)
+        let exe = libexec.appendingPathComponent("doz")
+        try Data().write(to: exe)
+        let carried = libexec.appendingPathComponent("kernels/vmlinux-test")
+        try kernelBytes.write(to: carried)
+        let bin = dir.appendingPathComponent("rel/bin")
+        try FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        try FileManager.default.createSymbolicLink(atPath: bin.appendingPathComponent("doz").path, withDestinationPath: "../libexec/doz/doz")
+
+        let seeds = KernelProvider.bundledCandidates(executable: bin.appendingPathComponent("doz"), artifact: a)
+        XCTAssertEqual(seeds.map { $0.resolvingSymlinksInPath().path }, [carried.resolvingSymlinksInPath().path], "found through the bin/doz link")
+        XCTAssertTrue(KernelProvider.isBundled(carried, executable: exe, artifact: a))
+        XCTAssertEqual(KernelProvider.bundledCandidates(executable: nil), [])
+        let apple = dir.appendingPathComponent("apple-kernel")
+        try kernelBytes.write(to: apple)
+        let f = FakeFetcher(serving: archive)
+        let p = provider(a, seeds: seeds + [apple], fetcher: f)
+        XCTAssertEqual(p.localSeed()?.resolvingSymlinksInPath().path, carried.resolvingSymlinksInPath().path, "the release's own copy before Apple's")
+        let events = EventLog()
+        let url = try await p.resolve { events.add($0) }
+        XCTAssertEqual(url, p.cachedKernel, "copied into the store's cache, never booted from the program's folder")
+        XCTAssertEqual(f.calls, 0, "no download")
+        XCTAssertTrue(events.all.contains { if case .note(let s) = $0 { s.contains("copied from \(seeds[0].path)") && s.contains("no download") } else { false } })
+        // The default list: the carried copy first, then Apple's container kernels.
+        let defaults = KernelProvider.defaultSeedCandidates
+        XCTAssertEqual(Array(defaults.suffix(2)), KernelProvider.appleContainerCandidates)
+        XCTAssertEqual(defaults.first?.lastPathComponent, KernelArtifact.recommended.fileName)
+        XCTAssertEqual(defaults.first?.deletingLastPathComponent().lastPathComponent, "kernels")
+    }
+
     func test_downloadFailureIsReported() async throws {
         let p = provider(try artifact(), fetcher: FakeFetcher(serving: nil))
         do { _ = try await p.resolve(); XCTFail() } catch let e as KernelError {

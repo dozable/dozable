@@ -5,7 +5,7 @@
 #   LICENSE                    Dozable's own (MIT)
 #   NOTICE                     the repository's NOTICE (attributions the Apache-2.0 dependencies require)
 #   THIRD-PARTY-LICENSES.txt   every resolved Swift package's licence text AND its NOTICE file, verbatim, from the exact
-#                              checkout SwiftPM built (.build/checkouts, the versions in Package.resolved), then the
+#                              checkout SwiftPM built ($CHECKOUTS, default .build/checkouts — the versions in Package.resolved), then the
 #                              guest binaries' and the dashboard's vendored components' licences
 #
 # It FAILS when a pin in Package.resolved has no checkout or no licence file — a dependency added without its licence
@@ -13,6 +13,8 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 OUT="${1:?OUT_DIR}"
+# 675: the helper build has its own scratch folder (.build-helper/checkouts); release.sh says which.
+CHECKOUTS="${CHECKOUTS:-.build/checkouts}"
 cd "$ROOT"
 mkdir -p "$OUT"
 cp LICENSE "$OUT/LICENSE"
@@ -29,8 +31,8 @@ for p in json.load(open('Package.resolved'))['pins']:
     print(p['identity'], p['location'], p['state'].get('version') or p['state'].get('revision', '')[:12])")"
 missing=""
 while read -r id url ver; do
-    d=".build/checkouts/$id"
-    [[ -d "$d" ]] || d="$(find .build/checkouts -maxdepth 1 -iname "$id" | head -1)"
+    d="$CHECKOUTS/$id"
+    [[ -d "$d" ]] || d="$(find "$CHECKOUTS" -maxdepth 1 -iname "$id" | head -1)"
     if [[ -z "$d" || ! -d "$d" ]]; then missing+="$id (no checkout) "; continue; fi
     lic="$(find "$d" -maxdepth 1 -type f \( -iname 'LICENSE*' -o -iname 'LICENCE*' -o -iname 'COPYING*' \) | sort | head -1)"
     # zstd: dual-licensed BSD-3-Clause OR GPL-2.0 (LICENSE is the BSD text; COPYING the GPL) — used under BSD.

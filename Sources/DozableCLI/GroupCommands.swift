@@ -585,7 +585,8 @@ struct HostRun: AsyncParsableCommand {
 }
 
 func describe(_ st: HostStatus) -> String {
-    var s = "host \(st.version) running, pid \(st.pid), since \(st.startedAt.formatted(date: .omitted, time: .standard))\n"
+    let build = st.flavour == "helper" ? " (the helper build)" : ""
+    var s = "host \(st.version)\(build) running, pid \(st.pid), since \(st.startedAt.formatted(date: .omitted, time: .standard))\n"
     s += "store \(st.store)\n"
     s += "running sandboxes: \(st.liveSandboxes.isEmpty ? "none" : st.liveSandboxes.joined(separator: ", "))"
     s += st.idleTimeoutMinutes > 0 ? String(format: " · exits after %@ min with nothing running", st.idleTimeoutMinutes.formatted()) : " · never exits by itself"
