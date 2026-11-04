@@ -42,6 +42,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   or a `RELEASE` that starts with `helper` → `InstallMethod.helper(app:)` (the `.app` it sits in): `disabledReason` says
   `BuildFlavor.helperUpdates` FIRST, whatever the settings, even for a manual check — so no feed is ever asked;
   `doz upgrade` refuses before anything ("this doz belongs to APP; APP updates it").
+- **It sends no usage statistics** (owner, 2026-11-04): Package.swift never adds the closed package to a
+  `DOZ_HELPER_BUILD=1` build, `release.sh` ignores `DOZ_CLOUD_PACKAGE` for `FLAVOUR=helper` and checks the packed helper
+  says `"official": false`, and `UsageSwitches.decide` is off for `InstallMethod.helper` whatever the setting or flag
+  (`doz telemetry show` says it is the helper build). The app that bundles it decides what it sends. No `doz signup` either.
 - **It says what it is**: `HostStatus.flavour` (`cli` | `helper`, `BuildFlavor.flavourName`) in every ping /
   `host status`; nil from a host older than 0.37.41. Everything else about the host and the protocol is the CLI's.
 - **Checked**: `release.sh` (the dashboard refused, `doz upgrade` refused, no DozableWeb bundle, README, no `bin/`) and

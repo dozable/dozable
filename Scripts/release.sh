@@ -162,8 +162,14 @@ if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" ]]; then
     upk="$(sed -n 's/.*static let updatePublicKey = "\([^"]*\)".*/\1/p' Sources/DozableHost/Updates.swift | head -1)"
     [[ -n "$upk" ]] || fail "doz carries no update public key (Distribution.updatePublicKey is empty) — make doz-update-keys once, commit the key it prints"
 fi
-# 614: an official public release carries the statistics/sign-up package. A local path must be a package.
-if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" && -z "$DOZ_CLOUD_PACKAGE" ]]; then
+# 675: the helper NEVER carries the statistics/sign-up package (owner, 2026-11-04: "no telemetry in the helper") — the
+# app that bundles it decides what it sends; the packed helper is checked below to say `official: false`.
+if [[ "$FLAVOUR" == helper && -n "$DOZ_CLOUD_PACKAGE" ]]; then
+    say "release: the helper build never includes the statistics package — DOZ_CLOUD_PACKAGE ignored for this flavour"
+    DOZ_CLOUD_PACKAGE=""
+fi
+# 614: an official public release (the CLI) carries the statistics/sign-up package. A local path must be a package.
+if [[ "$FLAVOUR" == cli && "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" && -z "$DOZ_CLOUD_PACKAGE" ]]; then
     fail "a public release is the official build: set DOZ_CLOUD_PACKAGE in Makefile.config (see Makefile.config.example), or TEST_BUILD=1 for a local test build"
 fi
 if [[ -n "$DOZ_CLOUD_PACKAGE" && "$DOZ_CLOUD_PACKAGE" != *://* && "$DOZ_CLOUD_PACKAGE" != git@* && ! -f "$DOZ_CLOUD_PACKAGE/Package.swift" ]]; then

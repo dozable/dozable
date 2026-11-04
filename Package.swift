@@ -19,8 +19,10 @@ import PackageDescription
 // the open half and decides everything that may be sent). It joins ONLY when DOZ_CLOUD_PACKAGE names it — a local
 // path, or a git URL with DOZ_CLOUD_REF (an exact version, or a commit) — which `make release` passes from the
 // gitignored Makefile.config. Every other build (contributors, CI, forks, `make cli`) has no such dependency, its
-// `doz` installs no sender, and nothing is ever sent. The package must depend on Foundation only.
-let cloudSource = Context.environment["DOZ_CLOUD_PACKAGE"].flatMap { $0.isEmpty ? nil : $0 }
+// `doz` installs no sender, and nothing is ever sent. The package must depend on Foundation only. The helper build
+// (DOZ_HELPER_BUILD=1, below) never takes it: an app that bundles doz decides what it sends.
+let cloudSource = Context.environment["DOZ_HELPER_BUILD"] == "1" ? nil
+    : Context.environment["DOZ_CLOUD_PACKAGE"].flatMap { $0.isEmpty ? nil : $0 }
 let cloudPackage: Package.Dependency? = cloudSource.map { src in
     guard src.contains("://") || src.hasPrefix("git@") else { return .package(path: src) }
     let ref = Context.environment["DOZ_CLOUD_REF"] ?? ""

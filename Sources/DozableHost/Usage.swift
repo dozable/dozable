@@ -171,7 +171,9 @@ public enum UsageSwitches {
         let dev = method == .development
         var s = UsageSwitch(on: false, why: "", official: official, setting: setting, settingSource: r.source,
                             doNotTrack: dnt, testRun: guarded, developmentBuild: dev)
-        if !official {
+        if case .helper = method {
+            s.why = "this build sends nothing — it is the helper build an app carries, which never includes the statistics"
+        } else if !official {
             s.why = "this build sends nothing — it is built from the open-source repository (only official builds include the statistics)"
         } else if guarded {
             s.why = "off in a test run"
@@ -1271,8 +1273,9 @@ public enum UsageRuntime {
     public static func decide(env: [String: String] = ProcessInfo.processInfo.environment,
                               settings: DozableSettings? = nil, flag: Bool? = nil) -> UsageSwitch {
         let official = Usage.isOfficial
-        // An open build decides without looking at anything (it has nothing to send).
-        let method: InstallMethod = official ? InstallMethod.detect(executable: HostLauncher.executablePath) : .development
+        // An open build decides without looking at anything (it has nothing to send) — the helper build says what it is.
+        let method: InstallMethod = official ? InstallMethod.detect(executable: HostLauncher.executablePath)
+            : BuildFlavor.current.isHelper ? .helper(app: BuildFlavor.owningApp(executable: HostLauncher.executablePath)) : .development
         return UsageSwitches.decide(official: official, method: method, settings: settings ?? .load(environment: env), env: env,
                                     flag: flag ?? self.flag, guarded: TestSafety.guarded(env))
     }

@@ -32,6 +32,7 @@ Each has its `.sha256` beside it, and a `.dSYM.zip` with its symbols (so a crash
 | the web dashboard (`doz ui`, `doz ui --lan`) | ✓ | — not built in: `doz ui` says it is "not in this build" |
 | the setup wizards (`doz onboard`, `doz init`) and `doz try` | ✓ | — not built in (the same answer) |
 | updates itself (`doz upgrade`, the daily check, `updates.mode`) | ✓ | — never: `doz upgrade` refuses, and it never looks for updates. Your app updates it |
+| anonymous usage statistics and `doz signup` | ✓ (you can turn them off) | — never: not built in, so it sends nothing. What your app sends is your app's choice |
 | `RELEASE` file says | `public` | `helper` |
 | the host's status reports `flavour` | `cli` | `helper` |
 | the pinned Linux kernel inside | ✓ | ✓ |

@@ -133,6 +133,20 @@ final class HelperBuildTests: XCTestCase {
         XCTAssertTrue(describe(helper).hasPrefix("host 0.37.41 (the helper build) running"), describe(helper))
         XCTAssertFalse(describe(cli).contains("helper"))
     }
+
+    /// The helper sends no usage statistics: never linked with the package, and off even if it ever were, whatever
+    /// the setting or the flag says.
+    func testAHelperSendsNoUsageStatistics() {
+        let settings = DozableSettings(text: nil)
+        for official in [false, true] {
+            let s = UsageSwitches.decide(official: official, method: .helper(app: "SandboxLab"), settings: settings, env: [:],
+                                         flag: true, guarded: false)
+            XCTAssertFalse(s.on)
+            XCTAssertTrue(s.why.contains("helper build"), s.why)
+        }
+        setenv("DOZ_TEST_HELPER_BUILD", "1", 1)
+        XCTAssertTrue(UsageRuntime.decide(env: [:], settings: settings, flag: true).why.contains("helper build"))
+    }
 }
 
 private final class Counter: @unchecked Sendable {
