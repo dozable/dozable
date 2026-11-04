@@ -160,6 +160,9 @@ jobs:
       - name: The helper smoke (an empty store boots a sandbox, no kernel download)
         if: (github.event_name == 'workflow_dispatch' && inputs.vm) || vars.DOZ_VM_CI == '1'
         run: make test-cli-helper
+
+  deckhold:
+    name: Rebuild deckhold and verify the committed binary
     if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && github.event_name == 'workflow_dispatch' && inputs.deckhold
     runs-on: [self-hosted, doz-ci]
     timeout-minutes: 30
