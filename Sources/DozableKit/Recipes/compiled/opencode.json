@@ -197,6 +197,12 @@
             }
           }
         ],
+        "history" : {
+          "checked" : "2026-11-02",
+          "native" : "keeps",
+          "note" : "OpenCode has no automatic clean-up of its own - it keeps every session until you delete it",
+          "source" : "https://github.com/anomalyco/opencode/issues/25816"
+        },
         "no_prompts_args" : [
 
         ],

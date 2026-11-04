@@ -893,7 +893,8 @@ struct Up: AsyncParsableCommand {
         // 669: recorded as the project's (`from: project`); approvals only for an agent with prompts to skip.
         for k in DozableProject.settingKeys where cfg.settings?[k.setting] != project.settings[k.setting]
             || (project.settings[k.setting] != nil && cfg.settingsFrom?[k.setting] != "project") {
-            if k.setting == SettingKey.sandboxApprovals, DozableSettings.approvalsKey(image: cfg.spec.imageSpec?.name) == nil { continue }
+            // 674: history likewise only for an agent whose recipe maps it.
+            if DozableSettings.recipeWords.contains(k.setting), DozableSettings.recipeWordKey(k.setting, image: cfg.spec.imageSpec?.name) == nil { continue }
             var s = HostRequest(.sandboxSettings, name: name)
             s.setting = k.setting
             s.settingFrom = "project"

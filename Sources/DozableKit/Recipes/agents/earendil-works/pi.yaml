@@ -92,6 +92,11 @@ capabilities:
       PI_CODING_AGENT_DIR: /home/agent/.pi/agent
     session_env:
       PI_SKIP_VERSION_CHECK: '1'
+    history:
+      native: keeps
+      note: pi keeps every session in ~/.pi/agent/sessions and deletes one only when you do (/resume, Ctrl+D)
+      source: https://cdn.jsdelivr.net/npm/@mariozechner/pi-coding-agent@0.64.0/docs/session.md
+      checked: '2026-11-02'
     status: osc7501
     resume:
     - --continue

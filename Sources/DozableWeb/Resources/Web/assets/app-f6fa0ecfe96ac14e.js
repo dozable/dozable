@@ -81,7 +81,7 @@ import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWi
 import { paintHome } from './app/views/sandbox-home-f6328745dc8b5cad.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox-8ff94ff362d46d1a.js';
 import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-3ca7227b3773b0e3.js';
-import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-60ab63dbd3a01973.js';
+import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-cd8ff88f0a657c57.js';
 import './app/views/shortcuts-b65fe8f5e52c5b1d.js';
 
 // 599c: Quick add in the sidebar, beside Sandboxes.

@@ -168,6 +168,8 @@ public actor Sandbox {
             await applyToolsLayer()
             // 657: the person's dotfiles — at the first start (the guest has not got this commit yet); never fatal.
             await applyDotfiles()
+            // 674: the agent's own settings (keeping its conversations) — once, remembered in the guest; never fatal.
+            await applyAgentSettings()
             note(String(format: "ready in %.1f s total", seconds(since: t0)))
         } catch {
             note("start FAILED: \(error.localizedDescription)")
@@ -977,6 +979,8 @@ public actor Sandbox {
             await applyToolsLayer()
             // 657: dotfiles moved on while it slept (`doz dotfiles NAME --update`) arrive now; nothing when the guest has them.
             await applyDotfiles()
+            // 674: the agent's own settings, once per mapping (nothing when the guest's marker has this fingerprint).
+            await applyAgentSettings()
         case .remountShares:
             let tags = (identity?.shareTags ?? [:]).map { (tag: $0.value, guestPath: $0.key) }.sorted { $0.guestPath < $1.guestPath }
             guard !tags.isEmpty else { return }
@@ -1780,6 +1784,45 @@ public actor Sandbox {
             chmod(dotfilesRunFile.path, 0o600)
         }
         return run
+    }
+
+    // MARK: 674 — the agent's own settings, set once
+
+    /// What this sandbox sets in the guest once (the host sets it from the recipe). nil (the default): nothing — an image's
+    /// preparation VM, a helper, an agent that maps nothing.
+    public nonisolated var agentSettings: AgentSettingsInputs? { agentSettingsBox.withLock { $0 } }
+    public nonisolated func setAgentSettings(_ i: AgentSettingsInputs?) { agentSettingsBox.withLock { $0 = i } }
+    private nonisolated let agentSettingsBox = LockedBox<AgentSettingsInputs?>(nil)
+    /// The last apply (in this process, else the one recorded in `<sandbox>/agent-history-run.json`).
+    public nonisolated var lastAgentSettingsRun: AgentSettingsRun? {
+        agentSettingsRunBox.withLock { $0 } ?? (try? Data(contentsOf: agentSettingsRunFile)).flatMap { try? Self.runDecoder.decode(AgentSettingsRun.self, from: $0) }
+    }
+    private nonisolated let agentSettingsRunBox = LockedBox<AgentSettingsRun?>(nil)
+    public nonisolated var agentSettingsRunFile: URL { layout.sandboxDirectory.appendingPathComponent("agent-history-run.json") }
+
+    /// Set the agent's keys when the guest's marker is not this mapping's fingerprint — after the dotfiles at a start and in a
+    /// wake's background steps. As the image's user, one cheap check exec; never fatal (notes in the boot log).
+    func applyAgentSettings() async {
+        guard phase == .running, let container, let input = agentSettings else { return }
+        let user = spec.imageSpec?.user ?? "root"
+        let home = spec.imageSpec?.home ?? "/root"
+        var env = spec.imageSpec?.sessionEnvironment ?? [:]
+        env["HOME"] = home
+        env["USER"] = user
+        let environment = env
+        let run = await AgentSettingsLayer.apply(input, home: home) { argv in
+            let r = try await Self.exec(on: container, argv, environment: environment, workingDirectory: "/", privileged: false,
+                                        timeout: 20, user: user)
+            return (r.exitCode, r.output, r.errorOutput)
+        }
+        guard let run else { return }
+        for line in run.notes { note(line) }
+        note("\(input.title)'s conversation history: \(run.state)")
+        agentSettingsRunBox.withLock { $0 = run }
+        if FileManager.default.fileExists(atPath: layout.sandboxDirectory.path), let d = try? Self.runEncoder.encode(run) {
+            try? d.write(to: agentSettingsRunFile, options: .atomic)
+            chmod(agentSettingsRunFile.path, 0o600)
+        }
     }
 
     /// The Mac's agent socket while the SSH agent is forwarded (nil: not forwarded).

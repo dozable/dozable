@@ -3,7 +3,7 @@
 This Mac's settings are in one file, **`~/.config/doz/doz.toml`** (under `$XDG_CONFIG_HOME` when that
 is set). The file lists Dozable's own settings with a description and their default, commented out;
 only the values you set are uncommented. A **recipe's** own settings — the settings of the agent it
-installs: its `version`, `approvals`, `memory_mib`, `network`, and any the recipe declares — are a
+installs: its `version`, `approvals`, `memory_mib`, `network`, `history`, and any the recipe declares — are a
 `[recipes.VENDOR.PRODUCT]` block (`[recipes.anthropic.claude-code]`), written only while one of them is
 set, so the file stays small however many recipes there are; `doz config show --agent ID` lists them.
 The dashboard's **Settings** page shows and edits the same file, and its **Recipes** section lists the
@@ -55,21 +55,29 @@ change them with `doz config set`.
 ### Per sandbox and per project
 
 `sandbox.clipboard`, `sandbox.browser_bridge`, `sandbox.open_files`, `sandbox.ssh_agent`,
-`sessions.tmux`, `sandbox.agent_sudo`, `sandbox.audio` and its agent's **`approvals`** can also be set for
-one sandbox (sound only between `speakers` and `on` — whether it has sound at all is chosen when it is
-made; see [Sound](23-sound.md)):
+`sessions.tmux`, `sandbox.agent_sudo`, `sandbox.audio` and its agent's **`approvals`** and **`history`** can
+also be set for one sandbox (sound only between `speakers` and `on` — whether it has sound at all is chosen
+when it is made; see [Sound](23-sound.md)):
 
 ```sh
 doz config show --sandbox my-app                          # what it overrides, what it follows, what was recorded
 doz config set --sandbox my-app sandbox.clipboard off
 doz config set --sandbox my-app approvals ask             # its agent asks before it acts, from the next session
+doz config set --sandbox my-app history agent-default     # its agent's own rule for its conversations, from its next start or wake
 doz config get --sandbox my-app sessions.tmux
 doz config unset --sandbox my-app sandbox.clipboard       # follow the project, else this Mac, again
 doz config set --project ~/code/my-app approvals ask      # the project's doz_project.yaml
 ```
 
 Or when you create it (`doz create --clipboard off --browser-bridge off --open-files off --ssh-agent on --tmux --no-agent-sudo --sound on --approvals ask`),
-or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`, `audio:`, `approvals:`).
+or in its `doz_project.yaml` (`clipboard:`, `browser_bridge:`, `open_files:`, `ssh_agent:`, `tmux:`, `agent_sudo:`, `audio:`, `approvals:`, `history:`).
+
+**Conversation history** cascades one layer further: `agent.history` (Dozable-wide: `keep` or
+`agent-default`) → the agent's own `history` (`follow`, the default, or `keep` / `agent-default`) → the
+project's `history:` → the sandbox's own. The most specific value that is not `follow` wins, and
+`doz config show --sandbox NAME` says which layer it came from. What each value does in each agent —
+which file and key Dozable writes, or that the agent keeps its conversations by itself — is in
+[Agents and accounts](09-agents-and-accounts.md#conversation-history) and in `doz config show --agent ID`.
 The sandbox page's **Config** tab shows the same: its overrides first, with this Mac's value beside each
 and **Follow the Mac**.
 
@@ -179,6 +187,7 @@ This table is generated from `doz config show` and checked against it on every b
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
 | `agent.prompt` | `true` | boolean | next session | — | Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox, its /workspace share, the network, credentials) and the doz skill, written at every session start. Your own template: agent-prompt.md beside this file. |
+| `agent.history` | `keep` | keep \| agent-default | next start or wake | — | Conversation history in sandboxes. keep: Dozable asks each agent to keep its conversations — an agent that deletes old ones by itself (Claude Code after 30 days) is told not to, by a key in its own settings file, set only where you have not set one. agent-default: each agent follows its own rule (Dozable takes back only a key that still holds its own value). A value you set in the agent's own settings file is always kept. Each agent's recipe can choose its own (Recipes), and so can a project (history: in doz_project.yaml) or one sandbox (doz config set --sandbox NAME history VALUE). Set once in each sandbox when it next starts or wakes; doz config show --agent ID shows what each value does in that agent. |
 
 ### `[updates]`
 
@@ -262,6 +271,7 @@ Every recipe's agent has these, each recipe with its own defaults (`doz config s
 | `recipes.VENDOR.PRODUCT.approvals` | `skip` | skip \| ask | next session | `-e DOZ_CLAUDE_PERMISSIONS=… on run/exec, --approvals on create` | Claude Code's own approval prompts: skip them (the sandbox is the boundary) or ask, as on a Mac. A sandbox (doz config set --sandbox NAME approvals ask) or its project (approvals: in doz_project.yaml) can choose its own. |
 | `recipes.VENDOR.PRODUCT.memory_mib` | `2048` | integer 256–262144 | new sandboxes | `doz create --memory` | Memory (MiB) of a new sandbox of this recipe (a template follows the image it was saved from). |
 | `recipes.VENDOR.PRODUCT.network` | `agent` | agent \| bake \| locked \| open \| nat \| none | new sandboxes | `doz create --network` | The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none. |
+| `recipes.VENDOR.PRODUCT.history` | `follow` | follow \| keep \| agent-default | next start or wake | — | Claude Code's conversation history: follow (agent.history, Dozable's choice), keep, or agent-default. keep: cleanupPeriodDays = 36500 in ~/.claude/settings.json, only where it is not set. agent-default: that key is taken back where it still holds Dozable's value — Claude Code deletes conversations older than 30 days. |
 | `recipes.openai.codex.keep_alive` | `false` | boolean | at once | — | Codex sandboxes on the account mac (this Mac's own Codex login): when its access token is about to expire and a sandbox used it in the last 15 minutes, run this Mac's codex doctor once — no model call — which renews the login the way Codex itself does. Off: the login renews only while Codex (the app or a codex session) runs on this Mac; when it has expired, Codex in a sandbox says so. |
 
 ### The names before 0.37.34 (still read, and taken by `doz config`)

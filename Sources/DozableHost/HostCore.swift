@@ -229,6 +229,7 @@ public actor HostCore {
             applyAccount(m)
             applyGitHub(m)                                  // 599d
             applyDotfilesInput(m)                           // 657
+            applyAgentSettingsInput(m)                      // 674
         }
         return m
     }
@@ -700,6 +701,7 @@ public actor HostCore {
             m.sandbox.setTimeZone(Self.guestTimeZone())
             m.sandbox.setWorkspaceRuleMode(Self.ruleMode(m.config).mode)   // 599g: read per request, like the rest
             m.sandbox.passthroughViews = Self.workspaceViewOn(m.config)    // 608: used at the next fresh boot / hibernation's wake
+            applyAgentSettingsInput(m)                                      // 674: the history setting as it is now (next start/wake)
             // 599d: the setting sandbox.ssh_agent changed in the file since — follow it.
             if m.sandbox.egress != nil, (Self.sandboxValue(m.config, SettingKey.sshAgent) == .string("on")) != (m.sandbox.sshAgentSocket != nil) {
                 applyGitHub(m)
@@ -1381,6 +1383,7 @@ public actor HostCore {
                        emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async throws -> EnsureOutcome {
         // 594 W10: a wake by use (an attach, a terminal) follows the Mac's zone as it is now.
         m.sandbox.setTimeZone(Self.guestTimeZone())
+        applyAgentSettingsInput(m)          // 674: and the history setting as it is now
         // 610 (590.B3): a cold start under way (a first start's preparation takes minutes, and the sandbox is OFF
         // all that time) is JOINED: wait for its end, then go on — or fail with its reason. Then look again from the
         // sandbox's current record (a Dockerfile sandbox is re-adopted with its built image during its start).

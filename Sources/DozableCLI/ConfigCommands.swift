@@ -20,7 +20,7 @@ struct ConfigCommand: AsyncParsableCommand {
         settings, Dozable's for the rest. The file lists Dozable's own settings with their defaults commented \
         out, and a recipe's block once one of its values is set; set writes one value, unset puts the default \
         back. The UI's Settings page edits the same file. \
-        --agent ID (show, get, set, unset): one recipe's options (version, approvals, memory_mib, network, its own). \
+        --agent ID (show, get, set, unset): one recipe's options (version, approvals, memory_mib, network, history, its own) — show also says what each history value does in that agent. \
         --sandbox NAME (show, get, set, unset): that sandbox's own value of a per-sandbox setting \
         (\(DozableSettings.sandboxKeys.joined(separator: ", "))), which wins over its project's and this Mac's. \
         --project DIR (set, unset): the project's doz_project.yaml, applied when its sandbox is made and at every doz up.
@@ -71,10 +71,12 @@ func namedSetting(_ key: String, agent: String?, _ g: GlobalOptions) throws -> S
 /// 669: the per-sandbox key a `--sandbox`/`--project` command names — Dozable's own (`sandbox.clipboard`, or the
 /// project's word `clipboard`), or `approvals` (its recipe's: also by the recipe's full key, or `--agent ID approvals`).
 func sandboxKey(_ key: String, agent: String?, _ g: GlobalOptions) throws -> String {
-    if key == SettingKey.sandboxApprovals { return key }
+    if DozableSettings.recipeWords.contains(key) { return key }
     if let k = DozableProject.settingKeys.first(where: { $0.key == key })?.setting { return k }
     let d = try namedSetting(key, agent: agent, g)
-    if d.agent != nil, d.name == RecipeSettings.approvals { return SettingKey.sandboxApprovals }
+    // 674: history too — a recipe's (`--agent ID history`, its full key) or the Dozable-wide agent.history.
+    if d.agent != nil, DozableSettings.recipeWords.contains(d.name) { return d.name }
+    if d.key == SettingKey.agentHistory { return SettingKey.sandboxHistory }
     guard DozableSettings.sandboxKeys.contains(d.key) else {
         throw fail(HostError(.invalid, "\(d.key) is not a per-sandbox setting — they are: \(DozableSettings.sandboxKeys.joined(separator: ", "))"
                              + (d.agent != nil ? " (a recipe's \(d.name) is set when a sandbox is made: doz reset moves it)" : "")), g)
@@ -154,6 +156,9 @@ struct ConfigShow: AsyncParsableCommand {
             var t = [["SETTING", "VALUE", "SOURCE", "RECIPE DEFAULT"]]
             for row in report.settings { t.append([row.name, Self.shown(row.value), sourceWord(row), Self.shown(row.defaultValue)]) }
             Out.stdout(Out.table(t))
+            // 674: what each value of its conversation history does in this agent (or that it is not known).
+            Out.stdout("\n" + Self.historyLines(report.settings.first { $0.name == RecipeSettings.history }?.history?.first
+                                                 ?? AgentHistory.mapping(r, settings: s)))
         } else {
             // 669 (659 Q10): Dozable's own, and one line for the recipes; --all lists every recipe's keys too.
             let rows = all ? report.settings : report.settings.filter { $0.agent == nil }
@@ -175,12 +180,26 @@ struct ConfigShow: AsyncParsableCommand {
         if case .string(let s) = v { return s.isEmpty ? "\"\"" : s }
         return v.plain
     }
+
+    /// 674: one agent's conversation-history mapping — the value it gets on this Mac and from where, then what Dozable does
+    /// in it at each value, with the vendor's source.
+    static func historyLines(_ m: HistoryMapping) -> String {
+        guard m.kind != "unknown" else {
+            return "Conversation history: not known for \(m.title) — the setting history does not apply to it (its recipe maps none)\n"
+        }
+        var out = "Conversation history: \(m.effective) (\(m.effectiveSource.rawValue), \(m.effectiveKey))\n"
+        out += Out.table([["VALUE", "WHAT DOZABLE DOES IN \(m.title.uppercased())"],
+                          [AgentHistory.keep, m.keep], [AgentHistory.agentDefault, m.agentDefault]])
+        if m.kind == "keeps", let n = m.note { out += n + "\n" }
+        if let s = m.source { out += "source: \(s)" + (m.checked.map { " (checked \($0))" } ?? "") + "\n" }
+        return out
+    }
 }
 
 struct ConfigGet: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "get", abstract: "One setting's effective value (--json adds its source and default).")
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "section.name, e.g. ui.boot_view_on_start (with --agent: the recipe's option, e.g. version; with --sandbox: approvals too)") var key: String
+    @Argument(help: "section.name, e.g. ui.boot_view_on_start (with --agent: the recipe's option, e.g. version; with --sandbox: approvals and history too)") var key: String
     @Option(name: .long, help: "A sandbox: its value of a per-sandbox setting (its own, else the setting's).") var sandbox: String?
     @Option(name: .long, help: "A recipe (claude-code, opencode@2, anthropic/claude-code): KEY is one of its options.") var agent: String?
 
@@ -206,7 +225,7 @@ struct ConfigSet: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "set",
         abstract: "Set one setting — on this Mac (doz.toml, the default), for one sandbox (--sandbox) or in a project (--project).")
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "section.name, e.g. ui.boot_view_on_start (with --agent: the recipe's option, e.g. version; with --sandbox or --project: approvals too)") var key: String
+    @Argument(help: "section.name, e.g. ui.boot_view_on_start (with --agent: the recipe's option, e.g. version; with --sandbox or --project: approvals and history too)") var key: String
     @Argument(help: "The value: true/false, a number, or one of the setting's choices.") var value: String
     @Option(name: .long, help: "Set it for this sandbox only (a per-sandbox setting, or approvals; it wins over its project's and this Mac's).") var sandbox: String?
     @Option(name: .long, help: "Set it in the doz_project.yaml of this folder (a per-sandbox setting, or approvals): its sandbox gets it when made and at every doz up.") var project: String?
@@ -246,7 +265,7 @@ struct ConfigUnset: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "unset",
         abstract: "Put one setting back — this Mac's to its default (commented out), a sandbox's or a project's to follow the layer below.")
     @OptionGroup var g: GlobalOptions
-    @Argument(help: "section.name (with --agent: the recipe's option, e.g. version; with --sandbox or --project: approvals too)") var key: String
+    @Argument(help: "section.name (with --agent: the recipe's option, e.g. version; with --sandbox or --project: approvals and history too)") var key: String
     @Option(name: .long, help: "Clear this sandbox's own value: it follows its project's, else this Mac's, again.") var sandbox: String?
     @Option(name: .long, help: "Remove it from the doz_project.yaml of this folder.") var project: String?
     @Option(name: .long, help: "A recipe (claude-code, opencode@2, anthropic/claude-code): KEY is one of its options.") var agent: String?
@@ -295,8 +314,10 @@ enum ConfigProject {
         guard let pk = DozableProject.settingKeys.first(where: { $0.setting == key }) else {
             throw fail(HostError(.invalid, "\(key) is not a project key (they are: \(DozableProject.settingKeys.map(\.key).joined(separator: ", ")))"), g)
         }
-        if key == SettingKey.sandboxApprovals, DozableSettings.approvalsKey(image: p.image) == nil {
-            throw fail(HostError(.invalid, "approvals: this project's agent (\(p.image)) has no approval prompts to skip or ask"), g)
+        if DozableSettings.recipeWords.contains(key), DozableSettings.recipeWordKey(key, image: p.image) == nil {
+            throw fail(HostError(.invalid, key == SettingKey.sandboxHistory
+                ? "history: this project's agent (\(p.image)) has no conversation-history mapping"
+                : "approvals: this project's agent (\(p.image)) has no approval prompts to skip or ask"), g)
         }
         let old = (try? String(contentsOf: file, encoding: .utf8)) ?? ""
         if let value {

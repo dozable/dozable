@@ -90,7 +90,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(list.recipes.count, AgentRecipes.all.count)
         let cc = try XCTUnwrap(list.recipes.first { $0.qualified == "anthropic/claude-code" })
         XCTAssertEqual(cc.state, "available", "an empty store: nothing installed or in use")
-        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network"])
+        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network", "history"])
         XCTAssertTrue(cc.settings.allSatisfy { $0.source == .recipe })
         XCTAssertEqual(list.recipes.first { $0.id == "pi" }?.subject, "coding harness")
         XCTAssertEqual(try change(#"{"key":"recipes.xai.grok.approvals","value":"ask"}"#, cookie, csrf).status, 200, "an unpublished recipe's key is still taken")
@@ -100,6 +100,34 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(grok.state, "installed")
         XCTAssertTrue(grok.notInstalled)
         XCTAssertEqual(grok.settings.first { $0.name == "approvals" }?.source, .mac)
+    }
+
+    /// 674: Settings › The agent lists agent.history with every coding agent's mapping; a mapped recipe's page lists its own
+    /// history (its one mapping), an unmapped one none; the page sets both, and what each sandbox gets follows.
+    func testTheHistorySettingsAndTheirMappingsAreListedAndSet() throws {
+        let (cookie, csrf) = try signIn()
+        var rep = try report(try request("/api/v1/settings", ["Cookie": cookie]))
+        let a = try row(rep, SettingKey.agentHistory)
+        XCTAssertEqual(a.section, "agent")
+        XCTAssertTrue(a.editable)
+        let agents = try XCTUnwrap(a.history).map(\.agent)
+        for id in ["claude-code", "codex", "pi", "opencode", "opencode2"] { XCTAssertTrue(agents.contains(id), id) }
+        let list = try JSONDecoder().decode(WebRecipes.self, from: try request("/api/v1/recipes", ["Cookie": cookie]).body)
+        let cc = try XCTUnwrap(list.recipes.first { $0.id == "claude-code" }?.settings.first { $0.name == "history" })
+        XCTAssertEqual(cc.history?.first?.writes?.first?.file, "~/.claude/settings.json")
+        XCTAssertEqual(list.recipes.first { $0.id == "pi" }?.settings.first { $0.name == "history" }?.history?.first?.kind, "keeps")
+        XCTAssertNil(list.recipes.first { $0.id == "grok" }?.settings.first { $0.name == "history" }, "an agent with no mapping has none")
+        // Set from the page: Dozable-wide, then the recipe's own.
+        var r = try change(#"{"key":"agent.history","value":"agent-default"}"#, cookie, csrf)
+        XCTAssertEqual(r.status, 200, r.text)
+        rep = try report(r)
+        XCTAssertEqual(try row(rep, SettingKey.agentHistory).history?.first { $0.agent == "claude-code" }?.effective, "agent-default")
+        r = try change(#"{"key":"recipes.anthropic.claude-code.history","value":"keep"}"#, cookie, csrf)
+        XCTAssertEqual(r.status, 200, r.text)
+        rep = try report(r)
+        XCTAssertEqual(try row(rep, SettingKey.agentHistory).history?.first { $0.agent == "claude-code" }?.effective, "keep")
+        XCTAssertEqual(try row(rep, SettingKey.agentHistory).history?.first { $0.agent == "codex" }?.effective, "agent-default")
+        XCTAssertEqual(try change(#"{"key":"agent.history","value":"follow"}"#, cookie, csrf).status, 400, "follow is a recipe's word")
     }
 
     // MARK: -

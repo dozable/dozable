@@ -96,6 +96,9 @@ public struct DozableProject: Equatable, Sendable {
         // 669 (659 Q7): the agent's own approval prompts — its recipe's approvals setting, for this sandbox.
         ("approvals", SettingKey.sandboxApprovals,
          "# approvals: skip            # the agent's own approval prompts: skip (the sandbox is the boundary) or ask. From the next session"),
+        // 674: the agent's conversation history — its recipe's history setting, for this sandbox.
+        ("history", SettingKey.sandboxHistory,
+         "# history: follow            # the agent's conversations: keep, agent-default (its own rule) or follow (this Mac's). At the next start or wake"),
     ]
 
     /// The keys, in the order the file lists them, with what each says.
@@ -124,6 +127,8 @@ public struct DozableProject: Equatable, Sendable {
     ] + settingKeys.map { k in
         k.setting == SettingKey.sandboxApprovals
             ? (k.key, "skip | ask: this sandbox's agent's approval prompts (default: its recipe's approvals setting, doz config show --agent ID)")
+            : k.setting == SettingKey.sandboxHistory
+            ? (k.key, "follow | keep | agent-default: this sandbox's agent's conversation history (default: its recipe's history setting, else agent.history; doz config show --agent ID shows what each value does)")
             : (k.key, "\(DozableSettings.definition(k.setting)?.type.name ?? "a value"): this sandbox's \(k.setting) (default: the setting)")
     }
 
@@ -439,8 +444,8 @@ public struct DozableProject: Equatable, Sendable {
         if !explicit.contains("agent_sudo"), agentSudo == settings.bool(SettingKey.agentSudo) { agentSudo = nil }
         if !explicit.contains("dotfiles"), let d = dotfiles, d == (settings.string(SettingKey.dotfiles) ?? "") { dotfiles = nil }
         for k in Self.settingKeys where !explicit.contains(k.key) {
-            // 669: approvals is compared with its recipe's (this project's agent's) setting.
-            let key = k.setting == SettingKey.sandboxApprovals ? DozableSettings.approvalsKey(image: image) : k.setting
+            // 669: approvals (674: history) is compared with its recipe's (this project's agent's) setting.
+            let key = DozableSettings.recipeWords.contains(k.setting) ? DozableSettings.recipeWordKey(k.setting, image: image) : k.setting
             if let v = self.settings[k.setting], let key, v == settings.resolve(key).value { self.settings[k.setting] = nil }
         }
     }
