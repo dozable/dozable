@@ -107,6 +107,14 @@ capabilities:
     model_args:
     - --model
     - $DOZ_MODEL
+    history:
+      keep:
+      - file: ~/.claude/settings.json
+        set:
+          cleanupPeriodDays: 36500
+      agent_default: Claude Code deletes conversations older than 30 days
+      source: https://code.claude.com/docs/en/settings-reference#cleanupperioddays
+      checked: '2026-11-04'
     status: osc7501
     resume:
     - --continue

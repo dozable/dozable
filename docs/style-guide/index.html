@@ -342,6 +342,21 @@
       </div></div><div class="set-desc">What a new sandbox’s agent may do: standard, locked, open, or standard with changes like +web,-error-reports.</div><div class="muted setting-meta">default <code>standard</code> · applies to sandboxes created from now on</div></div>
   </div></div></div>
 
+  <h3>A mapping — what each value does in each agent (and its drop-down)</h3>
+  <p class="sg-when">674: a <code>.choice</code> whose meaning differs per agent — <code>agent.history</code> on Settings › The agent (every coding agent a row) and a recipe’s <code>history</code> on its page (its one row). views/settings.js <code>historyControl</code>: the same <code>settingMatrix</code> — the agents down (each with its vendor’s documentation link and the date it was checked), the values across, each cell the words of what Dozable does there (muted text, never a tick), the value the agents get <code>.is-current</code> — then the drop-down; a recipe that follows says what its sandboxes get. The row is <code>.setting-wide</code>. Built from <code>SettingRow.history</code>.</p>
+  <div class="pair"><div class="scheme"><div class="settings set-rows">
+    <div class="setting setting-wide"><div class="setting-main"><div class="setting-name"><span class="set-label"><span class="set-cat">The agent: </span><strong class="set-title">History</strong></span><span class="tag src src-default">default</span><code class="set-key">agent.history</code></div></div>
+      <div class="setting-control"><div class="perm-setting">
+        <div class="set-matrix-box"><table class="set-matrix" aria-label="What each value does in each agent">
+          <thead><tr><th scope="col" class="sm-feat">Agent</th><th scope="col" class="sm-col is-current"><span class="sm-col-title">keep</span><span class="sm-cur">current</span></th><th scope="col" class="sm-col"><span class="sm-col-title">agent-default</span></th></tr></thead>
+          <tbody>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">Claude Code</span><span class="sm-note"><a href="#">its documentation (checked 2026-11-04)</a></span></th><td class="sm-cell is-current"><span class="sm-some">sets cleanupPeriodDays = 36500 in ~/.claude/settings.json — only where it is not set</span></td><td class="sm-cell"><span class="sm-some">takes back cleanupPeriodDays where it still holds Dozable’s value — Claude Code deletes conversations older than 30 days</span></td></tr>
+            <tr><th scope="row" class="sm-feat"><span class="sm-title">pi</span><span class="sm-note"><a href="#">its documentation (checked 2026-11-02)</a></span></th><td class="sm-cell is-current"><span class="sm-some">nothing — it keeps conversations by itself</span></td><td class="sm-cell"><span class="sm-some">nothing — it keeps conversations by itself</span></td></tr>
+          </tbody></table></div>
+        <div class="perm-preset"><select aria-label="agent.history"><option selected>keep</option><option>agent-default</option></select></div>
+      </div></div><div class="set-desc">Conversation history in sandboxes: keep, or agent-default.</div><div class="muted setting-meta">default <code>keep</code> · applies at each sandbox’s next start or wake</div></div>
+  </div></div></div>
+
   <h3>Presets — Custom: the permissions checklist</h3>
   <p class="sg-when">A value that is no preset (<code>+web</code>, <code>-error-reports</code>) adds a <b>Custom</b> column, current, with the person’s set; Custom in the drop-down (or such a value) shows components/permissions.js <code>permissionSwitches</code> under it — a switch per shared permission, Install software with a sub-switch per ecosystem — whose flips save the words on Standard. Default puts the preset back and the switches away.</p>
   <div class="pair"><div class="scheme"><div class="settings set-rows">

@@ -176,7 +176,7 @@ function settingRow(r, opts = {}) {
   const checkbox = r.type === 'bool' && r.editable && r.key !== 'defaults.projects_dir';
   const cls = ['setting'];
   // 602: a control that is a block of its own (the permissions checklist) takes the column's whole width.
-  if (r.type === 'permissions') cls.push('setting-wide');
+  if (r.type === 'permissions' || r.history) cls.push('setting-wide');
   if (checkbox) cls.push('is-bool');
   if (modified) cls.push('is-modified');
   const inputId = 'setting-' + r.key.replace(/[^a-z0-9]+/gi, '-');
@@ -236,7 +236,7 @@ function recipesSection(data) {
   box.append(
     h('p', { class: 'sub' }, 'The recipes on this Mac: in use (a sandbox runs its agent) and installed (a baked image of it). A recipe’s settings come with it (',
       h('code', null, '[recipes.*]'), ' in doz.toml); open one to change them on this Mac, see its baked images and its sandboxes, or uninstall it. A project (',
-      h('code', null, 'approvals:'), ' in doz_project.yaml) or one sandbox can set its own. ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of any recipe.'),
+      h('code', null, 'approvals:'), ', ', h('code', null, 'history:'), ' in doz_project.yaml) or one sandbox can set its own. ', h('a', { href: '#/try' }, 'Quick try'), ' makes a sandbox of any recipe.'),
     h('div', { class: 'panel recipes-panel' },
       group('In use', inUse, 'No sandbox runs a recipe’s agent.'),
       group('Installed', installed, 'No other recipe has a baked image on this Mac.'),
@@ -334,6 +334,7 @@ function settingControl(r, inputId) {
     choose.dataset.projectsChoose = '';
     return h('div', { class: 'path-setting' }, h('code', { class: 'setting-value', 'data-projects-dir': '' }, shownValue(r.value, r.type)), isRemote() ? null : choose);
   }
+  if (r.history) return historyControl(r);
   if (!r.editable) return h('code', { class: 'setting-value', title: r.note || '' }, shownValue(r.value, r.type));
   if (r.key === 'ui.density') return densityControl(r);
   if (r.key === 'ui.notifications') return notificationsControl(r);
@@ -449,6 +450,32 @@ function permissionsControl(r) {
     paint();
   }).catch(() => box.replaceChildren(h('code', null, String(r.value))));
   return box;
+}
+/// 674: a conversation-history setting (agent.history, a recipe's history) — what each value does in each agent, as the
+/// preset matrix (one row per agent with its vendor's source, keep · agent-default across, the value it gets now marked),
+/// then the drop-down (or, set elsewhere, the value). A recipe's row says which value its sandboxes get when it follows.
+function historyControl(r) {
+  const maps = r.history || [];
+  const current = r.agent ? (maps[0] && maps[0].effective) : r.value;
+  const rows = maps.map((m) => ({ id: m.agent, title: m.title, attrs: { 'data-history-agent': m.agent, 'data-history-kind': m.kind },
+    note: m.source ? h('a', { href: m.source, target: '_blank', rel: 'noopener noreferrer' }, 'its documentation' + (m.checked ? ' (checked ' + m.checked + ')' : '')) : 'no mapping researched' }));
+  const matrix = settingMatrix({ label: 'What each value does in each agent', rowHead: 'Agent', rows, current,
+    columns: [{ id: 'keep', title: 'keep' }, { id: 'agent-default', title: 'agent-default' }],
+    cell: (row, col) => { const m = maps.find((x) => x.agent === row.id); return col.id === 'keep' ? m.keep : m.agentDefault; },
+    attrs: { 'data-history-map': r.key } });
+  let control;
+  if (r.editable) {
+    control = h('select', { 'aria-label': r.key }, r.choices.map((c) => {
+      const o = h('option', { value: c }, c);
+      if (c === r.value) o.selected = true;
+      return o;
+    }));
+    control.addEventListener('change', () => changeSetting(r.key, control.value));
+  } else {
+    control = h('code', { class: 'setting-value', title: r.note || '' }, shownValue(r.value, r.type));
+  }
+  const follows = r.agent && r.value === 'follow' && maps[0] ? h('span', { class: 'muted' }, ' its sandboxes get ', h('code', null, maps[0].effective), ' (', h('code', null, maps[0].effectiveKey), ')') : null;
+  return h('div', { class: 'perm-setting', 'data-history-setting': r.key }, matrix, h('div', { class: 'perm-preset' }, control, follows));
 }
 /// 647: ui.density as a segmented control (Comfortable | Compact) — applied to the page at once, then saved (the theme
 /// switch's way); a failed save puts the page back and says so in the row.

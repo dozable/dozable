@@ -106,7 +106,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **Per-sandbox settings** (`DozableSettings.perSandbox`): `SandboxConfig.settings[key]` wins over the
   file (`HostCore.sandboxValue`); `sandbox-settings` reads (in-process when no host) and sets;
   `doz config … --sandbox`, `doz create` flags, `doz_project.yaml` keys (`DozableProject.settingKeys`,
-  synced by `doz up`). `sandbox.agent_sudo` keeps its own field.
+  synced by `doz up`). `sandbox.agent_sudo` keeps its own field. The recipe words `approvals` and `history`
+  (`DozableSettings.recipeWords`) stand for the sandbox's recipe's own key (`recipeWordKey`); `history` resolves with
+  `follow` passed down (`DozableSettings.history(agent:own:from:)`, recipes.md).
 - **The browser bridge (B2)** is DeckStack's technique, re-done (never a DeckStack dependency): the
   guest shim (`GuestCommand.openShim`, `/usr/local/lib/doz/bin`, written by `prepareGuest` AND at each
   session open — a woken sandbox predates it) writes ONLY `ESC]6340;doz-open;URL BEL` to `/dev/tty`, else

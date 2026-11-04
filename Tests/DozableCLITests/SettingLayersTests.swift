@@ -207,6 +207,87 @@ final class SettingLayersTests: XCTestCase {
         XCTAssertEqual(try String(contentsOf: f, encoding: .utf8), bad, "never rewritten")
     }
 
+    // MARK: 674 — conversation history per project and per sandbox
+
+    func testHistoryPerSandboxAndPerProjectWithTheirSources() async throws {
+        let c = await core()
+        try await create(c, "h", CreateOptions(image: "claude-code"))
+        // Nothing of its own: it follows this Mac (here nothing set: agent.history's default, keep).
+        var rep = try await settingsOp(c, "h")
+        var row = try XCTUnwrap(rep.settings.first { $0.key == "history" })
+        XCTAssertEqual(row.value, .string("keep"))
+        XCTAssertEqual(row.settingKey, "recipes.anthropic.claude-code.history")
+        XCTAssertEqual(row.choices, ["follow", "keep", "agent-default"])
+        // Its own value wins, from the sandbox.
+        rep = try await settingsOp(c, "h", "history", "agent-default")
+        row = try XCTUnwrap(rep.settings.first { $0.key == "history" })
+        XCTAssertEqual(row.value, .string("agent-default"))
+        XCTAssertEqual(row.source, "sandbox")
+        XCTAssertEqual(row.settingValue, .string("keep"), "this Mac's value beside it")
+        XCTAssertEqual(try config("h").settings?["history"], .string("agent-default"))
+        // follow at the sandbox: the layers below decide.
+        rep = try await settingsOp(c, "h", "history", "follow")
+        XCTAssertEqual(rep.settings.first { $0.key == "history" }?.value, .string("keep"))
+        // By the recipe's full key, and by agent.history: both are this sandbox's `history`.
+        rep = try await settingsOp(c, "h", "recipes.anthropic.claude-code.history", "agent-default")
+        XCTAssertEqual(rep.settings.first { $0.key == "history" }?.value, .string("agent-default"))
+        rep = try await settingsOp(c, "h", SettingKey.agentHistory, "keep")
+        XCTAssertEqual(try config("h").settings?["history"], .string("keep"))
+        // From its project (doz up syncs it as the project's).
+        rep = try await settingsOp(c, "h", "history", "agent-default", from: "project")
+        row = try XCTUnwrap(rep.settings.first { $0.key == "history" })
+        XCTAssertEqual(row.source, "project")
+        XCTAssertEqual(row.value, .string("agent-default"))
+        rep = try await settingsOp(c, "h", "history", clear: true)
+        XCTAssertNil(try config("h").settings?["history"])
+        XCTAssertNotEqual(rep.settings.first { $0.key == "history" }?.source, "sandbox")
+        // An image whose agent maps none refuses one.
+        XCTAssertThrowsError(try HostCore.checkedSandboxSettings(["history": .string("keep")], image: "python"))
+        XCTAssertNoThrow(try HostCore.checkedSandboxSettings(["history": .string("keep")], image: "codex"))
+        XCTAssertThrowsError(try HostCore.checkedSandboxSettings(["history": .string("forever")], image: "codex"))
+    }
+
+    func testHistoryRowFollowsTheMacsLayers() async throws {
+        let c = await core()
+        try await create(c, "o", CreateOptions(image: "claude-code"))
+        var cfg = try config("o")
+        let mac = DozableSettings(text: "[agent]\nhistory = \"agent-default\"\n")
+        var row = try XCTUnwrap(HostCore.sandboxSettingsReport(cfg, settings: mac).settings.first { $0.key == "history" })
+        XCTAssertEqual(row.value, .string("agent-default"))
+        XCTAssertEqual(row.source, "mac", "agent.history, this Mac's")
+        cfg.settings = ["history": .string("keep")]
+        cfg.settingsFrom = ["history": "project"]
+        row = try XCTUnwrap(HostCore.sandboxSettingsReport(cfg, settings: mac).settings.first { $0.key == "history" })
+        XCTAssertEqual(row.value, .string("keep"))
+        XCTAssertEqual(row.source, "project")
+        XCTAssertEqual(row.settingValue, .string("agent-default"))
+    }
+
+    func testAProjectsHistoryParsesRendersAndDropsFollow() throws {
+        let p = try DozableProject.parse("version: 1\nname: x\nagent: claude-code\nhistory: agent-default\n")
+        XCTAssertEqual(p.settings[SettingKey.sandboxHistory], .string("agent-default"))
+        XCTAssertTrue(p.render().contains("\nhistory: agent-default\n"))
+        XCTAssertTrue(DozableProject(name: "y", image: "claude-code").render().contains("# history: follow"), "listed, commented")
+        XCTAssertThrowsError(try DozableProject.parse("version: 1\nname: x\nagent: claude-code\nhistory: forever\n"))
+        let o = p.createOptions(folder: root, file: root.appendingPathComponent(DozableProject.fileName))
+        XCTAssertEqual(o.fromProject, [SettingKey.sandboxHistory])
+        // `doz config set --project DIR history …`, refused for an agent that maps none.
+        let dir = root.appendingPathComponent("hp")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let f = dir.appendingPathComponent(DozableProject.fileName)
+        try DozableProject(name: "hp", image: "codex").render().write(to: f, atomically: true, encoding: .utf8)
+        let g = try GlobalOptions.parse(["-q"])
+        try ConfigProject.change(folder: dir.path, key: SettingKey.sandboxHistory, value: "keep", g)
+        XCTAssertEqual(try DozableProject.load(f).settings[SettingKey.sandboxHistory], .string("keep"))
+        try DozableProject(name: "hp", image: "lab").render().write(to: f, atomically: true, encoding: .utf8)
+        XCTAssertThrowsError(try ConfigProject.change(folder: dir.path, key: SettingKey.sandboxHistory, value: "keep", g))
+        // The wizard's pre-filled follow is left out of the file (it is what the file says without it).
+        var q = DozableProject(name: "q", image: "claude-code")
+        q.settings[SettingKey.sandboxHistory] = .string("follow")
+        q.dropDefaults(settings: DozableSettings(text: ""), explicit: [])
+        XCTAssertNil(q.settings[SettingKey.sandboxHistory])
+    }
+
     func testSandboxKeysNameApprovalsAndRefuseAWhenMadeValue() throws {
         let g = try GlobalOptions.parse(["-q"])
         XCTAssertEqual(try sandboxKey("approvals", agent: nil, g), "approvals")
@@ -215,6 +296,11 @@ final class SettingLayersTests: XCTestCase {
         XCTAssertEqual(try sandboxKey("claude.permissions", agent: nil, g), "approvals", "a 0.37 name too")
         XCTAssertEqual(try sandboxKey("clipboard", agent: nil, g), SettingKey.clipboard)
         XCTAssertEqual(try sandboxKey("sandbox.clipboard", agent: nil, g), SettingKey.clipboard)
+        // 674: history — the word, a recipe's full key, --agent ID history, and the Dozable-wide agent.history.
+        XCTAssertEqual(try sandboxKey("history", agent: nil, g), "history")
+        XCTAssertEqual(try sandboxKey("recipes.openai.codex.history", agent: nil, g), "history")
+        XCTAssertEqual(try sandboxKey("history", agent: "claude-code", g), "history")
+        XCTAssertEqual(try sandboxKey("agent.history", agent: nil, g), "history")
         XCTAssertThrowsError(try sandboxKey("version", agent: "claude-code", g), "set when a sandbox is made")
         XCTAssertThrowsError(try sandboxKey("ui.theme", agent: nil, g))
     }

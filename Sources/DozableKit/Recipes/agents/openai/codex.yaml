@@ -101,6 +101,14 @@ capabilities:
     env: {}
     state_env:
       CODEX_HOME: /home/agent/.codex
+    history:
+      keep:
+      - file: ~/.codex/config.toml
+        set:
+          history.persistence: save-all
+      agent_default: Codex saves its conversations by itself (history.persistence save-all is its default; none turns it off)
+      source: https://learn.chatgpt.com/docs/config-file/config-reference
+      checked: '2026-11-02'
     status: none
     resume:
     - resume

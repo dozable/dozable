@@ -283,6 +283,17 @@
 # (boolean; applies to sessions opened from now on)
 # prompt = true
 
+# Conversation history in sandboxes. keep: Dozable asks each agent to keep its conversations — an
+# agent that deletes old ones by itself (Claude Code after 30 days) is told not to, by a key in
+# its own settings file, set only where you have not set one. agent-default: each agent follows
+# its own rule (Dozable takes back only a key that still holds its own value). A value you set in
+# the agent's own settings file is always kept. Each agent's recipe can choose its own (Recipes),
+# and so can a project (history: in doz_project.yaml) or one sandbox (doz config set --sandbox
+# NAME history VALUE). Set once in each sandbox when it next starts or wakes; doz config show
+# --agent ID shows what each value does in that agent.
+# (keep | agent-default; applies at each sandbox's next start or wake)
+# history = "keep"
+
 [updates]
 
 # Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to

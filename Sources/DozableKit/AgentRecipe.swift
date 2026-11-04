@@ -351,6 +351,36 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var modelArgs: [String]? = nil
         /// 618: subcommands whose own flags they are (`exec`, `run`): there the arguments go AFTER the subcommand.
         public var modelArgsAfter: [String]? = nil
+        /// 674: what keeps the agent's conversations — the vendor's own file and keys, set once in the guest set-up (a
+        /// start, a wake) as the setting `history` says (never baked: no image, bake key or launcher reads it, like
+        /// `sessionEnv`).
+        public var history: History? = nil
+
+        /// 674: one agent's conversation-history mapping. Two shapes: `keep` (Dozable writes the vendor's own keys, only
+        /// where absent, and takes back only its own value on `agent-default`; `agentDefault` says what the agent does by
+        /// itself) and `native: keeps` (the agent keeps its conversations by itself — nothing is written; `note` says so).
+        /// `source` and `checked` always.
+        public struct History: Codable, Sendable, Equatable {
+            public var keep: [Keep]? = nil
+            /// `keeps`: nothing to write — the agent keeps its conversations by itself.
+            public var native: String? = nil
+            public var agentDefault: String? = nil
+            public var note: String? = nil
+            public var source: String
+            public var checked: String
+
+            public struct Keep: Codable, Sendable, Equatable {
+                /// `~/….json` or `~/….toml`.
+                public var file: String
+                /// Dotted key → a string, number or bool; written only when the key is absent.
+                public var set: [String: RecipeValue]
+            }
+
+            enum CodingKeys: String, CodingKey {
+                case keep, native, note, source, checked
+                case agentDefault = "agent_default"
+            }
+        }
 
         public struct Service: Codable, Sendable, Equatable {
             /// The service process's arguments after the program (`[serve, --service]`).
@@ -365,7 +395,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         }
 
         enum CodingKeys: String, CodingKey {
-            case command, passthrough, env, session, service
+            case command, passthrough, env, session, service, history
             case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env", noPromptsEnv = "no_prompts_env",
                  modelArgs = "model_args", modelArgsAfter = "model_args_after"
         }
@@ -1384,6 +1414,45 @@ extension AgentRecipe {
         if let t = s.timeout, !(1...SignIn.maximumSeconds).contains(t) { throw bad("timeout: 1–\(SignIn.maximumSeconds) seconds") }
     }
 
+    /// 674: `launch@1 history` — strict like `first_run` (`~/` JSON or TOML files, dotted keys, plain scalar values, never a
+    /// credential's name); `source` (https) and `checked` (a date) always.
+    static func validateHistory(_ h: Launch.History, _ bad: (String) -> SandboxError) throws {
+        let scriptSafe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") && !s.contains("\"") }
+        guard h.source.hasPrefix("https://"), scriptSafe(h.source), !h.source.contains(" ") else { throw bad("history source: an https:// address") }
+        guard h.checked.range(of: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$", options: .regularExpression) != nil else { throw bad("history checked: YYYY-MM-DD") }
+        if let n = h.note, n.isEmpty || n.count > 300 || n.contains("\n") { throw bad("history note: one line, at most 300 characters") }
+        if let native = h.native {
+            // The shape for an agent that keeps its conversations itself: nothing is written.
+            guard native == "keeps" else { throw bad("history native: keeps") }
+            guard h.keep == nil, h.agentDefault == nil, h.note != nil else { throw bad("history native: keeps goes with a note and no keep or agent_default") }
+            return
+        }
+        guard let keep = h.keep, (1...4).contains(keep.count) else { throw bad("history keep: 1 to 4 entries {file, set}") }
+        guard let d = h.agentDefault, !d.isEmpty, d.count <= 200, !d.contains("\n") else { throw bad("history agent_default: one line (at most 200 characters) saying what the agent does by itself") }
+        guard h.note == nil else { throw bad("history note belongs to native: keeps") }
+        for k in keep {
+            // 674 Step 2: a TOML file too (Codex's config.toml) — written by a minimal line-based writer that leaves any
+            // file it does not fully understand alone (`AgentHistory`).
+            guard k.file.hasPrefix("~/"), k.file.hasSuffix(".json") || k.file.hasSuffix(".toml"), !k.file.contains(".."), scriptSafe(k.file), !k.file.contains(" ") else {
+                throw bad("history file \(k.file): ~/….json or ~/….toml")
+            }
+            guard !k.set.isEmpty else { throw bad("history file \(k.file): no keys") }
+            for (key, v) in k.set {
+                let segment = "[A-Za-z0-9_-]+"
+                guard key.range(of: "^\(segment)(\\.\(segment))*$", options: .regularExpression) != nil else { throw bad("history key \(key)") }
+                let named = key.split(separator: ".").map { String($0).lowercased() } + [key.lowercased()]
+                guard !named.contains(where: { n in
+                    BakeEnvironment.isCredential(n) || ["token", "secret", "password", "apikey", "api_key", "api-key", "credential"].contains(where: n.contains)
+                }) else { throw bad("history key \(key): never a credential's name") }
+                switch v {
+                case .string(let s): guard scriptSafe(s) else { throw bad("history value of \(key) holds a quote") }
+                case .bool, .number: break
+                default: throw bad("history value of \(key) is a string, a number or a bool")
+                }
+            }
+        }
+    }
+
     /// One recipe's own rules (see the file's header).
     public func validate() throws {
         func bad(_ s: String) -> SandboxError { SandboxError.invalidSpec("recipe \(id): \(s)") }
@@ -1588,6 +1657,7 @@ extension AgentRecipe {
                 for s in v.strings where !scriptSafe(s) { throw bad("first_run value of \(k) holds a quote") }
             }
         }
+        if let h = launch.history { try Self.validateHistory(h, bad) }
         // state
         for d in state.persist where !(d.hasPrefix("~/") || d.hasPrefix("/")) || !scriptSafe(d) { throw bad("persist dir \(d)") }
         // credentials

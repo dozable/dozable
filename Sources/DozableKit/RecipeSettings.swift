@@ -39,7 +39,10 @@ public enum RecipeSettings {
     public static let approvals = "approvals"
     public static let memory = "memory_mib"
     public static let network = "network"
-    public static let common = [version, approvals, memory, network]
+    /// 674: whether its conversations are kept (`follow` | `keep` | `agent-default`) — only for a recipe whose
+    /// `launch@1 history` maps it.
+    public static let history = "history"
+    public static let common = [version, approvals, memory, network, history]
 
     static let types = ["bool", "int", "choice"]
     static let appliesWords = ["now", "next-session", "next-create"]
