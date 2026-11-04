@@ -96,8 +96,9 @@ final class RecipeSettingsTests: XCTestCase {
         XCTAssertFalse(fresh.contains("\n[recipes."))
         let own = DozableSettings.schema.filter { $0.agent == nil }.count
         XCTAssertEqual(DozableSettings.listedCount(values: [:]), own)
-        // 659 counted 61 + 2 (defaults.memory_mib, defaults.network); 667 added sandbox.audio and sandbox.microphone_ask.
-        XCTAssertEqual(own, 65)
+        // 659 counted 61 + 2 (defaults.memory_mib, defaults.network); 667 added sandbox.audio and sandbox.microphone_ask;
+        // 674 agent.history.
+        XCTAssertEqual(own, 66)
         XCTAssertEqual(fresh.components(separatedBy: "\n# ").filter { $0.range(of: #"^[a-z_]+ = "#, options: .regularExpression) != nil }.count, own)
         // One value of a recipe: exactly its block, the others commented.
         let one = DozableSettings.render(values: ["recipes.anthropic.claude-code.version": .string("2.1.290")])

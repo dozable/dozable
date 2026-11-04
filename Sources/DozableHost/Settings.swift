@@ -237,7 +237,8 @@ public struct SettingDefinition: Sendable {
     /// 669: which of the four kinds it is.
     public var settingClass: SettingClass {
         if agent != nil { return .recipe }
-        if DozableSettings.perSandbox.contains(key) { return .perSandbox }
+        // 674: agent.history cascades to a project and a sandbox through its recipe's word (`history`).
+        if DozableSettings.perSandbox.contains(key) || key == SettingKey.agentHistory { return .perSandbox }
         if DozableSettings.newSandboxKeys.contains(key) { return .newSandbox }
         return .mac
     }
@@ -385,6 +386,9 @@ public struct SettingRow: Codable, Equatable, Sendable {
     public var migratedFrom: String? = nil
     /// 669: the names it had before 669 (still taken by doz config).
     public var aliases: [String]? = nil
+    /// 674: `agent.history` and a recipe's `history` — what each value does in each agent (file, key, value; or nothing,
+    /// or not known), with the vendor's source.
+    public var history: [HistoryMapping]? = nil
 }
 
 public struct SettingsReport: Codable, Equatable, Sendable {
@@ -529,6 +533,16 @@ public enum SettingKey {
     /// 669: the per-sandbox form of a recipe's approvals (`doz config set --sandbox NAME approvals ask`, `approvals:` in
     /// doz_project.yaml): a sandbox's recipe never changes, so its own value is kept under this one word.
     public static let sandboxApprovals = RecipeSettings.approvals
+
+    /// 674: keep the agents' conversations (`keep`) or let each follow its own rule (`agent-default`) — Dozable-wide.
+    public static let agentHistory = "agent.history"
+    /// 674: the per-sandbox form of a recipe's history (`doz config set --sandbox NAME history keep`, `history:` in
+    /// doz_project.yaml), kept under this one word like `approvals`.
+    public static let sandboxHistory = RecipeSettings.history
+    /// 674: a recipe's own history setting (`recipes.anthropic.claude-code.history`) — nil for a recipe that maps none.
+    public static func history(_ agent: String) -> String? {
+        AgentRecipes.recipe(agent).flatMap { $0.launch.history == nil ? nil : "\($0.settingsSection).\(RecipeSettings.history)" }
+    }
 }
 
 public struct DozableSettings: Sendable {
@@ -607,6 +621,12 @@ public struct DozableSettings: Sendable {
         s.append(.init(sec, RecipeSettings.network, .choice(networks), .string("agent"),
                        "The network of a new sandbox of this recipe: agent, bake, locked, open (proxied presets), nat or none.",
                        flag: "doz create --network", applies: .nextCreate, agent: r.id, aliases: ["images.\(r.id).network"]))
+        // 674: only for a recipe that maps its conversation history (as approvals is only for one with prompts to skip).
+        if let h = r.launch.history {
+            s.append(.init(sec, RecipeSettings.history, .choice(AgentHistory.recipeChoices), .string(AgentHistory.follow),
+                           AgentHistory.recipeSummary(r, h),
+                           applies: .nextStartOrWake, agent: r.id))
+        }
         for o in r.ownSettings ?? [] {
             let type: SettingType, value: TOMLValue
             switch (o.type, o.default) {
@@ -763,6 +783,10 @@ public struct DozableSettings: Sendable {
             .init("agent", "prompt", .bool, .bool(true),
                   "Tell the agent where it runs: a short facts block appended to its system prompt (the sandbox, its /workspace share, the network, credentials) and the doz skill, written at every session start. Your own template: agent-prompt.md beside this file.",
                   applies: .nextSession),
+            // 674 (owner: "keep conversation history"): Dozable-wide; each mapped recipe's `history` follows it unless set,
+            // and a project or one sandbox can choose its own (`history:`, doz config set --sandbox NAME history …).
+            .init("agent", "history", .choice(AgentHistory.values), .string(AgentHistory.keep), AgentHistory.agentSummary,
+                  applies: .nextStartOrWake),
             // 611: updates — the feed is updates.dozable.com/v1/feed.json (signed; Distribution in Updates.swift).
             .init("updates", "mode", .choice(["off", "notify", "auto"]), .string("notify"),
                   "Updates: notify (at most once a day, and when doz ui opens, look for a newer doz and say how to upgrade — one line on a terminal, a banner on the dashboard), auto (also install it: brew upgrade, or the signed download for a tarball install — only while no sandbox runs and no session is attached, else it notifies; then: restart to apply, doz host restart), or off (never look). Never a downgrade; a feed that does not verify is ignored.",
@@ -887,14 +911,31 @@ public struct DozableSettings: Sendable {
     /// 669 (659 Q7): every key a sandbox (and its project) can have its own value of — Dozable's own per-sandbox
     /// settings, and `approvals`: its recipe's (`recipes.V.P.approvals`), kept under the one word because a sandbox's
     /// recipe never changes.
-    public static var sandboxKeys: [String] { perSandbox + [SettingKey.sandboxApprovals] }
+    public static var sandboxKeys: [String] { perSandbox + recipeWords }
 
-    /// 669: a per-sandbox key's definition — `approvals` is the recipe's of `image` (an image whose agent has no
-    /// prompts to skip: nil); with no image, any recipe's (they are one type: skip | ask), to check a value.
+    /// 669/674: the per-sandbox words that stand for a setting of the sandbox's RECIPE — `approvals` and `history`
+    /// (`recipes.V.P.NAME` of its agent): a sandbox's recipe never changes, so its own value is kept under the one word.
+    public static let recipeWords = [SettingKey.sandboxApprovals, SettingKey.sandboxHistory]
+
+    /// 669: a per-sandbox key's definition — `approvals` (`history`) is the recipe's of `image` (an image whose agent has
+    /// no prompts to skip — no history mapped —: nil); with no image, Claude Code's (each is one type for every recipe:
+    /// skip | ask; follow | keep | agent-default), to check a value.
     public static func sandboxDefinition(_ key: String, image: String? = nil) -> SettingDefinition? {
-        guard key == SettingKey.sandboxApprovals else { return perSandbox.contains(key) ? definition(key) : nil }
-        guard let image else { return definition(SettingKey.claudePermissions) }
-        return approvalsKey(image: image).flatMap(definition)
+        guard recipeWords.contains(key) else { return perSandbox.contains(key) ? definition(key) : nil }
+        guard let image else {
+            return definition(key == SettingKey.sandboxApprovals ? SettingKey.claudePermissions : SettingKey.history("claude-code") ?? "")
+        }
+        return recipeWordKey(key, image: image).flatMap(definition)
+    }
+
+    /// 674: the doz.toml key a recipe word (`approvals`, `history`) stands for in a sandbox of `image`; nil: its agent has
+    /// no such setting (or it is not a recipe word).
+    public static func recipeWordKey(_ word: String, image: String?) -> String? {
+        switch word {
+        case SettingKey.sandboxApprovals: return approvalsKey(image: image)
+        case SettingKey.sandboxHistory: return historyKey(image: image)
+        default: return nil
+        }
     }
 
     /// 669: the approvals setting of an image's agent (`recipes.anthropic.claude-code.approvals`); nil: none.
@@ -903,12 +944,35 @@ public struct DozableSettings: Sendable {
         return SettingKey.approvals(r.id)
     }
 
+    /// 674: the history setting of an image's agent (`recipes.anthropic.claude-code.history`); nil: it maps none.
+    public static func historyKey(image: String?) -> String? {
+        guard let image, let r = (ImageChoice.parse(image)?.agent ?? AgentKind(rawValue: image))?.recipe else { return nil }
+        return SettingKey.history(r.id)
+    }
+
     /// 669: a per-sandbox key's value for a sandbox of `image`: flag (a session's own `-e`), its own (`sandbox`, or
-    /// `project` when doz up synced it), then this Mac's, then the default — one `resolve`.
+    /// `project` when doz up synced it), then this Mac's, then the default — one `resolve`. (674: `history`'s effective
+    /// value, with `follow` passed down, is `history(agent:own:from:)`.)
     public func resolveForSandbox(_ key: String, image: String?, own: TOMLValue?, from: String?) -> ResolvedSetting? {
-        let k = key == SettingKey.sandboxApprovals ? Self.approvalsKey(image: image) : key
+        let k = Self.recipeWords.contains(key) ? Self.recipeWordKey(key, image: image) : key
         guard let k, Self.definition(k) != nil else { return nil }
         return from == "project" ? resolve(k, project: own) : resolve(k, sandbox: own)
+    }
+
+    /// 674: the conversation-history value a sandbox of `agent` gets — the most specific value that is not `follow`: its
+    /// own (`sandbox`, or `project` when doz up synced it), then its recipe's on this Mac, then `agent.history` (this
+    /// Mac's, else Dozable's default `keep`). `key` is the setting that decided it.
+    public func history(agent: String, own: TOMLValue? = nil, from: String? = nil) -> (value: String, source: SettingSource, key: String) {
+        if case .string(let s)? = own, s != AgentHistory.follow, AgentHistory.values.contains(s) {
+            return (s, from == "project" ? .project : .sandbox, SettingKey.sandboxHistory)
+        }
+        if let k = SettingKey.history(agent), Self.definition(k) != nil {
+            let r = resolve(k)
+            if case .string(let s) = r.value, s != AgentHistory.follow, AgentHistory.values.contains(s) { return (s, r.source, k) }
+        }
+        let a = resolve(SettingKey.agentHistory)
+        if case .string(let s) = a.value, AgentHistory.values.contains(s) { return (s, a.source, SettingKey.agentHistory) }
+        return (AgentHistory.keep, .default, SettingKey.agentHistory)
     }
 
     /// What cannot be set here, by design, and why — printed in the file and the docs.
@@ -1188,13 +1252,20 @@ public struct DozableSettings: Sendable {
                     : "a host path — set it with: doz config set \(d.key) PATH"
             }
             if fileError != nil, note == nil { note = "the settings file does not parse — fix it (or remove it) first" }
-            return SettingRow(key: d.key, section: d.section, name: d.name, value: r.value, defaultValue: d.defaultValue,
-                              source: r.source, fileValue: r.fileValue, type: kind, typeName: d.type.name, choices: choices,
-                              min: lo, max: hi, description: d.summary, environment: d.environment, flag: d.flag,
-                              applies: d.applies, appliesNote: d.applies.note,
-                              editable: d.editableInUI && r.source != .env && r.source != .flag && fileError == nil, note: note,
-                              kind: d.settingClass, recipe: d.agent.flatMap(AgentRecipes.recipe)?.qualifiedID, agent: d.agent,
-                              migratedFrom: r.migratedFrom, aliases: d.aliases.isEmpty ? nil : d.aliases)
+            var row = SettingRow(key: d.key, section: d.section, name: d.name, value: r.value, defaultValue: d.defaultValue,
+                                 source: r.source, fileValue: r.fileValue, type: kind, typeName: d.type.name, choices: choices,
+                                 min: lo, max: hi, description: d.summary, environment: d.environment, flag: d.flag,
+                                 applies: d.applies, appliesNote: d.applies.note,
+                                 editable: d.editableInUI && r.source != .env && r.source != .flag && fileError == nil, note: note,
+                                 kind: d.settingClass, recipe: d.agent.flatMap(AgentRecipes.recipe)?.qualifiedID, agent: d.agent,
+                                 migratedFrom: r.migratedFrom, aliases: d.aliases.isEmpty ? nil : d.aliases)
+            // 674: what each value does in each agent (Settings › The agent: every coding agent; a recipe's page: its own).
+            if d.key == SettingKey.agentHistory {
+                row.history = AgentHistory.mappings(settings: self).filter { !offered || AgentRecipes.isPublished($0.agent) || held.contains($0.agent) }
+            } else if let a = d.agent, d.name == RecipeSettings.history, let rec = AgentRecipes.recipe(a) {
+                row.history = [AgentHistory.mapping(rec, settings: self)]
+            }
+            return row
         }
         return SettingsReport(path: url?.path, exists: fileExists, warnings: warnings, error: fileError, settings: rows,
                               notSettable: Self.notSettable, notes: migrated.isEmpty ? nil : migrationNotes)

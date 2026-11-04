@@ -122,6 +122,95 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(old.warnings.isEmpty, old.warnings.joined(separator: "\n"))
     }
 
+    // MARK: 674 — conversation history
+
+    /// `recipes.V.P.history` exists only for a recipe whose `launch@1 history` maps it; `agent.history` is Dozable's.
+    func testHistoryGeneratedOnlyForMappedRecipes() throws {
+        let a = try XCTUnwrap(DozableSettings.definition(SettingKey.agentHistory))
+        XCTAssertEqual(a.type, .choice(["keep", "agent-default"]))
+        XCTAssertEqual(a.defaultValue, .string("keep"))
+        XCTAssertEqual(a.applies, .nextStartOrWake, "set in the guest set-up: a start or a wake, never a session open")
+        XCTAssertEqual(a.settingClass, .perSandbox, "it cascades to a project and a sandbox")
+        for r in AgentRecipes.all {
+            let d = DozableSettings.definition("\(r.settingsSection).history")
+            if r.launch.history != nil {
+                XCTAssertEqual(d?.type, .choice(["follow", "keep", "agent-default"]), r.id)
+                XCTAssertEqual(d?.defaultValue, .string("follow"), r.id)
+                XCTAssertEqual(d?.applies, .nextStartOrWake, r.id)
+                XCTAssertEqual(SettingKey.history(r.id), d?.key)
+            } else {
+                XCTAssertNil(d, "\(r.id) maps no history: no setting")
+                XCTAssertNil(SettingKey.history(r.id))
+            }
+        }
+        for id in ["claude-code", "codex", "pi", "opencode", "opencode2"] { XCTAssertNotNil(SettingKey.history(id), id) }
+        XCTAssertTrue(try XCTUnwrap(DozableSettings.definition("recipes.anthropic.claude-code.history")).summary.contains("cleanupPeriodDays = 36500 in ~/.claude/settings.json"))
+        XCTAssertTrue(try XCTUnwrap(DozableSettings.definition("recipes.earendil-works.pi.history")).summary.contains("writes nothing"))
+    }
+
+    func testRecipeHistoryFollowsAgentHistory() throws {
+        let none = DozableSettings(text: "")
+        XCTAssertEqual(none.history(agent: "claude-code").value, "keep")
+        XCTAssertEqual(none.history(agent: "claude-code").source, .default)
+        XCTAssertEqual(none.history(agent: "claude-code").key, SettingKey.agentHistory)
+        let off = DozableSettings(text: "[agent]\nhistory = \"agent-default\"\n")
+        XCTAssertEqual(off.history(agent: "claude-code").value, "agent-default", "follow → agent.history")
+        XCTAssertEqual(off.history(agent: "claude-code").source, .mac)
+        XCTAssertEqual(off.history(agent: "codex").value, "agent-default")
+        let follow = DozableSettings(text: "[agent]\nhistory = \"agent-default\"\n[recipes.anthropic.claude-code]\nhistory = \"follow\"\n")
+        XCTAssertEqual(follow.history(agent: "claude-code").value, "agent-default", "an explicit follow follows too")
+    }
+
+    func testRecipeHistoryOverridesAgentHistory() throws {
+        let s = DozableSettings(text: "[agent]\nhistory = \"agent-default\"\n[recipes.anthropic.claude-code]\nhistory = \"keep\"\n")
+        let c = s.history(agent: "claude-code")
+        XCTAssertEqual(c.value, "keep")
+        XCTAssertEqual(c.source, .mac)
+        XCTAssertEqual(c.key, "recipes.anthropic.claude-code.history")
+        XCTAssertEqual(s.history(agent: "codex").value, "agent-default", "another agent still follows Dozable's")
+        // A project's and a sandbox's own win over both; their follow passes down.
+        XCTAssertEqual(s.history(agent: "claude-code", own: .string("agent-default"), from: "project").value, "agent-default")
+        XCTAssertEqual(s.history(agent: "claude-code", own: .string("agent-default"), from: "project").source, .project)
+        XCTAssertEqual(s.history(agent: "codex", own: .string("keep")).source, .sandbox)
+        XCTAssertEqual(s.history(agent: "codex", own: .string("keep")).value, "keep")
+        XCTAssertEqual(s.history(agent: "claude-code", own: .string("follow")).value, "keep", "a sandbox's follow: the recipe's")
+        XCTAssertEqual(s.history(agent: "claude-code", own: .string("follow")).source, .mac)
+        // A bad value in the file is a warning; the default applies.
+        let bad = DozableSettings(text: "[agent]\nhistory = \"forever\"\n")
+        XCTAssertFalse(bad.warnings.isEmpty)
+        XCTAssertEqual(bad.history(agent: "claude-code").value, "keep")
+    }
+
+    /// The report (doz config show --json, the Settings page, a recipe's page) carries what each value does in each agent.
+    func testTheReportListsTheHistorySettingsWithTheirMapping() throws {
+        let s = DozableSettings(text: "[recipes.anthropic.claude-code]\nhistory = \"agent-default\"\n")
+        for offered in [false, true] {
+            let rep = s.report(offered: offered)
+            let a = try XCTUnwrap(rep.settings.first { $0.key == SettingKey.agentHistory })
+            XCTAssertEqual(a.section, "agent")
+            XCTAssertEqual(a.choices, ["keep", "agent-default"])
+            XCTAssertEqual(a.kind, .perSandbox)
+            let maps = try XCTUnwrap(a.history)
+            let claude = try XCTUnwrap(maps.first { $0.agent == "claude-code" })
+            XCTAssertEqual(claude.effective, "agent-default")
+            XCTAssertEqual(claude.effectiveSource, .mac)
+            XCTAssertEqual(maps.first { $0.agent == "codex" }?.effective, "keep")
+            XCTAssertEqual(maps.first { $0.agent == "pi" }?.kind, "keeps")
+            let r = try XCTUnwrap(rep.settings.first { $0.key == "recipes.anthropic.claude-code.history" })
+            XCTAssertEqual(r.value, .string("agent-default"))
+            XCTAssertEqual(r.source, .mac)
+            XCTAssertEqual(r.agent, "claude-code")
+            XCTAssertEqual(r.history?.count, 1)
+            XCTAssertEqual(r.history?.first?.writes?.first?.key, "cleanupPeriodDays")
+            XCTAssertEqual(rep.settings.first { $0.key == "recipes.openai.codex.history" }?.source, .recipe, "its own default: follow")
+            XCTAssertNil(rep.settings.first { $0.key == SettingKey.cpus }?.history, "no other row has one")
+        }
+        // It round-trips through JSON (the dashboard reads it so).
+        let data = try JSONEncoder().encode(s.report())
+        let back = try JSONDecoder().decode(SettingsReport.self, from: data)
+        XCTAssertEqual(back.settings.first { $0.key == SettingKey.agentHistory }?.history, s.report().settings.first { $0.key == SettingKey.agentHistory }?.history)
+    }
+
     func testRenderRoundTrips() throws {
         let values: [TOMLValue] = [.bool(true), .bool(false), .int(0), .int(-42), .int(Int.max), .string(""), .string("plain"),
                                    .string("quote \" back \\ nl \n tab \t cr \r bell \u{07} del \u{7F} é 😀")]

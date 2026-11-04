@@ -351,13 +351,15 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         public var modelArgs: [String]? = nil
         /// 618: subcommands whose own flags they are (`exec`, `run`): there the arguments go AFTER the subcommand.
         public var modelArgsAfter: [String]? = nil
-        /// 674: what keeps the agent's conversations — the vendor's own file and keys, written by the HOST at session open
-        /// (never baked: no image, bake key or launcher reads it, like `sessionEnv`).
+        /// 674: what keeps the agent's conversations — the vendor's own file and keys, set once in the guest set-up (a
+        /// start, a wake) as the setting `history` says (never baked: no image, bake key or launcher reads it, like
+        /// `sessionEnv`).
         public var history: History? = nil
 
         /// 674: one agent's conversation-history mapping. Two shapes: `keep` (Dozable writes the vendor's own keys, only
-        /// where absent; `agentDefault` says what the agent does by itself) and — decoded and validated, not yet used —
-        /// `native: keeps` (the agent keeps its conversations by itself; `note` says so). `source` and `checked` always.
+        /// where absent, and takes back only its own value on `agent-default`; `agentDefault` says what the agent does by
+        /// itself) and `native: keeps` (the agent keeps its conversations by itself — nothing is written; `note` says so).
+        /// `source` and `checked` always.
         public struct History: Codable, Sendable, Equatable {
             public var keep: [Keep]? = nil
             /// `keeps`: nothing to write — the agent keeps its conversations by itself.
@@ -368,7 +370,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
             public var checked: String
 
             public struct Keep: Codable, Sendable, Equatable {
-                /// `~/….json`.
+                /// `~/….json` or `~/….toml`.
                 public var file: String
                 /// Dotted key → a string, number or bool; written only when the key is absent.
                 public var set: [String: RecipeValue]
@@ -1412,7 +1414,7 @@ extension AgentRecipe {
         if let t = s.timeout, !(1...SignIn.maximumSeconds).contains(t) { throw bad("timeout: 1–\(SignIn.maximumSeconds) seconds") }
     }
 
-    /// 674: `launch@1 history` — strict like `first_run` (`~/` JSON files, dotted keys, plain scalar values, never a
+    /// 674: `launch@1 history` — strict like `first_run` (`~/` JSON or TOML files, dotted keys, plain scalar values, never a
     /// credential's name); `source` (https) and `checked` (a date) always.
     static func validateHistory(_ h: Launch.History, _ bad: (String) -> SandboxError) throws {
         let scriptSafe = { (s: String) in !s.contains("'") && !s.contains("\n") && !s.contains("\\") && !s.contains("\"") }
@@ -1429,8 +1431,10 @@ extension AgentRecipe {
         guard let d = h.agentDefault, !d.isEmpty, d.count <= 200, !d.contains("\n") else { throw bad("history agent_default: one line (at most 200 characters) saying what the agent does by itself") }
         guard h.note == nil else { throw bad("history note belongs to native: keeps") }
         for k in keep {
-            guard k.file.hasPrefix("~/"), k.file.hasSuffix(".json"), !k.file.contains(".."), scriptSafe(k.file), !k.file.contains(" ") else {
-                throw bad("history file \(k.file): ~/….json")
+            // 674 Step 2: a TOML file too (Codex's config.toml) — written by a minimal line-based writer that leaves any
+            // file it does not fully understand alone (`AgentHistory`).
+            guard k.file.hasPrefix("~/"), k.file.hasSuffix(".json") || k.file.hasSuffix(".toml"), !k.file.contains(".."), scriptSafe(k.file), !k.file.contains(" ") else {
+                throw bad("history file \(k.file): ~/….json or ~/….toml")
             }
             guard !k.set.isEmpty else { throw bad("history file \(k.file): no keys") }
             for (key, v) in k.set {

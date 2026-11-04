@@ -67,7 +67,8 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 - **Agent settings run in the same place** (`Sandbox.applyAgentSettings`, `AgentSettings.swift`; the recipe's `launch@1 history`,
   see recipes.md): the host hands the sandbox `AgentSettingsInputs` (script + fingerprint; a preparation VM or helper gets
   none), a marker `~/.local/share/doz/history.applied` holds the fingerprint applied (written either way), and the record is
-  `<sandbox>/agent-history-run.json`. Once per mapping, never at a session open.
+  `<sandbox>/agent-history-run.json`. Once per mapping and value (the setting `history`, resolved for that sandbox by the
+  host before each start or wake), never at a session open.
 - **The link pass never overwrites, never touches Dozable's** (`DotfilesLayer.plan`, pure): top-level dot entries only;
   `.git`/`.github`/`.gitignore`… skipped, submodules skipped, odd names skipped; `protectedPaths` (`.claude*`, `.codex`,
   `.pi`, `.config/opencode`, `.agents`, `.local/state/doz`, `.local/share/doz`, the launchers `.local/bin/<claude, codex,

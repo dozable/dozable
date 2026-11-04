@@ -20,7 +20,7 @@ A recipe on this Mac is **in use** (a sandbox runs its agent) or **installed** (
 here); the rest are **available** in the catalogue (`doz search`, Quick try). `doz recipe ls --installed`
 lists the first two, and `doz recipe uninstall ID` removes a recipe's baked images (refused while a
 sandbox runs it; your settings for it are kept unless `--forget-settings`). Each recipe's settings — its
-agent's `version`, `approvals`, `memory_mib` and `network` — are in [the settings](15-settings-reference.md)
+agent's `version`, `approvals`, `memory_mib`, `network` and `history` — are in [the settings](15-settings-reference.md)
 under `[recipes.VENDOR.PRODUCT]`.
 
 ## Concepts
@@ -70,12 +70,45 @@ To have it ask first, set its recipe's `approvals` to `ask` — on this Mac
 
 Inside a sandbox Claude Code never updates itself; the image decides its version (below).
 
-Dozable also keeps your Claude Code conversations. On its own, Claude Code deletes conversations older
-than 30 days; Dozable sets `cleanupPeriodDays` to 36500 in the sandbox's `~/.claude/settings.json`
-once, when the sandbox is set up (its first start or wake with this version), unless you have set your
-own value there — your value is never changed. Delete or change it yourself and Dozable leaves it.
-It applies to existing sandboxes at their next start or wake, and it needs no image rebuild.
-Conversations Claude Code already deleted are gone.
+Dozable also keeps your Claude Code conversations — see the next section.
+
+## Conversation history
+
+Some agents delete their own old conversations: Claude Code, on its own, deletes conversations older
+than 30 days. By default Dozable keeps them — the setting **`agent.history`** is `keep`. For an agent that
+deletes by itself, Dozable writes the agent's own setting into the agent's own settings file, once, when
+the sandbox is set up (its next start or wake), and only where you have not set one: **your value is never
+changed**, and a key you delete or change yourself is left as you made it. Nothing is rebuilt. A file
+Dozable cannot read (a hand edit that is not valid JSON or TOML) is never written.
+
+What each value does in each agent:
+
+| agent | `keep` (the default) | `agent-default` |
+|---|---|---|
+| Claude Code | sets `cleanupPeriodDays = 36500` in `~/.claude/settings.json` | takes `cleanupPeriodDays` back if it still holds 36500 — Claude Code deletes conversations older than 30 days ([its settings](https://code.claude.com/docs/en/settings-reference#cleanupperioddays)) |
+| Codex | sets `history.persistence = "save-all"` in `~/.codex/config.toml` (a `none` you set stays) | takes it back if it still holds `save-all` — Codex saves its conversations by itself |
+| pi | nothing — it keeps every session by itself | nothing |
+| OpenCode, OpenCode 2 | nothing — it has no clean-up of its own | nothing |
+| any other agent | not known — the setting does not apply | not known |
+
+**`agent-default`** lets each agent follow its own rule: Dozable takes back only a key that still holds
+exactly the value Dozable wrote (if you happened to type that same value yourself, it goes too).
+Conversations an agent already deleted are gone.
+
+Where to choose — the most specific value that is not `follow` wins:
+
+```sh
+doz config set agent.history agent-default                 # every agent, on this Mac
+doz config set --agent claude-code history keep            # one agent (follow: what agent.history says)
+doz config set --project ~/code/my-app history keep        # a project (history: in doz_project.yaml)
+doz config set --sandbox my-app history agent-default      # one sandbox
+doz config show --agent codex                              # what each value does in Codex, and where its value comes from
+```
+
+In the dashboard: **Settings › The agent** shows **Conversation history** with a table of what each value
+does in each agent; each agent's page under **Recipes** has its own drop-down and its row of that table;
+a sandbox's **Config** tab shows its value and where it came from. A change applies at each sandbox's next
+start or wake.
 
 ## Accounts — in the terminal
 
@@ -368,6 +401,7 @@ touched.
 | `recipes.anthropic.claude-code.version` · `recipes.earendil-works.pi.version` · `recipes.openai.codex.version` | `latest` | The agent version its image is baked with. |
 | `sandbox.agent_sudo` | `true` | The agent's passwordless sudo. Per sandbox too. |
 | `agent.prompt` | `true` | Give the agent its facts block and the `doz` skill. |
+| `agent.history` | `keep` | Keep the agents' conversations, or `agent-default`. Per agent, project and sandbox too ([above](#conversation-history)). |
 | `ui.allow_secret_entry` | `true` | The dashboard may take a key or token. |
 
 ## Troubleshooting

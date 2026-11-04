@@ -93,7 +93,7 @@
 
     "settingsCapability": {
       "type": "object", "additionalProperties": false, "required": ["type", "config"],
-      "description": "com.dozable/settings@1: the agent's own settings beyond the ones every recipe has (version, approvals, memory_mib, network) — each a doz.toml key recipes.VENDOR.PRODUCT.NAME, set on the Mac.",
+      "description": "com.dozable/settings@1: the agent's own settings beyond the ones every recipe has (version, approvals, memory_mib, network, history) — each a doz.toml key recipes.VENDOR.PRODUCT.NAME, set on the Mac.",
       "properties": {
         "type": { "const": "com.dozable/settings@1" },
         "config": {
@@ -102,7 +102,7 @@
             "options": { "type": "array", "minItems": 1, "maxItems": 8, "items": {
               "type": "object", "additionalProperties": false, "required": ["name", "type", "default", "summary", "applies"],
               "properties": {
-                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "not": { "enum": ["version", "approvals", "memory_mib", "network"] } },
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "not": { "enum": ["version", "approvals", "memory_mib", "network", "history"] } },
                 "type": { "enum": ["bool", "int", "choice"] },
                 "choices": { "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" } },
                 "min": { "type": "integer" },
@@ -401,13 +401,13 @@
     },
     "history": {
       "type": "object", "additionalProperties": false, "required": ["source", "checked"],
-      "description": "What keeps the agent's conversations: keep (the vendor's own file and keys, written by Dozable only where absent, never baked) with agent_default (what the agent does by itself), or native: keeps (the agent keeps them itself) with a note. Always the vendor's source and the date it was checked.",
+      "description": "What keeps the agent's conversations, for the setting history (keep | agent-default): keep (the vendor's own JSON or TOML file and keys, written by Dozable only where absent and taken back on agent-default only while they hold Dozable's value, never baked) with agent_default (what the agent does by itself), or native: keeps (the agent keeps them itself: nothing is written) with a note. Always the vendor's source and the date it was checked.",
       "properties": {
         "keep": {
           "type": "array", "minItems": 1, "maxItems": 4,
           "items": {
             "type": "object", "additionalProperties": false, "required": ["file", "set"],
-            "properties": { "file": { "type": "string", "pattern": "^~/.*\\.json$" }, "set": { "type": "object", "minProperties": 1 } }
+            "properties": { "file": { "type": "string", "pattern": "^~/.*\\.(json|toml)$" }, "set": { "type": "object", "minProperties": 1 } }
           }
         },
         "native": { "enum": ["keeps"] },

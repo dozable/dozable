@@ -40,11 +40,13 @@ final class RecipeSubjectTests: XCTestCase {
                 XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true, f)
                 continue
             }
-            // 674: `launch@1 history` is newer than this contract too; only a built-in recipe (Claude Code) has it today, and
-            // a catalogue recipe that adds it is published with minimum_doz at the release that reads it.
+            // 674: `launch@1 history` is newer than this contract too. The built-in recipes carry it (Claude Code, Codex, pi) and
+            // so do the two catalogue recipes OpenCode and OpenCode 2 (Step 2: every published coding agent is mapped) — excused
+            // BY NAME: a catalogue carrying them must be published with minimum_doz at the release that reads it
+            // (`make publish-recipes MIN_DOZ=…`), so no older doz is offered it.
             let launchCfg = caps.first { ($0["type"] as? String) == "com.dozable/launch@1" }?["config"] as? [String: Any]
             if launchCfg?["history"] != nil {
-                XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true, f)
+                XCTAssertTrue(AgentRecipes.recipe(String(f.dropLast(5)))?.isBuiltin == true || ["opencode.json", "opencode2.json"].contains(f), f)
                 continue
             }
             var errors = v.validate(t, schemaFile: Self.oldSchema)
@@ -58,7 +60,7 @@ final class RecipeSubjectTests: XCTestCase {
             XCTAssertEqual(errors, [], "\(f): the pre-669 schema refuses it")
             checked += 1
         }
-        XCTAssertGreaterThan(checked, 40)
+        XCTAssertGreaterThan(checked, 36)
         // fabric (not built-in: what a catalogue carries) has a subject, and the old contract takes it.
         let fabric = try XCTUnwrap(try RecipeSchemaTests.trees().first { $0.0 == "fabric.json" }?.1)
         let dir = (fabric["capabilities"] as? [[String: Any]])?.first { ($0["type"] as? String) == "com.dozable/directory@1" }

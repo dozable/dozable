@@ -42,8 +42,8 @@ extension HostCore {
     static func checkedSandboxSettings(_ s: [String: TOMLValue], image: String? = nil) throws -> [String: TOMLValue] {
         var out: [String: TOMLValue] = [:]
         for (k, v) in s {
-            if k == SettingKey.sandboxApprovals, DozableSettings.sandboxDefinition(k, image: image) == nil {
-                throw HostError(.invalid, "approvals: \(image ?? "this image") has no approval prompts to skip or ask")
+            if DozableSettings.recipeWords.contains(k), DozableSettings.sandboxDefinition(k, image: image) == nil {
+                throw HostError(.invalid, Self.noRecipeWord(k, image ?? "this image"))
             }
             guard k != SettingKey.agentSudo, DozableSettings.sandboxKeys.contains(k), let d = DozableSettings.sandboxDefinition(k, image: image) else {
                 throw HostError(.invalid, "\(k) is not a per-sandbox setting (they are: \(DozableSettings.sandboxKeys.joined(separator: ", ")))")
@@ -51,6 +51,13 @@ extension HostCore {
             do { out[k] = try d.validate(v) } catch { throw HostError(.invalid, "\(error)") }
         }
         return out
+    }
+
+    /// 669/674: why a recipe word does not apply to a sandbox of `what` (its agent has no such setting).
+    static func noRecipeWord(_ word: String, _ what: String) -> String {
+        word == SettingKey.sandboxHistory
+            ? "history: \(what)'s agent has no conversation-history mapping (it is not known what keeps its conversations)"
+            : "approvals: \(what) has no approval prompts to skip or ask"
     }
 
     /// A per-sandbox setting's value for this sandbox: its own, else the setting's.
@@ -85,10 +92,14 @@ extension HostCore {
         let image = m.config.spec.imageSpec?.name
         var changed: String?
         if var key = r.setting {
-            // 669: a recipe's approvals by its full key is this sandbox's `approvals` (its recipe's own).
-            if key != SettingKey.sandboxApprovals, DozableSettings.canonicalKey(key) == DozableSettings.approvalsKey(image: image) { key = SettingKey.sandboxApprovals }
-            if key == SettingKey.sandboxApprovals, DozableSettings.sandboxDefinition(key, image: image) == nil {
-                throw HostError(.invalid, "approvals: \(m.name)'s agent has no approval prompts to skip or ask")
+            // 669: a recipe's approvals by its full key is this sandbox's `approvals` (its recipe's own); 674: history too,
+            // and agent.history (the Dozable-wide one) is the sandbox's `history`.
+            for word in DozableSettings.recipeWords where key != word {
+                if let k = DozableSettings.canonicalKey(key), k == DozableSettings.recipeWordKey(word, image: image) { key = word }
+            }
+            if key == SettingKey.agentHistory { key = SettingKey.sandboxHistory }
+            if DozableSettings.recipeWords.contains(key), DozableSettings.sandboxDefinition(key, image: image) == nil {
+                throw HostError(.invalid, Self.noRecipeWord(key, m.name))
             }
             guard DozableSettings.sandboxKeys.contains(key), let d = DozableSettings.sandboxDefinition(key, image: image) else {
                 throw HostError(.invalid, "\(key) is not a per-sandbox setting (they are: \(DozableSettings.sandboxKeys.joined(separator: ", ")))")
@@ -122,6 +133,7 @@ extension HostCore {
                 if key == SettingKey.agentSudo { m.sandbox.setAgentSudo(Self.agentSudo(m.config)) }
                 if key == SettingKey.sshAgent { applyGitHub(m) }          // 599d: on/off at once
                 if key == SettingKey.tmux { applyToolInputs(m) }         // 599h: tmux joins the tools layer
+                if key == SettingKey.sandboxHistory { applyAgentSettingsInput(m) }   // 674: at its next start or wake
                 note(m.name, "\(changed ?? key) — \(d.applies.note)")
             }
         }
@@ -142,6 +154,16 @@ extension HostCore {
             row.settingSource = s.source.rawValue
             row.settingKey = d.key == key ? nil : d.key
             row.choices = { if case .choice(let c) = d.type { return c }; return nil }()
+            // 674: history's value is the most specific one that is not `follow` — its own, its project's, its recipe's on
+            // this Mac, else agent.history — with the setting that decided it.
+            if key == SettingKey.sandboxHistory, let agent = d.agent {
+                let mine = settings.history(agent: agent, own: own, from: cfg.settingsFrom?[key])
+                let mac = settings.history(agent: agent)
+                row.value = .string(mine.value)
+                row.source = mine.source == .sandbox || mine.source == .project ? mine.source.rawValue : mac.source.rawValue
+                row.settingValue = .string(mac.value)
+                row.settingSource = mac.source.rawValue
+            }
             return row
         }
         // The recipe's when-made values: recorded at create (a doz.json before 669: the spec's, "recorded").

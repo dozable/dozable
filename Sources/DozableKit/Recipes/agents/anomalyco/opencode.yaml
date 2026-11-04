@@ -147,6 +147,11 @@ capabilities:
         provider.dozanthropic.models:
           '{env:DOZ_MODEL_ID}':
             name: '{env:DOZ_MODEL_ID}'
+    history:
+      native: keeps
+      note: OpenCode has no automatic clean-up of its own - it keeps every session until you delete it
+      source: https://github.com/anomalyco/opencode/issues/25816
+      checked: '2026-11-02'
     status: none
     resume:
     - --continue

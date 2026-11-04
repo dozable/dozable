@@ -140,7 +140,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   from the MAIN npm package (Grok's platform package's own `latest` tag is stale).
 - **Conversation history** (674; `launch@1 history`, `Sources/DozableHost/AgentHistory.swift`, `AgentHistoryTests`): an agent
   that deletes its own conversations after a while (Claude Code: `cleanupPeriodDays`, 30 days) gets the vendor's own keys
-  that mean "keep" — `history.keep: [{file, set}]` (1–4 entries, `~/….json`, dotted keys, scalar values, never a credential's
+  that mean "keep" — `history.keep: [{file, set}]` (1–4 entries, `~/….json` or `~/….toml`, dotted keys, scalar values, never a credential's
   name, validated like `first_run`), with `agent_default` (what the agent does by itself), `source` and `checked`.
   **Never baked**: no `ImageSpec`/`recipeLauncherScript` reads it, so no bake key moves and no image is "older recipe"
   (`RecipePinTests`, `test_nodeImagesAreByteIdentical`, `test_builtinRecipesDescribeTheirImages` are the proof — keep them
@@ -153,11 +153,35 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   afterwards either way (a failing run is not retried at every wake). A key the person deletes afterwards stays deleted; a
   changed mapping or value applies once more. The result is `<sandbox>/agent-history-run.json` (`AgentSettingsRun`: when,
   fingerprint, applied | failed, notes); notes also go to the boot log, never fatal. A preparation VM, a bake or a helper is
-  handed nothing and never runs it (`AgentSettingsLayer`, `AgentHistoryTests`). `keep` semantics only: a key is set only when absent (parents made), a present value is the person's and left
-  alone, a file that does not parse is never written (unlike the launcher's setup, which replaces one — that one is baked and
-  waits for a launcher change), a missing file is made 0600 with its folders, atomic temp + rename, no rewrite when nothing
-  changes. `native: keeps` + `note` is decoded and validated for an agent that keeps its conversations itself (nothing is
-  written); a catalogue recipe that uses `history` needs `minimum_doz` raised, as `sign_in` does.
+  handed nothing and never runs it (`AgentSettingsLayer`, `AgentHistoryTests`). `keep`: a key is set only when absent
+  (parents made), a present value is the person's and left alone. `agent-default`: a key is removed only when present AND
+  equal to the recipe's value, type included (and a parent object / TOML table it leaves empty — a TOML header goes only
+  when nothing but blank lines is left under it); a missing file is not made. Either way: a file that does not parse is
+  never written (unlike the launcher's setup, which replaces one — that one is baked and waits for a launcher change), a
+  missing file is made 0600 with its folders, atomic temp + rename, no rewrite when nothing changes. **TOML** (Codex's
+  `~/.codex/config.toml`): no base can be assumed to have a TOML writer (or `tomllib`, read-only and 3.11+), so the script
+  edits LINES and only files it fully reads — blanks, comments, `[table]` / `[[array]]` headers (bare or quoted key parts),
+  `key = value` (multi-line strings and arrays followed to their end); anything else is "does not parse". `keep` inserts
+  `key = value` under an existing `[table]`, or appends a new `[table]` when nothing defines it; a table made by dotted
+  keys, a sub-table header, an array of tables or a value in the way is left alone with a note (never a second
+  definition). Every published coding agent has a mapping (owner, 2026-11-04): Claude Code and Codex write; pi, OpenCode
+  and OpenCode 2 are `native: keeps` + `note` (nothing written, `inputs(for:)` is nil); another recipe has none — "not
+  known", and no setting. A catalogue recipe that uses `history` needs `minimum_doz` raised, as `sign_in` does.
+- **The history setting** (674 Step 2; `Settings.swift`, `AgentHistory.swift`, `SettingsTests`, `SettingLayersTests`):
+  `agent.history` (`keep` | `agent-default`, default keep, class S) and, ONLY for a recipe with `launch.history`,
+  `recipes.V.P.history` (`follow` | `keep` | `agent-default`, default follow — `recipeSchema`, like `approvals` for an agent
+  with prompts). A project's / sandbox's own is the recipe word `history` (`DozableSettings.recipeWords`, beside
+  `approvals`: `history:` in doz_project.yaml, `doz config set --sandbox NAME history …`, also taken by the recipe's full key
+  or `agent.history`). Effective value: `DozableSettings.history(agent:own:from:)` — the most specific value that is not
+  `follow`: sandbox/project, the recipe's on this Mac, `agent.history`, with the source and the key that decided it.
+  `applies: next-start-or-wake` (the guest set-up), never next-session. The host resolves it per sandbox in
+  `applyAgentSettingsInput` — at load, before every request about the sandbox (`perform`), in `ensureRunning` (a wake by
+  use) and after a `sandbox-settings` change — and the value is in the fingerprint, so a changed setting applies once.
+  `SettingRow.history` (`[HistoryMapping]`) carries what each value does in each agent: `agent.history`'s row every
+  published coding agent's (and any mapped one), a recipe's row its own; the Settings page and the recipe page draw it with
+  `settingMatrix` (rows = agents, columns = keep · agent-default, the value it gets marked — no new control),
+  `doz config show --agent ID` prints it (`ConfigShow.historyLines`). `history` is a common option name (`settings@1` may
+  not declare it).
 - **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google|opencode|…`,
   `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
   (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never
