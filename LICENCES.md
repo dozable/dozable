@@ -78,11 +78,16 @@ Static aarch64-linux-musl executables built with the pinned Zig 0.16.0 (`make de
 | [Lucide](https://lucide.dev) icons — `lucide-static` 1.48.0, 49 SVGs compiled into one sprite | ISC | Verified — as above |
 | The app icons (`WebSource/icons/`) | MIT (this project) | Verified — drawn here (`PROVENANCE.json`) |
 
+## The pinned kernel — in every release, not in this repository
+
+| Component | Licence | How |
+|---|---|---|
+| Linux `vmlinux-6.18.15-186` from [kata-containers 3.28.0](https://github.com/kata-containers/kata-containers/releases/tag/3.28.0) | **GPL-2.0-only** (with the syscall note) | Used **unmodified**, verified by sha256 on every start. Since 0.37.41 both release tarballs (the command-line release and the helper build) **carry it** at `libexec/doz/kernels/`, with its provenance and Dozable's written source offer in `libexec/doz/licences/kernel/` ([`Guest/kernel/PROVENANCE.md`](Guest/kernel/PROVENANCE.md), the complete config [`Guest/kernel/kernel.config`](Guest/kernel/kernel.config)); `make release` checks both. A build from source has none: `KernelProvider` downloads the upstream release archive (`kata-static-3.28.0-arm64.tar.zst`) once on the Mac that runs it. (A public build carries no other kernel: the sound kernel above is only in private builds.) Its source: the kata-containers 3.28.0 kernel build (`tools/packaging/kernel`) on Linux 6.18.15. |
+
 ## Downloaded at run time — not in this repository, not in a release
 
 | Component | Licence | How |
 |---|---|---|
-| Linux `vmlinux-6.18.15-186` from [kata-containers 3.28.0](https://github.com/kata-containers/kata-containers/releases/tag/3.28.0) | **GPL-2.0-only** (with the syscall note) | `KernelProvider` downloads the upstream release archive (`kata-static-3.28.0-arm64.tar.zst`) on the Mac that runs doz and uses the kernel **unmodified**, verified by sha256. Dozable does not redistribute it: no release carries it. (A public build also carries no other kernel: the sound kernel above is only in private builds.) Its source: the kata-containers 3.28.0 kernel build (`tools/packaging/kernel`) on Linux 6.18.15. |
 | `ghcr.io/apple/containerization/vminit` (the guest init image) | Apache-2.0 (Apple) | pulled from its registry by Containerization |
 | The base images a sandbox uses (`node`, `debian`, `alpine`, `python`, `golang` … from Docker Hub) and the packages installed in them | their own | pulled from their registries into your store |
 | The agents installed into images: Claude Code, pi, Codex — from npm / downloads.claude.ai | their own (Claude Code is Anthropic's, under its own terms) | installed by your Mac into your sandboxes; never bundled |

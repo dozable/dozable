@@ -6,6 +6,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 | Path | What |
 |---|---|
+| `Scripts/helper-README.md`, `Scripts/helper-smoke.sh` (`make test-cli-helper`), `Sources/DozableCLI/HelperBuild.swift`, `Guest/kernel/` | 675: the helper build's README, its smoke, what it answers for the commands it leaves out, the pinned kernel's provenance and source offer |
 | `Scripts/release.sh` (`make release`), `Makefile.config.example`; `ReleaseStamp` in `Sources/DozableCLI/DozableCommand.swift`; `HostUpgradeCheck` in `GroupCommands.swift`; `HostCore.programGone`; `Tests/DozableCLITests/ReleaseTests.swift` | the Homebrew artefact (signed; Developer ID + notarised when configured), the version stamp, `doz host upgrade-check`, the refusal when an upgrade removed a running host's keg |
 | `Sources/DozableHost/Usage.swift`; `Sources/DozableCLI/UsageCommands.swift`; `Sources/doz/DozableMain.swift` | anonymous usage statistics and the sign-up — the open half: the closed list, the switches, the local record, `doz telemetry`, `doz signup`, the hook; the bridge to the official builds' closed package (`#if DOZ_CLOUD`) |
 
@@ -20,6 +21,44 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   kernel: `--audio` is refused with `BuildFlavor.audioMissing`. `release.sh` proves the flavor on the packed binary.
 - Every decision takes a `BuildFlavor` (`HostCore.setBuildFlavor`, `OpenAIChoices`); a real process can be told with
   the TEST seam `DOZ_TEST_PUBLIC_BUILD=1|0`. `BuildFlavorTests` runs both modes in one `swift test`.
+
+## The helper build — `FLAVOUR=helper` (675)
+
+- **What**: the doz an app carries inside its bundle and drives over host.sock (SandboxLab; Deckosaurus next) —
+  `make release FLAVOUR=helper` → `dist/doz-V-macos-arm64-helper.tar.gz` (+ `.sha256`, + `.dSYM.zip`), beside the CLI
+  release of the same version. The user-facing page is `docs/manual/33-bundling-doz-in-an-app.md` (the layout contract,
+  the rules for an app); the tarball's own `README.md` is `Scripts/helper-README.md`.
+- **How it is made**: `DOZ_HELPER_BUILD=1` in the environment of `swift build` (Package.swift reads it, like
+  `DOZ_CLOUD_PACKAGE`): it defines `DOZ_HELPER_BUILD` in DozableHost, DozableCLI and doz, and — unless `DOZ_HELPER_WEB=1`
+  (the one switch to a helper WITH the dashboard) — drops DozableWeb from DozableCLI's dependencies and defines
+  `DOZ_NO_WEB`, so neither the dashboard's code nor its bundle is built. `release.sh` builds it in its own scratch folder,
+  `.build-helper/` (the flavours never share build products or a stale bundle), and passes `DOZ_HELPER_BUILD=0` to a CLI
+  release explicitly.
+- **What it leaves out, at compile time** (`Sources/DozableCLI/HelperBuild.swift` answers each name: "not in this
+  build", exit 1): `doz ui`, `doz serve` (UICommand.swift, ServeCommand.swift under `#if !DOZ_NO_WEB`), the setup wizards
+  `doz onboard`, `doz init` and `doz try` (OnboardCommands' flow, InitCommand, TryCommand, QuickMake, RulesStep under
+  `#if !DOZ_HELPER_BUILD`). DozableTUI stays: `GlobalOptions` and every command's output use it (Foundation + Darwin, small).
+- **What it never does: update itself.** `BuildFlavor.isHelper` (compiled, or the TEST seam `DOZ_TEST_HELPER_BUILD=1|0`)
+  or a `RELEASE` that starts with `helper` → `InstallMethod.helper(app:)` (the `.app` it sits in): `disabledReason` says
+  `BuildFlavor.helperUpdates` FIRST, whatever the settings, even for a manual check — so no feed is ever asked;
+  `doz upgrade` refuses before anything ("this doz belongs to APP; APP updates it").
+- **It says what it is**: `HostStatus.flavour` (`cli` | `helper`, `BuildFlavor.flavourName`) in every ping /
+  `host status`; nil from a host older than 0.37.41. Everything else about the host and the protocol is the CLI's.
+- **Checked**: `release.sh` (the dashboard refused, `doz upgrade` refused, no DozableWeb bundle, README, no `bin/`) and
+  `make test-cli-helper` (`Scripts/helper-smoke.sh`: the tarball copied whole into a fake `.app`, an EMPTY store, a lab VM
+  booted from the kernel the helper carries — no download), which CI runs on the VM runner.
+
+## Both flavours: stripped, with the kernel inside (675)
+
+- **Stripped before signing** (`dsymutil` first, then `strip`; the dSYM's UUID must equal the stripped binary's): the
+  symbols go to `dist/<name>.dSYM.zip`, published beside the tarball. An app must never strip or re-sign the helper.
+- **The pinned kernel** (`KernelArtifact.recommended`) is in BOTH tarballs at `libexec/doz/kernels/vmlinux-6.18.15-186`,
+  with `libexec/doz/licences/kernel/` (`Guest/kernel/PROVENANCE.md` — the written GPL-2.0 source offer —, `kernel.config`,
+  kata's patch, `extract-config.py`). `release.sh` takes it from `KERNEL_FILE`, else `$DOZ_KERNEL_CACHE` (the Makefile's
+  `KERNEL_CACHE`), else `~/Library/Caches/DozableKit/kernels` (filled once by `make kernel` when missing), and refuses any
+  file that is not the pin. `KernelProvider` takes it as its FIRST seed (`bundledCandidates`: `kernels/` beside the
+  resolved executable) — after the store's cache, before Apple's `container` copy and the download (the reason is in
+  `KernelProvider`'s doc comment: the store never depends on the program's folder).
 
 ## Anonymous usage statistics and the sign-up — the open half
 
@@ -138,8 +177,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 ## The release and Homebrew
 
 - **`make release VERSION=X.Y.Z`** (`Scripts/release.sh`) is the ONE way the artefact is made:
-  release build → `dist/stage/doz-X.Y.Z/{bin/doz → ../libexec/doz/doz, libexec/doz/{doz, VERSION,
-  DozableKit_*.bundle}}` → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz` + `.sha256`. It checks the
+  release build → `dist/stage/doz-X.Y.Z/{bin/doz → ../libexec/doz/doz, libexec/doz/{doz, VERSION, RELEASE,
+  DozableKit_*.bundle, kernels/, licences/}}` → stripped (dSYM zip beside) → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz`
+  + `.sha256` (`FLAVOUR=helper`: the helper build, above). It checks the
   signature (`--verify --strict`), the virtualization entitlement, and that the packed `doz --version`
   says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging DozableKit, attaches both files to the
   tag's GitHub Release and moves the tap's formula (`RELEASES` in the ship).
