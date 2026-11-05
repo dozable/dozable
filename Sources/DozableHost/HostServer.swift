@@ -304,10 +304,26 @@ public final class HostServer: @unchecked Sendable {
         lock.withLock { connections -= 1 }
     }
 
+    /// The protocol version check, for EVERY op — the streamed ones (`attach`, `copy`, `events`, the follow modes) never
+    /// reach `HostCore.handle`, so it is made here, before the request is decoded or dispatched: a request whose `v` this
+    /// host does not speak gets `error.code = "version"`, even for an op this host has never heard of. `ping` is the one
+    /// exception — it answers at any `v`, so a newer client can read `protocolVersion` and refuse cleanly. nil: go on.
+    static func versionRefusal(_ line: Data) -> HostMessage? {
+        struct Head: Decodable { var v: Int?; var op: String? }
+        guard let head = try? HostWire.decoder.decode(Head.self, from: line), let v = head.v else { return nil }
+        guard v > HostProtocol.version, head.op != HostOp.ping.rawValue else { return nil }
+        return .failure(.unsupportedVersion(v))
+    }
+
     /// One connection: its request line, then the operation.
-    private func serve(_ conn: HostConnection) {
+    func serve(_ conn: HostConnection) {
         let reader = LineReader(fd: conn.fd)
         guard let line = reader.readLine(limit: 1 << 20) else { finished(conn); return }
+        if let refusal = Self.versionRefusal(line) {
+            conn.send(refusal)
+            finished(conn)
+            return
+        }
         let req: HostRequest
         do { req = try HostWire.decoder.decode(HostRequest.self, from: line) } catch {
             conn.send(.failure(HostError(.invalid, "a request this host cannot read (\(error.localizedDescription)) — is the CLI newer than the host? (doz host stop)")))

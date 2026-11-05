@@ -560,8 +560,10 @@ public actor HostCore {
 
     /// Every request but the streaming ones (`attach`, `events`, `net-log --follow` — see HostServer).
     public func handle(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async -> HostMessage {
-        guard r.v <= HostProtocol.version else {
-            return .failure(HostError(.version, "this host speaks protocol \(HostProtocol.version), the request is \(r.v) — restart it (doz host stop)"))
+        // The server makes the same check for every op before dispatch (`HostServer.versionRefusal`); this one covers the
+        // in-process core. `ping` answers at any `v` (a newer client reads `protocolVersion` from it).
+        guard r.v <= HostProtocol.version || r.op == .ping else {
+            return .failure(.unsupportedVersion(r.v))
         }
         // 593: `terminal-layout-set` is answered in-process too: it writes one small file of the web UI's
         // state beside doz.json (never a VM, never a secret — like the UI's doz.toml), and a host is not
@@ -939,6 +941,7 @@ public actor HostCore {
                            idleTimeoutMinutes: idleTimeoutMinutes, liveSandboxes: await liveSandboxes(), connections: connections,
                            idleSeconds: idleSeconds)
         s.executable = executable?.path
+        s.operations = HostOp.allCases.map(\.rawValue)
         if !readOnly {
             s.parentPid = getppid()
             s.sessionID = getsid(0)

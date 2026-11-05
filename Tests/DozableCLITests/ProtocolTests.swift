@@ -82,6 +82,71 @@ final class ProtocolTests: XCTestCase {
         XCTAssertEqual(v["s"]?.stringValue, "x\ny")
     }
 
+    // MARK: 676 — feature detection and the version check for every op
+
+    func testPingListsEveryOperation() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("doz-proto-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let core = HostCore(store: DozableStore(root: root), readOnly: true, version: "test")
+        await core.load()
+        let m = await core.handle(HostRequest(.ping))
+        let st = try XCTUnwrap(m.result).decode(HostStatus.self)
+        XCTAssertEqual(st.operations, HostOp.allCases.map(\.rawValue), "a client tests for the op it needs, never a version")
+        XCTAssertEqual(st.protocolVersion, HostProtocol.version)
+        var newer = HostRequest(.ping)
+        newer.v = HostProtocol.version + 1
+        let answered = await core.handle(newer)
+        XCTAssertEqual(answered.ok, true, "ping answers at any v")
+        var ls = HostRequest(.ls)
+        ls.v = HostProtocol.version + 1
+        let refused = await core.handle(ls)
+        XCTAssertEqual(refused.error?.code, .version)
+    }
+
+    /// One request line through the real server's dispatch over a socket pair; the lines it answers until it closes.
+    private func served(_ line: String, store root: URL) throws -> [HostMessage] {
+        var fds: [Int32] = [0, 0]
+        XCTAssertEqual(socketpair(AF_UNIX, SOCK_STREAM, 0, &fds), 0)
+        defer { close(fds[1]) }
+        var tv = timeval(tv_sec: 10, tv_usec: 0)
+        setsockopt(fds[1], SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
+        UnixSocket.writeAll(fds[1], Data((line + "\n").utf8))
+        let server = HostServer(store: DozableStore(root: root), idleTimeoutMinutes: 0, version: "test")
+        let conn = HostConnection(fd: fds[0])
+        Thread.detachNewThread { server.serve(conn) }
+        let reader = LineReader(fd: fds[1])
+        var out: [HostMessage] = []
+        while let l = reader.readLine() {
+            out.append(try HostWire.decoder.decode(HostMessage.self, from: l))
+            if out.last?.ok != nil { break }
+        }
+        return out
+    }
+
+    func testEveryOpInANewerProtocolIsRefusedButPing() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("doz-proto-\(UUID().uuidString.prefix(8))")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        // The streamed ops never reach HostCore.handle — the server checks first. An op this host has never heard of too.
+        for op in ["attach", "copy", "events", "net-log", "console", "ls", "agent-stream"] {
+            let answer = try served(#"{"v":2,"op":"\#(op)","name":"box","follow":true}"#, store: root)
+            XCTAssertEqual(answer.count, 1, op)
+            XCTAssertEqual(answer.first?.ok, false, op)
+            XCTAssertEqual(answer.first?.error?.code, .version, op)
+        }
+        let ping = try served(#"{"v":2,"op":"ping"}"#, store: root)
+        XCTAssertEqual(ping.last?.ok, true, "ping answers at any v")
+        let st = try XCTUnwrap(ping.last?.result).decode(HostStatus.self)
+        XCTAssertEqual(st.protocolVersion, 1)
+        XCTAssertEqual(st.operations?.contains("attach"), true)
+        // This version still gets through to the op (here: no such sandbox).
+        let current = try served(#"{"v":1,"op":"inspect","name":"nope"}"#, store: root)
+        XCTAssertEqual(current.last?.error?.code, .notFound)
+        XCTAssertNil(HostServer.versionRefusal(Data(#"{"v":1,"op":"attach"}"#.utf8)))
+        XCTAssertNil(HostServer.versionRefusal(Data("not json".utf8)), "an unreadable line is the decoder's to refuse (invalid)")
+    }
+
     // MARK: the line reader
 
     func testLineReaderKeepsWhatFollowsTheLine() throws {
