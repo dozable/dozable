@@ -1,0 +1,1 @@
+{"ok":true,"result":{"cols":80,"command":"bash -l","name":"box","reason":"sleep","rows":24,"savedAt":"2026-01-01T00:00:00.000Z","screen":"main","session":"shell","text":"$ echo hello\nhello\n$","truncated":false,"vt":"G1tIG1sySiQgZWNobyBoZWxsbw0KaGVsbG8NCiQg"},"v":1}

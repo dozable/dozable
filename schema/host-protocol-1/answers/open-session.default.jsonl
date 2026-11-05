@@ -1,0 +1,2 @@
+{"event":{"kind":"phase","phase":"running","sandbox":"box","text":"running","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"ok":true,"result":{"bootMilliseconds":240,"created":true,"defaultSession":"shell","name":"box","session":"shell","tmux":false,"woke":true},"v":1}

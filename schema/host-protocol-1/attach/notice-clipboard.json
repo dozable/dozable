@@ -1,0 +1,13 @@
+{
+  "bytes_hex" : "61621b5d3737373b646f7a3b6e6f746963653b636c6970626f6172643b626f7820636f706965642031322063686172616374657273076364",
+  "description" : "host → client: a bridge's notice for the person (never drawn) between screen bytes",
+  "expect" : {
+    "notices" : [
+      {
+        "kind" : "clipboard",
+        "text" : "box copied 12 characters"
+      }
+    ],
+    "screen_hex" : "61626364"
+  }
+}

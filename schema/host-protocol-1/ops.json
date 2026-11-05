@@ -1,0 +1,722 @@
+{
+  "errorCodes" : [
+    "exists",
+    "failed",
+    "invalid",
+    "invalid-phase",
+    "not-found",
+    "not-implemented",
+    "unavailable",
+    "version"
+  ],
+  "eventKinds" : [
+    {
+      "kind" : "connection",
+      "optIn" : false
+    },
+    {
+      "kind" : "console",
+      "optIn" : false
+    },
+    {
+      "kind" : "failed",
+      "optIn" : false
+    },
+    {
+      "kind" : "host",
+      "optIn" : false
+    },
+    {
+      "kind" : "note",
+      "optIn" : false
+    },
+    {
+      "kind" : "output",
+      "optIn" : false
+    },
+    {
+      "kind" : "phase",
+      "optIn" : false
+    },
+    {
+      "kind" : "progress",
+      "optIn" : false
+    },
+    {
+      "kind" : "session-status",
+      "optIn" : true,
+      "request" : "sessionStatus"
+    },
+    {
+      "kind" : "started",
+      "optIn" : false
+    },
+    {
+      "kind" : "step",
+      "optIn" : false
+    }
+  ],
+  "ops" : [
+    {
+      "answeredWithoutHost" : false,
+      "name" : "access",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "access-github-key",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-add",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-default",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-edit",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-keepalive",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-ls",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-refresh",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-use",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "account-verify",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "agent-prompt",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "attach",
+      "readOnly" : false,
+      "stream" : "attach",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "bases",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "boot-log",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "build-log",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "builder-install",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "builder-start",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "builder-status",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "console",
+      "readOnly" : false,
+      "stream" : "events",
+      "streamWhen" : "follow",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "copy",
+      "readOnly" : false,
+      "stream" : "frames",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "create",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "dotfiles",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "dotfiles-resolve",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "dotfiles-update",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "duplicate",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "editors",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "events",
+      "readOnly" : false,
+      "stream" : "events",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "exec",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "files-list",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-mkdir",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-move",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-new",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-open",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "files-tree",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "files-tree-set",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "hibernate",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "host-stop",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "image-bake",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "image-ls",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "image-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "image-tree",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "inspect",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "key-ls",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "key-policy",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "key-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "key-set",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "ls",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "models",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "net-log",
+      "readOnly" : false,
+      "stream" : "events",
+      "streamWhen" : "follow",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "net-permissions",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "net-policy",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "onboard",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "open-session",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "pause",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "ping",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "plan",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "plans",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-fork",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-ls",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-revert",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-save-image",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "point-take",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "port-open",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "ports",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "prepare",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "prepare-cancel",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "prepare-status",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "rename",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "reset",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "resources",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "resources-clean",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "resources-kernel",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "resources-rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "resume",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "rm",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "sandbox-settings",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "session-end",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "session-grids",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "session-restart",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "session-screen",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "sessions",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "shutdown",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "sleep",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "start",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "template-create",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "terminal-layout",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : true,
+      "name" : "terminal-layout-set",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "tools",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "tools-apply",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 2
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "wake",
+      "readOnly" : false,
+      "stream" : "none",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
+      "name" : "workspace-rules",
+      "readOnly" : true,
+      "stream" : "none",
+      "tier" : 2
+    }
+  ],
+  "protocolVersion" : 1
+}

@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test protocol-fixtures contract-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -87,7 +87,7 @@ build: ## Build every product (and the VM test host)
 # `make test-vm-claude DOZ_TEST_REAL_MAC=1` (e.g. to add this Mac's own Claude login, read-only).
 TEST_SCRATCH ?= $(or $(TMPDIR),/tmp/)doz-test
 TEST_XDG     ?= $(TEST_SCRATCH)-xdg
-TEST_TARGETS := test test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes sound-kernel
+TEST_TARGETS := test protocol-fixtures test-vm test-vm-% test-cli test-cli-% test-updates test-recipe-catalogue test-community-recipes kernel pullbench prev-cli recipes sound-kernel
 ifneq ($(DOZ_TEST_REAL_MAC),1)
 $(TEST_TARGETS): export DOZ_TEST_GUARD := 1
 $(TEST_TARGETS): export DOZ_TEST_NO_MAC_LOGIN := 1
@@ -123,6 +123,19 @@ css-perf: cli ## The stylesheet's cost in a real headless Chrome against the bas
 # parses YAML) and is COMMITTED. `make test` fails when they differ (RecipeSourceTests).
 recipes: test-safety ## Compile the YAML recipes to Recipes/compiled/ (commit the result)
 	DOZ_WRITE_RECIPES=1 swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --filter 'RecipeSourceTests|RecipeSchemaTests'
+
+# 676: the host protocol's contract. schema/host-protocol-1/ holds golden fixtures — requests, answers, events, errors,
+# tolerance lines, the attach wire and the copy frames — GENERATED from the host's own encoder and types (and a real
+# in-process host for ping, ls, inspect, create, rename and three errors) and COMMITTED. `make test` fails when they differ
+# (HostProtocolFixtureTests); this target writes them. contract-check runs a client's own tests against them:
+# CLIENT=<path to the client package> (its tests read DOZ_PROTOCOL_FIXTURES); without CLIENT it says so and passes.
+protocol-fixtures: test-safety ## Regenerate schema/host-protocol-1/ from the host's own types (review the diff, commit it)
+	DOZ_WRITE_PROTOCOL_FIXTURES=1 swift test $(SWIFT_BUILD_SYSTEM) -j $(JOBS) --filter 'HostProtocolFixtureTests/testTheFixturesAreWhatTheHostWrites'
+
+contract-check: ## Run a client's tests against this host's protocol fixtures (CLIENT=<client package path>)
+	@if [ -z "$(CLIENT)" ]; then echo "contract-check: no CLIENT=<path> given — nothing to check (the fixtures themselves are checked by make test)"; exit 0; fi; \
+	test -f "$(CLIENT)/Package.swift" || { echo "contract-check: $(CLIENT) has no Package.swift"; exit 1; }; \
+	cd "$(CLIENT)" && DOZ_PROTOCOL_FIXTURES="$(CURDIR)/schema/host-protocol-1" swift test -j $(JOBS)
 
 # 590: `doz ui`'s front end. WebSource/ is what people edit; Resources/Web is generated from it
 # (content-hashed, digest manifest) and COMMITTED. The check fails when they differ — run by `make

@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "ff4800780028",
+  "description" : "client → host: HELLO, 120 columns × 40 rows (0xFF 'H' cols rows, big-endian u16) — the first thing a client sends"
+}

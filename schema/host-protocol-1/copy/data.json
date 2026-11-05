@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "440000000568656c6c6f",
+  "description" : "either way: D (0x44), a 4-byte big-endian length, the payload — a piece of the tar stream (at most 1 MiB)"
+}

@@ -1,0 +1,2 @@
+{"event":{"kind":"future-kind","sandbox":"box","text":"a kind from a newer host","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"ok":true,"result":{"changed":true,"milliseconds":240,"name":"box","operation":"wake","phase":"running","phaseBefore":"asleep"},"v":1}

@@ -1,0 +1,1 @@
+{"create":{"account":"mac","agentSudo":true,"allow":["site:api.example.com"],"cpus":4,"image":"claude-code","keys":["example-key"],"memoryMiB":4096,"network":"agent","settings":{"sandbox.clipboard":"off"},"workspace":"/Users/example/project"},"name":"box","op":"create","start":true,"v":1}

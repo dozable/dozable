@@ -1,0 +1,1 @@
+{"op":"plans","planRequests":[{"create":{"image":"claude-code","workspace":"/Users/example/project"},"purpose":"try","tryFlags":["--rm"]},{"create":{"image":"lab"},"name":"box","purpose":"create"}],"v":1}

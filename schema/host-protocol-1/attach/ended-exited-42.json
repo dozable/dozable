@@ -1,0 +1,12 @@
+{
+  "bytes_hex" : "6279650d0a1b5b306d1b5d3737373b646f7a3b656e6465643b3432070d0a5b646f7a5d20746865207368656c6c2073657373696f6e2068617320656e646564202865786974203432290d0a",
+  "description" : "host → client: screen bytes, then the program exited 42",
+  "expect" : {
+    "ending" : "exited:42",
+    "endingText" : "the shell session has ended (exit 42)",
+    "notices" : [
+
+    ],
+    "screen_hex" : "6279650d0a"
+  }
+}

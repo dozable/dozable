@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "ff5200500018",
+  "description" : "client → host: RESIZE to 80 × 24 (0xFF 'R' cols rows)"
+}

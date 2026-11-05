@@ -1,0 +1,5 @@
+{"event":{"kind":"phase","phase":"booting","sandbox":"box","text":"booting","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"started","sandbox":"box","text":"booting box","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"step","milliseconds":812.5,"sandbox":"box","text":"booted box","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"phase","phase":"running","sandbox":"box","text":"running","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"ok":true,"result":{"changed":true,"info":{"account":"mac","agent":"claude-code","agentWorking":true,"base":"node","busy":false,"cpus":2,"createdAt":"2026-01-01T00:00:00.000Z","credentialPolicy":"allow","credentialState":"ok","deniedConnections":0,"diskBytes":1073741824,"image":"claude-code","imageTitle":"Node.js · Claude Code","isolated":false,"memoryMiB":2048,"memoryReturnedMiB":0,"name":"box","network":"agent","phase":"running","ramHeldMiB":2048,"sessions":1,"workspace":"/Users/example/project"},"milliseconds":812.5,"name":"box","operation":"start","phase":"running","phaseBefore":"off"},"v":1}

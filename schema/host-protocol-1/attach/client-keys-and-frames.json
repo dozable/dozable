@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "6c73ff520064001e0d",
+  "description" : "client → host: keystrokes with frames between them; 0xFF never occurs in UTF-8, so typing cannot forge a frame"
+}

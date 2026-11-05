@@ -1,0 +1,10 @@
+{
+  "bytes_hex" : "7061727469616c1b5b306d",
+  "description" : "host → client: the connection closes without an end — reattach when it runs again (a held SGR reset is screen)",
+  "expect" : {
+    "notices" : [
+
+    ],
+    "screen_hex" : "7061727469616c1b5b306d"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "bytes_hex" : "1b5b306d1b5d3737373b646f7a3b656e6465643b30070d0a5b646f7a5d20746865207368656c6c2073657373696f6e2068617320656e6465642028657869742030290d0a",
+  "description" : "host → client: the session's program exited 0 — the ended notice, then the host closes",
+  "expect" : {
+    "ending" : "exited:0",
+    "endingText" : "the shell session has ended (exit 0)",
+    "notices" : [
+
+    ],
+    "screen_hex" : ""
+  }
+}

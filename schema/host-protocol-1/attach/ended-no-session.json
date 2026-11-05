@@ -1,0 +1,12 @@
+{
+  "bytes_hex" : "1b5b306d1b5d3737373b646f7a3b656e6465643b6e6f6e65070d0a5b646f7a5d206e6f2073657373696f6e207368656c6c20696e20626f780d0a",
+  "description" : "host → client: there is no such session",
+  "expect" : {
+    "ending" : "none",
+    "endingText" : "no session shell in box",
+    "notices" : [
+
+    ],
+    "screen_hex" : ""
+  }
+}

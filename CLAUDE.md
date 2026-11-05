@@ -388,6 +388,8 @@ make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query ans
 make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
 make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing
 make test FILTER=Suite # the matching unit tests only (swift test --filter)
+make protocol-fixtures # 676: regenerate schema/host-protocol-1/ (the host protocol's golden fixtures; make test fails on drift) — commit the diff
+make contract-check CLIENT=<path> # 676: a client package's tests against those fixtures (DOZ_PROTOCOL_FIXTURES); no CLIENT: a note, passes
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the host and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
 make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a host killed mid-stop)
 make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)

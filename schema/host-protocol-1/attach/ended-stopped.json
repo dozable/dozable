@@ -1,0 +1,12 @@
+{
+  "bytes_hex" : "1b5b306d1b5d3737373b646f7a3b656e6465643b73746f70706564070d0a5b646f7a5d20626f78206973206f666620e28094207468652073657373696f6e20697320676f6e650d0a",
+  "description" : "host → client: the sandbox shut down (or was removed) — the session is gone",
+  "expect" : {
+    "ending" : "stopped",
+    "endingText" : "box is off — the session is gone",
+    "notices" : [
+
+    ],
+    "screen_hex" : ""
+  }
+}

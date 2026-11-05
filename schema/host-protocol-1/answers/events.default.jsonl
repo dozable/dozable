@@ -1,0 +1,3 @@
+{"event":{"kind":"phase","phase":"asleep","sandbox":"box","text":"asleep","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"note","sandbox":"box","text":"box: the clipboard bridge copied 12 characters","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"host","text":"a newer doz is installed — it is used once this host exits","time":"2026-01-01T00:00:00.000Z"},"v":1}

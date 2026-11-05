@@ -1,0 +1,15 @@
+{
+  "bytes_hex" : "1b5b316d68656c6c6f1b5b306d201b5d3737373b646f7a3b6e6f746963653b6f70656e3b6f70656e65642068747470733a2f2f6578616d706c652e636f6d07776f726c640d0a1b5b306d1b5d3737373b646f7a3b656e6465643b33070d0a5b646f7a5d20746865207368656c6c2073657373696f6e2068617320656e6465642028657869742033290d0a",
+  "description" : "host → client: screen, a notice, more screen and the end — the same result however the bytes are cut",
+  "expect" : {
+    "ending" : "exited:3",
+    "endingText" : "the shell session has ended (exit 3)",
+    "notices" : [
+      {
+        "kind" : "open",
+        "text" : "opened https://example.com"
+      }
+    ],
+    "screen_hex" : "1b5b316d68656c6c6f1b5b306d20776f726c640d0a"
+  }
+}

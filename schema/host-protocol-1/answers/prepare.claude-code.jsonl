@@ -1,0 +1,6 @@
+{"event":{"kind":"started","text":"pulling the base image node","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"completedBytes":104857600,"completedItems":2,"kind":"progress","text":"pulling the base image node","time":"2026-01-01T00:00:00.000Z","totalBytes":399778410,"totalItems":6},"v":1}
+{"event":{"kind":"step","milliseconds":61200,"text":"pulled the base image node","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"output","text":"added 3 packages","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"event":{"kind":"step","milliseconds":90300,"text":"baked claude-code","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"ok":true,"result":{"preparations":[{"finishedAt":"2026-01-01T00:00:00.000Z","id":"claude-code","image":"claude-code","lines":["pulled the base image node","baked claude-code"],"output":[],"plannedSteps":4,"requestedBy":["example-app"],"seconds":151.5,"startedAt":"2026-01-01T00:00:00.000Z","state":"done","stepIndex":4,"steps":[{"kind":"step","label":"pulled the base image node","seconds":61.2,"usualSeconds":58},{"kind":"step","label":"baked claude-code","seconds":90.3}]}]},"v":1}

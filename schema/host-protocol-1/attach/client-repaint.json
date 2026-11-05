@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "ff5300000000",
+  "description" : "client → host: REPAINT (0xFF 'S' 0 0 0 0) — send this viewer a fresh snapshot of the screen"
+}
