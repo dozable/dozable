@@ -185,8 +185,10 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   DozableKit_*.bundle, kernels/, licences/}}` → stripped (dSYM zip beside) → signed → `dist/doz-X.Y.Z-macos-arm64.tar.gz`
   + `.sha256` (`FLAVOUR=helper`: the helper build, above). It checks the
   signature (`--verify --strict`), the virtualization entitlement, and that the packed `doz --version`
-  says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging DozableKit, attaches both files to the
-  tag's GitHub Release and moves the tap's formula (`RELEASES` in the ship).
+  says X.Y.Z. `Scripts/ship` (the workspace) runs it after tagging, then runs it again with `FLAVOUR=helper`, and
+  attaches all six files to the tag's GitHub Release: each tarball, its `.sha256` and its `.dSYM.zip`. The release's
+  notes point app authors at the helper's page. A missing file stops it before anything is uploaded; the feed and the
+  formulas name only the CLI tarball (`make publish`).
 - **The version comes from the tag, never a hand-edited constant**: the tarball carries
   `libexec/doz/VERSION`; `DozableCommand.version` reads it beside the resolved executable
   (`ReleaseStamp`) and falls back to `builtVersion` for `make cli` / `install-cli` / tests.
