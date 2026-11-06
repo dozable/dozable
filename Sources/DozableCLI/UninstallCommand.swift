@@ -3,7 +3,9 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+#if !DOZ_NO_WEB
 import DozableWeb
+#endif
 
 /// 594 (D13) — `doz uninstall`: a clean slate without a hand-typed `rm -rf`. It lists EXACTLY what it
 /// removes and asks once (plainly; `--yes` for scripts): the store (every sandbox, image, kernel and

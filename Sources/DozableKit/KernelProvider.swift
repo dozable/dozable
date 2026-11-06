@@ -66,12 +66,19 @@ public enum KernelEvent: Sendable, Equatable {
 ///
 /// 1. an explicit `SandboxSpec.kernelPath` — used as given (must exist);
 /// 2. the cached pinned kernel `<cache>/<fileName>`, if its sha256 matches;
-/// 3. a SEED: an existing copy elsewhere on this Mac whose sha256 matches the pin exactly (the
-///    `container` CLI's `kernels/vmlinux-…`) is copied into the cache — no network. Only a
-///    byte-identical file is accepted, so this is not a fallback to "whatever kernel that tool
-///    has": a different kernel there is ignored, never booted;
+/// 3. a SEED: an existing copy whose sha256 matches the pin exactly is copied into the cache — no
+///    network. In this order: the copy a release CARRIES (675: `kernels/<fileName>` beside the
+///    resolved executable — `libexec/doz/kernels/` in both release tarballs), then the `container`
+///    CLI's `kernels/vmlinux-…`. Only a byte-identical file is accepted, so this is not a fallback
+///    to "whatever kernel that tool has": a different kernel there is ignored, never booted;
 /// 4. otherwise download the pinned archive (once), verify it, extract the member, verify it,
 ///    and move it into the cache atomically.
+///
+/// Why the carried copy is a seed AFTER the cache, not a kernel booted in place: the cache is the
+/// file every VM of this store booted from, and the one each snapshot records (`VMLayout`) — so a
+/// store never depends on the program's own folder, which an upgrade (`brew cleanup`, an app's
+/// update) replaces or removes under a sleeping sandbox. A verified cache hit costs one sha256 either
+/// way. And it is the FIRST seed: it is this release's own file, where Apple's is another tool's.
 public struct KernelProvider: Sendable {
     public var artifact: KernelArtifact
     public var cacheDirectory: URL
@@ -87,18 +94,38 @@ public struct KernelProvider: Sendable {
         self.fetcher = fetcher
     }
 
-    /// Where Apple's `container` CLI keeps its kernels.
+    /// The seeds, in order: the kernel this release carries (675), then Apple's `container` CLI's.
     public static var defaultSeedCandidates: [URL] {
+        bundledCandidates() + appleContainerCandidates
+    }
+
+    /// Where Apple's `container` CLI keeps its kernels.
+    public static var appleContainerCandidates: [URL] {
         let dir = FileManager.default.homeDirectoryForCurrentUser
             .appendingPathComponent("Library/Application Support/com.apple.container/kernels")
         return [dir.appendingPathComponent(KernelArtifact.recommended.fileName),
                 dir.appendingPathComponent("default.kernel-arm64")]
     }
 
+    /// 675: the kernel a release carries — `kernels/<fileName>` beside the RESOLVED executable (`libexec/doz/kernels/`
+    /// in the tarballs and the Homebrew keg, `Contents/Resources/Helpers/doz/kernels/` in an app that bundles the
+    /// helper). A development build has none there. The library resolves the executable itself (no host needed).
+    public static func bundledCandidates(executable: URL? = Bundle.main.executableURL,
+                                         artifact: KernelArtifact = .recommended) -> [URL] {
+        guard let exe = executable?.resolvingSymlinksInPath() else { return [] }
+        return [exe.deletingLastPathComponent().appendingPathComponent("kernels").appendingPathComponent(artifact.fileName)]
+    }
+
+    /// Whether `url` is a kernel a release carries beside its executable (the notes and `doctor` say so).
+    public static func isBundled(_ url: URL, executable: URL? = Bundle.main.executableURL, artifact: KernelArtifact = .recommended) -> Bool {
+        let path = url.resolvingSymlinksInPath().path
+        return bundledCandidates(executable: executable, artifact: artifact).contains { $0.resolvingSymlinksInPath().path == path }
+    }
+
     public var cachedKernel: URL { cacheDirectory.appendingPathComponent(artifact.fileName) }
 
-    /// 594 W5/W7: a byte-identical copy of the pinned kernel already on this Mac (Apple's `container`
-    /// kernels) — `resolve` copies it instead of downloading. nil: none (a download it is).
+    /// 594 W5/W7: a byte-identical copy of the pinned kernel already on this Mac (675: the one this release carries,
+    /// else Apple's `container` kernels) — `resolve` copies it instead of downloading. nil: none (a download it is).
     public func localSeed() -> URL? {
         seedCandidates.first { FileManager.default.fileExists(atPath: $0.path) && (try? Self.sha256(of: $0)) == artifact.kernelSHA256 }
     }
@@ -126,7 +153,8 @@ public struct KernelProvider: Sendable {
         for seed in seedCandidates where fm.fileExists(atPath: seed.path) {
             guard (try? Self.sha256(of: seed)) == artifact.kernelSHA256 else { continue }
             try install(from: seed, copy: true)
-            events(.note("kernel \(artifact.fileName) copied from \(seed.path) (byte-identical to the pin)"))
+            let whose = Self.isBundled(seed, artifact: artifact) ? "the copy this doz carries" : "byte-identical to the pin"
+            events(.note("kernel \(artifact.fileName) copied from \(seed.path) (\(whose)) — no download"))
             return target
         }
 

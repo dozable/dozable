@@ -39,7 +39,8 @@ doz try opencode            # or: doz try codex · doz try (the list) · doz sea
 ## Requirements
 
 - A Mac with **Apple silicon** and **macOS 26** (Tahoe) or later.
-- [Homebrew](https://brew.sh). (Each release is also a tarball on this repository's releases page.)
+- [Homebrew](https://brew.sh). (Each release is also a tarball on this repository's releases page; the one named
+  `…-helper.tar.gz` is for apps that carry doz inside them — [Bundling doz in an app](docs/manual/33-bundling-doz-in-an-app.md).)
 - For an agent: an account it can use — this Mac's own Claude Code or Codex login (read, never copied),
   an API key, or a Claude setup token. `doz onboard` walks you through it.
 
@@ -103,6 +104,9 @@ sign-up code is not open source (what may be sent, and every switch, is: `Source
   from a sandbox, and what they do not.
 - [DozableKit](docs/DOZABLEKIT.md) — the Swift engine underneath, for developers: the lifecycle, lineage,
   memory, the proxied network, the host process, and how to depend on it.
+- [Bundling doz in an app](docs/manual/33-bundling-doz-in-an-app.md) — for app authors only: each release also has
+  a **helper build** (`doz-VERSION-macos-arm64-helper.tar.gz`) made to live inside a Mac app and be driven over
+  `host.sock` — no dashboard, no self-update, the kernel inside. If you want Dozable on your Mac, you want Homebrew.
 - [The dashboard style guide](docs/style-guide/index.html) — a living specimen of the dashboard's look, drawn by its
   real stylesheet, icons and marks (serve the repository root, e.g. `python3 -m http.server`, and open
   `/docs/style-guide/`).

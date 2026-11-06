@@ -130,7 +130,9 @@ One row per area; each area's doc starts with the full table of its files.
   guest SET-UP calls as already done while the restored guest is adopted.
 - **The library owns its kernel.** Never read `~/Library/Application Support/com.apple.container`
   as a source of truth (the runners have no `container` CLI; that file is another tool's to change).
-  A file there is used only as a SEED, and only when its sha256 equals the pin. A kernel change is a
+  A file there is used only as a SEED, and only when its sha256 equals the pin. 675: every release carries the pin at
+  `libexec/doz/kernels/` (+ its GPL source offer, `Guest/kernel/`) — the FIRST seed, copied into the store's cache,
+  never booted in place (a snapshot records the cache's file; an upgrade removes the program's folder). A kernel change is a
   new `KernelArtifact` (URL + archive sha256 + member + kernel sha256) and `make test-vm` twice — a
   snapshot must be restored with the kernel it was taken under.
 - **Restore points are disk-only APFS clones — never live forks**. A copy of a RUNNING

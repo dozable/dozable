@@ -14,6 +14,8 @@ import DozableTUI
 // Models & keys, GitHub & SSH, Workspace rules, …), status lines, and on a terminal arrow-key questions; colour follows
 // `Terminal` (--no-color, ui.color, NO_COLOR). Same steps, flags, answers, --json and exit codes as before.
 
+// 675: the setup wizard is not in the helper build (HelperBuild.swift); `followingCall` and `shellQuoted` are shared.
+#if !DOZ_HELPER_BUILD
 /// What `doz onboard --json` prints.
 struct OnboardReport: Encodable {
     var store: String
@@ -646,6 +648,7 @@ struct OnboardingFlow {
         line.hasSuffix("is ready") ? .ok : line.hasSuffix("(a tool's first start prepares it again)") ? .warn : .busy
     }
 }
+#endif
 
 /// A request whose progress is shown while it runs (593's view), from which Ctrl-C DETACHES — the
 /// host goes on — saying how to watch again.
@@ -681,6 +684,7 @@ func followingCall(_ r: HostRequest, _ g: GlobalOptions,
     throw fail(m.error ?? HostError(.failed, "the host gave no reason"), g)
 }
 
+#if !DOZ_HELPER_BUILD
 struct Onboard: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Set up this Mac for Dozable (once): check it, prepare the base image every tool is added to, add keys, choose Access and workspace rules, write the settings, and make a first sandbox.",
@@ -824,6 +828,7 @@ struct Onboard: AsyncParsableCommand {
         }
     }
 }
+#endif
 
 // 599f: `doz init` is InitCommand.swift (the New Sandbox wizard's steps on a terminal).
 

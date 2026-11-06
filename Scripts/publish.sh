@@ -145,9 +145,27 @@ if [[ -n "$PUSH" && -z "$TEST_PUBLISH" ]]; then
     [[ -n "$live" ]] && say "  ✓ the live feed lists $VERSION" || say "  ! the live feed does not list $VERSION after 10 minutes — check the updates repo's Pages build"
 fi
 
+# 675: the release's other assets, when make release made them — the CLI's symbols, and the helper build (its
+# tarball, .sha256 and symbols) — and release notes that point app authors at the helper's own page. The helper is
+# never in the feed or a formula: an app pins it and updates it itself.
+ASSETS="\"$TARBALL\" \"$TARBALL.sha256\""
+HELPER="$DIST/doz-${VERSION}-macos-arm64-helper.tar.gz"
+for f in "$DIST/doz-${VERSION}-macos-arm64.dSYM.zip" "$HELPER" "$HELPER.sha256" "$DIST/doz-${VERSION}-macos-arm64-helper.dSYM.zip"; do
+    if [[ -f "$f" ]]; then ASSETS="$ASSETS \"$f\""; fi
+done
+RELEASE_NOTES="$NOTES"
+if [[ -f "$HELPER" ]]; then
+    RELEASE_NOTES="$DIST/notes-$VERSION-release.md"
+    { cat "$NOTES"; printf '\n---\n\n'
+      printf '**Bundling doz in an app?** `doz-%s-macos-arm64-helper.tar.gz` is the helper build, for Mac apps that carry doz\n' "$VERSION"
+      printf 'inside them (no dashboard, never updates itself, the kernel inside). Everyone else wants Homebrew or the tarball above.\n'
+      printf 'See [Bundling doz in an app](https://github.com/%s/blob/v%s/docs/manual/33-bundling-doz-in-an-app.md).\n' "$REPOSITORY" "$VERSION"
+    } > "$RELEASE_NOTES"
+fi
+
 cat <<DONE
 
 ✓ doz $VERSION (build $NEXT) is in the feed on $CHANNEL.
   The archive URL the feed and formulas name — its release must exist before anyone upgrades:
-    gh release create v$VERSION "$TARBALL" "$TARBALL.sha256" --repo $REPOSITORY --title "doz $VERSION" --notes-file "$NOTES"$([[ "$CHANNEL" != stable ]] && echo " --prerelease")
+    gh release create v$VERSION $ASSETS --repo $REPOSITORY --title "doz $VERSION" --notes-file "$RELEASE_NOTES"$([[ "$CHANNEL" != stable ]] && echo " --prerelease")
 DONE

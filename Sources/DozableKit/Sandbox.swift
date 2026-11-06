@@ -1427,9 +1427,12 @@ public actor Sandbox {
         // inside (cached and verified, copied from a seed, downloaded and extracted) is said as notes,
         // and a download's progress passes through.
         let cachedKernel = FileManager.default.fileExists(atPath: kernelProvider.cachedKernel.path)
-        // 594 W7: say where it came from — a copy of Apple's container kernel is not a download.
+        // 594 W7: say where it came from — a copy of Apple's container kernel is not a download. 675: nor is the copy a
+        // release carries (libexec/doz/kernels/), the first seed.
+        let seed = cachedKernel || spec.kernelPath != nil ? nil : kernelProvider.localSeed()
         let how = spec.kernelPath != nil ? ", explicit" : cachedKernel ? ", cached"
-            : kernelProvider.localSeed() != nil ? ": copied from Apple's container kernels (byte-identical to the pin)" : ": downloaded"
+            : seed.map { KernelProvider.isBundled($0) ? ": copied from the copy this doz carries" : ": copied from Apple's container kernels (byte-identical to the pin)" }
+            ?? ": downloaded"
         let kernelURL = try await timed("kernel ready (\(KernelArtifact.recommended.fileName)\(how))") {
             try await kernelProvider.resolve(override: spec.kernelPath) { e in
                 switch e {

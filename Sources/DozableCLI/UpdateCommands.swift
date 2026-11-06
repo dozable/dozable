@@ -55,6 +55,10 @@ struct UpdateCommand: AsyncParsableCommand {
     }
 
     func run() async throws {
+        // 675: the helper build refuses before anything — no feed is asked, no setting is written (--channel).
+        if case .helper(let app) = InstallMethod.detect(executable: HostLauncher.executablePath) {
+            throw fail(HostError(.invalid, BuildFlavor.helperUpdates(app: app)), g, code: DozableExit.failed)
+        }
         if let c = channel.flatMap(UpdateChannel.init(rawValue:)) { return try await switchChannel(c) }
         let ctx = UpdateContext.current(version: DozableCommand.version, executable: HostLauncher.executablePath)
         let r = await UpdateChecker.check(ctx, manual: true)
@@ -160,6 +164,7 @@ enum UpdateHook {
         case .homebrew(let f): "homebrew (\(f))"
         case .tarball(let p): "tarball (\(p.path))"
         case .development: "development build"
+        case .helper(let app): "helper build" + (app.map { " (\($0))" } ?? "")
         }
     }
 
@@ -176,6 +181,8 @@ enum UpdateHook {
         switch ctx.method {
         case .development:
             throw UpdateInstaller.Failure("this doz is a development build — it is not updated (a release install is: Homebrew, or the release tarball)")
+        case .helper(let app):
+            throw UpdateInstaller.Failure(BuildFlavor.helperUpdates(app: app))
         case .homebrew(let formula):
             if let f = ctx.method.formulaChannel, f != ctx.channel {
                 throw UpdateInstaller.Failure("this doz is the \(f.rawValue) formula (\(formula)) and updates.channel is \(ctx.channel.rawValue) — doz upgrade --channel \(ctx.channel.rawValue) switches")
