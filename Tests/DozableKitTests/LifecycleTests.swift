@@ -100,7 +100,7 @@ final class LifecycleTests: XCTestCase {
     /// 651: that is when it is DONE — the guest fixes and the balloon run after, in the background.
     func test_wakeRestoresThenResyncsClockAndRemountsShares() {
         XCTAssertEqual(plan(.wake, .hibernated), [.restoreSnapshot, .resyncClock, .remountShares, .deleteSnapshot, .persistState])
-        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .hibernated), [.applyGuestFixes, .returnFreeMemory])
+        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .hibernated), [.reapOrphanedAgentPrograms, .applyGuestFixes, .returnFreeMemory])
         XCTAssertNil(plan(.wake, .running))
     }
 
@@ -114,10 +114,10 @@ final class LifecycleTests: XCTestCase {
                 guard let steps = plan(op, p) else { XCTAssertTrue(after.isEmpty, "\(op) from \(p): not allowed, nothing after"); continue }
                 for s in after { XCTAssertFalse(steps.contains(s), "\(op) from \(p): \(s) runs after, not in the wake") }
                 // What a wake is done with: the guest runs with its clock and shares; nothing best effort holds it up.
-                XCTAssertFalse(steps.contains(.applyGuestFixes) || steps.contains(.returnFreeMemory), "\(op) from \(p)")
+                XCTAssertFalse(steps.contains(.applyGuestFixes) || steps.contains(.returnFreeMemory) || steps.contains(.reapOrphanedAgentPrograms), "\(op) from \(p)")
             }
         }
-        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .asleep), [.applyGuestFixes])
+        XCTAssertEqual(LifecyclePlanner.afterWake(.wake, from: .asleep), [.reapOrphanedAgentPrograms, .applyGuestFixes])
         XCTAssertEqual(LifecyclePlanner.afterWake(.resume, from: .asleep), LifecyclePlanner.afterWake(.wake, from: .asleep))
         XCTAssertTrue(LifecyclePlanner.afterWake(.resume, from: .paused).isEmpty, "W34: a resume from Pause stays ~1 ms")
         // The balloon is the last thing a wake does, so a pending sleep/hibernate can drop it at a step boundary.
@@ -159,7 +159,7 @@ final class LifecycleTests: XCTestCase {
         XCTAssertNil(plan(.pause, .paused))
         XCTAssertEqual(plan(.resume, .paused), [.resumeVM, .deleteSnapshot, .persistState])
         XCTAssertEqual(plan(.resume, .asleep), [.resumeVM, .deleteSnapshot, .persistState])
-        XCTAssertEqual(LifecyclePlanner.afterWake(.resume, from: .asleep), [.applyGuestFixes], "W34, 651: after the wake")
+        XCTAssertEqual(LifecyclePlanner.afterWake(.resume, from: .asleep), [.reapOrphanedAgentPrograms, .applyGuestFixes], "W34, 651: after the wake")
         XCTAssertFalse(plan(.resume, .paused)!.contains(.applyGuestFixes), "W34: a resume from Pause stays ~1 ms — no guest call")
         XCTAssertNil(plan(.resume, .hibernated), "on disk needs a wake, not a resume")
         XCTAssertEqual(plan(.sleep, .running), [.captureScreens, .restoreGuestMemory, .pauseVM, .saveSnapshot, .persistState])

@@ -43,6 +43,8 @@ public actor Sandbox {
     private var network: VmnetNetwork?
     private var identity: PersistedSandbox?
     private var connections: [UUID: SessionConnection] = [:]
+    /// 676: the agent streams open on this VM (`openAgentStream`) — severed when it is put away.
+    private var agentPipes: [UUID: AgentPipe] = [:]
     /// Set once `LinuxContainer.stop()` has shut the VM down through the package.
     private var cleanlyStopped = false
     /// When `openSession` last started a program (583: `prepareForExit` lets a new one settle).
@@ -722,6 +724,7 @@ public actor Sandbox {
                 return .hibernateFailed(error.localizedDescription)
             }
         case .hibernated:
+            severAgentPipes(.sandboxSleeping)
             for c in connections.values { c.detach(.sandboxSleeping) }
             connections.removeAll()
             return .unchanged
@@ -778,7 +781,7 @@ public actor Sandbox {
         }
         setPhase(target)
         // 651: the wake is done — the rest runs in the background, holding the gate this call took.
-        let after = LifecyclePlanner.afterWake(op, from: from)
+        let after = LifecyclePlanner.afterWake(op, from: from, orphanedAgentPrograms: !(identity?.orphanedAgentPrograms ?? []).isEmpty)
         if !after.isEmpty {
             handedOff = true
             startAfterWake(after)
@@ -798,6 +801,8 @@ public actor Sandbox {
         for step in steps {
             guard phase == .running else { break }
             let name = Self.afterWakeLabel(step)
+            // 676: no orphaned agent program — nothing to do, nothing to say.
+            if step == .reapOrphanedAgentPrograms, (identity?.orphanedAgentPrograms ?? []).isEmpty { continue }
             if LifecyclePlanner.skippedWhenWaiting(step, pauseWaiting: pauseWaiting > 0, putAwayWaiting: putAwayWaiting > 0) {
                 skipped.append(name)
                 continue
@@ -823,6 +828,7 @@ public actor Sandbox {
         switch step {
         case .applyGuestFixes: "guest fixes, deckhold, tools layer"
         case .returnFreeMemory: "memory balloon"
+        case .reapOrphanedAgentPrograms: "orphaned agent programs ended"
         default: "\(step)"
         }
     }
@@ -894,6 +900,7 @@ public actor Sandbox {
             snapshotBytes = fileSize(layout.snapshot)
             setPhase(.asleep)
         case .detachSessions(let reason):
+            severAgentPipes(reason)                    // 676: before the exec stdio goes, never a hang
             let conns = Array(connections.values)
             connections.removeAll()
             for c in conns { c.detach(reason) }
@@ -1036,10 +1043,12 @@ public actor Sandbox {
             if var p = identity ?? (unclean ? PersistedSandbox.read(from: layout.persistedState) : nil) {
                 p.phase = .off
                 p.savedAt = Date()
+                p.orphanedAgentPrograms = nil          // 676: no program outlives the VM
                 if unclean, FileManager.default.fileExists(atPath: layout.rootfs.path), !Self.disksJournaled(layout) { p.fsckOnNextBoot = true }
                 try? p.write(to: layout.persistedState)
             }
             container = nil; instance = nil; handle = nil; identity = nil; cleanlyStopped = false; balloonHeld = 0
+            agentPipes.removeAll()                     // 676: their programs ended with the VM
             egress?.stopListening()
             sshRelayBox.withLock { $0 }?.stop()          // 599d: listens again at the next boot
             egress?.vault.revokeAll()
@@ -1066,6 +1075,11 @@ public actor Sandbox {
         case .removeSavedScreens:
             // Shut down, reset, remove: the sessions are gone — so are their screens (owner, 2026-09-30).
             if !SavedScreens.remove(layout).isEmpty { note("deleted the sessions' saved screens (the sessions are gone)") }
+        case .reapOrphanedAgentPrograms:
+            guard let records = identity?.orphanedAgentPrograms, !records.isEmpty, container != nil else { return }
+            _ = await reapAgentPrograms(records, why: "orphaned")
+            identity?.orphanedAgentPrograms = nil
+            if let p = identity { try? p.write(to: layout.persistedState) }
         }
         emitStatus()
     }
@@ -2352,6 +2366,155 @@ public actor Sandbox {
             try? await proc.delete()
         }
         return stream
+    }
+
+    // MARK: agent streams (676)
+
+    /// The most agent streams one sandbox has open at once.
+    public static let maximumAgentStreams = 8
+
+    /// 676: `argv` on a real pipe (no terminal — `claude --print` refuses a TTY stdin) with the environment, folder and
+    /// user given (the host passes an `exec`'s): `guestEnvironment(environment, placeholders: true)` — the proxy, the CA
+    /// and a placeholder for every bound credential, never the key — plus `AgentPipe.markerVariable`. Waits for a wake's
+    /// background steps first, so an orphaned program of an earlier stream is ended before this one starts.
+    ///
+    /// At most one live stream per `label` (`force`: the old one is severed as `sandboxStopped` and its program ended
+    /// first) and `maximumAgentStreams` per sandbox (`AgentStreamError`). The pipe is SEVERED when the sandbox is put away
+    /// (hibernate, shut down, a quit); pause and sleep only stall it (the VM stays in memory).
+    public func openAgentStream(_ argv: [String], environment: [String: String], workingDirectory: String, user: String?,
+                                label: String, force: Bool = false) async throws -> AgentPipe {
+        precondition(!argv.isEmpty, "an agent stream needs a program")
+        switch Self.agentStreamAdmission(open: agentPipes.values.map(\.label), label: label, force: force) {
+        case .open: break
+        case .labelInUse: throw AgentStreamError.labelInUse(label)
+        case .tooMany: throw AgentStreamError.tooMany(Self.maximumAgentStreams)
+        case .replace:
+            if let old = agentPipes.values.first(where: { $0.label == label }) {
+                agentPipes.removeValue(forKey: old.id)
+                old.sever(.sandboxStopped)             // its client gets E {severed: stopped}
+                await endAgentProgram(old)
+            }
+        }
+        let pipe = AgentPipe(label: label, argv0: argv[0])
+        agentPipes[pipe.id] = pipe                     // the label is taken before anything waits
+        pipe.setOnEndProgram { [weak self] in await self?.endAgentProgram(pipe) }
+        do {
+            await afterWakeSettled()
+            guard phase == .running, let container else { throw SandboxError.notRunning(phase) }
+            var env = guestEnvironment(environment, placeholders: true)
+            env[AgentPipe.markerVariable] = pipe.marker
+            let vars = GuestCommand.environment(env)
+            let proc = try await container.exec("as-\(UUID().uuidString.prefix(12).lowercased())") { cfg in
+                cfg.arguments = argv
+                cfg.environmentVariables = vars
+                cfg.workingDirectory = workingDirectory
+                cfg.terminal = false
+                cfg.stdin = pipe.input
+                cfg.stdout = AgentPipeWriter(pipe: pipe, stderr: false)
+                cfg.stderr = AgentPipeWriter(pipe: pipe, stderr: true)
+                if let user, user != "root" { cfg.user = .init(username: user) }
+            }
+            do { try await proc.start() } catch {
+                try? await proc.delete()
+                throw error
+            }
+            Task.detached { [weak self] in
+                let code = try? await proc.wait().exitCode
+                pipe.ended(code)
+                try? await proc.delete()
+                await self?.agentProgramEnded(pipe)
+            }
+            // Its pid and start time, read off the critical path (what a reap checks before it signals).
+            Task { await self.locateAgentProgram(pipe) }
+            note("agent stream \(label): \(argv[0]) started\(user.map { $0 == "root" ? "" : " as \($0)" } ?? "")")
+            return pipe
+        } catch {
+            if agentPipes[pipe.id] === pipe { agentPipes.removeValue(forKey: pipe.id) }
+            pipe.ended(nil)
+            throw error
+        }
+    }
+
+    /// 676: whether a stream labelled `label` may open beside the streams open now (their labels).
+    public enum AgentStreamAdmission: Equatable, Sendable { case open, replace, labelInUse, tooMany }
+    public static func agentStreamAdmission(open labels: [String], label: String, force: Bool) -> AgentStreamAdmission {
+        if labels.contains(label) { return force ? .replace : .labelInUse }
+        return labels.count >= maximumAgentStreams ? .tooMany : .open
+    }
+
+    /// 676: the agent streams open now (counts and times only).
+    public func agentStreamInfo() -> [AgentStreamInfo] {
+        agentPipes.values.map(\.info).sorted { $0.since < $1.since }
+    }
+
+    /// 676: the programs whose pipes were cut and are still to be ended at the next wake.
+    public var orphanedAgentPrograms: [AgentProgramRecord] { identity?.orphanedAgentPrograms ?? [] }
+
+    private func agentProgramEnded(_ pipe: AgentPipe) {
+        if agentPipes[pipe.id] === pipe { agentPipes.removeValue(forKey: pipe.id) }
+    }
+
+    private func locateAgentProgram(_ pipe: AgentPipe) async {
+        guard phase == .running, container != nil, !pipe.hasEnded,
+              let r = try? await execInContainer(["sh", "-c", GuestCommand.agentPrograms, "sh", "locate", pipe.marker], privileged: true, timeout: 10),
+              let found = GuestCommand.parseAgentLocate(r.output) else { return }
+        pipe.setGuestProcess(pid: found.pid, starttime: found.starttime)
+    }
+
+    /// 676: cut every agent stream (the VM is being put away). One cut while its program ran becomes an orphan — the program
+    /// lives on in the VM that is being saved — except at a stop, where the programs end with the VM.
+    private func severAgentPipes(_ reason: DetachReason) {
+        let all = Array(agentPipes.values)
+        agentPipes.removeAll()
+        var orphans: [AgentProgramRecord] = []
+        for p in all where p.sever(reason) && reason != .sandboxStopped { orphans.append(p.record) }
+        if !orphans.isEmpty { identity?.orphanedAgentPrograms = (identity?.orphanedAgentPrograms ?? []) + orphans }
+        if !all.isEmpty { note("severed \(all.count) agent stream(s): \(reason.rawValue)") }
+    }
+
+    /// 676: end `pipe`'s program — a client hung up and its grace ran out, or `force` replaced the stream. While the sandbox
+    /// runs: HUP, TERM, KILL now. Otherwise it becomes an orphan record, ended at the next wake: a sandbox is never woken to
+    /// clean up.
+    func endAgentProgram(_ pipe: AgentPipe) async {
+        guard pipe.exitCode == nil else { return }
+        // Never beside a lifecycle operation: it decides from the phase it sees once the gate is its own.
+        await acquire(); defer { release() }
+        guard pipe.exitCode == nil else { return }
+        if pipe.severed == nil || pipe.severed == .sandboxStopped, phase == .running, container != nil {
+            _ = await reapAgentPrograms([pipe.record], why: "its client is gone")
+            return
+        }
+        if pipe.severed == nil {
+            if agentPipes[pipe.id] === pipe { agentPipes.removeValue(forKey: pipe.id) }
+            pipe.sever(.closedByClient)
+        }
+        let r = pipe.record
+        guard identity != nil, !(identity?.orphanedAgentPrograms ?? []).contains(where: { $0.marker == r.marker }) else { return }
+        identity?.orphanedAgentPrograms = (identity?.orphanedAgentPrograms ?? []) + [r]
+        if let p = identity { try? p.write(to: layout.persistedState) }
+        note("agent stream \(r.stream): \(r.argv0) is left to end at the next wake (the sandbox is \(phase.rawValue))")
+    }
+
+    /// 676: HUP, TERM, KILL for each program (`GuestCommand.agentPrograms` reap) — how each ended, by marker.
+    private func reapAgentPrograms(_ records: [AgentProgramRecord], why: String) async -> [String: String] {
+        guard !records.isEmpty else { return [:] }
+        let t0 = ContinuousClock.now
+        let argv = ["sh", "-c", GuestCommand.agentPrograms, "sh", "reap"] + GuestCommand.agentReapArguments(records)
+        let out: [String: String]
+        do {
+            let r = try await retryingFirstGuestCall("end agent programs") {
+                try await execInContainer(argv, privileged: true, timeout: Int64(10 + 4 * records.count))
+            }
+            out = GuestCommand.parseAgentReap(r.output)
+        } catch {
+            note("could not end \(records.count) agent program(s) (\(why)): \(error.localizedDescription)")
+            return [:]
+        }
+        for rec in records {
+            note("agent-reap \(out[rec.marker] ?? "unknown"): \(rec.argv0) of stream \(rec.stream) (\(why))")
+        }
+        broadcaster.yield(.step("ended \(records.count) agent program(s) (\(why))", milliseconds: milliseconds(since: t0)))
+        return out
     }
 
     /// The guest's sessions (`deckhold ls`), live and ended.

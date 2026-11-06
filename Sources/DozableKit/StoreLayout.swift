@@ -106,6 +106,11 @@ public struct PersistedSandbox: Codable, Sendable, Equatable {
     /// sleep, and compared before a snapshot is restored (`VMLayout`). nil: an older record (a wake is
     /// best effort, as before).
     public var vmLayout: VMLayout?
+    /// 676: agent streams' programs whose pipe was cut while they ran (a hibernate, a quit) or whose client hung up while
+    /// the sandbox was paused or asleep — still in the guest, ended by the first step after the next wake or adoption
+    /// (`LifecycleStep.reapOrphanedAgentPrograms`). Persisted so a new host ends them too. nil: none (or an older record).
+    /// A cold boot starts without (its programs died with the VM).
+    public var orphanedAgentPrograms: [AgentProgramRecord]?
 
     public init(spec: SandboxSpec, phase: Phase, machineIdentifier: Data, macAddress: String?, subnet: String?,
                 shareTags: [String: String], savedAt: Date = Date()) {

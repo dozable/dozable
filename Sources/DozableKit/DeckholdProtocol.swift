@@ -646,6 +646,119 @@ public enum GuestCommand {
         """
     }
 
+    // MARK: 676 — agent streams' programs
+
+    /// 676: a ROOT script, run PRIVILEGED (reading another user's `/proc/PID/environ` needs CAP_SYS_PTRACE), for the
+    /// programs of agent streams. Each is found by `AgentPipe.markerVariable` in its environment — the session leader that
+    /// carries it (vmexec makes every exec its own session and process-group leader) — and is known by its pid and its
+    /// start time (`/proc/PID/stat` field 22), so a reused pid is never signalled.
+    ///
+    ///   · `locate MARKER` — prints `doz-agent PID STARTTIME`, or `doz-agent none` (retried for up to 3 s: the exec may
+    ///     not have reached its program yet).
+    ///   · `reap MARKER PID STARTTIME …` (a triple per program; `-` for a pid or start time not known: the marker finds
+    ///     it) — ends each the way a hang-up does, then harder: SIGHUP, ≤ 1 s, SIGTERM, ≤ 1 s, SIGKILL, ≤ 1 s — to its
+    ///     process group when it leads one, else to it and its descendants. Prints ONE
+    ///     `agent-reap MARKER hangup|terminate|kill|gone|stuck` line per program (`gone`: it had ended already).
+    ///
+    /// `DOZ_PROC` (tests only) reads another directory as `/proc`.
+    public static let agentPrograms = #"""
+    R=${DOZ_PROC:-/proc}
+    info() {
+      s=$(cat "$R/$1/stat" 2>/dev/null) || return 1
+      s=${s##*) }
+      set -- $s
+      S=$1; P=$2; G=$3; SID=$4; T=${20}
+    }
+    locate() {
+      k=$1
+      for d in $R/[0-9]*; do
+        q=${d#"$R"/}
+        tr '\0' '\n' < "$d/environ" 2>/dev/null | grep -qx "DOZ_AGENT_STREAM_ID=$k" || continue
+        info "$q" || continue
+        [ "$S" != Z ] && [ "$SID" = "$q" ] || continue
+        L=$q; LT=$T
+        return 0
+      done
+      return 1
+    }
+    live() {
+      if [ "$M" = g ]; then
+        for d in $R/[0-9]*; do
+          q=${d#"$R"/}
+          info "$q" || continue
+          [ "$S" != Z ] && [ "$G" = "$L" ] && echo "$q"
+        done
+        return 0
+      fi
+      list=" $L "
+      more=1
+      while [ $more = 1 ]; do
+        more=0
+        for d in $R/[0-9]*; do
+          q=${d#"$R"/}
+          case "$list" in *" $q "*) continue ;; esac
+          info "$q" || continue
+          case "$list" in *" $P "*) list="$list$q "; more=1 ;; esac
+        done
+      done
+      for q in $list; do
+        info "$q" || continue
+        [ "$S" != Z ] || continue
+        if [ "$q" = "$L" ] && [ "$T" != "$LT" ]; then continue; fi
+        echo "$q"
+      done
+    }
+    hit() { for q in $(live); do kill -s "$1" "$q" 2>/dev/null; done; }
+    waitgone() { i=0; while [ $i -lt 10 ]; do [ -z "$(live)" ] && return 0; sleep 0.1; i=$((i + 1)); done; [ -z "$(live)" ]; }
+    reap() {
+      K=$1; L=$2; LT=$3
+      if [ "$L" = - ]; then locate "$K" || { echo "agent-reap $K gone"; return 0; }; fi
+      if ! info "$L" || [ "$S" = Z ] || { [ "$LT" != - ] && [ "$T" != "$LT" ]; }; then echo "agent-reap $K gone"; return 0; fi
+      LT=$T
+      if [ "$G" = "$L" ]; then M=g; else M=d; fi
+      hit HUP; if waitgone; then echo "agent-reap $K hangup"; return 0; fi
+      hit TERM; if waitgone; then echo "agent-reap $K terminate"; return 0; fi
+      hit KILL; if waitgone; then echo "agent-reap $K kill"; return 0; fi
+      echo "agent-reap $K stuck"
+    }
+    case "$1" in
+    locate)
+      i=0
+      while [ $i -lt 30 ]; do
+        if locate "$2"; then echo "doz-agent $L $LT"; exit 0; fi
+        sleep 0.1; i=$((i + 1))
+      done
+      echo 'doz-agent none' ;;
+    reap)
+      shift
+      while [ $# -ge 3 ]; do reap "$1" "$2" "$3"; shift 3; done ;;
+    esac
+    """#
+
+    /// 676: the `reap` arguments for `records` (see `agentPrograms`).
+    public static func agentReapArguments(_ records: [AgentProgramRecord]) -> [String] {
+        records.flatMap { [$0.marker, $0.pid.map(String.init) ?? "-", $0.starttime.map(String.init) ?? "-"] }
+    }
+
+    /// 676: `doz-agent PID STARTTIME` → the program (nil: `doz-agent none`, or nothing readable).
+    public static func parseAgentLocate(_ output: String) -> (pid: Int, starttime: UInt64)? {
+        for line in output.split(separator: "\n") where line.hasPrefix("doz-agent ") {
+            let f = line.split(separator: " ")
+            if f.count == 3, let pid = Int(f[1]), let st = UInt64(f[2]) { return (pid, st) }
+        }
+        return nil
+    }
+
+    /// 676: how each program of a reap ended, by marker (`hangup`, `terminate`, `kill`, `gone`, `stuck`).
+    public static func parseAgentReap(_ output: String) -> [String: String] {
+        var out: [String: String] = [:]
+        for line in output.split(separator: "\n") where line.hasPrefix("agent-reap ") {
+            let f = line.split(separator: " ")
+            if f.count == 3 { out[String(f[1])] = String(f[2]) }
+        }
+        return out
+    }
+
     /// What a session inside tmux needs to keep doz's features: the mouse (the web terminal's reports,
     /// W14), OSC 52 passed OUT to deckhold (the clipboard bridge), titles, extended keys where tmux has
     /// them, a TERM the image knows; `update-environment` is not needed — one tmux server per session.

@@ -160,6 +160,11 @@ public enum LifecycleStep: Equatable, Sendable {
     /// 593: delete the saved screens — shut down, reset: the sessions they showed are gone (owner,
     /// 2026-09-30: a shut-down sandbox shows no session screens).
     case removeSavedScreens
+    /// 676: best effort — end the programs of agent streams that were SEVERED while they ran (hibernate, a quit) or whose
+    /// client hung up while the sandbox was paused or asleep (`PersistedSandbox.orphanedAgentPrograms`): HUP, TERM, KILL,
+    /// each checked against its recorded start time. The FIRST after-wake step, so no new stream (which waits for the
+    /// after-wake steps) can start beside an old program writing the same session file. Nothing to do: no guest call.
+    case reapOrphanedAgentPrograms
 }
 
 /// Turns a `LifecycleOperation` into the ordered `LifecycleStep`s it takes, and the `Phase` it
@@ -228,13 +233,17 @@ public enum LifecyclePlanner {
     /// lifecycle gate (`Sandbox.runAfterWake`), so a later lifecycle operation, a restore point, a capture
     /// or a quit waits for them, and a session open waits too (it re-applies only part of the guest
     /// fixes). Best effort: a failure is a note, never a failed wake. Empty for every other operation.
-    public static func afterWake(_ op: LifecycleOperation, from phase: Phase) -> [LifecycleStep] {
+    /// 676: the orphaned agent programs are reaped FIRST (`reapOrphanedAgentPrograms`); a resume from Pause has that step
+    /// only when there are some (`orphanedAgentPrograms`) — otherwise it stays ~1 ms with no guest call.
+    public static func afterWake(_ op: LifecycleOperation, from phase: Phase, orphanedAgentPrograms: Bool = false) -> [LifecycleStep] {
         switch (op, phase) {
+        case (.resume, .paused):
+            return orphanedAgentPrograms ? [.reapOrphanedAgentPrograms] : []
         case (.resume, .asleep), (.wake, .asleep):
-            return [.applyGuestFixes]
+            return [.reapOrphanedAgentPrograms, .applyGuestFixes]
         case (.wake, .hibernated):
             // The balloon last: a pending sleep or hibernate would only deflate it again (`skippedWhenWaiting`).
-            return [.applyGuestFixes, .returnFreeMemory]
+            return [.reapOrphanedAgentPrograms, .applyGuestFixes, .returnFreeMemory]
         default:
             return []
         }
