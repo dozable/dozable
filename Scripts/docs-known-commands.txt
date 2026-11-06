@@ -45,6 +45,7 @@ sessions/restart
 attach
 run
 exec
+agent-stream
 get
 put
 cp

@@ -391,6 +391,7 @@ make test FILTER=Suite # the matching unit tests only (swift test --filter)
 make protocol-fixtures # 676: regenerate schema/host-protocol-1/ (the host protocol's golden fixtures; make test fails on drift) — commit the diff
 make contract-check CLIENT=<path> # 676: a client package's tests against those fixtures (DOZ_PROTOCOL_FIXTURES); no CLIENT: a note, passes
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the host and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
+make test-cli-agentstream # 676: doz agent-stream in real VMs, FAKE agents — framing, user, lifecycle, orphan, hangup (AGENTSTREAM_PARTS=…; env, claude: owner-run)
 make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a host killed mid-stop)
 make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)
 ```

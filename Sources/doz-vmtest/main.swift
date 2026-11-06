@@ -983,6 +983,12 @@ Task {
             // 612: what the agent is doing — OSC 7501 through deckhold, the host and the CLI (StatusSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliStatusSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-agentstream":
+            // 676: doz agent-stream — framing, user, lifecycle, orphan, hangup; env and claude on request (AgentStreamSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            let parts = Set((ProcessInfo.processInfo.environment["AGENTSTREAM_PARTS"].flatMap { $0.isEmpty ? nil : $0 } ?? "framing,user,lifecycle,orphan,hangup")
+                .split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+            await cliAgentStreamSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path, parts: parts)
         case "cli-grids":
             // 648: the screens as cells — session-grids over the status watchers, the saved grid (GridsSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
