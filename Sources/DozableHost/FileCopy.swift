@@ -76,24 +76,34 @@ public enum CopyFrame {
         return d
     }
 
-    /// Frames out of a byte stream cut anywhere. A frame over the maximum or of an unknown type is an error.
+    /// Frames out of a byte stream cut anywhere. A frame over the maximum is an error, and so is one of a type this
+    /// connection does not carry — unless the parser skips unknown types (676: a client of `agent-stream` skips a
+    /// host → client type it does not know; frames are length-delimited, so the next one is found).
     public final class Parser {
         private var buffer = Data()
-        public init() {}
+        private let types: Set<UInt8>
+        private let skippingUnknown: Bool
+        /// `copy`'s frames: `D`, `E`, `F`.
+        public init() { types = [CopyFrame.data, CopyFrame.end, CopyFrame.finish]; skippingUnknown = false }
+        /// 676: the frame types this connection carries (`agent-stream` adds `R`); `skippingUnknown`: any other type is
+        /// read past, never an error.
+        public init(types: Set<UInt8>, skippingUnknown: Bool = false) { self.types = types; self.skippingUnknown = skippingUnknown }
         public enum Failure: Error, Equatable { case tooLarge, unknownType(UInt8) }
         public func feed(_ bytes: Data) throws -> [(type: UInt8, payload: Data)] {
             buffer.append(bytes)
             var out: [(UInt8, Data)] = []
-            while buffer.count >= 5 {
-                let b = buffer.startIndex
-                let t = buffer[b]
-                guard [CopyFrame.data, CopyFrame.end, CopyFrame.finish].contains(t) else { throw Failure.unknownType(t) }
-                let n = Int(buffer[b + 1]) << 24 | Int(buffer[b + 2]) << 16 | Int(buffer[b + 3]) << 8 | Int(buffer[b + 4])
+            var at = buffer.startIndex
+            while buffer.endIndex - at >= 5 {
+                let t = buffer[at]
+                let known = types.contains(t)
+                guard known || skippingUnknown else { throw Failure.unknownType(t) }
+                let n = Int(buffer[at + 1]) << 24 | Int(buffer[at + 2]) << 16 | Int(buffer[at + 3]) << 8 | Int(buffer[at + 4])
                 guard n <= CopyFrame.maximumPayload else { throw Failure.tooLarge }
-                guard buffer.count >= 5 + n else { break }
-                out.append((t, Data(buffer[(b + 5)..<(b + 5 + n)])))
-                buffer = Data(buffer[(b + 5 + n)...])
+                guard buffer.endIndex - at >= 5 + n else { break }
+                if known { out.append((t, Data(buffer[(at + 5)..<(at + 5 + n)]))) }
+                at += 5 + n
             }
+            if at > buffer.startIndex { buffer = Data(buffer[at...]) }
             return out
         }
     }

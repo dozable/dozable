@@ -31,17 +31,17 @@ final class HostProtocolFixtureTests: XCTestCase {
         .start, .wake, .pause, .resume, .sleep, .hibernate, .shutdown, .reset, .rm,
         .openSession, .sessionEnd, .sessionRestart, .exec, .rename, .hostStop, .accountList, .resources,
         .ports, .portOpen, .sessionScreen, .sessionGrids,
-        .attach, .events, .copy,
+        .attach, .events, .copy, .agentStream,
     ]
 
     /// How the connection carries the answer: `none` — zero or more `event` lines, then ONE `ok` line, then the host
     /// closes; `events` — `event` lines until the client hangs up; `attach` — the `ok` line, then raw VT and the attach
-    /// wire (`attach/`); `frames` — the `ok` line, then `CopyFrame`s (`copy/`). `when`: the request field that makes it
+    /// wire (`attach/`); `frames` — the `ok` line, then `CopyFrame`s (`copy/`, `agent-stream/`). `when`: the request field that makes it
     /// a stream (otherwise `none`).
     static func stream(_ op: HostOp) -> (mode: String, when: String?) {
         switch op {
         case .attach: ("attach", nil)
-        case .copy: ("frames", nil)
+        case .copy, .agentStream: ("frames", nil)
         case .events: ("events", nil)
         case .netLog, .console: ("events", "follow")
         default: ("none", nil)
@@ -227,6 +227,7 @@ final class HostProtocolFixtureTests: XCTestCase {
         try tolerance(&f)
         try attachVectors(&f)
         try copyFrames(&f)
+        try agentStreamFrames(&f)
         var hashes: [String: String] = [:]
         for (p, d) in f.map { hashes[p] = SHA256.hash(data: d).map { String(format: "%02x", $0) }.joined() }
         f.map["MANIFEST.json"] = try pretty(Manifest(protocol: HostProtocol.version, dozable: dozableVersion, files: hashes))
@@ -371,6 +372,22 @@ final class HostProtocolFixtureTests: XCTestCase {
         try f.request("events.default", request(.events, nil))
         try f.request("events.session-status", request(.events) { $0.sessionStatus = true })
         try f.request("copy.get", request(.copy) { $0.fileCopy = CopyRequest(direction: .get, path: "notes.txt") })
+        try f.request("agent-stream.default", request(.agentStream) {
+            $0.argv = ["claude", "--print", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose"]
+            $0.stream = "chat-1"
+            $0.wake = true
+            $0.start = true
+        })
+        try f.request("agent-stream.full", request(.agentStream) {
+            $0.argv = ["sh", "-c", "cat"]
+            $0.stream = "chat-1"
+            $0.force = true
+            $0.environment = ["EXAMPLE": "1"]
+            $0.user = "root"
+            $0.workdir = "/workspace"
+            $0.wake = false
+            $0.start = false
+        })
         try f.request("copy.put", request(.copy) {
             $0.fileCopy = CopyRequest(direction: .put, path: "/workspace/in", kind: .folder, name: "in", force: true)
         })
@@ -554,6 +571,9 @@ final class HostProtocolFixtureTests: XCTestCase {
                 $0.sessionStatus = SessionStatus(session: "claude", state: .working, app: "claude-code", message: "editing files", updatedAt: fixedTime)
             },
         ])
+        try f.answer("agent-stream.ready", [event(.phase, "running", phase: "running"),
+                                            ok(try typed(AgentStreamReady.self, #"{"stream":"chat-1","runAs":"agent","workdir":"/workspace","pid":4242,"woke":true}"#))])
+        try f.answer("agent-stream.exists", [.failure(HostError(.exists, "a stream labelled chat-1 is open in box — --force ends it first"))])
         try f.answer("copy.get", [ok(try typed(CopyReady.self, #"{"kind":"file","path":"/workspace/notes.txt","bytes":12,"files":1}"#))])
         try f.answer("copy.put", [ok(try typed(CopyReady.self, #"{"kind":"folder","path":"/workspace/in","runAs":"node","replaces":"folder"}"#))])
     }
@@ -795,6 +815,41 @@ final class HostProtocolFixtureTests: XCTestCase {
                    + Array("world\r\n".utf8) + Array(ClientWire.endedNotice(.exited(3), text: "the shell session has ended (exit 3)")))
         try vector("stream-no-end", "host → client: the connection closes without an end — reattach when it runs again (a held SGR reset is screen)",
                    Array("partial\u{1B}[0m".utf8))
+    }
+
+    /// 676: `agent-stream`'s frames (after the `ok` line): each type once, the end for an exit and for each severed word, a
+    /// type from a newer host a client skips, and one whole exchange.
+    static func agentStreamFrames(_ f: inout Files) throws {
+        func frame(_ name: String, _ d: String, _ b: Data) throws { try f.pretty("agent-stream/\(name).json", WireVector(description: d, bytes_hex: hex(b))) }
+        let out = Data(#"{"type":"result","subtype":"success"}"#.utf8 + [10])
+        try frame("stdout", "host → client: D (0x44), a 4-byte big-endian length, the program's stdout bytes (opaque; NDJSON for stream-json; at most 1 MiB)",
+                  AgentFrame.encode(AgentFrame.data, out))
+        try frame("stderr", "host → client: R (0x52) — the program's stderr, live", AgentFrame.encode(AgentFrame.stderr, Data("warning: slow network\n".utf8)))
+        try frame("client-data", "client → host: D — bytes for the program's stdin (a line a person typed wakes a paused or asleep sandbox)",
+                  AgentFrame.encode(AgentFrame.data, Data(#"{"type":"user","message":{"role":"user","content":"hello"}}"#.utf8 + [10])))
+        try frame("client-finish", "client → host: F (0x46), length 0 — the program's stdin reaches EOF (a client never half-closes the socket)",
+                  AgentFrame.encode(AgentFrame.finish))
+        func end(_ name: String, _ d: String, _ json: String) throws {
+            let e = try typed(AgentStreamEnd.self, json)
+            try frame(name, d, AgentFrame.encode(AgentFrame.end, try HostWire.encoder.encode(e)))
+        }
+        try end("end-exit", "host → client: E (0x45) and an AgentStreamEnd — the program exited; always the last frame",
+                #"{"exitCode":0,"stdoutBytes":2048,"stdinBytes":512,"milliseconds":3150.5}"#)
+        try end("end-exit-3", "host → client: E — the program exited with 3", #"{"exitCode":3,"stdoutBytes":0,"stdinBytes":0,"milliseconds":40}"#)
+        let why = ["sleeping": "the sandbox hibernated", "stopped": "the sandbox shut down (or the stream was replaced with force)",
+                   "host-stopping": "the host stopped (doz host stop, a quit)", "transport-lost": "the pipe died with no reason given"]
+        for w in AgentFrame.severedWords {
+            try end("end-severed-\(w)", "host → client: E — severed (\(why[w]!)): the program may live on and is ended before the next stream; resume the agent's session on a new stream",
+                    #"{"severed":"\#(w)","stdoutBytes":2048,"stdinBytes":512,"milliseconds":1200}"#)
+        }
+        try frame("unknown-type", "host → client: a frame of a type this client does not know (Z), then D — skip it by its length and read on",
+                  AgentFrame.encode(0x5A, Data("{}".utf8)) + AgentFrame.encode(AgentFrame.data, out))
+        let done = try typed(AgentStreamEnd.self, #"{"exitCode":0,"stdoutBytes":36,"stdinBytes":0,"milliseconds":900}"#)
+        try frame("stream-mixed", "host → client: stdout and stderr interleaved as they came, then the end — the same however the bytes are cut",
+                  AgentFrame.encode(AgentFrame.data, Data(#"{"type":"system","subtype":"init"}"#.utf8 + [10]))
+                  + AgentFrame.encode(AgentFrame.stderr, Data("note\n".utf8))
+                  + AgentFrame.encode(AgentFrame.data, Data("\n".utf8))
+                  + AgentFrame.encode(AgentFrame.end, try HostWire.encoder.encode(done)))
     }
 
     static func copyFrames(_ f: inout Files) throws {

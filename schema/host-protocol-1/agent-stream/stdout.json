@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "44000000267b2274797065223a22726573756c74222c2273756274797065223a2273756363657373227d0a",
+  "description" : "host → client: D (0x44), a 4-byte big-endian length, the program's stdout bytes (opaque; NDJSON for stream-json; at most 1 MiB)"
+}

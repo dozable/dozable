@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "45000000547b226d696c6c697365636f6e6473223a313230302c2273657665726564223a227472616e73706f72742d6c6f7374222c22737464696e4279746573223a3531322c227374646f75744279746573223a323034387d",
+  "description" : "host → client: E — severed (the pipe died with no reason given): the program may live on and is ended before the next stream; resume the agent's session on a new stream"
+}

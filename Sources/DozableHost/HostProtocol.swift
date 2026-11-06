@@ -146,6 +146,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// sandbox (`fileCopy`: a `CopyRequest`). Answered with `CopyReady`; then the connection carries `CopyFrame`s — a tar
     /// stream over the guest stream (no new guest→host channel) — and ends with `CopyDone`.
     case copy
+    /// 676: a structured agent program (Claude Code's stream-json, ACP, …) on a real pipe in a sandbox — `argv` with exec's
+    /// `environment`, `user`, `workdir`, `wake`, `start`; `stream` labels it (one live stream per label, at most 8 per
+    /// sandbox; `force` ends a live one of the same label first). Answered with `AgentStreamReady`; then `AgentFrame`s both
+    /// ways, the last `E` (`AgentStreamEnd`: the exit code, or why the pipe was severed). Streams on its own connection.
+    case agentStream = "agent-stream"
     /// 617 (RP-1): a sandbox's web-port forwards — listed, or one added (`portAdd`) or removed (`portRemove`); answered
     /// with `PortsAnswer`. Listeners live in the host, so this always needs it.
     case ports
@@ -470,6 +475,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// trusted (nil: the head, resolved by the host).
     public var dotfilesSource: String?
     public var dotfilesCommit: String?
+    /// 676 `agent-stream`: the stream's label — a client's own name for it (nil: the host makes one). One live stream per
+    /// label per sandbox.
+    public var stream: String?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -956,6 +964,8 @@ public struct SandboxDetail: Codable, Equatable, Sendable {
     /// 669 (659 item 13): its settings — what it overrides (its own, its project's), what it follows, and its recipe's
     /// values as recorded when it was made (`doz config show --sandbox NAME`).
     public var settings: SandboxSettingsReport? = nil
+    /// 676: the agent streams open now — counts and times, never the program's text (nil: none).
+    public var agentStreams: [AgentStreamInfo]? = nil
 }
 
 /// One guest session (`deckhold ls`).

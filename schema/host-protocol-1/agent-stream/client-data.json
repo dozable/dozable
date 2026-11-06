@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "440000003c7b2274797065223a2275736572222c226d657373616765223a7b22726f6c65223a2275736572222c22636f6e74656e74223a2268656c6c6f227d7d0a",
+  "description" : "client → host: D — bytes for the program's stdin (a line a person typed wakes a paused or asleep sandbox)"
+}

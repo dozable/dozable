@@ -1,0 +1,2 @@
+{"event":{"kind":"phase","phase":"running","sandbox":"box","text":"running","time":"2026-01-01T00:00:00.000Z"},"v":1}
+{"ok":true,"result":{"pid":4242,"runAs":"agent","stream":"chat-1","woke":true,"workdir":"/workspace"},"v":1}

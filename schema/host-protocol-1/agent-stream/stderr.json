@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "52000000167761726e696e673a20736c6f77206e6574776f726b0a",
+  "description" : "host → client: R (0x52) — the program's stderr, live"
+}

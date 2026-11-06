@@ -143,6 +143,13 @@
     },
     {
       "answeredWithoutHost" : false,
+      "name" : "agent-stream",
+      "readOnly" : false,
+      "stream" : "frames",
+      "tier" : 1
+    },
+    {
+      "answeredWithoutHost" : false,
       "name" : "attach",
       "readOnly" : false,
       "stream" : "attach",

@@ -815,6 +815,8 @@ public actor HostCore {
             return try JSONValue(encoding: images())
         case .copy:
             throw HostError(.invalid, "copy streams on its own connection (doz get / doz put)")
+        case .agentStream:
+            throw HostError(.invalid, "agent-stream streams on its own connection (doz agent-stream)")
         case .ports:
             return try JSONValue(encoding: try await ports(r))             // 617 (RP-1)
         case .portOpen:
@@ -1946,11 +1948,11 @@ public actor HostCore {
     /// deep (`failed to start process (cause: "internalError: "startProcess: … vmexec error: … failed to
     /// find target executable sudo" (closed three times))`; a person needs only which program and what to do. nil: any
     /// other error (passed on as it was). `runsAs`: the guest user it ran as (nil = root).
-    static func missingProgramMessage(_ error: Error, argv: [String], runsAs: String?) -> String? {
-        missingProgramMessage(String(describing: error) + " " + error.localizedDescription, argv: argv, runsAs: runsAs)
+    static func missingProgramMessage(_ error: Error, argv: [String], runsAs: String?, command: String = "doz exec") -> String? {
+        missingProgramMessage(String(describing: error) + " " + error.localizedDescription, argv: argv, runsAs: runsAs, command: command)
     }
 
-    static func missingProgramMessage(_ text: String, argv: [String], runsAs: String?) -> String? {
+    static func missingProgramMessage(_ text: String, argv: [String], runsAs: String?, command: String = "doz exec") -> String? {
         let marker = "failed to find target executable"
         guard let r = text.range(of: marker) else { return nil }
         // The name the guest reports (up to a quote, space or bracket), else the command as given.
@@ -1959,7 +1961,7 @@ public actor HostCore {
         // escaped quote sits in a literal here).
         let stops = Set([34, 39, 32, 41, 93, 10, 92].map { Character(UnicodeScalar(UInt8($0))) })
         let reported = String(rest.prefix { !stops.contains($0) })
-        return missingProgram(reported.isEmpty ? (argv.first ?? "the program") : reported, runsAs: runsAs, command: "doz exec")
+        return missingProgram(reported.isEmpty ? (argv.first ?? "the program") : reported, runsAs: runsAs, command: command)
     }
 
     /// The sentence for `program` missing in the guest, run by `command` (doz exec / doz run) as
@@ -2001,7 +2003,8 @@ public actor HostCore {
                              snapshotBytes: Int64(status.snapshotBytes > 0 ? status.snapshotBytes : fileSize(m.sandbox.layout.snapshot)),
                              hasRootDisk: m.sandbox.hasRootDisk, defaultSession: m.config.defaultSession.name,
                              agentPrompt: agentPromptReport(m), project: m.config.project, guide: guide(m),
-                             defaultArgv: m.config.defaultSession.argv, settings: Self.sandboxSettingsReport(m.config))     // 669
+                             defaultArgv: m.config.defaultSession.argv, settings: Self.sandboxSettingsReport(m.config),     // 669
+                             agentStreams: await agentStreamsOpen(m))                                                        // 676
     }
 
     func credentials(_ m: Managed) -> [CredentialRow] {

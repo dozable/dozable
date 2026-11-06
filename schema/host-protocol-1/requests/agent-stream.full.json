@@ -1,0 +1,1 @@
+{"argv":["sh","-c","cat"],"environment":{"EXAMPLE":"1"},"force":true,"name":"box","op":"agent-stream","start":false,"stream":"chat-1","user":"root","v":1,"wake":false,"workdir":"/workspace"}

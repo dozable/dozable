@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "4600000000",
+  "description" : "client → host: F (0x46), length 0 — the program's stdin reaches EOF (a client never half-closes the socket)"
+}

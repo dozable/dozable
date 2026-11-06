@@ -28,6 +28,8 @@ public final class HostServer: @unchecked Sendable {
     private var listenFD: Int32 = -1
     private var lockFD: Int32 = -1
     private var stopping = false
+    /// 676: agent streams being relayed — a host stop waits (briefly) for each to send its `E` before it exits.
+    private var agentRelays = 0
     private var signalSources: [DispatchSourceSignal] = []
     private var _recipeCatalogueWaiting = false
     /// A newer recipe catalogue was downloaded (it applies at the next host start).
@@ -263,6 +265,9 @@ public final class HostServer: @unchecked Sendable {
                 HostLog.line(e.line)
             }
         }
+        // 676: every severed agent stream's `E {severed: host-stopping}` reaches its client before the host exits.
+        let relaysDeadline = ContinuousClock.now + .seconds(3)
+        while lock.withLock({ agentRelays > 0 }) && ContinuousClock.now < relaysDeadline { try? await Task.sleep(for: .milliseconds(20)) }
         if let reply {
             let d = ContinuousClock.now - t0
             let result = HostStopResult(sandboxes: rows, milliseconds: Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15,
@@ -343,6 +348,8 @@ public final class HostServer: @unchecked Sendable {
             }
         case .copy:
             copy(conn, reader: reader, request: req)
+        case .agentStream:
+            agentStream(conn, reader: reader, request: req)
         case .netLog where req.follow == true:
             netLogFollow(conn, reader: reader, request: req)
         case .console where req.follow == true:
@@ -427,6 +434,49 @@ public final class HostServer: @unchecked Sendable {
         let end = HostCore.copyDone(stream, bytes: counted.value, since: t0, direction: direction)
         if let d = try? HostWire.encoder.encode(end) { _ = conn.write(CopyFrame.encode(CopyFrame.end, d)) }
         HostLog.line("\(req.name ?? "?"): \(direction.rawValue) \(ready.path) — \(end.ok ? "copied" : "FAILED: \(end.error ?? "")") (\(counted.value) bytes)")
+        finished(conn)
+    }
+
+    /// 676: `agent-stream` — the answer (`AgentStreamReady`, after any wake/start events), then the program's stdout as `D`
+    /// and stderr as `R` frames, the client's `D` frames to its stdin until `F`, and `E` (`AgentStreamEnd`) when the program
+    /// exits or its pipe is severed (hibernate, shut down, host stop) — never a hang. Runs on the connection's own thread.
+    private func agentStream(_ conn: HostConnection, reader: LineReader, request req: HostRequest) {
+        let opened = DispatchSemaphore(value: 0)
+        let box = AgentStreamBox()
+        Task.detached { [core] in
+            do { box.result = .success(try await core.agentStreamOpen(req) { e in conn.send(HostMessage(event: e)) }) } catch { box.result = .failure(error) }
+            opened.signal()
+        }
+        opened.wait()
+        guard case .success(let (ready, pipe))? = box.result else {
+            if case .failure(let e)? = box.result { conn.send(.failure(HostError.from(e))) }
+            finished(conn)
+            return
+        }
+        let name = req.name ?? "?"
+        guard let answer = try? JSONValue(encoding: ready), conn.send(.success(answer)) else {
+            // Gone before the answer: as any hang-up — stdin EOF, then the grace period.
+            pipe.hangUp()
+            Task.detached {
+                try? await Task.sleep(for: .seconds(5))
+                if !pipe.hasEnded { await pipe.endProgram() }
+            }
+            HostLog.line("\(name): agent-stream \(ready.stream) — the client left before the answer")
+            finished(conn)
+            return
+        }
+        lock.withLock { agentRelays += 1 }
+        let core = self.core
+        let wake = WakeOnInput { await core.agentStreamInput(req.name) }
+        let relay = AgentStreamRelay(conn: conn, pipe: pipe, onInput: { wake.input() },
+                                     hostStopping: { [self] in lock.withLock { stopping } },
+                                     log: { HostLog.line("\(name): agent-stream \(ready.stream): \($0)") })
+        let outcome = relay.run(early: reader.takeRemainder())
+        HostLog.line(HostCore.agentStreamEndLine(name, label: ready.stream, outcome))
+        if outcome.end.exitCode.map({ $0 != 0 }) == true, !outcome.clientGone, case let tail = pipe.errorOutput, !tail.isEmpty {
+            HostLog.line("\(name): agent-stream \(ready.stream): its stderr had \(tail.utf8.count) bytes (not logged)")
+        }
+        lock.withLock { agentRelays -= 1 }
         finished(conn)
     }
 
@@ -710,6 +760,11 @@ extension HostCore {
         }
         return (log, m.name)
     }
+}
+
+/// 676: an agent stream's opening, handed from its task to the connection's thread.
+final class AgentStreamBox: @unchecked Sendable {
+    var result: Result<(AgentStreamReady, AgentPipe), Error>?
 }
 
 /// 617: a copy's opening, handed from its task to the connection's thread.

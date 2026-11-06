@@ -1,0 +1,4 @@
+{
+  "bytes_hex" : "5a000000027b7d44000000267b2274797065223a22726573756c74222c2273756274797065223a2273756363657373227d0a",
+  "description" : "host → client: a frame of a type this client does not know (Z), then D — skip it by its length and read on"
+}

@@ -1,0 +1,1 @@
+{"argv":["claude","--print","--input-format","stream-json","--output-format","stream-json","--verbose"],"name":"box","op":"agent-stream","start":true,"stream":"chat-1","v":1,"wake":true}
