@@ -444,7 +444,9 @@ public final class HostServer: @unchecked Sendable {
         let opened = DispatchSemaphore(value: 0)
         let box = AgentStreamBox()
         Task.detached { [core] in
-            do { box.result = .success(try await core.agentStreamOpen(req) { e in conn.send(HostMessage(event: e)) }) } catch { box.result = .failure(error) }
+            do { box.result = .success(try await core.agentStreamOpen(req) { e in conn.send(HostMessage(event: e)) }) } catch {
+                box.result = .failure(await core.explain(error))      // 591: an updated program under the host is said so
+            }
             opened.signal()
         }
         opened.wait()

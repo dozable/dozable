@@ -2468,8 +2468,16 @@ public actor Sandbox {
         agentPipes.removeAll()
         var orphans: [AgentProgramRecord] = []
         for p in all where p.sever(reason) && reason != .sandboxStopped { orphans.append(p.record) }
-        if !orphans.isEmpty { identity?.orphanedAgentPrograms = (identity?.orphanedAgentPrograms ?? []) + orphans }
+        if !orphans.isEmpty { addOrphanedAgentPrograms(orphans) }
         if !all.isEmpty { note("severed \(all.count) agent stream(s): \(reason.rawValue)") }
+    }
+
+    /// 676: records more orphans. (Read, then write: `identity?.x = (identity?.x ?? []) + …` reads `identity` inside its own
+    /// modify access — an exclusivity violation that aborts the process.)
+    private func addOrphanedAgentPrograms(_ more: [AgentProgramRecord]) {
+        guard var p = identity else { return }
+        p.orphanedAgentPrograms = (p.orphanedAgentPrograms ?? []) + more
+        identity = p
     }
 
     /// 676: end `pipe`'s program — a client hung up and its grace ran out, or `force` replaced the stream. While the sandbox
@@ -2490,7 +2498,7 @@ public actor Sandbox {
         }
         let r = pipe.record
         guard identity != nil, !(identity?.orphanedAgentPrograms ?? []).contains(where: { $0.marker == r.marker }) else { return }
-        identity?.orphanedAgentPrograms = (identity?.orphanedAgentPrograms ?? []) + [r]
+        addOrphanedAgentPrograms([r])
         if let p = identity { try? p.write(to: layout.persistedState) }
         note("agent stream \(r.stream): \(r.argv0) is left to end at the next wake (the sandbox is \(phase.rawValue))")
     }
