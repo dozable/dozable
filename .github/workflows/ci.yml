@@ -140,7 +140,7 @@ jobs:
   flavours:
     name: Release flavours (CLI + helper) and the helper smoke
     needs: package
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    if: (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository) && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: [self-hosted, doz-ci]
     timeout-minutes: 60
     steps:
