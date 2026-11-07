@@ -10,6 +10,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `Sources/DozableHost/BootLogs.swift`, `BuildLogs.swift`; `Sources/DozableWeb/WebBootLogs.swift` | each sandbox's kept boots (`<sandbox>/boots/`), the recorder, the one renderer; 617: each image's last build log (`<store>/build-logs/`); the web's Boot log and build log projections |
 | `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
 | `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
+| `Sources/DozableKit/AgentPipe.swift`, `Sandbox.swift` (`openAgentStream`); `Sources/DozableHost/AgentStream.swift`; `Sources/DozableCLI/AgentStreamCommand.swift`; `Sources/doz-vmtest/AgentStreamSuite.swift` | 676: agent streams — the guest pipe and its bounded buffers, the orphan records and the reap, the host's relay and label registry, `doz agent-stream`; `make test-cli-agentstream` |
 
 ## Session memory and saved screens
 
@@ -239,3 +240,49 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   error (dropped when no longer true; 635.B2: never for the session being watched — its tab shown in a focused window —
   dropped once it is, and a done one goes by itself after 10 s). The UI's monitor pokes its poll on a `session-status` event; it is not an
   Activity line. `probes/612-*/browser-status.mjs` checks it in a real Chrome (scratch store and profile).
+
+## Agent streams
+
+`agent-stream` (the wire is in [HOST-PROTOCOL.md](../HOST-PROTOCOL.md)) runs a structured agent program on a real pipe
+in the guest: no terminal, no deckhold, no session. It is a stream of its own, not a session: nothing is saved,
+`sessions` does not list it and a thumbnail never shows it.
+
+- **The relay.** `HostServer` serves the op on its own connection, like `copy`; `HostCore.handle` refuses it as a plain
+  request. `HostCore.agentStreamOpen` wakes or starts as `exec` does (their events first), builds exec's environment,
+  user and folder, and calls `Sandbox.openAgentStream` (a distinct entry from `openGuestStream`, which copy, port
+  forwards and the bridges keep). `AgentStreamRelay` is the frame pump, written against the small `AgentPipeIO` protocol
+  and a socket, so `AgentStreamRelayTests` drive it over a `socketpair` with a fake pipe and no VM. The program's output
+  is written to the socket on the relay's own thread; the client's frames are read on another and sent into the pipe.
+  The frame parser is `CopyFrame.Parser(types:)`: a client of the stream skips a host frame type it does not know, the
+  host refuses a client type it does not know (a hang-up), and the copy parser still refuses `R`.
+- **Buffers.** Output is held in `AgentOutputBuffer` (4 MiB across stdout and stderr, one lock and condition). When it is
+  full the guest's writer blocks on its own readability queue, the guest pipe fills and the program blocks writing:
+  real back-pressure, nothing dropped. Input is `AgentInputQueue` (1 MiB): the host stops reading the client's socket
+  while that much is unconsumed, so the client's write blocks. A sever or an end releases a blocked writer.
+- **Severed, never hung.** `Sandbox.severAgentPipes` is called from the lifecycle steps that detach sessions
+  (hibernate, shut down, reset, remove) and from the quit paths; the reader sees the end at once with a `DetachReason`,
+  which `AgentFrame.end` maps to the word in `E`: `sleeping`, `stopped`, `host-stopping` (while the host is stopping;
+  the `E` frame is written before the host exits) or `transport-lost`. Pause and sleep keep the VM in memory, so the
+  stream stalls and continues; a client `D` frame calls `ensureRunning(wake: true)` only for a paused or asleep
+  sandbox (`WakeOnInput`, deduplicated by the lifecycle gate).
+- **The orphan registry.** Each stream's program carries a marker in its environment (`AgentPipe.markerVariable`); a
+  utility exec right after the start reads its pid and `/proc` start time (`locateAgentProgram`, off the critical path).
+  When a pipe is cut while its program ran, its `AgentProgramRecord` (stream, marker, pid, start time, `argv0`, never
+  the arguments) joins `PersistedSandbox.orphanedAgentPrograms`, which is written with the sandbox, so a new host after a
+  host stop still knows it. A cold boot clears the list: the processes died with the VM.
+- **The reap step.** `LifecycleStep.reapOrphanedAgentPrograms` is the first step of `LifecyclePlanner.afterWake` and
+  `afterAdoption` while a record exists, and `openAgentStream` waits for `afterWakeSettled()`, so a new stream can never
+  start beside its predecessor. The reap is one root utility exec (`GuestCommand.agentPrograms`): it matches each
+  record by marker and, when it has them, pid and start time (a reused pid is never signalled), then sends HUP, waits
+  1 s, TERM, waits 1 s, KILL, to the program's process group when it leads one (else to it and its descendants), and prints `hangup`, `terminate`, `kill`, `gone` or `stuck` per record. Terminals are not
+  delayed by it. A sandbox is never woken to clean up: a client that hangs up while it is paused or asleep leaves a
+  record, reaped at the next wake.
+- **Hang-up and labels.** On socket EOF the program gets stdin EOF; after 5 s (the relay's grace) it is ended through
+  the same ladder if it has not exited (`Sandbox.endAgentProgram`). One live stream per `(sandbox, label)`
+  (`Sandbox.agentStreamAdmission`: `exists` unless `force`, which ends the old one first and gives its client
+  `E {severed: stopped}`), at most `maximumAgentStreams` (8) per sandbox (`unavailable`).
+- **Logging.** `host.log` records open (argv[0], user, folder, label), end (exit code or severed word, byte counts,
+  duration) and the reap lines; never a program's arguments, input or output. `inspect` carries `agentStreams`.
+- **Tests.** `AgentStreamTests`, `AgentStreamRelayTests` and `AgentPipeTests` (framing cut every 7 bytes, the relay
+  with a fake pipe, back-pressure, grace kill, label rules, orphan records, the planner step); `HostProtocolFixtureTests`
+  for the `agent-stream/` fixtures; `make test-cli-agentstream` with fake agents in real VMs (`AgentStreamSuite`).

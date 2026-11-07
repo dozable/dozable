@@ -75,6 +75,26 @@ and `doz point revert` resets the sandbox.
 You can watch it all in the dashboard (`doz ui`): the sandbox appears under **Sandboxes**, and
 **All sessions** shows the agent working, read-only.
 
+## Driving a chat over a pipe (`doz agent-stream`)
+
+A program that wants to run an agent in a sandbox the way it runs one on your Mac (an app with its own chat window,
+say) needs a plain pipe, not a terminal. `doz agent-stream` gives it one: its standard input goes to the agent, the
+agent's output and errors come back as they are written, and its exit code is the agent's.
+
+```sh
+doz agent-stream react19 --stream chat-1 -- claude --print --input-format stream-json --output-format stream-json --verbose
+```
+
+The user, folder and environment are the same as `doz exec`'s, so the agent has its key placeholder and the sandbox's
+network rules. If the sandbox is asleep the stream waits, and a line written to it wakes the sandbox. If the sandbox
+hibernates, shuts down or the host stops, the stream ends with **exit code 75** and a line saying it was severed on
+stderr: the conversation is not lost, the agent kept it in its own session file. Start a new stream and tell the
+agent to resume (for Claude Code, `claude --resume SESSION_ID`); the old process is ended before the new one starts.
+
+A sandbox has at most 8 open streams, one per `--stream` label; `--force` ends an open one with the same label first.
+Apps do not usually run this command themselves: they speak the same stream to the host directly (see
+[the host protocol](../HOST-PROTOCOL.md)).
+
 ## Guardrails
 
 - **Keep permission changes and deletion for yourself.** The briefing asks for that; you can make it a

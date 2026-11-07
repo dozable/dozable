@@ -16,7 +16,9 @@ of; "DeckStack" and "Deckosaurus" are sibling projects some techniques were take
   a release tags `v<VERSION>` and attaches `doz-<VERSION>-macos-arm64.tar.gz` (`make release`), and the update feed
   and the Homebrew formulas follow (`make publish` / `make promote` — see "Updates").
 - **The Swift package is named `DozableKit`** (products `DozableKit` and `doz`). A later version moves the engine (the
-  `DozableKit` target, `Guest/`, the in-VM helpers) into a library of its own; until then nothing else consumes it.
+  `DozableKit` target, `Guest/`, the in-VM helpers) into a library of its own. Apps consume Dozable at runtime through
+  `host.sock` (the helper build and DozableClient); the protocol is a public contract whose rules are in
+  `docs/HOST-PROTOCOL.md`, and a change to it regenerates `schema/host-protocol-1` (`make protocol-fixtures`).
 - `make audit-resolved` exists for the release gate: this repo pins no sibling library.
 
 ## Dependencies
@@ -284,6 +286,11 @@ One row per area; each area's doc starts with the full table of its files.
   `--no-start`; an older client never does) → `ensureRunning(start:)` runs `lifecycle(.start)` (boot
   view, boot log, metrics); `ExecOutput`/`SessionOpened` carry `started`/`woke`/`bootMilliseconds`.
   `doz create --start`. `make test-cli-points` covers W25–W27.
+- **An agent stream is severed, never hung; its orphan is reaped before the next stream opens** (`agent-stream`): a hibernate,
+  shut down or host stop cuts the pipe and the client reads `E {severed}` at once, while the program may live on in the guest
+  as a recorded orphan (`PersistedSandbox.orphanedAgentPrograms`); `.reapOrphanedAgentPrograms` is the FIRST after-wake and
+  after-adoption step, and `openAgentStream` waits for it. Both buffers are bounded. See "Agent streams" in
+  [sessions.md](docs/engineering/sessions.md); `AgentStreamRelayTests`, `AgentPipeTests`, `make test-cli-agentstream`.
 - **Looking never starts the host.** Read-only commands answer from the store in-process
   (`HostCore(readOnly: true)`) unless a host runs — or a record says a VM was live when its host went
   away, which only a host can recover. A short request does not reset the idle clock; an open
@@ -341,7 +348,7 @@ are in its doc, so read it before changing that area.
 - [docs/engineering/lan.md](docs/engineering/lan.md) — `doz ui --lan`: admission, devices and invites, where it listens, sandboxes never reaching it
 - [docs/engineering/terminal-tui.md](docs/engineering/terminal-tui.md) — what the CLI draws: the colour switch, `Style`, components, `Prompter`, the input seam
 - [docs/engineering/onboarding.md](docs/engineering/onboarding.md) — image preparation in the host, `onboarded.json`, the setup wizard, the environment prompt, `doz_project.yaml`, `doz init`, uninstall
-- [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, workspace files), OSC 7501, painted thumbnails
+- [docs/engineering/sessions.md](docs/engineering/sessions.md) — saved screens and the kept layout, boot logs, the session bridges (OSC 52, the browser bridge, tmux, the Ctrl-] menu, workspace files), OSC 7501, painted thumbnails, agent streams
 - [docs/engineering/updates-and-release.md](docs/engineering/updates-and-release.md) — `BuildFlavor`, anonymous usage statistics and the sign-up, the signed update feed and channels, `make release`, signing, Homebrew
 - [docs/engineering/workspace-rules.md](docs/engineering/workspace-rules.md) — `.dozignore` / `.dozreadonly`: `dozview`, Docker's semantics in C and Swift, modes, the wake
 - [docs/engineering/tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) — the tools layer (gh, tmux 3.8, …) and the person's dotfiles

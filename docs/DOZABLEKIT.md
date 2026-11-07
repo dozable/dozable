@@ -259,6 +259,7 @@ thin client of that socket.
   `0xFF 'H'|'R' cols rows` frames from the client (the attach wire); the end of a session is
   a notice carrying `ESC ] 777;doz;ended;<code> BEL`. `events` and `net-log --follow` stream event
   lines. Fields are only ever added; a host answers a newer `v` with `error.code = "version"`.
+  The full reference, with every op, the frames and the stability promise, is [HOST-PROTOCOL.md](HOST-PROTOCOL.md).
 
 ## The directory index (`dozable-directory/v1`)
 
@@ -391,14 +392,18 @@ this repository:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/dozable/dozable.git", from: "0.31.0"),
+    .package(url: "https://github.com/dozable/dozable.git", from: "0.37.42"),
 ],
 targets: [
     .target(name: "YourTarget", dependencies: [
-        .product(name: "DozableKit", package: "dozer-sandbox"),
+        .product(name: "DozableKit", package: "dozable"),
     ]),
 ]
 ```
+
+Linking `DozableKit` requires **macOS 26** and resolves Yams 6 along with the other packages in the table above. An app
+that runs on an older macOS does not link the library: it bundles a `doz` helper build and talks to its host over
+`host.sock` with [DozableClient](https://github.com/dozable/DozableClient) (macOS 14 and later, no dependencies).
 
 **Resources in an app bundle:** copy `DozableKit_DozableKit.bundle` from the build directory into
 `Contents/Resources`. The library finds `deckhold` there (or beside the executable, or at `$DOZ_DECKHOLD`) and
