@@ -34,6 +34,10 @@ public struct DozableCommand: AsyncParsableCommand {
         commandName: "doz",
         abstract: "Dozable — fast, suspendable micro-VMs for your Mac: pause in a millisecond, hibernate to disk, wake in a third of a second.",
         discussion: """
+        A coding agent running doz for someone (Claude Code, Codex, Cursor): read \
+        https://dozable.com/docs/letting-another-agent-drive.md first — --json, exit codes, --yes, and what to ask \
+        the person before you choose for them. Every manual page as Markdown: https://dozable.com/llms.txt
+
         Lifecycle (aliases in brackets): start [cold-boot] · pause [suspend] · resume · sleep · \
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \
         and attaches; `doz up NAME` creates, starts or wakes, and attaches. Every command takes --json and --store (or $DOZ_STORE).
