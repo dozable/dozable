@@ -56,6 +56,36 @@ These are the same commands as for a sandbox's sessions ([Terminals and sessions
 Looking (`doz sessions @mac`, `screen`) never starts a host. A copy (OSC 52) reaches your clipboard as from any
 session; the open-a-URL and open-a-file bridges are off — the program is on your Mac already and opens things itself.
 
+## In the dashboard
+
+`doz ui` has a **This Mac** page (in the sidebar, under All sessions, tagged *no isolation*; `#/mac`), and All
+sessions ends with a This Mac section. The page shows each session as a tile with its picture (live while it runs; a
+gone one's last saved screen), what its agent is doing, its folder, a **No isolation** chip on every tile — and
+**permissions bypassed** on a session whose own command line asked for that. A callout at the top says what these
+sessions are.
+
+- **Watch** (or a click on the picture) opens it below, **watching**: you see it live, and nothing you type reaches it.
+- **Type into it** attaches for real — the keys go to the program, as with `doz attach @mac`.
+- **Restart…** and **End…** ask first (a box to tick), as for a sandbox's sessions.
+
+The page never opens a session: that is `doz run @mac` in a terminal on the Mac.
+
+**Your other browsers** (the dashboard's LAN option, [The dashboard on your other devices](25-doz-serve.md)) do not get
+these sessions unless you say so — they are not isolated, and a browser on your network typing into one is typing on
+your Mac. The setting `serve.mac_sessions` decides, on the Mac (never from a browser):
+
+| `serve.mac_sessions` | what another computer's browser may do |
+|---|---|
+| `off` (the default) | nothing — the page and its entry are not there |
+| `watch` | list them and watch them (read-only); no typing, no Restart or End |
+| `interactive` | everything this Mac's own browser does with them |
+
+```bash
+doz config set serve.mac_sessions watch        # applies at once
+```
+
+This Mac's own browser (`doz ui` on the Mac) always has them. A sandbox never reaches any of it.
+
 ## Bypass only when asked
 
 Dozable never adds a flag that skips an agent's permission questions for a session on the Mac, and gives it no
