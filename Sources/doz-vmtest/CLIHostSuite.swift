@@ -33,6 +33,10 @@ func cliHostSuite(binary: String) async {
     try? FileManager.default.removeItem(at: root)
     try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     let t = CLIHarness(binary: binary, store: root)
+    // The settings beside the store, not in it (nuke removes both, one after the other).
+    let xdg = URL(fileURLWithPath: root.path + "-xdg")
+    try? FileManager.default.removeItem(at: xdg)
+    t.env["XDG_CONFIG_HOME"] = xdg.path
     t.env["DOZ_HOST_IDLE"] = "30"
     t.env["DOZ_TEST_CREDENTIALS"] = "memory"
     // The markers a doz started from inside Claude Code carries — none may reach a session on the Mac.
@@ -50,6 +54,7 @@ func cliHostSuite(binary: String) async {
         t.run(["host", "stop"], timeout: 60)
         try? FileManager.default.removeItem(atPath: dir)
         try? FileManager.default.removeItem(at: root)
+        try? FileManager.default.removeItem(at: xdg)
     }
     func file(_ name: String) -> String { (try? String(contentsOf: work.appendingPathComponent(name), encoding: .utf8)) ?? "" }
     func rows() -> [SessionRow] { t.json(["sessions", "@mac"], [SessionRow].self) ?? [] }
@@ -136,10 +141,52 @@ func cliHostSuite(binary: String) async {
     r = t.run(["sessions", "send", "@mac", "nope", "--text", "x"], timeout: 30)
     check(r.code == 2 && r.err.contains("no session nope on this Mac"), "a session that is not there: exit 2 (\(r.code))")
 
+    // attach through a pty: typing, the Ctrl-] menu's d, a reattach, two viewers at once; run without -d attaches.
+    check(run("at", ["/bin/sh", "-c", "while read x; do echo at:$x; done"]).code == 0, "a session to attach to")
+    do {
+        let c = try PTYClient(t, ["attach", "@mac", "at"])
+        defer { c.close() }
+        usleep(800_000)
+        c.type("one\r")
+        check(c.wait(10) { $0.text.contains("at:one") }, "attach @mac at: typing reaches the program, its output comes back")
+        usleep(700_000)
+        c.type("\u{1D}")
+        check(c.wait(5) { $0.text.contains("Esc back") }, "Ctrl-] opens the menu")
+        c.type("d")
+        check(c.exited(within: 8) == 0, "d detaches (exit 0)")
+        check(c.text.contains("detached") && c.text.contains("doz attach @mac at"), "the detach line names doz attach @mac at")
+    } catch { check(false, "pty: \(error)") }
+    check(row("at")?.ended == false, "the session keeps running after the detach")
+    do {
+        let a = try PTYClient(t, ["attach", "@mac", "at"])
+        let b = try PTYClient(t, ["attach", "@mac", "at"])
+        defer { a.close(); b.close() }
+        check(a.wait(10) { $0.text.contains("at:one") }, "reattached: the screen comes back (at:one)")
+        usleep(800_000)
+        a.type("two\r")
+        check(a.wait(10) { $0.text.contains("at:two") } && b.wait(10) { $0.text.contains("at:two") }, "a second viewer sees what the first typed")
+        a.type("\u{1D}\u{1D}")
+        b.type("\u{1D}\u{1D}")
+        check(a.exited(within: 8) == 0 && b.exited(within: 8) == 0, "both detach (Ctrl-] twice)")
+    } catch { check(false, "pty: \(error)") }
+    do {
+        let c = try PTYClient(t, ["run", "@mac", "--session", "rr", "--workdir", work.path, "--", "/bin/sh", "-c", "echo hello-rr; sleep 600"])
+        started.insert("rr")
+        defer { c.close() }
+        check(c.wait(10) { $0.text.contains("hello-rr") }, "run @mac (no -d) attaches to its new session")
+        c.type("\u{1D}\u{1D}")
+        check(c.exited(within: 8) == 0, "…and detaches")
+    } catch { check(false, "pty: \(error)") }
+    r = t.run(["attach", "@mac", "nope"], timeout: 30)
+    check(r.code == 2 && r.err.contains("no session nope on this Mac"), "attach to a session that is not there: exit 2 (\(r.code))")
+    let ls = t.run(["ls"]).out
+    check(ls.contains("this Mac: ") && ls.contains("(no isolation) — doz sessions @mac"), "doz ls: the one line for this Mac (\(ls.split(separator: "\n").last ?? ""))")
+
     // A host stop leaves them running; the next host adopts them (same pid, same screen).
     let pidBefore = row("rd")?.pid
     check(pidBefore != nil, "rd has a pid (\(pidBefore.map(String.init) ?? "none"))")
-    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop")
+    r = t.run(["host", "stop"], timeout: 60)
+    check(r.code == 0 && r.out.contains("on this Mac keep running"), "host stop: it says the sessions on this Mac keep running")
     check(t.waitFor(10) { !t.hostRunning }, "the host is gone")
     check(row("rd")?.pid == pidBefore && row("rd")?.ended == false, "no host: sessions @mac still lists rd, same pid (looked at in-process)")
     check(!t.hostRunning, "…and looking started no host")
@@ -168,11 +215,18 @@ func cliHostSuite(binary: String) async {
           && screen("rd", until: "got:back").out.contains("got:back"), "and it answers")
 
     // A holder killed (as a restart of the Mac would): gone; restart starts it again.
-    check(run("gn", ["/bin/sh", "-c", "sleep 600"]).code == 0, "a session gn")
+    check(run("gn", ["/bin/sh", "-c", "echo gn-mark; sleep 600"]).code == 0, "a session gn")
+    check(screen("gn", until: "gn-mark").out.contains("gn-mark"), "gn says gn-mark")
+    check(t.run(["host", "stop"], timeout: 60).code == 0, "host stop (its screens are saved once more)")
     if let child = row("gn")?.pid, let holder = parentPID(child) {
         kill(pid_t(holder), SIGKILL)
         check(t.waitFor(10) { row("gn")?.gone == true }, "its holder killed: sessions @mac says gone")
         check(t.run(["sessions", "@mac"]).out.contains("gone"), "…in the text too")
+        r = t.run(["sessions", "screen", "@mac", "gn"], timeout: 30)
+        check(r.code == 0 && r.out.contains("gn-mark") && r.err.contains("is gone") && r.err.contains("not live"),
+              "sessions screen @mac gn: its saved screen, and it says it is gone")
+        r = t.run(["sessions", "@mac", "--screen", "gn"], timeout: 30)
+        check(r.code == 0 && r.out.contains("gn-mark"), "sessions @mac --screen gn: the saved screen")
         r = t.run(["sessions", "restart", "@mac", "gn", "--yes", "-d"], timeout: 30)
         check(r.code == 0 && t.waitFor(5) { row("gn")?.ended == false }, "restart @mac gn starts it again from its record")
     } else { check(false, "gn's holder pid") }
@@ -183,6 +237,15 @@ func cliHostSuite(binary: String) async {
     check(row("byp")?.bypassed == true, "sessions @mac --json: bypassed")
     check(t.run(["sessions", "@mac"]).out.contains("permissions bypassed"), "sessions @mac: marked")
     check(row("envs")?.bypassed == nil, "a session without one is not marked")
+
+    // nuke ends them (a fresh install has none) and removes the socket folder.
+    let pids = rows().filter { !$0.ended }.compactMap(\.pid)
+    r = t.run(["nuke", "--yes"], timeout: 120)
+    check(r.code == 0 && r.out.contains("session") && r.out.contains("on this Mac"),
+          "nuke --yes: it ends the sessions on this Mac (\(r.code)\(r.code == 0 ? "" : ": " + r.err.split(separator: "\n").filter { $0.hasPrefix("doz:") }.joined(separator: " | ")))")
+    check(t.waitFor(10) { pids.allSatisfy { kill(pid_t($0), 0) != 0 } }, "every program it held is gone (\(pids.count))")
+    check(!FileManager.default.fileExists(atPath: dir), "the socket folder is removed")
+    started.removeAll()
 }
 
 /// `realpath(3)` (`/tmp` is `/private/tmp`).

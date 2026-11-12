@@ -56,10 +56,30 @@ public enum Workspace {
 
     /// Why `path` (normalized) may not be a workspace, or — when it does not exist — may not be made.
     /// nil: it may.
+    /// `path` is the socket folder of this store's sessions on the Mac, inside it, or holds it (compared resolved too:
+    /// /var is /private/var).
+    static func macSocketFolderRefusal(_ path: String, store: DozableStore) -> String? {
+        func resolved(_ p: String) -> String {
+            guard let r = realpath(p, nil) else { return URL(fileURLWithPath: p).standardizedFileURL.path }
+            defer { free(r) }
+            return String(cString: r)
+        }
+        let dir = MacPlace.socketDirectory(store: store)
+        for (p, d) in [(path, dir), (resolved(path), resolved(dir))] {
+            let pp = p.hasSuffix("/") ? String(p.dropLast()) : p
+            if pp == d || d.hasPrefix(pp + "/") || pp.hasPrefix(d + "/") {
+                return "\(path) holds the sockets of the sessions on this Mac — it is never shared into a sandbox"
+            }
+        }
+        return nil
+    }
+
     public static func refusal(_ path: String, store: DozableStore?) -> String? {
         let home = home()
         if path == "/" { return "the workspace cannot be / (the whole Mac)" }
         if path == home { return "the workspace cannot be your home folder itself — pick a folder in it" }
+        // The folder of the sessions on this Mac (their holders' sockets) is never shared into a sandbox, nor anything holding it.
+        if let store, let why = macSocketFolderRefusal(path, store: store) { return why }
         var isDir: ObjCBool = false
         if FileManager.default.fileExists(atPath: path, isDirectory: &isDir) {
             guard isDir.boolValue else { return "\(path) is a file, not a folder" }

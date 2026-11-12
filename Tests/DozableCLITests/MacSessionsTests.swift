@@ -59,6 +59,15 @@ final class MacPlaceTests: XCTestCase {
         XCTAssertNotNil(MacPlace.folderProblem(f))
     }
 
+    func testTheSocketFolderIsNeverAWorkspace() {
+        let store = DozableStore(root: root.appendingPathComponent("store"))
+        let dir = MacPlace.socketDirectory(store: store)
+        XCTAssertNotNil(Workspace.refusal(dir, store: store), "the folder itself")
+        XCTAssertNotNil(Workspace.refusal(MacPlace.userTempDirectory(), store: store), "a folder that holds it")
+        XCTAssertNotNil(Workspace.refusal(dir + "/inside", store: store), "a folder inside it")
+        XCTAssertNil(Workspace.refusal(root.appendingPathComponent("work").path, store: store), "anything else as before")
+    }
+
     func testBypassIsSeen_neverAdded() {
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--dangerously-skip-permissions"]))
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--permission-mode", "bypassPermissions"]))

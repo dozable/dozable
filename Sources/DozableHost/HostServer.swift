@@ -278,10 +278,14 @@ public final class HostServer: @unchecked Sendable {
                 HostLog.line(e.line)
             }
         }
+        // The sessions on this Mac are not the host's to stop: their screens are saved once more, and they keep running.
+        let macLive = prepare ? await core.macSessionsAtExit() : 0
+        if macLive > 0 { HostLog.line("\(macLive) session(s) on this Mac keep running (their holders outlive the host)") }
         if let reply {
             let d = ContinuousClock.now - t0
-            let result = HostStopResult(sandboxes: rows, milliseconds: Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15,
+            var result = HostStopResult(sandboxes: rows, milliseconds: Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15,
                                         version: version)
+            result.macSessions = macLive > 0 ? macLive : nil
             reply.send((try? JSONValue(encoding: result)).map { HostMessage.success($0) } ?? .success(.string("stopped")))
             reply.close()
         }
@@ -524,6 +528,11 @@ public final class HostServer: @unchecked Sendable {
         let core = self.core
         let t0 = ContinuousClock.now
         Task.detached {
+            // A session on this Mac: no sandbox, no phase, never held — its holder answers, or it is not there.
+            if MacPlace.isPlace(req.name) {
+                await Self.attachMac(conn, state: state, core: core, request: req)
+                return
+            }
             let sandbox: Sandbox, session: String
             do {
                 (sandbox, session) = try await core.sandboxForAttach(req.name, session: req.session, wake: req.wake ?? true)
@@ -658,6 +667,34 @@ public final class HostServer: @unchecked Sendable {
         }
         state.markGone()?.close()
         finished(conn)
+    }
+
+    /// `attach` to a session on this Mac (`@mac`): its holder's socket directly (`MacSessions.attach`), through the same
+    /// pump — size owners, the end notice, OSC 52 — with the open-URL and workspace-file bridges off (`HostCore.bridge`).
+    /// No session named: the one that runs, when exactly one does.
+    private static func attachMac(_ conn: HostConnection, state: AttachState, core: HostCore, request req: HostRequest) async {
+        let place = MacPlace.name
+        func refuse(_ e: HostError) { conn.send(.failure(e)); conn.shutdownIO() }
+        var named = req.session
+        if named == nil {
+            let live = (await core.mac.rows()).filter { !$0.ended }.map(\.name)
+            guard live.count == 1 else {
+                return refuse(live.isEmpty ? HostError(.notFound, "no sessions on this Mac — doz run @mac -- CMD opens one")
+                                           : HostError(.invalid, "which session? doz attach @mac SESSION (\(live.joined(separator: ", ")))"))
+            }
+            named = live[0]
+        }
+        guard let session = named else { return }
+        do { try MacPlace.validateSessionName(session) } catch { return refuse(HostError.from(error)) }
+        guard case .info = await core.mac.state(session) else { return refuse(await core.macNotRunning(session)) }
+        let c = core.mac.attach(session, size: state.size)
+        // Adopted BEFORE the answer, as a sandbox's: the client sends what it typed ahead once it reads it.
+        guard state.adopt(c, key: place + "|" + session) else { c.close(); return }
+        if state.size.cols > 0, state.size.rows > 0 { core.sizeOwners.claim(place + "|" + session, ObjectIdentifier(state)) }
+        conn.send(.success(.object(["state": .string("attached"), "session": .string(session), "sandbox": .string(place),
+                                    "defaultSession": .null, "image": .null, "opened": .bool(false)])))
+        await core.watchStatus(place, session: session)
+        await pump(c, to: conn, state: state, core: core, sandbox: place, session: session)
     }
 
     /// Session → client, until the session connection ends.

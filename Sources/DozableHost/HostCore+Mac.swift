@@ -18,7 +18,10 @@ extension HostCore {
             return try JSONValue(encoding: try await macLive(r))
         case .sessionScreen:
             let s = try macSession(r, "doz sessions @mac --screen SESSION")
-            throw HostError(.notFound, "no saved screen of \(s) on this Mac")
+            guard let saved = mac.savedScreen(s) else {
+                throw HostError(.notFound, "no saved screen of \(s) on this Mac — screens are saved every few minutes while it runs, and when the host stops")
+            }
+            return try JSONValue(encoding: SessionScreen(name: MacPlace.name, saved))
         case .sessionSend:
             return try JSONValue(encoding: try await macSend(r))
         case .sessionEnd:
@@ -89,7 +92,33 @@ extension HostCore {
             out.status = statuses[MacPlace.name]?[s]
             return out
         }
+        // Its holder is gone (not ended): the screen saved last, said so.
+        let state = await mac.state(s)
+        if state == .stale || state == .noSession, let saved = mac.savedScreen(s) {
+            var out = SessionLive(sandbox: MacPlace.name, session: s, live: false, text: saved.text, cols: saved.info.cols, rows: saved.info.rows,
+                                  cursorX: nil, cursorY: nil, screen: saved.info.screen)
+            out.savedAt = saved.info.savedAt
+            out.reason = "gone"
+            out.status = statuses[MacPlace.name]?[s]
+            return out
+        }
         throw await macNotRunning(s)
+    }
+
+    /// The periodic capture's part for this Mac (`host.screen_capture_minutes`).
+    func captureMacScreens(reason: String = "periodic") async {
+        let r = await mac.captureScreens(changedOnly: true, reason: reason)
+        if !r.captured.isEmpty || !r.failed.isEmpty {
+            HostLog.line("\(MacPlace.name): \(reason) screen capture — saved \(r.captured.joined(separator: ", "))"
+                         + (r.failed.isEmpty ? "" : "; failed \(r.failed.joined(separator: ", "))") + String(format: " (%.0f ms)", r.milliseconds))
+        }
+    }
+
+    /// A host stop: the sessions on this Mac keep running (their screens saved once more) — how many.
+    public func macSessionsAtExit() async -> Int {
+        guard !readOnly else { return 0 }
+        await captureMacScreens(reason: "host stop")
+        return (await mac.rows()).filter { !$0.ended }.count
     }
 
     /// Why session `s` cannot be read or typed into now.

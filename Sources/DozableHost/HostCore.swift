@@ -1616,6 +1616,7 @@ public actor HostCore {
     /// since their last saved screen, so a crash still leaves a recent copy. One `deckhold ls` per
     /// sandbox, then a momentary attach per changed session; serialised with the lifecycle.
     public func captureScreensPeriodically() async {
+        await captureMacScreens()                            // the sessions on this Mac too
         for m in managed.values {
             guard await m.sandbox.phase == .running else { continue }
             let sb = m.sandbox

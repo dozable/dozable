@@ -137,6 +137,11 @@ struct Nuke: AsyncParsableCommand {
             return
         }
         if !g.json { Self.printList(items, kept, heading: dryRun ? "doz nuke would remove:" : "doz nuke removes:", keeps: "and keeps:") }
+        // The sessions on this Mac go too: a fresh install has none.
+        let onMac = await MacCLI.running(store)
+        if !g.json, !onMac.isEmpty {
+            Out.stdout("and \(dryRun ? "would end" : "ends") the \(onMac.count) session\(onMac.count == 1 ? "" : "s") running on this Mac (\(onMac.joined(separator: ", ")))\n")
+        }
         if dryRun {
             if g.json { Out.json(Report(dryRun: true, items: items, kept: kept)) } else { Out.stdout("(dry run: nothing was removed)\n") }
             return
@@ -145,6 +150,10 @@ struct Nuke: AsyncParsableCommand {
         if Self.lockHeld(WebControl.lockFile(store)) { throw fail(HostError(.failed, "a doz ui is running for this store — stop it first (doz ui stop), then nuke"), g) }
         if Self.lockHeld(WebServeControl.lockFile(store.root)) { throw fail(HostError(.failed, "doz serve is running for this store — stop it first (doz serve stop), then nuke"), g) }
         try confirm("Remove all of the above? This cannot be undone.", yes: yes, g)
+        if !onMac.isEmpty {
+            let ended = MacCLI.endAll(onMac, g)
+            if !g.json { Out.stdout("ended \(ended.count) session\(ended.count == 1 ? "" : "s") on this Mac\n") }
+        }
         if store.hostIsRunning() {
             if !g.json { Out.stdout("stopping the host …\n") }
             switch try? stopHostShowingProgress(store, g) {
@@ -172,6 +181,7 @@ struct Nuke: AsyncParsableCommand {
                 if !g.json { Out.stderr("doz: could not remove \(items[i].location): \(error.localizedDescription)\n") }
             }
         }
+        if await MacCLI.running(store).isEmpty { MacCLI.removeSocketFolder(store) }
         if g.json { Out.json(Report(dryRun: false, items: items, kept: kept)) }
         else if !failed { Out.stdout("This Mac is back to a fresh install of Dozable. Start again with: doz onboard (or doz ui)\n") }
         if failed { throw ExitCode(DozableExit.failed) }

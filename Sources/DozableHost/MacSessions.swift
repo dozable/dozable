@@ -311,12 +311,54 @@ public actor MacSessions {
         return .stuck
     }
 
-    /// Forget a session that does not run (its record, its `.exit`, its log).
+    /// Forget a session that does not run (its record, its `.exit`, its log, its saved screen).
     public func forget(_ s: String) {
         guard !readOnly else { return }
         record(s, nil)
         unlink(DeckholdSocket.exitFile(forSocket: socket(s)))
         unlink(folder.appendingPathComponent("\(s).log").path)
+        let keep = Set(SavedScreens.list(directory: screens).map(\.session)).subtracting([s])
+        SavedScreens.remove(directory: screens, keeping: keep)
+    }
+
+    // MARK: saved screens
+
+    /// `<store>/mac-sessions/screens` (0700): the sessions' saved screens — what `screen` shows when a holder is gone.
+    public nonisolated var screens: URL { folder.appendingPathComponent("screens") }
+
+    public nonisolated func savedScreen(_ s: String) -> SavedScreen? { SavedScreens.read(directory: screens, session: s) }
+
+    /// Save each live session's screen (with `changedOnly`, only those that wrote since their last one) — a momentary
+    /// attach (HELLO 0×0, DUMP) that disturbs nothing. A session that ended has none (removed); a gone one keeps its last.
+    @discardableResult
+    public func captureScreens(changedOnly: Bool, reason: String) async -> ScreenCaptureReport {
+        var report = ScreenCaptureReport()
+        guard !readOnly, MacPlace.folderProblem(directory) == nil else { return report }
+        let t0 = ContinuousClock.now
+        let l = await DeckholdSocket.list(directory: directory)
+        report.listed = l.sessions
+        let saved = Dictionary(SavedScreens.list(directory: screens).map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
+        let ended = Set(l.sessions.filter(\.isEnded).map(\.name))
+        report.removed = SavedScreens.remove(directory: screens, keeping: Set(saved.keys).subtracting(ended))
+        ensureStoreFolder()
+        for s in l.sessions.filter({ !$0.isEnded }).prefix(SavedScreens.maximumSessions) {
+            if changedOnly, let i = saved[s.name], i.bytesOut == s.bytesOut { report.unchanged.append(s.name); continue }
+            guard let shot = await DeckholdSocket.capture(path: socket(s.name), grid: s.grid,
+                                                          timeout: .seconds(SavedScreens.perSessionTimeoutSeconds)) else {
+                report.failed.append(s.name)
+                continue
+            }
+            let d = SavedScreens.parseDump(shot.dump)
+            let info = SavedScreenInfo(session: s.name, savedAt: Date(), reason: reason, cols: d.cols ?? s.size?.cols, rows: d.rows ?? s.size?.rows,
+                                       screen: d.screen ?? s.screen, command: s.command, pid: s.pid, bytesOut: s.bytesOut)
+            do {
+                try SavedScreens.write(directory: screens, info: info, vt: shot.snapshot, text: d.text, grid: shot.grid)
+                report.captured.append(s.name)
+            } catch { report.failed.append(s.name) }
+        }
+        let d = ContinuousClock.now - t0
+        report.milliseconds = Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15
+        return report
     }
 
     // MARK: connections

@@ -11,7 +11,10 @@ struct List: AsyncParsableCommand {
     func run() async throws {
         let rows = try decode(try await query(HostRequest(.ls), g), [SandboxInfo].self, g)
         if g.json { Out.json(rows); return }
-        if rows.isEmpty { Out.stdout("no sandboxes — doz up NAME --image lab|claude-code|pi\n"); return }
+        // The sessions on this Mac: one line of their own, last — never mixed into the sandbox rows.
+        let mac = await MacCLI.summaryLine(g.dozableStore)
+        if rows.isEmpty { Out.stdout("no sandboxes — doz up NAME --image lab|claude-code|pi\n" + (mac.map { $0 + "\n" } ?? "")); return }
+        defer { if let mac { Out.stdout(mac + "\n") } }
         var t = [["NAME", "IMAGE", "PHASE", "RAM", "DISK", "SESSIONS", "AGENT", "NETWORK", "ACCOUNT", "WORKSPACE"]]
         for r in rows {
             var phase = Out.phaseLabel(r.phase) + (r.busy ? "…" : "")
@@ -178,7 +181,9 @@ struct SessionsScreen: AsyncParsableCommand {
         if g.json { Out.json(s); return }
         if !s.live {
             let when = s.savedAt.map { " saved \(Out.ago($0))" } ?? ""
-            Out.stderr(s.reason == "unresponsive"
+            Out.stderr(s.reason == "gone"
+                ? "\(session) on this Mac is gone — this is its screen\(when), not live (doz sessions restart @mac \(session) starts it again)\n"
+                : s.reason == "unresponsive"
                 ? "\(name) does not answer — this is the screen\(when), not live\n"
                 : "\(name) is not running — this is the screen\(when), not live (--wake wakes it)\n")
         }
