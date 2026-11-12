@@ -1,3 +1,5 @@
+// 675: not in the helper build (an app drives it over host.sock; HelperBuild.swift answers the command).
+#if !DOZ_HELPER_BUILD
 import ArgumentParser
 import Darwin
 import Foundation
@@ -179,3 +181,4 @@ struct QuickMake {
         return name
     }
 }
+#endif

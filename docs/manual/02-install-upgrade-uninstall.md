@@ -1,8 +1,8 @@
 # Installing, upgrading and uninstalling
 
 `doz` is one command-line program. It comes with everything it needs inside it: the small Linux
-programs each sandbox uses, the web dashboard, and the permission macOS requires to run virtual
-machines. You install it with Homebrew.
+programs each sandbox uses, the Linux kernel sandboxes boot (so the first start downloads no kernel), the web
+dashboard, and the permission macOS requires to run virtual machines. You install it with Homebrew.
 
 ## Concepts
 
@@ -56,6 +56,11 @@ its `.sha256`). Unpack it anywhere and put its `bin` on your `PATH`; keep the fo
 link into `libexec/doz`, where doz finds its parts). `doz upgrade -y` updates such an install itself: it downloads
 the new tarball, checks it against the signed feed and Apple's signature, and swaps it in, keeping the
 previous version as `libexec/doz.previous`.
+
+The releases page also lists a `doz-VERSION-macos-arm64-helper.tar.gz`. That one is **not for you** unless you build a
+Mac app that carries `doz` inside it: it has no dashboard and never updates itself. See
+[Bundling doz in an app](33-bundling-doz-in-an-app.md). Each tarball also has a `.dSYM.zip` beside it — its symbols,
+for reading crash reports; you don't need it to run doz.
 
 ## Upgrade
 

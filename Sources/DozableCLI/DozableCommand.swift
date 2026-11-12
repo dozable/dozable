@@ -3,7 +3,6 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
-import DozableWeb
 import DozableTUI
 
 /// `doz` — Dozable's command-line tool: pausable Linux sandboxes on a Mac (585). Every command is a thin client of the store's
@@ -35,6 +34,10 @@ public struct DozableCommand: AsyncParsableCommand {
         commandName: "doz",
         abstract: "Dozable — fast, suspendable micro-VMs for your Mac: pause in a millisecond, hibernate to disk, wake in a third of a second.",
         discussion: """
+        A coding agent running doz for someone (Claude Code, Codex, Cursor): read \
+        https://dozable.com/docs/letting-another-agent-drive.md first — --json, exit codes, --yes, and what to ask \
+        the person before you choose for them. Every manual page as Markdown: https://dozable.com/llms.txt
+
         Lifecycle (aliases in brackets): start [cold-boot] · pause [suspend] · resume · sleep · \
         hibernate · wake · shutdown · reset · rm. `doz new` makes a sandbox with every default \
         and attaches; `doz up NAME` creates, starts or wakes, and attaches. Every command takes --json and --store (or $DOZ_STORE).
@@ -44,8 +47,8 @@ public struct DozableCommand: AsyncParsableCommand {
         exit with the program's own code, and 125 when doz itself fails.
         """,
         version: version,
-        subcommands: [
-            Onboard.self, Init.self, New.self, TryCommand.self, SearchCommand.self, RecipeCommand.self, ModelsCommand.self, GuideCommand.self, AgentCommand.self, Create.self, Up.self, Down.self, Start.self, Pause.self, Resume.self, SleepCommand.self, Hibernate.self, Wake.self,
+        subcommands: setup + [
+            New.self] + tryCommands + [SearchCommand.self, RecipeCommand.self, ModelsCommand.self, GuideCommand.self, AgentCommand.self, Create.self, Up.self, Down.self, Start.self, Pause.self, Resume.self, SleepCommand.self, Hibernate.self, Wake.self,
             Shutdown.self, Reset.self, Remove.self, Rename.self,
             List.self, Inspect.self, Sessions.self, Attach.self, Run.self, Exec.self, GetCommand.self, PutCommand.self, CpCommand.self, FilesCommand.self,
             ImageCommand.self, BaseCommand.self, BuilderCommand.self, ResourcesCommand.self, TemplateCommand.self, Duplicate.self, PointCommand.self, NetCommand.self, KeyCommand.self, AccountCommand.self, AccessCommand.self, ToolsCommand.self, DotfilesCommand.self, IgnoreCommand.self, PortsCommand.self, OpenCommand.self,
@@ -53,6 +56,16 @@ public struct DozableCommand: AsyncParsableCommand {
             TelemetryCommand.self, SignupCommand.self, UpdateCommand.self, Uninstall.self, Nuke.self, Inventory.self,
         ]
     )
+
+    /// 675: the setup wizards (`doz onboard`, `doz init`) and `doz try` — not compiled into the helper build, which an app
+    /// drives over host.sock (`HelperBuild.swift` answers those names with what the build leaves out).
+    #if DOZ_HELPER_BUILD
+    static let setup: [any ParsableCommand.Type] = [HelperLeftOut.Onboard.self, HelperLeftOut.Init.self]
+    static let tryCommands: [any ParsableCommand.Type] = [HelperLeftOut.Try.self]
+    #else
+    static let setup: [any ParsableCommand.Type] = [Onboard.self, Init.self]
+    static let tryCommands: [any ParsableCommand.Type] = [TryCommand.self]
+    #endif
 
     public init() {}
 }
@@ -429,7 +442,7 @@ func noteHostBuild(_ g: GlobalOptions) {
 /// The note for a host of `host`'s build seen by a doz of `this` build (nil: the same build).
 func hostBuildNote(host: String, this: String) -> String? {
     guard host != this else { return nil }
-    if WebVersion.compare(host, this) == .orderedDescending {
+    if SemVer.compare(host, this) == .orderedDescending {
         return "the doz host is \(host), newer than this doz (\(this)) — upgrade this doz (brew upgrade doz), or `doz host stop` "
             + "switches to \(this); sandboxes hibernate and wake"
     }

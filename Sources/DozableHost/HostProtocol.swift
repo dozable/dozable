@@ -1263,6 +1263,10 @@ public struct CredentialRow: Codable, Equatable, Sendable {
 public struct HostStatus: Codable, Equatable, Sendable {
     public var version: String
     public var protocolVersion: Int
+    /// 675: which build this host is — `cli` (Homebrew, the release tarball) or `helper` (the build an app carries;
+    /// `BuildFlavor.flavourName`). An app's handshake can refuse a host of the other flavour on its store. nil: a host
+    /// older than 0.37.41 (always the CLI build).
+    public var flavour: String?
     public var pid: Int32
     public var startedAt: Date
     public var store: String

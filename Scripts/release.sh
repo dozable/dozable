@@ -11,8 +11,22 @@
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
 #   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
+#   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186        675: the pinned kernel (both flavours) — no download
+#   doz-<version>/libexec/doz/licences/kernel/   with it: its provenance and GPL-2.0 source offer (Guest/kernel/)
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound2  PRIVATE builds only: the sound sandboxes' kernel
 #   doz-<version>/libexec/doz/licences/sound-kernel/   with it: its source offer (Guest/sound-kernel/)
+#
+# 675 — FLAVOUR=helper builds the HELPER build instead: the doz an app carries inside its bundle (docs/manual/33-*):
+#   dist/doz-<v>-macos-arm64-helper.tar.gz (+ .sha256) with ONE top folder doz-<v>-helper/ holding README.md and
+#   libexec/doz/{doz, VERSION, RELEASE ("helper"), DozableKit_DozableKit.bundle, kernels/, licences/} — no bin/, no
+#   dashboard bundle. Built with DOZ_HELPER_BUILD=1 (Package.swift) in its own scratch folder (.build-helper), so the
+#   two flavours never share build products. Same version, signing, notarisation and checks as the CLI release.
+# Both flavours are STRIPPED before signing (H1/H1b): the symbols go to dist/<name>.dSYM.zip, published beside the
+# tarball (its UUID is checked against the stripped binary's), so crash reports still symbolicate.
+#
+# The pinned kernel comes from KERNEL_FILE, else $DOZ_KERNEL_CACHE/<file> (the Makefile's KERNEL_CACHE), else
+# ~/Library/Caches/DozableKit/kernels/<file> — fetched there once by `make kernel` when missing (a byte-identical seed
+# when this Mac has one, else kata's release archive). Whatever the source, its sha256 must be the pin.
 #
 # PUBLIC=1 (the default — every real release from 0.31.0 on) builds the PUBLIC flavor (`-DDOZ_PUBLIC_BUILD`,
 # Sources/DozableHost/BuildFlavor.swift): no sound kernel in the tarball (doz create --sound says this build does not
@@ -38,7 +52,8 @@
 # to build without it (TEST_BUILD=1 excepted), the packed doz must say `"official": true` in `doz telemetry show --json`
 # (run in a scratch settings folder and store; looking never sends), and the RELEASE marker records `public+cloud`.
 #
-# Inputs (environment; the Makefile passes them): PUBLIC (default 1), VERSION (default: the exact vX.Y.Z tag at HEAD),
+# Inputs (environment; the Makefile passes them): FLAVOUR (cli, the default, or helper), KERNEL_FILE, DOZ_KERNEL_CACHE,
+# PUBLIC (default 1), VERSION (default: the exact vX.Y.Z tag at HEAD),
 # OUT (default dist), JOBS (default 4), SWIFT_BUILD_SYSTEM, SIGN_IDENTITY, NOTARY_PROFILE,
 # DOZ_CLOUD_PACKAGE, DOZ_CLOUD_REF, HARDENED=1 (the hardened runtime even when signing ad hoc — to test the entitlement under it),
 # DRY_RUN=1, SKIP_BUILD=1 (package the release build already in .build/release).
@@ -62,6 +77,13 @@ DOZ_CLOUD_REF="${DOZ_CLOUD_REF:-}"
 if [[ "$PUBLIC" == 1 ]]; then NO_SOUND_KERNEL=1; fi
 SOUND_KERNEL_NAME="$(sed -n 's/.*static let fileName = "\(vmlinux-[^"]*\)".*/\1/p' Sources/DozableKit/Audio.swift)"
 SOUND_KERNEL_SHA="$(sed -n 's/.*static let sha256 = "\([0-9a-f]\{64\}\)".*/\1/p' Sources/DozableKit/Audio.swift)"
+# 675: the flavour, and the pinned kernel every release carries (read from the pin itself — KernelArtifact.recommended).
+FLAVOUR="${FLAVOUR:-cli}"
+[[ "$FLAVOUR" == cli || "$FLAVOUR" == helper ]] || { printf 'x release: FLAVOUR is cli (the default) or helper, not %s\n' "$FLAVOUR" >&2; exit 1; }
+KERNEL_NAME="$(sed -n 's/.*fileName: "\(vmlinux-[^"]*\)").*/\1/p' Sources/DozableKit/KernelProvider.swift | head -1)"
+KERNEL_SHA="$(sed -n 's/.*kernelSHA256: "\([0-9a-f]\{64\}\)".*/\1/p' Sources/DozableKit/KernelProvider.swift | head -1)"
+KERNEL_FILE="${KERNEL_FILE:-}"
+KERNEL_HOME_CACHE="$HOME/Library/Caches/DozableKit/kernels"
 
 say() { printf '%s\n' "$*"; }
 fail() { printf 'x release: %s\n' "$*" >&2; exit 1; }
@@ -85,9 +107,37 @@ if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
     [[ "$got" == "$SOUND_KERNEL_SHA" ]] || fail "the sound kernel at $SOUND_KERNEL has sha256 $got, not the pinned $SOUND_KERNEL_SHA"
 fi
 
-NAME="doz-${VERSION}-macos-arm64"
-STAGE="$OUT/stage/doz-${VERSION}"
+# 675: the pinned kernel both flavours carry — an explicit file, the configured cache, or this Mac's DozableKit cache
+# (filled once by `make kernel`: a byte-identical seed when this Mac has one, else kata's release archive).
+[[ -n "$KERNEL_NAME" && -n "$KERNEL_SHA" ]] || fail "cannot read the pinned kernel's fileName/kernelSHA256 from Sources/DozableKit/KernelProvider.swift"
+if [[ -z "$KERNEL_FILE" ]]; then
+    for c in ${DOZ_KERNEL_CACHE:+"$DOZ_KERNEL_CACHE/$KERNEL_NAME"} "$KERNEL_HOME_CACHE/$KERNEL_NAME"; do
+        if [[ -f "$c" ]]; then KERNEL_FILE="$c"; break; fi
+    done
+fi
+if [[ -z "$KERNEL_FILE" && -z "$DRY_RUN" ]]; then
+    say "release: the pinned kernel is not cached on this Mac — fetching it once into $KERNEL_HOME_CACHE (make kernel)"
+    "${MAKE:-make}" kernel KERNEL_CACHE="$KERNEL_HOME_CACHE" >&2 || fail "make kernel KERNEL_CACHE=$KERNEL_HOME_CACHE failed"
+    KERNEL_FILE="$KERNEL_HOME_CACHE/$KERNEL_NAME"
+fi
+if [[ -z "$DRY_RUN" ]]; then
+    [[ -f "$KERNEL_FILE" ]] || fail "no pinned kernel at $KERNEL_FILE (KERNEL_FILE=<file>, or make kernel KERNEL_CACHE=<dir> then KERNEL_CACHE=<dir>)"
+    got="$(shasum -a 256 "$KERNEL_FILE" | cut -d' ' -f1)"
+    [[ "$got" == "$KERNEL_SHA" ]] || fail "the kernel at $KERNEL_FILE has sha256 $got, not the pinned $KERNEL_SHA"
+fi
+
+if [[ "$FLAVOUR" == helper ]]; then
+    NAME="doz-${VERSION}-macos-arm64-helper"
+    TOP="doz-${VERSION}-helper"
+    BUILD_DIR=".build-helper"
+else
+    NAME="doz-${VERSION}-macos-arm64"
+    TOP="doz-${VERSION}"
+    BUILD_DIR=".build"
+fi
+STAGE="$OUT/stage/$TOP"
 TARBALL="$OUT/${NAME}.tar.gz"
+DSYM_ZIP="$OUT/${NAME}.dSYM.zip"
 
 MODE="ad hoc"
 SIGN_ARGS=(--force --sign -)
@@ -112,8 +162,14 @@ if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" ]]; then
     upk="$(sed -n 's/.*static let updatePublicKey = "\([^"]*\)".*/\1/p' Sources/DozableHost/Updates.swift | head -1)"
     [[ -n "$upk" ]] || fail "doz carries no update public key (Distribution.updatePublicKey is empty) — make doz-update-keys once, commit the key it prints"
 fi
-# 614: an official public release carries the statistics/sign-up package. A local path must be a package.
-if [[ "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" && -z "$DOZ_CLOUD_PACKAGE" ]]; then
+# 675: the helper NEVER carries the statistics/sign-up package (owner, 2026-11-04: "no telemetry in the helper") — the
+# app that bundles it decides what it sends; the packed helper is checked below to say `official: false`.
+if [[ "$FLAVOUR" == helper && -n "$DOZ_CLOUD_PACKAGE" ]]; then
+    say "release: the helper build never includes the statistics package — DOZ_CLOUD_PACKAGE ignored for this flavour"
+    DOZ_CLOUD_PACKAGE=""
+fi
+# 614: an official public release (the CLI) carries the statistics/sign-up package. A local path must be a package.
+if [[ "$FLAVOUR" == cli && "$PUBLIC" == 1 && -z "${TEST_BUILD:-}" && -z "$DOZ_CLOUD_PACKAGE" ]]; then
     fail "a public release is the official build: set DOZ_CLOUD_PACKAGE in Makefile.config (see Makefile.config.example), or TEST_BUILD=1 for a local test build"
 fi
 if [[ -n "$DOZ_CLOUD_PACKAGE" && "$DOZ_CLOUD_PACKAGE" != *://* && "$DOZ_CLOUD_PACKAGE" != git@* && ! -f "$DOZ_CLOUD_PACKAGE/Package.swift" ]]; then
@@ -135,9 +191,11 @@ if [[ -n "$SIGN_IDENTITY" && -z "$DRY_RUN" ]]; then
 fi
 
 FLAVOR="$([[ "$PUBLIC" == 1 ]] && echo public || echo private)"
+# 675: the helper's marker says `helper` (InstallMethod: it never updates itself; publish.sh never feeds it).
+[[ "$FLAVOUR" == helper ]] && FLAVOR="helper"
 # The marker says when the closed package is in (publish.sh accepts public and public+cloud).
 [[ -n "$DOZ_CLOUD_PACKAGE" ]] && FLAVOR="$FLAVOR+cloud"
-say "release: doz $VERSION ($FLAVOR build) → $TARBALL ($MODE signature${NOTARY_PROFILE:+, notarised with profile $NOTARY_PROFILE})"
+say "release: doz $VERSION ($FLAVOR build, $FLAVOUR flavour) → $TARBALL ($MODE signature${NOTARY_PROFILE:+, notarised with profile $NOTARY_PROFILE})"
 [[ -n "$DRY_RUN" ]] && say "release: DRY RUN — every command is printed, none is run"
 
 # 1. Build (release).
@@ -146,8 +204,11 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     PUBLIC_FLAGS=()
     [[ "$PUBLIC" == 1 ]] && PUBLIC_FLAGS=(-Xswiftc -DDOZ_PUBLIC_BUILD)
     resolved_before="$(git status --porcelain -- Package.resolved)"
-    run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" \
-        swift build ${SWIFT_BUILD_SYSTEM:-} -j "$JOBS" -c release --product doz ${PUBLIC_FLAGS[@]+"${PUBLIC_FLAGS[@]}"}
+    # 675: the helper — DOZ_HELPER_BUILD=1 (Package.swift: no dashboard, no wizards, no self-update) in its own
+    # scratch folder; the CLI explicitly NOT (a stray DOZ_HELPER_BUILD in the environment never makes a CLI release).
+    HELPER_ENV="$([[ "$FLAVOUR" == helper ]] && echo 1 || echo 0)"
+    run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" DOZ_HELPER_BUILD="$HELPER_ENV" DOZ_HELPER_WEB= \
+        swift build ${SWIFT_BUILD_SYSTEM:-} -j "$JOBS" -c release --scratch-path "$BUILD_DIR" --product doz ${PUBLIC_FLAGS[@]+"${PUBLIC_FLAGS[@]}"}
     # A git URL pins the private package in Package.resolved: that pin never belongs in the public repository.
     if [[ -z "$DRY_RUN" && -z "$resolved_before" && -n "$(git status --porcelain -- Package.resolved)" ]]; then
         git checkout -- Package.resolved
@@ -156,13 +217,34 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
 fi
 
 # 2. The install layout.
-run rm -rf "$OUT/stage"
-run mkdir -p "$STAGE/bin" "$STAGE/libexec/doz"
-for b in .build/release/DozableKit_*.bundle; do
+run rm -rf "$STAGE" "$OUT/stage/$NAME.dSYM"
+run mkdir -p "$STAGE/libexec/doz"
+[[ "$FLAVOUR" == cli ]] && run mkdir -p "$STAGE/bin"
+# The CLI carries every resource bundle; the helper only the guest binaries' (no dashboard — and never a stale
+# DozableWeb bundle another build left in a scratch folder).
+if [[ "$FLAVOUR" == helper ]]; then BUNDLES=("$BUILD_DIR/release/DozableKit_DozableKit.bundle"); else BUNDLES=("$BUILD_DIR"/release/DozableKit_*.bundle); fi
+for b in "${BUNDLES[@]}"; do
     [[ -n "$DRY_RUN" || -d "$b" ]] || fail "missing $b — build first"
     run cp -R "$b" "$STAGE/libexec/doz/"
 done
-run cp .build/release/doz "$STAGE/libexec/doz/doz"
+# H1/H1b (675): the symbols go to a dSYM (published beside the tarball), then the executable is stripped — BEFORE it
+# is signed (a signed binary cannot be stripped; an app must never touch the helper's signature).
+run dsymutil "$BUILD_DIR/release/doz" -o "$OUT/stage/$NAME.dSYM"
+run cp "$BUILD_DIR/release/doz" "$STAGE/libexec/doz/doz"
+run strip "$STAGE/libexec/doz/doz"
+if [[ -z "$DRY_RUN" ]]; then
+    exe_uuid="$(dwarfdump --uuid "$STAGE/libexec/doz/doz" | awk '{print $2}')"
+    sym_uuid="$(dwarfdump --uuid "$OUT/stage/$NAME.dSYM" | awk '{print $2}')"
+    [[ -n "$exe_uuid" && "$exe_uuid" == "$sym_uuid" ]] || fail "the dSYM ($sym_uuid) does not match the stripped doz ($exe_uuid)"
+    say "  stripped: $(( $(stat -f %z "$BUILD_DIR/release/doz") / 1048576 )) MiB → $(( $(stat -f %z "$STAGE/libexec/doz/doz") / 1048576 )) MiB; symbols in $NAME.dSYM.zip (UUID $exe_uuid)"
+fi
+# 675: the pinned kernel (both flavours) and its GPL-2.0 source offer — the first start copies it into the store.
+run mkdir -p "$STAGE/libexec/doz/kernels"
+run cp "$KERNEL_FILE" "$STAGE/libexec/doz/kernels/$KERNEL_NAME"
+# The helper's own README (what it is, the layout, how to verify it, the manual's chapter) at the top of its tarball.
+if [[ "$FLAVOUR" == helper ]]; then
+    if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] Scripts/helper-README.md → $STAGE/README.md"; else sed "s/__VERSION__/$VERSION/g" Scripts/helper-README.md > "$STAGE/README.md"; fi
+fi
 if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
     run mkdir -p "$STAGE/libexec/doz/kernels"
     run cp "$SOUND_KERNEL" "$STAGE/libexec/doz/kernels/$SOUND_KERNEL_NAME"
@@ -171,10 +253,16 @@ if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $VERSION > $STAGE/libexec/doz
 # 611: the release marker — what tells an installed release (Homebrew, or the tarball unpacked by hand: `doz update`
 # swaps it) from a development build (`make install-cli`, which has VERSION but no marker, and is never updated).
 if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $FLAVOR > $STAGE/libexec/doz/RELEASE"; else printf '%s\n' "$FLAVOR" > "$STAGE/libexec/doz/RELEASE"; fi
-run ln -s ../libexec/doz/doz "$STAGE/bin/doz"
+[[ "$FLAVOUR" == cli ]] && run ln -s ../libexec/doz/doz "$STAGE/bin/doz"
 # 611: the licences a binary distribution must carry — LICENSE, NOTICE and every dependency's licence + NOTICE, from
 # the exact checkouts this build used (it fails when a resolved package has no licence file).
-run Scripts/third-party-licences.sh "$STAGE/libexec/doz/licences"
+run env CHECKOUTS="$BUILD_DIR/checkouts" Scripts/third-party-licences.sh "$STAGE/libexec/doz/licences"
+# 675: the pinned kernel's provenance and GPL-2.0 source offer, beside it in every release: the written offer, the
+# complete config, kata's patch and the script that reads the config out of the kernel.
+run mkdir -p "$STAGE/libexec/doz/licences/kernel"
+for f in Guest/kernel/PROVENANCE.md Guest/kernel/kernel.config Guest/sound-kernel/patches Guest/sound-kernel/extract-config.py; do
+    run cp -R "$f" "$STAGE/libexec/doz/licences/kernel/"
+done
 # 667: a release that carries the sound kernel (GPL-2.0, built by Dozable) carries its source offer beside the other
 # notices: the provenance and written offer, the recipe, the config fragment, the complete config and kata's patch.
 if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
@@ -214,27 +302,50 @@ if [[ -z "$DRY_RUN" ]]; then
         grep -q '^Timestamp=' <<<"$info" || fail "the doz's signature has no secure timestamp"
         say "  signed: $SIGN_IDENTITY · hardened runtime · secure timestamp"
     fi
-    [[ "$("$STAGE/bin/doz" --version)" == "$VERSION" ]] || fail "the packed doz says $("$STAGE/bin/doz" --version), not $VERSION"
+    DOZ="$STAGE/libexec/doz/doz"
+    [[ "$("$DOZ" --version)" == "$VERSION" ]] || fail "the packed doz says $("$DOZ" --version), not $VERSION"
     say "  doz --version: $VERSION"
+    # 675: the pinned kernel, carried by both flavours, is the pin.
+    [[ "$(shasum -a 256 "$STAGE/libexec/doz/kernels/$KERNEL_NAME" | cut -d' ' -f1)" == "$KERNEL_SHA" ]] || fail "the staged kernel's sha256 is not the pin"
+    say "  kernel: kernels/$KERNEL_NAME, sha256 ${KERNEL_SHA:0:12}… (its source offer in licences/kernel/)"
+    # 675: the flavour, as the binary itself says it (scratch folders; neither command touches a store or the network).
+    chk="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-check.XXXXXX")"
+    if [[ "$FLAVOUR" == helper ]]; then
+        # (the helper refuses doz upgrade before any feed is asked)
+        up="$(env -u DOZ_TEST_HELPER_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$DOZ" upgrade --check 2>&1 </dev/null || true)"
+        ui="$(env -u DOZ_TEST_HELPER_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$DOZ" ui 2>&1 </dev/null || true)"
+        rm -rf "$chk"
+        grep -q "is not in this build" <<<"$ui" || fail "the packed helper has a dashboard (doz ui: $ui)"
+        grep -q "never updates itself" <<<"$up" || fail "the packed helper does not refuse doz upgrade ($up)"
+        [[ -z "$(find "$STAGE/libexec/doz" -maxdepth 1 -name 'DozableKit_DozableWeb.bundle')" ]] || fail "the helper carries the dashboard's bundle"
+        [[ ! -e "$STAGE/bin" && -s "$STAGE/README.md" ]] || fail "the helper's top folder is README.md and libexec/ only"
+        say "  flavour: helper (no dashboard, no setup wizards, never updates itself)"
+    else
+        ui="$(env -u DOZ_TEST_HELPER_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$DOZ" ui --help 2>&1 </dev/null || true)"
+        rm -rf "$chk"
+        grep -q -- "--lan" <<<"$ui" || fail "the packed CLI has no dashboard (doz ui --help: $ui)"
+        [[ -d "$STAGE/libexec/doz/DozableKit_DozableWeb.bundle" ]] || fail "the CLI does not carry the dashboard's bundle"
+        say "  flavour: cli"
+    fi
     # The flavor, as the binary itself says it. Public: `doz account add x --chatgpt` is refused in argument
     # validation — before any store, host or browser is touched (a scratch store and settings dir all the same) —
-    # and there is no kernels/ folder. Private: --chatgpt is in `doz account add --help` (never RUN: it would sign in).
+    # and there is no sound kernel. Private: --chatgpt is in `doz account add --help` (never RUN: it would sign in).
     chk="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-check.XXXXXX")"
     if [[ "$PUBLIC" == 1 ]]; then
-        said="$(env -u DOZ_TEST_PUBLIC_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$STAGE/bin/doz" account add x --chatgpt --store "$chk/store" 2>&1 </dev/null || true)"
+        said="$(env -u DOZ_TEST_PUBLIC_BUILD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$DOZ" account add x --chatgpt --store "$chk/store" 2>&1 </dev/null || true)"
         rm -rf "$chk"
         grep -q "does not include Dozable's own ChatGPT sign-in" <<<"$said" || fail "the packed doz is not the public flavor (doz account add --chatgpt did not refuse: $said)"
-        [[ ! -e "$STAGE/libexec/doz/kernels" ]] || fail "a public build carries no sound kernel"
+        [[ ! -e "$STAGE/libexec/doz/kernels/$SOUND_KERNEL_NAME" ]] || fail "a public build carries no sound kernel"
         say "  flavor: public (no ChatGPT sign-in of its own, no sound kernel)"
     else
-        help="$(env -u DOZ_TEST_PUBLIC_BUILD XDG_CONFIG_HOME="$chk/xdg" "$STAGE/bin/doz" account add --help 2>&1 || true)"
+        help="$(env -u DOZ_TEST_PUBLIC_BUILD XDG_CONFIG_HOME="$chk/xdg" "$DOZ" account add --help 2>&1 || true)"
         rm -rf "$chk"
         grep -q -- "--chatgpt" <<<"$help" || fail "PUBLIC=0 but the packed doz is the public flavor (no --chatgpt in doz account add --help)"
         say "  flavor: private"
     fi
     # 614: the official build — as the binary itself says it (`doz telemetry show` never sends; scratch folders).
     chk="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-check.XXXXXX")"
-    shown="$(env -u DOZ_TEST_GUARD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$STAGE/bin/doz" telemetry show --json --store "$chk/store" 2>&1 </dev/null || true)"
+    shown="$(env -u DOZ_TEST_GUARD XDG_CONFIG_HOME="$chk/xdg" DOZ_STORE="$chk/store" "$DOZ" telemetry show --json --store "$chk/store" 2>&1 </dev/null || true)"
     rm -rf "$chk"
     official="$(python3 -c 'import json,sys; print(str(json.loads(sys.stdin.read()).get("official")).lower())' <<<"$shown" 2>/dev/null || echo unreadable)"
     if [[ -n "$DOZ_CLOUD_PACKAGE" ]]; then
@@ -284,26 +395,40 @@ else
 fi
 
 # 6. Pack + checksum (no macOS metadata files in the archive).
-run env COPYFILE_DISABLE=1 tar --no-mac-metadata -C "$OUT/stage" -czf "$TARBALL" "doz-${VERSION}"
+run env COPYFILE_DISABLE=1 tar --no-mac-metadata -C "$OUT/stage" -czf "$TARBALL" "$TOP"
+# H1/H1b: the symbols, published beside the tarball (a zip of the dSYM bundle).
+run rm -f "$DSYM_ZIP"
+run ditto -c -k --keepParent "$OUT/stage/$NAME.dSYM" "$DSYM_ZIP"
 if [[ -z "$DRY_RUN" ]]; then
     # 611: what people install is the TARBALL — unpack it afresh and check what comes out of it.
     unpack="$(mktemp -d "${TMPDIR:-/tmp/}doz-release-unpack.XXXXXX")"
     tar -xzf "$TARBALL" -C "$unpack"
-    packed="$unpack/doz-${VERSION}"
+    packed="$unpack/$TOP"
     codesign --verify --strict "$packed/libexec/doz/doz" || fail "the doz unpacked from the tarball does not verify"
-    [[ "$("$packed/bin/doz" --version)" == "$VERSION" ]] || fail "the doz unpacked from the tarball says $("$packed/bin/doz" --version), not $VERSION"
-    [[ -L "$packed/bin/doz" ]] || fail "bin/doz in the tarball is not a link"
+    [[ "$("$packed/libexec/doz/doz" --version)" == "$VERSION" ]] || fail "the doz unpacked from the tarball says $("$packed/libexec/doz/doz" --version), not $VERSION"
+    if [[ "$FLAVOUR" == cli ]]; then
+        [[ -L "$packed/bin/doz" ]] || fail "bin/doz in the tarball is not a link"
+        [[ "$("$packed/bin/doz" --version)" == "$VERSION" ]] || fail "bin/doz in the tarball does not run the packed doz"
+    fi
+    # 675 (H8): the layout contract — docs/manual/33-bundling-doz-in-an-app.md. Checked on what people download.
+    for f in doz VERSION RELEASE DozableKit_DozableKit.bundle/deckhold "kernels/$KERNEL_NAME" licences/kernel/PROVENANCE.md licences/kernel/kernel.config; do
+        [[ -e "$packed/libexec/doz/$f" ]] || fail "the tarball has no libexec/doz/$f (the layout contract)"
+    done
+    [[ "$(cat "$packed/libexec/doz/RELEASE")" == "$FLAVOR" ]] || fail "the tarball's RELEASE is not $FLAVOR"
+    [[ "$FLAVOUR" == cli ]] || [[ -s "$packed/README.md" ]] || fail "the helper tarball has no README.md"
     for f in LICENSE NOTICE THIRD-PARTY-LICENSES.txt; do [[ -s "$packed/libexec/doz/licences/$f" ]] || fail "the tarball has no licences/$f"; done
     if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then   # 667: the sound kernel's source offer goes with it
         for f in PROVENANCE.md sound.conf sound.config build-in-guest.sh; do
             [[ -s "$packed/libexec/doz/licences/sound-kernel/$f" ]] || fail "the tarball carries the sound kernel but not licences/sound-kernel/$f (its source offer)"
         done
     fi
+    installed="$(du -sk "$packed" | cut -f1)"
     rm -rf "$unpack"
-    say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION"
+    say "  from the tarball: codesign --verify --strict ok, doz --version $VERSION, the layout contract holds"
     (cd "$OUT" && shasum -a 256 "${NAME}.tar.gz" > "${NAME}.tar.gz.sha256")
     say "release: $TARBALL"
-    say "         sha256 $(cut -d' ' -f1 "$TARBALL.sha256")  ($(du -h "$TARBALL" | cut -f1 | tr -d ' '))"
+    say "         sha256 $(cut -d' ' -f1 "$TARBALL.sha256")  ($(( $(stat -f %z "$TARBALL") / 1048576 )) MiB compressed, $(( installed / 1024 )) MiB installed)"
+    say "         symbols: $DSYM_ZIP ($(( $(stat -f %z "$DSYM_ZIP") / 1048576 )) MiB)"
 else
     say "  [dry-run] (cd $OUT && shasum -a 256 ${NAME}.tar.gz > ${NAME}.tar.gz.sha256)"
 fi

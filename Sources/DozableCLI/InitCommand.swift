@@ -1,3 +1,5 @@
+// 675: not in the helper build (an app drives it over host.sock; HelperBuild.swift answers the command).
+#if !DOZ_HELPER_BUILD
 import ArgumentParser
 import Foundation
 import DozableKit
@@ -351,3 +353,4 @@ struct Init: AsyncParsableCommand {
         p.settings[key] = try? d.parse(options[i])
     }
 }
+#endif

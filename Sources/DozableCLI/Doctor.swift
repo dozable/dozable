@@ -80,6 +80,10 @@ struct Doctor: AsyncParsableCommand {
         let kernel = provider.cachedKernel
         if fm.fileExists(atPath: kernel.path) {
             out.append(DoctorCheck(check: "kernel", status: .ok, detail: "\(KernelArtifact.recommended.fileName) cached (\(kernelDir.path))"))
+        } else if let seed = provider.localSeed(), KernelProvider.isBundled(seed) {
+            // 675: a release carries the pinned kernel (libexec/doz/kernels): the first start copies it in.
+            out.append(DoctorCheck(check: "kernel", status: .ok,
+                                   detail: "carried by this doz (\(seed.path)) — the first start copies it into the store; no download needed"))
         } else if provider.localSeed() != nil {
             // 594 W5: Apple's container kernels hold a byte-identical copy: it is copied, not downloaded.
             out.append(DoctorCheck(check: "kernel", status: .ok,
@@ -225,7 +229,9 @@ struct Doctor: AsyncParsableCommand {
             out.append(DoctorCheck(check: "claude login", status: .ok, detail: "not looked at (DOZ_TEST_NO_MAC_LOGIN=1)"))
         } else if claude { out += claudeChecks(store: store, keychain: macLoginKeychain()) }
         out.append(codexLoginCheck(home: CodexMacLogin.resolveHome(), settings: .load()))
+        #if !DOZ_NO_WEB
         out += ServeDoctor.checks(store: store, settings: .load())
+        #endif
         return out
     }
 

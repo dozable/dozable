@@ -3,7 +3,9 @@ import Darwin
 import Foundation
 import DozableKit
 import DozableHost
+#if !DOZ_NO_WEB
 import DozableWeb
+#endif
 
 /// 623 — `doz nuke`: this Mac back to a fresh install, with `doz` itself left installed (owner, 2026-10-19:
 /// "remove everything back to a fresh install, doz stays installed; dry run with --dry-run; lists everything and their

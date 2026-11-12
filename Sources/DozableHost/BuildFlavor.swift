@@ -14,29 +14,75 @@ import Foundation
 /// told which one it is with the TEST seam `DOZ_TEST_PUBLIC_BUILD=1|0`.
 public struct BuildFlavor: Sendable, Equatable {
     public var isPublic: Bool
-    public init(isPublic: Bool) { self.isPublic = isPublic }
+    /// 675: the HELPER build (`make release FLAVOUR=helper`, `-DDOZ_HELPER_BUILD`): the doz an app carries inside its
+    /// bundle and drives over host.sock. The same host and protocol as the CLI; it never updates itself (the app
+    /// does), `ping` says `flavour: "helper"`, and it has no dashboard and no setup wizards. Independent of `isPublic`.
+    public var isHelper: Bool
+    public init(isPublic: Bool, isHelper: Bool = false) {
+        self.isPublic = isPublic
+        self.isHelper = isHelper
+    }
 
     public static let publicBuild = BuildFlavor(isPublic: true)
     public static let privateBuild = BuildFlavor(isPublic: false)
 
     /// How this binary was compiled.
     public static let compiled: BuildFlavor = {
-        #if DOZ_PUBLIC_BUILD
-        return .publicBuild
+        #if DOZ_HELPER_BUILD
+        let helper = true
         #else
-        return .privateBuild
+        let helper = false
+        #endif
+        #if DOZ_PUBLIC_BUILD
+        return BuildFlavor(isPublic: true, isHelper: helper)
+        #else
+        return BuildFlavor(isPublic: false, isHelper: helper)
         #endif
     }()
 
-    /// This process's flavor: the compiled one, unless the test seam says otherwise.
+    /// This process's flavor: the compiled one, unless the test seams say otherwise.
     public static var current: BuildFlavor { from(ProcessInfo.processInfo.environment) }
 
+    /// `DOZ_TEST_PUBLIC_BUILD=1|0` and `DOZ_TEST_HELPER_BUILD=1|0` (675) — test seams: a CLI build that says it is the
+    /// helper only refuses its own updates and reports `helper`; what the helper leaves out is decided at compile time.
     public static func from(_ env: [String: String], compiled: BuildFlavor = .compiled) -> BuildFlavor {
+        var f = compiled
         switch env["DOZ_TEST_PUBLIC_BUILD"] {
-        case "1": .publicBuild
-        case "0": .privateBuild
-        default: compiled
+        case "1": f.isPublic = true
+        case "0": f.isPublic = false
+        default: break
         }
+        switch env["DOZ_TEST_HELPER_BUILD"] {
+        case "1": f.isHelper = true
+        case "0": f.isHelper = false
+        default: break
+        }
+        return f
+    }
+
+    /// 675: what `ping` (host status) reports as `flavour` — `cli` (Homebrew, the release tarball) or `helper`.
+    public var flavourName: String { isHelper ? "helper" : "cli" }
+
+    /// The app a helper build belongs to: the name of the `.app` bundle its executable sits in
+    /// (`SandboxLab.app/Contents/Resources/Helpers/doz/doz` → SandboxLab), or nil.
+    public static func owningApp(executable: String) -> String? {
+        let parts = URL(fileURLWithPath: executable).resolvingSymlinksInPath().pathComponents
+        guard let app = parts.last(where: { $0.hasSuffix(".app") && $0.count > 4 }) else { return nil }
+        return String(app.dropLast(4))
+    }
+
+    /// 675: why a helper build never updates itself (`doz upgrade` refuses, no update checks).
+    public static func helperUpdates(app: String?) -> String {
+        if let app {
+            return "this doz belongs to \(app); \(app) updates it — it never updates itself"
+        }
+        return "this doz is the helper build an app carries inside it; the app updates it — it never updates itself"
+    }
+
+    /// 675: what a helper build leaves out (`doz ui`, `doz serve`, the setup wizards) — said by the command.
+    public static func helperLeavesOut(_ what: String) -> String {
+        "\(what) is not in this build — this doz is the helper build an app carries (no dashboard, no setup wizards); "
+            + "the app is its interface. The doz command from Homebrew has it"
     }
 
     /// Dozable's own ChatGPT sign-in is part of this build.

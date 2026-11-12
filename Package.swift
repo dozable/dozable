@@ -19,8 +19,10 @@ import PackageDescription
 // the open half and decides everything that may be sent). It joins ONLY when DOZ_CLOUD_PACKAGE names it — a local
 // path, or a git URL with DOZ_CLOUD_REF (an exact version, or a commit) — which `make release` passes from the
 // gitignored Makefile.config. Every other build (contributors, CI, forks, `make cli`) has no such dependency, its
-// `doz` installs no sender, and nothing is ever sent. The package must depend on Foundation only.
-let cloudSource = Context.environment["DOZ_CLOUD_PACKAGE"].flatMap { $0.isEmpty ? nil : $0 }
+// `doz` installs no sender, and nothing is ever sent. The package must depend on Foundation only. The helper build
+// (DOZ_HELPER_BUILD=1, below) never takes it: an app that bundles doz decides what it sends.
+let cloudSource = Context.environment["DOZ_HELPER_BUILD"] == "1" ? nil
+    : Context.environment["DOZ_CLOUD_PACKAGE"].flatMap { $0.isEmpty ? nil : $0 }
 let cloudPackage: Package.Dependency? = cloudSource.map { src in
     guard src.contains("://") || src.hasPrefix("git@") else { return .package(path: src) }
     let ref = Context.environment["DOZ_CLOUD_REF"] ?? ""
@@ -33,6 +35,17 @@ let cloudIdentity: String? = cloudSource.map { src in
     if last.hasSuffix(".git") { last = String(last.dropLast(4)) }
     return last.lowercased()
 }
+
+// The HELPER build (`make release FLAVOUR=helper`): the doz an app carries inside its bundle and drives over host.sock.
+// DOZ_HELPER_BUILD=1 defines DOZ_HELPER_BUILD in the host, the commands and main (no self-update, `ping` says
+// "helper", no setup wizards) and leaves out the web dashboard: DozableWeb is not a dependency, so neither its code
+// nor its resource bundle is built (the commands see DOZ_NO_WEB). DOZ_HELPER_WEB=1 keeps the dashboard in a helper —
+// the one switch an app that wants it would flip. Every other build is the CLI and has neither define.
+let helperBuild = Context.environment["DOZ_HELPER_BUILD"] == "1"
+let helperWeb = helperBuild && Context.environment["DOZ_HELPER_WEB"] == "1"
+let withWeb = !helperBuild || helperWeb
+let helperDefines: [SwiftSetting] = helperBuild ? [.define("DOZ_HELPER_BUILD")] : []
+let cliDefines: [SwiftSetting] = helperDefines + (withWeb ? [] : [.define("DOZ_NO_WEB")])
 
 let package = Package(
     name: "DozableKit",
@@ -219,7 +232,8 @@ let package = Package(
         .target(
             name: "DozableHost",
             dependencies: ["DozableKit"],
-            path: "Sources/DozableHost"
+            path: "Sources/DozableHost",
+            swiftSettings: helperDefines
         ),
         // 590 — `doz ui`: the local web UI. A CLIENT of the host (host.sock), served by swift-nio's
         // own HTTP/1.1 codec (NIOHTTP1 — part of swift-nio, already resolved; no new package) on
@@ -249,10 +263,11 @@ let package = Package(
         // 585 — the commands (swift-argument-parser), the attach client, the human/JSON output.
         .target(
             name: "DozableCLI",
-            dependencies: ["DozableHost", "DozableKit", "DozableWeb", "DozableTUI",
+            dependencies: ["DozableHost", "DozableKit"] + (withWeb ? ["DozableWeb"] : []) + ["DozableTUI",
                            .product(name: "ArgumentParser", package: "swift-argument-parser"),
                            .product(name: "Yams", package: "Yams")],
-            path: "Sources/DozableCLI"
+            path: "Sources/DozableCLI",
+            swiftSettings: cliDefines
         ),
         .executableTarget(
             name: "doz",
@@ -262,7 +277,7 @@ let package = Package(
             path: "Sources/doz",
             // The bridge in main is compiled ONLY with the package (`#if DOZ_CLOUD`): `canImport` alone is not enough —
             // a module left in .build by an earlier official build would make it true in a build that does not link it.
-            swiftSettings: cloudIdentity == nil ? [] : [.define("DOZ_CLOUD")]
+            swiftSettings: (cloudIdentity == nil ? [] : [.define("DOZ_CLOUD")]) + helperDefines
         ),
         .testTarget(
             name: "DozableCLITests",

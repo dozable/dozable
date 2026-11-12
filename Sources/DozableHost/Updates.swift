@@ -179,10 +179,17 @@ public enum InstallMethod: Equatable, Sendable {
     case tarball(prefix: URL)
     /// A development build (`swift build`, `make cli`, `make install-cli`): no updates.
     case development
+    /// 675: the HELPER build an app carries (`app`: the `.app` it sits in): no updates — the app updates it.
+    case helper(app: String?)
 
-    public static func detect(executable: String) -> InstallMethod {
+    /// The helper build: compiled as one (or its test seam), or a release folder whose RELEASE marker says `helper`.
+    public static func detect(executable: String, flavour: BuildFlavor = .current) -> InstallMethod {
         let exe = URL(fileURLWithPath: executable).resolvingSymlinksInPath()
         let parts = exe.pathComponents
+        let marker = (try? String(contentsOf: exe.deletingLastPathComponent().appendingPathComponent(UpdateInstaller.releaseMarker), encoding: .utf8)) ?? ""
+        if flavour.isHelper || marker.hasPrefix("helper") {
+            return .helper(app: BuildFlavor.owningApp(executable: exe.path))
+        }
         // …/Cellar/<formula>/<version>/libexec/doz/doz
         if let i = parts.lastIndex(of: "Cellar"), parts.count == i + 6, parts[i + 3] == "libexec", parts[i + 4] == "doz", parts[i + 5] == "doz" {
             return .homebrew(formula: parts[i + 1])
@@ -203,7 +210,7 @@ public enum InstallMethod: Equatable, Sendable {
         // release the feed names; `doz upgrade -y` refreshes Dozable's tap first.
         case .homebrew: "doz upgrade -y"
         case .tarball: "doz upgrade -y"
-        case .development: nil
+        case .development, .helper: nil
         }
     }
 
@@ -312,6 +319,9 @@ public struct UpdateContext: Sendable {
 
     /// Why this doz does not look for updates (nil: it does). `manual`: `doz upgrade -y` asked — even with mode off.
     public func disabledReason(manual: Bool) -> String? {
+        // 675: the helper build never looks — not even when asked (`manual`), whatever the settings: the app that
+        // carries it updates it. First, so it is the one reason a helper ever gives.
+        if case .helper(let app) = method { return BuildFlavor.helperUpdates(app: app) }
         if testWithoutFeed { return "not in a test run (no DOZ_TEST_UPDATE_FEED)" }
         if mode == .off && !manual { return "updates.mode is off" }
         if case .development = method { return "this doz is a development build (not a release install) — it is not updated" }
