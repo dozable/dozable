@@ -252,6 +252,7 @@ public enum DeckholdSocket {
     public struct Listing: Sendable {
         public var sessions: [SessionInfo]
         public var stale: [String]
+        public init(sessions: [SessionInfo], stale: [String]) { self.sessions = sessions; self.stale = stale }
     }
 
     public static func list(directory: String, timeout: Duration = .seconds(3)) async -> Listing {

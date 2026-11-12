@@ -22,14 +22,21 @@ extension HostCore {
 
     /// Open a watcher on `session` unless one runs, is being opened, or its holder cannot answer.
     func watchStatus(_ name: String, session: String) async {
-        guard !readOnly, let m = managed[name] else { return }
+        // @mac (this Mac) has no `Managed`: its holders are always "running" and watched on their sockets.
+        let onMac = MacPlace.isPlace(name)
+        guard !readOnly, onMac || managed[name] != nil else { return }
         let key = Self.key(name, session)
         guard statusWatches[key] == nil, !statusOpening.contains(key), !statusUnsupported.contains(key) else { return }
-        guard await m.sandbox.phase == .running else { return }
+        if let m = managed[name], !onMac { guard await m.sandbox.phase == .running else { return } }
         statusOpening.insert(key)
         defer { statusOpening.remove(key) }
         let conn: SessionConnection
-        do { conn = try await m.sandbox.watchStatus(session) } catch { return }
+        if onMac {
+            conn = mac.watchStatus(session)
+        } else {
+            guard let m = managed[name] else { return }
+            do { conn = try await m.sandbox.watchStatus(session) } catch { return }
+        }
         statusWatches[key] = conn
         statusWatchEpochs[key] = sessionRegistry.entry(name, session)?.epoch     // 635: what its `.ended` may remove
         Task.detached { [weak self] in
@@ -66,7 +73,7 @@ extension HostCore {
     }
 
     func statusReported(_ name: String, session: String, _ p: ProgramStatus?) {
-        guard managed[name] != nil else { return }
+        guard managed[name] != nil || MacPlace.isPlace(name) else { return }
         statusRetries[Self.key(name, session)] = nil
         setStatus(name, session: session, p.map { SessionStatus(session: session, $0) })
     }

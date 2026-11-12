@@ -72,9 +72,12 @@ extension HostCore {
 
     /// nil: the sandbox may be asked now (counted in `gridsInFlight`); else why not.
     private func admitGrids(_ name: String) async -> SessionGridAnswer.Reason? {
-        guard let m = managed[name] else { return .notFound }
-        let runs = if let seam = gridRunsForTests { seam(name) } else { await m.sandbox.phase == .running }
-        guard runs else { return .notRunning }
+        // @mac's holders always run (a gone one simply has no watcher).
+        if !MacPlace.isPlace(name) {
+            guard let m = managed[name] else { return .notFound }
+            let runs = if let seam = gridRunsForTests { seam(name) } else { await m.sandbox.phase == .running }
+            guard runs else { return .notRunning }
+        }
         guard (gridsInFlight[name] ?? 0) < Self.gridRequestsPerSandbox else { return .busy }
         gridsInFlight[name, default: 0] += 1
         return nil

@@ -333,6 +333,11 @@ public enum DozableEntry {
         usage.before()
         do {
             var command = try DozableCommand.parseAsRoot(SessionsSend.normalized(UsageHook.parserArguments(args)))
+            // @mac is this Mac, not a sandbox: only the session commands take it — every other says so, once.
+            if let e = MacCLI.refusal(command, args: args) {
+                if args.contains("--json") { Out.json(["error": ["code": e.code.rawValue, "message": e.message]]) } else { Out.stderr("doz: \(e.message)\n") }
+                throw ExitCode(DozableExit.code(for: e))
+            }
             if var a = command as? AsyncParsableCommand { try await a.run() } else { try command.run() }
             await UpdateHook.afterCommand(args)
             usage.after(exitCode: 0)

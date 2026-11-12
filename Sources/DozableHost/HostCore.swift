@@ -91,6 +91,8 @@ public actor HostCore {
     }
 
     var managed: [String: Managed] = [:]
+    /// The sessions held on THIS Mac (`@mac`) — never in `managed` (no `Sandbox`): `HostCore+Mac`.
+    public nonisolated let mac: MacSessions
     /// Names being created right now (so two `create`s cannot race).
     private var creating: Set<String> = []
     /// 590: `open-session` is serialized per sandbox.
@@ -163,6 +165,7 @@ public actor HostCore {
         self.readOnly = readOnly
         self.version = version
         self.services = services
+        self.mac = MacSessions(store: store, readOnly: readOnly)
         // 594: a store with no accounts.json follows the settings' `defaults.account`.
         let defaultAccount = newStoreDefaultAccount ?? DozableSettings.load().string(SettingKey.defaultAccount) ?? "mac"
         self.accountStore = AccountStore(store: store, newStoreKeepalive: newStoreKeepalive, newStoreDefault: defaultAccount)
@@ -706,6 +709,8 @@ public actor HostCore {
     }
 
     private func perform(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
+        // @mac is this Mac, never a sandbox: routed before anything looks a sandbox up (`HostCore+Mac`).
+        if MacPlace.isPlace(r.name) { return try await performMac(r) }
         if let n = r.name, let m = managed[n] {
             m.sandbox.setAgentSudo(Self.agentSudo(m.config))
             m.sandbox.setTimeZone(Self.guestTimeZone())

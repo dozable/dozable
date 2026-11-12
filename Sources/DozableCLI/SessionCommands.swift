@@ -150,7 +150,7 @@ struct SessionsSend: AsyncParsableCommand {
             Out.json(j)
             return
         }
-        Out.stdout("sent \(sent.bytes) byte\(sent.bytes == 1 ? "" : "s") to \(session) in \(name)" + (sent.woke ? " (woken first)" : "") + "\n")
+        Out.stdout("sent \(sent.bytes) byte\(sent.bytes == 1 ? "" : "s") to \(session) \(MacCLI.inPlace(name))" + (sent.woke ? " (woken first)" : "") + "\n")
         if let screen { Out.stdout(screen.text.isEmpty ? "" : screen.text + "\n") }
     }
 }
@@ -195,14 +195,14 @@ struct SessionsEnd: AsyncParsableCommand {
     @Argument var session: String
     @Flag(name: [.short, .long], help: "Do not ask.") var yes = false
     func run() async throws {
-        try await requireSandbox(name, g)
-        try confirm("End session \(session) in \(name)? Its program stops; what it is doing now is lost.", yes: yes || g.json, g)
+        if !MacPlace.isPlace(name) { try await requireSandbox(name, g) }
+        try confirm("End session \(session) \(MacCLI.inPlace(name))? Its program stops; what it is doing now is lost.", yes: yes || g.json, g)
         var r = HostRequest(.sessionEnd, name: name)
         r.session = session
         let e = try decode(try call(r, g), SessionEnded.self, g)
         if g.json { Out.json(e); return }
-        Out.stdout(e.how == "not-running" ? "session \(session) in \(name) was not running\n"
-                   : "ended session \(session) in \(name) (\(SessionsEnd.howText(e.how)))\n")
+        Out.stdout(e.how == "not-running" ? "session \(session) \(MacCLI.inPlace(name)) was not running\n"
+                   : "ended session \(session) \(MacCLI.inPlace(name)) (\(SessionsEnd.howText(e.how)))\n")
     }
 
     static func howText(_ how: String) -> String {
@@ -246,8 +246,8 @@ struct SessionsRestart: AsyncParsableCommand {
 
     func run() async throws {
         let key = try parseDetachKey(detachKey)
-        try await requireSandbox(name, g)
-        try confirm("Restart session \(session) in \(name)? Its program stops and starts again; what it is doing now is lost.", yes: yes || g.json, g)
+        if !MacPlace.isPlace(name) { try await requireSandbox(name, g) }
+        try confirm("Restart session \(session) \(MacCLI.inPlace(name))? Its program stops and starts again; what it is doing now is lost.", yes: yes || g.json, g)
         var r = HostRequest(.sessionRestart, name: name)
         r.session = session
         r.fresh = fresh ? true : nil
@@ -257,7 +257,7 @@ struct SessionsRestart: AsyncParsableCommand {
         let s = try decode(try call(r, g), SessionRestarted.self, g)
         if g.json { Out.json(s); return }
         if let n = s.notice { Out.stderr("[doz] \(n)\n") }
-        Out.stdout("restarted session \(session) in \(name)" + (s.resumed ? " — its conversation continues" : "") + "\n")
+        Out.stdout("restarted session \(session) \(MacCLI.inPlace(name))" + (s.resumed ? " — its conversation continues" : "") + "\n")
         guard Self.attaches(detach: detach, attach: attach, json: g.json,
                             stdinTTY: isatty(STDIN_FILENO) != 0, stdoutTTY: isatty(STDOUT_FILENO) != 0) else { return }
         AttachClient.run(store: g.dozableStore, sandbox: name, session: session, wake: false, detachKey: key, quiet: g.quiet)
@@ -284,6 +284,11 @@ struct SessionsList: AsyncParsableCommand {
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
         let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
         if g.json { Out.json(rows); return }
+        if MacPlace.isPlace(name) {
+            Out.stdout("this Mac — no isolation (your files, Keychain and network)\n")
+            Out.stdout(rows.isEmpty ? "no sessions on this Mac — doz run @mac -d --session NAME --workdir DIR -- CMD\n" : MacCLI.table(rows))
+            return
+        }
         if rows.isEmpty {
             var ls = HostRequest(.ls)
             ls.withSessions = false
@@ -351,11 +356,15 @@ struct Attach: AsyncParsableCommand {
 struct Run: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "Open a NEW session running a program, and attach to it. Exits with the program's exit code.",
-        discussion: "doz run NAME -- top. The program starts without a shell in front of it; say `-- bash -lc '…'` for one.")
+        discussion: """
+            doz run NAME -- top. The program starts without a shell in front of it; say `-- bash -lc '…'` for one. \
+            doz run @mac -- CMD runs it on THIS Mac instead, held like a sandbox's session — with no isolation at all: \
+            your files, Keychain and network (no CMD: your login shell; --workdir is a folder on the Mac, default your home).
+            """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Option(name: .long, help: "The session's name (default: the program's).") var session: String?
-    @Option(name: .long, help: "Working directory in the guest.") var workdir: String?
+    @Option(name: .long, help: "Working directory in the guest (@mac: on this Mac).") var workdir: String?
     @Option(name: .long, help: "Run as this guest user (agent images default to their user).") var user: String?
     @Option(name: [.short, .customLong("env")], help: "KEY=VALUE for the program (repeatable).") var env: [String] = []
     @Flag(name: [.short, .customLong("detach")], help: "Start it and return; attach later.") var detach = false
@@ -364,16 +373,20 @@ struct Run: AsyncParsableCommand {
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
 
     func validate() throws {
-        if command.isEmpty { throw ValidationError("which program? doz run NAME -- CMD…") }
+        if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
+        if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
     }
 
     func run() async throws {
         let key = try parseDetachKey(detachKey)
+        let onMac = MacPlace.isPlace(name)
+        if onMac, !g.quiet { Out.stderr("[doz] \(MacPlace.noIsolationLine)\n") }
         var r = HostRequest(.openSession, name: name)
         r.start = !noStart      // 594 W27: an off sandbox boots first
         r.session = session
-        r.argv = command
-        r.workdir = workdir
+        r.argv = command.isEmpty ? nil : command
+        // A folder on this Mac is absolute (the host runs elsewhere): relative to where doz runs.
+        r.workdir = onMac ? workdir.map { URL(fileURLWithPath: $0).standardizedFileURL.path } : workdir
         r.user = user
         r.environment = try parseEnv(env)
         let size = terminalSize()
@@ -387,8 +400,13 @@ struct Run: AsyncParsableCommand {
         }
         let opened = try decode(m.result ?? .null, SessionOpened.self, g)
         if !g.json, let n = opened.notice { Out.stderr("[doz] \(n)\n") }
+        if onMac, opened.bypassed == true, !g.quiet {
+            Out.stderr("[doz] session \(opened.session): \(MacPlace.bypassedMark) (its own command line asked for it)\n")
+        }
         if detach || g.json {
-            if g.json { Out.json(opened) } else {
+            if g.json { Out.json(opened) } else if onMac {
+                Out.stdout("session \(opened.session) \(opened.created ? "started" : "is already running") on this Mac — doz attach @mac \(opened.session)\n")
+            } else {
                 Out.stdout("session \(opened.session) \(opened.created ? "started" : "is already running") in \(name) — \(reattachCommand(sandbox: name, session: opened.session, defaultSession: opened.defaultSession))\n")
             }
             return

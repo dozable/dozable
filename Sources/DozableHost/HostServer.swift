@@ -130,6 +130,8 @@ public final class HostServer: @unchecked Sendable {
         Thread.detachNewThread { server.acceptLoop(lfd) }
         server.installSignalHandlers()
         Task.detached { await server.core.recoverAfterStart() }
+        // The sessions held on this Mac outlive any host: this one adopts what runs (and drops stale sockets).
+        Task.detached { await server.core.adoptMacSessions() }
         Task.detached { await server.idleLoop() }
         // 593 §9 (S2): the periodic screen capture (read once, at start — like the idle timeout).
         let captureMinutes = DozableSettings.load().int(SettingKey.screenCapture)
