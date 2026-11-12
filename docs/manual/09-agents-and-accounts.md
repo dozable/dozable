@@ -376,6 +376,12 @@ doz inspect my-app --prompt          # exactly what the next session gets
 doz config set agent.prompt false    # off: the next session start removes both
 ```
 
+Running Claude Code with **your own `--append-system-prompt`** (`doz run my-app -- claude
+--append-system-prompt "…"`) keeps the facts: Claude Code uses only one such flag, so Dozable combines
+them — the facts first, then each of your values (and an `--append-system-prompt-file`'s text) — into
+one. A value that already contains the facts (`"$(cat /run/doz/agent-prompt.md)"`) is passed as it is,
+never doubled. `--system-prompt` is a full replacement of Claude Code's prompt: then no facts are added.
+
 **Your own words**, in three layers: the built-in text < your **`agent-prompt.md`** (beside
 `doz.toml`; text outside an HTML comment replaces the built-in text for every sandbox) < a sandbox's
 own (`doz create --agent-prompt FILE`, or `agent_prompt` in `doz_project.yaml`), appended or

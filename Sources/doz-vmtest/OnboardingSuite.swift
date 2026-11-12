@@ -279,6 +279,25 @@ func cliOnboardingSuite(binary: String) async {
     check(c.run(["exec", "cc", "--", "cat", "/home/agent/.claude/skills/doz/SKILL.md"]).out.hasPrefix("---\nname: doz\n"),
           "the doz skill: ~/.claude/skills/doz/SKILL.md")
     check(c.sessions("cc").first { $0.name == "claude" }?.command == "claude", "the session's command stays `claude` (the launcher adds it)")
+    // 678 (#386): a person's own --append-system-prompt is COMBINED with the facts (it used to replace them) — the
+    // launcher the host refreshes at every session start (the baked one stays byte-identical).
+    check(c.run(["exec", "cc", "--", "sed", "-n", "3p", "/home/agent/.local/bin/claude"]).out.hasPrefix("# doz-launcher: "),
+          "the launcher was refreshed at the session start (its version line)")
+    // (its own variable: `r` is the `up cc` output a later check reads)
+    let mr = c.run(["run", "cc", "--detach", "--session", "mark", "--", "claude", "--append-system-prompt", "MARK-678 is mine"], timeout: 120)
+    check(mr.code == 0, "run cc -- claude --append-system-prompt MARK (\(mr.code))")
+    var marked = ""
+    // One line per process: the prompt's own newlines become spaces too.
+    for _ in 0..<40 where marked.isEmpty {
+        marked = c.run(["exec", "cc", "--", "sh", "-c",
+                        "for p in /proc/[0-9]*; do c=$(tr '\\0\\n' '  ' < $p/cmdline 2>/dev/null); case \"$c\" in */usr/local/bin/claude*MARK-678\\ is*) printf '%s\\n' \"$c\";; esac; done"]).out
+        if marked.isEmpty { usleep(250_000) }
+    }
+    marked = String(marked.split(separator: "\n").first ?? "")
+    check(marked.contains("--append-system-prompt # Where you are running: a Dozable") && marked.contains("MARK-678 is mine")
+          && marked.components(separatedBy: "--append-system-prompt").count == 2,
+          "Claude Code got ONE --append-system-prompt: the facts AND the person's own: \(marked.prefix(90))…\(marked.suffix(40))")
+    c.run(["sessions", "end", "cc", "mark", "--yes"], timeout: 60)
 
     // 594 (owner: "Can we install (optionally) latest claude code (default true)?"): images.claude_code_version
     // is latest by default — the host asked the registry, the bake installed that exact version, and

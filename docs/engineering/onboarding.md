@@ -72,7 +72,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   script): `/run/doz/agent-prompt.md` and ONLY the skill dir `~/.claude/skills/doz` (pi:
   `~/.pi/agent/skills/doz`) — never CLAUDE.md/AGENTS.md. Claude Code gets it through its launcher
   (`--append-system-prompt "$(cat …)"`, not for subcommands nor when the caller gives a system prompt —
-  a bake-key change); pi's own session gets `--append-system-prompt FILE` (pi reads an existing path).
+  a bake-key change). 678 (#386): the baked launcher skipped the facts when the caller gave ANY
+  `--append-system-prompt` (Claude Code keeps only the last, so a person's flag lost them). The host now
+  refreshes the launcher at every agent session start (`AgentImages.launcherRefreshScript`, in the same root
+  exec, before the program starts — so `doz run x -- claude --append-system-prompt …` is right on its first
+  session): it COMBINES every `--append-system-prompt` / `=` / `-file` value with the facts into ONE flag, adds
+  nothing to a value that already holds the facts' first line (a caller passing `$(cat /run/doz/agent-prompt.md)`),
+  and leaves `--system-prompt` and the subcommands alone. It replaces `~agent/.local/bin/claude` only when its
+  second line is the doz marker and its third (`# doz-launcher: <hash>`) is not this build's; staged root-owned
+  in `/usr/local/lib/doz`, renamed over it, never through a link. The baked `launcherScript` is untouched (the
+  bake key — `test_nodeImagesAreByteIdentical`); folding the change into the bake waits for the next deliberate
+  image change (owner). `LauncherScriptTests` runs it under /bin/sh with a stub claude; pi's own session gets `--append-system-prompt FILE` (pi reads an existing path).
   Variables are a CLOSED list; an unknown one refuses the session with its name and file. `agent.prompt
   = false` removes both at the next session.
 - **`doz_project.yaml`** is parsed by hand on Yams's node tree with the parser kept alive (anchors are

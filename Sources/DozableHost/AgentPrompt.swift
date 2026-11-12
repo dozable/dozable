@@ -617,7 +617,10 @@ extension HostCore {
         do {
             // 594 W23: the agent's sudo follows the sandbox's setting from this session on (the boot applies it too).
             let sudo = GuestCommand.agentSudoScript(user: imageSpec.user, on: Self.agentSudo(m.config))
-            let res = try await m.sandbox.exec(["sh", "-c", sudo + "\n" + AgentPrompt.deliveryScript(r, user: imageSpec.user)], timeoutSeconds: 30)
+            // 678 (#386): and Claude Code's launcher as this build writes it (it combines a caller's
+            // --append-system-prompt with the facts) — only over the doz launcher, only when it is older.
+            let res = try await m.sandbox.exec(["sh", "-c", sudo + "\n" + AgentImages.launcherRefreshScript + "\n" + AgentPrompt.deliveryScript(r, user: imageSpec.user)],
+                                               timeoutSeconds: 30)
             if res.exitCode != 0 {
                 note(m.name, "could not write the agent prompt (exit \(res.exitCode)): \(String(decoding: res.stderr.prefix(200), as: UTF8.self))")
             }

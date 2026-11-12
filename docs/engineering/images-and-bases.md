@@ -109,6 +109,8 @@ A bare file name is in `Sources/DozableKit/`.
   pins their canonical JSON): `ImageComposer` returns `AgentImages.claudeCode/.pi(release, base:)` for
   the catalogue's Node, `ImageSpec.bakeHosts` is nil for them (absent from the canonical JSON), and the
   launcher's `.node` script is the old one. Keep that test green: a key change re-bakes every store.
+  678: a launcher change ships at RUN time instead — `AgentImages.launcherRuntimeScript` is written over the
+  baked one at every agent session start (`launcherRefreshScript`; onboarding.md, "The environment prompt").
 - **Claude Code on a base without Node is its NATIVE build** (`NativeClaudeBuild`: the sha256 of
   linux-arm64 and linux-arm64-musl from `downloads.claude.ai/claude-code-releases/<v>/manifest.json`,
   resolved on the Mac — `AgentVersions.refresh` remembers it per version in agent-versions.json; the pin
