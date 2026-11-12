@@ -69,8 +69,119 @@ struct Inspect: AsyncParsableCommand {
 /// `doz sessions NAME` (the list — the default) and, since 0.30.0, `doz sessions end|restart NAME SESSION`.
 struct Sessions: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
-        abstract: "The sandbox's terminal sessions: list them (the default), end one, or restart one.",
-        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self], defaultSubcommand: SessionsList.self)
+        abstract: "The sandbox's terminal sessions: list them (the default), end one, restart one, type into one, or read its screen.",
+        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self],
+        defaultSubcommand: SessionsList.self)
+}
+
+/// 678 B5: type into a session from a script.
+struct SessionsSend: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "send",
+        abstract: "Type into a session: text, then keys, then Enter — it returns once the session's holder has every byte.",
+        discussion: """
+            doz sessions send NAME SESSION --text 'make test' --enter. In this order: --text (or --text - to read it from \
+            stdin), then each --keys KEY as given (\(SessionInput.keyNames.joined(separator: ", "))), then --enter. --paste \
+            wraps the text in a bracketed paste (an editor or Claude Code takes it as pasted, not typed). At most 64 KiB. A \
+            sleeping or hibernated sandbox is woken first (--no-wake refuses instead); one that is shut down has no sessions. \
+            The answer means the bytes reached the program's input, not that it acted on them: --then-screen[=MS] waits MS \
+            milliseconds (600) and prints the screen as it is then. A sandbox named send needs doz sessions ls send.
+            """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument var session: String
+    @Option(name: .long, help: "Text to type (- reads it from stdin).") var text: String?
+    @Option(name: .long, parsing: .upToNextOption, help: "Keys to press after the text, in order.") var keys: [String] = []
+    @Flag(name: .long, help: "Press Enter last.") var enter = false
+    @Flag(name: .long, help: "Send the text as a bracketed paste.") var paste = false
+    @Flag(name: .long, help: "Fail instead of waking a sleeping sandbox.") var noWake = false
+    @Option(name: .customLong("then-screen"), help: ArgumentHelp("Then wait this many milliseconds and print the session's screen (600 when given as --then-screen alone).", valueName: "MS"))
+    var thenScreen: Int?
+    @Flag(name: .customLong("then-screen-default"), help: .hidden) var thenScreenDefault = false
+
+    /// `--then-screen` alone means 600 ms (ArgumentParser has no optional value; DozableEntry rewrites the bare flag).
+    static let defaultThenScreenMs = 600
+
+    /// A bare `--then-screen` (last, or before another option) → `--then-screen-default`; `--then-screen MS` and
+    /// `--then-screen=MS` stay. Only before `--`, and only in `sessions send`.
+    static func normalized(_ args: [String]) -> [String] {
+        guard let s = args.firstIndex(of: "sessions"), args.index(after: s) < args.endIndex, args[args.index(after: s)] == "send" else { return args }
+        var out = args
+        for i in out.indices where out[i] == "--then-screen" {
+            if out[..<i].contains("--") { break }
+            let next = i + 1 < out.count ? out[i + 1] : nil
+            if next == nil || next!.hasPrefix("-") || Int(next!) == nil { out[i] = "--then-screen-default" }
+        }
+        return out
+    }
+
+    func validate() throws {
+        if let t = thenScreen, t < 0 || t > 60_000 { throw ValidationError("--then-screen is 0 to 60000 milliseconds") }
+    }
+
+    func run() async throws {
+        var input = text
+        if text == "-" {
+            let d = FileHandle.standardInput.readDataToEndOfFile()
+            guard d.count <= SessionInput.maximumBytes else { throw fail(HostError(.invalid, "at most 64 KiB in one send"), g, code: DozableExit.usage) }
+            input = String(decoding: d, as: UTF8.self)
+        }
+        let bytes: Data
+        do { bytes = try SessionInput.bytes(text: input, keys: keys, enter: enter, paste: paste) } catch let e as SessionInput.InputError {
+            throw fail(HostError(.invalid, e.message), g, code: DozableExit.usage)
+        }
+        var r = HostRequest(.sessionSend, name: name)
+        r.session = session
+        r.input = bytes
+        r.wake = !noWake
+        let sent = try decode(try call(r, g), SessionSent.self, g)
+        let wait = thenScreen ?? (thenScreenDefault ? Self.defaultThenScreenMs : nil)
+        var screen: SessionLive?
+        if let wait {
+            try? await Task.sleep(for: .milliseconds(wait))
+            var q = HostRequest(.sessionLive, name: name)
+            q.session = session
+            screen = try decode(try call(q, g), SessionLive.self, g)
+        }
+        if g.json {
+            var j = try JSONValue(encoding: sent)
+            if let screen, case .object(var o) = j { o["screen"] = try JSONValue(encoding: screen); j = .object(o) }
+            Out.json(j)
+            return
+        }
+        Out.stdout("sent \(sent.bytes) byte\(sent.bytes == 1 ? "" : "s") to \(session) in \(name)" + (sent.woke ? " (woken first)" : "") + "\n")
+        if let screen { Out.stdout(screen.text.isEmpty ? "" : screen.text + "\n") }
+    }
+}
+
+/// 678 B5: a session's screen now.
+struct SessionsScreen: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "screen",
+        abstract: "A session's screen as it is now (its rows as text).",
+        discussion: """
+            While the sandbox runs: the screen now. Asleep or hibernated: its last saved screen, and stderr says so — \
+            nothing is woken unless --wake. --json adds the cursor, the size, primary or alt, and the session's status. \
+            Shut down: it has no sessions. A sandbox named screen needs doz sessions ls screen.
+            """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument var session: String
+    @Flag(name: .long, help: "Wake a sleeping or hibernated sandbox first and read the screen live.") var wake = false
+
+    func run() async throws {
+        var r = HostRequest(.sessionLive, name: name)
+        r.session = session
+        r.wake = wake ? true : nil
+        // Looking never starts the host — unless --wake asks for it.
+        let s = try decode(wake ? try call(r, g) : try await query(r, g), SessionLive.self, g)
+        if g.json { Out.json(s); return }
+        if !s.live {
+            let when = s.savedAt.map { " saved \(Out.ago($0))" } ?? ""
+            Out.stderr(s.reason == "unresponsive"
+                ? "\(name) does not answer — this is the screen\(when), not live\n"
+                : "\(name) is not running — this is the screen\(when), not live (--wake wakes it)\n")
+        }
+        Out.stdout(s.text.isEmpty ? "" : s.text + "\n")
+    }
 }
 
 struct SessionsEnd: AsyncParsableCommand {

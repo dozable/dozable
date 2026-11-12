@@ -999,6 +999,10 @@ Task {
             // 594 W25–W27: point names and lookups, check-before-asking, exec starts an off sandbox.
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliPointsSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-sessionsend":
+            // 678 B5: doz sessions send / screen (SessionSendSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliSessionSendSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-exectimeout":
             // 678: exec --timeout counted from the start, enforced by the host (ExecTimeoutSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
