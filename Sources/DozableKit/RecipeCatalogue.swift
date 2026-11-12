@@ -270,6 +270,7 @@ public enum RecipeCatalogue {
 
     /// The recipe set this process uses: the embedded one, or the catalogue chosen at its start.
     public static var active: RecipeSet {
+        settleDeferred()
         lock.lock(); defer { lock.unlock() }
         return _active ?? .embedded
     }
@@ -278,9 +279,48 @@ public enum RecipeCatalogue {
 
     /// Bumped by every set installed (in a shipped process: at most once, at its start).
     static var generation: Int {
+        settleDeferred()
         lock.lock(); defer { lock.unlock() }
         return _generation
     }
+
+    // MARK: - 678: a client's adoption, at its first read
+
+    /// The adoptions a client's start chose but left for the first read of a recipe (`adopt(…, deferred: true)`,
+    /// `adoptExtras(…, deferred: true)`), in the order they were chosen.
+    nonisolated(unsafe) private static var _deferred: [@Sendable () -> Void] = []
+    nonisolated(unsafe) private static var _unsettled = false
+    /// True while the deferred adoptions run — they may swap the set after the seal, because nothing has read it yet.
+    nonisolated(unsafe) private static var _settling = false
+    /// Held while they run: another thread's first read waits for them; this thread's own reads (the validators read
+    /// the candidate) come back in and see the candidate, as an eager adoption's do.
+    private static let settleLock = NSRecursiveLock()
+
+    /// Leave `work` (an adoption) for the first read of the recipe set.
+    static func deferUntilFirstRead(_ work: @escaping @Sendable () -> Void) {
+        lock.withLock {
+            _deferred.append(work)
+            _unsettled = true
+        }
+    }
+
+    /// Run what a client's start left (once): the set is decided before its first value is returned — never swapped
+    /// under a running process that has read it.
+    static func settleDeferred() {
+        guard lock.withLock({ _unsettled }) else { return }
+        settleLock.lock(); defer { settleLock.unlock() }
+        if lock.withLock({ _settling || !_unsettled }) { return }      // our own reads from inside the work, or done
+        lock.withLock { _settling = true }
+        StartupTrace.note("recipes: the chosen catalogue or extras adopted")
+        while let w = lock.withLock({ _deferred.isEmpty ? nil : _deferred.removeFirst() }) { w() }
+        lock.withLock {
+            _settling = false
+            _unsettled = false
+        }
+    }
+
+    /// Whether a deferred adoption is still waiting for the first read (a test asks).
+    public static var hasDeferredAdoption: Bool { lock.withLock { _unsettled } }
 
     private static func install(_ s: RecipeSet?) {
         lock.lock()
@@ -293,15 +333,26 @@ public enum RecipeCatalogue {
     /// manifest, MERGED over the embedded set, and the result checked by every validator the embedded set passes. On any
     /// failure nothing changes (the embedded set stays) and the reason is thrown. The signature, the minimum doz and the
     /// floor are the caller's (DozableHost: the key and this doz's version live there).
+    /// 678: `deferred` (a client's start — not the host's): the manifest and the files' sizes and sha256 are checked
+    /// now, and the merge and the validators run at the first read of a recipe (`settleDeferred`), before any value is
+    /// returned. A refusal there leaves the embedded set and is handed to `refused` — the start has already returned
+    /// this catalogue's source, so `RecipeCatalogue.source` (not that) is what a later line reports.
     @discardableResult
-    public static func adopt(_ manifest: RecipeCatalogueManifest, files: [String: Data]) throws -> RecipeSource {
+    public static func adopt(_ manifest: RecipeCatalogueManifest, files: [String: Data], deferred: Bool = false,
+                             refused: (@Sendable (Error) -> Void)? = nil) throws -> RecipeSource {
         lock.lock()
-        let sealed = _sealed, chosen = _active != nil
+        let sealed = _sealed && !_settling, chosen = _active != nil
         lock.unlock()
         precondition(!sealed, "the recipe set is chosen once, at the start — never swapped under a running process")
         guard !chosen else { throw SandboxError.invalidSpec("a recipe catalogue was already chosen for this process") }
         try manifest.check()
         if let p = manifest.filesProblem(files) { throw SandboxError.invalidSpec("the catalogue: \(p)") }
+        if deferred {
+            deferUntilFirstRead {
+                do { try adopt(manifest, files: files) } catch { refused?(error) }
+            }
+            return manifest.source
+        }
         let candidate = try merged(manifest, files: files)
         install(candidate)
         do {
@@ -367,6 +418,7 @@ public enum RecipeCatalogue {
 
     /// What `adoptExtras` did in this process.
     public static var extras: [ExtraOutcome] {
+        settleDeferred()
         lock.lock(); defer { lock.unlock() }
         return _extras
     }
@@ -382,12 +434,18 @@ public enum RecipeCatalogue {
     /// may be Dozable's or an earlier source's, and the set with it must pass every validator — else the previous set
     /// stays and the source is refused, with the reason. Only recipes are added: providers, gateways, tags, known entries'
     /// vocabulary and marks stay Dozable's.
+    /// 678: `deferred` (a client's start): the whole adoption runs at the first read of a recipe (after a deferred
+    /// catalogue's), and `extras` says what it did; this returns nothing then.
     @discardableResult
-    public static func adoptExtras(_ sources: [ExtraSource]) -> [ExtraOutcome] {
+    public static func adoptExtras(_ sources: [ExtraSource], deferred: Bool = false) -> [ExtraOutcome] {
         lock.lock()
-        let sealed = _sealed
+        let sealed = _sealed && !_settling
         lock.unlock()
         precondition(!sealed, "the recipe set is chosen once, at the start — never swapped under a running process")
+        if deferred {
+            deferUntilFirstRead { adoptExtras(sources) }
+            return []
+        }
         var outcomes: [ExtraOutcome] = []
         let dozable = dozableNames
         for s in sources {
@@ -447,6 +505,8 @@ public enum RecipeCatalogue {
         lock.lock()
         _sealed = false
         _extras = []
+        _deferred = []
+        _unsettled = false
         lock.unlock()
         install(nil)
     }

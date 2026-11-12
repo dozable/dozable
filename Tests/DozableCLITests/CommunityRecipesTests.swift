@@ -193,6 +193,20 @@ final class CommunityRecipesTests: XCTestCase {
         XCTAssertNil(AgentRecipes.recipe("broken"))
     }
 
+    /// 678: a client's start leaves the adoption for its first read of a recipe — after the seal, before any value.
+    func testAClientAdoptsExtrasAtItsFirstReadOfARecipe() throws {
+        var bad = try Self.good("broken2")
+        bad["surprise"] = 1
+        let out = RecipeCatalogue.adoptExtras([try source(.community("bad"), [bad]), try source(.mine, [try Self.good("late")])], deferred: true)
+        XCTAssertEqual(out.count, 0, "nothing adopted yet")
+        XCTAssertTrue(RecipeCatalogue.hasDeferredAdoption)
+        RecipeCatalogue.seal()
+        XCTAssertNotNil(AgentRecipes.recipe("late"), "the first read adopts it")
+        XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
+        XCTAssertNil(AgentRecipes.recipe("broken2"))
+        XCTAssertEqual(RecipeExtras.startOutcomes.map { $0.refused == nil }, [false, true], "refused whole, the next one adopted — said as at a start")
+    }
+
     func testAKeptRecipeIsUnpublishedButResolves() throws {
         _ = RecipeCatalogue.adoptExtras([try source(.community("gone"), [try Self.good("kept1")], published: false)])
         let r = try XCTUnwrap(AgentRecipes.recipe("kept1"))

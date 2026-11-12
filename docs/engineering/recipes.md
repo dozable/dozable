@@ -55,6 +55,14 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
     part, today's `fatalError`s) unless `DozableEntry.main`'s FIRST statement (`RecipeCatalogueSelection.chooseAtStart`)
     adopted a catalogue, then `RecipeCatalogue.seal()` (an adopt after it is a precondition failure). DozableKit never
     reads the settings or the network for it — DozableHost decides. Only tests swap (`RecipeCatalogue.resetForTests`).
+    678: only the HOST's start adopts at once. Any other process decides WHICH catalogue at its start (manifest,
+    signature, the files' sizes and sha256 — a tampered file is still refused there) and leaves the merge and the
+    validators — and the extras' adoption — for its first read of a recipe (`adopt(…, deferred: true)`,
+    `adoptExtras(…, deferred: true)`, run by `settleDeferred` from `active`/`generation`/`extras`, under a recursive
+    lock so another thread's first read waits and the validators' own reads see the candidate). A refusal found then
+    leaves the embedded set before the first value is returned, is recorded as a start's refusal is and said once
+    (`chooseAtStart`'s `report`). So the set is still decided before anything reads it; most commands (`ls`,
+    `sessions`, `exec`, `attach`) never read one — `make test-cli-startup` checks they build no recipe part.
   - **The choice**: a guarded test run only with its seam (`DOZ_TEST_RECIPE_CATALOGUE`), a development build
     (`InstallMethod.development`) only with the seam (a recipe edited in the tree must win), else `<settings dir>/recipes/
     current.json` — and in the HOST's own start (`isHostStart`: `doz host … --foreground`, what the launcher runs) the
