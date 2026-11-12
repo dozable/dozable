@@ -37,6 +37,7 @@ struct Doctor: AsyncParsableCommand {
     /// that run `claude --version` and read the Mac login's keychain item.
     static func checks(store: DozableStore, claude: Bool = true) -> [DoctorCheck] {
         var out: [DoctorCheck] = []
+        var hostKeychain: (reason: String, pid: Int32, startedAt: Date)?
         let v = ProcessInfo.processInfo.operatingSystemVersion
         var uts = utsname()
         uname(&uts)
@@ -202,6 +203,7 @@ struct Doctor: AsyncParsableCommand {
                     }
                 }
                 if let app = st.microphoneApp { detail += ", microphone asked as \(app) (sandboxes with sound)" }
+                if let why = st.keychainLocked { hostKeychain = (why, st.pid, st.startedAt) }       // 679 B6
                 // 678: the host's own scheduling — a clamped host makes every wake crawl.
                 if let p = st.priority {
                     hostPriority = DoctorCheck(check: "host priority", status: p.clamped ? .warn : .ok,
@@ -241,6 +243,12 @@ struct Doctor: AsyncParsableCommand {
         if claude, ProcessInfo.processInfo.environment["DOZ_TEST_NO_MAC_LOGIN"] == "1" {
             out.append(DoctorCheck(check: "claude login", status: .ok, detail: "not looked at (DOZ_TEST_NO_MAC_LOGIN=1)"))
         } else if claude { out += claudeChecks(store: store, keychain: macLoginKeychain()) }
+        // 679 B6: doctor reads the login in ITS session; the host reads it in its own — say when they differ.
+        if let h = hostKeychain {
+            let mine = out.first { $0.check == "claude login" }
+            let doctorReads: Bool? = mine.map { $0.status == .ok && !$0.detail.hasPrefix("not looked at") ? true : nil } ?? nil
+            out.append(Self.hostLoginCheck(doctorReads: doctorReads, reason: h.reason, pid: h.pid, startedAt: h.startedAt))
+        }
         out.append(codexLoginCheck(home: CodexMacLogin.resolveHome(), settings: .load()))
         #if !DOZ_NO_WEB
         out += ServeDoctor.checks(store: store, settings: .load())
@@ -346,6 +354,16 @@ struct Doctor: AsyncParsableCommand {
                                + (accounts.keepalive ? " · keep-alive on" : "")
                                + (expiring.isEmpty ? "" : " — \(expiring.map(\.name).joined(separator: ", ")) expire\(expiring.count == 1 ? "s" : "") within 30 days: claude setup-token, then doz account add NAME --setup-token --force")))
         return out
+    }
+
+    /// 679 B6: the running host cannot read the login keychain. A failure when doctor itself can (its own session reads
+    /// it — the mismatch that hid an ssh-started host), else a warning.
+    static func hostLoginCheck(doctorReads: Bool?, reason: String, pid: Int32, startedAt: Date) -> DoctorCheck {
+        let advice = HostSessionKind.hostAdvice(pid: pid, startedAt: startedAt, reason: reason)
+        if doctorReads == true {
+            return DoctorCheck(check: "host login", status: .fail, detail: "doctor can read your Claude login, the host cannot — " + advice)
+        }
+        return DoctorCheck(check: "host login", status: .warn, detail: advice)
     }
 
     static func sysctl(_ name: String) -> String {

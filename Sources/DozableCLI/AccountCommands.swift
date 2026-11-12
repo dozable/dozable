@@ -41,6 +41,7 @@ struct AccountList: AsyncParsableCommand {
     func run() async throws {
         let rows = try decode(try await query(HostRequest(.accountList), g), [AccountRow].self, g)
         if g.json { Out.json(rows) } else { Out.stdout(renderAccounts(rows)) }
+        sayHostKeychainNote(g)                  // 679 B6: why the Mac login reads as unreadable
     }
 }
 
@@ -298,6 +299,7 @@ struct AccountShow: AsyncParsableCommand {
         guard let a = rows.first(where: { $0.name == name }) else { throw fail(HostError(.notFound, "no account \(name)"), g) }
         if g.json { Out.json(a); return }
         Out.stdout(renderAccount(a))
+        if a.name == "mac" { sayHostKeychainNote(g) }          // 679 B6
     }
 }
 

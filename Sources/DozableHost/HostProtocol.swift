@@ -137,6 +137,12 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// (`sessions.json`); an agent's session continues its conversation unless `fresh` (648: each Claude Code session its own; else the default session only)
     /// (`SessionRestarted`). Serialised with open-session.
     case sessionRestart = "session-restart"
+    /// 678 B5: type `input` (bytes, ≤ 64 KiB) into a session (`session`) — answered once deckhold acknowledged it
+    /// (`SessionSent`). A sleeping or hibernated sandbox is woken unless `wake` is false; one that is off is refused.
+    case sessionSend = "session-send"
+    /// 678 B5: a session's screen as it is now (`SessionLive`) — while running, `deckhold dump`; otherwise its last
+    /// saved screen, said so (`live: false`); `wake` true wakes a sleeping one first. Read-only unless it wakes.
+    case sessionLive = "session-live"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
     /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
     case plan
@@ -199,7 +205,7 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// Operations that only read — answered from the store in-process when no host is running.
     public var isReadOnly: Bool {
         switch self {
-        case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .terminalLayout, .bootLog, .buildLog, .resources,
+        case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
              .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
@@ -343,6 +349,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// 678: exec — the deadline itself (seconds since 1970), counted by the client from when its process started. The
     /// host answers at it whatever is under way (`timeoutSeconds` is still sent, the time left, for an older host).
     public var deadline: Double?
+    /// 678 B5: session-send — the bytes to type (`SessionInput.bytes`).
+    public var input: Data?
     /// Restore point id or name; image name; new sandbox name (fork); a note.
     public var point: String?
     public var pointName: String?
@@ -1148,6 +1156,37 @@ public enum DozableExitCode {
     public static let timedOut: Int32 = 124
 }
 
+/// 678 B5: `session-send` — deckhold acknowledged the bytes (they are in the program's input buffer).
+public struct SessionSent: Codable, Equatable, Sendable {
+    public var sandbox: String
+    public var session: String
+    public var bytes: Int
+    /// It was asleep or hibernated and was woken first.
+    public var woke: Bool
+    public var milliseconds: Double
+}
+
+/// 678 B5: `session-live` — a session's screen now (`live`), or its last saved one (`live: false`, `savedAt`, `reason`).
+public struct SessionLive: Codable, Equatable, Sendable {
+    public var sandbox: String
+    public var session: String
+    public var live: Bool
+    /// The screen's rows as text (inert).
+    public var text: String
+    public var cols: UInt16?
+    public var rows: UInt16?
+    public var cursorX: UInt16?
+    public var cursorY: UInt16?
+    /// `primary` or `alt`.
+    public var screen: String?
+    /// The session's status (OSC 7501), when the host has one.
+    public var status: SessionStatus?
+    public var savedAt: Date?
+    public var reason: String?
+    /// It was woken first (`--wake`).
+    public var woke: Bool?
+}
+
 /// `open-session`.
 public struct SessionOpened: Codable, Equatable, Sendable {
     public var name: String
@@ -1316,6 +1355,9 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// background state it inherited from the client that started it.
     public var priority: ProcessPriority?
     public var priorityRestored: Bool?
+    /// 679 B6: why this host cannot read the login keychain (`ssh`, `no login session`) — it was started from such a
+    /// session; nil: it can. Its sandboxes' Mac account is then unreadable.
+    public var keychainLocked: String?
     /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for, for this host's audio sandboxes
     /// (its responsible app).
     public var microphoneApp: String?

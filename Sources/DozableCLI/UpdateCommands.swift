@@ -332,7 +332,7 @@ public enum DozableEntry {
         let usage = UsageHook(args)
         usage.before()
         do {
-            var command = try DozableCommand.parseAsRoot(UsageHook.parserArguments(args))
+            var command = try DozableCommand.parseAsRoot(SessionsSend.normalized(UsageHook.parserArguments(args)))
             if var a = command as? AsyncParsableCommand { try await a.run() } else { try command.run() }
             await UpdateHook.afterCommand(args)
             usage.after(exitCode: 0)

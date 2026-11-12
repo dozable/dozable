@@ -32,6 +32,10 @@ public enum HostLauncher {
     @discardableResult
     public static func spawn(store: DozableStore, executable: String = executablePath, extra: [String] = []) throws -> pid_t {
         try store.ensureDirectory()
+        // 679 B6: a host started from here could not read the login keychain — say so, loudly, before it exists.
+        if let why = HostSessionKind.lockedReason() {
+            FileHandle.standardError.write(Data((HostSessionKind.startWarning(why) + "\n").utf8))
+        }
         var fds: [Int32] = [0, 0]
         guard pipe(&fds) == 0 else { throw HostError(.unavailable, "could not start the host: \(String(cString: strerror(errno)))") }
         let (readFD, writeFD) = (fds[0], fds[1])

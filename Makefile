@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-cli-helper test-cli-startup test-cli-exectimeout css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-keychainlocked css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -305,6 +305,9 @@ test-community-recipes: cli ## 653: your own recipes and community catalogues en
 test-cli-startup: cli ## The cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE); median doz ls --json <= STARTUP_MAX_MS (60), <= 1 s under taskpolicy -b; doctor's priority warning, a host started from the background leaves it (scratch store, no VM)
 	python3 Scripts/startup-check.py $(CLI_BIN)
 
+test-cli-keychainlocked: cli ## A host started where the login keychain is locked (the guarded DOZ_TEST_KEYCHAIN_LOCKED seam): said before it starts, named as the reason by account ls and doctor; a normal one says nothing (scratch store, no VM)
+	python3 Scripts/keychain-locked-check.py $(CLI_BIN)
+
 test-cli-exectimeout: cli vmtest-host ## exec --timeout: counted from doz's start, 124 from the host at the deadline — a running command killed, a cold start and a wake that outlast it go on, a stopped client still ends 124 (a lab sandbox, scratch store)
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-exectimeout --doz $(CLI_BIN)
 
@@ -332,8 +335,12 @@ test-vm-status: cli vmtest-host ## 612: what the agent is doing (OSC 7501) — a
 test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints coloured text; session-grids (over the host's status watcher) returns its grid with those colours; the same gen answers unchanged, new output a new grid; asleep it answers not-running and stays asleep, its saved screen carries the grid; no host: no answer, none started (scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-grids --doz $(CLI_BIN)
 
-test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a host restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on
+test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a host restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-sessions --doz $(CLI_BIN)
+	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
+
+test-cli-sessionsend: cli vmtest-host ## doz sessions send / screen alone (a lab sandbox, scratch store)
+	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
 
 test-cli-timezone: cli vmtest-host ## 594 W10: the sandbox follows the Mac's (stubbed) time zone at boot and every wake, or sandbox.timezone
 	perl -e 'alarm shift; exec @ARGV' 900 $(VMTEST_BIN) cli-timezone --doz $(CLI_BIN)

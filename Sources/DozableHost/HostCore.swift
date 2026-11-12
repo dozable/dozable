@@ -745,6 +745,10 @@ public actor HostCore {
                 throw HostError(.notFound, "no saved screen of \(s) in \(m.name) — screens are saved when it pauses, sleeps or hibernates, and every few minutes while it runs")
             }
             return try JSONValue(encoding: SessionScreen(name: m.name, saved))
+        case .sessionSend:
+            return try JSONValue(encoding: try await sessionSend(r, emit: emit))
+        case .sessionLive:
+            return try JSONValue(encoding: try await sessionLive(r, emit: emit))
         case .bootLog:
             return try bootLog(r)
         case .buildLog:
@@ -956,6 +960,7 @@ public actor HostCore {
             s.launchedDetached = HostServer.launchedDetached
             s.priority = ProcessPriority.current()
             s.priorityRestored = HostServer.priorityRestored ? true : nil
+            s.keychainLocked = HostServer.keychainLocked                   // 679 B6
             s.microphoneApp = Self.microphoneApp?.description
         }
         if let executable, let c = executableChange() {

@@ -2527,6 +2527,41 @@ public actor Sandbox {
         return SessionInfo.parseList(r.output)
     }
 
+    /// 678 B5: type `bytes` into session `name`'s program — DATA frames then a QUERY over one `deckhold pipe`, stdin kept
+    /// open until deckhold answers (the pipe stops relaying at stdin's EOF). Returns once the INFO frame arrived (every
+    /// byte is in the program's input buffer), or says the session is gone. Running sandboxes only; bounded by
+    /// `timeout`.
+    public func sendInput(_ name: String, _ bytes: Data, timeout: Duration = .seconds(15)) async throws -> SessionInput.Receipt {
+        try GuestCommand.validateSessionName(name)
+        guard bytes.count <= SessionInput.maximumBytes else { throw SandboxError.invalidSpec("at most \(SessionInput.maximumBytes) bytes in one send") }
+        guard phase == .running else { throw SandboxError.notRunning(phase) }
+        let stream = try await openGuestStream(GuestCommand.pipe(name: name))
+        stream.send(SessionInput.frames(bytes))
+        let read = Task { () throws -> SessionInput.Receipt? in
+            var got = Data()
+            for await chunk in stream.output {
+                got.append(chunk)
+                if let r = SessionInput.receipt(got) { return r }
+            }
+            return SessionInput.receipt(got)
+        }
+        let outcome = await BalloonPressure.outcome(of: read, within: timeout)
+        stream.finishInput()
+        guard let outcome else { throw SandboxError.commandFailed(command: "send to session \(name)", exitCode: 124, output: "the session did not answer within \(timeout.components.seconds) s") }
+        guard let r = try outcome.get() else {
+            throw SandboxError.commandFailed(command: "send to session \(name)", exitCode: stream.exitCode ?? -1, output: "the session's holder closed without an answer " + stream.errorOutput)
+        }
+        return r
+    }
+
+    /// 678 B5: session `name`'s screen as it is NOW (`deckhold dump`) — nil when there is no such session.
+    public func liveScreen(_ name: String) async throws -> LiveScreen? {
+        try GuestCommand.validateSessionName(name)
+        guard phase == .running else { throw SandboxError.notRunning(phase) }
+        let r = try await execInContainer(GuestCommand.dump(name: name), timeout: 15)
+        return r.exitCode == 0 ? LiveScreen.parse(r.output) : nil
+    }
+
     /// The holder's model of session `name`'s active screen as plain text, plus a final
     /// `cursor=X,Y size=CxR screen=…` line (`deckhold dump`) — for tests and diagnostics.
     public func screenText(_ name: String) async throws -> String {

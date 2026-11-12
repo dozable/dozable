@@ -133,6 +133,13 @@ it: any command that needs it does.
 `doz onboard`. Your project folders
 and keychain are untouched.
 
+**The account `mac` is "unreadable", though `claude` works on this Mac?**
+The doz host reads your Claude login in the session it was started from. A host started over ssh (or from
+another session with no login) cannot read the login keychain — `doz account ls`, `doz ls` and `doz doctor` say
+so, naming the host. Run `doz host restart` from your logged-in session (a terminal on the Mac itself). A
+command over ssh that has to start the host warns first; `doz image bake` over ssh stops the host it started
+once nothing runs.
+
 **Everything is slow — a wake takes a minute?**
 Run `doz doctor`. When `doz` was started at macOS background priority (by `taskpolicy -b`, or by a tool or agent that
 runs in the background), it and everything it starts run many times slower; doctor's `priority` line says so and how
