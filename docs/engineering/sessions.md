@@ -31,6 +31,49 @@ in `SessionCommands.swift`; `SessionInputTests`, `SessionsSendCommandTests`, `ma
   its saved screen, `reason: unresponsive`). Plain output is the rows only — the dump's `cursor=… size=… screen=…`
   line is parsed into `--json`'s `cursorX/cursorY`, `cols/rows`, `screen` (`primary`/`alt`), with the host's status.
 
+- **`doz sessions wait`** (`session-wait`, `HostCore+SessionWait.swift`) opens a WATCH connection of its own (the
+  holder answers with the status now, then each change) and returns at the first state in `--until`; done/error that
+  outlive the program count (the host's kept status); the program ending first is exit 2; the timeout (at most a day,
+  whatever is asked — a client that left must not leave a watcher) answers `timedOut`, exit 124. Never wakes.
+
+## Sessions on this Mac (`@mac`)
+
+`Sources/DozableHost/MacPlace.swift` (the name, refusals, the socket folder's rules), `MacSessions.swift` (records,
+open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `HostCore+Mac.swift` (routing),
+`HostServer.attachMac`, `Sources/DozableKit/DeckholdSocket.swift` (the transport), `Sources/DozableCLI/MacCommands.swift`;
+`MacPlaceTests`, `MacSessionsEnvironmentTests`, `MacSessionsRecordTests`, `DeckholdSocketTests`, `make test-cli-host`.
+
+- **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`, no
+  proxy, no placeholders; `MacPlace.operations` are the session ops; everything else is `MacPlace.refusal` (host side)
+  and `MacCLI.refusal` (the CLI's entry, for a command that names `@mac` before `--`).
+- **The holder is `deckhold-mac serve`** (`MacDeckhold.locate`), started by `posix_spawn` (SETSID, CLOEXEC_DEFAULT,
+  signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--workdir`) — never `sh -c`.
+  `serve` daemonises (its child's parent becomes launchd) and returns once its socket listens: holders outlive the
+  host by design. No session keeps the host alive.
+- **The socket folder** is `confstr(_CS_DARWIN_USER_TEMP_DIR)` + `dh-<8 hex of sha256(store path)>` (never `$TMPDIR`):
+  made 0700 and `lstat`-checked on every use (a folder, not a link, ours, 0700 — else nothing is read or made). Names
+  ≤ 32, every path < 104 bytes. `Workspace.refusal` refuses it (and anything holding it) as a workspace.
+- **The DeckholdSocket transport** speaks the frame protocol straight on the socket: one reader thread, a writer task,
+  the descriptor closed ONCE by the reader after the writer let go. A socket that is gone answers as `deckhold pipe`:
+  EXIT from `NAME.exit`, else NOSESSION.
+- **Records** (`<store>/mac-sessions/sessions.json`, 0600): argv, workdir, environment NAMES, openedAt, holder sha256,
+  pid, `bypassed`. A host start ADOPTS (`MacSessions.adopt`): a live socket is watched (statuses, `session-status`
+  events under the place name `@mac`); a socket nothing answers is unlinked (only our own socket, in our folder); a
+  record with no socket is ended (its `.exit`) or **gone** (rebooted, holder killed). Looking reads the folder
+  in-process — no host.
+- **The environment is an allowlist** (`MacSessionsEnvironment.build`), never the host's passed on; `PATH` from the
+  login shell once (a guarded run never runs it: `DOZ_TEST_MAC_PATH`, else path_helper's list); `-e` refuses only
+  `CLAUDECODE` / `CLAUDE_CODE_*`. `DOZ_TTY` in a session is deckhold's own.
+- **End** is HUP → TERM → KILL of the program's group (the pid its holder names, still that group). **Restart** opens
+  again from the record; `claude` without `--fresh` gets `--continue` (the record keeps the argv as opened).
+- **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
+  added.
+- **Bridges**: OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`).
+- **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
+  host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
+- **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
+  whether to end them; nuke ends them and removes the socket folder.
+
 ## Session memory and saved screens
 
 - **Saved screens exist ONLY for a sandbox one wakes back into** — paused, asleep, hibernated.

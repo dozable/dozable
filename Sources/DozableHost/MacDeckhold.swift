@@ -3,7 +3,7 @@ import Foundation
 
 /// The PTY holder for sessions held on THIS Mac (`deckhold-mac`: Guest/deckhold/build-mac.sh) — the same holder as the
 /// guest's, built for macOS, shipped beside `doz` in the CLI flavour (`libexec/doz/deckhold-mac`; `make cli` puts it
-/// beside `.build/debug/doz`). Not in the helper build. Nothing uses it yet; sessions on the Mac will.
+/// beside `.build/debug/doz`). Not in the helper build. `MacSessions` (`@mac`) runs it.
 public enum MacDeckhold {
     public static let fileName = "deckhold-mac"
 

@@ -149,6 +149,9 @@ fully resolved path.
 - **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
   logged like any sandbox.
 - **Keep-alive**, when you turn it on, runs your Mac's own `claude` once near expiry.
+- **Sessions on this Mac** (`doz run @mac`) are not in a sandbox at all: the program runs as you, with your files,
+  Keychain and network, and nothing of this page applies to it. Dozable never bypasses an agent's permissions there
+  unless the command you gave asks, and then says so. See [Sessions on this Mac](34-sessions-on-this-mac.md).
 
 ## What leaves your Mac
 

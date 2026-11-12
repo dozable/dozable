@@ -50,7 +50,7 @@ One row per area; each area's doc starts with the full table of its files.
 | The LAN option | `Sources/DozableWeb/WebServe*.swift`, `WebExposure`, `WebBonjour` | [lan.md](docs/engineering/lan.md) |
 | The terminal | `Sources/DozableTUI/` | [terminal-tui.md](docs/engineering/terminal-tui.md) |
 | Onboarding, projects | `Preparations`, `Onboarding`, `AgentPrompt`, `OnboardCommands`, `ProjectFile` | [onboarding.md](docs/engineering/onboarding.md) |
-| Sessions | `SavedScreens`, `BootLogs`, `SessionStatus`, `ScreenGrid`, the attach relay's bridges | [sessions.md](docs/engineering/sessions.md) |
+| Sessions | `SavedScreens`, `BootLogs`, `SessionStatus`, `ScreenGrid`, the attach relay's bridges; sessions on this Mac (`MacSessions`, `MacPlace`, `DeckholdSocket`) | [sessions.md](docs/engineering/sessions.md) |
 | Builds, statistics, updates, release | `Usage.swift`, `Updates.swift`, `Scripts/release.sh` | [updates-and-release.md](docs/engineering/updates-and-release.md) |
 | Workspace rules | `Guest/dozview/`, `DockerIgnore`, `WorkspaceRules`, `WorkspaceView` | [workspace-rules.md](docs/engineering/workspace-rules.md) |
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
@@ -63,6 +63,12 @@ One row per area; each area's doc starts with the full table of its files.
   program cannot trap a signal ignored on entry (576: the screensaver's `m` menu). `GuestCommand.serve`
   builds argv; deckhold additionally resets every signal to default before exec. Utility execs
   (`exec(["sh","-c",…])`) may use a shell — never a session.
+- **A session on this Mac (`@mac`) is never isolated and never bypasses permissions by default.** No code path may
+  treat `@mac` as a sandbox (no `Managed`, no `Sandbox`, no proxy, no placeholders — `HostCore.perform` routes it
+  first), its environment is an ALLOWLIST built new (`MacSessionsEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*`),
+  its holder starts by `posix_spawn` (never `sh -c`), and a bypass flag is only ever the session's own argv, marked
+  wherever it shows. `MacPlaceTests`, `MacSessionsEnvironmentTests`, `make test-cli-host`.
+- **Every `doz exec` deadline is counted from process start and enforced by the host** (`ExecDeadline`; engine.md).
 - **Stop keeps the root disk**: Stop shuts the VM down and persists the phase as `off`; the next Start cold-boots
   the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the
   root disk; `delete()` removes the sandbox's whole directory. No Stop leaves a snapshot, and a
@@ -375,6 +381,7 @@ make test-cli-timezone # 594 W10: the Mac's (stubbed) zone at boot and every wak
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
+make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
 make test-cli-keychainlocked # a host started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned at start, named by account ls and doctor (no VM)
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the host: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more

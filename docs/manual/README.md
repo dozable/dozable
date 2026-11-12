@@ -49,6 +49,7 @@ both.
 | [Security model](16-security-model.md) | understand what protects your Mac, and what doesn't |
 | [Troubleshooting and FAQ](17-troubleshooting-and-faq.md) | fix something, or find a quick answer |
 | [Sound](23-sound.md) | give a sandbox your Mac's speakers, and its microphone |
+| [Sessions on this Mac](34-sessions-on-this-mac.md) | run a program on the Mac itself (Xcode, the Simulator, your Keychain) held like a sandbox's session — `doz run @mac` — and know that nothing isolates it |
 | [Bundling doz in an app](33-bundling-doz-in-an-app.md) | (app authors only) carry the helper build of `doz` inside your Mac app and drive it over `host.sock` |
 
 ## Conventions
