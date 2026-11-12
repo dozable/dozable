@@ -307,6 +307,11 @@ struct HostRestart: AsyncParsableCommand {
 public enum DozableEntry {
     public static func main() async -> Never {
         let args = Array(CommandLine.arguments.dropFirst())
+        // 678: a guarded test run can ask which lazy parts this process builds (`make test-cli-startup`).
+        let env = ProcessInfo.processInfo.environment
+        if env["DOZ_TEST_STARTUP_TRACE"] == "1", TestSafety.guarded(env) {
+            StartupTrace.install { Out.stderr("doz-startup-trace: \($0)\n") }
+        }
         // The recipes this process uses — chosen ONCE, before anything reads one (the embedded set, or a verified
         // recipe catalogue; RecipeCatalogueClient.swift). Never swapped afterwards.
         // 653: then the recipes that are not Dozable's — yours and the community catalogues you added (the snapshot the last

@@ -325,8 +325,14 @@ public struct RecipeCapability: Codable, Sendable, Equatable {
 extension RecipeDocument {
     /// A document from its JSON (the compiled form of the YAML): decoded, refused when it carries a key this build does
     /// not know, and checked (`check()`).
-    public static func decode(_ data: Data) throws -> RecipeDocument {
+    /// 678: `checked: false` only for the compiled-in documents (`AgentRecipes.embedded`): they are this build's own
+    /// bytes, so the unknown-key round trip and `check()` would give the same answer at every start — about 15 regular
+    /// expressions per document, 43 documents, on every `doz` command. `EmbeddedRecipesCheckedTests` runs the full
+    /// decode on every one of them in `make test` instead. A catalogue's, a community's or your own document is always
+    /// checked.
+    public static func decode(_ data: Data, checked: Bool = true) throws -> RecipeDocument {
         let d = try JSONDecoder().decode(RecipeDocument.self, from: data)
+        guard checked else { return d }
         let enc = JSONEncoder()
         enc.outputFormatting = [.sortedKeys]
         let back = try JSONSerialization.jsonObject(with: try enc.encode(d))
@@ -435,10 +441,12 @@ extension RecipeDocument {
 
 extension RecipeDocument {
     static let templatePattern = #"\$\{\{\s*([A-Za-z_][A-Za-z0-9_.-]*)\s*\}\}"#
+    /// 678: compiled once (it was compiled again on every call — every template string of every recipe at each start).
+    static let templateRegex = try! NSRegularExpression(pattern: templatePattern)
 
     /// The names in `${{ … }}` references.
     static func templateNames(_ s: String) -> [String] {
-        let re = try! NSRegularExpression(pattern: templatePattern)
+        let re = templateRegex
         let ns = s as NSString
         return re.matches(in: s, range: NSRange(location: 0, length: ns.length)).map { ns.substring(with: $0.range(at: 1)) }
     }
@@ -456,7 +464,7 @@ extension RecipeDocument {
 
     /// `${{ kit.args.version }}` → `{version}`, `${{ dozable.NAME }}` → `{NAME}` — the model's own syntax.
     static func toModel(_ s: String) -> String {
-        let re = try! NSRegularExpression(pattern: templatePattern)
+        let re = templateRegex
         let ns = s as NSString
         var out = "", last = 0
         for m in re.matches(in: s, range: NSRange(location: 0, length: ns.length)) {

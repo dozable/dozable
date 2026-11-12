@@ -1185,7 +1185,23 @@ public enum Gateways {
 public enum AgentRecipes {
     /// The compiled-in recipes, in this order: the three that existed, then the new ones (AgentKind.allCases' order).
     static func embedded() -> [AgentRecipe] {
-        let files: [(String, [UInt8])] = [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
+        let files = embeddedDocuments
+        do {
+            // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
+            // 678: unchecked — these are this build's own bytes; `EmbeddedRecipesCheckedTests` runs the full decode and
+            // `check()` on every one in `make test`, so a start pays only for the decode and the mapping.
+            StartupTrace.note("recipes: the embedded documents decoded")
+            return try files.map { name, bytes in
+                do { return try RecipeDocument.decode(Data(bytes), checked: false).recipeUnchecked() } catch { throw SandboxError.invalidSpec("\(name): \(error)") }
+            }
+        } catch {
+            fatalError("617: a built-in agent recipe does not decode: \(error)")
+        }
+    }
+
+    /// The compiled-in documents (file name, bytes), in `embedded()`'s order.
+    static var embeddedDocuments: [(String, [UInt8])] {
+        [("claude-code.json", PackageResources.claude_code_json), ("pi.json", PackageResources.pi_json),
                                           ("codex.json", PackageResources.codex_json), ("antigravity.json", PackageResources.antigravity_json), ("gemini.json", PackageResources.gemini_json),
                                           ("grok.json", PackageResources.grok_json), ("fabric.json", PackageResources.fabric_json), ("openclaw.json", PackageResources.openclaw_json), ("nanobot.json", PackageResources.nanobot_json), ("gptme.json", PackageResources.gptme_json), ("llm.json", PackageResources.llm_json), ("shell-gpt.json", PackageResources.shell_gpt_json), ("zeroclaw.json", PackageResources.zeroclaw_json), ("aichat.json", PackageResources.aichat_json), ("tgpt.json", PackageResources.tgpt_json),
                                           ("opencode.json", PackageResources.opencode_json), ("smolagents.json", PackageResources.smolagents_json), ("adk.json", PackageResources.adk_json), ("promptfoo.json", PackageResources.promptfoo_json), ("clai.json", PackageResources.clai_json),
@@ -1212,14 +1228,6 @@ public enum AgentRecipes {
                                           ("tau.json", PackageResources.tau_json),
                                           ("stitch.json", PackageResources.stitch_json),
                                           ("opencode2.json", PackageResources.opencode2_json)]
-        do {
-            // 617: each is a schema-2 document (Recipes/compiled/PRODUCT.json — its YAML as JSON), mapped to the model.
-            return try files.map { name, bytes in
-                do { return try RecipeDocument.decode(Data(bytes)).recipe() } catch { throw SandboxError.invalidSpec("\(name): \(error)") }
-            }
-        } catch {
-            fatalError("617: a built-in agent recipe does not decode: \(error)")
-        }
     }
 
     /// The active recipe set's recipes (`RecipeCatalogue.active` — the embedded ones unless a catalogue was chosen at
