@@ -146,7 +146,7 @@ extension HostCore {
         }
         let t0 = ContinuousClock.now
         let receipt: SessionInput.Receipt
-        do { receipt = try await DeckholdSocket.send(path: mac.socket(s), bytes: bytes) } catch { throw HostError.from(error) }
+        do { receipt = try await DeckholdSocket.send(path: mac.socket(s), pieces: Self.sendPieces(r, bytes)) } catch { throw HostError.from(error) }
         switch receipt {
         case .delivered:
             return SessionSent(sandbox: MacPlace.name, session: s, bytes: bytes.count, woke: false, milliseconds: ms(since: t0))

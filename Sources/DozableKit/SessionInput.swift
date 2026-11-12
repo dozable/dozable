@@ -78,6 +78,35 @@ public enum SessionInput {
         return out
     }
 
+    /// What a send types, as separate WRITES: the text (wrapped with `paste`) as one, then each key, then Enter, each on its
+    /// own. A TUI takes input that arrives in one burst as a paste — Claude Code then kept a CR that came in the same read
+    /// as a long line as part of it, and the line was never submitted. Joined, they are `bytes(…)`.
+    public static func pieces(text: String?, keys: [String], enter: Bool, paste: Bool) throws -> [Data] {
+        let all = try bytes(text: text, keys: keys, enter: enter, paste: paste)      // the checks and the limit
+        var out: [Data] = []
+        if let text, !text.isEmpty { out.append(try bytes(text: text, keys: [], enter: false, paste: paste)) }
+        for k in keys { out.append(Data(key(k)!)) }
+        if enter { out.append(Data([0x0D])) }
+        assert(out.reduce(0) { $0 + $1.count } == all.count)
+        return out
+    }
+
+    /// How long to wait after writing `piece` before the next one, so the program reads them apart: 60 ms, plus 4 ms a KiB,
+    /// at most 0.5 s.
+    public static func settle(after piece: Data) -> Duration {
+        .milliseconds(min(500, 60 + 4 * (piece.count / 1024)))
+    }
+
+    /// DATA frames (at most 16 KiB each) for `bytes`, without the QUERY.
+    public static func dataFrames(_ bytes: Data) -> Data {
+        var out = frames(bytes)
+        out.removeLast(5)
+        return out
+    }
+
+    /// The QUERY frame that asks for the receipt.
+    public static let queryFrame = Data([UInt8(ascii: "Q"), 0, 0, 0, 0])
+
     /// The frames one send writes to deckhold: DATA (in pieces of at most 16 KiB), then QUERY.
     public static func frames(_ bytes: Data) -> Data {
         var out = Data()

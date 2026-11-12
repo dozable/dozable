@@ -68,6 +68,20 @@ final class MacPlaceTests: XCTestCase {
         XCTAssertNil(Workspace.refusal(root.appendingPathComponent("work").path, store: store), "anything else as before")
     }
 
+    /// The host writes the client's pieces apart; an older client's single input still gets its Enter split off.
+    func testSendPieces() {
+        var r = HostRequest(.sessionSend, name: "x")
+        let bytes = Data("hello\r".utf8)
+        r.inputPieces = [Data("hello".utf8), Data([0x0D])]
+        XCTAssertEqual(HostCore.sendPieces(r, bytes), [Data("hello".utf8), Data([0x0D])])
+        r.inputPieces = [Data("other".utf8)]
+        XCTAssertEqual(HostCore.sendPieces(r, bytes), [Data("hello".utf8), Data([0x0D])], "pieces that are not the input: ignored")
+        r.inputPieces = nil
+        XCTAssertEqual(HostCore.sendPieces(r, bytes), [Data("hello".utf8), Data([0x0D])], "an older client: the Enter split off")
+        XCTAssertEqual(HostCore.sendPieces(r, Data("ab".utf8)), [Data("ab".utf8)])
+        XCTAssertEqual(HostCore.sendPieces(r, Data([0x0D])), [Data([0x0D])])
+    }
+
     func testBypassIsSeen_neverAdded() {
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--dangerously-skip-permissions"]))
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--permission-mode", "bypassPermissions"]))

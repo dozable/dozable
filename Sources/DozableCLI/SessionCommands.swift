@@ -172,13 +172,17 @@ struct SessionsSend: AsyncParsableCommand {
             guard d.count <= SessionInput.maximumBytes else { throw fail(HostError(.invalid, "at most 64 KiB in one send"), g, code: DozableExit.usage) }
             input = String(decoding: d, as: UTF8.self)
         }
-        let bytes: Data
-        do { bytes = try SessionInput.bytes(text: input, keys: keys, enter: enter, paste: paste) } catch let e as SessionInput.InputError {
+        let bytes: Data, pieces: [Data]
+        do {
+            bytes = try SessionInput.bytes(text: input, keys: keys, enter: enter, paste: paste)
+            pieces = try SessionInput.pieces(text: input, keys: keys, enter: enter, paste: paste)
+        } catch let e as SessionInput.InputError {
             throw fail(HostError(.invalid, e.message), g, code: DozableExit.usage)
         }
         var r = HostRequest(.sessionSend, name: name)
         r.session = session
         r.input = bytes
+        r.inputPieces = pieces              // the text, each key and Enter written apart (a TUI reads the Enter alone)
         r.wake = !noWake
         let sent = try decode(try call(r, g), SessionSent.self, g)
         let wait = thenScreen ?? (thenScreenDefault ? Self.defaultThenScreenMs : nil)

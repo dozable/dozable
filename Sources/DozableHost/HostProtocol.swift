@@ -354,6 +354,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var deadline: Double?
     /// 678 B5: session-send — the bytes to type (`SessionInput.bytes`).
     public var input: Data?
+    /// session-send — the same bytes as separate writes (text, each key, Enter: `SessionInput.pieces`); joined they are
+    /// `input` (an older host uses `input` alone).
+    public var inputPieces: [Data]?
     /// session-wait — the states that end the wait (`ProgramStatus.State` words).
     public var until: [String]?
     /// Restore point id or name; image name; new sandbox name (fork); a note.

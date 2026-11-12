@@ -24,6 +24,11 @@ in `SessionCommands.swift`; `SessionInputTests`, `SessionsSendCommandTests`, `ma
   (`pipe_mode` stops relaying at stdin's EOF) — the INFO frame proves every byte before it is in the buffer.
   NOSESSION → no such session (exit 2), EXIT → it ended (exit 2). It proves arrival, not that a TUI acted on it:
   `--then-screen[=MS]` reads the screen back in the same call.
+- **The text, each key and Enter are separate writes** (`SessionInput.pieces`, `HostRequest.inputPieces`; the host
+  splits an older client's trailing CR off too), `SessionInput.settle` apart (60 ms + 4 ms a KiB, ≤ 0.5 s), one QUERY at
+  the end. In one burst a TUI takes everything as a paste: Claude Code kept the CR of `--text <236 bytes> --enter` inside
+  its input box and never submitted. `test-cli-host` and `test-cli-sessionsend` check it with a raw-mode program that
+  prints the size of each read (the Enter must be a read of its own; a CR inside `--text` is the control).
 - **A send wakes, never cold-starts** (an off sandbox has no sessions: exit 3; `--no-wake` on a sleeping one: exit 3),
   waits for the wake's background steps (`afterWakeSettled`) and gives the memory balloon back first (input is work).
 - **`screen` is read-only**: answered in-process with no host (the saved screen), never wakes unless `--wake` (then it

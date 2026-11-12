@@ -28,6 +28,10 @@ echo AGENT-DONE
 sleep 600
 """#
 
+/// A program that reads its terminal in raw mode and prints how many bytes each read brought (`R:N`) — a send's Enter
+/// must arrive as a read of its own. (Also used by the sandbox suite.)
+let fakeTUI = #"stty raw -echo; while :; do n=$(dd bs=4096 count=1 2>/dev/null | wc -c | tr -d ' '); printf 'R:%s\r\n' "$n"; done"#
+
 func cliHostSuite(binary: String) async {
     let root = URL(fileURLWithPath: "/tmp/dzo-\(getpid())-mh")
     try? FileManager.default.removeItem(at: root)
@@ -154,6 +158,18 @@ func cliHostSuite(binary: String) async {
     r = t.run(["sessions", "screen", "@mac", "rd", "--json"], timeout: 30)
     let live = try? HostWire.decoder.decode(SessionLive.self, from: r.outData)
     check(live?.live == true && live?.cols != nil && live?.cursorX != nil, "screen --json: live, with the size and the cursor")
+    // A TUI reads in raw mode: a 236-byte line and its Enter must come as two reads (in one, a TUI takes the CR as pasted).
+    check(run("tui", ["/bin/sh", "-c", fakeTUI]).code == 0, "a fake TUI that prints the size of each read")
+    usleep(500_000)
+    r = t.run(["sessions", "send", "@mac", "tui", "--text", String(repeating: "w", count: 236), "--enter"], timeout: 30)
+    check(r.code == 0, "send a 236-byte line --enter")
+    r = screen("tui", until: "R:1\n")
+    let reads = r.out.split(separator: "\n").map(String.init)
+    check(reads.contains("R:236") && reads.contains("R:1") && !reads.contains("R:237"),
+          "the Enter is a read of its own, after the text (\(reads.filter { $0.hasPrefix("R:") }.joined(separator: " ")))")
+    // The control: the CR inside the text is ONE write — the TUI reads it in the same burst (what --enter used to do).
+    r = t.run(["sessions", "send", "@mac", "tui", "--text", String(repeating: "w", count: 236) + "\r"], timeout: 30)
+    check(r.code == 0 && screen("tui", until: "R:237\n").out.contains("R:237\n"), "control: a CR inside the text arrives in the same read (R:237)")
     r = t.run(["sessions", "send", "@mac", "nope", "--text", "x"], timeout: 30)
     check(r.code == 2 && r.err.contains("no session nope on this Mac"), "a session that is not there: exit 2 (\(r.code))")
 

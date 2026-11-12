@@ -177,6 +177,27 @@ final class DeckholdSocketTests: XCTestCase {
         XCTAssertEqual(got.get()?.count, 40_000)
     }
 
+    /// A 236-byte line and its Enter: the CR reaches the holder as a frame of its own, after a settle — never in the burst.
+    func test_send_pieces_theEnterArrivesApart() async throws {
+        let arrivals = SocketBox<[(Int, Date)]>()
+        let h = FakeHolder(path("tui")) { p in
+            var seen: [(Int, Date)] = []
+            while let (t, d) = p.frame() {
+                if t == UInt8(ascii: "D") { seen.append((d.count, Date())) }
+                if t == UInt8(ascii: "Q") { arrivals.set(seen); p.send(DeckholdFrame.info("tui\tpid=1\tsh").encoded); break }
+            }
+            p.close()
+        }
+        defer { h.stop() }
+        let line = String(repeating: "w", count: 236)
+        let pieces = try SessionInput.pieces(text: line, keys: [], enter: true, paste: false)
+        let r = try await DeckholdSocket.send(path: path("tui"), pieces: pieces)
+        guard case .delivered = r else { return XCTFail("\(r)") }
+        let a = arrivals.get() ?? []
+        XCTAssertEqual(a.map(\.0), [236, 1], "the text, then the CR alone")
+        if a.count == 2 { XCTAssertGreaterThanOrEqual(a[1].1.timeIntervalSince(a[0].1), 0.05, "a settle between them") }
+    }
+
     func test_send_noAnswerInTime_throws() async {
         let h = FakeHolder(path("mute")) { p in
             while p.frame() != nil {}                  // reads, never answers

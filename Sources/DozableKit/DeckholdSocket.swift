@@ -145,12 +145,22 @@ public enum DeckholdSocket {
     /// `timeout` passes. nil: nothing listens there. Runs off the caller's thread.
     static func exchange(_ path: String, _ request: Data, timeout: Duration,
                          done: @escaping @Sendable (Data) -> Bool) async -> Data? {
+        await exchange(path, writes: [(request, .zero)], timeout: timeout, done: done)
+    }
+
+    /// The same, the request in several writes, each followed by its pause (on this thread, before the reading starts).
+    static func exchange(_ path: String, writes: [(Data, Duration)], timeout: Duration,
+                         done: @escaping @Sendable (Data) -> Bool) async -> Data? {
         await withCheckedContinuation { (c: CheckedContinuation<Data?, Never>) in
             Thread.detachNewThread {
                 guard let fd = dial(path) else { c.resume(returning: nil); return }
                 defer { Darwin.close(fd) }
                 let t = Transport(fd: fd)
-                guard t.write(request) else { c.resume(returning: Data()); return }
+                for (d, pause) in writes {
+                    guard t.write(d) else { c.resume(returning: Data()); return }
+                    let us = pause.components.seconds * 1_000_000 + pause.components.attoseconds / 1_000_000_000_000
+                    if us > 0 { usleep(useconds_t(us)) }
+                }
                 let ms = Int(timeout.components.seconds) * 1000 + Int(timeout.components.attoseconds / 1_000_000_000_000_000)
                 let deadline = Date().addingTimeInterval(Double(ms) / 1000)
                 var got = Data()
@@ -207,8 +217,21 @@ public enum DeckholdSocket {
     /// Type `bytes` into the session (DATA frames, then QUERY) — answered once its INFO arrived: every byte is in the
     /// program's input buffer (`SessionInput`). A socket that is not there answers as the pipe does.
     public static func send(path: String, bytes: Data, timeout: Duration = .seconds(15)) async throws -> SessionInput.Receipt {
-        guard bytes.count <= SessionInput.maximumBytes else { throw SandboxError.invalidSpec("at most \(SessionInput.maximumBytes) bytes in one send") }
-        guard let got = await exchange(path, SessionInput.frames(bytes), timeout: timeout, done: { SessionInput.receipt($0) != nil }) else {
+        try await send(path: path, pieces: [bytes], timeout: timeout)
+    }
+
+    /// The same, `pieces` written APART (each its own DATA write, `SessionInput.settle` after it — a TUI takes one burst
+    /// as a paste and keeps a CR inside it); one QUERY, one receipt, at the end.
+    public static func send(path: String, pieces: [Data], timeout: Duration = .seconds(15)) async throws -> SessionInput.Receipt {
+        guard pieces.reduce(0, { $0 + $1.count }) <= SessionInput.maximumBytes else {
+            throw SandboxError.invalidSpec("at most \(SessionInput.maximumBytes) bytes in one send")
+        }
+        let parts = pieces.filter { !$0.isEmpty }
+        var writes: [(Data, Duration)] = parts.enumerated().map { i, p in
+            (SessionInput.dataFrames(p), i < parts.count - 1 ? SessionInput.settle(after: p) : .zero)
+        }
+        writes.append((SessionInput.queryFrame, .zero))
+        guard let got = await exchange(path, writes: writes, timeout: timeout, done: { SessionInput.receipt($0) != nil }) else {
             return SessionInput.receipt(goneFrame(path)) ?? .noSession
         }
         guard let r = SessionInput.receipt(got) else {
