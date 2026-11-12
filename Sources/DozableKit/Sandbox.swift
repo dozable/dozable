@@ -67,6 +67,9 @@ public actor Sandbox {
             proxy.vault.set(.anthropic, secret: nil)
             proxy.vault.set(.claudeOAuth, secret: nil)   // so a real token passed in the environment is vaulted too
             proxy.ownName = spec.name                     // 594 W29: its hostname, answered locally
+            // 683 M2b: never this Mac's own addresses, link-local or metadata, whatever the policy (the default of every
+            // proxy, its bakes' included; said here because this is the sandbox's). `mac.dozable.internal` is unaffected.
+            proxy.addressGuard = .strict
             egress = proxy
         } else {
             egress = nil

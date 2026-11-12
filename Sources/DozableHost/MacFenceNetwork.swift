@@ -113,7 +113,8 @@ final class MacFenceProxy: @unchecked Sendable {
         self.session = session
         self.port = port
         proxy = try EgressProxy(policy: policy, ca: ca)
-        proxy.addressGuard = .strict
+        proxy.addressGuard = .strict            // every proxy's default since M2b; said here, where it matters most
+        proxy.servesFencedSession = true
         proxy.fenceUpstreamsForTests = MacFenceNetwork.upstreamsForTests(environment)
         listener = LoopbackProxyListener(fd: fd, proxy: proxy, secretSHA256: secretSHA256)
         listener.onNote = { HostLog.line("@mac \(session): \($0)") }

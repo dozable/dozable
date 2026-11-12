@@ -5,12 +5,15 @@ import Foundation
 /// the address it is about to connect to (it resolves once and dials what it checked), so a name that resolves to one
 /// of these is refused as surely as the address typed.
 ///
-/// - `loopback` — what every proxied sandbox has had (660): this Mac's loopback and the unspecified address.
-/// - `strict` — a fenced session on this Mac: also link-local (169.254/16 — cloud metadata at 169.254.169.254 — and
+/// - `loopback` — what every proxied sandbox had from 660 until 683 M2b: this Mac's loopback and the unspecified
+///   address. Nothing in the product uses it now.
+/// - `strict` — every proxy (`EgressProxy.addressGuard`'s default): a proxied sandbox's, a bake's and a fenced session
+///   on this Mac's. Also link-local (169.254/16 — cloud metadata at 169.254.169.254 — and
 ///   fe80::/10), multicast and the broadcast address, 0/8, the IPv6 forms that carry an IPv4 address (mapped,
 ///   compatible, NAT64 64:ff9b::/96 — the address inside is judged), site-local fec0::/10, NAT64's local-use
 ///   64:ff9b:1::/48, and EVERY address of this Mac's own interfaces (read with `getifaddrs`, at most every 5 s). The
-///   program runs on this Mac, so any of these reaches the Mac itself or its link, never the internet. No rule widens it.
+///   proxy runs on this Mac, so any of these reaches the Mac itself or its link, never the internet. No rule widens it;
+///   the deliberate ways to the Mac (a sandbox's `mac.dozable.internal:PORT`, the guarded test seams) never meet it.
 public enum AddressGuard: String, Codable, Sendable {
     case loopback
     case strict

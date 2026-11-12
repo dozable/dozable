@@ -444,16 +444,33 @@ public final class EgressProxy: @unchecked Sendable {
     static let loopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reachable from a sandbox — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
     /// 683: the same for a fenced session on this Mac (it has no named port; its own ports are `--local-port`).
     static let fenceLoopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reached through the proxy — a fenced session reaches its own ports directly (doz run @mac --local-port N)"
-    var loopbackRefusalText: String { addressGuard == .strict ? Self.fenceLoopbackRefusal : Self.loopbackRefusal }
+    var loopbackRefusalText: String { servesFencedSession ? Self.fenceLoopbackRefusal : Self.loopbackRefusal }
     /// 683: an address the strict guard refuses.
     static func addressRefusal(_ why: String) -> String { "\(why) is never reachable through the proxy, whatever the permissions" }
+    /// 683 (M2b): the same, as a sandbox is told — with the one way to this Mac it has, when the address was this Mac's.
+    func addressRefusalText(_ why: String) -> String {
+        let text = Self.addressRefusal(why)
+        guard !servesFencedSession, why.contains("this Mac") else { return text }
+        return text + " — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
+    }
 
-    /// 683: which resolved addresses are refused beyond the loopback (nil: a sandbox's rule — loopback only, 660).
+    /// 683: which resolved addresses are refused, whatever the policy. M2b: `.strict` for EVERY proxy — a sandbox's (its
+    /// traffic leaves from this Mac, so the Mac's own addresses, link-local and cloud metadata are as much the Mac's as
+    /// its loopback), a bake's and a fenced session's. The deliberate ways to this Mac never meet it: the named port
+    /// (`macRoute` → 127.0.0.1, `allowLoopback`) and the guarded test seams. nil: the loopback rule alone (660) — nothing
+    /// in the product sets it.
     public var addressGuard: AddressGuard? {
         get { lock.withLock { _addressGuard } }
         set { lock.withLock { _addressGuard = newValue } }
     }
-    private var _addressGuard: AddressGuard?
+    private var _addressGuard: AddressGuard? = .strict
+
+    /// 683: this proxy serves a fenced session on this Mac (its refusals name the fence's own ways, not a sandbox's).
+    public var servesFencedSession: Bool {
+        get { lock.withLock { _servesFencedSession } }
+        set { lock.withLock { _servesFencedSession = newValue } }
+    }
+    private var _servesFencedSession = false
 
     /// 683 TEST SEAM: names a fenced session's proxy dials at a fake upstream on this Mac's loopback instead (the host sets
     /// it only from `DOZ_TEST_FENCE_UPSTREAMS`, in a guarded run): `name → (127.0.0.1, port)`. Nothing else reaches it.
@@ -526,9 +543,9 @@ public final class EgressProxy: @unchecked Sendable {
         if up < 0, let refused, addressGuard != nil {
             rec.verdict = .denied
             rec.open = false
-            rec.detail = Self.addressRefusal(refused)
+            rec.detail = addressRefusalText(refused)
             log.upsert(rec)
-            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.addressRefusal(refused))) }
+            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(addressRefusalText(refused))) }
             return
         }
         guard up >= 0 else {
@@ -605,9 +622,9 @@ public final class EgressProxy: @unchecked Sendable {
         let (up, refused) = Wire.connectTCPGuarded(target, seam?.port ?? port, allowLoopback: mac != nil || seam != nil, guard: addressGuard)
         rec.latencyMs = milliseconds(since: t0)
         if up < 0, let refused, addressGuard != nil {
-            rec.verdict = .denied; rec.open = false; rec.detail = Self.addressRefusal(refused)
+            rec.verdict = .denied; rec.open = false; rec.detail = addressRefusalText(refused)
             log.upsert(rec)
-            _ = Wire.writeAll(fd, Self.forbidden(Self.addressRefusal(refused)))
+            _ = Wire.writeAll(fd, Self.forbidden(addressRefusalText(refused)))
             return
         }
         guard up >= 0 else {
@@ -1058,7 +1075,7 @@ final class TLSUpstream {
     init?(host: String, port: UInt16, context: NIOSSLContext, override: EgressProxy.UpstreamOverride? = nil, guard level: AddressGuard? = nil) {
         // 599d test seam: another address, and ONLY the given anchors trusted (for `host`'s name).
         // 660: a guarded test seam's fake upstream may be on this Mac's loopback; a real host never is.
-        // 683: a fenced session's stricter guard applies here too.
+        // 683: the strict guard applies here too (every proxy since M2b).
         let fd = Wire.connectTCPGuarded(override?.host ?? host, override?.port ?? port, allowLoopback: override != nil, guard: level).fd
         guard fd >= 0 else { return nil }
         self.fd = fd
@@ -1278,7 +1295,7 @@ enum Wire {
                 refused = refused ?? "this Mac's own loopback"
                 ai = a.pointee.ai_next; continue
             }
-            // 683: a fenced session's stricter guard — link-local, metadata, this Mac's own addresses, mapped forms.
+            // 683: the strict guard (every proxy since M2b) — link-local, metadata, this Mac's own addresses, mapped forms.
             if !allowLoopback, let level, let sa = a.pointee.ai_addr, let b = AddressGuard.bytes(UnsafePointer(sa)), let why = level.refusal(b) {
                 refused = refused ?? why
                 ai = a.pointee.ai_next; continue

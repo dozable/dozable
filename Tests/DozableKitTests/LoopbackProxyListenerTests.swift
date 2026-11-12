@@ -30,7 +30,7 @@ final class AddressGuardTests: XCTestCase {
         ]
         for (ip, what) in allowed { XCTAssertNil(AddressGuard.strictRefusal(ip, own: own), what) }
         XCTAssertNotNil(AddressGuard.strictRefusal([1, 2, 3], own: []), "an odd length is refused")
-        // The sandboxes' rule is unchanged: loopback only.
+        // The old loopback-only rule (no longer any proxy's) still says what it said.
         XCTAssertNotNil(AddressGuard.loopback.refusal([127, 0, 0, 1]))
         XCTAssertNil(AddressGuard.loopback.refusal([169, 254, 169, 254]))
     }
@@ -54,6 +54,92 @@ final class AddressGuardTests: XCTestCase {
         let seam = Wire.connectTCPGuarded("127.0.0.1", port, timeoutMS: 500, allowLoopback: true, guard: .strict)
         XCTAssertGreaterThanOrEqual(seam.fd, 0)
         if seam.fd >= 0 { close(seam.fd) }
+    }
+}
+
+/// 683 M2b: the strict guard is every proxy's — a proxied sandbox's included (the proxy runs on this Mac, so this Mac's
+/// own addresses, link-local and cloud metadata are the Mac's as surely as its loopback). Driven as a sandbox drives it
+/// (a socketpair stands in for the vsock stream), under Open; the only listener is this test's own.
+final class SandboxAddressGuardTests: XCTestCase {
+    func testEveryProxyIsStrictByDefault() throws {
+        let proxy = try EgressProxy(policy: .open, ca: nil)
+        XCTAssertEqual(proxy.addressGuard, .strict, "a sandbox's proxy, a bake's: strict")
+        XCTAssertFalse(proxy.servesFencedSession)
+        XCTAssertEqual(try EgressProxy(policy: .bake, ca: nil).addressGuard, .strict)
+    }
+
+    /// A listener on every interface (0.0.0.0) — what a dev server on this Mac often is.
+    static func listenEverywhere() throws -> (Int32, UInt16) {
+        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        var a = sockaddr_in()
+        a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+        a.sin_family = sa_family_t(AF_INET)
+        a.sin_addr.s_addr = INADDR_ANY
+        guard withUnsafePointer(to: &a, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }) == 0,
+              Darwin.listen(fd, 4) == 0 else { close(fd); throw XCTSkip("no listener on 0.0.0.0") }
+        var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+        _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
+        return (fd, UInt16(bigEndian: a.sin_port))
+    }
+
+    func testUnderOpenASandboxReachesNoneOfThisMacsAddressesNorMetadata() throws {
+        let proxy = try EgressProxy(policy: .open, ca: nil)
+        // Metadata and link-local, plain HTTP and CONNECT, and the IPv6 forms that carry them.
+        for (request, what) in [
+            ("GET http://169.254.169.254/latest/meta-data/ HTTP/1.1\r\nHost: 169.254.169.254\r\n\r\n", "metadata, plain HTTP"),
+            ("CONNECT 169.254.169.254:80 HTTP/1.1\r\nHost: 169.254.169.254:80\r\n\r\n", "metadata, CONNECT"),
+            ("CONNECT [::ffff:169.254.169.254]:80 HTTP/1.1\r\nHost: [::ffff:169.254.169.254]:80\r\n\r\n", "mapped metadata"),
+            ("CONNECT [64:ff9b::a9fe:a9fe]:80 HTTP/1.1\r\nHost: [64:ff9b::a9fe:a9fe]:80\r\n\r\n", "NAT64 metadata"),
+            ("CONNECT [fe80::1]:80 HTTP/1.1\r\nHost: [fe80::1]:80\r\n\r\n", "fe80::/10"),
+        ] {
+            let fd = MacModelServerTests.open(proxy, "DOZ1 P\n" + request)
+            let reply = MacModelServerTests.readAll(fd)
+            close(fd)
+            XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403") && reply.contains("whatever the permissions"), "\(what): \(reply.prefix(160))")
+        }
+        XCTAssertTrue(proxy.log.records.contains { $0.host == "169.254.169.254" && $0.verdict == .denied && $0.detail?.contains("link-local") == true })
+        // Redirected TCP (a client that ignored the proxy settings) to the metadata address: refused and logged.
+        let t = MacModelServerTests.open(proxy, "DOZ1 T 169.254.169.254 80\n")
+        _ = MacModelServerTests.readAll(t)
+        close(t)
+        XCTAssertTrue(proxy.log.records.contains { $0.kind == .tcp && $0.host == "169.254.169.254" && $0.verdict == .denied })
+
+        // This Mac's own address (not its loopback) — a server listening on every interface is never reached.
+        guard let own = AddressGuard.interfaceAddresses().first(where: { $0.count == 4 && $0[0] != 127 && !($0[0] == 169 && $0[1] == 254) }) else {
+            throw XCTSkip("this Mac has no IPv4 address but its loopback")
+        }
+        let ip = own.map(String.init).joined(separator: ".")
+        let (l, port) = try Self.listenEverywhere()
+        defer { close(l) }
+        // The positive control: from this Mac (not through the proxy) it answers.
+        let direct = Wire.connectTCPGuarded(ip, port, timeoutMS: 1000, guard: nil)
+        XCTAssertGreaterThanOrEqual(direct.fd, 0, "the control: \(ip):\(port) answers this Mac's own programs")
+        if direct.fd >= 0 { close(direct.fd); let a = accept(l, nil, nil); if a >= 0 { close(a) } }
+        for request in ["GET http://\(ip):\(port)/ HTTP/1.1\r\nHost: \(ip):\(port)\r\n\r\n",
+                        "CONNECT \(ip):\(port) HTTP/1.1\r\nHost: \(ip):\(port)\r\n\r\n",
+                        "CONNECT [::ffff:\(ip)]:\(port) HTTP/1.1\r\nHost: [::ffff:\(ip)]:\(port)\r\n\r\n"] {
+            let fd = MacModelServerTests.open(proxy, "DOZ1 P\n" + request)
+            let reply = MacModelServerTests.readAll(fd)
+            close(fd)
+            XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403"), "\(request.prefix(40)): \(reply.prefix(160))")
+            XCTAssertTrue(reply.contains("this Mac") && reply.contains(MacModelServer.hostName), "a sandbox is told its one way to this Mac: \(reply)")
+        }
+        // Nothing reached the listener through the proxy.
+        let flags = fcntl(l, F_GETFL)
+        _ = fcntl(l, F_SETFL, flags | O_NONBLOCK)
+        let stray = accept(l, nil, nil)
+        XCTAssertEqual(stray, -1, "no connection from the proxy arrived")
+        if stray >= 0 { close(stray) }
+    }
+
+    func testAFencedSessionsProxyKeepsItsOwnWords() throws {
+        let proxy = try EgressProxy(policy: .open, ca: nil)
+        proxy.servesFencedSession = true
+        let fd = MacModelServerTests.open(proxy, "DOZ1 P\nGET http://127.0.0.1:9/ HTTP/1.1\r\nHost: 127.0.0.1:9\r\n\r\n")
+        let reply = MacModelServerTests.readAll(fd)
+        close(fd)
+        XCTAssertTrue(reply.contains("--local-port") && !reply.contains(MacModelServer.hostName), reply)
+        XCTAssertFalse(proxy.addressRefusalText("an address of this Mac's own (its interfaces)").contains(MacModelServer.hostName))
     }
 }
 

@@ -323,7 +323,7 @@ public enum AgentPrompt {
             }
             // 660: the one port of the Mac it may reach (its model server) — and nothing else of the Mac's localhost.
             if let port = localModelPort {
-                v["network.permissions"]! += " Of the user's Mac you may reach only port \(port), as http://\(MacModelServer.hostName):\(port) (the model server you use); nothing else on the Mac's localhost is reachable."
+                v["network.permissions"]! += " Of the user's Mac you may reach only port \(port), as http://\(MacModelServer.hostName):\(port) (the model server you use); nothing else of the Mac — its localhost or any other address of it — is reachable."
             }
             let allowed = p.effectiveRules.filter { $0.action == .allow }.map(\.host)
             var unique: [String] = []

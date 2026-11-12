@@ -87,13 +87,14 @@ final class MacModelServerTests: XCTestCase {
             close(c)
         }
         let proxy = try EgressProxy(policy: .open, ca: nil)
+        XCTAssertEqual(proxy.addressGuard, .strict, "683 M2b: a sandbox's proxy has the strict guard — and the named port still answers below")
         // Open: 127.0.0.1 and localhost through the proxy are refused (plain HTTP and CONNECT).
         for target in ["127.0.0.1", "localhost"] {
             let fd = Self.open(proxy, "DOZ1 P\nGET http://\(target):\(port)/ HTTP/1.1\r\nHost: \(target):\(port)\r\n\r\n")
             let reply = Self.readAll(fd)
             close(fd)
             XCTAssertTrue(reply.hasPrefix("HTTP/1.1 403"), "\(target): \(reply.prefix(80))")
-            XCTAssertTrue(reply.contains("loopback"), reply)
+            XCTAssertTrue(reply.contains("loopback") && reply.contains(MacModelServer.hostName), "a sandbox is told its one way: \(reply)")
         }
         let c = Self.open(proxy, "DOZ1 P\nCONNECT 127.0.0.1:\(port) HTTP/1.1\r\nHost: 127.0.0.1:\(port)\r\n\r\n")
         XCTAssertTrue(Self.readAll(c).hasPrefix("HTTP/1.1 403"), "CONNECT to the loopback: refused")
@@ -110,6 +111,38 @@ final class MacModelServerTests: XCTestCase {
         let rec = proxy.log.records.last { $0.host == "mac.dozable.internal" && $0.port == port }
         XCTAssertEqual(rec?.verdict, .allowed)
         XCTAssertTrue(rec?.rule.contains("this Mac's port \(port)") == true, rec?.rule ?? "")
+    }
+
+    /// 683 M2b: with the strict guard, every deliberate way a sandbox reaches its model server on this Mac still works —
+    /// CONNECT to the name, and a client that ignored the proxy settings and dialled the synthetic address (redirected TCP).
+    func testTheNamedPortStillAnswersUnderTheStrictGuard() throws {
+        let (listener, port) = try Self.listen()
+        defer { close(listener) }
+        Thread.detachNewThread {
+            for _ in 0..<2 {
+                let c = accept(listener, nil, nil)
+                guard c >= 0 else { return }
+                var buf = [UInt8](repeating: 0, count: 4096)
+                _ = read(c, &buf, buf.count)
+                _ = Wire.writeAll(c, Array("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".utf8))
+                close(c)
+            }
+        }
+        let proxy = try EgressProxy(policy: .locked, ca: nil)
+        proxy.addressGuard = .strict
+        proxy.macModelPort = port
+        // CONNECT to the name (a client that tunnels plain HTTP — the request is then sent inside).
+        let c = Self.open(proxy, "DOZ1 P\nCONNECT mac.dozable.internal:\(port) HTTP/1.1\r\nHost: mac.dozable.internal:\(port)\r\n\r\n"
+                          + "GET /v1/models HTTP/1.1\r\nHost: mac.dozable.internal\r\n\r\n")
+        let tunnelled = Self.readAll(c)
+        close(c)
+        XCTAssertTrue(tunnelled.hasPrefix("HTTP/1.1 200 Connection established") && tunnelled.hasSuffix("hello"), tunnelled)
+        // Redirected TCP to the synthetic address (198.18.255.254), recognised by the address alone.
+        let t = Self.open(proxy, "DOZ1 T 198.18.255.254 \(port)\nGET /v1/models HTTP/1.1\r\nHost: mac.dozable.internal\r\n\r\n")
+        let redirected = Self.readAll(t)
+        close(t)
+        XCTAssertTrue(redirected.hasPrefix("HTTP/1.1 200") && redirected.hasSuffix("hello"), redirected)
+        XCTAssertEqual(proxy.log.records.filter { $0.host == MacModelServer.hostName && $0.verdict == .allowed }.count, 2)
     }
 
     func testAPlaceholderNeverGoesToTheMacsServer() throws {
