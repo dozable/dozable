@@ -302,7 +302,7 @@ test-recipe-catalogue: cli ## The recipe catalogue end to end with a TEST key (n
 test-community-recipes: cli ## 653: your own recipes and community catalogues end to end, offline, a THROWAWAY key: doz recipe new fails the check then passes once filled in; the label in doz search and doz try's list; Dozable's id refused; a catalogue refused before its key is confirmed, used after; a clashing source refused whole; a tampered serial refused; removal keeps a sandbox's record; nothing pushed
 	@Scripts/test-community-recipes.sh "$(CLI_BIN)"
 
-test-cli-startup: cli ## The cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE); median doz ls --json <= STARTUP_MAX_MS (60), <= 1 s under taskpolicy -b (scratch store, no VM)
+test-cli-startup: cli ## The cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE); median doz ls --json <= STARTUP_MAX_MS (60), <= 1 s under taskpolicy -b; doctor's priority warning, a host started from the background leaves it (scratch store, no VM)
 	python3 Scripts/startup-check.py $(CLI_BIN)
 
 test-cli-exectimeout: cli vmtest-host ## exec --timeout: counted from doz's start, 124 from the host at the deadline — a running command killed, a cold start and a wake that outlast it go on, a stopped client still ends 124 (a lab sandbox, scratch store)

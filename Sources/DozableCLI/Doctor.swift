@@ -48,6 +48,10 @@ struct Doctor: AsyncParsableCommand {
                                detail: "\(machine) · \(sysctl("machdep.cpu.brand_string")) · \(sysctl("hw.model"))" + (machine == "arm64" ? "" : " — Apple silicon is needed")))
         out.append(DoctorCheck(check: "virtualization", status: VZVirtualMachine.isSupported ? .ok : .fail,
                                detail: VZVirtualMachine.isSupported ? "supported (up to \(VZVirtualMachineConfiguration.maximumAllowedCPUCount) CPUs per VM)" : "Virtualization.framework reports no support"))
+        // 678: a doz clamped to background priority (taskpolicy -b, a background agent worker) runs everything slowly.
+        let mine = ProcessPriority.current()
+        out.append(DoctorCheck(check: "priority", status: mine.clamped ? .warn : .ok,
+                               detail: mine.warning("doz", pid: getpid()) ?? "normal (QoS \(mine.qos)\(mine.pri.map { ", pri \($0)" } ?? ""))"))
         let ent = hasVirtualizationEntitlement()
         out.append(DoctorCheck(check: "entitlement", status: ent ? .ok : .fail,
                                detail: ent ? "com.apple.security.virtualization — \(HostLauncher.executablePath)"
@@ -181,6 +185,7 @@ struct Doctor: AsyncParsableCommand {
         if store.hostIsRunning() {
             var detail = "running, pid \(store.hostPID().map(String.init) ?? "?")"
             var status = DoctorCheck.Status.ok
+            var hostPriority: DoctorCheck?
             if let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
                let st = try? m.result?.decode(HostStatus.self) {
                 detail += ", \(st.version), \(st.liveSandboxes.count) running, idle timeout \(st.idleTimeoutMinutes.formatted()) min"
@@ -197,6 +202,13 @@ struct Doctor: AsyncParsableCommand {
                     }
                 }
                 if let app = st.microphoneApp { detail += ", microphone asked as \(app) (sandboxes with sound)" }
+                // 678: the host's own scheduling — a clamped host makes every wake crawl.
+                if let p = st.priority {
+                    hostPriority = DoctorCheck(check: "host priority", status: p.clamped ? .warn : .ok,
+                                               detail: p.warning("the host", pid: st.pid)
+                                                   ?? "normal (QoS \(p.qos)\(p.pri.map { ", pri \($0)" } ?? ""))"
+                                                   + (st.priorityRestored == true ? " — moved out of the background priority it inherited from the command that started it" : ""))
+                }
                 // 591: its program changed under it — overwritten in place is a failure (its VMs are refused).
                 if let note = st.executableNote {
                     status = st.executableChange == "overwritten" ? .fail : (status == .ok ? .warn : status)
@@ -207,6 +219,7 @@ struct Doctor: AsyncParsableCommand {
                 detail += " but it does not answer its socket"
             }
             out.append(DoctorCheck(check: "host", status: status, detail: detail))
+            if let hostPriority { out.append(hostPriority) }
             // 608: a sandbox whose live view of its workspace could not start is shared directly — say so.
             var ls = HostRequest(.ls); ls.withSessions = false
             if let m = try? HostClient.request(ls, store: store, autostart: false), let rows = try? m.result?.decode([SandboxInfo].self) {

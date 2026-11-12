@@ -1308,6 +1308,10 @@ public struct HostStatus: Codable, Equatable, Sendable {
     public var parentPid: Int32?
     public var sessionID: Int32?
     public var launchedDetached: Bool?
+    /// 678: how macOS schedules the host (doctor warns when it is clamped to background), and whether it left a
+    /// background state it inherited from the client that started it.
+    public var priority: ProcessPriority?
+    public var priorityRestored: Bool?
     /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for, for this host's audio sandboxes
     /// (its responsible app).
     public var microphoneApp: String?

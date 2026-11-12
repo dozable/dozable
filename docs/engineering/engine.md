@@ -44,6 +44,13 @@ A bare file name is in `Sources/DozableKit/`.
   the background, its events gated off), the guest command is never started after the deadline, and a running one
   is killed then deleted (`Sandbox.exec`: a failed wait kills). Exit code 124 (`DozableExit.timedOut`); `--json`'s
   `timedOut` tells it from a program's own 124. `ExecDeadlineTests`, `make test-cli-exectimeout`.
+- **A host never keeps a background priority it inherited** (678: a 69 s hibernate from a host that a background
+  agent worker had autostarted — Darwin's background state passes to every child). `HostServer.run` of a LAUNCHED host
+  calls `ProcessPriority.liftInheritedBackground()` (`setpriority(PRIO_DARWIN_PROCESS, 0, 0)`; `host status`
+  `priorityRestored`), and both launcher spawns ask for `QOS_CLASS_USER_INITIATED`; a person's `--foreground` host
+  keeps what they chose. `doz doctor` warns (`priority`, `host priority`) when doz or its host is clamped
+  (`ProcessPriority`: the Darwin background state, the background QoS, `pti_priority`). `ProcessPriorityTests`,
+  `make test-cli-startup`.
 
 - **A host stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down

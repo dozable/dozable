@@ -944,6 +944,8 @@ public actor HostCore {
             s.parentPid = getppid()
             s.sessionID = getsid(0)
             s.launchedDetached = HostServer.launchedDetached
+            s.priority = ProcessPriority.current()
+            s.priorityRestored = HostServer.priorityRestored ? true : nil
             s.microphoneApp = Self.microphoneApp?.description
         }
         if let executable, let c = executableChange() {

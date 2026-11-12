@@ -64,12 +64,18 @@ public final class HostServer: @unchecked Sendable {
 
     /// 593: this host was started by `HostLauncher` (fully detached), not by a person's `--foreground`.
     nonisolated(unsafe) public static var launchedDetached: Bool = false
+    /// 678: this host left a Darwin background state it inherited at its start (`ProcessPriority.liftInheritedBackground`).
+    nonisolated(unsafe) public static var priorityRestored: Bool = false
 
     /// Run the host in this process until it exits (never returns). `launched`: started by
     /// `HostLauncher` (its parent is launchd); false: a person ran `doz host start --foreground`.
     public static func run(store: DozableStore, idleTimeoutMinutes: Double, version: String, launched: Bool = false) async throws -> Never {
         TestSafety.checkStore(store.root)          // 611
         launchedDetached = launched
+        // 678 (the plan's default, owner to confirm): a host a client started inherits that client's background
+        // state (a `taskpolicy -b` tool, a background agent worker) — and every wake it runs crawls. A launched host
+        // leaves it; a person's `--foreground` host keeps what they chose.
+        if launched { priorityRestored = ProcessPriority.liftInheritedBackground() }
         setvbuf(stdout, nil, _IOLBF, 0)
         signal(SIGPIPE, SIG_IGN)
         signal(SIGHUP, SIG_IGN)
@@ -83,6 +89,7 @@ public final class HostServer: @unchecked Sendable {
         HostLog.line("doz host \(version) (pid \(getpid())) — store \(store.root.path), idle timeout \(idleTimeoutMinutes) min")
         HostLog.line(launched ? "detached: parent \(getppid())\(getppid() == 1 ? " (launchd)" : " — NOT launchd"), session \(getsid(0))"
                               : "in the foreground (parent \(getppid())): it lives in that terminal's process tree")
+        if priorityRestored { HostLog.line("started at background priority (inherited from the client that started it) — moved to normal priority") }
         // EXPERIMENTAL (604): which app macOS asks about the microphone for, for this host's audio sandboxes.
         HostLog.line("microphone (audio sandboxes, experimental): macOS asks on behalf of "
                      + (HostCore.microphoneApp.map { "\($0.description) — \($0.path)" } ?? "an app it could not name"))
