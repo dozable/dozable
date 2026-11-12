@@ -75,8 +75,50 @@ struct Inspect: AsyncParsableCommand {
 struct Sessions: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "The sandbox's terminal sessions: list them (the default), end one, restart one, type into one, or read its screen.",
-        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self],
+        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self, SessionsWait.self],
         defaultSubcommand: SessionsList.self)
+}
+
+/// Wait until a session's program says it is idle, done, blocked or in error (its own OSC 7501 reports).
+struct SessionsWait: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "wait",
+        abstract: "Wait until a session's program reports a state: idle, done, blocked or error (what doz sessions shows as AGENT).",
+        discussion: """
+            doz sessions wait NAME SESSION --until done --until error --timeout 90. Returns as soon as the program reports \
+            one of them (now included), printing the state; exit 124 when --timeout seconds pass first (--json says \
+            timedOut). Only programs that report their status (Claude Code, pi, Grok Build) ever arrive. The sandbox must be \
+            running — a wait never wakes one; NAME may be @mac. A program that ends first: exit 2, unless its last report \
+            matches. A sandbox named wait needs doz sessions ls wait.
+            """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument var session: String
+    @Option(name: .long, parsing: .upToNextOption, help: "The state(s) to wait for: idle, working, done, blocked, error (repeatable).") var until: [String] = []
+    @Option(name: .long, help: "Give up after this many seconds (exit 124). Default: none (a wait ends after a day at most).") var timeout: Int64 = 0
+
+    func validate() throws {
+        let words = until.flatMap { $0.split(separator: ",").map(String.init) }
+        if words.isEmpty { throw ValidationError("--until which state? idle, done, blocked or error") }
+        for w in words where ProgramStatus.State(rawValue: w) == nil {
+            throw ValidationError("--until \(w): one of \(ProgramStatus.State.allCases.map(\.rawValue).joined(separator: ", "))")
+        }
+        if timeout < 0 { throw ValidationError("--timeout is a number of seconds") }
+    }
+
+    func run() async throws {
+        var r = HostRequest(.sessionWait, name: name)
+        r.session = session
+        r.until = until.flatMap { $0.split(separator: ",").map(String.init) }
+        r.timeoutSeconds = timeout
+        let w = try decode(try call(r, g), SessionWaited.self, g)
+        if g.json { Out.json(w) } else if w.timedOut {
+            Out.stderr("doz: \(session) \(MacCLI.inPlace(name)) did not become \(r.until!.joined(separator: " or ")) within \(timeout) s"
+                       + (w.state.map { " (it is \($0))" } ?? "") + "\n")
+        } else {
+            Out.stdout("\(session) \(MacCLI.inPlace(name)): \(w.status?.label ?? w.state ?? "?")\n")
+        }
+        if w.timedOut { throw ExitCode(DozableExitCode.timedOut) }
+    }
 }
 
 /// 678 B5: type into a session from a script.

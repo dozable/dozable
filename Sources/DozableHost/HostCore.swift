@@ -754,6 +754,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await sessionSend(r, emit: emit))
         case .sessionLive:
             return try JSONValue(encoding: try await sessionLive(r, emit: emit))
+        case .sessionWait:
+            return try JSONValue(encoding: try await sessionWait(r))
         case .bootLog:
             return try bootLog(r)
         case .buildLog:

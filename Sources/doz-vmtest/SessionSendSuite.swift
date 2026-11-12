@@ -48,6 +48,15 @@ func cliSessionSendSuite(binary: String) async {
     check(r.code == 0 && (j?["bytes"] as? Int) == 3 && ((j?["screen"] as? [String: Any])?["text"] as? String)?.contains("got:js") == true,
           "--json: the receipt and, under screen, the screen")
 
+    // sessions wait: a program that reports done (OSC 7501) a moment after it starts.
+    check(t.run(["run", "sn", "-d", "--session", "rep", "--", "sh", "-c", "sleep 2; printf '\\033]7501;state=done:app=fake\\033\\\\'; sleep 600"]).code == 0,
+          "a session that reports done after 2 s")
+    r = t.run(["sessions", "wait", "sn", "rep", "--until", "done", "--timeout", "30"], timeout: 60)
+    check(r.code == 0 && r.out.contains("done"), "sessions wait sn rep --until done: returns when it reports done (\(r.code))")
+    r = t.run(["sessions", "wait", "sn", "rep", "--until", "blocked", "--timeout", "2"], timeout: 60)
+    check(r.code == 124, "--timeout passes first: exit 124 (\(r.code))")
+    t.run(["sessions", "end", "sn", "rep", "--yes"], timeout: 60)
+
     // Into a HIBERNATED sandbox: it wakes and the text arrives — 5 of 5.
     var ok = 0
     for i in 1...5 {

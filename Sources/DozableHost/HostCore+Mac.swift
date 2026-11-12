@@ -28,6 +28,8 @@ extension HostCore {
             return try JSONValue(encoding: try await macEnd(r))
         case .sessionRestart:
             return try JSONValue(encoding: try await macRestart(r))
+        case .sessionWait:
+            return try JSONValue(encoding: try await sessionWait(r))
         default:
             throw MacPlace.refusal(r.op.rawValue)
         }

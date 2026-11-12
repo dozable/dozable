@@ -9,7 +9,7 @@ import DozableHost
 enum MacCLI {
     /// The commands that take `@mac`.
     static let takes: Set<ObjectIdentifier> = Set([Run.self, Attach.self, SessionsList.self, SessionsEnd.self, SessionsRestart.self,
-                                                   SessionsSend.self, SessionsScreen.self].map { ObjectIdentifier($0 as Any.Type) })
+                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self].map { ObjectIdentifier($0 as Any.Type) })
 
     /// The refusal for a parsed command that names `@mac` (before any `--`) and does not take it; nil otherwise.
     static func refusal(_ command: any ParsableCommand, args: [String]) -> HostError? {

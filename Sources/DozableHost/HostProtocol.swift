@@ -143,6 +143,9 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// 678 B5: a session's screen as it is now (`SessionLive`) — while running, `deckhold dump`; otherwise its last
     /// saved screen, said so (`live: false`); `wake` true wakes a sleeping one first. Read-only unless it wakes.
     case sessionLive = "session-live"
+    /// Block until a session's program reports one of `until` (OSC 7501 states) — `SessionWaited`; at `timeoutSeconds`
+    /// it answers `timedOut`. A running sandbox, or `@mac`; never wakes.
+    case sessionWait = "session-wait"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
     /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
     case plan
@@ -351,6 +354,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var deadline: Double?
     /// 678 B5: session-send — the bytes to type (`SessionInput.bytes`).
     public var input: Data?
+    /// session-wait — the states that end the wait (`ProgramStatus.State` words).
+    public var until: [String]?
     /// Restore point id or name; image name; new sandbox name (fork); a note.
     public var point: String?
     public var pointName: String?
@@ -1193,6 +1198,17 @@ public struct SessionLive: Codable, Equatable, Sendable {
     public var reason: String?
     /// It was woken first (`--wake`).
     public var woke: Bool?
+}
+
+/// `session-wait`'s answer: the state reached, or `timedOut` (the CLI exits 124).
+public struct SessionWaited: Codable, Equatable, Sendable {
+    public var place: String
+    public var session: String
+    /// The state reached — or, timed out, the last one seen (nil: none reported).
+    public var state: String?
+    public var status: SessionStatus?
+    public var timedOut: Bool
+    public var milliseconds: Double
 }
 
 /// `open-session`.
