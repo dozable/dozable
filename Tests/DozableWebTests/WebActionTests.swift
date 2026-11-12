@@ -57,6 +57,8 @@ final class WebActionTests: XCTestCase {
         "tools-apply": #"{"action":"tools-apply","sandbox":"web"}"#,
         "session-end": #"{"action":"session-end","sandbox":"web","session":"codex"}"#,
         "session-restart": #"{"action":"session-restart","sandbox":"web","session":"codex","fresh":false}"#,
+        "mac-session-end": #"{"action":"mac-session-end","session":"build","confirm":"build"}"#,
+        "mac-session-restart": #"{"action":"mac-session-restart","session":"agent","confirm":"agent"}"#,
         // 644: the Files panel's changes.
         "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
@@ -326,6 +328,7 @@ final class WebActionTests: XCTestCase {
     func testEveryActionIsExactlyOneAllowedHostOp() throws {
         XCTAssertEqual(Set(Self.samples.keys), Set(WebAction.actionNames), "a sample for every action, and no action without one")
         var ops: [HostOp] = []
+        var places: [String] = []
         for (name, json) in Self.samples {
             let a = try decode(json)
             XCTAssertTrue(Self.allowedOps.contains(a.hostOp), "\(name) → \(a.hostOp)")
@@ -333,8 +336,13 @@ final class WebActionTests: XCTestCase {
             XCTAssertEqual(a.hostRequest.v, HostProtocol.version)
             XCTAssertNil(a.hostRequest.secret, "no action ever carries a secret")
             ops.append(a.hostOp)
+            // The sessions on this Mac have their own two actions: the same HostOp, on the place @mac.
+            places.append(a.hostOp.rawValue + (a.isMacSession ? " @mac" : ""))
+            XCTAssertEqual(a.isMacSession, a.hostRequest.name == "@mac", "\(name): @mac only through its own actions")
         }
-        XCTAssertEqual(ops.count, Set(ops).count, "one action per HostOp")
+        XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
+        XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isMacSession == true ? (try? decode($0.value))?.hostOp : nil }),
+                       [.sessionEnd, .sessionRestart], "this Mac: end and restart — never an open")
         // 594 W18: `ping` is reachable — as "Start host" (a status read that starts a host the way
         // every action does); `host stop` only as W20's guarded Restart host.
         XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp) == .hostStop }.map(\.key), ["host-restart"])
@@ -369,6 +377,22 @@ final class WebActionTests: XCTestCase {
         invalid(#"{"action":"session-end","sandbox":"web"}"#)
         invalid(#"{"action":"session-restart","sandbox":"web","session":"../x"}"#)
         invalid(#"{"action":"session-restart","sandbox":"web","session":"codex","argv":["sh"]}"#)
+        // This Mac: its own actions, confirmed by the session's name; never a sandbox action naming @mac.
+        let me = try decode(Self.samples["mac-session-end"]!)
+        XCTAssertEqual(me.hostRequest.name, "@mac")
+        XCTAssertEqual(me.hostRequest.session, "build")
+        XCTAssertNil(me.sandbox, "this Mac is no sandbox")
+        XCTAssertEqual(me.label, "end session build on this Mac")
+        let mr = try decode(#"{"action":"mac-session-restart","session":"agent","fresh":true,"confirm":"agent"}"#)
+        XCTAssertEqual(mr.hostRequest.op, .sessionRestart)
+        XCTAssertEqual(mr.hostRequest.fresh, true)
+        invalid(#"{"action":"mac-session-end","session":"build"}"#)                          // not confirmed
+        invalid(#"{"action":"mac-session-end","session":"build","confirm":"other"}"#)
+        invalid(#"{"action":"mac-session-end","session":"\#(String(repeating: "x", count: 33))","confirm":"x"}"#)
+        invalid(#"{"action":"mac-session-end","sandbox":"web","session":"build","confirm":"build"}"#)
+        invalid(#"{"action":"mac-session-restart","session":"a","confirm":"a","argv":["sh"]}"#)
+        invalid(#"{"action":"session-end","sandbox":"@mac","session":"build"}"#)            // @mac is not a sandbox name
+        invalid(#"{"action":"open-session","sandbox":"@mac","session":"x"}"#)                // no new sessions from the page
     }
 
     func testDecodingIsStrict() throws {

@@ -106,6 +106,9 @@ public protocol DozableWebData: Sendable {
     /// 648: the running sessions' pictures as cells (the host's `session-grids`) — NEVER starting a host: with none,
     /// every item is unavailable.
     func grids(_ items: [SessionGridRequest]) async -> WebGrids
+    /// The sessions on this Mac (`@mac`): the host's `sessions` for the place, read from its socket folder in-process when
+    /// no host runs — looking never starts one.
+    func macSessions() async throws -> [WebMacSession]
 }
 
 extension DozableWebData {
@@ -121,6 +124,7 @@ extension DozableWebData {
     public func openPort(_ name: String, port: Int) async throws -> WebPortOpened { throw HostError(.notImplemented, "ports") }
     public func editors() async throws -> [WebEditor] { throw HostError(.notImplemented, "editors") }
     public func grids(_ items: [SessionGridRequest]) async -> WebGrids { .unavailable(items, WebGrids.sentence(.noHost)) }
+    public func macSessions() async throws -> [WebMacSession] { [] }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -467,6 +471,10 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func sessions(_ name: String) async throws -> [WebSessionRow] {
         try await query(HostRequest(.sessions, name: name)).0.decode([SessionRow].self).map(WebSessionRow.init)
+    }
+
+    public func macSessions() async throws -> [WebMacSession] {
+        try await query(HostRequest(.sessions, name: MacPlace.name)).0.decode([SessionRow].self).map(WebMacSession.init)
     }
 
     public func network(_ name: String) async throws -> WebNetwork {

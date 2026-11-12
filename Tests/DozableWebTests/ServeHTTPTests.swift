@@ -28,12 +28,21 @@ final class ServeHTTPTests: XCTestCase {
     }
 
     func start(_ config: WebServeConfig = WebServeConfig(port: 0, bind: .loopback, advertise: false),
-               interfaces: [WebInterfaceAddress] = [WebInterfaceAddress(name: "lo0", address: WebIP("127.0.0.1")!, prefix: 8)]) async throws {
+               interfaces: [WebInterfaceAddress] = [WebInterfaceAddress(name: "lo0", address: WebIP("127.0.0.1")!, prefix: 8)],
+               macSessions: String? = nil) async throws {
+        // A settings file of the test's own (serve.mac_sessions) — none: every default.
+        var env: [String: String] = [:]
+        if let macSessions {
+            let xdg = dir.appendingPathComponent("xdg")
+            try FileManager.default.createDirectory(at: xdg.appendingPathComponent("doz"), withIntermediateDirectories: true)
+            try "[serve]\nmac_sessions = \"\(macSessions)\"\n".write(to: xdg.appendingPathComponent("doz/doz.toml"), atomically: true, encoding: .utf8)
+            env["XDG_CONFIG_HOME"] = xdg.path
+        }
         state = WebServeState(config: config, names: WebMacNames(localHostName: "testmac", hostName: nil),
                               devices: WebDeviceStore(file: dir.appendingPathComponent("serve/devices.json")),
                               audit: WebServeAudit(file: dir.appendingPathComponent("serve/audit.jsonl")), interfaces: { interfaces })
         server = try await DozableWebServer.bindServe(data: fake, assets: try WebAssets.load(), version: "test", limits: .standard,
-                                                    settings: WebSettingsStore(environment: [:]), serve: state, capability: capability,
+                                                    settings: WebSettingsStore(environment: env), serve: state, capability: capability,
                                                     pollInterval: .milliseconds(200), sessionsFile: dir.appendingPathComponent("ui.sessions"),
                                                     revokedFile: dir.appendingPathComponent("ui.revoked"))
         let s = server!
@@ -357,6 +366,79 @@ final class ServeHTTPTests: XCTestCase {
         XCTAssertThrowsError(try macReq("/api/v1/session", ["Origin": mac, "Authorization": "Bearer mac-link-capability-645-AAAAAAAAAAAAAAAA"], method: "POST"))
         state.admitOverride = nil
         _ = try macSignIn()                                  // the link was not spent by the dropped attempt
+    }
+
+    // MARK: the sessions on this Mac (@mac) — never another computer's unless serve.mac_sessions says so
+
+    func macJSON(_ cookie: String, _ csrf: String, _ path: String, _ body: String, remote: Bool) throws -> RawResponse {
+        let h = ["Cookie": cookie, "X-Doz-CSRF": csrf, "Origin": remote ? own : mac, "Content-Type": "application/json"]
+        return remote ? try req(path, h, method: "POST", body: body) : try macReq(path, h, method: "POST", body: body)
+    }
+
+    func testTheSessionsOnThisMacAreTheMacsAloneByDefault() async throws {
+        try await start()
+        let (macCookie, macCSRF) = try macSignIn()
+        let (devCookie, devCSRF) = try await admit()
+        // The Mac's own browser: listed (not isolated, said in the answer), a ticket, an action decoded.
+        let list = try macReq("/api/v1/mac/sessions", ["Cookie": macCookie])
+        XCTAssertEqual(list.status, 200, list.text)
+        let j = try XCTUnwrap(try JSONSerialization.jsonObject(with: list.body) as? [String: Any])
+        XCTAssertEqual(j["isolated"] as? Bool, false)
+        XCTAssertEqual(j["access"] as? String, "interactive")
+        let first = try XCTUnwrap((j["sessions"] as? [[String: Any]])?.first)
+        XCTAssertEqual(first["bypassed"] as? Bool, true)
+        XCTAssertEqual(first["state"] as? String, "running")
+        let t = try macJSON(macCookie, macCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"interactive","session":"build","cols":80,"rows":24}"#, remote: false)
+        XCTAssertEqual(t.status, 200, t.text)
+        XCTAssertEqual(try macJSON(macCookie, macCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"watch"}"#, remote: false).status, 400, "a session must be named")
+        XCTAssertEqual(try macJSON(macCookie, macCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"console"}"#, remote: false).status, 400, "no console on the Mac")
+        XCTAssertEqual(try macReq("/api/v1/mac/terminal-ticket", ["Cookie": macCookie, "Origin": mac, "Content-Type": "application/json"],
+                                  method: "POST", body: #"{"mode":"watch","session":"build"}"#).status, 403, "CSRF-checked")
+        // Another computer, with serve.mac_sessions = off (the default): none of it.
+        for r in [try req("/api/v1/mac/sessions", ["Cookie": devCookie]), try req("/api/v1/mac/sessions/build/screen", ["Cookie": devCookie]),
+                  try macJSON(devCookie, devCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"watch","session":"build"}"#, remote: true),
+                  try macJSON(devCookie, devCSRF, "/api/v1/actions", #"{"action":"mac-session-end","session":"build","confirm":"build"}"#, remote: true),
+                  try macJSON(devCookie, devCSRF, "/api/v1/grids", #"{"items":[{"sandbox":"@mac","session":"build","gen":0}]}"#, remote: true)] {
+            XCTAssertEqual(r.status, 403, r.text)
+            XCTAssertTrue(r.text.contains("mac-session"), r.text)
+        }
+        // …while a sandbox's tile is still painted for it.
+        XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/grids", #"{"items":[{"sandbox":"demo","session":"shell","gen":0}]}"#, remote: true).status, 200)
+    }
+
+    func testWatchLetsAnotherComputerLookButNeverType() async throws {
+        try await start(macSessions: "watch")
+        let (devCookie, devCSRF) = try await admit()
+        let list = try req("/api/v1/mac/sessions", ["Cookie": devCookie])
+        XCTAssertEqual(list.status, 200, list.text)
+        XCTAssertTrue(list.text.contains("\"access\":\"watch\""), list.text)
+        XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"watch","session":"build"}"#, remote: true).status, 200)
+        let typing = try macJSON(devCookie, devCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"interactive","session":"build"}"#, remote: true)
+        XCTAssertEqual(typing.status, 403, typing.text)
+        let end = try macJSON(devCookie, devCSRF, "/api/v1/actions", #"{"action":"mac-session-restart","session":"build","confirm":"build"}"#, remote: true)
+        XCTAssertEqual(end.status, 403, end.text)
+        XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/grids", #"{"items":[{"sandbox":"@mac","session":"build","gen":0}]}"#, remote: true).status, 200)
+        // The refusals are in the LAN's audit log.
+        let log = WebServeAudit.recent(dir.appendingPathComponent("serve/audit.jsonl"))
+        XCTAssertTrue(log.contains { $0.kind == "refused" && $0.outcome == "mac-session" })
+    }
+
+    func testInteractiveLetsAnotherComputerType() async throws {
+        try await start(macSessions: "interactive")
+        let (devCookie, devCSRF) = try await admit()
+        XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/mac/terminal-ticket", #"{"mode":"interactive","session":"build"}"#, remote: true).status, 200)
+        XCTAssertEqual(try macJSON(devCookie, devCSRF, "/api/v1/actions", #"{"action":"mac-session-end","session":"build","confirm":"build"}"#, remote: true).status, 202)
+    }
+
+    /// A sandbox's connection never reaches the routes of the sessions on this Mac either (the accept gate drops it first).
+    func testASandboxNeverReachesTheSessionsOnThisMac() async throws {
+        try await start(macSessions: "interactive")
+        let (macCookie, _) = try macSignIn()
+        state.admitOverride = { _, _ in .sandbox }
+        XCTAssertThrowsError(try macReq("/api/v1/mac/sessions", ["Cookie": macCookie]), "dropped before a byte is read")
+        XCTAssertThrowsError(try req("/api/v1/mac/terminal-socket", ["Cookie": macCookie]))
+        state.admitOverride = nil
+        XCTAssertEqual(try macReq("/api/v1/mac/sessions", ["Cookie": macCookie]).status, 200)
     }
 
     /// `doz ui link --rotate` signs the Mac's pages out; the LAN's devices stay signed in (another store).

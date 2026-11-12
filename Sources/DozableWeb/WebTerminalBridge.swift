@@ -74,6 +74,7 @@ final class WebTerminalHub: @unchecked Sendable {
     /// A keystroke on a terminal whose sandbox is not running: resume a paused one, wake a sleeping
     /// one — as an operation like any other (deduplicated: a second key while it runs starts nothing).
     func keystrokeWake(_ name: String, phase: String?) -> Bool {
+        guard !MacPlace.isPlace(name) else { return false }          // this Mac never sleeps under a terminal
         let op: HostOp
         switch phase.flatMap(Phase.init(rawValue:)) {
         case .paused: op = .resume

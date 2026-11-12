@@ -74,6 +74,11 @@ public enum WebAction: Equatable, Sendable {
     /// `doz sessions end|restart`; lifecycle-class, so a remote (doz serve) browser may use them too.
     case sessionEnd(name: String, session: String)
     case sessionRestart(name: String, session: String, fresh: Bool)
+    /// End / Restart a session on THIS Mac (`@mac`, no isolation) — the CLI's `doz sessions end|restart @mac S`. Their own
+    /// actions, never the sandbox ones with a made-up name; both carry `confirm` = the session (the program stops); for
+    /// another computer only with `serve.mac_sessions = interactive` (`WebExposure.decideMacAction`). No action OPENS one.
+    case macSessionEnd(session: String)
+    case macSessionRestart(session: String, fresh: Bool)
     /// 644: the Files panel's changes to /workspace — one HostOp each (the CLI's `doz files mkdir|new|mv|rm`). Paths are
     /// guest paths (`/workspace/…`), checked by the item rule here and again by the host. A delete is destructive: it
     /// carries `confirm` = the path.
@@ -106,9 +111,15 @@ public enum WebAction: Equatable, Sendable {
              .filesRemove(let n, _, _), .rename(let n, _), .sandboxSetting(let n, _, _):
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
-             .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall:
+             .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
+             .macSessionEnd, .macSessionRestart:                  // this Mac is no sandbox
             return nil
         }
+    }
+
+    /// An action on the sessions on this Mac (decided by `serve.mac_sessions` for another computer).
+    public var isMacSession: Bool {
+        switch self { case .macSessionEnd, .macSessionRestart: true; default: false }
     }
 
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
@@ -121,6 +132,7 @@ public enum WebAction: Equatable, Sendable {
         case .imageRemove(let i): i
         case .accountRemove(let a): a
         case .filesRemove(_, let p, _): p
+        case .macSessionEnd(let s), .macSessionRestart(let s, _): s
         default: nil
         }
     }
@@ -146,6 +158,8 @@ public enum WebAction: Equatable, Sendable {
         case .toolsApply(let n): return "set up the tools of \(n)"
         case .sessionEnd(let n, let s): return "end session \(s) in \(n)"
         case .sessionRestart(let n, let s, _): return "restart session \(s) in \(n)"
+        case .macSessionEnd(let s): return "end session \(s) on this Mac"
+        case .macSessionRestart(let s, _): return "restart session \(s) on this Mac"
         case .filesMkdir(let n, let p): return "files-mkdir \(n) \(p)"
         case .filesNew(let n, let p): return "files-new \(n) \(p)"
         case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
@@ -302,6 +316,15 @@ public enum WebAction: Equatable, Sendable {
             r.session = s
             r.fresh = fresh ? true : nil
             return r
+        case .macSessionEnd(let s):
+            var r = HostRequest(.sessionEnd, name: MacPlace.name)
+            r.session = s
+            return r
+        case .macSessionRestart(let s, let fresh):
+            var r = HostRequest(.sessionRestart, name: MacPlace.name)
+            r.session = s
+            r.fresh = fresh ? true : nil
+            return r
         case .filesMkdir(let n, let p):
             var r = HostRequest(.filesMkdir, name: n)
             r.filePath = p
@@ -376,6 +399,8 @@ public enum WebAction: Equatable, Sendable {
             "tools-apply": ["sandbox"],
             "session-end": ["sandbox", "session"],
             "session-restart": ["sandbox", "session", "fresh"],
+            "mac-session-end": ["session", "confirm"],
+            "mac-session-restart": ["session", "fresh", "confirm"],
             "files-mkdir": ["sandbox", "path"],
             "files-new": ["sandbox", "path"],
             "files-move": ["sandbox", "path", "to"],
@@ -552,6 +577,11 @@ public enum WebAction: Equatable, Sendable {
             a = .sessionEnd(name: try f.sandbox("sandbox"), session: try f.required(f.session("session"), "session"))
         case "session-restart":
             a = .sessionRestart(name: try f.sandbox("sandbox"), session: try f.required(f.session("session"), "session"), fresh: try f.flag("fresh") == true)
+        case "mac-session-end", "mac-session-restart":
+            guard let s = try f.session("session"), WebRoute.isMacSessionName(s) else {
+                throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
+            }
+            a = verb == "mac-session-end" ? .macSessionEnd(session: s) : .macSessionRestart(session: s, fresh: try f.flag("fresh") == true)
         case "files-mkdir":
             a = .filesMkdir(name: try f.sandbox("sandbox"), path: try f.fileItem("path"))
         case "files-new":

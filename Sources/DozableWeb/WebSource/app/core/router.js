@@ -7,7 +7,7 @@ import { state } from './state.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const acknowledgeOps = upcall('acknowledgeOps'), callout = upcall('callout'),
   closeWizardModal = upcall('closeWizardModal'), gridEnter = upcall('gridEnter'), gridLeave = upcall('gridLeave'),
-  gridRefresh = upcall('gridRefresh'), openWizardModal = upcall('openWizardModal'), paintNav = upcall('paintNav'),
+  gridRefresh = upcall('gridRefresh'), macEnter = upcall('macEnter'), macLeave = upcall('macLeave'), macRefresh = upcall('macRefresh'), openWizardModal = upcall('openWizardModal'), paintNav = upcall('paintNav'),
   paintRowOps = upcall('paintRowOps'), refreshSandbox = upcall('refreshSandbox'),
   showSandbox = upcall('showSandbox'), viewAccounts = upcall('viewAccounts'), viewActivity = upcall('viewActivity'),
   viewDoctor = upcall('viewDoctor'), viewImages = upcall('viewImages'), viewMetrics = upcall('viewMetrics'),
@@ -31,6 +31,14 @@ export function route() {
   if (rm) {
     if (state.modal) closeWizardModal();
     state.view = 'recipes'; state.param = null; state.session = null; state.bgHash = location.hash;
+    routePage();
+    return;
+  }
+  // This Mac: #/mac, and #/mac/SESSION (its pane opened, watching) — a session on this Mac is at most 32 characters.
+  const mm = /^#\/mac(?:\/([A-Za-z0-9_-][A-Za-z0-9._-]{0,31}))?$/.exec(location.hash);
+  if (mm) {
+    if (state.modal) closeWizardModal();
+    state.view = 'mac'; state.param = null; state.session = mm[1] || null; state.bgHash = location.hash;
     routePage();
     return;
   }
@@ -62,18 +70,22 @@ function routePage() {
   // 591: the terminals live in their own section, never re-rendered by refresh() (a live update
   // must not steal a terminal's focus or reparent its canvas). 593: that section is the sandbox
   // page's terminal area; the grid is a section of its own too.
-  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions';
+  // This Mac is a section of its own too (its pane is a live terminal).
+  const onSbx = state.view === 'sandbox', onGrid = state.view === 'sessions', onMac = state.view === 'mac';
   $('sbx').hidden = !onSbx;
   $('grid').hidden = !onGrid;
-  $('view').hidden = onSbx || onGrid;
+  $('mac').hidden = !onMac;
+  $('view').hidden = onSbx || onGrid || onMac;
   $('main').classList.toggle('main-terms', onSbx);
   if (!onGrid) gridLeave();
+  if (!onMac) macLeave();
   if (state.view !== 'operations') state.opsBox = null;
   if (state.view === 'operations') { acknowledgeOps(); loadPreparations(); }
   if (state.modal !== 'onboarding') wizardStopPolling();
   if (state.view === 'images' || state.view === 'resources') remeasure();   // 595: measured on arrival, Refresh, an op's end
   if (onSbx) { showSandbox(); return; }
   if (onGrid) { gridEnter(); return; }
+  if (onMac) { macEnter(state.session); return; }
   refresh(true);
 }
 window.addEventListener('hashchange', () => {
@@ -93,6 +105,7 @@ export async function refresh(scrollTop) {
   if (state.signedOut) return;
   if (state.view === 'sandbox') { refreshSandbox(); return; }
   if (state.view === 'sessions') { gridRefresh(false); return; }
+  if (state.view === 'mac') { macRefresh(false); return; }
   if (refreshing) { again = true; return; }
   refreshing = true;
   try {

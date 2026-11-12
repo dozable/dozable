@@ -493,6 +493,8 @@ public enum SettingKey {
     public static let servePublicOrigins = "serve.public_origins"
     public static let serveTrustedProxies = "serve.trusted_proxies"
     public static let serveAdvertise = "serve.advertise"
+    /// What a remote browser may do with the sessions on this Mac: off | watch | interactive.
+    public static let serveMacSessions = "serve.mac_sessions"
     /// 594: where the UI's new sandboxes get their workspace by default (`<projects_dir>/<name>`).
     public static let projectsDir = "defaults.projects_dir"
     public static let kernelPath = "kernel.path"
@@ -777,6 +779,10 @@ public struct DozableSettings: Sendable {
             .init("serve", "trusted_proxies", .addressList, .string(""),
                   "The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For the dashboard believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored.",
                   applies: .uiRestart, ui: false),
+            // The sessions on this Mac (@mac) for a browser of the network — never by default: they are not isolated.
+            .init("serve", "mac_sessions", .choice(["off", "watch", "interactive"]), .string("off"),
+                  "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no isolation: your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
+                  applies: .now, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),

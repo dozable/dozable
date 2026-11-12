@@ -12,6 +12,7 @@ import { state } from '../core/state.js';
 import { INPUT_CHUNK, PASTE_CONFIRM_BYTES, PASTE_MAX_BYTES, sview, terminals, termUI } from '../core/terminals.js';
 import { isInt, quietly, utf8 } from '../core/util.js';
 import { validGrid } from '../core/grid.js';
+import { placePath, screenPath } from '../core/places.js';
 import { bridgeNotice, failureFor } from './notices.js';
 // Calls up the layers (provided by app.js — core/hooks.js):
 const lifecycle = upcall('lifecycle'), paintTabs = upcall('paintTabs'), renderTerminals = upcall('renderTerminals'), syncConsoleTab = upcall('syncConsoleTab');
@@ -255,7 +256,8 @@ async function connectTerminal(t, opts = {}) {
   }
   let ticket;
   try {
-    ticket = (await api('sandboxes/' + t.sandbox + '/terminal-ticket', { method: 'POST', json: body })).ticket;
+    // A sandbox's, or (`@mac`) one on this Mac — its own route; never a sandbox's with a made-up name.
+    ticket = (await api(placePath(t.sandbox) + '/terminal-ticket', { method: 'POST', json: body })).ticket;
   } catch (e) {
     if (opts.reattach) {
       if (e.status === 503) return 'retry';
@@ -272,7 +274,7 @@ async function connectTerminal(t, opts = {}) {
   // The ticket rides in the subprotocol list, never in the URL; it works once, within 30 s. 605: wss on an
   // https page (the dashboard served to other machines).
   const scheme = location.protocol === 'https:' ? 'wss://' : 'ws://';
-  const ws = new WebSocket(scheme + location.host + '/api/v1/sandboxes/' + t.sandbox + '/terminal-socket',
+  const ws = new WebSocket(scheme + location.host + '/api/v1/' + placePath(t.sandbox) + '/terminal-socket',
                            ['doz-terminal.v1', 'doz-ticket.' + ticket]);
   ticket = null;
   ws.binaryType = 'arraybuffer';
@@ -597,7 +599,7 @@ async function loadSavedScreen(t) {
   try {
     // 593: a Boot log terminal draws a kept boot (rendered by the host's boot-view renderer) the same way.
     // 617: the build log's tab draws the image's build (rendered by the host) the same way.
-    s = await api(t.buildlog ? 'sandboxes/' + t.sandbox + '/build-log' : t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : 'sandboxes/' + t.sandbox + '/sessions/' + t.session + '/screen');
+    s = await api(t.buildlog ? 'sandboxes/' + t.sandbox + '/build-log' : t.bootlog ? 'sandboxes/' + t.sandbox + '/boots/' + t.bootlog : screenPath(t.sandbox, t.session));
   } catch (e) {
     if (t.buildlog && e.status === 404) { closeTerminal(t.id); return; }     // no build log is kept: no tab
     t.errorText = e.status === 404 ? (t.bootlog ? 'that boot is no longer kept' : 'no saved screen of ' + t.session) : e.message || String(e);

@@ -625,6 +625,14 @@ final class FakeData: DozableWebData, @unchecked Sendable {
     let storePath = "/tmp/fake-store"
 
     func bump() { lock.withLock { generation += 1 } }
+
+    /// The sessions on this Mac the fake reports: one running, its argv bypassing permissions (its own choice).
+    func macSessions() async throws -> [WebMacSession] {
+        var r = SessionRow(SessionInfo(name: "build", pid: 42, size: TermSize(cols: 100, rows: 30), command: "claude --dangerously-skip-permissions"))
+        r.workdir = "/Users/someone/src/app"
+        r.bypassed = true
+        return [WebMacSession(r)]
+    }
     /// 591: the phase the overview reports (nil: running, then paused after `bump()`).
     var phase: String? {
         get { lock.withLock { _phase } }

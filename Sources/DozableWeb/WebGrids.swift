@@ -26,7 +26,10 @@ public enum WebGridsRequest {
             guard let o = item as? [String: Any], Set(o.keys) == ["sandbox", "session", "gen"] else {
                 throw WebAction.Invalid("an item is {sandbox, session, gen}")
             }
-            guard let s = o["sandbox"] as? String, WebRoute.isSandboxName(s) else { throw WebAction.Invalid("sandbox: not a sandbox name") }
+            // A sandbox, or `@mac` — the sessions on this Mac (their tiles are painted the same way).
+            guard let s = o["sandbox"] as? String, WebRoute.isSandboxName(s) || MacPlace.isPlace(s) else {
+                throw WebAction.Invalid("sandbox: not a sandbox name (or @mac)")
+            }
             guard let n = o["session"] as? String, WebRoute.isSessionName(n) else { throw WebAction.Invalid("session: not a session name") }
             guard let g = o["gen"] as? NSNumber, CFGetTypeID(g) == CFNumberGetTypeID(), !CFNumberIsFloatType(g),
                   g.int64Value >= 0, g.int64Value <= Int64(UInt32.max) else {

@@ -183,6 +183,13 @@
 # (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz ui starts again (doz ui restart))
 # trusted_proxies = ""
 
+# With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no
+# isolation: your files, Keychain and network): off (they do not see them), watch (list them and
+# watch their screens, read-only) or interactive (also type into them, end and restart them). This
+# Mac's own browser always has them.
+# (off | watch | interactive; applies at once (the UI re-reads it))
+# mac_sessions = "off"
+
 # With ui.lan, announce the dashboard on your network with Bonjour ("Dozable on <this Mac>",
 # http://<this Mac>.local:<port>), so other Macs and phones can find it.
 # (boolean; applies when doz ui starts again (doz ui restart))

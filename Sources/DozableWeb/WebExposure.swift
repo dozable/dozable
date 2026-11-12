@@ -38,6 +38,34 @@ public enum WebExposure {
         case devices
         /// Only doz serve answers it (the doctor's probe).
         case serveOnly = "serve-only"
+        /// The sessions on this Mac (`@mac`): NOT isolated — another computer gets what `serve.mac_sessions` allows.
+        case macSession = "mac-session"
+    }
+
+    /// `serve.mac_sessions`: what a remote browser may do with the sessions on this Mac.
+    public enum MacSessions: String, Sendable, CaseIterable {
+        /// Nothing: they are not listed, watched or typed into (the default).
+        case off
+        /// List them, read their saved screens, watch them (read-only terminals, painted tiles).
+        case watch
+        /// Everything the Mac's own browser does with them: type, end, restart.
+        case interactive
+    }
+
+    /// `decide` lets a remote principal reach the `mac-session` routes unless the setting is off; a ticket is decided again
+    /// by its mode (`decideMacTerminal`), the end and restart actions by `decideMacAction`, `@mac` tiles in `grids` by
+    /// the setting. A terminal on this Mac's session in `mode`, for `who`.
+    public static func decideMacTerminal(_ mode: WebTerminalMode, _ who: Principal, _ allowed: MacSessions) -> WebRejection? {
+        guard who.isRemote else { return nil }
+        switch (allowed, mode) {
+        case (.interactive, _), (.watch, .watch): return nil
+        default: return .macSession
+        }
+    }
+
+    /// Typing's kin — ending or restarting a session on this Mac — for `who`.
+    public static func decideMacAction(_ who: Principal, _ allowed: MacSessions) -> WebRejection? {
+        who.isRemote && allowed != .interactive ? .macSession : nil
     }
 
     public static func kind(_ route: WebRoute) -> Kind {
@@ -64,16 +92,20 @@ public enum WebExposure {
             return .devices
         case .serveProbe:
             return .serveOnly
+        case .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket:
+            return .macSession
         }
     }
 
-    /// nil: allowed; else the refusal (its message says why and what to do instead).
-    public static func decide(_ route: WebRoute, _ who: Principal) -> WebRejection? {
+    /// nil: allowed; else the refusal (its message says why and what to do instead). `macSessions`: the setting
+    /// `serve.mac_sessions` (only a remote principal is affected; the Mac's own browser always has them).
+    public static func decide(_ route: WebRoute, _ who: Principal, macSessions: MacSessions = .off) -> WebRejection? {
         switch (kind(route), who) {
         case (.secretEntry, .remote(secure: false)): return .secretOverHTTP
         case (.macScreen, .remote): return .macScreen
         case (.serveOnly, .mac): return .notFound
-        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote):
+        case (.macSession, .remote): return macSessions == .off ? .macSession : nil
+        case (.page, _), (.read, _), (.change, _), (.secretEntry, _), (.macScreen, .mac), (.devices, _), (.serveOnly, .remote), (.macSession, .mac):
             return nil
         }
     }

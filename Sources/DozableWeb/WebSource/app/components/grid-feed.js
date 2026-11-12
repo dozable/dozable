@@ -10,6 +10,7 @@
 // (the session-screen route — its grid when the host kept one, else its VT read into a grid), fetched once per capture.
 import { api } from '../core/api.js';
 import { textToGrid, validGrid } from '../core/grid.js';
+import { screenPath } from '../core/places.js';
 import { setting } from '../core/settings.js';
 import { vtToGrid } from '../core/vt-grid.js';
 
@@ -138,7 +139,7 @@ function pump() {
 }
 async function loadSaved(sandbox, session) {
   let s;
-  try { s = await api('sandboxes/' + encodeURIComponent(sandbox) + '/sessions/' + encodeURIComponent(session) + '/screen'); } catch (_) { return null; }
+  try { s = await api(screenPath(sandbox, session)); } catch (_) { return null; }
   if (!s || typeof s !== 'object') return null;
   const meta = { savedAt: typeof s.savedAt === 'string' ? s.savedAt : null, reason: typeof s.reason === 'string' ? s.reason : '' };
   // The host's grid when it kept one (a capture by a holder that knows GRID); else the VT the screen was saved as.
