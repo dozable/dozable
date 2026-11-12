@@ -415,6 +415,11 @@ public final class EgressProxy: @unchecked Sendable {
     func handleProxy(_ fd: Int32) {
         var pending: [UInt8] = []
         guard let head = Wire.readHead(fd, into: &pending), let h = HTTPHead(head) else { return }
+        serveProxyRequest(fd, head: head, parsed: h, pending: pending)
+    }
+
+    /// One proxy request whose head was read: CONNECT (a tunnel) or an absolute-form plain-HTTP request.
+    func serveProxyRequest(_ fd: Int32, head: [UInt8], parsed h: HTTPHead, pending: [UInt8]) {
         if h.method == "CONNECT" {
             let (host, port) = Self.splitHostPort(h.target, defaultPort: 443)
             tunnel(fd, host: host, port: port, kind: .connect, leftover: pending, connectReply: true)
@@ -437,6 +442,35 @@ public final class EgressProxy: @unchecked Sendable {
     static let dashboardRefusal = "Dozable's own dashboard on this Mac is never reachable from a sandbox"
     /// 660: what a sandbox is told when it tries to reach this Mac's loopback any other way than its one named port.
     static let loopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reachable from a sandbox — a model server on this Mac is reached as \(MacModelServer.hostName):PORT, for the port the sandbox was made with"
+    /// 683: the same for a fenced session on this Mac (it has no named port; its own ports are `--local-port`).
+    static let fenceLoopbackRefusal = "this Mac's own loopback (127.0.0.1, localhost, ::1) is never reached through the proxy — a fenced session reaches its own ports directly (doz run @mac --local-port N)"
+    var loopbackRefusalText: String { addressGuard == .strict ? Self.fenceLoopbackRefusal : Self.loopbackRefusal }
+    /// 683: an address the strict guard refuses.
+    static func addressRefusal(_ why: String) -> String { "\(why) is never reachable through the proxy, whatever the permissions" }
+
+    /// 683: which resolved addresses are refused beyond the loopback (nil: a sandbox's rule — loopback only, 660).
+    public var addressGuard: AddressGuard? {
+        get { lock.withLock { _addressGuard } }
+        set { lock.withLock { _addressGuard = newValue } }
+    }
+    private var _addressGuard: AddressGuard?
+
+    /// 683 TEST SEAM: names a fenced session's proxy dials at a fake upstream on this Mac's loopback instead (the host sets
+    /// it only from `DOZ_TEST_FENCE_UPSTREAMS`, in a guarded run): `name → (127.0.0.1, port)`. Nothing else reaches it.
+    public var fenceUpstreamsForTests: [String: UpstreamAddress] {
+        get { lock.withLock { _fenceUpstreams } }
+        set { lock.withLock { _fenceUpstreams = newValue } }
+    }
+    private var _fenceUpstreams: [String: UpstreamAddress] = [:]
+    public struct UpstreamAddress: Sendable, Equatable {
+        public var host: String
+        public var port: UInt16
+        public init(host: String, port: UInt16) { self.host = host; self.port = port }
+    }
+    func fenceUpstreamForTests(_ host: String) -> UpstreamAddress? {
+        let m = fenceUpstreamsForTests
+        return m.isEmpty ? nil : m[host.lowercased()]
+    }
 
     /// A tunnel to host:port — through CONNECT (`connectReply`) or a redirected connection.
     func tunnel(_ fd: Int32, host: String, port: UInt16, kind: ConnectionRecord.Kind, leftover: [UInt8], connectReply: Bool,
@@ -467,8 +501,11 @@ public final class EgressProxy: @unchecked Sendable {
             log.upsert(rec)
             return
         }
-        let target = mac != nil ? "127.0.0.1" : (connectTo ?? host)
-        if LocalDashboards.refuses(host: target, port: port) {
+        // 683 TEST SEAM: a fenced session's fake upstream on this Mac's loopback, by name.
+        let seam = fenceUpstreamForTests(host)
+        let target = seam?.host ?? (mac != nil ? "127.0.0.1" : (connectTo ?? host))
+        let dialPort = seam?.port ?? port
+        if seam == nil, LocalDashboards.refuses(host: target, port: port) {
             rec.verdict = .denied
             rec.open = false
             rec.detail = Self.dashboardRefusal
@@ -476,16 +513,24 @@ public final class EgressProxy: @unchecked Sendable {
             if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.dashboardRefusal)) }
             return
         }
-        if mac == nil, MacModelServer.resolvesToLoopback(target) {
+        if mac == nil, seam == nil, MacModelServer.resolvesToLoopback(target) {
             rec.verdict = .denied
             rec.open = false
-            rec.detail = Self.loopbackRefusal
+            rec.detail = loopbackRefusalText
             log.upsert(rec)
-            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.loopbackRefusal)) }
+            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(loopbackRefusalText)) }
             return
         }
-        let up = Wire.connectTCP(target, port, allowLoopback: mac != nil)
+        let (up, refused) = Wire.connectTCPGuarded(target, dialPort, allowLoopback: mac != nil || seam != nil, guard: addressGuard)
         rec.latencyMs = milliseconds(since: t0)
+        if up < 0, let refused, addressGuard != nil {
+            rec.verdict = .denied
+            rec.open = false
+            rec.detail = Self.addressRefusal(refused)
+            log.upsert(rec)
+            if connectReply { _ = Wire.writeAll(fd, Self.forbidden(Self.addressRefusal(refused))) }
+            return
+        }
         guard up >= 0 else {
             rec.verdict = .failed
             rec.open = false
@@ -543,21 +588,28 @@ public final class EgressProxy: @unchecked Sendable {
             out += [13, 10]
         }
         out += Array("Connection: close\r\n\r\n".utf8)
-        let target = mac != nil ? "127.0.0.1" : host
-        if LocalDashboards.refuses(host: target, port: port) {
+        let seam = fenceUpstreamForTests(host)
+        let target = seam?.host ?? (mac != nil ? "127.0.0.1" : host)
+        if seam == nil, LocalDashboards.refuses(host: target, port: port) {
             rec.verdict = .denied; rec.open = false; rec.detail = Self.dashboardRefusal
             log.upsert(rec)
             _ = Wire.writeAll(fd, Self.forbidden(Self.dashboardRefusal))
             return
         }
-        if mac == nil, MacModelServer.resolvesToLoopback(target) {
-            rec.verdict = .denied; rec.open = false; rec.detail = Self.loopbackRefusal
+        if mac == nil, seam == nil, MacModelServer.resolvesToLoopback(target) {
+            rec.verdict = .denied; rec.open = false; rec.detail = loopbackRefusalText
             log.upsert(rec)
-            _ = Wire.writeAll(fd, Self.forbidden(Self.loopbackRefusal))
+            _ = Wire.writeAll(fd, Self.forbidden(loopbackRefusalText))
             return
         }
-        let up = Wire.connectTCP(target, port, allowLoopback: mac != nil)
+        let (up, refused) = Wire.connectTCPGuarded(target, seam?.port ?? port, allowLoopback: mac != nil || seam != nil, guard: addressGuard)
         rec.latencyMs = milliseconds(since: t0)
+        if up < 0, let refused, addressGuard != nil {
+            rec.verdict = .denied; rec.open = false; rec.detail = Self.addressRefusal(refused)
+            log.upsert(rec)
+            _ = Wire.writeAll(fd, Self.forbidden(Self.addressRefusal(refused)))
+            return
+        }
         guard up >= 0 else {
             rec.verdict = .failed; rec.open = false; rec.detail = "could not connect from the Mac"
             log.upsert(rec)
@@ -673,7 +725,7 @@ public final class EgressProxy: @unchecked Sendable {
             var r = record
             if upstream == nil {
                 let ut0 = ContinuousClock.now
-                guard let u = TLSUpstream(host: host, port: port, context: clientContext, override: upstreamOverride(for: host)) else {
+                guard let u = TLSUpstream(host: host, port: port, context: clientContext, override: upstreamOverride(for: host), guard: addressGuard) else {
                     r.verdict = .failed; r.open = false; r.detail = "could not connect from the Mac"
                     log.upsert(r)
                     reject(Array("HTTP/1.1 502 Bad Gateway\r\nConnection: close\r\nContent-Length: 0\r\n\r\n".utf8))
@@ -1003,10 +1055,11 @@ final class TLSUpstream {
     private var buf = [UInt8](repeating: 0, count: 65536)
     private var failure: String?
 
-    init?(host: String, port: UInt16, context: NIOSSLContext, override: EgressProxy.UpstreamOverride? = nil) {
+    init?(host: String, port: UInt16, context: NIOSSLContext, override: EgressProxy.UpstreamOverride? = nil, guard level: AddressGuard? = nil) {
         // 599d test seam: another address, and ONLY the given anchors trusted (for `host`'s name).
         // 660: a guarded test seam's fake upstream may be on this Mac's loopback; a real host never is.
-        let fd = Wire.connectTCP(override?.host ?? host, override?.port ?? port, allowLoopback: override != nil)
+        // 683: a fenced session's stricter guard applies here too.
+        let fd = Wire.connectTCPGuarded(override?.host ?? host, override?.port ?? port, allowLoopback: override != nil, guard: level).fd
         guard fd >= 0 else { return nil }
         self.fd = fd
         channel = EmbeddedChannel()
@@ -1132,14 +1185,24 @@ enum Wire {
         return nil
     }
 
-    /// Read until the end of an HTTP head; what came after it is left in `rest`.
-    static func readHead(_ fd: Int32, into rest: inout [UInt8]) -> [UInt8]? {
+    /// Read until the end of an HTTP head; what came after it is left in `rest`. 683: `deadline` — the whole head must
+    /// arrive by then (nil when it does not: a connection that sends nothing, or a byte at a time, is not held).
+    static func readHead(_ fd: Int32, into rest: inout [UInt8], deadline: ContinuousClock.Instant? = nil) -> [UInt8]? {
         var acc: [UInt8] = []
         var buf = [UInt8](repeating: 0, count: 8192)
         while acc.count < HTTPRequestReader.maxHead {
             if let e = HTTPRequestReader.find(acc, [13, 10, 13, 10]) {
                 rest = Array(acc[(e + 4)...])
                 return Array(acc[0..<(e + 4)])
+            }
+            if let deadline {
+                let left = deadline - ContinuousClock.now
+                let ms = Int32(clamping: left.components.seconds * 1000 + left.components.attoseconds / 1_000_000_000_000_000)
+                if ms <= 0 { return nil }
+                var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+                let n = poll(&p, 1, ms)
+                if n < 0 { if errno == EINTR { continue }; return nil }
+                if n == 0 { return nil }
             }
             let r = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress, $0.count) }
             if r < 0 && errno == EINTR { continue }
@@ -1188,19 +1251,39 @@ enum Wire {
     /// (`EgressProxy.macModelPort`) and its guarded test seams (a fake upstream on 127.0.0.1); every other connection a
     /// sandbox makes never reaches this Mac's loopback, whatever its policy.
     static func connectTCP(_ host: String, _ port: UInt16, timeoutMS: Int32 = 10_000, allowLoopback: Bool = false) -> Int32 {
+        connectTCPGuarded(host, port, timeoutMS: timeoutMS, allowLoopback: allowLoopback, guard: nil).fd
+    }
+
+    /// The same, and (683) with `guard`: every resolved address it refuses is skipped, and when nothing was left to
+    /// dial, `refused` says why (the proxy answers 403 with it, not 502). `allowLoopback` (a guarded test seam's fake
+    /// upstream) skips the guard too.
+    static func connectTCPGuarded(_ host: String, _ port: UInt16, timeoutMS: Int32 = 10_000, allowLoopback: Bool = false,
+                                  guard level: AddressGuard?) -> (fd: Int32, refused: String?) {
         var hints = addrinfo(ai_flags: 0, ai_family: AF_UNSPEC, ai_socktype: SOCK_STREAM, ai_protocol: IPPROTO_TCP,
                              ai_addrlen: 0, ai_canonname: nil, ai_addr: nil, ai_next: nil)
         var res: UnsafeMutablePointer<addrinfo>?
-        guard getaddrinfo(host, String(port), &hints, &res) == 0, let first = res else { return -1 }
+        guard getaddrinfo(host, String(port), &hints, &res) == 0, let first = res else { return (-1, nil) }
         defer { freeaddrinfo(first) }
         var ai: UnsafeMutablePointer<addrinfo>? = first
+        var refused: String?
+        var tried = false
         while let a = ai {
             // 606: never one of Dozable's own dashboards on this Mac, whatever the policy says.
-            if let sa = a.pointee.ai_addr, LocalDashboards.refuses(UnsafePointer(sa), port: port) { ai = a.pointee.ai_next; continue }
-            // 660: never this Mac's loopback (another sandbox's forwarded port, a local server), whatever the policy says.
-            if !allowLoopback, let sa = a.pointee.ai_addr, let b = LocalDashboards.bytes(UnsafePointer(sa)), MacModelServer.isLoopbackOrUnspecified(b) {
+            if let sa = a.pointee.ai_addr, LocalDashboards.refuses(UnsafePointer(sa), port: port) {
+                refused = refused ?? "one of Dozable's own dashboards on this Mac"
                 ai = a.pointee.ai_next; continue
             }
+            // 660: never this Mac's loopback (another sandbox's forwarded port, a local server), whatever the policy says.
+            if !allowLoopback, let sa = a.pointee.ai_addr, let b = LocalDashboards.bytes(UnsafePointer(sa)), MacModelServer.isLoopbackOrUnspecified(b) {
+                refused = refused ?? "this Mac's own loopback"
+                ai = a.pointee.ai_next; continue
+            }
+            // 683: a fenced session's stricter guard — link-local, metadata, this Mac's own addresses, mapped forms.
+            if !allowLoopback, let level, let sa = a.pointee.ai_addr, let b = AddressGuard.bytes(UnsafePointer(sa)), let why = level.refusal(b) {
+                refused = refused ?? why
+                ai = a.pointee.ai_next; continue
+            }
+            tried = true
             let fd = socket(a.pointee.ai_family, a.pointee.ai_socktype, a.pointee.ai_protocol)
             if fd >= 0 {
                 var one: Int32 = 1
@@ -1218,12 +1301,12 @@ enum Wire {
                         ok = err == 0
                     }
                 }
-                if ok { _ = fcntl(fd, F_SETFL, fl); return fd }
+                if ok { _ = fcntl(fd, F_SETFL, fl); return (fd, nil) }
                 close(fd)
             }
             ai = a.pointee.ai_next
         }
-        return -1
+        return (-1, tried ? nil : refused)
     }
 }
 

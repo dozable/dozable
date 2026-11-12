@@ -200,15 +200,16 @@ public actor MacSessions {
 
     /// Build a fenced session's fence and re-seed its folder (`previous`: its record at its last open, for the grants).
     public func prepareFence(session: String, workdir: String, request: MacFenceRequest, fenceRead: [String],
-                             previous: MacFenceRecord?) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
+                             previous: MacFenceRecord?, trust: Bool = true) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
         guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
         let places = try fencePlaces()
         if loginPath == nil { loginPath = MacSessionsEnvironment.loginPath(host: hostEnvironment) }
         let person = personGit(home: places.home)
         ensureStoreFolder()
         try MacFenceHostFS.ensureDirectory(fenceState(session))
-        let fence = try MacFence.make(session: session, workdir: workdir, request: request, places: places, path: loginPath!.path,
+        var fence = try MacFence.make(session: session, workdir: workdir, request: request, places: places, path: loginPath!.path,
                                       fenceRead: fenceRead, hooksPathGlobal: person.hooksPath, scratch: fenceState(session))
+        fence.trust = trust
         let seeded = try MacFenceSessionFolder.prepare(fence, previous: previous?.grants, person: person)
         return (fence, seeded, fence.homeReads.notes + seeded.notes)
     }
@@ -258,9 +259,20 @@ public actor MacSessions {
 
     /// Start session `session` (default: the program's name) running `argv` (default: the login shell) in `workdir`
     /// (default: home), with the clean environment plus `extra` — `deckhold-mac serve`, by posix_spawn, never a shell.
+    /// A fenced session's proxy as `open` hands it on: the socket the holder will hold (its descriptor here), the
+    /// password (to the program's environment only), its SHA-256 and the policy (to the record), whether its CA copies are
+    /// in the session's `etc/`.
+    public struct FenceProxyOpen: Sendable {
+        public var fd: Int32
+        public var password: String
+        public var secretSHA256: String
+        public var policy: NetworkPolicy
+        public var ca: Bool
+    }
+
     public func open(session: String?, argv given: [String]?, workdir: String?, extra: [String: String]?,
                      size: TermSize, holder: URL, recordedArgv: [String]? = nil,
-                     fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil) async throws -> Opened {
+                     fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil, proxy: FenceProxyOpen? = nil) async throws -> Opened {
         guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
         let home = hostEnvironment["HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? NSHomeDirectory()
         let argv = given.flatMap { $0.isEmpty ? nil : $0 }
@@ -291,20 +303,24 @@ public actor MacSessions {
             // The fence: its profile in the store (no fence can read it), its environment over the allowlist, and
             // sandbox-exec between the holder (unfenced: its socket is in the closed socket folder) and the program.
             env["HOME"] = f.places.home
-            MacFenceEnvironment.add(&env, fence: f)
+            MacFenceEnvironment.add(&env, fence: f, proxyPassword: proxy?.password, ca: proxy?.ca ?? false)
             let profile = MacFenceProfile.render(f)
             let state = fenceState(name)
             try MacFenceHostFS.ensureDirectory(state)
             try MacFenceHostFS.writeAtomically(Data(profile.utf8), dir: state, name: "profile.sb", mode: 0o600)
             fenceRecord = f.record(profileSHA256: MacFence.sha256(profile), gitBaseline: gitBaseline?.digests)
+            fenceRecord?.proxySecretSHA256 = proxy?.secretSHA256
+            fenceRecord?.policy = proxy?.policy
             // The holder puts its pty's path in place of @DOZ_PTY@ — only in sandbox-exec's own arguments.
             prefix = ["/usr/bin/sandbox-exec", "-f", state + "/profile.sb", "-D", "TTY=@DOZ_PTY@", "--"]
         }
         env["DECKHOLD_DIR"] = directory
         let log = folder.appendingPathComponent("\(name).log").path
         let cols = size.cols > 0 ? size.cols : 80, rows = size.rows > 0 ? size.rows : 24
-        let args = [holder.path, "serve", "-s", name, "-x", String(cols), "-y", String(rows), "--"] + prefix + argv
-        let code = try await Self.spawnAndWait(args, environment: env, workdir: fence?.workdir ?? dir, log: log)
+        // A fenced session's proxy socket: the holder's fd 3 for its whole life (never the program's).
+        let hold = fence != nil ? proxy?.fd : nil
+        let args = [holder.path, "serve"] + (hold != nil ? ["--hold-fd", "3"] : []) + ["-s", name, "-x", String(cols), "-y", String(rows), "--"] + prefix + argv
+        let code = try await Self.spawnAndWait(args, environment: env, workdir: fence?.workdir ?? dir, log: log, holdFD: hold)
         guard code == 0 else {
             let tail = ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").split(separator: "\n").suffix(3).joined(separator: " | ")
             throw HostError(.failed, "the holder for \(name) did not start (exit \(code))" + (tail.isEmpty ? "" : ": \(tail)"))
@@ -358,7 +374,7 @@ public actor MacSessions {
     /// posix_spawn `args` in a session of its own (SETSID), every other descriptor closed, stdin /dev/null, stdout +
     /// stderr appended to `log`, in `workdir`, with exactly `environment`; wait for it (`serve` returns once its socket
     /// listens). Off the actor.
-    static func spawnAndWait(_ args: [String], environment: [String: String], workdir: String, log: String) async throws -> Int32 {
+    static func spawnAndWait(_ args: [String], environment: [String: String], workdir: String, log: String, holdFD: Int32? = nil) async throws -> Int32 {
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Int32, Error>) in
             Thread.detachNewThread {
                 var attr: posix_spawnattr_t?
@@ -377,6 +393,10 @@ public actor MacSessions {
                 posix_spawn_file_actions_addopen(&fa, 0, "/dev/null", O_RDONLY, 0)
                 posix_spawn_file_actions_addopen(&fa, 1, log, O_WRONLY | O_CREAT | O_APPEND, 0o600)
                 posix_spawn_file_actions_adddup2(&fa, 1, 2)
+                if let h = holdFD {
+                    // dup2 onto 3 clears close-on-exec; a descriptor that IS 3 is inherited explicitly.
+                    if h == 3 { posix_spawn_file_actions_addinherit_np(&fa, 3) } else { posix_spawn_file_actions_adddup2(&fa, h, 3) }
+                }
                 posix_spawn_file_actions_addchdir_np(&fa, workdir)
                 let cargs: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
                 let cenv: [UnsafeMutablePointer<CChar>?] = environment.keys.sorted().map { strdup("\($0)=\(environment[$0]!)") } + [nil]

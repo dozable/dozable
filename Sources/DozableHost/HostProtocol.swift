@@ -387,6 +387,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var revoke: [String]?
     /// net-log.
     public var deniedOnly: Bool?
+    /// `net-log @mac --session S`: the fence's own refusals (`FenceDenials`) instead of the proxy's connections.
+    public var denials: Bool?
     public var follow: Bool?
     /// key-set / key-rm: the credential binding (`anthropic`), the secret, and where it came from.
     public var binding: String?

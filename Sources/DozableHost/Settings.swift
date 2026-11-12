@@ -505,6 +505,8 @@ public enum SettingKey {
     public static let macFence = "mac.fence"
     public static let macKeychain = "mac.keychain"
     public static let macFenceRead = "mac.fence_read"
+    /// What a fenced session's proxy allows by default (`doz run @mac --permissions` decides for one session).
+    public static let macPermissions = "mac.permissions"
     /// 594: where the UI's new sandboxes get their workspace by default (`<projects_dir>/<name>`).
     public static let projectsDir = "defaults.projects_dir"
     public static let kernelPath = "kernel.path"
@@ -795,7 +797,7 @@ public struct DozableSettings: Sendable {
                   applies: .now, ui: false),
             // A fence around a session on this Mac: a Seatbelt profile per session — off by default for now.
             .init("mac", "fence", .choice(["off", "on"]), .string("off"),
-                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.",
+                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, its network only through Dozable's proxy (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.",
                   env: "DOZ_MAC_FENCE", flag: "doz run @mac --fenced | --unfenced", applies: .nextSession, ui: false),
             .init("mac", "keychain", .choice(["off", "on"]), .string("off"),
                   "Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session.",
@@ -803,6 +805,9 @@ public struct DozableSettings: Sendable {
             .init("mac", "fence_read", .homePathList, .string(""),
                   "Folders or files in your home a fenced session on this Mac may read (never write), relative to your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config, ~/Library) stay closed.",
                   applies: .nextSession, ui: false),
+            .init("mac", "permissions", .choice(["standard", "locked", "open"]), .string("standard"),
+                  "What a fenced session on this Mac may reach through Dozable's proxy: standard (its AI model, its own updates, GitHub, error reports and the Node, Python, Go, Rust and Swift package registries), locked (its AI model only — and no certificate checks on its behalf) or open (any site). This Mac's own addresses are never reachable. doz run @mac --permissions decides for one session; doz net allow|deny @mac --session S changes a running one.",
+                  flag: "doz run @mac --permissions", applies: .nextSession, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),

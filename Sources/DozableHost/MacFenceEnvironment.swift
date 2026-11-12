@@ -22,8 +22,32 @@ public enum MacFenceEnvironment {
         ("XDG_CONFIG_HOME", "config"), ("xcrun_db", "xcrun_db"), ("PYTHONPYCACHEPREFIX", "python"),
     ]
 
-    /// Add the fenced session's variables to `env` (the allowlist already built).
-    public static func add(_ env: inout [String: String], fence f: MacFence) {
+    /// The proxy variables of a fenced session (`port`, its password): every tool's proxy at the literal loopback address
+    /// (DNS is closed inside), the loopback direct (refused unless `--local-port`), Node 22 told to use them, git told
+    /// to send the password, and — when the proxy has a CA (`ca`: the session's `etc/` copies) — the CA for the tools that
+    /// do not read the system's trust store. Pure.
+    public static func proxy(port: UInt16, password: String, etc: String?) -> [String: String] {
+        var e: [String: String] = [:]
+        let url = "http://doz:\(password)@127.0.0.1:\(port)"
+        for k in ["HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy"] { e[k] = url }
+        for k in ["NO_PROXY", "no_proxy"] { e[k] = "localhost,127.0.0.1,::1" }
+        e["NODE_USE_ENV_PROXY"] = "1"
+        e["GIT_CONFIG_COUNT"] = "1"
+        e["GIT_CONFIG_KEY_0"] = "http.proxyAuthMethod"
+        e["GIT_CONFIG_VALUE_0"] = "basic"
+        if let etc {
+            e["NODE_EXTRA_CA_CERTS"] = etc + "/ca.pem"
+            for k in ["SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "CURL_CA_BUNDLE", "GIT_SSL_CAINFO"] { e[k] = etc + "/ca-bundle.pem" }
+        }
+        return e
+    }
+
+    /// Add the fenced session's variables to `env` (the allowlist already built); `proxyPassword`: its proxy's (with
+    /// `f.proxyPort`), `ca`: the CA copies are in its `etc/`.
+    public static func add(_ env: inout [String: String], fence f: MacFence, proxyPassword: String? = nil, ca: Bool = false) {
+        if let port = f.proxyPort, let pw = proxyPassword {
+            for (k, v) in proxy(port: port, password: pw, etc: ca ? f.etc : nil) { env[k] = v }
+        }
         for k in removed { env[k] = nil }
         env["TMPDIR"] = f.tmp + "/"
         for (k, sub) in caches { env[k] = f.cache + "/" + sub }

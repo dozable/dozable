@@ -17,7 +17,9 @@ public enum MacPlace {
 
     /// The host operations `@mac` takes; anything else is refused (`refusal`).
     public static let operations: Set<HostOp> = [.openSession, .sessions, .sessionScreen, .sessionLive, .sessionSend, .sessionEnd,
-                                                 .sessionRestart, .sessionWait, .attach, .sessionGrids, .sessionResume, .sessionQuarantine]
+                                                 .sessionRestart, .sessionWait, .attach, .sessionGrids, .sessionResume, .sessionQuarantine,
+                                                 // A FENCED session's network (`--session S`): its permissions, policy, log.
+                                                 .netPermissions, .netPolicy, .netLog]
 
     public static func refusal(_ what: String) -> HostError {
         HostError(.invalid, "@mac is this Mac, not a sandbox — it has no start, sleep, network or keys, so \(what) does not apply "

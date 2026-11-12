@@ -5,7 +5,8 @@ import Foundation
 ///
 /// Deny by default; the LAST matching rule wins, so the sections come in this order: process; reads (the system roots,
 /// then the home's allowlist); the terminal; writes (the folder, `--write` folders); the Mach services allowed; IPC and
-/// the sysctl allowlist; (no network in this release — every socket, DNS included, stays closed); the protection rules
+/// the sysctl allowlist; the network — only its proxy's loopback port and its own `--local-port`s (every other socket,
+/// DNS included, stays closed); the protection rules
 /// (git's execution paths, renames); and last the fence's own folders: the fence root closed, this session's folder
 /// opened again (its `etc/` read-only), then the store, the holders' sockets and doz's settings closed whatever came
 /// before. Every path is resolved and checked (`MacFencePaths.pathProblem`: no quote, backslash or control character),
@@ -105,7 +106,9 @@ public enum MacFenceProfile {
         // 5. Writes: the folder, --write folders (its own temp, caches and DerivedData are in the session's folder, last).
         s.append("(allow file-read* file-write* " + f.writableRoots.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
         // 6. Mach services.
-        s.append("(allow mach-lookup " + agentMachServices.map { "(global-name \(lit($0)))" }.joined(separator: " ") + ")")
+        // Under Locked, certificate trust (trustd, OCSP) is closed too: it fetches on the program's behalf.
+        let mach = f.trust ? agentMachServices : agentMachServices.filter { !trustMachServices.contains($0) }
+        s.append("(allow mach-lookup " + mach.map { "(global-name \(lit($0)))" }.joined(separator: " ") + ")")
         s.append("(allow user-preference-read (preference-domain \"kCFPreferencesAnyApplication\") (preference-domain-prefix \"com.apple.\"))")
         // 7. The Keychain, only when asked.
         if f.keychain {
@@ -116,7 +119,14 @@ public enum MacFenceProfile {
         s.append("(allow sysctl-read " + sysctlNames.map { "(sysctl-name \(lit($0)))" }.joined(separator: " ") + " "
                  + sysctlPrefixes.map { "(sysctl-name-prefix \(lit($0)))" }.joined(separator: " ") + ")")
         s.append("(allow system-info)")
-        // 9. Network: none in this release (every socket, DNS's included, stays closed by the default).
+        // 9. Network: ONLY its proxy's port on this Mac's loopback (its holder holds that socket); per --local-port, that
+        // port to listen on and connect to. Nothing else: no other bind, no DNS (mDNSResponder's socket), no UDP, no
+        // other unix socket — all closed by the default.
+        if let p = f.proxyPort { s.append("(allow network-outbound (remote tcp \"localhost:\(p)\"))") }
+        for p in f.localPorts {
+            s.append("(allow network-bind network-inbound (local tcp \"localhost:\(p)\"))")
+            s.append("(allow network-outbound (remote tcp \"localhost:\(p)\"))")
+        }
         // 10. Protection: git's execution paths, at any depth, and what a rename could expose.
         for root in f.writableRoots {
             let r = regexEscape(root)
@@ -140,8 +150,14 @@ public enum MacFenceProfile {
         s.append("(deny file-write* (subpath \(lit(f.etc))))")
         s.append("(deny file-read* file-write* (subpath \(lit(f.places.store))) (subpath \(lit(f.places.socketDirectory)))"
                  + " (regex #\"^\(regexEscape(f.places.userTemp))dh-\") (subpath \(lit(f.places.dozConfig))))")
-        return s.joined(separator: "\n") + "\n"
+        // Every refusal carries this session's tag (the system log's line ends with it — the ONLY place it is matched),
+        // so a path the program chooses can never put another session's tag last.
+        let tag = " (with message \"doz-fence:\(f.tag)\"))"
+        return s.map { $0.hasPrefix("(deny ") && !$0.hasPrefix("(deny default") ? String($0.dropLast()) + tag : $0 }.joined(separator: "\n") + "\n"
     }
+
+    /// Certificate trust's services — closed under Locked.
+    public static let trustMachServices: Set<String> = ["com.apple.trustd", "com.apple.trustd.agent", "com.apple.ocspd"]
 
     /// The folders between `path` and `top` (both included when `path` is below `top`), innermost first.
     static func ancestors(of path: String, upTo top: String) -> [String] {

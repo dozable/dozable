@@ -157,9 +157,10 @@ This table is generated from `doz config show` and checked against it on every b
 
 | key | default | values | applies | overridden by | what it does |
 |---|---|---|---|---|---|
-| `mac.fence` | `off` | off \| on | next session | `$DOZ_MAC_FENCE`, `doz run @mac --fenced \| --unfenced` | Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session. |
+| `mac.fence` | `off` | off \| on | next session | `$DOZ_MAC_FENCE`, `doz run @mac --fenced \| --unfenced` | Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, its network only through Dozable's proxy (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session. |
 | `mac.keychain` | `off` | off \| on | next session | `doz run @mac --keychain` | Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session. |
 | `mac.fence_read` | `""` | paths relative to your home, comma-separated, like "notes, src/shared" ("" = none) | next session | — | Folders or files in your home a fenced session on this Mac may read (never write), relative to your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config, ~/Library) stay closed. |
+| `mac.permissions` | `standard` | standard \| locked \| open | next session | `doz run @mac --permissions` | What a fenced session on this Mac may reach through Dozable's proxy: standard (its AI model, its own updates, GitHub, error reports and the Node, Python, Go, Rust and Swift package registries), locked (its AI model only — and no certificate checks on its behalf) or open (any site). This Mac's own addresses are never reachable. doz run @mac --permissions decides for one session; doz net allow\|deny @mac --session S changes a running one. |
 
 ### `[host]`
 

@@ -182,6 +182,15 @@
 
 enum { F_HELLO = 'H', F_DATA = 'D', F_RESIZE = 'R', F_QUERY = 'Q', F_DUMP = 'P', F_WATCH = 'W', F_GRID = 'G',
        F_SNAPSHOT = 'S', F_EXIT = 'X', F_INFO = 'I', F_NOSESSION = 'N', F_STATUS = 'T' };
+#if defined(__APPLE__)
+/* A FENCED session on the Mac: `serve --hold-fd N` keeps descriptor N (the session's proxy socket, listening on this
+ * Mac's loopback — bound by the host) for the holder's whole life, never accepts on it, and never passes it to the
+ * program. C→H 'F' GETFD (no payload) is answered with one H→C 'F' frame (no payload) carrying that descriptor by
+ * SCM_RIGHTS (none when the holder holds nothing), then the connection is closed — how a host that starts later adopts
+ * the socket. Only on the Mac: the guest's holder never has one. */
+enum { F_HELDFD = 'F' };
+static int g_hold_fd = -1;
+#endif
 
 /* ── small helpers ──────────────────────────────────────────────────────────────────────── */
 
@@ -1234,6 +1243,34 @@ static void drop_client(int i) {
     S.c[i] = S.c[--S.nclients];
 }
 
+#if defined(__APPLE__)
+/* GETFD: what the client was owed goes first, then one 'F' frame carrying the held descriptor (SCM_RIGHTS). */
+static void send_held_fd(struct client *c) {
+    if (c->out.len) { write_all(c->fd, c->out.p, c->out.len); c->out.len = 0; }
+    uint8_t h[5] = { F_HELDFD, 0, 0, 0, 0 };
+    struct iovec iov = { .iov_base = h, .iov_len = sizeof h };
+    union { struct cmsghdr align; char buf[CMSG_SPACE(sizeof(int))]; } ctl;
+    struct msghdr m = { .msg_iov = &iov, .msg_iovlen = 1 };
+    if (g_hold_fd >= 0) {
+        memset(&ctl, 0, sizeof ctl);
+        m.msg_control = ctl.buf;
+        m.msg_controllen = sizeof ctl.buf;
+        struct cmsghdr *cm = CMSG_FIRSTHDR(&m);
+        cm->cmsg_level = SOL_SOCKET;
+        cm->cmsg_type = SCM_RIGHTS;
+        cm->cmsg_len = CMSG_LEN(sizeof(int));
+        memcpy(CMSG_DATA(cm), &g_hold_fd, sizeof(int));
+    }
+    for (int tries = 0; tries < 100; tries++) {
+        if (sendmsg(c->fd, &m, 0) >= 0) break;
+        if (errno == EINTR) continue;
+        if (errno == EAGAIN) { struct pollfd pf = { c->fd, POLLOUT, 0 }; poll(&pf, 1, 100); continue; }
+        break;
+    }
+    logf_("getfd fd %d: %s", c->fd, g_hold_fd >= 0 ? "the held socket passed" : "nothing held");
+}
+#endif
+
 /* Parse complete frames from a client. Returns false if the client must be dropped. */
 static bool client_frames(struct client *c) {
     while (c->in.len >= 5) {
@@ -1280,6 +1317,12 @@ static bool client_frames(struct client *c) {
         case F_GRID:                  /* 648: the screen as cells — never makes the client a viewer */
             send_grid(&c->out, n >= 4 ? be32(p) : 0);
             break;
+#if defined(__APPLE__)
+        case F_HELDFD:                 /* a fenced session's proxy socket, for a host adopting it */
+            send_held_fd(c);
+            c->closing = true;
+            break;
+#endif
         default:
             return false;
         }
@@ -1354,6 +1397,9 @@ static bool pump_master(void) {
 static void fence_args(int argc, char **argv) {
     if (argc < 2 || strcmp(argv[0], "/usr/bin/sandbox-exec") != 0) return;
     unsetenv("DECKHOLD_DIR");
+    /* Nothing of the holder's reaches a fenced program: its socket listener, its signal pipe, the held proxy socket
+     * (an inherited listening socket could be accepted on whatever the profile says) — only the pty (0, 1, 2). */
+    for (int fd = 3; fd < 1024; fd++) close(fd);
     const char *tty = ttyname(0);
     static const char mark[] = "@DOZ_PTY@";
     for (int i = 1; i < argc && strcmp(argv[i], "--") != 0; i++) {
@@ -1788,6 +1834,9 @@ static int connect_port(int port) {
 static int usage(void) {
     fprintf(stderr,
             "usage: deckhold serve -s NAME [-x COLS -y ROWS] [--scrollback BYTES] [-f] -- CMD [ARGS...]\n"
+#if defined(__APPLE__)
+            "       deckhold serve … --hold-fd N …  (this Mac) keep socket N for the holder's life; GETFD hands it out\n"
+#endif
             "       deckhold attach -s NAME\n"
             "       deckhold pipe -s NAME       relay stdio ⇄ the session socket verbatim (host transport)\n"
             "       deckhold ls                 sessions: name, pid, size, clients, screen, history rows, the\n"
@@ -1831,6 +1880,19 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "-y") && i + 1 < argc) rows = (unsigned)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--scrollback") && i + 1 < argc) scrollback = (size_t)strtoull(argv[++i], NULL, 10);
         else if (!strcmp(argv[i], "-f")) fg = true;
+#if defined(__APPLE__)
+        else if (!strcmp(argv[i], "--hold-fd") && i + 1 < argc) {
+            /* Only a listening socket this process was given (fd ≥ 3); anything else refuses to start. */
+            int h = atoi(argv[++i]);
+            struct stat hs;
+            if (h < 3 || fstat(h, &hs) != 0 || !S_ISSOCK(hs.st_mode)) {
+                fprintf(stderr, "deckhold: --hold-fd %d is not a socket this holder was given\n", h);
+                return 2;
+            }
+            fcntl(h, F_SETFD, FD_CLOEXEC);
+            g_hold_fd = h;
+        }
+#endif
         else return usage();
     }
     if (!strcmp(cmd, "ls")) return ls();

@@ -16,9 +16,9 @@ DIR="$(mktemp -d "${TMPDIR:-/tmp}/dhm-XXXXXX")"
 export DECKHOLD_DIR="$DIR"
 FAILS=0
 check() { if [ "$1" = 0 ]; then echo "PASS $2"; else echo "FAIL $2"; FAILS=$((FAILS + 1)); fi; }
-holder() { pgrep -f "deckhold-mac serve -s $1 " | head -1; }
+holder() { pgrep -f "deckhold-mac serve.* -s $1 " | head -1; }
 cleanup() {
-  for s in sh1 sh2 sh3; do p="$(holder "$s")"; [ -n "$p" ] && kill -KILL "$p" 2>/dev/null; done
+  for s in sh1 sh2 sh3 sh4; do p="$(holder "$s")"; [ -n "$p" ] && kill -KILL "$p" 2>/dev/null; done
   rm -rf "$DIR"
 }
 trap cleanup EXIT
@@ -72,5 +72,9 @@ C="$("$D" ls | sed -n 's/^sh3.*pid=\([0-9]*\).*/\1/p')"
 kill -KILL "$C" 2>/dev/null
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -S "$DIR/sh3.sock" ] || break; sleep 0.2; done
 "$D" ls | grep -q "^sh3	ended="; check $? "a killed program: the holder records its end ($("$D" ls | grep sh3))"
+
+# A fenced session's proxy socket: --hold-fd keeps it for the holder's life, never in the program; GETFD hands it out.
+python3 "$HERE/mac-holdfd.py" "$D" sh4 "$DIR/holdfd.out"; check $? "--hold-fd and GETFD (the lines above)"
+"$D" serve --hold-fd 0 -s sh5 -- /bin/sh >/dev/null 2>&1; [ $? = 2 ]; check $? "--hold-fd refuses a descriptor that is not a given socket"
 
 if [ "$FAILS" = 0 ]; then echo "mac-smoke: ALL PASS"; else echo "mac-smoke: $FAILS FAILED"; exit 1; fi

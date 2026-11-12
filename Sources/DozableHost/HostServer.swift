@@ -224,20 +224,25 @@ public final class HostServer: @unchecked Sendable {
             // 594: an image being prepared keeps the host up like a live sandbox (nobody need be attached).
             let live = await core.liveSandboxes() + (await core.runningPreparations()).map { "prepare \($0)" }
             let now = Date()
+            // A fenced session on this Mac keeps the host up (its git guard and proxy are the host's); unfenced ones never do.
+            let fenced = await core.fencedMacSessions()
             // 591: its program changed under it — once nothing is live and nobody is connected, exit, so
             // the next command starts a host of the build now installed. (Nothing is lost: no VM runs;
-            // sandboxes asleep keep their snapshots — a failed wake's too, e1af862.)
+            // sandboxes asleep keep their snapshots — a failed wake's too, e1af862.) When fenced sessions on this Mac are all
+            // that keeps it, it hands them over: a new host is started now and takes them once this one is gone.
             if let change = await core.executableChange(), live.isEmpty, lock.withLock({ connections == 0 && !stopping }) {
-                HostLog.line("my program changed (\(change.rawValue)) and nothing is running — exiting so the next command runs the installed build")
-                await shutdown(prepare: false, reply: nil)
+                if fenced.isEmpty {
+                    HostLog.line("my program changed (\(change.rawValue)) and nothing is running — exiting so the next command runs the installed build")
+                    await shutdown(prepare: false, reply: nil)
+                } else {
+                    await handOver(change, fenced: fenced)
+                }
             }
             // A newer recipe catalogue waits: the same — the next command's host starts with it.
             if live.isEmpty, lock.withLock({ _recipeCatalogueWaiting && connections == 0 && !stopping }) {
                 HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's host uses it")
                 await shutdown(prepare: false, reply: nil)
             }
-            // A fenced session on this Mac keeps the host up (its git guard is the host's); unfenced ones never do.
-            let fenced = await core.fencedMacSessions()
             let exit: Bool = lock.withLock {
                 guard !stopping else { return false }
                 if live.isEmpty && fenced.isEmpty && connections == 0 {
@@ -253,6 +258,41 @@ public final class HostServer: @unchecked Sendable {
                 await shutdown(prepare: false, reply: nil)
             }
         }
+    }
+
+    /// The hand-over of fenced sessions on this Mac to a host of the build now installed — one host per store, always:
+    /// this one stops taking clients (its socket goes, so the new one does not mistake it for a live host), starts the
+    /// new host (which waits for `host.lock`, as every host does), and — STILL holding the lock, still the only owner of
+    /// the records, logs, policies and git guards — stops accepting on every session's proxy (new connections wait in
+    /// the holders' backlogs), closes the idle ones and lets open tunnels finish for up to 30 s, cuts the rest, then
+    /// releases the lock and exits. The new host takes the lock, adopts each session (`GETFD` from its holder) and serves.
+    /// No hand-over file: the lock is the hand-over.
+    func handOver(_ change: ExecutableIdentity.Change, fenced: [String]) async {
+        let first: Bool = lock.withLock {
+            if stopping { return false }
+            stopping = true
+            return true
+        }
+        guard first else { return }
+        let fd = lock.withLock { () -> Int32 in let f = listenFD; listenFD = -1; return f }
+        if fd >= 0 { Darwin.shutdown(fd, SHUT_RDWR); close(fd) }
+        unlink(store.socket.path)
+        HostLog.line("my program changed (\(change.rawValue)) and only fenced sessions on this Mac keep me (\(fenced.joined(separator: ", "))) — "
+                     + "handing them to a new host of the installed build")
+        do {
+            let pid = try HostLauncher.spawn(store: store)
+            HostLog.line("the new host (pid \(pid)) waits for the store's lock")
+        } catch {
+            HostLog.line("could not start the new host (\(error)) — the next command starts one; the sessions' connections wait until then")
+        }
+        let t0 = Date()
+        let cut = await core.drainMacProxies(timeout: 30)
+        await core.captureMacScreens(reason: "hand-over")
+        HostLog.line(String(format: "proxies drained in %.1f s%@ — exiting; the new host takes over", Date().timeIntervalSince(t0),
+                            cut > 0 ? " (\(cut) connection\(cut == 1 ? "" : "s") still open were cut)" : ""))
+        try? FileManager.default.removeItem(at: store.pidFile)
+        if lockFD >= 0 { flock(lockFD, LOCK_UN) }
+        exit(0)
     }
 
     var idleSeconds: Double? { lock.withLock { idleSince.map { Date().timeIntervalSince($0) } } }
@@ -459,7 +499,7 @@ public final class HostServer: @unchecked Sendable {
     private func netLogFollow(_ conn: HostConnection, reader: LineReader, request req: HostRequest) {
         Task.detached { [core] in
             do {
-                let (log, name) = try await core.connectionLog(req.name)
+                let (log, name) = try await core.connectionLog(req.name, session: req.session)
                 let denied = req.deniedOnly == true
                 let live = log.stream()
                 for r in log.records where !denied || r.verdict == .denied {
@@ -741,7 +781,15 @@ public final class HostServer: @unchecked Sendable {
 
 extension HostCore {
     /// The proxy's log of a sandbox (for `net log --follow`).
-    func connectionLog(_ name: String?) throws -> (ConnectionLog, String) {
+    func connectionLog(_ name: String?, session: String? = nil) throws -> (ConnectionLog, String) {
+        // A fenced session on this Mac: its own proxy's log (this host's, from when it began serving it).
+        if MacPlace.isPlace(name) {
+            guard let s = session else { throw HostError(.invalid, "which session? doz net log @mac --session SESSION") }
+            guard let p = macProxies[s] else {
+                throw HostError(.notFound, "this host does not serve a proxy for \(s) on this Mac (doz sessions @mac: only a running fenced session has one)")
+            }
+            return (p.proxy.log, MacPlace.name)
+        }
         let m = try get(name)
         guard let log = m.sandbox.egress?.log else {
             throw HostError(.invalid, "\(m.name) is not proxied (network \(m.config.networkName)) — it has no connection log")

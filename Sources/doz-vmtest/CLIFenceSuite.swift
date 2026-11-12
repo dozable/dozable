@@ -25,6 +25,10 @@ func cliFenceSuite(binary: String) async {
     t.env["GITHUB_TOKEN"] = "ghp_fakeclifence"
     t.env["DOZ_TEST_FENCE_HOME"] = home
     t.env["DOZ_TEST_MAC_PATH"] = "\(home)/.local/bin:\(bin):/usr/bin:/bin:/usr/sbin:/sbin"
+    // The fake upstreams of the network rows (M2), on this Mac's loopback — the host's guarded seam names them.
+    let allowed = FenceUpstream(), streamer = FenceUpstream(stream: true)
+    defer { allowed.stop(); streamer.stop() }
+    t.env["DOZ_TEST_FENCE_UPSTREAMS"] = "allowed.doz.test=127.0.0.1:\(allowed.port),denied.doz.test=127.0.0.1:\(allowed.port),stream.doz.test=127.0.0.1:\(streamer.port)"
     let dozStore = DozableStore(root: URL(fileURLWithPath: store))
     let sockets = MacPlace.socketDirectory(store: dozStore)
     var started: Set<String> = []
@@ -207,7 +211,7 @@ func cliFenceSuite(binary: String) async {
     // in what came back. (Its ARGV is readable from inside the fence: Seatbelt does not govern kern.procargs2 for a
     // same-user process — a stated residual; the kernel itself never returns another process's environment.)
     put(work + "/pa.py", """
-    import ctypes, sys
+    import os, ctypes, sys
     libc = ctypes.CDLL(None)
     mib = (ctypes.c_int * 3)(1, 49, int(sys.argv[1]))
     size = ctypes.c_size_t(0)
@@ -272,8 +276,8 @@ func cliFenceSuite(binary: String) async {
     no("k_bystander", "1.11 a signal to an unfenced bystander")
     no("k_ps", "1.11b ps (unavailable)")
     no("k_procargs", "1.11c another process's environment (kern.procargs2) — its argv stays readable: a stated residual")
-    no("n_nc", "1.18 no network (nc)")
-    no("n_curl", "1.18 no network (curl)")
+    no("n_nc", "2.3 no direct connection (nc to an address)")
+    no("n_curl", "2.2 curl https://example.com — through the proxy, not in Standard: refused")
     no("c_nested", "1.12 a nested shell inherits the fence")
     check(get(work + "/nh.txt").isEmpty, "1.12 a nohup'd grandchild inherits the fence (it read nothing)")
     ok("t_tty", "1.13 /dev/tty")
@@ -481,6 +485,13 @@ func cliFenceSuite(binary: String) async {
     r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "plain", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 60)
     if r.code == 0 { started.insert("plain") }
     check(r.code == 0 && r.err.contains("no sandbox, no proxy") && row("plain")?.fenced == nil, "--unfenced: as before (no fence, the no-isolation line)")
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--local-port", "4000", "--session", "plain2", "--", "/bin/sleep", "1"])
+    check(r.code == 64, "--local-port with --unfenced is refused (\(r.code))")
+    t.run(["sessions", "end", "@mac", "plain", "--yes"], timeout: 60)
+    started.remove("plain")
+
+    // M2: the network.
+    await cliFenceNetworkChecks(t, root: root, home: home, store: store, binary: binary, allowed: allowed, streamer: streamer, started: &started)
 }
 
 /// A fenced session's tag, read from its record in the store (the test runs outside every fence).

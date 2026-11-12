@@ -198,8 +198,9 @@
 [mac]
 
 # Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp
-# and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no
-# isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.
+# and caches, your Keychain, secrets and other folders closed, its network only through Dozable's
+# proxy (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for
+# one session.
 # (off | on; env DOZ_MAC_FENCE; flag doz run @mac --fenced | --unfenced; applies to sessions opened from now on)
 # fence = "off"
 
@@ -213,6 +214,14 @@
 # ~/Library) stay closed.
 # (paths relative to your home, comma-separated, like "notes, src/shared" ("" = none); applies to sessions opened from now on)
 # fence_read = ""
+
+# What a fenced session on this Mac may reach through Dozable's proxy: standard (its AI model, its
+# own updates, GitHub, error reports and the Node, Python, Go, Rust and Swift package registries),
+# locked (its AI model only — and no certificate checks on its behalf) or open (any site). This
+# Mac's own addresses are never reachable. doz run @mac --permissions decides for one session; doz
+# net allow|deny @mac --session S changes a running one.
+# (standard | locked | open; flag doz run @mac --permissions; applies to sessions opened from now on)
+# permissions = "standard"
 
 [host]
 

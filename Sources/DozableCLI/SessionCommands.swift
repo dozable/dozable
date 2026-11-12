@@ -454,8 +454,11 @@ struct Run: AsyncParsableCommand {
             your files, Keychain and network (no CMD: your login shell; --workdir is a folder on the Mac, default your home). \
             doz run @mac --fenced -- CMD puts a fence around it: it reads and writes only its folder (default: the one you \
             are in) and its own temp and caches, reads your tools but not your secrets or other folders, cannot use your \
-            Keychain (--keychain opens it) and has no network yet; a git config change a fenced program may not make stops \
-            it until doz sessions resume @mac SESSION. The setting mac.fence makes fenced the default; --unfenced overrides it.
+            Keychain (--keychain opens it), and reaches the network only through Dozable's proxy, by its permissions \
+            (--permissions, the setting mac.permissions; doz net allow|deny @mac --session SESSION changes them live) — never \
+            this Mac's own addresses, and its own ports only with --local-port N; a git config change a fenced program may \
+            not make stops it until doz sessions resume @mac SESSION. The setting mac.fence makes fenced the default; \
+            --unfenced overrides it.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
@@ -471,24 +474,30 @@ struct Run: AsyncParsableCommand {
     @Flag(name: .long, help: "@mac, fenced: open your Keychain to it (signing, notarisation — and your saved logins).") var keychain = false
     @Option(name: .customLong("read"), help: "@mac, fenced: one more folder it may read (repeatable).") var readDirs: [String] = []
     @Option(name: .customLong("write"), help: "@mac, fenced: one more folder it may read and write (repeatable).") var writeDirs: [String] = []
+    @Option(name: .customLong("permissions"), parsing: .unconditionalSingleValue,
+            help: "@mac, fenced: what it may reach through Dozable's proxy — standard/locked/open, PERMISSION, -PERMISSION, site:HOST (doz net permissions); comma-separated or repeated (setting mac.permissions).")
+    var permissions: [String] = []
+    @Option(name: .customLong("local-port"), help: "@mac, fenced: a port of this Mac's loopback it may listen on and connect to — its dev server, a sign-in callback (repeatable).")
+    var localPorts: [Int] = []
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
+
+    var fenceFlags: Bool { keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty }
 
     func validate() throws {
         if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
         if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
-        let fenceFlags = keychain || !readDirs.isEmpty || !writeDirs.isEmpty
         if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags {
-            throw ValidationError("--fenced, --unfenced, --keychain, --read and --write are for doz run @mac (a sandbox is a VM of its own)")
+            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions and --local-port are for doz run @mac (a sandbox is a VM of its own)")
         }
         if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
-        if unfenced && fenceFlags { throw ValidationError("--keychain, --read and --write are for a fenced session — not with --unfenced") }
+        if unfenced && fenceFlags { throw ValidationError("--keychain, --read, --write, --permissions and --local-port are for a fenced session — not with --unfenced") }
     }
 
     /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else off.
     func fencedOnMac(_ settings: DozableSettings) -> Bool {
         if fenced { return true }
         if unfenced { return false }
-        if keychain || !readDirs.isEmpty || !writeDirs.isEmpty { return true }
+        if fenceFlags { return true }
         return settings.string(SettingKey.macFence) == "on"
     }
 
@@ -512,7 +521,9 @@ struct Run: AsyncParsableCommand {
             r.v = HostProtocol.fencedVersion
             r.macFence = MacFenceRequest(keychain: (keychain || settings.string(SettingKey.macKeychain) == "on") ? true : nil,
                                          read: readDirs.isEmpty ? nil : readDirs.map(absolute),
-                                         write: writeDirs.isEmpty ? nil : writeDirs.map(absolute))
+                                         write: writeDirs.isEmpty ? nil : writeDirs.map(absolute),
+                                         permissions: permissions.isEmpty ? [settings.string(SettingKey.macPermissions) ?? "standard"] : permissions,
+                                         localPorts: localPorts.isEmpty ? nil : localPorts)
         }
         let size = terminalSize()
         r.cols = size.cols

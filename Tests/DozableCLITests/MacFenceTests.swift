@@ -81,18 +81,20 @@ final class MacFenceProfileTests: XCTestCase {
         XCTAssertEqual(lines[0], "(version 1)")
         XCTAssertEqual(lines[1], "(deny default (with message \"doz-fence:\(f.tag)\"))")
         XCTAssertTrue(lines.last!.hasPrefix("(deny file-read* file-write* (subpath \"\(w.store)\")"), "the store, sockets and doz's settings are closed LAST")
-        let fenceRoot = lines.firstIndex { $0 == "(deny file-read* file-write* (subpath \"\(f.places.fenceRoot)\"))" }!
+        let tag = " (with message \"doz-fence:\(f.tag)\"))"
+        let fenceRoot = lines.firstIndex { $0 == "(deny file-read* file-write* (subpath \"\(f.places.fenceRoot)\")" + tag }!
         let session = lines.firstIndex { $0 == "(allow file-read* file-write* (subpath \"\(f.sessionFolder)\"))" }!
-        let etc = lines.firstIndex { $0 == "(deny file-write* (subpath \"\(f.etc)\"))" }!
+        let etc = lines.firstIndex { $0 == "(deny file-write* (subpath \"\(f.etc)\")" + tag }!
         XCTAssertTrue(fenceRoot < session && session < etc, "the fence root closed, this session's folder opened again, its etc read-only")
         XCTAssertFalse(p.contains("network-") || p.contains("network*"), "no network rule at all in this release")
         XCTAssertFalse(p.contains("SecurityServer"))
         XCTAssertTrue(MacFenceProfile.render(try w.fence(keychain: true)).contains("com.apple.SecurityServer"))
         XCTAssertFalse(p.contains("kern.proc"), "another process's argv and environment stay closed")
         XCTAssertFalse(p.contains("sysctl-write") || p.contains("appleevent"))
-        XCTAssertTrue(p.contains("(deny file-write-create (literal \"\(w.work)/.git\"))"), "no .git at the top of a folder without one")
-        XCTAssertTrue(p.contains(#"(deny file-write* (regex #"^"# + MacFenceProfile.regexEscape(w.work) + #"/(.*/)?\.git/hooks(/|$)"))"#))
-        XCTAssertTrue(p.contains(#"(deny file-write-unlink (regex #"^"# + MacFenceProfile.regexEscape(w.work) + #"/(.*/)?\.git$"))"#))
+        XCTAssertTrue(p.contains("(deny file-write-create (literal \"\(w.work)/.git\")" + tag), "no .git at the top of a folder without one")
+        XCTAssertTrue(p.contains(#"(deny file-write* (regex #"^"# + MacFenceProfile.regexEscape(w.work) + #"/(.*/)?\.git/hooks(/|$)")"# + tag))
+        XCTAssertTrue(p.contains(#"(deny file-write-unlink (regex #"^"# + MacFenceProfile.regexEscape(w.work) + #"/(.*/)?\.git$")"# + tag))
+        for l in lines where l.hasPrefix("(deny ") { XCTAssertTrue(l.hasSuffix("(with message \"doz-fence:\(f.tag)\"))"), "every refusal carries the tag: \(l)") }
     }
 
     func testRegexEscape() {

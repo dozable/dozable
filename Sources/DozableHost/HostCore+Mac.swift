@@ -34,6 +34,8 @@ extension HostCore {
             return try JSONValue(encoding: try await macResume(r))
         case .sessionQuarantine:
             return try JSONValue(encoding: try macQuarantine(r))
+        case .netPermissions, .netPolicy, .netLog:
+            return try await macNet(r)
         default:
             throw MacPlace.refusal(r.op.rawValue)
         }
@@ -54,6 +56,8 @@ extension HostCore {
         // A fenced one's git guard again: its stored baseline, a full check (what changed while no host ran is dealt
         // with now — stripped and stopped), then the watch.
         let recs = mac.records().sessions
+        // A fenced one's proxy: the socket its holder holds (connections made while no host ran wait in its backlog).
+        for s in live { if let f = recs[s]?.fence { adoptFenceProxy(s, f) } }
         for s in live where macFenceWatches[s] == nil {
             guard let rec = recs[s], let f = rec.fence else { continue }
             let w = makeFenceWatch(s, workdir: rec.workdir, roots: [rec.workdir] + f.writable, sentinel: f.sentinel, anti: f.antiSentinel)
@@ -88,15 +92,107 @@ extension HostCore {
                         detail: ["session": s, "processes": String(pids.count)])
     }
 
-    /// The fenced sessions this host keeps up (their git guard needs a host).
+    /// The fenced sessions this host keeps up (their git guard and proxy need a host).
     public func fencedMacSessions() async -> [String] {
-        for s in macFenceWatches.keys.sorted() where !(await mac.isRunning(s)) { dropFenceWatch(s) }
-        return macFenceWatches.keys.sorted()
+        for s in Set(macFenceWatches.keys).union(macProxies.keys).sorted() where !(await mac.isRunning(s)) {
+            dropFenceWatch(s)
+            dropFenceProxy(s)
+            macDenials.unwatch(session: s)
+        }
+        return Set(macFenceWatches.keys).union(macProxies.keys).sorted()
     }
 
     func dropFenceWatch(_ s: String) {
         macFenceWatches[s]?.guardian.cancel()
         macFenceWatches[s] = nil
+    }
+
+    /// A proxy made off the open's path takes its place (one already there — a restart raced it — is stopped first).
+    func installProxy(_ s: String, _ p: MacFenceProxy) {
+        // Only the session's CURRENT socket (a restart in the meantime made a new one).
+        guard mac.records().sessions[s]?.fence?.proxyPort == Int(p.port) else { p.stop(); return }
+        macProxies[s]?.stop()
+        macProxies[s] = p
+    }
+
+    /// This host stops serving session `s`'s proxy (its holder keeps the socket while it lives).
+    func dropFenceProxy(_ s: String) {
+        macProxies[s]?.stop()
+        macProxies[s] = nil
+    }
+
+    /// A hand-over (this host's program was replaced and only fenced sessions keep it up): every proxy stops accepting —
+    /// new connections wait in the holders' backlogs for the next host — the idle ones are closed and the open tunnels
+    /// get up to `timeout` seconds to finish. Returns how many were cut.
+    public func drainMacProxies(timeout: Double) async -> Int {
+        let all = Array(macProxies.values)
+        macProxies = [:]
+        let cut = await withTaskGroup(of: Int.self) { g in
+            for p in all { g.addTask { await Task.detached { p.listener.drain(timeout: timeout) }.value } }
+            return await g.reduce(0, +)
+        }
+        return cut
+    }
+
+    /// A fenced session's proxy from its holder (`GETFD`) — at adoption: the record's policy and password hash, the CA
+    /// in the store. Nothing when the record has no proxy (an older one) or the holder holds nothing.
+    func adoptFenceProxy(_ s: String, _ f: MacFenceRecord) {
+        guard macProxies[s] == nil, let port = f.proxyPort, let secret = f.proxySecretSHA256 else { return }
+        guard let fd = DeckholdSocket.heldSocket(path: mac.socket(s)) else {
+            HostLog.line("\(MacPlace.name): session \(s): its holder handed no proxy socket — its network waits")
+            return
+        }
+        guard MacFenceNetwork.port(of: fd) == UInt16(port) else {
+            close(fd)
+            HostLog.line("\(MacPlace.name): session \(s): its holder's socket is not its recorded port \(port) — not served")
+            return
+        }
+        let ca = try? SandboxCA.loadOrCreate(in: URL(fileURLWithPath: mac.fenceState(s)), sandbox: "mac-\(s)")
+        do {
+            let p = try MacFenceProxy(session: s, fd: fd, port: UInt16(port), policy: f.policy ?? .permissions(["model"], preset: "locked"),
+                                      secretSHA256: secret, ca: ca, environment: mac.hostEnvironment)
+            p.start()
+            macProxies[s] = p
+        } catch {
+            close(fd)
+            HostLog.line("\(MacPlace.name): session \(s): its proxy did not start (\(error))")
+        }
+        macDenials.watch(session: s, tag: f.tag)
+    }
+
+    // MARK: the network of a fenced session (`doz net … @mac --session S`)
+
+    /// `net-permissions`, `net-policy`, `net-log` for one fenced session.
+    func macNet(_ r: HostRequest) async throws -> JSONValue {
+        let s = try macSession(r, "doz net \(r.op == .netLog ? "log" : "show") @mac --session SESSION")
+        guard let rec = mac.records().sessions[s], let f = rec.fence else {
+            throw HostError(.notFound, "no fenced session \(s) on this Mac — only a fenced session has a proxy and permissions (doz sessions @mac)")
+        }
+        guard let stored = f.policy else {
+            throw HostError(.invalid, "session \(s) on this Mac was opened before fenced sessions had a network — doz sessions restart @mac \(s) gives it one")
+        }
+        let live = macProxies[s]
+        let policy = live?.proxy.policy ?? stored
+        let records = live?.proxy.log.records ?? []
+        switch r.op {
+        case .netPermissions:
+            var rep = PermissionPolicy.report(name: "@mac \(s)", policy: policy, base: AgentPermissions.macBase, log: records)
+            rep.base = nil
+            return try JSONValue(encoding: rep)
+        case .netLog:
+            if r.denials == true {
+                return try JSONValue(encoding: FenceDenials(session: s, denialLog: readOnly ? "off" : macDenials.status, denials: macDenials.denials(s)))
+            }
+            return try JSONValue(encoding: records.filter { r.deniedOnly != true || $0.verdict == .denied })
+        default:
+            if isPolicyQuery(r) { return try JSONValue(encoding: policy) }
+            guard !readOnly else { throw HostError(.unavailable, "net-policy needs the host") }
+            let p = try Self.editedPolicy(policy, r, base: AgentPermissions.macBase, agent: nil)
+            live?.proxy.policy = p
+            await mac.updateRecord(s) { $0.fence?.policy = p }
+            note(MacPlace.name, "session \(s) on this Mac: network policy \(p.preset ?? "custom") (\(p.rules.count) rules) — from its next connection")
+            return try JSONValue(encoding: p)
+        }
     }
 
     /// `doz sessions resume @mac S`: a session stopped for a git config change continues — refused while a change outside
@@ -155,17 +251,65 @@ extension HostCore {
                        recordedArgv: [String]?, previous: MacFenceRecord?, size: TermSize, extra: [String: String]?) async throws -> (MacSessions.Opened, MacFence, [String]) {
         guard let wd = workdir else { throw HostError(.invalid, "a fenced session needs its folder (--workdir DIR; doz run sends the folder you are in)") }
         let t0 = ContinuousClock.now
-        let fenceRead = MacFencePaths.fenceReadEntries(DozableSettings.load().string(SettingKey.macFenceRead) ?? "")
-        let prep = try await mac.prepareFence(session: name, workdir: wd, request: request, fenceRead: fenceRead, previous: previous)
-        let f = prep.fence
+        let settings = DozableSettings.load()
+        let fenceRead = MacFencePaths.fenceReadEntries(settings.string(SettingKey.macFenceRead) ?? "")
+        // Its permissions: as asked; a restart keeps its policy (live edits included); else the setting.
+        let policy: NetworkPolicy
+        if let words = request.permissions { policy = try MacFenceNetwork.policy(words: words) }
+        else if let kept = previous?.policy { policy = kept }
+        else { policy = try MacFenceNetwork.policy(words: [settings.string(SettingKey.macPermissions) ?? "standard"]) }
+        let prep = try await mac.prepareFence(session: name, workdir: wd, request: request, fenceRead: fenceRead, previous: previous,
+                                              trust: MacFenceNetwork.trust(policy))
+        var f = prep.fence
+        f.presetName = AgentPermissions.presetName(policy.permissions ?? [], base: AgentPermissions.macBase)
         dropFenceWatch(name)
+        dropFenceProxy(name)
+        // The proxy: a new socket on this Mac's loopback (its holder will hold it), a new password, the session's CA.
+        let (lfd, port) = try MacFenceNetwork.bindLoopback()
+        f.proxyPort = port
+        let password = LoopbackProxyListener.newPassword()
+        let secret = LoopbackProxyListener.sha256(password)
+        var ca: SandboxCA?
+        do {
+            let c = try SandboxCA.loadOrCreate(in: URL(fileURLWithPath: mac.fenceState(name)), sandbox: "mac-\(name)")
+            try MacFenceNetwork.writeCA(c, etc: f.etc)
+            ca = c
+        } catch {
+            HostLog.line("\(MacPlace.name): fenced session \(name): no CA (\(error)) — hosts that need request inspection are refused")
+        }
         let t1 = ContinuousClock.now
         let w = makeFenceWatch(name, workdir: f.workdir, roots: f.writableRoots, sentinel: f.sentinel, anti: f.antiSentinel)
-        let baseline = try w.guardian.recordBaseline()
+        let baseline: MacFenceGitBaseline
+        do { baseline = try w.guardian.recordBaseline() } catch { close(lfd); throw error }
         let t2 = ContinuousClock.now
-        let o = try await mac.open(session: name, argv: argv, workdir: f.workdir, extra: extra, size: size, holder: holder,
-                                   recordedArgv: recordedArgv, fence: f, gitBaseline: baseline)
+        let o: MacSessions.Opened
+        do {
+            o = try await mac.open(session: name, argv: argv, workdir: f.workdir, extra: extra, size: size, holder: holder,
+                                   recordedArgv: recordedArgv, fence: f, gitBaseline: baseline,
+                                   proxy: .init(fd: lfd, password: password, secretSHA256: secret, policy: policy, ca: ca != nil))
+        } catch {
+            close(lfd)
+            throw error
+        }
         let t3 = ContinuousClock.now
+        // The holder holds its copy now; this host serves its own — made off the start's path (the proxy's TLS context
+        // costs tens of ms): until it accepts, the program's connections wait in the socket's backlog.
+        let env = mac.hostEnvironment
+        let made = Task.detached { () -> MacFenceProxy? in
+            do {
+                let p = try MacFenceProxy(session: name, fd: lfd, port: port, policy: policy, secretSHA256: secret, ca: ca, environment: env)
+                p.start()
+                return p
+            } catch {
+                close(lfd)
+                HostLog.line("\(MacPlace.name): fenced session \(name): its proxy did not start (\(error)) — its connections wait until the next host")
+                return nil
+            }
+        }
+        Task { [weak self] in
+            if let p = await made.value { await self?.installProxy(name, p) }
+        }
+        macDenials.watch(session: name, tag: f.tag)
         func ms(_ a: ContinuousClock.Instant, _ b: ContinuousClock.Instant) -> String {
             let d = b - a
             return String(format: "%.1f", Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15)
@@ -188,6 +332,21 @@ extension HostCore {
         }
         for i in rows.indices where !rows[i].ended {
             if let kept = statuses[MacPlace.name]?[rows[i].name], let now = rows[i].status, kept.sameReport(as: now) { rows[i].status = kept }
+        }
+        // A fenced one's network as this host serves it, and the refusals its fence logged.
+        for i in rows.indices where rows[i].fence != nil {
+            let s = rows[i].name
+            if let p = macProxies[s] {
+                rows[i].fence?.network = "proxy"
+                rows[i].fence?.permissions = p.proxy.policy.permissions
+                rows[i].fence?.preset = AgentPermissions.presetName(p.proxy.policy.permissions ?? [], base: AgentPermissions.macBase)
+            } else if rows[i].ended, rows[i].fence?.network != "none" {
+                rows[i].fence?.network = nil
+            }
+            if !readOnly {
+                rows[i].fence?.denialLog = macDenials.status
+                rows[i].fence?.denialsSeen = macDenials.denials(s).count
+            }
         }
         if !readOnly {
             for r in rows where !r.ended { await watchStatus(MacPlace.name, session: r.name) }
@@ -324,8 +483,11 @@ extension HostCore {
         }
         let how = try await mac.end(s)
         // Whatever of the fence outlived its program (a detached child) ends with it: nothing would watch it any more.
+        // Its proxy ends too (its holder, gone, closed its copy of the socket; this host closes its own).
         if let f = fence {
             for p in MacFenceStop.members(sentinel: f.sentinel, anti: f.antiSentinel, program: nil).pids { kill(p, SIGKILL) }
+            dropFenceProxy(s)
+            macDenials.unwatch(session: s)
         }
         switch how {
         case .notRunning:
@@ -334,6 +496,7 @@ extension HostCore {
             if !known, case .ended = await mac.state(s) { known = true }
             guard known else { throw HostError(.notFound, "no session \(s) on this Mac (doz sessions @mac)") }
             dropFenceWatch(s)
+            macDenials.forget(session: s)
             await mac.forget(s)
         case .stuck:
             throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL — a program stuck in the kernel")

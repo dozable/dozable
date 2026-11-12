@@ -9,7 +9,9 @@ import DozableHost
 enum MacCLI {
     /// The commands that take `@mac`.
     static let takes: Set<ObjectIdentifier> = Set([Run.self, Attach.self, SessionsList.self, SessionsEnd.self, SessionsRestart.self,
-                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self, SessionsResume.self]
+                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self, SessionsResume.self,
+                                                   // a FENCED session's network: doz net … @mac --session S
+                                                   NetShow.self, NetAllow.self, NetDeny.self, NetPolicyCommand.self, NetLog.self]
                                                   .map { ObjectIdentifier($0 as Any.Type) })
 
     /// The refusal for a parsed command that names `@mac` (before any `--`) and does not take it; nil otherwise.
@@ -78,7 +80,10 @@ enum MacCLI {
     static func state(_ s: SessionRow) -> String {
         var t = s.gone == true ? "gone (the Mac restarted, or its holder was killed)"
             : s.ended ? "ended (exit \(s.exitCode.map(String.init) ?? "?"))" : "running"
-        if let f = s.fence { t += " · " + f.state } else if !s.ended { t += " · no isolation" }
+        if let f = s.fence {
+            t += " · " + f.state
+            if !s.ended, f.network == "waiting (no host)" { t += " · network waiting (no host)" }
+        } else if !s.ended { t += " · no isolation" }
         if s.bypassed == true { t += " · " + (s.fence != nil ? "permissions bypassed — fenced" : MacPlace.bypassedMark) }
         return t
     }

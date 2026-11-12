@@ -95,6 +95,10 @@ public actor HostCore {
     public nonisolated let mac: MacSessions
     /// The git guard of each FENCED session on this Mac this host watches (`HostCore+Mac`).
     var macFenceWatches: [String: MacFenceWatch] = [:]
+    /// The proxy of each FENCED session on this Mac this host serves (`HostCore+Mac`, `MacFenceNetwork`).
+    var macProxies: [String: MacFenceProxy] = [:]
+    /// The fence's refusals from the system log (`MacFenceDenials`) — one `log stream` while a fenced session lives.
+    lazy var macDenials = MacFenceDenials(environment: mac.hostEnvironment)
     /// Names being created right now (so two `create`s cannot race).
     private var creating: Set<String> = []
     /// 590: `open-session` is serialized per sandbox.

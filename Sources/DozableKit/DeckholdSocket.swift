@@ -139,6 +139,43 @@ public enum DeckholdSocket {
         }
     }
 
+    // MARK: the held socket (a fenced session on the Mac)
+
+    /// GETFD: the listening socket a fenced session's holder holds (`serve --hold-fd`), passed by SCM_RIGHTS — a new
+    /// descriptor of the SAME socket in this process. nil: nothing listens at `path`, or the holder holds nothing (an
+    /// older holder drops the connection on the unknown frame: nil too).
+    public static func heldSocket(path: String, timeoutMS: Int32 = 3000) -> Int32? {
+        guard let fd = dial(path) else { return nil }
+        defer { Darwin.close(fd) }
+        let req: [UInt8] = [UInt8(ascii: "F"), 0, 0, 0, 0]
+        guard req.withUnsafeBytes({ Darwin.write(fd, $0.baseAddress, 5) }) == 5 else { return nil }
+        var p = pollfd(fd: fd, events: Int16(POLLIN), revents: 0)
+        guard poll(&p, 1, timeoutMS) == 1 else { return nil }
+        var head = [UInt8](repeating: 0, count: 5)
+        // cmsghdr (12 bytes on Darwin) + one int, rounded up — 64 bytes is plenty.
+        var control = [UInt8](repeating: 0, count: 64)
+        let got: Int = head.withUnsafeMutableBytes { hb in
+            control.withUnsafeMutableBytes { cb in
+                var iov = iovec(iov_base: hb.baseAddress, iov_len: 5)
+                return withUnsafeMutablePointer(to: &iov) { iovp in
+                    var m = msghdr(msg_name: nil, msg_namelen: 0, msg_iov: iovp, msg_iovlen: 1,
+                                   msg_control: cb.baseAddress, msg_controllen: socklen_t(cb.count), msg_flags: 0)
+                    let n = recvmsg(fd, &m, 0)
+                    guard n == 5, m.msg_controllen >= socklen_t(MemoryLayout<cmsghdr>.size + 4) else { return -1 }
+                    let c = cb.load(as: cmsghdr.self)
+                    guard c.cmsg_level == SOL_SOCKET, c.cmsg_type == SCM_RIGHTS, c.cmsg_len >= socklen_t(MemoryLayout<cmsghdr>.size + 4) else { return -1 }
+                    // CMSG_DATA: right after the header, aligned to 4 (12 on Darwin).
+                    let off = (MemoryLayout<cmsghdr>.size + 3) & ~3
+                    return Int(cb.load(fromByteOffset: off, as: Int32.self))
+                }
+            }
+        }
+        guard got >= 0, head[0] == UInt8(ascii: "F") else { return nil }
+        let held = Int32(got)
+        _ = fcntl(held, F_SETFD, FD_CLOEXEC)
+        return held
+    }
+
     // MARK: one-shot requests
 
     /// Write `request` on a new connection and read until `done` says the answer is complete, the holder closes, or
