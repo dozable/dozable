@@ -207,7 +207,7 @@ final class RecipeSettingsTests: XCTestCase {
         let s = DozableSettings.load(environment: env)
         XCTAssertEqual(s.string("recipes.xai.grok.approvals"), "skip", "the new key wins")
         XCTAssertTrue(s.warnings.contains { $0.contains("grok.permissions") && $0.contains("recipes.xai.grok.approvals") }, s.warnings.joined(separator: "\n"))
-        _ = try s.writingAll(s.fileValues)
+        _ = try s.writingAll(s.fileValues.all)
         let text = try String(contentsOf: file, encoding: .utf8)
         XCTAssertTrue(text.contains("# not known to this version (kept as they were):\n[grok]\npermissions = \"ask\"\n"), text)
         XCTAssertTrue(text.contains("\n[recipes.xai.grok]\n") && text.contains("\napprovals = \"skip\"\n"))

@@ -355,12 +355,12 @@ struct ConfigInit: AsyncParsableCommand {
     func run() async throws {
         let s = DozableSettings.load()
         let now: DozableSettings
-        do { now = try s.writingAll(s.fileValues) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
+        do { now = try s.writingAll(s.fileValues.all) } catch let e as SettingsError { throw fail(HostError(.failed, e.message), g) }
         sayMigration(now, g)
         if g.json { Out.json(now.report(flags: configFlags(g))); return }
         settingsWarnings(now, g)
         // 669: what the file lists — Dozable's own, and the recipes that have a value set.
-        let listed = DozableSettings.listedCount(values: now.fileValues)
+        let listed = DozableSettings.listedCount(values: now.fileValues.all)
         Out.stdout("\(s.fileExists ? "rewrote" : "wrote") \(now.url?.path ?? "?") — \(listed) settings, \(now.fileValues.count) set\n")
     }
 }

@@ -564,20 +564,45 @@ public struct DozableSettings: Sendable {
         let byKey: [String: Int]
         let aliases: [String: String]
     }
+    /// The full schema, indexed: Dozable's own keys and every recipe's — built when first needed (a recipe key, the
+    /// whole list, `doz config`, the Settings page), again when the recipes change (`AgentRecipes.generation`).
     static var indexed: Indexed {
         let g = AgentRecipes.generation
         schemaLock.lock(); defer { schemaLock.unlock() }
         if let c = schemaCache, c.generation == g { return c.indexed }
-        let s = buildSchema()
-        var byKey: [String: Int] = [:], aliases: [String: String] = [:]
-        for (i, d) in s.enumerated() { byKey[d.key] = i }
-        for d in s { for a in d.aliases where byKey[a] == nil { aliases[a] = d.key } }
-        let x = Indexed(schema: s, byKey: byKey, aliases: aliases)
+        let x = index(buildSchema())
         schemaCache = (g, x)
         return x
     }
     nonisolated(unsafe) private static var schemaCache: (generation: Int, indexed: Indexed)?
     private static let schemaLock = NSLock()
+
+    /// 678: Dozable's own keys alone (`coreSchema`) — what every start reads (`store.path`, the telemetry switch, …)
+    /// without building a recipe. Its `defaults.image` offers only the built-in images; `definition` hands out the full
+    /// one. Every other definition here is the very one the full schema has.
+    static let coreIndexed: Indexed = index(coreSchema(images: builtinImages))
+
+    static func index(_ s: [SettingDefinition]) -> Indexed {
+        var byKey: [String: Int] = [:], aliases: [String: String] = [:]
+        for (i, d) in s.enumerated() { byKey[d.key] = i }
+        for d in s { for a in d.aliases where byKey[a] == nil { aliases[a] = d.key } }
+        return Indexed(schema: s, byKey: byKey, aliases: aliases)
+    }
+
+    /// 678: Dozable's own definition of `key` — nil for a recipe's key, an old name, an unknown key, and
+    /// `defaults.image` (whose choices include every recipe agent).
+    static func coreDefinition(_ key: String) -> SettingDefinition? {
+        guard key != SettingKey.defaultImage, let i = coreIndexed.byKey[key] else { return nil }
+        return coreIndexed.schema[i]
+    }
+
+    /// 678: a key whose file value is settled by the core read alone: one of Dozable's own, with no old name, that the
+    /// 0.37 migration never seeds (`seeds`), and not `defaults.image` (a recipe agent's id is valid there).
+    static func isCoreFinal(_ key: String) -> Bool {
+        guard let d = coreDefinition(key) else { return false }
+        return d.aliases.isEmpty && !seedTargets.contains(key)
+    }
+    static let seedTargets = Set(seeds.values)
 
     /// The recipe agents (not the built-in three).
     static var recipeAgents: [AgentRecipe] { AgentRecipes.all.filter { !$0.isBuiltin } }
@@ -589,6 +614,7 @@ public struct DozableSettings: Sendable {
 
     /// 669: a 0.37 name of a key (`images.claude_code_version`) → its key; a key → itself; nil: unknown.
     public static func canonicalKey(_ key: String) -> String? {
+        if coreIndexed.byKey[key] != nil { return key }
         let x = indexed
         return x.byKey[key] != nil ? key : x.aliases[key]
     }
@@ -641,7 +667,21 @@ public struct DozableSettings: Sendable {
         return s
     }
 
+    /// Every setting: Dozable's own (`coreSchema`), then each recipe's (`recipeSchema`), in file order.
     static func buildSchema() -> [SettingDefinition] {
+        StartupTrace.note("settings: the recipes' settings built")
+        var s = coreSchema(images: builtinImages + recipeAgents.map(\.id))
+        // 669: every recipe's own settings — the built-in three's too (no hand-written key is left for them).
+        for r in AgentRecipes.all { s += recipeSchema(r) }
+        return s
+    }
+
+    /// The images `defaults.image` offers without reading a recipe (the lab and the built-in three).
+    static let builtinImages = ["lab", "claude-code", "pi", "codex"]
+
+    /// 678: Dozable's own settings — every key that is not a recipe's. Reads no recipe: `defaults.image` offers `images`
+    /// (the full schema passes every recipe agent too; `coreIndexed` only the built-in ones).
+    static func coreSchema(images: [String]) -> [SettingDefinition] {
         var s: [SettingDefinition] = [
             // 617 (owner, the start sequence): the boot console is tab zero on every start; this only decides whether the
             // page stays on it. Off by default — the agent's tab is what a start is for.
@@ -768,7 +808,7 @@ public struct DozableSettings: Sendable {
             .init("defaults", "nat_subnet", .subnet, .string(""),
                   "The vmnet subnet of a new --network nat sandbox.",
                   env: "DOZ_SUBNET", flag: "doz create --subnet", applies: .nextCreate),
-            .init("defaults", "image", .choice(["lab", "claude-code", "pi", "codex"] + recipeAgents.map(\.id)), .string("lab"),
+            .init("defaults", "image", .choice(images), .string("lab"),
                   "The image of a new sandbox when none is named (doz up NAME, doz init, the UI's New sandbox). doz onboard writes the one you chose.",
                   flag: "doz create --image", applies: .nextCreate),
             .init("defaults", "base", .choice(BaseCatalogue.ids), .string("node"),
@@ -867,14 +907,13 @@ public struct DozableSettings: Sendable {
         s.append(.init("kernel", "cache", .path, .string(""),
                        "Where the pinned kernel is cached (\"\": the store's own); share one between stores.",
                        env: "DOZ_KERNEL_CACHE", applies: .nextCreate, ui: false))
-        // 669: every recipe's own settings — the built-in three's too (no hand-written key is left for them).
-        for r in AgentRecipes.all { s += recipeSchema(r) }
         return s
     }
 
     /// The definition of a key — or of a 0.37 name of one (669: `images.claude_code_version` is
     /// `recipes.anthropic.claude-code.version`).
     public static func definition(_ key: String) -> SettingDefinition? {
+        if let d = coreDefinition(key) { return d }
         let x = indexed
         if let i = x.byKey[key] { return x.schema[i] }
         return x.aliases[key].flatMap { x.byKey[$0] }.map { x.schema[$0] }
@@ -1002,11 +1041,18 @@ public struct DozableSettings: Sendable {
 
     public let url: URL?
     public let environment: [String: String]
-    /// The file's valid, known values (key → value).
-    public let fileValues: [String: TOMLValue]
+    /// The file's valid, known values (key → value). 678: one of Dozable's own keys is answered from the core read; any
+    /// other (or the whole list) settles the file's other lines first — which builds the recipes' settings.
+    public var fileValues: FileValues { FileValues(core: core, rest: rest) }
     /// Keys the schema does not know, kept as they were when the file is rewritten.
-    public let unknown: [TOMLEntry]
-    public let warnings: [String]
+    public var unknown: [TOMLEntry] { rest.settled.unknown }
+    public var warnings: [String] { rest.settled.warnings }
+    /// 678: the values of Dozable's own keys, read and checked at once (no recipe needed) — final: no later line of the
+    /// file changes one of them.
+    let core: [String: TOMLValue]
+    /// 678: the file's other lines (a recipe's key, a 0.37 name, an unknown key, a `defaults.image` naming a recipe
+    /// agent), settled the first time one is asked for.
+    let rest: SettingsRest
     /// The file did not parse: none of it applies, and it is not overwritten.
     public let fileError: String?
     public let fileExists: Bool
@@ -1015,9 +1061,9 @@ public struct DozableSettings: Sendable {
     public let unsetProjectsDir: String
     /// 669: the values read under a 0.37 name — key → that name (`recipes.anthropic.claude-code.version` →
     /// `images.claude_code_version`). The first write after the upgrade moves them (`writingAll`).
-    public let migrated: [String: String]
+    public var migrated: [String: String] { rest.settled.migrated }
     /// 669: the file still has lines under a 0.37 name (moved, or kept because the new name disagrees).
-    public let hasOldNames: Bool
+    public var hasOldNames: Bool { rest.settled.oldNames }
     /// The file's text as it was read (the one-off `doz.toml.0.37.bak` of the first write after the upgrade).
     let text: String?
     /// 669: set on what `writingAll` returns when that write moved the file's 0.37 names: what it said.
@@ -1052,56 +1098,24 @@ public struct DozableSettings: Sendable {
         self.environment = environment
         self.text = text
         var values: [String: TOMLValue] = [:]
-        var unknown: [TOMLEntry] = []
-        var warnings: [String] = []
-        var migrated: [String: String] = [:]
-        var oldNames = false
+        var warnings: [(index: Int, line: String)] = []
+        var pending: [(index: Int, entry: TOMLEntry)] = []
         var fileError = readError
         if let text {
             do {
                 let entries = try TOML.parse(text)
-                let x = Self.indexed
-                // The keys under their own names first: a 0.37 name never overrides its new one (669, 659 §5).
-                var old: [TOMLEntry] = []
-                for e in entries {
-                    guard let i = x.byKey[e.path] else {
-                        if x.aliases[e.path] != nil { old.append(e) } else {
-                            unknown.append(e)
-                            warnings.append("line \(e.line): unknown setting \(e.path) — ignored")
-                        }
+                // 678: Dozable's own keys are checked at once against the core schema (no recipe is read); every other
+                // line waits in `pending` until something asks for it (`SettingsRest`). A `defaults.image` the core
+                // refuses may name a recipe agent: it waits too, for the full definition (and its own words).
+                for (n, e) in entries.enumerated() {
+                    guard let i = Self.coreIndexed.byKey[e.path] else {
+                        pending.append((n, e))
                         continue
                     }
-                    do { values[e.path] = try x.schema[i].validate(e.value) } catch let err as SettingsError {
-                        warnings.append("line \(e.line): \(err.message) — ignored, the default applies")
+                    do { values[e.path] = try Self.coreIndexed.schema[i].validate(e.value) } catch let err as SettingsError {
+                        if e.path == SettingKey.defaultImage { pending.append((n, e)); continue }
+                        warnings.append((n, "line \(e.line): \(err.message) — ignored, the default applies"))
                     } catch {}
-                }
-                // 669: a 0.37 name (`images.claude_code_version`, `claude.permissions`) is read as its new key, sourced
-                // from the Mac, with a note; the first write moves it. Both set and different: the new one wins, the old
-                // line is kept as it was, and a warning names both.
-                let own = Set(values.keys)
-                for e in old {
-                    oldNames = true
-                    guard let key = x.aliases[e.path], let d = Self.definition(key) else { continue }
-                    let v: TOMLValue
-                    do { v = try d.validate(e.value) } catch let err as SettingsError {
-                        warnings.append("line \(e.line): \(e.path) (now \(key)): \(err.message) — ignored, the default applies")
-                        continue
-                    } catch { continue }
-                    if own.contains(key) {
-                        if values[key] != v {
-                            unknown.append(e)
-                            warnings.append("line \(e.line): \(e.path) = \(v.plain) is the old name of \(key), which this file sets to \(values[key]!.plain) — \(key) wins; the old line is kept as it was")
-                        }
-                    } else {
-                        values[key] = v
-                        migrated[key] = e.path
-                    }
-                    // 659 Q8: a base with no agent keeps the memory and network it followed (claude-code's).
-                    if let seed = Self.seeds[e.path], !own.contains(seed), values[seed] == nil,
-                       let sd = Self.definition(seed), let sv = try? sd.validate(v) {
-                        values[seed] = sv
-                        migrated[seed] = e.path
-                    }
                 }
             } catch let e as TOMLError {
                 fileError = "\(url?.lastPathComponent ?? Self.fileName) \(e.description)"
@@ -1110,19 +1124,75 @@ public struct DozableSettings: Sendable {
             }
         }
         if let fileError {
-            values = [:]
-            unknown = []
-            migrated = [:]
-            oldNames = false
-            warnings.insert("\(fileError) — the file is ignored until it is fixed (or removed)", at: 0)
+            core = [:]
+            rest = SettingsRest(settled: .init(values: [:], unknown: [], warnings: ["\(fileError) — the file is ignored until it is fixed (or removed)"],
+                                               migrated: [:], oldNames: false))
+        } else if pending.isEmpty {
+            core = values
+            rest = SettingsRest(settled: .init(values: values, unknown: [], warnings: warnings.map(\.line), migrated: [:], oldNames: false))
+        } else {
+            core = values
+            rest = SettingsRest(pending: pending, core: values, coreWarnings: warnings)
         }
-        fileValues = values
-        self.unknown = unknown
-        self.warnings = warnings
         self.fileError = fileError
-        self.migrated = migrated
-        hasOldNames = oldNames
         fileExists = text != nil || readError != nil
+    }
+
+    /// 678: the file's lines that are not Dozable's own keys, read as `init(text:)` read them before 678 — with the
+    /// core values and warnings already found, the warnings kept in line order.
+    static func settle(_ pending: [(index: Int, entry: TOMLEntry)], core: [String: TOMLValue], coreWarnings: [(index: Int, line: String)]) -> SettingsRest.Settled {
+        var values = core
+        var unknown: [TOMLEntry] = []
+        var first = coreWarnings
+        var later: [String] = []
+        var migrated: [String: String] = [:]
+        var oldNames = false
+        let x = Self.indexed
+        // The keys under their own names first: a 0.37 name never overrides its new one (669, 659 §5).
+        var old: [TOMLEntry] = []
+        for (n, e) in pending {
+            guard let i = x.byKey[e.path] else {
+                if x.aliases[e.path] != nil { old.append(e) } else {
+                    unknown.append(e)
+                    first.append((n, "line \(e.line): unknown setting \(e.path) — ignored"))
+                }
+                continue
+            }
+            do { values[e.path] = try x.schema[i].validate(e.value) } catch let err as SettingsError {
+                first.append((n, "line \(e.line): \(err.message) — ignored, the default applies"))
+            } catch {}
+        }
+        // 669: a 0.37 name (`images.claude_code_version`, `claude.permissions`) is read as its new key, sourced
+        // from the Mac, with a note; the first write moves it. Both set and different: the new one wins, the old
+        // line is kept as it was, and a warning names both.
+        let own = Set(values.keys)
+        for e in old {
+            oldNames = true
+            guard let key = x.aliases[e.path], let d = Self.definition(key) else { continue }
+            let v: TOMLValue
+            do { v = try d.validate(e.value) } catch let err as SettingsError {
+                later.append("line \(e.line): \(e.path) (now \(key)): \(err.message) — ignored, the default applies")
+                continue
+            } catch { continue }
+            if own.contains(key) {
+                if values[key] != v {
+                    unknown.append(e)
+                    later.append("line \(e.line): \(e.path) = \(v.plain) is the old name of \(key), which this file sets to \(values[key]!.plain) — \(key) wins; the old line is kept as it was")
+                }
+            } else {
+                values[key] = v
+                migrated[key] = e.path
+            }
+            // 659 Q8: a base with no agent keeps the memory and network it followed (claude-code's).
+            if let seed = Self.seeds[e.path], !own.contains(seed), values[seed] == nil,
+               let sd = Self.definition(seed), let sv = try? sd.validate(v) {
+                values[seed] = sv
+                migrated[seed] = e.path
+            }
+        }
+        // Each entry gives at most one first-pass warning, so its index orders them as the file does.
+        return .init(values: values, unknown: unknown, warnings: first.sorted { $0.index < $1.index }.map(\.line) + later,
+                     migrated: migrated, oldNames: oldNames)
     }
 
     /// 669: one line per value read under its 0.37 name.
@@ -1141,7 +1211,8 @@ public struct DozableSettings: Sendable {
     public func resolve(_ key: String, flag: TOMLValue? = nil, sandbox: TOMLValue? = nil, project: TOMLValue? = nil) -> ResolvedSetting {
         guard let d = Self.definition(key) else { preconditionFailure("unknown setting \(key)") }
         let file = fileValues[d.key]
-        let from = migrated[d.key]
+        // 678: a value of the core read was never migrated (nor is a core-final key): no need to settle the rest.
+        let from = core[d.key] != nil || Self.isCoreFinal(d.key) ? nil : migrated[d.key]
         func r(_ v: TOMLValue, _ s: SettingSource) -> ResolvedSetting {
             ResolvedSetting(definition: d, value: v, source: s, fileValue: file, migratedFrom: s == .mac ? from : nil)
         }
@@ -1279,7 +1350,7 @@ public struct DozableSettings: Sendable {
     @discardableResult
     public func writing(_ key: String, _ value: TOMLValue?) throws -> DozableSettings {
         guard let d = Self.definition(key) else { throw SettingsError("unknown setting \(key) — doz config show lists them") }
-        var values = fileValues
+        var values = fileValues.all
         if let value { values[d.key] = try d.validate(value) } else { values[d.key] = nil }
         return try writingAll(values)
     }
