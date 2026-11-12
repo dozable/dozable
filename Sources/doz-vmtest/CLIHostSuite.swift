@@ -28,6 +28,15 @@ echo AGENT-DONE
 sleep 600
 """#
 
+/// A FAKE claude: `--continue` without a conversation (no `has-conversation` file in its folder) exits at once, as the
+/// real one does ("No conversation found to continue"); otherwise it says how it was started and waits.
+private let fakeClaude = """
+#!/bin/sh
+case " $* " in *" --continue "*) [ -e has-conversation ] || { echo "No conversation found to continue"; exit 1; } ;; esac
+echo "fake-claude $*"
+exec sleep 600
+"""
+
 /// A program that reads its terminal in raw mode and prints how many bytes each read brought (`R:N`) — a send's Enter
 /// must arrive as a read of its own. (Also used by the sandbox suite.)
 let fakeTUI = #"stty raw -echo; while :; do n=$(dd bs=4096 count=1 2>/dev/null | wc -c | tr -d ' '); printf 'R:%s\r\n' "$n"; done"#
@@ -46,8 +55,15 @@ func cliHostSuite(binary: String) async {
     // The markers a doz started from inside Claude Code carries — none may reach a session on the Mac.
     t.env["CLAUDECODE"] = "1"
     t.env["CLAUDE_CODE_ENTRYPOINT"] = "cli-host-test"
-    // The sessions' PATH, instead of the person's login shell (never run by a test).
-    t.env["DOZ_TEST_MAC_PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
+    // The sessions' PATH, instead of the person's login shell (never run by a test): a scratch bin (a FAKE claude) first.
+    let fakeBin = root.appendingPathComponent("bin")
+    try? FileManager.default.createDirectory(at: fakeBin, withIntermediateDirectories: true)
+    try? fakeClaude.write(to: fakeBin.appendingPathComponent("claude"), atomically: true, encoding: .utf8)
+    chmod(fakeBin.appendingPathComponent("claude").path, 0o755)
+    t.env["DOZ_TEST_MAC_PATH"] = fakeBin.path + ":/usr/bin:/bin:/usr/sbin:/sbin"
+    // Claude Code's projects folder, scratch (the restart's conversation check reads it).
+    let projects = root.appendingPathComponent("claude-projects")
+    t.env["DOZ_TEST_CLAUDE_PROJECTS"] = projects.path
     let work = root.appendingPathComponent("work").resolvingSymlinksInPath()
     try? FileManager.default.createDirectory(at: work, withIntermediateDirectories: true)
     let store = DozableStore(root: root)
@@ -102,7 +118,7 @@ func cliHostSuite(binary: String) async {
     // DOZ_TTY is deckhold's own (the session's pty, for a helper with no controlling terminal) — not the host's.
     let leaked = env.split(separator: "\n").filter { ($0.hasPrefix("DOZ_") && !$0.hasPrefix("DOZ_TTY=")) || $0.hasPrefix("XPC_") || $0.hasPrefix("__CF") }
     check(leaked.isEmpty, "nothing else of the host's environment (DOZ_*, XPC_*, __CF*)\(leaked.isEmpty ? "" : ": \(leaked.joined(separator: ", "))")")
-    check(env.contains("TERM=xterm-256color") && env.contains("PATH=/usr/bin:/bin:/usr/sbin:/sbin") && env.contains("HOME="),
+    check(env.contains("TERM=xterm-256color") && env.contains("PATH=\(fakeBin.path):/usr/bin:/bin:/usr/sbin:/sbin") && env.contains("HOME="),
           "TERM, the PATH, HOME are set")
     let pwd = file("pwd.txt").trimmingCharacters(in: .whitespacesAndNewlines)
     check(realPath(pwd) == realPath(work.path), "its folder is --workdir (\(pwd))")
@@ -248,6 +264,29 @@ func cliHostSuite(binary: String) async {
     check(row("rd")?.command == "/bin/sh -c while read x; do echo got:$x; done", "…the same command")
     check(t.run(["sessions", "send", "@mac", "rd", "--text", "back", "--enter"], timeout: 30).code == 0
           && screen("rd", until: "got:back").out.contains("got:back"), "and it answers")
+
+    // A FAKE claude (exits at once on --continue in a folder without a conversation, as the real one does): restart
+    // appends --continue only when Claude Code has a conversation for the folder, else it starts fresh and says so.
+    let cw = work.appendingPathComponent("cl")
+    try? FileManager.default.createDirectory(at: cw, withIntermediateDirectories: true)
+    r = t.run(["run", "@mac", "-d", "--session", "cl", "--workdir", cw.path, "--", "claude"], timeout: 60)
+    if r.code == 0 { started.insert("cl") }
+    check(r.code == 0 && screen("cl", until: "fake-claude").out.contains("fake-claude"), "the fake claude runs on this Mac")
+    r = t.run(["sessions", "restart", "@mac", "cl", "--yes", "--json"], timeout: 30)
+    var re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+    check(r.code == 0 && re?.resumed == false && re?.notice?.contains("no earlier conversation") == true,
+          "restart with no conversation in the folder: fresh, and it says so (\(re?.notice ?? "no notice"))")
+    usleep(1_500_000)
+    check(row("cl")?.ended == false && !screen("cl", until: "fake-claude").out.contains("--continue"), "…and the session is still running (no --continue)")
+    let conv = projects.appendingPathComponent(MacPlace.claudeProjectFolderName(realPath(cw.path)))
+    try? FileManager.default.createDirectory(at: conv, withIntermediateDirectories: true)
+    FileManager.default.createFile(atPath: conv.appendingPathComponent("c0ffee.jsonl").path, contents: Data("{}\n".utf8))
+    FileManager.default.createFile(atPath: cw.appendingPathComponent("has-conversation").path, contents: nil)
+    r = t.run(["sessions", "restart", "@mac", "cl", "--yes", "--json"], timeout: 30)
+    re = try? HostWire.decoder.decode(SessionRestarted.self, from: r.outData)
+    check(r.code == 0 && re?.resumed == true && re?.command == "claude --continue", "with a conversation: claude --continue (\(re?.command ?? "?"))")
+    usleep(1_500_000)
+    check(row("cl")?.ended == false && screen("cl", until: "--continue").out.contains("fake-claude --continue"), "…and it runs")
 
     // A holder killed (as a restart of the Mac would): gone; restart starts it again.
     check(run("gn", ["/bin/sh", "-c", "echo gn-mark; sleep 600"]).code == 0, "a session gn")
