@@ -42,6 +42,8 @@ sessions
 sessions/end
 sessions/ls
 sessions/restart
+sessions/screen
+sessions/send
 attach
 run
 exec

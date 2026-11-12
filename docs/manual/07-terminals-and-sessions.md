@@ -30,6 +30,8 @@ doz run my-app -d --session worker -- bash -lc 'make watch'    # start one in th
 doz sessions my-app               # list them
 doz sessions restart my-app codex # end its program and start it again (an agent continues its conversation)
 doz sessions end my-app worker    # end its program
+doz sessions send my-app worker --text 'make test' --enter   # type into a session, from a script
+doz sessions screen my-app worker # what its screen shows now
 doz exec my-app -- ls /workspace  # a one-off command: no terminal, output and exit code pass through
 ```
 
@@ -158,6 +160,33 @@ session and returns (`--json` answers with the result) — `--attach` attaches e
 What a restart runs is what the session was opened with, as Dozable recorded it then; variables given with
 `-e` are not kept (it says so), and a session opened by an older doz cannot be restarted — end it and
 `doz run` it again.
+
+### Typing into a session and reading its screen, from a script
+
+`doz sessions send NAME SESSION` types into a session without attaching — for a script, or another agent
+driving one ([Letting another agent drive](14-letting-another-agent-drive.md)):
+
+```sh
+doz sessions send my-app worker --text 'make test' --enter
+doz sessions send my-app claude --text "$(cat prompt.md)" --paste --enter   # a bracketed paste
+doz sessions send my-app claude --keys esc                                   # a key alone
+echo 'yes' | doz sessions send my-app worker --text - --enter                # the text from stdin
+doz sessions send my-app worker --text 'ls' --enter --then-screen            # and the screen a moment later
+```
+
+- In this order: the text, then each key of `--keys` as given (`enter`, `tab`, `esc`, `backspace`, the
+  arrows, `home`, `end`, `pgup`, `pgdn`, `ctrl-<letter>`, `f1` to `f12`), then `--enter`. At most 64 KiB.
+- It returns once the session's holder has every byte for the program's input — that proves the bytes
+  arrived, not that the program acted on them. `--then-screen` (or `--then-screen=MS`) waits and prints
+  the screen as it is then, so a script can check; with `--json` it is under `"screen"`.
+- A sleeping or hibernated sandbox is woken first (`--no-wake` refuses, exit `3`); one that is shut down
+  has no sessions (exit `3`); a session that is not there or has ended is exit `2`.
+
+`doz sessions screen NAME SESSION` prints the session's screen as it is now: its rows as text, nothing
+else (`--json` adds the cursor, the size, whether it is the primary or alternate screen, and the session's
+status). A sandbox that is asleep or hibernated is not woken: you get its last saved screen, and stderr
+says it is not live — `--wake` wakes it first and reads it live. A sandbox named `send` or `screen` is
+listed with `doz sessions ls send`.
 
 ### Leaving: the Ctrl-] menu
 

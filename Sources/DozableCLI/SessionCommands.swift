@@ -84,7 +84,7 @@ struct SessionsSend: AsyncParsableCommand {
             wraps the text in a bracketed paste (an editor or Claude Code takes it as pasted, not typed). At most 64 KiB. A \
             sleeping or hibernated sandbox is woken first (--no-wake refuses instead); one that is shut down has no sessions. \
             The answer means the bytes reached the program's input, not that it acted on them: --then-screen[=MS] waits MS \
-            milliseconds (600) and prints the screen as it is then. A sandbox named send needs doz sessions ls send.
+            milliseconds (alone: 0.6 s) and prints the screen as it is then. A sandbox named send needs doz sessions ls send.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
@@ -94,7 +94,7 @@ struct SessionsSend: AsyncParsableCommand {
     @Flag(name: .long, help: "Press Enter last.") var enter = false
     @Flag(name: .long, help: "Send the text as a bracketed paste.") var paste = false
     @Flag(name: .long, help: "Fail instead of waking a sleeping sandbox.") var noWake = false
-    @Option(name: .customLong("then-screen"), help: ArgumentHelp("Then wait this many milliseconds and print the session's screen (600 when given as --then-screen alone).", valueName: "MS"))
+    @Option(name: .customLong("then-screen"), help: ArgumentHelp("Then wait this many milliseconds and print the session's screen (0.6 s when given as --then-screen alone).", valueName: "MS"))
     var thenScreen: Int?
     @Flag(name: .customLong("then-screen-default"), help: .hidden) var thenScreenDefault = false
 

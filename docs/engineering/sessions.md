@@ -11,6 +11,26 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `Guest/deckhold/deckhold.c` (`ps_*`), `Sources/DozableKit/ProgramStatus.swift`; `Sources/DozableHost/SessionStatus.swift`, `HostCore+Status.swift`; `Sources/DozableWeb/WebSource/app/components/agent-status.js`; `Sources/doz-vmtest/StatusSuite.swift` | 612: what the agent is doing (OSC 7501) — deckhold's consumer (answers the query, keeps the records, WATCH/STATUS), the parsed record, the host's model + watchers + events, the page's chips and notices; `make test-vm-status`, `make deckhold-status-check` |
 | `Guest/deckhold/deckhold.c` (`send_grid`), `Sources/DozableKit/ScreenGrid.swift`; `Sources/DozableHost/HostCore+Grids.swift`; `Sources/DozableWeb/WebGrids.swift`; `Sources/doz-vmtest/GridsSuite.swift` | 648: painted thumbnails — deckhold's GRID (the screen as cells, from libghostty-vt's render state), its decoder and the contract (`ScreenGrid`, inert text), the host op `session-grids`, `POST /api/v1/grids`; `make deckhold-grid-check`, `make test-cli-grids` |
 
+## Typing into a session and its screen now (`doz sessions send` / `screen`)
+
+`Sources/DozableKit/SessionInput.swift` (keys, frames, receipt, `LiveScreen`), `Sandbox.sendInput` / `liveScreen`,
+`Sources/DozableHost/HostCore+SessionInput.swift` (ops `session-send`, `session-live`), `SessionsSend` / `SessionsScreen`
+in `SessionCommands.swift`; `SessionInputTests`, `SessionsSendCommandTests`, `make test-cli-sessionsend` (also run by
+`make test-cli-sessions`).
+
+- **The acknowledgement needs no deckhold change.** deckhold handles one client's frames IN ORDER (`client_frames`):
+  DATA goes to the program's input buffer, QUERY is answered with one INFO line. So a send is ONE `deckhold pipe` with
+  DATA frames (≤ 16 KiB each, ≤ 64 KiB in all) then QUERY, its stdin KEPT OPEN until the INFO frame arrives
+  (`pipe_mode` stops relaying at stdin's EOF) — the INFO frame proves every byte before it is in the buffer.
+  NOSESSION → no such session (exit 2), EXIT → it ended (exit 2). It proves arrival, not that a TUI acted on it:
+  `--then-screen[=MS]` reads the screen back in the same call.
+- **A send wakes, never cold-starts** (an off sandbox has no sessions: exit 3; `--no-wake` on a sleeping one: exit 3),
+  waits for the wake's background steps (`afterWakeSettled`) and gives the memory balloon back first (input is work).
+- **`screen` is read-only**: answered in-process with no host (the saved screen), never wakes unless `--wake` (then it
+  needs the host). Running: `deckhold dump`, bounded like every listing read (`guestRead`: an unresponsive guest gets
+  its saved screen, `reason: unresponsive`). Plain output is the rows only — the dump's `cursor=… size=… screen=…`
+  line is parsed into `--json`'s `cursorX/cursorY`, `cols/rows`, `screen` (`primary`/`alt`), with the host's status.
+
 ## Session memory and saved screens
 
 - **Saved screens exist ONLY for a sandbox one wakes back into** — paused, asleep, hibernated.
