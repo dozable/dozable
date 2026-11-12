@@ -97,7 +97,9 @@ function mainRow(s) {
         ? h('div', { class: 'sub2 ov-ws', 'data-ov-ws': '', title: s.workspace }, icon('folder'), h('span', null, tildePath(s.workspace)))
         : h('div', { class: 'sub2 no-ws', 'data-isolated': '', title: ISOLATED_NOTE }, 'isolated — no shared folder'),
       h('div', { 'data-op-for': s.name })),
-    h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its host') : null),
+    h('td', null, sandboxPill(s), s.diedWithHost ? h('div', { class: 'st-warn sub2' }, 'died with its host') : null,
+      // Its guest does not answer (starved): running, said — the host never waits on it.
+      s.unresponsive ? h('div', { class: 'st-warn sub2', 'data-unresponsive': '', title: 'Its guest did not answer in time — it may be out of memory. Shut it down if it stays like this.' }, 'not answering') : null),
     // 642 (owner): without the rows of pictures, a Sessions column — its pictures as a grid in a 4:3 box (kept across refreshes).
     subRows() ? null : h('td', { class: 'ov-sess', 'data-ov-sess': s.name }, h('span', { class: 'muted' }, '—')),
     h('td', { class: 'num' }, h('div', null, s.ramHeldMiB ? mib(s.ramHeldMiB) : '—'), h('div', { class: 'sub2' }, 'of ' + mib(s.memoryMiB)), meter(s.ramHeldMiB, s.memoryMiB)),
