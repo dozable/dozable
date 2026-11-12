@@ -960,6 +960,7 @@ public actor HostCore {
             s.launchedDetached = HostServer.launchedDetached
             s.priority = ProcessPriority.current()
             s.priorityRestored = HostServer.priorityRestored ? true : nil
+            s.keychainLocked = HostServer.keychainLocked                   // 679 B6
             s.microphoneApp = Self.microphoneApp?.description
         }
         if let executable, let c = executableChange() {

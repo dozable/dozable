@@ -88,8 +88,22 @@ struct ImageBake: AsyncParsableCommand {
         }
         var r = HostRequest(.imageBake)
         r.image = image
+        let store = g.dozableStore
+        let hadHost = store.hostIsRunning()
         let row = try decode(try call(r, g), ImageRow.self, g)
         if g.json { Out.json(row) } else { Out.stdout("\(row.name) baked\(row.allocatedBytes.map { " (\(DozableImages.formatBytes($0)))" } ?? "")\n") }
+        // 679 B6: a bake over ssh started a host that could not read the login keychain, and left it behind for every
+        // sandbox after — so a host this bake had to start from such a session is stopped again once nothing runs.
+        if !hadHost, let why = HostSessionKind.lockedReason(), Self.leaveNoHost(store) {
+            if !g.json { Out.stderr("[doz] stopped the doz host this bake started (the login keychain is locked here: \(why)) — the next command from a logged-in session starts one that can read it\n") }
+        }
+    }
+
+    /// Stop the host when it runs nothing (true: stopped).
+    static func leaveNoHost(_ store: DozableStore) -> Bool {
+        guard let m = try? HostClient.request(HostRequest(.ping), store: store, autostart: false),
+              let st = try? m.result?.decode(HostStatus.self), st.liveSandboxes.isEmpty else { return false }
+        return (try? HostClient.request(HostRequest(.hostStop), store: store, autostart: false))?.ok == true
     }
 }
 

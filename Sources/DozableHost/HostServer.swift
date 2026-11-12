@@ -66,6 +66,8 @@ public final class HostServer: @unchecked Sendable {
     nonisolated(unsafe) public static var launchedDetached: Bool = false
     /// 678: this host left a Darwin background state it inherited at its start (`ProcessPriority.liftInheritedBackground`).
     nonisolated(unsafe) public static var priorityRestored: Bool = false
+    /// 679 B6: why this host's session cannot read the login keychain (nil: it can) — read at its start.
+    nonisolated(unsafe) public static var keychainLocked: String?
 
     /// Run the host in this process until it exits (never returns). `launched`: started by
     /// `HostLauncher` (its parent is launchd); false: a person ran `doz host start --foreground`.
@@ -90,6 +92,10 @@ public final class HostServer: @unchecked Sendable {
         HostLog.line(launched ? "detached: parent \(getppid())\(getppid() == 1 ? " (launchd)" : " — NOT launchd"), session \(getsid(0))"
                               : "in the foreground (parent \(getppid())): it lives in that terminal's process tree")
         if priorityRestored { HostLog.line("started at background priority (inherited from the client that started it) — moved to normal priority") }
+        keychainLocked = HostSessionKind.lockedReason()
+        if let why = keychainLocked {
+            HostLog.line("started from a session where the login keychain is locked (\(why)): this Mac's Claude login (and anything else in the keychain) cannot be read — doz host restart from a logged-in session")
+        }
         // EXPERIMENTAL (604): which app macOS asks about the microphone for, for this host's audio sandboxes.
         HostLog.line("microphone (audio sandboxes, experimental): macOS asks on behalf of "
                      + (HostCore.microphoneApp.map { "\($0.description) — \($0.path)" } ?? "an app it could not name"))

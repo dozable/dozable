@@ -1355,6 +1355,9 @@ public struct HostStatus: Codable, Equatable, Sendable {
     /// background state it inherited from the client that started it.
     public var priority: ProcessPriority?
     public var priorityRestored: Bool?
+    /// 679 B6: why this host cannot read the login keychain (`ssh`, `no login session`) — it was started from such a
+    /// session; nil: it can. Its sandboxes' Mac account is then unreadable.
+    public var keychainLocked: String?
     /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for, for this host's audio sandboxes
     /// (its responsible app).
     public var microphoneApp: String?

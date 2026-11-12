@@ -30,6 +30,8 @@ struct List: AsyncParsableCommand {
         Out.stdout(Out.table(t, rightAligned: [3, 4, 5]))
         // 594 W28: a sandbox whose system disk came from an image an older doz made.
         for r in rows { if let line = r.olderImageLine { Out.stdout("\(r.name): \(line)\n") } }
+        // 679 B6: why a sandbox's Mac account reads as unreadable — the host's own session.
+        if rows.contains(where: { $0.account == "mac" && $0.credentialState != nil && $0.credentialState != "ok" }) { sayHostKeychainNote(g) }
     }
 }
 

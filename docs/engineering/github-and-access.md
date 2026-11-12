@@ -10,6 +10,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 ## Rules that each cost a bug to learn here
 
+- **The host reads the Mac's login in ITS session** (679 B6: `doz image bake claude-code` over ssh started a host in the
+  ssh session, where the login keychain is locked; every sandbox after showed `mac (unreadable)` while doctor, in the
+  logged-in session, said "ok claude login"). `HostSessionKind` (`SessionGetInfo`: no graphic access, remote, or
+  `SSH_CONNECTION` without one) is read by the host at its start (`HostStatus.keychainLocked`, host.log);
+  `HostLauncher.spawn` warns before it starts a host from such a session; `doz account ls|show`, `doz ls` (a mac
+  account not ok) and doctor (`host login` — a FAILURE when doctor itself reads the login) name the host and say
+  `doz host restart` from a logged-in session; `doz image bake` stops a host it had to start there once nothing runs.
+  The guarded seam `DOZ_TEST_KEYCHAIN_LOCKED=1`; a guarded run's own session never warns. `HostSessionKindTests`,
+  `make test-cli-keychainlocked`. A LaunchAgent host in the GUI domain is not done ("No launchd agent" — an owner
+  question).
+
 - **Agent credentials (`AgentCredentials.swift`; the table is `AgentImages.credentials`):**
   Claude Code: `mac`, `setup-token`, `api-key` (660: and through models@1 a gateway's `key` — OpenRouter — or the
   key-less `local`; its Anthropic source keeps those three, `AgentCredentials.source(of:provider:image:)`); pi: `api-key` ONLY (it reads `ANTHROPIC_API_KEY`;
