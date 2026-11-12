@@ -49,6 +49,13 @@ extension HostCore {
     func withOpenedAt(_ name: String, _ rows: [SessionRow]) -> [SessionRow] {
         let recs = SessionRecords.read(store, name).sessions
         guard !recs.isEmpty else { return rows }
-        return rows.map { r in var x = r; x.openedAt = recs[r.name]?.openedAt; return x }
+        // The argv WHOLE, as the host opened it: `command` is deckhold's line, cut at 255 bytes (its fixed buffer) —
+        // mid-argument for a long --append-system-prompt. `command` stays as it is, for the people and older readers.
+        return rows.map { r in
+            var x = r
+            x.openedAt = recs[r.name]?.openedAt
+            x.argv = recs[r.name]?.argv
+            return x
+        }
     }
 }

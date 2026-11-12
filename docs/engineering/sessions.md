@@ -41,6 +41,10 @@ in `SessionCommands.swift`; `SessionInputTests`, `SessionsSendCommandTests`, `ma
   outlive the program count (the host's kept status); the program ending first is exit 2; the timeout (at most a day,
   whatever is asked — a client that left must not leave a watcher) answers `timedOut`, exit 124. Never wakes.
 
+- **A session's `command` is the holder's line, cut at 255 bytes** (deckhold's fixed buffer — mid-argument for a long
+  `--append-system-prompt`): it stays for the people and older readers, and `sessions --json` adds `argv`, WHOLE, from
+  the host's record (`SessionRecords`, `HostCore.withOpenedAt`; nil for a session this host's doz did not open).
+
 ## Sessions on this Mac (`@mac`)
 
 `Sources/DozableHost/MacPlace.swift` (the name, refusals, the socket folder's rules), `MacSessions.swift` (records,

@@ -1585,7 +1585,7 @@ public actor HostCore {
         guard await m.sandbox.phase == .running else {
             // Only a sandbox one wakes back into has sessions to show (owner, 2026-09-30): shut down,
             // failed or booting — none.
-            return withStatuses(m.name, Self.wakeable(await effectivePhase(m)) ? saved.map(SessionRow.init(saved:)) : [], live: nil)
+            return withOpenedAt(m.name, withStatuses(m.name, Self.wakeable(await effectivePhase(m)) ? saved.map(SessionRow.init(saved:)) : [], live: nil))
         }
         let byName = Dictionary(saved.map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
         let mark = sessionRegistry.epoch

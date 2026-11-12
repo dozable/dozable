@@ -996,8 +996,10 @@ public struct SessionRow: Codable, Equatable, Sendable {
     public var status: SessionStatus?
     /// 635: when the host opened it (`sessions.json`); nil when it did not (or before 0.30.0).
     public var openedAt: Date? = nil
-    /// A session on this Mac (`@mac`): the folder it runs in and its argv as opened (from its record).
+    /// A session on this Mac (`@mac`): the folder it runs in (from its record).
     public var workdir: String? = nil
+    /// The argv WHOLE as the host opened it (its record — a sandbox's `sessions.json`, `@mac`'s own), when it did:
+    /// `command` is the holder's line, cut at 255 bytes. nil: not opened by this host's doz.
     public var argv: [String]? = nil
     /// A session on this Mac whose own argv bypasses its permissions (Dozable never adds that) — say so wherever it shows.
     public var bypassed: Bool? = nil

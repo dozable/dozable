@@ -82,6 +82,30 @@ final class MacPlaceTests: XCTestCase {
         XCTAssertEqual(HostCore.sendPieces(r, Data([0x0D])), [Data([0x0D])])
     }
 
+    /// A sandbox session's argv over 255 characters (a long --append-system-prompt) comes back WHOLE in `sessions --json`;
+    /// `command` keeps the holder's cut line.
+    func testASandboxSessionsLongArgvRoundTripsWhole() async throws {
+        let store = DozableStore(root: root.appendingPathComponent("store"))
+        let name = "box"
+        try FileManager.default.createDirectory(at: store.configFile(name).deletingLastPathComponent(), withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: store.configFile(name).path, contents: Data("{}".utf8))
+        let prompt = String(repeating: "facts and more facts ", count: 30)          // ~630 characters
+        let argv = ["claude", "--append-system-prompt", prompt, "--model", "x"]
+        SessionRecords.record("claude", SessionRecord(argv: argv, workdir: "/workspace", user: nil, environmentKeys: nil), store, name)
+        let cut = String(argv.joined(separator: " ").prefix(255))
+        let row = SessionRow(SessionInfo(name: "claude", pid: 7, command: cut))
+        let core = HostCore(store: store, readOnly: true, version: "test",
+                            services: CredentialServices(keychain: FakeKeychain(), verifier: FakeVerifier(answer: .verified), claudeBinary: { nil },
+                                                         home: root, keepaliveRunner: FakeRunner(), isClaudeRunning: { false },
+                                                         watchInterval: .seconds(3600)))
+        let out = await core.withOpenedAt(name, [row])
+        let back = try HostWire.decoder.decode([SessionRow].self, from: try HostWire.encoder.encode(out))
+        XCTAssertEqual(back.first?.argv, argv, "the argv whole")
+        XCTAssertEqual(back.first?.argv?[2].count, prompt.count)
+        XCTAssertEqual(back.first?.command, cut, "command as it was, for older readers")
+        XCTAssertGreaterThan(argv.joined(separator: " ").count, 255)
+    }
+
     func testBypassIsSeen_neverAdded() {
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--dangerously-skip-permissions"]))
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--permission-mode", "bypassPermissions"]))
