@@ -46,10 +46,11 @@ done
 [[ -s "$W/unpacked/$TOP/README.md" ]] || die "layout: no README.md"
 [[ ! -e "$W/unpacked/$TOP/bin" ]] || die "layout: the helper has no bin/"
 [[ ! -e "$L/DozableKit_DozableWeb.bundle" ]] || die "layout: the helper carries no dashboard bundle"
+[[ ! -e "$L/deckhold-mac" ]] || die "layout: the helper carries no deckhold-mac (sessions on the Mac itself are the CLI's only)"
 [[ "$(cat "$L/VERSION")" == "$VERSION" ]] || die "VERSION is $(cat "$L/VERSION")"
 [[ "$(cat "$L/RELEASE")" == helper* ]] || die "RELEASE is $(cat "$L/RELEASE"), not helper"
 [[ "$(shasum -a 256 "$L/kernels/$KERNEL_NAME" | cut -d' ' -f1)" == "$KERNEL_SHA" ]] || die "the carried kernel is not the pin"
-ok "layout: libexec/doz/{doz, VERSION, RELEASE=helper, DozableKit_DozableKit.bundle, kernels/$KERNEL_NAME (the pin), licences/}, README.md; no bin/, no dashboard"
+ok "layout: libexec/doz/{doz, VERSION, RELEASE=helper, DozableKit_DozableKit.bundle, kernels/$KERNEL_NAME (the pin), licences/}, README.md; no bin/, no dashboard, no deckhold-mac"
 
 # 2. Copied whole into an app, as an app does.
 H="$W/Smoke.app/Contents/Resources/Helpers/doz"

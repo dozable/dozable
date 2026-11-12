@@ -394,6 +394,7 @@ make tmux / tmux-verify # 658: rebuild the guest tmux 3.8 (pinned Zig, sha256-pi
 make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
+make deckhold-mac / deckhold-mac-check # deckhold built for THIS Mac (sessions on the Mac; not committed, shipped beside doz in the CLI tarball only) / the status, grid, snapshot checks + mac-smoke.sh
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
 make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
 make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing
