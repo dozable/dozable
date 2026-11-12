@@ -294,8 +294,11 @@ public struct WebSandboxRow: Codable, Equatable, Sendable {
     /// port of this Mac it may reach (its model server).
     public var modelLine: String?
     public var localModelPort: Int?
+    /// Its guest did not answer a read in time (a starved guest): it is running, and reported, never waited on. nil: it answers.
+    public var unresponsive: Bool?
 
     public init(_ i: SandboxInfo) {
+        unresponsive = i.unresponsive == true ? true : nil
         sound = i.sound
         microphone = i.microphone
         dotfiles = i.dotfiles.map(WebDotfiles.init)

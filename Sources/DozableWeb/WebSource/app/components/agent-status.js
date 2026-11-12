@@ -30,6 +30,13 @@ export function agentChip(sandbox, session) {
   paintChip(el, agentStatusOf(sandbox, session));
   return el;
 }
+/// A chip for a status the caller holds (a session on this Mac carries its own; nil: hidden). Repaint with `paintStatusChip`.
+export function statusChip(st) {
+  const el = h('span', { class: 'ag-chip', hidden: true });
+  paintChip(el, st || null);
+  return el;
+}
+export function paintStatusChip(el, st) { paintChip(el, st || null); }
 function paintChip(el, st) {
   const key = st ? st.state + '|' + st.label + '|' + (st.message || '') + '|' + (st.title || '') : '';
   if (el.dataset.painted === key) return;

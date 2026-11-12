@@ -276,6 +276,35 @@ dialog.dlg.bootlog-dialog { width: min(1100px, calc(100vw - 32px)); max-width: n
 .tile-hit { position: absolute; inset: 0; background: transparent; border: 0; cursor: pointer; padding: 0; }
 .tile-hit:hover, .tile-hit:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
+/* ── This Mac (views/mac.js): the sessions on this Mac — never isolated, said on every one of them. The warning tone
+   marks them (the No isolation chip, permissions bypassed); the tiles are All sessions' own. ── */
+.mac-chip { display: inline-flex; align-items: center; gap: var(--sp-1); height: 18px; padding: 0 var(--sp-2); border-radius: var(--r-pill);
+  background: var(--warn-tint); color: var(--warn); font-size: var(--fs-xs); font-weight: var(--fw-strong); white-space: nowrap; flex: none; }
+.mac-chip > .icon { width: 12px; height: 12px; }
+.mac-bypassed { background: var(--bad-tint); color: var(--bad); }
+.mac-view h1 { display: flex; align-items: center; gap: var(--sp-3); }
+.mac-callout { margin-bottom: var(--sp-4); }
+.mac-marks { display: inline-flex; gap: var(--sp-1); margin-left: auto; }
+.mac-folder { padding: var(--sp-1) var(--sp-3) 0; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mac-folder:empty { display: none; }
+.mac-acts { display: flex; flex-wrap: wrap; gap: var(--sp-1); padding: var(--sp-2) var(--sp-3); }
+.mac-tile[data-state="gone"] .tile-title, .mac-tile[data-state="ended"] .tile-title { color: var(--ink-2); }
+.mac-pane { margin-bottom: var(--sp-5); border: 1px solid var(--warn); border-radius: var(--r-lg); background: var(--surface); overflow: hidden; }
+.mac-pane[hidden] { display: none; }
+.mac-pane-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-3); padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); border-bottom: 1px solid var(--line); }
+.mac-pane-title { display: inline-flex; align-items: center; gap: var(--sp-2); font-weight: var(--fw-strong); }
+.mac-pane-title > .icon { width: 14px; height: 14px; color: var(--ink-2); }
+.mac-pane-mode { color: var(--ink-2); }
+.mac-pane-acts { display: inline-flex; gap: var(--sp-1); margin-left: auto; }
+.mac-pane-host { position: relative; height: 60vh; min-height: 280px; background: var(--term-bg); }
+.mac-section { margin-top: var(--sp-6); }
+.mac-section h2 { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-lg); }
+.mac-section h2 > .icon { width: 15px; height: 15px; color: var(--ink-2); }
+.mac-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); }
+.mac-list-state { color: var(--ink-2); font-size: var(--fs-sm); }
+.nav-mac-tag { font-size: var(--fs-xs); color: var(--warn); white-space: nowrap; }
+
 /* ── 593: Images › Lineage ── */
 .lineage { padding: var(--sp-1) 0; }
 .lin-row { display: grid; grid-template-columns: minmax(0, 1fr) 90px 90px 90px 120px; gap: var(--sp-3); align-items: center; padding: var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); }

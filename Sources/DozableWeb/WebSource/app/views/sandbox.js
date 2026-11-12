@@ -355,6 +355,9 @@ function sandboxParts(name, d, net, accounts) {
       h('div', { 'data-op-for': name, 'data-banner': '1', role: 'status' }),
       detailsBtn),
     i.credentialProblem ? credentialBanner(name, i, accounts) : null,
+    // Its guest did not answer a read in time (starved — out of memory, most often): said, never waited on.
+    i.unresponsive ? callout('warn', { compact: true, cls: 'cred-banner', attrs: { 'data-unresponsive': name }, title: name + ' is not answering',
+      body: 'Its guest did not answer in time — it may be out of memory. Its sessions’ last saved screens are what shows. If it stays like this, Shut down stops it (its disk is kept).' }) : null,
     // 594 W28: its system disk came from an image an older doz made.
     i.olderImage ? callout('warn', { compact: true, cls: 'cred-banner img-banner', icon: 'flame', attrs: { 'data-older-image': name }, body: name + ' was ' + i.olderImage + '.' }) : null,
     // 596 (B8): its Dockerfile changed (or was built again) — offered, never rebuilt by itself.

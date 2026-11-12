@@ -18,7 +18,7 @@ final class ServeExposureTests: XCTestCase {
             .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models("openrouter"), .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
             .serveStatus, .serveDevices, .serveShare, .serveRevoke("abc123"), .serveRename("abc123"), .serveProbe,
             .files("s", nil), .filesWatch("s", []), .filesTree("s"), .filesTreeSet("s"), .filesOpen("s"), .editors, .grids, .dotfilesResolve, .portOpen("s"),
-            .recipes,
+            .recipes, .macSessions, .macSessionScreen("agent"), .macTerminalTicket, .macTerminalSocket,
         ]
         for r in all { _ = covered(r) }
         return all
@@ -33,7 +33,7 @@ final class ServeExposureTests: XCTestCase {
              .accountAdd, .sandboxKey, .workspaceCheck, .workspaceChoose, .quickAdd, .projectsDirChoose, .projectOpen, .projectPreview,
              .projectWrite, .resources, .resourcesPreview, .bases, .tryCatalog, .tryList, .models, .plan, .dockerfileChoose, .access, .accessCheck, .accessGithubKey, .signup, .updatesCheck,
              .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename, .serveProbe, .files, .filesWatch, .filesTree, .filesTreeSet, .filesOpen, .editors, .grids,
-             .dotfilesResolve, .portOpen, .recipes:
+             .dotfilesResolve, .portOpen, .recipes, .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket:
             return true
         }
     }
@@ -45,8 +45,51 @@ final class ServeExposureTests: XCTestCase {
         for secret in ["accountAdd", "sandboxKey", "accessGithubKey"] { t[secret] = (nil, .secretOverHTTP, nil) }
         for screen in ["terminal", "workspaceChoose", "projectsDirChoose", "dockerfileChoose", "filesOpen", "editors", "portOpen"] { t[screen] = (nil, .macScreen, .macScreen) }
         t["serveProbe"] = (.notFound, nil, nil)
+        // The sessions on this Mac: never another computer's by default (serve.mac_sessions = off).
+        for mac in ["macSessions", "macSessionScreen", "macTerminalTicket", "macTerminalSocket"] { t[mac] = (nil, .macSession, .macSession) }
         return t
     }()
+
+    /// serve.mac_sessions: off refuses every route of the sessions on this Mac to another computer; watch lets it list and
+    /// watch (a watch ticket) but not type, end or restart; interactive is everything. The Mac's own browser always has them.
+    func testTheSessionsOnThisMacFollowTheSetting() {
+        let macRoutes: [WebRoute] = [.macSessions, .macSessionScreen("a"), .macTerminalTicket, .macTerminalSocket]
+        for r in macRoutes {
+            XCTAssertEqual(WebExposure.kind(r), .macSession)
+            for setting in WebExposure.MacSessions.allCases { XCTAssertNil(WebExposure.decide(r, .mac, macSessions: setting)) }
+            XCTAssertEqual(WebExposure.decide(r, .remote(secure: true), macSessions: .off), .macSession)
+            XCTAssertNil(WebExposure.decide(r, .remote(secure: false), macSessions: .watch))
+            XCTAssertNil(WebExposure.decide(r, .remote(secure: false), macSessions: .interactive))
+        }
+        let remote = WebExposure.Principal.remote(secure: true)
+        XCTAssertNil(WebExposure.decideMacTerminal(.watch, remote, .watch))
+        XCTAssertEqual(WebExposure.decideMacTerminal(.interactive, remote, .watch), .macSession, "watch: no typing")
+        XCTAssertEqual(WebExposure.decideMacTerminal(.watch, remote, .off), .macSession)
+        XCTAssertNil(WebExposure.decideMacTerminal(.interactive, remote, .interactive))
+        XCTAssertNil(WebExposure.decideMacTerminal(.interactive, .mac, .off), "the Mac's own browser")
+        XCTAssertEqual(WebExposure.decideMacAction(remote, .watch), .macSession, "watch: no end or restart")
+        XCTAssertNil(WebExposure.decideMacAction(remote, .interactive))
+        XCTAssertNil(WebExposure.decideMacAction(.mac, .off))
+        XCTAssertFalse(WebGridsRequest.macAllowed(remote, .off))
+        XCTAssertTrue(WebGridsRequest.macAllowed(remote, .watch))
+        XCTAssertTrue(WebGridsRequest.macAllowed(.mac, .off))
+        XCTAssertEqual(WebRejection.macSession.status, 403)
+        XCTAssertTrue(WebRejection.macSession.message.contains("serve.mac_sessions"))
+    }
+
+    /// The routes of the sessions on this Mac parse exactly, their names by the Mac's rule (≤ 32).
+    func testTheMacRoutesParse() {
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/mac/sessions"), .macSessions)
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/mac/sessions/agent/screen"), .macSessionScreen("agent"))
+        XCTAssertEqual(WebRoute.parse(method: .post, target: "/api/v1/mac/terminal-ticket"), .macTerminalTicket)
+        XCTAssertEqual(WebRoute.parse(method: .get, target: "/api/v1/mac/terminal-socket"), .macTerminalSocket)
+        XCTAssertNil(WebRoute.parse(method: .post, target: "/api/v1/mac/sessions"), "no route opens one")
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/mac/terminal-ticket"))
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/mac/sessions/\(String(repeating: "a", count: 33))/screen"))
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/mac/sessions/.x/screen"))
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/sandboxes/@mac/sessions"), "@mac is never a sandbox route")
+        XCTAssertNil(WebRoute.parse(method: .get, target: "/api/v1/mac/exec"))
+    }
 
     static func label(_ r: WebRoute) -> String { DozableWebServer.routeLabel(r) }
 

@@ -61,7 +61,10 @@ its subcommands still parse) — remove it in a later release, saying so.
 - **`WebExposure`** — the closed table (a `switch` with no `default`; `ServeExposureTests` pins every route), applied to
   each request's OWN principal (so the Mac's browser on the LAN dashboard keeps everything): remote may do everything
   except `secretEntry` over plain HTTP (403 `secret-over-http`; the page shows the reason instead of the field —
-  `secretEntryAllowed()`) and `macScreen` (pickers, Open in Terminal: 403 `mac-screen`; hidden by `isRemote()`).
+  `secretEntryAllowed()`) and `macScreen` (pickers, Open in Terminal: 403 `mac-screen`; hidden by `isRemote()`), and `macSession` — the sessions on
+  this Mac (`@mac`, NOT isolated): refused unless `serve.mac_sessions` allows (`off` default: nothing; `watch`: list,
+  screens, watch tickets, tiles; `interactive`: typing, End, Restart too — `decideMacTerminal`, `decideMacAction`; 403
+  `mac-session`), audited like every refusal (web.md, "This Mac").
   `ui.lan` and the `serve.*` settings are `ui: false`. A new route needs a decision there.
 - **The page**: `state.serve` (from `sessionInfo.serve`), `core/session.js`'s serve sign-in (code or pasted link — the
   router's `#cap=` hand-off still works), `views/devices.js`, `components/share.js` + `components/qr.js` (the server

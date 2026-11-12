@@ -13,6 +13,7 @@ import { hidePeek, hoverPeek } from '../components/nav-peek.js';
 import { agentChip } from '../components/agent-status.js';
 import { pageFailure } from '../components/notices.js';
 import { pictureSource } from '../components/session-thumb.js';
+import { macSection } from './mac.js';
 
 // ── All sessions: the grid (593) ────────────────────────────────────────────
 // A tile per session of every RUNNING sandbox, and the saved screens of every sleeping one. 648: each tile is PAINTED
@@ -48,13 +49,14 @@ function gridBuild() {
   });
   grid.status = h('span', { class: 'grid-status', role: 'status' });
   grid.body = h('div', { class: 'tiles' });
+  grid.mac = h('div', { class: 'grid-mac' });               // This Mac's sessions — no isolation, never mixed into the tiles
   grid.sandboxSel = sandboxSel;
   grid.sizeSel = sizeSel;
   root.replaceChildren(
     h('div', { class: 'head' }, h('h1', null, 'All sessions'), h('div', { class: 'actions' }, btn('Refresh', () => gridRefresh(true), { small: true }))),
     h('p', { class: 'sub' }, 'Every session of every running sandbox, live and read-only. Click one to open it on its sandbox’s page.'),
     h('div', { class: 'toolbar' }, sandboxSel, phaseSel, sizeSel, peekToggle(), grid.status),
-    grid.body);
+    grid.body, grid.mac);
   grid.built = true;
 }
 function gridApplySize(size) {
@@ -99,6 +101,9 @@ export async function gridRefresh(force) {
   }));
   if (!grid.active) return;
   gridRender();
+  // This Mac: a section of its own after the sandboxes' tiles (its tiles and pane are on This Mac).
+  const sec = await macSection();
+  if (grid.active) grid.mac.replaceChildren(...(sec ? [sec] : []));
 }
 /// The tiles the filters ask for, made to match the DOM (a kept tile keeps its picture).
 function gridRender() {

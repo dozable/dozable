@@ -49,7 +49,8 @@ A bare file name is in `Sources/DozableKit/`.
 - **One stuck guest never holds the host's answers** (678 B7: a starved guest made every exec time out, and `doz ls`
   and `doz down` hung behind it). `HostCore.guestRead` bounds a listing's guest read (`ls`'s session count,
   `sessions`) by 3 s; a guest that missed it is `unresponsive` (`SandboxInfo.unresponsive`, `ls` shows it, one note)
-  and not asked again for 30 s (a lifecycle request asks again at once), and its balloon is given back. A graceful
+  and not asked again for 30 s (a lifecycle request asks again at once), and its balloon is given back. The dashboard
+  says it too (`WebSandboxRow.unresponsive`: All sandboxes' "not answering" line, the sandbox page's callout). A graceful
   stop (`.stopContainer`) waits at most 30 s, then stops the VM at the VZ level and says so — the container goes to
   the Graveyard (never deallocated unclosed). `GuestReadTests`, `BalloonPressureTests`.
 - **A host never keeps a background priority it inherited** (678: a 69 s hibernate from a host that a background

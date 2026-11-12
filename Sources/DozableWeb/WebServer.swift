@@ -255,11 +255,20 @@ public final class DozableWebServer: @unchecked Sendable {
         do {
             try WebSecurity.checkListener(md, ctx.view, originRequired: true)
             if head.headers["origin"].count > 1 { throw WebRejection.originRejected }
-            guard case .terminalSocket(let name)? = WebRoute.parse(method: method, target: head.uri) else { throw WebRejection.notFound }
+            // A sandbox's terminal, or one on a session on this Mac (its ticket was minted for `@mac` only).
+            let route = WebRoute.parse(method: method, target: head.uri)
+            let name: String
+            switch route {
+            case .terminalSocket(let n)?: name = n
+            case .macTerminalSocket?: name = MacPlace.name
+            default: throw WebRejection.notFound
+            }
             let (cookie, ticket) = try WebSecurity.validateTerminalUpgrade(md, ctx.view, subprotocols: head.headers["sec-websocket-protocol"])
             let (_, dev) = try await auth.authenticate(cookie, remote: remote)
-            if let r = WebExposure.decide(.terminalSocket(name), ctx.principal) { throw r }
+            if let r = WebExposure.decide(route!, ctx.principal, macSessions: settings.macSessions) { throw r }
             let grant = try await tickets.consume(ticket, cookie: cookie, sandbox: name)
+            // On this Mac, the mode is decided again at the socket (the setting may have changed since the ticket).
+            if MacPlace.isPlace(name), let r = WebExposure.decideMacTerminal(grant.mode, ctx.principal, settings.macSessions) { throw r }
             guard terminals.hasRoom() else { throw WebRejection.tooManyTerminals }
             if let s = serveState, let dev {
                 s.audit.record(WebAuditEntry(kind: "terminal-open", device: dev.id, deviceName: dev.name, address: ctx.client,
@@ -785,7 +794,7 @@ public final class DozableWebServer: @unchecked Sendable {
             await d.touch(cookie, address: ctx.client, userAgent: ctx.userAgent)
         }
         // 606: who may do what (WebExposure — the server is the wall; the page only hides).
-        if let r = WebExposure.decide(route, ctx.principal) { throw r }
+        if let r = WebExposure.decide(route, ctx.principal, macSessions: settings.macSessions) { throw r }
         switch route {
         case .index, .asset, .sessionBootstrap, .terminalFrame, .offline, .serviceWorker, .serveProbe:
             throw WebRejection.notFound
@@ -854,6 +863,8 @@ public final class DozableWebServer: @unchecked Sendable {
             }
             // 650: the page's bulk controls send `batch: true` — such an operation waits behind a person's own.
             let request = try WebAction.decodeRequest(body)
+            // The sessions on this Mac: another computer ends or restarts one only with serve.mac_sessions = interactive.
+            if request.action.isMacSession, let r = WebExposure.decideMacAction(ctx.principal, settings.macSessions) { throw r }
             return json(try operations.start(request.action, priority: !request.batch), status: 202)
         case .operationsCancel:
             // 650: withdraw operations still queued — nothing was sent to the host for them (so not an action).
@@ -878,8 +889,23 @@ public final class DozableWebServer: @unchecked Sendable {
             let r = try WebTerminalTicketRequest.decode(body)
             let t = try await tickets.mint(cookie: cookie, sandbox: name, session: r.session, mode: r.mode, size: r.size, reattach: r.reattach, quiet: r.quiet)
             return json(WebTerminalTicketInfo(ticket: t, expiresInSeconds: Int(tickets.lifetime), session: r.session, mode: r.mode))
-        case .terminalSocket:
+        case .terminalSocket, .macTerminalSocket:
             throw WebRejection.upgradeRequired            // answered in respond(); never dispatched
+        case .macSessions:
+            // The sessions on this Mac (WebMac.swift) — looking never starts a host. A remote browser here may at least watch.
+            let access = remote ? settings.macSessions.rawValue : WebExposure.MacSessions.interactive.rawValue
+            return json(WebMacSessions(sessions: try await data.macSessions(), access: access))
+        case .macSessionScreen(let session):
+            return json(try await data.sessionScreen(MacPlace.name, session: session))
+        case .macTerminalTicket:
+            // CSRF-checked (an unsafe method), a strict body (a session named; interactive or watch), the mode decided for
+            // this principal, then a one-use ticket bound to `@mac` — its socket attaches to a session the host holds.
+            try Self.requireJSONBody(md)
+            guard settings.terminalsEnabled else { throw WebRejection.terminalsOff }
+            let r = try WebMacTicket.decode(body)
+            if let rej = WebExposure.decideMacTerminal(r.mode, ctx.principal, settings.macSessions) { throw rej }
+            let t = try await tickets.mint(cookie: cookie, sandbox: MacPlace.name, session: r.session, mode: r.mode, size: r.size, reattach: r.reattach)
+            return json(WebTerminalTicketInfo(ticket: t, expiresInSeconds: Int(tickets.lifetime), session: r.session, mode: r.mode))
         case .settings:
             return json(settings.report())
         case .recipes:
@@ -928,7 +954,11 @@ public final class DozableWebServer: @unchecked Sendable {
         case .grids:
             // 648: CSRF-checked (an unsafe method, above), a strict body; the host's session-grids, never starting one.
             try Self.requireJSONBody(md)
-            return json(await data.grids(try WebGridsRequest.decode(body)))
+            let items = try WebGridsRequest.decode(body)
+            if items.contains(where: { MacPlace.isPlace($0.sandbox) }), !WebGridsRequest.macAllowed(ctx.principal, settings.macSessions) {
+                throw WebRejection.macSession
+            }
+            return json(await data.grids(items))
         case .onboarding:
             var o = try await data.onboarding()
             let f = settings.onboardingFiles()

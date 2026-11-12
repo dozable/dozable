@@ -80,6 +80,8 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 - **Bridges**: OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`).
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
   host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
+- **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
+  "This Mac".
 - **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
   whether to end them; nuke ends them and removes the socket folder.
 

@@ -15,6 +15,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
+| `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — no isolation): the projection, the ticket's strict body, the grids rule; the page (`#/mac`) and All sessions' section; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through |
 
 ## The web layer (`doz ui`)
 
@@ -509,6 +510,28 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   **Choose…** is `POST /api/v1/settings/projects-dir/choose` `{}`: the Mac's picker with the projects
   prompt, and the SERVER writes what was chosen (`WebSettingsStore.applyProjectsDir` → `applyHostPath`;
   never `/` or inside the store; env/flag/unreadable file refused as in `apply`).
+
+## This Mac (`@mac`) — the sessions with no isolation
+
+- **Their own typed routes, never a sandbox's**: `GET /api/v1/mac/sessions` (`WebMacSessions`: `isolated: false` in the
+  answer itself, `access` = what this browser may do), `GET /api/v1/mac/sessions/{s}/screen` (the saved screen — a gone
+  holder's), `POST /api/v1/mac/terminal-ticket` (CSRF; strict: a session named, ≤ 32 characters, `interactive` or
+  `watch` — no console, no quiet) and `GET /api/v1/mac/terminal-socket` (the ticket is bound to `@mac`; the bridge sends
+  the CLI's `attach` for `@mac` — `HostServer.attachMac` — and never keystroke-wakes it). `POST /api/v1/grids` takes
+  `@mac` items. No route and no action OPENS one (the page would be choosing a program and its arguments).
+- **End / Restart are their own actions**, `mac-session-end` / `mac-session-restart` (one HostOp each — the host's
+  `session-end` / `session-restart` on the place; `confirm` = the session), never the sandbox actions with a made-up name
+  (a sandbox name is `a-z0-9-`: `@mac` is refused there). `WebActionTests` pins one action per HostOp and place.
+- **Another computer gets what `serve.mac_sessions` allows** (`off` default | `watch` | `interactive`; `ui: false`,
+  read per request): `WebExposure` kind `mac-session`, plus `decideMacTerminal` (a ticket's mode, decided again at the
+  socket) and `decideMacAction`; `@mac` grid items likewise. Refusal: 403 `mac-session`, its message naming the setting.
+  The Mac's own browser always has them. A sandbox's connection is dropped by the accept gate first (`ServeHTTPTests`).
+- **The page** (`views/mac.js`) is a section of its own (`#mac`, like the grid): a live refresh never tears down its
+  pane. Every tile, the pane and the title carry the **No isolation** chip (`noIsolationChip`), the callout says what
+  the sessions are, a session whose own argv bypasses its permissions carries **permissions bypassed**. Tiles are painted
+  from the host's feed (`pictureSource` with place `@mac`; a gone one's saved screen). The pane opens in WATCH mode; Type
+  into it re-opens it interactive. A `watch` browser gets neither typing nor Restart/End; a refused one gets no page
+  and no sidebar entry (the server is the wall). Its style-guide specimens: "This Mac — the sessions with no isolation".
 
 ## Browser terminals
 

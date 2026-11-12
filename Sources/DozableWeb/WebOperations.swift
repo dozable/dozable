@@ -508,6 +508,12 @@ final class WebOperations: @unchecked Sendable {
         case .sessionRestart(let name, let session, _):
             guard let r = try? v.decode(SessionRestarted.self) else { return "restarted session \(session) in \(name)" }
             return "restarted session \(session) in \(name)" + (r.resumed ? " — its conversation continues" : "") + (r.notice.map { " (\($0))" } ?? "")
+        case .macSessionEnd(let session):
+            let r = try? v.decode(SessionEnded.self)
+            return r?.how == "not-running" ? "session \(session) on this Mac was not running" : "ended session \(session) on this Mac"
+        case .macSessionRestart(let session, _):
+            guard let r = try? v.decode(SessionRestarted.self) else { return "restarted session \(session) on this Mac" }
+            return "restarted session \(session) on this Mac" + (r.resumed ? " — claude continues its conversation" : "") + (r.notice.map { " (\($0))" } ?? "")
         case .filesMkdir(let name, let p):
             return "made the folder \(p) in \(name)"
         case .filesNew(let name, let p):

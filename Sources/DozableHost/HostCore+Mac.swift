@@ -192,8 +192,13 @@ extension HostCore {
         if case .info(let line) = await mac.state(s), let was = SessionInfo.parseList(line).first?.size, r.cols == nil { size = was }
         let how = try await mac.end(s)
         if how == .stuck { throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL") }
-        let resume = MacPlace.resumeArguments(rec.argv, fresh: r.fresh == true)
+        var resume = MacPlace.resumeArguments(rec.argv, fresh: r.fresh == true)
         var notes: [String] = []
+        // claude --continue with no conversation in the folder exits at once — and the session with it: start fresh.
+        if !resume.isEmpty, !MacPlace.claudeHasConversation(workdir: rec.workdir, projects: MacPlace.claudeProjects(mac.hostEnvironment)) {
+            resume = []
+            notes.append("no earlier conversation in \(DisplayPath.tilde(rec.workdir)) — claude starts a new one")
+        }
         if let keys = rec.environmentKeys, !keys.isEmpty {
             notes.append("the variables it was opened with (\(keys.joined(separator: ", "))) are not kept — it runs without them")
         }

@@ -1,3 +1,4 @@
+import DozableHost
 import DozableKit
 import Foundation
 
@@ -86,6 +87,14 @@ public enum WebRoute: Equatable, Sendable {
     // 648 — the dashboard's tiles painted from their screens (WebGrids.swift): the host's `session-grids` (a read; POST
     // because it carries the pictures asked, with their gens; never starts a host).
     case grids                          // POST /api/v1/grids   ({items: [{sandbox, session, gen}]} ≤ 64)
+    // The sessions on THIS Mac (`@mac` — no isolation; WebMac.swift). Their own typed routes, never a sandbox's: the list,
+    // a saved screen, and a terminal (the same two steps — a one-use ticket bound to `@mac`, then its socket, which ATTACHES
+    // to a session the host holds). No route opens one. WebExposure kind `mac-session`: `serve.mac_sessions` decides for
+    // another computer.
+    case macSessions                    // GET  /api/v1/mac/sessions
+    case macSessionScreen(String)       // GET  /api/v1/mac/sessions/{session}/screen
+    case macTerminalTicket              // POST /api/v1/mac/terminal-ticket  ({mode: interactive|watch, session, cols?, rows?, reattach?})
+    case macTerminalSocket              // GET  /api/v1/mac/terminal-socket  (WebSocket upgrade + the ticket)
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -196,6 +205,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "quick-add": return .quickAdd
         case (.post, 1) where rest[0] == "plan": return .plan
         case (.post, 1) where rest[0] == "grids": return .grids
+        case (.post, 2) where rest == ["mac", "terminal-ticket"]: return .macTerminalTicket
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite
@@ -259,6 +269,12 @@ public enum WebRoute: Equatable, Sendable {
             return .tryList
         case 2 where rest == ["images", "tree"]:
             return .imageTree
+        case 2 where rest == ["mac", "sessions"]:
+            return .macSessions
+        case 2 where rest == ["mac", "terminal-socket"]:
+            return .macTerminalSocket
+        case 4 where rest[0] == "mac" && rest[1] == "sessions" && isMacSessionName(rest[2]) && rest[3] == "screen":
+            return .macSessionScreen(rest[2])
         case 2 where rest == ["serve", "devices"]:
             return .serveDevices
         case 2 where rest == ["serve", "probe"]:
@@ -302,6 +318,9 @@ public enum WebRoute: Equatable, Sendable {
         (1...64).contains(s.count) && s.first != "."
             && s.allSatisfy { $0.isASCII && ($0.isLetter || $0.isNumber || "._-".contains($0)) }
     }
+
+    /// A session on this Mac: the session-name rule, at most 32 (`MacPlace.maximumSessionName`).
+    public static func isMacSessionName(_ s: String) -> Bool { isSessionName(s) && s.count <= MacPlace.maximumSessionName }
 
     /// 606: an action's name as the audit log may write it — 1–40 of [a-z-].
     public static func isActionWord(_ s: String) -> Bool {

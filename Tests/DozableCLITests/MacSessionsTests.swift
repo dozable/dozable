@@ -106,6 +106,31 @@ final class MacPlaceTests: XCTestCase {
         XCTAssertGreaterThan(argv.joined(separator: " ").count, 255)
     }
 
+    /// `--continue` only where Claude Code has a conversation (its own folder naming), else a fresh start.
+    func testClaudeConversationCheck() throws {
+        XCTAssertEqual(MacPlace.claudeProjectFolderName("/Users/x/my.app_2"), "-Users-x-my-app-2")
+        let projects = root.appendingPathComponent("projects").path
+        let work = root.appendingPathComponent("work").path
+        try FileManager.default.createDirectory(atPath: work, withIntermediateDirectories: true)
+        XCTAssertFalse(MacPlace.claudeHasConversation(workdir: work, projects: projects), "no projects folder: none")
+        let mine = projects + "/" + MacPlace.claudeProjectFolderName(work)
+        try FileManager.default.createDirectory(atPath: mine, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: mine + "/notes.txt", contents: Data())
+        XCTAssertFalse(MacPlace.claudeHasConversation(workdir: work, projects: projects), "a folder without a .jsonl: none")
+        FileManager.default.createFile(atPath: mine + "/abc.jsonl", contents: Data("{}".utf8))
+        XCTAssertTrue(MacPlace.claudeHasConversation(workdir: work, projects: projects))
+        // /tmp is /private/tmp: the resolved folder's name counts too.
+        let resolved = projects + "/" + MacPlace.claudeProjectFolderName("/private" + work)
+        try FileManager.default.removeItem(atPath: mine)
+        try FileManager.default.createDirectory(atPath: resolved, withIntermediateDirectories: true)
+        FileManager.default.createFile(atPath: resolved + "/abc.jsonl", contents: Data("{}".utf8))
+        XCTAssertTrue(MacPlace.claudeHasConversation(workdir: work, projects: projects))
+        XCTAssertEqual(MacPlace.claudeProjects(["DOZ_TEST_GUARD": "1", "DOZ_TEST_CLAUDE_PROJECTS": "/s/p", "HOME": "/h"]), "/s/p")
+        XCTAssertEqual(MacPlace.claudeProjects(["DOZ_TEST_REAL_MAC": "1", "DOZ_TEST_CLAUDE_PROJECTS": "/s/p", "HOME": "/h"]), "/h/.claude/projects",
+                       "the seam only in a guarded run")
+        XCTAssertEqual(MacPlace.claudeProjects(["DOZ_TEST_REAL_MAC": "1", "CLAUDE_CONFIG_DIR": "/c", "HOME": "/h"]), "/c/projects")
+    }
+
     func testBypassIsSeen_neverAdded() {
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--dangerously-skip-permissions"]))
         XCTAssertTrue(MacPlace.bypassesPermissions(["claude", "--permission-mode", "bypassPermissions"]))

@@ -120,6 +120,34 @@ public enum MacPlace {
         return ["--continue"]
     }
 
+    /// Claude Code keeps a folder's conversations in `<projects>/<the folder, every character but A-Z a-z 0-9 a '-'>/*.jsonl`.
+    public static func claudeProjectFolderName(_ dir: String) -> String {
+        String(dir.unicodeScalars.map { s -> Character in
+            s.isASCII && (CharacterSet.alphanumerics.contains(s)) ? Character(s) : "-"
+        })
+    }
+
+    /// Where this Mac's Claude Code keeps its projects: `$CLAUDE_CONFIG_DIR/projects`, else `~/.claude/projects`.
+    /// TEST SEAM (guarded runs only): `DOZ_TEST_CLAUDE_PROJECTS`.
+    public static func claudeProjects(_ env: [String: String]) -> String {
+        if TestSafety.guarded(env), let p = env["DOZ_TEST_CLAUDE_PROJECTS"], p.hasPrefix("/") { return p }
+        if let c = env["CLAUDE_CONFIG_DIR"], c.hasPrefix("/") { return c + "/projects" }
+        return (env["HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? NSHomeDirectory()) + "/.claude/projects"
+    }
+
+    /// Claude Code has a conversation to continue in `workdir` (as given, or resolved — `/tmp` is `/private/tmp`).
+    /// `claude --continue` with none exits at once, which would end the session it was restarted in.
+    public static func claudeHasConversation(workdir: String, projects: String) -> Bool {
+        var dirs = [workdir]
+        if let r = realpath(workdir, nil) { dirs.append(String(cString: r)); free(r) }
+        for d in Set(dirs) {
+            let folder = projects + "/" + claudeProjectFolderName(d)
+            let names = (try? FileManager.default.contentsOfDirectory(atPath: folder)) ?? []
+            if names.contains(where: { $0.hasSuffix(".jsonl") }) { return true }
+        }
+        return false
+    }
+
     /// The one line `doz run @mac` says on stderr.
     public static let noIsolationLine = "@mac is this Mac: no sandbox, no proxy, no key placeholders — this program can reach everything your user can (files, Keychain, network)."
     /// The mark of a session whose argv bypasses permissions.

@@ -244,5 +244,6 @@ live updates, the installable app, keys over https, `doz doctor`); the nginx and
 | `serve.public_origins` | — | your proxy's https addresses |
 | `serve.trusted_proxies` | — | your proxy's addresses or networks |
 | `serve.advertise` | true | announce with Bonjour |
+| `serve.mac_sessions` | `off` | what these browsers may do with the sessions on this Mac: `off`, `watch` or `interactive` ([Sessions on this Mac](34-sessions-on-this-mac.md#in-the-dashboard)) |
 
-All of them apply when `doz ui` starts again (`doz ui restart`). See the [Settings reference](15-settings-reference.md).
+All of them but `serve.mac_sessions` (at once) apply when `doz ui` starts again (`doz ui restart`). See the [Settings reference](15-settings-reference.md).
