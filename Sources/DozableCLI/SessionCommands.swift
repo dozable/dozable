@@ -84,16 +84,18 @@ struct SessionsWait: AsyncParsableCommand {
     static let configuration = CommandConfiguration(commandName: "wait",
         abstract: "Wait until a session's program reports a state: idle, done, blocked or error (what doz sessions shows as AGENT).",
         discussion: """
-            doz sessions wait NAME SESSION --until done --until error --timeout 90. Returns as soon as the program reports \
+            doz sessions wait NAME SESSION --until idle,done,blocked,error --timeout 90 (has it stopped working?). \
+            --until takes a comma list, or is given again. Returns as soon as the program reports \
             one of them (now included), printing the state; exit 124 when --timeout seconds pass first (--json says \
             timedOut). Only programs that report their status (Claude Code, pi, Grok Build) ever arrive. The sandbox must be \
             running — a wait never wakes one; NAME may be @mac. A program that ends first: exit 2, unless its last report \
-            matches. A sandbox named wait needs doz sessions ls wait.
+            matches. A sandbox named wait needs doz sessions ls wait. From a script (no terminal), doz sessions end and \
+            restart need --yes.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
     @Argument var session: String
-    @Option(name: .long, parsing: .upToNextOption, help: "The state(s) to wait for: idle, working, done, blocked, error (repeatable).") var until: [String] = []
+    @Option(name: .long, parsing: .upToNextOption, help: "The state(s) to wait for — idle, working, done, blocked, error — as a comma list (idle,done,blocked,error) or repeated.") var until: [String] = []
     @Option(name: .long, help: "Give up after this many seconds (exit 124). Default: none (a wait ends after a day at most).") var timeout: Int64 = 0
 
     func validate() throws {

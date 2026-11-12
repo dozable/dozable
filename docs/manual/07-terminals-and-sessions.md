@@ -189,8 +189,10 @@ says it is not live — `--wake` wakes it first and reads it live. A sandbox nam
 listed with `doz sessions ls send`.
 
 `doz sessions wait NAME SESSION --until done` waits until the session's program reports one of the states you
-name (`idle`, `working`, `done`, `blocked`, `error` — what the AGENT column shows; `--until` again for more than
-one): the state now counts, so it returns at once when it is already there. `--timeout S` gives up after S seconds
+name (`idle`, `working`, `done`, `blocked`, `error` — what the AGENT column shows), as a comma list or `--until`
+again: `--until idle,done,blocked,error` asks "has it stopped working?" in one call. The state now counts, so it
+returns at once when it is already there. From a script (no terminal), `doz sessions end` and
+`doz sessions restart` need `--yes` (they ask otherwise, and with no terminal to ask, refuse with exit `5`). `--timeout S` gives up after S seconds
 with exit `124`. The sandbox must be running (a wait never wakes it); only agents that report their status ever
 arrive.
 

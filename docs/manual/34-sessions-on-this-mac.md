@@ -49,7 +49,7 @@ doz sessions @mac --json                     # each with its workdir, argv and w
 doz attach @mac build                        # Ctrl-] opens the menu (d detach · n next · p prev · s sessions)
 doz sessions screen @mac build               # its screen as text, now
 doz sessions send @mac agent --text 'run the tests' --enter
-doz sessions wait @mac agent --until done --timeout 90
+doz sessions wait @mac agent --until idle,done,blocked,error --timeout 90   # has it stopped working?
 ```
 
 These are the same commands as for a sandbox's sessions ([Terminals and sessions](07-terminals-and-sessions.md)).
