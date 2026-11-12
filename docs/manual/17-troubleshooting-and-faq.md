@@ -136,4 +136,5 @@ and keychain are untouched.
 **Exit codes?**
 `0` ok · `1` failed · `2` not found · `3` not possible in this state · `4` already exists · `5` not
 confirmed · `6` host unavailable · `7` not implemented yet · `64` usage. `exec`, `run` and `attach`
-exit with the program's own code (`125` when `doz` itself failed).
+exit with the program's own code (`125` when `doz` itself failed; `exec`'s `124` when its `--timeout`
+passed — `--json` adds `"timedOut": true`).

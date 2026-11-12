@@ -369,6 +369,7 @@ make test-cli-timezone # 594 W10: the Mac's (stubbed) zone at boot and every wak
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
+make test-cli-exectimeout # exec --timeout from doz's start, 124 from the host: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the host's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
 make test-community-recipes # 653: your own recipes and community catalogues end to end (throwaway keys, a local server): check fails then passes, labels, Dozable's id refused, confirm before fetch, a clash refused whole, tampered refused, removal keeps a sandbox

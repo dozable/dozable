@@ -340,6 +340,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var user: String?
     public var workdir: String?
     public var timeoutSeconds: Int64?
+    /// 678: exec — the deadline itself (seconds since 1970), counted by the client from when its process started. The
+    /// host answers at it whatever is under way (`timeoutSeconds` is still sent, the time left, for an older host).
+    public var deadline: Double?
     /// Restore point id or name; image name; new sandbox name (fork); a note.
     public var point: String?
     public var pointName: String?
@@ -1122,6 +1125,23 @@ public struct ExecOutput: Codable, Equatable, Sendable {
     public var started: Bool? = nil
     public var woke: Bool? = nil
     public var bootMilliseconds: Double? = nil
+    /// 678: the deadline passed (exit code 124): before the command could start, or while it ran (it was killed).
+    public var timedOut: Bool? = nil
+    /// 678: what was under way then — `waking`, `starting` or `running` (a wake or a start goes on in the background).
+    public var timedOutDuring: String? = nil
+
+    /// 678: the answer at the deadline.
+    public static func timedOut(during: String, milliseconds: Double) -> ExecOutput {
+        var o = ExecOutput(exitCode: DozableExitCode.timedOut, stdout: Data(), stderr: Data(), milliseconds: milliseconds)
+        o.timedOut = true
+        o.timedOutDuring = during
+        return o
+    }
+}
+
+/// 678: GNU `timeout`'s exit code — `doz exec`'s when its deadline passed (`ExecOutput.timedOut`, the client's watchdog).
+public enum DozableExitCode {
+    public static let timedOut: Int32 = 124
 }
 
 /// `open-session`.

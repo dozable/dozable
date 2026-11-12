@@ -2187,10 +2187,18 @@ public actor Sandbox {
         // Every exec is deleted, whatever happens: deletion is what closes its vminitd client.
         do {
             try await p.start()
+        } catch {
+            try? await p.delete()
+            throw error
+        }
+        do {
             let st = try await p.wait(timeoutInSeconds: timeout)
             try? await p.delete()
             return ExecResult(exitCode: st.exitCode, stdout: out.data, stderr: err.data)
         } catch {
+            // 678: a wait that gave up (its timeout) left the program running in the guest — `doz exec --timeout 3 --
+            // sleep 30` kept its sleep. Kill it, then delete it (best effort: it may have ended by itself).
+            try? await p.kill(.kill)
             try? await p.delete()
             throw error
         }

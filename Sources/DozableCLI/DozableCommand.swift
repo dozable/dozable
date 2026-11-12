@@ -170,6 +170,9 @@ public enum DozableExit {
     /// 617: `doz search` — supported, but not with what was asked (`--base alpine`).
     public static let limited: Int32 = 8
     public static let usage: Int32 = 64
+    /// 678: exec — its --timeout passed (counted from when doz started), as GNU timeout's. A program's own 124 looks the
+    /// same; `--json`'s `timedOut` tells them apart.
+    public static let timedOut: Int32 = DozableExitCode.timedOut
     /// exec / run / attach: doz itself failed (the program's own codes pass through).
     public static let dozableFailed: Int32 = 125
 

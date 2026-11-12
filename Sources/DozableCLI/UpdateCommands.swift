@@ -307,6 +307,8 @@ struct HostRestart: AsyncParsableCommand {
 public enum DozableEntry {
     public static func main() async -> Never {
         let args = Array(CommandLine.arguments.dropFirst())
+        // 678: `doz exec`'s deadline counts from the process's start — its watchdog is armed before anything else.
+        ExecDeadline.arm(args)
         // 678: a guarded test run can ask which lazy parts this process builds (`make test-cli-startup`).
         let env = ProcessInfo.processInfo.environment
         if env["DOZ_TEST_STARTUP_TRACE"] == "1", TestSafety.guarded(env) {

@@ -1916,8 +1916,34 @@ public actor HostCore {
     private func exec(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async throws -> ExecOutput {
         let m = try get(r.name)
         guard let argv = r.argv, !argv.isEmpty else { throw HostError(.invalid, "exec needs a command (doz exec NAME -- CMD…)") }
+        // 678: the deadline covers the whole exec — the wake or the start too. The client's (counted from its process's
+        // start); an older client's seconds from now. At it the answer is 124; a wake or a start under way is never
+        // cancelled (it finishes in the background — a cancelled wake would break the lifecycle gate), and the guest
+        // command is never started once the deadline has passed.
+        let deadline: Date? = r.deadline.map { Date(timeIntervalSince1970: $0) }
+            ?? r.timeoutSeconds.flatMap { $0 > 0 ? Date().addingTimeInterval(TimeInterval($0)) : nil }
+        let t00 = ContinuousClock.now
         // 594 W27: an off sandbox is cold-started first when the caller asks (`doz exec` does).
-        let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
+        let first: EnsureOutcome
+        if let deadline {
+            let during = await execPhaseWord(m)
+            if deadline <= Date() { return .timedOut(during: during, milliseconds: ms(since: t00)) }
+            let gate = EmitGate(emit)
+            let wake = r.wake ?? true, start = r.start ?? false
+            let delay = during == "running" ? 0 : Self.testLifecycleDelayNanoseconds
+            let lifecycle = Task {
+                if delay > 0 { try? await Task.sleep(nanoseconds: delay) }     // a guarded test's slow wake or start
+                return try await self.ensureRunning(m, wake: wake, start: start, emit: { gate.send($0) })
+            }
+            guard let f = try await Self.race(until: deadline, lifecycle) else {
+                gate.close()                // the answer is sent: nothing more goes to this client
+                return .timedOut(during: during, milliseconds: ms(since: t00))
+            }
+            if deadline <= Date() { return .timedOut(during: during, milliseconds: ms(since: t00)) }
+            first = f
+        } else {
+            first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
+        }
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
         let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
@@ -1926,8 +1952,10 @@ public actor HostCore {
         let res: ExecResult
         do {
             res = try await m.sandbox.exec(argv, environment: ctx.environment, workingDirectory: ctx.workdir, user: ctx.user,
-                                           timeoutSeconds: r.timeoutSeconds ?? 120)
+                                           timeoutSeconds: deadline.map { ExecDeadline.remaining($0) } ?? r.timeoutSeconds ?? 120)
         } catch {
+            // 678: the guest's wait gave up at the deadline (the program was killed — `Sandbox.exec`).
+            if let deadline, Date() >= deadline.addingTimeInterval(-0.5) { return .timedOut(during: "running", milliseconds: ms(since: t00)) }
             if let plain = Self.missingProgramMessage(error, argv: argv, runsAs: ctx.user) { throw HostError(.notFound, plain) }
             throw error
         }

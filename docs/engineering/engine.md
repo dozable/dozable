@@ -34,6 +34,17 @@ A bare file name is in `Sources/DozableKit/`.
 
 ## Rules that each cost a bug to learn here
 
+- **Every `doz exec` deadline is counted from process start and enforced by the host** (678: a `--timeout 3` exec
+  once ran 40 s — the clock started after the client's start-up and the wake, and the guest program outlived it).
+  `ExecDeadline` (DozableHost): `ProcessStart.date` is the kernel's `p_starttime`; `DozableEntry.main`'s FIRST line arms
+  a watchdog THREAD (never GCD or Swift concurrency — a starved pool cannot hold it back) that `_exit(124)`s 2 s after
+  the deadline. The client sends `HostRequest.deadline` (and `timeoutSeconds`, the time left, for an older host);
+  `HostCore.exec` races the whole operation against it (`race(until:)`): at the deadline it answers
+  `ExecOutput.timedOut(during: waking|starting|running)` — a wake or start under way is NEVER cancelled (it finishes in
+  the background, its events gated off), the guest command is never started after the deadline, and a running one
+  is killed then deleted (`Sandbox.exec`: a failed wait kills). Exit code 124 (`DozableExit.timedOut`); `--json`'s
+  `timedOut` tells it from a program's own 124. `ExecDeadlineTests`, `make test-cli-exectimeout`.
+
 - **A host stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down
   instead") — `HostEvent.startedAs` ties an end to its differently-worded start — then the host's own
