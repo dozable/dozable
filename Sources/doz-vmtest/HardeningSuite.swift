@@ -341,7 +341,8 @@ func memorySuite() async throws {
     info(String(format: "helper footprint: cold-booted %.0f MiB · woken without the balloon %.0f · woken %.0f (%llu MiB held; wake %.0f ms)",
                 cold, plain, ballooned, held, wakeMs))
     check(plain > 1000, String(format: "woken without the balloon the VM holds its allocation (%.0f MiB)", plain))
-    check(held > 500 && ballooned < plain * 0.6, String(format: "woken, it gives %llu MiB back: %.0f → %.0f MiB", held, plain, ballooned))
+    // 678 B7: the reserve is half the allocation plus what runs (it was a quarter), so a 1 GiB sandbox gives less back.
+    check(held > 150 && ballooned < plain - Double(held) * 0.6, String(format: "woken, it gives %llu MiB back: %.0f → %.0f MiB", held, plain, ballooned))
     // Every snapshot path deflates first — from running (Sleep, Hibernate) and from Pause.
     try await sb.pause()
     try await sb.sleep()
@@ -353,7 +354,65 @@ func memorySuite() async throws {
     try await sb.restoreGuestMemory()
     check(await sb.memoryReturnedMiB == 0, "restoreGuestMemory gives the guest its whole allocation back")
     let r = try await sb.returnFreeMemory()
-    check((r?.heldMiB ?? 0) > 500, "returnFreeMemory on demand: \(r?.heldMiB ?? 0) MiB held (\(Int(r?.milliseconds ?? -1)) ms)")
+    check((r?.heldMiB ?? 0) > 150, "returnFreeMemory on demand: \(r?.heldMiB ?? 0) MiB held (\(Int(r?.milliseconds ?? -1)) ms)")
+    try await sb.shutDown()
+    try? await sb.delete()
+}
+
+// MARK: 678 B7 — the balloon gives way under pressure
+
+/// An 8 GiB sandbox woke, ballooned all but a quarter, and wedged under three `npm install`s (atomic allocations failed,
+/// the guest's OOM killer never ran, so deflate-on-OOM never fired). Here: a 2 GiB sandbox woken from hibernation
+/// balloons; the guest then fills a tmpfs past the reserve, a little at a time; the HOST must see it and deflate, and
+/// the guest must keep answering. Then: a session at work holds the inflate back until it is idle; and a sandbox whose
+/// balloon was given back early hibernates and wakes (the guest confirmed it empty before the snapshot).
+func balloonPressureSuite() async throws {
+    print("vmtest[hardening]: the memory balloon gives way under the guest's pressure (678 B7)")
+    var spec = try hardenSpec("harden-pressure", memoryMiB: 2048)
+    spec.network = .none
+    spec.bakePackages = []          // BusyBox's sh, awk, dd and mount are all it needs (no bake, no network)
+    let sb = try await freshSandbox(spec)
+    try await sb.start()
+    try await sb.hibernate()
+    try await sb.wake()
+    await sb.afterWakeSettled()
+    let held = await sb.memoryReturnedMiB
+    let st = await sb.balloonState
+    check(held > 100 && st.watching, "woken, the balloon holds \(held) MiB and the host watches the guest")
+    func guestBalloonMiB() async -> UInt64? {
+        let r = try? await sb.exec(["sh", "-c", "awk '/^Balloon:/{print int($2/1024)}' /proc/meminfo"], timeoutSeconds: 10)
+        return r.flatMap { UInt64($0.output.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    }
+    // Past the reserve, 50 MiB at a time (unswappable tmpfs pages — what MemAvailable cannot count on).
+    let fill = "mkdir -p /tmp/pr && mount -t tmpfs -o size=1900m tmpfs /tmp/pr && "
+        + "for i in $(seq 1 28); do dd if=/dev/zero of=/tmp/pr/f$i bs=1M count=50 2>/dev/null || { echo fail $i; exit 1; }; sleep 0.3; done; "
+        + "du -sm /tmp/pr | cut -f1"
+    let t0 = Date()
+    let r = try await sb.exec(["sh", "-c", fill], privileged: true, timeoutSeconds: 180)
+    let took = Date().timeIntervalSince(t0)
+    check(r.exitCode == 0 && r.output.trimmingCharacters(in: .whitespacesAndNewlines) == "1400",
+          String(format: "the guest filled 1400 MiB past its reserve (%.1f s): exit %d, %@", took, r.exitCode, r.output.trimmingCharacters(in: .whitespacesAndNewlines)))
+    let after = await sb.balloonState
+    check(after.heldMiB == 0 && !after.watching, "the host deflated the balloon (held \(after.heldMiB) MiB, watch \(after.watching ? "on" : "off"))")
+    var guestHeld = await guestBalloonMiB()
+    for _ in 0..<20 where (guestHeld ?? 1) > 4 { try? await Task.sleep(for: .milliseconds(500)); guestHeld = await guestBalloonMiB() }
+    check(guestHeld.map { $0 <= 4 } == true, "the guest took its pages back (its balloon: \(guestHeld.map { "\($0) MiB" } ?? "unread"))")
+    let ok = try? await sb.exec(["echo", "still here"], timeoutSeconds: 15)
+    check(ok?.output == "still here\n", "the guest still answers an exec")
+    _ = try? await sb.exec(["sh", "-c", "umount /tmp/pr"], privileged: true, timeoutSeconds: 30)
+    // Given back early, it still hibernates and wakes (the guest confirmed the balloon empty before the snapshot).
+    try await sb.hibernate()
+    await sb.setSessionsBusy(true)
+    try await sb.wake()
+    await sb.afterWakeSettled()
+    let waiting = await sb.memoryReturnedMiB
+    check(await sb.phase == .running && waiting == 0, "a session at work: the wake's balloon waits (held \(waiting) MiB)")
+    await sb.setSessionsBusy(false)
+    var later: UInt64 = 0
+    for _ in 0..<20 where later == 0 { try? await Task.sleep(for: .milliseconds(500)); later = await sb.memoryReturnedMiB }
+    check(later > 100, "idle again: the waiting inflate runs (\(later) MiB)")
+    await sb.setSessionsBusy(true)
+    check((await sb.memoryReturnedMiB) == 0, "a session starting work gives it back at once")
     try await sb.shutDown()
     try? await sb.delete()
 }
@@ -426,11 +485,13 @@ func hardeningSuite(_ part: String?) async throws {
     case "subnets": try await subnetSuite()
     case "settle": try await settleSuite()
     case "memory": try await memorySuite()
+    case "balloon-pressure": try await balloonPressureSuite()
     default:
         try await discardSuite()
         try await leakSuite()
         try await concurrentSuite()
         try await memorySuite()
+        try await balloonPressureSuite()
         try await settleSuite()
         try await subnetSuite()
     }

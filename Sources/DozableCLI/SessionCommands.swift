@@ -16,6 +16,7 @@ struct List: AsyncParsableCommand {
         for r in rows {
             var phase = Out.phaseLabel(r.phase) + (r.busy ? "…" : "")
             if r.diedWithHost == true { phase += " (died with host)" }
+            if r.unresponsive == true { phase += " (unresponsive)" }       // 678 B7: its guest does not answer
             var net = r.network + ((r.deniedConnections ?? 0) > 0 ? " (\(r.deniedConnections!) denied)" : "")
             if let n = r.foreignCredentials, n > 0 { net += " · own key" + (n > 1 ? " ×\(n)" : "") }
             var account = r.account ?? "—"

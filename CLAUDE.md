@@ -89,7 +89,13 @@ One row per area; each area's doc starts with the full table of its files.
   (nil = an older build's VM — restore it WITHOUT one) and is true on every cold boot. `wake()`
   inflates it over free guest pages — 651: AFTER the wake is reported done, the last of its background
   steps (see "A wake is done when the guest runs") — and it STAYS inflated (VZ charges the pages again on deflate —
-  measured). `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
+  measured) UNLESS the guest needs it (678 B7: an 8 GiB guest ballooned to a quarter wedged under npm installs —
+  atomic allocations failed, its OOM killer never ran, so deflate-on-OOM never fired): the reserve is at least half
+  plus what runs (`BalloonPressure.reserveMiB`); no inflate while a session reports `working` (it waits for idle);
+  while the balloon holds anything the HOST reads the guest's `/proc/meminfo` every 2 s and deflates at once, from its
+  side (VZ's target needs no guest answer), when `MemAvailable` falls under the reserve, a read takes over 3 s, a
+  session turns `working` or a session opens. An early deflate leaves the balloon UNCONFIRMED (`balloonDirty`) until
+  a deflate sees the guest's `Balloon:` at 0 — a snapshot path throws rather than snapshot it. `hardening balloon-pressure`. `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
   a paused one (resume → deflate → pause): a snapshot of an inflated balloon fails to restore
   (`VZErrorDomain 12 invalid argument`). Progress is read from the guest's `/proc/meminfo`
   `Balloon:` line — VZ offers DEFLATE_ON_OOM, so MemTotal never moves.

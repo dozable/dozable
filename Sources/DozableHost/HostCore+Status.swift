@@ -82,6 +82,11 @@ extension HostCore {
         statuses[name, default: [:]][session] = s
         if statuses[name]?.isEmpty == true { statuses[name] = nil }
         statusTimes(name, session: session, from: old?.state, to: s?.state)
+        // 678 B7: a session at work means no memory balloon (given back now; a wake's inflate waits for idle).
+        // (each task sends the state as it is when it runs, so two changes in a row cannot land in the wrong order)
+        if let sb = managed[name]?.sandbox {
+            Task { await sb.setSessionsBusy(await self.sessionsWorking(name)) }
+        }
         var e = HostEvent(kind: .sessionStatus, sandbox: name, text: s?.logLine ?? "session \(session): no status")
         e.session = session
         e.sessionStatus = s
@@ -136,6 +141,9 @@ extension HostCore {
                                durationMs: Date().timeIntervalSince(since) * 1000)
         }
     }
+
+    /// 678 B7: a session of `name` reports `working`.
+    func sessionsWorking(_ name: String) -> Bool { statuses[name]?.values.contains { $0.state == .working } ?? false }
 
     /// The sandbox stopped (or was deleted): its programs are gone, and so is what they said.
     func clearStatuses(_ name: String) {

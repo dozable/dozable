@@ -698,6 +698,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var createdAt: Date?
     /// The sandbox was running when the previous host died: its disk gets e2fsck at the next start.
     public var diedWithHost: Bool?
+    /// 678 B7: its guest did not answer a read in time (its phase is kept; `doz shutdown` stops it).
+    public var unresponsive: Bool? = nil
     /// 588: the Anthropic account it uses (nil: none), the credential's state (`ok`,
     /// `expires-soon`, `expired`, `signed-out`, `held`, `missing`…), the proxy policy for the
     /// guest's own credentials, and how many such credentials it has seen.
@@ -779,7 +781,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case name, image, phase, busy, cpus, memoryMiB, ramHeldMiB, memoryReturnedMiB, diskBytes, sessions, network, deniedConnections
-        case workspace, createdAt, diedWithHost, account, credentialState, credentialPolicy, foreignCredentials, workspaceCreated, isolated
+        case workspace, createdAt, diedWithHost, unresponsive, account, credentialState, credentialPolicy, foreignCredentials, workspaceCreated, isolated
         case agent, credentialProblem, base, imageTitle, dockerfile, rebuildAvailable
         case olderImage, olderImageLine, imageNotice      // 594 W28
         case workspaceRules                               // 599g
@@ -814,6 +816,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
         diedWithHost = try c.decodeIfPresent(Bool.self, forKey: .diedWithHost)
+        unresponsive = try c.decodeIfPresent(Bool.self, forKey: .unresponsive)
         account = try c.decodeIfPresent(String.self, forKey: .account)
         credentialState = try c.decodeIfPresent(String.self, forKey: .credentialState)
         credentialPolicy = try c.decodeIfPresent(String.self, forKey: .credentialPolicy)
@@ -866,6 +869,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encode(isolated, forKey: .isolated)
         try c.encodeIfPresent(createdAt, forKey: .createdAt)
         try c.encodeIfPresent(diedWithHost, forKey: .diedWithHost)
+        try c.encodeIfPresent(unresponsive, forKey: .unresponsive)
         try c.encodeIfPresent(account, forKey: .account)
         try c.encodeIfPresent(credentialState, forKey: .credentialState)
         try c.encodeIfPresent(credentialPolicy, forKey: .credentialPolicy)
