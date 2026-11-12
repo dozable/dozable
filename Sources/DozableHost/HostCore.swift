@@ -103,6 +103,9 @@ public actor HostCore {
     nonisolated let portTable = PortForwardTable()
     /// 617 (RP-1): the ports a program in each running sandbox listens on, and when that was read (`refreshServing`).
     var portServing: [String: (checked: Date, ports: Set<Int>)] = [:]
+    /// 678 B7: sandboxes whose guest did not answer a read in time (`ls`'s session count, `sessions`), and when — never
+    /// waited on again for `unresponsiveRetry`, so one stuck guest cannot hold every listing.
+    var unresponsive: [String: Date] = [:]
     /// 609: which viewer set each session's size last (the attach relay re-applies the typist's).
     nonisolated let sizeOwners = SessionSizeOwners()
     /// 612: the programs' status per sandbox and session, the status watchers (keyed sandbox NUL session), the
@@ -490,8 +493,14 @@ public actor HostCore {
         let returned = await m.sandbox.memoryReturnedMiB
         let mem = m.sandbox.spec.memoryMiB
         var sessionCount: Int?
-        if withSessions, phase == .running, !status.busy, let list = try? await m.sandbox.sessions() {
-            sessionCount = list.filter { !$0.isEnded }.count
+        var stuck = false
+        if withSessions, phase == .running, !status.busy {
+            // 678 B7: a guest too starved to answer is reported, never waited on (`guestRead`).
+            switch await guestRead(m, { try await $0.sessions() }) {
+            case .answered(let list): sessionCount = list.filter { !$0.isEnded }.count
+            case .unresponsive: stuck = true
+            case .failed: break
+            }
         }
         let egress = m.sandbox.egress
         var i = SandboxInfo(name: m.name, image: m.config.image, phase: phase.rawValue, busy: status.busy, cpus: m.sandbox.spec.cpus,
@@ -505,6 +514,7 @@ public actor HostCore {
                            credentialPolicy: egress == nil ? nil : effectivePolicy(m, accountStore.load()).rawValue,
                            foreignCredentials: egress.map { $0.vault.foreignSightings.count }.flatMap { $0 == 0 ? nil : $0 })
         i.agent = m.sandbox.spec.imageSpec?.name
+        if stuck || (phase == .running && unresponsive[m.name] != nil) { i.unresponsive = true }      // 678 B7
         i.credentialProblem = credentialProblem(m)
         i.createdFolder = m.config.createdFolder
         i.agentRef = m.config.agentRef            // 618
@@ -944,6 +954,8 @@ public actor HostCore {
             s.parentPid = getppid()
             s.sessionID = getsid(0)
             s.launchedDetached = HostServer.launchedDetached
+            s.priority = ProcessPriority.current()
+            s.priorityRestored = HostServer.priorityRestored ? true : nil
             s.microphoneApp = Self.microphoneApp?.description
         }
         if let executable, let c = executableChange() {
@@ -1160,6 +1172,7 @@ public actor HostCore {
     /// Start-or-wake, and every other lifecycle operation, in the owner's vocabulary. An operation
     /// that finds the sandbox already where it leads does nothing (`changed: false`).
     private func lifecycle(_ op: HostOp, name: String?, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> LifecycleResult {
+        if let n = try? get(name).name { unresponsive[n] = nil }       // 678 B7: a new phase is asked again at once
         guard op == .start else { return try await lifecycleBody(op, name: name, emit: emit) }
         // 610 (590.B3): a cold start is recorded from here — its image's preparation included — to its end, so
         // what needs the sandbox running meanwhile (an open-session, an attach, an exec) JOINS it instead of
@@ -1564,7 +1577,13 @@ public actor HostCore {
         }
         let byName = Dictionary(saved.map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
         let mark = sessionRegistry.epoch
-        let list = try await m.sandbox.sessions()
+        let list: [SessionInfo]
+        switch await guestRead(m, { try await $0.sessions() }) {          // 678 B7: never waits on a stuck guest
+        case .answered(let l): list = l
+        case .failed(let e): throw e
+        case .unresponsive:
+            throw HostError(.unavailable, "\(m.name) does not answer (its guest is unresponsive) — doz sessions \(m.name) --screen SESSION shows a session's last saved screen; doz shutdown \(m.name) stops it")
+        }
         reconcileSessions(m.name, list, mark: mark)                   // 635: the list this read made anyway
         let rows = list.map { s in
             var row = SessionRow(s)
@@ -1874,6 +1893,8 @@ public actor HostCore {
             throw HostError(.notFound, Self.missingProgram(program, runsAs: look.runsAs, command: "doz run"))
         }
         if let tmuxBinary { argv = GuestCommand.inTmux(session: session, argv: argv, binary: tmuxBinary) }
+        // 678 B7: a program starting is work to come — the guest gets its whole allocation back first.
+        await m.sandbox.relieveMemoryPressure("a session is starting")
         let t0 = ContinuousClock.now
         let started = Date()
         do {
@@ -1916,8 +1937,34 @@ public actor HostCore {
     private func exec(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async throws -> ExecOutput {
         let m = try get(r.name)
         guard let argv = r.argv, !argv.isEmpty else { throw HostError(.invalid, "exec needs a command (doz exec NAME -- CMD…)") }
+        // 678: the deadline covers the whole exec — the wake or the start too. The client's (counted from its process's
+        // start); an older client's seconds from now. At it the answer is 124; a wake or a start under way is never
+        // cancelled (it finishes in the background — a cancelled wake would break the lifecycle gate), and the guest
+        // command is never started once the deadline has passed.
+        let deadline: Date? = r.deadline.map { Date(timeIntervalSince1970: $0) }
+            ?? r.timeoutSeconds.flatMap { $0 > 0 ? Date().addingTimeInterval(TimeInterval($0)) : nil }
+        let t00 = ContinuousClock.now
         // 594 W27: an off sandbox is cold-started first when the caller asks (`doz exec` does).
-        let first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
+        let first: EnsureOutcome
+        if let deadline {
+            let during = await execPhaseWord(m)
+            if deadline <= Date() { return .timedOut(during: during, milliseconds: ms(since: t00)) }
+            let gate = EmitGate(emit)
+            let wake = r.wake ?? true, start = r.start ?? false
+            let delay = during == "running" ? 0 : Self.testLifecycleDelayNanoseconds
+            let lifecycle = Task {
+                if delay > 0 { try? await Task.sleep(nanoseconds: delay) }     // a guarded test's slow wake or start
+                return try await self.ensureRunning(m, wake: wake, start: start, emit: { gate.send($0) })
+            }
+            guard let f = try await Self.race(until: deadline, lifecycle) else {
+                gate.close()                // the answer is sent: nothing more goes to this client
+                return .timedOut(during: during, milliseconds: ms(since: t00))
+            }
+            if deadline <= Date() { return .timedOut(during: during, milliseconds: ms(since: t00)) }
+            first = f
+        } else {
+            first = try await ensureRunning(m, wake: r.wake ?? true, start: r.start ?? false, emit: emit)
+        }
         // 599i: `doz exec NAME -- codex exec …` works before any session has run (its auth.json, placeholders only).
         if m.config.imageChoice?.agent == .codex, (argv.first as NSString?)?.lastPathComponent == "codex" { await deliverCodexAuth(m) }
         let ctx = Self.execContext(config: m.config, environment: recipeEnvironment(Self.withClaudePermissions(r.environment ?? [:], imageSpec: m.config.spec.imageSpec?.name, own: m.config.settings?[SettingKey.sandboxApprovals]), m),
@@ -1926,8 +1973,10 @@ public actor HostCore {
         let res: ExecResult
         do {
             res = try await m.sandbox.exec(argv, environment: ctx.environment, workingDirectory: ctx.workdir, user: ctx.user,
-                                           timeoutSeconds: r.timeoutSeconds ?? 120)
+                                           timeoutSeconds: deadline.map { ExecDeadline.remaining($0) } ?? r.timeoutSeconds ?? 120)
         } catch {
+            // 678: the guest's wait gave up at the deadline (the program was killed — `Sandbox.exec`).
+            if let deadline, Date() >= deadline.addingTimeInterval(-0.5) { return .timedOut(during: "running", milliseconds: ms(since: t00)) }
             if let plain = Self.missingProgramMessage(error, argv: argv, runsAs: ctx.user) { throw HostError(.notFound, plain) }
             throw error
         }

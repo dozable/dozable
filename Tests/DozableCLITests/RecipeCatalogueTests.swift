@@ -333,6 +333,77 @@ final class RecipeCatalogueTests: XCTestCase {
         XCTAssertTrue(again.problem?.contains("is not newer than 1") == true, again.problem ?? "")
     }
 
+    /// 678: a client (any process but the host's start) decides WHICH catalogue at its start and builds and checks it at
+    /// its first read of a recipe; nothing of it is built before.
+    func testAClientAdoptsTheCurrentCatalogueAtItsFirstRead() throws {
+        var files = try Self.treeFiles()
+        try Self.edit(&files, "agents/grok.json") { $0["description"] = "lazy" }
+        try cache(files, try manifest(files, serial: 3), as: "current.json")
+        let cli = RecipeCatalogueSelection.choose(args: ["ls", "--json"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        XCTAssertEqual(cli.source.serial, 3)
+        XCTAssertNil(cli.problem)
+        XCTAssertTrue(RecipeCatalogue.hasDeferredAdoption, "nothing built at the start")
+        RecipeCatalogue.seal()
+        XCTAssertEqual(AgentRecipes.recipe("grok")?.description, "lazy")
+        XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
+        XCTAssertEqual(RecipeCatalogue.source.serial, 3)
+        // The host's start adopts at once.
+        RecipeCatalogue.resetForTests()
+        _ = RecipeCatalogueSelection.choose(args: ["host", "--foreground"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
+    }
+
+    /// 678: a catalogue that fails a check only the merge finds: the client's first read gets the embedded recipes, the
+    /// refusal is said once (and recorded, so the next start does not try it again).
+    func testAnInvalidCatalogueInAClientFallsBackToTheEmbeddedSetAtTheFirstRead() throws {
+        let grok = RecipeSet.embedded.recipes.first { $0.id == "grok" }?.description
+        var files = try Self.treeFiles()
+        try Self.edit(&files, "agents/grok.json") { $0["description"] = "never" }
+        try Self.edit(&files, "gateways.json") { o in
+            var g = o["gateways"] as! [[String: Any]]
+            g[0]["keys_page"] = "http://insecure.example"
+            o["gateways"] = g
+        }
+        try cache(files, try manifest(files, serial: 4), as: "current.json")
+        final class Said: @unchecked Sendable { var lines: [String] = []; let lock = NSLock() }
+        let said = Said()
+        let cli = RecipeCatalogueSelection.choose(args: ["ls"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true,
+                                                  report: { l in said.lock.withLock { said.lines.append(l) } })
+        XCTAssertNil(cli.problem, "not known at the start")
+        XCTAssertTrue(said.lines.isEmpty)
+        RecipeCatalogue.seal()
+        XCTAssertEqual(AgentRecipes.recipe("grok")?.description, grok, "the first value is the embedded one")
+        XCTAssertTrue(RecipeCatalogue.source.isEmbedded)
+        XCTAssertEqual(said.lines.count, 1)
+        XCTAssertTrue(said.lines.first?.hasPrefix("the recipe catalogue 4 was ignored:") == true, said.lines.first ?? "")
+        XCTAssertNoThrow(try RecipeCatalogue.validateActive())
+        let c = try XCTUnwrap(RecipeCatalogueCache.at(env()))
+        XCTAssertEqual(c.state.refused?.count, 1)
+        // The next client start passes it over quietly: embedded, nothing deferred, nothing said.
+        RecipeCatalogue.resetForTests()
+        let again = RecipeCatalogueSelection.choose(args: ["ls"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true,
+                                                    report: { l in said.lock.withLock { said.lines.append(l) } })
+        XCTAssertTrue(again.source.isEmbedded)
+        XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
+        XCTAssertEqual(AgentRecipes.recipe("grok")?.description, grok)
+        XCTAssertEqual(said.lines.count, 1)
+    }
+
+    /// 678: a tampered file is still refused at the start (sizes and sha256 are checked before anything is deferred).
+    func testATamperedCatalogueInAClientIsRefusedAtTheStart() throws {
+        var files = try Self.treeFiles()
+        let m = try manifest(files, serial: 5)
+        // Same size, other bytes (a size that differs is passed over as "still being written").
+        let text = String(decoding: try XCTUnwrap(files["agents/grok.json"]), as: UTF8.self)
+        XCTAssertTrue(text.contains("Grok"))
+        files["agents/grok.json"] = Data(text.replacingOccurrences(of: "Grok", with: "Grak").utf8)
+        try cache(files, m, as: "current.json")
+        let cli = RecipeCatalogueSelection.choose(args: ["ls"], version: Self.dozVersion, executable: "/x/doz", env: env(), guarded: true)
+        XCTAssertTrue(cli.source.isEmbedded)
+        XCTAssertTrue(cli.problem?.contains("sha256") == true, cli.problem ?? "")
+        XCTAssertFalse(RecipeCatalogue.hasDeferredAdoption)
+    }
+
     func testAfterAnUpgradeAnOlderCatalogueIsPassedOverQuietly() throws {
         let files = try Self.treeFiles()
         try cache(files, try manifest(files, serial: 1, minimumDoz: "0.37.24", sourceVersion: "0.37.24"), as: "current.json")

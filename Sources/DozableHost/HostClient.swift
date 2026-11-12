@@ -39,6 +39,7 @@ public enum HostLauncher {
         posix_spawnattr_init(&attr)
         defer { posix_spawnattr_destroy(&attr) }
         posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETSID | POSIX_SPAWN_CLOEXEC_DEFAULT))
+        posix_spawnattr_set_qos_class_np(&attr, QOS_CLASS_USER_INITIATED)        // 678: as the host's own spawn
         var fa: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&fa)
         defer { posix_spawn_file_actions_destroy(&fa) }
@@ -93,6 +94,8 @@ public enum HostLauncher {
         var none = sigset_t()
         sigemptyset(&none)
         posix_spawnattr_setsigmask(&attr, &none)
+        // 678: the host serves people (wakes, terminals): never the background QoS of the client that started it.
+        posix_spawnattr_set_qos_class_np(&attr, QOS_CLASS_USER_INITIATED)
         var fa: posix_spawn_file_actions_t?
         posix_spawn_file_actions_init(&fa)
         defer { posix_spawn_file_actions_destroy(&fa) }

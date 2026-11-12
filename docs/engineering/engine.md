@@ -29,10 +29,34 @@ A bare file name is in `Sources/DozableKit/`.
 | `Sources/DozableHost/HostClient.swift`, `UnixSocket.swift` | the detached-child launcher, the client, socket plumbing, `ClientWire` (SandboxLab's attach wire) |
 | `Sources/DozableHost/DozableStore.swift`, `Metrics.swift` | the CLI store's files, `SandboxConfig` (`doz.json`), images → specs; the metrics DB (SandboxLab's schema) |
 | `Sources/DozableCLI/` | the commands (ArgumentParser), the attach client, `doctor`; `UICommand.swift` (`doz ui`, `ui link`) |
-| `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`) |
+| `Sources/DozableHost/Settings.swift`, `TOML.swift`; `Sources/DozableCLI/ConfigCommands.swift`; `Sources/DozableWeb/WebSettings.swift` | 591 settings: the CLOSED schema (`DozableSettings.schema`), `${XDG_CONFIG_HOME:-~/.config}/doz/doz.toml` generated from it, our own strict TOML subset (no dependency), precedence flag > env > file > default with a source per value; `doz config`; the UI's Settings page route (`GET`/`POST /api/v1/settings`). 678 (`SettingsRest.swift`): a read checks Dozable's own keys at once against `coreIndexed` (no recipe read) and settles every other line — a recipe's key, a 0.37 name, an unknown key, a `defaults.image` naming a recipe agent — the first time one is asked for (`FileValues`' subscript of a core key, `resolve` of one, never do); `SettingsLazySchemaTests` pins that the result equals the eager read |
 | `Tests/DozableKitTests/` | Unit tests — no VM |
 
 ## Rules that each cost a bug to learn here
+
+- **Every `doz exec` deadline is counted from process start and enforced by the host** (678: a `--timeout 3` exec
+  once ran 40 s — the clock started after the client's start-up and the wake, and the guest program outlived it).
+  `ExecDeadline` (DozableHost): `ProcessStart.date` is the kernel's `p_starttime`; `DozableEntry.main`'s FIRST line arms
+  a watchdog THREAD (never GCD or Swift concurrency — a starved pool cannot hold it back) that `_exit(124)`s 2 s after
+  the deadline. The client sends `HostRequest.deadline` (and `timeoutSeconds`, the time left, for an older host);
+  `HostCore.exec` races the whole operation against it (`race(until:)`): at the deadline it answers
+  `ExecOutput.timedOut(during: waking|starting|running)` — a wake or start under way is NEVER cancelled (it finishes in
+  the background, its events gated off), the guest command is never started after the deadline, and a running one
+  is killed then deleted (`Sandbox.exec`: a failed wait kills). Exit code 124 (`DozableExit.timedOut`); `--json`'s
+  `timedOut` tells it from a program's own 124. `ExecDeadlineTests`, `make test-cli-exectimeout`.
+- **One stuck guest never holds the host's answers** (678 B7: a starved guest made every exec time out, and `doz ls`
+  and `doz down` hung behind it). `HostCore.guestRead` bounds a listing's guest read (`ls`'s session count,
+  `sessions`) by 3 s; a guest that missed it is `unresponsive` (`SandboxInfo.unresponsive`, `ls` shows it, one note)
+  and not asked again for 30 s (a lifecycle request asks again at once), and its balloon is given back. A graceful
+  stop (`.stopContainer`) waits at most 30 s, then stops the VM at the VZ level and says so — the container goes to
+  the Graveyard (never deallocated unclosed). `GuestReadTests`, `BalloonPressureTests`.
+- **A host never keeps a background priority it inherited** (678: a 69 s hibernate from a host that a background
+  agent worker had autostarted — Darwin's background state passes to every child). `HostServer.run` of a LAUNCHED host
+  calls `ProcessPriority.liftInheritedBackground()` (`setpriority(PRIO_DARWIN_PROCESS, 0, 0)`; `host status`
+  `priorityRestored`), and both launcher spawns ask for `QOS_CLASS_USER_INITIATED`; a person's `--foreground` host
+  keeps what they chose. `doz doctor` warns (`priority`, `host priority`) when doz or its host is clamped
+  (`ProcessPriority`: the Darwin background state, the background QoS, `pti_priority`). `ProcessPriorityTests`,
+  `make test-cli-startup`.
 
 - **A host stop shows its progress** (`HostStop.swift`): `host-stop` streams, per sandbox, a
   `started` "hibernating X" and a `step` "hibernated X (snapshot …)" / `failed` (why + "shut down

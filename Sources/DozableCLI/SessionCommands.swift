@@ -16,6 +16,7 @@ struct List: AsyncParsableCommand {
         for r in rows {
             var phase = Out.phaseLabel(r.phase) + (r.busy ? "…" : "")
             if r.diedWithHost == true { phase += " (died with host)" }
+            if r.unresponsive == true { phase += " (unresponsive)" }       // 678 B7: its guest does not answer
             var net = r.network + ((r.deniedConnections ?? 0) > 0 ? " (\(r.deniedConnections!) denied)" : "")
             if let n = r.foreignCredentials, n > 0 { net += " · own key" + (n > 1 ? " ×\(n)" : "") }
             var account = r.account ?? "—"
@@ -302,7 +303,7 @@ struct Exec: AsyncParsableCommand {
     @Option(name: .long, help: "Working directory in the guest (default: the session's).") var workdir: String?
     @Option(name: .long, help: "Run as this guest user (agent images default to their user; `root` for root).") var user: String?
     @Option(name: [.short, .customLong("env")], help: "KEY=VALUE (repeatable).") var env: [String] = []
-    @Option(name: .long, help: "Give up after this many seconds (default 120).") var timeout: Int64 = 120
+    @Option(name: .long, help: "Give up after this many seconds, counted from when doz started — a wake or a start included; exit code 124 (--json says timedOut). The command is killed; a wake or a start under way goes on. Default 120.") var timeout: Int64 = 120
     @Flag(name: .long, help: "Fail instead of waking a sleeping sandbox.") var noWake = false
     @Flag(name: .long, help: "Fail instead of starting (cold-booting) a sandbox that is off.") var noStart = false
     @Argument(parsing: .postTerminator, help: "The command and its arguments, after --.") var command: [String] = []
@@ -311,13 +312,31 @@ struct Exec: AsyncParsableCommand {
         if command.isEmpty { throw ValidationError("which command? doz exec NAME -- CMD…") }
     }
 
+    /// 678: what the deadline stopped, in words.
+    static func during(_ w: String?) -> String {
+        switch w {
+        case "waking": return " — the sandbox was still waking (the wake goes on)"
+        case "starting": return " — the sandbox was still starting (the start goes on)"
+        case "running": return " — the command was killed"
+        default: return ""
+        }
+    }
+
     func run() async throws {
         var r = HostRequest(.exec, name: name)
         r.argv = command
         r.workdir = workdir
         r.user = user
         r.environment = try parseEnv(env)
-        r.timeoutSeconds = timeout
+        // 678: the deadline counts from when this doz started (its watchdog, `ExecDeadline.arm`, ends it a little
+        // after); the host answers at it whatever is under way. An older host gets the seconds left.
+        if timeout > 0 {
+            let deadline = ExecDeadline.deadline(seconds: timeout, start: ProcessStart.date ?? Date())
+            r.deadline = deadline.timeIntervalSince1970
+            r.timeoutSeconds = ExecDeadline.remaining(deadline)
+        } else {
+            r.timeoutSeconds = timeout
+        }
         r.wake = !noWake
         r.start = !noStart      // 594 W27: an off sandbox boots first (its progress on stderr)
         let m = try rawCall(r, g)
@@ -331,10 +350,16 @@ struct Exec: AsyncParsableCommand {
                                           // 594 W27: what had to happen first.
                                           "started": .bool(out.started == true), "woke": .bool(out.woke == true)]
             if let b = out.bootMilliseconds { j["bootMilliseconds"] = .number(b) }
+            // 678: a deadline's 124 is told apart from a program's own.
+            if out.timedOut == true { j["timedOut"] = .bool(true) }
+            if let w = out.timedOutDuring { j["timedOutDuring"] = .string(w) }
             Out.json(j)
         } else {
             FileHandle.standardOutput.write(out.stdout)
             FileHandle.standardError.write(out.stderr)
+            if out.timedOut == true {
+                Out.stderr("\(ExecDeadline.message(timeout))\(Self.during(out.timedOutDuring))\n")
+            }
         }
         if out.exitCode != 0 { throw ExitCode(out.exitCode) }
     }

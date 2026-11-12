@@ -12,7 +12,9 @@ behind the proxy.
 - **Exit codes** say what happened: `0` ok · `1` failed · `2` not found · `3` not possible in this
   state · `4` already exists · `5` not confirmed · `6` host unavailable · `7` not implemented yet ·
   `64` usage. `exec`, `run` and `attach` exit with the program's own code (`125` when `doz` itself
-  failed).
+  failed). `exec` exits `124` when its `--timeout` passed (default 120 s, counted from when `doz`
+  started — a wake or a start included); the command is killed, a wake or a start goes on. A program's
+  own `124` looks the same: `--json` says `"timedOut": true` only for the deadline.
 - **Destructive commands refuse without `--yes`** when there's no terminal, so a script can't delete
   something by accident.
 - **Two agents, two sets of rules.** The agent on your Mac has *your* permissions: it can run `doz`, so

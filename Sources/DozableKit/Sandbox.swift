@@ -560,13 +560,25 @@ public actor Sandbox {
 
     /// Guest RAM the balloon holds right now (handed back to the Mac), bytes.
     private var balloonHeld: UInt64 = 0
+    /// 678 B7: the balloon's target was lowered since the guest last confirmed it empty — an early deflate sets the target
+    /// back and returns at once, so a snapshot must still wait for the guest to take the pages (`deflateBalloon`).
+    private var balloonDirty = false
+    /// 678 B7: the free memory the last inflate left the guest, kB — under it, the host deflates.
+    private var balloonReserveKiB: UInt64 = 0
+    /// 678 B7: the host's watch while the balloon holds anything (`pressureLoop`).
+    private var pressureWatch: Task<Void, Never>?
+    /// 678 B7: a session reports `working` (the host says, from OSC 7501): no inflate now.
+    private var sessionsBusy = false
+    /// 678 B7: a wake's inflate waited for the sessions to be idle.
+    private var inflateDeferred = false
 
     /// Guest RAM, MiB, the balloon currently holds for the Mac (0: the guest has its whole allocation).
     public var memoryReturnedMiB: UInt64 { balloonHeld / 1_048_576 }
 
-    /// The free guest RAM `returnFreeMemory()` leaves the guest by default: a quarter of the
-    /// allocation, at least 256 MiB.
-    public nonisolated var defaultFreeReserveMiB: UInt64 { max(256, spec.memoryMiB / 4) }
+    /// The free guest RAM `returnFreeMemory()` leaves the guest by default with nothing running — 678 B7: half the
+    /// allocation, at least 2 GiB (it was a quarter, at least 256 MiB, and a busy guest woke into a starvation it never
+    /// came back from). The inflate itself uses `BalloonPressure.reserveMiB` with what the guest uses now.
+    public nonisolated var defaultFreeReserveMiB: UInt64 { BalloonPressure.reserveMiB(memoryMiB: spec.memoryMiB, usedMiB: 0) }
 
     /// Hand the Mac back guest RAM the guest is not using: inflate the VM's memory balloon over the
     /// guest's free pages, leaving it `keepingFreeMiB` free (default `defaultFreeReserveMiB`). The
@@ -602,9 +614,12 @@ public actor Sandbox {
         guard phase == .running, let handle, let current = balloonTarget(handle) else { return nil }
         let full = current + balloonHeld
         let t0 = ContinuousClock.now
-        let reserve = (keepingFreeMiB ?? defaultFreeReserveMiB) * 1024
         let m = try await guestMeminfo()
         let free0 = m["MemFree"] ?? 0, before = m["Balloon"] ?? 0
+        // 678 B7: the reserve counts what the guest already uses (its programs, its sessions), and is at least half.
+        let used = (m["MemTotal"] ?? 0) > (m["MemAvailable"] ?? 0) ? ((m["MemTotal"] ?? 0) - (m["MemAvailable"] ?? 0)) / 1024 : 0
+        let reserve = (keepingFreeMiB ?? BalloonPressure.reserveMiB(memoryMiB: spec.memoryMiB, usedMiB: used)) * 1024
+        lastReserveMiB = reserve / 1024
         guard free0 > reserve + 16 * 1024 else {
             return MemoryReturn(returnedMiB: 0, heldMiB: before / 1024, guestFreeMiB: free0 / 1024, milliseconds: milliseconds(since: t0))
         }
@@ -616,6 +631,9 @@ public actor Sandbox {
         }
         _ = balloonTarget(handle, set: target)
         balloonHeld = full - target
+        balloonDirty = true
+        balloonReserveKiB = reserve
+        startPressureWatch()
         guard wait else {
             return MemoryReturn(returnedMiB: (current - target) / 1_048_576, heldMiB: balloonHeld / 1_048_576, guestFreeMiB: free0 / 1024,
                                 milliseconds: milliseconds(since: t0))
@@ -626,22 +644,113 @@ public actor Sandbox {
                             milliseconds: milliseconds(since: t0))
     }
 
-    /// Deflate the balloon completely (the VM must be running) and wait for the guest to take it back.
+    /// Deflate the balloon completely (the VM must be running) and wait for the guest to take it back. 678 B7: also after
+    /// an early deflate (`relieveBalloonNow` set the target and returned): the guest must CONFIRM it is empty before
+    /// anything snapshots it — a snapshot of an inflated balloon does not restore — or this throws, and nothing is saved.
     private func deflateBalloon() async throws {
-        guard balloonHeld > 0, let handle else { balloonHeld = 0; return }
+        guard balloonHeld > 0 || balloonDirty, let handle else { balloonHeld = 0; balloonDirty = false; return }
+        stopPressureWatch()
         let t0 = ContinuousClock.now
         let held = try await guestBalloonKiB()
-        if let current = balloonTarget(handle) { _ = balloonTarget(handle, set: current + balloonHeld) }
+        if balloonHeld > 0, let current = balloonTarget(handle) { _ = balloonTarget(handle, set: current + balloonHeld) }
         balloonHeld = 0
-        _ = try await waitForBalloon(kiB: 0)
-        broadcaster.yield(.step("gave the guest back \(held / 1024) MiB (memory balloon deflated)", milliseconds: milliseconds(since: t0)))
+        let left = try await waitForBalloon(kiB: 0)
+        guard left <= 4 * 1024 else {
+            throw SandboxError.commandFailed(command: "deflate the memory balloon", exitCode: 1,
+                                             output: "the guest still holds \(left / 1024) MiB in its balloon — a snapshot of it would not restore; shut the sandbox down instead")
+        }
+        balloonDirty = false
+        if held > 0 {
+            broadcaster.yield(.step("gave the guest back \(held / 1024) MiB (memory balloon deflated)", milliseconds: milliseconds(since: t0)))
+        }
     }
 
-    /// Poll the guest's balloon (kB) until it is within 2% of `kiB`, stops moving, or 5 s pass.
+    // MARK: 678 B7 — the host's watch while the balloon holds anything
+
+    /// How long a graceful stop may take before the VM is stopped at the VZ level (a guest that no longer answers).
+    static let stopContainerLimit: Duration = .seconds(30)
+    struct StopTimedOut: Error {}
+
+    /// The reserve the last inflate used (the wake's log line).
+    private var lastReserveMiB: UInt64 = 0
+
+    private func startPressureWatch() {
+        pressureWatch?.cancel()
+        pressureWatch = Task { await self.pressureLoop() }
+    }
+
+    private func stopPressureWatch() {
+        pressureWatch?.cancel()
+        pressureWatch = nil
+    }
+
+    /// Every `BalloonPressure.interval` while the balloon holds anything: read the guest's memory (bounded by
+    /// `readLimit`) and deflate — fully, at once, from the host — when it is short, or did not answer in time.
+    private func pressureLoop() async {
+        while !Task.isCancelled {
+            try? await Task.sleep(for: BalloonPressure.interval)
+            if Task.isCancelled { return }
+            guard balloonHeld > 0, handle != nil else { break }
+            guard phase == .running else { continue }            // paused: nothing allocates; the watch waits
+            let read = Task { try await self.guestMeminfo() }
+            let m = await BalloonPressure.value(of: read, within: BalloonPressure.readLimit)
+            if Task.isCancelled || balloonHeld == 0 { return }
+            if case .deflate(let why) = BalloonPressure.decide(meminfo: m, reserveKiB: balloonReserveKiB) {
+                relieveBalloonNow(why)
+                return
+            }
+        }
+        pressureWatch = nil
+    }
+
+    /// Give the guest its whole allocation back NOW — VZ's balloon target, set from the host, needs no answer from the
+    /// guest (a starved one cannot give one). It takes the pages back at its own pace (`balloonDirty` until a deflate
+    /// confirms it); no inflate follows until the next wake.
+    private func relieveBalloonNow(_ why: String) {
+        inflateDeferred = false
+        guard balloonHeld > 0, let handle, let current = balloonTarget(handle) else { return }
+        _ = balloonTarget(handle, set: current + balloonHeld)
+        let held = balloonHeld
+        balloonHeld = 0
+        stopPressureWatch()
+        note("gave the guest back \(held / 1_048_576) MiB at once (memory balloon deflated: \(why))")
+    }
+
+    /// 678 B7: the host says the guest is about to work (a session turned `working`, a session or a command started):
+    /// deflate now rather than wait for the watch.
+    public func relieveMemoryPressure(_ why: String) {
+        relieveBalloonNow(why)
+    }
+
+    /// 678 B7: whether a session reports `working` (the host's OSC 7501 status). Busy: no inflate (a wake's waits) and
+    /// the balloon is given back; idle again: a wake's waiting inflate runs.
+    public func setSessionsBusy(_ busy: Bool) {
+        guard busy != sessionsBusy else { return }
+        sessionsBusy = busy
+        if busy {
+            relieveBalloonNow("a session started work")
+        } else if inflateDeferred, phase == .running, returnsFreeMemoryOnWake {
+            inflateDeferred = false
+            Task {
+                guard let r = try? await self.returnFreeMemory(), r.heldMiB > 0 else { return }
+                await self.note(String(format: "returning %llu MiB of untouched guest RAM to the Mac now its sessions are idle (memory balloon; keeps %llu)",
+                                       r.heldMiB, await self.lastReserveMiB))
+            }
+        }
+    }
+
+    /// The balloon's state, for the tests: held MiB, whether the host still waits for the guest to confirm a deflate,
+    /// whether the watch runs.
+    public var balloonState: (heldMiB: UInt64, unconfirmed: Bool, watching: Bool) {
+        (balloonHeld / 1_048_576, balloonDirty, pressureWatch != nil)
+    }
+
+    /// Poll the guest's balloon (kB) until it is within 2% of `kiB`, stops moving, or 5 s pass (15 s while it still moves
+    /// toward empty: a large balloon takes a moment to give back).
     private func waitForBalloon(kiB goal: UInt64) async throws -> UInt64 {
         var b: UInt64 = 0, last: UInt64 = .max, still = 0
         let tolerance = max(goal / 50, 4 * 1024)
-        let deadline = ContinuousClock.now + .seconds(5)
+        let deadline = ContinuousClock.now + .seconds(goal == 0 ? 15 : 5)
         while ContinuousClock.now < deadline {
             b = try await guestBalloonKiB()
             if b + tolerance >= goal && b <= goal + tolerance { break }
@@ -861,8 +970,9 @@ public actor Sandbox {
             guard let instance else { throw SandboxError.vmUnavailable }
             try await timed("resumed the VM") { try await instance.resume() }
             setPhase(.running)
+            if balloonHeld > 0, pressureWatch == nil { startPressureWatch() }      // 678 B7
         case .restoreGuestMemory:
-            if balloonHeld > 0 { try await deflateBalloon() }
+            if balloonHeld > 0 || balloonDirty { try await deflateBalloon() }
         case .syncGuest:
             guard container != nil else { return }
             do {
@@ -881,7 +991,7 @@ public actor Sandbox {
             }
         case .saveSnapshot:
             guard let handle else { throw SandboxError.vmUnavailable }
-            if balloonHeld > 0, let instance {
+            if balloonHeld > 0 || balloonDirty, let instance {
                 // A snapshot taken with the balloon inflated does not restore ("invalid argument"):
                 // let the guest take it back first. (Sleep from Pause lands here; from running,
                 // `.restoreGuestMemory` already did it before the pause.)
@@ -919,8 +1029,18 @@ public actor Sandbox {
         case .stopContainer:
             guard let container else { return }
             do {
-                try await timed("stopped the container") { try await container.stop() }
+                // 678 B7: a wedged guest (a starved kernel, every exec failing) never finishes a graceful stop — after
+                // `stopContainerLimit` the VM is stopped at the VZ level instead; the container is not deallocated
+                // (Graveyard: `cleanlyStopped` stays false), and the stop says so.
+                let stop = Task { () throws -> Bool in try await container.stop(); return true }
+                try await timed("stopped the container") {
+                    guard let r = await BalloonPressure.outcome(of: stop, within: Self.stopContainerLimit) else { throw StopTimedOut() }
+                    _ = try r.get()
+                }
                 cleanlyStopped = true
+            } catch is StopTimedOut {
+                if let handle, !vzStateIsStopped(handle) { try? await vz(handle, .stop) }
+                note("the guest did not stop within \(Self.stopContainerLimit.components.seconds) s (it does not answer) — stopped the VM at the VZ level")
             } catch {
                 // LinuxContainer.stop() tries every step and reports the first error — typically
                 // "Client has been stopped" from an exec that was attached before a sleep to disk.
@@ -937,6 +1057,8 @@ public actor Sandbox {
         case .restoreSnapshot:
             guard let handle else { throw SandboxError.vmUnavailable }
             balloonHeld = 0                             // snapshots are only ever taken deflated
+            balloonDirty = false
+            stopPressureWatch()
             try await timed("restored VM state from disk") { try await vz(handle, .restore(layout.snapshot)) }
             try await timed("resumed") { try await vz(handle, .resume) }
             setPhase(.running)
@@ -1012,10 +1134,16 @@ public actor Sandbox {
             snapshotBytes = 0
         case .returnFreeMemory:
             guard returnsFreeMemoryOnWake else { return }
+            // 678 B7: never under a session at work — the inflate waits until they are idle (`setSessionsBusy`).
+            if sessionsBusy {
+                inflateDeferred = true
+                note("the memory balloon waits: a session is at work (it returns the untouched RAM once they are idle)")
+                return
+            }
             do {
                 if let r = try await returnFreeMemoryLocked(wait: false) {
                     broadcaster.yield(.step(String(format: "returning %llu MiB of untouched guest RAM to the Mac (memory balloon; the guest had %llu MiB free, keeps %llu)",
-                                                   r.heldMiB, r.guestFreeMiB, defaultFreeReserveMiB), milliseconds: r.milliseconds))
+                                                   r.heldMiB, r.guestFreeMiB, lastReserveMiB), milliseconds: r.milliseconds))
                 }
             } catch {
                 note("could not return free guest RAM (\(error.localizedDescription)) — the wake is unaffected")
@@ -1040,6 +1168,8 @@ public actor Sandbox {
                 try? p.write(to: layout.persistedState)
             }
             container = nil; instance = nil; handle = nil; identity = nil; cleanlyStopped = false; balloonHeld = 0
+            balloonDirty = false; inflateDeferred = false
+            stopPressureWatch()
             egress?.stopListening()
             sshRelayBox.withLock { $0 }?.stop()          // 599d: listens again at the next boot
             egress?.vault.revokeAll()
@@ -1345,6 +1475,8 @@ public actor Sandbox {
         instance = inst
         handle = h
         balloonHeld = 0
+        balloonDirty = false
+        stopPressureWatch()
         let egressT0 = ContinuousClock.now
         try listenForEgress()
         if restoring, egress != nil { broadcaster.yield(.step("restore: the proxy's vsock listener", milliseconds: milliseconds(since: egressT0))) }
@@ -2187,10 +2319,18 @@ public actor Sandbox {
         // Every exec is deleted, whatever happens: deletion is what closes its vminitd client.
         do {
             try await p.start()
+        } catch {
+            try? await p.delete()
+            throw error
+        }
+        do {
             let st = try await p.wait(timeoutInSeconds: timeout)
             try? await p.delete()
             return ExecResult(exitCode: st.exitCode, stdout: out.data, stderr: err.data)
         } catch {
+            // 678: a wait that gave up (its timeout) left the program running in the guest — `doz exec --timeout 3 --
+            // sleep 30` kept its sleep. Kill it, then delete it (best effort: it may have ended by itself).
+            try? await p.kill(.kill)
             try? await p.delete()
             throw error
         }

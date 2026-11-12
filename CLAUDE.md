@@ -89,7 +89,13 @@ One row per area; each area's doc starts with the full table of its files.
   (nil = an older build's VM — restore it WITHOUT one) and is true on every cold boot. `wake()`
   inflates it over free guest pages — 651: AFTER the wake is reported done, the last of its background
   steps (see "A wake is done when the guest runs") — and it STAYS inflated (VZ charges the pages again on deflate —
-  measured). `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
+  measured) UNLESS the guest needs it (678 B7: an 8 GiB guest ballooned to a quarter wedged under npm installs —
+  atomic allocations failed, its OOM killer never ran, so deflate-on-OOM never fired): the reserve is at least half
+  plus what runs (`BalloonPressure.reserveMiB`); no inflate while a session reports `working` (it waits for idle);
+  while the balloon holds anything the HOST reads the guest's `/proc/meminfo` every 2 s and deflates at once, from its
+  side (VZ's target needs no guest answer), when `MemAvailable` falls under the reserve, a read takes over 3 s, a
+  session turns `working` or a session opens. An early deflate leaves the balloon UNCONFIRMED (`balloonDirty`) until
+  a deflate sees the guest's `Balloon:` at 0 — a snapshot path throws rather than snapshot it. `hardening balloon-pressure`. `.restoreGuestMemory` runs before every pause-for-snapshot, and `saveSnapshot` deflates
   a paused one (resume → deflate → pause): a snapshot of an inflated balloon fails to restore
   (`VZErrorDomain 12 invalid argument`). Progress is read from the guest's `/proc/meminfo`
   `Balloon:` line — VZ offers DEFLATE_ON_OOM, so MemTotal never moves.
@@ -369,6 +375,7 @@ make test-cli-timezone # 594 W10: the Mac's (stubbed) zone at boot and every wak
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
+make test-cli-exectimeout # exec --timeout from doz's start, 124 from the host: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
 make test-recipe-catalogue # 652: the recipe catalogue end to end — publish (throwaway key) into a DIRECTORY_DIR (CNAME, .nojekyll, index.json; the update site refused) → a local server standing in for doz.sh → the host's refresh → the next start uses it; doz.sh/… names resolve with no request; tampered refused
 make test-community-recipes # 653: your own recipes and community catalogues end to end (throwaway keys, a local server): check fails then passes, labels, Dozable's id refused, confirm before fetch, a clash refused whole, tampered refused, removal keeps a sandbox
@@ -390,6 +397,7 @@ make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query ans
 make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
 make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing
 make test FILTER=Suite # the matching unit tests only (swift test --filter)
+make test-cli-startup  # the cost of a start: ls/sessions/exec/attach build no recipe part (DOZ_TEST_STARTUP_TRACE=1); doz ls --json median <= 60 ms, <= 1 s under taskpolicy -b; doctor's priority warning; a host started from the background leaves it (scratch store, no VM)
 make test-vm-status  # 612: a FAKE agent's status through deckhold, the host and the CLI — no viewer and a viewer, sleep/hibernate + wake, the exit, shutdown (scratch store)
 make test-cli-hoststop # 594 W22: test-cli's host-stop part alone (per-sandbox progress plain/animated, --json, nothing running, a host killed mid-stop)
 make pullbench       # 594 D12: the node base pulled with 3 vs 6 concurrent layer downloads, fresh stores (network)

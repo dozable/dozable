@@ -412,8 +412,9 @@ public enum RecipeExtras {
 
     // MARK: - the choice, at a process's start
 
-    /// What this process adopted (doctor, `doz recipe ls`).
-    nonisolated(unsafe) public static var startOutcomes: [RecipeCatalogue.ExtraOutcome] = []
+    /// What this process adopted (doctor, `doz recipe ls`). 678: read from the recipe set, so a client's deferred
+    /// adoption has run first.
+    public static var startOutcomes: [RecipeCatalogue.ExtraOutcome] { RecipeCatalogue.extras }
     /// What the snapshot refused before adoption.
     nonisolated(unsafe) public static var startRefused: [RecipeInUse.Refusal] = []
 
@@ -423,13 +424,16 @@ public enum RecipeExtras {
     public static func chooseAtStart(args: [String], version: String, compile: (String) throws -> Data,
                                      env: [String: String] = ProcessInfo.processInfo.environment) -> [RecipeCatalogue.ExtraOutcome] {
         guard let p = RecipeExtrasPaths.at(env) else { return [] }
-        if RecipeCatalogueSelection.isHostStart(args) { rebuild(p, compile: compile, version: version, promote: true, env: env) }
-        return adopt(p)
+        let host = RecipeCatalogueSelection.isHostStart(args)
+        if host { rebuild(p, compile: compile, version: version, promote: true, env: env) }
+        // 678: a client reads the snapshot's files now and adopts them at its first read of a recipe.
+        return adopt(p, deferred: !host)
     }
 
-    /// Adopt the snapshot (`RecipeCatalogue.adoptExtras`).
+    /// Adopt the snapshot (`RecipeCatalogue.adoptExtras`). 678: `deferred` — at the first read of a recipe (returns
+    /// nothing now; `startOutcomes` says what it did).
     @discardableResult
-    public static func adopt(_ p: RecipeExtrasPaths) -> [RecipeCatalogue.ExtraOutcome] {
+    public static func adopt(_ p: RecipeExtrasPaths, deferred: Bool = false) -> [RecipeCatalogue.ExtraOutcome] {
         guard let u = inUse(p) else { return [] }
         startRefused = u.refused
         let sources = u.sources.map { s in
@@ -438,8 +442,7 @@ public enum RecipeExtras {
             }, published: s.published)
         }
         guard !sources.isEmpty else { return [] }
-        startOutcomes = RecipeCatalogue.adoptExtras(sources)
-        return startOutcomes
+        return RecipeCatalogue.adoptExtras(sources, deferred: deferred)
     }
 
     /// The `doz doctor` line (nil: nothing that is not Dozable's).

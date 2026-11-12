@@ -277,7 +277,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(text.contains("\nboot_view_on_start = false\n"))
         XCTAssertFalse(text.contains("# boot_view_on_start ="))
         XCTAssertTrue(text.contains("\n# confirm_shutdown = true\n"))
-        XCTAssertEqual(DozableSettings(text: text).fileValues, values)
+        XCTAssertEqual(DozableSettings(text: text).fileValues.all, values)
     }
 
     func testUnknownKeysAndBadValuesAreWarningsNeverACrash() throws {
@@ -300,7 +300,7 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").source, .default)
         XCTAssertEqual(s.resolve("ui.boot_view_on_start").value, .bool(false))
         // A rewrite keeps the unknown keys, as they were.
-        let again = DozableSettings(text: DozableSettings.render(values: s.fileValues, unknown: s.unknown))
+        let again = DozableSettings(text: DozableSettings.render(values: s.fileValues.all, unknown: s.unknown))
         XCTAssertEqual(again.unknown.map(\.path), ["ui.colour", "future.thing"])
         XCTAssertEqual(again.fileValues, s.fileValues)
     }

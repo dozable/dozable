@@ -133,7 +133,13 @@ it: any command that needs it does.
 `doz onboard`. Your project folders
 and keychain are untouched.
 
+**Everything is slow — a wake takes a minute?**
+Run `doz doctor`. When `doz` was started at macOS background priority (by `taskpolicy -b`, or by a tool or agent that
+runs in the background), it and everything it starts run many times slower; doctor's `priority` line says so and how
+to move it out. A host started that way leaves the background priority by itself (`host priority` in doctor).
+
 **Exit codes?**
 `0` ok · `1` failed · `2` not found · `3` not possible in this state · `4` already exists · `5` not
 confirmed · `6` host unavailable · `7` not implemented yet · `64` usage. `exec`, `run` and `attach`
-exit with the program's own code (`125` when `doz` itself failed).
+exit with the program's own code (`125` when `doz` itself failed; `exec`'s `124` when its `--timeout`
+passed — `--json` adds `"timedOut": true`).

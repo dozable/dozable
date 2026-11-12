@@ -1098,6 +1098,138 @@ public enum AgentImages {
         """
     }
 
+    // MARK: 678 — the launcher refreshed at run time
+
+    /// The baked launcher's second line: what a runtime refresh looks for before it replaces a file (never another one).
+    static let launcherMarkerLine = "# doz: Claude Code with its first-run setup done and, by default, its permission prompts off."
+
+    /// Where a launcher finds things — the guest's paths, or a test's.
+    struct LauncherPaths {
+        var claude = "/usr/local/bin/claude"
+        var setupDir = "/usr/local/lib/doz"
+        var prompt = "/run/doz/agent-prompt.md"
+        /// What runs the setup file (nil: the setup's own interpreter, `node` / `python3`).
+        var setupRunner: String? = nil
+        static let guest = LauncherPaths()
+    }
+
+    /// The launcher as the host writes it at every agent session start (`launcherRefreshScript`) — the baked one
+    /// (`launcherScript`, byte-identical: it is in the bake key) with one change (678, #386): the facts are COMBINED
+    /// with a caller's `--append-system-prompt` (every one of them, `=` form and `-file` too — Claude Code keeps only the
+    /// last) instead of being skipped when there is one. A value that already holds the facts (their first line —
+    /// a caller that passes `$(cat /run/doz/agent-prompt.md)` itself) gets nothing added. `--system-prompt` (a
+    /// deliberate full replacement) and the subcommands are left as they are. Its third line names its version.
+    static func launcherRuntimeScript(_ setup: LauncherSetup, paths: LauncherPaths = .guest) -> String {
+        let body = launcherRuntimeBody(setup, paths: paths)
+        return "#!/bin/sh\n" + launcherMarkerLine + "\n" + launcherVersionLine(body) + "\n" + body
+    }
+
+    /// `# doz-launcher: <12 hex of the body>` — a refresh replaces a launcher whose third line differs.
+    static func launcherVersionLine(_ body: String) -> String {
+        "# doz-launcher: " + SHA256.hash(data: Data(body.utf8)).prefix(6).map { String(format: "%02x", $0) }.joined()
+    }
+
+    static func launcherRuntimeBody(_ setup: LauncherSetup, paths p: LauncherPaths) -> String {
+        let (file, run): (String, String) = switch setup {
+        case .node: ("claude-setup.js", "node")
+        case .python: ("claude-setup.py", "python3")
+        }
+        return #"""
+        mode=skip
+        [ "${DOZ_CLAUDE_PERMISSIONS:-skip}" = ask ] && mode=ask
+        [ "$(id -u)" = 0 ] && mode=ask
+        \#(p.setupRunner ?? run) \#(p.setupDir)/\#(file) "$mode" || echo "doz: could not pre-seed Claude Code's setup" >&2
+        # The sandbox's facts (the host writes them at every session start) go to Claude Code's system prompt, COMBINED
+        # with every --append-system-prompt the caller gives (Claude Code keeps only one) — not for a subcommand, not when
+        # the caller replaces the prompt (--system-prompt), and not again when a value already holds them.
+        p=\#(p.prompt)
+        if [ -s "$p" ]; then
+          case "$1" in
+            mcp|plugin|plugins|setup-token|doctor|update|upgrade|install|config|migrate-installer|auth|agents) ;;
+            *)
+              replace=0
+              for a in "$@"; do
+                case "$a" in
+                  --) break ;;
+                  --system-prompt|--system-prompt=*|--system-prompt-file|--system-prompt-file=*) replace=1 ;;
+                esac
+              done
+              if [ "$replace" = 0 ]; then
+                nl='
+        '
+                facts=$(cat "$p")
+                first=$(sed -n '/[^[:space:]]/{p;q;}' "$p")
+                own= have=0 found=0 n=$#
+                while [ "$n" -gt 0 ]; do
+                  a=$1; shift; n=$((n - 1))
+                  v= take=0
+                  case "$a" in
+                    --append-system-prompt)
+                      if [ "$n" -gt 0 ]; then v=$1; shift; n=$((n - 1)); take=1; fi ;;
+                    --append-system-prompt=*) v=${a#--append-system-prompt=}; take=1 ;;
+                    --append-system-prompt-file)
+                      if [ "$n" -gt 0 ] && [ -r "$1" ]; then v=$(cat "$1"); shift; n=$((n - 1)); take=1; fi ;;
+                    --append-system-prompt-file=*)
+                      if [ -r "${a#--append-system-prompt-file=}" ]; then v=$(cat "${a#--append-system-prompt-file=}"); take=1; fi ;;
+                    --)
+                      set -- "$@" "$a"
+                      while [ "$n" -gt 0 ]; do set -- "$@" "$1"; shift; n=$((n - 1)); done
+                      continue ;;
+                  esac
+                  if [ "$take" = 1 ]; then
+                    found=1
+                    if [ -n "$first" ]; then case "$v" in *"$first"*) have=1 ;; esac; fi
+                    own="$own${own:+$nl$nl}$v"
+                  else
+                    set -- "$@" "$a"
+                  fi
+                done
+                if [ "$have" = 1 ]; then prompt=$own
+                elif [ "$found" = 1 ]; then prompt="$facts$nl$nl$own"
+                else prompt=$facts
+                fi
+                set -- --append-system-prompt "$prompt" "$@"
+              fi ;;
+          esac
+        fi
+        [ "$mode" = skip ] && exec \#(p.claude) --dangerously-skip-permissions "$@"
+        exec \#(p.claude) "$@"
+
+        """#
+    }
+
+    /// 678: the host's refresh of the launcher, run as root at every agent session start (`deliverAgentPrompt`), so a
+    /// baked image gets the runtime launcher without a re-bake (the bake key stays: `test_nodeImagesAreByteIdentical`).
+    /// It replaces `~agent/.local/bin/claude` ONLY when that file is the doz launcher (its second line) and an older
+    /// version of it (its third line), Node or python setup kept as baked; staged root-owned outside the agent's home,
+    /// then renamed over it — never through a link the agent made. Best effort: it never fails the session.
+    public static var launcherRefreshScript: String {
+        let node = launcherRuntimeScript(.node), py = launcherRuntimeScript(.python)
+        let vNode = launcherVersionLine(launcherRuntimeBody(.node, paths: .guest))
+        let vPy = launcherVersionLine(launcherRuntimeBody(.python, paths: .guest))
+        return """
+        (
+        f=/home/agent/.local/bin/claude
+        t=/usr/local/lib/doz/.claude-launcher.new
+        if [ -f "$f" ] && [ ! -L "$f" ] && [ ! -L /home/agent/.local ] && [ ! -L /home/agent/.local/bin ] && [ -d /usr/local/lib/doz ] \\
+           && [ "$(sed -n 2p "$f")" = '\(launcherMarkerLine)' ]; then
+          if grep -q 'claude-setup.py' "$f"; then want='\(vPy)'; kind=py; else want='\(vNode)'; kind=js; fi
+          if [ "$(sed -n 3p "$f")" != "$want" ]; then
+            rm -f "$t"
+            if [ "$kind" = py ]; then
+        cat > "$t" <<'DOZLAUNCHER'
+        \(py)DOZLAUNCHER
+            else
+        cat > "$t" <<'DOZLAUNCHER'
+        \(node)DOZLAUNCHER
+            fi
+            chmod 0755 "$t" && chown agent:agent "$t" && mv -f "$t" "$f"
+          fi
+        fi
+        ) || true
+        """
+    }
+
     /// 596: `claude-setup.js`, in python3 — the same keys, the same atomic 0600 writes.
     static let claudeSetupPython = """
         json, os, sys = __import__('json'), __import__('os'), __import__('sys')   # (no line starts with an import: the audit reads Swift's)

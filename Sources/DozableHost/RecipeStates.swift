@@ -95,9 +95,9 @@ public enum RecipeStates {
     /// 669: this Mac's values of a recipe, removed from doz.toml (`--forget-settings`) — the file's other values kept.
     @discardableResult
     public static func forgetSettings(_ id: String, settings: DozableSettings) throws -> DozableSettings {
-        var values = settings.fileValues
+        var values = settings.fileValues.all
         for d in DozableSettings.recipeDefinitions(id) { values[d.key] = nil }
-        guard values != settings.fileValues else { return settings }
+        guard values != settings.fileValues.all else { return settings }
         return try settings.writingAll(values)
     }
 

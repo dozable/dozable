@@ -160,8 +160,11 @@ public enum RecipeCatalogueSelection {
     /// `DozableEntry`'s first step: choose, install, seal — before anything reads a recipe.
     /// 653: `extras` runs between Dozable's own choice and the seal — the recipes that are not Dozable's
     /// (`RecipeExtras.chooseAtStart`).
-    public static func chooseAtStart(args: [String], version: String, executable: String, extras: () -> Void = {}) -> RecipeCatalogueChoice {
-        let c = choose(args: args, version: version, executable: executable)
+    /// 678: in a process that is not the host's start, the catalogue's merge and checks (and the extras') run at the
+    /// first read of a recipe — `report` gets a refusal found then (one line, said once like a refusal at the start).
+    public static func chooseAtStart(args: [String], version: String, executable: String, extras: () -> Void = {},
+                                     report: @escaping @Sendable (String) -> Void = { _ in }) -> RecipeCatalogueChoice {
+        let c = choose(args: args, version: version, executable: executable, report: report)
         extras()
         RecipeCatalogue.seal()
         startChoice = c
@@ -201,9 +204,12 @@ public enum RecipeCatalogueSelection {
     @discardableResult
     public static func choose(args: [String], version: String, executable: String,
                               env: [String: String] = ProcessInfo.processInfo.environment,
-                              guarded: Bool? = nil, now: Date = Date()) -> RecipeCatalogueChoice {
+                              guarded: Bool? = nil, now: Date = Date(),
+                              report: @escaping @Sendable (String) -> Void = { _ in }) -> RecipeCatalogueChoice {
         let guarded = guarded ?? TestSafety.guarded(env)
         let seam = RecipeCatalogueSeam.from(env)
+        // 678: only the host's start adopts at once; any other process at its first read of a recipe.
+        let deferred = !isHostStart(args)
         var choice = RecipeCatalogueChoice(source: .embedded)
         if seam == nil {
             if guarded { choice.notLooked = "a test run (no DOZ_TEST_RECIPE_CATALOGUE)"; return choice }
@@ -221,7 +227,9 @@ public enum RecipeCatalogueSelection {
                 if let p = problem(m, key: key, version: version) { throw SandboxError.invalidSpec(p) }
                 let folder = url.deletingLastPathComponent().appendingPathComponent(m.base, isDirectory: true)
                 guard let files = RecipeCatalogueCache.readFiles(m, from: folder) else { throw SandboxError.invalidSpec("a file it names is missing") }
-                choice.source = try RecipeCatalogue.adopt(m, files: files)
+                choice.source = try RecipeCatalogue.adopt(m, files: files, deferred: deferred) { error in
+                    report("the recipe catalogue \(url.path) was ignored: \(RecipeCatalogue.reason(error))")
+                }
             } catch {
                 choice.problem = "the recipe catalogue \(url.path) was ignored: \(RecipeCatalogue.reason(error))"
                 choice.reportNow = true
@@ -252,7 +260,18 @@ public enum RecipeCatalogueSelection {
                 if c.isNext, m.serial <= inUse { throw SandboxError.invalidSpec("serial \(m.serial) is not newer than \(inUse)") }
                 // A file missing is no verdict (a host start may be promoting a newer one this moment): passed over.
                 guard let files = RecipeCatalogueCache.readFiles(m, from: cache.filesDir(serial: m.serial)) else { continue }
-                choice.source = try RecipeCatalogue.adopt(m, files: files)
+                // A deferred refusal (a client: never `next`) keeps the same record as one found here: refused for this
+                // version, said once.
+                choice.source = try RecipeCatalogue.adopt(m, files: files, deferred: deferred && !c.isNext) { error in
+                    let why = RecipeCatalogue.reason(error)
+                    var st = cache.state
+                    var r = st.refused ?? [:]
+                    r[refusalKey] = why
+                    st.refused = r
+                    let line = "the recipe catalogue \(m.serial) was ignored: \(why)"
+                    if st.record(line, now: Date()) { report(line) }
+                    st.save(cache.stateURL)
+                }
                 if c.isNext {
                     if rename(cache.nextURL.path, cache.currentURL.path) == 0 {
                         choice.promoted = true

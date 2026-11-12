@@ -340,6 +340,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     public var user: String?
     public var workdir: String?
     public var timeoutSeconds: Int64?
+    /// 678: exec — the deadline itself (seconds since 1970), counted by the client from when its process started. The
+    /// host answers at it whatever is under way (`timeoutSeconds` is still sent, the time left, for an older host).
+    public var deadline: Double?
     /// Restore point id or name; image name; new sandbox name (fork); a note.
     public var point: String?
     public var pointName: String?
@@ -695,6 +698,8 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
     public var createdAt: Date?
     /// The sandbox was running when the previous host died: its disk gets e2fsck at the next start.
     public var diedWithHost: Bool?
+    /// 678 B7: its guest did not answer a read in time (its phase is kept; `doz shutdown` stops it).
+    public var unresponsive: Bool? = nil
     /// 588: the Anthropic account it uses (nil: none), the credential's state (`ok`,
     /// `expires-soon`, `expired`, `signed-out`, `held`, `missing`…), the proxy policy for the
     /// guest's own credentials, and how many such credentials it has seen.
@@ -776,7 +781,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case name, image, phase, busy, cpus, memoryMiB, ramHeldMiB, memoryReturnedMiB, diskBytes, sessions, network, deniedConnections
-        case workspace, createdAt, diedWithHost, account, credentialState, credentialPolicy, foreignCredentials, workspaceCreated, isolated
+        case workspace, createdAt, diedWithHost, unresponsive, account, credentialState, credentialPolicy, foreignCredentials, workspaceCreated, isolated
         case agent, credentialProblem, base, imageTitle, dockerfile, rebuildAvailable
         case olderImage, olderImageLine, imageNotice      // 594 W28
         case workspaceRules                               // 599g
@@ -811,6 +816,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         workspace = try c.decodeIfPresent(String.self, forKey: .workspace)
         createdAt = try c.decodeIfPresent(Date.self, forKey: .createdAt)
         diedWithHost = try c.decodeIfPresent(Bool.self, forKey: .diedWithHost)
+        unresponsive = try c.decodeIfPresent(Bool.self, forKey: .unresponsive)
         account = try c.decodeIfPresent(String.self, forKey: .account)
         credentialState = try c.decodeIfPresent(String.self, forKey: .credentialState)
         credentialPolicy = try c.decodeIfPresent(String.self, forKey: .credentialPolicy)
@@ -863,6 +869,7 @@ public struct SandboxInfo: Codable, Equatable, Sendable {
         try c.encode(isolated, forKey: .isolated)
         try c.encodeIfPresent(createdAt, forKey: .createdAt)
         try c.encodeIfPresent(diedWithHost, forKey: .diedWithHost)
+        try c.encodeIfPresent(unresponsive, forKey: .unresponsive)
         try c.encodeIfPresent(account, forKey: .account)
         try c.encodeIfPresent(credentialState, forKey: .credentialState)
         try c.encodeIfPresent(credentialPolicy, forKey: .credentialPolicy)
@@ -1122,6 +1129,23 @@ public struct ExecOutput: Codable, Equatable, Sendable {
     public var started: Bool? = nil
     public var woke: Bool? = nil
     public var bootMilliseconds: Double? = nil
+    /// 678: the deadline passed (exit code 124): before the command could start, or while it ran (it was killed).
+    public var timedOut: Bool? = nil
+    /// 678: what was under way then — `waking`, `starting` or `running` (a wake or a start goes on in the background).
+    public var timedOutDuring: String? = nil
+
+    /// 678: the answer at the deadline.
+    public static func timedOut(during: String, milliseconds: Double) -> ExecOutput {
+        var o = ExecOutput(exitCode: DozableExitCode.timedOut, stdout: Data(), stderr: Data(), milliseconds: milliseconds)
+        o.timedOut = true
+        o.timedOutDuring = during
+        return o
+    }
+}
+
+/// 678: GNU `timeout`'s exit code — `doz exec`'s when its deadline passed (`ExecOutput.timedOut`, the client's watchdog).
+public enum DozableExitCode {
+    public static let timedOut: Int32 = 124
 }
 
 /// `open-session`.
@@ -1288,6 +1312,10 @@ public struct HostStatus: Codable, Equatable, Sendable {
     public var parentPid: Int32?
     public var sessionID: Int32?
     public var launchedDetached: Bool?
+    /// 678: how macOS schedules the host (doctor warns when it is clamped to background), and whether it left a
+    /// background state it inherited from the client that started it.
+    public var priority: ProcessPriority?
+    public var priorityRestored: Bool?
     /// EXPERIMENTAL (604): the Mac app macOS asks about the microphone for, for this host's audio sandboxes
     /// (its responsible app).
     public var microphoneApp: String?

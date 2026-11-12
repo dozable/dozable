@@ -307,14 +307,26 @@ struct HostRestart: AsyncParsableCommand {
 public enum DozableEntry {
     public static func main() async -> Never {
         let args = Array(CommandLine.arguments.dropFirst())
+        // 678: `doz exec`'s deadline counts from the process's start — its watchdog is armed before anything else.
+        ExecDeadline.arm(args)
+        // 678: a guarded test run can ask which lazy parts this process builds (`make test-cli-startup`).
+        let env = ProcessInfo.processInfo.environment
+        if env["DOZ_TEST_STARTUP_TRACE"] == "1", TestSafety.guarded(env) {
+            StartupTrace.install { Out.stderr("doz-startup-trace: \($0)\n") }
+        }
         // The recipes this process uses — chosen ONCE, before anything reads one (the embedded set, or a verified
         // recipe catalogue; RecipeCatalogueClient.swift). Never swapped afterwards.
         // 653: then the recipes that are not Dozable's — yours and the community catalogues you added (the snapshot the last
         // host start chose; a host's own start chooses it anew — RecipeExtras.swift).
-        let recipes = RecipeCatalogueSelection.chooseAtStart(args: args, version: DozableCommand.version, executable: HostLauncher.executablePath) {
+        // 678: outside the host's start, the catalogue's merge and checks run at the first read of a recipe; a refusal
+        // found then is said the same way.
+        let saysRecipeProblems = !args.contains(where: { ["--json", "-q", "--quiet"].contains($0) }) && isatty(STDERR_FILENO) == 1
+        let recipes = RecipeCatalogueSelection.chooseAtStart(args: args, version: DozableCommand.version, executable: HostLauncher.executablePath, extras: {
             RecipeExtras.chooseAtStart(args: args, version: DozableCommand.version, compile: RecipeSource.compile)
-        }
-        if let p = recipes.problem, recipes.reportNow, !args.contains(where: { ["--json", "-q", "--quiet"].contains($0) }), isatty(STDERR_FILENO) == 1 {
+        }, report: { p in
+            if saysRecipeProblems { Out.stderr("doz: \(p) — using \(RecipeCatalogue.source.describe(dozVersion: DozableCommand.version))\n") }
+        })
+        if let p = recipes.problem, recipes.reportNow, saysRecipeProblems {
             Out.stderr("doz: \(p) — using \(recipes.source.describe(dozVersion: DozableCommand.version))\n")
         }
         let usage = UsageHook(args)
