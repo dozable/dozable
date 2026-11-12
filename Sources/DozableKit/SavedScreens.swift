@@ -115,9 +115,12 @@ public enum SavedScreens {
     public static func directory(_ layout: StoreLayout) -> URL { layout.screensDirectory }
 
     static func files(_ layout: StoreLayout, _ session: String) -> (vt: URL, text: URL, info: URL, grid: URL) {
-        let d = directory(layout)
-        return (d.appendingPathComponent("\(session).vt"), d.appendingPathComponent("\(session).txt"), d.appendingPathComponent("\(session).json"),
-                d.appendingPathComponent("\(session).grid.json"))
+        files(directory(layout), session)
+    }
+
+    static func files(_ d: URL, _ session: String) -> (vt: URL, text: URL, info: URL, grid: URL) {
+        (d.appendingPathComponent("\(session).vt"), d.appendingPathComponent("\(session).txt"), d.appendingPathComponent("\(session).json"),
+         d.appendingPathComponent("\(session).grid.json"))
     }
 
     /// 648: a saved grid file larger than this is not read (a 1000×500 grid of 4 KiB rows is ~2 MiB as JSON).
@@ -150,8 +153,10 @@ public enum SavedScreens {
     }()
 
     /// Every saved screen of the sandbox, by session name. Unreadable entries are skipped.
-    public static func list(_ layout: StoreLayout) -> [SavedScreenInfo] {
-        let d = directory(layout)
+    public static func list(_ layout: StoreLayout) -> [SavedScreenInfo] { list(directory: directory(layout)) }
+
+    /// The same, in any screens folder (the sessions on this Mac keep theirs in the store's `mac-sessions/screens`).
+    public static func list(directory d: URL) -> [SavedScreenInfo] {
         guard let names = try? FileManager.default.contentsOfDirectory(atPath: d.path) else { return [] }
         var out: [SavedScreenInfo] = []
         for n in names where n.hasSuffix(".json") && !n.hasSuffix(".grid.json") {
@@ -165,9 +170,11 @@ public enum SavedScreens {
     }
 
     /// One saved screen, or nil when there is none (or its name is not a session name).
-    public static func read(_ layout: StoreLayout, session: String) -> SavedScreen? {
+    public static func read(_ layout: StoreLayout, session: String) -> SavedScreen? { read(directory: directory(layout), session: session) }
+
+    public static func read(directory d: URL, session: String) -> SavedScreen? {
         guard (try? GuestCommand.validateSessionName(session)) != nil else { return nil }
-        let f = files(layout, session)
+        let f = files(d, session)
         guard let data = try? Data(contentsOf: f.info), let info = try? decoder.decode(SavedScreenInfo.self, from: data),
               info.session == session else { return nil }
         let vt = (try? Data(contentsOf: f.vt)) ?? Data()
@@ -191,7 +198,17 @@ public enum SavedScreens {
     public static func write(_ layout: StoreLayout, info: SavedScreenInfo, vt: Data, text: String, grid: ScreenGrid? = nil) throws {
         try GuestCommand.validateSessionName(info.session)
         try ensureDirectory(layout)
-        let f = files(layout, info.session)
+        try write(directory: directory(layout), info: info, vt: vt, text: text, grid: grid)
+    }
+
+    /// The same into `d` — made 0700 (its parent must exist: a saved screen never re-creates a removed owner).
+    public static func write(directory d: URL, info: SavedScreenInfo, vt: Data, text: String, grid: ScreenGrid? = nil) throws {
+        try GuestCommand.validateSessionName(info.session)
+        if !FileManager.default.fileExists(atPath: d.path) {
+            try FileManager.default.createDirectory(at: d, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+        }
+        chmod(d.path, 0o700)
+        let f = files(d, info.session)
         let (capped, truncated) = cappedVT(vt)
         var i = info
         i.vtBytes = capped.count
@@ -207,13 +224,18 @@ public enum SavedScreens {
     /// Remove saved screens: those NOT in `keeping` (sessions the guest no longer has), or every one.
     @discardableResult
     public static func remove(_ layout: StoreLayout, keeping: Set<String>? = nil) -> [String] {
+        remove(directory: directory(layout), keeping: keeping)
+    }
+
+    @discardableResult
+    public static func remove(directory d: URL, keeping: Set<String>? = nil) -> [String] {
         var gone: [String] = []
-        for i in list(layout) where !(keeping?.contains(i.session) ?? false) {
-            let f = files(layout, i.session)
+        for i in list(directory: d) where !(keeping?.contains(i.session) ?? false) {
+            let f = files(d, i.session)
             for u in [f.vt, f.text, f.info, f.grid] { try? FileManager.default.removeItem(at: u) }
             gone.append(i.session)
         }
-        if keeping == nil { try? FileManager.default.removeItem(at: directory(layout)) }
+        if keeping == nil { try? FileManager.default.removeItem(at: d) }
         return gone
     }
 

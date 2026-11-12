@@ -91,6 +91,8 @@ public actor HostCore {
     }
 
     var managed: [String: Managed] = [:]
+    /// The sessions held on THIS Mac (`@mac`) — never in `managed` (no `Sandbox`): `HostCore+Mac`.
+    public nonisolated let mac: MacSessions
     /// Names being created right now (so two `create`s cannot race).
     private var creating: Set<String> = []
     /// 590: `open-session` is serialized per sandbox.
@@ -163,6 +165,7 @@ public actor HostCore {
         self.readOnly = readOnly
         self.version = version
         self.services = services
+        self.mac = MacSessions(store: store, readOnly: readOnly)
         // 594: a store with no accounts.json follows the settings' `defaults.account`.
         let defaultAccount = newStoreDefaultAccount ?? DozableSettings.load().string(SettingKey.defaultAccount) ?? "mac"
         self.accountStore = AccountStore(store: store, newStoreKeepalive: newStoreKeepalive, newStoreDefault: defaultAccount)
@@ -706,6 +709,8 @@ public actor HostCore {
     }
 
     private func perform(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void) async throws -> JSONValue {
+        // @mac is this Mac, never a sandbox: routed before anything looks a sandbox up (`HostCore+Mac`).
+        if MacPlace.isPlace(r.name) { return try await performMac(r) }
         if let n = r.name, let m = managed[n] {
             m.sandbox.setAgentSudo(Self.agentSudo(m.config))
             m.sandbox.setTimeZone(Self.guestTimeZone())
@@ -749,6 +754,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await sessionSend(r, emit: emit))
         case .sessionLive:
             return try JSONValue(encoding: try await sessionLive(r, emit: emit))
+        case .sessionWait:
+            return try JSONValue(encoding: try await sessionWait(r))
         case .bootLog:
             return try bootLog(r)
         case .buildLog:
@@ -1578,7 +1585,7 @@ public actor HostCore {
         guard await m.sandbox.phase == .running else {
             // Only a sandbox one wakes back into has sessions to show (owner, 2026-09-30): shut down,
             // failed or booting — none.
-            return withStatuses(m.name, Self.wakeable(await effectivePhase(m)) ? saved.map(SessionRow.init(saved:)) : [], live: nil)
+            return withOpenedAt(m.name, withStatuses(m.name, Self.wakeable(await effectivePhase(m)) ? saved.map(SessionRow.init(saved:)) : [], live: nil))
         }
         let byName = Dictionary(saved.map { ($0.session, $0) }, uniquingKeysWith: { a, _ in a })
         let mark = sessionRegistry.epoch
@@ -1611,6 +1618,7 @@ public actor HostCore {
     /// since their last saved screen, so a crash still leaves a recent copy. One `deckhold ls` per
     /// sandbox, then a momentary attach per changed session; serialised with the lifecycle.
     public func captureScreensPeriodically() async {
+        await captureMacScreens()                            // the sessions on this Mac too
         for m in managed.values {
             guard await m.sandbox.phase == .running else { continue }
             let sb = m.sandbox

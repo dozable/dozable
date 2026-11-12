@@ -50,7 +50,7 @@ One row per area; each area's doc starts with the full table of its files.
 | The LAN option | `Sources/DozableWeb/WebServe*.swift`, `WebExposure`, `WebBonjour` | [lan.md](docs/engineering/lan.md) |
 | The terminal | `Sources/DozableTUI/` | [terminal-tui.md](docs/engineering/terminal-tui.md) |
 | Onboarding, projects | `Preparations`, `Onboarding`, `AgentPrompt`, `OnboardCommands`, `ProjectFile` | [onboarding.md](docs/engineering/onboarding.md) |
-| Sessions | `SavedScreens`, `BootLogs`, `SessionStatus`, `ScreenGrid`, the attach relay's bridges | [sessions.md](docs/engineering/sessions.md) |
+| Sessions | `SavedScreens`, `BootLogs`, `SessionStatus`, `ScreenGrid`, the attach relay's bridges; sessions on this Mac (`MacSessions`, `MacPlace`, `DeckholdSocket`) | [sessions.md](docs/engineering/sessions.md) |
 | Builds, statistics, updates, release | `Usage.swift`, `Updates.swift`, `Scripts/release.sh` | [updates-and-release.md](docs/engineering/updates-and-release.md) |
 | Workspace rules | `Guest/dozview/`, `DockerIgnore`, `WorkspaceRules`, `WorkspaceView` | [workspace-rules.md](docs/engineering/workspace-rules.md) |
 | Tools layer, tmux, dotfiles | `Guest/tmux/`, `Dotfiles.swift` | [tools-and-dotfiles.md](docs/engineering/tools-and-dotfiles.md) |
@@ -63,6 +63,12 @@ One row per area; each area's doc starts with the full table of its files.
   program cannot trap a signal ignored on entry (576: the screensaver's `m` menu). `GuestCommand.serve`
   builds argv; deckhold additionally resets every signal to default before exec. Utility execs
   (`exec(["sh","-c",…])`) may use a shell — never a session.
+- **A session on this Mac (`@mac`) is never isolated and never bypasses permissions by default.** No code path may
+  treat `@mac` as a sandbox (no `Managed`, no `Sandbox`, no proxy, no placeholders — `HostCore.perform` routes it
+  first), its environment is an ALLOWLIST built new (`MacSessionsEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*`),
+  its holder starts by `posix_spawn` (never `sh -c`), and a bypass flag is only ever the session's own argv, marked
+  wherever it shows. `MacPlaceTests`, `MacSessionsEnvironmentTests`, `make test-cli-host`.
+- **Every `doz exec` deadline is counted from process start and enforced by the host** (`ExecDeadline`; engine.md).
 - **Stop keeps the root disk**: Stop shuts the VM down and persists the phase as `off`; the next Start cold-boots
   the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the
   root disk; `delete()` removes the sandbox's whole directory. No Stop leaves a snapshot, and a
@@ -375,6 +381,7 @@ make test-cli-timezone # 594 W10: the Mac's (stubbed) zone at boot and every wak
 make test-cli-bases  # 596: base × agent — cli, Dockerfiles via a fake container, the real container build (SKIPs unless Apple's services run; BASES_START_BUILDER=1), the VM matrix (BASES_PARTS=…)
 make test-cli-permissions # 597: agent permissions — net show/allow/deny/permissions, create --allow, Claude Code's hosts reached under Standard, suggestions, live changes, facts, stored by name (prepares claude-code; network)
 make test-cli-points # 594 W25–W27: point names/lookup, check before asking, exec/run start an off sandbox
+make test-cli-host   # sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only
 make test-cli-keychainlocked # a host started where the login keychain is locked (DOZ_TEST_KEYCHAIN_LOCKED): warned at start, named by account ls and doctor (no VM)
 make test-cli-exectimeout # exec --timeout from doz's start, 124 from the host: the command killed, a start/wake that outlasts it goes on, a stopped client
 make test-cli-agentsudo # 594 W23: the agent's sudo in a fresh claude-code sandbox (prepares it; network), --no-agent-sudo, the setting at the next boot, root reaches no more
@@ -394,6 +401,7 @@ make tmux / tmux-verify # 658: rebuild the guest tmux 3.8 (pinned Zig, sha256-pi
 make sound-kernel    # 667: build the sound kernel from source (twice, a throwaway ubuntu VM, network, ~7.5 min) and check it is SoundKernel.sha256 (SOUND_KERNEL_OUT)
 make test-cli-tmux38 # 658: Dozable's tmux 3.8 on Debian + Alpine (prepares both): the bridges through it, the theme reported, OSC 7501 measured, an older distro tmux session kept and ended
 make deckhold / deckhold-verify / deckhold-snapshot-check # the guest PTY holder: rebuild (pinned Zig + ghostty) / check the committed bytes / 610: its snapshot equals its screen, cell by cell
+make deckhold-mac / deckhold-mac-check # deckhold built for THIS Mac (sessions on the Mac; not committed, shipped beside doz in the CLI tarball only) / the status, grid, snapshot checks + mac-smoke.sh
 make deckhold-status-check # 612: deckhold's OSC 7501 consumer — the query answered, the records' rules and limits, invalid input, every cut offset + a fuzz
 make deckhold-grid-check # 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen, the limits, the announcement (+ a fuzz)
 make test-cli-grids  # 648: session-grids through a real host — a coloured session's grid, unchanged/moved gens, asleep stays asleep with a saved grid, no host starts nothing

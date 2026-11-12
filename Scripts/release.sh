@@ -11,6 +11,8 @@
 #   doz-<version>/libexec/doz/doz            the executable, signed with Scripts/doz.entitlements
 #   doz-<version>/libexec/doz/VERSION        the version it was built for (DozableCommand.version reads it)
 #   doz-<version>/libexec/doz/DozableKit_*.bundle   its resources (guest binaries, web assets)
+#   doz-<version>/libexec/doz/deckhold-mac   the PTY holder for sessions on this Mac (Guest/deckhold/build-mac.sh) — signed
+#                                            like doz, no entitlements; its provenance in licences/deckhold/. CLI only.
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186        675: the pinned kernel (both flavours) — no download
 #   doz-<version>/libexec/doz/licences/kernel/   with it: its provenance and GPL-2.0 source offer (Guest/kernel/)
 #   doz-<version>/libexec/doz/kernels/vmlinux-6.18.15-186-sound2  PRIVATE builds only: the sound sandboxes' kernel
@@ -209,6 +211,10 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     HELPER_ENV="$([[ "$FLAVOUR" == helper ]] && echo 1 || echo 0)"
     run env DOZ_CLOUD_PACKAGE="$DOZ_CLOUD_PACKAGE" DOZ_CLOUD_REF="$DOZ_CLOUD_REF" DOZ_HELPER_BUILD="$HELPER_ENV" DOZ_HELPER_WEB= \
         swift build ${SWIFT_BUILD_SYSTEM:-} -j "$JOBS" -c release --scratch-path "$BUILD_DIR" --product doz ${PUBLIC_FLAGS[@]+"${PUBLIC_FLAGS[@]}"}
+    # deckhold-mac — the PTY holder for sessions on the Mac itself, the CLI flavour only (an app embedding the helper
+    # would inherit a feature with no isolation). Built fresh from deckhold.c + the pinned ghostty's Mac library;
+    # needs the toolchain `make deckhold` puts in .tools/.
+    [[ "$FLAVOUR" == cli ]] && run env FORCE=1 Guest/deckhold/build-mac.sh
     # A git URL pins the private package in Package.resolved: that pin never belongs in the public repository.
     if [[ -z "$DRY_RUN" && -z "$resolved_before" && -n "$(git status --porcelain -- Package.resolved)" ]]; then
         git checkout -- Package.resolved
@@ -254,6 +260,12 @@ if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $VERSION > $STAGE/libexec/doz
 # swaps it) from a development build (`make install-cli`, which has VERSION but no marker, and is never updated).
 if [[ -n "$DRY_RUN" ]]; then say "  [dry-run] echo $FLAVOR > $STAGE/libexec/doz/RELEASE"; else printf '%s\n' "$FLAVOR" > "$STAGE/libexec/doz/RELEASE"; fi
 [[ "$FLAVOUR" == cli ]] && run ln -s ../libexec/doz/doz "$STAGE/bin/doz"
+# deckhold-mac beside doz (the CLI flavour only), stripped before it is signed; its provenance in licences/.
+if [[ "$FLAVOUR" == cli ]]; then
+    [[ -n "$DRY_RUN" || -x .build/deckhold-mac/deckhold-mac ]] || fail "missing .build/deckhold-mac/deckhold-mac — Guest/deckhold/build-mac.sh (make deckhold first, for the toolchain)"
+    run cp .build/deckhold-mac/deckhold-mac "$STAGE/libexec/doz/deckhold-mac"
+    run strip -x "$STAGE/libexec/doz/deckhold-mac"
+fi
 # 611: the licences a binary distribution must carry — LICENSE, NOTICE and every dependency's licence + NOTICE, from
 # the exact checkouts this build used (it fails when a resolved package has no licence file).
 run env CHECKOUTS="$BUILD_DIR/checkouts" Scripts/third-party-licences.sh "$STAGE/libexec/doz/licences"
@@ -263,6 +275,11 @@ run mkdir -p "$STAGE/libexec/doz/licences/kernel"
 for f in Guest/kernel/PROVENANCE.md Guest/kernel/kernel.config Guest/sound-kernel/patches Guest/sound-kernel/extract-config.py; do
     run cp -R "$f" "$STAGE/libexec/doz/licences/kernel/"
 done
+# deckhold (guest and Mac): what each binary is built from (ghostty is MIT, in the licences above).
+if [[ "$FLAVOUR" == cli ]]; then
+    run mkdir -p "$STAGE/libexec/doz/licences/deckhold"
+    run cp Guest/deckhold/PROVENANCE.md "$STAGE/libexec/doz/licences/deckhold/"
+fi
 # 667: a release that carries the sound kernel (GPL-2.0, built by Dozable) carries its source offer beside the other
 # notices: the provenance and written offer, the recipe, the config fragment, the complete config and kata's patch.
 if [[ -z "${NO_SOUND_KERNEL:-}" ]]; then
@@ -285,9 +302,12 @@ else
     say "  [dry-run] for each Mach-O file under $STAGE/libexec/doz/*.bundle: codesign ${SIGN_ARGS[*]} <file>"
 fi
 run codesign "${SIGN_ARGS[@]}" --entitlements "$ENTITLEMENTS" "$STAGE/libexec/doz/doz"
+# deckhold-mac: the same identity, hardened runtime and timestamp — and NO entitlements (it needs none).
+[[ "$FLAVOUR" == cli ]] && run codesign "${SIGN_ARGS[@]}" "$STAGE/libexec/doz/deckhold-mac"
 
 # 4. Verify the signature and the entitlement.
 run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/doz"
+[[ "$FLAVOUR" == cli ]] && run codesign --verify --strict --verbose=2 "$STAGE/libexec/doz/deckhold-mac"
 if [[ -z "$DRY_RUN" ]]; then
     ents="$(codesign -d --entitlements - --xml "$STAGE/libexec/doz/doz" 2>/dev/null || true)"
     for e in com.apple.security.virtualization com.apple.security.device.audio-input; do
@@ -301,6 +321,25 @@ if [[ -z "$DRY_RUN" ]]; then
         grep -qE '^CodeDirectory .*flags=0x[0-9a-f]*\(.*runtime.*\)' <<<"$info" || fail "the doz is not signed with the hardened runtime"
         grep -q '^Timestamp=' <<<"$info" || fail "the doz's signature has no secure timestamp"
         say "  signed: $SIGN_IDENTITY · hardened runtime · secure timestamp"
+    fi
+    # deckhold-mac: a Mach-O for this Mac, signed like doz (identity, runtime, timestamp) but with no entitlements, and
+    # it runs (its usage line); the helper flavour never carries it.
+    DHM="$STAGE/libexec/doz/deckhold-mac"
+    if [[ "$FLAVOUR" == cli ]]; then
+        [[ "$(file -b "$DHM")" == "Mach-O 64-bit executable arm64"* ]] || fail "deckhold-mac is not an arm64 Mach-O ($(file -b "$DHM"))"
+        [[ -z "$(codesign -d --entitlements - --xml "$DHM" 2>/dev/null | grep -o '<key>' || true)" ]] || fail "deckhold-mac carries entitlements — it must carry none"
+        if [[ -n "$SIGN_IDENTITY" ]]; then
+            dinfo="$(codesign -dv --verbose=4 "$DHM" 2>&1)"
+            grep -q "^Authority=$SIGN_IDENTITY\$" <<<"$dinfo" || fail "deckhold-mac is not signed by $SIGN_IDENTITY"
+            grep -qE '^CodeDirectory .*flags=0x[0-9a-f]*\(.*runtime.*\)' <<<"$dinfo" || fail "deckhold-mac is not signed with the hardened runtime"
+            grep -q '^Timestamp=' <<<"$dinfo" || fail "deckhold-mac's signature has no secure timestamp"
+        fi
+        dusage="$("$DHM" 2>&1 || true)"
+        grep -q "usage: deckhold serve" <<<"$dusage" || fail "the packed deckhold-mac does not run ($dusage)"
+        say "  deckhold-mac: arm64 Mach-O, signed ($MODE), no entitlements, runs"
+    else
+        [[ ! -e "$DHM" ]] || fail "the helper carries deckhold-mac — it must not"
+        say "  deckhold-mac: not in the helper (as it must be)"
     fi
     DOZ="$STAGE/libexec/doz/doz"
     [[ "$("$DOZ" --version)" == "$VERSION" ]] || fail "the packed doz says $("$DOZ" --version), not $VERSION"
@@ -384,7 +423,11 @@ if [[ -n "$SIGN_IDENTITY" && -n "$NOTARY_PROFILE" ]]; then
         # CDHash: prove exactly that (Scripts/notary-ticket.sh).
         Scripts/notary-ticket.sh "$STAGE/libexec/doz/doz" 600 >/dev/null \
             || fail "Apple's ticket service has no ticket for the notarised doz (submission $sid) after 10 minutes"
-        say "  notary ticket: published for this binary (what Gatekeeper checks on first run)"
+        if [[ "$FLAVOUR" == cli ]]; then
+            Scripts/notary-ticket.sh "$STAGE/libexec/doz/deckhold-mac" 600 >/dev/null \
+                || fail "Apple's ticket service has no ticket for the notarised deckhold-mac (submission $sid) after 10 minutes"
+        fi
+        say "  notary ticket: published for each binary (what Gatekeeper checks on first run)"
     fi
     run rm -f "$ZIP"
     say "  ${DRY_RUN:+[dry-run] would be }notarised (a command-line tool cannot be stapled: Gatekeeper checks its ticket online on first run)"

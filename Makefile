@@ -68,7 +68,7 @@ DOCC_OUT         ?= .docc-build
 DOCC_BASE_PATH   ?= /DozableKit/
 DOCC_PREVIEW_PORT ?= 8000
 
-.PHONY: help build test test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-keychainlocked css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
+.PHONY: help build test test-cli-helper test-cli-startup test-cli-exectimeout test-cli-sessionsend test-cli-host test-cli-keychainlocked deckhold-mac deckhold-mac-check css-lint css-perf recipes test-safety test-updates test-recipe-catalogue test-community-recipes publish-recipes doz-update-keys publish promote audit audit-resolved web-assets web-assets-check test-cli-onboarding test-cli-terminal test-cli-hoststop test-cli-agentsudo test-cli-points test-cli-timezone test-cli-sessions test-cli-images test-cli-bases test-cli-permissions test-cli-clipboard test-cli-browser test-cli-ports test-cli-openfiles test-cli-files test-cli-github test-cli-codex test-cli-try test-cli-agents profile-agents recipe-check agent-currency recipe-audit test-recipe-audit test-cli-access test-cli-tools test-cli-dotfiles tools-fixture test-cli-quickadd test-cli-projectwizard test-cli-tmux pullbench test-vm test-vm-agents test-vm-network test-vm-hardening test-vm-lineage prev-cli test-vm-upgrade vmtest-host kernel deckhold deckhold-snapshot-check deckhold-status-check deckhold-grid-check deckhold-verify doznet doznet-verify dozview dozview-verify tmux tmux-verify sound-kernel test-cli-tmux38 test-vm-ignore test-vm-agentwrite test-vm-cwd test-vm-status test-cli-grids cli install-cli test-cli test-vm-claude test-vm-templates docs docs-preview docs-drift-check release bump bump-minor
 
 help: ## Show this help
 	@grep -hE '^[a-z-]+:.*?## ' $(MAKEFILE_LIST) | sed 's/:.*## /\t/' | expand -t 22
@@ -217,6 +217,12 @@ cli: ## Build the doz CLI and sign it with the virtualization entitlement (.buil
 	@# (`ReleaseStamp` reads `VERSION` beside the resolved executable) — otherwise this build reports
 	@# `DozableCommand.builtVersion`, which no feature remembers to bump (0.11.0 at 0.23.0).
 	cp VERSION "$(dir $(CLI_BIN))VERSION"
+	@# deckhold-mac beside doz (install by rename: a running holder keeps its own file). Built only where the pinned
+	@# toolchain is (make deckhold fills .tools/); without it doz builds as before and says so.
+	@if [ -d "$${DECKHOLD_TOOLS:-.tools}/ghostty-src/.git" ]; then \
+	  Guest/deckhold/build-mac.sh >/dev/null && cp .build/deckhold-mac/deckhold-mac "$(dir $(CLI_BIN)).deckhold-mac.new" \
+	    && mv -f "$(dir $(CLI_BIN)).deckhold-mac.new" "$(dir $(CLI_BIN))deckhold-mac"; \
+	else echo "note: deckhold-mac not built (no pinned toolchain in .tools — make deckhold once)"; fi
 
 install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.local): bin/doz → libexec/doz/
 	swift build $(SWIFT_BUILD_SYSTEM) -j $(JOBS) -c release --product doz
@@ -233,6 +239,12 @@ install-cli: ## Build doz (release), sign it, install into PREFIX (default ~/.lo
 	cp .build/release/doz "$(PREFIX)/libexec/doz/.doz.new"
 	codesign --force --sign - --entitlements Scripts/doz.entitlements "$(PREFIX)/libexec/doz/.doz.new"
 	mv -f "$(PREFIX)/libexec/doz/.doz.new" "$(PREFIX)/libexec/doz/doz"
+	@# deckhold-mac the same way — by rename (a running holder keeps its file), signed ad hoc, no entitlements.
+	@if [ -d "$${DECKHOLD_TOOLS:-.tools}/ghostty-src/.git" ]; then \
+	  Guest/deckhold/build-mac.sh >/dev/null && cp .build/deckhold-mac/deckhold-mac "$(PREFIX)/libexec/doz/.deckhold-mac.new" \
+	    && codesign --force --sign - "$(PREFIX)/libexec/doz/.deckhold-mac.new" \
+	    && mv -f "$(PREFIX)/libexec/doz/.deckhold-mac.new" "$(PREFIX)/libexec/doz/deckhold-mac"; \
+	else echo "note: deckhold-mac not installed (no pinned toolchain in .tools — make deckhold once)"; fi
 	ln -sf "$(PREFIX)/libexec/doz/doz" "$(PREFIX)/bin/doz"
 	@echo "installed $(PREFIX)/bin/doz — run: doz doctor"
 	@"$(PREFIX)/libexec/doz/doz" host status 2>/dev/null | grep -q '^host .* running' \
@@ -338,6 +350,9 @@ test-cli-grids: cli vmtest-host ## 648: painted thumbnails — a session prints 
 test-cli-sessions: cli vmtest-host ## 608: a program in /workspace keeps its folder across hibernate and a host restart; doz sessions restart|end (SIGHUP ignored → TERM, tmux, a missing session, never a wake, a racing open, the record), workspace.view off and on; doz sessions send (acknowledged, into a hibernated sandbox 5 of 5, --then-screen) and screen (live, saved when asleep, --wake)
 	perl -e 'alarm shift; exec @ARGV' 1500 $(VMTEST_BIN) cli-sessions --doz $(CLI_BIN)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
+
+test-cli-host: cli vmtest-host ## Sessions on this Mac (@mac), no VM: the real deckhold-mac, a scratch store and folder, harmless programs only (sh, a fake agent) — refusals, the clean environment, the socket folder, OSC 7501 status, send/screen, a host stop and kill -9 adopted (same pid), end/restart, gone, bypass marked
+	perl -e 'alarm shift; exec @ARGV' 600 $(VMTEST_BIN) cli-host --doz $(CLI_BIN)
 
 test-cli-sessionsend: cli vmtest-host ## doz sessions send / screen alone (a lab sandbox, scratch store)
 	perl -e 'alarm shift; exec @ARGV' 1200 $(VMTEST_BIN) cli-sessionsend --doz $(CLI_BIN)
@@ -455,6 +470,15 @@ deckhold-status-check: ## 612: deckhold's OSC 7501 consumer — the query answer
 
 deckhold-grid-check: ## 648: deckhold's GRID — every row's text is the holder's screen, colours/flags/cursor, the gen (unchanged answers unchanged), the limits, WATCH/INFO announce it, a seeded fuzz (on the Mac, the pinned ghostty)
 	ONLY=grid Guest/deckhold/test/run.sh $(or $(ITERATIONS),2000)
+
+deckhold-mac: ## Build deckhold for THIS Mac (sessions on the Mac itself): deckhold.c + the pinned ghostty's macOS library, the Mac's clang → .build/deckhold-mac/deckhold-mac (not committed; make deckhold first, for the toolchain)
+	Guest/deckhold/build-mac.sh
+
+deckhold-mac-check: deckhold-mac ## deckhold on the Mac: the status, grid and snapshot checks, then mac-smoke.sh (serve, ls, dump, pipe, two viewers, the exit recorded, SIGTERM hangs the program up)
+	ONLY=status Guest/deckhold/test/run.sh
+	ONLY=grid Guest/deckhold/test/run.sh $(or $(ITERATIONS),2000)
+	Guest/deckhold/test/run.sh $(or $(ITERATIONS),20000)
+	Guest/deckhold/test/mac-smoke.sh
 
 deckhold-verify: ## Rebuild deckhold from scratch and check the committed bytes match (slow: pinned Zig + ghostty)
 	FORCE=1 Guest/deckhold/build.sh

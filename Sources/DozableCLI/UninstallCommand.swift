@@ -136,6 +136,18 @@ struct Uninstall: AsyncParsableCommand {
             if held { throw fail(HostError(.failed, "a doz ui is running for this store — stop it first (Ctrl-C where it runs), then uninstall"), g) }
         }
         try confirm("Remove all of the above?", yes: yes, g)
+        // The sessions on this Mac are not the store's: asked whether to end them (--yes ends them). Left running, no doz
+        // reaches them again once their records are gone.
+        let onMac = keepStore ? [] : await MacCLI.running(store)
+        if !onMac.isEmpty {
+            let list = onMac.joined(separator: ", ")
+            if yes || MacCLI.ask("End the \(onMac.count) session\(onMac.count == 1 ? "" : "s") running on this Mac (\(list))? Left running, doz cannot reach them again") {
+                let ended = MacCLI.endAll(onMac, g)
+                if !g.json { Out.stdout("ended \(ended.count) session\(ended.count == 1 ? "" : "s") on this Mac\n") }
+            } else if !g.json {
+                Out.stdout("the sessions on this Mac keep running (\(list)) — end them yourself when you are done\n")
+            }
+        }
         // The host goes first (it owns every VM); it shuts them down as it stops.
         if !keepStore, store.hostIsRunning() {
             if !g.json { Out.stdout("stopping the host …\n") }
@@ -162,6 +174,8 @@ struct Uninstall: AsyncParsableCommand {
                 if !g.json { Out.stderr("doz: could not remove \(items[i].path): \(error.localizedDescription)\n") }
             }
         }
+        // The store's socket folder for sessions on this Mac, once nothing runs in it.
+        if !keepStore, await MacCLI.running(store).isEmpty { MacCLI.removeSocketFolder(store) }
         if g.json { Out.json(Report(removed: items, kept: kept, keychain: accounts)) }
         else if !failed {
             if let keg {

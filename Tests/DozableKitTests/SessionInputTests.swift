@@ -66,4 +66,23 @@ final class SessionInputTests: XCTestCase {
         XCTAssertNil(LiveScreen.parse(""), "no dump: no session")
         XCTAssertNil(LiveScreen.parse("deckhold: no session s\n"))
     }
+
+    /// The text, each key and Enter are separate writes (a TUI takes one burst as a paste and keeps a CR inside it).
+    func testPieces_textKeysEnterApart_andJoinedTheyAreTheBytes() throws {
+        let p = try SessionInput.pieces(text: "make test", keys: ["esc", "up"], enter: true, paste: false)
+        XCTAssertEqual(p, [Data("make test".utf8), Data([0x1B]), Data([0x1B, 0x5B, 0x41]), Data([0x0D])])
+        XCTAssertEqual(p.reduce(Data(), +), try SessionInput.bytes(text: "make test", keys: ["esc", "up"], enter: true, paste: false))
+        let pasted = try SessionInput.pieces(text: "x", keys: [], enter: true, paste: true)
+        XCTAssertEqual(pasted.count, 2)
+        XCTAssertEqual(pasted[0], Data("\u{1B}[200~x\u{1B}[201~".utf8), "--paste keeps wrapping the text")
+        XCTAssertEqual(try SessionInput.pieces(text: nil, keys: [], enter: true, paste: false), [Data([0x0D])])
+        XCTAssertThrowsError(try SessionInput.pieces(text: nil, keys: [], enter: false, paste: false))
+    }
+
+    func testSettle_growsWithTheText_capped() {
+        XCTAssertEqual(SessionInput.settle(after: Data(count: 10)), .milliseconds(60))
+        XCTAssertEqual(SessionInput.settle(after: Data(count: 10 * 1024)), .milliseconds(100))
+        XCTAssertEqual(SessionInput.settle(after: Data(count: 64 * 1024 * 4)), .milliseconds(500))
+        XCTAssertEqual(SessionInput.dataFrames(Data("ab".utf8)) + SessionInput.queryFrame, SessionInput.frames(Data("ab".utf8)))
+    }
 }

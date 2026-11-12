@@ -36,6 +36,8 @@ public struct HostStopResult: Codable, Equatable, Sendable {
     public var sandboxes: [HostStopRow]
     public var milliseconds: Double
     public var version: String?
+    /// The sessions on this Mac (`@mac`) that keep running — their holders outlive the host (nil: none).
+    public var macSessions: Int? = nil
 
     public init(sandboxes: [HostStopRow], milliseconds: Double, version: String?) {
         stopped = true
@@ -73,6 +75,11 @@ public enum HostStopView {
     /// The last line: "host stopped — 2 sandboxes hibernated (hello-doz, lab1) in 1.2 s; the next
     /// command starts a new host", or "host stopped (nothing was running)".
     public static func summary(_ r: HostStopResult) -> String {
+        let mac = r.macSessions.map { "\n\($0) session\($0 == 1 ? "" : "s") on this Mac keep\($0 == 1 ? "s" : "") running (no host needed — doz sessions @mac)" } ?? ""
+        return sandboxSummary(r) + mac
+    }
+
+    static func sandboxSummary(_ r: HostStopResult) -> String {
         let rows = r.sandboxes
         if rows.isEmpty { return "host stopped (nothing was running)" }
         func names(_ o: String) -> [String] { rows.filter { $0.outcome == o }.map(\.name) }

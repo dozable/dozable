@@ -200,6 +200,14 @@ extension HostCore {
     /// What the host does about one bridge event from `session`'s output (read by the attach relay):
     /// the notice for the viewer, or nil. Never on the actor while it acts (the pasteboard, the browser).
     public nonisolated func bridge(_ e: BridgeEvent, sandbox: String, session: String) async -> BridgeNotice? {
+        // A session on this Mac runs on the Mac already: the open-URL and workspace-file markers are off (nothing acts on
+        // them); OSC 52 reaches the outer terminal's clipboard as for any session.
+        if MacPlace.isPlace(sandbox) {
+            switch e {
+            case .openTooLong, .openURL, .openFile, .revealFile: return nil
+            case .copy, .copyRead, .copyTooLarge: break
+            }
+        }
         switch e {
         case .copyRead:
             // Never answered. Logged once per session, so a program that keeps asking does not flood the log.

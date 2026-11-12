@@ -56,6 +56,17 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 
 - **Stripped before signing** (`dsymutil` first, then `strip`; the dSYM's UUID must equal the stripped binary's): the
   symbols go to `dist/<name>.dSYM.zip`, published beside the tarball. An app must never strip or re-sign the helper.
+- **`deckhold-mac` — the CLI tarball ONLY** (680: the PTY holder for sessions held on the Mac itself). `release.sh` builds
+  it fresh (`Guest/deckhold/build-mac.sh`, `FORCE=1`: `deckhold.c` + the pinned ghostty's macOS xcframework library, the
+  Mac's clang — NOT committed, a Mach-O is signed per release), copies it to `libexec/doz/deckhold-mac`, strips it, signs
+  it with the release's arguments (Developer ID, hardened runtime, timestamp) and NO entitlements, verifies it (`codesign
+  --verify --strict`, arm64 Mach-O, no entitlements, the identity/runtime/timestamp with a real identity, its usage line
+  runs), notarises it in the same zip as `doz` and checks its own ticket by CDHash (`notary-ticket.sh`); its provenance
+  goes to `licences/deckhold/`. The helper flavour must NOT carry it (release.sh fails if it does; `make
+  test-cli-helper` checks the layout) — an app embedding the helper would inherit sessions with no isolation. A release
+  machine needs the toolchain `make deckhold` puts in `.tools/`. `make cli` / `install-cli` put it beside `doz` (by
+  rename) when the toolchain is there; `MacDeckhold.locate()` (DozableHost) finds it beside the resolved executable
+  (guarded seam `DOZ_DECKHOLD_MAC`). Only a real `/ship` proves the Developer ID signature and the notary ticket.
 - **The pinned kernel** (`KernelArtifact.recommended`) is in BOTH tarballs at `libexec/doz/kernels/vmlinux-6.18.15-186`,
   with `libexec/doz/licences/kernel/` (`Guest/kernel/PROVENANCE.md` — the written GPL-2.0 source offer —, `kernel.config`,
   kata's patch, `extract-config.py`). `release.sh` takes it from `KERNEL_FILE`, else `$DOZ_KERNEL_CACHE` (the Makefile's

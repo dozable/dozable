@@ -37,6 +37,11 @@ public enum DeckholdFrame: Equatable, Sendable {
     public static let captureWithGridRequest: Data = hello(TermSize(cols: 0, rows: 0)).encoded + gridRequest(0).encoded
         + Data([UInt8(ascii: "P"), 0, 0, 0, 0])
 
+    /// QUERY ('Q', no payload): answered with one INFO line (as `deckhold ls` prints it), then the holder closes.
+    public static let queryRequest = Data([UInt8(ascii: "Q"), 0, 0, 0, 0])
+    /// DUMP ('P', no payload): answered with one INFO frame — the screen as text and its `cursor=…` line.
+    public static let dumpRequest = Data([UInt8(ascii: "P"), 0, 0, 0, 0])
+
     /// 648: whether a STATUS frame's text (the WATCH answer) announces GRID — a `grid=1` field.
     public static func announcesGrid(_ statusText: String) -> Bool {
         statusText.split(separator: "\t").contains("grid=1")

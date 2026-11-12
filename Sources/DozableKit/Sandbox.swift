@@ -2532,11 +2532,22 @@ public actor Sandbox {
     /// byte is in the program's input buffer), or says the session is gone. Running sandboxes only; bounded by
     /// `timeout`.
     public func sendInput(_ name: String, _ bytes: Data, timeout: Duration = .seconds(15)) async throws -> SessionInput.Receipt {
+        try await sendInput(name, pieces: [bytes], timeout: timeout)
+    }
+
+    /// The same, `pieces` written APART — each its own DATA write, `SessionInput.settle` after it — so a TUI reads the
+    /// Enter after a long line on its own (in one burst it takes it as part of a paste); one receipt at the end.
+    public func sendInput(_ name: String, pieces: [Data], timeout: Duration = .seconds(15)) async throws -> SessionInput.Receipt {
         try GuestCommand.validateSessionName(name)
-        guard bytes.count <= SessionInput.maximumBytes else { throw SandboxError.invalidSpec("at most \(SessionInput.maximumBytes) bytes in one send") }
+        let total = pieces.reduce(0) { $0 + $1.count }
+        guard total <= SessionInput.maximumBytes else { throw SandboxError.invalidSpec("at most \(SessionInput.maximumBytes) bytes in one send") }
         guard phase == .running else { throw SandboxError.notRunning(phase) }
         let stream = try await openGuestStream(GuestCommand.pipe(name: name))
-        stream.send(SessionInput.frames(bytes))
+        for (i, p) in pieces.enumerated() where !p.isEmpty {
+            stream.send(SessionInput.dataFrames(p))
+            if i < pieces.count - 1 { try? await Task.sleep(for: SessionInput.settle(after: p)) }
+        }
+        stream.send(SessionInput.queryFrame)
         let read = Task { () throws -> SessionInput.Receipt? in
             var got = Data()
             for await chunk in stream.output {
