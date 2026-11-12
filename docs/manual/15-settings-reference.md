@@ -153,6 +153,14 @@ This table is generated from `doz config show` and checked against it on every b
 | `serve.mac_sessions` | `off` | off \| watch \| interactive | at once | — | With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no isolation: your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them. |
 | `serve.advertise` | `true` | boolean | ui-restart | — | With ui.lan, announce the dashboard on your network with Bonjour ("Dozable on <this Mac>", http://<this Mac>.local:<port>), so other Macs and phones can find it. |
 
+### `[mac]`
+
+| key | default | values | applies | overridden by | what it does |
+|---|---|---|---|---|---|
+| `mac.fence` | `off` | off \| on | next session | `$DOZ_MAC_FENCE`, `doz run @mac --fenced \| --unfenced` | Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session. |
+| `mac.keychain` | `off` | off \| on | next session | `doz run @mac --keychain` | Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session. |
+| `mac.fence_read` | `""` | paths relative to your home, comma-separated, like "notes, src/shared" ("" = none) | next session | — | Folders or files in your home a fenced session on this Mac may read (never write), relative to your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config, ~/Library) stay closed. |
+
 ### `[host]`
 
 | key | default | values | applies | overridden by | what it does |

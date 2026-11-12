@@ -85,6 +85,44 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 - **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
   whether to end them; nuke ends them and removes the socket folder.
 
+### Fenced sessions on this Mac (`doz run @mac --fenced`)
+
+`MacFence.swift` (the request, the record, the grants), `MacFencePaths.swift` (refusals, the home's read allowlist),
+`MacFenceProfile.swift` (the Seatbelt profile), `MacFenceEnvironment.swift`, `MacFenceSessionFolder.swift`,
+`MacFenceHostFS.swift`, `MacFenceGit.swift` (the git guard), `MacFenceStop.swift`, `PathEventStream` (FileWatch.swift),
+`HostCore+Mac.swift` (`macOpenFenced`, adoption, `session-resume`, `session-quarantine`), deckhold.c `fence_args`;
+`MacFence*Tests`, `make test-cli-fence`, `Scripts/fence-read-probe.sh` (the allowlist against this Mac's real home,
+read-only). Off by default (`mac.fence`); `--unfenced` is the session above, unchanged.
+
+- **The principle:** nothing a fenced program can write is later executed or loaded by anything unfenced, except the
+  project's own files. Its temp, every tool cache it knows of, `XDG_CONFIG_HOME` and git's global config are its own
+  (`~/Library/Application Support/Dozable/fence/<8 hex of the store>/<session>/`: `tmp/` emptied at every open, `cache/`
+  and `derived/` kept — emptied when an open WIDENS the grants — `etc/` host-written and read-only, `ssh/known_hosts`).
+- **The profile** (deny default, the LAST matching rule wins): reads are the system roots and an allowlist of the home
+  (toolchain roots, the PATH and its links' targets — never a folder directly in the home, never a secret place —,
+  `~/.ssh/config` and `*.pub`); writes are the folder and `--write` folders; git's hooks folders (any depth), a `.git`
+  renamed or removed, an absent top `.git`, an in-tree `core.hooksPath` and git include targets are denied; then the
+  fence root closed, this session's folder opened again, and the store, the socket folders and doz's settings closed
+  last. No network in this release; the Keychain's services only with `--keychain`. sandbox-exec sits between the
+  holder (unfenced) and the program; the holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
+- **The host never follows a link the fence planted** (`MacFenceHostFS`: `O_NOFOLLOW_ANY`, `dirfd` walks, one-link
+  regular files) — every clear, read, strip and quarantine of a fence-writable path.
+- **The git guard** (one per fenced session, the host's): the baseline at open (every repository's config entries and
+  hooks), FSEvents over the folders, a full check after the watch starts. A config key a fenced program may not add or
+  change (anything outside `MacFenceGit.allowed`), a `.git` file pointing outside a watched worktree/module, a bare
+  repository's shape, a repository arriving with a hook (a tree renamed in — the profile only stops writes AT those
+  paths) are violations: every process of the fence is SIGSTOPped (`sandbox_check` — SPI, its path argument on the
+  stack on arm64 — finds them by the session's sentinel, detached ones included), the change taken out (git itself
+  parses and strips a private copy), the text kept in `<store>/mac-sessions/quarantine/<session>/`, the session stopped
+  until `doz sessions resume @mac S`. Two fenced sessions in one folder are both stopped (the guard cannot tell which
+  wrote). A fenced session keeps the host up (its guard is the host's); ending one kills every process of its fence.
+- **Residuals, stated:** names and sizes of files are readable everywhere (`file-read-metadata`); another same-user
+  process's ARGV is readable through `kern.procargs2` (Seatbelt does not govern it on macOS 27 — the kernel returns no
+  other process's environment, fenced or not); between a git config write and the guard's stop (< 1 s) an unfenced git
+  run in the folder could read the key once.
+- **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a host older than fenced sessions refuses it —
+  never opens it unfenced.
+
 ## Session memory and saved screens
 
 - **Saved screens exist ONLY for a sandbox one wakes back into** — paused, asleep, hibernated.

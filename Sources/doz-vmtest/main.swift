@@ -1003,6 +1003,10 @@ Task {
             // Sessions on this Mac (@mac) — no VM (CLIHostSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
             await cliHostSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
+        case "cli-fence":
+            // Fenced sessions on this Mac — no VM (CLIFenceSuite.swift).
+            let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"
+            await cliFenceSuite(binary: URL(fileURLWithPath: binary).standardizedFileURL.path)
         case "cli-sessionsend":
             // 678 B5: doz sessions send / screen (SessionSendSuite.swift).
             let binary = args.firstIndex(of: "--doz").flatMap { $0 + 1 < args.count ? args[$0 + 1] : nil } ?? ".build/debug/doz"

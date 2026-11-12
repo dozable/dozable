@@ -63,6 +63,8 @@ public enum SettingType: Sendable, Equatable {
     case addressList
     /// 657: a dotfiles repository — an https:// git URL or a folder on this Mac (`DotfilesSource`); `""` = none.
     case dotfiles
+    /// Paths relative to the home, comma-separated (`notes, src/shared`) — `MacFencePaths.fenceReadProblem`; `""` = none.
+    case homePathList
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -109,6 +111,7 @@ public enum SettingType: Sendable, Equatable {
         case .originList: "origins like https://doz.home.example, comma-separated (\"\" = none)"
         case .addressList: "addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated (\"\" = none)"
         case .dotfiles: "a git repository's https:// URL, or a folder on this Mac that is one (\"\" = none)"
+        case .homePathList: "paths relative to your home, comma-separated, like \"notes, src/shared\" (\"\" = none)"
         }
     }
 
@@ -294,6 +297,9 @@ public struct SettingDefinition: Sendable {
         case (.dotfiles, .string(let s)):
             if let why = DotfilesSource.problem(s) { throw SettingsError("\(key): \(why)") }
             return v
+        case (.homePathList, .string(let s)):
+            if let why = MacFencePaths.fenceReadProblem(s) { throw SettingsError("\(key): \(why)") }
+            return v
         case (.appList, .string(let s)):
             guard WorkspaceFiles.appNames(s) != nil else {
                 throw SettingsError("\(key) is app names separated by commas (at most 16, each 1–64 characters, no / or ;), or \"\"")
@@ -317,7 +323,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -495,6 +501,10 @@ public enum SettingKey {
     public static let serveAdvertise = "serve.advertise"
     /// What a remote browser may do with the sessions on this Mac: off | watch | interactive.
     public static let serveMacSessions = "serve.mac_sessions"
+    /// A new session on this Mac runs fenced (on) or not (off); its Keychain; the person's extra home paths it may read.
+    public static let macFence = "mac.fence"
+    public static let macKeychain = "mac.keychain"
+    public static let macFenceRead = "mac.fence_read"
     /// 594: where the UI's new sandboxes get their workspace by default (`<projects_dir>/<name>`).
     public static let projectsDir = "defaults.projects_dir"
     public static let kernelPath = "kernel.path"
@@ -783,6 +793,16 @@ public struct DozableSettings: Sendable {
             .init("serve", "mac_sessions", .choice(["off", "watch", "interactive"]), .string("off"),
                   "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no isolation: your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
                   applies: .now, ui: false),
+            // A fence around a session on this Mac: a Seatbelt profile per session — off by default for now.
+            .init("mac", "fence", .choice(["off", "on"]), .string("off"),
+                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.",
+                  env: "DOZ_MAC_FENCE", flag: "doz run @mac --fenced | --unfenced", applies: .nextSession, ui: false),
+            .init("mac", "keychain", .choice(["off", "on"]), .string("off"),
+                  "Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session.",
+                  flag: "doz run @mac --keychain", applies: .nextSession, ui: false),
+            .init("mac", "fence_read", .homePathList, .string(""),
+                  "Folders or files in your home a fenced session on this Mac may read (never write), relative to your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config, ~/Library) stay closed.",
+                  applies: .nextSession, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),
@@ -1314,6 +1334,7 @@ public struct DozableSettings: Sendable {
             case .originList: kind = "origins"
             case .addressList: kind = "addresses"
             case .dotfiles: kind = "dotfiles"
+            case .homePathList: kind = "home-paths"
             }
             var note: String?
             switch r.source {

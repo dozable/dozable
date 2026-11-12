@@ -75,8 +75,32 @@ struct Inspect: AsyncParsableCommand {
 struct Sessions: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "The sandbox's terminal sessions: list them (the default), end one, restart one, type into one, or read its screen.",
-        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self, SessionsWait.self],
+        subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self, SessionsWait.self,
+                      SessionsResume.self],
         defaultSubcommand: SessionsList.self)
+}
+
+/// A fenced session on this Mac stopped for a git config change: continue it.
+struct SessionsResume: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "resume",
+        abstract: "Continue a fenced session on this Mac that was stopped for a git config change (doz sessions resume @mac SESSION).",
+        discussion: """
+            A fenced session that changes a git config in a way a fenced program may not (a hook path, an fsmonitor, a pager, an \
+            unknown key) is stopped at once, the change taken out and kept aside: doz sessions @mac --quarantine SESSION shows \
+            it. Resuming continues every process of the session — refused while such a change is there again.
+            """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument var session: String
+
+    func run() async throws {
+        guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "only a session on this Mac is stopped this way — doz sessions resume @mac SESSION"), g, code: DozableExit.usage) }
+        var r = HostRequest(.sessionResume, name: name)
+        r.session = session
+        let got = try decode(try call(r, g), SessionResumed.self, g)
+        if g.json { Out.json(got); return }
+        Out.stdout("resumed session \(session) on this Mac (\(got.processes) process\(got.processes == 1 ? "" : "es"))\n")
+    }
 }
 
 /// Wait until a session's program says it is idle, done, blocked or in error (its own OSC 7501 reports).
@@ -331,14 +355,29 @@ struct SessionsList: AsyncParsableCommand {
     @Argument var name: String
     @Option(name: .long, help: "Print this session's last saved screen (text).") var screen: String?
     @Flag(name: .long, help: "With --screen: write the saved VT bytes (redraw with `cat` in a terminal) — only to a file or a pipe.") var vt = false
+    @Option(name: .long, help: "@mac: what was taken out of this fenced session's git configs (why it stopped).") var quarantine: String?
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
+        if let q = quarantine {
+            guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--quarantine is for doz sessions @mac"), g, code: DozableExit.usage) }
+            var r = HostRequest(.sessionQuarantine, name: name)
+            r.session = q
+            let got = try decode(try await query(r, g), SessionQuarantine.self, g)
+            if g.json { Out.json(got); return }
+            if got.items.isEmpty { Out.stdout("nothing was taken out of \(q)'s git configs\n"); return }
+            for i in got.items { Out.stdout("── \(i.name)\n\(i.text)\n") }
+            return
+        }
         let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
         if g.json { Out.json(rows); return }
         if MacPlace.isPlace(name) {
-            Out.stdout("this Mac — no isolation (your files, Keychain and network)\n")
+            Out.stdout(rows.contains { $0.fenced == true } ? "this Mac — fenced sessions are held to their folders; the others have no isolation\n"
+                       : "this Mac — no isolation (your files, Keychain and network)\n")
+            for s in rows where s.fence?.stoppedForGit != nil {
+                Out.stderr("\(s.name) is STOPPED: a git config change a fenced session may not make (\(s.fence!.stoppedForGit!)) — doz sessions @mac --quarantine \(s.name); doz sessions resume @mac \(s.name)\n")
+            }
             Out.stdout(rows.isEmpty ? "no sessions on this Mac — doz run @mac -d --session NAME --workdir DIR -- CMD\n" : MacCLI.table(rows))
             return
         }
@@ -412,7 +451,11 @@ struct Run: AsyncParsableCommand {
         discussion: """
             doz run NAME -- top. The program starts without a shell in front of it; say `-- bash -lc '…'` for one. \
             doz run @mac -- CMD runs it on THIS Mac instead, held like a sandbox's session — with no isolation at all: \
-            your files, Keychain and network (no CMD: your login shell; --workdir is a folder on the Mac, default your home).
+            your files, Keychain and network (no CMD: your login shell; --workdir is a folder on the Mac, default your home). \
+            doz run @mac --fenced -- CMD puts a fence around it: it reads and writes only its folder (default: the one you \
+            are in) and its own temp and caches, reads your tools but not your secrets or other folders, cannot use your \
+            Keychain (--keychain opens it) and has no network yet; a git config change a fenced program may not make stops \
+            it until doz sessions resume @mac SESSION. The setting mac.fence makes fenced the default; --unfenced overrides it.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
@@ -423,38 +466,78 @@ struct Run: AsyncParsableCommand {
     @Flag(name: [.short, .customLong("detach")], help: "Start it and return; attach later.") var detach = false
     @Option(name: .long, help: "The key that detaches: ctrl-] (default), ctrl-<letter>, or none.") var detachKey = "ctrl-]"
     @Flag(name: .long, help: "Fail instead of starting (cold-booting) a sandbox that is off.") var noStart = false
+    @Flag(name: .long, help: "@mac: run it fenced — its folder, its own temp and caches; your Keychain, secrets and other folders closed (setting mac.fence).") var fenced = false
+    @Flag(name: .long, help: "@mac: run it with no isolation at all, whatever mac.fence says.") var unfenced = false
+    @Flag(name: .long, help: "@mac, fenced: open your Keychain to it (signing, notarisation — and your saved logins).") var keychain = false
+    @Option(name: .customLong("read"), help: "@mac, fenced: one more folder it may read (repeatable).") var readDirs: [String] = []
+    @Option(name: .customLong("write"), help: "@mac, fenced: one more folder it may read and write (repeatable).") var writeDirs: [String] = []
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
 
     func validate() throws {
         if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
         if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
+        let fenceFlags = keychain || !readDirs.isEmpty || !writeDirs.isEmpty
+        if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags {
+            throw ValidationError("--fenced, --unfenced, --keychain, --read and --write are for doz run @mac (a sandbox is a VM of its own)")
+        }
+        if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
+        if unfenced && fenceFlags { throw ValidationError("--keychain, --read and --write are for a fenced session — not with --unfenced") }
+    }
+
+    /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else off.
+    func fencedOnMac(_ settings: DozableSettings) -> Bool {
+        if fenced { return true }
+        if unfenced { return false }
+        if keychain || !readDirs.isEmpty || !writeDirs.isEmpty { return true }
+        return settings.string(SettingKey.macFence) == "on"
     }
 
     func run() async throws {
         let key = try parseDetachKey(detachKey)
         let onMac = MacPlace.isPlace(name)
-        if onMac, !g.quiet { Out.stderr("[doz] \(MacPlace.noIsolationLine)\n") }
+        let settings = DozableSettings.load()
+        let fence = onMac && fencedOnMac(settings)
+        if onMac, !fence, !g.quiet { Out.stderr("[doz] \(MacPlace.noIsolationLine)\n") }
         var r = HostRequest(.openSession, name: name)
         r.start = !noStart      // 594 W27: an off sandbox boots first
         r.session = session
         r.argv = command.isEmpty ? nil : command
-        // A folder on this Mac is absolute (the host runs elsewhere): relative to where doz runs.
-        r.workdir = onMac ? workdir.map { URL(fileURLWithPath: $0).standardizedFileURL.path } : workdir
+        // A folder on this Mac is absolute (the host runs elsewhere): relative to where doz runs. A fenced session's
+        // folder is, by default, the one doz runs in.
+        func absolute(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
+        r.workdir = onMac ? (workdir.map(absolute) ?? (fence ? FileManager.default.currentDirectoryPath : nil)) : workdir
         r.user = user
         r.environment = try parseEnv(env)
+        if fence {
+            r.v = HostProtocol.fencedVersion
+            r.macFence = MacFenceRequest(keychain: (keychain || settings.string(SettingKey.macKeychain) == "on") ? true : nil,
+                                         read: readDirs.isEmpty ? nil : readDirs.map(absolute),
+                                         write: writeDirs.isEmpty ? nil : writeDirs.map(absolute))
+        }
         let size = terminalSize()
         r.cols = size.cols
         r.rows = size.rows
         // A program the sandbox does not have is doz's failure, not the program's: 125, like exec.
         let m = try rawCall(r, g)
         guard m.ok == true else {
-            let e = m.error ?? HostError(.failed, "the host gave no reason")
+            var e = m.error ?? HostError(.failed, "the host gave no reason")
+            if fence, e.code == .version {
+                e = HostError(.unavailable, "the host running now predates fenced sessions — doz host stop, then run this again (nothing was started)")
+            }
             throw fail(e, g, code: e.code == .notFound && r.argv != nil ? DozableExit.dozableFailed : nil)
         }
         let opened = try decode(m.result ?? .null, SessionOpened.self, g)
+        if fence, opened.fenced != true {
+            // Never run unfenced silently: a host that did not fence it says nothing of a fence.
+            throw fail(HostError(.failed, "the host did not open \(opened.session) fenced — doz sessions end @mac \(opened.session); doz host stop, then run this again"), g)
+        }
         if !g.json, let n = opened.notice { Out.stderr("[doz] \(n)\n") }
+        if fence, !g.quiet, !g.json {
+            if let line = opened.fenceLine { Out.stderr("[doz] \(line)\n") }
+            for n in opened.fenceNotes ?? [] { Out.stderr("[doz] note: \(n)\n") }
+        }
         if onMac, opened.bypassed == true, !g.quiet {
-            Out.stderr("[doz] session \(opened.session): \(MacPlace.bypassedMark) (its own command line asked for it)\n")
+            Out.stderr("[doz] session \(opened.session): \(fence ? "permissions bypassed — fenced" : MacPlace.bypassedMark) (its own command line asked for it)\n")
         }
         if detach || g.json {
             if g.json { Out.json(opened) } else if onMac {

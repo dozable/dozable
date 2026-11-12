@@ -93,6 +93,8 @@ public actor HostCore {
     var managed: [String: Managed] = [:]
     /// The sessions held on THIS Mac (`@mac`) — never in `managed` (no `Sandbox`): `HostCore+Mac`.
     public nonisolated let mac: MacSessions
+    /// The git guard of each FENCED session on this Mac this host watches (`HostCore+Mac`).
+    var macFenceWatches: [String: MacFenceWatch] = [:]
     /// Names being created right now (so two `create`s cannot race).
     private var creating: Set<String> = []
     /// 590: `open-session` is serialized per sandbox.
@@ -573,8 +575,8 @@ public actor HostCore {
 
     /// Every request but the streaming ones (`attach`, `events`, `net-log --follow` — see HostServer).
     public func handle(_ r: HostRequest, emit: @escaping @Sendable (HostEvent) -> Void = { _ in }) async -> HostMessage {
-        guard r.v <= HostProtocol.version else {
-            return .failure(HostError(.version, "this host speaks protocol \(HostProtocol.version), the request is \(r.v) — restart it (doz host stop)"))
+        guard r.v <= HostProtocol.accepted else {
+            return .failure(HostError(.version, "this host speaks protocol \(HostProtocol.accepted), the request is \(r.v) — restart it (doz host stop)"))
         }
         // 593: `terminal-layout-set` is answered in-process too: it writes one small file of the web UI's
         // state beside doz.json (never a VM, never a secret — like the UI's doz.toml), and a host is not
@@ -756,6 +758,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await sessionLive(r, emit: emit))
         case .sessionWait:
             return try JSONValue(encoding: try await sessionWait(r))
+        case .sessionResume, .sessionQuarantine:
+            throw HostError(.invalid, "only a fenced session on this Mac is stopped and resumed this way (doz sessions resume @mac SESSION)")
         case .bootLog:
             return try bootLog(r)
         case .buildLog:

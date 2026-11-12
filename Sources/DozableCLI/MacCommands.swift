@@ -9,7 +9,8 @@ import DozableHost
 enum MacCLI {
     /// The commands that take `@mac`.
     static let takes: Set<ObjectIdentifier> = Set([Run.self, Attach.self, SessionsList.self, SessionsEnd.self, SessionsRestart.self,
-                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self].map { ObjectIdentifier($0 as Any.Type) })
+                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self, SessionsResume.self]
+                                                  .map { ObjectIdentifier($0 as Any.Type) })
 
     /// The refusal for a parsed command that names `@mac` (before any `--`) and does not take it; nil otherwise.
     static func refusal(_ command: any ParsableCommand, args: [String]) -> HostError? {
@@ -26,10 +27,12 @@ enum MacCLI {
         let running = rows.filter { !$0.ended }.count
         let gone = rows.filter { $0.gone == true }.count
         let ended = rows.count - running - gone
+        let fenced = rows.filter { !$0.ended && $0.fenced == true }.count
         var parts = ["\(running) session\(running == 1 ? "" : "s") running"]
         if gone > 0 { parts.append("\(gone) gone") }
         if ended > 0 { parts.append("\(ended) ended") }
-        return "this Mac: " + parts.joined(separator: ", ") + " (no isolation) — doz sessions @mac"
+        let how = fenced == 0 ? "no isolation" : fenced == running ? "fenced" : "\(fenced) fenced, \(running - fenced) no isolation"
+        return "this Mac: " + parts.joined(separator: ", ") + " (\(how)) — doz sessions @mac"
     }
 
     /// The sessions on this Mac that run now (read from the socket folder; no host asked).
@@ -75,7 +78,8 @@ enum MacCLI {
     static func state(_ s: SessionRow) -> String {
         var t = s.gone == true ? "gone (the Mac restarted, or its holder was killed)"
             : s.ended ? "ended (exit \(s.exitCode.map(String.init) ?? "?"))" : "running"
-        if s.bypassed == true { t += " · " + MacPlace.bypassedMark }
+        if let f = s.fence { t += " · " + f.state } else if !s.ended { t += " · no isolation" }
+        if s.bypassed == true { t += " · " + (s.fence != nil ? "permissions bypassed — fenced" : MacPlace.bypassedMark) }
         return t
     }
 

@@ -16,6 +16,8 @@ public struct MacSessionRecord: Codable, Equatable, Sendable {
     public var pid: Int?
     /// Its own argv bypasses its permissions (never added by Dozable).
     public var bypassed: Bool?
+    /// It runs FENCED, with these grants (nil: unfenced — every record before fenced sessions keeps its mode).
+    public var fence: MacFenceRecord?
 }
 
 /// `<store>/mac-sessions/sessions.json` (0600 in a 0700 folder) — fields only ever added. It outlives the holders (a
@@ -124,6 +126,91 @@ public actor MacSessions {
         row.openedAt = rec.openedAt
         row.bypassed = rec.bypassed == true ? true : nil
         if !rec.argv.isEmpty { row.command = rec.argv.joined(separator: " ") }
+        if let f = rec.fence {
+            row.fenced = true
+            row.fence = MacFenceRow(f)
+        }
+    }
+
+    /// Change one session's record (nothing when it has none).
+    func updateRecord(_ s: String, _ change: (inout MacSessionRecord) -> Void) {
+        var r = records()
+        guard var rec = r.sessions[s] else { return }
+        change(&rec)
+        r.sessions[s] = rec
+        writeRecords(r)
+    }
+
+    /// Whether session `s`'s holder answers now.
+    public func isRunning(_ s: String) async -> Bool {
+        if case .info = await DeckholdSocket.query(path: socket(s)) { return true }
+        return false
+    }
+
+    // MARK: the fence
+
+    /// The places a fenced session's rules are made of, resolved. The home is the person's (`TestSafety.realHome`);
+    /// TEST SEAM (guarded runs only): `DOZ_TEST_FENCE_HOME`, a scratch home — and a guarded run without it is refused,
+    /// so a test never makes a session folder in the real home.
+    public nonisolated func fencePlaces() throws -> MacFencePlaces {
+        let env = hostEnvironment
+        var home = TestSafety.realHome.path
+        if TestSafety.guarded(env) {
+            guard let h = env["DOZ_TEST_FENCE_HOME"], h.hasPrefix("/") else {
+                throw HostError(.unavailable, "a test opening a fenced session must give it a scratch home (DOZ_TEST_FENCE_HOME)")
+            }
+            home = h
+        }
+        guard let rh = MacFencePaths.resolve(home) else { throw HostError(.failed, "the home \(home) is not there") }
+        let storeRoot = MacFencePaths.resolve(store.root.path) ?? store.root.standardizedFileURL.path
+        try? MacPlace.ensureFolder(directory)
+        let sockets = MacFencePaths.resolve(directory) ?? directory
+        var temp = MacFencePaths.resolve(MacPlace.userTempDirectory()) ?? MacPlace.userTempDirectory()
+        if !temp.hasSuffix("/") { temp += "/" }
+        let xdg = env["XDG_CONFIG_HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? (home + "/.config")
+        let xdgReal = MacFencePaths.resolve(xdg) ?? xdg
+        return MacFencePlaces(home: rh, store: storeRoot, socketDirectory: sockets, userTemp: temp, dozConfig: xdgReal + "/doz")
+    }
+
+    /// The person's git keys, read again only when their global config or ignore file changed (or after a minute) — a git
+    /// run is most of a fenced start's cost.
+    private var personGitCache: (key: String, at: Date, value: MacFenceSessionFolder.PersonGit)?
+    func personGit(home: String) -> MacFenceSessionFolder.PersonGit {
+        func stamp(_ p: String) -> String {
+            var st = stat()
+            return stat(p, &st) == 0 ? "\(st.st_ino):\(st.st_size):\(st.st_mtimespec.tv_sec).\(st.st_mtimespec.tv_nsec)" : "-"
+        }
+        let key = [home, stamp(home + "/.gitconfig"), stamp(home + "/.config/git/config"), stamp(home + "/.config/git/ignore")].joined(separator: "|")
+        if let c = personGitCache, c.key == key, Date().timeIntervalSince(c.at) < 60 { return c.value }
+        let v = MacFenceSessionFolder.personGit(home: home)
+        personGitCache = (key, Date(), v)
+        return v
+    }
+
+    /// `<store>/mac-sessions/fence/<session>` (0700): the session's profile, its git baseline and git's private copies —
+    /// in the store, which no fence can read.
+    public nonisolated func fenceState(_ s: String) -> String {
+        (MacFencePaths.resolve(folder.path) ?? folder.path) + "/fence/" + s
+    }
+
+    /// `<store>/mac-sessions/quarantine/<session>`: what the git guard took out.
+    public nonisolated func quarantine(_ s: String) -> String {
+        (MacFencePaths.resolve(folder.path) ?? folder.path) + "/quarantine/" + s
+    }
+
+    /// Build a fenced session's fence and re-seed its folder (`previous`: its record at its last open, for the grants).
+    public func prepareFence(session: String, workdir: String, request: MacFenceRequest, fenceRead: [String],
+                             previous: MacFenceRecord?) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
+        guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
+        let places = try fencePlaces()
+        if loginPath == nil { loginPath = MacSessionsEnvironment.loginPath(host: hostEnvironment) }
+        let person = personGit(home: places.home)
+        ensureStoreFolder()
+        try MacFenceHostFS.ensureDirectory(fenceState(session))
+        let fence = try MacFence.make(session: session, workdir: workdir, request: request, places: places, path: loginPath!.path,
+                                      fenceRead: fenceRead, hooksPathGlobal: person.hooksPath, scratch: fenceState(session))
+        let seeded = try MacFenceSessionFolder.prepare(fence, previous: previous?.grants, person: person)
+        return (fence, seeded, fence.homeReads.notes + seeded.notes)
     }
 
     /// QUERY of one session.
@@ -172,7 +259,8 @@ public actor MacSessions {
     /// Start session `session` (default: the program's name) running `argv` (default: the login shell) in `workdir`
     /// (default: home), with the clean environment plus `extra` — `deckhold-mac serve`, by posix_spawn, never a shell.
     public func open(session: String?, argv given: [String]?, workdir: String?, extra: [String: String]?,
-                     size: TermSize, holder: URL, recordedArgv: [String]? = nil) async throws -> Opened {
+                     size: TermSize, holder: URL, recordedArgv: [String]? = nil,
+                     fence: MacFence? = nil, gitBaseline: MacFenceGitBaseline? = nil) async throws -> Opened {
         guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
         let home = hostEnvironment["HOME"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? NSHomeDirectory()
         let argv = given.flatMap { $0.isEmpty ? nil : $0 }
@@ -196,12 +284,27 @@ public actor MacSessions {
         guard Self.findProgram(argv[0], path: env["PATH"] ?? "") != nil else {
             throw HostError(.notFound, "no program \(argv[0]) on this Mac's PATH (\(DisplayPath.tilde(env["PATH"] ?? "")))")
         }
-        env["DECKHOLD_DIR"] = directory
         ensureStoreFolder()
+        var prefix: [String] = []
+        var fenceRecord: MacFenceRecord?
+        if let f = fence {
+            // The fence: its profile in the store (no fence can read it), its environment over the allowlist, and
+            // sandbox-exec between the holder (unfenced: its socket is in the closed socket folder) and the program.
+            env["HOME"] = f.places.home
+            MacFenceEnvironment.add(&env, fence: f)
+            let profile = MacFenceProfile.render(f)
+            let state = fenceState(name)
+            try MacFenceHostFS.ensureDirectory(state)
+            try MacFenceHostFS.writeAtomically(Data(profile.utf8), dir: state, name: "profile.sb", mode: 0o600)
+            fenceRecord = f.record(profileSHA256: MacFence.sha256(profile), gitBaseline: gitBaseline?.digests)
+            // The holder puts its pty's path in place of @DOZ_PTY@ — only in sandbox-exec's own arguments.
+            prefix = ["/usr/bin/sandbox-exec", "-f", state + "/profile.sb", "-D", "TTY=@DOZ_PTY@", "--"]
+        }
+        env["DECKHOLD_DIR"] = directory
         let log = folder.appendingPathComponent("\(name).log").path
         let cols = size.cols > 0 ? size.cols : 80, rows = size.rows > 0 ? size.rows : 24
-        let args = [holder.path, "serve", "-s", name, "-x", String(cols), "-y", String(rows), "--"] + argv
-        let code = try await Self.spawnAndWait(args, environment: env, workdir: dir, log: log)
+        let args = [holder.path, "serve", "-s", name, "-x", String(cols), "-y", String(rows), "--"] + prefix + argv
+        let code = try await Self.spawnAndWait(args, environment: env, workdir: fence?.workdir ?? dir, log: log)
         guard code == 0 else {
             let tail = ((try? String(contentsOfFile: log, encoding: .utf8)) ?? "").split(separator: "\n").suffix(3).joined(separator: " | ")
             throw HostError(.failed, "the holder for \(name) did not start (exit \(code))" + (tail.isEmpty ? "" : ": \(tail)"))
@@ -210,9 +313,19 @@ public actor MacSessions {
         if case .info(let line) = await DeckholdSocket.query(path: socket(name)) { pid = SessionInfo.parseList(line).first?.pid }
         let bypassed = MacPlace.bypassesPermissions(argv)
         // A restart records the argv it was OPENED with (what it appended to resume is not kept).
-        record(name, MacSessionRecord(argv: recordedArgv ?? argv, workdir: dir, environmentKeys: (extra ?? [:]).keys.sorted().nilIfEmpty, openedAt: Date(),
-                                      holderVersion: nil, holderSHA256: Self.sha256(holder), pid: pid, bypassed: bypassed ? true : nil))
+        record(name, MacSessionRecord(argv: recordedArgv ?? argv, workdir: fence?.workdir ?? dir, environmentKeys: (extra ?? [:]).keys.sorted().nilIfEmpty,
+                                      openedAt: Date(), holderVersion: nil, holderSHA256: Self.sha256(holder), pid: pid,
+                                      bypassed: bypassed ? true : nil, fence: fenceRecord))
         return Opened(session: name, created: true, bypassed: bypassed, pid: pid, pathSource: loginPath?.source)
+    }
+
+    /// The session's name: as given, else the program's (checked).
+    public nonisolated func sessionName(_ session: String?, argv given: [String]?) throws -> String {
+        let argv = given.flatMap { $0.isEmpty ? nil : $0 }
+            ?? [hostEnvironment["SHELL"].flatMap { $0.hasPrefix("/") ? $0 : nil } ?? "/bin/zsh", "-l"]
+        let name = try session ?? Self.defaultName(argv)
+        try MacPlace.validateSessionName(name)
+        return name
     }
 
     /// The session's default name: the program's own, made a name.
@@ -314,6 +427,11 @@ public actor MacSessions {
     /// Forget a session that does not run (its record, its `.exit`, its log, its saved screen).
     public func forget(_ s: String) {
         guard !readOnly else { return }
+        // A fenced one: its own folder (by the host's file rules — the program could write there) and its state.
+        if let f = records().sessions[s]?.fence {
+            try? MacFenceHostFS.remove(f.sessionFolder)
+            try? MacFenceHostFS.remove(fenceState(s))
+        }
         record(s, nil)
         unlink(DeckholdSocket.exitFile(forSocket: socket(s)))
         unlink(folder.appendingPathComponent("\(s).log").path)

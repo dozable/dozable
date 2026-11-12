@@ -42,6 +42,7 @@ sessions
 sessions/end
 sessions/ls
 sessions/restart
+sessions/resume
 sessions/screen
 sessions/send
 sessions/wait

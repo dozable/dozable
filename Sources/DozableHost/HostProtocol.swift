@@ -18,6 +18,11 @@ import DozableKit
 
 public enum HostProtocol {
     public static let version = 1
+    /// What an open-session asking for a FENCED session on this Mac carries: a host older than fenced sessions refuses
+    /// it ("restart it") instead of opening the session unfenced.
+    public static let fencedVersion = 2
+    /// The newest request this host answers.
+    public static let accepted = 2
 }
 
 /// Every operation the host serves.
@@ -146,6 +151,12 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// Block until a session's program reports one of `until` (OSC 7501 states) — `SessionWaited`; at `timeoutSeconds`
     /// it answers `timedOut`. A running sandbox, or `@mac`; never wakes.
     case sessionWait = "session-wait"
+    /// `@mac` only: a fenced session stopped for a git config change — every process of its fence continued again
+    /// (`SessionResumed`); refused while a change outside the allowlist is still there.
+    case sessionResume = "session-resume"
+    /// `@mac` only: what the host took out of a fenced session's git configs and kept aside (`SessionQuarantine`).
+    /// Read-only.
+    case sessionQuarantine = "session-quarantine"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
     /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
     case plan
@@ -209,7 +220,8 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     public var isReadOnly: Bool {
         switch self {
         case .ping, .ls, .inspect, .pointList, .imageList, .keyList, .accountList, .imageTree, .prepareStatus, .sessionScreen, .sessionLive, .terminalLayout, .bootLog, .buildLog, .resources,
-             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles: true
+             .bases, .builderStatus, .netPermissions, .workspaceRules, .plan, .plans, .models, .filesList, .filesTree, .editors, .sessionGrids, .dotfiles,
+             .sessionQuarantine: true
         case .netPolicy: false        // decided per request (a change needs the host)
         default: false
         }
@@ -487,6 +499,9 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// trusted (nil: the head, resolved by the host).
     public var dotfilesSource: String?
     public var dotfilesCommit: String?
+    /// open-session on `@mac`: run it FENCED (a Seatbelt profile around the program) with these grants; nil: unfenced.
+    /// Such a request carries `HostProtocol.fencedVersion`.
+    public var macFence: MacFenceRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1006,6 +1021,9 @@ public struct SessionRow: Codable, Equatable, Sendable {
     /// A session on this Mac whose holder is gone (the Mac restarted, or the holder was killed): only its record is left —
     /// `doz sessions restart @mac NAME` starts it again.
     public var gone: Bool? = nil
+    /// A session on this Mac: whether it runs fenced, and what its fence opens (nil for unfenced and older ones).
+    public var fenced: Bool? = nil
+    public var fence: MacFenceRow? = nil
 
     public init(_ s: SessionInfo) {
         name = s.name
@@ -1233,6 +1251,11 @@ public struct SessionOpened: Codable, Equatable, Sendable {
     public var notice: String? = nil
     /// A session on this Mac whose argv bypasses its permissions (its own choice — marked).
     public var bypassed: Bool? = nil
+    /// A session on this Mac opened FENCED (a host older than fenced sessions never says so — the CLI refuses then),
+    /// its one line, and what its fence did not open (said once).
+    public var fenced: Bool? = nil
+    public var fenceLine: String? = nil
+    public var fenceNotes: [String]? = nil
 }
 
 /// `image ls`.

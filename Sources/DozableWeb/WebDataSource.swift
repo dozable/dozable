@@ -212,13 +212,13 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     let fileWatches = FileWatchHub()
 
     public init(store: DozableStore, version: String, executable: String = HostLauncher.executablePath,
-                terminal: @escaping @Sendable (String) throws -> Void = TerminalHandoff.openInTerminalApp,
+                terminal: (@Sendable (String) throws -> Void)? = nil,
                 macLogin: @escaping @Sendable () -> Bool = { false },
                 doctor: @escaping @Sendable () -> [WebDoctorCheck]) {
         self.store = store
         self.version = version
         self.executable = executable
-        terminalLauncher = terminal
+        terminalLauncher = terminal ?? TerminalHandoff.launcher(store: store)
         self.macLogin = macLogin
         doctorChecks = doctor
     }

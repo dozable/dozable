@@ -1346,6 +1346,30 @@ static bool pump_master(void) {
     return true;
 }
 
+#if defined(__APPLE__)
+/* A FENCED session on the Mac: the program runs as `/usr/bin/sandbox-exec -f PROFILE -D TTY=@DOZ_PTY@ -- CMD…`. In the
+ * child, before exec: @DOZ_PTY@ becomes this session's pty — ONLY in sandbox-exec's own arguments (up to its `--`, never
+ * in the program's argv), so the profile can allow exactly this terminal; and DECKHOLD_DIR (the holders' socket folder,
+ * which the fence closes) is not passed on. Anything else is left exactly as given. */
+static void fence_args(int argc, char **argv) {
+    if (argc < 2 || strcmp(argv[0], "/usr/bin/sandbox-exec") != 0) return;
+    unsetenv("DECKHOLD_DIR");
+    const char *tty = ttyname(0);
+    static const char mark[] = "@DOZ_PTY@";
+    for (int i = 1; i < argc && strcmp(argv[i], "--") != 0; i++) {
+        char *at = strstr(argv[i], mark);
+        if (!at || !tty) continue;
+        size_t pre = (size_t)(at - argv[i]), tl = strlen(tty), post = strlen(at + sizeof mark - 1);
+        char *s = malloc(pre + tl + post + 1);
+        if (!s) continue;
+        memcpy(s, argv[i], pre);
+        memcpy(s + pre, tty, tl);
+        memcpy(s + pre + tl, at + sizeof mark - 1, post + 1);
+        argv[i] = s;
+    }
+}
+#endif
+
 static int serve(int argc, char **argv, const char *name, uint16_t cols, uint16_t rows,
                  size_t scrollback, bool foreground) {
     S.name = name;
@@ -1423,6 +1447,9 @@ static int serve(int argc, char **argv, const char *name, uint16_t cols, uint16_
          * browser opener that setsid()s its child) and still has something to say to the viewer —
          * the xdg-open shim of the browser bridge writes its marker here. */
         { const char *tty = ttyname(0); if (tty) setenv("DOZ_TTY", tty, 1); }
+#if defined(__APPLE__)
+        fence_args(argc, argv);
+#endif
         reset_signals();
         execvp(argv[0], argv);
         fprintf(stderr, "deckhold: exec %s: %s\n", argv[0], strerror(errno));

@@ -97,8 +97,9 @@ final class RecipeSettingsTests: XCTestCase {
         let own = DozableSettings.schema.filter { $0.agent == nil }.count
         XCTAssertEqual(DozableSettings.listedCount(values: [:]), own)
         // 659 counted 61 + 2 (defaults.memory_mib, defaults.network); 667 added sandbox.audio and sandbox.microphone_ask;
-        // 674 agent.history; serve.mac_sessions (the sessions on this Mac for another computer).
-        XCTAssertEqual(own, 67)
+        // 674 agent.history; serve.mac_sessions (the sessions on this Mac for another computer); mac.fence, mac.keychain,
+        // mac.fence_read (fenced sessions on this Mac).
+        XCTAssertEqual(own, 70)
         XCTAssertEqual(fresh.components(separatedBy: "\n# ").filter { $0.range(of: #"^[a-z_]+ = "#, options: .regularExpression) != nil }.count, own)
         // One value of a recipe: exactly its block, the others commented.
         let one = DozableSettings.render(values: ["recipes.anthropic.claude-code.version": .string("2.1.290")])

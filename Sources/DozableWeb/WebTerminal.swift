@@ -33,20 +33,36 @@ public enum TerminalHandoff {
         public var errorDescription: String? { message }
     }
 
-    /// A 0700 per-user directory for the one-shot files (under the per-user temporary directory).
-    static func handoffDirectory() throws -> URL {
-        let dir = FileManager.default.temporaryDirectory.appendingPathComponent("doz-terminal-\(getuid())", isDirectory: true)
-        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: dir.path)
+    /// The 0700 folder for the one-shot files: `<store>/ui-terminal` — in the store, which no fenced session can reach
+    /// (it used to be the per-user temporary folder, which a fenced program could have planted a `.command` in). A
+    /// link, another user's folder or a folder others can open is refused.
+    static func handoffDirectory(store: DozableStore) throws -> URL {
+        let dir = store.root.appendingPathComponent("ui-terminal", isDirectory: true)
+        if mkdir(dir.path, 0o700) != 0, errno != EEXIST {
+            throw Failure(message: "could not make the terminal hand-off folder \(dir.path): \(String(cString: strerror(errno)))")
+        }
+        if let why = MacPlace.folderProblem(dir.path) { throw Failure(message: "the terminal hand-off folder: \(why)") }
         return dir
     }
 
-    /// Write the one-shot `.command` file (0700) and open it with the user's default app for it.
-    @Sendable public static func openInTerminalApp(_ command: String) throws {
-        let dir = try handoffDirectory()
+    /// The launcher for `store`: write the one-shot `.command` file and open it with the user's default app for it.
+    public static func launcher(store: DozableStore) -> @Sendable (String) throws -> Void {
+        { command in try openInTerminalApp(command, store: store) }
+    }
+
+    /// Write the one-shot `.command` file (0700, created new — `O_EXCL|O_NOFOLLOW`) and open it with the user's default
+    /// app for it.
+    public static func openInTerminalApp(_ command: String, store: DozableStore) throws {
+        let dir = try handoffDirectory(store: store)
         let file = dir.appendingPathComponent("doz-attach-\(UUID().uuidString.prefix(8)).command")
-        guard FileManager.default.createFile(atPath: file.path, contents: Data(commandFile(command).utf8),
-                                             attributes: [.posixPermissions: 0o700]) else {
+        let fd = open(file.path, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW | O_CLOEXEC, 0o700)
+        guard fd >= 0 else { throw Failure(message: "could not write the terminal hand-off file in \(dir.path)") }
+        let body = Data(commandFile(command).utf8)
+        let ok = body.withUnsafeBytes { write(fd, $0.baseAddress, $0.count) } == body.count
+        fchmod(fd, 0o700)
+        close(fd)
+        guard ok else {
+            unlink(file.path)
             throw Failure(message: "could not write the terminal hand-off file in \(dir.path)")
         }
         let p = Process()

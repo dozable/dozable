@@ -236,9 +236,11 @@ public final class HostServer: @unchecked Sendable {
                 HostLog.line("a newer recipe catalogue is downloaded and nothing is running — exiting so the next command's host uses it")
                 await shutdown(prepare: false, reply: nil)
             }
+            // A fenced session on this Mac keeps the host up (its git guard is the host's); unfenced ones never do.
+            let fenced = await core.fencedMacSessions()
             let exit: Bool = lock.withLock {
                 guard !stopping else { return false }
-                if live.isEmpty && connections == 0 {
+                if live.isEmpty && fenced.isEmpty && connections == 0 {
                     if let s = idleSince { return now.timeIntervalSince(s) >= timeout }
                     idleSince = now
                 } else {

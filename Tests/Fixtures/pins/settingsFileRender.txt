@@ -195,6 +195,25 @@
 # (boolean; applies when doz ui starts again (doz ui restart))
 # advertise = true
 
+[mac]
+
+# Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp
+# and caches, your Keychain, secrets and other folders closed, no network yet (on), or with no
+# isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.
+# (off | on; env DOZ_MAC_FENCE; flag doz run @mac --fenced | --unfenced; applies to sessions opened from now on)
+# fence = "off"
+
+# Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so,
+# reading your saved logins). doz run @mac --keychain opens it for one session.
+# (off | on; flag doz run @mac --keychain; applies to sessions opened from now on)
+# keychain = "off"
+
+# Folders or files in your home a fenced session on this Mac may read (never write), relative to
+# your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config,
+# ~/Library) stay closed.
+# (paths relative to your home, comma-separated, like "notes, src/shared" ("" = none); applies to sessions opened from now on)
+# fence_read = ""
+
 [host]
 
 # Minutes with nothing running before the host exits; 0 = never.

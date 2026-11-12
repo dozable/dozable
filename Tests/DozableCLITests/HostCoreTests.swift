@@ -139,7 +139,7 @@ final class HostCoreTests: XCTestCase {
         let missing = await core.handle(HostRequest(.inspect, name: "nope"))
         XCTAssertEqual(missing.error?.code, .notFound)
         var future = HostRequest(.ls)
-        future.v = HostProtocol.version + 1
+        future.v = HostProtocol.accepted + 1
         let v = await core.handle(future)
         XCTAssertEqual(v.error?.code, .version)
         // A hibernated record left by another process reads as hibernated.
