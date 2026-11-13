@@ -2,8 +2,8 @@
 // your files, Keychain and network. The page lists, watches, types into (on a click), ends and restarts them; it never
 // opens one (that is the person's command on the Mac). Its own section (`#mac`, beside the grid), so a live refresh never
 // tears down the open pane. Every tile and the pane say "No isolation"; a session whose own command line bypasses its
-// permissions is marked so. The pane opens in WATCH mode (nothing typed reaches the session); Type into it attaches
-// interactively. Another computer gets what `serve.mac_sessions` allows (the server says, in `access`).
+// permissions is marked so. The pane opens in WATCH mode (nothing typed reaches the session); its two-state toggle
+// (Watching | Controlling — the tile's Control) attaches interactively. Another computer gets what `serve.mac_sessions` allows (the server says, in `access`).
 // 683 M5: a FENCED session (doz run @mac --fenced) is held to its folder and Dozable's proxy — its tile carries the
 // server's chips (Fenced / Fenced (Xcode) / Guard rail / Keychain open / Shared config / GitHub: push, then "+N") instead of
 // No isolation, and the marks that are news (stopped for git, network waiting, refusals). The pane has four tabs: the
@@ -45,7 +45,7 @@ export function bypassedChip() {
 /// The callout every view of these sessions starts with.
 export function noIsolationCallout(compact) {
   return callout('warn', { compact, cls: 'mac-callout', title: 'Not sandboxes',
-    body: 'Sessions on this Mac run as you. A fenced one (doz run @mac --fenced) is held to its folder and Dozable’s proxy, your Keychain closed — each tile says which, and “What it can do” says exactly. An unfenced one has no isolation: your files, Keychain and network.' });
+    body: 'Sessions on this Mac run as you. A fenced one — the default for a new doz run @mac — is held to its folder and Dozable’s proxy, your Keychain closed; each tile says which, and “What it can do” says exactly. An unfenced one (doz run @mac --unfenced) has no isolation: your files, Keychain and network.' });
 }
 
 function build() {
@@ -88,6 +88,7 @@ export async function macRefresh(force) {
   try {
     const r = await api('mac/sessions');
     mac.sessions = Array.isArray(r.sessions) ? r.sessions : [];
+    paintMacNavTag(mac.sessions);
     mac.access = r.access === 'watch' ? 'watch' : 'interactive';
     mac.plan = r.plan === true;
     mac.refused = '';
@@ -100,10 +101,14 @@ export async function macRefresh(force) {
   render();
 }
 
-/// The wizard's starting folder: the newest session's.
+/// The wizard's starting folder: the newest session's — never a temporary folder (/tmp, /var/folders and their /private
+/// spellings: a session started from one is no project to offer again); then it starts empty.
+export function isTemporaryFolder(p) {
+  return /^(\/private)?\/(tmp|var\/folders)(\/|$)/.test(String(p || ''));
+}
 function lastFolder() {
   const s = mac.sessions.filter((x) => x.workdir).sort((a, b) => String(b.openedAt || '').localeCompare(String(a.openedAt || '')))[0];
-  return s ? s.workdir : '';
+  return s && !isTemporaryFolder(s.workdir) ? s.workdir : '';
 }
 
 function render() {
@@ -127,7 +132,7 @@ function render() {
     if (next !== t.el) mac.body.insertBefore(t.el, next);
     prev = t.el;
   }
-  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac --fenced -d --session NAME --workdir DIR -- COMMAND'
+  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac -d --session NAME --workdir DIR -- COMMAND (fenced; --unfenced for none)'
     + (mac.plan ? ' — or New session on this Mac… for the command.' : '')));
   else for (const n of [...mac.body.children]) if (!n.dataset.key) n.remove();
   const running = want.filter((s) => s.state === 'running');
@@ -174,7 +179,7 @@ function paintTile(t, s) {
   const can = mac.access === 'interactive';
   t.acts.replaceChildren(
     btn('Watch', () => openPane(s.name, 'watch'), { small: true, quiet: true, icon: 'eye' }),
-    ...(can && s.state === 'running' ? [btn('Type into it', () => openPane(s.name, 'interactive'), { small: true, quiet: true, icon: 'terminal' })] : []),
+    ...(can && s.state === 'running' ? [btn('Control', () => openPane(s.name, 'interactive'), { small: true, quiet: true, icon: 'terminal', title: 'Attach: what you type reaches it' })] : []),
     ...(can ? [btn('Restart…', () => restart(s), { small: true, quiet: true })] : []),
     ...(can && s.state === 'running' ? [btn('End…', () => end(s), { small: true, quiet: true, danger: true })] : []));
   t.hit.hidden = s.state !== 'running';
@@ -236,14 +241,12 @@ function paintPaneHead() {
   const s = current();
   if (!s || !mac.head) return;
   const mode = mac.open.mode, session = s.name;
-  const switchBtn = mode === 'watch'
-    ? (mac.access === 'interactive' && s.state === 'running' ? btn('Type into it', () => openPane(session, 'interactive', mac.tab), { small: true, primary: true, icon: 'terminal' }) : null)
-    : btn('Watch only', () => openPane(session, 'watch', mac.tab), { small: true, icon: 'eye' });
   mac.head.replaceChildren(
     h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
     capChips(s, () => showTab('can')), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
-    h('span', { class: 'mac-pane-mode' }, mode === 'watch' ? 'watching — what you type does not reach it' : 'typing into it'),
-    h('span', { class: 'mac-pane-acts' }, ...(switchBtn ? [switchBtn] : []), btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
+    modeToggle(s, mode),
+    ...(mode === 'watch' ? [h('span', { class: 'mac-pane-mode' }, 'what you type does not reach it')] : []),
+    h('span', { class: 'mac-pane-acts' }, btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
   mac.pane.classList.toggle('is-fenced', !!s.fenced);
   // Stopped for a git config change: Review (what was taken out) and Resume (the host refuses while it is there again).
   const f = s.fence;
@@ -256,6 +259,20 @@ function paintPaneHead() {
   mac.tabs.replaceChildren(...tabs.map(([id, label, ic]) => h('button', { type: 'button', class: 'seg' + (id === mac.tab ? ' active' : ''), role: 'tab', 'data-mac-tab': id,
     'aria-selected': id === mac.tab ? 'true' : 'false', on: { click: () => showTab(id) } }, icon(ic), label)));
   if (mac.tab === 'can') paintTab();
+}
+
+/// The pane's two-state toggle: Watching (nothing typed reaches it) | Controlling (attached for real). Controlling is
+/// offered only to a browser that may type (`access` interactive) and only while the session runs; otherwise it is
+/// disabled with the reason in its title.
+function modeToggle(s, mode) {
+  const why = mac.access !== 'interactive' ? 'This browser may only watch (the Mac’s setting serve.mac_sessions)'
+    : s.state !== 'running' ? 'It is not running' : '';
+  const seg = (id, label, ic, disabled, title) => h('button', { type: 'button', class: 'seg' + (mode === id ? ' active' : ''),
+    'aria-pressed': mode === id ? 'true' : 'false', 'data-mac-mode': id, disabled: disabled || null, title: title || null,
+    on: { click: () => { if (mode !== id) openPane(s.name, id, mac.tab); } } }, icon(ic), label);
+  return h('span', { class: 'segmented mac-mode-toggle', role: 'group', 'aria-label': 'Watching or controlling' },
+    seg('watch', 'Watching', 'eye', false, 'Read-only: nothing you type reaches it'),
+    seg('interactive', 'Controlling', 'terminal', !!why && mode !== 'interactive', why || 'Attached: what you type reaches the program'));
 }
 
 function showTab(tab) {
@@ -337,12 +354,24 @@ function closePane() {
 /// wall; this only hides what it refuses).
 function hideMacNav() { const a = $('nav-mac'); if (a) a.hidden = true; }
 
+/// The sidebar's tag on This Mac says what is TRUE now: how many running sessions have no isolation (none: no tag — a new
+/// session is fenced by default, and each tile says which it is). Painted wherever the list is read.
+function paintMacNavTag(sessions) {
+  const tag = document.querySelector('#nav-mac .nav-mac-tag');
+  if (!tag) return;
+  const open = sessions.filter((s) => s.state === 'running' && !s.fenced).length;
+  tag.hidden = !open;
+  tag.textContent = open ? open + ' no isolation' : '';
+  tag.title = open ? open + (open === 1 ? ' session on this Mac runs' : ' sessions on this Mac run') + ' as you — no isolation' : '';
+}
+
 // ── All sessions' "This Mac" section ────────────────────────────────────────────
 /// A section of tiles that lead to This Mac (nothing when there are none, or this browser may not see them).
 export async function macSection() {
   let r;
   try { r = await api('mac/sessions'); } catch (e) { if (e.status === 403) hideMacNav(); return null; }
   const sessions = Array.isArray(r.sessions) ? r.sessions : [];
+  paintMacNavTag(sessions);
   if (!sessions.length) return null;
   const running = sessions.filter((s) => s.state === 'running').length;
   const open = sessions.filter((s) => s.state === 'running' && !s.fenced).length;
