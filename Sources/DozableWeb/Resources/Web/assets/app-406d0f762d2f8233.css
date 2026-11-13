@@ -323,7 +323,8 @@ button.cap-mark { cursor: pointer; font-family: inherit; }
 .mac-pane.is-fenced { border-color: var(--ok); }
 .mac-stop:empty { display: none; }
 .mac-stop { padding: var(--sp-2) var(--sp-3) 0; }
-.mac-tabs-row { padding: var(--sp-2) var(--sp-3); border-bottom: var(--bw) solid var(--line); }
+.mac-tabs-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2) var(--sp-3); padding: var(--sp-2) var(--sp-3); border-bottom: var(--bw) solid var(--line); }
+.mac-mode-box { display: inline-flex; align-items: center; gap: var(--sp-2); margin-left: auto; font-size: var(--fs-sm); }
 .mac-tabs .seg .icon { width: 13px; height: 13px; }
 .mac-pane-host[hidden], .mac-tab-body[hidden] { display: none; }
 .mac-tab-body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }

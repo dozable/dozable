@@ -224,7 +224,8 @@ function openPane(session, mode, tab) {
   mac.tabs = h('div', { class: 'segmented mac-tabs', role: 'tablist', 'aria-label': 'Session' });
   mac.tabBody = h('div', { class: 'mac-tab-body' });
   mac.stop = h('div', { class: 'mac-stop' });
-  mac.pane.replaceChildren(mac.head, mac.stop, h('div', { class: 'mac-tabs-row' }, mac.tabs), host, mac.tabBody);
+  mac.modeBox = h('div', { class: 'mac-mode-box' });   // Watching | Controlling, right-aligned in the tab strip
+  mac.pane.replaceChildren(mac.head, mac.stop, h('div', { class: 'mac-tabs-row' }, mac.tabs, mac.modeBox), host, mac.tabBody);
   mac.host = host;
   paintPaneHead();
   mac.pane.hidden = false;
@@ -244,9 +245,10 @@ function paintPaneHead() {
   mac.head.replaceChildren(
     h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
     capChips(s, () => showTab('can')), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
-    modeToggle(s, mode),
-    ...(mode === 'watch' ? [h('span', { class: 'mac-pane-mode' }, 'what you type does not reach it')] : []),
     h('span', { class: 'mac-pane-acts' }, btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
+  mac.modeBox.replaceChildren(
+    ...(mode === 'watch' ? [h('span', { class: 'mac-pane-mode' }, 'what you type does not reach it')] : []),
+    modeToggle(s, mode));
   mac.pane.classList.toggle('is-fenced', !!s.fenced);
   // Stopped for a git config change: Review (what was taken out) and Resume (the host refuses while it is there again).
   const f = s.fence;

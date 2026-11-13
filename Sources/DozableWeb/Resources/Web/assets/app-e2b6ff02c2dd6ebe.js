@@ -80,8 +80,8 @@ import './app/views/sandbox-network-6c5644aa7e451dde.js';
 import { newShellTerminal, paintSplitButton, paintTabs, renderTerminals, splitWith, syncBuildLogTab, syncConsoleTab } from './app/views/sandbox-terminals-60cc834fbcf4b23d.js';
 import { paintHome } from './app/views/sandbox-home-e63a107541ffaf1f.js';
 import { refreshSandbox, showSandbox } from './app/views/sandbox-211d38fa790ec041.js';
-import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-b1c50eb5125dd925.js';
-import { macEnter, macLeave, macRefresh } from './app/views/mac-a64cce0e9a6cb5a0.js';
+import { gridEnter, gridLeave, gridRefresh, gridSchedule } from './app/views/sessions-f2ca773840312616.js';
+import { macEnter, macLeave, macRefresh } from './app/views/mac-89c5e0cdf684141e.js';
 import { viewBrowse, viewRecipes, viewSettings } from './app/views/settings-7fe282061f9b702c.js';
 import './app/views/shortcuts-b65fe8f5e52c5b1d.js';
 
