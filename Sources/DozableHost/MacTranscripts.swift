@@ -147,6 +147,9 @@ public enum MacTranscripts {
         public var bytes: Int
         /// Its file in the store (absolute).
         public var path: String
+        public init(name: String, endedAt: String, bytes: Int, path: String) {
+            self.name = name; self.endedAt = endedAt; self.bytes = bytes; self.path = path
+        }
     }
 
     public struct Listing: Codable, Equatable, Sendable {
@@ -154,6 +157,9 @@ public enum MacTranscripts {
         public var items: [Item]
         /// Where they were carried (the person's folder), when known.
         public var carriedTo: String?
+        public init(session: String, items: [Item], carriedTo: String?) {
+            self.session = session; self.items = items; self.carriedTo = carriedTo
+        }
     }
 
     /// `<store>/mac-sessions/transcripts/<session>`'s files, newest first — only regular `<uuid>.jsonl` files the host wrote.

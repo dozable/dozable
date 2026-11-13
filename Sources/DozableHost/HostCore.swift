@@ -99,6 +99,8 @@ public actor HostCore {
     var macProxies: [String: MacFenceProxy] = [:]
     /// 683 M4: fenced sessions' doors (the SSH agent relay, gh's door), by session.
     var macDoors: [String: MacFenceDoorSet] = [:]
+    /// When each fenced session last put text on the clipboard (this host's memory only — the time, never the text).
+    var macLastCopy: [String: Date] = [:]
     /// The fence's refusals from the system log (`MacFenceDenials`) — one `log stream` while a fenced session lives.
     lazy var macDenials = MacFenceDenials(environment: mac.hostEnvironment)
     /// Names being created right now (so two `create`s cannot race).

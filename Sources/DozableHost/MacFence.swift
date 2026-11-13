@@ -210,6 +210,8 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
     /// 683 M4: GitHub as the person (`read` | `push`; nil: off), the SSH agent (list + sign).
     public var github: String? = nil
     public var sshAgent: Bool? = nil
+    /// 683 M5: when it last put text on the clipboard (the host that served it; never the text).
+    public var lastCopyAt: Date? = nil
 
     public init(_ r: MacFenceRecord) {
         profile = r.profile
@@ -256,9 +258,11 @@ public struct SessionQuarantine: Codable, Equatable, Sendable {
     public struct Item: Codable, Equatable, Sendable {
         public var name: String
         public var text: String
+        public init(name: String, text: String) { self.name = name; self.text = text }
     }
     public var session: String
     public var items: [Item]
+    public init(session: String, items: [Item]) { self.session = session; self.items = items }
 }
 
 /// A fenced session on this Mac: everything its Seatbelt profile, environment and session folder are made from — built

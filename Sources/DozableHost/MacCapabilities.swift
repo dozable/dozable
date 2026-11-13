@@ -73,6 +73,34 @@ public struct MacCapabilityShape: Sendable, Equatable {
         github = f.github
         sshAgent = f.sshAgent == true
     }
+
+    /// The session a `doz run @mac` WOULD open — `--dry-run`, and the dashboard's New session wizard — from its fence
+    /// request (`agentConfig`/`history`/`account` as the flags gave them, nil: the settings) and the settings. One shape
+    /// for both, so the page says exactly what the CLI says. `home`: the person's home (the agent folder's name).
+    public static func planned(session: String, workdir: String, argv: [String], fenced: Bool, request q: MacFenceRequest?,
+                               settings: DozableSettings, home: String) -> MacCapabilityShape {
+        var s = MacCapabilityShape(session: session, workdir: workdir, fenced: fenced)
+        s.claude = MacPlace.isClaude(argv)
+        guard fenced, let q else { return s }
+        s.keychain = q.keychain == true
+        s.readable = q.read ?? []
+        s.writable = q.write ?? []
+        s.localPorts = q.localPorts ?? []
+        s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"]))
+            .flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
+        s.bridges = MacFenceBridges.resolve(q, settings: settings)
+        s.profile = q.profile
+        s.github = q.github
+        s.sshAgent = q.sshAgent == true
+        if let program = argv.first, let r = AgentRecipes.macAgent(program: program), let m = r.launch.macConfig {
+            s.agent = r.title
+            s.agentConfig = MacAgentConfig.resolveMode(flag: q.agentConfig, recipe: r, settings: settings).0
+            s.personHome = home + "/" + m.homeName
+            s.history = settings.history(agent: r.id, own: q.history.map { TOMLValue.string($0) }).value
+            s.account = q.account ?? settings.string(SettingKey.macAccount) ?? "mac"
+        }
+        return s
+    }
 }
 
 extension MacFence {
@@ -121,7 +149,9 @@ extension MacFence {
                          live: true, link: "doz net log @mac --session \(s.session)"))
         } else {
             let wait = s.network == "waiting (no host)" ? " — waiting for a host" : ""
-            out.append(c("network", "Network", "through Dozable's proxy (\(s.preset ?? "custom"))" + ports + wait,
+            // The preset by the name a person reads (`agent` is Standard's stored name).
+            let preset = s.preset == "agent" ? "standard" : s.preset ?? "custom"
+            out.append(c("network", "Network", "through Dozable's proxy (\(preset))" + ports + wait,
                          "Reaches only what its permissions allow; every connection is logged; never this Mac's own addresses.",
                          live: true, link: "doz net log @mac --session \(s.session)"))
         }

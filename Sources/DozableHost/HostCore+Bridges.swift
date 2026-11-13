@@ -375,6 +375,7 @@ extension HostCore {
                     ? BridgeNotice("clipboard", "\(who) copied \(Self.chars(data)): \(shown)")
                     : BridgeNotice("clipboard-refused", "\(who) copied \(Self.chars(data)), but the Mac clipboard could not be set")
             }
+            if fresh, n.kind == "clipboard" { await noteMacCopy(session) }
             if fresh, n.kind == "clipboard" { await note(MacPlace.name, "the \(session) session (fenced) copied \(Self.chars(data)) to the Mac clipboard") }
             return n
         case .openTooLong:

@@ -15,7 +15,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
 | `WebSource/app/views/` | one per page: `overview`, `sandbox` (+ `sandbox-terminals` the strip, `sandbox-layout` the kept layout, `sandbox-network`, `sandbox-dialogs`, `sandbox-files` the Files tab), `sessions` (the grid), `images` (+ lineage), `resources`, `operations`, `accounts`, `settings`, `metrics`, `activity`, `doctor`, `onboarding`, `new-sandbox` (+ its tools step), `quick-make` (the one quick create path: Quick try and the setup's First sandbox), `shortcuts`, `debug` (647: every notification, simulated), `notifications` (647: their history) |
 | `Sources/DozableWeb/WebTerminal{Tickets,Wire,Attach,Bridge}.swift` | browser terminals — the ticket store, frames + the 541 classifier + the cover, the host attach connection, the bridge and hub (NIOWebSocket ONLY here — the audit enforces it) |
 | `Tests/DozableWebTests/` | the security rules one by one, and a real listener driven with raw HTTP; `Serve*Tests` |
-| `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — no isolation): the projection, the ticket's strict body, the grids rule; the page (`#/mac`) and All sessions' section; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through |
+| `Sources/DozableWeb/WebMac.swift`; `WebSource/app/views/mac.js`, `mac-capabilities.js`, `mac-wizard.js`, `app/core/places.js` | This Mac (`@mac`, the sessions held on the Mac itself — fenced or not): the projection (its fence, its capability rows, the tile's chips), the ticket's strict body, the grids rule, the Network / Conversations / quarantine answers, the New session wizard's plan; the page (`#/mac`) and All sessions' section; "What this session can do"; the wizard; the place → route helper (`placePath`, `screenPath`) every ticket, socket and saved screen goes through |
 
 ## The web layer (`doz ui`)
 
@@ -532,6 +532,35 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   from the host's feed (`pictureSource` with place `@mac`; a gone one's saved screen). The pane opens in WATCH mode; Type
   into it re-opens it interactive. A `watch` browser gets neither typing nor Restart/End; a refused one gets no page
   and no sidebar entry (the server is the wall). Its style-guide specimens: "This Mac — the sessions with no isolation".
+- **Fenced sessions (683 M5): the page DRAWS what the host computed.** `WebMacSession` gains `fenced`, `fence`
+  (`WebMacFence`, field by field — never the proxy's port or password, a placeholder, the profile's text or hash, the
+  session folder) and `capabilities` — `MacFence.capabilities` as it is, the ONE source `doz sessions @mac --json`,
+  `--capabilities` and `doz run @mac --dry-run` print (`MacCapabilityShape.planned` builds the dry run's and the wizard's
+  shape; `HostCore.macRows` recomputes a live row's with what the host serves, so "waiting for a host" is said only while
+  none does). The tile's chips are PICKED by the server from those rows (`WebMacChips`: the fence's word, then for a
+  fenced session Keychain open, Shared config, GitHub: push — ≤ 4 — then "+N" = the other rows); the page never derives
+  a state. `isolated: false` stays in the list's answer (an older page keeps working; `fence` is ignored there).
+- **Its routes** (`WebExposure` kind `mac-session`, so `serve.mac_sessions` decides for another computer):
+  `GET /api/v1/mac/sessions/{s}/network` (`WebMacNetwork`: the sandbox page's `WebNetwork` — permissions shown READ-ONLY
+  by `views/sandbox-network.js` with the `doz net … @mac --session S` commands beside them and the preset matrix — plus the
+  fence's refusals), `…/transcripts` (names, end stamps, sizes; never a path or content), `…/transcripts/{stamp}/{uuid}.jsonl`
+  (the export: a download of a file the listing names, read with `MacFenceHostFS.readRegular` — no link followed, ≤ 64 MiB;
+  another computer only with `interactive`, `decideMacExport`), `…/quarantine` (what the git guard took out).
+- **Actions** `mac-session-resume` and `mac-session-bridges` (`{session, openURL?, openFiles?, clipboard?}` — false stays
+  false): one HostOp each (`session-resume`, `session-bridges`), `isMacSession` (another computer: `interactive` only).
+  The bridges are host-side decisions per event; nothing else of a running session is changed from the page — every
+  other row is "at the next start".
+- **The New session wizard** (`views/mac-wizard.js`): `POST /api/v1/mac/session-plan` — kind `mac-screen` (the Mac's own
+  browser only, whatever `serve.mac_sessions` says), CSRF, strict body (`WebMacPlanRequest`: case plain | web | xcode |
+  signing | unfenced, program claude | shell, an absolute standardized workdir ≤ 1024 bytes, session, preset, account,
+  github, agentConfig, simulator/keychain for xcode only, 1–8 ports for web only, open; a field of another case is refused,
+  never dropped) → `WebMacPlan` (the command built on the Mac from the enums, shell-quoted, `--store` only when not the
+  default; the capability rows and their text; the config mode and history). `open: true` writes the one-shot `.command`
+  (`TerminalHandoff`, `<store>/ui-terminal/`, 0700, `O_EXCL|O_NOFOLLOW`; `exec '<doz>' run @mac … --store '<store>'`) ONLY for
+  a fenced case with neither Swift toggle, a closed Keychain and a private agent config (`openable`); anything else is
+  copy-only and refused before anything is written. No route or action starts a session in the host. Specimens: "This
+  Mac — a session's capabilities" (fenced and unfenced side by side) and "This Mac — New session on this Mac…".
+  Tests: `WebMacCapabilitiesTests`, `MacFenceCapabilitiesTests` (DozableCLITests), `ServeExposureTests`, `WebActionTests`.
 
 ## Browser terminals
 

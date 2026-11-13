@@ -239,6 +239,9 @@ extension HostCore {
         return SessionBridges(session: s, bridges: b, changed: words)
     }
 
+    /// A fenced session put text on the clipboard just now (the time only — the dashboard says "last copy 2 min ago").
+    func noteMacCopy(_ s: String) { macLastCopy[s] = Date() }
+
     /// `doz sessions @mac --transcripts S`: its archived conversations (newest first).
     func macTranscriptsList(_ r: HostRequest) throws -> MacTranscripts.Listing {
         let s = try macSession(r, "doz sessions @mac --transcripts SESSION")
@@ -580,7 +583,22 @@ extension HostCore {
             if !readOnly {
                 rows[i].fence?.denialLog = macDenials.status
                 rows[i].fence?.denialsSeen = macDenials.denials(s).count
+                rows[i].fence?.lastCopyAt = macLastCopy[s]
             }
+        }
+        // 683 M5: the capabilities again, with what this host knows now — the record's alone said "waiting for a host"
+        // even while this host served the network, and kept saying it after the program ended. Still ONE function.
+        let recs = mac.records().sessions, home = mac.fenceHome()
+        for i in rows.indices where rows[i].fence != nil {
+            guard let rec = recs[rows[i].name] else { continue }
+            var shape = MacCapabilityShape(session: rows[i].name, record: rec, home: home)
+            if let p = macProxies[rows[i].name] {
+                shape.network = "proxy"
+                shape.preset = AgentPermissions.presetName(p.proxy.policy.permissions ?? [], base: AgentPermissions.macBase)
+            } else if rows[i].ended {
+                shape.network = nil
+            }
+            rows[i].capabilities = MacFence.capabilities(shape)
         }
         if !readOnly {
             for r in rows where !r.ended { await watchStatus(MacPlace.name, session: r.name) }

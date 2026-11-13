@@ -4,6 +4,11 @@
 // tears down the open pane. Every tile and the pane say "No isolation"; a session whose own command line bypasses its
 // permissions is marked so. The pane opens in WATCH mode (nothing typed reaches the session); Type into it attaches
 // interactively. Another computer gets what `serve.mac_sessions` allows (the server says, in `access`).
+// 683 M5: a FENCED session (doz run @mac --fenced) is held to its folder and Dozable's proxy — its tile carries the
+// server's chips (Fenced / Fenced (Xcode) / Guard rail / Keychain open / Shared config / GitHub: push, then "+N") instead of
+// No isolation, and the marks that are news (stopped for git, network waiting, refusals). The pane has four tabs: the
+// screen, "What it can do" (the host's capability rows; the bridges switched live), Network (read-only permissions + the
+// log) and Conversations (archived transcripts, exported by a typed download). New session on this Mac… is the wizard.
 import { $, h } from '../dom/h.js';
 import { icon } from '../dom/icons.js';
 import { api } from '../core/api.js';
@@ -17,9 +22,16 @@ import { confirmAction } from '../components/dialog.js';
 import { paintStatusChip, statusChip } from '../components/agent-status.js';
 import { pictureSource } from '../components/session-thumb.js';
 import { bootTerm, closeTerminal, newTerm, paintCover } from '../components/terminal.js';
+import { actOrThrow } from '../core/operations.js';
+import { bytes } from '../core/format.js';
+import { dialog } from '../components/dialog.js';
+import { panel, table } from '../components/blocks.js';
+import { capChips, capabilitiesPanel, fenceMarks } from './mac-capabilities.js';
+import { openMacWizard } from './mac-wizard.js';
+import { networkPanel } from './sandbox-network.js';
 
-const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', refused: '', lastList: 0, timer: null,
-              body: null, status: null, pane: null, term: null, open: null };
+const mac = { built: false, active: false, tiles: new Map(), sessions: [], access: 'interactive', plan: false, refused: '', lastList: 0, timer: null,
+              body: null, status: null, pane: null, term: null, open: null, tab: 'screen', tabBody: null, tabs: null, head: null, newBtn: null, bridgeErr: '' };
 
 /// The permanent mark of everything here: no sandbox, no proxy, nothing around it.
 export function noIsolationChip() {
@@ -32,8 +44,8 @@ export function bypassedChip() {
 }
 /// The callout every view of these sessions starts with.
 export function noIsolationCallout(compact) {
-  return callout('warn', { compact, cls: 'mac-callout', title: 'No isolation',
-    body: 'Sessions on this Mac run as you: your files, Keychain and network. No sandbox, no proxy. Open one with doz run @mac in a terminal on the Mac.' });
+  return callout('warn', { compact, cls: 'mac-callout', title: 'Not sandboxes',
+    body: 'Sessions on this Mac run as you. A fenced one (doz run @mac --fenced) is held to its folder and Dozable’s proxy, your Keychain closed — each tile says which, and “What it can do” says exactly. An unfenced one has no isolation: your files, Keychain and network.' });
 }
 
 function build() {
@@ -41,9 +53,11 @@ function build() {
   mac.status = h('span', { class: 'grid-status', role: 'status' });
   mac.body = h('div', { class: 'tiles mac-tiles' });
   mac.pane = h('div', { class: 'mac-pane', hidden: true });
+  mac.newBtn = btn('New session on this Mac…', () => openMacWizard({ workdir: lastFolder() }), { small: true, primary: true, icon: 'plus' });
+  mac.newBtn.hidden = true;
   root.replaceChildren(
-    h('div', { class: 'head' }, h('h1', null, 'This Mac', noIsolationChip()),
-      h('div', { class: 'actions' }, btn('Refresh', () => macRefresh(true), { small: true }))),
+    h('div', { class: 'head' }, h('h1', null, 'This Mac'),
+      h('div', { class: 'actions' }, mac.newBtn, btn('Refresh', () => macRefresh(true), { small: true, icon: 'refresh-cw' }))),
     noIsolationCallout(false),
     h('div', { class: 'toolbar' }, mac.status),
     mac.pane, mac.body);
@@ -75,6 +89,7 @@ export async function macRefresh(force) {
     const r = await api('mac/sessions');
     mac.sessions = Array.isArray(r.sessions) ? r.sessions : [];
     mac.access = r.access === 'watch' ? 'watch' : 'interactive';
+    mac.plan = r.plan === true;
     mac.refused = '';
   } catch (e) {
     mac.sessions = [];
@@ -85,7 +100,14 @@ export async function macRefresh(force) {
   render();
 }
 
+/// The wizard's starting folder: the newest session's.
+function lastFolder() {
+  const s = mac.sessions.filter((x) => x.workdir).sort((a, b) => String(b.openedAt || '').localeCompare(String(a.openedAt || '')))[0];
+  return s ? s.workdir : '';
+}
+
 function render() {
+  if (mac.newBtn) mac.newBtn.hidden = !mac.plan;
   if (mac.refused) {
     for (const t of mac.tiles.values()) { t.source.drop(); t.el.remove(); }
     mac.tiles.clear();
@@ -105,12 +127,16 @@ function render() {
     if (next !== t.el) mac.body.insertBefore(t.el, next);
     prev = t.el;
   }
-  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac -d --session NAME --workdir DIR -- COMMAND'));
+  if (!want.length) mac.body.replaceChildren(h('div', { class: 'empty' }, 'No sessions on this Mac. In a terminal on the Mac: doz run @mac --fenced -d --session NAME --workdir DIR -- COMMAND'
+    + (mac.plan ? ' — or New session on this Mac… for the command.' : '')));
   else for (const n of [...mac.body.children]) if (!n.dataset.key) n.remove();
-  const running = want.filter((s) => s.state === 'running').length;
-  mac.status.textContent = want.length + ' session' + (want.length === 1 ? '' : 's') + ' · ' + running + ' running'
+  const running = want.filter((s) => s.state === 'running');
+  const fenced = running.filter((s) => s.fenced).length;
+  mac.status.textContent = want.length + ' session' + (want.length === 1 ? '' : 's') + ' · ' + running.length + ' running'
+    + (running.length ? ' (' + fenced + ' fenced, ' + (running.length - fenced) + ' no isolation)' : '')
     + (mac.access === 'watch' ? ' · watch only from this browser' : '');
   if (mac.open && !keep.has(mac.open.session)) closePane();
+  else if (mac.open) paintPaneHead();
 }
 
 function makeTile(name) {
@@ -140,7 +166,9 @@ function paintTile(t, s) {
   t.phase.title = s.state === 'gone' ? 'Its holder is gone (the Mac restarted, or it was killed) — Restart starts it again' : '';
   t.title.title = s.command || '';
   paintStatusChip(t.agent, s.status);
-  t.marks.replaceChildren(noIsolationChip(), ...(s.bypassed ? [bypassedChip()] : []));
+  t.marks.replaceChildren(capChips(s, () => openPane(s.name, 'watch', 'can')), ...fenceMarks(s, (tab) => openPane(s.name, 'watch', tab)),
+    ...(s.bypassed ? [bypassedChip()] : []));
+  t.el.dataset.fenced = s.fenced ? 'true' : 'false';
   t.folder.textContent = s.workdir ? tildePath(s.workdir) : '';
   t.folder.title = s.workdir || '';
   const can = mac.access === 'interactive';
@@ -174,11 +202,12 @@ function restart(s) {
 }
 
 // ── the pane: watch by default, interactive on a click ──────────────────────────
-function openPane(session, mode) {
+function openPane(session, mode, tab) {
   if (!terminalsAllowed()) return;
   if (mode === 'interactive' && mac.access !== 'interactive') mode = 'watch';
-  if (mac.open && mac.open.session === session && mac.open.mode === mode) return;
+  if (mac.open && mac.open.session === session && mac.open.mode === mode) { if (tab) showTab(tab); return; }
   closePane();
+  mac.tab = tab || 'screen';
   const s = mac.sessions.find((x) => x.name === session) || {};
   const t = newTerm(MAC, session, mode);
   t.grid = true;                                   // never a tab of a sandbox page
@@ -186,22 +215,118 @@ function openPane(session, mode) {
   mac.term = t;
   mac.open = { session, mode };
   const host = h('div', { class: 'mac-pane-host' });
-  const switchBtn = mode === 'watch'
-    ? (mac.access === 'interactive' && s.state === 'running' ? btn('Type into it', () => openPane(session, 'interactive'), { small: true, primary: true, icon: 'terminal' }) : null)
-    : btn('Watch only', () => openPane(session, 'watch'), { small: true, icon: 'eye' });
-  mac.pane.replaceChildren(
-    h('div', { class: 'mac-pane-head' },
-      h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
-      noIsolationChip(), ...(s.bypassed ? [bypassedChip()] : []),
-      h('span', { class: 'mac-pane-mode' }, mode === 'watch' ? 'watching — what you type does not reach it' : 'typing into it'),
-      h('span', { class: 'mac-pane-acts' }, ...(switchBtn ? [switchBtn] : []), btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' }))),
-    host);
+  mac.head = h('div', { class: 'mac-pane-head' });
+  mac.tabs = h('div', { class: 'segmented mac-tabs', role: 'tablist', 'aria-label': 'Session' });
+  mac.tabBody = h('div', { class: 'mac-tab-body' });
+  mac.stop = h('div', { class: 'mac-stop' });
+  mac.pane.replaceChildren(mac.head, mac.stop, h('div', { class: 'mac-tabs-row' }, mac.tabs), host, mac.tabBody);
+  mac.host = host;
+  paintPaneHead();
   mac.pane.hidden = false;
   host.append(t.els.wrap);
+  showTab(mac.tab);
   paintCover(t);
   history.replaceState(null, '', location.pathname + '#/mac/' + encodeURIComponent(session));
   bootTerm(t, setting('ui.terminal_font_size', 13));
 }
+function current() { return mac.open ? mac.sessions.find((x) => x.name === mac.open.session) || null : null; }
+
+/// The pane's head, tabs and stop notice — painted again at each list (the terminal is never rebuilt).
+function paintPaneHead() {
+  const s = current();
+  if (!s || !mac.head) return;
+  const mode = mac.open.mode, session = s.name;
+  const switchBtn = mode === 'watch'
+    ? (mac.access === 'interactive' && s.state === 'running' ? btn('Type into it', () => openPane(session, 'interactive', mac.tab), { small: true, primary: true, icon: 'terminal' }) : null)
+    : btn('Watch only', () => openPane(session, 'watch', mac.tab), { small: true, icon: 'eye' });
+  mac.head.replaceChildren(
+    h('span', { class: 'mac-pane-title' }, icon('monitor'), session),
+    capChips(s, () => showTab('can')), ...fenceMarks(s, (tab) => showTab(tab)), ...(s.bypassed ? [bypassedChip()] : []),
+    h('span', { class: 'mac-pane-mode' }, mode === 'watch' ? 'watching — what you type does not reach it' : 'typing into it'),
+    h('span', { class: 'mac-pane-acts' }, ...(switchBtn ? [switchBtn] : []), btn('Close', closePane, { small: true, quiet: true, iconOnly: true, icon: 'x' })));
+  mac.pane.classList.toggle('is-fenced', !!s.fenced);
+  // Stopped for a git config change: Review (what was taken out) and Resume (the host refuses while it is there again).
+  const f = s.fence;
+  mac.stop.replaceChildren(...(f && f.stoppedForGit ? [callout('bad', { compact: true, cls: 'mac-stopped', attrs: { 'data-stopped': '' }, title: 'Stopped: git config',
+    body: 'It changed a git config in a way a fenced session may not (' + f.stoppedForGit + '). The change was taken out and kept aside; every process of its fence is paused until you resume it.',
+    actions: [btn('Review…', () => review(s), { small: true, icon: 'list-checks' }),
+      mac.access === 'interactive' ? btn('Resume', () => resume(s), { small: true, primary: true, icon: 'play' }) : null] })] : []));
+  const tabs = [['screen', 'Screen', 'monitor'], ['can', 'What it can do', 'shield'], ...(s.fenced ? [['network', 'Network', 'activity'], ['conversations', 'Conversations', 'history']] : [])];
+  if (!tabs.some(([id]) => id === mac.tab)) mac.tab = 'screen';
+  mac.tabs.replaceChildren(...tabs.map(([id, label, ic]) => h('button', { type: 'button', class: 'seg' + (id === mac.tab ? ' active' : ''), role: 'tab', 'data-mac-tab': id,
+    'aria-selected': id === mac.tab ? 'true' : 'false', on: { click: () => showTab(id) } }, icon(ic), label)));
+  if (mac.tab === 'can') paintTab();
+}
+
+function showTab(tab) {
+  mac.tab = tab;
+  for (const b of mac.tabs ? mac.tabs.children : []) { const on = b.dataset.macTab === tab; b.classList.toggle('active', on); b.setAttribute('aria-selected', on ? 'true' : 'false'); }
+  if (mac.host) mac.host.hidden = tab !== 'screen';
+  paintTab();
+}
+
+async function paintTab() {
+  const s = current();
+  if (!s || !mac.tabBody) return;
+  const tab = mac.tab;
+  mac.tabBody.hidden = tab === 'screen';
+  if (tab === 'screen') { mac.tabBody.replaceChildren(); return; }
+  if (tab === 'can') {
+    mac.tabBody.replaceChildren(
+      mac.bridgeErr ? callout('bad', { compact: true, body: mac.bridgeErr, dismiss: () => { mac.bridgeErr = ''; paintTab(); } }) : '',
+      capabilitiesPanel(s, { canEdit: mac.access === 'interactive' && s.state === 'running', onBridge: (field, v) => bridge(s, field, v), onNetwork: () => showTab('network') }));
+    return;
+  }
+  if (tab === 'network') {
+    try {
+      const r = await api('mac/sessions/' + encodeURIComponent(s.name) + '/network');
+      if (mac.tab !== 'network' || current()?.name !== s.name) return;
+      const denials = r.denials.slice().reverse().map((x) => h('tr', null, h('td', null, when(x.time)), h('td', { class: 'mono' }, x.process), h('td', null, x.operation), h('td', { class: 'mono' }, x.target)));
+      mac.tabBody.replaceChildren(networkPanel(r.network, { commands: r.commands }),
+        h('h2', null, 'What its fence refused'),
+        h('div', { class: 'toolbar' }, r.denialLog === 'on' ? r.denials.length + ' seen (macOS folds repeats of one)' : r.denialLog === 'unavailable' ? 'This account may not read the system log — the refusals are not shown (nothing else is affected).' : 'Shown while a host runs.'),
+        panel(table(['When', 'Program', 'What', 'Refused'], denials), 'No refusals seen.'));
+    } catch (e) { mac.tabBody.replaceChildren(callout('bad', { compact: true, body: e.message || String(e) })); }
+    return;
+  }
+  if (tab === 'conversations') {
+    try {
+      const r = await api('mac/sessions/' + encodeURIComponent(s.name) + '/transcripts');
+      if (mac.tab !== 'conversations') return;
+      const base = '/api/v1/mac/sessions/' + encodeURIComponent(s.name) + '/transcripts/';
+      const rows = r.items.map((x) => h('tr', { 'data-transcript': x.name }, h('td', null, stamp(x.endedAt)), h('td', { class: 'mono' }, x.name), h('td', { class: 'num' }, bytes(x.bytes)),
+        h('td', null, mac.access === 'interactive' ? h('a', { class: 'btn sm quiet', href: base + encodeURIComponent(x.endedAt) + '/' + encodeURIComponent(x.name), download: x.endedAt + '-' + x.name }, icon('download'), 'Export') : '')));
+      mac.tabBody.replaceChildren(
+        h('p', { class: 'sub' }, 'Conversations of this fenced session, kept in Dozable’s archive when it ended (history: keep)'
+          + (r.carriedTo ? ' — and copied into ' + tildePath(r.carriedTo) + ', where a later claude --resume finds them' : '') + '. Transcripts only: never its memory or settings.'),
+        panel(table(['Ended', 'Conversation', 'Size', ''], rows, [2]), 'None kept yet — they are archived when the session ends.'));
+    } catch (e) { mac.tabBody.replaceChildren(callout(e.status === 404 ? 'info' : 'bad', { compact: true, body: e.message || String(e) })); }
+  }
+}
+/// An archive stamp (`20261113T101500Z`) as a time.
+function stamp(st) {
+  const m = /^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/.exec(st || '');
+  return m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6])).toLocaleString() : st;
+}
+
+async function bridge(s, field, value) {
+  try { mac.bridgeErr = ''; await actOrThrow({ action: 'mac-session-bridges', session: s.name, [field]: value }); setTimeout(() => macRefresh(true), 600); }
+  catch (e) { mac.bridgeErr = e.message || String(e); paintTab(); }
+}
+async function review(s) {
+  let items = [];
+  try { items = (await api('mac/sessions/' + encodeURIComponent(s.name) + '/quarantine')).items; } catch (e) { items = [{ name: 'error', text: e.message || String(e) }]; }
+  const list = h('div', { class: 'mac-quarantine' }, items.length ? items.map((x) => h('div', null, h('div', { class: 'muted' }, x.name), h('pre', { class: 'mac-q-text' }, x.text)))
+    : h('div', { class: 'empty' }, 'Nothing kept aside.'));
+  dialog('What was taken out of ' + s.name, 'The git guard took these out of the session’s git config and kept them here. Resume continues the session without them.',
+    [{ name: 'q', type: 'custom', el: list, get: () => null }], mac.access === 'interactive' ? 'Resume' : 'Close',
+    async () => { if (mac.access === 'interactive') await resume(s); }, { icon: mac.access === 'interactive' ? 'play' : 'x' });
+}
+async function resume(s) {
+  try { await actOrThrow({ action: 'mac-session-resume', session: s.name }); setTimeout(() => macRefresh(true), 600); }
+  catch (e) { mac.bridgeErr = e.message || String(e); showTab('can'); }
+}
+
 function closePane() {
   if (mac.term) { closeTerminal(mac.term.id); mac.term = null; }
   mac.open = null;
@@ -220,11 +345,13 @@ export async function macSection() {
   const sessions = Array.isArray(r.sessions) ? r.sessions : [];
   if (!sessions.length) return null;
   const running = sessions.filter((s) => s.state === 'running').length;
+  const open = sessions.filter((s) => s.state === 'running' && !s.fenced).length;
   return h('section', { class: 'mac-section', 'data-mac-section': '' },
-    h('h2', null, icon('monitor'), 'This Mac', noIsolationChip()),
-    h('p', { class: 'sub' }, running + ' of ' + sessions.length + ' session' + (sessions.length === 1 ? '' : 's') + ' running — they run as you, with nothing around them. ',
+    h('h2', null, icon('monitor'), 'This Mac', open ? noIsolationChip() : null),
+    h('p', { class: 'sub' }, running + ' of ' + sessions.length + ' session' + (sessions.length === 1 ? '' : 's') + ' running — '
+      + (open ? open + ' with no isolation (they run as you, with nothing around them). ' : 'each held by its fence. '),
       h('a', { href: '#/mac' }, 'Open This Mac')),
     h('ul', { class: 'mac-list' }, ...sessions.map((s) => h('li', null,
-      h('a', { href: '#/mac/' + encodeURIComponent(s.name) }, s.name), ' ', h('span', { class: 'mac-list-state' }, s.state),
+      h('a', { href: '#/mac/' + encodeURIComponent(s.name) }, s.name), ' ', h('span', { class: 'mac-list-state' }, s.state + (s.fenced ? ' · fenced' : '')),
       ...(s.bypassed ? [' ', bypassedChip()] : [])))));
 }

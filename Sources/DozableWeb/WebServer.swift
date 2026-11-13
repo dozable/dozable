@@ -894,9 +894,27 @@ public final class DozableWebServer: @unchecked Sendable {
         case .macSessions:
             // The sessions on this Mac (WebMac.swift) — looking never starts a host. A remote browser here may at least watch.
             let access = remote ? settings.macSessions.rawValue : WebExposure.MacSessions.interactive.rawValue
-            return json(WebMacSessions(sessions: try await data.macSessions(), access: access))
+            return json(WebMacSessions(sessions: try await data.macSessions(), access: access, plan: !remote))
         case .macSessionScreen(let session):
             return json(try await data.sessionScreen(MacPlace.name, session: session))
+        case .macSessionNetwork(let session):
+            return json(try await data.macNetwork(session))
+        case .macSessionTranscripts(let session):
+            return json(try await data.macTranscripts(session))
+        case .macSessionTranscript(let session, let endedAt, let name):
+            // 683 M5: an archived conversation, whole, as a download — another computer only with `interactive`.
+            if let r = WebExposure.decideMacExport(ctx.principal, settings.macSessions) { throw r }
+            let file = WebMacTranscripts.fileName(endedAt: endedAt, name: name)      // both checked by the route's rules
+            return .response(200, [("Content-Type", "application/x-ndjson; charset=utf-8"),
+                                   ("Content-Disposition", "attachment; filename=\"\(file)\"")],
+                             try await data.macTranscript(session, endedAt: endedAt, name: name))
+        case .macSessionQuarantine(let session):
+            return json(try await data.macQuarantine(session))
+        case .macSessionPlan:
+            // 683 M5: CSRF-checked (an unsafe method, above), the Mac's own browser only (WebExposure: mac-screen), a strict
+            // body; the command is built on the Mac from the enums. `open: true` only for an Open-in-Terminal shape.
+            try Self.requireJSONBody(md)
+            return json(try await data.macSessionPlan(try WebMacPlanRequest.decode(body)))
         case .macTerminalTicket:
             // CSRF-checked (an unsafe method), a strict body (a session named; interactive or watch), the mode decided for
             // this principal, then a one-use ticket bound to `@mac` — its socket attaches to a session the host holds.

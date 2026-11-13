@@ -633,6 +633,36 @@ final class FakeData: DozableWebData, @unchecked Sendable {
         r.bypassed = true
         return [WebMacSession(r)]
     }
+
+    // 683 M5: a fenced session's tabs and the wizard's plan.
+    func macNetwork(_ session: String) async throws -> WebMacNetwork {
+        guard session == "build" else { throw HostError(.notFound, "no fenced session \(session) on this Mac") }
+        let net = WebNetwork(name: "@mac build", proxied: true, mode: "fenced", policy: nil, log: [], logTotal: 0, denied: 0, logAvailable: false, note: nil)
+        return WebMacNetwork(session: session, network: net, denialLog: "off", denials: [], commands: ["doz net show @mac --session build"])
+    }
+    static let transcript = Data(#"{"type":"user","cwd":"/Users/someone/src/app"}"#.utf8 + [0x0A])
+    func macTranscripts(_ session: String) async throws -> WebMacTranscripts {
+        WebMacTranscripts(MacTranscripts.Listing(session: session, items: [.init(name: "1b4e28ba-2fa1-11d2-883f-0016d3cca427.jsonl", endedAt: "20261113T101500Z",
+                                                                               bytes: Self.transcript.count, path: "/tmp/fake-store/mac-sessions/transcripts/\(session)/20261113T101500Z/1b4e28ba-2fa1-11d2-883f-0016d3cca427.jsonl")],
+                                                 carriedTo: nil))
+    }
+    func macTranscript(_ session: String, endedAt: String, name: String) async throws -> Data {
+        guard name == "1b4e28ba-2fa1-11d2-883f-0016d3cca427.jsonl" else { throw HostError(.notFound, "no archived conversation \(name)") }
+        return Self.transcript
+    }
+    func macQuarantine(_ session: String) async throws -> WebMacQuarantine {
+        WebMacQuarantine(SessionQuarantine(session: session, items: [.init(name: "1.txt", text: "core.fsmonitor = ./x")]))
+    }
+    private(set) var planTerminal: [String] = []
+    func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan {
+        var p = WebMacPlan.make(r, settings: DozableSettings(text: nil), home: "/Users/someone", shell: "/bin/zsh", executable: "/opt/doz/bin/doz",
+                                store: DozableStore(root: URL(fileURLWithPath: storePath)), defaultStore: DozableStore(root: URL(fileURLWithPath: storePath)))
+        guard r.open else { return p }
+        guard p.openable else { throw HostError(.invalid, "Open in Terminal is not offered for this one") }
+        lock.withLock { planTerminal.append(p.terminalCommand) }
+        p.opened = "Terminal opened"
+        return p
+    }
     /// 591: the phase the overview reports (nil: running, then paused after `bump()`).
     var phase: String? {
         get { lock.withLock { _phase } }

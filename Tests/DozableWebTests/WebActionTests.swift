@@ -59,6 +59,9 @@ final class WebActionTests: XCTestCase {
         "session-restart": #"{"action":"session-restart","sandbox":"web","session":"codex","fresh":false}"#,
         "mac-session-end": #"{"action":"mac-session-end","session":"build","confirm":"build"}"#,
         "mac-session-restart": #"{"action":"mac-session-restart","session":"agent","confirm":"agent"}"#,
+        // 683 M5: a fenced session's resume after a git stop, and its bridges switched live.
+        "mac-session-resume": #"{"action":"mac-session-resume","session":"agent"}"#,
+        "mac-session-bridges": #"{"action":"mac-session-bridges","session":"agent","openURL":false}"#,
         // 644: the Files panel's changes.
         "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
@@ -154,6 +157,8 @@ final class WebActionTests: XCTestCase {
         .toolsApply,
         // 608: End session / Restart session (a running sandbox only; never a wake).
         .sessionEnd, .sessionRestart,
+        // 683 M5: @mac only — a fenced session's resume after a git stop, its bridges (host-side switches, per event).
+        .sessionResume, .sessionBridges,
         // 594 W20: only as Restart host, which the data source refuses unless the host is OLDER.
         .hostStop,
     ]
@@ -342,7 +347,8 @@ final class WebActionTests: XCTestCase {
         }
         XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isMacSession == true ? (try? decode($0.value))?.hostOp : nil }),
-                       [.sessionEnd, .sessionRestart], "this Mac: end and restart — never an open")
+                       [.sessionEnd, .sessionRestart, .sessionResume, .sessionBridges],
+                       "this Mac: end, restart, resume after a git stop, the bridges (683 M5) — never an open")
         // 594 W18: `ping` is reachable — as "Start host" (a status read that starts a host the way
         // every action does); `host stop` only as W20's guarded Restart host.
         XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp) == .hostStop }.map(\.key), ["host-restart"])

@@ -12,6 +12,9 @@ public struct FenceDenial: Codable, Equatable, Sendable {
     public var operation: String
     /// What it was refused (a path, an address, a service) — as the kernel wrote it.
     public var target: String
+    public init(time: Date, process: String, pid: Int?, operation: String, target: String) {
+        self.time = time; self.process = process; self.pid = pid; self.operation = operation; self.target = target
+    }
 }
 
 /// What `doz net log @mac --session S --fence` answers.

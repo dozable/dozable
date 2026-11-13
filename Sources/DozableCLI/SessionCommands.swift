@@ -644,27 +644,9 @@ struct Run: AsyncParsableCommand {
     /// source as `doz sessions @mac --capabilities`). Opens nothing, asks no host.
     func dryRunShape(_ settings: DozableSettings, fence: Bool, workdir: String, absolute: (String) -> String) -> MacCapabilityShape {
         let argv = command.isEmpty ? [ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh", "-l"] : command
-        var s = MacCapabilityShape(session: session ?? ((argv[0] as NSString).lastPathComponent), workdir: workdir, fenced: fence)
-        s.claude = MacPlace.isClaude(argv)
-        guard fence else { return s }
-        let q = fenceRequest(settings, absolute: absolute)
-        s.keychain = q.keychain == true
-        s.readable = q.read ?? []
-        s.writable = q.write ?? []
-        s.localPorts = q.localPorts ?? []
-        s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"])).flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
-        s.bridges = MacFenceBridges.resolve(q, settings: settings)
-        s.profile = q.profile
-        s.github = q.github
-        s.sshAgent = q.sshAgent == true
-        if let r = AgentRecipes.macAgent(program: argv[0]), let m = r.launch.macConfig {
-            s.agent = r.title
-            s.agentConfig = MacAgentConfig.resolveMode(flag: agentConfig, recipe: r, settings: settings).0
-            s.personHome = NSHomeDirectory() + "/" + m.homeName
-            s.history = settings.history(agent: r.id, own: history.map { TOMLValue.string($0) }).value
-            s.account = account ?? settings.string(SettingKey.macAccount) ?? "mac"
-        }
-        return s
+        return MacCapabilityShape.planned(session: session ?? ((argv[0] as NSString).lastPathComponent), workdir: workdir, argv: argv,
+                                          fenced: fence, request: fence ? fenceRequest(settings, absolute: absolute) : nil,
+                                          settings: settings, home: NSHomeDirectory())
     }
 
     /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else off.

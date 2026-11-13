@@ -304,6 +304,72 @@ dialog.dlg.bootlog-dialog { width: min(1100px, calc(100vw - 32px)); max-width: n
 .mac-list { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-5); }
 .mac-list-state { color: var(--ink-2); font-size: var(--fs-sm); }
 .nav-mac-tag { font-size: var(--fs-xs); color: var(--warn); white-space: nowrap; }
+/* 683 M5 — what a session on this Mac can do (views/mac-capabilities.js): the server's chips (a word first, the tone
+   second), the marks that are news (stopped, waiting, refused), and the panel: one row per capability — its name, its
+   state, the sentence of what that state opens, and "live" or "at the next start". A fenced pane is edged in the ok tone,
+   an unfenced one keeps the warning edge. */
+.cap-chips { display: inline-flex; align-items: center; gap: var(--sp-1); flex-wrap: wrap; }
+.cap-chip, .cap-mark { display: inline-flex; align-items: center; gap: var(--sp-1); height: 18px; padding: 0 var(--sp-2); border-radius: var(--r-pill);
+  font-size: var(--fs-xs); font-weight: var(--fw-strong); white-space: nowrap; flex: none; border: 0; }
+.cap-chip > .icon, .cap-mark > .icon { width: 12px; height: 12px; }
+.cap-chip.tone-ok, .cap-mark.tone-ok { background: var(--ok-tint); color: var(--ok); }
+.cap-chip.tone-warn, .cap-mark.tone-warn { background: var(--warn-tint); color: var(--warn); }
+.cap-chip.tone-info, .cap-mark.tone-info { background: var(--info-tint); color: var(--info); }
+.cap-mark.tone-bad { background: var(--bad-tint); color: var(--bad); }
+button.cap-mark { cursor: pointer; font-family: inherit; }
+.cap-more { height: 18px; padding: 0 var(--sp-2); border: var(--bw) solid var(--line-strong); border-radius: var(--r-pill); background: var(--surface);
+  color: var(--ink-2); font: var(--fw-strong) var(--fs-xs)/1 var(--font); cursor: pointer; }
+.cap-more:hover { color: var(--ink); background: linear-gradient(var(--state-hover), var(--state-hover)) var(--surface); }
+.mac-pane.is-fenced { border-color: var(--ok); }
+.mac-stop:empty { display: none; }
+.mac-stop { padding: var(--sp-2) var(--sp-3) 0; }
+.mac-tabs-row { padding: var(--sp-2) var(--sp-3); border-bottom: var(--bw) solid var(--line); }
+.mac-tabs .seg .icon { width: 13px; height: 13px; }
+.mac-pane-host[hidden], .mac-tab-body[hidden] { display: none; }
+.mac-tab-body { padding: var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-3); }
+.cap-panel { display: flex; flex-direction: column; gap: var(--sp-4); }
+.cap-list { list-style: none; margin: 0; padding: 0; border: var(--bw) solid var(--line); border-radius: var(--r-md); background: var(--surface); }
+.cap-row { display: grid; grid-template-columns: minmax(96px, 9rem) minmax(0, 15rem) minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-4); align-items: baseline;
+  padding: var(--row-py) var(--cell-px); border-bottom: var(--bw) solid var(--line); }
+.cap-row:last-child { border-bottom: 0; }
+.cap-name { color: var(--ink-2); font-size: var(--fs-sm); }
+.cap-state { font-weight: var(--fw-strong); overflow-wrap: anywhere; }
+.cap-row.is-unfenced .cap-state { color: var(--warn); }
+.cap-sentence { font-size: var(--fs-sm); line-height: var(--lh-prose); overflow-wrap: anywhere; }
+.cap-note { margin-top: var(--sp-0); color: var(--ink-2); }
+.cap-when { font-size: var(--fs-xs); color: var(--ink-2); white-space: nowrap; }
+.cap-when.is-live { color: var(--ok); font-weight: var(--fw-strong); }
+.cap-sub { display: flex; align-items: baseline; gap: var(--sp-1); font-size: var(--fs-md); }
+.cap-bridges { display: flex; flex-direction: column; gap: var(--sp-2); }
+.cap-foot { margin: 0; font-size: var(--fs-sm); max-width: 90ch; }
+.cmd-line { display: block; margin-top: var(--sp-1); padding: var(--sp-1) var(--sp-2); border-radius: var(--r-xs); background: var(--well); overflow-wrap: anywhere; }
+.mac-quarantine { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mac-q-text { margin: 0; padding: var(--sp-2) var(--sp-3); border-radius: var(--r-sm); background: var(--well); font: var(--fs-mono)/var(--lh) var(--mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; max-height: 240px; overflow: auto; }
+/* The New session wizard (views/mac-wizard.js): the five cases beside their options; the command in a well; what it could do. */
+dialog.dlg.mac-wizard { width: min(1040px, calc(100vw - 32px)); max-width: none; }
+.mac-wizard-grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: var(--sp-5); align-items: start; }
+.mac-wizard-side { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mac-options { display: flex; flex-direction: column; gap: var(--sp-3); }
+.mac-options .segmented { align-self: flex-start; flex-wrap: wrap; }
+.mac-case-text { display: flex; flex-direction: column; gap: var(--sp-0); min-width: 0; }
+.mac-case-title { display: flex; align-items: center; gap: var(--sp-2); }
+.mac-case-title > .icon { width: 15px; height: 15px; color: var(--ink-2); flex: none; }
+.mac-later summary { cursor: pointer; color: var(--ink-2); font-size: var(--fs-sm); }
+.mac-later ul { margin: var(--sp-2) 0 0; padding-left: var(--sp-5); font-size: var(--fs-sm); display: flex; flex-direction: column; gap: var(--sp-1); }
+.mac-toggle small { display: block; color: var(--ink-2); font-size: var(--fs-sm); }
+.mac-facts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mac-command-box { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mac-command { display: block; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--well); border: var(--bw) solid var(--line);
+  font: var(--fs-mono)/var(--lh-prose) var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
+.mac-why { font-size: var(--fs-sm); }
+.mac-preview:empty { display: none; }
+.mac-preview { display: flex; flex-direction: column; gap: var(--sp-2); }
+@media (max-width: 760px) {
+  .mac-wizard-grid { grid-template-columns: minmax(0, 1fr); }
+  .cap-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .cap-sentence { grid-column: 1 / -1; }
+}
 
 /* ── 593: Images › Lineage ── */
 .lineage { padding: var(--sp-1) 0; }

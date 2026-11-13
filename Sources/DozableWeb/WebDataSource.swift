@@ -109,6 +109,18 @@ public protocol DozableWebData: Sendable {
     /// The sessions on this Mac (`@mac`): the host's `sessions` for the place, read from its socket folder in-process when
     /// no host runs — looking never starts one.
     func macSessions() async throws -> [WebMacSession]
+    /// 683 M5: a fenced session's Network tab — its permissions and policy (`net-permissions`/`net-policy` for the place),
+    /// its connection log and its fence's refusals (a host's; empty with none). Looking never starts a host.
+    func macNetwork(_ session: String) async throws -> WebMacNetwork
+    /// 683 M5: its archived conversations (`session-transcripts`), and one of them whole — an archived `<uuid>.jsonl` the
+    /// listing names, read without following a link (`MacFenceHostFS`); nothing else is ever read.
+    func macTranscripts(_ session: String) async throws -> WebMacTranscripts
+    func macTranscript(_ session: String, endedAt: String, name: String) async throws -> Data
+    /// 683 M5: what the git guard took out (`session-quarantine`).
+    func macQuarantine(_ session: String) async throws -> WebMacQuarantine
+    /// 683 M5: the New session wizard's plan, built on the Mac; with `open` (an Open-in-Terminal shape only — checked by
+    /// the caller) the one-shot `.command` file is written in `<store>/ui-terminal/` and opened by the person's terminal app.
+    func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan
 }
 
 extension DozableWebData {
@@ -125,6 +137,11 @@ extension DozableWebData {
     public func editors() async throws -> [WebEditor] { throw HostError(.notImplemented, "editors") }
     public func grids(_ items: [SessionGridRequest]) async -> WebGrids { .unavailable(items, WebGrids.sentence(.noHost)) }
     public func macSessions() async throws -> [WebMacSession] { [] }
+    public func macNetwork(_ session: String) async throws -> WebMacNetwork { throw HostError(.notImplemented, "mac network") }
+    public func macTranscripts(_ session: String) async throws -> WebMacTranscripts { throw HostError(.notImplemented, "transcripts") }
+    public func macTranscript(_ session: String, endedAt: String, name: String) async throws -> Data { throw HostError(.notImplemented, "transcripts") }
+    public func macQuarantine(_ session: String) async throws -> WebMacQuarantine { throw HostError(.notImplemented, "quarantine") }
+    public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan { throw HostError(.notImplemented, "session plan") }
     public func plans(_ rs: [PlanRequest]) async -> [WebPlan?] { var out: [WebPlan?] = []; for r in rs { out.append(try? await plan(r)) }; return out }
     public func access(check: WebAccessCheck?) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
     public func setAccessGitHubKey(_ k: WebAccessGitHubKey) async throws -> AccessReport { throw HostError(.notImplemented, "access") }
@@ -475,6 +492,62 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
 
     public func macSessions() async throws -> [WebMacSession] {
         try await query(HostRequest(.sessions, name: MacPlace.name)).0.decode([SessionRow].self).map(WebMacSession.init)
+    }
+
+    // MARK: 683 M5 — a fenced session's network, conversations, quarantine; the wizard's plan
+
+    private func macRequest(_ op: HostOp, _ session: String) -> HostRequest {
+        var r = HostRequest(op, name: MacPlace.name)
+        r.session = session
+        return r
+    }
+
+    public func macNetwork(_ session: String) async throws -> WebMacNetwork {
+        let perms = try await query(macRequest(.netPermissions, session)).0.decode(PermissionReport.self)
+        let policy = try? await query(macRequest(.netPolicy, session)).0.decode(NetworkPolicy.self)
+        let live = store.hostIsRunning()
+        let recs = live ? ((try? await query(macRequest(.netLog, session)).0.decode([ConnectionRecord].self)) ?? []) : []
+        var dr = macRequest(.netLog, session)
+        dr.denials = true
+        let fence = live ? try? await query(dr).0.decode(FenceDenials.self) : nil
+        let net = WebNetwork(name: "@mac \(session)", proxied: true, mode: "fenced", policy: policy.map(WebPolicy.init),
+                             log: recs.suffix(logLimit).map(WebConnection.init), logTotal: recs.count,
+                             denied: recs.filter { $0.verdict == .denied }.count, logAvailable: live,
+                             note: live ? nil : "the connection log lives in the host, from its start — no host is running",
+                             permissions: WebPermissions(perms))
+        return WebMacNetwork(session: session, network: net, denialLog: fence?.denialLog ?? "off",
+                             denials: (fence?.denials ?? []).suffix(256).map(WebFenceDenial.init),
+                             commands: ["doz net show @mac --session \(session)", "doz net allow @mac --session \(session) PERMISSION",
+                                        "doz net deny @mac --session \(session) PERMISSION", "doz net log @mac --session \(session)"])
+    }
+
+    public func macTranscripts(_ session: String) async throws -> WebMacTranscripts {
+        WebMacTranscripts(try await query(macRequest(.sessionTranscripts, session)).0.decode(MacTranscripts.Listing.self))
+    }
+
+    public func macTranscript(_ session: String, endedAt: String, name: String) async throws -> Data {
+        let l = try await query(macRequest(.sessionTranscripts, session)).0.decode(MacTranscripts.Listing.self)
+        // Only a file the listing names, in its archive folder — read with no link followed, ≤ 64 MiB.
+        guard let item = l.items.first(where: { $0.endedAt == endedAt && $0.name == name }),
+              item.path.hasSuffix("/transcripts/\(session)/\(endedAt)/\(name)") else {
+            throw HostError(.notFound, "no archived conversation \(name) of \(session) (doz sessions @mac --transcripts \(session))")
+        }
+        return try await blocking { try MacFenceHostFS.readRegular(item.path, maximum: 64 << 20) }
+    }
+
+    public func macQuarantine(_ session: String) async throws -> WebMacQuarantine {
+        WebMacQuarantine(try await query(macRequest(.sessionQuarantine, session)).0.decode(SessionQuarantine.self))
+    }
+
+    public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan {
+        var p = WebMacPlan.make(r, settings: .load(), home: NSHomeDirectory(), shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+                                executable: executable, store: store, defaultStore: DozableStore.resolve(nil, environment: [:]))
+        guard r.open else { return p }
+        guard p.openable else { throw HostError(.invalid, "Open in Terminal is not offered for this one: \(p.copyOnly ?? "copy the command") (nothing was opened)") }
+        let launch = terminalLauncher, command = p.terminalCommand
+        try await blocking { try launch(command) }
+        p.opened = "Terminal opened — the session starts there; it shows here once it runs"
+        return p
     }
 
     public func network(_ name: String) async throws -> WebNetwork {
