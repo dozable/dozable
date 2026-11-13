@@ -100,7 +100,9 @@ func networkSuite() async throws {
     if realKey != nil {
         check(cc.output.lowercased().contains("pong") && ccSwapped, "LIVE: Claude Code answered through the proxy with only a placeholder in its environment")
     } else {
-        check(ccSwapped && cc.output.contains("401"), "Claude Code's requests carried the placeholder, swapped on the Mac (sentinel key → \(cc.output.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)))")
+        // Claude Code's refusal text changed: older builds print the 401, newer ones "Invalid API key".
+        let ccRefused = cc.output.contains("401") || cc.output.contains("Invalid API key")
+        check(ccSwapped && ccRefused, "Claude Code's requests carried the placeholder, swapped on the Mac (sentinel key → \(cc.output.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)))")
         print("  SKIP  LIVE Claude Code prompt — ANTHROPIC_API_KEY is not set")
     }
     // The key is nowhere in the guest.
