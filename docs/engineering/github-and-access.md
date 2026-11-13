@@ -33,6 +33,15 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   banner and switches the facts block to "no credential you can use is attached". Room for other
   providers: `AgentCredentialSupport(provider:accountKinds:)`.
 
+- **One account wiring for a sandbox and a fenced session on this Mac** (683): an Anthropic account (this Mac's login, a
+  setup token, an API key) is put into a `CredentialTarget`'s vault by `HostCore.bindAnthropicAccount` — a `Sandbox`
+  (`applyMainAccount`), or a fenced `@mac` session's own proxy (`MacFenceProxy`, `bindFenceAccount`, before it accepts
+  a connection). `LoginWatcher` subscribes targets, not sandboxes (`@mac S` for a session); `applyKeySecret` takes a
+  target. The rules stay the sandboxes': access token only, never the refresh token or a `Claude Code-credentials*` item,
+  never injected beside the program's own credential (a fenced session's vault is strict), a foreign one a fingerprint,
+  no fallback between accounts. A fenced session's placeholder is minted at open (its hash in the record, honoured by a
+  later host — `restorePlaceholderHashes`).
+
 ## GitHub as the user
 
 - **Proxy insertion, like the Anthropic credential — and nothing more.** `CredentialBinding.github`

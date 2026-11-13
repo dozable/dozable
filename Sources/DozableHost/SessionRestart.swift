@@ -122,6 +122,8 @@ public struct SessionEnded: Codable, Equatable, Sendable {
     public var session: String
     /// hangup | terminate | kill | not-running | stuck (`Sandbox.SessionEnd`).
     public var how: String
+    /// 683: a fenced session on this Mac — where its conversations went (carried back, archived), or why not.
+    public var notice: String? = nil
     public init(name: String, session: String, how: String) { self.name = name; self.session = session; self.how = how }
 }
 

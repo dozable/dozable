@@ -117,6 +117,13 @@ public actor MacSessions {
             row.pid = nil
             out.append(row)
         }
+        // 683: what each can do — every session on this Mac, fenced or not, from one source.
+        let home = fenceHome()
+        for i in out.indices {
+            if let rec = recs[out[i].name] {
+                out[i].capabilities = MacFence.capabilities(MacCapabilityShape(session: out[i].name, record: rec, home: home))
+            }
+        }
         return out.sorted { $0.name < $1.name }
     }
 
@@ -152,6 +159,14 @@ public actor MacSessions {
     /// The places a fenced session's rules are made of, resolved. The home is the person's (`TestSafety.realHome`);
     /// TEST SEAM (guarded runs only): `DOZ_TEST_FENCE_HOME`, a scratch home — and a guarded run without it is refused,
     /// so a test never makes a session folder in the real home.
+    /// The fence's home alone (resolved; nil in a guarded run without its seam) — for what a listing says. Makes nothing.
+    public nonisolated func fenceHome() -> String? {
+        if TestSafety.guarded(hostEnvironment) {
+            return hostEnvironment["DOZ_TEST_FENCE_HOME"].flatMap { $0.hasPrefix("/") ? MacFencePaths.resolve($0) : nil }
+        }
+        return MacFencePaths.resolve(TestSafety.realHome.path)
+    }
+
     public nonisolated func fencePlaces() throws -> MacFencePlaces {
         let env = hostEnvironment
         var home = TestSafety.realHome.path
@@ -199,8 +214,12 @@ public actor MacSessions {
     }
 
     /// Build a fenced session's fence and re-seed its folder (`previous`: its record at its last open, for the grants).
+    /// 683: `argv` (its program decides its agent: `AgentRecipes.macAgent`), the bridges, the Claude login's placeholders
+    /// (variable → placeholder) and the account behind them.
     public func prepareFence(session: String, workdir: String, request: MacFenceRequest, fenceRead: [String],
-                             previous: MacFenceRecord?, trust: Bool = true) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
+                             previous: MacFenceRecord?, trust: Bool = true, argv: [String]? = nil, bridges: MacFenceBridges = MacFenceBridges(),
+                             placeholders: [String: String] = [:], account: String? = nil,
+                             settings: DozableSettings = .load()) throws -> (fence: MacFence, seeded: MacFenceSessionFolder.Seeded, notes: [String]) {
         guard !readOnly else { throw HostError(.unavailable, "opening a session on this Mac needs the host") }
         let places = try fencePlaces()
         if loginPath == nil { loginPath = MacSessionsEnvironment.loginPath(host: hostEnvironment) }
@@ -210,8 +229,27 @@ public actor MacSessions {
         var fence = try MacFence.make(session: session, workdir: workdir, request: request, places: places, path: loginPath!.path,
                                       fenceRead: fenceRead, hooksPathGlobal: person.hooksPath, scratch: fenceState(session))
         fence.trust = trust
+        fence.bridges = bridges
+        fence.placeholders = placeholders
+        fence.account = account
+        // The agent's config folder (decided before the folder is seeded: `shared` widens the grants).
+        if let a = try MacAgentConfig.plan(argv: argv ?? [], workdir: fence.workdir, sessionFolder: fence.sessionFolder, home: places.home,
+                                           mode: request.agentConfig, history: request.history, settings: settings) {
+            if !a.isPrivate {
+                if let k = MacFencePaths.lstatKind(a.personHome), k != S_IFDIR {
+                    throw HostError(.invalid, "--agent-config shared: \(DisplayPath.tilde(a.personHome)) is a link or not a folder — refused (private works)")
+                }
+                if let p = MacFencePaths.pathProblem(a.personHome) { throw HostError(.invalid, "--agent-config shared: \(p)") }
+            }
+            fence.agent = a
+        } else if request.agentConfig != nil || request.history != nil {
+            throw HostError(.invalid, "--agent-config and --history are for an agent that declares its settings folder (Claude Code: doz run @mac --fenced -- claude)")
+        }
         let seeded = try MacFenceSessionFolder.prepare(fence, previous: previous?.grants, person: person)
-        return (fence, seeded, fence.homeReads.notes + seeded.notes)
+        if let a = fence.agent {
+            fence.agent = try MacAgentConfig.prepare(a, fence: fence, placeholderTail: placeholders["ANTHROPIC_API_KEY"].map { String($0.suffix(20)) })
+        }
+        return (fence, seeded, fence.homeReads.notes + seeded.notes + (fence.agent?.notes ?? []))
     }
 
     /// QUERY of one session.

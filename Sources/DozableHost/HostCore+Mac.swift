@@ -36,6 +36,10 @@ extension HostCore {
             return try JSONValue(encoding: try macQuarantine(r))
         case .netPermissions, .netPolicy, .netLog:
             return try await macNet(r)
+        case .sessionBridges:
+            return try JSONValue(encoding: try await macBridges(r))
+        case .sessionTranscripts:
+            return try JSONValue(encoding: try macTranscriptsList(r))
         default:
             throw MacPlace.refusal(r.op.rawValue)
         }
@@ -66,6 +70,130 @@ extension HostCore {
             let found = w.guardian.adopt()          // the baseline, the watch, then a full check
             if !found.isEmpty { note(MacPlace.name, "session \(s) on this Mac: its git config changed while no host ran — dealt with now") }
         }
+        // 683: a fenced one that ended (or is gone) while no host ran: its conversations carried back now (once).
+        for (s, rec) in recs where rec.fence?.agentConfig == MacAgentConfig.privateMode && !live.contains(s) {
+            if let t = await macCarryBack(s) { note(MacPlace.name, "session \(s) on this Mac ended: \(t)") }
+        }
+    }
+
+    // MARK: 683 — the agent's conversations, its login, its bridges
+
+    /// Carry a PRIVATE fenced session's conversations back into the person's own folder (and, under `keep`, Dozable's
+    /// archive) — at its end, when it is forgotten, and when the host first sees its program ended or gone. Idempotent
+    /// (each file's sha256 is recorded). Returns the end message (nil: nothing to say).
+    func macCarryBack(_ s: String) async -> String? {
+        guard !readOnly, let rec = mac.records().sessions[s], let f = rec.fence, f.agentConfig == MacAgentConfig.privateMode,
+              let id = f.agent, let r = AgentRecipes.macAgent(program: id), let m = r.launch.macConfig, let home = mac.fenceHome() else { return nil }
+        let setup = MacAgentSetup(recipe: r.id, title: r.title, config: m, mode: MacAgentConfig.privateMode, modeSource: f.agentConfigSource ?? "",
+                                  history: f.history ?? AgentHistory.keep, historySource: f.historySource ?? "", agentDefault: r.launch.history?.agentDefault,
+                                  historyMap: r.launch.history, personHome: home + "/" + m.homeName, personBeside: nil, agentDir: f.sessionFolder + "/agent")
+        let archive = setup.history == AgentHistory.keep
+            ? (MacFencePaths.resolve(mac.folder.path) ?? mac.folder.path) + "/transcripts/" + s + "/" + MacTranscripts.stamp(Date()) : nil
+        let o = MacTranscripts.carryBack(agentDir: setup.agentDir, personHome: setup.personHome, folder: setup.transcriptsFolder(workdir: rec.workdir),
+                                         workdir: rec.workdir, tag: f.tag, archive: archive, already: Set(f.carried ?? []))
+        if Set(o.done) != Set(f.carried ?? []) { await mac.updateRecord(s) { $0.fence?.carried = Array(Set(o.done)).sorted() } }
+        if !o.carried.isEmpty || !o.renamed.isEmpty || !o.skipped.isEmpty || o.refused != nil {
+            HostLog.line("\(MacPlace.name): session \(s): conversations carried back \(o.carried.count + o.renamed.count), archived \(o.archived.count), skipped \(o.skipped.count)")
+        }
+        return MacTranscripts.message(o, setup: setup, session: s)
+    }
+
+    /// The Claude login of a fenced session: the account asked (else `mac.account`) and a fresh placeholder for its variable
+    /// (`CLAUDE_CODE_OAUTH_TOKEN` for this Mac's login or a setup token, `ANTHROPIC_API_KEY` for an API key) — the proxy
+    /// swaps it for the real one, which stays in the vault on this Mac. `none`: no login, no placeholder.
+    func fenceAccount(_ asked: String?, settings: DozableSettings) throws -> (account: String, placeholders: [String: String]) {
+        let name = asked ?? settings.string(SettingKey.macAccount) ?? "mac"
+        if name == "none" { return ("none", [:]) }
+        let file = accountStore.load()
+        let a: AccountRecord
+        if let found = file.accounts.first(where: { $0.name == name }) { a = found } else if name == "mac" { a = .mac } else {
+            throw HostError(.notFound, "--account \(name): no such account (doz account ls) — or --account mac, or none")
+        }
+        let variable: String
+        switch a.kind {
+        case .mac, .setupToken: variable = CredentialBinding.claudeOAuth.environmentVariable ?? "CLAUDE_CODE_OAUTH_TOKEN"
+        case .apiKey: variable = CredentialBinding.anthropic.environmentVariable ?? "ANTHROPIC_API_KEY"
+        default:
+            throw HostError(.invalid, "--account \(name): a \(a.kind.rawValue) account cannot sign Claude Code in — this Mac's login (mac), a setup token or an Anthropic API key")
+        }
+        let token = CredentialVault.placeholderPrefix + (0..<24).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
+        return (name, [variable: token])
+    }
+
+    /// Bind a fenced session's Claude login into its proxy's vault (at open, and at adoption): its placeholders honoured,
+    /// the account's credential bound by the ONE account wiring (`bindAnthropicAccount`), a foreign credential the program
+    /// sends refused (never anything injected beside it), no fallback to another account.
+    func bindFenceAccount(_ s: String, _ p: MacFenceProxy, _ f: MacFenceRecord) {
+        guard let name = f.account, name != "none" else { return }
+        let vault = p.proxy.vault
+        let file = accountStore.load()
+        let a = file.accounts.first { $0.name == name } ?? (name == "mac" ? AccountRecord.mac : nil)
+        vault.foreignPolicy = .strict
+        let who = "@mac \(s)"
+        vault.strictNotice = "\(who) signs in as the account \(name) through Dozable's proxy. It refused this request's own credential (fp {fp}) — "
+            + "a /login or a key inside the session. Remove it (unset CLAUDE_CODE_OAUTH_TOKEN / ANTHROPIC_API_KEY overrides), or start it with another --account"
+        vault.noSecretNotice = "\(who) has no Claude login behind its placeholder now — doz run @mac --account NAME (doz account ls)"
+        vault.setFingerprintLabels(Dictionary(file.accounts.compactMap { a in a.fingerprint.map { ($0, a.name) } }) { a, _ in a })
+        guard let a else {
+            p.setCredential(.claudeOAuth, secret: nil, expiresAt: nil, environment: [:], notice: "the account \(name) this session uses no longer exists — doz run @mac --account NAME")
+            vault.restorePlaceholderHashes(f.placeholderHashes ?? [:])
+            return
+        }
+        // The other binding of the two stays bound and EMPTY (as a sandbox's): its header still counts as "the program's
+        // own credential is present" — removed, an x-api-key of the program's would get our bearer injected beside it.
+        let other: CredentialBinding = a.kind == .apiKey ? .claudeOAuth : .anthropic
+        p.setCredential(other, secret: nil, expiresAt: nil, environment: [:], notice: nil)
+        bindAnthropicAccount(a, target: p, name: "\(MacPlace.name) \(s)", file: file)
+        vault.restorePlaceholderHashes(f.placeholderHashes ?? [:])
+        HostLog.line("\(MacPlace.name): session \(s): its Claude login is the account \(name) (\(a.kind.rawValue)) through its proxy"
+                     + (vault.hasSecret(a.kind.binding.id) ? "" : " — no credential behind it now"))
+    }
+
+    /// A fenced session's login stops following its account (its proxy is gone).
+    func unbindFenceAccount(_ s: String) {
+        let n = "\(MacPlace.name) \(s)"
+        for (k, w) in watchers where w.subscriberNames.contains(n) {
+            w.unsubscribe(n)
+            if w.isEmpty { w.stop(); watchers[k] = nil }
+        }
+    }
+
+    /// `doz sessions bridges @mac S [--open-url on|off] [--open-files on|off] [--clipboard write|off]`: a fenced session's
+    /// bridges, changed live (the next event follows them).
+    func macBridges(_ r: HostRequest) async throws -> SessionBridges {
+        let s = try macSession(r, "doz sessions bridges @mac SESSION")
+        guard let f = mac.records().sessions[s]?.fence else {
+            throw HostError(.notFound, "no fenced session \(s) on this Mac — an unfenced session opens things itself (doz sessions @mac)")
+        }
+        var b = f.bridges ?? MacFenceBridges(openURL: false, openFiles: false, clipboard: false)
+        guard let want = r.macBridges, want.openURL != nil || want.openFiles != nil || want.clipboard != nil else {
+            return SessionBridges(session: s, bridges: b, changed: nil)
+        }
+        guard !readOnly else { throw HostError(.unavailable, "session-bridges needs the host") }
+        if let v = want.openURL { b.openURL = v }
+        if let v = want.openFiles { b.openFiles = v }
+        if let v = want.clipboard { b.clipboard = v }
+        let now = b
+        await mac.updateRecord(s) { $0.fence?.bridges = now }
+        let words = "open URL \(b.openURL ? "on" : "off"), open files \(b.openFiles ? "on" : "off"), clipboard \(b.clipboard ? "write" : "off")"
+        note(MacPlace.name, "session \(s) on this Mac: bridges \(words) — from the next one")
+        return SessionBridges(session: s, bridges: b, changed: words)
+    }
+
+    /// `doz sessions @mac --transcripts S`: its archived conversations (newest first).
+    func macTranscriptsList(_ r: HostRequest) throws -> MacTranscripts.Listing {
+        let s = try macSession(r, "doz sessions @mac --transcripts SESSION")
+        let root = (MacFencePaths.resolve(mac.folder.path) ?? mac.folder.path) + "/transcripts/" + s
+        let items = MacTranscripts.list(root)
+        let rec = mac.records().sessions[s]
+        if items.isEmpty, rec?.fence == nil, MacFenceHostFS.kind(root) == nil {
+            throw HostError(.notFound, "no fenced session \(s) on this Mac, and no conversations of it kept (doz sessions @mac)")
+        }
+        var to: String?
+        if let f = rec?.fence, let id = f.agent, let m = AgentRecipes.macAgent(program: id)?.launch.macConfig, let home = mac.fenceHome() {
+            to = home + "/" + m.homeName + "/" + m.transcripts.folder(workdir: rec!.workdir)
+        }
+        return MacTranscripts.Listing(session: s, items: items, carriedTo: to)
     }
 
     /// A fenced session's git guard, its stop wired to every process of the fence.
@@ -98,6 +226,8 @@ extension HostCore {
             dropFenceWatch(s)
             dropFenceProxy(s)
             macDenials.unwatch(session: s)
+            // 683: its program ended by itself (or is gone): its conversations go back now.
+            if let t = await macCarryBack(s) { note(MacPlace.name, "session \(s) on this Mac ended: \(t)") }
         }
         return Set(macFenceWatches.keys).union(macProxies.keys).sorted()
     }
@@ -110,8 +240,11 @@ extension HostCore {
     /// A proxy made off the open's path takes its place (one already there — a restart raced it — is stopped first).
     func installProxy(_ s: String, _ p: MacFenceProxy) {
         // Only the session's CURRENT socket (a restart in the meantime made a new one).
-        guard mac.records().sessions[s]?.fence?.proxyPort == Int(p.port) else { p.stop(); return }
+        guard let f = mac.records().sessions[s]?.fence, f.proxyPort == Int(p.port) else { p.stop(); return }
         macProxies[s]?.stop()
+        unbindFenceAccount(s)
+        bindFenceAccount(s, p, f)
+        p.start()
         macProxies[s] = p
     }
 
@@ -119,6 +252,7 @@ extension HostCore {
     func dropFenceProxy(_ s: String) {
         macProxies[s]?.stop()
         macProxies[s] = nil
+        unbindFenceAccount(s)
     }
 
     /// A hand-over (this host's program was replaced and only fenced sessions keep it up): every proxy stops accepting —
@@ -151,6 +285,7 @@ extension HostCore {
         do {
             let p = try MacFenceProxy(session: s, fd: fd, port: UInt16(port), policy: f.policy ?? .permissions(["model"], preset: "locked"),
                                       secretSHA256: secret, ca: ca, environment: mac.hostEnvironment)
+            bindFenceAccount(s, p, f)
             p.start()
             macProxies[s] = p
         } catch {
@@ -258,8 +393,21 @@ extension HostCore {
         if let words = request.permissions { policy = try MacFenceNetwork.policy(words: words) }
         else if let kept = previous?.policy { policy = kept }
         else { policy = try MacFenceNetwork.policy(words: [settings.string(SettingKey.macPermissions) ?? "standard"]) }
+        // 683: a key in the environment would sit beside the swapped login — refused (an account gives it).
+        for k in (extra ?? [:]).keys where ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"].contains(k) {
+            throw HostError(.invalid, "-e \(k): a fenced session gets its Claude login through Dozable's proxy — doz run @mac --account NAME (doz account ls), never a key in its environment")
+        }
+        // 683: its agent's login (only a program whose embedded recipe declares a config folder: Claude Code).
+        var login: (account: String?, placeholders: [String: String]) = (nil, [:])
+        if let program = argv?.first, AgentRecipes.macAgent(program: program) != nil {
+            let a = try fenceAccount(request.account, settings: settings)
+            login = (a.account, a.placeholders)
+        } else if request.account != nil {
+            throw HostError(.invalid, "--account is for Claude Code (doz run @mac --fenced --account NAME -- claude)")
+        }
         let prep = try await mac.prepareFence(session: name, workdir: wd, request: request, fenceRead: fenceRead, previous: previous,
-                                              trust: MacFenceNetwork.trust(policy))
+                                              trust: MacFenceNetwork.trust(policy), argv: argv, bridges: MacFenceBridges.resolve(request, settings: settings),
+                                              placeholders: login.placeholders, account: login.account, settings: settings)
         var f = prep.fence
         f.presetName = AgentPermissions.presetName(policy.permissions ?? [], base: AgentPermissions.macBase)
         dropFenceWatch(name)
@@ -282,10 +430,15 @@ extension HostCore {
         let baseline: MacFenceGitBaseline
         do { baseline = try w.guardian.recordBaseline() } catch { close(lfd); throw error }
         let t2 = ContinuousClock.now
+        // 683: Claude Code's facts about where it runs — one combined --append-system-prompt (the record keeps the argv).
+        var launch = argv
+        if let a = argv, MacAgentPrompt.applies(argv: a, fenced: true, setting: settings.string(SettingKey.macAgentPrompt) ?? "fenced") {
+            launch = MacAgentPrompt.argv(a, facts: MacAgentPrompt.facts(fence: f, agent: f.agent, workdir: f.workdir))
+        }
         let o: MacSessions.Opened
         do {
-            o = try await mac.open(session: name, argv: argv, workdir: f.workdir, extra: extra, size: size, holder: holder,
-                                   recordedArgv: recordedArgv, fence: f, gitBaseline: baseline,
+            o = try await mac.open(session: name, argv: launch, workdir: f.workdir, extra: extra, size: size, holder: holder,
+                                   recordedArgv: recordedArgv ?? argv, fence: f, gitBaseline: baseline,
                                    proxy: .init(fd: lfd, password: password, secretSHA256: secret, policy: policy, ca: ca != nil))
         } catch {
             close(lfd)
@@ -298,7 +451,7 @@ extension HostCore {
         let made = Task.detached { () -> MacFenceProxy? in
             do {
                 let p = try MacFenceProxy(session: name, fd: lfd, port: port, policy: policy, secretSHA256: secret, ca: ca, environment: env)
-                p.start()
+                // 683: started by installProxy, once its login is bound (a request before that would pass unswapped).
                 return p
             } catch {
                 close(lfd)
@@ -389,7 +542,8 @@ extension HostCore {
             s.fenceNotes = notes.isEmpty ? nil : notes
             return s
         }
-        let o = try await mac.open(session: r.session, argv: r.argv, workdir: r.workdir, extra: r.environment, size: size, holder: holder)
+        let o = try await mac.open(session: r.session, argv: Self.macPromptArgv(r.argv, workdir: r.workdir), workdir: r.workdir, extra: r.environment,
+                                   size: size, holder: holder, recordedArgv: r.argv)
         if o.created {
             note(MacPlace.name, "session \(o.session) opened on this Mac (no isolation)" + (o.bypassed ? " — its own argv bypasses permissions" : "")
                  + (o.pathSource.map { "; PATH from the \($0)" } ?? ""))
@@ -400,6 +554,12 @@ extension HostCore {
         var s = SessionOpened(name: MacPlace.name, session: o.session, created: o.created)
         s.bypassed = o.bypassed ? true : nil
         return s
+    }
+
+    /// 683: an UNFENCED Claude Code session's facts, only with `mac.agent_prompt = always` (nil argv: unchanged).
+    static func macPromptArgv(_ argv: [String]?, workdir: String?) -> [String]? {
+        guard let a = argv, MacAgentPrompt.applies(argv: a, fenced: false, setting: DozableSettings.load().string(SettingKey.macAgentPrompt) ?? "fenced") else { return argv }
+        return MacAgentPrompt.argv(a, facts: MacAgentPrompt.facts(fence: nil, agent: nil, workdir: workdir ?? NSHomeDirectory()))
     }
 
     func macLive(_ r: HostRequest) async throws -> SessionLive {
@@ -489,6 +649,9 @@ extension HostCore {
             dropFenceProxy(s)
             macDenials.unwatch(session: s)
         }
+        // 683: a private agent folder's conversations go back to the person's own (and the archive) — before anything
+        // of the session folder is forgotten.
+        let carried = how == .stuck ? nil : await macCarryBack(s)
         switch how {
         case .notRunning:
             // Not running: an ended or gone one is forgotten (its record and exit) — nothing else to end.
@@ -502,9 +665,11 @@ extension HostCore {
             throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL — a program stuck in the kernel")
         default:
             dropFenceWatch(s)
-            note(MacPlace.name, "session \(s) on this Mac ended (\(how.rawValue))")
+            note(MacPlace.name, "session \(s) on this Mac ended (\(how.rawValue))" + (carried.map { " — " + $0 } ?? ""))
         }
-        return SessionEnded(name: MacPlace.name, session: s, how: how.rawValue)
+        var out = SessionEnded(name: MacPlace.name, session: s, how: how.rawValue)
+        out.notice = carried
+        return out
     }
 
     func macRestart(_ r: HostRequest) async throws -> SessionRestarted {
@@ -528,8 +693,12 @@ extension HostCore {
         if how == .stuck { throw HostError(.failed, "session \(s) on this Mac did not end, even after SIGKILL") }
         var resume = MacPlace.resumeArguments(rec.argv, fresh: r.fresh == true)
         var notes: [String] = []
+        // 683: its conversations so far go back to the person's own first (a private agent folder keeps them too).
+        if let t = await macCarryBack(s) { notes.append(t) }
         // claude --continue with no conversation in the folder exits at once — and the session with it: start fresh.
-        if !resume.isEmpty, !MacPlace.claudeHasConversation(workdir: rec.workdir, projects: MacPlace.claudeProjects(mac.hostEnvironment)) {
+        // 683: a fenced session with its own (private) config folder continues from THAT folder's conversations.
+        let projects = rec.fence?.agentConfig == MacAgentConfig.privateMode ? (rec.fence!.sessionFolder + "/agent/projects") : MacPlace.claudeProjects(mac.hostEnvironment)
+        if !resume.isEmpty, !MacPlace.claudeHasConversation(workdir: rec.workdir, projects: projects) {
             resume = []
             notes.append("no earlier conversation in \(DisplayPath.tilde(rec.workdir)) — claude starts a new one")
         }
@@ -545,7 +714,7 @@ extension HostCore {
             o = try await macOpenFenced(r, request: f.request, holder: holder, name: s, argv: rec.argv + resume, workdir: rec.workdir,
                                         recordedArgv: rec.argv, previous: f, size: openSize, extra: nil).0
         } else {
-            o = try await mac.open(session: s, argv: rec.argv + resume, workdir: rec.workdir, extra: nil, size: openSize,
+            o = try await mac.open(session: s, argv: Self.macPromptArgv(rec.argv + resume, workdir: rec.workdir), workdir: rec.workdir, extra: nil, size: openSize,
                                    holder: holder, recordedArgv: rec.argv)
         }
         await watchStatus(MacPlace.name, session: s)

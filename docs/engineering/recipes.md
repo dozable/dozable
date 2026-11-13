@@ -190,6 +190,20 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `settingMatrix` (rows = agents, columns = keep · agent-default, the value it gets marked — no new control),
   `doz config show --agent ID` prints it (`ConfigShow.historyLines`). `history` is a common option name (`settings@1` may
   not declare it).
+- **The agent's config folder on this Mac** (683; `launch@1 mac_config`, `AgentRecipe.Launch.MacConfig`,
+  `AgentRecipe.validateMacConfig`, `Sources/DozableHost/MacAgentConfig.swift`, `MacAgentConfigTests`): what a FENCED `@mac`
+  session of the agent gets for its own settings folder — `home_env` (`CLAUDE_CONFIG_DIR`), `home` (`~/.claude`), `beside`
+  (`~/.claude.json`), `link_read_only` (instructions, skills, agents, commands, output styles), `clean_copy` (settings
+  keys copied from the person's), `first_run` (onboarding, the workdir trusted), `transcripts`
+  (`projects/{workdir}`, `*.jsonl`, the `claude` encoding) and `default` (`private`). **Untrusted input, a fixed shape**:
+  honoured ONLY from a recipe embedded in this build — `RecipeCatalogue.merged` refuses a catalogue recipe carrying it,
+  `CommunityRequirements` (`no-mac-config`) a community or personal one, and `AgentRecipes.macAgent(program:)` (the
+  `argv[0]` → recipe match for `@mac`) looks at `RecipeSet.embedded` only — so no other recipe can claim `claude`. The
+  validator: `home` a single dot-folder in `~`, never a closed one (`macConfigClosedHomes`: `.ssh`, `.config`, `.aws`, …);
+  `beside` exactly `home.json`; `home_env` `^[A-Z_]+_(HOME|CONFIG_DIR)$`; names one level deep, no `..`; settings keys
+  dotted names, never `env`, `apiKeyHelper`, `hooks`, `statusLine`, `enabledPlugins`, `mcpServers` or a credential's name;
+  `transcripts` fixed. **Never baked** (no bake key, image or launcher reads it). The setting `recipes.V.P.mac_config`
+  (`follow` | `private` | `shared`) exists only for a recipe that declares one; `mac_config` is a common option name.
 - **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google|opencode|…`,
   `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
   (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never

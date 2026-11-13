@@ -76,8 +76,50 @@ struct Sessions: AsyncParsableCommand {
     static let configuration = CommandConfiguration(
         abstract: "The sandbox's terminal sessions: list them (the default), end one, restart one, type into one, or read its screen.",
         subcommands: [SessionsList.self, SessionsEnd.self, SessionsRestart.self, SessionsSend.self, SessionsScreen.self, SessionsWait.self,
-                      SessionsResume.self],
+                      SessionsResume.self, SessionsBridges.self],
         defaultSubcommand: SessionsList.self)
+}
+
+/// A fenced session on this Mac: its bridges, read or changed live.
+struct SessionsBridges: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(commandName: "bridges",
+        abstract: "A fenced session on this Mac: what it may hand to you — open web pages, open documents of its folder, the clipboard (doz sessions bridges @mac SESSION).",
+        discussion: """
+            A fenced program cannot open anything on this Mac itself, so it asks through its terminal: a web page opens in your \
+            browser, a document of its own folder in your app, a copy reaches your clipboard (never a read) — each one announced. \
+            Each switch changes at once, for the next one; with none given, prints them. The settings mac.open_url, \
+            mac.open_files and mac.clipboard (and doz run @mac --open-url / --open-files / --clipboard) decide a new session's.
+            """)
+    @OptionGroup var g: GlobalOptions
+    @Argument var name: String
+    @Argument var session: String
+    @Option(name: .customLong("open-url"), help: "on or off: it may open web pages in your browser.") var openURL: String?
+    @Option(name: .customLong("open-files"), help: "on or off: it may open documents of its folder in your apps.") var openFiles: String?
+    @Option(name: .long, help: "write or off: it may put text on your clipboard.") var clipboard: String?
+
+    func validate() throws {
+        for (flag, v, ok) in [("--open-url", openURL, ["on", "off"]), ("--open-files", openFiles, ["on", "off"]), ("--clipboard", clipboard, ["write", "off"])] {
+            if let v, !ok.contains(v) { throw ValidationError("\(flag) \(v): \(ok.joined(separator: " or "))") }
+        }
+    }
+
+    func run() async throws {
+        guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "bridges are switched here for a fenced session on this Mac — a sandbox's are doz config set --sandbox NAME"), g, code: DozableExit.usage) }
+        var r = HostRequest(.sessionBridges, name: name)
+        r.session = session
+        if openURL != nil || openFiles != nil || clipboard != nil {
+            var b = MacFenceRequest()
+            b.openURL = openURL.map { $0 == "on" }
+            b.openFiles = openFiles.map { $0 == "on" }
+            b.clipboard = clipboard.map { $0 == "write" }
+            r.macBridges = b
+        }
+        let got = try decode(try call(r, g), SessionBridges.self, g)
+        if g.json { Out.json(got); return }
+        let b = got.bridges
+        Out.stdout("\(session) on this Mac: open URL \(b.openURL ? "on" : "off") · open files \(b.openFiles ? "on" : "off") · clipboard \(b.clipboard ? "write" : "off")"
+                   + (got.changed == nil ? "" : " — from the next one") + "\n")
+    }
 }
 
 /// A fenced session on this Mac stopped for a git config change: continue it.
@@ -280,6 +322,7 @@ struct SessionsEnd: AsyncParsableCommand {
         if g.json { Out.json(e); return }
         Out.stdout(e.how == "not-running" ? "session \(session) \(MacCLI.inPlace(name)) was not running\n"
                    : "ended session \(session) \(MacCLI.inPlace(name)) (\(SessionsEnd.howText(e.how)))\n")
+        if let n = e.notice { Out.stdout("\(n)\n") }
     }
 
     static func howText(_ how: String) -> String {
@@ -356,10 +399,62 @@ struct SessionsList: AsyncParsableCommand {
     @Option(name: .long, help: "Print this session's last saved screen (text).") var screen: String?
     @Flag(name: .long, help: "With --screen: write the saved VT bytes (redraw with `cat` in a terminal) — only to a file or a pipe.") var vt = false
     @Option(name: .long, help: "@mac: what was taken out of this fenced session's git configs (why it stopped).") var quarantine: String?
+    @Option(name: .long, help: "@mac: what this session can do — one line per capability (its fence, Keychain, network, settings folder, bridges…).") var capabilities: String?
+    @Option(name: .long, help: "@mac: this fenced session's conversations kept in Dozable's archive.") var transcripts: String?
+    @Option(name: .long, help: "With --transcripts: copy them into this folder.") var export: String?
 
     func run() async throws {
         if let screen { try await printScreen(screen); return }
         if vt { throw fail(HostError(.invalid, "--vt goes with --screen SESSION"), g, code: DozableExit.usage) }
+        if (capabilities != nil || transcripts != nil), !MacPlace.isPlace(name) {
+            throw fail(HostError(.invalid, "--capabilities and --transcripts are for doz sessions @mac"), g, code: DozableExit.usage)
+        }
+        if export != nil, transcripts == nil { throw fail(HostError(.invalid, "--export goes with --transcripts SESSION"), g, code: DozableExit.usage) }
+        if let c = capabilities {
+            let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
+            guard let row = rows.first(where: { $0.name == c }), let caps = row.capabilities else {
+                throw fail(HostError(.notFound, "no session \(c) on this Mac opened by doz (doz sessions @mac)"), g)
+            }
+            if g.json { Out.json(caps); return }
+            Out.stdout("\(c) on this Mac — what it can do (\(row.fenced == true ? "fenced" : "no isolation")):\n" + MacFence.capabilitiesText(caps))
+            return
+        }
+        if let s = transcripts {
+            var r = HostRequest(.sessionTranscripts, name: name)
+            r.session = s
+            let got = try decode(try await query(r, g), MacTranscripts.Listing.self, g)
+            if let dir = export {
+                let to = URL(fileURLWithPath: dir).standardizedFileURL.path
+                var isDir: ObjCBool = false
+                guard FileManager.default.fileExists(atPath: to, isDirectory: &isDir), isDir.boolValue else {
+                    throw fail(HostError(.invalid, "--export \(dir): not a folder"), g, code: DozableExit.usage)
+                }
+                var copied: [String] = []
+                for i in got.items {
+                    let name = "\(i.endedAt)-\(i.name)"
+                    guard !FileManager.default.fileExists(atPath: to + "/" + name) else { continue }
+                    // The archive is the host's (in the store); copied as it is, never through a link.
+                    var st = stat()
+                    guard lstat(i.path, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG else { continue }
+                    do { try FileManager.default.copyItem(atPath: i.path, toPath: to + "/" + name); copied.append(name) } catch {
+                        throw fail(HostError(.failed, "--export: \(name): \(error.localizedDescription)"), g)
+                    }
+                }
+                if g.json { Out.json(["exported": copied]); return }
+                Out.stdout("exported \(copied.count) conversation\(copied.count == 1 ? "" : "s") of \(s) to \(DisplayPath.tilde(to))\n")
+                return
+            }
+            if g.json { Out.json(got); return }
+            if got.items.isEmpty {
+                Out.stdout("no conversations of \(s) are kept in Dozable's archive" + (got.carriedTo.map { " (they are copied to \(DisplayPath.tilde($0)) when it ends)" } ?? "") + "\n")
+                return
+            }
+            var t = [["ENDED", "CONVERSATION", "SIZE"]]
+            for i in got.items { t.append([i.endedAt, i.name, "\(i.bytes / 1024) KiB"]) }
+            Out.stdout(Out.table(t))
+            if let to = got.carriedTo { Out.stderr("also copied back to \(DisplayPath.tilde(to)); doz sessions @mac --transcripts \(s) --export DIR copies these\n") }
+            return
+        }
         if let q = quarantine {
             guard MacPlace.isPlace(name) else { throw fail(HostError(.invalid, "--quarantine is for doz sessions @mac"), g, code: DozableExit.usage) }
             var r = HostRequest(.sessionQuarantine, name: name)
@@ -479,18 +574,81 @@ struct Run: AsyncParsableCommand {
     var permissions: [String] = []
     @Option(name: .customLong("local-port"), help: "@mac, fenced: a port of this Mac's loopback it may listen on and connect to — its dev server, a sign-in callback (repeatable).")
     var localPorts: [Int] = []
+    @Option(name: .customLong("agent-config"), help: "@mac, fenced: the agent's settings folder — private (its own; your instructions and skills read-only) or shared (your own: less isolated) (setting mac.agent_config).")
+    var agentConfig: String?
+    @Option(name: .long, help: "@mac, fenced: keep its conversations (keep: copied back to yours and archived) or follow the agent's own rule (agent-default) (setting agent.history).")
+    var history: String?
+    @Option(name: .long, help: "@mac, fenced: the Claude login swapped in by Dozable's proxy — an account (doz account ls), mac or none (setting mac.account).")
+    var account: String?
+    @Option(name: .customLong("open-url"), help: "@mac, fenced: on or off — it may open web pages in your browser, each announced (setting mac.open_url).")
+    var openURL: String?
+    @Option(name: .customLong("open-files"), help: "@mac, fenced: on or off — it may open documents of its folder in your apps (setting mac.open_files).")
+    var openFiles: String?
+    @Option(name: .long, help: "@mac, fenced: write or off — it may put text on your clipboard, each copy announced (setting mac.clipboard).")
+    var clipboard: String?
+    @Flag(name: .customLong("dry-run"), help: "@mac: say what the session would be able to do, and open nothing.") var dryRun = false
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
 
-    var fenceFlags: Bool { keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty }
+    var fenceFlags: Bool {
+        keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty || agentConfig != nil || history != nil
+            || account != nil || openURL != nil || openFiles != nil || clipboard != nil
+    }
 
     func validate() throws {
         if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
         if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
-        if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags {
-            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions and --local-port are for doz run @mac (a sandbox is a VM of its own)")
+        if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags || dryRun {
+            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard and --dry-run are for doz run @mac (a sandbox is a VM of its own)")
         }
         if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
-        if unfenced && fenceFlags { throw ValidationError("--keychain, --read, --write, --permissions and --local-port are for a fenced session — not with --unfenced") }
+        if unfenced && fenceFlags {
+            throw ValidationError("--keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files and --clipboard are for a fenced session — not with --unfenced")
+        }
+        for (flag, v, ok) in [("--agent-config", agentConfig, MacAgentConfig.modes), ("--history", history, AgentHistory.values),
+                              ("--open-url", openURL, ["on", "off"]), ("--open-files", openFiles, ["on", "off"]), ("--clipboard", clipboard, ["write", "off"])] {
+            if let v, !ok.contains(v) { throw ValidationError("\(flag) \(v): \(ok.joined(separator: " or "))") }
+        }
+        if let a = account, a.isEmpty || a.count > 64 { throw ValidationError("--account: an account's name, mac or none") }
+    }
+
+    /// The fence request this run sends (nil: unfenced).
+    func fenceRequest(_ settings: DozableSettings, absolute: (String) -> String) -> MacFenceRequest {
+        var q = MacFenceRequest(keychain: (keychain || settings.string(SettingKey.macKeychain) == "on") ? true : nil,
+                                read: readDirs.isEmpty ? nil : readDirs.map(absolute),
+                                write: writeDirs.isEmpty ? nil : writeDirs.map(absolute),
+                                permissions: permissions.isEmpty ? [settings.string(SettingKey.macPermissions) ?? "standard"] : permissions,
+                                localPorts: localPorts.isEmpty ? nil : localPorts)
+        q.agentConfig = agentConfig
+        q.history = history
+        q.account = account
+        q.openURL = openURL.map { $0 == "on" }
+        q.openFiles = openFiles.map { $0 == "on" }
+        q.clipboard = clipboard.map { $0 == "write" }
+        return q
+    }
+
+    /// `--dry-run`: the capabilities of the session this would open (from the flags and the settings — the same one
+    /// source as `doz sessions @mac --capabilities`). Opens nothing, asks no host.
+    func dryRunShape(_ settings: DozableSettings, fence: Bool, workdir: String, absolute: (String) -> String) -> MacCapabilityShape {
+        let argv = command.isEmpty ? [ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh", "-l"] : command
+        var s = MacCapabilityShape(session: session ?? ((argv[0] as NSString).lastPathComponent), workdir: workdir, fenced: fence)
+        s.claude = MacPlace.isClaude(argv)
+        guard fence else { return s }
+        let q = fenceRequest(settings, absolute: absolute)
+        s.keychain = q.keychain == true
+        s.readable = q.read ?? []
+        s.writable = q.write ?? []
+        s.localPorts = q.localPorts ?? []
+        s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"])).flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
+        s.bridges = MacFenceBridges.resolve(q, settings: settings)
+        if let r = AgentRecipes.macAgent(program: argv[0]), let m = r.launch.macConfig {
+            s.agent = r.title
+            s.agentConfig = MacAgentConfig.resolveMode(flag: agentConfig, recipe: r, settings: settings).0
+            s.personHome = NSHomeDirectory() + "/" + m.homeName
+            s.history = settings.history(agent: r.id, own: history.map { TOMLValue.string($0) }).value
+            s.account = account ?? settings.string(SettingKey.macAccount) ?? "mac"
+        }
+        return s
     }
 
     /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else off.
@@ -506,6 +664,14 @@ struct Run: AsyncParsableCommand {
         let onMac = MacPlace.isPlace(name)
         let settings = DozableSettings.load()
         let fence = onMac && fencedOnMac(settings)
+        if dryRun {
+            func abs(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
+            let wd = workdir.map(abs) ?? (fence ? FileManager.default.currentDirectoryPath : NSHomeDirectory())
+            let caps = MacFence.capabilities(dryRunShape(settings, fence: fence, workdir: wd, absolute: abs))
+            if g.json { Out.json(caps); return }
+            Out.stdout("doz run @mac would open a session that can (\(fence ? "fenced" : "no isolation") — nothing was started):\n" + MacFence.capabilitiesText(caps))
+            return
+        }
         if onMac, !fence, !g.quiet { Out.stderr("[doz] \(MacPlace.noIsolationLine)\n") }
         var r = HostRequest(.openSession, name: name)
         r.start = !noStart      // 594 W27: an off sandbox boots first
@@ -519,11 +685,7 @@ struct Run: AsyncParsableCommand {
         r.environment = try parseEnv(env)
         if fence {
             r.v = HostProtocol.fencedVersion
-            r.macFence = MacFenceRequest(keychain: (keychain || settings.string(SettingKey.macKeychain) == "on") ? true : nil,
-                                         read: readDirs.isEmpty ? nil : readDirs.map(absolute),
-                                         write: writeDirs.isEmpty ? nil : writeDirs.map(absolute),
-                                         permissions: permissions.isEmpty ? [settings.string(SettingKey.macPermissions) ?? "standard"] : permissions,
-                                         localPorts: localPorts.isEmpty ? nil : localPorts)
+            r.macFence = fenceRequest(settings, absolute: absolute)
         }
         let size = terminalSize()
         r.cols = size.cols

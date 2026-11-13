@@ -77,7 +77,7 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   again from the record; `claude` without `--fresh` gets `--continue` (the record keeps the argv as opened).
 - **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
   added.
-- **Bridges**: OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`).
+- **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
   host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
@@ -122,6 +122,47 @@ read-only). Off by default (`mac.fence`); `--unfenced` is the session above, unc
   run in the folder could read the key once.
 - **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a host older than fenced sessions refuses it —
   never opens it unfenced.
+- **The agent's config folder** (`MacAgentConfig.swift`; the recipe's `launch@1 mac_config` — recipes.md): only for a
+  program an EMBEDDED recipe declares (`AgentRecipes.macAgent`: Claude Code). `private` (default; flag `--agent-config` >
+  `recipes.V.P.mac_config` > `mac.agent_config` > the recipe's `default`): `CLAUDE_CONFIG_DIR=<session>/agent`, re-seeded
+  at EVERY open through `MacFenceHostFS` — cleared but its transcripts (`projects/<folder>/*.jsonl`, regular files),
+  the person's instructions/skills/agents/commands/output styles as LINKS (host-owned: the profile write-, rename- and
+  unlink-denies each, and the folder itself), each target and every link inside it (depth ≤ 8, ≤ 4096 entries) resolved
+  and refused when it is the home, a secret place, the store/sockets/doz settings/Keychain/fence root, or a writable
+  root — else allowed READ-ONLY in the profile; `settings.json` written from the recipe's `clean_copy` keys only (+ the
+  history mapping under `keep`), 0444 and host-owned; `.claude.json` built (onboarding, the person's `theme`, the folder
+  trusted, an API key's placeholder accepted); on the FIRST open the folder's own conversations cloned in. `shared`: the
+  person's real `~/.claude` (refused when it is a link) and `~/.claude.json*` readable and writable — nothing seeded, no
+  history key ever written there, `grants.sharedConfig` (a re-open into shared empties the caches), said at start, in
+  `sessions @mac` ("shared config (less isolated)") and in the capabilities.
+- **Transcripts** (`MacTranscripts.swift`, `HostCore.macCarryBack`): a private folder's conversations go back into the
+  person's own `~/.claude/projects/<folder>/` at `end`, before `forget`, at restart, and when the host first sees the
+  program ended or gone (`fencedMacSessions`, adoption) — idempotent by `name:sha256` (`MacFenceRecord.carried`).
+  Only `<uuid>.jsonl` (lower-case RFC 4122) of JSON-object lines whose every `cwd` is the folder, regular, one link, ≤ 64
+  MiB (≤ 1 GiB a session) — anything else skipped and named in the end message; `memory/` and every other entry never
+  touched. Destination made 0700 by `ensureDirectory` (refused through a link); a same-named file replaced only when it
+  is a byte-prefix of the new one, else the new one is `<uuid>.doz-<tag>.jsonl`. `keep` (`DozableSettings.history`,
+  flag `--history`): also archived in `<store>/mac-sessions/transcripts/<session>/<ended-at>/` (`session-transcripts`,
+  `doz sessions @mac --transcripts S [--export DIR]`); `agent-default`: carried, not archived, the end message gives the
+  recipe's `agent_default` words. A restart of a private session continues from `agent/projects`.
+- **The Claude login** (`HostCore.fenceAccount`, `bindFenceAccount`, `bindAnthropicAccount`): for an agent program only,
+  `--account NAME|mac|none` (else `mac.account`): a placeholder minted at open (`CLAUDE_CODE_OAUTH_TOKEN` for this Mac's
+  login or a setup token, `ANTHROPIC_API_KEY` for an API key), its sha256 in `MacFenceRecord.placeholderHashes`; the
+  session's proxy is a `CredentialTarget` like a sandbox, bound by the SAME account wiring before it starts accepting
+  (`installProxy`, adoption): `LoginWatcher` subscribes it as `@mac S` (access token only), strict foreign policy (its own
+  credential is refused, nothing injected beside it), no fallback (`none`/missing → the proxy's 401). `-e` of a key
+  variable is refused.
+- **Facts** (`MacAgentPrompt.swift`, `mac.agent_prompt` = `fenced` | `always` | `off`): Claude Code's argv gets ONE
+  `--append-system-prompt` combined with the person's own (the launcher's rule); the record keeps the person's argv.
+- **Bridges** (`HostCore.fencedBridge`): the session's `etc/bin/open` and `xdg-open` (first on PATH, `BROWSER`) send the
+  guest shim's markers; for a FENCED `@mac` session the host takes them: `BrowserBridge.check`, a sign-in callback only to a
+  `--local-port` (the browser reaches the program directly; any other port refused before opening), `WorkspaceFiles` with
+  the workdir as the share; OSC 52 write-only, announced as "S (fenced) copied N chars: '<first 40, controls ·>'".
+  `MacFenceRecord.bridges` from `--open-url/--open-files/--clipboard` or `mac.open_url/open_files/clipboard`; live with
+  `doz sessions bridges @mac S` (`session-bridges`). Unfenced sessions: unchanged.
+- **Capabilities** (`MacCapabilities.swift`, `MacFence.capabilities`): ONE function from a `MacCapabilityShape` (a record,
+  or `doz run @mac --dry-run`'s flags + settings) — `SessionRow.capabilities` for every `@mac` row, `--capabilities S`,
+  `--dry-run`.
 
 ## Session memory and saved screens
 

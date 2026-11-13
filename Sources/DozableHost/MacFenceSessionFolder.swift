@@ -1,4 +1,5 @@
 import Darwin
+import DozableKit
 import Foundation
 
 /// A fenced session's own folder, `<fence root>/<session>/` (0700) — made, and RE-SEEDED at every open, only through
@@ -116,9 +117,89 @@ public enum MacFenceSessionFolder {
         try MacFenceHostFS.ensureDirectory(f.etc + "/shell")
         try MacFenceHostFS.writeAtomically(Data(zshrc.utf8), dir: f.etc + "/shell", name: ".zshrc", mode: 0o400)
         try MacFenceHostFS.writeAtomically(Data("this session's sentinel\n".utf8), dir: f.etc, name: (f.sentinel as NSString).lastPathComponent, mode: 0o400)
+        // 683: the bridges' shims — `open` and `xdg-open` (also $BROWSER), host-owned like the rest of etc/.
+        try MacFenceHostFS.ensureDirectory(f.bin)
+        for name in ["open", "xdg-open"] {
+            try MacFenceHostFS.writeAtomically(Data(openShim(workdir: f.workdir).utf8), dir: f.bin, name: name, mode: 0o555)
+        }
         let known = FileManager.default.contents(atPath: f.places.home + "/.ssh/known_hosts").flatMap { $0.count <= 4 << 20 ? $0 : nil } ?? Data()
         try MacFenceHostFS.writeAtomically(known, dir: f.ssh, name: "known_hosts", mode: 0o600)
         return out
+    }
+
+    /// 683: a fenced session's `open` / `xdg-open` (and `$BROWSER`): `open`, `osascript` and LaunchServices are closed to
+    /// it, so a URL, or a document or folder in its folder, is handed to the Mac as the guest shim does — ONLY the marker
+    /// `ESC]6340;doz-open;URL BEL` (`doz-file;APP;PATH`, `doz-reveal;PATH`) on its terminal (`/dev/tty`, else `$DOZ_TTY`,
+    /// else stdout when it is one), never a line a person sees. The host decides (http/https, the folder only, the
+    /// switches, a notice to every viewer); these checks only tell the agent why at once.
+    public static func openShim(workdir: String) -> String {
+        let wd = "'" + workdir.replacingOccurrences(of: "'", with: "'\\''") + "'"
+        func patterns(_ t: [String]) -> String { t.map { "*.\($0)" }.joined(separator: "|") }
+        return #"""
+        #!/bin/sh
+        # doz:fence-open-shim:v1 — written by Dozable for a fenced session on this Mac at every start.
+        # A URL opens in your browser, a document or folder of the session's folder in your app or the Finder (--reveal
+        # shows it in its folder) — asked through the session's terminal; doz announces each one. Nothing else opens.
+        me=${0##*/}
+        wd=\#(wd)
+        reveal=""
+        app=""
+        status=0
+        refuse() { echo "$me: $*" >&2; status=1; }
+        send() {
+            if [ -w /dev/tty ] 2>/dev/null && printf '\033]6340;%s\007' "$1" 2>/dev/null > /dev/tty; then return 0; fi
+            if [ -n "${DOZ_TTY:-}" ] && [ -w "$DOZ_TTY" ] && printf '\033]6340;%s\007' "$1" 2>/dev/null > "$DOZ_TTY"; then return 0; fi
+            if [ -t 1 ]; then printf '\033]6340;%s\007' "$1"; return 0; fi
+            refuse "no terminal of a Dozable session to reach your Mac through"
+        }
+        while [ $# -gt 0 ]; do
+            case "$1" in
+                -R|--reveal) reveal=1; shift ;;
+                -a|--app) [ $# -ge 2 ] || { refuse "-a needs an app's name"; exit 1; }; app="$2"; shift 2 ;;
+                -h|--help) echo "usage: $me URL | PATH...   (a PATH in $wd; -R shows it in its folder; -a APP: an app you allowed)" >&2; exit 0 ;;
+                --) shift; break ;;
+                -?*) refuse "unknown option $1 (in a fenced session $me opens a URL, or a file of its folder, on your Mac)"; exit 1 ;;
+                *) break ;;
+            esac
+        done
+        [ $# -ge 1 ] || { refuse "what to open? a URL or a path"; exit 1; }
+        case "$app" in -*|.*|*/*|*';'*|*,*) refuse "\"$app\" is not an app name"; exit 1 ;; esac
+        for t in "$@"; do
+            if [ "${#t}" -gt 2048 ]; then refuse "longer than 2048 bytes: not sent"; continue; fi
+            clean=$(printf '%s' "$t" | tr -d '\000-\037\177')
+            [ "$clean" = "$t" ] || { refuse "control characters: not sent"; continue; }
+            case "$t" in
+                http://*|https://*)
+                    [ -z "$reveal$app" ] || { refuse "-R and -a are for files, not a URL"; continue; }
+                    send "doz-open;$t"; continue ;;
+            esac
+            if [ ! -e "$t" ]; then
+                if printf '%s' "$t" | grep -Eq '^[A-Za-z][A-Za-z0-9+.-]*:'; then refuse "only http and https URLs go to your browser: $t"; else refuse "no such file: $t"; fi
+                continue
+            fi
+            case "$t" in /*) p=$t ;; *) p=./$t ;; esac
+            abs=$(cd "$(dirname "$p")" 2>/dev/null && printf '%s/%s' "$(pwd -P)" "$(basename "$p")")
+            [ -d "$p" ] && abs=$(cd "$p" 2>/dev/null && pwd -P)
+            case "$abs" in
+                "$wd"|"$wd"/*) ;;
+                *) refuse "only files and folders in $wd (this session's folder) are opened on your Mac, not $t"; continue ;;
+            esac
+            if [ -n "$reveal" ]; then send "doz-reveal;$abs"; continue; fi
+            lower=$(printf '%s' "${abs##*/}" | tr 'A-Z' 'a-z')
+            if [ -d "$abs" ]; then
+                case "$lower" in \#(patterns(GuestCommand.openFileNeverTypes))) refuse "${abs##*/} is an app or package: never opened ($me -R shows it)"; continue ;; esac
+                send "doz-file;;$abs"; continue
+            fi
+            case "$lower" in
+                \#(patterns(GuestCommand.openFileNeverTypes))) refuse "${abs##*/} is a program, script or installer: never opened"; continue ;;
+                \#(patterns(GuestCommand.openFileDocumentTypes))) ;;
+                *) refuse "only documents are opened on your Mac (html, md, pdf, images, txt, csv, json, yaml, xml...), not ${abs##*/}"; continue ;;
+            esac
+            [ -x "$abs" ] && { refuse "${abs##*/} is executable: never opened"; continue; }
+            send "doz-file;$app;$abs"
+        done
+        exit $status
+        """# + "\n"
     }
 
     /// The fenced login shell's rc: a prompt that says so, nothing of the person's (their rc files often export tokens).

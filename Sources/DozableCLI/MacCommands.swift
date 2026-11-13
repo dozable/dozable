@@ -9,7 +9,7 @@ import DozableHost
 enum MacCLI {
     /// The commands that take `@mac`.
     static let takes: Set<ObjectIdentifier> = Set([Run.self, Attach.self, SessionsList.self, SessionsEnd.self, SessionsRestart.self,
-                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self, SessionsResume.self,
+                                                   SessionsSend.self, SessionsScreen.self, SessionsWait.self, SessionsResume.self, SessionsBridges.self,
                                                    // a FENCED session's network: doz net … @mac --session S
                                                    NetShow.self, NetAllow.self, NetDeny.self, NetPolicyCommand.self, NetLog.self]
                                                   .map { ObjectIdentifier($0 as Any.Type) })

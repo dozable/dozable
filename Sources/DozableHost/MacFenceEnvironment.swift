@@ -8,6 +8,9 @@ import Foundation
 public enum MacFenceEnvironment {
     /// The variables a fenced session never inherits from the allowlist.
     public static let removed = ["SSH_AUTH_SOCK"]
+    /// 683: an agent's own temp-folder variable, pointed at the session's TMPDIR (found by probe: Claude Code 2.1.323 opens
+    /// `/tmp/claude-<uid>` at start and exits on EPERM without it).
+    public static let agentTempVariables = ["claude-code": "CLAUDE_CODE_TMPDIR"]
 
     /// Each tool cache, under `<session>/cache/` (they persist across the session's restarts, and are emptied when a
     /// re-open widens its grants).
@@ -61,5 +64,14 @@ public enum MacFenceEnvironment {
         env["DISABLE_AUTOUPDATER"] = "1"
         env["GOTELEMETRY"] = "off"
         env["DOZ_FENCE"] = MacFence.profileKind
+        // 683: the agent's own config home (private); the Claude login's placeholder (the proxy swaps it — never a token);
+        // the bridges' shims first on PATH, and the browser a program asks for is the `open` shim.
+        if let a = f.agent, a.isPrivate { env[a.config.homeEnv] = a.agentDir }
+        // Claude Code keeps its own temp under /tmp/claude-<uid> (closed to a fence: it stops at start) unless told.
+        if let a = f.agent, let v = agentTempVariables[a.recipe] { env[v] = f.tmp }
+        for (k, v) in f.placeholders { env[k] = v }
+        env["PATH"] = ([f.bin] + (env["PATH"] ?? "").split(separator: ":").map(String.init).filter { $0 != f.bin }).joined(separator: ":")
+        // By name, not path: the session folder is under "Application Support", and many callers split $BROWSER on spaces.
+        env["BROWSER"] = "open"
     }
 }

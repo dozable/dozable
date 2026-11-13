@@ -116,6 +116,12 @@ final class MacFenceProxy: @unchecked Sendable {
         proxy.addressGuard = .strict            // every proxy's default since M2b; said here, where it matters most
         proxy.servesFencedSession = true
         proxy.fenceUpstreamsForTests = MacFenceNetwork.upstreamsForTests(environment)
+        // 683 TEST SEAM (guarded runs only): the model's hosts go to a fake provider over TLS, trusting ONLY its CA
+        // (`DOZ_TEST_PROVIDER_UPSTREAM` + `_CA` + `_HOSTS`, as a sandbox's) — the Claude login's swap, tested offline.
+        if TestSafety.guarded(environment) {
+            proxy.providerUpstreamForTests = ProviderSeam.upstream(environment: environment)
+            proxy.providerSeamHostsForTests = ProviderSeam.extraHosts(environment: environment)
+        }
         listener = LoopbackProxyListener(fd: fd, proxy: proxy, secretSHA256: secretSHA256)
         listener.onNote = { HostLog.line("@mac \(session): \($0)") }
     }
@@ -124,4 +130,12 @@ final class MacFenceProxy: @unchecked Sendable {
 
     /// The end of the session (or this host): stop, cut what is open.
     func stop() { listener.drain(timeout: 0) }
+}
+
+/// 683: a fenced session's proxy is a credential target like a sandbox (`HostCore.bindAnthropicAccount`).
+extension MacFenceProxy: CredentialTarget {
+    var egress: EgressProxy? { proxy }
+    func setCredential(_ binding: CredentialBinding, secret: String?, expiresAt: Date?, environment: [String: String], notice: String?) {
+        proxy.vault.set(binding, secret: secret, expiresAt: expiresAt, environment: environment, notice: notice)
+    }
 }

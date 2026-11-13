@@ -102,7 +102,7 @@
             "options": { "type": "array", "minItems": 1, "maxItems": 8, "items": {
               "type": "object", "additionalProperties": false, "required": ["name", "type", "default", "summary", "applies"],
               "properties": {
-                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "not": { "enum": ["version", "approvals", "memory_mib", "network", "history"] } },
+                "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,31}$", "not": { "enum": ["version", "approvals", "memory_mib", "network", "history", "mac_config"] } },
                 "type": { "enum": ["bool", "int", "choice"] },
                 "choices": { "type": "array", "minItems": 1, "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]{0,31}$" } },
                 "min": { "type": "integer" },
@@ -349,6 +349,7 @@
             "first_run": { "type": "array", "items": { "$ref": "#/$defs/firstRun" } },
             "session_env": { "$ref": "#/$defs/stringMap" },
             "history": { "$ref": "#/$defs/history" },
+            "mac_config": { "$ref": "#/$defs/macConfig" },
             "session": { "enum": ["shell"], "description": "shell: the default session is a login shell with the program on its PATH (a tool that answers and exits)." },
             "service": {
               "type": "object", "additionalProperties": false, "required": ["args", "restart", "env"],
@@ -415,6 +416,43 @@
         "note": { "type": "string", "minLength": 1, "maxLength": 300 },
         "source": { "type": "string", "pattern": "^https://" },
         "checked": { "$ref": "#/$defs/date" }
+      }
+    },
+    "macConfig": {
+      "type": "object", "additionalProperties": false, "required": ["home_env", "home", "link_read_only", "clean_copy", "transcripts", "default"],
+      "description": "The agent's config folder in a fenced session on this Mac: private (the session's own folder — the person's instructions and skills as read-only links, settings copied from an allowlist of keys, re-made at every start) or shared (the person's own, less isolated). Honoured ONLY in Dozable's own recipes built into doz: a catalogue, community or personal recipe carrying it is refused.",
+      "properties": {
+        "home_env": { "type": "string", "pattern": "^[A-Z_]+_(HOME|CONFIG_DIR)$" },
+        "home": { "type": "string", "pattern": "^~/\\.[A-Za-z0-9._-]+$" },
+        "beside": { "type": "array", "maxItems": 1, "items": { "type": "string", "pattern": "^~/\\.[A-Za-z0-9._-]+\\.json$" } },
+        "link_read_only": { "type": "array", "maxItems": 16, "items": { "type": "string", "pattern": "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)?$" } },
+        "clean_copy": {
+          "type": "array", "maxItems": 4,
+          "items": {
+            "type": "object", "additionalProperties": false, "required": ["file", "keys"],
+            "properties": {
+              "file": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.json$" },
+              "keys": { "type": "array", "minItems": 1, "maxItems": 64, "items": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$" } }
+            }
+          }
+        },
+        "first_run": {
+          "type": "object", "additionalProperties": false, "required": ["file", "set"],
+          "properties": {
+            "file": { "type": "string", "pattern": "^[A-Za-z0-9._-]+\\.json$" },
+            "set": { "type": "object", "minProperties": 1, "maxProperties": 16 },
+            "trust_workdir": { "type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$" }
+          }
+        },
+        "transcripts": {
+          "type": "object", "additionalProperties": false, "required": ["dir", "files", "workdir_encoding"],
+          "properties": {
+            "dir": { "const": "projects/{workdir}" },
+            "files": { "const": "*.jsonl" },
+            "workdir_encoding": { "enum": ["claude"] }
+          }
+        },
+        "default": { "enum": ["private", "shared"] }
       }
     },
     "firstRun": {

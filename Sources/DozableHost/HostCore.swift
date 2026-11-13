@@ -764,6 +764,8 @@ public actor HostCore {
             return try JSONValue(encoding: try await sessionWait(r))
         case .sessionResume, .sessionQuarantine:
             throw HostError(.invalid, "only a fenced session on this Mac is stopped and resumed this way (doz sessions resume @mac SESSION)")
+        case .sessionBridges, .sessionTranscripts:
+            throw HostError(.invalid, "only a fenced session on this Mac has these (doz sessions bridges @mac SESSION, doz sessions @mac --transcripts SESSION) — a sandbox's bridges are doz config set --sandbox NAME")
         case .bootLog:
             return try bootLog(r)
         case .buildLog:

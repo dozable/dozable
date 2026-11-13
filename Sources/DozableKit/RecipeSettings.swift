@@ -42,7 +42,10 @@ public enum RecipeSettings {
     /// 674: whether its conversations are kept (`follow` | `keep` | `agent-default`) — only for a recipe whose
     /// `launch@1 history` maps it.
     public static let history = "history"
-    public static let common = [version, approvals, memory, network, history]
+    /// 683: its config folder in a fenced session on this Mac (`follow` | `private` | `shared`) — only for a recipe whose
+    /// `launch@1 mac_config` declares one.
+    public static let macConfig = "mac_config"
+    public static let common = [version, approvals, memory, network, history, macConfig]
 
     static let types = ["bool", "int", "choice"]
     static let appliesWords = ["now", "next-session", "next-create"]

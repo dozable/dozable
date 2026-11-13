@@ -189,11 +189,13 @@ public struct RecipeDocument: Codable, Sendable, Equatable {
         public var modelArgsAfter: [String]? = nil
         /// 674: what keeps the agent's conversations (AgentRecipe.Launch.history) — written by the host, never baked.
         public var history: AgentRecipe.Launch.History? = nil
+        /// 683: the agent's config folder on this Mac (AgentRecipe.Launch.macConfig) — embedded recipes only, never baked.
+        public var macConfig: AgentRecipe.Launch.MacConfig? = nil
         enum CodingKeys: String, CodingKey {
             case command, passthrough, env, status, resume, verify, check, settings, session, service, history
             case noPromptsArgs = "no_prompts_args", stateEnv = "state_env", firstRun = "first_run", sessionEnv = "session_env",
                  resumeCheck = "resume_check", noPromptsEnv = "no_prompts_env", modelArgs = "model_args",
-                 modelArgsAfter = "model_args_after"
+                 modelArgsAfter = "model_args_after", macConfig = "mac_config"
         }
     }
 
@@ -578,7 +580,7 @@ extension RecipeDocument {
                                          extras: i.extras?.map { var e = $0; e.url = Self.toModel(e.url); e.path = Self.toModel(e.path); return e }),
             launch: AgentRecipe.Launch(command: l.command, noPromptsArgs: l.noPromptsArgs, noPromptsEnv: l.noPromptsEnv, passthrough: l.passthrough,
                                        env: l.env, firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, service: l.service,
-                                       modelArgs: l.modelArgs, modelArgsAfter: l.modelArgsAfter, history: l.history),
+                                       modelArgs: l.modelArgs, modelArgsAfter: l.modelArgsAfter, history: l.history, macConfig: l.macConfig),
             state: AgentRecipe.State(persist: volumes.map { Self.toModelPath($0.path) }, env: l.stateEnv),
             credentials: credentials.map { AgentRecipe.CredentialUse(provider: $0.service, accounts: $0.dozable.accounts, envAliases: $0.dozable.envAliases) },
             network: networkPolicy.dozable, status: l.status, prompt: prompt, resume: l.resume, resumeCheck: l.resumeCheck,
@@ -630,7 +632,7 @@ extension RecipeDocument {
         caps.append(RecipeCapability(type: T.launch, config: .launch(Launch(
             command: l.command, noPromptsArgs: l.noPromptsArgs, noPromptsEnv: l.noPromptsEnv, passthrough: l.passthrough, env: l.env, stateEnv: r.state.env,
             firstRun: l.firstRun, sessionEnv: l.sessionEnv, session: l.session, status: r.status, resume: r.resume, resumeCheck: r.resumeCheck,
-            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings, service: l.service, modelArgs: l.modelArgs, modelArgsAfter: l.modelArgsAfter, history: l.history))))
+            verify: r.verify.map { AgentRecipe.Check(argv: $0.argv, expect: $0.expect.map(Self.toFile)) }, check: r.smoke, settings: r.settings, service: l.service, modelArgs: l.modelArgs, modelArgsAfter: l.modelArgsAfter, history: l.history, macConfig: l.macConfig))))
         caps.append(RecipeCapability(type: T.auth, config: .auth(r.auth)))
         caps.append(RecipeCapability(type: T.gateways, config: .gateways(Gateways(entries: r.gateways.map { Self.mapGateway($0, Self.toFile) }))))
         if let m = r.models { caps.append(RecipeCapability(type: T.models, config: .models(Self.mapModels(m, Self.toFile)))) }

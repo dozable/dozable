@@ -43,6 +43,11 @@ public enum MacFenceProfile {
 
     /// The `agent` profile's Mach services: what networking, certificate trust, DNS configuration, the logger, the
     /// preferences daemon and FSEvents need — never SecurityServer (the Keychain), LaunchServices or launchd.
+    /// PROVISIONAL (the freeze from a person's live session is still to come — `Scripts/fence-freeze.sh`): checked with the
+    /// real Claude Code 2.1.323 on macOS 27.0.1 (26A434), `claude -p` fenced, private config, a fake login swapped and a
+    /// fake model (Standard and Locked): it answered with no service added; the only services it was refused are the
+    /// Keychain's (by design) and LaunchServices/DiskArbitration/analytics asked by git's xcrun shim (xcodebuild — the
+    /// Xcode profile's question).
     public static let agentMachServices = [
         "com.apple.trustd", "com.apple.trustd.agent", "com.apple.ocspd", "com.apple.networkd",
         "com.apple.SystemConfiguration.configd", "com.apple.SystemConfiguration.DNSConfiguration", "com.apple.bsd.dirhelper",
@@ -101,10 +106,22 @@ public enum MacFenceProfile {
         if !f.readable.isEmpty {
             s.append("(allow file-read* " + f.readable.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
         }
+        // 683: a private agent folder's links — their resolved targets (and every nested link that passed the policy),
+        // read-only. Never writable: the home is not, and a target in a writable place was not followed.
+        if let a = f.agent, a.isPrivate, !(a.readFolders.isEmpty && a.readFiles.isEmpty) {
+            s.append("(allow file-read* " + (a.readFolders.map { "(subpath \(lit($0)))" } + a.readFiles.map { "(literal \(lit($0)))" }).joined(separator: " ") + ")")
+        }
         // 4. Its terminal: /dev/tty and the holder's pty (the holder puts its path in TTY at start).
         s.append("(allow file-read* file-write* file-ioctl (literal \"/dev/tty\") (literal (param \"TTY\")))")
         // 5. Writes: the folder, --write folders (its own temp, caches and DerivedData are in the session's folder, last).
         s.append("(allow file-read* file-write* " + f.writableRoots.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
+        // 683: a SHARED agent folder — the person's own config home and the file beside it (with the temp and backup names
+        // it writes that one through), read and written: less isolated, by the person's choice.
+        if let a = f.agent, !a.isPrivate {
+            var rules = ["(subpath \(lit(a.personHome)))"]
+            if let b = a.personBeside { rules.append("(regex #\"^\(regexEscape(b))(\\.[^/]*)?$\")") }
+            s.append("(allow file-read* file-write* " + rules.joined(separator: " ") + ")")
+        }
         // 6. Mach services.
         // Under Locked, certificate trust (trustd, OCSP) is closed too: it fetches on the program's behalf.
         let mach = f.trust ? agentMachServices : agentMachServices.filter { !trustMachServices.contains($0) }
@@ -148,6 +165,14 @@ public enum MacFenceProfile {
         s.append("(allow file-read* file-write* (subpath \(lit(f.sessionFolder))))")
         s.append("(deny file-write-unlink (literal \(lit(f.sessionFolder))))")
         s.append("(deny file-write* (subpath \(lit(f.etc))))")
+        // 683: the private agent folder stays where it is, and what the host put in it (the links, the cleaned settings)
+        // cannot be written, replaced, renamed or removed.
+        if let a = f.agent, a.isPrivate {
+            s.append("(deny file-write-unlink (literal \(lit(a.agentDir))))")
+            if !a.hostOwned.isEmpty {
+                s.append("(deny file-write* " + a.hostOwned.map { "(literal \(lit(a.agentDir + "/" + $0)))" }.joined(separator: " ") + ")")
+            }
+        }
         s.append("(deny file-read* file-write* (subpath \(lit(f.places.store))) (subpath \(lit(f.places.socketDirectory)))"
                  + " (regex #\"^\(regexEscape(f.places.userTemp))dh-\") (subpath \(lit(f.places.dozConfig))))")
         // Every refusal carries this session's tag (the system log's line ends with it — the ONLY place it is matched),

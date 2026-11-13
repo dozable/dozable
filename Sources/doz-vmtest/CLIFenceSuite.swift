@@ -122,6 +122,12 @@ func cliFenceSuite(binary: String) async {
     try? by.run()
     bystanders.append(by)
 
+    // FENCE_PART=agent: the agent's rows alone (a quicker loop while working on them).
+    if ProcessInfo.processInfo.environment["FENCE_PART"] == "agent" {
+        await cliFenceAgentChecks(t, root: root, home: home, store: store, started: &started)
+        return
+    }
+
     // MARK: refusals before anything runs (1.19, 2.1)
     var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--workdir", home, "--", "/bin/sh"])
     check(r.code == 64 && r.err.contains("your home"), "1.19 a fenced session in the home is refused (\(r.code))")
@@ -492,6 +498,9 @@ func cliFenceSuite(binary: String) async {
 
     // M2: the network.
     await cliFenceNetworkChecks(t, root: root, home: home, store: store, binary: binary, allowed: allowed, streamer: streamer, started: &started)
+
+    // M3: the agent — its config folder, conversations, the swapped login, the facts, capabilities, bridges.
+    await cliFenceAgentChecks(t, root: root, home: home, store: store, started: &started)
 }
 
 /// A fenced session's tag, read from its record in the store (the test runs outside every fence).

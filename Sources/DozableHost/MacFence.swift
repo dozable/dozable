@@ -16,6 +16,15 @@ public struct MacFenceRequest: Codable, Equatable, Sendable {
     public var permissions: [String]?
     /// Ports of this Mac's loopback it may listen on and connect to (`--local-port N`, each 1024–65535).
     public var localPorts: [Int]?
+    /// 683: the agent's config folder (`private` | `shared`; nil: the settings), its conversation history (`keep` |
+    /// `agent-default`; nil: the settings), its Claude login (an account's name, `mac`, `none`; nil: `mac.account`).
+    public var agentConfig: String? = nil
+    public var history: String? = nil
+    public var account: String? = nil
+    /// 683: its bridges (nil: the settings `mac.open_url`, `mac.open_files`, `mac.clipboard`).
+    public var openURL: Bool? = nil
+    public var openFiles: Bool? = nil
+    public var clipboard: Bool? = nil
     public init(keychain: Bool? = nil, read: [String]? = nil, write: [String]? = nil, permissions: [String]? = nil, localPorts: [Int]? = nil) {
         self.keychain = keychain
         self.read = read
@@ -23,6 +32,33 @@ public struct MacFenceRequest: Codable, Equatable, Sendable {
         self.permissions = permissions
         self.localPorts = localPorts
     }
+}
+
+/// 683: a fenced session's bridges (§ "Bridges in a fenced session"): open a URL in the person's browser, open a document
+/// from its folder, put text on the clipboard — each announced; changed live with `doz sessions bridges @mac S`.
+public struct MacFenceBridges: Codable, Equatable, Sendable {
+    public var openURL: Bool
+    public var openFiles: Bool
+    public var clipboard: Bool
+    public init(openURL: Bool = true, openFiles: Bool = true, clipboard: Bool = true) {
+        self.openURL = openURL
+        self.openFiles = openFiles
+        self.clipboard = clipboard
+    }
+
+    /// The settings' values, with the request's own over them.
+    public static func resolve(_ r: MacFenceRequest?, settings: DozableSettings) -> MacFenceBridges {
+        MacFenceBridges(openURL: r?.openURL ?? (settings.string(SettingKey.macOpenURL) != "off"),
+                        openFiles: r?.openFiles ?? (settings.string(SettingKey.macOpenFiles) != "off"),
+                        clipboard: r?.clipboard ?? (settings.string(SettingKey.macClipboard) != "off"))
+    }
+}
+
+/// 683: `session-bridges` — a fenced session's bridges now.
+public struct SessionBridges: Codable, Equatable, Sendable {
+    public var session: String
+    public var bridges: MacFenceBridges
+    public var changed: String?
 }
 
 /// What widens a fenced session's reach — recorded at each open; a re-open that WIDENS it empties the session's caches
@@ -36,6 +72,8 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
     public var localPorts: [Int]? = nil
     /// Certificate trust (trustd) is open to it — every preset but Locked (nil: an older record, which had it).
     public var trust: Bool? = nil
+    /// 683: its agent uses the person's own config folder (`shared`).
+    public var sharedConfig: Bool? = nil
 
     static func rank(_ profile: String) -> Int { ["agent": 0, "xcode": 1, "simulator": 2][profile] ?? 3 }
 
@@ -43,6 +81,7 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
     public func widens(_ old: MacFenceGrants?) -> Bool {
         guard let old else { return false }
         if keychain && !old.keychain { return true }
+        if sharedConfig == true && old.sharedConfig != true { return true }
         if Self.rank(profile) > Self.rank(old.profile) { return true }
         if !Set(readable).subtracting(old.readable).subtracting(old.writable).isEmpty { return true }
         if !Set(writable).subtracting(old.writable).isEmpty { return true }
@@ -77,14 +116,37 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
     public var proxySecretSHA256: String? = nil
     public var policy: NetworkPolicy? = nil
     public var localPorts: [Int]? = nil
+    /// 683: its agent (the recipe declaring a config folder; nil: none), that folder's mode and where the mode came from,
+    /// the conversation-history value and its source.
+    public var agent: String? = nil
+    public var agentConfig: String? = nil
+    public var agentConfigSource: String? = nil
+    public var history: String? = nil
+    public var historySource: String? = nil
+    /// 683: the Claude login swapped in — an account's name, or `none` (nil: not a Claude session).
+    public var account: String? = nil
+    /// 683: sha256(placeholder) → binding, for the placeholders its program was given (a later host honours them).
+    public var placeholderHashes: [String: String]? = nil
+    /// 683: its bridges now (nil: a record from before them — off).
+    public var bridges: MacFenceBridges? = nil
+    /// 683: `name:sha256` of each conversation carried back (nothing is carried twice).
+    public var carried: [String]? = nil
 
     /// This session's sentinel and the anti-sentinel (`MacFence.sentinel`, `.antiSentinel`).
     public var sentinel: String { sessionFolder + "/etc/sentinel-" + tag }
     public var antiSentinel: String { (sessionFolder as NSString).deletingLastPathComponent + "/.not-fenced" }
-    /// The request that opens it again with the same grants (its permissions come from `policy`).
+    /// The request that opens it again with the same grants (its permissions come from `policy`). 683: its agent config,
+    /// history, account and bridges as they were (a restart never widens them).
     public var request: MacFenceRequest {
-        MacFenceRequest(keychain: keychain ? true : nil, read: readable.isEmpty ? nil : readable, write: writable.isEmpty ? nil : writable,
-                        localPorts: (localPorts ?? []).isEmpty ? nil : localPorts)
+        var r = MacFenceRequest(keychain: keychain ? true : nil, read: readable.isEmpty ? nil : readable, write: writable.isEmpty ? nil : writable,
+                                localPorts: (localPorts ?? []).isEmpty ? nil : localPorts)
+        r.agentConfig = agentConfig
+        r.history = historySource == "flag" ? history : nil
+        r.account = account
+        r.openURL = bridges?.openURL
+        r.openFiles = bridges?.openFiles
+        r.clipboard = bridges?.clipboard
+        return r
     }
 }
 
@@ -110,6 +172,14 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
     /// (`on`, `unavailable` — an account that may not read it — or `off` with no host).
     public var denialsSeen: Int?
     public var denialLog: String?
+    /// 683: its agent, the config folder (`private` | `shared` — less isolated), the history and where each came from,
+    /// the Claude login swapped in, its bridges.
+    public var agent: String? = nil
+    public var agentConfig: String? = nil
+    public var history: String? = nil
+    public var historySource: String? = nil
+    public var account: String? = nil
+    public var bridges: MacFenceBridges? = nil
 
     public init(_ r: MacFenceRecord) {
         profile = r.profile
@@ -125,12 +195,20 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
         preset = r.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         localPorts = (r.localPorts ?? []).isEmpty ? nil : r.localPorts
         network = r.proxyPort == nil ? "none" : "waiting (no host)"
+        agent = r.agent
+        agentConfig = r.agentConfig
+        history = r.history
+        historySource = r.historySource
+        account = r.account
+        bridges = r.bridges
     }
 
     /// The STATE word(s) of `doz sessions @mac`.
     public var state: String {
         if let s = stoppedForGit, !s.isEmpty { return "stopped: git config" }
-        return keychain ? "fenced · Keychain open" : "fenced"
+        var t = keychain ? "fenced · Keychain open" : "fenced"
+        if agentConfig == MacAgentConfig.sharedMode { t += " · shared config (less isolated)" }
+        return t
     }
 }
 
@@ -178,6 +256,15 @@ public struct MacFence: Sendable, Equatable {
     public var trust = true
     /// Its permissions' preset name for the line it says (nil: custom).
     public var presetName: String?
+    /// 683: its agent's config folder (nil: its program declares none), its bridges, and the placeholders its program gets
+    /// (variable → placeholder; the proxy swaps them) with the account behind them (an account's name, `none`).
+    public var agent: MacAgentSetup? = nil
+    public var bridges = MacFenceBridges()
+    public var placeholders: [String: String] = [:]
+    public var account: String? = nil
+
+    /// 683: the bridges' shims (`open`, `xdg-open`), host-owned, first on its PATH.
+    public var bin: String { etc + "/bin" }
 
     /// The most `--local-port`s one session may have.
     public static let maximumLocalPorts = 8
@@ -199,6 +286,7 @@ public struct MacFence: Sendable, Equatable {
         var g = MacFenceGrants(profile: Self.profileKind, keychain: keychain, readable: readable.sorted(), writable: writable.sorted())
         g.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init).sorted()
         g.trust = trust
+        if agent?.isPrivate == false { g.sharedConfig = true }
         return g
     }
 
@@ -260,7 +348,11 @@ public struct MacFence: Sendable, Equatable {
         let words = ["agent": "standard"][presetName ?? ""] ?? presetName ?? "custom"
         let net = proxyPort == nil ? "no network" : "network through Dozable's proxy (\(words) permissions)"
             + (localPorts.isEmpty ? "" : "; its own ports \(localPorts.map(String.init).joined(separator: ", ")) on this Mac")
-        return "fenced: reads and writes \(reach); its own temp and caches; \(net); "
+        var own = "its own temp and caches"
+        if let a = agent {
+            own = a.isPrivate ? "its own temp, caches and \(a.title) settings" : "its own temp and caches; your own \(DisplayPath.tilde(a.personHome)) (shared — less isolated)"
+        }
+        return "fenced: reads and writes \(reach); \(own); \(net); "
             + (keychain ? "your Keychain OPEN; " : "your Keychain, ")
             + "secrets and other folders closed — doz run @mac --unfenced for none of this"
     }
@@ -271,6 +363,15 @@ public struct MacFence: Sendable, Equatable {
                                gitBaseline: gitBaseline, stoppedForGit: nil, stoppedPids: nil)
         r.proxyPort = proxyPort.map(Int.init)
         r.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init)
+        r.agent = agent?.recipe
+        r.agentConfig = agent?.mode
+        r.agentConfigSource = agent?.modeSource
+        r.history = agent?.history
+        r.historySource = agent?.historySource
+        r.account = account
+        r.placeholderHashes = placeholders.isEmpty ? nil
+            : Dictionary(placeholders.map { (k, t) in (CredentialFingerprint.placeholderHash(t), k == "ANTHROPIC_API_KEY" ? CredentialBinding.anthropic.id : CredentialBinding.claudeOAuth.id) }) { a, _ in a }
+        r.bridges = bridges
         return r
     }
 

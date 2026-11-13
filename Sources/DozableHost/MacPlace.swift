@@ -18,6 +18,7 @@ public enum MacPlace {
     /// The host operations `@mac` takes; anything else is refused (`refusal`).
     public static let operations: Set<HostOp> = [.openSession, .sessions, .sessionScreen, .sessionLive, .sessionSend, .sessionEnd,
                                                  .sessionRestart, .sessionWait, .attach, .sessionGrids, .sessionResume, .sessionQuarantine,
+                                                 .sessionBridges, .sessionTranscripts,
                                                  // A FENCED session's network (`--session S`): its permissions, policy, log.
                                                  .netPermissions, .netPolicy, .netLog]
 

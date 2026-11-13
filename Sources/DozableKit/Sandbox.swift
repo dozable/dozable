@@ -20,6 +20,18 @@ import Virtualization
 ///
 /// Every lifecycle call is serialised: a second call waits for the first to finish, and
 /// decides what to do from the phase it then observes.
+/// 683: what an account's credential is bound to — a proxy's vault. A sandbox, and (DozableHost) a fenced session on this
+/// Mac (`MacFenceProxy`): the same account wiring serves both (`LoginWatcher`, `HostCore.bindAnthropicAccount`).
+public protocol CredentialTarget: Sendable {
+    /// The proxy whose vault holds the credential (nil: none — nothing is bound).
+    var egress: EgressProxy? { get }
+    /// A secret with its expiry, the non-secret variables a session gets beside its placeholder, and — without a
+    /// secret — why (the proxy's 401 text).
+    func setCredential(_ binding: CredentialBinding, secret: String?, expiresAt: Date?, environment: [String: String], notice: String?)
+}
+
+extension Sandbox: CredentialTarget {}
+
 public actor Sandbox {
     public nonisolated let spec: SandboxSpec
     public nonisolated let layout: StoreLayout

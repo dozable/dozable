@@ -39,6 +39,7 @@ rename
 ls
 inspect
 sessions
+sessions/bridges
 sessions/end
 sessions/ls
 sessions/restart

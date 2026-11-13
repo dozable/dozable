@@ -202,7 +202,12 @@ extension HostCore {
     public nonisolated func bridge(_ e: BridgeEvent, sandbox: String, session: String) async -> BridgeNotice? {
         // A session on this Mac runs on the Mac already: the open-URL and workspace-file markers are off (nothing acts on
         // them); OSC 52 reaches the outer terminal's clipboard as for any session.
+        // 683: a FENCED one cannot open anything itself (open, osascript and LaunchServices are closed to it): its bridges
+        // are the controlled channel again — the sandboxes' rules, its own switches (`doz sessions bridges @mac S`).
         if MacPlace.isPlace(sandbox) {
+            if let rec = mac.records().sessions[session], let f = rec.fence {
+                return await fencedBridge(e, session: session, record: rec, fence: f)
+            }
             switch e {
             case .openTooLong, .openURL, .openFile, .revealFile: return nil
             case .copy, .copyRead, .copyTooLarge: break
@@ -337,6 +342,119 @@ extension HostCore {
         // The log names the page, never the query (a sign-in's state and challenge).
         if fresh { await note(sandbox, "the \(session) session asked for \(shown): \(n.text)") }
         return n
+    }
+
+    /// 683: a fenced session's bridges. Open a URL: `BrowserBridge.check` (http/https, never this Mac's loopback), its
+    /// switch, the rate limit, announced, the query never logged; a sign-in whose callback is `localhost:P` opens only
+    /// when the session may listen on P (`--local-port`) — the Mac's browser then reaches the program directly — and is
+    /// refused BEFORE opening otherwise. Open a file: `WorkspaceFiles`' checks with the session's folder as the share
+    /// (never outside it). The clipboard: write-only, its switch, announced with its first characters.
+    nonisolated func fencedBridge(_ e: BridgeEvent, session: String, record rec: MacSessionRecord, fence f: MacFenceRecord) async -> BridgeNotice? {
+        let who = "\(session) (fenced)"
+        let key = "\(MacPlace.name)/\(session)"
+        let b = f.bridges ?? MacFenceBridges(openURL: false, openFiles: false, clipboard: false)
+        switch e {
+        case .copyRead:
+            if bridgeState.firstRead(key) {
+                await note(MacPlace.name, "the \(session) session asked to READ the Mac clipboard (OSC 52) — refused: a fenced session never reads it")
+            }
+            return nil
+        case .copyTooLarge(let n):
+            return BridgeNotice("clipboard-refused", "\(who) tried to copy \(Self.size(n * 3 / 4)) — over the 1 MiB limit, not copied")
+        case .copy(let data):
+            guard b.clipboard else {
+                return BridgeNotice("clipboard-off", "\(who) tried to copy \(Self.chars(data)) — its clipboard is off (doz sessions bridges @mac \(session) --clipboard write)")
+            }
+            let state = bridgeState
+            let shown = Self.firstCharacters(data)
+            let (n, fresh) = state.once("copy/\(key)/\(data.hashValue)", within: 2) {
+                guard state.copies.allow(key) else {
+                    return BridgeNotice("clipboard-refused", "\(who) copied too often — \(Self.chars(data)) not copied (at most 10 copies in 10 s)")
+                }
+                return MacPasteboard.write(data)
+                    ? BridgeNotice("clipboard", "\(who) copied \(Self.chars(data)): \(shown)")
+                    : BridgeNotice("clipboard-refused", "\(who) copied \(Self.chars(data)), but the Mac clipboard could not be set")
+            }
+            if fresh, n.kind == "clipboard" { await note(MacPlace.name, "the \(session) session (fenced) copied \(Self.chars(data)) to the Mac clipboard") }
+            return n
+        case .openTooLong:
+            return BridgeNotice("open-refused", "\(who) asked to open a URL or file longer than 2048 bytes — not opened")
+        case .openURL(let raw):
+            let url: URL
+            switch BrowserBridge.check(raw) {
+            case .refused(let why): return BridgeNotice("open-refused", "\(who) asked to open a URL — refused: \(why.replacingOccurrences(of: "the sandbox's own machine", with: "this Mac's own loopback"))")
+            case .open(let u): url = u
+            }
+            let shown = BrowserBridge.shown(url)
+            guard b.openURL else {
+                return BridgeNotice("open-off", "\(who) asked to open \(shown) — opening pages is off for it (doz sessions bridges @mac \(session) --open-url on)")
+            }
+            let cb = BrowserBridge.callback(in: url)
+            if let cb, !(f.localPorts ?? []).contains(cb.port) {
+                return BridgeNotice("oauth-refused", "\(who): this sign-in calls back to localhost:\(cb.port), which this session cannot listen on — "
+                                    + "doz run @mac --local-port \(cb.port) …, or sign in unfenced. \(shown) not opened")
+            }
+            let state = bridgeState
+            let (n, fresh) = state.once("open/\(key)/\(url.absoluteString)", within: 10) {
+                guard state.opens.allow(key) else {
+                    return BridgeNotice("open-refused", "\(who) asked to open too many URLs — \(shown) not opened (at most 3 in 10 s)")
+                }
+                // Its ports ARE this Mac's: the browser's callback reaches the program directly (no forward).
+                guard BrowserBridge.open(url, callback: cb) else {
+                    return BridgeNotice("open-refused", "\(who) asked to open \(shown), but this Mac could not open it")
+                }
+                return BridgeNotice(cb == nil ? "open" : "oauth", "\(who) opened \(shown) in your browser" + (cb.map { " · sign-in callback localhost:\($0.port)" } ?? ""))
+            }
+            if fresh { await note(MacPlace.name, "the \(session) session (fenced) asked for \(shown): \(n.text)") }
+            return n
+        case .openFile(let path, let app):
+            return await fencedOpenFile(path, app: app, reveal: false, session: session, workdir: rec.workdir, enabled: b.openFiles)
+        case .revealFile(let path):
+            return await fencedOpenFile(path, app: nil, reveal: true, session: session, workdir: rec.workdir, enabled: b.openFiles)
+        }
+    }
+
+    /// 683: a fenced session's file → the Mac's app: `WorkspaceFiles` decides with its folder as the share (the path, a
+    /// Mac path, must be in the folder — never outside it, never a `--read`/`--write` folder's).
+    nonisolated func fencedOpenFile(_ path: String, app: String?, reveal: Bool, session: String, workdir: String, enabled: Bool) async -> BridgeNotice {
+        let who = "\(session) (fenced)"
+        let verb = reveal ? "show" : "open"
+        guard enabled else { return BridgeNotice("file-off", "\(who) asked to \(verb) a file — opening files is off for it (doz sessions bridges @mac \(session) --open-files on)") }
+        let lexical = MacFencePaths.lexical(path)
+        guard path.hasPrefix("/"), MacFencePaths.isWithin(lexical, workdir) else {
+            return BridgeNotice("file-refused", "\(who) asked to \(verb) \(DisplayPath.tilde(lexical)) — only files in its folder \(DisplayPath.tilde(workdir)) are opened")
+        }
+        let guest = lexical == workdir ? DozableImages.workspaceGuestPath : DozableImages.workspaceGuestPath + String(lexical.dropFirst(workdir.count))
+        let allowed = WorkspaceFiles.appNames(DozableSettings.load().string(SettingKey.openApps) ?? "") ?? []
+        switch WorkspaceFiles.decide(guestPath: guest, app: app, reveal: reveal, workspace: workdir, enabled: true, allowedApps: allowed) {
+        case .refused(let kind, let why):
+            return BridgeNotice(kind, "\(who) asked to \(verb) \(DisplayPath.tilde(lexical)) — \(why)")
+        case .open(let macPath, let shown, let listed, let how):
+            let state = bridgeState
+            let key = "\(MacPlace.name)/\(session)"
+            let (n, fresh) = state.once("file/\(key)/\(how.rawValue)/\(macPath)/\(listed ?? "")", within: 10) {
+                guard state.fileOpens.allow(key) else {
+                    return BridgeNotice("file-refused", "\(who) asked to \(verb) too many files — \(shown) not opened")
+                }
+                guard WorkspaceFiles.open(macPath, app: listed, how: how) else {
+                    return BridgeNotice("file-refused", "\(who) asked to \(verb) \(shown), but this Mac could not open it")
+                }
+                switch how {
+                case .finder: return BridgeNotice("file", "\(who) opened \(shown) in the Finder")
+                case .reveal: return BridgeNotice("file", "\(who) showed \(shown) in the Finder")
+                case .app: return BridgeNotice("file", "\(who) opened \(shown) in \(listed ?? MacDefaultApp.name(forFile: macPath) ?? "its default app")")
+                }
+            }
+            if fresh { await note(MacPlace.name, "the \(session) session (fenced) asked for \(DisplayPath.tilde(macPath)): \(n.text)") }
+            return n
+        }
+    }
+
+    /// 683: a copy's first 40 characters as a notice shows them — every control character as `·`.
+    static func firstCharacters(_ data: Data) -> String {
+        let s = String(decoding: data, as: UTF8.self)
+        let cut = String(s.prefix(40).unicodeScalars.map { $0.value < 0x20 || $0.value == 0x7F || (0x80...0x9F).contains($0.value) ? "·" : Character($0) })
+        return "'" + cut + (s.count > 40 ? "…" : "") + "'"
     }
 
     func sandboxObject(named name: String) -> Sandbox? { managed[name]?.sandbox }

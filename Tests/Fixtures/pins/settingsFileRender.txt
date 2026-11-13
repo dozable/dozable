@@ -223,6 +223,34 @@
 # (standard | locked | open; flag doz run @mac --permissions; applies to sessions opened from now on)
 # permissions = "standard"
 
+# A fenced agent's settings folder on this Mac: private (its own; your instructions and skills
+# read-only) or shared (your own ~/.claude: less isolated).
+# (private | shared; flag doz run @mac --agent-config; applies to sessions opened from now on)
+# agent_config = "private"
+
+# The Claude login a fenced Claude Code gets through Dozable's proxy: mac (this Mac's login) or
+# none. --account NAME picks an account.
+# (mac | none; flag doz run @mac --account; applies to sessions opened from now on)
+# account = "mac"
+
+# Tell Claude Code on this Mac where it runs (a facts block in its prompt): fenced sessions,
+# always, or off.
+# (fenced | always | off; applies to sessions opened from now on)
+# agent_prompt = "fenced"
+
+# A fenced session may open web pages in your browser, each announced (on, off).
+# (on | off; flag doz run @mac --open-url; applies to sessions opened from now on)
+# open_url = "on"
+
+# A fenced session may open documents of its folder in your apps, each announced (on, off).
+# (on | off; flag doz run @mac --open-files; applies to sessions opened from now on)
+# open_files = "on"
+
+# A fenced session may put text on your clipboard, never read it; each copy announced (write,
+# off).
+# (write | off; flag doz run @mac --clipboard; applies to sessions opened from now on)
+# clipboard = "write"
+
 [host]
 
 # Minutes with nothing running before the host exits; 0 = never.

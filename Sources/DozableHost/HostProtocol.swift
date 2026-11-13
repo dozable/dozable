@@ -157,6 +157,11 @@ public enum HostOp: String, Codable, Sendable, CaseIterable {
     /// `@mac` only: what the host took out of a fenced session's git configs and kept aside (`SessionQuarantine`).
     /// Read-only.
     case sessionQuarantine = "session-quarantine"
+    /// 683, `@mac` only: a fenced session's bridges (open a URL, open files, the clipboard) — read, or changed live
+    /// (`macBridges`); `SessionBridges`.
+    case sessionBridges = "session-bridges"
+    /// 683, `@mac` only: a fenced session's archived conversations (`MacTranscripts.Listing`). Read-only.
+    case sessionTranscripts = "session-transcripts"
     /// 617 (616.03 §6 2b): what a create would make (`plan`: a `PlanRequest`) — `CreatePlan`: the command, the project
     /// file, what it can reach, the image's readiness, the problems. Read-only; answered in-process when no host runs.
     case plan
@@ -504,6 +509,8 @@ public struct HostRequest: Codable, Equatable, Sendable {
     /// open-session on `@mac`: run it FENCED (a Seatbelt profile around the program) with these grants; nil: unfenced.
     /// Such a request carries `HostProtocol.fencedVersion`.
     public var macFence: MacFenceRequest?
+    /// 683 `session-bridges`: the switches to change (each nil: as it is).
+    public var macBridges: MacFenceRequest?
 
     public init(_ op: HostOp, name: String? = nil) {
         v = HostProtocol.version
@@ -1026,6 +1033,8 @@ public struct SessionRow: Codable, Equatable, Sendable {
     /// A session on this Mac: whether it runs fenced, and what its fence opens (nil for unfenced and older ones).
     public var fenced: Bool? = nil
     public var fence: MacFenceRow? = nil
+    /// 683: a session on this Mac — what it can do, one row per capability (`MacFence.capabilities`; fenced or not).
+    public var capabilities: [MacCapability]? = nil
 
     public init(_ s: SessionInfo) {
         name = s.name
