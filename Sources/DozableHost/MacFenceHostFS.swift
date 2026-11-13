@@ -45,11 +45,28 @@ public enum MacFenceHostFS {
     }
 
     /// Read a regular file: no link in its path, `st_nlink == 1`, this user's, at most `maximum` bytes.
+    ///
+    /// A file with NO name left (`st_nlink == 0`) was replaced under us between the open and the stat — git writes its
+    /// config as `config.lock` renamed over `config` — so the name is opened again (a few times), never refused as a
+    /// hard link: that refusal stopped a fenced `swift build` mid-clone (683 M6, `make test-cli-fence` 4.10).
     public static func readRegular(_ path: String, maximum: Int, uid: uid_t = getuid()) throws -> Data {
-        let fd = try open(path, O_RDONLY | O_NONBLOCK)
-        defer { close(fd) }
-        var st = stat()
-        guard fstat(fd, &st) == 0 else { throw Refusal(path: path, why: errnoText()) }
+        var attempt = 0
+        while true {
+            let fd = try open(path, O_RDONLY | O_NONBLOCK)
+            var st = stat()
+            guard fstat(fd, &st) == 0 else { let e = errnoText(); close(fd); throw Refusal(path: path, why: e) }
+            if st.st_nlink == 0, attempt < 5 {
+                close(fd)
+                attempt += 1
+                usleep(2_000)
+                continue
+            }
+            defer { close(fd) }
+            return try readOpened(fd, st, path: path, maximum: maximum, uid: uid)
+        }
+    }
+
+    private static func readOpened(_ fd: Int32, _ st: stat, path: String, maximum: Int, uid: uid_t) throws -> Data {
         try checkRegular(st, path: path, uid: uid)
         guard st.st_size <= off_t(maximum) else { throw Refusal(path: path, why: "larger than \(maximum) bytes") }
         var out = Data(count: Int(st.st_size))

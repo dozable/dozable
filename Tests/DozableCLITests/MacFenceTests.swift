@@ -541,6 +541,36 @@ final class MacFenceHostFSTests: XCTestCase {
         XCTAssertThrowsError(try MacFenceHostFS.readRegular("/tmp/" + (w.root as NSString).lastPathComponent + "/work/f", maximum: 10), "/tmp itself is a link")
     }
 
+    /// A file replaced by a rename while it is read (git's `config.lock` → `config`) is read again, never refused as a
+    /// "hard link (0 names)" — that refusal stopped a fenced `swift build` mid-clone. A real hard link is still refused.
+    func testAFileReplacedByARenameIsReadAgainNotRefused() throws {
+        let p = w.work + "/config"
+        w.write(p, "[core]\n")
+        final class Stop: @unchecked Sendable { let lock = NSLock(); var set = false; let finished = DispatchSemaphore(value: 0)
+            var isSet: Bool { lock.lock(); defer { lock.unlock() }; return set } }
+        let stop = Stop()
+        let writer = Thread {
+            var i = 0
+            while !stop.isSet {
+                let tmp = p + ".lock"
+                FileManager.default.createFile(atPath: tmp, contents: Data("[core]\n# \(i)\n".utf8))
+                rename(tmp, p)
+                i += 1
+            }
+            stop.finished.signal()
+        }
+        writer.start()
+        var refused: [String] = []
+        for _ in 0..<2000 {
+            do { _ = try MacFenceHostFS.readRegular(p, maximum: 4096) } catch { refused.append("\(error)") }
+        }
+        stop.lock.lock(); stop.set = true; stop.lock.unlock()
+        stop.finished.wait()
+        XCTAssertFalse(refused.contains { $0.contains("hard link") }, refused.first ?? "")
+        link(p, w.work + "/config2")
+        XCTAssertThrowsError(try MacFenceHostFS.readRegular(p, maximum: 4096), "a real hard link")
+    }
+
     /// 1.26: a clear never crosses a link — the folder swapped for a link, a nested link, a link inside.
     func testAClearNeverCrossesALink() throws {
         let dir = w.work + "/agent"
