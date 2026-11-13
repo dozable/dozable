@@ -127,6 +127,11 @@ func cliFenceSuite(binary: String) async {
         await cliFenceAgentChecks(t, root: root, home: home, store: store, started: &started)
         return
     }
+    // FENCE_PART=tools: the tools' rows alone (git/ssh, GitHub, the SSH agent, worktrees, submodules, Swift, Xcode).
+    if ProcessInfo.processInfo.environment["FENCE_PART"] == "tools" {
+        await cliFenceToolsChecks(t, root: root, home: home, store: store, started: &started)
+        return
+    }
 
     // MARK: refusals before anything runs (1.19, 2.1)
     var r = t.run(["run", "@mac", "-d", "--fenced", "--session", "h", "--workdir", home, "--", "/bin/sh"])
@@ -501,6 +506,9 @@ func cliFenceSuite(binary: String) async {
 
     // M3: the agent — its config folder, conversations, the swapped login, the facts, capabilities, bridges.
     await cliFenceAgentChecks(t, root: root, home: home, store: store, started: &started)
+
+    // M4: the tools — git/ssh through the proxy, GitHub as you, the SSH agent, worktrees, submodules, Swift, Xcode.
+    await cliFenceToolsChecks(t, root: root, home: home, store: store, started: &started)
 }
 
 /// A fenced session's tag, read from its record in the store (the test runs outside every fence).

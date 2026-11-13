@@ -43,6 +43,11 @@ public enum MacAgentPrompt {
         } else {
             l.append("- It has no network.")
         }
+        l.append(gitLine(f))
+        if f.xcode {
+            l.append("- Xcode: build with `xcodebuild … -derivedDataPath \"$DOZ_DERIVED\" -scmProvider system` (Xcode's own DerivedData is closed). "
+                     + (f.profile == "simulator" ? "The Simulator and LaunchServices are open (what they launch runs outside the fence)." : "The Simulator and LaunchServices are closed."))
+        }
         l.append("- Not available: sudo, open, osascript, launchctl, ps, Docker and other container tools; a headless browser needs --no-sandbox.")
         l.append("- A git config change outside a short list (remotes, branches, a few core keys) stops the session until the person resumes it; git hooks cannot be written.")
         if let a = agent {
@@ -52,6 +57,19 @@ public enum MacAgentPrompt {
         }
         l.append(openLine(f))
         return l.joined(separator: "\n")
+    }
+
+    /// GitHub and ssh in a fenced session.
+    static func gitLine(_ f: MacFence) -> String {
+        var g: String
+        switch f.github {
+        case .push?: g = "GitHub: git and gh are signed in as the person through the proxy (read and push); $GH_TOKEN is a placeholder, never print or change it."
+        case .read?: g = "GitHub: git and gh are signed in as the person through the proxy, read-only — pushes and changes on GitHub are refused."
+        case nil: g = "GitHub: no credential — cloning public repositories works, a push over https does not."
+        }
+        g += f.sshAgent ? " ssh (git over ssh too) goes through the proxy with the person's SSH agent (list and sign only)."
+            : " ssh goes through the proxy, without keys (no SSH agent)."
+        return "- " + g
     }
 
     /// `{{mac.open}}` — which bridges a fenced session has.

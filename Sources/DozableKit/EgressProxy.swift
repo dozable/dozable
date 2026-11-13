@@ -410,6 +410,43 @@ public final class EgressProxy: @unchecked Sendable {
         return names[v]
     }
 
+    // MARK: 683 M4 — a fenced session's door for gh
+
+    /// Requests that arrive IN THE CLEAR on a fenced session's own door (`gh`'s `http_unix_socket`: Go on macOS trusts only
+    /// the system's certificates, never a session's CA, so the decrypting tunnel cannot serve it) for one of `hosts` —
+    /// served exactly as the inside of a decrypted tunnel to HOST:443: the policy, the placeholder swap, GitHub's
+    /// read-only gate, the leak guard, the log. Any other Host is refused (403). The head must arrive within `deadline`.
+    public func serveUnwrapped(_ fd: Int32, hosts: Set<String>, deadline: Duration = .seconds(5)) {
+        var pending: [UInt8] = []
+        guard let head = Wire.readHead(fd, into: &pending, deadline: .now + deadline), let h = HTTPHead(head) else { return }
+        let host = (h.value("host") ?? "").split(separator: ":").first.map { $0.lowercased() } ?? ""
+        let t0 = ContinuousClock.now
+        var rec = ConnectionRecord(kind: .connect, host: host.isEmpty ? "?" : host, port: 443, verdict: .allowed, rule: "this session's door for gh", open: true)
+        guard hosts.contains(host) else {
+            rec.verdict = .denied
+            rec.open = false
+            rec.detail = "only \(hosts.sorted().joined(separator: ", ")) through this door"
+            log.upsert(rec)
+            _ = Wire.writeAll(fd, Self.forbidden("this door of a fenced session serves GitHub only (\(host.isEmpty ? "no Host" : host))"))
+            return
+        }
+        let v = connectionVerdict(host: host, port: 443)
+        rec.rule = v.rule
+        if v.kind == .deny {
+            rec.verdict = .denied
+            rec.open = false
+            log.upsert(rec)
+            _ = Wire.writeAll(fd, Self.denial(host: "\(host):443", rule: v.rule))
+            return
+        }
+        rec.decrypted = true
+        log.upsert(rec)
+        intercept(fd, host: host, port: 443, ca: nil, leftover: head + pending, tunnel: &rec, t0: t0)
+        rec.open = false
+        rec.durationMs = milliseconds(since: t0)
+        log.upsert(rec)
+    }
+
     // MARK: the HTTP proxy port
 
     func handleProxy(_ fd: Int32) {
@@ -700,11 +737,15 @@ public final class EgressProxy: @unchecked Sendable {
 
     /// Terminate the guest's TLS with a leaf from the sandbox CA, judge and rewrite every request,
     /// and re-encrypt to the real host (verified against the Mac's trust store).
-    func intercept(_ fd: Int32, host: String, port: UInt16, ca: SandboxCA, leftover: [UInt8], tunnel rec: inout ConnectionRecord,
+    func intercept(_ fd: Int32, host: String, port: UInt16, ca: SandboxCA?, leftover: [UInt8], tunnel rec: inout ConnectionRecord,
                    t0: ContinuousClock.Instant) {
         let guest: EmbeddedChannel
         do {
-            guest = try makeServerChannel(host: host, ca: ca)
+            // 683 M4: no CA — the requests arrived in the clear (`serveUnwrapped`): the same pipeline without TLS.
+            if let ca { guest = try makeServerChannel(host: host, ca: ca) } else {
+                guest = EmbeddedChannel()
+                try guest.connect(to: SocketAddress(ipAddress: "127.0.0.1", port: 1)).wait()
+            }
         } catch {
             rec.verdict = .failed; rec.detail = "could not make a certificate for \(host): \(error)"
             return

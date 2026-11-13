@@ -552,8 +552,11 @@ struct Run: AsyncParsableCommand {
             Keychain (--keychain opens it), and reaches the network only through Dozable's proxy, by its permissions \
             (--permissions, the setting mac.permissions; doz net allow|deny @mac --session SESSION changes them live) — never \
             this Mac's own addresses, and its own ports only with --local-port N; a git config change a fenced program may \
-            not make stops it until doz sessions resume @mac SESSION. The setting mac.fence makes fenced the default; \
-            --unfenced overrides it.
+            not make stops it until doz sessions resume @mac SESSION. --github read|push gives it GitHub as you (the token \
+            stays on the Mac; read-only refuses pushes), --ssh-agent your SSH agent for listing and signing only (git over \
+            ssh goes through the proxy), --xcode Xcode's build services (DerivedData in the session: -derivedDataPath \
+            "$DOZ_DERIVED"), --simulator the Simulator too (a guard rail, not a boundary: what it launches runs outside). \
+            The setting mac.fence makes fenced the default; --unfenced overrides it.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
@@ -586,26 +589,32 @@ struct Run: AsyncParsableCommand {
     var openFiles: String?
     @Option(name: .long, help: "@mac, fenced: write or off — it may put text on your clipboard, each copy announced (setting mac.clipboard).")
     var clipboard: String?
+    @Flag(name: .long, help: "@mac, fenced: Xcode's build services too (xcodebuild with -derivedDataPath \"$DOZ_DERIVED\"); LaunchServices and the Simulator stay closed.") var xcode = false
+    @Flag(name: .long, help: "@mac, fenced: --xcode and the Simulator — LaunchServices and the Simulator open; what they launch runs OUTSIDE the fence (a guard rail, not a boundary).") var simulator = false
+    @Option(name: .long, help: "@mac, fenced: GitHub as you through Dozable's proxy — off, read (clone and read; pushes refused) or push; the token never enters the session.")
+    var github: String?
+    @Flag(name: .customLong("ssh-agent"), help: "@mac, fenced: your SSH agent, filtered to listing keys and signing (git over ssh, signed commits); never adding, removing or reading keys.") var sshAgent = false
     @Flag(name: .customLong("dry-run"), help: "@mac: say what the session would be able to do, and open nothing.") var dryRun = false
     @Argument(parsing: .postTerminator, help: "The program and its arguments, after --.") var command: [String] = []
 
     var fenceFlags: Bool {
         keychain || !readDirs.isEmpty || !writeDirs.isEmpty || !permissions.isEmpty || !localPorts.isEmpty || agentConfig != nil || history != nil
-            || account != nil || openURL != nil || openFiles != nil || clipboard != nil
+            || account != nil || openURL != nil || openFiles != nil || clipboard != nil || xcode || simulator || github != nil || sshAgent
     }
 
     func validate() throws {
         if command.isEmpty, !MacPlace.isPlace(name) { throw ValidationError("which program? doz run NAME -- CMD…") }
         if MacPlace.isPlace(name), user != nil { throw ValidationError("--user does not apply on this Mac: its sessions run as you") }
         if !MacPlace.isPlace(name), fenced || unfenced || fenceFlags || dryRun {
-            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard and --dry-run are for doz run @mac (a sandbox is a VM of its own)")
+            throw ValidationError("--fenced, --unfenced, --keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard, --xcode, --simulator, --github, --ssh-agent and --dry-run are for doz run @mac (a sandbox is a VM of its own)")
         }
         if fenced && unfenced { throw ValidationError("--fenced and --unfenced contradict each other — pick one") }
         if unfenced && fenceFlags {
-            throw ValidationError("--keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files and --clipboard are for a fenced session — not with --unfenced")
+            throw ValidationError("--keychain, --read, --write, --permissions, --local-port, --agent-config, --history, --account, --open-url, --open-files, --clipboard, --xcode, --simulator, --github and --ssh-agent are for a fenced session — not with --unfenced")
         }
         for (flag, v, ok) in [("--agent-config", agentConfig, MacAgentConfig.modes), ("--history", history, AgentHistory.values),
-                              ("--open-url", openURL, ["on", "off"]), ("--open-files", openFiles, ["on", "off"]), ("--clipboard", clipboard, ["write", "off"])] {
+                              ("--open-url", openURL, ["on", "off"]), ("--open-files", openFiles, ["on", "off"]), ("--clipboard", clipboard, ["write", "off"]),
+                              ("--github", github, ["off", "read", "push"])] {
             if let v, !ok.contains(v) { throw ValidationError("\(flag) \(v): \(ok.joined(separator: " or "))") }
         }
         if let a = account, a.isEmpty || a.count > 64 { throw ValidationError("--account: an account's name, mac or none") }
@@ -624,6 +633,10 @@ struct Run: AsyncParsableCommand {
         q.openURL = openURL.map { $0 == "on" }
         q.openFiles = openFiles.map { $0 == "on" }
         q.clipboard = clipboard.map { $0 == "write" }
+        q.xcode = xcode || simulator ? true : nil
+        q.simulator = simulator ? true : nil
+        q.github = github.flatMap { $0 == "off" ? nil : $0 }
+        q.sshAgent = sshAgent ? true : nil
         return q
     }
 
@@ -641,6 +654,9 @@ struct Run: AsyncParsableCommand {
         s.localPorts = q.localPorts ?? []
         s.preset = (try? MacFenceNetwork.policy(words: q.permissions ?? ["standard"])).flatMap { p in p.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         s.bridges = MacFenceBridges.resolve(q, settings: settings)
+        s.profile = q.profile
+        s.github = q.github
+        s.sshAgent = q.sshAgent == true
         if let r = AgentRecipes.macAgent(program: argv[0]), let m = r.launch.macConfig {
             s.agent = r.title
             s.agentConfig = MacAgentConfig.resolveMode(flag: agentConfig, recipe: r, settings: settings).0

@@ -51,6 +51,17 @@ public enum MacFenceStop {
         return r < 0 ? nil : r == 0
     }
 
+    static let filterPreferenceDomain: Int32 = 6
+
+    /// 683 M4: may `pid` write / read the preferences of `domain` (`user-preference-write`, `-read`)? (nil: cannot tell)
+    public static func mayWritePreference(_ pid: pid_t, _ domain: String) -> Bool? { preference(pid, "user-preference-write", domain) }
+    public static func mayReadPreference(_ pid: pid_t, _ domain: String) -> Bool? { preference(pid, "user-preference-read", domain) }
+    static func preference(_ pid: pid_t, _ op: String, _ domain: String) -> Bool? {
+        guard let c = check else { return nil }
+        let r = domain.withCString { c(pid, op, filterPreferenceDomain | noReport, 0, 0, 0, 0, 0, $0) }
+        return r < 0 ? nil : r == 0
+    }
+
     /// Every process of this user.
     static func userPids() -> [pid_t] {
         var n = proc_listallpids(nil, 0)

@@ -462,6 +462,32 @@ final class MacFenceGitTests: XCTestCase {
         XCTAssertNil(MacFenceHostFS.kind(w.work + "/r/.git/hooks/pre-commit"))
     }
 
+    /// 683 M4 (4.11): SwiftPM's copy of a git dependency — a bare repository with only allowed keys and no hook — is watched,
+    /// not a violation; a hook or a key arriving in it later is.
+    func testACleanBareRepositoryIsWatched_aHookInItIsAViolation() throws {
+        git(["init", "-q"], in: w.work)
+        let calls = Calls()
+        let g = try makeGuard(calls)
+        _ = try g.recordBaseline()
+        let bare = w.work + "/.build/repositories/dep-1234"
+        try FileManager.default.createDirectory(atPath: bare + "/objects", withIntermediateDirectories: true)
+        w.write(bare + "/HEAD", "ref: refs/heads/main\n")
+        w.write(bare + "/config", "[core]\n\trepositoryformatversion = 0\n\tfilemode = true\n\tbare = true\n\tignorecase = true\n\tprecomposeunicode = true\n"
+                + "\tsymlinks = true\n\tfsmonitor = false\n\tlongpaths = true\n[remote \"origin\"]\n\turl = \(w.work)/dep\n\ttagOpt = --no-tags\n"
+                + "\tfetch = +refs/*:refs/*\n\tmirror = true\n")
+        XCTAssertTrue(g.check().isEmpty, "SwiftPM's repository copy is not a violation")
+        XCTAssertEqual(calls.stops, 0)
+        w.write(bare + "/hooks/post-update", "#!/bin/sh\ntouch /tmp/pwn\n")
+        XCTAssertTrue(g.check().contains { $0.what.contains { $0.contains("post-update") } }, "a hook arriving in it")
+        XCTAssertNil(MacFenceHostFS.kind(bare + "/hooks/post-update"))
+        w.write(bare + "/config", (w.read(bare + "/config") ?? "") + "[core]\n\tfsmonitor = touch /tmp/pwn\n")
+        XCTAssertFalse(g.check().isEmpty, "a key a fenced session may not add")
+        XCTAssertFalse((w.read(bare + "/config") ?? "").contains("touch /tmp/pwn"))
+        XCTAssertTrue(MacFenceGit.allowed("core.bare", "true", worktree: bare, workdir: w.work, gitdir: bare))
+        XCTAssertFalse(MacFenceGit.allowed("core.bare", "true", worktree: w.work, workdir: w.work, gitdir: w.work + "/.git"))
+        XCTAssertTrue(MacFenceGit.allowed("core.fsmonitor", "false", worktree: w.work, workdir: w.work))
+    }
+
     /// 1.5g: includes — a target inside the folder is protected; a linked one makes the open refuse.
     func testIncludes() throws {
         git(["init", "-q"], in: w.work)

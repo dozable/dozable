@@ -39,6 +39,10 @@ public struct MacCapabilityShape: Sendable, Equatable {
     public var claude = false
     public var account: String? = nil
     public var bridges = MacFenceBridges(openURL: false, openFiles: false, clipboard: false)
+    /// 683 M4: its profile (`agent`, `xcode`, `simulator`), GitHub as the person (`read` | `push`; nil: off), the SSH agent.
+    public var profile = MacFence.profileKind
+    public var github: String? = nil
+    public var sshAgent = false
     public init(session: String, workdir: String, fenced: Bool) {
         self.session = session
         self.workdir = workdir
@@ -65,6 +69,9 @@ public struct MacCapabilityShape: Sendable, Equatable {
         history = f.history
         account = f.account
         bridges = f.bridges ?? MacFenceBridges(openURL: false, openFiles: false, clipboard: false)
+        profile = f.profile
+        github = f.github
+        sshAgent = f.sshAgent == true
     }
 }
 
@@ -94,7 +101,15 @@ extension MacFence {
             ]
         }
         var out: [MacCapability] = []
-        out.append(c("fence", "Fence", "fenced", "Held to its folder and Dozable's proxy."))
+        switch s.profile {
+        case "xcode":
+            out.append(c("fence", "Fence", "fenced (Xcode)", "Held to its folder and Dozable's proxy; Xcode's build services open, LaunchServices and the Simulator closed."))
+        case "simulator":
+            out.append(c("fence", "Fence", "guard rail (Simulator)",
+                         "Held to its folder and Dozable's proxy — but the Simulator and what it launches run outside it: a guard rail, not a boundary."))
+        default:
+            out.append(c("fence", "Fence", "fenced", "Held to its folder and Dozable's proxy."))
+        }
         out.append(s.keychain
                    ? c("keychain", "Keychain", "open", "Can use your Keychain — signing works, and so could reading your saved logins.")
                    : c("keychain", "Keychain", "closed", "Cannot read your passwords, keys or signing identities."))
@@ -137,8 +152,14 @@ extension MacFence {
         } else {
             out.append(c("claude-login", "Claude login", "none", "Not a Claude session: no login is given to it."))
         }
-        out.append(c("github", "GitHub as you", "off", "Cannot use your GitHub login; a push over https has no credential."))
-        out.append(c("ssh-agent", "SSH agent", "off", "Cannot use your SSH keys."))
+        switch s.github {
+        case "push"?: out.append(c("github", "GitHub as you", "push", "Clones, reads and pushes as you through the proxy; the program never sees the token."))
+        case "read"?: out.append(c("github", "GitHub as you", "read", "Clones and reads as you; pushes are refused."))
+        default: out.append(c("github", "GitHub as you", "off", "Cannot use your GitHub login; a push over https has no credential."))
+        }
+        out.append(s.sshAgent
+                   ? c("ssh-agent", "SSH agent", "on (list + sign only)", "Can sign with your SSH keys, never read or add them; ssh goes through the proxy.")
+                   : c("ssh-agent", "SSH agent", "off", "Cannot use your SSH keys."))
         out.append(s.bridges.openURL
                    ? c("open-url", "Open a URL", "on", "Can open web pages in your browser — each one is announced.", live: true, link: "doz sessions bridges @mac \(s.session)")
                    : c("open-url", "Open a URL", "off", "Cannot open pages in your browser.", live: true, link: "doz sessions bridges @mac \(s.session)"))

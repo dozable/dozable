@@ -275,5 +275,5 @@ func cliFenceAgentChecks(_ t: CLIHarness, root: String, home: String, store: Str
     } catch { check(false, "attach on a pseudo-terminal: \(error)") }
     end("br")
     t.run(["sessions", "end", "@mac", "br", "--yes"], timeout: 60)
-    t.run(["account", "rm", "ct", "--yes"], timeout: 60)
+    t.run(["account", "rm", "ct", "--force"], timeout: 60)
 }

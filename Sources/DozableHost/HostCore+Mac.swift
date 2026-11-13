@@ -64,7 +64,7 @@ extension HostCore {
         for s in live { if let f = recs[s]?.fence { adoptFenceProxy(s, f) } }
         for s in live where macFenceWatches[s] == nil {
             guard let rec = recs[s], let f = rec.fence else { continue }
-            let w = makeFenceWatch(s, workdir: rec.workdir, roots: [rec.workdir] + f.writable, sentinel: f.sentinel, anti: f.antiSentinel)
+            let w = makeFenceWatch(s, workdir: rec.workdir, roots: [rec.workdir] + f.writable, gitCommon: f.gitCommon ?? [], sentinel: f.sentinel, anti: f.antiSentinel)
             w.pid = rec.pid.map { pid_t($0) }
             macFenceWatches[s] = w
             let found = w.guardian.adopt()          // the baseline, the watch, then a full check
@@ -158,6 +158,65 @@ extension HostCore {
         }
     }
 
+    /// 683 M4: GitHub as the person in a fenced session's proxy — the sandboxes' machinery: the token READ ON USE (the Mac's
+    /// `gh` login, or the default key, per `github.credentials`; a guarded test run only ever its fake gh), never written
+    /// anywhere; the program's placeholder honoured; read-only enforced by the proxy (`GitHubGate`). The mode is the
+    /// record's, narrowed live by the policy (`doz net deny @mac --session S github:push`), never widened but at a start.
+    func bindFenceGitHub(_ s: String, _ p: MacFenceProxy, _ f: MacFenceRecord) {
+        let vault = p.proxy.vault
+        p.proxy.sshToGitHub = f.sshAgent == true
+        let asked: GitHubAccess.Mode? = f.github.flatMap { GitHubAccess.Mode(rawValue: $0) }
+        let byPolicy = AgentPermissions.gitHubMode(p.proxy.policy.permissions)
+        let mode: GitHubAccess.Mode? = asked == nil || byPolicy == nil ? nil : (asked == .push && byPolicy == .push ? .push : .read)
+        guard let mode else {
+            vault.remove(CredentialBinding.github.id)
+            p.proxy.github = nil
+            p.proxy.githubUpstreamForTests = nil
+            return
+        }
+        let env = mac.hostEnvironment
+        let keychain = services.keychain
+        let who = "@mac \(s)"
+        let read: @Sendable () -> CredentialVault.SecretRead = {
+            let source = DozableSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh"
+            if source == "off" { return (nil, "Dozable: GitHub as you is on for \(who), but github.credentials is off on this Mac") }
+            if source == "key" {
+                if let t = keychain.read(service: Access.githubKeyService, account: Keychain.user).value { return (t, nil) }
+                return (nil, "Dozable: \(who) has no GitHub token (github.credentials is key) — doz access set --github-key")
+            }
+            // A guarded test run never reaches the person's gh.
+            if TestSafety.guarded(env), (env["DOZ_TEST_GH"] ?? "").isEmpty { return (nil, "Dozable: a test run has no fake gh (DOZ_TEST_GH)") }
+            return GitHubLogin.ghToken(environment: env)
+        }
+        let version: @Sendable () -> String = { DozableSettings.load(environment: env).string(SettingKey.githubCredentials) ?? "gh" }
+        if vault.allBindings.contains(where: { $0.id == CredentialBinding.github.id }) == false || p.proxy.github?.mode != mode {
+            vault.setProvider(.github, ttl: GitHubLogin.cacheSeconds, version: version, read: read)
+        }
+        p.proxy.github = GitHubGate(mode: mode, sandbox: who)
+        p.proxy.githubUpstreamForTests = TestSafety.guarded(env) ? GitHubLogin.testUpstream(environment: env) : nil
+        vault.restorePlaceholderHashes((f.placeholderHashes ?? [:]).filter { $0.value == CredentialBinding.github.id })
+        HostLog.line("\(MacPlace.name): session \(s): GitHub as you (\(mode.rawValue)) through its proxy")
+    }
+
+    /// 683 M4: a fenced session's doors (`MacFenceDoor`): its SSH agent relay and gh's door, while this host serves it.
+    func openFenceDoors(_ s: String, _ f: MacFenceRecord) {
+        openFenceDoors(s, sshAgent: f.sshAgent == true, github: f.github != nil)
+    }
+
+    func openFenceDoors(_ s: String, sshAgent: Bool, github: Bool) {
+        macDoors[s]?.close()
+        macDoors[s] = nil
+        guard sshAgent || github else { return }
+        let dir = (mac.socket(s) as NSString).deletingLastPathComponent
+        let sockets = MacFencePaths.resolve(dir) ?? dir
+        let env = mac.hostEnvironment
+        let agent = sshAgent ? sockets + "/" + s + ".agent" : nil
+        if agent != nil, MacFenceDoor.agentSocket(env) == nil {
+            note(MacPlace.name, "session \(s) on this Mac asks for your SSH agent, but this host sees none (SSH_AUTH_SOCK) — start one and add a key (ssh-add)")
+        }
+        macDoors[s] = MacFenceDoorSet(session: s, agent: agent, upstream: { MacFenceDoor.agentSocket(env) }, gh: github ? sockets + "/" + s + ".gh" : nil)
+    }
+
     /// `doz sessions bridges @mac S [--open-url on|off] [--open-files on|off] [--clipboard write|off]`: a fenced session's
     /// bridges, changed live (the next event follows them).
     func macBridges(_ r: HostRequest) async throws -> SessionBridges {
@@ -197,9 +256,9 @@ extension HostCore {
     }
 
     /// A fenced session's git guard, its stop wired to every process of the fence.
-    func makeFenceWatch(_ s: String, workdir: String, roots: [String], sentinel: String, anti: String) -> MacFenceWatch {
+    func makeFenceWatch(_ s: String, workdir: String, roots: [String], gitCommon: [String] = [], sentinel: String, anti: String) -> MacFenceWatch {
         let w = MacFenceWatch(sentinel: sentinel, anti: anti)
-        w.guardian = MacFenceGitGuard(session: s, workdir: workdir, roots: roots, stateFolder: mac.fenceState(s), quarantine: mac.quarantine(s),
+        w.guardian = MacFenceGitGuard(session: s, workdir: workdir, roots: roots, gitCommon: gitCommon, stateFolder: mac.fenceState(s), quarantine: mac.quarantine(s),
                                       stop: { [w] in w.stopNow() },
                                       report: { [weak self, w] v in Task { await self?.macFenceViolated(s, v, pids: w.stopped) } })
         return w
@@ -244,6 +303,9 @@ extension HostCore {
         macProxies[s]?.stop()
         unbindFenceAccount(s)
         bindFenceAccount(s, p, f)
+        bindFenceGitHub(s, p, f)
+        if macDoors[s] == nil { openFenceDoors(s, f) }
+        macDoors[s]?.attach(p.proxy)
         p.start()
         macProxies[s] = p
     }
@@ -252,6 +314,8 @@ extension HostCore {
     func dropFenceProxy(_ s: String) {
         macProxies[s]?.stop()
         macProxies[s] = nil
+        macDoors[s]?.close()
+        macDoors[s] = nil
         unbindFenceAccount(s)
     }
 
@@ -286,6 +350,9 @@ extension HostCore {
             let p = try MacFenceProxy(session: s, fd: fd, port: UInt16(port), policy: f.policy ?? .permissions(["model"], preset: "locked"),
                                       secretSHA256: secret, ca: ca, environment: mac.hostEnvironment)
             bindFenceAccount(s, p, f)
+            bindFenceGitHub(s, p, f)
+            if macDoors[s] == nil { openFenceDoors(s, f) }
+            macDoors[s]?.attach(p.proxy)
             p.start()
             macProxies[s] = p
         } catch {
@@ -325,6 +392,8 @@ extension HostCore {
             let p = try Self.editedPolicy(policy, r, base: AgentPermissions.macBase, agent: nil)
             live?.proxy.policy = p
             await mac.updateRecord(s) { $0.fence?.policy = p }
+            // GitHub as you follows the policy DOWN live (taking github:as-you or github:push away); up only at a start.
+            if let live, let now = mac.records().sessions[s]?.fence { bindFenceGitHub(s, live, now) }
             note(MacPlace.name, "session \(s) on this Mac: network policy \(p.preset ?? "custom") (\(p.rules.count) rules) — from its next connection")
             return try JSONValue(encoding: p)
         }
@@ -341,7 +410,7 @@ extension HostCore {
         guard f.stoppedForGit != nil else { throw HostError(.invalid, "session \(s) on this Mac is not stopped") }
         let w: MacFenceWatch
         if let have = macFenceWatches[s] { w = have } else {
-            w = makeFenceWatch(s, workdir: rec.workdir, roots: [rec.workdir] + f.writable, sentinel: f.sentinel, anti: f.antiSentinel)
+            w = makeFenceWatch(s, workdir: rec.workdir, roots: [rec.workdir] + f.writable, gitCommon: f.gitCommon ?? [], sentinel: f.sentinel, anti: f.antiSentinel)
             w.pid = rec.pid.map { pid_t($0) }
             macFenceWatches[s] = w
             _ = w.guardian.adopt()
@@ -390,9 +459,11 @@ extension HostCore {
         let fenceRead = MacFencePaths.fenceReadEntries(settings.string(SettingKey.macFenceRead) ?? "")
         // Its permissions: as asked; a restart keeps its policy (live edits included); else the setting.
         let policy: NetworkPolicy
-        if let words = request.permissions { policy = try MacFenceNetwork.policy(words: words) }
+        // 683 M4: GitHub as you is two of the sandboxes' permissions in its policy (github:as-you, github:push).
+        let gitHub = (["read": ["github:as-you"], "push": ["github:as-you", "github:push"]] as [String: [String]])[request.github ?? "off"] ?? []
+        if let words = request.permissions { policy = try MacFenceNetwork.policy(words: words + gitHub) }
         else if let kept = previous?.policy { policy = kept }
-        else { policy = try MacFenceNetwork.policy(words: [settings.string(SettingKey.macPermissions) ?? "standard"]) }
+        else { policy = try MacFenceNetwork.policy(words: [settings.string(SettingKey.macPermissions) ?? "standard"] + gitHub) }
         // 683: a key in the environment would sit beside the swapped login — refused (an account gives it).
         for k in (extra ?? [:]).keys where ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN"].contains(k) {
             throw HostError(.invalid, "-e \(k): a fenced session gets its Claude login through Dozable's proxy — doz run @mac --account NAME (doz account ls), never a key in its environment")
@@ -405,6 +476,13 @@ extension HostCore {
         } else if request.account != nil {
             throw HostError(.invalid, "--account is for Claude Code (doz run @mac --fenced --account NAME -- claude)")
         }
+        // 683 M4: GitHub as you — a placeholder in GH_TOKEN (git's helper and gh read it); the proxy swaps it on GitHub.
+        if ["read", "push"].contains(request.github ?? "off") {
+            for k in (extra ?? [:]).keys where ["GH_TOKEN", "GITHUB_TOKEN", "GH_ENTERPRISE_TOKEN"].contains(k) {
+                throw HostError(.invalid, "-e \(k): a fenced session with --github gets GitHub through Dozable's proxy — never a token in its environment")
+            }
+            login.placeholders["GH_TOKEN"] = CredentialVault.placeholderPrefix + (0..<24).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined()
+        }
         let prep = try await mac.prepareFence(session: name, workdir: wd, request: request, fenceRead: fenceRead, previous: previous,
                                               trust: MacFenceNetwork.trust(policy), argv: argv, bridges: MacFenceBridges.resolve(request, settings: settings),
                                               placeholders: login.placeholders, account: login.account, settings: settings)
@@ -412,6 +490,8 @@ extension HostCore {
         f.presetName = AgentPermissions.presetName(policy.permissions ?? [], base: AgentPermissions.macBase)
         dropFenceWatch(name)
         dropFenceProxy(name)
+        // 683 M4: its doors listen before its program starts (the proxy is attached once this host has made it).
+        openFenceDoors(name, sshAgent: f.sshAgent, github: f.github != nil)
         // The proxy: a new socket on this Mac's loopback (its holder will hold it), a new password, the session's CA.
         let (lfd, port) = try MacFenceNetwork.bindLoopback()
         f.proxyPort = port
@@ -426,9 +506,9 @@ extension HostCore {
             HostLog.line("\(MacPlace.name): fenced session \(name): no CA (\(error)) — hosts that need request inspection are refused")
         }
         let t1 = ContinuousClock.now
-        let w = makeFenceWatch(name, workdir: f.workdir, roots: f.writableRoots, sentinel: f.sentinel, anti: f.antiSentinel)
+        let w = makeFenceWatch(name, workdir: f.workdir, roots: f.writableRoots, gitCommon: f.gitCommon, sentinel: f.sentinel, anti: f.antiSentinel)
         let baseline: MacFenceGitBaseline
-        do { baseline = try w.guardian.recordBaseline() } catch { close(lfd); throw error }
+        do { baseline = try w.guardian.recordBaseline() } catch { close(lfd); dropFenceProxy(name); throw error }
         let t2 = ContinuousClock.now
         // 683: Claude Code's facts about where it runs — one combined --append-system-prompt (the record keeps the argv).
         var launch = argv
@@ -442,6 +522,7 @@ extension HostCore {
                                    proxy: .init(fd: lfd, password: password, secretSHA256: secret, policy: policy, ca: ca != nil))
         } catch {
             close(lfd)
+            dropFenceProxy(name)
             throw error
         }
         let t3 = ContinuousClock.now

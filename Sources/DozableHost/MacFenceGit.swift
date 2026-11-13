@@ -92,7 +92,7 @@ public enum MacFenceGit {
 
     /// Whether a fenced program may ADD or CHANGE `key` to `value` in a repository whose working tree is `worktree`, in
     /// the fenced folder `workdir` (removing a key is always allowed).
-    public static func allowed(_ key: String, _ value: String, worktree: String, workdir: String) -> Bool {
+    public static func allowed(_ key: String, _ value: String, worktree: String, workdir: String, gitdir: String? = nil) -> Bool {
         let parts = key.split(separator: ".", omittingEmptySubsequences: false).map(String.init)
         guard parts.count >= 2 else { return false }
         let section = parts[0].lowercased(), name = parts[parts.count - 1].lowercased(), sub = parts.count >= 3
@@ -102,7 +102,7 @@ public enum MacFenceGit {
         case "remote":
             guard sub else { return false }
             if ["url", "pushurl"].contains(name) { return urlAllowed(value, worktree: worktree, workdir: workdir) }
-            return ["fetch", "push", "tagopt", "prune"].contains(name)
+            return ["fetch", "push", "tagopt", "prune", "mirror"].contains(name)
         case "submodule":
             guard sub else { return false }
             if name == "url" { return urlAllowed(value, worktree: worktree, workdir: workdir) }
@@ -113,12 +113,23 @@ public enum MacFenceGit {
             return ["locksverify", "repositoryformatversion"].contains(name)
         case "core":
             guard !sub else { return false }
-            if name == "bare" { return value.lowercased() == "false" }
-            return ["repositoryformatversion", "filemode", "logallrefupdates", "ignorecase", "precomposeunicode"].contains(name)
+            // 683 M4: a bare repository's own folder (SwiftPM's `.build/repositories/*`, a `git clone --mirror`) says it is bare.
+            if name == "bare" { return value.lowercased() == "false" || (value.lowercased() == "true" && gitdir.map(Self.isBareFolder) == true) }
+            // …and SwiftPM writes these three: fsmonitor OFF only (any other value is a program to run).
+            if name == "fsmonitor" { return value.lowercased() == "false" }
+            // 683 M4: a submodule's git folder names its working tree (`git submodule add` writes it) — inside the folder.
+            if name == "worktree", let g = gitdir, g.contains("/.git/modules/") {
+                guard !value.isEmpty, !value.hasPrefix("-"), !value.unicodeScalars.contains(where: { $0.value < 0x20 }) else { return false }
+                return MacFencePaths.isWithin(MacFencePaths.lexical(value.hasPrefix("/") ? value : g + "/" + value), workdir)
+            }
+            return ["repositoryformatversion", "filemode", "logallrefupdates", "ignorecase", "precomposeunicode", "symlinks", "longpaths"].contains(name)
         default:
             return false
         }
     }
+
+    /// A git folder that is a bare repository's own (not a `.git` folder or one inside it).
+    static func isBareFolder(_ g: String) -> Bool { !g.hasSuffix("/.git") && !g.contains("/.git/") }
 
     /// A remote's URL: `https://`, `ssh://`, `user@host:path`, or a path (relative to the working tree, or absolute)
     /// inside the folder — never a transport helper (`ext::`, `fd::`), another scheme, `file://` outside, or a leading `-`.
@@ -141,11 +152,12 @@ public enum MacFenceGit {
     /// repository's `core.hooksPath`, else the person's global one) — and, for husky's layout (`…/_`), its parent — and
     /// every git include target inside the folder. Throws when the folder's own repository has an include that cannot be
     /// verified (a link, not a regular file, or in a closed place).
-    public static func protectedPaths(workdir: String, hooksPathGlobal: String?, home: String, scratch: String) throws -> [String] {
-        guard MacFenceHostFS.kind(workdir + "/.git") == S_IFDIR else {
+    public static func protectedPaths(workdir: String, hooksPathGlobal: String?, home: String, scratch: String, gitCommon: String? = nil) throws -> [String] {
+        // 683 M4: a worktree's settings live in its repository's common git folder.
+        let gitdir: String
+        if MacFenceHostFS.kind(workdir + "/.git") == S_IFDIR { gitdir = workdir + "/.git" } else if let c = gitCommon { gitdir = c } else {
             return hooksPathGlobal.flatMap { hooksProtection($0, workdir: workdir) } ?? []
         }
-        let gitdir = workdir + "/.git"
         var out: [String] = []
         let entries: [(String, String)]
         switch readConfig(gitdir + "/config", scratch: scratch) {
@@ -167,6 +179,30 @@ public enum MacFenceGit {
             }
         }
         return Array(Set(out)).sorted()
+    }
+
+    /// 683 M4: a worktree's common git folder — its `.git` file's `gitdir:` (resolved, relative to the folder), then that
+    /// git folder's `commondir` (resolved relative to it; absent: the git folder itself). Read through `MacFenceHostFS`
+    /// (no link, a regular file); throws a plain refusal when it cannot be read or does not lead to a folder.
+    public static func worktreeCommon(workdir: String) throws -> String {
+        func refuse(_ why: String) -> HostError { HostError(.invalid, "a fenced session cannot run in this worktree: \(why) — refused") }
+        func pointer(_ path: String, prefix: String) -> String? {
+            guard let d = try? MacFenceHostFS.readRegular(path, maximum: 4096) else { return nil }
+            let line = String(decoding: d, as: UTF8.self).split(whereSeparator: \.isNewline).first.map(String.init) ?? ""
+            guard line.hasPrefix(prefix) else { return nil }
+            let v = String(line.dropFirst(prefix.count)).trimmingCharacters(in: .whitespaces)
+            return v.isEmpty ? nil : v
+        }
+        guard let raw = pointer(workdir + "/.git", prefix: "gitdir: ") else { throw refuse("its .git file is not a readable gitdir pointer") }
+        let target = raw.hasPrefix("/") ? raw : workdir + "/" + raw
+        guard let gitdir = MacFencePaths.resolve(target), MacFenceHostFS.kind(gitdir) == S_IFDIR else { throw refuse("its .git file points at no folder") }
+        guard MacFenceHostFS.kind(gitdir + "/commondir") != nil else { return gitdir }
+        guard let c = pointer(gitdir + "/commondir", prefix: "") else { throw refuse("its git folder's commondir cannot be read safely") }
+        guard let common = MacFencePaths.resolve(c.hasPrefix("/") ? c : gitdir + "/" + c), MacFenceHostFS.kind(common) == S_IFDIR else {
+            throw refuse("its repository's git folder is not there")
+        }
+        guard MacFencePaths.isWithin(gitdir, common) else { throw refuse("its git folder is not inside its repository's (\(DisplayPath.tilde(common)))") }
+        return common
     }
 
     /// An in-folder hooks path, and husky's parent (`.husky/_` → `.husky`).
@@ -262,6 +298,9 @@ public final class MacFenceGitGuard: @unchecked Sendable {
     public let session: String
     let workdir: String
     let roots: [String]
+    /// 683 M4: a worktree's common git folder(s) outside the roots — watched (its config held to the allowlist, its hooks
+    /// to the baseline), never walked for new repositories.
+    let gitCommon: [String]
     /// `<store>/mac-sessions/fence/<session>` (0700): the baseline, git's private copies.
     let stateFolder: String
     /// `<store>/mac-sessions/quarantine/<session>`.
@@ -276,11 +315,12 @@ public final class MacFenceGitGuard: @unchecked Sendable {
     private var seen: [String: String] = [:]
     private var stream: PathEventStream?
 
-    public init(session: String, workdir: String, roots: [String], stateFolder: String, quarantine: String,
+    public init(session: String, workdir: String, roots: [String], gitCommon: [String] = [], stateFolder: String, quarantine: String,
                 stop: @escaping @Sendable () -> Void, report: @escaping @Sendable (MacFenceGitViolation) -> Void) {
         self.session = session
         self.workdir = workdir
         self.roots = roots
+        self.gitCommon = gitCommon
         self.stateFolder = stateFolder
         self.quarantine = quarantine
         self.stop = stop
@@ -299,13 +339,13 @@ public final class MacFenceGitGuard: @unchecked Sendable {
         try queue.sync {
             try MacFenceHostFS.ensureDirectory(scratch)
             var b = MacFenceGitBaseline()
-            for root in roots {
-                for g in discover(root) {
+            do {
+                for g in roots.flatMap({ discover($0) }) + gitCommon.flatMap({ Self.gitdirs(inside: $0) }) {
                     for c in [g + "/config", g + "/config.worktree"] where MacFenceHostFS.kind(c) != nil {
                         switch MacFenceGit.readConfig(c, scratch: scratch) {
                         case .success(let e): b.configs[c] = e.map { MacFenceGit.entry($0.0, $0.1) }
                         case .failure(let r):
-                            if g == workdir + "/.git" { throw HostError(.invalid, "a fenced session cannot run here: \(r.description)") }
+                            if g == workdir + "/.git" || gitCommon.contains(g) { throw HostError(.invalid, "a fenced session cannot run here: \(r.description)") }
                         }
                         seen[c] = stamp(c)
                     }
@@ -347,7 +387,7 @@ public final class MacFenceGitGuard: @unchecked Sendable {
     public func start() {
         queue.sync {
             guard stream == nil else { return }
-            let s = PathEventStream(paths: roots, queue: queue) { [weak self] events in self?.received(events) }
+            let s = PathEventStream(paths: roots + gitCommon, queue: queue) { [weak self] events in self?.received(events) }
             if s.start() { stream = s }
         }
     }
@@ -376,6 +416,10 @@ public final class MacFenceGitGuard: @unchecked Sendable {
             if [".git", "HEAD", "objects", "config", "config.worktree", "hooks"].contains(name) || p.contains("/.git/") || p.hasSuffix("/.git") {
                 subtrees.insert((p as NSString).deletingLastPathComponent)
             }
+            // 683 M4: a file in some folder's hooks/ (a bare repository's, whose hooks the profile cannot name): that
+            // repository is checked again, hooks included.
+            let parent = (p as NSString).deletingLastPathComponent
+            if (parent as NSString).lastPathComponent == "hooks" { subtrees.insert((parent as NSString).deletingLastPathComponent) }
         }
         var found: [MacFenceGitViolation] = []
         if full { found = fullCheckLocked() } else {
@@ -443,7 +487,15 @@ public final class MacFenceGitGuard: @unchecked Sendable {
             }
             if mode == S_IFDIR, !p.contains("/.git/"), MacFenceHostFS.kind(p + "/HEAD") == S_IFREG,
                MacFenceHostFS.kind(p + "/objects") == S_IFDIR, MacFenceHostFS.kind(p + "/config") != nil {
-                out.append(act(p, what: ["a bare repository's shape (HEAD, objects/, config)"],
+                // 683 M4: a bare repository whose config holds only allowed keys and which has no hook (SwiftPM's copies of
+                // a git dependency, a mirror) is watched like any repository from now on; anything else is a violation.
+                if known.contains(p) { out += checkGitdir(p, force: true); return false }
+                if bareIsClean(p) {
+                    known.insert(p)
+                    out += checkGitdir(p, force: true)
+                    return false
+                }
+                out.append(act(p, what: ["a bare repository's shape (HEAD, objects/, config) with a key or a hook a fenced session may not add"],
                                quarantineItems: [p + "/config", p + "/hooks"].filter { MacFenceHostFS.kind($0) != nil }, text: ""))
             }
             return true
@@ -459,6 +511,14 @@ public final class MacFenceGitGuard: @unchecked Sendable {
         }
         if mode == S_IFDIR { _ = visit(top, mode); MacFenceHostFS.walk(top, visit: visit) } else if mode != 0 { mode = 0 }
         return out
+    }
+
+    /// A bare repository's shape is clean: its config read safely, every key allowed for a bare folder, and no hook at all
+    /// (sample hooks aside — a fenced session's template is empty, so even those come only from outside).
+    private func bareIsClean(_ p: String) -> Bool {
+        guard case .success(let entries) = MacFenceGit.readConfig(p + "/config", scratch: scratch) else { return false }
+        guard entries.allSatisfy({ MacFenceGit.allowed($0.0, $0.1, worktree: p, workdir: workdir, gitdir: p) }) else { return false }
+        return hooks(p).isEmpty
     }
 
     /// A `.git` FILE: allowed only when its `gitdir:` resolves into a watched `.git/worktrees/*` or `.git/modules/*`.
@@ -505,7 +565,7 @@ public final class MacFenceGitGuard: @unchecked Sendable {
                 catch { v.what.append("could not write it again: \(error)") }
                 out.append(v)
             case .success(let entries):
-                let bad = entries.filter { !base.contains(MacFenceGit.entry($0.0, $0.1)) && !MacFenceGit.allowed($0.0, $0.1, worktree: worktree, workdir: workdir) }
+                let bad = entries.filter { !base.contains(MacFenceGit.entry($0.0, $0.1)) && !MacFenceGit.allowed($0.0, $0.1, worktree: worktree, workdir: workdir, gitdir: g) }
                 guard !bad.isEmpty else { continue }
                 stop()
                 let text = bad.map { "\($0.0) = \($0.1)" }.joined(separator: "\n")

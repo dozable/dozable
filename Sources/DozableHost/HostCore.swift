@@ -97,6 +97,8 @@ public actor HostCore {
     var macFenceWatches: [String: MacFenceWatch] = [:]
     /// The proxy of each FENCED session on this Mac this host serves (`HostCore+Mac`, `MacFenceNetwork`).
     var macProxies: [String: MacFenceProxy] = [:]
+    /// 683 M4: fenced sessions' doors (the SSH agent relay, gh's door), by session.
+    var macDoors: [String: MacFenceDoorSet] = [:]
     /// The fence's refusals from the system log (`MacFenceDenials`) — one `log stream` while a fenced session lives.
     lazy var macDenials = MacFenceDenials(environment: mac.hostEnvironment)
     /// Names being created right now (so two `create`s cannot race).

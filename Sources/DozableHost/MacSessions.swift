@@ -232,6 +232,12 @@ public actor MacSessions {
         fence.bridges = bridges
         fence.placeholders = placeholders
         fence.account = account
+        // 683 M4: doz itself for `doz fence-connect`; the host's doors in the socket folder (each within a socket's budget).
+        fence.dozExecutable = MacFencePaths.resolve(HostLauncher.executablePath)
+        if fence.sshAgent { fence.agentSocket = try Self.door(places.socketDirectory, session, "agent") }
+        if fence.github != nil {
+            fence.ghSocket = try Self.door(places.socketDirectory, session, "gh")
+        }
         // The agent's config folder (decided before the folder is seeded: `shared` widens the grants).
         if let a = try MacAgentConfig.plan(argv: argv ?? [], workdir: fence.workdir, sessionFolder: fence.sessionFolder, home: places.home,
                                            mode: request.agentConfig, history: request.history, settings: settings) {
@@ -250,6 +256,16 @@ public actor MacSessions {
             fence.agent = try MacAgentConfig.prepare(a, fence: fence, placeholderTail: placeholders["ANTHROPIC_API_KEY"].map { String($0.suffix(20)) })
         }
         return (fence, seeded, fence.homeReads.notes + seeded.notes + (fence.agent?.notes ?? []))
+    }
+
+    /// 683 M4: the path of one of a fenced session's doors in the socket folder (`NAME.agent`, `NAME.gh`) — refused when it
+    /// would not fit a unix socket's address.
+    static func door(_ dir: String, _ s: String, _ kind: String) throws -> String {
+        let p = dir + "/" + s + "." + kind
+        guard p.utf8.count < MacPlace.socketPathLimit else {
+            throw HostError(.invalid, "the socket path for \(s)'s \(kind == "agent" ? "SSH agent" : "GitHub") would be \(p.utf8.count) bytes (at most \(MacPlace.socketPathLimit - 1)) — a shorter session name")
+        }
+        return p
     }
 
     /// QUERY of one session.

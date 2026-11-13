@@ -134,6 +134,9 @@ public enum MacFencePaths {
         public var folders: [String] = []
         /// Single files, read-only.
         public var files: [String] = []
+        /// 683 M4: folders inside those that stay closed (an Xcode profile reads `~/Library/Developer/Xcode`, never its
+        /// DerivedData, Archives or Products — other projects' builds).
+        public var closed: [String] = []
         /// What was not opened, and why (said once).
         public var notes: [String] = []
     }
@@ -143,7 +146,8 @@ public enum MacFencePaths {
     /// folder is a `bin/` (`.hermes/node/bin/node` → `.hermes/node`), never a folder directly in the home (then the file
     /// alone), never into a secret place or a refused folder; `~/.ssh/config` and `~/.ssh/*.pub`; `mac.fence_read`'s
     /// entries (`extra`, home-relative). The person's caches are NOT read (every cache is the session's own).
-    public static func homeReads(_ places: MacFencePlaces, path: String, extra: [String] = [], keychain: Bool = false) -> HomeReads {
+    public static func homeReads(_ places: MacFencePlaces, path: String, extra: [String] = [], keychain: Bool = false,
+                                 profile: String = MacFence.profileKind) -> HomeReads {
         let home = places.home
         var out = HomeReads()
         func covered(_ p: String) -> Bool { out.folders.contains { isWithin(p, $0) } }
@@ -199,9 +203,23 @@ public enum MacFencePaths {
             if MacFenceHostFS.kind(real) == S_IFREG { out.files.append(real) } else { addFolder(real) }
         }
         if keychain { addFolder(home + "/Library/Keychains") }
+        // 683 M4: the Xcode profiles read Xcode's own folder (its user data, templates) — its builds stay closed — and the
+        // Simulator's, read-only (DerivedData is the session's own).
+        if profile != MacFence.profileKind {
+            for rel in xcodeReads + (profile == "simulator" ? simulatorReads : []) {
+                let p = home + "/" + rel
+                if lstatKind(p) == S_IFDIR { addFolder(p) }
+            }
+            out.closed = xcodeClosed.map { home + "/" + $0 }
+        }
         out.files = out.files.filter { !covered($0) }
         return out
     }
+
+    /// 683 M4: what `--xcode` reads of the home, and what of it stays closed; `--simulator` adds the Simulator's devices.
+    public static let xcodeReads = ["Library/Developer/Xcode"]
+    public static let xcodeClosed = ["Library/Developer/Xcode/DerivedData", "Library/Developer/Xcode/Archives", "Library/Developer/Xcode/Products"]
+    public static let simulatorReads = ["Library/Developer/CoreSimulator"]
 
     static func lstatKind(_ p: String) -> mode_t? {
         var st = stat()

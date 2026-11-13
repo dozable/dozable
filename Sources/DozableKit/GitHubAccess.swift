@@ -46,7 +46,11 @@ public enum GitHubAccess {
 
     /// The refusal's text, for a sandbox (`name`): what is off, and how to turn it on.
     public static func pushOff(_ name: String, _ what: String) -> String {
-        "Dozable: \(what) — pushing to GitHub is off for \(name) (read-only). Turn on \"Push to GitHub\": doz net allow \(name) github:push"
+        // 683 M4: a fenced session on this Mac (`@mac NAME`) gets push at its start, never live.
+        if name.hasPrefix("@mac ") {
+            return "Dozable: \(what) — \(name) is read-only on GitHub. A session that may push: doz run @mac --github push …"
+        }
+        return "Dozable: \(what) — pushing to GitHub is off for \(name) (read-only). Turn on \"Push to GitHub\": doz net allow \(name) github:push"
     }
 
     /// One request carrying the user's GitHub login, in `mode`.

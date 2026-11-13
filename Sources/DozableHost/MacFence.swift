@@ -25,6 +25,17 @@ public struct MacFenceRequest: Codable, Equatable, Sendable {
     public var openURL: Bool? = nil
     public var openFiles: Bool? = nil
     public var clipboard: Bool? = nil
+    /// 683 M4: the Xcode build profile (`--xcode`), and the Simulator's guard rail on top of it (`--simulator` — things it
+    /// launches run OUTSIDE the fence). nil/false: the agent profile.
+    public var xcode: Bool? = nil
+    public var simulator: Bool? = nil
+    /// 683 M4: GitHub as the person through its proxy (`off` | `read` | `push`; nil: off) — the token never enters the
+    /// fence, the program gets a placeholder.
+    public var github: String? = nil
+    /// 683 M4: the person's SSH agent, filtered to list + sign (`--ssh-agent`).
+    public var sshAgent: Bool? = nil
+    /// The profile asked: `agent`, `xcode` or `simulator`.
+    public var profile: String { simulator == true ? "simulator" : xcode == true ? "xcode" : "agent" }
     public init(keychain: Bool? = nil, read: [String]? = nil, write: [String]? = nil, permissions: [String]? = nil, localPorts: [Int]? = nil) {
         self.keychain = keychain
         self.read = read
@@ -74,6 +85,11 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
     public var trust: Bool? = nil
     /// 683: its agent uses the person's own config folder (`shared`).
     public var sharedConfig: Bool? = nil
+    /// 683 M4: GitHub as the person (`read` | `push`; nil: off) and the SSH agent.
+    public var github: String? = nil
+    public var sshAgent: Bool? = nil
+
+    static func githubRank(_ m: String?) -> Int { ["read": 1, "push": 2][m ?? ""] ?? 0 }
 
     static func rank(_ profile: String) -> Int { ["agent": 0, "xcode": 1, "simulator": 2][profile] ?? 3 }
 
@@ -87,6 +103,8 @@ public struct MacFenceGrants: Codable, Equatable, Sendable {
         if !Set(writable).subtracting(old.writable).isEmpty { return true }
         if !Set(localPorts ?? []).subtracting(old.localPorts ?? []).isEmpty { return true }
         if trust ?? true, !(old.trust ?? true) { return true }
+        if Self.githubRank(github) > Self.githubRank(old.github) { return true }
+        if sshAgent == true && old.sshAgent != true { return true }
         return false
     }
 }
@@ -131,6 +149,11 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
     public var bridges: MacFenceBridges? = nil
     /// 683: `name:sha256` of each conversation carried back (nothing is carried twice).
     public var carried: [String]? = nil
+    /// 683 M4: GitHub as the person (`read` | `push`; nil: off), the SSH agent, and — for a folder that is a git worktree —
+    /// its repository's common git folder (written and watched under the same allowlist; its hooks closed).
+    public var github: String? = nil
+    public var sshAgent: Bool? = nil
+    public var gitCommon: [String]? = nil
 
     /// This session's sentinel and the anti-sentinel (`MacFence.sentinel`, `.antiSentinel`).
     public var sentinel: String { sessionFolder + "/etc/sentinel-" + tag }
@@ -146,6 +169,10 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
         r.openURL = bridges?.openURL
         r.openFiles = bridges?.openFiles
         r.clipboard = bridges?.clipboard
+        r.xcode = profile == "xcode" || profile == "simulator" ? true : nil
+        r.simulator = profile == "simulator" ? true : nil
+        r.github = github
+        r.sshAgent = sshAgent
         return r
     }
 }
@@ -180,6 +207,9 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
     public var historySource: String? = nil
     public var account: String? = nil
     public var bridges: MacFenceBridges? = nil
+    /// 683 M4: GitHub as the person (`read` | `push`; nil: off), the SSH agent (list + sign).
+    public var github: String? = nil
+    public var sshAgent: Bool? = nil
 
     public init(_ r: MacFenceRecord) {
         profile = r.profile
@@ -201,12 +231,15 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
         historySource = r.historySource
         account = r.account
         bridges = r.bridges
+        github = r.github
+        sshAgent = r.sshAgent
     }
 
     /// The STATE word(s) of `doz sessions @mac`.
     public var state: String {
         if let s = stoppedForGit, !s.isEmpty { return "stopped: git config" }
-        var t = keychain ? "fenced · Keychain open" : "fenced"
+        var t = ["xcode": "fenced (Xcode)", "simulator": "guard rail (Simulator)"][profile] ?? "fenced"
+        if keychain { t += " · Keychain open" }
         if agentConfig == MacAgentConfig.sharedMode { t += " · shared config (less isolated)" }
         return t
     }
@@ -232,7 +265,9 @@ public struct SessionQuarantine: Codable, Equatable, Sendable {
 /// by the host at each open from the request, the store and the person's home (`MacFence.make`). Paths are resolved.
 public struct MacFence: Sendable, Equatable {
     public static let templateVersion = 1
+    /// The profile every fenced session had before the Xcode ones (and the default).
     public static let profileKind = "agent"
+    public static let profiles = ["agent", "xcode", "simulator"]
 
     public var places: MacFencePlaces
     public var session: String
@@ -262,6 +297,23 @@ public struct MacFence: Sendable, Equatable {
     public var bridges = MacFenceBridges()
     public var placeholders: [String: String] = [:]
     public var account: String? = nil
+    /// 683 M4: `agent`, `xcode` (Xcode's build services) or `simulator` (also LaunchServices and the Simulator — a guard
+    /// rail, not a boundary).
+    public var profile = MacFence.profileKind
+    /// 683 M4: GitHub as the person (nil: off), the SSH agent; the host's two sockets the program may connect to — the
+    /// filtered agent relay and `gh`'s plain-HTTP door into its proxy (`<socket folder>/NAME.agent`, `NAME.gh`).
+    public var github: GitHubAccess.Mode? = nil
+    public var sshAgent = false
+    public var agentSocket: String? = nil
+    public var ghSocket: String? = nil
+    /// 683 M4: doz itself, readable so `doz fence-connect` (git's and ssh's way through the proxy) runs inside.
+    public var dozExecutable: String? = nil
+    /// 683 M4: the folder is a git worktree — its repository's common git folder (resolved), writable but its hooks.
+    public var gitCommon: [String] = []
+
+    /// 683 M4: gh's config folder with GitHub as the person (gh rewrites its config, so it is the session's own, written
+    /// again by the host at every open).
+    public var ghConfigDir: String { cache + "/config/gh" }
 
     /// 683: the bridges' shims (`open`, `xdg-open`), host-owned, first on its PATH.
     public var bin: String { etc + "/bin" }
@@ -283,12 +335,17 @@ public struct MacFence: Sendable, Equatable {
     public var writableRoots: [String] { [workdir] + writable }
 
     public var grants: MacFenceGrants {
-        var g = MacFenceGrants(profile: Self.profileKind, keychain: keychain, readable: readable.sorted(), writable: writable.sorted())
+        var g = MacFenceGrants(profile: profile, keychain: keychain, readable: readable.sorted(), writable: (writable + gitCommon).sorted())
         g.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init).sorted()
         g.trust = trust
         if agent?.isPrivate == false { g.sharedConfig = true }
+        g.github = github?.rawValue
+        g.sshAgent = sshAgent ? true : nil
         return g
     }
+
+    /// Xcode's build services are open to it (`xcode` and `simulator`).
+    public var xcode: Bool { profile != Self.profileKind }
 
     /// A fresh tag: 16 hex.
     public static func newTag() -> String { (0..<8).map { _ in String(format: "%02x", UInt8.random(in: 0...255)) }.joined() }
@@ -319,11 +376,29 @@ public struct MacFence: Sendable, Equatable {
         let readable = try folders(request.read, "--read").filter { r in r != wd && !writable.contains(r) }
         var fence = MacFence(places: places, session: session, workdir: wd, sessionFolder: sessionFolder(places, session: session),
                              readable: readable, writable: writable,
-                             homeReads: MacFencePaths.homeReads(places, path: path, extra: fenceRead, keychain: request.keychain == true),
+                             homeReads: MacFencePaths.homeReads(places, path: path, extra: fenceRead, keychain: request.keychain == true,
+                                                                         profile: request.profile),
                              keychain: request.keychain == true, tag: newTag())
         fence.localPorts = try localPorts(request.localPorts)
         fence.workdirGit = MacFenceHostFS.kind(wd + "/.git")
-        fence.protectedPaths = try MacFenceGit.protectedPaths(workdir: wd, hooksPathGlobal: hooksPathGlobal, home: places.home, scratch: scratch)
+        fence.profile = request.profile
+        switch request.github ?? "off" {
+        case "off": fence.github = nil
+        case "read": fence.github = .read
+        case "push": fence.github = .push
+        case let g: throw HostError(.invalid, "--github \(g): off, read or push")
+        }
+        fence.sshAgent = request.sshAgent == true
+        // A worktree: its repository's common git folder (where its commits, refs and config live) is written too.
+        if fence.workdirGit == S_IFREG {
+            let common = try MacFenceGit.worktreeCommon(workdir: wd)
+            if let why = MacFencePaths.folderRefusal(common, places) {
+                throw HostError(.invalid, "a fenced session cannot run in this worktree: its repository's git folder \(DisplayPath.tilde(common)) is refused — \(why)")
+            }
+            if !writable.contains(where: { MacFencePaths.isWithin(common, $0) }) && !MacFencePaths.isWithin(common, wd) { fence.gitCommon = [common] }
+        }
+        fence.protectedPaths = try MacFenceGit.protectedPaths(workdir: wd, hooksPathGlobal: hooksPathGlobal, home: places.home, scratch: scratch,
+                                                              gitCommon: fence.gitCommon.first)
         return fence
     }
 
@@ -349,16 +424,21 @@ public struct MacFence: Sendable, Equatable {
         let net = proxyPort == nil ? "no network" : "network through Dozable's proxy (\(words) permissions)"
             + (localPorts.isEmpty ? "" : "; its own ports \(localPorts.map(String.init).joined(separator: ", ")) on this Mac")
         var own = "its own temp and caches"
+        if xcode { own += " and DerivedData" }
         if let a = agent {
             own = a.isPrivate ? "its own temp, caches and \(a.title) settings" : "its own temp and caches; your own \(DisplayPath.tilde(a.personHome)) (shared — less isolated)"
         }
-        return "fenced: reads and writes \(reach); \(own); \(net); "
+        var extra = ""
+        if let g = github { extra += "GitHub as you (\(g == .push ? "read and push" : "read-only")) through the proxy; " }
+        if sshAgent { extra += "your SSH agent (list + sign only); " }
+        let head = ["xcode": "fenced (Xcode)", "simulator": "guard rail (Simulator: it and what it launches run OUTSIDE the fence — a guard rail, not a boundary)"][profile] ?? "fenced"
+        return "\(head): reads and writes \(reach); \(own); \(net); " + extra
             + (keychain ? "your Keychain OPEN; " : "your Keychain, ")
             + "secrets and other folders closed — doz run @mac --unfenced for none of this"
     }
 
     public func record(profileSHA256: String, gitBaseline: [String: String]?) -> MacFenceRecord {
-        var r = MacFenceRecord(profile: Self.profileKind, keychain: keychain, readable: readable, writable: writable, sessionFolder: sessionFolder,
+        var r = MacFenceRecord(profile: profile, keychain: keychain, readable: readable, writable: writable, sessionFolder: sessionFolder,
                                grants: grants, tag: tag, templateVersion: Self.templateVersion, profileSHA256: profileSHA256,
                                gitBaseline: gitBaseline, stoppedForGit: nil, stoppedPids: nil)
         r.proxyPort = proxyPort.map(Int.init)
@@ -370,9 +450,22 @@ public struct MacFence: Sendable, Equatable {
         r.historySource = agent?.historySource
         r.account = account
         r.placeholderHashes = placeholders.isEmpty ? nil
-            : Dictionary(placeholders.map { (k, t) in (CredentialFingerprint.placeholderHash(t), k == "ANTHROPIC_API_KEY" ? CredentialBinding.anthropic.id : CredentialBinding.claudeOAuth.id) }) { a, _ in a }
+            : Dictionary(placeholders.map { (k, t) in (CredentialFingerprint.placeholderHash(t), Self.binding(ofVariable: k)) }) { a, _ in a }
         r.bridges = bridges
+        r.github = github?.rawValue
+        r.sshAgent = sshAgent ? true : nil
+        r.gitCommon = gitCommon.isEmpty ? nil : gitCommon
         return r
+    }
+
+    /// The binding a placeholder variable stands for (`GH_TOKEN` → github; `ANTHROPIC_API_KEY` → anthropic; the Claude
+    /// login's otherwise).
+    static func binding(ofVariable k: String) -> String {
+        switch k {
+        case "GH_TOKEN": return CredentialBinding.github.id
+        case "ANTHROPIC_API_KEY": return CredentialBinding.anthropic.id
+        default: return CredentialBinding.claudeOAuth.id
+        }
     }
 
     static func sha256(_ s: String) -> String { SHA256.hash(data: Data(s.utf8)).map { String(format: "%02x", $0) }.joined() }

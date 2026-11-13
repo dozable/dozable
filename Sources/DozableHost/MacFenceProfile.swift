@@ -55,6 +55,26 @@ public enum MacFenceProfile {
         "com.apple.system.notification_center", "com.apple.logd", "com.apple.diagnosticd", "com.apple.cfprefsd.daemon",
         "com.apple.cfprefsd.agent", "com.apple.FSEvents",
     ]
+    /// 683 M4 — `--xcode`: Xcode's build services on top of the agent's. PROVISIONAL — EMPTY until the person's freeze run
+    /// (`Scripts/fence-freeze.sh --xcode --run 'xcodebuild … build'` against a real app): on macOS 27.0.1 (26A434) with Xcode
+    /// 27.2 (27B52), `xcodebuild build` of a scratch macOS tool (no signing, -derivedDataPath "$DOZ_DERIVED") built and ran
+    /// with the agent's services alone; what it was refused and did without: CoreDevice, coreservicesd, DiskArbitration,
+    /// FileCoordination, PowerManagement, analyticsd, backupd, the quarantine resolver, distributed notifications, mds,
+    /// syspolicy.exec, the Keychain's, LaunchServices (lsd) and CoreSimulator. A real app (asset catalogues, storyboards,
+    /// packages, signing) may need some: the freeze adds exactly those, reviewed. LaunchServices and CoreSimulator never.
+    public static let xcodeMachServices: [String] = []
+    public static let xcodeMachPrefixes: [String] = []
+    /// 683 M4: the programs whose item-replacement folders (`TemporaryItems/NSIRD_<program>_…`) a fenced program may use.
+    public static let replacementPrograms = ["xcodebuild", "XCBBuildService", "SWBBuildService", "swift-build", "swift-package", "ibtool", "actool"]
+    /// 683 M4 — `--simulator` (with `--xcode`): LaunchServices, the Simulator and the test manager — things launched OUTSIDE
+    /// the fence (a guard rail, not a boundary).
+    public static let simulatorMachServices: [String] = [
+        "com.apple.coreservices.launchservicesd", "com.apple.lsd.mapdb", "com.apple.lsd.modifydb", "com.apple.coreservices.quarantine-resolver",
+        "com.apple.CoreServices.coreservicesd", "com.apple.DiskArbitration.diskarbitrationd", "com.apple.window_proxies",
+        "com.apple.windowserver.active", "com.apple.dock.server",
+    ]
+    public static let simulatorMachPrefixes = ["com.apple.CoreSimulator.", "com.apple.testmanagerd", "com.apple.dt.testmanagerd"]
+
     /// `--keychain`: the Keychain's services.
     public static let keychainMachServices = ["com.apple.SecurityServer", "com.apple.securityd.xpc", "com.apple.secd", "com.apple.security.agent"]
 
@@ -103,6 +123,11 @@ public enum MacFenceProfile {
         if !f.homeReads.files.isEmpty {
             s.append("(allow file-read* " + f.homeReads.files.map { "(literal \(lit($0)))" }.joined(separator: " ") + ")")
         }
+        if !f.homeReads.closed.isEmpty {
+            s.append("(deny file-read* " + f.homeReads.closed.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
+        }
+        // 683 M4: doz itself (only the file), so `doz fence-connect` — git's and ssh's way through the proxy — runs inside.
+        if let d = f.dozExecutable { s.append("(allow file-read* (literal \(lit(d))))") }
         if !f.readable.isEmpty {
             s.append("(allow file-read* " + f.readable.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
         }
@@ -115,6 +140,18 @@ public enum MacFenceProfile {
         s.append("(allow file-read* file-write* file-ioctl (literal \"/dev/tty\") (literal (param \"TTY\")))")
         // 5. Writes: the folder, --write folders (its own temp, caches and DerivedData are in the session's folder, last).
         s.append("(allow file-read* file-write* " + f.writableRoots.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
+        // 683 M4: Apple's build tools (swift build, xcodebuild) save through Foundation's "item replacement" folders, which
+        // macOS puts in the user temp folder's TemporaryItems whatever TMPDIR says (`NSIRD_<program>_<random>`, made with
+        // mkdtemp by the program itself; found by probe: without them `swift build` and `xcodebuild build` fail) — only
+        // those of these programs, never the rest of the user temp folder (TemporaryItems itself is not listable).
+        s.append("(allow file-read* file-write* (regex #\"^\(regexEscape(f.places.userTemp))TemporaryItems/NSIRD_(" + replacementPrograms.joined(separator: "|") + ")_[^/]+(/|$)\"))")
+        // …and the Swift driver's temporary folders (`TemporaryDirectory.<random>`, mkdtemp): Swift Build starts it without
+        // the session's TMPDIR. Its own folders only — the user temp folder itself is neither listable nor writable.
+        s.append("(allow file-read* file-write* (regex #\"^\(regexEscape(f.places.userTemp))TemporaryDirectory\\.[A-Za-z0-9]+(/|$)\"))")
+        // 683 M4: a worktree's repository's common git folder (its commits, refs and config; its hooks closed below).
+        if !f.gitCommon.isEmpty {
+            s.append("(allow file-read* file-write* " + f.gitCommon.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")
+        }
         // 683: a SHARED agent folder — the person's own config home and the file beside it (with the temp and backup names
         // it writes that one through), read and written: less isolated, by the person's choice.
         if let a = f.agent, !a.isPrivate {
@@ -126,6 +163,13 @@ public enum MacFenceProfile {
         // Under Locked, certificate trust (trustd, OCSP) is closed too: it fetches on the program's behalf.
         let mach = f.trust ? agentMachServices : agentMachServices.filter { !trustMachServices.contains($0) }
         s.append("(allow mach-lookup " + mach.map { "(global-name \(lit($0)))" }.joined(separator: " ") + ")")
+        // 683 M4: the Xcode profiles.
+        if f.xcode {
+            let names = xcodeMachServices + (f.profile == "simulator" ? simulatorMachServices : [])
+            let prefixes = xcodeMachPrefixes + (f.profile == "simulator" ? simulatorMachPrefixes : [])
+            let rules = names.map { "(global-name \(lit($0)))" } + prefixes.map { "(global-name-prefix \(lit($0)))" }
+            if !rules.isEmpty { s.append("(allow mach-lookup " + rules.joined(separator: " ") + ")") }
+        }
         s.append("(allow user-preference-read (preference-domain \"kCFPreferencesAnyApplication\") (preference-domain-prefix \"com.apple.\"))")
         // 7. The Keychain, only when asked.
         if f.keychain {
@@ -144,12 +188,24 @@ public enum MacFenceProfile {
             s.append("(allow network-bind network-inbound (local tcp \"localhost:\(p)\"))")
             s.append("(allow network-outbound (remote tcp \"localhost:\(p)\"))")
         }
+        // 683 M4: the host's two doors in the (closed) socket folder — the filtered SSH agent and gh's way into its proxy.
+        // Connecting is all: the folder stays closed to reads and writes (verified: a connect needs no file access).
+        for sock in [f.agentSocket, f.ghSocket].compactMap({ $0 }) {
+            s.append("(allow network-outbound (literal \(lit(sock))))")
+        }
         // 10. Protection: git's execution paths, at any depth, and what a rename could expose.
         for root in f.writableRoots {
             let r = regexEscape(root)
             s.append("(deny file-write-unlink (regex #\"^\(r)/(.*/)?\\.git$\"))")
             s.append("(deny file-write* (regex #\"^\(r)/(.*/)?\\.git/hooks(/|$)\"))")
+            // 683 M4: a submodule's hooks (`.git/modules/NAME/hooks`, nested modules too).
+            s.append("(deny file-write* (regex #\"^\(r)/(.*/)?\\.git/modules/(.*/)?hooks(/|$)\"))")
             s.append("(deny file-write-unlink (literal \(lit(root))))")
+        }
+        for c in f.gitCommon {
+            s.append("(deny file-write* (subpath \(lit(c + "/hooks"))))")
+            s.append("(deny file-write* (regex #\"^\(regexEscape(c))/modules/(.*/)?hooks(/|$)\"))")
+            s.append("(deny file-write-unlink (literal \(lit(c))))")
         }
         switch f.workdirGit {
         case nil: s.append("(deny file-write-create (literal \(lit(f.workdir + "/.git"))))")

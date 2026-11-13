@@ -122,9 +122,34 @@ public enum MacFenceSessionFolder {
         for name in ["open", "xdg-open"] {
             try MacFenceHostFS.writeAtomically(Data(openShim(workdir: f.workdir).utf8), dir: f.bin, name: name, mode: 0o555)
         }
+        // 683 M4: `ssh` itself goes through the proxy too (git's own ssh is GIT_SSH_COMMAND); gh reaches GitHub through its
+        // door into the proxy (`http_unix_socket`: gh speaks plain HTTP there and the proxy swaps the placeholder — Go on
+        // macOS trusts only the system's certificates, never a session's CA, so the decrypting tunnel cannot serve it).
+        try MacFenceHostFS.writeAtomically(Data(sshShim(f).utf8), dir: f.bin, name: "ssh", mode: 0o555)
+        if let sock = f.ghSocket {
+            for d in [f.cache + "/config", f.ghConfigDir] {
+                if let k = MacFenceHostFS.kind(d), k != S_IFDIR { try MacFenceHostFS.remove(d) }
+                try MacFenceHostFS.ensureDirectory(d)
+            }
+            try MacFenceHostFS.writeAtomically(Data(ghConfig(socket: sock).utf8), dir: f.ghConfigDir, name: "config.yml", mode: 0o600)
+        }
         let known = FileManager.default.contents(atPath: f.places.home + "/.ssh/known_hosts").flatMap { $0.count <= 4 << 20 ? $0 : nil } ?? Data()
         try MacFenceHostFS.writeAtomically(known, dir: f.ssh, name: "known_hosts", mode: 0o600)
         return out
+    }
+
+    /// 683 M4: the session's `ssh` (first on its PATH): `/usr/bin/ssh` with the fence's options — through `doz fence-connect`,
+    /// the session's own `known_hosts`.
+    public static func sshShim(_ f: MacFence) -> String {
+        let opts = MacFenceEnvironment.sshOptions(doz: f.dozExecutable, knownHosts: f.ssh + "/known_hosts")
+        return "#!/bin/sh\n# doz:fence-ssh-shim:v1 — written by Dozable for a fenced session on this Mac at every start.\n"
+            + "exec /usr/bin/ssh" + opts.map { " -o " + MacFenceEnvironment.shellQuoted($0) }.joined() + " \"$@\"\n"
+    }
+
+    /// 683 M4: gh's config in a session with GitHub as the person (`GH_CONFIG_DIR`, in its caches — gh rewrites it).
+    public static func ghConfig(socket: String) -> String {
+        "# Written by Dozable for a fenced session at every start: gh reaches GitHub through Dozable's proxy, signed in as you.\n"
+            + "http_unix_socket: \(socket)\ngit_protocol: https\nprompt: disabled\n"
     }
 
     /// 683: a fenced session's `open` / `xdg-open` (and `$BROWSER`): `open`, `osascript` and LaunchServices are closed to

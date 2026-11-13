@@ -120,7 +120,7 @@ public final class SSHAgentRelay: @unchecked Sendable {
     }
 
     /// Relay a connection, judging each request from the guest (agent → guest passes as it is).
-    static func relayFiltered(guest: Int32, agent: Int32) {
+    public static func relayFiltered(guest: Int32, agent: Int32) {
         var pending: [UInt8] = []
         var buf = [UInt8](repeating: 0, count: 65536)
         while true {
