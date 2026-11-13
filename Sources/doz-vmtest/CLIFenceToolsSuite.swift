@@ -451,8 +451,8 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
         echo done > res/DONE
         sleep 600
         """)
-        // GitHub keeps LFS objects on github-cloud.githubusercontent.com — not in Standard (sandboxes' neither): allowed by name.
-        r = run("fnet", nt, ["--permissions", "standard,site:github-cloud.githubusercontent.com"], "s.sh")
+        // GitHub keeps LFS objects on github-cloud.githubusercontent.com — part of the github permission, so Standard has it.
+        r = run("fnet", nt, ["--permissions", "standard"], "s.sh")
         if r.code == 0, t.waitFor(600, { fm.fileExists(atPath: nt + "/res/DONE") }) {
             for n in ["lfsversion", "lfs", "go", "pip", "spm", "sshgh"] {
                 print("  INFO  [FENCE_NET] \(n): exit \(res(nt, n).map(String.init) ?? "?") — \(out(nt, n).suffix(200).replacingOccurrences(of: "\n", with: " ⏎ "))")

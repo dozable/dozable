@@ -51,7 +51,7 @@ perm install:swift locked=false hosts=download.swift.org swiftpackageindex.com c
 perm install:java locked=false hosts=repo.maven.apache.org repo1.maven.org services.gradle.org downloads.gradle.org plugins.gradle.org
 perm install:ruby locked=false hosts=rubygems.org index.rubygems.org
 perm install:dotnet locked=false hosts=api.nuget.org globalcdn.nuget.org
-perm github locked=false hosts=github.com raw.githubusercontent.com codeload.github.com objects.githubusercontent.com
+perm github locked=false hosts=github.com raw.githubusercontent.com codeload.github.com objects.githubusercontent.com github-cloud.githubusercontent.com
 perm github:as-you locked=false hosts=github.com api.github.com uploads.github.com codeload.github.com
 perm github:push locked=false hosts=
 perm error-reports locked=false hosts=http-intake.logs.us5.datadoghq.com browser-intake-us5-datadoghq.com

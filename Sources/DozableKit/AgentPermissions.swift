@@ -170,7 +170,9 @@ public enum AgentPermissions {
         }
         a += [
             AgentPermission(id: "github", title: "Use GitHub", summary: "Clone and fetch code; Claude Code plugins.", phrase: "use GitHub (clone, fetch, plugins)",
-                            hosts: ["github.com", "raw.githubusercontent.com", "codeload.github.com", "objects.githubusercontent.com"].map { PermissionHost($0) }, locked: false),
+                            // github-cloud.githubusercontent.com: where GitHub serves Git LFS files from (owner, 2026-11-13).
+                            hosts: ["github.com", "raw.githubusercontent.com", "codeload.github.com", "objects.githubusercontent.com",
+                                    "github-cloud.githubusercontent.com"].map { PermissionHost($0) }, locked: false),
             // 599d: the user's own GitHub login, through the proxy (the token never enters the sandbox).
             AgentPermission(id: gitHubAsYou, title: "Use GitHub as you",
                             summary: "git and gh are signed in as you on github.com (your Mac's gh login, or a token you add) — read-only: clone and fetch your private repositories, read issues and pull requests.",

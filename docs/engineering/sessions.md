@@ -217,7 +217,7 @@ Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → 
   | GitHub (git, `gh`) | `--github read\|push` | the placeholder swapped by the proxy; gh through its door (Go on macOS ignores a session CA) |
   | signed commits | ssh signing with `--ssh-agent` (`-c gpg.format=ssh -c user.signingKey=…`); gpg fails (its home is closed) | `gpg.*` and `user.signingkey` are not carried from your config |
   | worktrees, submodules | work | above; a submodule's `submodule.*.update` stops the session |
-  | git LFS (GitHub) | works with `site:github-cloud.githubusercontent.com` | GitHub serves LFS objects from that host, which Standard does not name |
+  | git LFS (GitHub) | works | GitHub serves LFS objects from `github-cloud.githubusercontent.com`, part of the `github` permission |
   | Go | works on tunnels; `GOPATH` is the session's (its sumdb), so `go install` lands in its caches | the system's trust (trustd; closed under `locked`) — a host the proxy decrypts fails (Go ignores a session CA) |
   | Node, npm, pnpm, bun | work | `NODE_USE_ENV_PROXY=1`, `NODE_EXTRA_CA_CERTS`; caches in the session |
   | curl, Python (pip, uv) | work | the proxy variables; `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`/`CURL_CA_BUNDLE` |
