@@ -183,10 +183,10 @@
 # (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz ui starts again (doz ui restart))
 # trusted_proxies = ""
 
-# With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no
-# isolation: your files, Keychain and network): off (they do not see them), watch (list them and
-# watch their screens, read-only) or interactive (also type into them, end and restart them). This
-# Mac's own browser always has them.
+# With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — they
+# run as you, an unfenced one with your files, Keychain and network): off (they do not see them),
+# watch (list them and watch their screens, read-only) or interactive (also type into them, end
+# and restart them). This Mac's own browser always has them.
 # (off | watch | interactive; applies at once (the UI re-reads it))
 # mac_sessions = "off"
 
@@ -199,10 +199,10 @@
 
 # Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp
 # and caches, your Keychain, secrets and other folders closed, its network only through Dozable's
-# proxy (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for
-# one session.
+# proxy (on, the default), or with no isolation at all (off). doz run @mac --fenced or --unfenced
+# decides for one session; a session keeps its mode when it is restarted.
 # (off | on; env DOZ_MAC_FENCE; flag doz run @mac --fenced | --unfenced; applies to sessions opened from now on)
-# fence = "off"
+# fence = "on"
 
 # Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so,
 # reading your saved logins). doz run @mac --keychain opens it for one session.

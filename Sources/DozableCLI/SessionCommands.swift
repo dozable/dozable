@@ -468,7 +468,13 @@ struct SessionsList: AsyncParsableCommand {
         let rows = try decode(try await query(HostRequest(.sessions, name: name), g), [SessionRow].self, g)
         if g.json { Out.json(rows); return }
         if MacPlace.isPlace(name) {
-            Out.stdout(rows.contains { $0.fenced == true } ? "this Mac — fenced sessions are held to their folders; the others have no isolation\n"
+            let fencedRows = rows.filter { $0.fenced == true }.count
+            Out.stdout(rows.isEmpty
+                       ? (DozableSettings.load().string(SettingKey.macFence) == "off"
+                          ? "this Mac — new sessions have no isolation (mac.fence is off)\n"
+                          : "this Mac — new sessions are fenced (doz run @mac --unfenced for none)\n")
+                       : fencedRows == rows.count ? "this Mac — fenced sessions, each held to its folder\n"
+                       : fencedRows > 0 ? "this Mac — fenced sessions are held to their folders; the others have no isolation\n"
                        : "this Mac — no isolation (your files, Keychain and network)\n")
             for s in rows where s.fence?.stoppedForGit != nil {
                 Out.stderr("\(s.name) is STOPPED: a git config change a fenced session may not make (\(s.fence!.stoppedForGit!)) — doz sessions @mac --quarantine \(s.name); doz sessions resume @mac \(s.name)\n")
@@ -545,9 +551,8 @@ struct Run: AsyncParsableCommand {
         abstract: "Open a NEW session running a program, and attach to it. Exits with the program's exit code.",
         discussion: """
             doz run NAME -- top. The program starts without a shell in front of it; say `-- bash -lc '…'` for one. \
-            doz run @mac -- CMD runs it on THIS Mac instead, held like a sandbox's session — with no isolation at all: \
-            your files, Keychain and network (no CMD: your login shell; --workdir is a folder on the Mac, default your home). \
-            doz run @mac --fenced -- CMD puts a fence around it: it reads and writes only its folder (default: the one you \
+            doz run @mac -- CMD runs it on THIS Mac instead, held like a sandbox's session, and by default FENCED \
+            (no CMD: your login shell): it reads and writes only its folder (--workdir, default: the one you \
             are in) and its own temp and caches, reads your tools but not your secrets or other folders, cannot use your \
             Keychain (--keychain opens it), and reaches the network only through Dozable's proxy, by its permissions \
             (--permissions, the setting mac.permissions; doz net allow|deny @mac --session SESSION changes them live) — never \
@@ -556,7 +561,9 @@ struct Run: AsyncParsableCommand {
             stays on the Mac; read-only refuses pushes), --ssh-agent your SSH agent for listing and signing only (git over \
             ssh goes through the proxy), --xcode Xcode's build services (DerivedData in the session: -derivedDataPath \
             "$DOZ_DERIVED"), --simulator the Simulator too (a guard rail, not a boundary: what it launches runs outside). \
-            The setting mac.fence makes fenced the default; --unfenced overrides it.
+            doz run @mac --unfenced -- CMD runs it with no isolation at all: your files, Keychain and network (--workdir \
+            default your home) — what signing and notarisation need. The setting mac.fence (on by default) decides for a \
+            new session; a session keeps its mode when it is restarted.
             """)
     @OptionGroup var g: GlobalOptions
     @Argument var name: String
@@ -567,7 +574,7 @@ struct Run: AsyncParsableCommand {
     @Flag(name: [.short, .customLong("detach")], help: "Start it and return; attach later.") var detach = false
     @Option(name: .long, help: "The key that detaches: ctrl-] (default), ctrl-<letter>, or none.") var detachKey = "ctrl-]"
     @Flag(name: .long, help: "Fail instead of starting (cold-booting) a sandbox that is off.") var noStart = false
-    @Flag(name: .long, help: "@mac: run it fenced — its folder, its own temp and caches; your Keychain, secrets and other folders closed (setting mac.fence).") var fenced = false
+    @Flag(name: .long, help: "@mac: run it fenced (the default; setting mac.fence) — its folder, its own temp and caches; your Keychain, secrets and other folders closed.") var fenced = false
     @Flag(name: .long, help: "@mac: run it with no isolation at all, whatever mac.fence says.") var unfenced = false
     @Flag(name: .long, help: "@mac, fenced: open your Keychain to it (signing, notarisation — and your saved logins).") var keychain = false
     @Option(name: .customLong("read"), help: "@mac, fenced: one more folder it may read (repeatable).") var readDirs: [String] = []
@@ -646,10 +653,11 @@ struct Run: AsyncParsableCommand {
         let argv = command.isEmpty ? [ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh", "-l"] : command
         return MacCapabilityShape.planned(session: session ?? ((argv[0] as NSString).lastPathComponent), workdir: workdir, argv: argv,
                                           fenced: fence, request: fence ? fenceRequest(settings, absolute: absolute) : nil,
-                                          settings: settings, home: NSHomeDirectory())
+                                          settings: settings, home: MacSessions.plannedHome())
     }
 
-    /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else off.
+    /// Whether this `doz run @mac` is fenced: the flag, else `mac.fence` (its environment variable, the file), else its
+    /// default — ON since 683 M6. Only a NEW session reads this; a restart, resume or adoption keeps the record's mode.
     func fencedOnMac(_ settings: DozableSettings) -> Bool {
         if fenced { return true }
         if unfenced { return false }

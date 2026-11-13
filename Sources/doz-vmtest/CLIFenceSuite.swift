@@ -501,6 +501,48 @@ func cliFenceSuite(binary: String) async {
     t.run(["sessions", "end", "@mac", "plain", "--yes"], timeout: 60)
     started.remove("plain")
 
+    // M6: fenced is the DEFAULT for a new session; mac.fence (the file, then DOZ_MAC_FENCE) and the flags decide, the flag
+    // first. A session keeps the mode it was opened with: an unfenced one restarted under the fenced default stays unfenced.
+    func dry(_ extra: [String], env: [String: String] = [:]) -> String {
+        let saved = t.env
+        for (k, v) in env { t.env[k] = v }
+        defer { t.env = saved }
+        let d = t.run(["run", "@mac", "--dry-run"] + extra + ["--workdir", work, "--", "/bin/sh"])
+        return d.code == 0 ? (d.out.contains("(fenced — nothing") ? "fenced" : d.out.contains("(no isolation — nothing") ? "unfenced" : "?") : "exit \(d.code)"
+    }
+    check(dry([]) == "fenced", "M6 no flag, no setting: fenced (\(dry([])))")
+    check(dry([], env: ["DOZ_MAC_FENCE": "off"]) == "unfenced", "M6 DOZ_MAC_FENCE=off: no isolation")
+    check(dry(["--fenced"], env: ["DOZ_MAC_FENCE": "off"]) == "fenced", "M6 --fenced beats DOZ_MAC_FENCE=off")
+    check(dry(["--unfenced"]) == "unfenced", "M6 --unfenced beats the default")
+    check(t.run(["config", "set", "mac.fence", "off"]).code == 0, "M6 doz config set mac.fence off")
+    check(dry([]) == "unfenced", "M6 mac.fence = off in the file: no isolation")
+    check(dry([], env: ["DOZ_MAC_FENCE": "on"]) == "fenced", "M6 DOZ_MAC_FENCE=on beats the file's off")
+    check(dry(["--fenced"]) == "fenced" && dry(["--keychain"]) == "fenced", "M6 --fenced, or a fenced-only flag, beats the file's off")
+    // A session opened unfenced (mac.fence off, as every session before the flip), then the default back on: its restart,
+    // a host stop + adoption and a second restart keep it unfenced.
+    r = t.run(["run", "@mac", "-d", "--session", "before", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 60)
+    if r.code == 0 { started.insert("before") }
+    check(r.code == 0 && r.err.contains("no sandbox, no proxy") && row("before")?.fenced == nil, "M6 mac.fence off: a session opened with no flag is unfenced")
+    check(t.run(["config", "unset", "mac.fence"]).code == 0, "M6 doz config unset mac.fence (the default, on, again)")
+    r = t.run(["sessions", "restart", "@mac", "before", "--yes", "-d"], timeout: 60)
+    check(r.code == 0 && t.waitFor(10) { row("before")?.ended == false } && row("before")?.fenced == nil && row("before")?.fence == nil,
+          "M6 restarted under the fenced default: still unfenced (\(r.code))")
+    check(t.run(["host", "stop"], timeout: 60).code == 0, "M6 host stop (the next host adopts it)")
+    check(row("before")?.ended == false && row("before")?.fenced == nil, "M6 adopted: still unfenced")
+    r = t.run(["sessions", "restart", "@mac", "before", "--yes", "-d"], timeout: 60)
+    check(r.code == 0 && t.waitFor(10) { row("before")?.ended == false } && row("before")?.fenced == nil, "M6 restarted after the adoption: still unfenced")
+    t.run(["sessions", "end", "@mac", "before", "--yes"], timeout: 60)
+    started.remove("before")
+    // And the other way: no flag now opens a FENCED session (a real one), and its restart keeps the fence.
+    r = t.run(["run", "@mac", "-d", "--session", "dflt", "--workdir", work, "--", "/bin/sleep", "600"], timeout: 90)
+    if r.code == 0 { started.insert("dflt") }
+    check(r.code == 0 && r.err.contains("[doz] fenced") && row("dflt")?.fenced == true, "M6 no flag: a fenced session (\(r.code)\(r.code == 0 ? "" : ": " + r.err.prefix(160)))")
+    r = t.run(["sessions", "restart", "@mac", "dflt", "--yes", "-d"], timeout: 60)
+    check(r.code == 0 && t.waitFor(10) { row("dflt")?.ended == false } && row("dflt")?.fenced == true, "M6 its restart keeps the fence")
+    check(t.run(["sessions", "@mac"]).out.contains("this Mac — fenced"), "M6 sessions @mac: the header says fenced")
+    t.run(["sessions", "end", "@mac", "dflt", "--yes"], timeout: 60)
+    started.remove("dflt")
+
     // M2: the network.
     await cliFenceNetworkChecks(t, root: root, home: home, store: store, binary: binary, allowed: allowed, streamer: streamer, started: &started)
 

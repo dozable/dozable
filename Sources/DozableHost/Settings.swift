@@ -810,13 +810,14 @@ public struct DozableSettings: Sendable {
             .init("serve", "trusted_proxies", .addressList, .string(""),
                   "The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For the dashboard believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored.",
                   applies: .uiRestart, ui: false),
-            // The sessions on this Mac (@mac) for a browser of the network — never by default: they are not isolated.
+            // The sessions on this Mac (@mac) for a browser of the network — never by default: they run as the person.
             .init("serve", "mac_sessions", .choice(["off", "watch", "interactive"]), .string("off"),
-                  "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no isolation: your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
+                  "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — they run as you, an unfenced one with your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
                   applies: .now, ui: false),
-            // A fence around a session on this Mac: a Seatbelt profile per session — off by default for now.
-            .init("mac", "fence", .choice(["off", "on"]), .string("off"),
-                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, its network only through Dozable's proxy (on), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session.",
+            // A fence around a session on this Mac: a Seatbelt profile per session — on by default (683 M6). Only NEW sessions
+            // follow it: a session's record keeps the mode it was opened with across restart, resume and adoption.
+            .init("mac", "fence", .choice(["off", "on"]), .string("on"),
+                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, its network only through Dozable's proxy (on, the default), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session; a session keeps its mode when it is restarted.",
                   env: "DOZ_MAC_FENCE", flag: "doz run @mac --fenced | --unfenced", applies: .nextSession, ui: false),
             .init("mac", "keychain", .choice(["off", "on"]), .string("off"),
                   "Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session.",

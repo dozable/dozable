@@ -540,7 +540,7 @@ public final class HostWebData: DozableWebData, @unchecked Sendable {
     }
 
     public func macSessionPlan(_ r: WebMacPlanRequest) async throws -> WebMacPlan {
-        var p = WebMacPlan.make(r, settings: .load(), home: NSHomeDirectory(), shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
+        var p = WebMacPlan.make(r, settings: .load(), home: MacSessions.plannedHome(), shell: ProcessInfo.processInfo.environment["SHELL"] ?? "/bin/zsh",
                                 executable: executable, store: store, defaultStore: DozableStore.resolve(nil, environment: [:]))
         guard r.open else { return p }
         guard p.openable else { throw HostError(.invalid, "Open in Terminal is not offered for this one: \(p.copyOnly ?? "copy the command") (nothing was opened)") }

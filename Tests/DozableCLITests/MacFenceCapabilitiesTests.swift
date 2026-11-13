@@ -23,10 +23,42 @@ final class MacFenceCapabilitiesTests: XCTestCase {
             let cli = run.dryRunShape(settings, fence: fence, workdir: "/Users/x/src/app", absolute: { $0 })
             let shared = MacCapabilityShape.planned(session: "claude", workdir: "/Users/x/src/app", argv: ["claude"], fenced: fence,
                                                     request: fence ? run.fenceRequest(settings, absolute: { $0 }) : nil,
-                                                    settings: settings, home: NSHomeDirectory())
+                                                    settings: settings, home: MacSessions.plannedHome())
             XCTAssertEqual(cli, shared, args.joined(separator: " "))
             XCTAssertEqual(MacFence.capabilities(cli), MacFence.capabilities(shared))
         }
+    }
+
+    /// 683 M6: fenced is the default for a NEW session; the flag > `DOZ_MAC_FENCE` > `mac.fence` (the file) > on.
+    func testFencedIsTheDefaultAndThePrecedence() throws {
+        func fenced(_ args: [String], file: String? = nil, env: [String: String] = [:]) throws -> Bool {
+            try Run.parse(["@mac"] + args + ["--", "/bin/sh"]).fencedOnMac(DozableSettings(text: file, environment: env))
+        }
+        let off = "[mac]\nfence = \"off\"\n"
+        XCTAssertEqual(DozableSettings(text: nil).string(SettingKey.macFence), "on")
+        XCTAssertTrue(try fenced([]), "no flag, no setting: fenced")
+        XCTAssertFalse(try fenced(["--unfenced"]))
+        XCTAssertFalse(try fenced([], file: off), "mac.fence = off")
+        XCTAssertFalse(try fenced([], env: ["DOZ_MAC_FENCE": "off"]))
+        XCTAssertTrue(try fenced([], file: off, env: ["DOZ_MAC_FENCE": "on"]), "the variable beats the file")
+        XCTAssertTrue(try fenced(["--fenced"], env: ["DOZ_MAC_FENCE": "off"]), "the flag beats the variable")
+        XCTAssertTrue(try fenced(["--keychain"], file: off), "a fenced-only flag means fenced")
+        XCTAssertFalse(try fenced(["--unfenced"], env: ["DOZ_MAC_FENCE": "on"]))
+    }
+
+    /// 683 M6: a planned session (the wizard, `--dry-run`) names the agent folder under the home `DisplayPath` shows as `~`
+    /// — the History row once read `/Users/…/.claude/projects/…`.
+    func testThePlannedHistoryRowShowsTheHomeWithATilde() {
+        let home = TestSafety.realHome.path
+        let s = MacCapabilityShape.planned(session: "claude", workdir: home + "/src/app", argv: ["claude"], fenced: true,
+                                           request: MacFenceRequest(permissions: ["standard"]), settings: DozableSettings(text: nil), home: home)
+        let history = MacFence.capabilities(s).first { $0.id == "history" }
+        XCTAssertEqual(history?.state, "keep")
+        XCTAssertTrue(history?.sentence.contains("~/.claude/projects/…") == true, history?.sentence ?? "no row")
+        XCTAssertFalse(MacFence.capabilities(s).contains { $0.sentence.contains(home + "/") || $0.state.contains(home + "/") })
+        // A guarded run (XCTest always is): the fence's scratch seam when given, else the real home's spelling (words only).
+        XCTAssertEqual(MacSessions.plannedHome([:]), home)
+        XCTAssertEqual(MacSessions.plannedHome(["DOZ_TEST_FENCE_HOME": "/private/tmp"]), "/private/tmp")
     }
 
     func testTheStandardPresetIsNamedStandard() {

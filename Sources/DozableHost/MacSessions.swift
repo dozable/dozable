@@ -160,11 +160,22 @@ public actor MacSessions {
     /// TEST SEAM (guarded runs only): `DOZ_TEST_FENCE_HOME`, a scratch home — and a guarded run without it is refused,
     /// so a test never makes a session folder in the real home.
     /// The fence's home alone (resolved; nil in a guarded run without its seam) — for what a listing says. Makes nothing.
-    public nonisolated func fenceHome() -> String? {
-        if TestSafety.guarded(hostEnvironment) {
-            return hostEnvironment["DOZ_TEST_FENCE_HOME"].flatMap { $0.hasPrefix("/") ? MacFencePaths.resolve($0) : nil }
+    public nonisolated func fenceHome() -> String? { Self.fenceHome(hostEnvironment) }
+
+    /// The same, for a process that is not the host (the CLI's `--dry-run`, the dashboard's wizard): the session it WOULD
+    /// open names the home a live one would — never `$HOME`/`NSHomeDirectory()`, which a caller may have pointed
+    /// elsewhere, so `DisplayPath` shows it with `~` as it does a live session's.
+    public static func fenceHome(_ env: [String: String]) -> String? {
+        if TestSafety.guarded(env) {
+            return env["DOZ_TEST_FENCE_HOME"].flatMap { $0.hasPrefix("/") ? MacFencePaths.resolve($0) : nil }
         }
         return MacFencePaths.resolve(TestSafety.realHome.path)
+    }
+
+    /// The home a planned session's agent folder is named under: `fenceHome`, else (a guarded run without the seam) the
+    /// real home's spelling — for words only, never a path anything opens.
+    public static func plannedHome(_ env: [String: String] = ProcessInfo.processInfo.environment) -> String {
+        fenceHome(env) ?? TestSafety.realHome.path
     }
 
     public nonisolated func fencePlaces() throws -> MacFencePlaces {
