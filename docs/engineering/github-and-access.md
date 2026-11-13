@@ -87,7 +87,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   CA), `DOZ_TEST_SSH_AUTH_SOCK` (a throwaway agent), `GIT_CONFIG_GLOBAL` (a scratch identity).
   `make test-cli-github` runs a python3 `git http-backend` over TLS as the fake GitHub.
 
-- **A fenced session on this Mac** (`doz run @mac --fenced --github read|push`, `--ssh-agent`) uses the same machinery
+- **A fenced session on this Mac** (`doz run @mac --github read|push`, `--ssh-agent`; fenced by default) uses the same machinery
   through its own proxy (`HostCore.bindFenceGitHub`, `MacFenceDoors.swift`): the provider, the gate, the placeholder
   (minted at open into `GH_TOKEN`; git's helper from `GIT_CONFIG_*`), the filtered agent relay on a unix socket in the
   store's socket folder instead of vsock; `gh` reaches the proxy through its own door (`http_unix_socket`). A guarded run

@@ -52,9 +52,17 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 `HostServer.attachMac`, `Sources/DozableKit/DeckholdSocket.swift` (the transport), `Sources/DozableCLI/MacCommands.swift`;
 `MacPlaceTests`, `MacSessionsEnvironmentTests`, `MacSessionsRecordTests`, `DeckholdSocketTests`, `make test-cli-host`.
 
-- **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`, no
-  proxy, no placeholders; `MacPlace.operations` are the session ops; everything else is `MacPlace.refusal` (host side)
-  and `MacCLI.refusal` (the CLI's entry, for a command that names `@mac` before `--`).
+- **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`;
+  a proxy and placeholders exist ONLY inside the fence (below), per session; `MacPlace.operations` are the session ops
+  (and `net` for a fenced session); everything else is `MacPlace.refusal` (host side) and `MacCLI.refusal` (the CLI's
+  entry, for a command that names `@mac` before `--`).
+- **The mode** is decided once, by the CLI, for a NEW session: `--fenced`/`--unfenced` (a fenced-only flag means
+  fenced) > `DOZ_MAC_FENCE` > `mac.fence` > `on` (`Run.fencedOnMac`; the default flipped from off in 683 M6). A fenced
+  open carries `macFence`; the host never reads the setting. The record keeps the mode (`MacSessionRecord.fence`, nil =
+  unfenced — every record written before the fence existed): restart, `resume`, adoption and a gone session's restart
+  open from the record, never from the setting. `make test-cli-fence` ("M6" rows) checks the default, the precedence
+  and an unfenced record restarted and adopted under the fenced default; `make test-cli-host` is the unfenced session
+  as before, every open with `--unfenced`.
 - **The holder is `deckhold-mac serve`** (`MacDeckhold.locate`), started by `posix_spawn` (SETSID, CLOEXEC_DEFAULT,
   signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--workdir`) — never `sh -c`.
   `serve` daemonises (its child's parent becomes launchd) and returns once its socket listens: holders outlive the
@@ -93,7 +101,9 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 `HostCore+Mac.swift` (`macOpenFenced`, adoption, `session-resume`, `session-quarantine`, `bindFenceGitHub`,
 `openFenceDoors`), `MacFenceDoors.swift`, DozableCLI `FenceConnect.swift`, deckhold.c `fence_args`;
 `MacFence*Tests`, `FenceConnectTests`, `make test-cli-fence`, `Scripts/fence-read-probe.sh` (the allowlist against this
-Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → the Mach lists). Off by default (`mac.fence`); `--unfenced` is the session above, unchanged.
+Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → the Mach lists). The default for a new
+session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The manual's page is
+`docs/manual/34-sessions-on-this-mac.md` (the five cases, the file model, what the fence is not).
 
 - **The principle:** nothing a fenced program can write is later executed or loaded by anything unfenced, except the
   project's own files. Its temp, every tool cache it knows of, `XDG_CONFIG_HOME` and git's global config are its own
@@ -104,10 +114,18 @@ Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → 
   `~/.ssh/config` and `*.pub`); writes are the folder and `--write` folders; git's hooks folders (any depth), a `.git`
   renamed or removed, an absent top `.git`, an in-tree `core.hooksPath` and git include targets are denied; then the
   fence root closed, this session's folder opened again, and the store, the socket folders and doz's settings closed
-  last. No network in this release; the Keychain's services only with `--keychain`. sandbox-exec sits between the
-  holder (unfenced) and the program; the holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
+  last. The network: only `localhost:<the session's proxy port>` (and `--local-port` ports, the doors by literal); the
+  Keychain's services only with `--keychain`. sandbox-exec sits between the holder (unfenced) and the program; the
+  holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
+- **The Mach lists are PROVISIONAL** (`MacFenceProfile.agentMachServices`, `xcodeMachServices`): set from probes with
+  a scratch Claude Code and a scratch Xcode build; they are frozen only from a person's live runs
+  (`Scripts/fence-freeze.sh`, and `--xcode`/`--simulator --run '…'`) — the versions recorded beside them then. The
+  manual says they may still change.
 - **The host never follows a link the fence planted** (`MacFenceHostFS`: `O_NOFOLLOW_ANY`, `dirfd` walks, one-link
-  regular files) — every clear, read, strip and quarantine of a fence-writable path.
+  regular files) — every clear, read, strip and quarantine of a fence-writable path. A file with no name left
+  (`st_nlink == 0`: replaced by a rename between the open and the stat — git writes `config.lock` and renames it over
+  `config`) is opened again, never refused as a hard link: that refusal stopped a fenced `swift build` mid-clone
+  (`testAFileReplacedByARenameIsReadAgainNotRefused`).
 - **The git guard** (one per fenced session, the host's): the baseline at open (every repository's config entries and
   hooks), FSEvents over the folders, a full check after the watch starts. A config key a fenced program may not add or
   change (anything outside `MacFenceGit.allowed`), a `.git` file pointing outside a watched worktree/module, a bare
@@ -120,7 +138,8 @@ Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → 
 - **Residuals, stated:** names and sizes of files are readable everywhere (`file-read-metadata`); another same-user
   process's ARGV is readable through `kern.procargs2` (Seatbelt does not govern it on macOS 27 — the kernel returns no
   other process's environment, fenced or not); between a git config write and the guard's stop (< 1 s) an unfenced git
-  run in the folder could read the key once.
+  run in the folder could read the key once; macOS's certificate service (trustd) fetches revocation data on the
+  program's behalf except under `locked`; with `--simulator` the Simulator and what it launches run outside.
 - **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a host older than fenced sessions refuses it —
   never opens it unfenced.
 - **The agent's config folder** (`MacAgentConfig.swift`; the recipe's `launch@1 mac_config` — recipes.md): only for a

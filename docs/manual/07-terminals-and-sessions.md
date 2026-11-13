@@ -196,8 +196,8 @@ returns at once when it is already there. From a script (no terminal), `doz sess
 with exit `124`. The sandbox must be running (a wait never wakes it); only agents that report their status ever
 arrive.
 
-All of these work the same for a session on your Mac itself — `@mac` as the place — with no isolation around
-it: see [Sessions on this Mac](34-sessions-on-this-mac.md).
+All of these work the same for a session on your Mac itself — `@mac` as the place — fenced by default, or with no
+isolation at all with `--unfenced`: see [Sessions on this Mac](34-sessions-on-this-mac.md).
 
 ### Leaving: the Ctrl-] menu
 

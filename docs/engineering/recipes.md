@@ -204,6 +204,11 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   dotted names, never `env`, `apiKeyHelper`, `hooks`, `statusLine`, `enabledPlugins`, `mcpServers` or a credential's name;
   `transcripts` fixed. **Never baked** (no bake key, image or launcher reads it). The setting `recipes.V.P.mac_config`
   (`follow` | `private` | `shared`) exists only for a recipe that declares one; `mac_config` is a common option name.
+  Resolution for one session: `--agent-config` > `recipes.V.P.mac_config` (unless `follow`) > `mac.agent_config` > the
+  recipe's `default`. Fenced is the default for a new `@mac` session, so a declared `mac_config` is what a plain
+  `doz run @mac -- claude` gets; the history mapping (`launch.history`) is applied to the PRIVATE folder only, never to
+  the person's real config in `shared` mode. A recipe without `mac_config` (Codex today) runs fenced with no config
+  folder of its own: its usual folder stays closed (`agent-config: none` in the capabilities).
 - **Keys** (`KeyProviders`): a `key` account carries its provider (`doz account add NAME --provider xai|google|opencode|…`,
   `doz-<provider>:NAME`, per-provider defaults in `AccountsFile.providerDefaults`); the binding is the provider's
   (xAI: Bearer on api.x.ai; Google: `x-goog-api-key` on generativelanguage.googleapis.com — never

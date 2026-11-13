@@ -16,7 +16,8 @@ switches — and logs it. You decide what the agent may reach; the agent can't c
   | Update itself | `update` | new versions of Claude Code or pi | on |
   | Install software — system packages | `install:system` | apt / apk | on |
   | Install software — Node, Python, Go, Rust, Java, Ruby, .NET | `install:node`, `install:python`, `install:go`, `install:rust`, `install:java`, `install:ruby`, `install:dotnet` (`install` = all) | that language's package registry | your base's language |
-  | Use GitHub | `github` | clone and fetch code; Claude Code's plugins | on |
+  | Install software — Swift | `install:swift` | Swift packages (the Swift download site, the Swift Package Index) | on for a fenced session on this Mac |
+  | Use GitHub | `github` | clone and fetch code, Git LFS files; Claude Code's plugins | on |
   | Use GitHub as you | `github:as-you` | git and gh signed in as you — read-only ([GitHub as you](18-github.md)) | off, in every preset |
   | Push to GitHub | `github:push` | also push and change things on GitHub as you | off, in every preset |
   | Send error reports | `error-reports` | the agent reporting its own crashes to its maker | on |
@@ -135,11 +136,34 @@ Your own rules win over a permission's hosts. A host your rules can't allow does
   doesn't. See [Images and bases](08-images-and-bases.md#your-own-dockerfile).
 - IPv4 only; HTTP/2 isn't passed through on the hosts whose traffic the proxy inspects; UDP is refused
   (programs fall back to TCP).
+- **Your Mac's own addresses are never reachable**, whatever the permissions — Open included: its localhost, its
+  Wi-Fi or Ethernet address, a VPN's or Tailscale's, link-local addresses and the cloud metadata address
+  `169.254.169.254`. A model server on your Mac is reached by name ([Claude Code and other models](32-claude-code-other-models.md));
+  other machines on your network stay reachable when the permissions allow them.
 - There are no general port forwards from your Mac into a sandbox. The one exception is a sign-in's
   callback, briefly — see [Signing in from a sandbox](11-signing-in-from-a-sandbox.md).
 - A sandbox made with an older version of Dozable keeps its rules; `doz net NAME` shows them as the
   permissions they amount to, and its first permission change stores them as permissions (anything
   no permission covers stays as your own site rules).
+
+## Sessions on this Mac
+
+A fenced session on this Mac (`doz run @mac`, fenced by default — [Sessions on this Mac](34-sessions-on-this-mac.md))
+has the same kind of proxy, one per session: it reaches the network only through it, judged by the same permissions,
+every connection logged. This Mac's **Standard** for such a session (`mac.permissions`) is its AI model, its own
+updates, GitHub, error reports and the Node, Python, Go, Rust and Swift registries; `--permissions` decides for one
+session, and the same commands change a running one with `--session`:
+
+```sh
+doz net @mac --session agent                      # its permissions and its refusals
+doz net allow @mac --session agent install:ruby   # live
+doz net log @mac --session agent --denied
+doz net log @mac --session agent --fence          # what the fence itself refused (files, programs, services)
+```
+
+Inside the fence name lookups are closed (the proxy looks names up), a program that ignores the proxy has no network,
+and listening is allowed only on the ports given with `--local-port N`. An unfenced session (`--unfenced`) has none of
+this: it reaches the network as you do, unlogged.
 
 ## Troubleshooting
 

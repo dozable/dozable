@@ -13,7 +13,7 @@ A bare file name is in `Sources/DozableKit/`.
 | `VirtualMachine.swift` | Direct VZ ops; `PinnedIdentity` (machine id + MAC); `DozableVMM`, `AdoptingInstance`, `AdoptingAgent` — restore into a new process |
 | `SessionConnection.swift` | One viewer's connection: HELLO/DATA/RESIZE out, SNAPSHOT/DATA/EXIT in; never delivers or sends after close |
 | `DeckholdSocket.swift` | The same frames straight on a holder's unix socket (attach, watch, query, dump, send, capture, list) — the transport of the sessions on this Mac; the library knows nothing else of them |
-| `Sources/DozableHost/MacSessions.swift`, `MacPlace.swift`, `HostCore+Mac.swift` | `@mac`: sessions held on THIS Mac by `deckhold-mac` — never a sandbox (see sessions.md, "Sessions on this Mac") |
+| `Sources/DozableHost/MacSessions.swift`, `MacPlace.swift`, `HostCore+Mac.swift` | `@mac`: sessions held on THIS Mac by `deckhold-mac` — never a sandbox; fenced by default (`MacFence*`: a Seatbelt profile per session, its own proxy, folder and agent config — `--unfenced` opts out; a record keeps its mode across restart and adoption). See sessions.md, "Sessions on this Mac" |
 | `DeckholdProtocol.swift` | Frame codec, `deckhold ls` parser, `GuestCommand` (every guest argv; the share re-mount script) |
 | `StoreLayout.swift` | Storage layout under `storeRoot`; `PersistedSandbox` (what a new process needs to restore) |
 | `DeckholdBinary.swift` | Finds the resource without `Bundle.module` |

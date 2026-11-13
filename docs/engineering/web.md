@@ -511,7 +511,7 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   prompt, and the SERVER writes what was chosen (`WebSettingsStore.applyProjectsDir` → `applyHostPath`;
   never `/` or inside the store; env/flag/unreadable file refused as in `apply`).
 
-## This Mac (`@mac`) — the sessions with no isolation
+## This Mac (`@mac`) — sessions on the Mac, fenced or not
 
 - **Their own typed routes, never a sandbox's**: `GET /api/v1/mac/sessions` (`WebMacSessions`: `isolated: false` in the
   answer itself, `access` = what this browser may do), `GET /api/v1/mac/sessions/{s}/screen` (the saved screen — a gone
@@ -527,10 +527,15 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   socket) and `decideMacAction`; `@mac` grid items likewise. Refusal: 403 `mac-session`, its message naming the setting.
   The Mac's own browser always has them. A sandbox's connection is dropped by the accept gate first (`ServeHTTPTests`).
 - **The page** (`views/mac.js`) is a section of its own (`#mac`, like the grid): a live refresh never tears down its
-  pane. Every tile, the pane and the title carry the **No isolation** chip (`noIsolationChip`), the callout says what
-  the sessions are, a session whose own argv bypasses its permissions carries **permissions bypassed**. Tiles are painted
-  from the host's feed (`pictureSource` with place `@mac`; a gone one's saved screen). The pane opens in WATCH mode; Type
-  into it re-opens it interactive. A `watch` browser gets neither typing nor Restart/End; a refused one gets no page
+  pane. An UNFENCED session's tile, pane and title carry the **No isolation** chip (`noIsolationChip`); a fenced one its
+  fence chip (below). The callout ("Not sandboxes") says what the sessions are and that a new one is fenced by default.
+  The sidebar's tag on This Mac is painted from the list wherever it is read (`paintMacNavTag`: "N no isolation" while
+  unfenced sessions RUN, else no tag — the markup carries none, so it never claims what is not so); a session whose own argv bypasses its permissions carries **permissions bypassed**. Tiles are painted
+  from the host's feed (`pictureSource` with place `@mac`; a gone one's saved screen). The pane opens in WATCH mode; its two-state
+  toggle (`modeToggle`: `.segmented.mac-mode-toggle`, `aria-pressed`) Watching | Controlling re-opens it interactive —
+  Controlling disabled with the reason in its title unless `access` is interactive and the session runs (the tile's
+  button is **Control**). The wizard's folder starts as the newest session's unless that is a temporary folder
+  (`isTemporaryFolder`: `/tmp`, `/var/folders` and their `/private` spellings — then empty). A `watch` browser gets neither typing nor Restart/End; a refused one gets no page
   and no sidebar entry (the server is the wall). Its style-guide specimens: "This Mac — the sessions with no isolation".
 - **Fenced sessions (683 M5): the page DRAWS what the host computed.** `WebMacSession` gains `fenced`, `fence`
   (`WebMacFence`, field by field — never the proxy's port or password, a placeholder, the profile's text or hash, the
@@ -559,7 +564,9 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   (`TerminalHandoff`, `<store>/ui-terminal/`, 0700, `O_EXCL|O_NOFOLLOW`; `exec '<doz>' run @mac … --store '<store>'`) ONLY for
   a fenced case with neither Swift toggle, a closed Keychain and a private agent config (`openable`); anything else is
   copy-only and refused before anything is written. No route or action starts a session in the host. Specimens: "This
-  Mac — a session's capabilities" (fenced and unfenced side by side) and "This Mac — New session on this Mac…".
+  Mac — a session's capabilities" (fenced and unfenced side by side) and "This Mac — New session on this Mac…". The
+  plan's agent folder is named under `MacSessions.plannedHome()` (the home a live session's carry-back uses — never
+  `NSHomeDirectory()`), so its History sentence reads `~/.claude/projects/…` exactly as a live session's.
   Tests: `WebMacCapabilitiesTests`, `MacFenceCapabilitiesTests` (DozableCLITests), `ServeExposureTests`, `WebActionTests`.
 
 ## Browser terminals

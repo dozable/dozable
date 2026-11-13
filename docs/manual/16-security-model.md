@@ -152,9 +152,14 @@ fully resolved path.
 - **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
   logged like any sandbox.
 - **Keep-alive**, when you turn it on, runs your Mac's own `claude` once near expiry.
-- **Sessions on this Mac** (`doz run @mac`) are not in a sandbox at all: the program runs as you, with your files,
-  Keychain and network, and nothing of this page applies to it. Dozable never bypasses an agent's permissions there
-  unless the command you gave asks, and then says so. See [Sessions on this Mac](34-sessions-on-this-mac.md).
+- **Sessions on this Mac** (`doz run @mac`) are not in a sandbox: the program runs on your Mac, as you. A new one is
+  **fenced** by default — macOS's own sandbox holds it to its project folder, its own temp, caches and agent settings,
+  and a proxy of its own with the permissions above; your Keychain, secrets and other folders are closed, and its
+  logins reach it only as placeholders. The fence is not a virtual machine: its project files are its work, names
+  of files and other programs' command lines are visible to it, and the Simulator (`--simulator`) runs outside it.
+  `--unfenced` opts a session out: then it has your files, Keychain and network, and nothing of this page applies.
+  Dozable never bypasses an agent's permissions there unless the command you gave asks, and then says so. See
+  [Sessions on this Mac](34-sessions-on-this-mac.md).
 
 ## What leaves your Mac
 
