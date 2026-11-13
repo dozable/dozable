@@ -101,7 +101,7 @@ final class NetworkPolicyTests: XCTestCase {
         // 594: pi's own host; never api.github.com (pi's tools are baked: fd, rg).
         XCTAssertEqual(agent.rules.first { $0.host == "pi.dev" }?.note, "pi updates")
         XCTAssertEqual(agent.evaluateConnection(host: "api.github.com", port: 443).kind, .deny)
-        XCTAssertEqual(agent.rules.count, 5 + 4 + 4 + 7)
+        XCTAssertEqual(agent.rules.count, 5 + 4 + 5 + 7, "GitHub: 5 hosts since Git LFS files' host joined")
     }
 
     func testAllowThisHost() {

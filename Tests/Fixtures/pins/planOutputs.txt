@@ -8,7 +8,7 @@ reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
 reach packages: Node (npm) (registry.npmjs.org)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
@@ -29,7 +29,7 @@ reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
 reach packages: Node (npm) (registry.npmjs.org)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
@@ -47,7 +47,7 @@ reach model: Talk to Google AI (generativelanguage.googleapis.com)
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
 reach packages: Python (PyPI) (pypi.org, files.pythonhosted.org)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: play.googleapis.com, accounts.google.com, oauth2.googleapis.com, cloudcode-pa.googleapis.com
 reach denied: Every other host: refused and logged
@@ -80,7 +80,7 @@ reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers wh
 reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
 reach denied: Every other host: refused and logged
@@ -101,7 +101,7 @@ reach model: api.x.ai (/ only) — Grok Build checks that the xAI API answers wh
 reach model: x.ai — Grok Build reads its release notes on xAI's own site (x.ai/cli/changelogs) when it starts
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach web: A site you allowed: api.example.test
 reach excluded: Kept out whatever you choose: cli-chat-proxy.grok.com, auth.x.ai, accounts.x.ai, console.x.ai
@@ -150,7 +150,7 @@ name: try-none · image: debian (Debian · none, unprepared) · workspace: /tmp/
 reach model: Talk to its AI model (api.anthropic.com, statsig.anthropic.com)
 reach other: Update itself (downloads.claude.ai, pi.dev, registry.npmjs.org, 6 API paths)
 reach packages: System packages (apt / apk) (deb.debian.org, security.debian.org, *.ubuntu.com +1)
-reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +1)
+reach github: Use GitHub (github.com, raw.githubusercontent.com, codeload.github.com +2)
 reach other: Send error reports (http-intake.logs.us5.datadoghq.com, browser-intake-us5-datadoghq.com)
 reach denied: Every other host: refused and logged
 reach folder: A new empty folder /tmp/617-pin-projects/try-none (not one of yours), at /workspace
