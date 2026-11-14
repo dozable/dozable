@@ -305,3 +305,66 @@ final class SandboxFileWatch: @unchecked Sendable {
         for (id, batch) in coalescer.drain(ws, sandbox: sandbox) { watchers[id]?.onBatch(batch) }
     }
 }
+
+/// A plain FSEvents stream over some folders — file-level events, not deferred, 50 ms latency — each batch handed to
+/// `handler` on `queue`. The fenced sessions' git guard watches its folders with it (`MacFenceGitGuard`); it lives here
+/// so CoreServices stays in this one file.
+public final class PathEventStream: @unchecked Sendable {
+    public struct Event: Sendable, Equatable {
+        public var path: String
+        /// Events were dropped or the root moved: rescan everything.
+        public var lost: Bool
+        public var isDirectory: Bool
+        /// Made or renamed (in or out).
+        public var structural: Bool
+    }
+
+    let paths: [String]
+    let queue: DispatchQueue
+    let handler: ([Event]) -> Void
+    private var stream: FSEventStreamRef?
+
+    public init(paths: [String], queue: DispatchQueue, handler: @escaping ([Event]) -> Void) {
+        self.paths = paths
+        self.queue = queue
+        self.handler = handler
+    }
+
+    /// Start (call on `queue`). false: FSEvents refused.
+    public func start() -> Bool {
+        guard stream == nil else { return true }
+        var ctx = FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
+        let flags = FSEventStreamCreateFlags(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagNoDefer)
+        guard let s = FSEventStreamCreate(kCFAllocatorDefault, { _, info, count, paths, flags, _ in
+            guard let info else { return }
+            let me = Unmanaged<PathEventStream>.fromOpaque(info).takeUnretainedValue()
+            let list = Unmanaged<CFArray>.fromOpaque(paths).takeUnretainedValue() as NSArray
+            let lost = FSEventStreamEventFlags(kFSEventStreamEventFlagMustScanSubDirs | kFSEventStreamEventFlagUserDropped
+                                               | kFSEventStreamEventFlagKernelDropped | kFSEventStreamEventFlagRootChanged)
+            let structural = FSEventStreamEventFlags(kFSEventStreamEventFlagItemCreated | kFSEventStreamEventFlagItemRenamed)
+            var events: [Event] = []
+            for i in 0..<min(count, list.count) {
+                guard let p = list[i] as? String else { continue }
+                let f = flags[i]
+                events.append(Event(path: p, lost: f & lost != 0, isDirectory: f & FSEventStreamEventFlags(kFSEventStreamEventFlagItemIsDir) != 0,
+                                    structural: f & structural != 0))
+            }
+            me.handler(events)
+        }, &ctx, paths as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0.05, flags) else { return false }
+        FSEventStreamSetDispatchQueue(s, queue)
+        guard FSEventStreamStart(s) else { FSEventStreamInvalidate(s); FSEventStreamRelease(s); return false }
+        stream = s
+        return true
+    }
+
+    /// Stop (call on `queue`).
+    public func stop() {
+        guard let s = stream else { return }
+        FSEventStreamStop(s)
+        FSEventStreamInvalidate(s)
+        FSEventStreamRelease(s)
+        stream = nil
+    }
+
+    deinit { stop() }
+}

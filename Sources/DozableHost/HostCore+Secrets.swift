@@ -10,7 +10,11 @@ extension HostCore {
     /// the account's generation) changes, once after an upstream 401, and eagerly now so the agent's first call does
     /// not wait. `addAgain`: the command that stores the key again.
     func applyKeySecret(_ m: Managed, _ a: AccountRecord, binding: CredentialBinding, addAgain: String) {
-        let sb = m.sandbox
+        applyKeySecret(m.sandbox, a, binding: binding, addAgain: addAgain)
+    }
+
+    /// 683: the same, for any credential target — a sandbox, or a fenced session on this Mac (its own proxy).
+    func applyKeySecret(_ sb: any CredentialTarget, _ a: AccountRecord, binding: CredentialBinding, addAgain: String) {
         guard let vault = sb.egress?.vault else { return }
         if a.readsOnUse, let source = a.source {
             let state = secretSourceState, account = a.name, env = a.sourceEnv ?? [:], known = a.fingerprint

@@ -355,6 +355,70 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         /// start, a wake) as the setting `history` says (never baked: no image, bake key or launcher reads it, like
         /// `sessionEnv`).
         public var history: History? = nil
+        /// 683: the agent's config folder on this Mac, for a FENCED `@mac` session (`MacAgentConfig`): the variable that
+        /// moves it, the person's real one, what is linked read-only, which settings are copied, the first-run file and
+        /// where its transcripts are. Honoured ONLY from a recipe embedded in this build — a catalogue, community or
+        /// personal recipe carrying it is refused whole (`RecipeCatalogue.merged`, `CommunityRequirements`). Never baked.
+        public var macConfig: MacConfig? = nil
+
+        /// 683: `launch@1 mac_config` — see `macConfig`. Its shape is fixed (`AgentRecipe.validateMacConfig`).
+        public struct MacConfig: Codable, Sendable, Equatable {
+            /// The variable that moves the agent's config home (`CLAUDE_CONFIG_DIR`): `^[A-Z_]+_(HOME|CONFIG_DIR)$`.
+            public var homeEnv: String
+            /// The person's real one: a single dot-folder directly in the home (`~/.claude`).
+            public var home: String
+            /// Files the agent keeps beside the home, moved INTO it when `homeEnv` is set: exactly `home + ".json"`.
+            public var beside: [String]? = nil
+            /// Names inside the home made read-only links to the person's own (`CLAUDE.md`, `skills`, …).
+            public var linkReadOnly: [String]
+            /// Files written from an allowlist of the person's keys (dotted), never anything else of them.
+            public var cleanCopy: [CleanCopy]
+            /// The file the host builds at every open (onboarding done, the workdir trusted).
+            public var firstRun: FirstRun? = nil
+            /// Where its conversations are: `projects/{workdir}`, `*.jsonl` (fixed), the folder name's encoding.
+            public var transcripts: Transcripts
+            /// `private` or `shared` — what a session gets when nothing chooses.
+            public var `default`: String
+
+            public struct CleanCopy: Codable, Sendable, Equatable {
+                public var file: String
+                public var keys: [String]
+            }
+
+            public struct FirstRun: Codable, Sendable, Equatable {
+                public var file: String
+                public var set: [String: RecipeValue]
+                /// The key of its per-folder map whose `<workdir>.hasTrustDialogAccepted` is set (`projects`).
+                public var trustWorkdir: String? = nil
+                enum CodingKeys: String, CodingKey { case file, set; case trustWorkdir = "trust_workdir" }
+            }
+
+            public struct Transcripts: Codable, Sendable, Equatable {
+                /// `projects/{workdir}` — the only form.
+                public var dir: String
+                /// `*.jsonl` — fixed (not configurable).
+                public var files: String
+                /// `claude` — `MacPlace.claudeProjectFolderName`.
+                public var workdirEncoding: String
+                enum CodingKeys: String, CodingKey { case dir, files; case workdirEncoding = "workdir_encoding" }
+
+                /// The folder of `workdir`'s conversations, relative to the config home (`projects/-Users-me-src-app`).
+                public func folder(workdir: String) -> String {
+                    let enc = String(workdir.unicodeScalars.map { s -> Character in
+                        s.isASCII && CharacterSet.alphanumerics.contains(s) ? Character(s) : "-"
+                    })
+                    return dir.replacingOccurrences(of: "{workdir}", with: enc)
+                }
+            }
+
+            /// The home's folder name (`.claude`).
+            public var homeName: String { String(home.dropFirst(2)) }
+
+            enum CodingKeys: String, CodingKey {
+                case home, beside, transcripts, `default`
+                case homeEnv = "home_env", linkReadOnly = "link_read_only", cleanCopy = "clean_copy", firstRun = "first_run"
+            }
+        }
 
         /// 674: one agent's conversation-history mapping. Two shapes: `keep` (Dozable writes the vendor's own keys, only
         /// where absent, and takes back only its own value on `agent-default`; `agentDefault` says what the agent does by
@@ -397,7 +461,7 @@ public struct AgentRecipe: Codable, Sendable, Equatable {
         enum CodingKeys: String, CodingKey {
             case command, passthrough, env, session, service, history
             case noPromptsArgs = "no_prompts_args", firstRun = "first_run", sessionEnv = "session_env", noPromptsEnv = "no_prompts_env",
-                 modelArgs = "model_args", modelArgsAfter = "model_args_after"
+                 modelArgs = "model_args", modelArgsAfter = "model_args_after", macConfig = "mac_config"
         }
     }
 
@@ -1257,6 +1321,18 @@ public enum AgentRecipes {
 
     public static func recipe(_ id: String) -> AgentRecipe? { all.first { $0.id == id } }
 
+    /// 683: the recipe a session on this Mac runs, by its program's name (`argv[0]`'s last part: the recipe's binary, its
+    /// command, id or an alias) — ONLY among the recipes embedded in this build that declare `mac_config` (never a
+    /// catalogue's, a community's or the person's own: none may claim `claude`). Nil: no config handling.
+    public static func macAgent(program: String) -> AgentRecipe? {
+        let base = (program as NSString).lastPathComponent
+        guard !base.isEmpty else { return nil }
+        return RecipeSet.embedded.recipes.first { r in
+            r.launch.macConfig != nil
+                && ([r.install.binary, r.launch.command.first, r.id].compactMap { $0 } + (r.aliases ?? [])).contains(base)
+        }
+    }
+
     /// 629: the recipes offered to a person — every list where one is picked (Quick try, New Sandbox, `doz try`,
     /// `doz search`, onboarding, the settings listed) and the per-recipe work (recipe-check, currency, the hourly look-up).
     /// `all` stays the validator and the resolver of every STORED name.
@@ -1459,6 +1535,80 @@ extension AgentRecipe {
                 }
             }
         }
+    }
+
+    /// 683: the dot-folders `mac_config.home` may never name (secrets, configs, other agents' own) — the `--read` refusals
+    /// and the places a fence never opens.
+    public static let macConfigClosedHomes: Set<String> = [
+        ".ssh", ".config", ".gnupg", ".aws", ".azure", ".kube", ".docker", ".netrc", ".npmrc", ".pypirc", ".gitconfig",
+        ".git-credentials", ".local", ".cache", ".npm", ".Trash", ".zshrc", ".bashrc", ".profile", ".zprofile", ".bash_profile",
+    ]
+    /// 683: the keys `clean_copy` may never carry, whatever they are called (they run something, or hold a credential).
+    public static let macConfigNeverKeys: Set<String> = ["env", "apiKeyHelper", "hooks", "statusLine", "enabledPlugins", "mcpServers",
+                                                         "awsAuthRefresh", "awsCredentialExport", "otelHeadersHelper", "enabledMcpjsonServers",
+                                                         "forceLoginMethod", "forceLoginOrgUUID", "extraKnownMarketplaces", "plugins"]
+
+    /// 683: `launch@1 mac_config` — a fixed shape, because it decides what of the person's home a fenced session reads and
+    /// (shared) writes: the home a single dot-folder directly in `~` and not a closed one; `beside` exactly `home.json`;
+    /// the variable `…_HOME` / `…_CONFIG_DIR`; names one level deep with no `..`; settings keys plain dotted names, never
+    /// one that runs something or holds a credential; transcripts `projects/{workdir}` and `*.jsonl` (fixed), the
+    /// encoding a closed word; the default `private` or `shared`.
+    static func validateMacConfig(_ m: Launch.MacConfig, _ bad: (String) -> SandboxError) throws {
+        let name = "[A-Za-z0-9._-]+"
+        guard m.homeEnv.range(of: "^[A-Z_]+_(HOME|CONFIG_DIR)$", options: .regularExpression) != nil else {
+            throw bad("mac_config home_env \(m.homeEnv): a variable named …_HOME or …_CONFIG_DIR")
+        }
+        guard m.home.range(of: "^~/\\.\(name)$", options: .regularExpression) != nil, !m.home.contains(".."), m.home != "~/." else {
+            throw bad("mac_config home \(m.home): a single dot-folder directly in your home (~/.name)")
+        }
+        guard !macConfigClosedHomes.contains(m.homeName) else { throw bad("mac_config home \(m.home): that folder stays closed to a fenced session") }
+        if let b = m.beside {
+            guard b == [m.home + ".json"] else { throw bad("mac_config beside: exactly \(m.home).json, or nothing") }
+        }
+        func relative(_ s: String, _ what: String) throws {
+            let parts = s.split(separator: "/", omittingEmptySubsequences: false)
+            guard !s.isEmpty, !s.hasPrefix("/"), !s.hasPrefix("~"), parts.count <= 2, parts.allSatisfy({ $0.range(of: "^\(name)$", options: .regularExpression) != nil }),
+                  !parts.contains(where: { $0 == "." || $0 == ".." }) else {
+                throw bad("mac_config \(what) \(s): a name inside the home (at most one folder deep, no ..)")
+            }
+        }
+        guard m.linkReadOnly.count <= 16, Set(m.linkReadOnly).count == m.linkReadOnly.count else { throw bad("mac_config link_read_only: at most 16 names, each once") }
+        for l in m.linkReadOnly { try relative(l, "link_read_only") }
+        guard m.cleanCopy.count <= 4 else { throw bad("mac_config clean_copy: at most 4 files") }
+        for c in m.cleanCopy {
+            try relative(c.file, "clean_copy file")
+            guard c.file.hasSuffix(".json") else { throw bad("mac_config clean_copy file \(c.file): a JSON file") }
+            guard (1...64).contains(c.keys.count) else { throw bad("mac_config clean_copy \(c.file): 1 to 64 keys") }
+            for k in c.keys {
+                guard k.range(of: "^[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)*$", options: .regularExpression) != nil else {
+                    throw bad("mac_config clean_copy key \(k): a dotted name")
+                }
+                let parts = k.split(separator: ".").map(String.init)
+                guard !parts.contains(where: macConfigNeverKeys.contains) else { throw bad("mac_config clean_copy key \(k): never copied (it runs something or holds a credential)") }
+                let lower = parts.map { $0.lowercased() } + [k.lowercased()]
+                guard !lower.contains(where: { n in
+                    BakeEnvironment.isCredential(n) || ["token", "secret", "password", "apikey", "api_key", "credential", "helper"].contains(where: n.contains)
+                }) else { throw bad("mac_config clean_copy key \(k): never a credential's name") }
+            }
+            guard !m.linkReadOnly.contains(c.file) else { throw bad("mac_config \(c.file): linked and copied both") }
+        }
+        if let f = m.firstRun {
+            try relative(f.file, "first_run file")
+            guard f.file.hasSuffix(".json"), !f.set.isEmpty, f.set.count <= 16 else { throw bad("mac_config first_run: a JSON file and 1 to 16 keys") }
+            for (k, v) in f.set {
+                guard k.range(of: "^[A-Za-z][A-Za-z0-9_]*$", options: .regularExpression) != nil else { throw bad("mac_config first_run key \(k): a top-level name") }
+                switch v { case .bool, .number, .string: break; default: throw bad("mac_config first_run value of \(k): a string, a number or a bool") }
+            }
+            if let t = f.trustWorkdir, t.range(of: "^[A-Za-z][A-Za-z0-9_]*$", options: .regularExpression) == nil {
+                throw bad("mac_config first_run trust_workdir \(t): a top-level name")
+            }
+            guard !m.linkReadOnly.contains(f.file), !m.cleanCopy.contains(where: { $0.file == f.file }) else { throw bad("mac_config first_run \(f.file): already linked or copied") }
+        }
+        guard m.transcripts.dir == "projects/{workdir}" else { throw bad("mac_config transcripts dir: projects/{workdir}") }
+        guard m.transcripts.files == "*.jsonl" else { throw bad("mac_config transcripts files: *.jsonl (fixed)") }
+        guard m.transcripts.workdirEncoding == "claude" else { throw bad("mac_config transcripts workdir_encoding: claude") }
+        guard m.linkReadOnly.allSatisfy({ !$0.hasPrefix("projects") }) else { throw bad("mac_config: the transcripts' folder is never linked") }
+        guard ["private", "shared"].contains(m.default) else { throw bad("mac_config default: private or shared") }
     }
 
     /// One recipe's own rules (see the file's header).
@@ -1666,6 +1816,7 @@ extension AgentRecipe {
             }
         }
         if let h = launch.history { try Self.validateHistory(h, bad) }
+        if let m = launch.macConfig { try Self.validateMacConfig(m, bad) }
         // state
         for d in state.persist where !(d.hasPrefix("~/") || d.hasPrefix("/")) || !scriptSafe(d) { throw bad("persist dir \(d)") }
         // credentials

@@ -160,6 +160,49 @@
           ],
           "source" : "https://code.claude.com/docs/en/settings-reference#cleanupperioddays"
         },
+        "mac_config" : {
+          "beside" : [
+            "~/.claude.json"
+          ],
+          "clean_copy" : [
+            {
+              "file" : "settings.json",
+              "keys" : [
+                "model",
+                "permissions.allow",
+                "permissions.deny",
+                "permissions.ask",
+                "permissions.defaultMode",
+                "outputStyle",
+                "includeCoAuthoredBy",
+                "alwaysThinkingEnabled",
+                "language"
+              ]
+            }
+          ],
+          "default" : "private",
+          "first_run" : {
+            "file" : ".claude.json",
+            "set" : {
+              "hasCompletedOnboarding" : true
+            },
+            "trust_workdir" : "projects"
+          },
+          "home" : "~/.claude",
+          "home_env" : "CLAUDE_CONFIG_DIR",
+          "link_read_only" : [
+            "CLAUDE.md",
+            "skills",
+            "agents",
+            "commands",
+            "output-styles"
+          ],
+          "transcripts" : {
+            "dir" : "projects/{workdir}",
+            "files" : "*.jsonl",
+            "workdir_encoding" : "claude"
+          }
+        },
         "model_args" : [
           "--model",
           "$DOZ_MODEL"

@@ -20,6 +20,18 @@ import Virtualization
 ///
 /// Every lifecycle call is serialised: a second call waits for the first to finish, and
 /// decides what to do from the phase it then observes.
+/// 683: what an account's credential is bound to — a proxy's vault. A sandbox, and (DozableHost) a fenced session on this
+/// Mac (`MacFenceProxy`): the same account wiring serves both (`LoginWatcher`, `HostCore.bindAnthropicAccount`).
+public protocol CredentialTarget: Sendable {
+    /// The proxy whose vault holds the credential (nil: none — nothing is bound).
+    var egress: EgressProxy? { get }
+    /// A secret with its expiry, the non-secret variables a session gets beside its placeholder, and — without a
+    /// secret — why (the proxy's 401 text).
+    func setCredential(_ binding: CredentialBinding, secret: String?, expiresAt: Date?, environment: [String: String], notice: String?)
+}
+
+extension Sandbox: CredentialTarget {}
+
 public actor Sandbox {
     public nonisolated let spec: SandboxSpec
     public nonisolated let layout: StoreLayout
@@ -67,6 +79,9 @@ public actor Sandbox {
             proxy.vault.set(.anthropic, secret: nil)
             proxy.vault.set(.claudeOAuth, secret: nil)   // so a real token passed in the environment is vaulted too
             proxy.ownName = spec.name                     // 594 W29: its hostname, answered locally
+            // 683 M2b: never this Mac's own addresses, link-local or metadata, whatever the policy (the default of every
+            // proxy, its bakes' included; said here because this is the sandbox's). `mac.dozable.internal` is unaffected.
+            proxy.addressGuard = .strict
             egress = proxy
         } else {
             egress = nil

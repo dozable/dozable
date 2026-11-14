@@ -30,7 +30,10 @@ proxy, in the host on your Mac, which checks every connection — DNS included �
   gives it none. Use `nat` only when you mean it.
 - **Your Mac's localhost is never reachable** through the proxy (`127.0.0.1`, `localhost`, `::1`), whatever
   the permissions — Open included: what listens there (a database, a dev server, another sandbox's web
-  port) expects only your Mac's own programs. The one exception is chosen per sandbox: a model server on
+  port) expects only your Mac's own programs. Nor are your Mac's other addresses (its Wi-Fi or Ethernet
+  address, a VPN's or Tailscale's), link-local addresses (`169.254.x.x`, `fe80::`) — among them the
+  cloud metadata address `169.254.169.254` — or the IPv6 forms of any of these. Other machines on your
+  network stay reachable when the permissions allow them. The one exception is chosen per sandbox: a model server on
   your Mac, by its port, reached as `mac.dozable.internal:PORT` — that port only
   ([Claude Code with other models](32-claude-code-other-models.md)).
 
@@ -149,9 +152,14 @@ fully resolved path.
 - **Image preparation** runs in a temporary VM with the `bake` permissions (package registries only),
   logged like any sandbox.
 - **Keep-alive**, when you turn it on, runs your Mac's own `claude` once near expiry.
-- **Sessions on this Mac** (`doz run @mac`) are not in a sandbox at all: the program runs as you, with your files,
-  Keychain and network, and nothing of this page applies to it. Dozable never bypasses an agent's permissions there
-  unless the command you gave asks, and then says so. See [Sessions on this Mac](34-sessions-on-this-mac.md).
+- **Sessions on this Mac** (`doz run @mac`) are not in a sandbox: the program runs on your Mac, as you. A new one is
+  **fenced** by default — macOS's own sandbox holds it to its project folder, its own temp, caches and agent settings,
+  and a proxy of its own with the permissions above; your Keychain, secrets and other folders are closed, and its
+  logins reach it only as placeholders. The fence is not a virtual machine: its project files are its work, names
+  of files and other programs' command lines are visible to it, and the Simulator (`--simulator`) runs outside it.
+  `--unfenced` opts a session out: then it has your files, Keychain and network, and nothing of this page applies.
+  Dozable never bypasses an agent's permissions there unless the command you gave asks, and then says so. See
+  [Sessions on this Mac](34-sessions-on-this-mac.md).
 
 ## What leaves your Mac
 

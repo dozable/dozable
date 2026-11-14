@@ -8,7 +8,9 @@ import DozableHost
 // own (`/tmp/dzo-PID-mh`), so the socket folder is that store's (its hash): it cannot meet a real host's. Only harmless
 // programs (`sh`, `sleep`, a fake agent that writes OSC 7501), only in a scratch folder; every process it kills is one it
 // started (its own host, its own holders). The doz processes run with CLAUDECODE / CLAUDE_CODE_* set — none may reach a
-// session.
+// session. Since fenced became the default for a new session (683 M6) every open here passes --unfenced: this suite is
+// the unfenced session exactly as before the fence (the agent-relay team's shape); the default itself and a session
+// keeping its mode across restart and adoption are make test-cli-fence's rows.
 
 /// The fake agent: asks for the protocol, waits for deckhold's answer, then idle → working → done, one step per gate file.
 private let macFakeAgent = #"""
@@ -90,7 +92,7 @@ func cliHostSuite(binary: String) async {
         return r
     }
     func run(_ s: String, _ argv: [String], extra: [String] = []) -> CLIRun {
-        let r = t.run(["run", "@mac", "-d", "--session", s, "--workdir", work.path] + extra + ["--"] + argv, timeout: 60)
+        let r = t.run(["run", "@mac", "-d", "--unfenced", "--session", s, "--workdir", work.path] + extra + ["--"] + argv, timeout: 60)
         if r.code == 0 { started.insert(s) }
         return r
     }
@@ -122,11 +124,11 @@ func cliHostSuite(binary: String) async {
           "TERM, the PATH, HOME are set")
     let pwd = file("pwd.txt").trimmingCharacters(in: .whitespacesAndNewlines)
     check(realPath(pwd) == realPath(work.path), "its folder is --workdir (\(pwd))")
-    r = t.run(["run", "@mac", "-d", "--session", "bad", "-e", "CLAUDECODE=1", "--", "/bin/sh", "-c", "true"])
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "bad", "-e", "CLAUDECODE=1", "--", "/bin/sh", "-c", "true"])
     check(r.code == 64 && r.err.contains("CLAUDECODE"), "-e CLAUDECODE=… is refused, with the reason (\(r.code))")
-    r = t.run(["run", "@mac", "-d", "--session", String(repeating: "x", count: 33), "--", "/bin/sh"])
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", String(repeating: "x", count: 33), "--", "/bin/sh"])
     check(r.code == 64, "a session name of 33 characters is refused (\(r.code))")
-    r = t.run(["run", "@mac", "-d", "--session", "nope", "--", "no-such-program-here"])
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "nope", "--", "no-such-program-here"])
     check(r.code == 125 && r.err.contains("no program no-such-program-here"), "a program that is not there: doz's failure, 125 (\(r.code))")
 
     // The socket folder.
@@ -221,7 +223,7 @@ func cliHostSuite(binary: String) async {
         check(a.exited(within: 8) == 0 && b.exited(within: 8) == 0, "both detach (Ctrl-] twice)")
     } catch { check(false, "pty: \(error)") }
     do {
-        let c = try PTYClient(t, ["run", "@mac", "--session", "rr", "--workdir", work.path, "--", "/bin/sh", "-c", "echo hello-rr; sleep 600"])
+        let c = try PTYClient(t, ["run", "@mac", "--unfenced", "--session", "rr", "--workdir", work.path, "--", "/bin/sh", "-c", "echo hello-rr; sleep 600"])
         started.insert("rr")
         defer { c.close() }
         check(c.wait(10) { $0.text.contains("hello-rr") }, "run @mac (no -d) attaches to its new session")
@@ -261,6 +263,7 @@ func cliHostSuite(binary: String) async {
     r = t.run(["sessions", "restart", "@mac", "rd", "--yes", "-d"], timeout: 30)
     check(r.code == 0 && r.out.contains("restarted session rd on this Mac"), "sessions restart @mac rd")
     check(t.waitFor(5) { row("rd")?.ended == false && row("rd")?.pid != pidBefore }, "rd runs again, a new program")
+    check(row("rd")?.fenced == nil && row("rd")?.fence == nil, "…still unfenced: a restart keeps the mode it was opened with (the default is fenced)")
     check(row("rd")?.command == "/bin/sh -c while read x; do echo got:$x; done", "…the same command")
     check(t.run(["sessions", "send", "@mac", "rd", "--text", "back", "--enter"], timeout: 30).code == 0
           && screen("rd", until: "got:back").out.contains("got:back"), "and it answers")
@@ -269,7 +272,7 @@ func cliHostSuite(binary: String) async {
     // appends --continue only when Claude Code has a conversation for the folder, else it starts fresh and says so.
     let cw = work.appendingPathComponent("cl")
     try? FileManager.default.createDirectory(at: cw, withIntermediateDirectories: true)
-    r = t.run(["run", "@mac", "-d", "--session", "cl", "--workdir", cw.path, "--", "claude"], timeout: 60)
+    r = t.run(["run", "@mac", "-d", "--unfenced", "--session", "cl", "--workdir", cw.path, "--", "claude"], timeout: 60)
     if r.code == 0 { started.insert("cl") }
     check(r.code == 0 && screen("cl", until: "fake-claude").out.contains("fake-claude"), "the fake claude runs on this Mac")
     r = t.run(["sessions", "restart", "@mac", "cl", "--yes", "--json"], timeout: 30)

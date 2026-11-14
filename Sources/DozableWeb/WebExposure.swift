@@ -68,6 +68,10 @@ public enum WebExposure {
         who.isRemote && allowed != .interactive ? .macSession : nil
     }
 
+    /// 683 M5: a conversation exported (its whole text) — another computer only with `serve.mac_sessions = interactive`
+    /// (watching shows screens, never a session's history).
+    public static func decideMacExport(_ who: Principal, _ allowed: MacSessions) -> WebRejection? { decideMacAction(who, allowed) }
+
     public static func kind(_ route: WebRoute) -> Kind {
         switch route {
         case .index, .asset, .terminalFrame, .offline, .serviceWorker, .sessionBootstrap, .sessionInfo, .sessionRenew, .sessionEnd:
@@ -86,13 +90,17 @@ public enum WebExposure {
         case .accountAdd, .sandboxKey, .accessGithubKey:
             return .secretEntry
         case .terminal, .workspaceChoose, .projectsDirChoose, .dockerfileChoose, .filesOpen, .editors,   // 646: editors with files/open
-             .portOpen:                 // 666: opens this Mac's browser (signed in) — another computer's 127.0.0.1 is its own
+             .portOpen,                 // 666: opens this Mac's browser (signed in) — another computer's 127.0.0.1 is its own
+             .macSessionPlan:           // 683 M5: the New session wizard — its command is for this Mac's own terminal (and
+                                        // Open in Terminal opens a window here): another computer never gets the route
             return .macScreen
         case .serveStatus, .serveDevices, .serveShare, .serveRevoke, .serveRename:
             return .devices
         case .serveProbe:
             return .serveOnly
-        case .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket:
+        case .macSessions, .macSessionScreen, .macTerminalTicket, .macTerminalSocket,
+             .macSessionNetwork, .macSessionQuarantine, .macSessionTranscripts,
+             .macSessionTranscript:     // 683 M5: a conversation's text — for another computer only with `interactive` (decideMacExport)
             return .macSession
         }
     }

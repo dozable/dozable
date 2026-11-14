@@ -7,6 +7,7 @@ import { actOrThrow } from '../core/operations-03d7dd105dcc61d2.js';
 import { refresh } from '../core/router-65688186819bc0d4.js';
 import { state } from '../core/state-2d94fd2b00c043b7.js';
 import { panel, table } from '../components/blocks-6b2d43608253a84f.js';
+import { settingMatrix } from '../components/setting-matrix-081c4e6b4d177c5a.js';
 import { btn } from '../components/button-8109d54546d946d3.js';
 import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { confirmGitHub, confirmWeb, permissionSwitches, PRESET_LABEL } from '../components/permissions-b54aee277d8012b8.js';
@@ -14,9 +15,35 @@ import { confirmGitHub, confirmWeb, permissionSwitches, PRESET_LABEL } from '../
 const refreshSandbox = upcall('refreshSandbox');
 
 state.permErr = new Map();
-function permissionsPanel(name, net) {
+/// 683 (a fenced session on this Mac): the same checklist, READ-ONLY — its changes are `doz net … @mac --session S` in a
+/// terminal on the Mac (the commands beside it); the presets as the Settings page's matrix, the current column marked.
+function readOnlyPermissions(net, commands) {
+  const p = net.permissions;
+  const on = new Set(p.rows.filter((r) => r.on).map((r) => r.id));
+  const all = p.rows.map((r) => r.id);
+  const sets = { locked: new Set(['model']), agent: new Set(p.rows.filter((r) => r.standard).map((r) => r.id)),
+                 open: new Set(all.filter((x) => !x.startsWith('github:'))), custom: on };
+  const now = p.preset || 'custom';
+  const columns = [{ id: 'locked', title: 'Locked' }, { id: 'agent', title: 'Standard' }, { id: 'open', title: 'Open' }];
+  if (now === 'custom') columns.push({ id: 'custom', title: 'Custom' });
+  const rows = p.rows.filter((r) => !r.locked || r.id === 'model').map((r) => ({ id: r.id, title: r.title, attrs: { 'data-perm-row': r.id } }));
+  const sites = p.sites.length ? p.sites.join(', ') : 'none';
+  return h('div', { class: 'panel perm-panel', 'data-perm-panel': net.name, 'data-read-only': '' },
+    h('div', { class: 'perm-head' }, h('strong', null, 'What it can reach'),
+      h('span', { class: 'tag' + (p.preset ? ' info' : '') }, p.preset ? PRESET_LABEL[p.preset] || p.preset : 'Custom'),
+      h('span', { class: 'muted' }, 'read-only here — change it live from a terminal on this Mac')),
+    callout('info', { compact: true, cls: 'perm-commands', icon: 'square-terminal',
+      body: [h('div', null, 'Live, from the next connection:'), ...commands.map((c) => h('code', { class: 'cmd-line' }, c))] }),
+    permissionSwitches(p.rows, on, () => {}, { disabled: true }),
+    h('div', { class: 'perm-sites' }, h('span', null, 'Other sites: '), h('span', { class: 'mono' }, sites)),
+    h('details', { class: 'net-rules', 'data-net-presets': '' }, h('summary', null, 'What each preset lets it reach'),
+      settingMatrix({ label: 'What each preset lets it reach', rows, columns, current: now, cell: (r, c) => sets[c.id].has(r.id) })));
+}
+
+function permissionsPanel(name, net, ro) {
   const p = net.permissions;
   if (!p) return null;
+  if (ro) return readOnlyPermissions(net, ro.commands || []);
   const on = new Set(p.rows.filter((r) => r.on).map((r) => r.id));
   const send = async (body) => {
     try { state.permErr.delete(name); await actOrThrow({ action: 'net-policy', sandbox: name, ...body }); }
@@ -60,7 +87,8 @@ function permissionsPanel(name, net) {
       btn('Allow site', () => { const v = siteInput.value.trim().toLowerCase(); if (v) send({ grant: ['site:' + v] }); }, { small: true, icon: 'plus' })));
 }
 
-export function networkPanel(net) {
+/// `ro` (683, a fenced session on this Mac): `{commands}` — the permissions read-only, with the commands that change them.
+export function networkPanel(net, ro) {
   if (!net.proxied) return panel(null, net.note || 'Not proxied.');
   const rules = net.policy.rules.map((r, n) => h('tr', null, h('td', { class: 'num' }, String(n + 1)),
     h('td', null, h('span', { class: r.action === 'allow' ? 'st-ok' : 'st-fail' }, r.action)), h('td', { class: 'mono' }, r.label), h('td', null, r.note || '')));
@@ -85,7 +113,7 @@ export function networkPanel(net) {
       title: 'This Mac: port ' + net.macPort + ' only',
       body: 'Its model server, reached as ' + net.macHost + ':' + net.macPort + ' (this Mac’s 127.0.0.1:' + net.macPort + '). Nothing else on this Mac’s localhost is reachable from a sandbox, whatever its network.' }) : null,
     // 597: the permissions first; the rules (every host they amount to) under details.
-    net.permissions ? permissionsPanel(net.name, net) : null,
+    net.permissions ? permissionsPanel(net.name, net, ro) : null,
     net.permissions ? h('details', { class: 'net-rules', 'data-net-rules': '' }, h('summary', null, 'Details: the rules and hosts'), policyParts) : policyParts,
     h('h2', null, 'Connection log'),
     h('div', { class: 'toolbar' }, h('label', null, toggle, ' denied only'),

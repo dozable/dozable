@@ -107,6 +107,8 @@ public struct NetworkPolicy: Sendable, Codable, Equatable {
         EgressRule(host: "raw.githubusercontent.com", ports: [443], note: "GitHub (git, Claude Code plugins)"),
         EgressRule(host: "codeload.github.com", ports: [443], note: "GitHub (git, Claude Code plugins)"),
         EgressRule(host: "objects.githubusercontent.com", ports: [443], note: "GitHub (git, Claude Code plugins)"),
+        // Git LFS files (the github permission names it too — a policy of this preset still reads as that permission).
+        EgressRule(host: "github-cloud.githubusercontent.com", ports: [443], note: "GitHub (Git LFS files)"),
     ]
 
     /// npm, Debian/Ubuntu apt, Alpine apk, PyPI.

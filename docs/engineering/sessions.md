@@ -52,9 +52,17 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
 `HostServer.attachMac`, `Sources/DozableKit/DeckholdSocket.swift` (the transport), `Sources/DozableCLI/MacCommands.swift`;
 `MacPlaceTests`, `MacSessionsEnvironmentTests`, `MacSessionsRecordTests`, `DeckholdSocketTests`, `make test-cli-host`.
 
-- **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`, no
-  proxy, no placeholders; `MacPlace.operations` are the session ops; everything else is `MacPlace.refusal` (host side)
-  and `MacCLI.refusal` (the CLI's entry, for a command that names `@mac` before `--`).
+- **A place, never a sandbox.** `HostCore.perform` routes `@mac` to `performMac` FIRST — no `Managed`, no `Sandbox`;
+  a proxy and placeholders exist ONLY inside the fence (below), per session; `MacPlace.operations` are the session ops
+  (and `net` for a fenced session); everything else is `MacPlace.refusal` (host side) and `MacCLI.refusal` (the CLI's
+  entry, for a command that names `@mac` before `--`).
+- **The mode** is decided once, by the CLI, for a NEW session: `--fenced`/`--unfenced` (a fenced-only flag means
+  fenced) > `DOZ_MAC_FENCE` > `mac.fence` > `on` (`Run.fencedOnMac`; the default flipped from off in 683 M6). A fenced
+  open carries `macFence`; the host never reads the setting. The record keeps the mode (`MacSessionRecord.fence`, nil =
+  unfenced — every record written before the fence existed): restart, `resume`, adoption and a gone session's restart
+  open from the record, never from the setting. `make test-cli-fence` ("M6" rows) checks the default, the precedence
+  and an unfenced record restarted and adopted under the fenced default; `make test-cli-host` is the unfenced session
+  as before, every open with `--unfenced`.
 - **The holder is `deckhold-mac serve`** (`MacDeckhold.locate`), started by `posix_spawn` (SETSID, CLOEXEC_DEFAULT,
   signals default, stdin /dev/null, stdout+stderr `<store>/mac-sessions/NAME.log`, cwd `--workdir`) — never `sh -c`.
   `serve` daemonises (its child's parent becomes launchd) and returns once its socket listens: holders outlive the
@@ -77,13 +85,168 @@ open, end, adopt, screens), `MacSessionsEnvironment.swift` (the allowlist), `Hos
   again from the record; `claude` without `--fresh` gets `--continue` (the record keeps the argv as opened).
 - **Bypass**: allowed only when the session's own argv asks (`MacPlace.bypassesPermissions`), recorded and marked; never
   added.
-- **Bridges**: OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`).
+- **Bridges** (unfenced): OSC 52 as for any session; the open-URL and workspace-file markers are dropped (`HostCore.bridge`) — a fenced session's are below.
 - **Saved screens** in `<store>/mac-sessions/screens` (`SavedScreens`' directory variants): the periodic capture and a
   host stop; an ended session has none; a gone one keeps its last — what `screen` shows, said "gone".
 - **The dashboard**: the This Mac page and All sessions' section, its own routes and `serve.mac_sessions` — web.md,
   "This Mac".
 - **Host stop / uninstall / nuke**: stop says how many keep running (`HostStopResult.macSessions`); uninstall asks
   whether to end them; nuke ends them and removes the socket folder.
+
+### Fenced sessions on this Mac (`doz run @mac --fenced`)
+
+`MacFence.swift` (the request, the record, the grants), `MacFencePaths.swift` (refusals, the home's read allowlist),
+`MacFenceProfile.swift` (the Seatbelt profile), `MacFenceEnvironment.swift`, `MacFenceSessionFolder.swift`,
+`MacFenceHostFS.swift`, `MacFenceGit.swift` (the git guard), `MacFenceStop.swift`, `PathEventStream` (FileWatch.swift),
+`HostCore+Mac.swift` (`macOpenFenced`, adoption, `session-resume`, `session-quarantine`, `bindFenceGitHub`,
+`openFenceDoors`), `MacFenceDoors.swift`, DozableCLI `FenceConnect.swift`, deckhold.c `fence_args`;
+`MacFence*Tests`, `FenceConnectTests`, `make test-cli-fence`, `Scripts/fence-read-probe.sh` (the allowlist against this
+Mac's real home, read-only), `Scripts/fence-freeze.sh` (a person's live run → the Mach lists). The default for a new
+session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The manual's page is
+`docs/manual/34-sessions-on-this-mac.md` (the five cases, the file model, what the fence is not).
+
+- **The principle:** nothing a fenced program can write is later executed or loaded by anything unfenced, except the
+  project's own files. Its temp, every tool cache it knows of, `XDG_CONFIG_HOME` and git's global config are its own
+  (`~/Library/Application Support/Dozable/fence/<8 hex of the store>/<session>/`: `tmp/` emptied at every open, `cache/`
+  and `derived/` kept — emptied when an open WIDENS the grants — `etc/` host-written and read-only, `ssh/known_hosts`).
+- **The profile** (deny default, the LAST matching rule wins): reads are the system roots and an allowlist of the home
+  (toolchain roots, the PATH and its links' targets — never a folder directly in the home, never a secret place —,
+  `~/.ssh/config` and `*.pub`); writes are the folder and `--write` folders; git's hooks folders (any depth), a `.git`
+  renamed or removed, an absent top `.git`, an in-tree `core.hooksPath` and git include targets are denied; then the
+  fence root closed, this session's folder opened again, and the store, the socket folders and doz's settings closed
+  last. The network: only `localhost:<the session's proxy port>` (and `--local-port` ports, the doors by literal); the
+  Keychain's services only with `--keychain`. sandbox-exec sits between the holder (unfenced) and the program; the
+  holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
+- **The Mach lists are PROVISIONAL** (`MacFenceProfile.agentMachServices`, `xcodeMachServices`): set from probes with
+  a scratch Claude Code and a scratch Xcode build; they are frozen only from a person's live runs
+  (`Scripts/fence-freeze.sh`, and `--xcode`/`--simulator --run '…'`) — the versions recorded beside them then. The
+  manual says they may still change.
+- **The host never follows a link the fence planted** (`MacFenceHostFS`: `O_NOFOLLOW_ANY`, `dirfd` walks, one-link
+  regular files) — every clear, read, strip and quarantine of a fence-writable path. A file with no name left
+  (`st_nlink == 0`: replaced by a rename between the open and the stat — git writes `config.lock` and renames it over
+  `config`) is opened again, never refused as a hard link: that refusal stopped a fenced `swift build` mid-clone
+  (`testAFileReplacedByARenameIsReadAgainNotRefused`).
+- **The git guard** (one per fenced session, the host's): the baseline at open (every repository's config entries and
+  hooks), FSEvents over the folders, a full check after the watch starts. A config key a fenced program may not add or
+  change (anything outside `MacFenceGit.allowed`), a `.git` file pointing outside a watched worktree/module, a bare
+  repository's shape, a repository arriving with a hook (a tree renamed in — the profile only stops writes AT those
+  paths) are violations: every process of the fence is SIGSTOPped (`sandbox_check` — SPI, its path argument on the
+  stack on arm64 — finds them by the session's sentinel, detached ones included), the change taken out (git itself
+  parses and strips a private copy), the text kept in `<store>/mac-sessions/quarantine/<session>/`, the session stopped
+  until `doz sessions resume @mac S`. Two fenced sessions in one folder are both stopped (the guard cannot tell which
+  wrote). A fenced session keeps the host up (its guard is the host's); ending one kills every process of its fence.
+- **Residuals, stated:** names and sizes of files are readable everywhere (`file-read-metadata`); another same-user
+  process's ARGV is readable through `kern.procargs2` (Seatbelt does not govern it on macOS 27 — the kernel returns no
+  other process's environment, fenced or not); between a git config write and the guard's stop (< 1 s) an unfenced git
+  run in the folder could read the key once; macOS's certificate service (trustd) fetches revocation data on the
+  program's behalf except under `locked`; with `--simulator` the Simulator and what it launches run outside.
+- **Protocol:** a fenced open carries `HostProtocol.fencedVersion`, so a host older than fenced sessions refuses it —
+  never opens it unfenced.
+- **The agent's config folder** (`MacAgentConfig.swift`; the recipe's `launch@1 mac_config` — recipes.md): only for a
+  program an EMBEDDED recipe declares (`AgentRecipes.macAgent`: Claude Code). `private` (default; flag `--agent-config` >
+  `recipes.V.P.mac_config` > `mac.agent_config` > the recipe's `default`): `CLAUDE_CONFIG_DIR=<session>/agent`, re-seeded
+  at EVERY open through `MacFenceHostFS` — cleared but its transcripts (`projects/<folder>/*.jsonl`, regular files),
+  the person's instructions/skills/agents/commands/output styles as LINKS (host-owned: the profile write-, rename- and
+  unlink-denies each, and the folder itself), each target and every link inside it (depth ≤ 8, ≤ 4096 entries) resolved
+  and refused when it is the home, a secret place, the store/sockets/doz settings/Keychain/fence root, or a writable
+  root — else allowed READ-ONLY in the profile; `settings.json` written from the recipe's `clean_copy` keys only (+ the
+  history mapping under `keep`), 0444 and host-owned; `.claude.json` built (onboarding, the person's `theme`, the folder
+  trusted, an API key's placeholder accepted); on the FIRST open the folder's own conversations cloned in. `shared`: the
+  person's real `~/.claude` (refused when it is a link) and `~/.claude.json*` readable and writable — nothing seeded, no
+  history key ever written there, `grants.sharedConfig` (a re-open into shared empties the caches), said at start, in
+  `sessions @mac` ("shared config (less isolated)") and in the capabilities.
+- **Transcripts** (`MacTranscripts.swift`, `HostCore.macCarryBack`): a private folder's conversations go back into the
+  person's own `~/.claude/projects/<folder>/` at `end`, before `forget`, at restart, and when the host first sees the
+  program ended or gone (`fencedMacSessions`, adoption) — idempotent by `name:sha256` (`MacFenceRecord.carried`).
+  Only `<uuid>.jsonl` (lower-case RFC 4122) of JSON-object lines whose every `cwd` is the folder, regular, one link, ≤ 64
+  MiB (≤ 1 GiB a session) — anything else skipped and named in the end message; `memory/` and every other entry never
+  touched. Destination made 0700 by `ensureDirectory` (refused through a link); a same-named file replaced only when it
+  is a byte-prefix of the new one, else the new one is `<uuid>.doz-<tag>.jsonl`. `keep` (`DozableSettings.history`,
+  flag `--history`): also archived in `<store>/mac-sessions/transcripts/<session>/<ended-at>/` (`session-transcripts`,
+  `doz sessions @mac --transcripts S [--export DIR]`); `agent-default`: carried, not archived, the end message gives the
+  recipe's `agent_default` words. A restart of a private session continues from `agent/projects`.
+- **The Claude login** (`HostCore.fenceAccount`, `bindFenceAccount`, `bindAnthropicAccount`): for an agent program only,
+  `--account NAME|mac|none` (else `mac.account`): a placeholder minted at open (`CLAUDE_CODE_OAUTH_TOKEN` for this Mac's
+  login or a setup token, `ANTHROPIC_API_KEY` for an API key), its sha256 in `MacFenceRecord.placeholderHashes`; the
+  session's proxy is a `CredentialTarget` like a sandbox, bound by the SAME account wiring before it starts accepting
+  (`installProxy`, adoption): `LoginWatcher` subscribes it as `@mac S` (access token only), strict foreign policy (its own
+  credential is refused, nothing injected beside it), no fallback (`none`/missing → the proxy's 401). `-e` of a key
+  variable is refused.
+- **Facts** (`MacAgentPrompt.swift`, `mac.agent_prompt` = `fenced` | `always` | `off`): Claude Code's argv gets ONE
+  `--append-system-prompt` combined with the person's own (the launcher's rule); the record keeps the person's argv.
+- **Bridges** (`HostCore.fencedBridge`): the session's `etc/bin/open` and `xdg-open` (first on PATH, `BROWSER`) send the
+  guest shim's markers; for a FENCED `@mac` session the host takes them: `BrowserBridge.check`, a sign-in callback only to a
+  `--local-port` (the browser reaches the program directly; any other port refused before opening), `WorkspaceFiles` with
+  the workdir as the share; OSC 52 write-only, announced as "S (fenced) copied N chars: '<first 40, controls ·>'".
+  `MacFenceRecord.bridges` from `--open-url/--open-files/--clipboard` or `mac.open_url/open_files/clipboard`; live with
+  `doz sessions bridges @mac S` (`session-bridges`). Unfenced sessions: unchanged.
+- **Capabilities** (`MacCapabilities.swift`, `MacFence.capabilities`): ONE function from a `MacCapabilityShape` (a record,
+  or `doz run @mac --dry-run`'s flags + settings) — `SessionRow.capabilities` for every `@mac` row, `--capabilities S`,
+  `--dry-run`.
+- **git and ssh through the proxy** (`FenceConnect.swift` in DozableCLI — `doz fence-connect HOST PORT`, handed over by
+  `DozableEntry.main` before anything of doz is read): `GIT_SSH_COMMAND` and the session's `etc/bin/ssh` shim give ssh
+  `ProxyCommand="<doz>" fence-connect %h %p`, `UserKnownHostsFile=<session>/ssh/known_hosts` and
+  `StrictHostKeyChecking=accept-new` (a new host key is kept in the session; a CHANGED one still fails). It CONNECTs
+  through `$HTTPS_PROXY` (only `http://USER:PASSWORD@127.0.0.1:PORT`) and relays stdin/stdout; the proxy judges the name
+  (port 22 is never decrypted). The profile reads doz's own file only (`MacFence.dozExecutable`). git's command-line
+  config (`MacFenceEnvironment.gitConfig`): `credential.helper` emptied (the system's osxkeychain helper — closed with the
+  Keychain, and under `--keychain` it would store the placeholder in the person's Keychain), then github.com's helper:
+  the placeholder from `$GH_TOKEN` with `--github`, else one that says how to get a credential and answers `quit=1`.
+- **GitHub as the person** (`--github read|push`; `HostCore.bindFenceGitHub`): the sandboxes' machinery — `github:as-you`
+  (+ `github:push`) added to the session's policy at open, the token READ ON USE by the vault's provider (`gh auth token`,
+  or the default key, per `github.credentials`; a guarded run only ever `DOZ_TEST_GH` — never the person's gh), a
+  placeholder minted at open into `GH_TOKEN` (its hash in the record, `binding(ofVariable:)`), `GitHubGate` with the
+  sandboxes' read-only rules (`GitHubAccess.pushOff` names `doz run @mac --github push` for `@mac S`). The mode is the
+  record's, narrowed LIVE by the policy (`doz net deny @mac --session S github:push|github:as-you`), widened only at a
+  start. `-e GH_TOKEN/GITHUB_TOKEN` refused. **gh** cannot use the decrypting tunnel: Go on macOS verifies with the
+  system's trust only (SSL_CERT_FILE ignored — probe), so gh gets its own DOOR: `GH_CONFIG_DIR=<session>/cache/config/gh`
+  (written again at every open; gh rewrites it) whose `http_unix_socket` is `<socket folder>/NAME.gh`; gh then speaks
+  plain HTTP there, and the host serves it as the inside of a decrypted tunnel (`EgressProxy.serveUnwrapped`: GitHub's
+  four credential hosts only, the policy, the swap, the gate, the log).
+- **The SSH agent** (`--ssh-agent`; `MacFenceDoors.swift`): the door `<socket folder>/NAME.agent` (0600), each
+  connection relayed to the host's `SSH_AUTH_SOCK` (a guarded run: ONLY `DOZ_TEST_SSH_AUTH_SOCK`) through
+  `SSHAgentRelay.relayFiltered` (list, sign, session-bind — never add, remove or lock); `SSH_AUTH_SOCK` in the session is
+  the door; the proxy allows `github.com:22` (`sshToGitHub`). Doors live while this host serves the session's proxy
+  (`MacFenceDoorSet`, `HostCore.macDoors`: opened before the program starts and at adoption, gh's door attached to the
+  proxy when it is made — a connection before that waits ≤ 10 s; closed with the proxy); the profile allows a connect to each
+  door by literal (`network-outbound`) while the socket folder stays closed to files — verified.
+- **Worktrees, submodules, LFS**: a folder whose `.git` is a FILE is a worktree: `MacFenceGit.worktreeCommon` resolves its
+  `gitdir:` and `commondir` (refused when unreadable, not inside the common folder, or in a closed place); the common
+  git folder is writable (`MacFence.gitCommon`, recorded, in the grants), its `hooks/` and modules' hooks write-denied,
+  the main working tree not opened, and the guard watches it (`MacFenceGitGuard.gitCommon`: baselined, FSEvents, never
+  walked for repositories). Submodules: `.git/modules/**/hooks` write-denied at any depth; a module's `core.worktree`
+  is allowed when it resolves inside the folder (`git submodule add` writes it). LFS lives in `.git/lfs` (writable);
+  git-lfs's standard `filter.lfs.*` come from the person's global config.
+- **Xcode** (`--xcode`: profile `xcode`; `--simulator`: `simulator`, implies `--xcode`): reads `~/Library/Developer/Xcode`
+  but its `DerivedData`, `Archives`, `Products` (`MacFencePaths.xcodeReads/xcodeClosed`); `DOZ_DERIVED=<session>/derived`
+  for `-derivedDataPath`; `MacFenceProfile.xcodeMachServices` (PROVISIONAL — empty: a scratch macOS tool built with the
+  agent's services) — LaunchServices and CoreSimulator never; `--simulator` adds them (`simulatorMachServices` +
+  prefixes) and `~/Library/Developer/CoreSimulator`, labelled "a guard rail, not a boundary" everywhere (what it launches
+  runs outside). No profile allows a preference write. Every profile lets Apple's build tools use their item-replacement
+  folders (`<user temp>TemporaryItems/NSIRD_<program>_*`, `MacFenceProfile.replacementPrograms`) and the Swift driver its
+  `TemporaryDirectory.*` — macOS puts them in the user temp folder whatever TMPDIR says (without them `swift build` and
+  `xcodebuild build` fail); nothing else of the user temp folder. `Scripts/fence-freeze.sh --xcode --run '…'` is the
+  person's freeze run. A plain `xcodebuild build` (no signing) needs neither LaunchServices nor a preference write.
+- **Tools inside a fenced session** (macOS 27, probes and `make test-cli-fence`):
+
+  | Tool | Fenced | How |
+  |---|---|---|
+  | git over https | works | `HTTPS_PROXY`; the session's CA through `GIT_SSL_CAINFO` when the proxy decrypts (GitHub with `--github`) |
+  | git over ssh, `ssh` | works | `doz fence-connect` (ProxyCommand); keys only through `--ssh-agent`; host keys in the session |
+  | GitHub (git, `gh`) | `--github read\|push` | the placeholder swapped by the proxy; gh through its door (Go on macOS ignores a session CA) |
+  | signed commits | ssh signing with `--ssh-agent` (`-c gpg.format=ssh -c user.signingKey=…`); gpg fails (its home is closed) | `gpg.*` and `user.signingkey` are not carried from your config |
+  | worktrees, submodules | work | above; a submodule's `submodule.*.update` stops the session |
+  | git LFS (GitHub) | works | GitHub serves LFS objects from `github-cloud.githubusercontent.com`, part of the `github` permission |
+  | Go | works on tunnels; `GOPATH` is the session's (its sumdb), so `go install` lands in its caches | the system's trust (trustd; closed under `locked`) — a host the proxy decrypts fails (Go ignores a session CA) |
+  | Node, npm, pnpm, bun | work | `NODE_USE_ENV_PROXY=1`, `NODE_EXTRA_CA_CERTS`; caches in the session |
+  | curl, Python (pip, uv) | work | the proxy variables; `REQUESTS_CA_BUNDLE`/`SSL_CERT_FILE`/`CURL_CA_BUNDLE` |
+  | Swift / SwiftPM | `swift build --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm"` | SwiftPM's own sandbox cannot nest; git dependencies work; binary targets need their host allowed |
+  | Xcode | `--xcode`: `xcodebuild … -derivedDataPath "$DOZ_DERIVED" -scmProvider system` | without `-derivedDataPath` it fails (Xcode's DerivedData is closed); signing needs `--keychain` |
+  | Simulator | `--simulator` — a guard rail, not a boundary | LaunchServices and CoreSimulator open; what they launch runs outside |
+  | URLSession tools, notarytool, codesign | fail closed | they ignore proxy variables (no direct network) / need the Keychain — run unfenced |
+  | Java | fails closed | no proxy agent this release (`JAVA_TOOL_OPTIONS` not set) |
+  | Docker, Podman, VMs | refused | no sockets, no launchd |
+  | headless Chrome / Playwright | `--no-sandbox`, browsers in the session (`PLAYWRIGHT_BROWSERS_PATH`) | Chrome's own sandbox cannot nest |
 
 ## Session memory and saved screens
 

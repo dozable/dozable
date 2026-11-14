@@ -32,6 +32,7 @@ public enum CommunityRequirements {
         ("reach-shown", "it reaches the network only through permissions you see (no hidden vendor hosts)"),
         ("no-mark", "no mark from Dozable's icon registry"),
         ("no-family", "not part of a family of majors"),
+        ("no-mac-config", "no mac_config (an agent's config folder on this Mac is declared only by Dozable's own recipes)"),
     ]
 
     /// A recipe's document bytes (compiled JSON) checked against the list. `others`: the recipes it must live beside (the
@@ -104,6 +105,9 @@ public enum CommunityRequirements {
         set("reach-shown", vendor.isEmpty, "vendor hosts are a hidden permission: \(vendor.joined(separator: ", ")) — put what it needs in its model or update hosts")
         set("no-mark", r.icon == nil, "icon \(r.icon ?? "") is from Dozable's registry — leave it out (a lettermark is drawn)")
         set("no-family", r.family == nil, "family@1 is Dozable's for now — leave it out")
+        // 683: what of your home a fenced session on this Mac reads (and, shared, writes) is never a recipe's to say
+        // unless the recipe is built into doz.
+        set("no-mac-config", r.launch.macConfig == nil, "mac_config is honoured only from Dozable's own recipes built into doz — leave it out")
         return (items.map { out[$0.id]! }, r)
     }
 

@@ -298,9 +298,10 @@ struct NetPolicyCommand: AsyncParsableCommand {
     @Option(name: .long, help: "Allow a host (exact, *.domain, or an IPv4 CIDR); repeatable.") var allow: [String] = []
     @Option(name: .long, help: "Deny a host; repeatable.") var deny: [String] = []
     @Option(name: .long, help: "Remove every rule for a host; repeatable.") var remove: [String] = []
+    @Option(name: .long, help: "@mac: the fenced session.") var session: String?
 
     func run() async throws {
-        var r = HostRequest(.netPolicy, name: name)
+        var r = netRequest(.netPolicy, name, try netSession(name, session))
         r.preset = preset
         r.allow = allow
         r.deny = deny
@@ -324,6 +325,12 @@ struct NetLog: AsyncParsableCommand {
     @Argument var name: String
     @Flag(name: .long, help: "Only denied connections.") var denied = false
     @Flag(name: [.short, .long], help: "Keep printing new connections.") var follow = false
+    @Option(name: .long, help: "@mac: the fenced session.") var session: String?
+    @Flag(name: .long, help: "@mac: the fence's own refusals (files, programs, services, sockets — from the system log) instead of the proxy's connections.") var fence = false
+
+    static func fenceLine(_ d: FenceDenial) -> String {
+        "\(d.time.formatted(date: .omitted, time: .standard))  refused  \(d.process)\(d.pid.map { "(\($0))" } ?? "")  \(d.operation)  \(DisplayPath.tilde(d.target))"
+    }
 
     static func line(_ c: ConnectionRecord) -> String {
         let time = c.time.formatted(date: .omitted, time: .standard)
@@ -336,8 +343,19 @@ struct NetLog: AsyncParsableCommand {
     }
 
     func run() async throws {
-        var r = HostRequest(.netLog, name: name)
+        var r = netRequest(.netLog, name, try netSession(name, session))
         r.deniedOnly = denied
+        if fence {
+            guard MacPlace.isPlace(name), !follow else { throw ValidationError("--fence is for doz net log @mac --session SESSION (without --follow)") }
+            r.denials = true
+            let d = try decode(try await query(r, g), FenceDenials.self, g)
+            if g.json { Out.json(d); return }
+            if d.denialLog == "unavailable" { Out.stderr("this account cannot read the system log, so the fence's refusals are not listed (nothing else is affected)\n") }
+            if d.denialLog == "off" { Out.stderr("no host runs: the fence's refusals are read by the host while it runs\n") }
+            if d.denials.isEmpty, d.denialLog == "on" { Out.stdout("no refusals seen (macOS folds repeats of one refusal)\n") }
+            for x in d.denials { Out.stdout(Self.fenceLine(x) + "\n") }
+            return
+        }
         if !follow {
             let recs = try decode(try await query(r, g), [ConnectionRecord].self, g)
             if g.json { Out.json(recs) } else {

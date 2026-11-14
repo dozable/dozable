@@ -26,7 +26,7 @@ import { ISOLATED_NOTE } from '../components/workspace-chooser-a0962944605ba369.
 import { sourceTag } from '../components/setting-source-42701c4a247e8ecb.js';
 import { duplicateDialog, policyDialog, takePointDialog, templateDialog } from './sandbox-dialogs-6caeb1bdc529893d.js';
 import { openSavedTerminal, promoteSaved, restorePanes, savedRows } from './sandbox-layout-3652330e0472cfe8.js';
-import { networkPanel } from './sandbox-network-18beabd5c26ccb2d.js';
+import { networkPanel } from './sandbox-network-6c5644aa7e451dde.js';
 import { filesPanel, syncFiles } from './sandbox-files-c77ee92a19c5c1c3.js';
 import { paintStripActs, paintTabs, renderTerminals, syncBuildLogTab, syncConsoleTab } from './sandbox-terminals-60cc834fbcf4b23d.js';
 import { paintHome, soundLine } from './sandbox-home-e63a107541ffaf1f.js';

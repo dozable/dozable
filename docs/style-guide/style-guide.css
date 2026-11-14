@@ -60,3 +60,8 @@
     .rules { grid-template-columns: 1fr; }
   }
 }
+
+/* 683 M5: two specimens side by side (a fenced and an unfenced session's capabilities). */
+@layer views {
+  .sg-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+}

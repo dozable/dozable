@@ -115,6 +115,42 @@ capabilities:
       agent_default: Claude Code deletes conversations older than 30 days
       source: https://code.claude.com/docs/en/settings-reference#cleanupperioddays
       checked: '2026-11-04'
+    # Its config folder in a fenced session on this Mac (doz run @mac --fenced -- claude): private — the session's own
+    # (CLAUDE_CONFIG_DIR), your instructions, skills, agents, commands and output styles as read-only links, settings
+    # copied from these keys only, onboarding done and the folder trusted; or shared — your own ~/.claude.
+    mac_config:
+      home_env: CLAUDE_CONFIG_DIR
+      home: ~/.claude
+      beside:
+      - ~/.claude.json
+      link_read_only:
+      - CLAUDE.md
+      - skills
+      - agents
+      - commands
+      - output-styles
+      clean_copy:
+      - file: settings.json
+        keys:
+        - model
+        - permissions.allow
+        - permissions.deny
+        - permissions.ask
+        - permissions.defaultMode
+        - outputStyle
+        - includeCoAuthoredBy
+        - alwaysThinkingEnabled
+        - language
+      first_run:
+        file: .claude.json
+        set:
+          hasCompletedOnboarding: true
+        trust_workdir: projects
+      transcripts:
+        dir: projects/{workdir}
+        files: '*.jsonl'
+        workdir_encoding: claude
+      default: private
     status: osc7501
     resume:
     - --continue

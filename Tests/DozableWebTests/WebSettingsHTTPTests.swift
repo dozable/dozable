@@ -90,7 +90,7 @@ final class WebSettingsHTTPTests: XCTestCase {
         XCTAssertEqual(list.recipes.count, AgentRecipes.all.count)
         let cc = try XCTUnwrap(list.recipes.first { $0.qualified == "anthropic/claude-code" })
         XCTAssertEqual(cc.state, "available", "an empty store: nothing installed or in use")
-        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network", "history"])
+        XCTAssertEqual(Set(cc.settings.map(\.name)), ["version", "approvals", "memory_mib", "network", "history", "mac_config"])
         XCTAssertTrue(cc.settings.allSatisfy { $0.source == .recipe })
         XCTAssertEqual(list.recipes.first { $0.id == "pi" }?.subject, "coding harness")
         XCTAssertEqual(try change(#"{"key":"recipes.xai.grok.approvals","value":"ask"}"#, cookie, csrf).status, 200, "an unpublished recipe's key is still taken")

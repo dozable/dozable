@@ -15,7 +15,7 @@ import DozableKit
 // A claude-code sandbox (git, curl, ssh in the image; proxied), store /tmp/dzo-PID-g.
 
 // (`__import__`: a line beginning "import" is read by the audit as a Swift import.)
-private let fakeGitHubServer = #"""
+let fakeGitHubServer = #"""
 base64, json, os, ssl, subprocess, sys = (__import__(m) for m in ("base64", "json", "os", "ssl", "subprocess", "sys"))
 http = __import__("http.server")
 root, certf, keyf, logf, tokenf, portf = sys.argv[1:7]

@@ -59,6 +59,9 @@ final class WebActionTests: XCTestCase {
         "session-restart": #"{"action":"session-restart","sandbox":"web","session":"codex","fresh":false}"#,
         "mac-session-end": #"{"action":"mac-session-end","session":"build","confirm":"build"}"#,
         "mac-session-restart": #"{"action":"mac-session-restart","session":"agent","confirm":"agent"}"#,
+        // 683 M5: a fenced session's resume after a git stop, and its bridges switched live.
+        "mac-session-resume": #"{"action":"mac-session-resume","session":"agent"}"#,
+        "mac-session-bridges": #"{"action":"mac-session-bridges","session":"agent","openURL":false}"#,
         // 644: the Files panel's changes.
         "files-mkdir": #"{"action":"files-mkdir","sandbox":"web","path":"/workspace/src/new"}"#,
         "files-new": #"{"action":"files-new","sandbox":"web","path":"notes.md"}"#,
@@ -154,6 +157,8 @@ final class WebActionTests: XCTestCase {
         .toolsApply,
         // 608: End session / Restart session (a running sandbox only; never a wake).
         .sessionEnd, .sessionRestart,
+        // 683 M5: @mac only — a fenced session's resume after a git stop, its bridges (host-side switches, per event).
+        .sessionResume, .sessionBridges,
         // 594 W20: only as Restart host, which the data source refuses unless the host is OLDER.
         .hostStop,
     ]
@@ -342,7 +347,8 @@ final class WebActionTests: XCTestCase {
         }
         XCTAssertEqual(places.count, Set(places).count, "one action per HostOp (and place)")
         XCTAssertEqual(Set(Self.samples.compactMap { (try? decode($0.value))?.isMacSession == true ? (try? decode($0.value))?.hostOp : nil }),
-                       [.sessionEnd, .sessionRestart], "this Mac: end and restart — never an open")
+                       [.sessionEnd, .sessionRestart, .sessionResume, .sessionBridges],
+                       "this Mac: end, restart, resume after a git stop, the bridges (683 M5) — never an open")
         // 594 W18: `ping` is reachable — as "Start host" (a status read that starts a host the way
         // every action does); `host stop` only as W20's guarded Restart host.
         XCTAssertEqual(Self.samples.filter { (try? decode($0.value).hostOp) == .hostStop }.map(\.key), ["host-restart"])
@@ -539,11 +545,25 @@ final class WebActionTests: XCTestCase {
                        ["rm -f -- \"$0\"", q])
     }
 
-    /// The hand-off directory is private to this user (0700), whatever it was before.
-    func testTheTerminalHandoffDirectoryIsPrivate() throws {
-        let dir = try TerminalHandoff.handoffDirectory()
+    /// The hand-off folder is in the STORE (no fenced session reaches it — the user's temporary folder was writable by
+    /// one), private (0700), and a link or an open folder there is refused, never used.
+    func testTheTerminalHandoffDirectoryIsInTheStoreAndPrivate() throws {
+        let root = URL(fileURLWithPath: "/private/tmp/dzwt-\(getpid())-\(UInt32.random(in: 0...UInt32.max))")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = DozableStore(root: root)
+        let dir = try TerminalHandoff.handoffDirectory(store: store)
+        XCTAssertEqual(dir.path, store.root.appendingPathComponent("ui-terminal").path)
+        XCTAssertFalse(dir.path.hasPrefix(FileManager.default.temporaryDirectory.path), "never the user's temporary folder")
         let mode = try XCTUnwrap(FileManager.default.attributesOfItem(atPath: dir.path)[.posixPermissions] as? Int)
         XCTAssertEqual(mode & 0o777, 0o700)
+        chmod(dir.path, 0o755)
+        XCTAssertThrowsError(try TerminalHandoff.handoffDirectory(store: store), "a folder others can open is refused")
+        try FileManager.default.removeItem(at: dir)
+        let elsewhere = root.appendingPathComponent("elsewhere")
+        try FileManager.default.createDirectory(at: elsewhere, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        symlink(elsewhere.path, dir.path)
+        XCTAssertThrowsError(try TerminalHandoff.handoffDirectory(store: store), "a link is refused")
     }
 
     // MARK: metrics

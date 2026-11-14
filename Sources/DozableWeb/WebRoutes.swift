@@ -95,6 +95,15 @@ public enum WebRoute: Equatable, Sendable {
     case macSessionScreen(String)       // GET  /api/v1/mac/sessions/{session}/screen
     case macTerminalTicket              // POST /api/v1/mac/terminal-ticket  ({mode: interactive|watch, session, cols?, rows?, reattach?})
     case macTerminalSocket              // GET  /api/v1/mac/terminal-socket  (WebSocket upgrade + the ticket)
+    // 683 M5 — a fenced session's Network tab (its permissions read-only, its log, its fence's refusals), its archived
+    // conversations (the list, and one exported: a download of an archived `<uuid>.jsonl` only), what the git guard took
+    // out (read); and the New session wizard's plan (CSRF; the Mac's own browser only — `mac-screen`): the command, and
+    // with `open: true` Open in Terminal for the plainly fenced shapes. Still no route OPENS a session in the host.
+    case macSessionNetwork(String)      // GET  /api/v1/mac/sessions/{session}/network
+    case macSessionTranscripts(String)  // GET  /api/v1/mac/sessions/{session}/transcripts
+    case macSessionTranscript(String, String, String) // GET /api/v1/mac/sessions/{session}/transcripts/{endedAt}/{uuid}.jsonl
+    case macSessionQuarantine(String)   // GET  /api/v1/mac/sessions/{session}/quarantine
+    case macSessionPlan                 // POST /api/v1/mac/session-plan  ({case, program, workdir, session?, preset?, account?, github?, agentConfig?, simulator?, keychain?, ports?, open?})
     // 594 — onboarding: the wizard's facts; the settings file + prompt template written only when
     // missing (CSRF, strict {base?, access?, ignoreMode?}); the host's image preparations.
     case onboarding                // GET  /api/v1/onboarding
@@ -206,6 +215,7 @@ public enum WebRoute: Equatable, Sendable {
         case (.post, 1) where rest[0] == "plan": return .plan
         case (.post, 1) where rest[0] == "grids": return .grids
         case (.post, 2) where rest == ["mac", "terminal-ticket"]: return .macTerminalTicket
+        case (.post, 2) where rest == ["mac", "session-plan"]: return .macSessionPlan
         case (.post, 2) where rest == ["project", "open"]: return .projectOpen
         case (.post, 2) where rest == ["project", "preview"]: return .projectPreview
         case (.post, 2) where rest == ["project", "write"]: return .projectWrite
@@ -273,8 +283,17 @@ public enum WebRoute: Equatable, Sendable {
             return .macSessions
         case 2 where rest == ["mac", "terminal-socket"]:
             return .macTerminalSocket
-        case 4 where rest[0] == "mac" && rest[1] == "sessions" && isMacSessionName(rest[2]) && rest[3] == "screen":
-            return .macSessionScreen(rest[2])
+        case 4 where rest[0] == "mac" && rest[1] == "sessions" && isMacSessionName(rest[2]):
+            switch rest[3] {
+            case "screen": return .macSessionScreen(rest[2])
+            case "network": return .macSessionNetwork(rest[2])
+            case "transcripts": return .macSessionTranscripts(rest[2])
+            case "quarantine": return .macSessionQuarantine(rest[2])
+            default: return nil
+            }
+        case 6 where rest[0] == "mac" && rest[1] == "sessions" && isMacSessionName(rest[2]) && rest[3] == "transcripts"
+                     && WebMacTranscripts.isStamp(rest[4]) && MacTranscripts.isTranscriptName(rest[5]):
+            return .macSessionTranscript(rest[2], rest[4], rest[5])
         case 2 where rest == ["serve", "devices"]:
             return .serveDevices
         case 2 where rest == ["serve", "probe"]:

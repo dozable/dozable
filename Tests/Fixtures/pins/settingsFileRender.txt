@@ -183,10 +183,10 @@
 # (addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated ("" = none); applies when doz ui starts again (doz ui restart))
 # trusted_proxies = ""
 
-# With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no
-# isolation: your files, Keychain and network): off (they do not see them), watch (list them and
-# watch their screens, read-only) or interactive (also type into them, end and restart them). This
-# Mac's own browser always has them.
+# With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — they
+# run as you, an unfenced one with your files, Keychain and network): off (they do not see them),
+# watch (list them and watch their screens, read-only) or interactive (also type into them, end
+# and restart them). This Mac's own browser always has them.
 # (off | watch | interactive; applies at once (the UI re-reads it))
 # mac_sessions = "off"
 
@@ -194,6 +194,62 @@
 # http://<this Mac>.local:<port>), so other Macs and phones can find it.
 # (boolean; applies when doz ui starts again (doz ui restart))
 # advertise = true
+
+[mac]
+
+# Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp
+# and caches, your Keychain, secrets and other folders closed, its network only through Dozable's
+# proxy (on, the default), or with no isolation at all (off). doz run @mac --fenced or --unfenced
+# decides for one session; a session keeps its mode when it is restarted.
+# (off | on; env DOZ_MAC_FENCE; flag doz run @mac --fenced | --unfenced; applies to sessions opened from now on)
+# fence = "on"
+
+# Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so,
+# reading your saved logins). doz run @mac --keychain opens it for one session.
+# (off | on; flag doz run @mac --keychain; applies to sessions opened from now on)
+# keychain = "off"
+
+# Folders or files in your home a fenced session on this Mac may read (never write), relative to
+# your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config,
+# ~/Library) stay closed.
+# (paths relative to your home, comma-separated, like "notes, src/shared" ("" = none); applies to sessions opened from now on)
+# fence_read = ""
+
+# What a fenced session on this Mac may reach through Dozable's proxy: standard (its AI model, its
+# own updates, GitHub, error reports and the Node, Python, Go, Rust and Swift package registries),
+# locked (its AI model only — and no certificate checks on its behalf) or open (any site). This
+# Mac's own addresses are never reachable. doz run @mac --permissions decides for one session; doz
+# net allow|deny @mac --session S changes a running one.
+# (standard | locked | open; flag doz run @mac --permissions; applies to sessions opened from now on)
+# permissions = "standard"
+
+# A fenced agent's settings folder on this Mac: private (its own; your instructions and skills
+# read-only) or shared (your own ~/.claude: less isolated).
+# (private | shared; flag doz run @mac --agent-config; applies to sessions opened from now on)
+# agent_config = "private"
+
+# The Claude login a fenced Claude Code gets through Dozable's proxy: mac (this Mac's login) or
+# none. --account NAME picks an account.
+# (mac | none; flag doz run @mac --account; applies to sessions opened from now on)
+# account = "mac"
+
+# Tell Claude Code on this Mac where it runs (a facts block in its prompt): fenced sessions,
+# always, or off.
+# (fenced | always | off; applies to sessions opened from now on)
+# agent_prompt = "fenced"
+
+# A fenced session may open web pages in your browser, each announced (on, off).
+# (on | off; flag doz run @mac --open-url; applies to sessions opened from now on)
+# open_url = "on"
+
+# A fenced session may open documents of its folder in your apps, each announced (on, off).
+# (on | off; flag doz run @mac --open-files; applies to sessions opened from now on)
+# open_files = "on"
+
+# A fenced session may put text on your clipboard, never read it; each copy announced (write,
+# off).
+# (write | off; flag doz run @mac --clipboard; applies to sessions opened from now on)
+# clipboard = "write"
 
 [host]
 

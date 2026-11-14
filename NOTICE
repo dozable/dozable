@@ -24,6 +24,9 @@ Among the attributions those NOTICE files require:
   at Docker, Inc. (https://www.docker.com)." (Apache-2.0) — and of tonistiigi/fsutil (MIT, Copyright 2017 Tõnis Tiigi).
 - dozview's regular-expression engine (match/dozre.c) and the path functions beside it are ports of Go's
   regexp/syntax, path and path/filepath — Copyright 2009 The Go Authors (BSD-3-Clause).
+- The fenced sessions' Seatbelt rule lists (Sources/DozableHost/MacFenceProfile.swift: the Mach services and sysctls a
+  fenced program may use) were compared against OpenAI Codex's Seatbelt policy and Google's Gemini CLI's (Apache-2.0)
+  and Chromium's sandbox common.sb (BSD-3-Clause); no code is copied from them.
 - BoringSSL's licence texts (OpenSSL, SSLeay, ISC, MIT for third_party/fiat), LibYAML's (MIT, Copyright (c) 2006 Kirill
   Simonov) and the above are in Licences/, fetched at the exact revisions Licences/SOURCES.md names.
 

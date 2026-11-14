@@ -63,6 +63,8 @@ public enum SettingType: Sendable, Equatable {
     case addressList
     /// 657: a dotfiles repository — an https:// git URL or a folder on this Mac (`DotfilesSource`); `""` = none.
     case dotfiles
+    /// Paths relative to the home, comma-separated (`notes, src/shared`) — `MacFencePaths.fenceReadProblem`; `""` = none.
+    case homePathList
 
     /// The variables a title may use.
     public static let titleVariables = ["sandbox", "session", "image", "time", "phase"]
@@ -109,6 +111,7 @@ public enum SettingType: Sendable, Equatable {
         case .originList: "origins like https://doz.home.example, comma-separated (\"\" = none)"
         case .addressList: "addresses or networks like 127.0.0.1, 192.168.1.0/24, comma-separated (\"\" = none)"
         case .dotfiles: "a git repository's https:// URL, or a folder on this Mac that is one (\"\" = none)"
+        case .homePathList: "paths relative to your home, comma-separated, like \"notes, src/shared\" (\"\" = none)"
         }
     }
 
@@ -294,6 +297,9 @@ public struct SettingDefinition: Sendable {
         case (.dotfiles, .string(let s)):
             if let why = DotfilesSource.problem(s) { throw SettingsError("\(key): \(why)") }
             return v
+        case (.homePathList, .string(let s)):
+            if let why = MacFencePaths.fenceReadProblem(s) { throw SettingsError("\(key): \(why)") }
+            return v
         case (.appList, .string(let s)):
             guard WorkspaceFiles.appNames(s) != nil else {
                 throw SettingsError("\(key) is app names separated by commas (at most 16, each 1–64 characters, no / or ;), or \"\"")
@@ -317,7 +323,7 @@ public struct SettingDefinition: Sendable {
         case .int:
             guard let i = Int(t) else { throw SettingsError("\(key) is a whole number") }
             return try validate(.int(i))
-        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles:
+        case .choice, .path, .subnet, .version, .timeZone, .permissions, .appList, .serveBind, .originList, .addressList, .dotfiles, .homePathList:
             return try validate(.string(t))
         case .titleTemplate:
             return try validate(.string(text))          // its spaces are its own
@@ -495,6 +501,25 @@ public enum SettingKey {
     public static let serveAdvertise = "serve.advertise"
     /// What a remote browser may do with the sessions on this Mac: off | watch | interactive.
     public static let serveMacSessions = "serve.mac_sessions"
+    /// A new session on this Mac runs fenced (on) or not (off); its Keychain; the person's extra home paths it may read.
+    public static let macFence = "mac.fence"
+    public static let macKeychain = "mac.keychain"
+    public static let macFenceRead = "mac.fence_read"
+    /// What a fenced session's proxy allows by default (`doz run @mac --permissions` decides for one session).
+    public static let macPermissions = "mac.permissions"
+    /// 683: a fenced session's agent config folder (`private` | `shared`), its Claude login (`mac` | `none`), its facts
+    /// prompt (`fenced` | `always` | `off`) and its bridges (open a URL, open files, the clipboard).
+    public static let macAgentConfig = "mac.agent_config"
+    public static let macAccount = "mac.account"
+    public static let macAgentPrompt = "mac.agent_prompt"
+    public static let macOpenURL = "mac.open_url"
+    public static let macOpenFiles = "mac.open_files"
+    public static let macClipboard = "mac.clipboard"
+    /// 683: a recipe's own config-folder choice for fenced sessions (`recipes.anthropic.claude-code.mac_config`) — nil for
+    /// a recipe that declares none.
+    public static func macConfig(_ agent: String) -> String? {
+        AgentRecipes.recipe(agent).flatMap { $0.launch.macConfig == nil ? nil : "\($0.settingsSection).\(RecipeSettings.macConfig)" }
+    }
     /// 594: where the UI's new sandboxes get their workspace by default (`<projects_dir>/<name>`).
     public static let projectsDir = "defaults.projects_dir"
     public static let kernelPath = "kernel.path"
@@ -655,6 +680,12 @@ public struct DozableSettings: Sendable {
                            AgentHistory.recipeSummary(r, h),
                            applies: .nextStartOrWake, agent: r.id))
         }
+        // 683: only for a recipe that declares its config folder on this Mac.
+        if let m = r.launch.macConfig {
+            s.append(.init(sec, RecipeSettings.macConfig, .choice(["follow", "private", "shared"]), .string("follow"),
+                           "\(r.title)'s settings folder in a fenced session on this Mac: follow (mac.agent_config), private (the session's own \(m.home) — your instructions and skills read-only, settings copied from a short list) or shared (your own \(m.home): less isolated). doz run @mac --agent-config decides for one session.",
+                           flag: "doz run @mac --agent-config", applies: .nextSession, ui: false, agent: r.id))
+        }
         for o in r.ownSettings ?? [] {
             let type: SettingType, value: TOMLValue
             switch (o.type, o.default) {
@@ -779,10 +810,42 @@ public struct DozableSettings: Sendable {
             .init("serve", "trusted_proxies", .addressList, .string(""),
                   "The reverse proxies whose X-Forwarded-Proto, X-Forwarded-Host and X-Forwarded-For the dashboard believes — their addresses or networks, comma-separated (a proxy on this Mac: 127.0.0.1, ::1). From anyone else those headers are ignored.",
                   applies: .uiRestart, ui: false),
-            // The sessions on this Mac (@mac) for a browser of the network — never by default: they are not isolated.
+            // The sessions on this Mac (@mac) for a browser of the network — never by default: they run as the person.
             .init("serve", "mac_sessions", .choice(["off", "watch", "interactive"]), .string("off"),
-                  "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — no isolation: your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
+                  "With ui.lan, what your other browsers may do with the sessions on this Mac (doz run @mac — they run as you, an unfenced one with your files, Keychain and network): off (they do not see them), watch (list them and watch their screens, read-only) or interactive (also type into them, end and restart them). This Mac's own browser always has them.",
                   applies: .now, ui: false),
+            // A fence around a session on this Mac: a Seatbelt profile per session — on by default (683 M6). Only NEW sessions
+            // follow it: a session's record keeps the mode it was opened with across restart, resume and adoption.
+            .init("mac", "fence", .choice(["off", "on"]), .string("on"),
+                  "Whether a new session on this Mac (doz run @mac) runs fenced: held to its folder, its own temp and caches, your Keychain, secrets and other folders closed, its network only through Dozable's proxy (on, the default), or with no isolation at all (off). doz run @mac --fenced or --unfenced decides for one session; a session keeps its mode when it is restarted.",
+                  env: "DOZ_MAC_FENCE", flag: "doz run @mac --fenced | --unfenced", applies: .nextSession, ui: false),
+            .init("mac", "keychain", .choice(["off", "on"]), .string("off"),
+                  "Whether a fenced session on this Mac may use your Keychain (signing, notarisation — and so, reading your saved logins). doz run @mac --keychain opens it for one session.",
+                  flag: "doz run @mac --keychain", applies: .nextSession, ui: false),
+            .init("mac", "fence_read", .homePathList, .string(""),
+                  "Folders or files in your home a fenced session on this Mac may read (never write), relative to your home and separated by commas, like notes, src/shared. Your secrets (~/.ssh, ~/.config, ~/Library) stay closed.",
+                  applies: .nextSession, ui: false),
+            .init("mac", "permissions", .choice(["standard", "locked", "open"]), .string("standard"),
+                  "What a fenced session on this Mac may reach through Dozable's proxy: standard (its AI model, its own updates, GitHub, error reports and the Node, Python, Go, Rust and Swift package registries), locked (its AI model only — and no certificate checks on its behalf) or open (any site). This Mac's own addresses are never reachable. doz run @mac --permissions decides for one session; doz net allow|deny @mac --session S changes a running one.",
+                  flag: "doz run @mac --permissions", applies: .nextSession, ui: false),
+            .init("mac", "agent_config", .choice(["private", "shared"]), .string("private"),
+                  "A fenced agent's settings folder on this Mac: private (its own; your instructions and skills read-only) or shared (your own ~/.claude: less isolated).",
+                  flag: "doz run @mac --agent-config", applies: .nextSession, ui: false),
+            .init("mac", "account", .choice(["mac", "none"]), .string("mac"),
+                  "The Claude login a fenced Claude Code gets through Dozable's proxy: mac (this Mac's login) or none. --account NAME picks an account.",
+                  flag: "doz run @mac --account", applies: .nextSession, ui: false),
+            .init("mac", "agent_prompt", .choice(["fenced", "always", "off"]), .string("fenced"),
+                  "Tell Claude Code on this Mac where it runs (a facts block in its prompt): fenced sessions, always, or off.",
+                  applies: .nextSession, ui: false),
+            .init("mac", "open_url", .choice(["on", "off"]), .string("on"),
+                  "A fenced session may open web pages in your browser, each announced (on, off).",
+                  flag: "doz run @mac --open-url", applies: .nextSession, ui: false),
+            .init("mac", "open_files", .choice(["on", "off"]), .string("on"),
+                  "A fenced session may open documents of its folder in your apps, each announced (on, off).",
+                  flag: "doz run @mac --open-files", applies: .nextSession, ui: false),
+            .init("mac", "clipboard", .choice(["write", "off"]), .string("write"),
+                  "A fenced session may put text on your clipboard, never read it; each copy announced (write, off).",
+                  flag: "doz run @mac --clipboard", applies: .nextSession, ui: false),
             .init("serve", "advertise", .bool, .bool(true),
                   "With ui.lan, announce the dashboard on your network with Bonjour (\"Dozable on <this Mac>\", http://<this Mac>.local:<port>), so other Macs and phones can find it.",
                   applies: .uiRestart, ui: false),
@@ -1314,6 +1377,7 @@ public struct DozableSettings: Sendable {
             case .originList: kind = "origins"
             case .addressList: kind = "addresses"
             case .dotfiles: kind = "dotfiles"
+            case .homePathList: kind = "home-paths"
             }
             var note: String?
             switch r.source {

@@ -7,9 +7,13 @@ import Foundation
 ///
 /// A sandbox name is `a-z0-9-`, so `@mac` can never be one. Session commands take it as their PLACE
 /// (`doz run @mac`, `doz attach @mac`, `doz sessions @mac`, `doz sessions end|restart|send|screen|wait @mac S`); every other
-/// command refuses it with one message. Nothing about it is isolated: no VM, no proxy, no key placeholders — its
-/// programs run as the person, with the person's files, Keychain and network. No code path may treat it as a sandbox
-/// (no `Managed`, no `Sandbox`): `HostCore.perform` routes it to `MacSessions` before anything looks a sandbox up.
+/// command refuses it with one message. It is never a sandbox: no VM, and no code path may treat it as one (no `Managed`,
+/// no `Sandbox`) — `HostCore.perform` routes it to `MacSessions` before anything looks a sandbox up. A proxy and key
+/// placeholders exist ONLY inside the fence (`MacFence`; fenced is the default for a new session, `--unfenced` opts out),
+/// per session, served by the host on a socket its holder owns; nothing a fenced program can write is later executed or
+/// loaded by anything unfenced except the project's own files. An UNFENCED session's program runs as the person, with
+/// the person's files, Keychain and network, and no proxy or placeholder ever. A bypass flag is only ever the session's
+/// own argv, marked.
 public enum MacPlace {
     public static let name = "@mac"
 
@@ -17,7 +21,10 @@ public enum MacPlace {
 
     /// The host operations `@mac` takes; anything else is refused (`refusal`).
     public static let operations: Set<HostOp> = [.openSession, .sessions, .sessionScreen, .sessionLive, .sessionSend, .sessionEnd,
-                                                 .sessionRestart, .sessionWait, .attach, .sessionGrids]
+                                                 .sessionRestart, .sessionWait, .attach, .sessionGrids, .sessionResume, .sessionQuarantine,
+                                                 .sessionBridges, .sessionTranscripts,
+                                                 // A FENCED session's network (`--session S`): its permissions, policy, log.
+                                                 .netPermissions, .netPolicy, .netLog]
 
     public static func refusal(_ what: String) -> HostError {
         HostError(.invalid, "@mac is this Mac, not a sandbox — it has no start, sleep, network or keys, so \(what) does not apply "

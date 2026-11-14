@@ -1,3 +1,4 @@
+import Darwin
 import Foundation
 import DozableKit
 
@@ -99,7 +100,9 @@ func networkSuite() async throws {
     if realKey != nil {
         check(cc.output.lowercased().contains("pong") && ccSwapped, "LIVE: Claude Code answered through the proxy with only a placeholder in its environment")
     } else {
-        check(ccSwapped && cc.output.contains("401"), "Claude Code's requests carried the placeholder, swapped on the Mac (sentinel key → \(cc.output.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)))")
+        // Claude Code's refusal text changed: older builds print the 401, newer ones "Invalid API key".
+        let ccRefused = cc.output.contains("401") || cc.output.contains("Invalid API key")
+        check(ccSwapped && ccRefused, "Claude Code's requests carried the placeholder, swapped on the Mac (sentinel key → \(cc.output.trimmingCharacters(in: .whitespacesAndNewlines).prefix(80)))")
         print("  SKIP  LIVE Claude Code prompt — ANTHROPIC_API_KEY is not set")
     }
     // The key is nowhere in the guest.
@@ -128,6 +131,46 @@ func networkSuite() async throws {
     sb.setNetworkPolicy(pol)
     let ex = try await sh("curl -s -m 30 -o /dev/null -w '%{http_code}' https://example.com/")
     check(ex.output == "200", "after allow(host: example.com) → HTTP \(ex.output)")
+
+    // 683 M2b: the strict address guard, under Open — this Mac's own addresses, link-local and metadata refused; the one
+    // named port of this Mac still answers. One listener of this test's own, on every interface of this Mac.
+    print("vmtest[network]: the address guard under Open")
+    sb.setNetworkPolicy(.open)
+    if let (macL, macPort) = macListenerEverywhere() {
+        defer { close(macL) }
+        proxy.macModelPort = macPort
+        let own = AddressGuard.interfaceAddresses().first { $0.count == 4 && $0[0] != 127 && !($0[0] == 169 && $0[1] == 254) }
+            .map { $0.map(String.init).joined(separator: ".") }
+        m = mark(log)
+        let named = try await sh("curl -s -m 20 http://\(MacModelServer.hostName):\(macPort)/")
+        let meta = try await sh("curl -s -m 20 -o /dev/null -w '%{http_code}' http://169.254.169.254/latest/meta-data/")
+        let metaRaw = try await sh("curl -s -m 20 --noproxy '*' -o /dev/null -w '%{http_code}' http://169.254.169.254/latest/meta-data/")
+        let ownHTTP = try await own.asyncMap { try await sh("curl -s -m 20 -o /dev/null -w '%{http_code}' http://\($0):\(macPort)/") }
+        let ownRaw = try await own.asyncMap { try await sh("curl -s -m 20 --noproxy '*' -o /dev/null -w '%{http_code}' http://\($0):\(macPort)/") }
+        rows = await since(log, m)
+        check(named.output == "hello" && rows.contains { $0.host == MacModelServer.hostName && $0.port == macPort && $0.verdict == .allowed },
+              "Open: \(MacModelServer.hostName):\(macPort) still reaches this Mac's server (\(named.output.prefix(40)))")
+        // Through the proxy: a refusal row; as redirected TCP: never a 200, and any row the proxy saw is a refusal.
+        func refused(_ host: String, _ why: String) -> (proxied: Bool, raw: String) {
+            let mine = rows.filter { $0.host == host }
+            let proxied = mine.contains { $0.kind != .tcp && $0.verdict == .denied && ($0.detail ?? "").contains(why) }
+            let tcp = mine.filter { $0.kind == .tcp }
+            return (proxied, tcp.isEmpty ? "no redirected row" : tcp.allSatisfy { $0.verdict == .denied && ($0.detail ?? "").contains(why) } ? "redirected refused" : "REDIRECTED NOT REFUSED")
+        }
+        let m1 = refused("169.254.169.254", "link-local")
+        check(meta.output != "200" && metaRaw.output != "200" && m1.proxied && m1.raw != "REDIRECTED NOT REFUSED",
+              "Open: the metadata address refused (HTTP \(meta.output) through the proxy, \(metaRaw.output) raw — \(m1.raw))")
+        if let own, let ownHTTP, let ownRaw {
+            let o1 = refused(own, "this Mac")
+            check(ownHTTP.output != "200" && ownRaw.output != "200" && o1.proxied && o1.raw != "REDIRECTED NOT REFUSED",
+                  "Open: this Mac's own \(own):\(macPort) refused (HTTP \(ownHTTP.output) through the proxy, \(ownRaw.output) raw — \(o1.raw))")
+        } else {
+            print("SKIP: this Mac has no IPv4 address but its loopback")
+        }
+        proxy.macModelPort = nil
+    } else {
+        check(false, "a listener on this Mac for the address-guard rows")
+    }
     sb.setNetworkPolicy(.agent)
 
     // Sleep to disk → wake.
@@ -253,4 +296,39 @@ func bakeSuite() async throws {
     check(rows.contains { $0.host == "example.com" && $0.verdict == .denied }, "bake: example.com refused (the bake preset is registries only)")
     try? FileManager.default.removeItem(at: storeRoot.appendingPathComponent("images/nettest-bake"))
     try? await sb.delete()
+}
+
+extension Optional {
+    /// The async map Optional lacks.
+    func asyncMap<T>(_ f: (Wrapped) async throws -> T) async rethrows -> T? {
+        guard let w = self else { return nil }
+        return try await f(w)
+    }
+}
+
+/// 683 M2b: a tiny HTTP server of this suite's own on 0.0.0.0 (every interface of this Mac): answers "hello" to each
+/// connection until its descriptor is closed. nil: it could not listen.
+func macListenerEverywhere() -> (Int32, UInt16)? {
+    let fd = socket(AF_INET, SOCK_STREAM, 0)
+    guard fd >= 0 else { return nil }
+    var a = sockaddr_in()
+    a.sin_len = UInt8(MemoryLayout<sockaddr_in>.size)
+    a.sin_family = sa_family_t(AF_INET)
+    a.sin_addr.s_addr = INADDR_ANY
+    guard withUnsafePointer(to: &a, { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_in>.size)) } }) == 0,
+          listen(fd, 8) == 0 else { close(fd); return nil }
+    var len = socklen_t(MemoryLayout<sockaddr_in>.size)
+    _ = withUnsafeMutablePointer(to: &a) { $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { getsockname(fd, $0, &len) } }
+    Thread.detachNewThread {
+        while true {
+            let c = accept(fd, nil, nil)
+            if c < 0 { return }
+            var buf = [UInt8](repeating: 0, count: 4096)
+            _ = read(c, &buf, buf.count)
+            let reply = Array("HTTP/1.1 200 OK\r\nContent-Length: 5\r\nConnection: close\r\n\r\nhello".utf8)
+            _ = reply.withUnsafeBytes { write(c, $0.baseAddress, $0.count) }
+            close(c)
+        }
+    }
+    return (fd, UInt16(bigEndian: a.sin_port))
 }

@@ -90,7 +90,7 @@ public final class LoginWatcher: @unchecked Sendable {
     private var token: ClaudeLoginToken?
     private var _state: State = .unknown
     private var warnedUnreadable = false
-    private var subscribers: [String: Sandbox] = [:]
+    private var subscribers: [String: any CredentialTarget] = [:]
     private var _reads = 0
     private var lastKeepaliveFor: Date?
     private var _keepalive: KeepaliveConfig?
@@ -131,7 +131,7 @@ public final class LoginWatcher: @unchecked Sendable {
         readNow()
     }
 
-    public func subscribe(_ name: String, _ sandbox: Sandbox) {
+    public func subscribe(_ name: String, _ sandbox: any CredentialTarget) {
         lock.lock()
         subscribers[name] = sandbox
         let first = _state == .unknown
@@ -262,7 +262,7 @@ public final class LoginWatcher: @unchecked Sendable {
     }
 
     /// Under the lock: what one subscriber's vault gets now.
-    private func apply(_ name: String, _ sb: Sandbox) {
+    private func apply(_ name: String, _ sb: any CredentialTarget) {
         let b = CredentialBinding.claudeOAuth
         switch _state {
         case .ok, .expired:
@@ -273,7 +273,8 @@ public final class LoginWatcher: @unchecked Sendable {
         case .signedOut:
             sb.setCredential(b, secret: nil, expiresAt: nil, environment: [:],
                              notice: "this Mac's Claude Code signed out — sign in again with `claude` on the Mac, or pick another account: "
-                                     + "doz account use \(name) ACCOUNT")
+                                     // 683: a fenced session on this Mac (`@mac SESSION`) chooses its account when it starts.
+                                     + (name.hasPrefix(MacPlace.name + " ") ? "doz run @mac --account ACCOUNT …" : "doz account use \(name) ACCOUNT"))
         case .unreadable, .unknown:
             if token == nil {
                 sb.setCredential(b, secret: nil, expiresAt: nil, environment: [:],

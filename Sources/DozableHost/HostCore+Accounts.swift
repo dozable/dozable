@@ -388,38 +388,48 @@ extension HostCore {
             sb.setCredential(other, secret: nil, expiresAt: nil, environment: [:], notice: nil)
             m.config.credentialSources[CredentialBinding.anthropic.id] = nil
             m.config.credentialSources[CredentialBinding.claudeOAuth.id] = nil
-            switch a.kind {
-            case .mac:
-                let w = watcher(for: a, file)
-                m.watcher = w
-                w.subscribe(m.name, sb)
-                sb.egress?.vault.onStale = { [weak w] _ in w?.stale() }
-                sb.egress?.vault.onBeforeUse = { [weak w] in w?.freshen() }
-            case .openaiKey, .chatgpt, .codexMac, .key:
-                break                                   // never here: an Anthropic agent does not accept them (above)
-            case .apiKey:
-                // 617: from the keychain, or read on use from 1Password, AWS or a command.
-                applyKeySecret(m, a, binding: .anthropic, addAgain: "doz account add \(a.name) --api-key --force")
-            case .setupToken:
-                let service = a.keychainService ?? ""
-                let read = services.keychain.read(service: service, account: a.adopted == true ? nil : Keychain.user)
-                if let secret = read.value {
-                    var env: [String: String] = [:]
-                    if a.kind == .setupToken {
-                        if let p = a.plan { env["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = p }
-                        if let t = a.tier { env["CLAUDE_CODE_RATE_LIMIT_TIER"] = t }
-                    }
-                    sb.setCredential(a.kind.binding, secret: secret, expiresAt: a.expiresAt, environment: env,
-                                     notice: "the \(a.kind.rawValue) account \(a.name) expired — make a new token with `claude setup-token`, then: "
-                                             + "doz account add \(a.name) --setup-token --force")
-                } else {
-                    sb.setCredential(a.kind.binding, secret: nil, expiresAt: nil, environment: [:],
-                                     notice: "the keychain item \(service) of account \(a.name) is \(read == .locked ? "locked" : "missing") — "
-                                             + (read == .locked ? "unlock the login keychain" : "add it again: doz account add \(a.name) --\(a.kind.rawValue) --force"))
-                }
-            }
+            m.watcher = bindAnthropicAccount(a, target: sb, name: m.name, file: file)
         }
         applyPolicy(m, file)
+    }
+
+    /// 683: put Anthropic account `a` (this Mac's login, a setup token, an API key) into `target`'s vault — the ONE
+    /// account wiring for a sandbox and a fenced session on this Mac. The Mac's login: subscribed to its `LoginWatcher`
+    /// (read on the Mac, the access token only — never the refresh token, never a `Claude Code-credentials*` item
+    /// written), which is returned; the vault re-reads it when stale and before a use when the Mac's identity changed.
+    /// The other binding of the two is the caller's to clear. `name`: the subscriber's name (a sandbox's, `@mac S`).
+    @discardableResult
+    func bindAnthropicAccount(_ a: AccountRecord, target sb: any CredentialTarget, name: String, file: AccountsFile) -> LoginWatcher? {
+        switch a.kind {
+        case .mac:
+            let w = watcher(for: a, file)
+            w.subscribe(name, sb)
+            sb.egress?.vault.onStale = { [weak w] _ in w?.stale() }
+            sb.egress?.vault.onBeforeUse = { [weak w] in w?.freshen() }
+            return w
+        case .openaiKey, .chatgpt, .codexMac, .key:
+            return nil                                  // never here: an Anthropic agent does not accept them
+        case .apiKey:
+            // 617: from the keychain, or read on use from 1Password, AWS or a command.
+            applyKeySecret(sb, a, binding: .anthropic, addAgain: "doz account add \(a.name) --api-key --force")
+            return nil
+        case .setupToken:
+            let service = a.keychainService ?? ""
+            let read = services.keychain.read(service: service, account: a.adopted == true ? nil : Keychain.user)
+            if let secret = read.value {
+                var env: [String: String] = [:]
+                if let p = a.plan { env["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = p }
+                if let t = a.tier { env["CLAUDE_CODE_RATE_LIMIT_TIER"] = t }
+                sb.setCredential(a.kind.binding, secret: secret, expiresAt: a.expiresAt, environment: env,
+                                 notice: "the \(a.kind.rawValue) account \(a.name) expired — make a new token with `claude setup-token`, then: "
+                                         + "doz account add \(a.name) --setup-token --force")
+            } else {
+                sb.setCredential(a.kind.binding, secret: nil, expiresAt: nil, environment: [:],
+                                 notice: "the keychain item \(service) of account \(a.name) is \(read == .locked ? "locked" : "missing") — "
+                                         + (read == .locked ? "unlock the login keychain" : "add it again: doz account add \(a.name) --\(a.kind.rawValue) --force"))
+            }
+            return nil
+        }
     }
 
     /// 617: put a key provider's account (or none) into a key agent's vault: its provider's binding gets the key from

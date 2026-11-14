@@ -603,6 +603,8 @@ public enum RecipeCatalogue {
                 guard path == "agents/\(r.id).json" else { throw SandboxError.invalidSpec("\(path) holds the recipe \(r.id)") }
                 if builtinIDs.contains(r.id) { continue }            // never replaced from a catalogue
                 if r.isBuiltin { throw SandboxError.invalidSpec("\(path): a catalogue cannot add a built-in agent") }
+                // 683: an agent's config folder on this Mac is declared only by a recipe embedded in this build.
+                if r.launch.macConfig != nil { throw SandboxError.invalidSpec("\(path): mac_config is honoured only from Dozable's own recipes built into doz — not from a catalogue") }
                 fromCatalogue.append(r)
             }
             return mergeByID(eRecipes, fromCatalogue, id: \.id)

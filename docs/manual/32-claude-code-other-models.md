@@ -64,8 +64,9 @@ A sandbox has no network of its own: everything it sends goes through Dozable's 
 - **One name, one port.** The sandbox reaches your server as `http://mac.dozable.internal:PORT`, for the port it was
   made with — the proxy sends that to `127.0.0.1:PORT` on your Mac. Any other port of that name is refused, and a
   sandbox made without a port cannot resolve the name at all.
-- **Nothing else on your Mac's localhost.** `127.0.0.1`, `localhost` and `::1` through the proxy are refused for
-  every sandbox, whatever its network — Open included. (Inside the sandbox, `localhost` is the sandbox's own.)
+- **Nothing else on your Mac.** `127.0.0.1`, `localhost` and `::1` through the proxy are refused for every sandbox,
+  whatever its network — Open included — and so are your Mac's other addresses (a server listening on all of them is
+  still reached only by the name above) and link-local addresses. (Inside the sandbox, `localhost` is the sandbox's own.)
 - It is not a network permission: no preset or edit widens it. The sandbox's Network tab says it ("This Mac: port
   11434 only"), and so does the agent's own description of its sandbox.
 - `doz doctor` checks that something answers on each such port.

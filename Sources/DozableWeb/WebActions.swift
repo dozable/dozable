@@ -79,6 +79,12 @@ public enum WebAction: Equatable, Sendable {
     /// another computer only with `serve.mac_sessions = interactive` (`WebExposure.decideMacAction`). No action OPENS one.
     case macSessionEnd(session: String)
     case macSessionRestart(session: String, fresh: Bool)
+    /// 683 M5: a fenced session stopped for a git config change continues (`doz sessions resume @mac S` — the host refuses
+    /// while a change outside the allowlist is there again); its bridges switched live (`doz sessions bridges @mac S …`,
+    /// each nil: as it is — the next open-URL, open-file or copy follows). Neither OPENS anything nor widens a grant made
+    /// at the start: the bridges are host-side decisions taken per event.
+    case macSessionResume(session: String)
+    case macSessionBridges(session: String, openURL: Bool?, openFiles: Bool?, clipboard: Bool?)
     /// 644: the Files panel's changes to /workspace — one HostOp each (the CLI's `doz files mkdir|new|mv|rm`). Paths are
     /// guest paths (`/workspace/…`), checked by the item rule here and again by the host. A delete is destructive: it
     /// carries `confirm` = the path.
@@ -112,14 +118,14 @@ public enum WebAction: Equatable, Sendable {
             return n
         case .imageBake, .imageRemove, .accountDefault, .accountKeepalive, .accountVerify, .accountRefresh, .accountEdit, .accountRemove, .onboard, .prepareCancel,
              .resourcesRemove, .resourcesClean, .resourcesKernel, .hostStart, .hostRestart, .builderStart, .builderInstall,
-             .macSessionEnd, .macSessionRestart:                  // this Mac is no sandbox
+             .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges:   // this Mac is no sandbox
             return nil
         }
     }
 
     /// An action on the sessions on this Mac (decided by `serve.mac_sessions` for another computer).
     public var isMacSession: Bool {
-        switch self { case .macSessionEnd, .macSessionRestart: true; default: false }
+        switch self { case .macSessionEnd, .macSessionRestart, .macSessionResume, .macSessionBridges: true; default: false }
     }
 
     /// Destructive actions carry `confirm`, which must equal this (the page fills it only from a
@@ -160,6 +166,8 @@ public enum WebAction: Equatable, Sendable {
         case .sessionRestart(let n, let s, _): return "restart session \(s) in \(n)"
         case .macSessionEnd(let s): return "end session \(s) on this Mac"
         case .macSessionRestart(let s, _): return "restart session \(s) on this Mac"
+        case .macSessionResume(let s): return "resume session \(s) on this Mac"
+        case .macSessionBridges(let s, _, _, _): return "bridges of session \(s) on this Mac"
         case .filesMkdir(let n, let p): return "files-mkdir \(n) \(p)"
         case .filesNew(let n, let p): return "files-new \(n) \(p)"
         case .filesMove(let n, let p, _): return "files-move \(n) \(p)"
@@ -325,6 +333,19 @@ public enum WebAction: Equatable, Sendable {
             r.session = s
             r.fresh = fresh ? true : nil
             return r
+        case .macSessionResume(let s):
+            var r = HostRequest(.sessionResume, name: MacPlace.name)
+            r.session = s
+            return r
+        case .macSessionBridges(let s, let url, let files, let clip):
+            var r = HostRequest(.sessionBridges, name: MacPlace.name)
+            r.session = s
+            var b = MacFenceRequest()
+            b.openURL = url
+            b.openFiles = files
+            b.clipboard = clip
+            r.macBridges = b
+            return r
         case .filesMkdir(let n, let p):
             var r = HostRequest(.filesMkdir, name: n)
             r.filePath = p
@@ -401,6 +422,8 @@ public enum WebAction: Equatable, Sendable {
             "session-restart": ["sandbox", "session", "fresh"],
             "mac-session-end": ["session", "confirm"],
             "mac-session-restart": ["session", "fresh", "confirm"],
+            "mac-session-resume": ["session"],
+            "mac-session-bridges": ["session", "openURL", "openFiles", "clipboard"],
             "files-mkdir": ["sandbox", "path"],
             "files-new": ["sandbox", "path"],
             "files-move": ["sandbox", "path", "to"],
@@ -582,6 +605,17 @@ public enum WebAction: Equatable, Sendable {
                 throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
             }
             a = verb == "mac-session-end" ? .macSessionEnd(session: s) : .macSessionRestart(session: s, fresh: try f.flag("fresh") == true)
+        case "mac-session-resume", "mac-session-bridges":
+            guard let s = try f.session("session"), WebRoute.isMacSessionName(s) else {
+                throw Invalid("session: a session on this Mac — 1–32 of letters, digits . _ - (not starting with .)")
+            }
+            if verb == "mac-session-resume" {
+                a = .macSessionResume(session: s)
+            } else {
+                let url = try f.bool("openURL"), files = try f.bool("openFiles"), clip = try f.bool("clipboard")
+                guard url != nil || files != nil || clip != nil else { throw Invalid("mac-session-bridges: nothing to change — openURL, openFiles or clipboard") }
+                a = .macSessionBridges(session: s, openURL: url, openFiles: files, clipboard: clip)
+            }
         case "files-mkdir":
             a = .filesMkdir(name: try f.sandbox("sandbox"), path: try f.fileItem("path"))
         case "files-new":
@@ -744,6 +778,13 @@ public enum WebAction: Equatable, Sendable {
             guard let v = d[key], !(v is NSNull) else { return nil }
             guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw Invalid("\(key): true or false") }
             return b ? true : nil
+        }
+
+        /// A switch's value as given (false stays false; absent or null: nil).
+        func bool(_ key: String) throws -> Bool? {
+            guard let v = d[key], !(v is NSNull) else { return nil }
+            guard let b = v as? Bool, CFGetTypeID(v as CFTypeRef) == CFBooleanGetTypeID() else { throw Invalid("\(key): true or false") }
+            return b
         }
 
         /// Hosts for the policy: exact, `*.domain`, `host:port`, or an IPv4 CIDR; ≤ 32.

@@ -70,11 +70,14 @@ public enum AgentPermissions {
         ("system", "System packages (apt / apk)", "system packages (apt/apk)", [
             PermissionHost("deb.debian.org", ports: [80, 443]), PermissionHost("security.debian.org", ports: [80, 443]),
             PermissionHost("*.ubuntu.com", ports: [80, 443]), PermissionHost("dl-cdn.alpinelinux.org", ports: [80, 443])], []),
-        ("node", "Node (npm)", "npm packages", [PermissionHost("registry.npmjs.org")], ["node"]),
-        ("python", "Python (PyPI)", "Python packages (PyPI)", [PermissionHost("pypi.org"), PermissionHost("files.pythonhosted.org")], ["python"]),
-        ("go", "Go (modules)", "Go modules", [PermissionHost("proxy.golang.org"), PermissionHost("sum.golang.org"), PermissionHost("storage.googleapis.com")], ["go"]),
+        ("node", "Node (npm)", "npm packages", [PermissionHost("registry.npmjs.org")], ["node", macBase]),
+        ("python", "Python (PyPI)", "Python packages (PyPI)", [PermissionHost("pypi.org"), PermissionHost("files.pythonhosted.org")], ["python", macBase]),
+        ("go", "Go (modules)", "Go modules", [PermissionHost("proxy.golang.org"), PermissionHost("sum.golang.org"), PermissionHost("storage.googleapis.com")], ["go", macBase]),
         ("rust", "Rust (crates.io)", "Rust crates", [PermissionHost("crates.io"), PermissionHost("index.crates.io"), PermissionHost("static.crates.io"),
-                                                    PermissionHost("static.rust-lang.org")], ["rust"]),
+                                                    PermissionHost("static.rust-lang.org")], ["rust", macBase]),
+        // 683: Swift packages (SwiftPM's toolchains and index; packages themselves come from GitHub's code hosts).
+        ("swift", "Swift (packages)", "Swift packages", [PermissionHost("download.swift.org"), PermissionHost("swiftpackageindex.com"),
+                                                         PermissionHost("codeload.github.com"), PermissionHost("objects.githubusercontent.com")], [macBase]),
         ("java", "Java (Maven, Gradle)", "Java packages (Maven, Gradle)", [PermissionHost("repo.maven.apache.org"), PermissionHost("repo1.maven.org"),
                                                                         PermissionHost("services.gradle.org"), PermissionHost("downloads.gradle.org"),
                                                                         PermissionHost("plugins.gradle.org")], ["java"]),
@@ -167,7 +170,9 @@ public enum AgentPermissions {
         }
         a += [
             AgentPermission(id: "github", title: "Use GitHub", summary: "Clone and fetch code; Claude Code plugins.", phrase: "use GitHub (clone, fetch, plugins)",
-                            hosts: ["github.com", "raw.githubusercontent.com", "codeload.github.com", "objects.githubusercontent.com"].map { PermissionHost($0) }, locked: false),
+                            // github-cloud.githubusercontent.com: where GitHub serves Git LFS files from (owner, 2026-11-13).
+                            hosts: ["github.com", "raw.githubusercontent.com", "codeload.github.com", "objects.githubusercontent.com",
+                                    "github-cloud.githubusercontent.com"].map { PermissionHost($0) }, locked: false),
             // 599d: the user's own GitHub login, through the proxy (the token never enters the sandbox).
             AgentPermission(id: gitHubAsYou, title: "Use GitHub as you",
                             summary: "git and gh are signed in as you on github.com (your Mac's gh login, or a token you add) — read-only: clone and fetch your private repositories, read issues and pull requests.",
@@ -279,10 +284,20 @@ public enum AgentPermissions {
 
     public static func isValid(_ id: String) -> Bool { permission(id) != nil }
 
-    /// The ecosystems a base installs from by default (system packages always).
+    /// The ecosystems a base installs from by default (system packages always — except on this Mac, which has no apt/apk).
     public static func installDefaults(base: String?) -> [String] {
-        ["install:system"] + ecosystems.filter { e in base.map { e.bases.contains($0) } ?? false }.map { "install:" + $0.id }
+        (base == macBase ? [] : ["install:system"]) + ecosystems.filter { e in base.map { e.bases.contains($0) } ?? false }.map { "install:" + $0.id }
     }
+
+    /// 683: the "base" of a fenced session on this Mac — its Standard is the model, updates, GitHub, error reports and the
+    /// package registries of Node, Python, Go, Rust and Swift (no system packages); Locked and Open as everywhere.
+    public static let macBase = "mac"
+
+    /// 683: a fenced session's preset (`standard`/`agent`, `locked`, `open`).
+    public static func macPreset(_ name: String) -> [String]? { preset(name, base: macBase) }
+
+    /// 683: permissions added to Open after sandboxes were made with it — a stored Open without them is still Open.
+    static let addedToOpenLater: Set<String> = ["install:swift"]
 
     /// P2's presets for a base: Locked (the model only), Standard (the defaults), Open (everything).
     public static func preset(_ name: String, base: String?) -> [String]? {
@@ -312,6 +327,8 @@ public enum AgentPermissions {
             var want = Set(preset(p, base: base) ?? [])
             if own { want.remove("model") }
             if want == rest { return p }
+            // 683: an Open stored before a permission was added to it is still Open.
+            if p == "open", want.subtracting(addedToOpenLater) == rest.subtracting(addedToOpenLater) { return p }
         }
         return nil
     }

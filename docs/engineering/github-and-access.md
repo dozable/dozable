@@ -33,6 +33,15 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   banner and switches the facts block to "no credential you can use is attached". Room for other
   providers: `AgentCredentialSupport(provider:accountKinds:)`.
 
+- **One account wiring for a sandbox and a fenced session on this Mac** (683): an Anthropic account (this Mac's login, a
+  setup token, an API key) is put into a `CredentialTarget`'s vault by `HostCore.bindAnthropicAccount` — a `Sandbox`
+  (`applyMainAccount`), or a fenced `@mac` session's own proxy (`MacFenceProxy`, `bindFenceAccount`, before it accepts
+  a connection). `LoginWatcher` subscribes targets, not sandboxes (`@mac S` for a session); `applyKeySecret` takes a
+  target. The rules stay the sandboxes': access token only, never the refresh token or a `Claude Code-credentials*` item,
+  never injected beside the program's own credential (a fenced session's vault is strict), a foreign one a fingerprint,
+  no fallback between accounts. A fenced session's placeholder is minted at open (its hash in the record, honoured by a
+  later host — `restorePlaceholderHashes`).
+
 ## GitHub as the user
 
 - **Proxy insertion, like the Anthropic credential — and nothing more.** `CredentialBinding.github`
@@ -77,6 +86,12 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `DOZ_TEST_GITHUB_UPSTREAM` + `DOZ_TEST_GITHUB_CA` (the upstream leg goes to a fake GitHub, trusting ONLY that
   CA), `DOZ_TEST_SSH_AUTH_SOCK` (a throwaway agent), `GIT_CONFIG_GLOBAL` (a scratch identity).
   `make test-cli-github` runs a python3 `git http-backend` over TLS as the fake GitHub.
+
+- **A fenced session on this Mac** (`doz run @mac --github read|push`, `--ssh-agent`; fenced by default) uses the same machinery
+  through its own proxy (`HostCore.bindFenceGitHub`, `MacFenceDoors.swift`): the provider, the gate, the placeholder
+  (minted at open into `GH_TOKEN`; git's helper from `GIT_CONFIG_*`), the filtered agent relay on a unix socket in the
+  store's socket folder instead of vsock; `gh` reaches the proxy through its own door (`http_unix_socket`). A guarded run
+  reads only `DOZ_TEST_GH` and `DOZ_TEST_SSH_AUTH_SOCK`. Details in sessions.md.
 
 ## Access — every credential a purposeful choice, each confirmed
 

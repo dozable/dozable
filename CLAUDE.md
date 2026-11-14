@@ -63,11 +63,19 @@ One row per area; each area's doc starts with the full table of its files.
   program cannot trap a signal ignored on entry (576: the screensaver's `m` menu). `GuestCommand.serve`
   builds argv; deckhold additionally resets every signal to default before exec. Utility execs
   (`exec(["sh","-c",…])`) may use a shell — never a session.
-- **A session on this Mac (`@mac`) is never isolated and never bypasses permissions by default.** No code path may
-  treat `@mac` as a sandbox (no `Managed`, no `Sandbox`, no proxy, no placeholders — `HostCore.perform` routes it
-  first), its environment is an ALLOWLIST built new (`MacSessionsEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*`),
-  its holder starts by `posix_spawn` (never `sh -c`), and a bypass flag is only ever the session's own argv, marked
-  wherever it shows. `MacPlaceTests`, `MacSessionsEnvironmentTests`, `make test-cli-host`.
+- **A session on this Mac (`@mac`) is never a sandbox and never bypasses permissions by default.** No code path
+  treats `@mac` as a sandbox (no `Managed`, no `Sandbox` — `HostCore.perform` routes it first); a proxy and placeholders
+  exist ONLY inside the fence (`MacFence`), per session, served by the host on a socket its holder owns; nothing a
+  fenced program can write is later executed or loaded by anything unfenced except the project's own files (per-session
+  temp, caches and agent config; git hooks and config guarded); the environment is an allowlist the fence adds to
+  (`MacSessionsEnvironment`, then `MacFenceEnvironment`: never `CLAUDECODE`/`CLAUDE_CODE_*` of the host's); the holder
+  starts by `posix_spawn` (never `sh -c`) outside the fence; a bypass flag is only ever the session's own argv, marked
+  wherever it shows. Fenced is the default for a NEW session (`mac.fence`, `--unfenced` opts out); a record keeps its
+  mode across restart, resume and adoption (nil `fence` = unfenced — every record written before the fence). An
+  unfenced session has no proxy and no placeholder, ever. `MacPlaceTests`, `MacSessionsEnvironmentTests`,
+  `MacFenceProfileTests`, `MacFencePathsTests`, `MacFenceEnvironmentTests`, `MacFenceHostFSTests`, `MacFenceGitTests`,
+  `MacAgentConfigTests`, `MacFenceCapabilitiesTests`, `make test-cli-fence` (the fence end to end, the default and
+  the mode kept on restart) and `make test-cli-host` (the unfenced session, unchanged, with `--unfenced`).
 - **Every `doz exec` deadline is counted from process start and enforced by the host** (`ExecDeadline`; engine.md).
 - **Stop keeps the root disk**: Stop shuts the VM down and persists the phase as `off`; the next Start cold-boots
   the SAME disk and clones the prepared disk only when none exists. `resetToImage()` discards the
@@ -191,6 +199,17 @@ One row per area; each area's doc starts with the full table of its files.
   `mac.dozable.internal:N` (the proxy's DNS answers a synthetic 198.18.255.254 and routes it; any other port of that
   name is refused; no port: NXDOMAIN). Never a policy rule (no preset or edit widens it). `MacModelServerTests`, the
   workspace's `probes/660-*/vm-proof.py`. Keep any new route to the Mac's own addresses behind the same refusal.
+  **The same holds for every other address of this Mac, link-local and metadata** (683): every proxy's
+  `addressGuard` is `.strict` (`AddressGuard`, the default of `EgressProxy` — a sandbox's, a bake's, a fenced `@mac`
+  session's), checked in `Wire.connectTCPGuarded` on each RESOLVED address it would dial: also every address of this
+  Mac's interfaces (its LAN, Tailscale and vmnet bridge addresses — a server on `0.0.0.0` answers on them), link-local
+  `169.254/16` (cloud metadata `169.254.169.254`) and `fe80::/10`, multicast/broadcast, `0/8`, site-local, and the IPv6
+  forms that carry an IPv4 address (mapped, compatible, NAT64) judged by the address inside — whatever the policy, Open
+  included; the answer is 403 naming why (a sandbox's also names `mac.dozable.internal`). The deliberate ways through
+  are the two above and nothing else: `macRoute` dials 127.0.0.1 with `allowLoopback`, and the seams. Never set
+  `addressGuard` to nil or `.loopback` in the product. `SandboxAddressGuardTests`, `AddressGuardTests`,
+  `MacModelServerTests` (`testTheNamedPortStillAnswersUnderTheStrictGuard`), `make test-vm-network` ("the address
+  guard under Open").
 - **The agent has passwordless sudo by default**. The dev baseline
   installs `sudo` and KEEPS apt's package lists (~18 MiB, shared by APFS clones; `apt-get clean` only),
   and `apt-utils` FIRST (W24: otherwise every install says "debconf: delaying package configuration");
