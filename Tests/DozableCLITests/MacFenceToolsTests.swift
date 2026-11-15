@@ -148,6 +148,8 @@ final class MacFenceToolsProfileTests: XCTestCase {
         XCTAssertFalse(s.contains("user-preference-write") || s.contains("SecurityServer"))
         // Apple's tools' item-replacement and driver temp folders, never the whole user temp folder.
         XCTAssertTrue(agent.contains("TemporaryItems/NSIRD_(xcodebuild|"))
+        // dozable issue 40: `swift test` / `swift run` are swift-package under another name — their folders too.
+        XCTAssertTrue(agent.contains("|swift-test|") && agent.contains("|swift-run|"), "swift test's NSIRD_swift-test_ folder")
         XCTAssertFalse(agent.contains("(subpath \"\(w.places.userTemp)"))
     }
 

@@ -261,7 +261,15 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   runs outside). No profile allows a preference write. Every profile lets Apple's build tools use their item-replacement
   folders (`<user temp>TemporaryItems/NSIRD_<program>_*`, `MacFenceProfile.replacementPrograms`) and the Swift driver its
   `TemporaryDirectory.*` — macOS puts them in the user temp folder whatever TMPDIR says (without them `swift build` and
-  `xcodebuild build` fail); nothing else of the user temp folder. `Scripts/fence-freeze.sh --xcode --run '…'` is the
+  `xcodebuild build` fail); nothing else of the user temp folder. 687 (dozable issue 40: `swift build` passed,
+  `swift test` failed "unable to write manifest … XCBuildData/…/manifest.json", in `$DOZ_DERIVED` and in `.build`
+  alike): the program name is the one it was STARTED as — `swift test`/`swift run` are `swift-package` as `swift-test`/
+  `swift-run`, so their folder is `NSIRD_swift-test_…` (the fence's refusal named it: `file-write-create …/T/TemporaryItems/
+  NSIRD_swift-test_…`) — both added; then Swift Build's own `swbuild.tmp.<random>` (mkdtemp in the user temp folder,
+  the test bundle's Info.plist) is allowed like `TemporaryDirectory.*`. Still refused, harmlessly: `swift-frontend`'s
+  `<user temp>swift-generated-sources/` (macro expansions kept for diagnostics — a fixed, shared folder; not opened).
+  `make test-cli-fence` (tools: a fresh `swift package init --type library`, `swift build` then `swift test` with the
+  documented flags, and `swift test` with the default `.build`). `Scripts/fence-freeze.sh --xcode --run '…'` is the
   person's freeze run. A plain `xcodebuild build` (no signing) needs neither LaunchServices nor a preference write.
 - **Tools inside a fenced session** (macOS 27, probes and `make test-cli-fence`):
 

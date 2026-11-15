@@ -65,7 +65,11 @@ public enum MacFenceProfile {
     public static let xcodeMachServices: [String] = []
     public static let xcodeMachPrefixes: [String] = []
     /// 683 M4: the programs whose item-replacement folders (`TemporaryItems/NSIRD_<program>_…`) a fenced program may use.
-    public static let replacementPrograms = ["xcodebuild", "XCBBuildService", "SWBBuildService", "swift-build", "swift-package", "ibtool", "actool"]
+    /// 687 (dozable issue 40): `swift test` and `swift run` are `swift-package` started as `swift-test` / `swift-run` — the
+    /// folder carries THAT name (the fence's refusal: `file-write-create …/T/TemporaryItems/NSIRD_swift-test_…`), and
+    /// Swift Build's manifest write through it failed with "unable to write manifest … manifest.json".
+    public static let replacementPrograms = ["xcodebuild", "XCBBuildService", "SWBBuildService", "swift-build", "swift-package", "swift-test", "swift-run",
+                                             "ibtool", "actool"]
     /// 683 M4 — `--simulator` (with `--xcode`): LaunchServices, the Simulator and the test manager — things launched OUTSIDE
     /// the fence (a guard rail, not a boundary).
     public static let simulatorMachServices: [String] = [
@@ -148,6 +152,9 @@ public enum MacFenceProfile {
         // …and the Swift driver's temporary folders (`TemporaryDirectory.<random>`, mkdtemp): Swift Build starts it without
         // the session's TMPDIR. Its own folders only — the user temp folder itself is neither listable nor writable.
         s.append("(allow file-read* file-write* (regex #\"^\(regexEscape(f.places.userTemp))TemporaryDirectory\\.[A-Za-z0-9]+(/|$)\"))")
+        // 687 (dozable issue 40): …and Swift Build's own (`swbuild.tmp.<random>`, mkdtemp — `swift test` writes a test
+        // bundle's Info.plist through one; refused, the build failed after the manifest).
+        s.append("(allow file-read* file-write* (regex #\"^\(regexEscape(f.places.userTemp))swbuild\\.tmp\\.[A-Za-z0-9]+(/|$)\"))")
         // 683 M4: a worktree's repository's common git folder (its commits, refs and config; its hooks closed below).
         if !f.gitCommon.isEmpty {
             s.append("(allow file-read* file-write* " + f.gitCommon.map { "(subpath \(lit($0)))" }.joined(separator: " ") + ")")

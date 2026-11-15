@@ -391,7 +391,31 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
             check(row("sw")?.fence?.stoppedForGit == nil, "4.11 …SwiftPM's own repository copies are not a violation (\(row("sw")?.fence?.stoppedForGit ?? ""))")
         } else { check(false, "the swift build session (\(r.err.prefix(160)))") }
         end("sw")
-    } else { print("  SKIP  4.10/4.11 swift build (no Swift toolchain)") }
+        // 687 (dozable issue 40): a fresh library package, fenced --xcode: swift build, then swift test — with the
+        // documented flags (scratch in $DOZ_DERIVED) and with the default .build. swift test's item-replacement folder is
+        // NSIRD_swift-test_… (it was refused: "unable to write manifest … manifest.json").
+        let lp = folder("i40") + "/issue40"
+        try? fm.createDirectory(atPath: lp, withIntermediateDirectories: true)
+        m = outside(["/bin/sh", "-c", "swift package init --type library"], cwd: lp)
+        if m.code == 0 {
+            put(lp + "/i40.sh", helpers + """
+            f() { swift "$@" --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm"; }
+            o build f build --scratch-path "$DOZ_DERIVED"
+            o test f test --scratch-path "$DOZ_DERIVED"
+            o testdefault f test
+            echo done > res/DONE
+            sleep 600
+            """)
+            r = run("i40", lp, ["--xcode"], "i40.sh")
+            if r.code == 0, t.waitFor(600, { fm.fileExists(atPath: lp + "/res/DONE") || row("i40")?.ended == true }) {
+                check(res(lp, "build") == 0, "issue 40: swift build --scratch-path \"$DOZ_DERIVED\" fenced --xcode (\(out(lp, "build").suffix(200)))")
+                check(res(lp, "test") == 0 && !out(lp, "test").contains("unable to write manifest"),
+                      "issue 40: swift test --scratch-path \"$DOZ_DERIVED\" fenced --xcode runs the tests (\(out(lp, "test").suffix(240)))")
+                check(res(lp, "testdefault") == 0, "issue 40: swift test with the default .build (\(out(lp, "testdefault").suffix(240)))")
+            } else { check(false, "the issue 40 session (\(r.err.prefix(160)))") }
+            end("i40")
+        } else { check(false, "swift package init --type library outside the fence (\(m.out.suffix(160)))") }
+    } else { print("  SKIP  4.10/4.11 swift build (no Swift toolchain)"); print("  SKIP  issue 40: swift test fenced --xcode (no Swift toolchain)") }
     if hasXcode {
         let xp = folder("xp")
         put(xp + "/Hello/main.swift", "print(\"hello from a fenced Xcode project\")\n")
