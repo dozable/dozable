@@ -134,6 +134,8 @@ public struct MacFenceRecord: Codable, Equatable, Sendable {
     public var proxySecretSHA256: String? = nil
     public var policy: NetworkPolicy? = nil
     public var localPorts: [Int]? = nil
+    /// 687: it may listen on any port (`mac.fence_loopback_listen` at its open; nil: no).
+    public var loopbackListen: Bool? = nil
     /// 683: its agent (the recipe declaring a config folder; nil: none), that folder's mode and where the mode came from,
     /// the conversation-history value and its source.
     public var agent: String? = nil
@@ -194,6 +196,8 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
     public var permissions: [String]?
     public var preset: String?
     public var localPorts: [Int]?
+    /// 687: it may listen on any port (nil: no).
+    public var loopbackListen: Bool? = nil
     public var network: String?
     /// The fence's refusals seen in the system log (macOS folds repeats), and whether that log can be read
     /// (`on`, `unavailable` — an account that may not read it — or `off` with no host).
@@ -226,6 +230,7 @@ public struct MacFenceRow: Codable, Equatable, Sendable {
         permissions = r.policy?.permissions
         preset = r.policy.flatMap { $0.permissions.flatMap { AgentPermissions.presetName($0, base: AgentPermissions.macBase) } }
         localPorts = (r.localPorts ?? []).isEmpty ? nil : r.localPorts
+        loopbackListen = r.loopbackListen == true ? true : nil
         network = r.proxyPort == nil ? "none" : "waiting (no host)"
         agent = r.agent
         agentConfig = r.agentConfig
@@ -291,6 +296,11 @@ public struct MacFence: Sendable, Equatable {
     public var proxyPort: UInt16?
     /// Ports of this Mac's loopback it may listen on and connect to (`--local-port`).
     public var localPorts: [UInt16] = []
+    /// 687 (`mac.fence_loopback_listen`): it may listen on ANY port — bind and accept only; its outbound stays its proxy
+    /// and its `--local-port`s. Seatbelt cannot keep a bind to the loopback ADDRESS (probes/687-*: `(local tcp
+    /// "localhost:*")` lets a program bind 0.0.0.0 and this Mac's LAN address, and a LAN client then reaches it — the same
+    /// as `--local-port N` for N), so this is off by default.
+    public var loopbackListen = false
     /// Certificate trust (trustd) open — every preset but Locked.
     public var trust = true
     /// Its permissions' preset name for the line it says (nil: custom).
@@ -427,6 +437,7 @@ public struct MacFence: Sendable, Equatable {
         let words = ["agent": "standard"][presetName ?? ""] ?? presetName ?? "custom"
         let net = proxyPort == nil ? "no network" : "network through Dozable's proxy (\(words) permissions)"
             + (localPorts.isEmpty ? "" : "; its own ports \(localPorts.map(String.init).joined(separator: ", ")) on this Mac")
+            + (loopbackListen ? "; it may listen on any port" : "")
         var own = "its own temp and caches"
         if xcode { own += " and DerivedData" }
         if let a = agent {
@@ -447,6 +458,7 @@ public struct MacFence: Sendable, Equatable {
                                gitBaseline: gitBaseline, stoppedForGit: nil, stoppedPids: nil)
         r.proxyPort = proxyPort.map(Int.init)
         r.localPorts = localPorts.isEmpty ? nil : localPorts.map(Int.init)
+        r.loopbackListen = loopbackListen ? true : nil
         r.agent = agent?.recipe
         r.agentConfig = agent?.mode
         r.agentConfigSource = agent?.modeSource

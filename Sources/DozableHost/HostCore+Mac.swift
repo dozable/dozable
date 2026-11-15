@@ -493,6 +493,8 @@ extension HostCore {
                                               placeholders: login.placeholders, account: login.account, settings: settings)
         var f = prep.fence
         f.presetName = AgentPermissions.presetName(policy.permissions ?? [], base: AgentPermissions.macBase)
+        // 687: listening on any port, by the setting at this open (a restart follows it too).
+        f.loopbackListen = settings.string(SettingKey.macFenceLoopbackListen) == "on"
         dropFenceWatch(name)
         dropFenceProxy(name)
         // 683 M4: its doors listen before its program starts (the proxy is attached once this host has made it).

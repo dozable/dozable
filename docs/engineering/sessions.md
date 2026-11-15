@@ -143,7 +143,15 @@ session (`mac.fence` = `on`); `--unfenced` is the session above, unchanged. The 
   renamed or removed, an absent top `.git`, an in-tree `core.hooksPath` and git include targets are denied; then the
   fence root closed, this session's folder opened again, and the store, the socket folders and doz's settings closed
   last. The network: only `localhost:<the session's proxy port>` (and `--local-port` ports, the doors by literal); the
-  Keychain's services only with `--keychain`. sandbox-exec sits between the holder (unfenced) and the program; the
+  Keychain's services only with `--keychain`. **Listening on any port** (687, `mac.fence_loopback_listen`, OFF by
+  default; `MacFence.loopbackListen`, recorded, the capability `listen`): `(allow network-bind network-inbound (local
+  tcp "localhost:*"))` — never an outbound rule (an outbound `localhost:*` reaches every other program's loopback port;
+  Seatbelt has no "its own listeners" filter, so a program cannot reach its own listener unless the port is a
+  `--local-port`). Probed (the workspace's `probes/687-*/loopback-listen-probe.sh`, `inbound-peer-probe.sh`): Seatbelt
+  does NOT restrict a bind's address — `localhost:N` (and `*`) lets the program bind `0.0.0.0` and this Mac's LAN
+  address, and a LAN client then reaches it; neither a `(remote …)` filter on `network-inbound` nor `tcp4`/`ip` forms
+  change that. So `--local-port N` has always meant "N on every address", and the any-port setting is off until the
+  owner decides; the capability and the setting's text say the limit. `MacFenceNetworkTests`, `make test-cli-fence`. sandbox-exec sits between the holder (unfenced) and the program; the
   holder puts its pty in `TTY` (only in sandbox-exec's own arguments).
 - **The Mach lists are PROVISIONAL** (`MacFenceProfile.agentMachServices`, `xcodeMachServices`): set from probes with
   a scratch Claude Code and a scratch Xcode build; they are frozen only from a person's live runs

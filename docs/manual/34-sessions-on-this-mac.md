@@ -192,9 +192,22 @@ doz net log @mac --session agent --fence        # the fence's own refusals: file
 
 Changes apply to its next connection. Name lookups (DNS) are closed inside the fence — the proxy looks names up;
 `localhost` still works. A program that ignores the proxy settings gets no network at all, rather than a direct one.
-`--local-port N` is the one way to listen: the program may listen on and connect to `localhost:N` only, so your
+`--local-port N` is the way to listen: the program may listen on and connect to `localhost:N` only, so your
 browser and tests reach its dev server there. `doz net log … --fence` shows the fence's refusals so far; it does not
 follow new ones (`--follow` works for connections).
+
+**Listening on any port** (a test server on a free port, a tool that picks its own): the setting
+`mac.fence_loopback_listen` (`off` by default) lets a fenced session listen on any TCP port from its next start or
+restart — your browser and other programs on this Mac reach it, another fenced session does not (it has only its
+proxy), and UDP stays closed. Two limits come from macOS's sandbox and are said in the session's capabilities: it
+cannot keep such a server to this Mac's loopback — one that listens on every address is reachable from your network
+too (your firewall decides) — and the program still cannot connect to its own server from inside, because its only
+way out is Dozable's proxy. When a test must reach its own server, give that port with `--local-port N`. The same
+macOS limit holds for a `--local-port N` server that listens on every address.
+
+```bash
+doz config set mac.fence_loopback_listen on     # from the next session or restart
+```
 
 Under `locked`, macOS's certificate service is closed too, so tools that check certificates through it (Go programs,
 `gh`) cannot reach anything; under `standard` it is open (it fetches revocation lists on the program's behalf).

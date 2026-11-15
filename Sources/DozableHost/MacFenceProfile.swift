@@ -188,6 +188,10 @@ public enum MacFenceProfile {
             s.append("(allow network-bind network-inbound (local tcp \"localhost:\(p)\"))")
             s.append("(allow network-outbound (remote tcp \"localhost:\(p)\"))")
         }
+        // 687 (`mac.fence_loopback_listen`): listening on any port — bind and accept, TCP only, NEVER outbound (that would
+        // reach every other program's loopback port; Seatbelt cannot say "its own listeners only"). Seatbelt does not
+        // keep the bind to the loopback address (probes/687-*: 0.0.0.0 and the LAN address bind too).
+        if f.loopbackListen { s.append("(allow network-bind network-inbound (local tcp \"localhost:*\"))") }
         // 683 M4: the host's two doors in the (closed) socket folder — the filtered SSH agent and gh's way into its proxy.
         // Connecting is all: the folder stays closed to reads and writes (verified: a connect needs no file access).
         for sock in [f.agentSocket, f.ghSocket].compactMap({ $0 }) {

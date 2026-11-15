@@ -364,6 +364,56 @@ func cliFenceNetworkChecks(_ t: CLIHarness, root: String, home: String, store: S
     check(FileManager.default.fileExists(atPath: "/private/tmp") && !(try? FileManager.default.contentsOfDirectory(atPath: "/private/tmp"))!.contains { $0.hasPrefix("dzo-spoof") },
           "the spoof file was never written (refused)")
 
+    // MARK: 687 listening on any port (mac.fence_loopback_listen, off by default — rows 2.11/2.17 above are that default)
+    let lis = root + "/lis"
+    try? FileManager.default.createDirectory(atPath: lis, withIntermediateDirectories: true)
+    func lres(_ n: String) -> Int? { Int(get(lis + "/res/" + n).trimmingCharacters(in: .whitespacesAndNewlines)) }
+    put(lis + "/srv.py", """
+    import socket, sys
+    s = socket.socket(); s.bind(('127.0.0.1', 0)); s.listen(4)
+    open('res/port', 'w').write(str(s.getsockname()[1]))
+    while True:
+        c, _ = s.accept(); c.sendall(b'LIS-OK'); c.close()
+    """)
+    put(lis + "/l.sh", helpers + """
+    r l4 /usr/bin/python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1', 0)); s.listen(1)"
+    r l6 /usr/bin/python3 -c "import socket; s=socket.socket(socket.AF_INET6); s.bind(('::1', 0)); s.listen(1)"
+    r lany /usr/bin/python3 -c "import socket; s=socket.socket(); s.bind(('0.0.0.0', 0)); s.listen(1)"
+    r ludp /usr/bin/python3 -c "import socket; socket.socket(socket.AF_INET, socket.SOCK_DGRAM).bind(('127.0.0.1', 0))"
+    r self /usr/bin/python3 -c "import socket; s=socket.socket(); s.bind(('127.0.0.1', 0)); s.listen(1); socket.create_connection(s.getsockname(), timeout=3)"
+    /usr/bin/python3 srv.py > /dev/null 2>&1 &
+    echo done > res/DONE
+    sleep 600
+    """)
+    check(t.run(["config", "set", "mac.fence_loopback_listen", "on"]).code == 0, "doz config set mac.fence_loopback_listen on")
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lis", "--workdir", lis, "--", "/bin/sh", "l.sh"], timeout: 90)
+    if r.code == 0 { started.insert("lis") }
+    check(r.code == 0 && r.err.contains("it may listen on any port") && t.waitFor(60) { FileManager.default.fileExists(atPath: lis + "/res/DONE") },
+          "a fenced session with the setting on: its line says it may listen on any port")
+    check(lres("l4") == 0, "listen(0) on 127.0.0.1 works (\(lres("l4").map(String.init) ?? "-"))")
+    check(lres("l6") == 0, "…on ::1 too")
+    check(lres("ludp").map { $0 != 0 } ?? false, "UDP stays closed")
+    check(lres("self").map { $0 != 0 } ?? false, "it cannot connect to its own listener from inside (outbound unchanged: its proxy and --local-port only)")
+    // Seatbelt cannot keep the bind to the loopback address: said, not hidden (the capability and the setting say so).
+    print("  INFO  a bind on 0.0.0.0 with the setting on: \(lres("lany") == 0 ? "works — reachable from the network, as the capability says" : "refused")")
+    check(t.waitFor(10) { !get(lis + "/res/port").isEmpty }, "its server listens on a free port (\(get(lis + "/res/port")))")
+    let lisPort = UInt16(get(lis + "/res/port").trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
+    check(lisPort > 0 && fenceRawHTTP(lisPort, "", seconds: 3) == "LIS-OK", "this Mac (outside the fence) reaches it")
+    check(row("lis")?.capabilities?.contains { $0.id == "listen" && $0.state == "any port" } == true && row("lis")?.fence?.loopbackListen == true,
+          "its capabilities say it may listen on any port")
+    put(lis + "/x.sh", helpers + "r cross nc -z -w 2 127.0.0.1 \(lisPort)\necho done > res/XDONE\nsleep 600\n")
+    r = t.run(["run", "@mac", "-d", "--fenced", "--session", "lisx", "--workdir", lis, "--", "/bin/sh", "x.sh"], timeout: 90)
+    if r.code == 0 { started.insert("lisx") }
+    check(r.code == 0 && t.waitFor(60) { FileManager.default.fileExists(atPath: lis + "/res/XDONE") } && (lres("cross").map { $0 != 0 } ?? false),
+          "another fenced session cannot connect to it")
+    check(t.run(["config", "set", "mac.fence_loopback_listen", "off"]).code == 0, "doz config set mac.fence_loopback_listen off")
+    try? FileManager.default.removeItem(atPath: lis + "/res")
+    r = t.run(["sessions", "restart", "@mac", "lis", "--yes", "-d"], timeout: 60)
+    check(r.code == 0 && t.waitFor(60) { FileManager.default.fileExists(atPath: lis + "/res/DONE") } && (lres("l4").map { $0 != 0 } ?? false),
+          "the setting off: a restart follows it — listen(0) refused again (\(lres("l4").map(String.init) ?? "-"))")
+    check(row("lis")?.capabilities?.contains { $0.id == "listen" } == false, "…and the capability is gone")
+    for s in ["lis", "lisx"] { t.run(["sessions", "end", "@mac", s, "--yes"], timeout: 60); started.remove(s) }
+
     // MARK: 2.16 the hand-over: the host's program replaced by rename, only a fenced session live
     await fenceHandOver(t, root: root, net: net, binary: binary, store: store, sites: sites, allowed: allowed, started: &started)
 

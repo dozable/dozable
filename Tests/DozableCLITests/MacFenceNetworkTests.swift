@@ -70,6 +70,34 @@ final class MacFenceNetworkTests: XCTestCase {
         XCTAssertTrue(f.line().contains("network through Dozable's proxy"))
     }
 
+    /// 687: `mac.fence_loopback_listen` — bind and accept on any TCP port; NEVER an outbound rule beyond the proxy and its
+    /// own ports (an outbound localhost:* would reach every other program's loopback port).
+    func testListeningOnAnyPort_neverOutbound() throws {
+        var f = try w.fence()
+        f.proxyPort = 41234
+        f.localPorts = [3000]
+        XCTAssertFalse(MacFenceProfile.render(f).contains("localhost:*"), "off (the default): no rule for any port")
+        XCTAssertFalse(f.line().contains("any port"))
+        f.loopbackListen = true
+        let net = MacFenceProfile.render(f).split(separator: "\n").filter { $0.contains("network-") }.map(String.init)
+        XCTAssertTrue(net.contains("(allow network-bind network-inbound (local tcp \"localhost:*\"))"))
+        XCTAssertEqual(net.filter { $0.contains("network-outbound") }, [
+            "(allow network-outbound (remote tcp \"localhost:41234\"))",
+            "(allow network-outbound (remote tcp \"localhost:3000\"))",
+        ], "outbound unchanged")
+        XCTAssertFalse(net.contains { $0.contains("udp") || $0.contains("local ip") }, "TCP only")
+        XCTAssertTrue(f.line().contains("it may listen on any port"))
+        // Recorded, and said in the capabilities.
+        let rec = f.record(profileSHA256: "x", gitBaseline: nil)
+        XCTAssertEqual(rec.loopbackListen, true)
+        var shape = MacCapabilityShape(session: "s", workdir: f.workdir, fenced: true)
+        XCTAssertFalse(MacFence.capabilities(shape).contains { $0.id == "listen" })
+        shape.loopbackListen = true
+        let cap = MacFence.capabilities(shape).first { $0.id == "listen" }
+        XCTAssertEqual(cap?.state, "any port")
+        XCTAssertTrue(cap?.sentence.contains("reachable from your network") == true, "the limit is said")
+    }
+
     func testLocalPortsAreChecked() {
         XCTAssertEqual(try MacFence.localPorts([3000, 3000, 8080]), [3000, 8080])
         XCTAssertThrowsError(try MacFence.localPorts([80]), "below 1024")

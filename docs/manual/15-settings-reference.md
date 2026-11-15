@@ -167,6 +167,7 @@ This table is generated from `doz config show` and checked against it on every b
 | `mac.open_url` | `on` | on \| off | next session | `doz run @mac --open-url` | A fenced session may open web pages in your browser, each announced (on, off). |
 | `mac.open_files` | `on` | on \| off | next session | `doz run @mac --open-files` | A fenced session may open documents of its folder in your apps, each announced (on, off). |
 | `mac.clipboard` | `write` | write \| off | next session | `doz run @mac --clipboard` | A fenced session may put text on your clipboard, never read it; each copy announced (write, off). |
+| `mac.fence_loopback_listen` | `off` | off \| on | next session | — | Whether a fenced session on this Mac may listen on ANY port (a dev server, a test server on a free port), not only its --local-port ones (on, off). macOS's sandbox cannot keep such a server to this Mac's loopback: one that listens on every address is reachable from your network too (your firewall decides). The program still cannot connect to its own server from inside (its only way out is Dozable's proxy) — use --local-port N for that. From the next session (or restart). |
 
 ### `[host]`
 
