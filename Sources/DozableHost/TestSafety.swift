@@ -46,6 +46,17 @@ public enum TestSafety {
         return "a test reached the login keychain's Claude Code item (\(service)) — set DOZ_TEST_CREDENTIALS=memory and DOZ_TEST_NO_MAC_LOGIN=1"
     }
 
+    /// 687: why reading Claude Code's credentials file at `path` is refused (nil: allowed) — a `.credentials.json` in the
+    /// person's REAL home (`~/.claude`, or any config folder there). A guarded run reads only its seam
+    /// (`DOZ_TEST_CLAUDE_CREDENTIALS_FILE`, a scratch file).
+    public static func claudeCredentialsFileViolation(_ path: String, home: URL = realHome) -> String? {
+        guard (path as NSString).lastPathComponent == ".credentials.json" else { return nil }
+        let p = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath().path
+        let h = home.standardizedFileURL.resolvingSymlinksInPath().path
+        guard p == h || p.hasPrefix(h + "/") else { return nil }
+        return "a test reached Claude Code's credentials file (\(path)) — give it a scratch one (DOZ_TEST_CLAUDE_CREDENTIALS_FILE)"
+    }
+
     /// Stop a guarded run that is about to do what `violation` describes.
     public static func enforce(_ violation: String?, env: [String: String] = ProcessInfo.processInfo.environment) {
         guard let violation, guarded(env) else { return }

@@ -21,6 +21,21 @@ Part of the engineering guide; the cross-cutting rules are in [CLAUDE.md](../../
   `make test-cli-keychainlocked`. A LaunchAgent host in the GUI domain is not done ("No launchd agent" — an owner
   question).
 
+- **The Mac login has two stores, read-only** (687): Claude Code keeps a login in the Keychain item `Claude
+  Code-credentials[-<8 hex>]` and, where it cannot write the Keychain (a `claude` login over ssh: the login keychain is
+  locked there), refreshes ONLY `<claude config>/.credentials.json` — doz read only the Keychain and said "expired". Now
+  `ClaudeMacLogin.choose(keychain:file:now:)` (pure, `ClaudeMacLoginTests`' table) decides: an unexpired login wins; both
+  unexpired → the later expiry (a tie keeps the Keychain's); the file is used ONLY unexpired — otherwise the Keychain's
+  answer stands (its expired login, absent, locked, unreadable). `ClaudeCredentialsFile.read`: `O_NOFOLLOW`, a regular
+  file owned by the user, ≤ 64 KiB, parsed by `ClaudeLogin.parse` (the access token and its dates; the refresh token is
+  dropped with the bytes). The same account (its identity is still `.claude.json`'s, pinned and followed as before — no
+  fallback between ACCOUNTS). Used by `LoginWatcher.readNow` (what every proxy swaps in; `store`, a host note when the
+  store changes), `ClaudeLoginStatus.check` (doctor's "claude login … · from ~/.claude/.credentials.json", onboarding,
+  Access), `doz account ls|show` ("key from: this Mac's Claude Code login, from the Keychain" / "…from
+  ~/.claude/.credentials.json") and `account verify`. Never written. Guarded runs: `ClaudeCredentialsFile.path` gives
+  only `DOZ_TEST_CLAUDE_CREDENTIALS_FILE` (none without it, and none under `DOZ_TEST_NO_MAC_LOGIN`/`memory`); a read of
+  a `.credentials.json` in the real home is a `TestSafety` stop.
+
 - **Agent credentials (`AgentCredentials.swift`; the table is `AgentImages.credentials`):**
   Claude Code: `mac`, `setup-token`, `api-key` (660: and through models@1 a gateway's `key` — OpenRouter — or the
   key-less `local`; its Anthropic source keeps those three, `AgentCredentials.source(of:provider:image:)`); pi: `api-key` ONLY (it reads `ANTHROPIC_API_KEY`;

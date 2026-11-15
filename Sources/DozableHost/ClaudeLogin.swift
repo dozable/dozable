@@ -325,6 +325,129 @@ public enum ClaudeLogin {
     }
 }
 
+/// 687: where a Mac Claude login was read from — Claude Code keeps the SAME account's login in the Keychain item, and in
+/// `<claude config>/.credentials.json` when it signed in where the Keychain could not be written (a login over ssh: the
+/// Keychain is locked there, so Claude Code refreshes only the file).
+public enum ClaudeLoginStore: String, Codable, Sendable {
+    case keychain
+    case file
+
+    /// How a person reads it (`doz account ls|show`, doctor).
+    public func label(configDir: String?) -> String {
+        switch self {
+        case .keychain: "the Keychain"
+        case .file: DisplayPath.tilde(ClaudeCredentialsFile.defaultPath(configDir: configDir))
+        }
+    }
+}
+
+/// 687: Claude Code's credentials FILE, read-only — `<config dir>/.credentials.json` (default `~/.claude/.credentials.json`).
+/// Dozable never writes it, and never holds or uses its refresh token: the file is parsed for the ACCESS token and its
+/// dates (`ClaudeLogin.parse`) and the rest is dropped at once. Only a regular file owned by this user, not a link, at most
+/// 64 KiB. TEST SEAM (guarded runs only): `DOZ_TEST_CLAUDE_CREDENTIALS_FILE` — a guarded run without it reads NO file
+/// (and `TestSafety` stops one that would read the real one).
+public enum ClaudeCredentialsFile {
+    public static let maximumBytes = 64 << 10
+
+    /// What reading it found.
+    public enum Read: Equatable, Sendable {
+        case token(ClaudeLoginToken)
+        /// Not there (or no file is read in this run).
+        case missing
+        /// There, but not a regular file of this user's (a link, another owner, too large) — not read.
+        case refused
+        /// Read, but no access token in it.
+        case malformed
+    }
+
+    /// The file for `configDir` in the person's home (for words, and the real read).
+    public static func defaultPath(configDir: String?, home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String {
+        if let d = configDir, !d.isEmpty { return (d as NSString).expandingTildeInPath + "/.credentials.json" }
+        return home.appendingPathComponent(".claude/.credentials.json").path
+    }
+
+    /// The file this process reads (nil: none). A guarded run — or one with the Mac-login seams on — reads only the seam.
+    public static func path(configDir: String?, env: [String: String] = ProcessInfo.processInfo.environment,
+                            home: URL = FileManager.default.homeDirectoryForCurrentUser) -> String? {
+        let seam = env["DOZ_TEST_CLAUDE_CREDENTIALS_FILE"].flatMap { $0.hasPrefix("/") ? $0 : nil }
+        if TestSafety.guarded(env) { return seam }
+        if env["DOZ_TEST_NO_MAC_LOGIN"] == "1" || env["DOZ_TEST_CREDENTIALS"] == "memory" { return nil }
+        return defaultPath(configDir: configDir, home: home)
+    }
+
+    /// Read `path` (nil: `.missing`). Never follows a link; parses the access token and drops the rest.
+    public static func read(_ path: String?, env: [String: String] = ProcessInfo.processInfo.environment) -> Read {
+        guard let path else { return .missing }
+        TestSafety.enforce(TestSafety.claudeCredentialsFileViolation(path), env: env)
+        let fd = open(path, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+        guard fd >= 0 else { return errno == ENOENT || errno == ENOTDIR ? .missing : .refused }
+        defer { close(fd) }
+        var st = stat()
+        guard fstat(fd, &st) == 0, (st.st_mode & S_IFMT) == S_IFREG, st.st_uid == getuid(), st.st_size <= off_t(maximumBytes) else { return .refused }
+        var data = Data(count: Int(st.st_size))
+        let n = data.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
+        guard n == Int(st.st_size) else { return .refused }
+        // The refresh token is in these bytes: only the access token and its dates leave this function; the rest is
+        // dropped when it returns (never kept, logged or used).
+        defer { data.resetBytes(in: 0..<data.count) }
+        guard let t = ClaudeLogin.parse(String(decoding: data, as: UTF8.self)) else { return .malformed }
+        return .token(t)
+    }
+}
+
+/// 687: the Mac's Claude login from its two stores — the Keychain item and the credentials file — chosen by one pure rule.
+public enum ClaudeMacLogin {
+    /// What the login is now.
+    public enum Outcome: Equatable, Sendable {
+        /// A login to use (possibly expired — only the Keychain's is offered expired, as before) and where it came from.
+        case token(ClaudeLoginToken, ClaudeLoginStore)
+        /// The Keychain item is not there and the file has no unexpired login.
+        case absent
+        /// The Keychain is locked (and the file has no unexpired login).
+        case locked
+        /// `security` failed (and the file has no unexpired login).
+        case failed
+        /// The Keychain item has a format doz does not know (and the file has no unexpired login).
+        case unparsable
+    }
+
+    /// THE rule (`ClaudeMacLoginTests`' table): an unexpired login wins; when both stores have one, the one that expires
+    /// LATER (a tie, or a login with no expiry, keeps the Keychain's); the file is used ONLY unexpired — otherwise the
+    /// Keychain's answer stands as it did before (its expired login, absent, locked, failed, unparsable). Same account:
+    /// the identity rules are the watcher's, unchanged.
+    public static func choose(keychain: KeychainRead, file: ClaudeCredentialsFile.Read, now: Date = Date()) -> Outcome {
+        var kt: ClaudeLoginToken?
+        var unparsable = false
+        if case .found(let raw) = keychain {
+            if let t = ClaudeLogin.parse(raw) { kt = t } else { unparsable = true }
+        }
+        var ft: ClaudeLoginToken?
+        if case .token(let t) = file { ft = t }
+        func valid(_ t: ClaudeLoginToken?) -> Bool { t.map { $0.expiresAt.map { $0 > now } ?? true } ?? false }
+        switch (valid(kt), valid(ft)) {
+        case (true, true):
+            let k = kt!.expiresAt ?? .distantFuture, f = ft!.expiresAt ?? .distantFuture
+            return f > k ? .token(ft!, .file) : .token(kt!, .keychain)
+        case (true, false): return .token(kt!, .keychain)
+        case (false, true): return .token(ft!, .file)
+        case (false, false):
+            if let kt { return .token(kt, .keychain) }
+            if unparsable { return .unparsable }
+            switch keychain {
+            case .locked: return .locked
+            case .failed: return .failed
+            default: return .absent
+            }
+        }
+    }
+
+    /// Read both stores now and choose.
+    public static func read(configDir: String?, keychain: KeychainAccess, filePath: String?, now: Date = Date()) -> Outcome {
+        choose(keychain: keychain.read(service: ClaudeLogin.service(configDir: configDir), account: Keychain.user),
+               file: ClaudeCredentialsFile.read(filePath), now: now)
+    }
+}
+
 /// What `doctor` and `account use … mac` (alias `key set --claude-login`) find about a Mac login.
 public struct ClaudeLoginStatus: Codable, Equatable, Sendable {
     public enum State: String, Codable, Sendable {
@@ -347,21 +470,26 @@ public struct ClaudeLoginStatus: Codable, Equatable, Sendable {
     public var refreshTokenExpiresAt: Date?
     public var identity: ClaudeIdentity?
     public var claudeRunning: Bool?
+    /// 687: where the login was read from (`keychain` or `file` — `~/.claude/.credentials.json`), when signed in.
+    public var store: ClaudeLoginStore? = nil
 
     public var installed: Bool { binary != nil }
 
-    /// Gather it. `binary` and `version` are looked up only when `probeBinary`.
+    /// Gather it. `binary` and `version` are looked up only when `probeBinary`. 687: the login is read from the Keychain
+    /// item AND the credentials file (`ClaudeMacLogin.choose`); `env` decides the file (`ClaudeCredentialsFile.path`).
     public static func check(configDir: String? = nil, keychain: KeychainAccess, probeBinary: Bool = true,
                              home: URL = FileManager.default.homeDirectoryForCurrentUser,
-                             binary: (() -> String?)? = nil) -> ClaudeLoginStatus {
+                             binary: (() -> String?)? = nil, now: Date = Date(),
+                             env: [String: String] = ProcessInfo.processInfo.environment) -> ClaudeLoginStatus {
         let service = ClaudeLogin.service(configDir: configDir)
         let bin = probeBinary ? (binary ?? { ClaudeLogin.resolveBinary(home: home) })() : nil
         var s = ClaudeLoginStatus(configDir: configDir, service: service, binary: bin,
                                   version: probeBinary ? bin.flatMap(ClaudeLogin.version) : nil, state: .signedOut)
-        switch keychain.read(service: service, account: Keychain.user) {
-        case .found(let raw):
-            guard let t = ClaudeLogin.parse(raw) else { s.state = .unreadable; return s }
+        let file = ClaudeCredentialsFile.path(configDir: configDir, env: env, home: home)
+        switch ClaudeMacLogin.read(configDir: configDir, keychain: keychain, filePath: file, now: now) {
+        case .token(let t, let store):
             s.state = .signedIn
+            s.store = store
             s.subscriptionType = t.subscriptionType
             s.rateLimitTier = t.rateLimitTier
             s.expiresAt = t.expiresAt
@@ -372,7 +500,7 @@ public struct ClaudeLoginStatus: Codable, Equatable, Sendable {
                 s.state = .apiKey
             }
         case .locked: s.state = .locked
-        case .failed: s.state = .unreadable
+        case .failed, .unparsable: s.state = .unreadable
         }
         return s
     }
@@ -411,6 +539,8 @@ public struct ClaudeLoginStatus: Codable, Equatable, Sendable {
         if let e = expiresAt {
             parts.append(e > now ? "access expires in \(Self.span(e.timeIntervalSince(now)))" : "access expired \(Self.ago(e, now: now))")
         }
+        // 687: which store the login was read from.
+        if let s = store { parts.append("from \(s.label(configDir: configDir))") }
         return parts.joined(separator: " · ")
     }
 

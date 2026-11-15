@@ -331,7 +331,11 @@ One row per area; each area's doc starts with the full table of its files.
   `KeychainChunks`. `RealKeychainLimitTests` checks the real keychain (`DOZ_TEST_REAL_KEYCHAIN=1`, a throwaway
   `doz-test-limit-*` item, always deleted); the fake OpenAI issues real-sized tokens (~6 KB with a 2.1 KB refresh token).
 - **Dozable never holds, uses or writes Claude Code's refresh token, and never writes a
-  `Claude Code-credentials*` item**. It reads the Mac login's ACCESS token only; the Mac's
+  `Claude Code-credentials*` item**. It reads the Mac login's ACCESS token only — from that Keychain item or (687),
+  READ-ONLY, the same account's other store `<claude config>/.credentials.json` (a login over ssh refreshes only the
+  file; `ClaudeMacLogin.choose`: the file only when unexpired, the later expiry when both are; a regular file, never a
+  link; the refresh token parsed and dropped; `DOZ_TEST_CLAUDE_CREDENTIALS_FILE` in guarded runs, `TestSafety` stops one
+  that would read the real file) and writes neither; the Mac's
   Claude Code is the one writer of that token family (a second holder forks it — a copied
   `.credentials.json` was rejected for this in an earlier project, and for its silent fall-through to API billing).
   Renewal is the Mac's: the only thing doz may do is run the Mac's own `claude -p` (the
