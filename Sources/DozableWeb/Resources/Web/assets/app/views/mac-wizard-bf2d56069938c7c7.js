@@ -10,6 +10,7 @@ import { setting } from '../core/settings-353cfb79867783e4.js';
 import { tildePath } from '../core/paths-074fefdb8b1d48aa.js';
 import { choiceCard } from '../components/choice-fdde57632eb1dcb5.js';
 import { toast } from '../components/notices-3fe56a3dbeb21a8c.js';
+import { callout } from '../components/callout-f30e3ad8767a987a.js';
 import { capabilitiesPanel } from './mac-capabilities-ac7be4f851998813.js';
 
 /// The cases, in the order the owner gave them a meaning (fenced first, then the two that open everything).
@@ -67,6 +68,30 @@ export function openMacWizard(defaults = {}) {
   const err = h('div', { class: 'dlg-error', role: 'alert' });
   const preview = h('div', { class: 'mac-preview', 'data-mac-preview': '' });
   const facts = h('div', { class: 'mac-facts', 'data-mac-facts': '' });
+  // The Swift / Xcode case: the build lines that work inside the session (the host's `buildCommands` — the lines `doz run
+  // @mac --xcode --dry-run` prints), each with Copy, and when to go unfenced. Nothing here runs.
+  const build = h('div', { class: 'mac-build mac-command-box', 'data-mac-build': '' });
+  async function copyLine(text) {
+    try { await navigator.clipboard.writeText(text); toast('Copied'); }
+    catch (_) { err.textContent = 'This browser would not copy — select the command and copy it yourself.'; }
+  }
+  function paintBuild(p) {
+    const list = f.kind === 'xcode' && p && Array.isArray(p.buildCommands) ? p.buildCommands : [];
+    if (!list.length) { build.replaceChildren(); return; }
+    build.replaceChildren(
+      h('div', { class: 'cap-sub' }, h('strong', null, 'Inside the session'), h('span', { class: 'muted' }, ' — builds and tests that work in this fence (nothing is run from here)')),
+      ...list.map((c) => h('div', { class: 'mac-build-row', 'data-build': c.label },
+        h('div', { class: 'mac-build-label muted' }, c.label),
+        h('code', { class: 'mac-command' }, c.command),
+        h('button', { type: 'button', class: 'btn sm', 'aria-label': 'Copy: ' + c.label, on: { click: () => copyLine(c.command) } }, withIcon('copy', 'Copy')))),
+      h('div', { class: 'muted mac-why' }, 'swift build and swift test also work with the default .build — leave --scratch-path out.'),
+      callout('info', { compact: true, attrs: { 'data-mac-unfenced-note': '' }, title: 'When to go unfenced', body: h('ul', { class: 'mac-unfenced' },
+        h('li', null, 'Signing and notarisation need your Keychain and Apple’s own networking — choose the Signing & notarisation case instead.'),
+        h('li', null, 'Simulator UI tests: what the Simulator launches runs outside the fence — turn on Run in the Simulator above (a guard rail, not a boundary).'),
+        h('li', null, 'Tools that need your Keychain — turn on Sign with my Apple identity above.'),
+        h('li', null, 'Unfenced means your files, Keychain and network, as if you typed it yourself.'),
+        h('li', null, 'A test server that picks its own port (listen on port 0) needs the setting ', h('code', null, 'mac.fence_loopback_listen'), ' (off by default): the session may then listen on any port, and a server on all addresses is reachable from your network, not only from this Mac.')) }));
+  }
   let last = null;
   const copyBtn = h('button', { type: 'button', class: 'btn', 'data-mac-copy': '', on: { click: async () => {
     if (!last) return;
@@ -139,6 +164,7 @@ export function openMacWizard(defaults = {}) {
         openBtn.disabled = true; copyBtn.disabled = true;
         preview.replaceChildren();
         facts.replaceChildren();
+        build.replaceChildren();
         return;
       }
       try {
@@ -147,6 +173,7 @@ export function openMacWizard(defaults = {}) {
         last = p;
         commandBox.textContent = p.command;
         copyBtn.disabled = false;
+        paintBuild(p);
         openBtn.disabled = !p.openable;
         openBtn.title = p.openable ? 'Opens a terminal on this Mac that runs it' : 'Copy only: ' + (p.copyOnly || '');
         why.textContent = p.openable ? 'Open in Terminal runs it in your default terminal app; Copy to run it yourself.' : 'Copy only — ' + (p.copyOnly || '');
@@ -159,6 +186,7 @@ export function openMacWizard(defaults = {}) {
       } catch (e) {
         if (n !== seq) return;
         last = null;
+        build.replaceChildren();
         openBtn.disabled = true; copyBtn.disabled = true;
         err.textContent = e.message || String(e);
       }
@@ -171,7 +199,7 @@ export function openMacWizard(defaults = {}) {
       h('p', { class: 'sub' }, 'Choose what it is for — each card says what it opens. Dozable shows the exact command; it never starts a session for you from here.'),
       h('div', { class: 'mac-wizard-grid' }, cards, h('div', { class: 'mac-wizard-side' }, opts, facts)),
       h('div', { class: 'mac-command-box' }, h('div', { class: 'cap-sub' }, h('strong', null, 'The command')), commandBox, why),
-      err, preview),
+      build, err, preview),
     h('div', { class: 'dlg-foot dlg-buttons' }, h('span', { class: 'why' }), copyBtn, openBtn)));
   d.addEventListener('close', () => d.remove());
   document.body.append(d);

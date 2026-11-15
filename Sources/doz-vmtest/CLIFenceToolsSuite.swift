@@ -394,15 +394,16 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
         // 687 (dozable issue 40): a fresh library package, fenced --xcode: swift build, then swift test — with the
         // documented flags (scratch in $DOZ_DERIVED) and with the default .build. swift test's item-replacement folder is
         // NSIRD_swift-test_… (it was refused: "unable to write manifest … manifest.json").
+        // The command lines are the ones the wizard shows and `--dry-run` prints (`MacBuildCommands`) — one source.
+        let i40 = MacBuildCommands.commands(profile: "xcode")
         let lp = folder("i40") + "/issue40"
         try? fm.createDirectory(atPath: lp, withIntermediateDirectories: true)
         m = outside(["/bin/sh", "-c", "swift package init --type library"], cwd: lp)
         if m.code == 0 {
             put(lp + "/i40.sh", helpers + """
-            f() { swift "$@" --disable-sandbox --cache-path "$XDG_CACHE_HOME/swiftpm"; }
-            o build f build --scratch-path "$DOZ_DERIVED"
-            o test f test --scratch-path "$DOZ_DERIVED"
-            o testdefault f test
+            o build sh -c '\(i40[0].command)'
+            o test sh -c '\(i40[1].command)'
+            o testdefault sh -c '\(MacBuildCommands.withDefaultScratch(i40[1]))'
             echo done > res/DONE
             sleep 600
             """)
@@ -422,7 +423,7 @@ func cliFenceToolsChecks(_ t: CLIHarness, root: String, home: String, store: Str
         put(xp + "/Hello.xcodeproj/project.pbxproj", scratchXcodeProject)
         put(xp + "/s.sh", helpers + """
         env > res/env
-        o build xcodebuild -project Hello.xcodeproj -scheme Hello -derivedDataPath "$DOZ_DERIVED" -scmProvider system build
+        o build sh -c '\(MacBuildCommands.commands(profile: "xcode", scheme: "Hello", project: "Hello.xcodeproj")[2].command)'
         o runit "$DOZ_DERIVED"/Build/Products/Debug/Hello
         o noderived xcodebuild -project Hello.xcodeproj -scheme Hello build
         echo done > res/DONE

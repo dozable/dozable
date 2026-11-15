@@ -675,9 +675,11 @@ struct Run: AsyncParsableCommand {
         if dryRun {
             func abs(_ p: String) -> String { URL(fileURLWithPath: p).standardizedFileURL.path }
             let wd = workdir.map(abs) ?? (fence ? FileManager.default.currentDirectoryPath : NSHomeDirectory())
-            let caps = MacFence.capabilities(dryRunShape(settings, fence: fence, workdir: wd, absolute: abs))
+            let shape = dryRunShape(settings, fence: fence, workdir: wd, absolute: abs)
+            let caps = MacFence.capabilities(shape)
             if g.json { Out.json(caps); return }
-            Out.stdout("doz run @mac would open a session that can (\(fence ? "fenced" : "no isolation") — nothing was started):\n" + MacFence.capabilitiesText(caps))
+            Out.stdout("doz run @mac would open a session that can (\(fence ? "fenced" : "no isolation") — nothing was started):\n" + MacFence.capabilitiesText(caps)
+                       + MacBuildCommands.text(MacBuildCommands.commands(profile: fence ? shape.profile : "")))
             return
         }
         if onMac, !fence, !g.quiet { Out.stderr("[doz] \(MacPlace.noIsolationLine)\n") }

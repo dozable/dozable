@@ -284,6 +284,32 @@ final class WebMacCapabilitiesTests: XCTestCase {
         XCTAssertFalse(sh.openable)
     }
 
+    /// The build lines come from ONE function: the plan carries them for the Swift / Xcode cases and no other, and
+    /// `--dry-run`'s text lists the same lines.
+    func testThePlanCarriesTheBuildCommands() throws {
+        var x = WebMacPlanRequest(kind: .xcode, program: .claude, workdir: "/Users/x/src/app")
+        let plan = Self.plan(x)
+        XCTAssertEqual(plan.buildCommands, MacBuildCommands.commands(profile: "xcode"))
+        XCTAssertEqual(plan.buildCommands.map(\.label), ["Build a Swift package", "Test a Swift package", "Build with xcodebuild", "Test with xcodebuild"])
+        for c in plan.buildCommands { XCTAssertEqual(Self.shSyntax(c.command), 0, c.command) }
+        XCTAssertTrue(plan.buildCommands[0].command.contains("--disable-sandbox --cache-path \"$XDG_CACHE_HOME/swiftpm\" --scratch-path \"$DOZ_DERIVED\""))
+        XCTAssertTrue(plan.buildCommands[2].command.contains("-derivedDataPath \"$DOZ_DERIVED\""))
+        x.simulator = true
+        XCTAssertEqual(Self.plan(x).buildCommands, plan.buildCommands)
+        XCTAssertEqual(MacBuildCommands.withDefaultScratch(plan.buildCommands[1]), "swift test --disable-sandbox --cache-path \"$XDG_CACHE_HOME/swiftpm\"")
+        for k in [WebMacPlanRequest.Case.plain, .signing, .unfenced] {
+            XCTAssertTrue(Self.plan(WebMacPlanRequest(kind: k, program: .claude, workdir: "/Users/x/src/app")).buildCommands.isEmpty, "\(k)")
+        }
+        XCTAssertTrue(MacBuildCommands.commands(profile: "agent").isEmpty)
+        let text = MacBuildCommands.text(plan.buildCommands)
+        for c in plan.buildCommands { XCTAssertTrue(text.contains(c.command)) }
+        XCTAssertEqual(MacBuildCommands.text([]), "")
+        let project = MacBuildCommands.commands(profile: "xcode", scheme: "Hello", project: "Hello.xcodeproj")
+        XCTAssertTrue(project[2].command.hasPrefix("xcodebuild build -project Hello.xcodeproj -scheme Hello"))
+        let enc = try JSONSerialization.jsonObject(with: JSONEncoder().encode(plan)) as? [String: Any]
+        XCTAssertEqual((enc?["buildCommands"] as? [[String: String]])?.count, 4)
+    }
+
     static func shSyntax(_ command: String) -> Int32 {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")

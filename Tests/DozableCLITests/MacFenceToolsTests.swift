@@ -325,6 +325,9 @@ final class MacFenceToolsRecordTests: XCTestCase {
         t = MacAgentPrompt.facts(fence: f, agent: nil, workdir: f.workdir)
         XCTAssertTrue(t.contains("read-only") && t.contains("SSH agent (list and sign only)") && t.contains("-derivedDataPath \"$DOZ_DERIVED\"")
                       && t.contains("Simulator and LaunchServices are closed"))
+        // The Swift flags are said once, from the one source the wizard and --dry-run use.
+        XCTAssertTrue(t.contains(MacBuildCommands.swiftFlags) && t.contains(MacBuildCommands.scratchFlag), t)
+        XCTAssertFalse(MacAgentPrompt.facts(fence: try w.fence(), agent: nil, workdir: f.workdir).contains(MacBuildCommands.scratchFlag))
         f.profile = "simulator"
         XCTAssertTrue(MacAgentPrompt.facts(fence: f, agent: nil, workdir: f.workdir).contains("runs outside the fence"))
     }

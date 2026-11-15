@@ -45,6 +45,7 @@ public enum MacAgentPrompt {
         }
         l.append(gitLine(f))
         if f.xcode {
+            l.append("- Swift packages here: `swift build` and `swift test` with `\(MacBuildCommands.swiftFlags)` (SwiftPM's own sandbox cannot nest; add `\(MacBuildCommands.scratchFlag)` to build into the session's own folder — the default `.build` works too).")
             l.append("- Xcode: build with `xcodebuild … -derivedDataPath \"$DOZ_DERIVED\" -scmProvider system` (Xcode's own DerivedData is closed). "
                      + (f.profile == "simulator" ? "The Simulator and LaunchServices are open (what they launch runs outside the fence)." : "The Simulator and LaunchServices are closed."))
         }

@@ -364,6 +364,10 @@ dialog.dlg.mac-wizard { width: min(1040px, calc(100vw - 32px)); max-width: none;
 .mac-command { display: block; padding: var(--sp-3) var(--sp-4); border-radius: var(--r-md); background: var(--well); border: var(--bw) solid var(--line);
   font: var(--fs-mono)/var(--lh-prose) var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; user-select: all; }
 .mac-why { font-size: var(--fs-sm); }
+.mac-build:empty { display: none; }
+.mac-build-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); align-items: center; }
+.mac-build-row .mac-build-label { grid-column: 1 / -1; font-size: var(--fs-sm); }
+.mac-unfenced { margin: 0; padding-left: var(--sp-5); display: flex; flex-direction: column; gap: var(--sp-1); }
 .mac-preview:empty { display: none; }
 .mac-preview { display: flex; flex-direction: column; gap: var(--sp-2); }
 @media (max-width: 760px) {
